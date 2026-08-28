@@ -1,5 +1,5 @@
 use super::*;
-use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use crate::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::boss_pattern::BossAttackPattern;
 
 /// `assets/data/boss_profiles.ron` must carry a row for every
@@ -16,7 +16,7 @@ fn ron_carries_every_known_boss() {
     ] {
         // `from_data` panics with a clear message when the row is
         // missing (the registry static is private to behavior.rs).
-        let _ = BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
+        let _ = BossBehaviorProfile::from_data(crate::test_boss_catalog(), id);
     }
 }
 
@@ -52,10 +52,8 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     };
     use ambition_platformer2d_core as ae;
 
-    let behavior = BossBehaviorProfile::from_data(
-        ambition_boss_encounter::test_boss_catalog(),
-        "smirking_behemoth_boss",
-    );
+    let behavior =
+        BossBehaviorProfile::from_data(crate::test_boss_catalog(), "smirking_behemoth_boss");
     let combat_size = behavior
         .combat_size
         .expect("the Smirking Behemoth authors its own body box");
@@ -95,7 +93,7 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     // three-beat script to minutes of wall clock.
     for tick in 0..600 {
         let ctx = BossPatternContext {
-            encounter_phase: ambition_boss_encounter::BossEncounterPhase::Phase1,
+            encounter_phase: crate::BossEncounterPhase::Phase1,
             actor_pos,
             target_pos,
             target_body_size,
@@ -107,13 +105,7 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
             hp_max: 100,
             live_attack: None,
         };
-        ambition_boss_encounter::pattern::tick_boss_pattern(
-            &cfg,
-            &mut state,
-            &ctx,
-            &mut out,
-            &mut intent,
-        );
+        crate::pattern::tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut intent);
         let fired = intent
             .active_profile
             .as_ref()

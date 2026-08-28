@@ -124,6 +124,24 @@ pub struct PromptEntry {
     /// would go stale on the first rebind, and the player would be told to press
     /// a key that does nothing.
     pub binding: Option<String>,
+    /// Can this slot's action FIRE right now? `true` for every slot that has no
+    /// cooldown, which is all of them but the ranged one today.
+    ///
+    /// ⭐⭐ A BOOL, NOT A FRACTION, and the difference is what it costs to keep
+    /// true. A fill fraction changes EVERY FRAME while a weapon recharges, and
+    /// this view is rebuilt behind a change-detection cache whose whole purpose
+    /// is to skip quiet frames — so a fraction here would re-derive the scheme
+    /// sixty times a second for a number nothing had asked for. A bool flips
+    /// twice per shot. ⇒ the ruling this answers asks that *"an unavailable shot
+    /// is legible"*, not that it is metered; a meter can have its own fact the
+    /// day a design wants one.
+    ///
+    /// ⛔ WRITTEN AFTER THE DERIVE, NOT INSIDE IT — see
+    /// [`project_prompt_readiness`]. The scheme answers what a slot DOES and
+    /// caches on the authorities that decide it; whether it is ready right now is
+    /// a per-tick body fact, and folding it into the cache key would defeat the
+    /// cache for every recharging weapon on the stage.
+    pub ready: bool,
 }
 
 /// The published prompt the on-screen buttons render. A plain-data snapshot
@@ -146,6 +164,16 @@ impl ControlPrompt {
             .iter()
             .find(|e| e.slot == slot)
             .map(|e| e.label.as_str())
+    }
+
+    /// Can this slot fire right now? `true` for a slot the prompt does not carry,
+    /// because a button drawn for an action the body does not have is not
+    /// "recharging" — it is not there, and `label_for` is what says so.
+    pub fn ready_for(&self, slot: ControlSlot) -> bool {
+        self.entries
+            .iter()
+            .find(|e| e.slot == slot)
+            .is_none_or(|e| e.ready)
     }
 }
 
@@ -229,6 +257,11 @@ pub fn rebuild_control_prompt(
         Option<Ref<ActorMoveset>>,
         Option<Ref<ActionSet>>,
         Option<Ref<ActorTechniques>>,
+        // ⭐ AN AUTHORITY LIKE THE OTHERS, and it belongs in this tuple for the
+        // same reason they do: it changes which verbs the body HAS. A saddle
+        // does not open a menu — a rider is still driving a body through the
+        // gameplay context — so this is not a fifth `ControlContextKind`.
+        bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
     // Whether this experience wants the BUTTON named or the MOVE on it. Absent
@@ -245,7 +278,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 6])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 4], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -308,7 +341,7 @@ pub fn rebuild_control_prompt(
         if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 3], resources));
+        *last = Some((None, [false; 4], resources));
         let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -328,7 +361,7 @@ pub fn rebuild_control_prompt(
         .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
-    let Some((abilities, moveset, action_set, techniques)) =
+    let Some((abilities, moveset, action_set, techniques, pose_is_held)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {
         // Cold start (no player yet) or a controlled body without authorities —
@@ -342,14 +375,18 @@ pub fn rebuild_control_prompt(
             None,
         );
         set_prompt(&mut prompt, context, Vec::new(), confirm);
-        *last = Some((subject, [false; 3], resources));
+        *last = Some((subject, [false; 4], resources));
         return;
     };
 
+    // Boarding and dismounting ADD and REMOVE a marker rather than mutating one,
+    // and a component that is absent reports no change — the same hole this
+    // system's resource-presence bits already exist to close.
     let presence = [
         moveset.is_some(),
         action_set.is_some(),
         techniques.is_some(),
+        pose_is_held,
     ];
     let authorities_changed = abilities.is_changed()
         || moveset.as_ref().is_some_and(|r| r.is_changed())
@@ -360,8 +397,16 @@ pub fn rebuild_control_prompt(
     }
     *last = Some((subject, presence, resources));
 
+    // While something else owns the pose, the locomotion verbs are cleared before
+    // the kernel ever sees them (`PoseOwnedExternally`). Deriving from the
+    // unmasked set drew a rider four buttons that were already being thrown away.
+    let available = if pose_is_held {
+        abilities.abilities.while_pose_is_held()
+    } else {
+        abilities.abilities
+    };
     let scheme = derive_action_scheme(
-        &abilities.abilities,
+        &available,
         moveset.as_deref().map(|m| &m.0),
         action_set.as_deref(),
         techniques.as_deref().map_or(&[], |t| t.0.as_slice()),
@@ -369,6 +414,9 @@ pub fn rebuild_control_prompt(
     let entries = scheme
         .iter()
         .map(|action| PromptEntry {
+            // Every slot is drawn ready here; `project_prompt_readiness` is the
+            // one writer that says otherwise.
+            ready: true,
             slot: action.slot,
             label: match naming.as_deref().copied().unwrap_or_default() {
                 PromptNaming::ByButton => button_label(action.slot).to_owned(),
@@ -385,6 +433,46 @@ pub fn rebuild_control_prompt(
         })
         .collect();
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
+}
+
+/// Say which prompt slots cannot fire right now.
+///
+/// ⭐⭐ THE FACT IS THE BODY'S, and it is read rather than modelled:
+/// `BodyMelee::ranged_cooldown` is the fire-rate floor the body itself enforces
+/// (*"a spam controller and a human produce the same weapon rate"*), so a prompt
+/// derived from it cannot disagree with what a press actually does. A second
+/// timer in presentation would be a second answer to a question the sim answers.
+///
+/// ⛔ A SEPARATE SYSTEM FROM THE REBUILD ABOVE, and that is the whole design.
+/// The scheme derive caches on the authorities that decide what a slot DOES and
+/// skips quiet frames; `ranged_cooldown` decays EVERY tick, so reading it inside
+/// that derive would re-run the whole thing sixty times a second while any weapon
+/// recharges. This writes one bool in place instead.
+///
+/// ⚠ It runs on the SAME subject the rebuild followed, so a swap of the driven
+/// body cannot leave one fighter's readiness on another's prompt.
+pub fn project_prompt_readiness(
+    controlled: Option<Res<ControlledSubject>>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    bodies: Query<&ambition_combat::components::BodyMelee>,
+    mut prompt: ResMut<ControlPrompt>,
+) {
+    let subject = controlled
+        .as_deref()
+        .and_then(|controlled| controlled.0)
+        .or_else(|| primary.single().ok());
+    let recharging = subject
+        .and_then(|body| bodies.get(body).ok())
+        .is_some_and(|melee| melee.ranged_cooldown > 0.0);
+    for entry in &mut prompt.entries {
+        // ⛔ ONLY the slot the cooldown governs. `ranged_cooldown` is documented
+        // as orthogonal to melee (invariant I3), so dimming anything else here
+        // would report a restriction the body does not impose.
+        let ready = entry.slot != ControlSlot::Projectile || !recharging;
+        if entry.ready != ready {
+            entry.ready = ready;
+        }
+    }
 }
 
 /// Is the player working a SURFACE rather than driving a body — and what does
@@ -497,6 +585,203 @@ mod tests {
         app
     }
 
+    /// A RECHARGING SHOT SAYS SO, AND ONLY THAT SHOT DOES.
+    ///
+    /// ⭐⭐ THE RULING THIS ANSWERS is *"give recharge enough presentation that an
+    /// unavailable shot is legible"* — owed since D241 and drawn by nothing.
+    /// `BodyMelee::ranged_cooldown` is the body's OWN fire-rate floor, so a prompt
+    /// derived from it cannot tell the player a press will work when the body will
+    /// refuse it.
+    ///
+    /// ⛔ THE SECOND ARM IS THE ONE THAT MATTERS. `ranged_cooldown` is documented
+    /// as orthogonal to melee (invariant I3), so a readiness projection that dimmed
+    /// the whole prompt would report a restriction the body does not impose — and
+    /// "the ranged button went grey" and "every button went grey" look identical
+    /// from a single assertion about the ranged one.
+    #[test]
+    fn a_recharging_ranged_slot_is_the_only_one_that_stops_reading_ready() {
+        use ambition_combat::components::BodyMelee;
+
+        let mut app = app();
+        app.add_systems(
+            Update,
+            project_prompt_readiness.after(rebuild_control_prompt),
+        );
+        let mut abilities = AbilitySet::default();
+        abilities.jump = true;
+        abilities.attack = true;
+        // ⛔ THE MOVESET NEEDS A `ranged` VERB, or the prompt draws no Projectile
+        // slot and `ready_for` answers `true` for an action that is not there —
+        // which is the honest answer and would have passed this test for the
+        // wrong reason. Caught by the floor below.
+        let (_, mut moveset) = authorities(true, Some("swat"));
+        let shot = moveset.0.moves[0].clone();
+        moveset
+            .0
+            .verbs
+            .insert("ranged".to_string(), shot.id.clone());
+        let body = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                BodyAbilities::new(abilities),
+                moveset,
+                BodyMelee::default(),
+            ))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+
+        // ⛔ THE FLOOR: the slot is drawn at all. A readiness assertion about a
+        // prompt with no ranged entry passes for the wrong reason.
+        let ranged_drawn = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .any(|e| e.slot == ControlSlot::Projectile)
+        };
+        assert!(
+            ranged_drawn(&app),
+            "the fixture draws no Projectile slot, so every readiness claim below \
+             is about an action this body does not have"
+        );
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .all(|e| e.ready),
+            "a body that has fired nothing has no slot to dim"
+        );
+
+        // Fire: the body arms its own floor.
+        app.world_mut()
+            .get_mut::<BodyMelee>(body)
+            .expect("the fixture has melee state")
+            .ranged_cooldown = 0.4;
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert!(
+            !prompt.ready_for(ControlSlot::Projectile),
+            "the ranged slot is recharging and the prompt still reads it as ready"
+        );
+        for slot in [ControlSlot::Jump, ControlSlot::Attack] {
+            assert!(
+                prompt.ready_for(slot),
+                "{slot:?} went unready on a RANGED cooldown, which is orthogonal to it"
+            );
+        }
+
+        // And it comes back on its own clock, without a second writer.
+        app.world_mut()
+            .get_mut::<BodyMelee>(body)
+            .expect("the fixture has melee state")
+            .ranged_cooldown = 0.0;
+        app.update();
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .ready_for(ControlSlot::Projectile),
+            "the shot recharged and the prompt is still dim"
+        );
+    }
+
+    #[test]
+    fn a_rider_is_not_offered_the_locomotion_it_is_already_being_refused() {
+        // A saddled body has its stick zeroed and every `MovementAction` cleared
+        // in `body_step` before the kernel runs, and the kernel refuses the
+        // buffered burst on top of that. The prompt derives from the body's live
+        // abilities, so the pirate on his shark was drawn Jump / Burst / Blink /
+        // Fly — four buttons already being thrown away — while Attack, the one
+        // that works from the saddle, sat beside them looking identical.
+        let mut app = app();
+        let mut a = AbilitySet::default();
+        a.jump = true;
+        a.dash = true;
+        a.blink = true;
+        a.fly = true;
+        a.fly_toggle = true;
+        a.shield = true;
+        a.attack = true;
+        // A move table is WHAT the attack is (see `authorities`), so the saddle's
+        // surviving verb needs one or the slot resolves to nothing and the test
+        // would pass for the wrong reason.
+        let (_, moveset) = authorities(true, Some("swat"));
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, BodyAbilities::new(a), moveset))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+
+        for slot in [
+            ControlSlot::Jump,
+            ControlSlot::Burst,
+            ControlSlot::Blink,
+            ControlSlot::Utility,
+        ] {
+            assert!(
+                app.world()
+                    .resource::<ControlPrompt>()
+                    .label_for(slot)
+                    .is_some(),
+                "on its own feet the body is offered {slot:?}"
+            );
+        }
+
+        // Board.
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::PoseOwnedExternally);
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Gameplay,
+            "a rider is still driving a body, so this is not a fifth context"
+        );
+        for slot in [
+            ControlSlot::Jump,
+            ControlSlot::Burst,
+            ControlSlot::Blink,
+            ControlSlot::Utility,
+        ] {
+            assert_eq!(
+                prompt.label_for(slot),
+                None,
+                "{slot:?} is cleared before the kernel sees it; offering it is a lie"
+            );
+        }
+        assert!(
+            prompt.label_for(ControlSlot::Attack).is_some(),
+            "and the half that separates a held body from a dead one still shows: \
+             a rider swings from the saddle"
+        );
+        assert!(
+            prompt.label_for(ControlSlot::Shield).is_some(),
+            "raising a shield spends nothing, so it survives being held"
+        );
+
+        // Dismount. Boarding REMOVES nothing and dismounting mutates nothing, so
+        // a cache keyed only on change detection would keep the rider's prompt
+        // forever — the same hole the resource-presence bits already close.
+        app.world_mut()
+            .entity_mut(body)
+            .remove::<ambition_platformer2d_core::PoseOwnedExternally>();
+        app.update();
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Jump)
+                .is_some(),
+            "off the saddle the verbs come back"
+        );
+    }
+
     #[test]
     fn publishes_controlled_subjects_scheme_labels() {
         let mut app = app();
@@ -598,9 +883,7 @@ mod tests {
     /// alone keeps saying "Cross" to somebody holding a pad with an A on it.
     #[test]
     fn the_prompt_spells_a_button_in_the_seats_own_vocabulary() {
-        use ambition_input::{
-            ActiveDevice, GamepadStyle, SeatActiveDevices, SeatBindings,
-        };
+        use ambition_input::{ActiveDevice, GamepadStyle, SeatActiveDevices, SeatBindings};
 
         let mut app = app();
         app.init_resource::<SeatBindings>();

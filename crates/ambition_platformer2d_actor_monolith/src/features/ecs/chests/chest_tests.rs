@@ -2,8 +2,11 @@
 //! a buffered interact over an overlapping, unopened chest inserts
 //! `Opened`; an unbuffered player or a non-overlapping chest does not.
 use super::*;
+// ⭐ the module above stopped globbing `features/ecs`, so this fixture names
+// what it was borrowing through it.
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::control::SlotInteractionState;
+use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;

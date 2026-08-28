@@ -144,3 +144,46 @@ fn a_declared_route_no_capability_registers_is_refused() {
          rather than a fix; got {reported:?}"
     );
 }
+
+/// WHAT THE DIAGNOSTICS ACTUALLY SAY, printed rather than described.
+///
+/// ⭐⭐ THE PLAN ASKED FOR THIS IN THESE WORDS: *"measure first-room workflow and
+/// deliberate-error diagnostics rather than only describing them qualitatively"*
+/// (`engine/immutable-content-and-transactional-construction.md`). The two arms
+/// above assert a SUBSTRING each, which proves the message names the thing — it
+/// does not show whether the rest of the message helps somebody who has never
+/// seen this engine.
+///
+/// ⛔ PRINT-ONLY, and deliberately not an assertion. Pinning the exact wording
+/// would make every improvement to an error message a red test, which is how a
+/// diagnostic stops improving. The measurement belongs in the plan doc, dated;
+/// this is how it gets taken again.
+#[test]
+#[ignore = "PROBE, print-only: what a consumer is actually told"]
+fn probe_what_the_refusals_tell_a_stranger() {
+    let gpu = PlatformerApp::headless()
+        .without_gpu()
+        .mount(the_one_module())
+        .try_build()
+        .expect_err("`without_gpu` is meaningless on a headless face");
+    println!("--- without_gpu on a headless face ---\n{gpu}");
+
+    struct GhostRoute;
+    impl GameModule for GhostRoute {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("ghost")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience(outlander::OUTLANDER_EXPERIENCE)
+                .launcher_route(outlander::OUTLANDER_LAUNCHER_ROUTE)
+                .gameplay_route("ghost/gameplay")
+                .capability(outlander::OutlanderExperiencePlugin);
+        }
+    }
+    let route = PlatformerApp::headless()
+        .mount(GhostRoute)
+        .try_build()
+        .expect_err("a gameplay route no capability registers must not compose");
+    println!("--- a gameplay route nobody registers ---\n{route}");
+}

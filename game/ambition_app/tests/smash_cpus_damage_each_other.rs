@@ -6,8 +6,8 @@
 
 use ambition_demo_smash::select::SmashRoster;
 use ambition_platformer2d::actor::MatchSeat;
-use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 
@@ -389,9 +389,7 @@ fn mirror_bout(
                 &MatchSeat,
                 &BodyHealth,
                 Option<&BodyCombat>,
-                Option<
-                    &ambition_platformer2d::engine_core::BodyGroundState,
-                >,
+                Option<&ambition_platformer2d::engine_core::BodyGroundState>,
             )>()
             .iter(world)
         {

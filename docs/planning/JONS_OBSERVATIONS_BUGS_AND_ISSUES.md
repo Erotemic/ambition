@@ -85,11 +85,31 @@
   * Sizing the quad from the bbox without also cropping the drawn region was tried and reverted: it stretches the art badly.
   * It needs four coupled sites, not the three the design doc names — there are two render-size publishers, and fixing one leaves both of the characters you complained about untouched.
   * ⭐⭐ **MEASURED 2026-08-22: the shared unit is BUILT, and it CANNOT fix the 2.46× — the two halves are independent, not sequential.** `catalog_join` resolves a height into `scale = height / body_h`, then `render = frame × scale` and `collision = body × scale`. So `render / collision = frame / body` **with the scale cancelling**: the quad/body ratio is a property of the ART'S PADDING and no choice of height moves it. ⇒ D165's *"shared unit FIRST, quad-from-bbox after"* is not a dependency — the second half was never downstream of the first, and it can start whenever.
-  * ⚠ **and the UNITS are not the same statement.** D165 says a character declares its height in *"base-grid pixels (16 to a tile)"*; the implemented field is `standing_height` in WORLD px, and Mary-O's tile is `T = 32.0` world px. Those differ by 2× in her game. Before wiring anything to D165's wording, say which unit is meant — the authoring grid is not the world unit.
+  * ✔ **the UNITS question is ANSWERED and needed nothing from you (2026-08-28).** This used to say D165's *"base-grid pixels (16 to a tile)"* and the implemented world-px `standing_height` differ by 2× in Mary-O, and to hold off wiring anything until somebody said which was meant. Measured: **the two games use different tile sizes** — the LDtk worlds declare `"defaultGridSize": 16` and `game/ambition_demo_mary_o` declares its own `const T: f32 = 32.0`. So 48 world px is three tiles in one game and one and a half in the other, and `standing_height` is WORLD PIXELS in both. ⇒ nothing converts and nothing needed deciding; what is not portable is saying a height in TILES.
   * ✔ **the quad-from-bbox half is BUILT TOO, and this row's own note about it is stale (re-read 2026-08-22, by a different route: the code, not the design doc).** `sprite_body_collision_for_character_id_from_data` has two branches. With a `standing_height`: `scale = height / body_h` where `body_h` is the sheet's MEASURED body, then `render = frame x scale` — so the quad derives from the body and **cannot stretch**, because both axes take the same scale and the frame's aspect is kept. Without one: `ldtk_collision.max x collision_scale / frame_h`, which is the level-editor rectangle you are actually complaining about. ⇒ the stretching note describes an older approach that is no longer what this code does.
   * ⭐⭐ **RUN AGAINST REAL DATA, and the mechanism honors your input exactly: the three heavies derive 58.70 / 56.20 / 60.40, to the millimetre.** The six `Standard` pirates derive **48.00 — the robot's default, exactly** — which is your report, measured. There is now a guard (`an_authored_standing_height_is_the_height_the_body_derives`) pinning the equality for every row that authors a height; it names no character and no number, so retuning any of them is an ordinary content edit. Poison-checked: dividing the scale by the frame instead of the body turns 58.7 into 40.15 and the guard names the character.
-  * ⚠ **but the audit surfaces a SECOND size fact you have not been told, and it is the one your eye is probably catching.** At the same 48.00 body, the DRAWN quad ranges from 1.00x to 1.57x across ordinary humanoid NPCs — `npc_ninja_shadow_duelist` 1.00, `npc_pirate_admiral` / `lookout` / `navigator` / `quartermaster` / `raider` 1.02, `npc_pirate_cutlass_viper` **1.44**, `npc_lab_raider` **1.57**. The engine considers all of them exactly the same height; on screen `lab_raider` is half again taller than the admiral. That ratio is `frame / body` — pure ART PADDING — and no height you author moves it, because the scale cancels. ⇒ **this half really is "done in data by the sprite renderer, not in code", exactly as you guessed**: it is a re-crop of the sheets whose frames carry 40-60% empty space. (`player_robot_v3` 2.81 and `npc_puppy_slug` 3.07 are not comparable — the robot lineage is `SpriteAuthored` so this number never ships for it, and a sprawled quadruped legitimately draws past its body box.)
-  * ⇒ ⭐⭐ **so all three of your size reports reduce to ONE blocked question, and it is the six numbers.** **3 of 145** rows author a height at HEAD — the three heavies you ruled on (`broadside_bess` 58.7, `iron_mary` 56.2, `salt_annet` 60.4) — so 142 characters still take the legacy branch. The data the good branch needs is already there: **203 of 206 spritesheets publish `body_metrics`**, all six Standard pirates included. Nothing is left to build; the six numbers are the whole remaining input.
+  * ⚠ **but the audit surfaces a SECOND size fact you have not been told, and it is the one your eye is probably catching.** At the same 48.00 body, the DRAWN quad ranges from 1.00x to 1.57x across ordinary humanoid NPCs — `npc_ninja_shadow_duelist` 1.00, `npc_pirate_admiral` / `lookout` / `navigator` / `quartermaster` / `raider` 1.02, `npc_pirate_cutlass_viper` **1.44**, `npc_lab_raider` **1.57**. The engine considers all of them exactly the same height; on screen `lab_raider` is half again taller than the admiral. That ratio is `frame / body` — pure ART PADDING — and no height you author moves it, because the scale cancels.
+
+    ⛔⛔ **AND THE CONCLUSION THAT FOLLOWED FROM IT WAS WRONG — corrected 2026-08-28 from the code, not from a re-measurement.** It said this half was "done in data by the sprite renderer": a re-crop of the sheets carrying 40-60% empty space. **A re-crop would move nothing on screen.** `sprite_render_size_scaled` says so in its own doc — *"Transparent frame padding remains part of the quad; only the body's measured extent determines world scale, so the art is not stretched"* — and the arithmetic is one line:
+
+    ```text
+    fit  = min(collision.x / body_px.x, collision.y / body_px.y)   ← no `frame`
+    quad = frame × fit          shrinks when you re-crop
+    ink  = body_px × fit        DOES NOT
+    ```
+
+    ⚠⚠ **AND THAT CORRECTION WAS ITSELF HALF WRONG — corrected again the same day, by a measurement rather than an argument.** It is true on the `standing_height` road and FALSE on the legacy one, and `catalog_join.rs:154` is where they part:
+
+    ```text
+    height road   scale = height / body_h                 no `frame` anywhere
+    legacy road   scale = ldtk_max × collision_scale / FRAME_H
+                  ⇒ collision = body_px × ldtk_max × cs / FRAME_H
+    ```
+
+    ⇒ **on the legacy road the frame is a DIVISOR of how big the character is**, so transparent margin really is a size control there: pad the frame and the character shrinks, crop it and they grow. Measured, not derived — widening `perfect_cellular_automaton`'s frame from 492x684 to 654x846 with **no art change at all** took its body from 67.8 to 54.8. ⇒ **27 of 134 characters are on that road** (every `Wide`/`Floating`/`Crawler` that does not author a height), and for them your "re-crop the sheets" instinct was right.
+
+    ⇒ the padding is TRANSPARENT, so `frame/body` is how much empty margin each sheet carries, not how tall anyone looks — **for the 107 characters on the height road**, which is every `Standard` (48 by default) plus the four rows that author a number. `npc_lab_raider` and `npc_pirate_admiral` draw a body **48.0 px tall each** — measured at HEAD by `print_the_two_render_size_publishers`, whose `drawn(render)` column is the ink: admiral `27.0x48.0` inside a `44.1x48.9` quad, lab_raider `51.6x48.0` inside `71.3x75.4`. Same height, different margins. ⇒ **re-cropping is a memory and overdraw win and NOT a size fix**, so it is not on this item's road; the six numbers are. (`player_robot_v3` 2.81 and `npc_puppy_slug` 3.07 are not comparable — the robot lineage is `SpriteAuthored` so this number never ships for it, and a sprawled quadruped legitimately draws past its body box.)
+  * ⇒ ⭐⭐ **so all three of your size reports reduce to ONE blocked question, and it is the six numbers.** **22 of 132** rows author a height as of 2026-08-28 — the three heavies you ruled on (`broadside_bess` 58.7, `iron_mary` 56.2, `salt_annet` 60.4) plus nineteen authored at the size they already had, and `perfect_cellular_automaton`. ⚠ **the "142 characters still take the legacy branch" this used to say was never right**: a `Standard` row gets 48 from `body_kind` and is already on the good road, so the legacy population was 25 and is now **3** — the puppy slug, the parrot and the flying shark, which are the only characters placed with boxes that DISAGREE. The data the good branch needs is already there: **203 of 206 spritesheets publish `body_metrics`**, all six Standard pirates included. Nothing is left to build; the six numbers are the whole remaining input.
 
 * Low priority: For the web build we can't use kaledioscope because lunex doesn't support wasm
 
@@ -118,7 +138,19 @@
 
     ⇒ the ordinary pirates are EXACTLY your robot's height, and the heavies are only ~20% taller than them rather than hulking. That is the whole report, in numbers.
   * ◐ **the three heavies are ON the shared road now (2026-08-22), at their own measured heights** — `broadside_bess 58.7`, `iron_mary 56.2`, `salt_annet 60.4`. `Wide` has no default, so they rode `ldtk_box × collision_scale`; authoring the height they already had swaps the road without changing the look (two are byte-identical; `salt_annet` moved 0.1px in width because I authored the rounded number). ⇒ **making them smaller is now editing one number each**, which is what you asked for.
-  * ▢ **the six Standard pirates still need your number.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96). The three heavies — `broadside_bess`, `iron_mary`, `salt_annet` — are `body_kind: Wide`, which deliberately has NO default height, so they still ride the legacy `ldtk_box × collision_scale` road; they need a `standing_height` each rather than a smaller scale. ⚠ 17 rows author no `body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit by design — say whether they should.
+  * ▢ **the six Standard pirates still need your number, and that is now the WHOLE remaining input.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96 — your own words, so this is a yes/no rather than a number you have to invent). ⚠ **correction, 2026-08-28: the sentence that used to stand here said the three heavies "still ride the legacy `ldtk_box × collision_scale` road" and need a `standing_height` each. They HAVE one** — `broadside_bess 58.7`, `iron_mary 56.2`, `salt_annet 60.4`, the only three of 145 catalog rows that author a height, exactly as the ◐ line above says. The stale half was contradicted by three other lines in this same file. ⚠ **the `Wide`/`Floating`/`Crawler` half of this question is ANSWERED and did not need you** (2026-08-28). They have no shared DEFAULT height by design — *"inventing one for them would be changing sizes to satisfy a pattern rather than a report"* — but that was never an argument against each authoring its OWN. Nineteen of them are placed with exactly one spawn box everywhere they appear, so their heights were already determined; they are authored now at the sizes they had, and nothing changed on screen. ⇒ what is left of that question is three characters whose boxes genuinely disagree, and those are entry 36 in `awaiting-maintainer-decision.md`.
+
+    ⚠⚠ **AND YOUR TWO SENTENCES IN THIS REPORT CONFLICT AT 2×, which is worth seeing before you answer.** You asked for the heavies to get *"a little smaller"* and the ordinary pirates to scale *"up 2x"*. Those are the same report about the same six-plus-three cast, and here is where 2× lands them:
+
+    ```text
+                        today            at "2x"
+    ordinary pirates     48.0             96.0
+    broadside_bess       58.7             58.7  (or less — you asked for smaller)
+    iron_mary            56.2             56.2
+    salt_annet           60.4             60.4
+    ```
+
+    ⇒ the deckhands would stand **60% taller than the heavies**, and the heavies are the ones meant to read as hulking. ⭐ the reading that satisfies both sentences is that the ordinary pirates want roughly **1.4–1.5× the robot (≈68–72)** and the heavies want to keep a clear margin above them (≈85–95), which is a bigger heavies number, not a smaller one — your *"a little smaller"* was aimed at how they looked BEFORE 2026-08-22, when they rode `ldtk_box × collision_scale` and drew much larger quads. ⛔ I have not authored any of this; it is nine numbers and they are yours.
 
 
 * The pirates in the pirate sky no longer ride their sharks. 
@@ -773,8 +805,8 @@ open unless marked; ⛔ several may already be done — grep before working one.
 * ▣ **FIXED — being launched off the shark can consume the knockback and then erase it.** The open half WAS only the proof: `a_mounted_launch_carries_the_same_travel_as_an_unmounted_one` asks for equivalence rather than a magnitude and both roads produce `(-1884.0382, -1884.0382)`; reverting the deferral releases the mounted arm at exactly `(0, 0)`. `65b89da85`. ORIGINAL: The rider runs the full kernel; `step_motion` takes the launch, then `sync_riders_to_mounts` pins the rider and zeroes velocity on the same tick, so the hit ends the RELATIONSHIP but the knockback is gone. ⚠ PARTLY ADDRESSED ALREADY by `pose_owned_externally` + `LaunchTravel::Deferred` — grep `pending_launch_state` before working this; the open half may be only the proof. The poison GPT asks for: mounted vs unmounted Pirate take the same strong hit, and the released body must actually TRAVEL.
 * ▣ **FIXED — the 36-HP shark is one-shot by George.** The census reads the whole selectable cast across both authoring crates and names the fighter; 36 → 40. `ed4e32e4b`. ORIGINAL: `SUMMON_SHARK_HEALTH = 36`; George's forward smash is 21 × 1.7 full charge = `(21*1.7).round()` = 36. The test proving "no single hit kills it" scans only `pirate_admiral_moveset()`, not the selectable Smash roster. Build the census from the resolved repertoire and require `>` not `>=`. Also `shark_ride_probe` calls the Admiral's 29 the "worst single connection in the game", which is false.
 * ▣ **FIXED — the flinch half of `a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off` never hits the Pirate.** It lands a real low-knockback hit and asserts the hit LANDED before asserting he stayed aboard. ⚠ AND MY EARLIER NOTE IN THAT FILE WAS WRONG: it recorded that a weak volume could not reach a mounted rider; built exactly like the launch box and differing only in damage/knockback, it lands first try. ✔ AND THE RECOVERY-REFUND HALF IS ASSERTED NOW. It could not be until `533bd9a05`: the grounded landing-class refresh handed the charge back one frame after `call_the_shark` spent it, for every fighter, so the admiral boarded holding a recovery he had paid for. ORIGINAL: It waits ~20 frames and asserts `RidingOn`, so it proves only that an undisturbed rider stays mounted. Give it a real low-knockback hit and assert the hit landed, the recovery charge was restored, and `RidingOn` remains.
-* ▢ **MEDIUM — finish `PoseOwnedExternally`'s semantics.** Today it means "suppress voluntary axes before running the normal kernel"; the name implies "another authority owns this body's pose episode". Define what a constrained body still owes the kernel (gravity, collision, ground transitions, maneuver state) rather than running everything with a zero stick.
-* ▢ **D250 — CPU Pirate cannot reason about vehicle recovery.** The planner understands a `RecoveryLift` (one-shot displacement); `call_the_shark` authors none. Recovery should admit multiple route kinds — burst displacement, sustained movement authority, teleport. ⛔ GPT agrees with rejecting both hacks (fake impulse; special-casing the id).
+* ▣ **FIXED — finish `PoseOwnedExternally`'s semantics.** Ownership is stated axis by axis and pinned by an app-level arm; the buffered-evade spend it found is refused. `fc04a8990`. ORIGINAL: Today it means "suppress voluntary axes before running the normal kernel"; the name implies "another authority owns this body's pose episode". Define what a constrained body still owes the kernel (gravity, collision, ground transitions, maneuver state) rather than running everything with a zero stick.
+* ▣ **FIXED — D250, CPU Pirate cannot reason about vehicle recovery.** Recovery admits route KINDS now: burst, sustained authority, teleport. `1a1daddc9`, and both hacks stayed rejected. ORIGINAL: The planner understands a `RecoveryLift` (one-shot displacement); `call_the_shark` authors none. Recovery should admit multiple route kinds — burst displacement, sustained movement authority, teleport. ⛔ GPT agrees with rejecting both hacks (fake impulse; special-casing the id).
 * ▣ Smaller, BOTH FIXED: `tick_departures`' doc names `WorldPrepSet::BeforeIntegrate`, and `shark_ride_probe` waits on the open-match condition rather than a fixed 240 frames.
 
 ### Open — non-Up-B pass (`e29bc316`), and GPT does NOT consider D254 complete
@@ -782,7 +814,7 @@ open unless marked; ⛔ several may already be done — grep before working one.
 * ▣ **FIXED — brandishing a move weapon can duplicate a physically-held item.** The custody reconciler asks what the body has CUSTODY of, which during a brandish is what the brandish displaced. `72f004ca7`. ORIGINAL: `MoveBrandishedItem` stores only `move_id` + `previous: Option<String>` and overwrites the canonical `HeldItem`; `return_released_items()` then sees the body's held id no longer matches the `GroundItem` in `ItemCustody::Held` and returns the real object to `InWorld`. When the move ends the body reconstructs `HeldItem(A.spec)` from a string — logically holding A while A also lies on the floor. The brandish tests use a plain `HeldItem` and cannot see it. Fix: a temporary move weapon is an OVERLAY, not a replacement of the custody answer.
 * ▣ **FIXED — stored neutral-B charge treats DEATH as an instruction to bank.** `MoveEnd::{Interrupted,LeftPlay}` is a required argument; the compiler found three call sites the grep missed. Also caught a rollback probe gap I had already pushed. `741a1f59b`. ORIGINAL: `cancel_move_playback` banks any unreleased storing charge, and death (`death_rules.rs`) and stock loss (`stocks.rs`) both call it — so a KO'd Projectile Polygon respawns with the charge banked, and an existing bank has no death/reset clear. The function's own comment argues no termination reason is needed; the stored-charge customer disproves it. Fix: an explicit end reason (store / release / interrupted / left play), not a character-specific death hook.
 * ▣ **FIXED — D253's root cause is NOT flight posture.** Behaviour `22361bab3`; the queue's flight-posture diagnosis is corrected in `4a551ccc5`; five direct arms at the seam landed with `only_a_press_that_resolves_to_the_bubble_raises_the_guard`. ORIGINAL: `sustain_bubble_shield` (`avatar/starting_character.rs:983-1027`) reads the RAW `special_pressed` in `PlayerInputSet::ControlGate` and sets `shield_held` because Robot's body kit names `bubble_shield` — before anything resolves WHICH directional special was meant. Grounded shield + direction is an evade; airborne is an air dodge; Combat then refuses the special from the state the compatibility layer just created. One shared authority error, not five broken moves. ⛔ Update D253's queue diagnosis when this is fixed — the "flight posture" suspicion must not stay as the leading explanation.
-* ◐ Also listed, unreviewed in detail — THREE OF SIX ARE DONE: the held bomb now blasts at its holder's hand (`69a0918f5`), the Admiral's gun-sword has the discharge its comments promised (`216316bef`), and aim assist no longer bends toward an `OutOfPlay` fighter (same push). The ponytail now hits on BOTH legs (`f4910156a`). STILL OPEN: stored charge has no deliberate "put it away" action; bomb interaction is single-controlled-subject and hard-impact detection only understands world geometry. Tracked as D255 R8/R10/R11 in `triage/gpt-review-2026-08-27-remaining.md`.
+* ◐ Also listed, unreviewed in detail — THREE OF SIX ARE DONE: the held bomb now blasts at its holder's hand (`69a0918f5`), the Admiral's gun-sword has the discharge its comments promised (`216316bef`), and aim assist no longer bends toward an `OutOfPlay` fighter (same push). The ponytail hits on BOTH legs (`f4910156a`) and the guard puts a stored charge away (`7656d8124`). ALL SIX ARE DONE — the last two are the item-interaction population (`a901cdc2f`) and hard impact against a BODY (`25c93bd89`). Tracked as D255 R8/R10/R11 in `triage/gpt-review-2026-08-27-remaining.md`.
 
 ### The rest of the sixth review, at HEAD `e8fbaa0d6` — twelve more, none overlapping the above
 
@@ -830,3 +862,121 @@ in `741a1f59b`, which the exit oracle caught).
 ⚠ AND IT IS WHY THE RETURN-LEG FIX IS CURRENTLY UNOBSERVABLE IN PLAY. `1ba3a5fa0`
 made the tail come home to the hand instead of 79px past it; until the first hit
 stops ending the flight, most throws never reach the return leg at all.
+
+### The workspace suite has been RED, and nobody could see which tests (2026-08-28)
+
+⛔⛔ **`workspace (default features)` HAS BEEN FAILING SINCE AT LEAST HEAD
+`a945c1de5`, AND I MIS-ATTRIBUTED IT.** A sweep that morning reported the job red
+and I read it as the flinch test that was red at the same time, without opening
+the job's own output. It was not. Switching the runner to `cargo nextest`
+printed the failures by name for the first time — 6458 tests, seven red. Each has
+now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
+
+* ✔ **`ambition_demo_twintrack_app::twintrack_it` — five, PRE-EXISTING, FIXED
+  2026-08-28. 24/24 pass.** The laboratory twin spends exactly ONE tick of her
+  life as a seatless `Passive` NPC, because `adopt_the_laboratory_twin` QUEUES
+  `DrivingParticipant` and the insert lands a flush later. A seatless `Passive` is
+  what the engine calls an "undescribed-pool STROLLER", so she takes one stroll
+  step worth -96 px/s and drag bleeds it over seven ticks into a permanent 6.16px
+  offset — which every reading taken against *"the twin is at rest"* inherited.
+  `restore_the_laboratory_twins_mark` puts her back on `Added<LaboratoryTwin>`.
+  ⛔ **AND MY OWN EARLIER NOTE WAS THE LAST OBSTACLE.** It read *"ONE IMPULSE AT
+  CONSTRUCTION, not a force and not a walk — the velocity only decays"*, and
+  pointed at the causal instrument as the next step. It is a walk: a second body
+  spawned from the same request 420px away accelerates -96, -194, -294, -398, -506
+  and pins at the -540 cap, walking left forever. The decay was drag on the ONE
+  step, not the shape of an impulse. The instrument that answered it was a
+  twelve-line probe, not the causal recorder.
+  ⚠ **and the first fix attempt sampled the wrong moment**: correcting her inside
+  the adoption read `720.0` with zero velocity — before the step it needed to
+  undo — and changed nothing, while printing a line that looked like success.
+  <details><summary>the original measurement</summary> At `a945c1de5`, run alone, `each_seat_moves_its_own_body_and_leaves_the_others_alone`
+  fails with the same numbers as today: the laboratory twin goes
+  `715.9127 → 713.8359` while seat zero presses RIGHT. The four siblings
+  (`both_observers_measure_the_light_pulse_at_the_invariant_speed` — *"the lab
+  twin should be at rest, was 0.08836941"* against a 1e-4 premise —
+  `with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched`,
+  `the_two_observers_disagree_about_the_pulses_direction_and_colour`,
+  `two_observers_report_different_orderings_of_the_same_flash_pair`) share the
+  shape: a body that should be still is drifting.
+  * ⛔⛔ **AND THE ASSERTION'S OWN MESSAGE IS A MISDIAGNOSIS.** It says *"the two
+    seats are sharing one control frame"* — but the twin moved 2.07px LEFT while
+    the input pressed RIGHT. A shared frame would push it the other way. Whoever
+    picks this up should not start from that sentence.
+  * ⚠ One thing DID change and it is not what fails: the twin's resting `y` went
+    `450` → `446.015` between that baseline and today, which the movement work
+    merged from `specials-are-real-moves` explains. The failing assertion is on
+    `x` and is identical either side.
+  </details>
+* ✔ **`ambition_demo_smash_app::…::holding_attack_walks_the_jab_string_into_the_rapid_jab`
+  is NOT a regression.** It passes ALONE at HEAD (39/39) and at every bisect
+  point between the merge and HEAD. It failed only inside the 6458-test run,
+  where nextest has ~14 test processes live at once. A Bevy app test that is
+  sensitive to CPU contention is worth knowing about; it is not a code defect,
+  and treating it as one would have sent somebody hunting a change that does not
+  exist.
+* ✔ `ambition_sprite_sheet::fx::every_authored_effect_row_is_reachable_by_name`
+  — fixed: 196 rows, because the trapdoor art arrived with the renderer that
+  draws one.
+
+⭐ THE LESSON IS THE MIS-ATTRIBUTION, not the reds. A job that prints one verdict
+for six thousand tests is a job whose failures get explained by whatever else was
+failing that morning, and I did exactly that. `./run_tests.sh` names them now.
+
+### The Trap: she is visible under the stage, and the trapdoor is a puff (2026-08-28)
+
+⭐⭐ **JON:** *"the actor's down-b has her go subterranian, but her body needs to
+be masked so its not visible when she is under ground, right now her head is
+poking out, and she is flashing likely due to the invulnerability state always
+producing a flash, which is not what it should be doing. Often it does but it
+shouldn't always be the case. There should be a trapdoor sprite she is replaced
+with on the ground that can only move along a ground surface (i.e. it can't go
+over a ledge). And she should be able to pop up at any time from it in a big
+firework display that damages whoever is on top or above the trap door when she
+emerges. I'm thinking it might be a good idea to rename the actor given its
+conflation with a very core concept in the architecture. But we can do that in a
+different pass."*
+
+* ✔ **VISIBLE + FLASHING — ONE CAUSE, FIXED 2026-08-28.** `update_body_mode`
+  resolved Standing-or-Crouching from the stick and wrote it UNCONDITIONALLY, so
+  `BodyMode::Submerged` was deleted on the tick AFTER the trapdoor set it.
+  `Climbing` and `MorphBall` survived only because they have arms of their own in
+  that function; the mode the trapdoor added had none. Every symptom followed:
+  she was never hidden (so `sync_submerged_visibility` had nothing to hide), she
+  kept gravity and geometry, and the move's `Invuln` window blinked her for a
+  second while she stood on the boards she had just dropped through. The blink
+  itself is innocent — `overlay_look` already returns zero intensity for a hidden
+  source, so a body that is properly absent does not flash. Photographed either
+  side with `capture_scene pirate_cove player --character actor --press
+  hold:down,g,release:down --frames 30 --stride 3`.
+* ✔ **A TRAPDOOR SPRITE SHE IS REPLACED WITH — 2026-08-28.**
+  `rendering/submerged.rs` grew a door: one per submerged body (not a singleton
+  — `morph_ball.rs` next door is one and its own comments record what that
+  cost), drawn at her FEET because a submerged body never moves along gravity so
+  the feet line IS the surface she is under, and retired the tick she surfaces.
+  Procedural, for the reason the morph ball is: the shipped `trapdoor_boards`
+  art is an EFFECT that plays once and ends, and what was wanted is a persistent
+  object.
+* ✔ **SURFACE-LOCKED TRAVEL — 2026-08-28.** `integrate_submerged_clusters`
+  refuses a step whose LEADING FOOT would leave solid ground. ⛔ The first
+  version probed the whole footprint and stopped her a body-width PAST the lip,
+  hanging over open air — *"is any of me still over ground"* is the wrong
+  question. Refused whole rather than clamped to the edge: a tick of submerged
+  travel is about four world px. Written in the integrator and not the sweep,
+  because a submerged body is passable against every block in the world so the
+  sweep has nothing to stop her with.
+* ✔ **POP UP AT ANY TIME, WITH A FIREWORK THAT HITS ABOVE THE DOOR —
+  2026-08-28.** The beat under the stage is the shipped CHARGE mechanic, not a
+  new one: `MoveCharge` freezes a timeline at an authored point while a button
+  is held and resumes on release or at the maximum. So the second Jon authored
+  becomes a CEILING, releasing Special surfaces her early, and the emergence
+  window arrives whenever she comes up without knowing when that was.
+  ⛔ ONE NEW KNOB: `SmashChargeSpec::roots`, default `true`. A smash's freeze
+  roots because a windup is a commitment (*"they should not be able to walk or
+  move"*); this one holds TRAVEL (*"I do want the player to be able to control
+  where they move"*). Two uses of one mechanic, saying which they are.
+  The emergence is a centred, unfaced column from below her feet to well over
+  her head — the door is UNDER her, so a firework that leaned would let a camper
+  stand on the hinge side.
+* ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
+  actor concept. Explicitly deferred to its own pass.

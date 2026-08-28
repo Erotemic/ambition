@@ -44,7 +44,7 @@ pub struct FxSheet {
 /// character effect sheets, in the order they are searched.
 ///
 /// generic first: a name that appears on a generic sheet and on a character
-/// sheet resolves to the generic one. No such collision exists today (all 195
+/// sheet resolves to the generic one. No such collision exists today (all 196
 /// row names are distinct across all thirteen sheets, pinned by
 /// `every_authored_effect_row_is_reachable_by_name`), so the order is a
 /// tie-break rule that has never had to fire, not a policy anyone depends on.
@@ -218,8 +218,9 @@ mod tests {
             // 189 + the Projectile Polygon's six charge rows. His neutral
             // special charges at the MUZZLE, which cannot be baked into a
             // character row: it follows his cannon as he aims and it lasts as
-            // long as the button is down.
-            195,
+            // long as the button is down. + the trapdoor's, which arrived with
+            // the renderer that draws one.
+            196,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

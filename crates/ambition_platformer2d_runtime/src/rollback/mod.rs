@@ -32,7 +32,8 @@ impl Plugin for AmbitionRollbackSchemaPlugin {
 const ENGINE: &str = "ambition_platformer2d_runtime";
 
 pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
-    use ambition_platformer2d_core::body_clusters as bc;
+    // ⭐ NO `body_clusters` ALIAS ANY MORE, and its absence is the measurement:
+    // this function no longer names a single one of the floor's types.
 
     // DOMAIN-OWNED ROLLBACK DECLARATIONS. The composition supplies one backend-neutral
     // registrar; each capability names its own concrete types and projections.
@@ -43,6 +44,11 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
     ambition_mount::register_rollback_state(registrar);
     ambition_characters::register_rollback_state(registrar);
+    // ⭐ THE FLOOR DECLARES ITS OWN NOW, and the precedent that settled it is the
+    // line right below: `ambition_time` is equally a floor crate and has done so
+    // since 2026-08-26. Two floor crates answering the question differently was
+    // the last split left in the federation.
+    ambition_platformer2d_core::register_rollback_state(registrar);
     ambition_time::register_rollback_state(registrar);
     ambition_boss_encounter::register_rollback_state(registrar);
     ambition_conversation::register_rollback_state(registrar);
@@ -73,12 +79,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
     //
     //  actor-owned members moved to
-    // `ambition_platformer2d_actor_monolith::register_rollback_state`; the
-    // geometry is `ambition_platformer2d_core`'s and stays.
-    registrar.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
-        ENGINE,
-        "root.geometry",
-    );
+    // `ambition_platformer2d_actor_monolith::register_rollback_state`, and the
+    // geometry to `ambition_platformer2d_core`'s own.
 
     // Global authoritative resources.
     // ⭐ THE CLOCK'S OWN STATE IS NOT HERE ANY MORE. `SimTick`, `WorldTime`,
@@ -106,23 +108,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             "resource.input_stream_recorder",
         );
 
-    // Core body state.
-    registrar
-        .rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
-        .rollback_component_canonical::<bc::BodyGroundState>(ENGINE, "body.ground")
-        .rollback_component_canonical::<bc::BodyWallState>(ENGINE, "body.wall")
-        .rollback_component_canonical::<bc::BodyJumpState>(ENGINE, "body.jump")
-        .rollback_component_canonical::<bc::BodyDashState>(ENGINE, "body.dash")
-        .rollback_component_canonical::<bc::BodyFlightState>(ENGINE, "body.flight")
-        .rollback_component_canonical::<bc::BodyBlinkState>(ENGINE, "body.blink")
-        .rollback_component_canonical::<bc::BodyDodgeState>(ENGINE, "body.dodge")
-        .rollback_component_canonical::<bc::BodyShieldState>(ENGINE, "body.shield")
-        .rollback_component_canonical::<bc::BodyOffense>(ENGINE, "body.offense")
-        .rollback_component_canonical::<bc::BodyLifetime>(ENGINE, "body.lifetime")
-        .rollback_component_canonical::<bc::BodyActionBuffer>(ENGINE, "body.action_buffer")
-        .rollback_component_canonical::<bc::BodyBaseSize>(ENGINE, "body.base_size")
-        .rollback_component_canonical::<bc::SweepSample>(ENGINE, "body.sweep_sample")
-        .rollback_component_canonical::<bc::BodyMana>(ENGINE, "body.mana");
+    // ⭐ CORE BODY STATE IS NOT HERE ANY MORE — fifteen body-cluster components,
+    // declared by `ambition_platformer2d_core` beside the types themselves.
     // In-flight strike volumes — the components on the `entity:hitbox` family (see the
     // require_rollback anchor above). G2b: probed through the OWNER's stable identity, paired with
     // the hitbox's own — the same treatment `ProjectileOwner` has. A strike volume remapped onto
@@ -143,18 +130,9 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // Elimination is the same fact one step later, and a rewind that restores a fighter while
     // leaving it eliminated is a body standing in a match nothing will ever let it play. The
     // "already announced" latch for a stocks match's outcome.
-    registrar
-        .rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
-            ENGINE,
-            "actor.centered_aabb",
-        )
-        .rollback_component_canonical::<bc::BodyModeState>(ENGINE, "actor.body_mode")
-        .rollback_component_canonical::<bc::BodyLedgeState>(ENGINE, "actor.ledge")
-        .rollback_component_canonical::<ambition_platformer2d_core::MotionModel>(
-            ENGINE,
-            "actor.motion_model",
-        )
-        .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace");
+    // ⭐ the five rows this comment used to introduce — `actor.centered_aabb`,
+    // `actor.body_mode`, `actor.ledge`, `actor.motion_model`, `actor.combo_trace`
+    // — are `ambition_platformer2d_core`'s and are declared there.
 
     // Register values a recreated rollback entity cannot safely reconstruct from another
     // authoritative source. This includes identity/projection memos, rig/custody maps, authored
@@ -162,10 +140,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // bookkeeping is probed by value rather than presence/count so swaps and stale derivation
     // records cannot pass a census unchanged.
     registrar
-        .rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
-            ENGINE,
-            "body.ability_base",
-        )
         // Runtime-staged actors need this marker after restore so presentation can
         // rediscover them. `SfxSource` must also survive for projectiles because it
         // is stamped at spawn and may outlive the firing body; probe it by value.
@@ -219,16 +193,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
 
     // G2: probed through the OWNER's stable `SimId`, not by counting carriers.
     registrar
-        .declare_rollback_derived_component::<ambition_platformer2d_core::body_clusters::BodyEnvironmentContact>(
-            ENGINE,
-            "derived.body_environment_contact",
-            "rewritten every movement step from body geometry and the live world",
-        )
-        .declare_rollback_derived_component::<ambition_platformer2d_core::BodyMotionFacts>(
-            ENGINE,
-            "derived.body_motion_facts",
-            "republished from MotionModel every movement step",
-        )
         .declare_rollback_derived_component::<ambition_sim_view::BodyPoseView>(
             ENGINE,
             "derived.body_pose_view",
@@ -239,14 +203,9 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             "derived.projectile_view",
             "SimView projection rebuilt every tick",
         )
-        // Frame-derived RESOURCES (Phase 5 resource-coverage pass): each is
-        // republished by its ordinary maintenance system before anything reads it,
-        // so a rewind that keeps a stale value is overwritten before it matters.
-        .declare_rollback_derived_resource::<ambition_platformer2d_core::control_frame::ControlFrame>(
-            ENGINE,
-            "derived.control_frame",
-            "per-tick input frame regenerated from the synchronized input stream",
-        );
+        // ⚠ the frame-derived RESOURCE that used to close this chain,
+        // `derived.control_frame`, is the floor's and is declared there.
+        ;
 
     // Abandoned-future transient ingress must be empty after LoadWorld. Replayed inputs and
     // deterministic systems regenerate the correct messages. S4 — the stocks loop's two

@@ -176,6 +176,15 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
                 put_bool(out, true);
                 put_f32(out, charge.policy.hold_at_s);
                 put_f32(out, charge.policy.max_hold_s);
+                // ⛔ THE POLICY'S BOOLEANS TOO, and they were missing. The
+                // paragraph above says the policy rides along because a peer
+                // that reconstructed it would *"agree about the elapsed hold
+                // and disagree about what it bought"* — and what a hold buys
+                // is decided as much by `stores` (does reaching maximum fire?)
+                // and `roots` (may this body steer while it holds?) as by the
+                // two numbers that were here.
+                put_bool(out, charge.policy.stores);
+                put_bool(out, charge.policy.roots);
                 put_f32(out, charge.held_s);
                 match charge.released_fraction {
                     Some(f) => {

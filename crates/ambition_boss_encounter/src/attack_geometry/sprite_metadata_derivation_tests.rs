@@ -3,6 +3,7 @@
 use super::*;
 use crate::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core::AabbExt;
+use ambition_sprite_sheet::ActorSpriteMetrics;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
 
 /// Centered pixel bbox at frame center → world AABB at world_center.
@@ -188,7 +189,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 /// `body_pixel_bbox` (~106 wide).
 #[test]
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::HashMap;
@@ -276,7 +277,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
 /// but the hurtbox would scale by `boss.size` only.
 #[test]
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -369,7 +370,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
 
 #[test]
 fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -457,7 +458,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
 
 #[test]
 fn idle_rest_hurtbox_follows_the_live_animation_frame() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::BossAttackState;
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -558,7 +559,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
 #[test]
 fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -679,7 +680,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
 
 #[test]
 fn damageable_volumes_scales_to_sprite_render_size() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::BossAttackState;
     use ambition_platformer2d_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
@@ -874,7 +875,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
 /// visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::BossAttackState;
     use std::collections::HashMap;
 
@@ -976,7 +977,7 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
 /// separately.
 #[test]
 fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_match() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
@@ -1081,7 +1082,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
 /// PROBED: swapping `frame.rs`'s check to a key comparison fails THIS one.
 #[test]
 fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
@@ -1184,7 +1185,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 /// This pins the behaviour that would be lost.
 #[test]
 fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 
@@ -1329,7 +1330,7 @@ fn the_row_is_found_only_because_the_sample_names_it() {
 
 #[test]
 fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
-    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;

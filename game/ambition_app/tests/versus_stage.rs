@@ -2729,7 +2729,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 /// only moment the edge above is reachable.
 #[test]
 fn every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows() {
-    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     // The registry is filled by a `Startup` system, so a build that has never

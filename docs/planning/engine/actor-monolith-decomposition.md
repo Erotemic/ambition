@@ -29,6 +29,87 @@ consumer dependency leakage and compile-unit cost. The work is no longer
 conditional on discovering whether a carve is justified. The remaining design
 question is where each incremental boundary belongs.
 
+## ⭐⭐ WHICH EDGES ARE ACTUALLY WORTH CARVING — measured 2026-08-28
+
+A 2026-08-18 review said the monolith *"still has approximately 30 direct
+internal Ambition dependencies, essentially unchanged"* and that **the next
+payoff comes from carves that remove a dependency edge, not files**. Right, and
+the number it quotes is a PROXY: it counts `Cargo.toml` lines, which include
+optional and dev edges. The default resolved graph is **28 direct, 34 in the full
+closure** (`cargo tree -p … --edges normal`).
+
+⛔⛔ **AND MOST THIN EDGES CANNOT MOVE THE CLOSURE, because another path already
+supplies them.** Removing `ambition_dialog` (2026-08-28, below) took the DECLARED
+edge from 28 to 27 and left the closure at 34 — `ambition_conversation` brings it.
+⇒ **before carving for footprint, ask `cargo tree -i <dep>`**; if it lists a
+second path, the carve buys edit-surface and not a linked crate.
+
+⭐ **Exactly four edges reach the monolith by ONE path**, so these are the only
+ones whose removal would shrink the closure. Production-code references (comments
+and `tests.rs` excluded), which is the real cost of moving each:
+
+```text
+ambition_dev_tools      18 refs,  6 files    ← thinnest of the four
+ambition_mount          29 refs, 10 files
+ambition_items          33 refs, 10 files
+ambition_damage         36 refs,  7 files
+```
+
+⚠ **the other thin ones are cheaper and buy less**: `ambition_asset_manager` (6
+refs, 2 files) has FOUR other paths, `ambition_cutscene` (15 refs, 2 files) and
+`ambition_gameplay_trace` (30 refs, 7 files) have two each.
+
+✔ **`ambition_dialog` — DONE 2026-08-28, and it was a forward, not a carve.**
+Production code here names NO dialog path; every reference left is in a
+`tests.rs`. The `[dependencies]` edge was held by two feature forwards
+(`ui = [… "ambition_dialog/ui"]`, `input = [… "ambition_dialog/input"]`), and
+**both were already redundant**: `ambition_conversation/ui` forwards the first,
+and `ambition_platformer2d` / `ambition_platformer2d_runtime` both declare
+`ambition_dialog` with `features = ["input"]` outright. ⇒ moved to
+`[dev-dependencies]` for the interact fixtures. Same shape as the `ambition_ui_nav`
+removal whose note in the `input` feature named it.
+
+⛔⛔ **`ambition_cutscene` HAS FIVE SUPPLIERS, AND THE FIFTH IS WHY GATING IT
+BUYS NOTHING TODAY — built 2026-08-28, measured, and REVERTED.** The ldtk/portal
+recipe was applied to four of them and the app gate stayed green:
+
+```text
+ambition_platformer2d_actor_monolith  one module + two input bridges   gated
+ambition_render                       one module                       gated
+ambition_platformer2d_runtime         one `register_rollback_state`     gated
+ambition_platformer2d (facade)        already optional                  rewired
+ambition_boss_encounter               ⛔ NOT GATED — and it is the one that counts
+```
+
+⇒ the sentinel closure stayed at **43**: `cargo tree -i ambition_cutscene` in
+`fixtures/minimal_game` names `ambition_boss_encounter` as a parent, which reaches
+the sentinel through `ambition_damage` and the monolith. **A boss requests a
+cutscene on a phase change** (`events.rs` / `systems.rs`, two sites, both taking
+`&mut CutsceneTriggerQueue`).
+
+⚠ **and the fifth wants a design change rather than a gate.** A boss crate should
+not name a cutscene type at all: it already publishes `BossPhaseChanged`, and a
+cutscene-aware system could translate that into a queue request — which removes
+the edge instead of making it conditional. That is the shape worth doing; the
+four-crate gating on its own adds feature surface for a number that does not move,
+so it was reverted rather than landed half-finished.
+
+⛔ **AND THIS IS THE SAME LESSON AS `ambition_dialog` TWO HOURS EARLIER**, which
+is why it is written twice: *count the suppliers before gating the obvious one*.
+Both times the hidden supplier was a crate carved OUT of the monolith this month
+(`ambition_conversation`, `ambition_boss_encounter`), which is a predictable
+consequence of carving — a domain that leaves takes its own dependencies with it
+and re-supplies them from its new position.
+
+⛔ **`ambition_cutscene`'s OTHER problem — where its systems live — is separate.** `cutscene.rs`
+(208 lines, 2 files) is self-contained and is not actor simulation — but its own
+header states the reason it is here and the reason is TRUE: the systems couple to
+rooms (`RoomSet`), save (`AmbitionGameSave`) and the sim schedule, and
+`ambition_cutscene` *"sits below this crate and must stay content- and
+gameplay-free"*. Moving it down inverts three edges. It needs a host that owns
+gameplay-coupled orchestration, and naming that host is the open question — not
+whether the module belongs here.
+
 ## Goal
 
 Drain the current monolith until the remaining crate is honestly the reusable
@@ -891,10 +972,235 @@ spawn            3352         154
 ⇒ **`damage_apply` is now the strongest candidate left** — 3,674 lines against
 SEVENTEEN outward references, where mount carved at 1,871 against four.
 
+⛔⛔ **THAT TABLE IS STALE AND THE RANKING IS WRONG — RE-MEASURED 2026-08-28.**
+`damage_apply` does not exist any more; the work is in `features/ecs/damage/`.
+And the old counts mix TEST lines into the size and count every `crate::`
+occurrence rather than the distinct concepts behind them, which is what put the
+biggest file on top. Non-test lines, total outward `crate::` refs, and how many
+DISTINCT monolith modules those name:
+
+```text
+                non-test   refs   modules named
+bosses              1181      2   1   ← and both were a facade hop; now ZERO
+damage              2144      9   2   (banter registry, character_runtime)
+damage_drops         333      5   3
+interact             255      3   2
+aggression           214      3   2
+actors              2892     25   5
+spawn               2025     52   7
+```
+
+⭐⭐ **`bosses` IS THE CARVE, and it was already almost free.** Its two outward
+references were `crate::features::ecs_boss_anim_state_and_entity` and
+`ecs_boss_animation_frame_sample` — **both of which already live in
+`ambition_boss_encounter::anim`** and were reached through two hops of the
+monolith's own facade republishing a peer domain. That is precisely the shape
+this section already names for the SDK case. Both call sites name the crate
+directly now, so **`features/ecs/bosses/` production code names ZERO monolith
+paths** — the milestone the mount pair reached before it carved. ⭐ its test-side
+`crate::` refs are all SELF-references (`crate::features::bosses::…`), which
+become `super::` inside the new crate rather than being coupling at all.
+⇒ the remaining price is the MOVE, not an inversion: `ambition_boss_encounter`
+already exists and already owns the profiles, the catalog and the anim helpers.
+It is missing exactly ONE dependency the module needs —
+`ambition_platformer2d_world`, for `CollisionWorld` — and that is a clean
+downward edge: `_world` depends only on `asset_manager`, `_core`,
+`entity_catalog` and `shared_tangle`, so there is no cycle. ⚠ the
+`ambition_platformer2d::` strings in `tick.rs` are LOG TARGETS, not a facade
+dependency; a grep for the crate name reports them and they cost nothing.
+
+⛔⛔ **AND AN IMPORT COUNT NEARLY MISSED THE ONE CHANNEL THAT MATTERED.** Both
+non-test files opened with `use super::super::*` — a glob over the whole
+`features/ecs` module, which no `crate::` grep can see and which could have been
+hiding any amount of monolith vocabulary. Measured by DELETING it and reading
+what the compiler asked for: bevy's prelude, `WorldTime`, and
+`ambition_platformer2d_core as ae`. **No monolith types at all**, so the estimate
+survived the harder test — but it survived by measurement, not by the grep.
+⚠ read the WHOLE error set when you do this: the first run reported only six
+missing names, and adding those revealed `ae` and the `Component` derive behind
+them. rustc stops resolving early, so a truncated list reads as a short one.
+✔ the globs are gone; both files name what they use, and the test modules that
+were living off the same glob name theirs.
+
+### ✔✔ CARVED 2026-08-28 — `ambition_boss_encounter::ecs`
+
+The boss ECS module lives with the boss profiles, catalog and anim helpers it was
+already calling. `features/bosses.rs` (the attack-moveset authoring, 218 lines and
+**zero** `crate::`/`super::` references) went with it as
+`attack_moveset`. `ambition_boss_encounter` gained one dependency,
+`ambition_platformer2d_world`. The monolith keeps facade rows so its schedule
+registration and callers did not move.
+
+⛔⛔ **AND A THIRD INVISIBLE CHANNEL SHOWED UP AT THE MOMENT OF THE MOVE.**
+`crate::` grep missed the glob; deleting the glob still missed
+**`super::super::`**, which is neither. The compiler found three the instant the
+files changed crates:
+
+```text
+super::super::actors::ActorSteering
+super::super::actor_clusters::ActorClusterQueryData
+super::super::actors::integrate_actor_body
+```
+
+⇒ all three belong to ONE function, `integrate_boss_bodies`, **whose own doc had
+already recorded the verdict**: *"The shared seam is `integrate_actor_body`; keep
+this as the boss orchestrator around that seam."* So it stayed, as
+`features/ecs/boss_bodies.rs`, and the rest left. Moving it would have meant
+moving the generic actor integrator — a different carve at a different price.
+⚠ one fixture came back for the same reason: `scripted_pattern_tests` builds an
+`ActorClusterSeed`, so it sits beside what it builds and names the boss crate.
+
+⛔ **ONE UNRELATED-LOOKING RED, AND IT WAS THE CARVE.**
+`the_reaction_timer_clock_forks_on_purpose` walks `CARGO_MANIFEST_DIR/src`
+counting `.decay_reaction_timers(sim_dt)` sites and wants TWO — actor and boss.
+The boss one left the crate, so it found one and printed its own escape hatch:
+*"the scan is broken, not the code."* It was. Widened to both roots rather than
+lowered to one: the invariant did not move, the code did. ⇒ **a source-scanning
+guard is a guard on WHERE CODE LIVES, so every carve has to look for one.**
+
+⚠ **`damage`'s nine refs are FOUR concepts**, which is what a carve would have to
+subtract: `CombatBanterRegistry` (×3), `PreparedCharacterRegistry` (×2),
+`ActiveMatch` (×2), and `RespawnPolicy` + `ENEMY_DEAD_UNTIL_REST_SUFFIX`. Count
+the concepts, not the occurrences — the occurrence count is what made this table
+rank by file size.
+
+✔ **ONE OF THE FOUR IS SUBTRACTED, 2026-08-28: `CombatBanterRegistry`.** 63 lines
+depending on nothing but `std` and bevy, and no combat semantics at all — a
+name → lines table. It reads as actor machinery only because the hit path is what
+looks at it. It lives in `ambition_conversation` now, because **a bark is the
+shortest conversation there is**, and that keeps `ambition_combat` free of
+dialogue vocabulary. ⇒ `damage` is down to THREE concepts.
+
+⛔⛔ **AND THE MOVE HIT A TYPE PATH HELD AS A STRING.**
+`rollback_coverage.rs` waives it by the literal
+`"::features::banter::CombatBanterRegistry"`, which no compiler checks. Poison-verified
+BOTH ways: with the old string the coverage arms go red naming the new path, and with
+the new one they pass. ⇒ **every carve must grep its moved type names IN QUOTES**,
+not only as paths.
+
+✔ **AND TWO OF THE REMAINING THREE WERE FACADE HOPS, not coupling — the boss
+lesson again.** `PreparedCharacterRegistry` is `ambition_characters::prepared`'s
+and `RespawnPolicy` is `ambition_entity_catalog::placements`'; `crate::` only
+republished them. Named through their owners, `damage`'s `crate::` count is now
+**three, and `boss_hit.rs` names ZERO**.
+
+⛔⛔ **AND THAT NUMBER IS STILL NOT THE PRICE, for exactly the reason the boss
+carve found.** `damage/` reaches the monolith through `super::super::` and a
+`use super::*`, and THOSE are the real cost — thirteen distinct names across six
+concepts:
+
+```text
+actor_clusters::{ActorMut, ActorClusterQueryData, ACTOR_DAMAGE_IFRAME_S}
+damage_drops::{drop_currency_coin, drop_held_weapon, EXPLODER_BLAST_DAMAGE}
+npcs::{npc_flag_id, npc_hit_bark_line, npc_hostile_bark_line}
+damage_predicates::target_is_ignored
+NPC_HOSTILE_STRIKE_THRESHOLD
+ActiveMatch + ENEMY_DEAD_UNTIL_REST_SUFFIX   (the `crate::` three)
+```
+
+⭐⭐ **THE CANDIDATE TABLE, RE-MEASURED ACROSS ALL THREE SHAPES (2026-08-28).**
+Non-test lines; DISTINCT inward names reached by `crate::` **or** `super::…`; and
+whether a PRODUCTION file globs its parent (a `use super::*` inside
+`#[cfg(test)] mod tests` is the ordinary self-glob and is not counted):
+
+```text
+                    lines   inward names   prod globs
+attack                604        0             0
+brain_effects         343        0             0
+damage_predicates     237        0             0
+ledge_trump           152        0             0
+encounter_rewards     101        0             1 → 0   (prelude + vfx + RoomVisual)
+chests                130        4             1 → 0
+interact              255        4             1 → 0
+aggression            214        5             0
+damage_drops          333        6             0
+actor_clusters       1409        4             0
+damage               2146       15             2
+actors               2892       29             4
+spawn                2025       34             2
+```
+
+✔ **`ledge_trump` CARVED 2026-08-28 → `ambition_combat::ledge_trump`**, beside the
+`DeclaredCombatRules::ledge_trump_pop` it enforces, which this crate already
+owned. Zero new dependency edges; the eight tests went with it.
+⛔ **AND CHECK THE DESTINATION FOR A CYCLE BEFORE PROMISING THE OTHER THREE.**
+`damage_predicates` needs `ambition_boss_encounter`, which depends on
+`ambition_combat` — so combat is not its home. `brain_effects` names
+`ambition_app`, `ambition_mount` and `ambition_projectiles`, so it cannot go down
+at all yet. ✔ **`attack` CARVED THE SAME DAY → `ambition_combat::attack_support`** (604 lines),
+for that one clean edge. ⭐ its own module doc had already argued the move: the
+melee LIFECYCLE left for `combat::moveset` some time ago and *"there is ONE melee
+path"* — what stayed behind in the monolith was support for a path that lives in
+combat. Renamed on the way in, because `combat::attack` beside `combat::moveset`
+would have read as a second melee road.
+
+⭐ **FOUR MODULES — `attack`, `brain_effects`, `damage_predicates`, `ledge_trump`,
+1,336 lines together — REACH THE MONOLITH IN NO SHAPE AT ALL.** They are the
+carve-ready set, and none of them appeared in the old ranking because it counted
+lines. ⇒ the destinations to check are `ambition_combat` for the first four and
+`ambition_encounter` for `encounter_rewards`.
+⚠ the three production globs are gone: measured by deleting them, all three
+supplied bevy's prelude, `ambition_vfx`'s two message types, `RoomVisual`
+(`shared_tangle`), `ambition_platformer2d_core as ae` and `AabbExt` — no monolith
+vocabulary, on the third module set in a row.
+⛔ and the old table's small-module rows were counting the wrong FILES: `aggression`,
+`interact`, `damage_drops` and `chests` each have a sibling `.rs` holding the code
+and a same-named directory holding only tests.
+
+⇒ **`damage` is NOT the next carve.** `actor_clusters` is the same dependency the
+boss integrator kept it behind, and `npcs`/`damage_drops` are two more modules
+that would have to move or invert first. ⭐ **grep `super::` beside `crate::` on
+every candidate in the table above before ranking it** — the table's numbers count
+only one of the three shapes.
+
 ⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
 138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
 vocabulary names from FOUR crates, so it composes something a single alias does
-not. It stays. But a census cannot tell composition from republication, so the
+not. It stays.
+✔✔ **IT DOES NOT. DELETED 2026-08-28, and the ruling was sound while the premise
+held.** The 27 re-exports went on 2026-08-27, leaving the module as the bundle
+plus a doc. And the bundle did not have to stay either: nineteen of its twenty
+fields are `_core` body clusters and the twentieth is `shared_tangle`'s
+`ResolvedMotionFrame`, so **`shared_tangle::body` is the lowest crate that can
+name them all** — `AncillaryMovementBundle` lives there now and `actor.rs` is
+gone. ⇒ *"it composes something a single alias does not"* was true, and the thing
+it composed belonged one crate down. **A ruling that rests on a measurement dies
+with the measurement**: re-read the premise, not the verdict.
+
+✔✔ **AND `character_runtime` HAD THE SAME DEFECT, 2026-08-28 — nine names, ~250
+sites.** It republished `CharacterBodyBlueprint`, `CharacterCatalogGeneration`,
+`CharacterPreparationPlugin`, `MissingCharacterFacts`,
+`PreparedCharacterDefinition`, `PreparedCharacterRegistry`, `PreparedKit`,
+`CharacterBindings` and `CharacterRegistrationError` — all
+`ambition_characters::prepared`'s — and **57 of the sites naming them were OUTSIDE
+this crate**, which is precisely how a census reads the monolith as their owner.
+Deleted; 66 files repointed. ⭐ the module is not a facade otherwise: `MatchSeat`,
+`ActiveMatch`, `PreparedMatch`, `MatchRules` and the load states really are its
+own, so this is a republication removed rather than a module carved.
+✔✔ **AND WITH THOSE GONE, `actor_clusters` (1,409 lines) NAMES ZERO MONOLITH
+PATHS IN ANY OF THE THREE SHAPES.** Its last one was
+`character_sprites::sprite_body_collision_for_character_id_in`, whose entire body
+is `catalog.data()` plus a call to
+`ambition_sprite_sheet::…::sprite_body_collision_for_character_id_from_data` —
+and all three callers already held both halves. Naming the derivation directly
+made a 1,409-line module look decoupled over a `.data()`.
+⇒ **`actor_clusters` is the thing that kept `damage` and `integrate_boss_bodies`
+where they are, and it is now the next carve.** ⚠ priced 2026-08-28, and the answer is NOT YET, for a reason worth stating.
+Its real outward deps are eight crates, all below it (`ambition_sim_view` appears
+only in a COMMENT — the one upward name, and it is prose). So nothing blocks it.
+⛔ **What blocks it is that there is no destination.** No existing crate's subject
+is *"actor construction and the body-cluster query aggregate"*, and minting
+`ambition_actor_clusters` for it is a bigger call than a carve — it is the
+question Wave G reserves: *"whether one actor crate is honest or whether there are
+still multiple durable simulation domains."* ⇒ **`actor_clusters` reaching nothing
+is evidence it is the monolith's CENTRE, not evidence it should leave.** The
+modules that left this month all had a crate already waiting for them; this one
+does not, and a carve into a crate invented to receive it would wrap the model
+rather than remove it.
+
+⭐ **DO IT COMPILER-DRIVEN.** Delete the `pub use` block FIRST and let the 87
+errors enumerate the callers; a sed sweep over qualified paths misses the grouped
+`use super::{A, B}` forms and the bare names inside the module's own children. But a census cannot tell composition from republication, so the
 resolution is written down ONCE here instead of re-derived per carve:
 
 ```text
@@ -993,6 +1299,16 @@ Record these measurements after meaningful waves, not after every tiny edit:
 | Unwanted movement-only capability crates inherited through actors | 15 | toward 0 |
 | Actor-monolith builds in the measured full-suite workflow | 16 | suite target remains <=2; carves also reduce cost per build |
 | Root modules | 42 | descriptive only; do not optimize this count directly |
+
+⭐ **Measured 2026-08-28, after the boss carve: `src/**/*.rs` is 107,354 lines.**
+⛔ **AND THAT NUMBER IS NEARLY USELESS ON ITS OWN, which is worth saying once
+rather than re-deriving each time.** 110,911 → 107,354 is 3.2% over three weeks
+in which mount, boss ECS, boss attack-moveset, `SpawnBaseline`, `TemporaryControl`
+and the rollback declarations all left — because carves REMOVE lines while the
+game keeps ADDING them, and this row cannot tell those apart. The measures that
+moved and mean something are the OUTWARD EDGE COUNTS per module, which is what the
+re-measured candidate table above tracks, and the count of modules naming ZERO
+monolith paths. Read this row as a trend, never as a verdict on a slice.
 
 Add a focused compile-time measurement once the first substantial carve lands so
 later waves can compare clean-build and representative incremental-edit cost.

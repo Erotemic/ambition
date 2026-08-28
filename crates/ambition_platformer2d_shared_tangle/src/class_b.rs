@@ -23,7 +23,11 @@ pub enum ClassBRemap {
     /// The body's centroid crossed a portal's entry plane and it emerged at the
     /// exit aperture.
     PortalTransit,
-    /// A traversal ability jumped the body: blink, dive, mark-recall.
+    /// A traversal ability jumped the body: blink, dive, mark-recall, an
+    /// authored teleport, or the Trap surfacing through a floor. ⛔ the last one
+    /// is not a teleport in the fiction and is one here on purpose: what this
+    /// enum sorts is WHO MOVED THE BODY, and a move that picks a destination and
+    /// writes it is the same authority however it is dressed.
     ScriptedTeleport,
 }
 

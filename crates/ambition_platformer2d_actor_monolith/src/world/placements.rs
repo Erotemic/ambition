@@ -5,7 +5,6 @@
 //! so placement interpreters can resolve authored character ids without adding
 //! an upward dependency to the world IR or consulting process-global state.
 
-
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 
 /// Immutable App-local authored context supplied to room placement lowering.
@@ -23,7 +22,7 @@ pub struct ActorPlacementContext {
     /// cloned like its three neighbours, and for the same reason: lowering runs
     /// against a snapshot of authored content taken when staging was requested,
     /// not against live resources that may change mid-commit.
-    pub prepared: crate::character_runtime::PreparedCharacterRegistry,
+    pub prepared: ambition_characters::prepared::PreparedCharacterRegistry,
     /// The shared controller policies this host published, so a PLACEMENT
     /// may name one (`EnemySpawnSpec::brain_profile`).
     ///
@@ -50,7 +49,7 @@ impl ActorPlacementContext {
     #[must_use]
     pub fn with_prepared(
         mut self,
-        prepared: &crate::character_runtime::PreparedCharacterRegistry,
+        prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     ) -> Self {
         self.prepared = prepared.clone();
         self

@@ -233,7 +233,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
 
         let guide = prepared
             .get("npc_kernel_guide")
@@ -292,7 +292,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
 
         let mut targets = 0;
         for id in prepared.ids() {
@@ -522,7 +522,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
 
         let authored: Vec<&str> = prepared
             .iter()
@@ -1074,12 +1074,11 @@ mod tests {
             ("npc_exploding_mite", true, None, 2),
             ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
         ] {
-            let bare =
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id,
-                    "unused",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                );
+            let bare = ambition_platformer2d::character::CharacterDefinition::new(
+                id,
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
             let authored = authored_intrinsics(id, bare);
             let traits = authored
                 .death_traits
@@ -1101,12 +1100,11 @@ mod tests {
     #[test]
     fn every_build_only_id_authors_something() {
         for id in buildable_only_cast() {
-            let bare =
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id,
-                    "unused",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                );
+            let bare = ambition_platformer2d::character::CharacterDefinition::new(
+                id,
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
             let authored = authored_intrinsics(id, bare.clone());
             let authors_a_body =
                 authored.death_traits.is_some() || authored.vitals.max_health.is_some();
@@ -1175,12 +1173,11 @@ mod tests {
         let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
         let mut unregistered = Vec::new();
         for id in catalog.data().characters.keys() {
-            let bare =
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id.as_str(),
-                    "unused",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                );
+            let bare = ambition_platformer2d::character::CharacterDefinition::new(
+                id.as_str(),
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
             if authored_intrinsics(id.as_str(), bare.clone()) != bare
                 && !registered.contains(id.as_str())
             {
@@ -1217,12 +1214,11 @@ mod tests {
         // every id — a refactor that dropped the match, say — the loop above
         // would find nothing and pass while checking nothing at all.
         let authors_someone = catalog.data().characters.keys().any(|id| {
-            let bare =
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id.as_str(),
-                    "unused",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                );
+            let bare = ambition_platformer2d::character::CharacterDefinition::new(
+                id.as_str(),
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
             authored_intrinsics(id.as_str(), bare.clone()) != bare
         });
         assert!(
@@ -1260,12 +1256,11 @@ mod tests {
         let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
         let mut broken = Vec::new();
         for id in &pirates {
-            let bare =
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id.as_str(),
-                    "unused",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                );
+            let bare = ambition_platformer2d::character::CharacterDefinition::new(
+                id.as_str(),
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
             // BOTH halves, because either alone is silent. The rule must state a
             // policy, AND the id must be one registration actually visits — an
             // arm that runs for nobody is what this whole row was about.
@@ -1287,12 +1282,11 @@ mod tests {
         // the poison: a character the rule does NOT name must not acquire one
         // by accident. Without it this would also pass on a build where every
         // character got a provoked policy from somewhere else.
-        let bare =
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "npc_alice",
-                "unused",
-                crate::AMBITION_CONTENT_PROVIDER,
-            );
+        let bare = ambition_platformer2d::character::CharacterDefinition::new(
+            "npc_alice",
+            "unused",
+            crate::AMBITION_CONTENT_PROVIDER,
+        );
         assert!(
             authored_intrinsics("npc_alice", bare)
                 .provoked_profile_ref

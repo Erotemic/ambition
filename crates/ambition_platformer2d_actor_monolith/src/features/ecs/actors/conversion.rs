@@ -126,7 +126,7 @@ pub(crate) fn provoke_actor_in_place(
     // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
     // because most compositions register no cast, and no character today states
     // one.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     chase: bool,
 ) {
     // THE CREATURE'S OWN ANSWER, when it has one.

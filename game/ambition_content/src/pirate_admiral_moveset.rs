@@ -404,6 +404,12 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
             // saddle offset on its `Mountable` was authored against.
             half_extents: (48.0, 22.0),
             seconds: SHARK_RIDE_SECONDS,
+            // ⭐ HALF THE RIDE'S STRAIGHT-LINE DISTANCE (the shark's own
+            // `run_speed` is 260px/s over five seconds). Deliberately under the
+            // arithmetic: a recovery is a turn back toward the stage rather than
+            // a sprint in one direction, and a search that over-claims kills the
+            // fighter it was trying to save.
+            reach: SHARK_RIDE_SECONDS * 260.0 * 0.5,
         },
     );
     let up_b = sfx(up_b, 0.0, "player.attack.charge");
@@ -925,6 +931,39 @@ mod tests {
             smash(&admiral),
             smash(&robot),
             smash(&goblin)
+        );
+    }
+
+    /// ⭐⭐ THE UP-B IS A WAY HOME THAT THE PLANNER CAN SEE.
+    ///
+    /// ⛔⛔ D250: `call_the_shark` commands no impulse, so `lift_speed` is
+    /// `0.0` — and the recovery planner modelled every route as one thrown
+    /// velocity, so the CPU admiral had no recovery at all. ⛔ Not fixed by
+    /// fabricating a lift: this asserts the impulse is still ZERO, because a
+    /// route that lied about a rise would make the search certify one.
+    #[test]
+    fn the_sharks_summon_advertises_seconds_of_authority_and_no_lift() {
+        use ambition_platformer2d::entity_catalog::RecoveryRoute;
+        let set = pirate_admiral_moveset();
+        let frames = find(&set, "call_the_shark").frame_data();
+        assert_eq!(
+            frames.lift_speed, 0.0,
+            "the summon must still command no rise; a fabricated one would have \
+             the recovery search certify height the move never throws"
+        );
+        let RecoveryRoute::SustainedAuthority { seconds, reach } = frames.recovery_route else {
+            panic!(
+                "the summon offers {:?}, so a recovery planner reads it as no way \
+                 home — which is exactly D250",
+                frames.recovery_route
+            );
+        };
+        assert_eq!(seconds, SHARK_RIDE_SECONDS, "the ride's own length");
+        assert!(
+            reach > 0.0 && reach < SHARK_RIDE_SECONDS * 260.0,
+            "the claimed reach is {reach}, which is either nothing or the whole \
+             straight-line ride — a recovery turns back toward the stage, and a \
+             search that over-claims kills the fighter it meant to save"
         );
     }
 }

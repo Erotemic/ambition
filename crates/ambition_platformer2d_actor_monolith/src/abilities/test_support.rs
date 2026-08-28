@@ -34,7 +34,7 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
             // the FULL movement clusters (the transit authority reconciles
             // contacts/attachment through `BodyClusterQueryData`) — both live
             // inside `AncillaryMovementBundle`, like production spawns.
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     ae::Vec2::new(100.0, 100.0),
                     ae::AbilitySet::default(),
@@ -79,7 +79,7 @@ pub(crate) fn spawn_primary_player_holding_at(
             // the FULL movement clusters (the transit authority reconciles
             // contacts/attachment through `BodyClusterQueryData`) — both live
             // inside `AncillaryMovementBundle`, like production spawns.
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
             ),
         ))

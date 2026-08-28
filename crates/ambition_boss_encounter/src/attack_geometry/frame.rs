@@ -21,9 +21,7 @@ pub(super) fn sprite_authored_volumes(
     // (collision_scale > 1.0 in every sheet spec). Using ctx.size
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
-    for animation in
-        crate::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile)
-    {
+    for animation in crate::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile) {
         let Some(entry) = metrics.animations.get(&animation) else {
             continue;
         };
@@ -48,30 +46,6 @@ pub(super) fn sprite_authored_volumes(
         }
     }
     None
-}
-
-/// Choose the world-space size to scale sprite-pixel rects against.
-/// Prefer the metrics-captured render size (set by
-/// `derive_boss_sprite_metrics` from the sheet spec's
-/// `collision_scale`). Fall back to `ctx.size` when the snapshot
-/// didn't capture one — test fixtures that build `ActorSpriteMetrics`
-/// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
-pub(super) fn sprite_world_size(
-    metrics: &crate::behavior::ActorSpriteMetrics,
-    fallback: ae::Vec2,
-) -> ae::Vec2 {
-    if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {
-        metrics.sprite_render_size
-    } else {
-        fallback
-    }
-}
-
-pub(super) fn animation_frame_index(
-    entry: &ambition_sprite_sheet::AnimationMetrics,
-    elapsed_s: f32,
-) -> Option<usize> {
-    ambition_sprite_sheet::frame_at(entry, elapsed_s)
 }
 
 pub(super) fn authored_animation_frame_index(
@@ -169,88 +143,10 @@ pub(super) fn runtime_animation_keys(
         }
     }
     let claimed = active_profile
-        .map(|profile| {
-            crate::behavior::boss_animation_keys_for_profile(
-                ctx.boss_catalog,
-                profile,
-            )
-        })
+        .map(|profile| crate::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile))
         .unwrap_or_else(|| rest_keys.iter().map(|key| (*key).to_string()).collect());
     RuntimeAnimationKeys {
         sample_key,
         claimed,
-    }
-}
-
-/// World-space volumes for one authored animation box, at the frame being shown.
-///
-/// Per-frame data still outranks the coarse per-animation box, so a large moving
-/// part (GNU-ton's head) tracks the drawn pose rather than one average.
-pub(super) fn world_space_animation_box_volumes(
-    box_: &AnimationBox,
-    frame_index: Option<usize>,
-    frame_width: u32,
-    frame_height: u32,
-    world_center: ae::Vec2,
-    world_size: ae::Vec2,
-) -> Vec<ae::CombatVolume> {
-    let hull = |poly: &[(f32, f32)]| {
-        ae::CombatVolume::convex(
-            poly.iter()
-                .map(|(x, y)| {
-                    world_point_from_pixel(
-                        *x,
-                        *y,
-                        frame_width,
-                        frame_height,
-                        world_center,
-                        world_size,
-                    )
-                })
-                .collect(),
-        )
-    };
-    let boxes = |parts: &[ambition_sprite_sheet::NamedPixelRect], bbox| {
-        // A part that authored a hull IS that hull; the rest fall back to their
-        // rects. Mixing the two in one silhouette is normal — a hooded head is
-        // shaped and a shoulder pad is honestly a box.
-        if parts.iter().any(|part| !part.poly.is_empty()) {
-            return parts
-                .iter()
-                .map(|part| {
-                    if part.poly.is_empty() {
-                        ae::CombatVolume::aabb(world_aabb_from_pixel_rect(
-                            part.rect(),
-                            frame_width,
-                            frame_height,
-                            world_center,
-                            world_size,
-                        ))
-                    } else {
-                        hull(&part.poly)
-                    }
-                })
-                .collect::<Vec<_>>();
-        }
-        world_space_body_aabbs_from_parts(
-            parts,
-            bbox,
-            frame_width,
-            frame_height,
-            world_center,
-            world_size,
-        )
-        .into_iter()
-        .map(ae::CombatVolume::aabb)
-        .collect::<Vec<_>>()
-    };
-    // WHICH authored shape this frame shows is `frame_space::sample`'s call, and
-    // the character attack path asks the same question through the same
-    // function — the precedence (per-frame outranks per-animation, hull
-    // outranks rectangles) has one home rather than a copy per consumer.
-    match ambition_sprite_sheet::SampledBox::sample(box_, frame_index) {
-        None => Vec::new(),
-        Some(ambition_sprite_sheet::SampledBox::Poly(poly)) => vec![hull(poly)],
-        Some(ambition_sprite_sheet::SampledBox::Rects(parts, bbox)) => boxes(parts, bbox),
     }
 }

@@ -4,9 +4,9 @@
 //! application registration seam and the typed finalization barrier.
 //! [`super::CharacterLoadStates`] reports the asset-loading side.
 
-
-use ambition_characters::prepared::{CharacterBindings, CharacterRegistrationError};
 use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_characters::prepared::CharacterBindings;
+use ambition_characters::prepared::CharacterRegistrationError;
 
 // Test-only preparation seams used by the child `definition_tests` module.
 #[cfg(test)]
@@ -22,8 +22,9 @@ pub(crate) use ambition_characters::prepared::{
 /// `ambition_sprite_sheet`, which already depends on `ambition_characters`.
 pub fn with_engine_vocabularies(mut bindings: CharacterBindings) -> CharacterBindings {
     if !bindings.has_sheet_vocabulary() {
-        bindings = bindings
-            .with_available_sheets(ambition_sprite_sheet::character::sheets::available_sheet_keys());
+        bindings = bindings.with_available_sheets(
+            ambition_sprite_sheet::character::sheets::available_sheet_keys(),
+        );
     }
     if !bindings.has_portrait_vocabulary() {
         bindings =

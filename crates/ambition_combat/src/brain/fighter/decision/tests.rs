@@ -7,8 +7,8 @@
 use super::*;
 use ambition_characters::actor::attack_gesture::AttackDir;
 use ambition_characters::actor::ActorFaction;
+use ambition_characters::brain::attack_kit::{AttackBinding, AttackVerb};
 use ambition_characters::brain::fighter::options::UtilityWeights;
-use ambition_characters::brain::fighter::options::{AttackBinding, AttackVerb};
 use ambition_characters::brain::fighter::profile::FighterBrainProfile;
 use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_platformer2d_core as ae;

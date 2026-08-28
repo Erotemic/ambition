@@ -153,7 +153,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
     //
     // asserted for BOTH games on purpose.
     {
-        use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+        use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
         let registry = app
             .world()
             .get_resource::<PreparedCharacterRegistry>()
@@ -221,7 +221,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
 ///  so this asks the registry directly.
 #[test]
 fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
-    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut app = PlatformerApp::headless()
         .with_game_assets()

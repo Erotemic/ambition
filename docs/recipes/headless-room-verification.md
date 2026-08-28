@@ -101,6 +101,16 @@ sprite ART. Two flags matter for combat work:
 - `--combat-overlay` puts the `DebugViewMode::Combat` preset in the shot. The
   volumes are off by default, so without it a swing is photographable and its
   hit polygon is not.
+- ⛔⛔ **A SMASH MOVE IS PHOTOGRAPHED ON THE SMASH STAGE.** Jon, 2026-08-28:
+  *"when we are doing smash moves we probably should be using the smash stage
+  and not any ambition stages, to make sure that we're actually getting smash
+  rules and not ambition which might be different."* `--route smash_gameplay
+  --character <id>` seats a match of two of that character and comes up under
+  the match ruleset — stocks, damage percent, the lot. Without `--character` the
+  route activates a stage with nobody on it (D130 recorded that once as a
+  mystery). The exploration form — `capture_scene <room> player --character
+  <id>` — puts the same body under EXPLORATION rules, which is the wrong game to
+  judge a fighter's move in.
 - `--press` drives input, and takes `hold:KEY` / `release:KEY` as well as taps.
   Every tilt and aerial is *a direction held while attack is pressed*, so
   `--press up,x` taps Up, releases it, and then attacks — resolving forward.

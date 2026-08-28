@@ -17,8 +17,8 @@
 //! used the same word.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogRegistry;
+use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
 #[test]
 fn character_definitions_and_catalog_fragments_share_one_provider_namespace() {

@@ -8,10 +8,10 @@
 //! Decision cadence and calibration live outside this module. The weights here are starting
 //! values; ladder evaluation owns tuning.
 
+use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate};
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 
-use crate::actor::attack_gesture::AttackDir;
 
 use super::situation::{is_punishable, Situation};
 use crate::perception::{BodyPhase, Perceived, PerceivedActor};
@@ -155,90 +155,6 @@ impl Default for UtilityWeights {
     }
 }
 
-/// How a chosen attack is actually PRESSED.
-///
-/// L2 scored every move in the kit, L3 refined the choice, `RefinedChoice::move_id` named a
-/// concrete move — and the emission set `melee_pressed = true` with a neutral axis, so
-/// `trigger_moveset_moves` resolved whatever the DEFAULT gesture maps to. The brain decided whether
-/// to attack and never which attack.
-///
-/// It is the ordinary gesture vocabulary, not a fighter-only bypass: a verb plus
-/// a direction is exactly what a human's stick and button produce, and what
-/// `move_for_directional_verb` consumes. The POSTURE is deliberately absent — the
-/// body's real grounded state decides it at press time, and a brain that could
-/// claim a posture it does not have would be reaching past the no-cheat contract
-/// to pick a move its body cannot reach.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AttackBinding {
-    pub verb: AttackVerb,
-    pub direction: AttackDir,
-}
-
-/// The three press KINDS a moveset distinguishes. Not the move — the button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AttackVerb {
-    /// The plain attack button (`"attack"` and its directional variants).
-    #[default]
-    Basic,
-    /// Attack with a smash/strong hint (`"smash_*"`, falling back to `attack_*`).
-    Smash,
-    /// The special button (`"special"` and its directional variants).
-    Special,
-    /// The GRAB button (`"grab"`).
-    ///
-    /// no directional variants, and a CENTRED stick. A grab is a button,
-    /// not a stick gesture — a deflection beside it would arm a flick the next
-    /// ordinary attack would inherit as an accidental smash.
-    Grab,
-}
-
-/// One attack the caller's kit offers. The caller resolves these from the body's
-/// moveset; L2 never queries anything.
-///
-/// The caller enumerates BINDINGS and asks the moveset what each one reaches, so
-/// a candidate is a move the body can actually be made to perform — a move with
-/// no binding (a buff, a summon, an on-hit technique) never enters the kit, and
-/// a scored choice is executable by construction.
-#[derive(Clone, Debug, PartialEq)]
-pub struct AttackCandidate {
-    pub move_id: String,
-    pub frames: MoveFrameData,
-    pub binding: AttackBinding,
-    /// Whether the BODY can begin this move on this tick — see
-    /// [`ActionLegality`]. Supplied by the caller, which is the only layer that
-    /// can see the running `MovePlayback`.
-    pub legality: ActionLegality,
-}
-
-/// CAN this action begin right now? — a question about the BODY's state,
-/// kept deliberately separate from *how useful would it be*, which is the
-/// scorer's ([`Features`]) subject.
-///
-/// it is a FILTER, never a weight. A cheap move that cannot be started is
-/// not a slightly worse option than one that can — it is not an option. Pricing
-/// it low would leave it winning whenever the kit is bad, which is exactly how
-/// the "an attack that cannot REACH is not an option" filter came to exist one
-/// class over.
-///
-/// the third state is deliberately absent and named here so it is not
-/// invented twice. `BodyActionBuffer` IS fed now, so a press that cannot
-/// execute this tick but would be consumed on the first actionable frame is a
-/// real option — `BufferableSoon` — and issuing it is what a person pressing
-/// into the tail of endlag is doing. What is still missing is the fact it needs:
-/// the brain cannot see the buffer's remaining window against the body's
-/// remaining lock, and without that comparison "legal eventually" still must not
-/// read as "press now".
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ActionLegality {
-    /// Nothing owns the body, or the running move's cancel windows admit this
-    /// one under its hit-state condition.
-    #[default]
-    Now,
-    /// Another move owns the body and its cancel windows do not admit this one.
-    /// The press would be discarded, so the brain does not spend it.
-    BlockedByPlayback,
-}
-
 /// L2's working set for one decision tick.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct OptionSet {
@@ -267,29 +183,46 @@ impl OptionSet {
 /// would let a big negative reach_fit be bought back by kill potential.
 const REACH_TOLERANCE: f32 = 2.0;
 
-/// Candidate self-displacement routes with positive against-gravity speed.
+/// Every move in this kit that OFFERS A WAY HOME, in a deterministic order.
 ///
-/// Candidates are sorted by lift speed then move id for deterministic bounded
-/// probing; [`RecoveryLens::best_route`](super::recovery::RecoveryLens::best_route)
-/// decides usefulness from current world state. Legality/posture filtering is
-/// upstream.
+/// ⭐⭐ THE FILTER IS THE ROUTE, NOT THE LIFT. This asked `lift_speed > 0.0`,
+/// which is the shape of exactly one route kind — the genre's ordinary up-B —
+/// and so it could not see the pirate's shark (seconds of movement authority)
+/// or the Author's teleport (a discontinuity). Both author a real way home and
+/// both read `0.0` here, so the CPU saw a fighter with no recovery at all
+/// (D250). `MoveFrameData::recovery_route` is the resolved answer and this asks
+/// it.
 ///
-/// TODO(recovery-search): measure whether bounded probing should also include
-/// purely horizontal displacement routes.
+/// ⛔ LEGALITY STILL APPLIES, and it is the same rule as before: a body past the
+/// blastzone has one problem, and a route it cannot BEGIN does not solve it.
+///
+/// ⛔ THE ORDER IS NOT A RANKING. It is a deterministic prefix for bounded
+/// probing (ADR 0023) and the LENS decides usefulness from the current world —
+/// which is the whole reason it is not sorted by "how much lift". Bursts come
+/// first by lift because that is the order this list has always had and the
+/// existing seats depend on nothing else; the carrying routes follow, longest
+/// carry first, then move id.
 pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
-    // legality applies here too, and it is the same rule. A body past the
-    // blastzone has one problem, but a lifting move it cannot BEGIN does not
-    // solve it — offering one would make `Recovery` name a route the press
-    // cannot take, which is the failure this filter exists to stop one layer up.
     let mut lifts: Vec<&AttackCandidate> = kit
         .iter()
-        .filter(|c| c.legality == ActionLegality::Now && c.frames.lift_speed > 0.0)
+        .filter(|c| {
+            c.legality == ActionLegality::Now && c.frames.recovery_route.offers_a_way_home()
+        })
         .collect();
+    let key = |c: &AttackCandidate| match c.frames.recovery_route {
+        ambition_entity_catalog::RecoveryRoute::Burst { speed, .. } => (0u8, speed),
+        other => (1u8, other.carry()),
+    };
     lifts.sort_by(|a, b| {
-        b.frames
-            .lift_speed
-            .partial_cmp(&a.frames.lift_speed)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        let (a_kind, a_size) = key(a);
+        let (b_kind, b_size) = key(b);
+        a_kind
+            .cmp(&b_kind)
+            .then_with(|| {
+                b_size
+                    .partial_cmp(&a_size)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .then_with(|| a.move_id.cmp(&b.move_id))
     });
     lifts
@@ -443,7 +376,7 @@ pub fn generate_options(
         // press.
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
-            use super::options::AttackVerb;
+            use crate::brain::attack_kit::AttackVerb;
             let fa = frame_advantage(c.frames.startup_s, their_commitment, kit_slowest_startup);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32

@@ -3,7 +3,7 @@
 //!
 //! ⛔⛔ IT USED TO BE `Brain::tick` IN `ambition_characters`, one match over all
 //! twelve variants — which pinned behaviour placement to the enum. Three of the
-//! arms (`Fighter`, `Smash`, `BossPattern`) are ~22k lines whose destination is a
+//! arms (`Fighter`, `Smash`, `BossPattern`) are 5,399 lines whose destination is a
 //! crate ABOVE the floor, and a dispatcher in the floor crate can never call
 //! upward. D168 sat blocked on exactly that.
 //!

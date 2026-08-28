@@ -63,6 +63,7 @@ mod contacts;
 mod glide_and_air;
 mod jump_squat;
 mod ledge_grab;
+mod submerged;
 mod sweep_sample;
 mod wall_collision;
 mod world_edges;

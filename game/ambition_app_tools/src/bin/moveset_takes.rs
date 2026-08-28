@@ -20,258 +20,12 @@
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
-use ambition_platformer2d::engine_core::ControlFrame;
-
 /// Ticks recorded per take. Long enough for a five-second shark ride to show its
 /// shape without every take carrying the tail of an idle stage.
 const TAKE_TICKS: usize = 150;
-/// The longest a take will wait for the stage to go quiet before the next press.
-///
-/// ⛔⛔ A FIXED SETTLE IS NOT A SETTLE. Forty-five ticks was less than the
-/// admiral's forward smash owes, so `smash_up`, `smash_down` and `special_up`
-/// each landed inside the previous move's recovery, were dropped, and were
-/// reported as moves that produced nothing — three false findings from one
-/// constant. The condition is "the body is idle and standing", which the world
-/// already publishes, so the wait ASKS instead of counting.
-/// ⛔ ABOVE THE LONGEST RIDE. A 240-tick limit is four seconds and the shark
-/// carries its rider for five, so the take after the up-B started while the
-/// admiral was still airborne on a mount and reported two moves as producing
-/// nothing. A settle that gives up before the previous take finishes is a
-/// settle that manufactures findings.
-const SETTLE_LIMIT: usize = 480;
-
-/// One press, as the genre spells it.
-struct Verb {
-    /// The repertoire verb this drives, which is the key the UI files it under.
-    verb: &'static str,
-    label: &'static str,
-    axis_x: f32,
-    axis_y: f32,
-    button: Button,
-    /// Jump first, and wait for the apex. An aerial pressed from the ground
-    /// reaches the grounded chain instead, and reports the wrong move.
-    airborne: bool,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum Button {
-    Attack,
-    Smash,
-    Special,
-    Grab,
-    Taunt,
-}
-
-/// The full press table. Directions follow the engine's own convention:
-/// `axis_y = -1` is UP (the same value `shark_ride_probe` drives for the up-B).
-const VERBS: &[Verb] = &[
-    Verb {
-        verb: "attack",
-        label: "Jab",
-        axis_x: 0.0,
-        axis_y: 0.0,
-        button: Button::Attack,
-        airborne: false,
-    },
-    Verb {
-        verb: "attack_forward",
-        label: "F-tilt",
-        axis_x: 1.0,
-        axis_y: 0.0,
-        button: Button::Attack,
-        airborne: false,
-    },
-    Verb {
-        verb: "attack_up",
-        label: "U-tilt",
-        axis_x: 0.0,
-        axis_y: -1.0,
-        button: Button::Attack,
-        airborne: false,
-    },
-    Verb {
-        verb: "attack_down",
-        label: "D-tilt",
-        axis_x: 0.0,
-        axis_y: 1.0,
-        button: Button::Attack,
-        airborne: false,
-    },
-    Verb {
-        verb: "smash_forward",
-        label: "F-smash",
-        axis_x: 1.0,
-        axis_y: 0.0,
-        button: Button::Smash,
-        airborne: false,
-    },
-    Verb {
-        verb: "smash_up",
-        label: "U-smash",
-        axis_x: 0.0,
-        axis_y: -1.0,
-        button: Button::Smash,
-        airborne: false,
-    },
-    Verb {
-        verb: "smash_down",
-        label: "D-smash",
-        axis_x: 0.0,
-        axis_y: 1.0,
-        button: Button::Smash,
-        airborne: false,
-    },
-    Verb {
-        verb: "attack_air",
-        label: "N-air",
-        axis_x: 0.0,
-        axis_y: 0.0,
-        button: Button::Attack,
-        airborne: true,
-    },
-    Verb {
-        verb: "attack_air_forward",
-        label: "F-air",
-        axis_x: 1.0,
-        axis_y: 0.0,
-        button: Button::Attack,
-        airborne: true,
-    },
-    Verb {
-        verb: "attack_air_back",
-        label: "B-air",
-        axis_x: -1.0,
-        axis_y: 0.0,
-        button: Button::Attack,
-        airborne: true,
-    },
-    Verb {
-        verb: "attack_air_up",
-        label: "U-air",
-        axis_x: 0.0,
-        axis_y: -1.0,
-        button: Button::Attack,
-        airborne: true,
-    },
-    Verb {
-        verb: "attack_air_down",
-        label: "D-air",
-        axis_x: 0.0,
-        axis_y: 1.0,
-        button: Button::Attack,
-        airborne: true,
-    },
-    Verb {
-        verb: "special",
-        label: "Neutral B",
-        axis_x: 0.0,
-        axis_y: 0.0,
-        button: Button::Special,
-        airborne: false,
-    },
-    Verb {
-        verb: "special_forward",
-        label: "Side B",
-        axis_x: 1.0,
-        axis_y: 0.0,
-        button: Button::Special,
-        airborne: false,
-    },
-    // ⭐ THE UP-B IS RECORDED FROM THE AIR, which is the only place it is the
-    // move Jon is asking about. A grounded up-B answers the same press and shows
-    // none of the recovery.
-    Verb {
-        verb: "special_up",
-        label: "Up B (airborne)",
-        axis_x: 0.0,
-        axis_y: -1.0,
-        button: Button::Special,
-        airborne: true,
-    },
-    Verb {
-        verb: "special_down",
-        label: "Down B",
-        axis_x: 0.0,
-        axis_y: 1.0,
-        button: Button::Special,
-        airborne: false,
-    },
-    Verb {
-        verb: "special_air_down",
-        label: "Down B (air)",
-        axis_x: 0.0,
-        axis_y: 1.0,
-        button: Button::Special,
-        airborne: true,
-    },
-    Verb {
-        verb: "grab",
-        label: "Grab",
-        axis_x: 0.0,
-        axis_y: 0.0,
-        button: Button::Grab,
-        airborne: false,
-    },
-    Verb {
-        verb: "taunt",
-        label: "Taunt",
-        axis_x: 0.0,
-        axis_y: 0.0,
-        button: Button::Taunt,
-        airborne: false,
-    },
-];
-
-/// How far the stick goes for a TILT.
-///
-/// ⛔⛔ THIS IS THE DIFFERENCE BETWEEN A TILT AND A SMASH, and driving `1.0`
-/// silently recorded the smash for every directional tilt — four takes that
-/// looked like working data. `resolve_attack_gesture` arms a flick at
-/// `flick_threshold` 0.8 and calls a press that matches a recent flick a SMASH;
-/// a magnitude above `directional_deadzone` 0.5 and below 0.8 is directional and
-/// never arms one, which is exactly what a tilt input is.
-const TILT_AXIS: f32 = 0.65;
-
-/// The press, aimed relative to the body's CURRENT facing.
-///
-/// ⛔⛔ `axis_x` IS "FORWARD", NOT "RIGHT", and driving it as a world direction
-/// recorded the forward air for every back-air take. `attack_dir_from_axis`
-/// resolves a press against `BodyKinematics::facing`, so a fighter that happened
-/// to be pointing left answered a left press with FORWARD — correctly, and the
-/// take reported it as a back-air. The facing is a fact the world publishes;
-/// this reads it rather than assuming the body starts pointing right.
-fn press(v: &Verb, edge: bool, facing: f32) -> ControlFrame {
-    let reach = if v.button == Button::Smash {
-        1.0
-    } else {
-        TILT_AXIS
-    };
-    let mut frame = ControlFrame {
-        axis_x: v.axis_x * reach * facing.signum(),
-        axis_y: v.axis_y * reach,
-        ..Default::default()
-    };
-    match v.button {
-        Button::Attack => {
-            frame.attack_pressed = edge;
-            frame.attack_held = true;
-        }
-        Button::Smash => {
-            frame.attack_pressed = edge;
-            frame.attack_held = true;
-            // The gesture that tells a tilt from a smash. Without it every
-            // "smash" take records the tilt, which looks like working data.
-            frame.attack_strong_hint = true;
-        }
-        Button::Special => {
-            frame.special_pressed = edge;
-            frame.special_held = true;
-        }
-        Button::Grab => frame.grab_pressed = edge,
-        Button::Taunt => frame.taunt_pressed = edge,
-    }
-    frame
-}
+#[path = "support/move_exercise.rs"]
+mod move_exercise;
+use move_exercise::{settle, step, VERBS};
 
 /// Everything one recorded tick says.
 #[derive(Default)]
@@ -290,6 +44,13 @@ struct Frame {
     facing: Option<f32>,
     /// The gesture the engine resolved from the press, e.g. `Back/Tilt/Airborne`.
     gesture: Option<String>,
+    /// Recorded bodies that carry NO `SimId`, by the label a reader would see.
+    ///
+    /// ⛔⛔ THE TAKE'S ORDERING AND JOIN CONTRACT ARE BUILT ON `SimId`, and a
+    /// body without one used to be written as `"id": null` and sorted under the
+    /// empty string — canonical-looking output whose ordering is query order.
+    /// ⇒ counted here, refused at the take.
+    unidentified: Vec<String>,
 }
 
 const USAGE: &str = "\
@@ -300,6 +61,10 @@ USAGE:
 
 OPTIONS:
     --characters ID,ID   comma-separated catalog ids to record
+                         `grid` (or `all`) records every fighter on the smash
+                         grid: 21 fighters at ~1m17 each is about 27 MINUTES
+                         (measured 2026-08-27, after the settle stopped
+                         serialising a frame to read three booleans)
                          [default: npc_pirate_admiral]
     --out PATH           where to write the takes
                          [default: tools/ambition_moveset_inspector/data/takes/takes.json]
@@ -313,7 +78,9 @@ NOTES:
 
     There is no positional argument; use --out.
 
-    Minutes per character: every take is a real match settled between presses.
+    ~1m17 per character, measured 2026-08-27. It was 7m08 until `settle`
+    stopped calling the full sampler — which built a JSON frame, and rebuilt the
+    catalog join, up to 480 times a take to read three booleans.
     Prints a `[presentation]` census at the end — see the docs for what its
     zeroes mean.
 ";
@@ -430,26 +197,36 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // ⭐ CHARACTER ID -> SHEET KEY, off the catalog the composed host loaded. The
     // catalog stores `sprites/<name>_spritesheet.png`; the baked sheet index is
     // keyed by the bare name, and that reduction is the join.
-    let sheet_keys: std::collections::HashMap<String, String> = world
-        .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
-        .map(|catalog| {
-            catalog
-                .data()
-                .characters
-                .iter()
-                .filter_map(|(id, entry)| {
-                    let base = entry
-                        .spritesheet
-                        .rsplit('/')
-                        .next()?
-                        .trim_end_matches(".png")
-                        .trim_end_matches("_spritesheet")
-                        .to_string();
-                    (!base.is_empty()).then(|| (id.clone(), base))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    //
+    // ⛔⛔ BUILT ONCE. This was rebuilt on EVERY `sample`, and `settle` calls
+    // `sample` up to 480 times per take -- roughly nine thousand rebuilds of a
+    // 48-entry map, each one re-splitting every catalog path, per character. The
+    // catalog cannot change during a run, so the map is a constant wearing a
+    // loop's clothes.
+    static SHEET_KEYS: std::sync::OnceLock<std::collections::HashMap<String, String>> =
+        std::sync::OnceLock::new();
+    let sheet_keys = SHEET_KEYS.get_or_init(|| {
+        world
+            .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
+            .map(|catalog| {
+                catalog
+                    .data()
+                    .characters
+                    .iter()
+                    .filter_map(|(id, entry)| {
+                        let base = entry
+                            .spritesheet
+                            .rsplit('/')
+                            .next()?
+                            .trim_end_matches(".png")
+                            .trim_end_matches("_spritesheet")
+                            .to_string();
+                        (!base.is_empty()).then(|| (id.clone(), base))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
 
     let mut bodies = world.query::<(
         Entity,
@@ -489,11 +266,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // mount as an empty box. `ActorConfig::sprite_character_id` is what the
         // renderer itself falls back to for exactly these bodies.
         Option<&ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+        // ⛔⛔ A RAW ENTITY ID IS NOT AN IDENTITY. The label fell back to
+        // `format!("{entity}")`, and an entity index depends on every spawn and
+        // despawn the whole app made first — so two runs of this binary labelled
+        // the SAME shark `1311v10` and `1329v6`, and a byte-diff of two
+        // recordings reported 15 of 19 takes as changed when their physics were
+        // identical to the last float. `SimId` is the engine's own stable
+        // identity, the one rollback remaps across a rewind.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let rows: Vec<_> = bodies
         .iter(world)
         .map(
-            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
+            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config, sim_id)| {
                 (
                     e,
                     (kin.pos.x, kin.pos.y),
@@ -521,6 +306,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                         ground.map(|g| g.on_ground),
                     ),
                     pose.is_some(),
+                    sim_id.map(|id| id.as_str().to_string()),
                 )
             },
         )
@@ -536,7 +322,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // collected every live hitbox and every projectile in the world. So a
     // hitless movement special could show a hitbox and a ranged move could
     // report more shots than it fires: the opponent's offence, credited to the
-    // subject (GPT 5.6, 2026-08-27).
+    // subject.
     //
     // ⭐ THE FIX IS PROVENANCE, NOT AN INERT OPPONENT. Both are still recorded —
     // the viewer wants to see what was happening — but each carries whose it is,
@@ -547,7 +333,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         .map(|(entity, ..)| *entity);
 
     for (
-        entity,
+        _entity,
         pos,
         vel,
         half,
@@ -561,6 +347,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         gesture,
         drawn,
         has_pose,
+        sim_id,
     ) in &rows
     {
         let subject = *seat == Some(subject_seat);
@@ -579,15 +366,41 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-                    .and_then(|(.., worn, _, _, _, _, _, _, _)| worn.clone())
-                    .unwrap_or_else(|| format!("{mount}"))
+                    .and_then(|row| row.6.clone())
+                    // ⛔ THE MOUNT'S STABLE ID, never its entity index: a raw
+                    // entity id is not an identity and makes two runs differ.
+                    .or_else(|| {
+                        rows.iter()
+                            .find(|(e, ..)| *e == mount)
+                            .and_then(|row| row.14.clone())
+                    })
+                    .unwrap_or_else(|| "<unidentified mount>".to_string())
             });
+        }
+        if sim_id.is_none() {
+            frame
+                .unidentified
+                .push(worn.clone().unwrap_or_else(|| "<unnamed body>".to_string()));
         }
         frame.bodies.push(serde_json::json!({
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
             "seat": seat,
-            "label": worn.clone().unwrap_or_else(|| format!("{entity}")),
+            // ⛔⛔ IDENTITY AND APPEARANCE ARE TWO FIELDS, NOT ONE. Preferring
+            // the worn character as a "label" cannot identify a body in this
+            // recording at all: the take deliberately seats TWO FIGHTERS WEARING
+            // THE SAME CHARACTER, so `npc_pirate_admiral` names both of them.
+            // `SimId` is the engine's deterministic identity, independent of
+            // Bevy entity allocation and ordered so snapshots can establish a
+            // canonical order.
+            "id": sim_id.clone(),
+            "character": worn.clone(),
+            // What a reader recognises, which is allowed to be ambiguous
+            // because it is not what anything joins on.
+            "label": worn
+                .clone()
+                .or_else(|| sim_id.clone())
+                .unwrap_or_else(|| "<unidentified body>".to_string()),
             // A summoned mount is neither a seat nor scenery, and a viewer that
             // could not tell it apart would draw the shark as another fighter.
             "kind": if *is_mount { "summon" } else if seat.is_some() { "fighter" } else { "body" },
@@ -627,21 +440,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         Option<&ambition_platformer2d::projectiles::ProjectileOwner>,
+        // ⛔ THE STABLE IDENTITY, for the same reason bodies carry one: the
+        // ORDER these arrive in is ECS query order, and a recording that two
+        // runs cannot compare byte-for-byte is one nothing can be diffed
+        // against.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let flying: Vec<_> = shots
         .iter(world)
-        .map(|(kin, shot, owner)| {
+        .map(|(kin, shot, owner, sim_id)| {
             (
                 kin.pos,
                 kin.vel,
                 kin.size,
                 shot.damage,
                 owner.map(|owner| owner.0),
+                sim_id.map(|id| id.as_str().to_string()),
             )
         })
         .collect();
-    for (pos, vel, size, damage, owner) in flying {
+    for (pos, vel, size, damage, owner, sim_id) in flying {
         frame.projectiles.push(serde_json::json!({
+            "id": sim_id,
             "pos": [pos.x, pos.y],
             "vel": [vel.x, vel.y],
             "half": [size.x * 0.5, size.y * 0.5],
@@ -652,9 +472,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         }));
     }
 
-    let mut hitboxes = world.query::<&ambition_platformer2d::combat::strike::Hitbox>();
-    let boxes: Vec<_> = hitboxes.iter(world).cloned().collect();
-    for hitbox in boxes {
+    // ⭐⭐ A HITBOX HAS ITS OWN IDENTITY. `advance_move_playback` inserts
+    // `SimId::strike_volume(owner, move, window, volume)` on the volume entity
+    // itself, and `StrikeRank { window, volume }` beside it. Sorting by owner +
+    // position + damage still tied whenever one owner's two volumes shared them
+    // — a multi-hit's mirrored pair does — and a tie falls back to ECS order,
+    // which is the thing being canonicalised.
+    let mut hitboxes = world.query::<(
+        &ambition_platformer2d::combat::strike::Hitbox,
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+        Option<&ambition_platformer2d::combat::moveset::StrikeRank>,
+    )>();
+    let boxes: Vec<_> = hitboxes
+        .iter(world)
+        .map(|(hitbox, id, rank)| {
+            (
+                hitbox.clone(),
+                id.map(|id| id.as_str().to_string()),
+                rank.map(|r| (r.window, r.volume)),
+            )
+        })
+        .collect();
+    for (hitbox, strike_id, rank) in boxes {
         let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
         // The SAME resolution the combat runtime uses, so a recorded box is the
         // box that could hit somebody rather than a redrawn approximation.
@@ -671,22 +510,32 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // uses, a viewer can draw it without knowing any shape, and keeping both
         // means an old take still renders.
         let shape = match hitbox.world_volume(at) {
-            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
-            ambition_platformer2d::engine_core::CombatVolume::Obb { center, half, rotation } => serde_json::json!({
+            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => {
+                serde_json::json!({ "kind": "aabb" })
+            }
+            ambition_platformer2d::engine_core::CombatVolume::Obb {
+                center,
+                half,
+                rotation,
+            } => serde_json::json!({
                 "kind": "obb",
                 "center": [center.x, center.y],
                 "half": [half.x, half.y],
                 "rotation": rotation,
             }),
-            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => serde_json::json!({
-                "kind": "circle",
-                "center": [center.x, center.y],
-                "radius": radius,
-            }),
-            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => serde_json::json!({
-                "kind": "convex",
-                "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
-            }),
+            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => {
+                serde_json::json!({
+                    "kind": "circle",
+                    "center": [center.x, center.y],
+                    "radius": radius,
+                })
+            }
+            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => {
+                serde_json::json!({
+                    "kind": "convex",
+                    "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
+                })
+            }
         };
         frame.hitboxes.push(serde_json::json!({
             "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
@@ -696,8 +545,71 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.
             "subject_owned": Some(hitbox.owner) == subject_entity,
+            // ⭐ THE VOLUME'S OWN IDENTITY. `advance_move_playback` inserts
+            // `SimId::strike_volume(owner, move, window, volume)` on the volume
+            // entity itself, so a strike is identified rather than merely
+            // attributed. ⛔ THE FALLBACK IS OWNER-QUALIFIED: a
+            // bare `strike(window 1, volume 0)` names one volume of EVERY
+            // unidentified owner, and an `id` that identifies two different
+            // things is worse than an absent one.
+            "id": strike_id.clone().or_else(|| {
+                let owner = rows
+                    .iter()
+                    .find(|(e, ..)| *e == hitbox.owner)
+                    .and_then(|row| row.14.clone())?;
+                rank.map(|(window, volume)| format!("{owner}/strike/w{window}/v{volume}"))
+            }),
+            // Provenance, not identity: whose swing this is.
+            "owner_id": rows
+                .iter()
+                .find(|(e, ..)| *e == hitbox.owner)
+                .and_then(|row| row.14.clone()),
         }));
     }
+
+    // ⛔⛔ SORTED BY STABLE IDENTITY BEFORE IT IS WRITTEN. Removing entity numbers
+    // from the strings is not enough to promise byte-stable JSON: the ORDER of
+    // these rows is Bevy query iteration order, which is archetype order, which
+    // changes when anything about component composition changes. A recording
+    // that two runs cannot compare byte-for-byte is a recording nothing can be
+    // diffed against.
+    frame.bodies.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["label"].as_str().unwrap_or("").to_string(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    // ⛔⛔ POSITION AND DAMAGE ARE NOT AN IDENTITY. Two volumes of one move can
+    // share both — a multi-hit's mirrored pair does — and ties then fall back to
+    // ECS query order, which is the thing being canonicalised. The owner's
+    // stable id leads the key, and geometry only breaks ties within one owner.
+    // ⭐ BY THE VOLUME'S OWN ID. Geometry only breaks ties among strikes that
+    // carry no derived identity at all.
+    frame.hitboxes.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["owner_id"].as_str().unwrap_or("").to_string(),
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+                v["damage"].as_i64().unwrap_or_default(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    frame.projectiles.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
 
     frame
 }
@@ -733,7 +645,7 @@ fn platforms(app: &mut App) -> Vec<serde_json::Value> {
 /// admiral off the stage: the recording showed a body frozen below the floor
 /// with `grounded: false` forever, and the press went to somebody who was not
 /// there. The settle can detect that state; only a re-seat can fix it.
-fn reseat(app: &mut App, character: &str) {
+fn reseat(app: &mut App, character: &str) -> bool {
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster([character, character]));
     app.world_mut()
@@ -742,14 +654,19 @@ fn reseat(app: &mut App, character: &str) {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
+    // ⛔⛔ STAGING IS A POSTCONDITION, NOT A DURATION. This spent a fixed 240
+    // updates and returned nothing, so a route that did not come up or a
+    // character the host could not build meant recording a whole moveset off an
+    // EMPTY STAGE in that character's name. The 240 stay as a ceiling rather
+    // than the answer, and the common case got faster: the loop ends the moment
+    // the subject is there.
     for _ in 0..240 {
         app.update();
+        if move_exercise::subject(app).is_some() {
+            return true;
+        }
     }
-}
-
-/// `verb -> move id` for one character, read from the composed host.
-fn verb_table(app: &mut App, character: &str) -> std::collections::BTreeMap<String, String> {
-    moveset_of(app, character).map_or_else(Default::default, |set| set.verbs)
+    false
 }
 
 /// This fighter's repertoire, as the host prepared it.
@@ -758,7 +675,7 @@ fn moveset_of(
     character: &str,
 ) -> Option<ambition_platformer2d::entity_catalog::MovesetContract> {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
         .and_then(|prepared| prepared.kit.projectable_moveset())
         .cloned()
@@ -779,87 +696,25 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
         })
 }
 
-/// The move a verb is bound to, or `None` when the fighter binds nothing there
-/// (an unbound slot is answered by the directional chain, and whatever it
-/// reaches is the right answer rather than a mismatch).
-fn intended_move<'a>(
-    bound: &'a std::collections::BTreeMap<String, String>,
-    verb: &str,
-) -> Option<&'a str> {
-    bound.get(verb).map(String::as_str)
-}
-
-fn drive(app: &mut App, frame: ControlFrame) {
-    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
-    app.update();
-}
-
-/// Jump, and wait until the world says the body has left the ground.
+/// Sample the world and append it to a take, reporting any body it could not
+/// identify.
 ///
-/// ⛔ ASK, DO NOT COUNT. A fixed wait recorded `attack_air_down` as `smash_down`
-/// and `attack_air_up` as nothing at all, because the press landed on a body the
-/// engine still called grounded and the directional chain walked past every
-/// aerial. The ground state is a fact the world publishes.
-fn ensure_airborne(app: &mut App) -> bool {
-    if sample(app.world_mut(), 0).grounded == Some(false) {
-        return true;
-    }
-    drive(
-        app,
-        ControlFrame {
-            jump_pressed: true,
-            jump_held: true,
-            ..Default::default()
-        },
-    );
-    for _ in 0..40 {
-        drive(
-            app,
-            ControlFrame {
-                jump_held: true,
-                ..Default::default()
-            },
-        );
-        if sample(app.world_mut(), 0).grounded == Some(false) {
-            return true;
-        }
-    }
-    false
-}
-
-/// Wait for a body that is idle, not riding anything, and standing IF IT CAN.
+/// ⛔⛔ THE CALLER MUST NOT WRITE A TAKE THAT REPORTED ONE. `SimId` is what the
+/// bundle joins and orders on, and a body without one was written as
+/// `"id": null` and sorted under the empty string — so its position in a
+/// "byte-stable, canonical" recording was query order wearing a contract's
+/// clothes. `ensure_sim_id` covers authored placements and the primary player
+/// only; its own doc says a dynamically spawned body stays unidentified unless
+/// its spawn site mints an id, so this is reachable rather than theoretical.
 ///
-/// ⛔⛔ NOT EVERY FIGHTER CAN STAND. `player_robot_v3` can FLY, and a flying body
-/// is never grounded by construction (`integration.rs`: *"a flying body is never
-/// grounded — the collision sweep can still find support under a hovering
-/// flyer"*). A settle that demanded `grounded` therefore never succeeded for it:
-/// every take re-seated, timed out again, and started from whatever the last one
-/// left behind — which is why the robot's grounded forward tilt was recorded as
-/// its FORWARD AIR and both of its specials as producing nothing. Three findings
-/// from one condition that could not hold.
-///
-/// So the ground is required only of a body that has been seen standing. A
-/// fighter that never reports support settles on "idle and unencumbered", which
-/// is the strongest true statement available about it.
-fn settle(app: &mut App) -> bool {
-    let mut ever_stood = false;
-    for _ in 0..SETTLE_LIMIT {
-        drive(app, ControlFrame::default());
-        let now = sample(app.world_mut(), 0);
-        ever_stood |= now.grounded == Some(true);
-        if now.move_id.is_some() || now.riding.is_some() {
-            continue;
-        }
-        if now.grounded == Some(true) || !ever_stood {
-            return true;
-        }
-    }
-    false
-}
-
-/// Sample the world and append it to a take.
-fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
+/// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong as
+/// a licence for the recorder: what an old file may contain does not define what
+/// a new one may emit. Measured on the admiral: 8202/8202 bodies and 166/166
+/// strikes already identified, so this refuses a regression rather than
+/// demanding something new.
+fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) -> Vec<String> {
     let frame = sample(app.world_mut(), 0);
+    let unidentified = frame.unidentified.clone();
     frames.push(serde_json::json!({
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
@@ -872,6 +727,7 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
         "gesture": frame.gesture,
         "riding": frame.riding,
     }));
+    unidentified
 }
 
 fn main() {
@@ -900,16 +756,63 @@ fn main() {
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());
-    let who: Vec<String> = arg("--characters")
-        .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
-        .unwrap_or_else(|| vec!["npc_pirate_admiral".to_string()]);
+    let asked = arg("--characters");
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.add_plugins(bevy::log::LogPlugin::default());
+    // ⭐⭐ THE CLOCK IS OURS FROM HERE. Without this the rollback host advances
+    // from a WALL-CLOCK accumulator, so one `app.update()` runs zero, one or
+    // several sim ticks depending on how long the previous iteration took —
+    // which made `TAKE_TICKS = 150` mean 150 LOOP ITERATIONS, made a recording
+    // cost at least as much real time as the game time it contained, and made
+    // two runs of this binary disagree on 13 of 19 takes.
+    // ⭐ THE ENGINE'S OWN MANUAL-STEP CONTRACT, not a private one. See
+    // `ambition_platformer2d::app::manual_step_period`: the two simulation hosts
+    // need periods that differ by one nanosecond, and a driver that computed its
+    // own would be silently wrong under one of them.
+    //
+    // ⭐ THE APP ANSWERS WHICH HOST IT HAS. This passed a literal `true` under a
+    // comment admitting the app should know; `SimulationHost` is a resource and
+    // was already the canonical answer, so the caller had no business having an
+    // opinion about it.
+    ambition_platformer2d::sim::enable_manual_stepping(&mut app);
     for _ in 0..30 {
         app.update();
     }
+
+    // ⭐⭐ `--characters grid` RECORDS THE WHOLE SMASH GRID, and it is the flag
+    // this tool should always have had. The default of one fighter made the
+    // inspector's take view look broken — *"There are 2 fighters now, why not
+    // them all?"* — because the picker lists what was RECORDED and recording is
+    // opt-in per name. Nobody should have to type twenty-one ids to answer a
+    // roster-wide question that a balance tool exists to answer.
+    //
+    // ⛔ THE GRID, NOT THE WHOLE CAST. The registry holds 48 prepared characters
+    // and most are NPCs with no moveset; the grid is the set a player can pick,
+    // which is the set a balance view is about.
+    let who: Vec<String> = match asked.as_deref() {
+        Some("grid") | Some("all") => {
+            let registry = app
+                .world()
+                .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+                .expect("the composed host has a prepared-character registry");
+            ambition_demo_smash::select::SmashRoster::assemble(registry)
+                .ids()
+                .map(|id| id.to_string())
+                .collect()
+        }
+        Some(list) => list.split(',').map(|x| x.trim().to_string()).collect(),
+        None => vec!["npc_pirate_admiral".to_string()],
+    };
+    // ⛔ SAY HOW LONG THIS WILL TAKE. Every take settles a real match between
+    // presses, so a grid run is tens of minutes — and a tool that goes quiet for
+    // half an hour without saying so reads as hung.
+    eprintln!(
+        "[moveset-takes] recording {} character(s): {}",
+        who.len(),
+        who.join(", ")
+    );
 
     let mut takes = Vec::new();
 
@@ -919,10 +822,7 @@ fn main() {
         // inspector claims to be showing.
         reseat(&mut app, character);
         let stage = platforms(&mut app);
-        // The fighter's own verb table, so a take can say which move the press
-        // was SUPPOSED to reach rather than only which one came out.
-        let bound = verb_table(&mut app, character);
-        // And its whole repertoire, so a take can ask what the move it played
+        // The fighter's whole repertoire, so a take can ask what the move it played
         // AUTHORS and check its own recording against that. See
         // `authors_offense`.
         let repertoire = moveset_of(&mut app, character);
@@ -939,82 +839,73 @@ fn main() {
             // ⛔ IT COSTS 240 TICKS PER TAKE and is worth every one: an
             // instrument whose answer depends on what ran before it is not
             // measuring the thing it names.
-            reseat(&mut app, character);
-            let settled = settle(&mut app);
-            if !settled {
+            // ⛔⛔ A STAGE WITH NOBODY ON IT IS NOT A QUIET ONE. A route that
+            // did not come up, or a character the host could not build, would
+            // otherwise record a whole moveset against an empty stage under that
+            // character's name.
+            if !reseat(&mut app, character) {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - no fighter reached seat zero",
+                    verb.verb
+                );
+                continue;
+            }
+            if !settle(&mut app) {
                 println!(
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \
                      even after a re-seat; read this take with that in mind",
                     verb.verb
                 );
             }
-            if verb.airborne {
-                // ⛔⛔ AIRBORNE AT THE PRESS, CHECKED AT THE PRESS. Jumping and
-                // then doing anything else is not the same claim: an aim settle,
-                // a fast-fall, or simply a short hop meant the body was standing
-                // again by the time the button went down, and the take recorded
-                // the grounded move under the aerial's name. So the takeoff and
-                // the aim settle are one loop that ends only when the body is
-                // both airborne and pointing the right way.
-                let mut ready = false;
-                for _attempt in 0..3 {
-                    if !ensure_airborne(&mut app) {
-                        continue;
-                    }
-                    // Settle a HORIZONTAL aim only: a back-air driven the tick
-                    // the stick reversed resolves as FORWARD, because
-                    // `resolve_attack_gestures` reads `-facing` while a
-                    // turnaround runs (the pivot rule, which is correct and is
-                    // why a pivot grab needs no move of its own). Holding DOWN
-                    // for the same settle would fast-fall back to the floor.
-                    if verb.axis_x != 0.0 {
-                        for _ in 0..8 {
-                            let aim = sample(app.world_mut(), 0).facing.unwrap_or(1.0);
-                            drive(
-                                &mut app,
-                                ControlFrame {
-                                    axis_x: verb.axis_x * TILT_AXIS * aim.signum(),
-                                    ..Default::default()
-                                },
-                            );
-                        }
-                    }
-                    if sample(app.world_mut(), 0).grounded == Some(false) {
-                        ready = true;
-                        break;
-                    }
-                }
-                if !ready {
-                    println!(
-                        "[take] {character:<24} {:<16} WARNING - could not be airborne at the \
-                         press; this take records the GROUNDED answer to that button",
-                        verb.verb
-                    );
-                }
+            // ⭐⭐ ONE PREPARATION, SHARED WITH THE RENDERER. This had its own
+            // take-off loop, its own aim settle and its own retry count, so
+            // "perform a back air" meant one thing here and another in
+            // `moveset_render` — and only this one was ever tested. See
+            // `move_exercise::prepare`, which is this algorithm promoted.
+            let prepared = move_exercise::prepare(&mut app, verb);
+            if !prepared {
+                println!(
+                    "[take] {character:<24} {:<16} WARNING - could not be airborne at the \
+                     press; this take records the GROUNDED answer to that button",
+                    verb.verb
+                );
             }
             let mut frames: Vec<serde_json::Value> = Vec::new();
-            let facing = sample(app.world_mut(), 0).facing.unwrap_or(1.0);
-            drive(&mut app, press(verb, true, facing));
+            // Every body this take could not identify, collected across its ticks.
+            let mut unidentified: std::collections::BTreeSet<String> = Default::default();
+            let facing = move_exercise::facing_of(&mut app);
+            // ⛔⛔ THE SCHEDULE IS `move_exercise::action_frame`, AND NOTHING
+            // ELSE DECIDES IT. This held while `tick < TAKE_TICKS / 4` and the
+            // renderer while `shot < frames / 4`, which happened to agree at 37
+            // and would have drifted the moment either tool changed how much it
+            // records. What the player does is not the recorder's business.
+            step(&mut app, move_exercise::action_frame(verb, 0, facing));
             // ⛔ THE PRESS TICK IS FRAME ZERO. `ResolvedAttackGesture::pressed`
             // is set on the press tick and cleared after, so a recording that
             // started one tick later showed `gesture: null` on every frame of
             // every take — the one field that says what the engine understood
             // the input to be, absent from all of them.
-            record(&mut app, &mut frames);
+            unidentified.extend(record(&mut app, &mut frames));
             for tick in 1..TAKE_TICKS {
-                // A charge move releases when the button comes up. Half the take
-                // held, half released, so both the hold and the payoff are on
-                // the recording.
-                let held = tick < TAKE_TICKS / 4;
-                drive(
-                    &mut app,
-                    if held {
-                        press(verb, false, facing)
-                    } else {
-                        ControlFrame::default()
-                    },
+                step(&mut app, move_exercise::action_frame(verb, tick, facing));
+                unidentified.extend(record(&mut app, &mut frames));
+            }
+
+            // ⛔⛔ A TAKE WITH AN UNIDENTIFIED BODY IS NOT CANONICAL, so it is not
+            // written. Its row order would be query order, and the bundle joins
+            // on `SimId` — a reader comparing two recordings would see changes
+            // that are allocation order rather than physics. The message names
+            // the body so the fix is at ITS SPAWN SITE, which is the only place
+            // that can mint the id.
+            if !unidentified.is_empty() {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - {} recorded \
+                     without a SimId, so this take cannot be ordered or joined; \
+                     mint one at that body's spawn site",
+                    verb.verb,
+                    unidentified.iter().cloned().collect::<Vec<_>>().join(", ")
                 );
-                record(&mut app, &mut frames);
+                continue;
             }
 
             let moves: std::collections::BTreeSet<String> = frames
@@ -1048,8 +939,8 @@ fn main() {
             // a move recorded in a game nobody plays — and that opponent SWINGS
             // AND FIRES. Before `subject_owned` existed, its offence was counted
             // as the subject's, so a hitless movement special reported a hitbox
-            // and a ranged move reported more shots than it fires (GPT 5.6,
-            // 2026-08-27). Several of that review's quantitative conclusions were
+            // and a ranged move reported more shots than it fires
+            //. Several of that review's quantitative conclusions were
             // wrong for that structural reason rather than a balance one.
             //
             // ⛔ THE INDEPENDENT ANSWER IS THE AUTHORING. A move whose windows
@@ -1130,16 +1021,24 @@ fn main() {
                 (x0, y0, x1, y1) = (-320.0, -240.0, 320.0, 240.0);
             }
 
-            // ⛔⛔ THE TAKE SAYS WHETHER IT REACHED THE MOVE IT DROVE. Eighteen
-            // of nineteen verbs do; `attack_air_back` does not, and that is an
-            // ENGINE finding rather than a driver one — the recorded gesture
-            // reads `Forward/Tilt/Airborne`, so the fighter turned to face the
-            // back input before the press was read, and the back air is
-            // unreachable for every fighter in the cast. Reporting it as "the
-            // forward air, under the back air's name" is what a tool that
-            // silently relabels its own failures does.
-            let intended = intended_move(&bound, verb.verb);
-            let reached = intended.is_none_or(|id| moves.contains(id));
+            // ⛔⛔ THE TAKE SAYS WHETHER IT REACHED THE MOVE IT DROVE, which is
+            // the whole reason it can be trusted. `attack_air_back` was the
+            // standing counter-example — the recorded gesture read
+            // `Forward/Tilt/Airborne`, so the fighter turned to face the back
+            // input before the press was read — and the horizontal aim settle in
+            // `move_exercise::prepare` closed it: measured 2026-08-28, all
+            // seventeen bound verbs on the admiral reach their move and the
+            // eighteenth, `special_air_down`, reports UNBOUND rather than
+            // crediting itself with the down-B the chain answered with.
+            // ⛔⛤ ONE VOCABULARY WITH THE RENDERER. This said
+            // `intended.is_none_or(|id| moves.contains(id))`, so an UNBOUND verb
+            // was a SUCCESS — while `moveset_render` called the same press a
+            // mismatch. The diagnostic panel and the engine panel beside it could
+            // therefore disagree about the same input. `Outcome` has four answers
+            // and none of them collapse into another.
+            let intended = move_exercise::intended_move(&mut app, character, verb.verb);
+            let verdict = move_exercise::outcome(prepared, intended.as_deref(), &moves);
+            let reached = verdict.reached();
             println!(
                 "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}",
                 verb.verb,
@@ -1148,8 +1047,9 @@ fn main() {
                     String::new()
                 } else {
                     format!(
-                        " MISMATCH: drove {} but the engine played {:?}",
-                        intended.unwrap_or("?"),
+                        " {}: drove {} but the engine played {:?}",
+                        verdict.as_str().to_uppercase(),
+                        intended.as_deref().unwrap_or("<unbound>"),
                         moves
                     )
                 }
@@ -1174,6 +1074,12 @@ fn main() {
                 "opponent_output": opponent_output,
                 "intended_move": intended,
                 "reached_intended_move": reached,
+                // ⭐ WHICH KIND OF "no" it was. `reached: false` covers a verb
+                // this fighter does not bind, a press that reached another move,
+                // and a posture that could not be established — three different
+                // things to a reader and to the viewer.
+                "outcome": verdict.as_str(),
+                "prepared": prepared,
                 "frames": frames,
             }));
         }

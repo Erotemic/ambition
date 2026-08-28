@@ -119,6 +119,8 @@ pub(crate) fn update_body_control_in_frame(
     control_dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
+    // Somebody else owns this body's pose — see `PoseOwnedExternally`.
+    pose_owned_externally: bool,
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
 
@@ -202,30 +204,52 @@ pub(crate) fn update_body_control_in_frame(
         &mut events,
     );
 
-    abilities::apply_dodge(
-        clusters.kinematics,
-        clusters.dodge,
-        state,
-        clusters.ground,
-        clusters.abilities,
-        clusters.combo_trace,
-        input,
-        frame,
-        tuning,
-        &mut events,
-    );
+    // ⛔⛔ A CONSTRAINED BODY DOES NOT SPEND A BUFFERED MANEUVER, and the buffer
+    // is why clearing this tick's verbs was not enough. `step_body` zeroes the
+    // stick and the movement verbs before the kernel sees them — but an evade
+    // and a dash are spent out of `AxisManeuverState::buffer_burst`, which is a
+    // press made EARLIER that stays spendable, so a press made on the floor a
+    // moment before the saddle took the body was still spent inside it.
+    // Measured on the pirate's shark: guard and a direction held through the
+    // ride, and the air dodge went on MOUNTED TICK 2, airborne, at the exact
+    // cost `step_body`'s own comment says this rule exists to prevent — a snap
+    // fixes a position, not a spent evade.
+    //
+    // ⛔ FORBIDDEN, NOT ERASED. The buffer is input memory; dropping it would
+    // swallow a press the player made and is entitled to have honoured the tick
+    // the constraint lets go. This refuses the SPEND and leaves the window to
+    // expire on its own clock, which is what an unspendable press does
+    // everywhere else.
+    //
+    // ⭐ THE GUARD AND THE JUMP RELEASE STILL RUN. Raising a shield spends
+    // nothing, and a rider swinging from the saddle is the whole point of the
+    // marker not being `out_of_play`.
+    if !pose_owned_externally {
+        abilities::apply_dodge(
+            clusters.kinematics,
+            clusters.dodge,
+            state,
+            clusters.ground,
+            clusters.abilities,
+            clusters.combo_trace,
+            input,
+            frame,
+            tuning,
+            &mut events,
+        );
 
-    abilities::apply_dash(
-        clusters.kinematics,
-        clusters.dash,
-        state,
-        clusters.abilities,
-        clusters.combo_trace,
-        input,
-        frame,
-        tuning,
-        &mut events,
-    );
+        abilities::apply_dash(
+            clusters.kinematics,
+            clusters.dash,
+            state,
+            clusters.abilities,
+            clusters.combo_trace,
+            input,
+            frame,
+            tuning,
+            &mut events,
+        );
+    }
 
     abilities::apply_shield(
         clusters.shield,
@@ -688,6 +712,8 @@ pub(crate) fn update_body_with_frame_clusters(
     // See `MotionStepContext::recovery_commitment_outstanding`: the grounded
     // refresh below may not answer for a recovery whose move is still running.
     recovery_commitment_outstanding: bool,
+    // See `PoseOwnedExternally`: a constrained body spends no buffered maneuver.
+    pose_owned_externally: bool,
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
@@ -699,8 +725,16 @@ pub(crate) fn update_body_with_frame_clusters(
     } else {
         raw_dt
     };
-    let mut events =
-        update_body_control_in_frame(world, clusters, state, input, control_dt, frame, tuning);
+    let mut events = update_body_control_in_frame(
+        world,
+        clusters,
+        state,
+        input,
+        control_dt,
+        frame,
+        tuning,
+        pose_owned_externally,
+    );
     let baseline = if clusters.ground.contact_initialized {
         entry_baseline
     } else {

@@ -102,6 +102,32 @@ pub fn update_body_mode(
                     )
             );
         let mode = body_mode_state.body_mode;
+        // ⛔⛔ A MODE THIS DRIVER DOES NOT OWN MUST SURVIVE IT. The tail of this
+        // function resolves Standing-or-Crouching from the stick and writes it
+        // UNCONDITIONALLY, so any mode that reaches the tail is deleted one tick
+        // after whatever set it. `Climbing` and `MorphBall` escape only because
+        // they have arms of their own below; `Submerged` had none, so the
+        // Actor's trapdoor put her under the stage and this driver stood her
+        // back up on the very next tick — drawn, hittable, gravity restored, and
+        // blinking i-frames for a second while she stood on the boards she had
+        // just dropped through.
+        //
+        // The match is EXHAUSTIVE so the next mode added answers the question
+        // here rather than in a screenshot.
+        match mode {
+            // Postures this driver resolves from input, in its tail.
+            ae::BodyMode::Standing
+            | ae::BodyMode::Crouching
+            | ae::BodyMode::Crawling
+            | ae::BodyMode::Sliding => {}
+            // Modes with their own entry and exit arms further down.
+            ae::BodyMode::MorphBall | ae::BodyMode::Climbing => {}
+            // A MOVE owns this one end to end: the trapdoor's sink beat sets it
+            // and the same move's surfacing beat clears it. Nothing the stick
+            // says may end it — the same rule the mid-action guards above state
+            // for a dash.
+            ae::BodyMode::Submerged => continue,
+        }
         let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
         let climbable_contact_present = env_contact.climbable.is_some();
 

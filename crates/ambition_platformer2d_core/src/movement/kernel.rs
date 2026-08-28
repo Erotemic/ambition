@@ -212,6 +212,7 @@ pub fn step_motion(
                 ctx.dt,
                 ctx.contact,
                 ctx.recovery_commitment_outstanding,
+                ctx.pose_owned_externally,
             );
             MotionStepResult::from_events(events, ctx.frame)
         }

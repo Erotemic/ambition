@@ -16,6 +16,7 @@
 //! resolved [`action_set::ActionRequest`].
 
 pub mod action_set;
+pub mod attack_kit;
 pub mod boss_pattern;
 /// The advanced fighter brain (fighter-brain.md): L1's situation classifier today.
 pub mod fighter;
@@ -97,9 +98,14 @@ impl Brain {
 
     // ⛔⛔ `Brain::tick` AND `Brain::tick_with_actions` ARE GONE, and their
     // absence is the point. They were a match over every variant, so behaviour
-    // placement followed the enum: three of the twelve arms are 22k lines of
-    // platform-fighter and boss thinking whose destination is a crate ABOVE this
-    // one, and a dispatcher living here could never call upward (D168).
+    // placement followed the enum: three of the twelve arms are platform-fighter
+    // and boss thinking whose destination is a crate ABOVE this one, and a
+    // dispatcher living here could never call upward (D168).
+    //
+    // ⚠ the three arms are 5,399 lines with tests — fighter 3,596, boss_pattern
+    // 1,218, smash 585 — and the argument does not depend on the figure: a
+    // dispatcher here cannot call upward at any size. ⛔ so do not price the
+    // carve from a number in a comment; measure it.
     //
     // ⭐ THE SPLIT, not a move. `state_machine::tick_simple_state_machine`
     // answers the nine ordinary NPC arms — this crate's own business — and says

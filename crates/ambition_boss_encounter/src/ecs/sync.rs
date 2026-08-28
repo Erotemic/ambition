@@ -2,16 +2,22 @@
 //! read-model components, derive sprite metrics + render targets, and build the
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
-use super::super::*;
+use ambition_sprite_sheet::ActorSpriteMetrics;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
+// whole `features/ecs` module — a channel a `crate::` grep cannot see, and
+// the reason a carve estimate needs more than an import count. Measured by
+// deleting it: everything it actually supplied was bevy's prelude and
+// `WorldTime`, and NO monolith vocabulary at all.
 use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
+use ambition_platformer2d_core as ae;
+use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
-use ambition_boss_encounter::behavior::ActorSpriteMetrics;
-use ambition_boss_encounter::attack_geometry::bounding_aabb;
+use crate::attack_geometry::bounding_aabb;
 use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::Commands;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Marker that a boss entity has had its sprite metrics applied
 /// (once-per-boss derivation gate). Inserted by
@@ -33,9 +39,7 @@ pub struct BossSpriteMetricsApplied;
 ///
 /// The liveness the caller now writes in place is the last derived fact this
 /// produced, and AC3.1.A deletes even that.
-pub fn boss_component_snapshot(
-    boss: ambition_boss_encounter::BossRef<'_>,
-) -> (ActorIdentity, ActorDisposition) {
+pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, ActorDisposition) {
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
@@ -49,7 +53,7 @@ pub fn boss_component_snapshot(
 pub fn sync_boss_actor_components(
     mut bosses: Query<
         (
-            ambition_boss_encounter::BossClusterRef,
+            crate::BossClusterRef,
             &BossAttackState,
             &ambition_characters::brain::ActionSet,
             &mut CombatKit,
@@ -76,9 +80,7 @@ pub fn sync_boss_actor_components(
 /// clockwork_warden / gradient_sentinel share the generic `"boss"` sheet,
 /// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"` — each
 /// authored in `boss_profiles.ron`. The engine names no boss here.
-pub fn sprite_target_for_boss(
-    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
-) -> &str {
+pub fn sprite_target_for_boss(behavior: &crate::pattern::profile::BossBehaviorProfile) -> &str {
     behavior.sprite_target.as_deref().unwrap_or(&behavior.id)
 }
 
@@ -97,8 +99,8 @@ pub fn sprite_target_for_boss(
 /// `boss.size`) — that's the safe "no sprite spec known" case used
 /// by test fixtures and bosses without a registered sheet.
 pub fn sprite_render_size_for(
-    catalog: &ambition_boss_encounter::BossCatalog,
-    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
+    catalog: &crate::BossCatalog,
+    behavior: &crate::pattern::profile::BossBehaviorProfile,
     boss_size: ae::Vec2,
 ) -> ae::Vec2 {
     let spec = catalog.sheet_for_behavior(behavior);
@@ -126,14 +128,10 @@ pub fn sprite_render_size_for(
 /// stale 64×80 spawn AABB).
 pub fn derive_boss_sprite_metrics(
     mut commands: Commands,
-    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
+    boss_catalog: Res<crate::BossCatalog>,
     registry: Option<Res<SheetRegistry>>,
     mut bosses: Query<
-        (
-            Entity,
-            ambition_boss_encounter::BossClusterQueryData,
-            Option<&mut Brain>,
-        ),
+        (Entity, crate::BossClusterQueryData, Option<&mut Brain>),
         (With<FeatureSimEntity>, Without<BossSpriteMetricsApplied>),
     >,
 ) {
@@ -197,23 +195,22 @@ pub fn derive_boss_sprite_metrics(
 /// renderer so boss combat geometry can be verified in a room without
 /// launching the game; live combat uses the ECS path.
 pub fn boss_spawn_hurtboxes(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
+    boss_catalog: &crate::BossCatalog,
     id: &str,
     name: &str,
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
 ) -> Vec<ae::CombatVolume> {
     let registry = ambition_sprite_sheet::baked_sheet_registry();
-    let mut boss =
-        ambition_boss_encounter::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
+    let mut boss = crate::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
     if let Some((metrics, _)) =
         boss_sprite_metrics_from_registry(boss_catalog, boss.as_ref(), &registry)
     {
         boss.status.sprite_metrics = Some(metrics);
     }
     let attack_state = ambition_characters::brain::BossAttackState::default();
-    ambition_boss_encounter::attack_geometry::damageable_volumes(
-        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+    crate::attack_geometry::damageable_volumes(
+        &crate::attack_geometry::BossVolumeContext::from_ref(
             boss_catalog,
             boss.as_ref(),
             &attack_state,
@@ -222,8 +219,8 @@ pub fn boss_spawn_hurtboxes(
 }
 
 pub(crate) fn boss_sprite_metrics_from_registry(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
-    boss: ambition_boss_encounter::BossRef<'_>,
+    boss_catalog: &crate::BossCatalog,
+    boss: crate::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
     let target = sprite_target_for_boss(&boss.config.behavior);
@@ -241,7 +238,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
         combat_offset: ae::Vec2::ZERO,
         animations: metrics.animations.clone(),
     };
-    let body_aabbs = ambition_boss_encounter::attack_geometry::world_space_body_aabbs_from_parts(
+    let body_aabbs = crate::attack_geometry::world_space_body_aabbs_from_parts(
         &snapshot.body_pixel_parts,
         snapshot.body_pixel_bbox,
         frame_w,
@@ -258,7 +255,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 
 #[cfg(test)]
 mod boss_combat_rebuild_contract {
-    use super::*;
+    use ambition_characters::actor::BodyCombat;
 
     /// EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.
     ///

@@ -1,11 +1,16 @@
-use ambition_characters::brain::boss_pattern::BossAttackProfile;
 use super::*;
+use ambition_characters::brain::boss_pattern::BossAttackProfile;
+// ⛔ NAMED, because this fixture used to live INSIDE `ambition_boss_encounter`
+// and reached these through `use super::*`. It came back to sit beside the
+// `ActorClusterSeed` it builds, which the monolith still owns.
+use ambition_boss_encounter::attack_moveset::boss_attack_moveset;
+use ambition_boss_encounter::behavior::BossBehaviorProfile;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::brain::boss_pattern::BossAttackPattern;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_combat::events::FeatureCombatTuning;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
-use ambition_characters::brain::boss_pattern::BossAttackPattern;
 
 fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
@@ -38,7 +43,7 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
 /// `damageable_volumes` use this so the head invariants stay
 /// pinned even though gnu_ton_runtime doesn't go through
 /// `derive_boss_sprite_metrics`.
-fn gnu_ton_sprite_metrics_fixture() -> ambition_boss_encounter::behavior::ActorSpriteMetrics {
+fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
     use std::collections::HashMap;
     let head_rest = NamedPixelRect {
@@ -93,7 +98,7 @@ fn gnu_ton_sprite_metrics_fixture() -> ambition_boss_encounter::behavior::ActorS
     let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
     animations.insert("rest".to_string(), rest_entry);
     animations.insert("gnu_head_descent".to_string(), descent_entry);
-    ambition_boss_encounter::behavior::ActorSpriteMetrics {
+    ambition_sprite_sheet::ActorSpriteMetrics {
         frame_width: 768,
         frame_height: 576,
         body_pixel_bbox: None,
@@ -239,7 +244,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // exactly one head AABB.
     let boss = gnu_ton_runtime();
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
-    let rest_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+    let rest_head = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
@@ -260,7 +265,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     );
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
-    let descent_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+    let descent_head = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
@@ -531,7 +536,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `integrate_boss_bodies` → `ActorMut::update`, direct-velocity). This
     // exercises the flight-limb wall-collision sweep — the same guard the old
     // bespoke float had — over the REAL integration a boss now uses.
-    let mut seed = super::super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut seed = super::actor_clusters::ActorClusterSeed::new(
         "test_warden",
         "Clockwork Warden",
         aabb,
@@ -548,11 +553,8 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     seed.config.tuning.max_run_speed = 1200.0;
     seed.config.tuning.flight_direct_velocity = true;
     // A floating boss: is_aerial forces flight into the body's movement kit.
-    seed.body = super::super::ecs::actor_clusters::ActorBody::from_kit(
-        ae::AbilitySet::NONE,
-        true,
-        seed.kin.size,
-    );
+    seed.body =
+        super::actor_clusters::ActorBody::from_kit(ae::AbilitySet::NONE, true, seed.kin.size);
     let behavior = BossBehaviorProfile::clockwork_warden();
     // World: a wall at x=400 blocks any rightward chase past it.
     let world = ae::World::new(

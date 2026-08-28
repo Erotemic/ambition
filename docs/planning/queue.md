@@ -16,6 +16,52 @@ looks like success.
 > **Finish work, then promote the next highest-value verified item and keep
 > going. There is no "the queue is empty, therefore stop" state.**
 
+⛔⛔ **THIS LEDGER HAS TWO SHAPES, AND THE USUAL GREP ONLY SEES ONE.** Open work
+lives BOTH as `- ▢ **D…` bullet rows AND as rows of the STAFFING TABLE below.
+Measured 2026-08-28:
+
+```text
+grep -n '^- ▢ \*\*D' docs/planning/queue.md      7 rows   ← the usual command
+rows of the table that are not ✔ / ☑              25 rows   ← invisible to it
+```
+
+⛔⛔ **AND THE TABLE IS SYSTEMATICALLY STALE BECAUSE OF IT — swept 2026-08-28,
+and FIVE of the six rows checked were wrong:**
+
+```text
+D205  marked unstaffed          → already BUILT, both halves shipping
+D195  marked unstaffed          → already BUILT (the strike pulse)
+D196  marked unstaffed          → already BUILT (the special carries its intent)
+D197  marked unstaffed          → already BUILT (the disposition is restored)
+D198  marked unstaffed          → already BUILT (key and target are separate)
+D250  marked unstaffed          → already BUILT (the shark authors a route)
+D251  marked HALF-addressed     → both halves built
+D188  marked unstaffed          → already FIXED (the scale is the kit's slowest)
+D192  marked STAFFED / re-do     → already BUILT, as the representation it asked for
+D183  marked lane work           → its two deliverables landed
+D186  marked unstaffed          → REAL, and eleven fields wide rather than one
+D246  marked BLOCKED            → its blocker landed two days earlier
+D199  marked unstaffed          → STILL REAL. One of its three defects fixed
+                                  2026-08-28; the other two are its restructure
+```
+
+⇒ somebody has been FIXING these and nobody has been marking them, because
+nobody's open-work list contains them. ⭐ the one row that was still real is the
+proof the sweep was worth doing rather than a formality.
+
+⇒ **a session that regenerates its list with that grep alone reads a fifth of
+the ledger.** Five of the twenty-five are Jon's own asks from 2026-08-25/26
+(D203, D205, D246, D247, D248), and **D205 was marked `unstaffed — MECHANICS +
+CONTENT` while both halves of it were already shipping** — nobody re-checked it
+because nobody's list contained it.
+
+⭐ **THE WHOLE POPULATION IS BOTH OF THESE:**
+
+```sh
+grep -n '^- ▢ \*\*D' docs/planning/queue.md      # the bullet rows
+grep -n '^| \*\*D'   docs/planning/queue.md | grep -v '✔\|☑'   # the table
+```
+
 Document roles:
 
 - **this queue** owns current execution order;
@@ -394,37 +440,67 @@ turned up that OUTLIVES the campaign and has no other home.
 
 | Lane | Owner | Executable next action |
 |---|---|---|
-| **D183 — three demos hand-roll `DefaultPlugins`, and the engine has no offscreen face** | PRESENTATION lane, 2026-08-23 | ⭐ mary-o, sanic and twintrack each declare their own `RenderMode` and their own windowed builder; **the Smash demo has NONE, so its shell has never rendered anything** and `./run_game.sh smash` loops schedules with nothing to draw to. The engine's `install_windowed_foundation` already does this job with a `gpu: bool` and its own doc says a consumer re-deriving the disables is the leak. ⇒ add the third mode — **no window, REAL backend** — beside the two it has, give Smash a builder that uses it, and leave the other three duplicated with a note |
-| **D184 — the fighter brain has no evaluation path for a MOVEMENT change** | ◐ half built 2026-08-23, RE-SCOPED 2026-08-25 | ⛔ THE "MISSING SCENARIO HALF" IS STALE — IT IS BUILT. `ladder_rig --scenarios` plays the fixtures through real CPU-vs-CPU bouts and reports time-to-elimination, stocks and damage per rung pair; RUN 2026-08-25: 5 of 9 fixtures play, and it NAMES what it skips per fixture ("cannot set up: velocity, body phase") rather than producing a positional fixture under a tactical name. ⭐ THE REAL REMAINING GAP IS TWO SMALLER, BETTER-SPECIFIED THINGS. (a) FOUR fixtures need state placement cannot make — juggle_escape (velocity, body phase), projectile_camper (projectiles), edgeguard_window (velocity), edgeguard_ledge_hang (ledge hang); each needs a staging verb, not a runner. (b) ⛔⛔ `recovery_above` MEASURES NOTHING: all four rung pairs end 3:3 stocks at 0.0% — "both survive BUT NEITHER LANDED A HIT". A fixture that produces no engagement cannot rank rungs, so its four rows are vacuous evidence and must not be read as "the ladder is flat". Diagnose the fixture before trusting any row of it |
+| **D183 — three demos hand-roll `DefaultPlugins`, and the engine has no offscreen face** | ◐ **ITS OWN TWO DELIVERABLES LANDED — verified at HEAD 2026-08-28**; what is left is the migration it explicitly deferred | ⭐ mary-o, sanic and twintrack each declare their own `RenderMode` and their own windowed builder; **the Smash demo has NONE, so its shell has never rendered anything** and `./run_game.sh smash` loops schedules with nothing to draw to. The engine's `install_windowed_foundation` already does this job with a `gpu: bool` and its own doc says a consumer re-deriving the disables is the leak. ⇒ add the third mode — **no window, REAL backend** — beside the two it has, give Smash a builder that uses it, and leave the other three duplicated with a note ✔✔ **THE THIRD MODE EXISTS AND SMASH USES IT.** `ambition_platformer2d::app::Display` has `Window`, `Offscreen` (*"a real backend with NO window: frames are rendered and can be read back"*) and `NoGpu`, with the runner consequence stated where the enum is rather than rediscovered by each caller. And `ambition_demo_smash_app::build_windowed_demo_app` goes through `install_windowed_foundation` — the demo has a face now, and it is the ENGINE's rather than a fourth hand-rolled `DefaultPlugins`. ▢ **mary-o, sanic and twintrack still hand-roll theirs**, which the builder's own doc names as a separate slice with a wider blast radius — that is what is left of this row, and it is not what the row was opened for. |
+| **D184 — the fighter brain has no evaluation path for a MOVEMENT change** | ◐ **RE-SCOPED HALF CONFIRMED BUILT — verified at HEAD 2026-08-28** | ⛔ THE "MISSING SCENARIO HALF" IS STALE — IT IS BUILT. `ladder_rig --scenarios` plays the fixtures through real CPU-vs-CPU bouts and reports time-to-elimination, stocks and damage per rung pair; RUN 2026-08-25: 5 of 9 fixtures play, and it NAMES what it skips per fixture ("cannot set up: velocity, body phase") rather than producing a positional fixture under a tactical name. ⭐ THE REAL REMAINING GAP IS TWO SMALLER, BETTER-SPECIFIED THINGS. (a) FOUR fixtures need state placement cannot make — juggle_escape (velocity, body phase), projectile_camper (projectiles), edgeguard_window (velocity), edgeguard_ledge_hang (ledge hang); each needs a staging verb, not a runner. (b) ⛔⛔ `recovery_above` MEASURES NOTHING: all four rung pairs end 3:3 stocks at 0.0% — "both survive BUT NEITHER LANDED A HIT". A fixture that produces no engagement cannot rank rungs, so its four rows are vacuous evidence and must not be read as "the ladder is flat". Diagnose the fixture before trusting any row of it ⭐ `crates/ambition_combat/src/brain/fighter/scenarios.rs` carries the fixtures and asserts its own playable count — *"only {playable} of {} scenarios can be played"* — and `rollout.rs` names `ladder_rig --scenarios` as a thing that stays green. So the row's *"MISSING SCENARIO HALF IS STALE"* note is itself confirmed rather than merely asserted. ▢ its two named remainders (fixtures needing state placement cannot make, and the movement-evaluation path) are what is left. |
 | **D185 — `Situation::Advantage` means two different things** | unstaffed, and the obvious fix is MEASURED not to pay | it means "they are committed, punish them" AND "they are about to hit you", because `is_punishable` covers attack startup. A fighter therefore has nowhere to decide *guard, they are swinging* — measured: a guard added to the `Neutral` arm never fires, because a fighter is never in `Neutral` while somebody winds up. What separates the two readings is whether their swing lands before yours, which `Features::frame_advantage` already computes for ATTACK options and no movement option can see. ⛔⛔ **DO NOT REPEAT THE NAIVE FIX.** Built and measured 2026-08-23: splitting an arriving swing out of `Advantage` (so a body facing one falls through to `Neutral`) is byte-free on its own, and the guard it enables — offered in `Neutral` at 0.6 against a hostile with under 0.12s of startup left — cost damage 389→290, tumbling 210→176, techs 111→67 and KOs 4→3 across five 90s streams **for parries 0-0-1 → 0-0-2.** A block the CPU's reaction delay makes too late is just a slower fight. Reverted; what is missing is the frame-advantage read, not a shield score |
-| **D195 — one swing can still hit one victim TWICE, across ticks** | unstaffed — **MECHANICS, and it gates further sweetspot content** | ⭐ GPT review of `370abbbcf`, 2026-08-23, **verified at the source before recording**. `d7e2fa7c` is titled *"Let one swing land once"* and implements something weaker: same-TICK arbitration. Every hitbox owns its own `HitboxHits`, and the `StrikeRank` rule asks only whether a lower-ranked sibling **currently reaches** the victim (`hitbox/mod.rs:386`). ⇒ so across one continuous Active window: tick A the victim overlaps only the sourspot and is recorded in the SOURSPOT's ledger; tick B it moves into the sweetspot, whose own ledger is empty and whose siblings no longer reach — **it lands again**. The reverse order too. ⚠ the shipped tests place the victim where both volumes overlap AT ONCE, so they prove arbitration and not the invariant the title claims. ⛔ note the code comment *"a sourspot whose sweetspot window has closed is free again on the very next tick, which is what a lingering late hit should be"* — that is the author's intent and it is exactly what permits the double hit, so this is a design collision and not an oversight. ⇒ the model the reviewer proposes and I agree with: a **STRIKE PULSE** — one continuous Active interval owning ONE per-victim ledger shared by all its sibling volumes, so a gap in Active time is what earns a second hit and a multihit stays possible. ⭐ it also removes an existing coupling: `advance_move_playback` currently carries hit memory between contiguous Active windows BY VOLUME INDEX, which silently attaches memory to the wrong thing if a keyframe changes volume count or order. ⇒ required tests: sour-then-sweet and sweet-then-sour within one pulse are ONE hit; volume count/order changing across contiguous Active keyframes is still one hit; a real temporal GAP permits a second |
-| **D196 — a buffered Special is re-read off the live stick, so Up-Special becomes Neutral** | unstaffed — **MECHANICS** | ⭐ GPT review 2026-08-23, **verified**: `BodyActionBuffer` stores `special: f32` — a bare timer — while Attack stores a whole `AttackGestureIntent` and its own doc says why: *"a buffered press must be replayed verbatim rather than reinterpreted from the live stick later."* At replay `trigger_moveset_moves` recomputes `attack_dir_from_axis(frame.attack_axis, kin.facing)` (`moveset/mod.rs:1673`), so pressing Up+Special during endlag and centring the stick before it resolves yields the NEUTRAL special. ⚠ the out-of-shield path is worse: `rises_out_of_shield(attack_dir_from_axis(...), UpSpecial)` means a buffered Up-Special replayed after the stick centres no longer even QUALIFIES as an up-special out of shield. ⇒ capture the semantic intent on the press edge, as Attack already does. ⛔ decide POSTURE explicitly rather than letting live ECS state answer by accident (`special_down` vs `special_air_down`); press-time is the internally consistent answer given Attack. ⛔ and do not push `AttackDir` into `ambition_platformer2d_core` just to keep `BodyActionBuffer` one struct — the generic timer is body-core, the semantic intent belongs with combat, exactly as Attack is split today |
-| **D197 — an actor can be `AggressionMode::Hostile` and `ActorDisposition::Peaceful` with a live foe** | unstaffed | ⭐ GPT review 2026-08-23, **verified**: `select_actor_targets` stands a target-less hostile down to `Peaceful` (`targeting.rs:455`) and **never writes it back** — the only assignment in the file is to `Peaceful`. Reacquisition reads `aggression.target_policy()`, not the disposition, so a new faction foe restores the TARGET while the disposition stays peaceful. ⇒ the same body then fights while `Peaceful` tells the interaction system it is talkable and the combat-standing model calls it a `Bystander`: two authorities disagreeing about one fact, which is the shape this project has paid for repeatedly (a latch set on ABSENCE that nothing ever clears). ⇒ pick one meaning: either the same authority restores `Hostile` on reacquire — symmetric, cheap — or standing down settles the AGGRESSION too so it cannot reacquire at all. ⚠ longer term `ActorDisposition` may want to be DERIVED from aggression + target rather than a second mutable source, but fix the contradiction first. Test: a hostile loses its only foe, then a valid faction foe appears |
-| **D198 — the sheet registry fixed the collision but conflates product identity with lookup key** | unstaffed — low urgency, not breaking today | ⭐ GPT review 2026-08-23, ⚠ NOT independently verified by me. `BakedIndex::insert` writes `record.target = key.clone()`, so `target` comes to mean *whatever key this registry happened to use* and a singleton sheet's authored renderer target (`robot`, `toon`) is erased and replaced by the file root. Packed files with several records fall back to keying on `record.target`, so one `HashMap<String, SheetRecord>` ends up holding a MIXED namespace: file roots for ordinary sheets, renderer subtargets for packed ones, subtarget+quality suffix for quality variants. ⇒ the decision was `SheetKey = product/sheet identity` and `record.target = renderer/rig-adapter classification`; implement it literally with a typed key (`{ product, member: Option<..> }`), leave `SheetRecord.target` as the authored target, and put any string-lookup compatibility in a facade rather than rewriting the record to make the old API look coherent. If target-based discovery is wanted it is `RigTarget -> [SheetKey]`, plural |
-| **D199 — projectiles resolve body damage BEFORE walls, and neither is swept** | unstaffed — older debt, not a regression | ⭐ GPT review 2026-08-23, ⚠ NOT independently verified by me. `projectile/systems.rs` orders: move to endpoint → portal transit → victim loop (overlap, parry, damage, despawn) → feature overlap → `resolve_world_collision()`. So a shot whose new endpoint lands on a victim BEHIND blocking geometry damages them before anything asks whether a wall stopped the travel. ⇒ both tests are ENDPOINT overlap, not swept, so fast shots tunnel thin walls and thin hurt volumes; and the victim loop `break`s on the first qualifying row, so which victim is hit is query order rather than geometric first contact. ⛔ **do not fix by swapping the two blocks** — that trades one wrong answer for the opposite one when the body genuinely came first. The shape is: propose the motion SEGMENT, collect portal/world/body/breakable contacts along it, take the earliest time-of-impact with an explicit deterministic tie-break, resolve, continue only if policy says bounce or transit. ⇒ land the cheap regression NOW (projectile, wall, victim immediately behind it, victim takes no damage) and schedule the swept transaction when speed or content pressure warrants it |
+| **D195 — one swing can still hit one victim TWICE, across ticks** | ✔ **BUILT — verified at HEAD 2026-08-28** | ⭐ GPT review of `370abbbcf`, 2026-08-23, **verified at the source before recording**. `d7e2fa7c` is titled *"Let one swing land once"* and implements something weaker: same-TICK arbitration. Every hitbox owns its own `HitboxHits`, and the `StrikeRank` rule asks only whether a lower-ranked sibling **currently reaches** the victim (`hitbox/mod.rs:386`). ⇒ so across one continuous Active window: tick A the victim overlaps only the sourspot and is recorded in the SOURSPOT's ledger; tick B it moves into the sweetspot, whose own ledger is empty and whose siblings no longer reach — **it lands again**. The reverse order too. ⚠ the shipped tests place the victim where both volumes overlap AT ONCE, so they prove arbitration and not the invariant the title claims. ⛔ note the code comment *"a sourspot whose sweetspot window has closed is free again on the very next tick, which is what a lingering late hit should be"* — that is the author's intent and it is exactly what permits the double hit, so this is a design collision and not an oversight. ⇒ the model the reviewer proposes and I agree with: a **STRIKE PULSE** — one continuous Active interval owning ONE per-victim ledger shared by all its sibling volumes, so a gap in Active time is what earns a second hit and a multihit stays possible. ⭐ it also removes an existing coupling: `advance_move_playback` currently carries hit memory between contiguous Active windows BY VOLUME INDEX, which silently attaches memory to the wrong thing if a keyframe changes volume count or order. ⇒ required tests: sour-then-sweet and sweet-then-sour within one pulse are ONE hit; volume count/order changing across contiguous Active keyframes is still one hit; a real temporal GAP permits a second ✔✔ **THE STRIKE PULSE EXISTS**, and it is the model this row proposed: `hitbox/mod.rs` — *"THE PULSE RECORDS ITS VICTIMS ON EVERY SIBLING, so a swing that lands with one of its volumes cannot land again with another"* — writing the victim into every sibling's `HitboxHits` AFTER the sweep, with membership of a pulse being exactly `StrikeRank`, which only `advance_move_playback` grants. ⚠ so a projectile or a stage hazard keeps its per-hitbox ledger, which is the right narrowing: they have no siblings. |
+| **D196 — a buffered Special is re-read off the live stick, so Up-Special becomes Neutral** | ✔ **BUILT — verified at HEAD 2026-08-28** | ⭐ GPT review 2026-08-23, **verified**: `BodyActionBuffer` stores `special: f32` — a bare timer — while Attack stores a whole `AttackGestureIntent` and its own doc says why: *"a buffered press must be replayed verbatim rather than reinterpreted from the live stick later."* At replay `trigger_moveset_moves` recomputes `attack_dir_from_axis(frame.attack_axis, kin.facing)` (`moveset/mod.rs:1673`), so pressing Up+Special during endlag and centring the stick before it resolves yields the NEUTRAL special. ⚠ the out-of-shield path is worse: `rises_out_of_shield(attack_dir_from_axis(...), UpSpecial)` means a buffered Up-Special replayed after the stick centres no longer even QUALIFIES as an up-special out of shield. ⇒ capture the semantic intent on the press edge, as Attack already does. ⛔ decide POSTURE explicitly rather than letting live ECS state answer by accident (`special_down` vs `special_air_down`); press-time is the internally consistent answer given Attack. ⛔ and do not push `AttackDir` into `ambition_platformer2d_core` just to keep `BodyActionBuffer` one struct — the generic timer is body-core, the semantic intent belongs with combat, exactly as Attack is split today ✔✔ **THE SPECIAL SLOT CARRIES ITS MEANING NOW.** `state.buffered_special` is an `Option<SpecialGestureIntent>` resolved on the press edge — direction from `attack_dir_from_axis` at the press, and the POSTURE decided there too rather than read off live ECS state at replay — and `moveset/mod.rs` says so in the words this row used: *"IT USED TO BE A BARE TIMER, and the replay re-read the direction off the LIVE stick."* ⭐ the remaining `attack_dir_from_axis(frame.attack_axis, …)` calls are the capture/throw direction, which is a live-stick question and correctly stays one. |
+| **D197 — an actor can be `AggressionMode::Hostile` and `ActorDisposition::Peaceful` with a live foe** | ✔ **BUILT — verified at HEAD 2026-08-28** | ⭐ GPT review 2026-08-23, **verified**: `select_actor_targets` stands a target-less hostile down to `Peaceful` (`targeting.rs:455`) and **never writes it back** — the only assignment in the file is to `Peaceful`. Reacquisition reads `aggression.target_policy()`, not the disposition, so a new faction foe restores the TARGET while the disposition stays peaceful. ⇒ the same body then fights while `Peaceful` tells the interaction system it is talkable and the combat-standing model calls it a `Bystander`: two authorities disagreeing about one fact, which is the shape this project has paid for repeatedly (a latch set on ABSENCE that nothing ever clears). ⇒ pick one meaning: either the same authority restores `Hostile` on reacquire — symmetric, cheap — or standing down settles the AGGRESSION too so it cannot reacquire at all. ⚠ longer term `ActorDisposition` may want to be DERIVED from aggression + target rather than a second mutable source, but fix the contradiction first. Test: a hostile loses its only foe, then a valid faction foe appears ✔✔ **THE SAME AUTHORITY RESTORES IT**, which is the first of the two options this row offered: `targeting.rs` now writes `ActorDisposition::Hostile` back when a target is reacquired, beside the stand-down that writes `Peaceful`. ⭐ and it keeps the distinction the fix needed — a deliberate pacify drops `target_policy` to `None`, so the restore cannot fire against it and permanent peace stays `brain_command`'s to declare. |
+| **D198 — the sheet registry fixed the collision but conflates product identity with lookup key** | ✔ **BUILT — verified at HEAD 2026-08-28** | ⭐ GPT review 2026-08-23, ⚠ NOT independently verified by me. `BakedIndex::insert` writes `record.target = key.clone()`, so `target` comes to mean *whatever key this registry happened to use* and a singleton sheet's authored renderer target (`robot`, `toon`) is erased and replaced by the file root. Packed files with several records fall back to keying on `record.target`, so one `HashMap<String, SheetRecord>` ends up holding a MIXED namespace: file roots for ordinary sheets, renderer subtargets for packed ones, subtarget+quality suffix for quality variants. ⇒ the decision was `SheetKey = product/sheet identity` and `record.target = renderer/rig-adapter classification`; implement it literally with a typed key (`{ product, member: Option<..> }`), leave `SheetRecord.target` as the authored target, and put any string-lookup compatibility in a facade rather than rewriting the record to make the old API look coherent. If target-based discovery is wanted it is `RigTarget -> [SheetKey]`, plural ✔✔ **THE TWO FIELDS ARE SEPARATE NOW.** `BakedIndex::insert` writes `record.key = key` and says why in the row's own terms — *"the record's authored `target` is LEFT ALONE. It used to be rewritten to the key, which answered 'how do I ask for this sheet' by destroying 'which rig adapter drew it' — one field cannot hold both."* ⭐ the keying RULING is stated beside it (a sheet is named by its FILE ROOT, because a file root names a PRODUCT), with the packed-atlas exception spelled out: a root that holds eight records names all eight and so names none. |
+| **D199 — projectiles resolve body damage BEFORE walls, and neither is swept** | ▢ **STILL REAL — re-verified at HEAD 2026-08-28**, and the only one of this review's five that is | ⭐ GPT review 2026-08-23, ⚠ NOT independently verified by me. `projectile/systems.rs` orders: move to endpoint → portal transit → victim loop (overlap, parry, damage, despawn) → feature overlap → `resolve_world_collision()`. So a shot whose new endpoint lands on a victim BEHIND blocking geometry damages them before anything asks whether a wall stopped the travel. ⇒ both tests are ENDPOINT overlap, not swept, so fast shots tunnel thin walls and thin hurt volumes; and the victim loop `break`s on the first qualifying row, so which victim is hit is query order rather than geometric first contact. ⛔ **do not fix by swapping the two blocks** — that trades one wrong answer for the opposite one when the body genuinely came first. The shape is: propose the motion SEGMENT, collect portal/world/body/breakable contacts along it, take the earliest time-of-impact with an explicit deterministic tie-break, resolve, continue only if policy says bounce or transit. ⇒ land the cheap regression NOW (projectile, wall, victim immediately behind it, victim takes no damage) and schedule the swept transaction when speed or content pressure warrants it ⚠ **CONFIRMED, not inherited**: in `projectile/systems.rs` the victim loop still `break`s on its first qualifying row around line 640-690 and `resolve_world_collision` is called at line 754 — so a shot whose endpoint lands on a victim BEHIND a wall damages them before anything asks whether the wall stopped the travel, and neither test is swept. ⛔ the row's own warning stands: swapping the two blocks trades one wrong answer for its opposite. ⭐ `ambition_platformer2d_core::cast::aabb_path_contacts` is the swept primitive the thrown-item road adopted on 2026-08-28 and is the same shape this needs, but the wall-vs-body ORDERING half is a restructure across portal/world/body/breakable contacts, not a call swap. ✔✔ **ONE OF THE THREE DEFECTS IS FIXED 2026-08-28 — the victim choice, which was the DETERMINISM half.** The loop `break`s on its first qualifying row and it iterated `&victims` directly: Bevy archetype order, which is not a promise and which a rollback resimulation does not reproduce — on damage, which is rollback-authoritative state. ⇒ ordered by geometry now: distance from where the shot began this leg, ties broken on the victim's own POSITION rather than its entity, because an entity index is not stable across a rewind and a position is (resimulation reproduces the same world). ⛔⛔ **AND IT WAS A LIVE GAMEPLAY BUG, not only a theoretical one** — with the ordering removed the test reports the FAR body taking a shot that passed through the near one, purely because it was spawned first. ⚠ the first version of that test placed the two bodies 40px apart and PASSED with the fix removed: at 50px/s a fireball covers 0.8px in a tick, so only one body was ever reachable and the loop had nothing to arbitrate. They are 8px apart now. ▢ **the two remaining halves are the sweep and the wall ordering**, and they are the restructure above. |
 | **D200 — three branches held D192's respawn interval unmerged, and the note that held them had decayed** | ✔ **CLOSED 2026-08-25**: verdict RE-DO taken, replacement landed on main as `cefbfde55`, local branches deleted | ⭐ the reviewer's condition was *"once the replacement lands and passes the repaired D194 mirror with the interval enabled"*, and both halves are met: D192 is on main and `two_cpus_in_the_shipped_composition_damage_each_other` passes with the 60-tick beat live, `mutual_capture_ticks` 0. ⛔ THE LOCAL BRANCHES ARE GONE; `origin/respawn-interval-holding` (238d59bfb), `origin/d194-and-respawn-verified` (54d97e05b) and `origin/attrib-beat-only` (819e48e14) are KEPT as the forensic record. Deleting the remotes too would make 13 commits unreachable and GC-able for nothing but tidiness — an asymmetric trade — so they stay until Jon says otherwise. ⇒ they are REFERENCE, never merge candidates: schema 73 against today's 110 |
 | **D201 — D192's respawn beat REIMPLEMENTED a worse `DeathInterlude`, and the piece it skipped is a live bug** | ✔ **CLOSED 2026-08-26**: the beat is now `DeathInterlude`/`OutOfPlay` + `ControlHold::Sequence`; Jon's jump-while-respawning bug fixed and guarded | ⛔⛔ CORRECTION: this was filed as "the beat belongs in ADR 0033 eventually". It is stronger than that. `DeathInterlude { remaining, consequence_pending }` is ALREADY a rollback-registered countdown-to-consequence ticked by `tick_death_interlude` on the sim clock, and `OutOfPlay` is ALREADY the "world's hands off the body" fact that `damage_apply`, `actors/update` and `world/rooms/systems` respect. `PendingRespawn` is a parallel countdown, and hand-removing `ActiveCombatant` is a narrower version of `OutOfPlay` — which is why the spend then needed `Without<PendingRespawn>` bolted on to stop blast-zone re-kills. ⭐⭐ AND THE SKIPPED PIECE IS JON'S OWN BUG: the interlude claims `ControlHold::Sequence` so normal input does not reach the body; D192 claims nothing, which is exactly *"in smash when you are respawning, if I make the character jump they raise up on the platform"*. The interlude also arms `death_anim_timer`, so adopting it gives the KO beat its death row for free. ⚠ NOT a free refactor: `open_death_interlude` queries `With<PlayerEntity>` and `features/enemies/integration.rs` states as a FACT that `OutOfPlay` is only ever granted to a participant's body — so this means widening who may hold an interlude. ⚠ also align the clock: `RespawnGrace` and `DeathInterlude` both count SECONDS against `WorldTime` and both rewind correctly, so D192's ticks were a deviation argued from determinism the existing components already disprove ⚠ THREE reimplementations, not one: `DeathRules { interlude: f32 }` is ALREADY the authored seconds a death holds before its consequence — `RespawnInterval` duplicates it, and that field's own doc pre-answers a question D192 never asked (the window must not freeze the world, because in NSMB the other player is still playing). And `BodyRestarted` is an observer TRIGGER, which is how the interlude clears `OutOfPlay`; a trigger has no reader cursor, so `FighterRespawnDue` being a MESSAGE is what forced the `clear_message_on_rollback` registration and its schema bump. Self-inflicted, correct as written, unnecessary. ⭐ DONE `6304d81eb`. The spend opens ADR 0033's window instead of a parallel countdown: `OutOfPlay` (which `step_body` honours by halting the body and stepping it with `dt == 0`), `DeathInterlude` ticked by the engine's own `tick_death_interlude`, the `Sequence` hold, and ONE remaining bit — `PendingRespawn` — saying this window's consequence is a respawn rather than a level replay. `RespawnInterval` counts SECONDS now, the clock every other death window uses. `tick_death_interlude` moved down into `ambition_combat::death_rules` to live with the component it ticks, which is WHY the stocks beat built a second countdown: the crate that opens a window could not advance one. ⭐⭐ THE BIGGER HALF WAS NOT IN THE ROW: the ACTOR road passed a hard-coded `false` for `out_of_play`, under a comment stating as a FACT that `OutOfPlay` only ever reaches a participant's body — and a Smash fighter is not integrated on the player road, so the whole beat did nothing there; the body coasted on its launch velocity and answered the jump button. Now read on both roads. ⚠ TWO of the row's claims did NOT survive contact: `open_death_interlude` needed NO widening (the stocks spend opens its own window), and `RespawnInterval` does not duplicate `DeathRules::interlude` in the shipped composition — per-MATCH vs per-ROOM scope, and the Smash arena declares no death rules at all. ⇒ PROBED RED: a waiting body moves 174.7px in 60 frames under a held jump without the fix, 0.0px with it. |
 | **D202 — the rollback CODEC-SHAPE baseline was stale on main for five files, one of them a SILENT wire change** | ✔ **CLOSED 2026-08-26**: every moved row attributed; NO silent wire change, and no missing schema bump | ⭐ found 2026-08-25 on a PRISTINE `origin/main` checkout in a clean worktree, before any local edit: `scripts/rollback_codec_shape.py` reported five files whose codec shape differed from `scripts/tests/rollback_codec_shape.txt` — `ambition_characters`, `ambition_platformer2d_actor_monolith`, both `ambition_platformer2d_core` codecs, and `ambition_combat`. ⛔⛔ `platformer2d_core/src/snapshot_impls.rs` is **109 lines before and after with a DIFFERENT hash**, i.e. the encoded primitives changed WITHOUT the file growing — exactly the change this tool exists to catch, and it was unrecorded. ⇒ the question is whether any of those needed a `GGRS_ROLLBACK_SCHEMA_VERSION` bump that never happened, because two peers whose schemas differ cannot agree about a snapshot. ⚠ D192's re-record ABSORBED all five, so the evidence is now only in git history — read `scripts/tests/rollback_codec_shape.txt` at the commit before D192 ⭐ DONE `82717c033`. Enumerated rather than re-recorded blind: characters 272→276 (special-turn toggles, v111); combat 100→98 (D201's own, `PendingRespawn` dropping its u32); monolith 129→127 (winner-card latch +6 at v112, then the mount carve −8); core 109→109 with a MOVED hash (helplessness v107, gust v108); shared_tangle 45→53 (the mount carve, +8). ⇒ **NO silent wire change and no missing bump.** The mount carve is the only unbumped commit that touched a codec and its two rows net to ZERO — eight primitives left the monolith, eight arrived in shared_tangle, which is the receipt that a MOVE carries no bytes. "The monolith stops republishing its peers" names no primitive at all. The app-level baseline moved by exactly its version header, the tell for a payload-only change. ⚠ the baseline had been stale since D192's own commit; the tooling suite is the only instrument that speaks, and `cargo test` runs none of it. |
-| **D203 — hit volumes are authored in ABSOLUTE numbers, unrelated to the body they belong to, so every one of them reads as too conservative** | ▢ unstaffed — **MECHANICS + AUTHORING; Jon 2026-08-25 explicitly does NOT want a global scale** | ⭐ `VolumeShape::Rect { offset, half_extents }` (crates/ambition_entity_catalog/src/lib.rs:247) is entity-local with +x = facing, but nothing ties a volume to the CHARACTER'S OWN dimensions — so a bigger fighter inherits a box authored for someone else's silhouette and the only lever is retyping numbers per move per character. ⇒ the ask is an authoring PATTERN, not a multiplier: express reach and height in units of the body's own extents so a new character gets sane coverage by construction. ⭐ Jon's rules of thumb: a DIRECTIONAL SMASH should cover a contiguous region in the facing direction at least as tall (or wide) as the character; forward smash should leave NO HOLE a crouching opponent can duck under; up-air arcs likewise. ⇒ the check that turns this into a pattern is a COVERAGE census — sample the region in front of the body across a move's active windows and report uncovered bands, the way the repertoire census reports what a CPU threw. ⛔⛔ EXCEPTIONS ARE DECLARED, NOT ABSENT: Jon wants unique and interesting moves that deliberately break the rule, so a move that does must SAY so with a reason — an undeclared exception is indistinguishable from a mistake, and a silent exemption list is a TODO list |
+| **D203 — hit volumes are authored in ABSOLUTE numbers, unrelated to the body they belong to, so every one of them reads as too conservative** | ◐ **THE CENSUS LANDED 2026-08-28**; still MECHANICS + AUTHORING, and Jon explicitly does NOT want a global scale | ⭐ `VolumeShape::Rect { offset, half_extents }` (crates/ambition_entity_catalog/src/lib.rs:247) is entity-local with +x = facing, but nothing ties a volume to the CHARACTER'S OWN dimensions — so a bigger fighter inherits a box authored for someone else's silhouette and the only lever is retyping numbers per move per character. ⇒ the ask is an authoring PATTERN, not a multiplier: express reach and height in units of the body's own extents so a new character gets sane coverage by construction. ⭐ Jon's rules of thumb: a DIRECTIONAL SMASH should cover a contiguous region in the facing direction at least as tall (or wide) as the character; forward smash should leave NO HOLE a crouching opponent can duck under; up-air arcs likewise. ⇒ the check that turns this into a pattern is a COVERAGE census — sample the region in front of the body across a move's active windows and report uncovered bands, the way the repertoire census reports what a CPU threw. ⛔⛔ EXCEPTIONS ARE DECLARED, NOT ABSENT: Jon wants unique and interesting moves that deliberately break the rule, so a move that does must SAY so with a reason — an undeclared exception is indistinguishable from a mistake, and a silent exemption list is a TODO list ✔ **THE CENSUS EXISTS NOW, which is the step this row named as the one that turns the ask into a pattern.** `moveset_export` emits a `coverage` block per move: `covers_body_fraction`, `gap_above_px`, `gap_below_px`, `reach_px` and the owner's `body_height_px`, computed from the move's own `MoveCoverage` (the union of its Active volumes, body-local, `+x` facing) against the character's `standing_height` — the number 125 of 128 rows now carry after D165/D129. So the inspector a human already reads answers *"what fraction of himself does this smash front, and where is the hole"* per character instead of per retyped number. ⛔ **IT REPORTS AND DOES NOT JUDGE, deliberately.** A pass/fail would be a policy with no way to declare an exception, and this row's own rule is that an undeclared exception is indistinguishable from a mistake — so the verdict waits for the authored `reason` field, and the census is the evidence that field gets designed from. ⚠ `null` for a move with no forward Active volume and for a character whose height nobody has stated: both are *cannot say*, not *covers nothing*. ▢ **what is left is the two halves that need Jon**: the authoring PATTERN (expressing reach and height in units of the body's own extents, so a new character gets sane coverage by construction) and the DECLARED exception with its reason. Neither should be guessed from the census — read it first. ⭐⭐ **AND THE CENSUS ANSWERS THIS ROW'S HEADLINE, RUN OVER THE REAL CAST 2026-08-28 — the duckability worry is NOT borne out.** A crouch is exactly HALF height in this engine (`BodyShape::Crouching`, width unchanged), so a same-sized crouching opponent occupies the LOWER HALF of your silhouette — which is why the census reports `covers_crouched_fraction` and not only a gap in pixels: two swings whose `gap_below_px` differ by one pixel can differ completely on whether anything is hit. Measured across the 21 fighters on the smash grid:
+```text
+FORWARD SMASHES        21 · duckable by a crouch: 0 · worst covers 58% of a crouched foe
+                       standing coverage 0.71–0.92, gap below 4–12px on a 48px body
+ALL forward-reaching  430 · 94 touch nothing on a crouching opponent — almost all up-smashes
+                       and aerials, which is correct by design and is what an EXCEPTION means
+```
+⇒ **no forward smash in the cast has the hole this row was opened about.** So *"every one of them reads as too conservative"* is about something else — REACH, or the vertical game — and the next step is Jon reading the census rather than anybody authoring a pattern from a premise the numbers do not support. ⛔ do not "fix" the 94: an up-smash that misses a crouching opponent is an up-smash. |
 | **D204 — up-B can be used more than once without entering freefall** | ✔ **CLOSED 2026-08-26** — the default landed at the slot, the two booleans became one `RecoveryUse`, the four stale flinch comments were repaired and the lowering has a production-path test | ⭐ *"characters can often use their up b more than once without going into freefall. only a few should be exempt from that general rule."* ⇒ the DEFAULT is one recovery per airtime, refreshed on landing, with helplessness after; exemption is per-character and declared. ⚠ adjacent to main's `Helplessness is an episode, not a count of charges` — the episode is probably the right owner of 'this airtime has spent its recovery' rather than a count that can be topped up. ⛔ check the interaction with D192's respawn beat: a returning fighter is placed AIRBORNE and must come back with its recovery available, which `smash_cpus_damage_each_other` already guards on the return tick ⭐⭐ MEASURED 2026-08-26 AND THE RULE IS INVERTED IN CODE, so this row is STAFFED rather than unstaffed: every piece of machinery landed (`MoveGates::spends_recovery`, `MoveGates::recovery_without_freefall`, `BodyJumpState::recovery_charges`, `BodyJumpState::post_recovery_helpless`) and it is all OPT-IN — exactly ONE non-Pirate fighter opted in, `game/ambition_content/src/pointed_polygon_moveset.rs:330`. Every other Up-B is bound through `SmashRepertoire`'s `EITHER` gate, which authors `spends_recovery: false`, so the roster still HAS the behaviour Jon asked to remove and the census that would have shown it is one grep: `grep -rn spends_recovery` returns two production writers, both true, one of them the pirate's shark. ⇒ THE DEFAULT BELONGS AT THE SLOT, not in fourteen movesets: `SmashRepertoire::up_special` already MEANS 'this fighter's Up-B', which makes it the one place that can say *standard recovery unless stated*, and the file already solved this shape once — `NeutralSpecial` is an enum whose exceptional arm carries a `because`. ⛔ and collapse the two correlated booleans into one three-state `RecoveryUse`: `spends_recovery: false` with `recovery_without_freefall: true` is representable, meaningless, and documented as *ignored*. ⚠ DECIDE AND STATE the grounded case — `start_move` spends the charge on acceptance and never reads `started_grounded`, so the doc says *per airtime* and the code says *per use*. ⛔⛔ STALE COMMENTS CONTRADICT THE SHIPPED FLINCH RULE and this repo has followed stale comments into wrong implementations before: `body_clusters.rs:368` still says a hit *gives nothing back*, `body_clusters.rs:930`'s cause table still reads *ordinary hit — the air dodge only*, and `ambition_combat/src/moveset/tests.rs` says the same at 5947 and 6246. Fix them with the mechanic, not as cleanup. ✔ **WHAT LANDED, 2026-08-26.** `MoveGates::spends_recovery` + `recovery_without_freefall` are GONE, replaced by one `ambition_entity_catalog::RecoveryUse` — `None` / `SpendAndFreefall` / `SpendWithoutFreefall` — so the fourth combination that used to be representable and documented as *ignored* is now unwritable. `SmashRepertoire::up_special` is an `UpSpecial` with three arms (`Standard`, `NoFreefall`, `NotARecovery { because }`), shaped after `NeutralSpecial` in the same file; it has no `Default`, so every one of the seventeen fighters had to pick, and sixteen picked `Standard`. ⭐ DELETION IS THE PROOF: `pointed_polygon_moveset.rs`'s hand-written opt-in and `smash_ride.rs`'s two-boolean pair are both deleted — the pirate now says `UpSpecial::NoFreefall` where every other fighter says its up-B's cost. ⛔ THE GROUNDED CASE IS DECIDED AND STATED at `start_move`: PER USE, not per airtime — a grounded recovery somebody jabs you out of has still spent the charge, and `started_grounded` is deliberately not consulted, because the alternative hands a free retry to every stuffed grounded up-B. ⚠ FOUR STALE COMMENTS REPAIRED at source (`body_clusters.rs` ×2, `ambition_combat/src/moveset/tests.rs` ×2): they still said a hit *gives nothing back*, which the flinch rule replaced. ⭐⭐ AND THE MISSING TEST IS THE POINT: every piece had a green generic unit test on both of the days this was broken in production, because nothing asked whether AUTHORED CONTENT reached those pieces — so the new arm runs `pointed_polygon_moveset()` itself, and `up_special_recovery_tests` pins that the posture gate does not overwrite the slot. ⛔⛔⛔ **REOPENED 2026-08-27: THE 'PER USE' DECISION ABOVE IS NOT WHAT SHIPS, AND I WROTE IT WITHOUT CHECKING.** The note says a grounded recovery spends on acceptance and `started_grounded` is deliberately not consulted. `start_move` does spend it — and `crates/ambition_platformer2d_core/src/movement/mod.rs` hands it straight back: `if clusters.ground.on_ground { … refresh_movement_resources_clusters(…) }` is LEVEL-triggered, firing every grounded TICK rather than on the landing edge. So a recovery pressed from the floor is refunded the same tick, and the real rule is per AIRTIME. ⭐ MEASURED, not reasoned: the mounted pirate holds `recovery_charges == 1` with `on_ground == false` after summoning a shark whose up-B is authored `SpendWithoutFreefall`, and only two things in the tree write that counter (`start_move` spends, `apply_body_hit_reaction` refunds on a flinch). ⚠⚠ **AND MY FIRST CONCLUSION — 'make the refresh edge-triggered' — IS WITHDRAWN, same day.** A grounded fighter always holding its recovery is the GENRE's behaviour too: in Ultimate you may press up-B on the floor as often as you like, because you are grounded. An ordinary rising up-B never notices the level refresh — it leaves the floor on the tick it starts, so there is no grounded tick left to refund it. ⇒ **THE DIVERGENCE IS NARROW AND IT IS THE VEHICLE'S**: `call_the_shark` does not lift its caster, so the pirate is still grounded when the refresh runs, and he boards a second later carrying a charge he already spent. ⛔ SO THIS IS NOT A KERNEL RULE TO CHANGE ON INFERENCE — it is a question about what a recovery that hands over a VEHICLE costs, which is D250's territory, and the cheap answer (spend at the BOARD rather than at the press) has not been priced. ⭐ what IS settled: the decision note above claims a behaviour the code does not have, and no test covered the gap. ⛔ AND IT BLOCKS A REAL TEST: `a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off` cannot assert the flinch refund while the charge is already full. |
-| **D205 — a TELEPORTING up-B with player-aimed direction, for the Author and a robot variant** | ▢ unstaffed — **MECHANICS + CONTENT**; Jon 2026-08-25 | ⭐ *"I also want a teleporting up b. where the user can control the direction like mewtwos up b in smash. the author should have this up b. and the robot might have a similar teleport up b similar to its blink in the game."* ⭐⭐ THE VERB ALREADY EXISTS AND IT IS ALREADY AIMED: `crates/ambition_platformer2d_core/src/movement/model.rs` carries `blink_hold_active`, `blink_hold_timer`, `blink_aiming` and `blink_aim_offset`, and `BodyBlinkState { cooldown }` rides the body — hold, aim, release is exactly Mewtwo's shape. ⇒ this is WIRING an existing verb as a special, not authoring a new mechanic; the robot's version is the same verb it already uses in Ambition proper, which is why Jon named it. ⚠ the Author is not in `PLAYABLE_ROSTER` (player_robot_v3/v2, robot, goblin, npc_pirate_admiral, perfect_cellular_automaton) — confirm the character id before authoring. ⛔ interacts with D204: a teleport recovery is exactly the kind of move whose freefall rule is a DECLARED exemption rather than an accident, so land D204's default first or this becomes the reason the rule was never written ⛔⛔ AND THE REAL WORK IS THE GENERALISATION, not the binding. Jon: *"it might also mean generalizing because the smash control will be much different than metroidvania control."* The metroidvania blink is a dedicated verb the player aims at leisure; a platform-fighter up-B is UP+SPECIAL with a brief aim window and a committed release, and it owes freefall afterwards. ⇒ separate the MECHANIC (an aimed teleport: hold, aim within a window, resolve to an offset, arrive) from the REQUEST (which control shape asks for it, and with what aim source), so each game binds its own without either owning the other's rules. ⚠ the aim source differs too — a stick angle held during the window versus a cursor or a facing — so `blink_aim_offset` needs to be something both can PRODUCE rather than a shape one of them assumes. |
+| **D205 — a TELEPORTING up-B with player-aimed direction, for the Author and a robot variant** | ✔ **BUILT — re-checked 2026-08-28, and it was ALREADY BUILT when this row was written as unstaffed.** ⛔ the reason nobody noticed is in the note below this table. | ⭐ *"I also want a teleporting up b. where the user can control the direction like mewtwos up b in smash. the author should have this up b. and the robot might have a similar teleport up b similar to its blink in the game."* ⭐⭐ THE VERB ALREADY EXISTS AND IT IS ALREADY AIMED: `crates/ambition_platformer2d_core/src/movement/model.rs` carries `blink_hold_active`, `blink_hold_timer`, `blink_aiming` and `blink_aim_offset`, and `BodyBlinkState { cooldown }` rides the body — hold, aim, release is exactly Mewtwo's shape. ⇒ this is WIRING an existing verb as a special, not authoring a new mechanic; the robot's version is the same verb it already uses in Ambition proper, which is why Jon named it. ⚠ the Author is not in `PLAYABLE_ROSTER` (player_robot_v3/v2, robot, goblin, npc_pirate_admiral, perfect_cellular_automaton) — confirm the character id before authoring. ⛔ interacts with D204: a teleport recovery is exactly the kind of move whose freefall rule is a DECLARED exemption rather than an accident, so land D204's default first or this becomes the reason the rule was never written ⛔⛔ AND THE REAL WORK IS THE GENERALISATION, not the binding. Jon: *"it might also mean generalizing because the smash control will be much different than metroidvania control."* The metroidvania blink is a dedicated verb the player aims at leisure; a platform-fighter up-B is UP+SPECIAL with a brief aim window and a committed release, and it owes freefall afterwards. ⇒ separate the MECHANIC (an aimed teleport: hold, aim within a window, resolve to an offset, arrive) from the REQUEST (which control shape asks for it, and with what aim source), so each game binds its own without either owning the other's rules. ⚠ the aim source differs too — a stick angle held during the window versus a cursor or a facing — so `blink_aim_offset` needs to be something both can PRODUCE rather than a shape one of them assumes. ✔✔ **BOTH HALVES SHIP.** The aimed teleport is the verb: `abilities/traversal/teleport.rs:345` — *"THE SAME AIM EVERY TRAVERSAL ABILITY READS — aim stick, then movement stick, then facing — so a teleport is aimed the way a blink is"* — resolving through the shared `ability_aim_world`, which IS the mechanic/request separation Jon asked for. The ROBOT has its version: `player_robot_moveset.rs:343`, `phase_shift`, `author_teleport` at 210px with a 44px ledge assist and 0.12s intangibility, commented *"Aimed, like every recovery: the stick, then straight up."* The AUTHOR has his (`author_moveset.rs:64`), and he IS a smash fighter — `select.rs:69` — even though he is still absent from `PLAYABLE_ROSTER`, which is the adventure game's cast and a different question. ▢ **what is genuinely left is the second half of Jon's own sentence**: a smash up-B's brief aim WINDOW and committed release versus the metroidvania blink's aim-at-leisure hold. The aim SOURCE is shared; the TIMING model is not, and `blink_hold_active`/`blink_aiming` still belong to the metroidvania verb. |
 | **D206 — goblin vs PCA asks for `player.hit` 111 TIMES A SECOND, and that is a hit-registration defect, not a mix problem** | ✔ **CLOSED 2026-08-26**: it was BODY-CONTACT damage, and a seated fighter is no longer a contact hazard | ⭐ MEASURED in the shipped composition by `the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick`: **7189 sfx requests over 3776 seated ticks = 114.2/s, of which 6997 are one id — `player.hit` (SfxId 1147272914855045707)**. ⭐ CONTROL, same test, same rung, george mirror: 934 requests = 19.9/s with `player.hit` 223 — so goblin/PCA is 6x the rate overall and **31x on that one sound**, and the distribution is 6997/86/86 against a balanced 223/206/201. It is these two characters, not an engine-wide rate. ⇒ `player.hit` is emitted from `emit_hit_feedback` on the actor-hit EVENT path (`features/ecs/damage/actor_hit.rs`), which is per-hit — so ~111 emissions per second means ~111 HIT EVENTS per second, and the sound is the symptom. Look at hit registration: `HitboxHits` (crates/ambition_combat/src/strike.rs) is the per-hitbox record of who a volume has already struck, and a volume that re-hits every active tick would produce exactly this. ⛔ the per-tick guard in that test CANNOT catch it — 111/s is ~2 per tick, sustained, so it passes. Add the RATE guard (no single authored id above ~20/s) WITH the fix; adding it now only reddens main ⭐ DONE `7354f2150`, and the row's hypothesis was WRONG in a useful way. It is not `HitboxHits` re-hitting: measured by `HitSource`, the fight trades **6,908 `Contact` events in 3,776 ticks (109.8/s)** against 29.5/s of `Melee`. `apply_actor_contact_damage` writes an event EVERY TICK two bodies overlap, paced only by the victim's i-frames. George was quiet because George authors no contact-damage block; goblin and PCA do — correctly, for Ambition, where a goblin you walk into hurts you. ⭐ THE FIX IS A SCOPE STATEMENT: whether touching hurts is a MATCH rule, so the system asks whether the body holds a `MatchSeat`. Not the tuning — `actor_clusters` builds that on the shared character→body road the overworld NPC and the seated fighter both take, so it cannot know about a match, and a ruleset rewriting it would be editing a construction-time fact a re-seat puts straight back. ⇒ 7,189 sfx requests → 751 (114.2/s → 11.9/s), `player.hit` 6,997 → 27, hit events 8,765 → 641. The RATE guard now ships with the fix (no authored id above 20/s across a match); PROBED RED at 111.2/s with the gate reverted. |
 | **D207 — the pirate's up-B summons a rideable burning flying shark (5s of flight, no freefall)** | ✔ **CLOSED 2026-08-26** on main as `49affd064`: the ride ships end to end — summon, board, 5 s lease, bail-out, launch-dismount, shark-death and departure. ⚠ THE ARRIVAL IS THE HALF JON CHANGED HIS MIND ABOUT — see **D246**, which replaces the spawn-under-the-caller with a fly-in | ⭐ JON'S DESIGN, recorded verbatim in intent: *"their up-b should summon a burning flying shark that they can mount and ride (and effectively fly around for a limited time using the control stick)"*. Lasts **5 s**, then the shark forces the pirate off and flies away. Spends the up-B until the normal refresh, but does **NOT** put the pirate into freefall. **No hurtbox** — purely mobility. The pirate may attack and use specials from the saddle. Jump or dodge = bail out, ending the move. Multiple sharks may be on screen at once. ⭐⭐ MOST OF THIS ALREADY EXISTS. ADR 0020 shipped the whole mount model and `npc_burning_flying_shark` is authored content carrying `Mountable { class: "shark" }`; `steer_mount_from_rider` routes the rider's MOVEMENT intent to the mount and deliberately NOT its attack intent, which is exactly "attacks and specials from the saddle"; `sync_riders_to_mounts` welds; `player_pilots_mount_end_to_end.rs` already pins a human driving a mount through the real sim; `MoveGates::spends_recovery` + `BodyJumpState::recovery_charges` own the up-B budget; `Effect::Summon` is rollback-safe and `apply_summon_effects` is in the SHARED combat schedule, so smash already has it. `npc_pirate_admiral` is on the smash grid with a full moveset in `pirate_admiral_moveset.rs`. ⇒ FIVE extensions, every one of them ADR-0020-reserved or genre-general: (1) a **board/dismount action** — ADR 0020 explicitly deferred "the in-game board action" and reserved the seam; today the link is hand-welded by tests and the authored LDtk resolver; (2) a **timed ride lease** shaped like `RespawnGrace`, ⛔ NOT `Empowered` (one component, so a grant clobbers the body's power-up — that bug is already recorded); (3) **bail-out on jump/dodge**, which is a real rule because movement intent is routed to the mount, so a jump press currently drives the MOUNT's jump; (4) a **departure** — ⛔ it may NOT read the camera, so it departs on a heading for N seconds and despawns; (5) **`MoveGates` gains one bool**: spends a recovery charge WITHOUT arming the helpless episode — which is also the knob D204 will want. ⭐ JON'S ANSWERS, 2026-08-26: **launched ⇒ knocked off**; the shark **dies to 3 hits** (or an HP pool, whichever is easier — ADR 0020 already gives it one) and the rider falls off; the shark **spawns directly where the rider is** (the fly-in from offscreen is DEFERRED as a balance risk, not rejected); it **is** a strong recovery and that is deliberate — *"we will balance later, maybe 5 seconds is too long, but that's where I want it right now"*; you **can ride out of bounds and kill yourself**; **no recast from the saddle**, guarded explicitly rather than left to follow from not landing; the shark has **no contact damage in smash** (*"might change the decision later"*). ⛔⛔ ONE ANSWER CONTRADICTS A DELIBERATE ENGINE RULE and must be settled before building: Jon said *"getting hit is a refresh condition"*, but `body_is_helpless`'s own doc says an accepted hit CLEARS `post_recovery_helpless` and **the charge stays spent** — *"Restoring the charge is a different rule and a deliberate one this must not undo"*. A hit refunds the AIR DODGE, never the recovery. So a pirate knocked off its shark cannot recast until it lands, unless the pirate is made an exception. ⭐⭐ JON SETTLED THE CONTRADICTION 2026-08-26, AND IT IS THE ENGINE THAT IS WRONG, not his design: *"the rule for refreshing the up-b should be getting FLINCHED. In Smash Ultimate, the normal rule is that if you have used an up-B that puts you into special fall / helplessness, then an opponent hits you hard enough to cause flinch, that hit clears helplessness. Once hitstun ends, you can act again, INCLUDING using your up-B again."* ⇒ so a flinching hit REFUNDS the recovery charge, which `body_is_helpless`'s doc currently forbids in as many words (*"Restoring the charge is a different rule and a deliberate one this must not undo"*). That comment was written about the AIR DODGE half and generalised too far. ⛔ THIS IS AN ENGINE-WIDE RULE, not a pirate exception — it changes recovery for every fighter, and the pirate's case then falls out with no special case at all. `HitReaction` already distinguishes the flinch: a `Strike` flinches and a `Windbox` explicitly does not, so the condition is named rather than a magnitude. ⚠ TWO THRESHOLDS, NOT ONE, and they are different: **flinch** refreshes the up-B; **launch/tumble** is what knocks the pirate off the shark. A jab flinches without dismounting. ⭐ REMAINING ANSWERS: the shark dies to a DAMAGE THRESHOLD (*"effectively is a healthpool, but it doesn't have to be implemented that way"* — ADR 0020 already gives it one, authored at 6 HP); when the rider comes off for ANY reason the shark leaves IMMEDIATELY; and ⛔ **the pirate does NOT get this ability in Ambition** — smash only, so it is authored on the match seat's kit and never on the catalog grant list. ⚠ *"riding away to the nearest off-screen position"* is a CAMERA fact and the simulation may not read presentation. The sim-side reading is the nearest STAGE/blast-zone direction, which is the same answer in every case that matters and is data the sim owns. |
-| **D249 - the shark up-B shipped BROKEN IN PLAY four times, and every failure was a GREEN TEST measuring the wrong thing** | unstaffed - **RETROSPECTIVE**; the fixes landed 2026-08-26, the lesson has no home yet | Jon played the up-B and reported it broken on four separate builds while the suite stayed green. Each cause was real and each was invisible to the tests that should have caught it. ⭐ THE BUGS: (1) the pilot licence lived on `smash_roster` and NOT on `SmashSelect::roster_seeded`, the road a player travels - fixed by moving it to the CHARACTER, where every road inherits it; (2) `rebuild_dynamic_feature_views` dropped every PEACEFUL encounter mob under a comment asserting encounter mobs are hostile by construction, so the shark published no `DynamicFeatureFact`, got no `FeatureVisual`, and was INVISIBLE - engine-wide, not shark-specific; (3) a reservation out of range was neither boarded NOR refused and sat forever; (4) the summoned shark carried 24 HP while the admiral's own forward smash lands at 17 x `smash_charge_mult` 1.7 = 29, so one charged smash DELETED it. ⛔⛔ AND THE TESTS WERE GREEN THROUGH ALL OF IT, five distinct ways: the harness had NO DAMAGE SOURCE, so a survivability bug could not appear; a hitbox anchored to a REMEMBERED POINT silently stopped landing when the test started jumping first, and "no damage taken" reads identically to "survived"; a test WROTE A DERIVED FACT (`BodyMotionFacts::tumbling`) that the movement pass recomputed away; a strike was owned by its own VICTIM, and strikes skip self-hits; and a `HitSide::Player` strike against a Player-faction rider was refused as friendly fire. ⭐⭐ THE PATTERN IS ONE THING: a green result that is green FOR AN UNRELATED REASON. The discipline that worked every time was asking what would make the result FALSE - probing the fix out and demanding red - and it was applied three rounds late. ⛔ COROLLARY, learned the same day: a RED test is evidence about the TEST until checked; three of the launch-threshold failures were the test's fault while the engine was correct. ⚠ WHAT WOULD HAVE CAUGHT IT SOONER: a test that travels the road the PLAYER travels (the select screen, not an injected roster), and a survivability arm that lands the LARGEST hit in the game rather than a middling one. Both exist now; neither did before Jon found the bugs by playing. |
-| **D246 — the shark should FLY IN from off-screen and mount ON ARRIVAL, not appear under the caller** | ▢ unstaffed — **MECHANICS**; Jon redesigned it 2026-08-26. ⛔ BLOCKED on the `ambition_damage` carve landing on `origin/main` (`49affd064`) — that carve is mid-flight in the primary checkout at `c545c8af6`, four commits behind, 31 files, and it moves registered types | ⭐ JON'S REDESIGN, verbatim: *"call the shark and it spawns in at the point off screen that is closest to the caller and then path finds to the caller… and then mounts when the shark actually reaches the player. That means the admiral would have to call the shark before they fell off so the shark had time to reach them. That might feel like a more fun ability."* ⭐ THE NEW RULE THAT MAKES IT A SKILL: *"If the player is not in a state where they can mount the shark when it reaches them, the special ends, the shark flys off, and the player is gimped."* ⇒ that falls out of `board()` already returning `bool`; its `false` branch IS the gimp. ⛔⛔ THE ARRIVAL MUST BE ONE DECISIVE MOMENT, because a shark that re-targets every tick can never FAIL to arrive — it escorts the fleeing player forever. So: home continuously, and the instant the saddle radius is entered, attempt the board once and take the answer. Plus an inbound timeout. ⭐ THE BLAST-ZONE EXEMPTION IS A DECLARATION, NOT A TYPE CHECK. Jon: *"I don't want a rule like: if shark, exempt. I want a rule like, if declared to be exempt, then exempt."* ⇒ a per-body `WorldEdgePolicy` whose DEFAULT is "every edge binds", mirroring the world's own `WorldEdgeMargins { fall, side: Option, rise: Option }` where `None` already means "this direction is not a blast zone". The admiral stays mortal because it never declared otherwise — nothing anywhere asks what a body IS. ⛔ NOT a bit in `AbilitySet`: abilities are verbs a body PERFORMS, and `BodyAbilities` is the EFFECTIVE set masked from `AbilityBase` by the F3 dev editable mask, so a dev toggle could silently make the shark mortal. ⭐ MEASURED, and it is cheaper than it looks: `BodyClustersMut` has only FOUR construction sites, and the field can be `Option<&'static WorldEdgePolicy>` so bodies without it still match the query — no spawn-road change, no migration. ⭐ SUMMON AND BOARD SPLIT INTO TWO TRANSACTIONS, which Jon asked for directly. Today they are ONE, deliberately: `ridden_by_summoner` → `board_after_commit` inside the exclusive command (`spawn_actors.rs:2094`), so a refused board cannot leave an orphaned lease. Splitting makes that orphan real — a summoner who dies, is launched, or is already mounted mid-flight must send its inbound shark away. The rider identity survives the split because `SimId::spawned` is known BEFORE the commit. ⭐ `Departing` IS ALREADY THE MIRROR IMAGE: `departure_heading()` computes the nearest off-screen side sim-legally (no camera read), so the spawn point is that same function times a distance, and the inbound homing is `tick_departures` with the sign flipped and a proximity test instead of a clock — same `velocity_target` seam, no second position authority. ⛔⛔ SPAWNING OUTSIDE THE ENVELOPE KILLS THE SHARK ON TICK ONE without the exemption above: `apply_world_hazard_gate` (`movement/kernel.rs:440`) resets ANY body past the margins regardless of faction. ⚠ AND IT PROBABLY ALREADY BITES THE DEPARTURE — a departing shark flies 1400px/s for 2 s = 2800px and the side margin is 400px past the room edge, so the despawn that `tick_departures` thinks it owns may never be the one that fires. Invisible today because both endings remove the body; worth confirming which. ⭐ PHASE THROUGH PLATFORMS FOR NOW, by Jon's explicit ruling, and it is INTERIM — see **D247** for the end state he wants instead. ⇒ ESTIMATE ~1 day: ~1 h edge policy, ~2 h split summon/board + homing, ~2 h arrival rules (gimp, race between two inbound sharks, summoner dies mid-flight), ~1 h rollback registration + the three baselines, rest tests. ⚠ THE UNESTIMATABLE PART IS FEEL: inbound speed vs spawn distance is the whole ability, so ship it as a tuning constant. |
+| **D249 - the shark up-B shipped BROKEN IN PLAY four times, and every failure was a GREEN TEST measuring the wrong thing** | ✔ **HOMED 2026-08-28 in `dev/journals/`**, which is where `docs/concepts/engineering-memory.md` says lessons live — *"the long-running record of hard-won lessons… it lives in `dev/`, not `docs/`"* | Jon played the up-B and reported it broken on four separate builds while the suite stayed green. Each cause was real and each was invisible to the tests that should have caught it. ⭐ THE BUGS: (1) the pilot licence lived on `smash_roster` and NOT on `SmashSelect::roster_seeded`, the road a player travels - fixed by moving it to the CHARACTER, where every road inherits it; (2) `rebuild_dynamic_feature_views` dropped every PEACEFUL encounter mob under a comment asserting encounter mobs are hostile by construction, so the shark published no `DynamicFeatureFact`, got no `FeatureVisual`, and was INVISIBLE - engine-wide, not shark-specific; (3) a reservation out of range was neither boarded NOR refused and sat forever; (4) the summoned shark carried 24 HP while the admiral's own forward smash lands at 17 x `smash_charge_mult` 1.7 = 29, so one charged smash DELETED it. ⛔⛔ AND THE TESTS WERE GREEN THROUGH ALL OF IT, five distinct ways: the harness had NO DAMAGE SOURCE, so a survivability bug could not appear; a hitbox anchored to a REMEMBERED POINT silently stopped landing when the test started jumping first, and "no damage taken" reads identically to "survived"; a test WROTE A DERIVED FACT (`BodyMotionFacts::tumbling`) that the movement pass recomputed away; a strike was owned by its own VICTIM, and strikes skip self-hits; and a `HitSide::Player` strike against a Player-faction rider was refused as friendly fire. ⭐⭐ THE PATTERN IS ONE THING: a green result that is green FOR AN UNRELATED REASON. The discipline that worked every time was asking what would make the result FALSE - probing the fix out and demanding red - and it was applied three rounds late. ⛔ COROLLARY, learned the same day: a RED test is evidence about the TEST until checked; three of the launch-threshold failures were the test's fault while the engine was correct. ⚠ WHAT WOULD HAVE CAUGHT IT SOONER: a test that travels the road the PLAYER travels (the select screen, not an injected roster), and a survivability arm that lands the LARGEST hit in the game rather than a middling one. Both exist now; neither did before Jon found the bugs by playing. ⭐⭐ **AND IT GAINED THE HALF THIS ROW COULD NOT HAVE KNOWN.** The discipline it names — probe the fix out and demand red — was applied to every fix on 2026-08-28 and MISSED THREE TIMES, each because the poison targeted the layer the fix touched rather than the CONSUMER of what changed: a nullable field poisoned at its payload while three aggregates still summed it as zero; a menu arm poisoned by tapping one row twice while two different rows sharing an action still armed each other; a projectile fixture whose two bodies were 40px apart when the shot travels 0.8px in a tick. ⇒ so the lesson wants stating with that second half — **poison the CONSUMER of what you changed, not the place it is produced** — plus the magnitude corollary a `ParryTiming::OnRaise` fixture demonstrated by staying green against a poison that restored the default (a default value is the classic vacuous choice for a straddling arm). ⇒ **homed as `dev/journals/poisons-that-passed-2026-08-28.md`**, and as a JOURNAL rather than a benchmark candidate on purpose: `engineering-memory.md` splits the two, and a journal is EVIDENCE (what happened, in which commits) while a benchmark candidate asserts a transferable invariant. ⛔ the entry says which half of this session's output to trust — the measurements were checkable and the GENERALISATIONS were wrong twice, so the rule it offers is marked as a hypothesis and the two errors are recorded beside it. ⚠ an earlier attempt to put it in `docs/reviewer-guide.md` was reverted at Jon's instruction; that file is not an agent's to change. |
+| **D246 — the shark should FLY IN from off-screen and mount ON ARRIVAL, not appear under the caller** | ▢ unstaffed — **MECHANICS**; Jon redesigned it 2026-08-26. ✔ **UNBLOCKED — the recorded blocker is STALE, re-measured 2026-08-28.** It said this waits on the `ambition_damage` carve reaching `origin/main`. That carve landed on 2026-08-26: `crates/ambition_damage` is a workspace crate, it is in the movement-only sentinel's link closure, and `scripts/baselines/capability-footprint-baseline.json` records its arrival as a declared growth. ⇒ nothing is waiting; the design below is the work. | ⭐ JON'S REDESIGN, verbatim: *"call the shark and it spawns in at the point off screen that is closest to the caller and then path finds to the caller… and then mounts when the shark actually reaches the player. That means the admiral would have to call the shark before they fell off so the shark had time to reach them. That might feel like a more fun ability."* ⭐ THE NEW RULE THAT MAKES IT A SKILL: *"If the player is not in a state where they can mount the shark when it reaches them, the special ends, the shark flys off, and the player is gimped."* ⇒ that falls out of `board()` already returning `bool`; its `false` branch IS the gimp. ⛔⛔ THE ARRIVAL MUST BE ONE DECISIVE MOMENT, because a shark that re-targets every tick can never FAIL to arrive — it escorts the fleeing player forever. So: home continuously, and the instant the saddle radius is entered, attempt the board once and take the answer. Plus an inbound timeout. ⭐ THE BLAST-ZONE EXEMPTION IS A DECLARATION, NOT A TYPE CHECK. Jon: *"I don't want a rule like: if shark, exempt. I want a rule like, if declared to be exempt, then exempt."* ⇒ a per-body `WorldEdgePolicy` whose DEFAULT is "every edge binds", mirroring the world's own `WorldEdgeMargins { fall, side: Option, rise: Option }` where `None` already means "this direction is not a blast zone". The admiral stays mortal because it never declared otherwise — nothing anywhere asks what a body IS. ⛔ NOT a bit in `AbilitySet`: abilities are verbs a body PERFORMS, and `BodyAbilities` is the EFFECTIVE set masked from `AbilityBase` by the F3 dev editable mask, so a dev toggle could silently make the shark mortal. ⭐ MEASURED, and it is cheaper than it looks: `BodyClustersMut` has only FOUR construction sites, and the field can be `Option<&'static WorldEdgePolicy>` so bodies without it still match the query — no spawn-road change, no migration. ⭐ SUMMON AND BOARD SPLIT INTO TWO TRANSACTIONS, which Jon asked for directly. Today they are ONE, deliberately: `ridden_by_summoner` → `board_after_commit` inside the exclusive command (`spawn_actors.rs:2094`), so a refused board cannot leave an orphaned lease. Splitting makes that orphan real — a summoner who dies, is launched, or is already mounted mid-flight must send its inbound shark away. The rider identity survives the split because `SimId::spawned` is known BEFORE the commit. ⭐ `Departing` IS ALREADY THE MIRROR IMAGE: `departure_heading()` computes the nearest off-screen side sim-legally (no camera read), so the spawn point is that same function times a distance, and the inbound homing is `tick_departures` with the sign flipped and a proximity test instead of a clock — same `velocity_target` seam, no second position authority. ⛔⛔ SPAWNING OUTSIDE THE ENVELOPE KILLS THE SHARK ON TICK ONE without the exemption above: `apply_world_hazard_gate` (`movement/kernel.rs:440`) resets ANY body past the margins regardless of faction. ⚠ AND IT PROBABLY ALREADY BITES THE DEPARTURE — a departing shark flies 1400px/s for 2 s = 2800px and the side margin is 400px past the room edge, so the despawn that `tick_departures` thinks it owns may never be the one that fires. Invisible today because both endings remove the body; worth confirming which. ⭐ PHASE THROUGH PLATFORMS FOR NOW, by Jon's explicit ruling, and it is INTERIM — see **D247** for the end state he wants instead. ⇒ ESTIMATE ~1 day: ~1 h edge policy, ~2 h split summon/board + homing, ~2 h arrival rules (gimp, race between two inbound sharks, summoner dies mid-flight), ~1 h rollback registration + the three baselines, rest tests. ⚠ THE UNESTIMATABLE PART IS FEEL: inbound speed vs spawn distance is the whole ability, so ship it as a tuning constant. |
 | **D247 — the engine has no general actor NAVIGATION, and D246's inbound shark is its first consumer** | ▢ unstaffed — **ENGINE, deep**; Jon named it 2026-08-26 as a TODO he does NOT want D246 to settle | ⭐ JON, verbatim: *"you can make it phase through platforms for now. But mark it as a TODO that I don't want that to be the end state of this ability. The shark should have normal actor collision. It's a normal actor. An enemy can attack it while its trying to make its way to you. Eventually it might even move to where it thinks you will be, not where you are, attempt to minimize total travel time. But we just mark that as TODO, because I don't think we have the general actor navigation part of the engine built yet, and that is going to be a deeper problem to solve, but this will give it an immediate consumer."* ⇒ THREE SEPARABLE CAPABILITIES, and D246 needs none of them to ship: (1) **route around geometry** — a body that must reach a point through a world it collides with, which is the actual navigation problem and the one with no engine support today; (2) **be a normal actor in flight** — the inbound shark keeps its collision and its hurtbox, so an opponent can shoot it down before it arrives, which turns D246's summon into a contested action rather than a guaranteed one; (3) **lead the target** — steer toward where the rider WILL be, minimising total travel time, not toward where they are. ⭐ (3) IS THE INTERESTING ONE AND IT IS NOT NAVIGATION: it is an intercept solve against the rider's own velocity, buildable independently and worth ~an afternoon on its own once (1) exists. ⛔ THE INTERIM STATE IS A LIVE DEBT, NOT A DESIGN: D246 ships a shark that phases through platforms and cannot be shot down, which is strictly stronger than the ability Jon described — so any balance read taken before this row closes is measuring the wrong ability. ⚠ A NAVIGATION LAYER IS A ROLLBACK CUSTOMER: whatever it remembers between ticks (a path, a waypoint cursor, a re-plan clock) is per-body state a resimulation must reproduce, so it owes registration and a probe on day one rather than as a follow-up. |
 | **D248 — the 3-2-1 opening ceremony runs 10x fast as a TEMPORARY dev mode** | ▢ **REVERT WHEN JON SAYS** — landed 2026-08-26 at his request | ⭐ Jon, 2026-08-26: *"As a temporary dev mode make the 3, 2, 1, countdown go 10x as fast."* ⇒ `game/ambition_demo_smash/src/lib.rs` gained `const COUNTDOWN_SPEEDUP: u32 = 10` and the ceremony is `3 * 60 / COUNTDOWN_SPEEDUP` — 18 ticks, still three beats. ⭐ THE REVERT IS ONE TOKEN: set it back to `1`. ⛔ A CONSTANT AND NOT A SETTING, deliberately — a knob would outlive the reason for it and would owe a menu row, a default and somewhere to persist; a constant with a date and a sentence is what temporary means. ⚠ THIS ROW IS THE ONLY THING THAT REMEMBERS. Nothing in the tree hard-codes the ceremony length — every test that waits it out reads `roster.rules.opening_countdown_ticks` — so the speedup is invisible to the suite and will simply become the ceremony if nobody asks Jon. ASK HIM before a playtest build ships. ⚠⚠ **IT HAS EXPOSED FOUR FIXTURE FAMILIES SO FAR, AND EVERY ONE WAS THE SAME SHAPE**: `the_match_clock_does_not_start_until_the_cast_is_released` (a bare `for _ in 0..20`), the two shark tests that identified *the* shark as the only `Mountable` on the stage, and seven settle loops in `smash_ride.rs` (`for _ in 0..240` / `0..300` after pressing Start). ⭐ THE SHAPE: **a fixed frame count after a state change is a fixture encoding a DURATION it does not own** — usually the opponent's idleness. All were repaired to wait on the observable condition (a seated cast with nothing still held by `ScriptedControl`) and none was weakened. ⛔ SO A REVERT TO `1` IS SAFE AND CHANGES NO TEST; what the speedup found stays found. ⛔⛔ AND DIAGNOSE IT WITH THE CONSTANT, NOT WITH A WORKTREE: set `COUNTDOWN_SPEEDUP` to `1`, run the one failing test, set it back. Running the test in a sibling worktree to see whether it was ours cost 40 GB of `cargo clean`, because worktrees share `CARGO_TARGET_DIR`. |
-| **D251 - a mounted rider still integrates its own locomotion, so a held body has TWO pose authorities** | unstaffed - **ENGINE**; named by a GPT review 2026-08-26 and half-addressed the same day | THE HALF THAT LANDED: `sync_riders_to_mounts` is now in `WorldPrepSet::AfterIntegrate` after `sync_actor_read_model`, where the capture constraint already lives. Before that it sat in a chained tuple whose comment claimed it ran after `update_ecs_actors` - a system that NO LONGER EXISTS - and the tuple did not contain the integrator at all, so which authority spoke last was scheduler topology. THE HALF THAT DID NOT: `ActorMut::update` still ignores `_is_mounted`, so a rider in a saddle runs the ordinary movement pass and the constraint then repairs the result. The snap cannot undo state transitions the pass already produced - jump, dodge, ground/ledge, movement events. `PoseOwnedExternally` (_core) exists and is stamped by `board`, so the FACT is available to both domains; nothing reads it yet. AND IT IS NOT THE `OutOfPlay` ARM. GPT was explicit and is right: `step_body`'s out-of-play path halts velocity, sets dt = 0 and leans on `ControlHold::Sequence` having neutralised a dead body's input. A mounted rider must keep LIVE controls - it steers the mount and swings from the saddle - so feeding `out_of_play || is_mounted` into that branch would make "mounted" a kind of death. What the external-pose path must mean is narrower: do not independently integrate locomotion, do not consume movement verbs into jump/dodge state, leave combat and action controls alone. WHY IT IS DEFERRED RATHER THAN RUSHED: the saddle now authoritatively speaks last, so the visible behaviour is correct; what remains is that two authorities speak at all. That is elegance and latent correctness, not a live break, and it is engine surgery on the one integrator every actor shares. |
-| **D250 - a recovery that hands you a VEHICLE is invisible to the CPU's recovery search** | unstaffed - **ENGINE + BRAIN**; surfaced building D207, and D205's teleport up-B will be its second customer | `RecoveryLens` searches `lifting_candidates`, and a candidate is a `RecoveryLift { speed, side, after_s }` - a COMMANDED VELOCITY the body can throw once. That is the right shape for every up-B in the tree so far, and `call_the_shark` has none: it authors no `start_impulse`, because what it grants is five seconds of steerable FLIGHT rather than a burst. So the fighter brain finds no route, and a CPU admiral over the blast zone does not know it owns a recovery. ⛔ THE TWO CHEAP FIXES ARE BOTH WRONG, and a GPT review said so plainly: giving the move a fake impulse would lie to a kernel that then simulates the lie, and teaching the lens the technique key would put one character's move name inside a search that deliberately *"names no move, no verb and no character"*. ⭐ THE HONEST SHAPE IS SEMANTIC: a move states what it does for RECOVERY in terms the search can evaluate - a burst, or a sustained authority with a duration and a speed - and `best_route` asks the kernel with whichever it was handed. A vehicle is not a bigger impulse; it is a different kind of answer to the same question, and the type cannot express it yet. ⚠ NOT A LIVE DEFECT FOR A HUMAN: the up-B works when pressed. What is missing is a CPU knowing to press it, which reads as a fighter that recovers worse than its kit allows. D205's teleport recovery has the same shape and will want the same answer, so this is worth doing once rather than twice. |
+| **D251 - a mounted rider still integrates its own locomotion, so a held body has TWO pose authorities** | ✔ **BOTH HALVES BUILT — verified at HEAD 2026-08-28** | THE HALF THAT LANDED: `sync_riders_to_mounts` is now in `WorldPrepSet::AfterIntegrate` after `sync_actor_read_model`, where the capture constraint already lives. Before that it sat in a chained tuple whose comment claimed it ran after `update_ecs_actors` - a system that NO LONGER EXISTS - and the tuple did not contain the integrator at all, so which authority spoke last was scheduler topology. THE HALF THAT DID NOT: `ActorMut::update` still ignores `_is_mounted`, so a rider in a saddle runs the ordinary movement pass and the constraint then repairs the result. The snap cannot undo state transitions the pass already produced - jump, dodge, ground/ledge, movement events. `PoseOwnedExternally` (_core) exists and is stamped by `board`, so the FACT is available to both domains; nothing reads it yet. AND IT IS NOT THE `OutOfPlay` ARM. GPT was explicit and is right: `step_body`'s out-of-play path halts velocity, sets dt = 0 and leans on `ControlHold::Sequence` having neutralised a dead body's input. A mounted rider must keep LIVE controls - it steers the mount and swings from the saddle - so feeding `out_of_play || is_mounted` into that branch would make "mounted" a kind of death. What the external-pose path must mean is narrower: do not independently integrate locomotion, do not consume movement verbs into jump/dodge state, leave combat and action controls alone. WHY IT IS DEFERRED RATHER THAN RUSHED: the saddle now authoritatively speaks last, so the visible behaviour is correct; what remains is that two authorities speak at all. That is elegance and latent correctness, not a live break, and it is engine surgery on the one integrator every actor shares. ✔✔ **THE HALF THIS ROW SAID DID NOT LAND, DID.** `ActorMut::update` reads the marker now, and its comment is this row's diagnosis in the row's own words: *"the parameter sat unused with a leading underscore, so a rider in a saddle ran the whole movement pass and the saddle constraint repaired the result afterwards — two authorities, and a snap cannot undo a spent double-jump."* ⭐ AND IT READS `PoseOwnedExternally`, NOT A MOUNT: *"somebody else owns this pose"* without saying who, so a lift or a grab reaches the same road without this crate learning what a saddle is. |
+| **D250 - a recovery that hands you a VEHICLE is invisible to the CPU's recovery search** | ✔ **BUILT — verified at HEAD 2026-08-28** | `RecoveryLens` searches `lifting_candidates`, and a candidate is a `RecoveryLift { speed, side, after_s }` - a COMMANDED VELOCITY the body can throw once. That is the right shape for every up-B in the tree so far, and `call_the_shark` has none: it authors no `start_impulse`, because what it grants is five seconds of steerable FLIGHT rather than a burst. So the fighter brain finds no route, and a CPU admiral over the blast zone does not know it owns a recovery. ⛔ THE TWO CHEAP FIXES ARE BOTH WRONG, and a GPT review said so plainly: giving the move a fake impulse would lie to a kernel that then simulates the lie, and teaching the lens the technique key would put one character's move name inside a search that deliberately *"names no move, no verb and no character"*. ⭐ THE HONEST SHAPE IS SEMANTIC: a move states what it does for RECOVERY in terms the search can evaluate - a burst, or a sustained authority with a duration and a speed - and `best_route` asks the kernel with whichever it was handed. A vehicle is not a bigger impulse; it is a different kind of answer to the same question, and the type cannot express it yet. ⚠ NOT A LIVE DEFECT FOR A HUMAN: the up-B works when pressed. What is missing is a CPU knowing to press it, which reads as a fighter that recovers worse than its kit allows. D205's teleport recovery has the same shape and will want the same answer, so this is worth doing once rather than twice. ✔✔ **THE ROUTE IS AUTHORED AND THE SEARCH ASKS FOR IT.** `smash_ride.rs` sets `spec.gates.recovery_route`, the admiral's moveset asserts the shape (`RecoveryRoute::SustainedAuthority { seconds, reach }` — the five seconds of steerable flight this row said a `RecoveryLift` could not express), and `brain/fighter/options.rs`'s `lifting_candidates` asks `MoveFrameData::recovery_route` instead of `lift_speed > 0.0`, with a comment naming exactly the two moves that read `0.0` under the old filter: the pirate's shark and the Author's teleport. ⭐ so D205's teleport up-B — the second customer this row predicted — was served by the same fix. |
 | **D194 — a top-rung mirror spends half the match in a GRAB, and the respawn beat is stuck behind it** | ✔ **CLOSED 2026-08-23 by `3a2100d86`**, recorded 2026-08-25 — the row sat `unstaffed` for two days after its own fix landed | ⭐ the measured defect was SAME-TICK MUTUAL CAPTURE: two grabs on one tick made both bodies captor AND captive, which made the capture policy unreachable. `3a2100d86` (124 lines in `crates/ambition_combat/src/capture/systems.rs` + 85 in tests) measured the exact D194 matchup in the full app — **before: 40 captures / 2028 capture-ticks (28%) / 0 pummels / 0 throws; after: 2 captures / 74 capture-ticks (1%) / 2 pummels / 2 throws, and the duel ENDS**. ⇒ this satisfies the old D192 hold precondition. ⛔ what is NOT proven on main is `D194 fix + respawn_delay_ticks=60 → healthy duel`, because main has no such knob — that becomes an ACCEPTANCE GUARD on the fresh D192 (structural, not pinned to 74 ticks: no body both captor and captive, pummels/throws occur, captures stay in the repaired regime), never a reason to hold this row open |
-| **D193 — every launch-cue constant in the game was fitted while three fighters could not see each other** | PRESENTATION lane, 2026-08-23 | ⭐ the launch trail's 290/760/1500 onset band, the splat bands and the launch-beat counts were all fitted against CPU matches sampled BEFORE `d4c681a8b`, i.e. on a stage where some fighters never engaged and others were locked at gap 23. ⚠ the lane that owns them raised this itself and deliberately did NOT re-fit them inside an unrelated slice — *"that is how a number gets fitted to the wrong sample twice"* — which is the right call. ⇒ the sample must be re-taken on current `main`, which also carries the jab flurry: its pulses are on FIXED knockback, so there is now a repeating hit that deliberately does not scale its launch with percent, and a band fitted across all hits will see a population that did not exist. ⛔ the standing rule applies with force: two genuinely distinct populations set a threshold in the GAP between them, not at a percentile of one — the precedent is the landing-versus-wall-splat measurement, where a wall splat sharing the floor's 520 onset would have shipped green and never once fired. ⚠ ALSO OPEN behind it: ours computes hitlag from KNOCKBACK where the genre computes it from DAMAGE, so our freeze lengthens as a match goes on for the same move and Smash's does not — one term inside `ambition_combat`, sequenced AFTER the re-fit |
-| **D192 — a knocked-out fighter is back on the stage the same tick, so the whole KO beat has nowhere to happen** | ▢ **STAFFED 2026-08-25 — RE-DO on current main, do NOT rebase `respawn-interval-holding`** | ⭐ the mechanic is still ABSENT: `respawn_delay_ticks` exists nowhere on main, and `game/ambition_demo_smash/src/lib.rs` still consumes the stock-spend message and places the body the same tick. ⚠ residual architecture is built ON that limitation — `KnockoutsView`'s `LastSeenBodies` cache exists only because the body has already moved by the time presentation reads it. ⛔ the held branch was built on rollback schema **73**; main is **104**, so a conflict-resolved rebase would mean answering 'how do I reproduce what schema-73 code did' hunk by hunk. The right question is 'what is the smallest correct respawn-interval representation in schema 104'. ⇒ model an explicit lifecycle (alive → knocked out, awaiting respawn → returned with grace) as ONE small rollback-registered `PendingRespawn`, not an ad-hoc stage-local 'stock spent N ticks ago' table, so combat eligibility / camera cast / HUD / placement / rollback all read one owner. ⚠ re-EVALUATE rather than port the old knockout-VELOCITY message change; if KO position/velocity belongs anywhere it is `BodyKnockedOut` (where the event occurs), not `FighterStockSpent` (a later rules consequence). ⇒ see [`review-respawn-interval-hold.md`](review-respawn-interval-hold.md) |
-| **D191 — three fighters spend 98% of a match in hitstun, and it is NOT the perception bug** | unstaffed | ⭐ separated from D190 2026-08-23 by the discriminating probe: widening the viewport moved every SILENT fighter and left the locked three byte-identical — `player_robot_v3` 4254%, `goblin` 3574%, `perfect_cellular_automaton` 3356%, each ~7100 of a possible 7200 ticks in hitstun at a median gap of 23–49px. So they are two different defects that the damage column happened to bracket. ⭐ what is known: each throws ONE move about 240 times in sixty seconds (`thruster_climb`×200, `fixed_point_acquire`×248, `scramble_leap`×238, ~98% of everything they do), the move's authored length is 0.36–0.50s so nothing owns the body, and 4254% of a pool without a KO means the damage is landing and the LAUNCH is not carrying anyone off. ⇒ ⭐⭐ **DIAGNOSED 2026-08-23 TO A MUTUAL UPWARD JUGGLE, and the three dominant moves are the same move wearing three names.** `thruster_climb`, `scramble_leap` and `fixed_point_acquire` were read side by side: startup **0.07–0.08s** (the fastest in each kit), damage 6–7, knockback 78–86, growth 1.50–1.65, and `launch_dir` **(0.08…0.12, -1.0)** — within a hair of straight up in all three. Two are the character's up-special recovery and one is an up-air, so it is not a shared archetype; it is that each brain converges on ITS UPWARD-LAUNCHING move. ⇒ **an upward launch returns the victim to the attacker**, which at a median gap of 22–49px is a juggle that re-arms itself, and the hitstun figure is a SUM over both seats: ~3,550 of 3,600 ticks EACH, so both fighters are in hitstun ~98% of the time simultaneously. ⚠ and read the damage column correctly: 4254% is ACCUMULATED across the whole match including every KO reset, not one body held at 4254%. ⇒ the next probe is whether the victim ever escapes: `Burst` out of hitstun and DI are both landed (`brain/fighter/reeling.rs`, and the post-hit gate that used to strip `Burst` for all of hitstun was fixed this run) — so measure whether the reeling brain actually reaches for them inside these loops before touching knockback numbers. ⛔ juggling is a REAL genre mechanic and must not be deleted; what the genre relies on to end one is growth ejecting the victim, staling, and the victim's own escape — check which of the three is failing rather than flattening the launch. ⇒ ⭐ **ESCAPE DI SHIPPED 2026-08-23 AND DID NOT FIX THIS — reported because the negative is the finding.** The victim's stick was optimising survival ONLY (`time_inside` the stage envelope), which at centre stage is near-arbitrary between the two deflections and never once considered the attacker; the genre splits the same mechanic into survival DI and escape DI and only the objective differs. That is in now, with the survival term saturating at the hitstun the body still owes so escape decides whenever survival is not at stake. Swept: `goblin` came out **byte-identical at 3574%**, `player_robot_v3` 4254→4285, `perfect_cellular_automaton` unmoved. ⇒ ⭐⭐⭐ **MEASURED 2026-08-23, AND THE THREE ARE TWO DIFFERENT DEFECTS.** The sweep now reports what share of each fighter's hitstun is spent ON THE FLOOR, and the locked three do not agree: `goblin` **100% grounded**, `player_robot_v3` **4%**, `perfect_cellular_automaton` **4%** — against 43–73% for every healthy fighter on the grid. ⇒ **(a) `goblin` is a GROUNDED lock and it is the worse of the two**: its victim never leaves the floor, and a grounded body in hitstun has NO AGENCY OF ANY KIND — `survival_stick` refuses it deliberately (holding a stick on the floor is walking out of hitstun) and `apply_post_hit_input_gates` exempts the `Burst` edge only while TUMBLING. `scramble_leap` carries the weakest knockback of the three (78 against 84 and 86), so the reading to test first is that the hit does not lift its victim off the ground at all. ⇒ **(b) `player_robot_v3` and `perfect_cellular_automaton` are AIRBORNE juggles at 96% airborne**, so the victim's stick IS running and escape DI still did not break them — a different question, and not an agency one. ⭐ the invariant worth checking for both: hitstun must be shorter than the attacker's whole move cycle, or any move is an infinite. ⇒ ✔ **MEASURED, and it explains TWO of the three and NOT the third.** Peak hitstun against the dominant move's own total: `player_robot_v3` **0.96s vs 0.39s**, `perfect_cellular_automaton` **0.90s vs 0.36s** — both can re-hit roughly two and a half times inside one stun, which is an infinite by construction and needs no brain to sustain. `goblin` is **0.17s vs 0.38s**, comfortably inside the invariant, so its 3574% is NOT a stun lock: it is continuous mutual GROUNDED pressure at gap 49, where hitstun is short but the victim has no agency to use the gaps with. ⛔ **and 0.96s is the CAP** (`MAX_HITSTUN_SCALE` 4.0 × `enemy_hitstun_time` 0.24), which `smash_george_booul` at 246%, `special_patent_clerk` at 167% and `pugnacious_polygon` at 272% also reach — so reaching the cap is NECESSARY AND NOT SUFFICIENT, and what separates the locked pair from those three is the dominant move's cycle (0.36–0.39s against 0.40–0.52s) together with a median gap of 18–22px against 37–190px. ⇒ ⭐⭐⭐ **DIAGNOSIS COMPLETE 2026-08-23: TWO MECHANISMS COVER ALL THREE, and each has a genre-standard answer this engine does not have.** ⇒ **(1) A MOVE THAT OUTRUNS ITS OWN VICTIM.** `thruster_climb` sets its user's velocity to **760** and launches its victim at a base **86**; `scramble_leap` sets **720** against a base **78**. The attacker arrives above the victim before the victim has gone anywhere, and re-hits. ⛔ the genre's answer is HELPLESSNESS: a fighter that spends a self-propelling special is helpless until it lands, which is exactly why up-specials are not neutral tools in any game in this genre. Grep says the engine has `helpless` ONLY as the victim's tumble state — there is no attacker-side helpless at all. ⇒ **(2) HITSTUN OUTLASTING THE MOVE**, as measured above. ⇒ the coverage: `player_robot_v3` is explained by BOTH, `goblin` by (1) alone (self-impulse 720, but stun 0.17s is well inside its 0.38s cycle), `perfect_cellular_automaton` by (2) alone — its `fixed_point_acquire` is an up-AIR and carries no self-impulse at all. ⚠ staling is NOT the gap and was checked: the smash ruleset declares `stale_step: 0.05, stale_floor: 0.55`, so a spammed move is already down to 55% and the locks survive it |
-| **D190 — a THIRD of the Smash select grid is not playable** | unstaffed — **product, and Jon should see the table** | ⭐ measured 2026-08-23 by `cargo test -p ambition_app --test app_it -- --ignored --nocapture every_fighter_on_the_grid`, mirror matches, 60s each, in the SHIPPED composition. **Three fighters never touch each other**: `sanic`, `npc_ninja_shadow_oni_leader`, `npc_oiler` — 0% damage, 0 hitstun ticks. **Three spend 99% of every tick in hitstun**: `player_robot_v3` 4254%, `goblin` 3574%, `perfect_cellular_automaton` 3356%, at ~7100 of a possible 7200 ticks — that is a lock, not a fight. `pugnacious_polygon` manages 16%. The other nine sit at 69–248%. ⇒ **a player can pick any of them off the grid today.** ⛔ do not "balance" this. ⭐ **THE MOVE CENSUS SPLITS IT INTO THREE SHAPES, and none of them is tuning.** (1) The locked three each throw ONE move ~240 times in sixty seconds — `thruster_climb`×200, `fixed_point_acquire`×248, `scramble_leap`×238, about 98% of everything they do — so it is a single move winning every decision AND connecting, not a combo nobody escapes. (2) `sanic` throws forty-four moves, `sonic_boom`×24, and lands NONE of them. (3) `npc_ninja_shadow_oni_leader`, `npc_oiler` and `pugnacious_polygon` throw four to six moves in a whole minute — a brain with almost nothing legal to offer. ⇒ ⭐⭐ **DIAGNOSED 2026-08-23 TO A SPACING FAILURE IN TWO DIRECTIONS, and four other hypotheses are dead.** The sweep now prints, per fighter, damage accumulated, hitstun, moves started, distinct moves USED against what the brain can SEE against the authored kit, the most-thrown move and its authored length, the situation census from `situation_of` on the live brain, and the median gap between the two bodies. What it says: every brain sees 16–17 moves (kits are 26–34), so it is not wiring; the most-thrown move lasts 0.36–1.20s everywhere, so it is not one move owning the body; flipping D188's scale narrows the HEALTHY fighter and barely widens a broken one, so it is not the dead speed term; and `sanic` alone has kit 0. **The locked three sit at gap 23–49 for the whole match and the silent three at 287–515, on a platform 480 wide** — one never separates, one never meets, and both are the approach loop failing. ⚠ not sufficient alone: `npc_pirate_admiral` holds gap 502 and still takes 101%. ⇒ ⭐⭐⭐ **SOLVED 2026-08-23: THE BRAIN COULD NOT SEE THE FOE.** `ensure_perception` grants every brained non-boss body `Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF }`, and `DEFAULT_VIEWPORT_HALF.x` is **480** — the same number as `PLATFORM_WIDTH`. So two fighters that drifted apart on the SAME STAGE went permanently blind to each other, and the gap column could not attribute it: *"blind past 480"* and *"standing in opposite corners of a 480-wide platform"* predict the identical median gap. ⭐ **The discriminating probe changed ONE of the two numbers.** With the viewport at 2000 and the platform untouched, all six of the 491–515 cluster collapsed to 18–278 and every silent fighter started fighting — `npc_ninja_shadow_oni_leader` 0% → 93%, `npc_oiler` 0% → 178%, `pugnacious_polygon` 16% → 192% — while every fighter already inside 480 was byte-identical (robot 23, PCA 23, goblin 49, george 28, bob 112). ⇒ ✔ FIXED: a body seated in a match is excluded from the bounded-senses grant (`Without<MatchSeat>`), and `Perception::Omniscient` now means what it always claimed — its ACTOR channel is unclipped, where before the view was built at the default extent under both policies and only `ActorTarget` ignored the box. Guards `an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent` (poisoned both directions) and `a_seated_fighter_keeps_its_omniscient_senses` in the host. ⚠ STILL OPEN on this row: the LOCKED three (gap 23–49, ~7100 of 7200 ticks in hitstun) are a different defect and this does not touch them |
-| **D189 — the demo shell's catalog is smaller than the app's, so the rigs can measure three fighters** | ◐ diagnosed and made loud 2026-08-23; the sweep in D190 is the answer for cross-roster validation | ⭐ **CORRECTED: it is not two seating paths disagreeing.** Both use the same `smash_roster_at_levels`; what differs is the APP. `app_it`'s duel guard builds the FULL app (`build_visible_app`) and seats `npc_pirate_admiral` fine; the rigs build the demo shell (`build_demo_app`), whose catalog carries `smash_george_booul` and the two stand-in duelists and nothing else. A character it does not carry seats no fighter, so `ladder_rig` aborts on its noise-seed guard and `match_report` used to print headers over zeros. ✔ the report now names the ids it has and exits 2 instead. ⚠⚠ **THE CAP IS REAL AND UNCHANGED**: every CPU number on this run is George or a duelist, and D188's regression was found on a character the demo shell does not carry. ⇒ the row is whether the demo should carry more of the roster, or whether the rigs should compose the full app. ⭐⭐ **AND IT HAS NOW COST TWO FINDINGS IN ONE DAY, which settles that it is worth paying for.** Both lanes proved a change live in this shell, correctly, and both missed a regression that exists only in the full app: the respawn interval reads clean on George and costs `npc_pirate_admiral` two-thirds of its damage (D194), and D190's perception bound only bit characters this shell cannot seat. ⇒ ✔ PARTIAL 2026-08-23: `match_report` now prints its COMPOSITION and the three ids it carries on every run, so a proof carries its own scope and a reader who quotes the number at the shipped roster is making a claim the header already refused. ⛔ that is honesty, not a fix — the rigs still cannot measure the shipped grid. ⚠ the dep arithmetic decides the real answer and neither arm is free: `ambition_demo_smash_app` does not depend on `ambition_content` (which is where `AmbitionContentPlugin` registers the roster) and adding that edge drags dialogue, falling sand, items and presentation into a rig; composing `ambition_app` instead is the heavier edge and may be circular. ⇒ a third arm worth pricing: move the rigs INTO `ambition_app`, where the shipped game is already composed and the duel guard already builds it |
-| **D188 — `frame_advantage` is degenerate, and fixing it alone re-prices every kit** | unstaffed — **wants the ladder rig, not judgement** | ⛔⛔ it normalises `(their_commitment - startup)` by the move's OWN startup, so against an uncommitted opponent — most of neutral — every attack in the kit reports exactly `-1.0`. The feature that prices SPEED normalises the speed away and then cancels out of the ranking, leaving reach as the only discriminator. ⚠ its test asserted `slower <= faster` with both sides `-1.0`; that is a strict `<` now and the function already takes the reference parameter, so the fix is ONE call-site argument (`kit.iter().map(startup_s).fold(0.0, f32::max)`). ⭐ MEASURED both ways: with it, jab 0 → 7 in thirty seconds, `smash_up` back on the board, George vs George damage 292-389-402 → 369-418-498 and tumbling 98-210-589 → 358-572-1006 — **and `npc_pirate_admiral` falls from taking 169% of its pool a minute to 49%**, because preferring speed over reach makes that kit whiff. The weights were fitted while the feature was constant; making it vary re-prices every attack in every kit at once. ⛔⛔ **AND IT IS NOT THE CURE FOR D190, MEASURED 2026-08-23.** The obvious theory — a dead speed term leaves reach as the only discriminator, so one move wins every time, which is exactly what the broken six do — is WRONG. Flipping the scale and sweeping the grid: `player_robot_v3` went 4/17 moves used to 6/17 with its damage unchanged at 4213%, and **`smash_george_booul`, one of the healthy nine, went 17/17 down to 9/17** with damage 143% → 116%. It narrows the fighter that was working and barely widens the one that was not. (Partial sweep — the run was killed after two fighters — but both point the same way as the `npc_pirate_admiral` regression that stopped the flip the first time.) ⇒ ✔ **FLIPPED 2026-08-23, and the regression that blocked it DID NOT REPRODUCE.** ⭐⭐ the 169% → 49% that stopped this twice was measured on `npc_pirate_admiral` at median gap **502** — a fighter that was blind for most of the match under D190. Re-measured on current `main` with sight fixed, two full grid sweeps differing ONLY by this argument: admiral **107% → 104%**. The blocking evidence was an artifact. ⭐ what the flip actually does: **`sanic`, the last character on the grid taking 0%, now takes 60%** — every fighter on the sixteen-character grid fights. Nine fighters up (alice 79→179, pugnacious 192→266, mary_o 78→122, oiler 178→190, ninja 93→100), six down (george 143→116, bob 248→206, carl 144→101), the locked three unmoved (4254→4213, 3356→3487, 3574→3595). ⚠ aggregate variety is FLAT, not gained: 160 → 153 distinct moves used across the grid, redistributed — george narrows 17→9 while sanic widens 5→11. ⇒ no refit was needed; the weights were never the problem. ⭐ **THE INSTRUMENT EXISTS AS OF 2026-08-23**: `cargo run -p ambition_demo_smash_app --bin ladder_rig -- --seeds 15 --weight frame_advantage=0.3` overrides the live weights and names them in its header, so a refit is two runs compared. ⚠ the regression that stopped the flip was matchup-specific (`npc_pirate_admiral`), so sweep the FIGHTERS too — the rig takes `--fighters` |
-| **D187 — the CPU never throws a jab, so the chain and the flurry are human-only** | COORDINATOR lane | ⭐⭐ **CORRECTED 2026-08-23 by census, and the first version of this row was wrong.** I wrote it as "the brain presses once", built the second press — an undirected mash on any move nominating a successor, spaced like a hand — and measured it doing NOTHING. `bin/match_report`'s move census says why: over ninety seconds two CPUs throw dash attacks, specials, grabs, throws, pummels, tilts and aerials, and **not one jab**. The chain's first link is never chosen. ⇒ the row is SELECTION: a jab is short-reach and low-payoff, so `reach_fit` and `expected_payoff` bury it under the dash attack and the specials, and the genre's reason for a jab — that it is FAST — is what `frame_advantage` is supposed to price. ⚠ the mash is ten minutes of work the day that changes and deliberately not in the tree until then. ⭐⭐ **CORRECTED AGAIN 2026-08-23, and the earlier correction was itself measured on the wrong fighter.** The mechanics lane found the brain has TWO attack gestures and neither continues a string: over a 90s George mirror there were 960 body-ticks of `melee_held` (median 66) and **exactly one** fresh neutral jab press, whose trace shows `held=None` on every later tick. The long hold is only ever a smash charge. ⇒ **the undirected mash did nothing because it added a second PRESS to a brain that HOLDS.** And George had no `jab2` at all — the string shipped onto the shared table while George carries his own moveset, so every census on this run could only ever have counted zero. Both closed: the chain now takes a hold as well as a re-press (only CONTINUING a string, never starting a move, and reaching a successor by move ID because an `into` list mixes ids with verb names and George's jab names `smash`), and one `jab_string_continuations()` site feeds both tables. ⇒ ✔ **CLOSED 2026-08-23, and it took TWO fixes that were each invisible while the other stood.** (1) D188's flip made the jab SELECTABLE — the census went `jab 1` → `jab 9` on that change alone, because pricing speed is the genre's whole reason for a jab. (2) The brain only ever held the button for a Smash, so it never walked the string: `AttackVerb::Basic` now buys `string_hold_ticks` too. The engine already tells the two gestures apart — a held Attack is a CHARGE when the intent is `Smash` and a STRING CONTINUATION when it is not — and a continuation can reach nothing but a successor the playing window NAMES, so holding a move that authors no chain is a no-op and the brain needs no copy of the cancel table. ⛔⛔ **THE FIRST VERSION WAS PRICED LIKE A CHARGE AND WAS WRONG:** a committed opponent bought a 60-tick hold, which took seat 0's damage from 169% to **33%** and stopped the fighters being knocked off the stage at all. A charge spends time the OPPONENT cannot use; a string spends this body's OWN next decision, and an opening is exactly when a jab string is the wrong thing to be doing. One length in every attacking situation now, and the guard asserts Advantage == Neutral so the charge's rule cannot creep back. ⚠ **honest limit: the flurry is LIVE, not COMMON** — `jab3` reached 24 under the long hold and 4 under the short one in the same seeded match. A 20-tick carry buys the follow-up when the window lines up and does not buy the chain |
-| **D186 — a dev-tools edit silently wipes a stage's combat rules** | unstaffed | ⛔ the tuning UI rebuilds `parry_timing` from `default()` on ANY edit, so touching an unrelated slider deletes whatever ruleset a stage declared and says nothing. Found 2026-08-23 beside the out-of-shield policy, which was made to CARRY through an edit for exactly this reason — the fix is the same shape one field up. ⚠ audit the whole editable-tuning round trip rather than the one field: anything rebuilt from `default()` on edit has the same hole |
+| **D193 — every launch-cue constant in the game was fitted while three fighters could not see each other** | ▢ **THE RE-TAKE IS AVAILABLE NOW — 2026-08-28** | ⭐ the launch trail's 290/760/1500 onset band, the splat bands and the launch-beat counts were all fitted against CPU matches sampled BEFORE `d4c681a8b`, i.e. on a stage where some fighters never engaged and others were locked at gap 23. ⚠ the lane that owns them raised this itself and deliberately did NOT re-fit them inside an unrelated slice — *"that is how a number gets fitted to the wrong sample twice"* — which is the right call. ⇒ the sample must be re-taken on current `main`, which also carries the jab flurry: its pulses are on FIXED knockback, so there is now a repeating hit that deliberately does not scale its launch with percent, and a band fitted across all hits will see a population that did not exist. ⛔ the standing rule applies with force: two genuinely distinct populations set a threshold in the GAP between them, not at a percentile of one — the precedent is the landing-versus-wall-splat measurement, where a wall splat sharing the floor's 520 onset would have shipped green and never once fired. ⚠ ALSO OPEN behind it: ours computes hitlag from KNOCKBACK where the genre computes it from DAMAGE, so our freeze lengthens as a match goes on for the same move and Smash's does not — one term inside `ambition_combat`, sequenced AFTER the re-fit ⭐ this row's blocker was that every launch-cue constant was fitted against matches sampled BEFORE `d4c681a8b`, *"on a stage where some fighters never engaged and others were locked at gap 23"*, and that the sample had to be re-taken before anybody re-fits. ⭐⭐ **RE-MEASURED ON CURRENT MAIN, 2026-08-28** — the re-take these rows asked for, `every_fighter_on_the_grid_can_fight_its_mirror`, all 21 fighters, 3600 ticks each (note: the sweep is 3600 now, not 7200, so compare FRACTIONS). **That stage no longer exists**: nobody is silent, nobody is locked at 99%, and the gaps run 20–142px across the cast. ⇒ the sample the constants were fitted against is now known to be unrepresentative AND a current one exists, so the re-fit this row deferred is unblocked. ⛔ it is still a FEEL job — the row's own *"that is how a number gets fitted to the wrong sample twice"* applies to fitting it to one CPU census as well. |
+| **D192 — a knocked-out fighter is back on the stage the same tick, so the whole KO beat has nowhere to happen** | ✔ **BUILT ON CURRENT MAIN — verified at HEAD 2026-08-28** | ⭐ the mechanic is still ABSENT: `respawn_delay_ticks` exists nowhere on main, and `game/ambition_demo_smash/src/lib.rs` still consumes the stock-spend message and places the body the same tick. ⚠ residual architecture is built ON that limitation — `KnockoutsView`'s `LastSeenBodies` cache exists only because the body has already moved by the time presentation reads it. ⛔ the held branch was built on rollback schema **73**; main is **104**, so a conflict-resolved rebase would mean answering 'how do I reproduce what schema-73 code did' hunk by hunk. The right question is 'what is the smallest correct respawn-interval representation in schema 104'. ⇒ model an explicit lifecycle (alive → knocked out, awaiting respawn → returned with grace) as ONE small rollback-registered `PendingRespawn`, not an ad-hoc stage-local 'stock spent N ticks ago' table, so combat eligibility / camera cast / HUD / placement / rollback all read one owner. ⚠ re-EVALUATE rather than port the old knockout-VELOCITY message change; if KO position/velocity belongs anywhere it is `BodyKnockedOut` (where the event occurs), not `FighterStockSpent` (a later rules consequence). ⇒ see [`review-respawn-interval-hold.md`](review-respawn-interval-hold.md) ✔✔ **AND IT IS THE REPRESENTATION THIS ROW ASKED FOR, not the held branch's.** `ambition_combat::stocks::PendingRespawn` exists and is `rollback_component_canonical`-registered, beside `DeathInterlude`; `FighterRespawnDue` / `FighterRespawnsDue` / `FighterStockSpent` are the published vocabulary. ⇒ *"ONE small rollback-registered `PendingRespawn`, not an ad-hoc stage-local 'stock spent N ticks ago' table"* — the row's own words, and the schema-73 branch was correctly never rebased. ⚠ D201 (CLOSED 2026-08-26) is where the beat actually landed. |
+| **D191 — three fighters spend 98% of a match in hitstun, and it is NOT the perception bug** | ✔ **THE SYMPTOM IS GONE — re-measured 2026-08-28** | ⭐ separated from D190 2026-08-23 by the discriminating probe: widening the viewport moved every SILENT fighter and left the locked three byte-identical — `player_robot_v3` 4254%, `goblin` 3574%, `perfect_cellular_automaton` 3356%, each ~7100 of a possible 7200 ticks in hitstun at a median gap of 23–49px. So they are two different defects that the damage column happened to bracket. ⭐ what is known: each throws ONE move about 240 times in sixty seconds (`thruster_climb`×200, `fixed_point_acquire`×248, `scramble_leap`×238, ~98% of everything they do), the move's authored length is 0.36–0.50s so nothing owns the body, and 4254% of a pool without a KO means the damage is landing and the LAUNCH is not carrying anyone off. ⇒ ⭐⭐ **DIAGNOSED 2026-08-23 TO A MUTUAL UPWARD JUGGLE, and the three dominant moves are the same move wearing three names.** `thruster_climb`, `scramble_leap` and `fixed_point_acquire` were read side by side: startup **0.07–0.08s** (the fastest in each kit), damage 6–7, knockback 78–86, growth 1.50–1.65, and `launch_dir` **(0.08…0.12, -1.0)** — within a hair of straight up in all three. Two are the character's up-special recovery and one is an up-air, so it is not a shared archetype; it is that each brain converges on ITS UPWARD-LAUNCHING move. ⇒ **an upward launch returns the victim to the attacker**, which at a median gap of 22–49px is a juggle that re-arms itself, and the hitstun figure is a SUM over both seats: ~3,550 of 3,600 ticks EACH, so both fighters are in hitstun ~98% of the time simultaneously. ⚠ and read the damage column correctly: 4254% is ACCUMULATED across the whole match including every KO reset, not one body held at 4254%. ⇒ the next probe is whether the victim ever escapes: `Burst` out of hitstun and DI are both landed (`brain/fighter/reeling.rs`, and the post-hit gate that used to strip `Burst` for all of hitstun was fixed this run) — so measure whether the reeling brain actually reaches for them inside these loops before touching knockback numbers. ⛔ juggling is a REAL genre mechanic and must not be deleted; what the genre relies on to end one is growth ejecting the victim, staling, and the victim's own escape — check which of the three is failing rather than flattening the launch. ⇒ ⭐ **ESCAPE DI SHIPPED 2026-08-23 AND DID NOT FIX THIS — reported because the negative is the finding.** The victim's stick was optimising survival ONLY (`time_inside` the stage envelope), which at centre stage is near-arbitrary between the two deflections and never once considered the attacker; the genre splits the same mechanic into survival DI and escape DI and only the objective differs. That is in now, with the survival term saturating at the hitstun the body still owes so escape decides whenever survival is not at stake. Swept: `goblin` came out **byte-identical at 3574%**, `player_robot_v3` 4254→4285, `perfect_cellular_automaton` unmoved. ⇒ ⭐⭐⭐ **MEASURED 2026-08-23, AND THE THREE ARE TWO DIFFERENT DEFECTS.** The sweep now reports what share of each fighter's hitstun is spent ON THE FLOOR, and the locked three do not agree: `goblin` **100% grounded**, `player_robot_v3` **4%**, `perfect_cellular_automaton` **4%** — against 43–73% for every healthy fighter on the grid. ⇒ **(a) `goblin` is a GROUNDED lock and it is the worse of the two**: its victim never leaves the floor, and a grounded body in hitstun has NO AGENCY OF ANY KIND — `survival_stick` refuses it deliberately (holding a stick on the floor is walking out of hitstun) and `apply_post_hit_input_gates` exempts the `Burst` edge only while TUMBLING. `scramble_leap` carries the weakest knockback of the three (78 against 84 and 86), so the reading to test first is that the hit does not lift its victim off the ground at all. ⇒ **(b) `player_robot_v3` and `perfect_cellular_automaton` are AIRBORNE juggles at 96% airborne**, so the victim's stick IS running and escape DI still did not break them — a different question, and not an agency one. ⭐ the invariant worth checking for both: hitstun must be shorter than the attacker's whole move cycle, or any move is an infinite. ⇒ ✔ **MEASURED, and it explains TWO of the three and NOT the third.** Peak hitstun against the dominant move's own total: `player_robot_v3` **0.96s vs 0.39s**, `perfect_cellular_automaton` **0.90s vs 0.36s** — both can re-hit roughly two and a half times inside one stun, which is an infinite by construction and needs no brain to sustain. `goblin` is **0.17s vs 0.38s**, comfortably inside the invariant, so its 3574% is NOT a stun lock: it is continuous mutual GROUNDED pressure at gap 49, where hitstun is short but the victim has no agency to use the gaps with. ⛔ **and 0.96s is the CAP** (`MAX_HITSTUN_SCALE` 4.0 × `enemy_hitstun_time` 0.24), which `smash_george_booul` at 246%, `special_patent_clerk` at 167% and `pugnacious_polygon` at 272% also reach — so reaching the cap is NECESSARY AND NOT SUFFICIENT, and what separates the locked pair from those three is the dominant move's cycle (0.36–0.39s against 0.40–0.52s) together with a median gap of 18–22px against 37–190px. ⇒ ⭐⭐⭐ **DIAGNOSIS COMPLETE 2026-08-23: TWO MECHANISMS COVER ALL THREE, and each has a genre-standard answer this engine does not have.** ⇒ **(1) A MOVE THAT OUTRUNS ITS OWN VICTIM.** `thruster_climb` sets its user's velocity to **760** and launches its victim at a base **86**; `scramble_leap` sets **720** against a base **78**. The attacker arrives above the victim before the victim has gone anywhere, and re-hits. ⛔ the genre's answer is HELPLESSNESS: a fighter that spends a self-propelling special is helpless until it lands, which is exactly why up-specials are not neutral tools in any game in this genre. Grep says the engine has `helpless` ONLY as the victim's tumble state — there is no attacker-side helpless at all. ⇒ **(2) HITSTUN OUTLASTING THE MOVE**, as measured above. ⇒ the coverage: `player_robot_v3` is explained by BOTH, `goblin` by (1) alone (self-impulse 720, but stun 0.17s is well inside its 0.38s cycle), `perfect_cellular_automaton` by (2) alone — its `fixed_point_acquire` is an up-AIR and carries no self-impulse at all. ⚠ staling is NOT the gap and was checked: the smash ruleset declares `stale_step: 0.05, stale_floor: 0.55`, so a spammed move is already down to 55% and the locks survive it ⭐⭐ **RE-MEASURED ON CURRENT MAIN, 2026-08-28** — the re-take these rows asked for, `every_fighter_on_the_grid_can_fight_its_mirror`, all 21 fighters, 3600 ticks each (note: the sweep is 3600 now, not 7200, so compare FRACTIONS). The three fighters this row separated out — `player_robot_v3` 4254%, `goblin` 3574%, `perfect_cellular_automaton` 3356%, each ~7100 of 7200 ticks in hitstun — now read **697, 685 and 1044 of 3600** (19%, 19%, 29%) at 170%, 147% and 146% damage. ⇒ whatever locked them is fixed; ⛔ this row should NOT be closed by assuming which change did it — nothing here identifies the cause, and the honest statement is that the symptom is absent. ⚠ the lock reappeared elsewhere (`smash_george_booul`, 3809 hitstun ticks in a 3600-tick match), which is D190's new table. |
+| **D190 — a THIRD of the Smash select grid is not playable** | ◐ **BOTH HALVES OF ITS TABLE ARE DEAD — re-measured 2026-08-28. The population moved rather than shrank** | ⭐ measured 2026-08-23 by `cargo test -p ambition_app --test app_it -- --ignored --nocapture every_fighter_on_the_grid`, mirror matches, 60s each, in the SHIPPED composition. **Three fighters never touch each other**: `sanic`, `npc_ninja_shadow_oni_leader`, `npc_oiler` — 0% damage, 0 hitstun ticks. **Three spend 99% of every tick in hitstun**: `player_robot_v3` 4254%, `goblin` 3574%, `perfect_cellular_automaton` 3356%, at ~7100 of a possible 7200 ticks — that is a lock, not a fight. `pugnacious_polygon` manages 16%. The other nine sit at 69–248%. ⇒ **a player can pick any of them off the grid today.** ⛔ do not "balance" this. ⭐ **THE MOVE CENSUS SPLITS IT INTO THREE SHAPES, and none of them is tuning.** (1) The locked three each throw ONE move ~240 times in sixty seconds — `thruster_climb`×200, `fixed_point_acquire`×248, `scramble_leap`×238, about 98% of everything they do — so it is a single move winning every decision AND connecting, not a combo nobody escapes. (2) `sanic` throws forty-four moves, `sonic_boom`×24, and lands NONE of them. (3) `npc_ninja_shadow_oni_leader`, `npc_oiler` and `pugnacious_polygon` throw four to six moves in a whole minute — a brain with almost nothing legal to offer. ⇒ ⭐⭐ **DIAGNOSED 2026-08-23 TO A SPACING FAILURE IN TWO DIRECTIONS, and four other hypotheses are dead.** The sweep now prints, per fighter, damage accumulated, hitstun, moves started, distinct moves USED against what the brain can SEE against the authored kit, the most-thrown move and its authored length, the situation census from `situation_of` on the live brain, and the median gap between the two bodies. What it says: every brain sees 16–17 moves (kits are 26–34), so it is not wiring; the most-thrown move lasts 0.36–1.20s everywhere, so it is not one move owning the body; flipping D188's scale narrows the HEALTHY fighter and barely widens a broken one, so it is not the dead speed term; and `sanic` alone has kit 0. **The locked three sit at gap 23–49 for the whole match and the silent three at 287–515, on a platform 480 wide** — one never separates, one never meets, and both are the approach loop failing. ⚠ not sufficient alone: `npc_pirate_admiral` holds gap 502 and still takes 101%. ⇒ ⭐⭐⭐ **SOLVED 2026-08-23: THE BRAIN COULD NOT SEE THE FOE.** `ensure_perception` grants every brained non-boss body `Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF }`, and `DEFAULT_VIEWPORT_HALF.x` is **480** — the same number as `PLATFORM_WIDTH`. So two fighters that drifted apart on the SAME STAGE went permanently blind to each other, and the gap column could not attribute it: *"blind past 480"* and *"standing in opposite corners of a 480-wide platform"* predict the identical median gap. ⭐ **The discriminating probe changed ONE of the two numbers.** With the viewport at 2000 and the platform untouched, all six of the 491–515 cluster collapsed to 18–278 and every silent fighter started fighting — `npc_ninja_shadow_oni_leader` 0% → 93%, `npc_oiler` 0% → 178%, `pugnacious_polygon` 16% → 192% — while every fighter already inside 480 was byte-identical (robot 23, PCA 23, goblin 49, george 28, bob 112). ⇒ ✔ FIXED: a body seated in a match is excluded from the bounded-senses grant (`Without<MatchSeat>`), and `Perception::Omniscient` now means what it always claimed — its ACTOR channel is unclipped, where before the view was built at the default extent under both policies and only `ActorTarget` ignored the box. Guards `an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent` (poisoned both directions) and `a_seated_fighter_keeps_its_omniscient_senses` in the host. ⚠ STILL OPEN on this row: the LOCKED three (gap 23–49, ~7100 of 7200 ticks in hitstun) are a different defect and this does not touch them ⭐⭐ **RE-MEASURED ON CURRENT MAIN, 2026-08-28** — the re-take these rows asked for, `every_fighter_on_the_grid_can_fight_its_mirror`, all 21 fighters, 3600 ticks each (note: the sweep is 3600 now, not 7200, so compare FRACTIONS). **Nobody is silent and nobody is locked:**
+```text
+was SILENT (0% dmg, 0 hitstun)      now
+  sanic                             116% / 110%,  523 hitstun
+  npc_ninja_shadow_oni_leader       117% / 117%,  588
+  npc_oiler                         176% / 237%,  860
+was LOCKED (~7100 of 7200 = 99%)    now (of 3600)
+  player_robot_v3                   697 = 19%
+  goblin                            685 = 19%
+  perfect_cellular_automaton       1044 = 29%
+```
+⇒ **every one of the six named fighters is fine.** ⛔⛔ **BUT ONE NEW OUTLIER IS WORSE THAN ANY OF THEM**: `smash_george_booul` takes **436%** with **3809 hitstun ticks of a 3600-tick match** — more hitstun than there are ticks, i.e. both bodies stunlocked at once — while throwing 411 moves, `jab×167` at gap 20. He is the lock now. ⚠ and three fighters barely engage rather than never engaging: `medic` 39% using **5 of 17** verbs (`medic_tourniquet×112`, a HEAL, at gap 142), `npc_emmy_noether` 54% / 9 verbs, `author` 87% / 78 moves. ⇒ **the table Jon should see is this one, not the 2026-08-23 one**, and its shape changed: from *never touch* and *locked* to *one lock and three who barely fight*.
+
+⛔⛔ **AND THE OBVIOUS EXPLANATION FOR THE QUIET THREE IS REFUTED — checked the same day, because it was too tidy.** The medic's most-thrown move reaches 80px and she throws it at a median gap of 142 (1.77×); Noether's reaches 62 and she throws it at 113 (1.82×). `REACH_TOLERANCE = 2.0` lets a move survive the *"cannot reach"* filter out to 3× its reach, so the story wrote itself: they whiff, so they deal nothing. **Measured across all fifteen fighters whose most-thrown move has authored coverage, it does not hold:**
+```text
+thrown BEYOND its reach   13 fighters, median 124% dealt
+thrown WITHIN its reach    2 fighters
+  officer_haymaker        1.83× reach → 150%   (medic is 1.77× → 39%)
+  projectile dash attack  1.68×       → 222%
+  iaijutsu                3.81×       → 117%
+```
+⇒ **the ratio does not predict the damage**, and throwing from past your reach is what almost everybody does. ⛔ so do NOT reopen [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 35 on this — the quiet three need a different explanation, and this is the explanation they do not have.
+
+⚠ **ONE ANOMALY THE CHECK SURFACED, worth an eye**: `npc_ninja_shadow_oni_leader` throws `iaijutsu` at **3.81× its authored reach** — past even the 3× `REACH_TOLERANCE` allows, where `reach_fit` is 0 — 88 times, and fights fine at 117%. Either the move travels and its authored coverage is not where it lands, or the filter is not reaching it. Both are answerable; neither is answered here. |
+| **D189 — the demo shell's catalog is smaller than the app's, so the rigs can measure three fighters** | ◐ **ITS STATED PREMISE IS STALE — re-measured 2026-08-28** | ⭐ **CORRECTED: it is not two seating paths disagreeing.** Both use the same `smash_roster_at_levels`; what differs is the APP. `app_it`'s duel guard builds the FULL app (`build_visible_app`) and seats `npc_pirate_admiral` fine; the rigs build the demo shell (`build_demo_app`), whose catalog carries `smash_george_booul` and the two stand-in duelists and nothing else. A character it does not carry seats no fighter, so `ladder_rig` aborts on its noise-seed guard and `match_report` used to print headers over zeros. ✔ the report now names the ids it has and exits 2 instead. ⚠⚠ **THE CAP IS REAL AND UNCHANGED**: every CPU number on this run is George or a duelist, and D188's regression was found on a character the demo shell does not carry. ⇒ the row is whether the demo should carry more of the roster, or whether the rigs should compose the full app. ⭐⭐ **AND IT HAS NOW COST TWO FINDINGS IN ONE DAY, which settles that it is worth paying for.** Both lanes proved a change live in this shell, correctly, and both missed a regression that exists only in the full app: the respawn interval reads clean on George and costs `npc_pirate_admiral` two-thirds of its damage (D194), and D190's perception bound only bit characters this shell cannot seat. ⇒ ✔ PARTIAL 2026-08-23: `match_report` now prints its COMPOSITION and the three ids it carries on every run, so a proof carries its own scope and a reader who quotes the number at the shipped roster is making a claim the header already refused. ⛔ that is honesty, not a fix — the rigs still cannot measure the shipped grid. ⚠ the dep arithmetic decides the real answer and neither arm is free: `ambition_demo_smash_app` does not depend on `ambition_content` (which is where `AmbitionContentPlugin` registers the roster) and adding that edge drags dialogue, falling sand, items and presentation into a rig; composing `ambition_app` instead is the heavier edge and may be circular. ⇒ a third arm worth pricing: move the rigs INTO `ambition_app`, where the shipped game is already composed and the duel guard already builds it ⚠ **THE DEMO SHELL'S CATALOG IS NOT THREE ROWS ANY MORE.** This says it *"carries `smash_george_booul` and the two stand-in duelists and nothing else"*. `SMASH_ROSTER` now names twenty-one — the automaton, the goblin, Noether, Stargan, the patent clerk, four polygons, the Author, the Actor, the Officer, the Medic and the rest — with the two stand-ins LAST and `roster_for` intersecting the list against what the composition can actually seat. ⇒ re-measure the rig gap against that before treating it as a catalog-size problem; the shape of the answer may have changed with the roster. |
+| **D188 — `frame_advantage` is degenerate, and fixing it alone re-prices every kit** | ✔ **FIXED — verified at HEAD 2026-08-28** | ⛔⛔ it normalises `(their_commitment - startup)` by the move's OWN startup, so against an uncommitted opponent — most of neutral — every attack in the kit reports exactly `-1.0`. The feature that prices SPEED normalises the speed away and then cancels out of the ranking, leaving reach as the only discriminator. ⚠ its test asserted `slower <= faster` with both sides `-1.0`; that is a strict `<` now and the function already takes the reference parameter, so the fix is ONE call-site argument (`kit.iter().map(startup_s).fold(0.0, f32::max)`). ⭐ MEASURED both ways: with it, jab 0 → 7 in thirty seconds, `smash_up` back on the board, George vs George damage 292-389-402 → 369-418-498 and tumbling 98-210-589 → 358-572-1006 — **and `npc_pirate_admiral` falls from taking 169% of its pool a minute to 49%**, because preferring speed over reach makes that kit whiff. The weights were fitted while the feature was constant; making it vary re-prices every attack in every kit at once. ⛔⛔ **AND IT IS NOT THE CURE FOR D190, MEASURED 2026-08-23.** The obvious theory — a dead speed term leaves reach as the only discriminator, so one move wins every time, which is exactly what the broken six do — is WRONG. Flipping the scale and sweeping the grid: `player_robot_v3` went 4/17 moves used to 6/17 with its damage unchanged at 4213%, and **`smash_george_booul`, one of the healthy nine, went 17/17 down to 9/17** with damage 143% → 116%. It narrows the fighter that was working and barely widens the one that was not. (Partial sweep — the run was killed after two fighters — but both point the same way as the `npc_pirate_admiral` regression that stopped the flip the first time.) ⇒ ✔ **FLIPPED 2026-08-23, and the regression that blocked it DID NOT REPRODUCE.** ⭐⭐ the 169% → 49% that stopped this twice was measured on `npc_pirate_admiral` at median gap **502** — a fighter that was blind for most of the match under D190. Re-measured on current `main` with sight fixed, two full grid sweeps differing ONLY by this argument: admiral **107% → 104%**. The blocking evidence was an artifact. ⭐ what the flip actually does: **`sanic`, the last character on the grid taking 0%, now takes 60%** — every fighter on the sixteen-character grid fights. Nine fighters up (alice 79→179, pugnacious 192→266, mary_o 78→122, oiler 178→190, ninja 93→100), six down (george 143→116, bob 248→206, carl 144→101), the locked three unmoved (4254→4213, 3356→3487, 3574→3595). ⚠ aggregate variety is FLAT, not gained: 160 → 153 distinct moves used across the grid, redistributed — george narrows 17→9 while sanic widens 5→11. ⇒ no refit was needed; the weights were never the problem. ⭐ **THE INSTRUMENT EXISTS AS OF 2026-08-23**: `cargo run -p ambition_demo_smash_app --bin ladder_rig -- --seeds 15 --weight frame_advantage=0.3` overrides the live weights and names them in its header, so a refit is two runs compared. ⚠ the regression that stopped the flip was matchup-specific (`npc_pirate_admiral`), so sweep the FIGHTERS too — the rig takes `--fighters` ✔✔ **IT TAKES THE KIT'S SLOWEST STARTUP AS THE SCALE NOW**: `frame_advantage(startup_s, their_commitment_s, slowest_startup_s)` divides by `slowest_startup_s.max(0.01)`, not by the move's own startup — so the number is comparable BETWEEN moves instead of every attack normalising the speed away and reporting `-1.0`. Its test says so in its own name and comment. ⇒ the ladder rig this row wanted for validation is still the right instrument for the RE-PRICING, but the degeneracy it was gating on is gone. |
+| **D187 — the CPU never throws a jab, so the chain and the flurry are human-only** | ✔ **THE PREMISE IS DEAD — re-measured 2026-08-28** | ⭐⭐ **CORRECTED 2026-08-23 by census, and the first version of this row was wrong.** I wrote it as "the brain presses once", built the second press — an undirected mash on any move nominating a successor, spaced like a hand — and measured it doing NOTHING. `bin/match_report`'s move census says why: over ninety seconds two CPUs throw dash attacks, specials, grabs, throws, pummels, tilts and aerials, and **not one jab**. The chain's first link is never chosen. ⇒ the row is SELECTION: a jab is short-reach and low-payoff, so `reach_fit` and `expected_payoff` bury it under the dash attack and the specials, and the genre's reason for a jab — that it is FAST — is what `frame_advantage` is supposed to price. ⚠ the mash is ten minutes of work the day that changes and deliberately not in the tree until then. ⭐⭐ **CORRECTED AGAIN 2026-08-23, and the earlier correction was itself measured on the wrong fighter.** The mechanics lane found the brain has TWO attack gestures and neither continues a string: over a 90s George mirror there were 960 body-ticks of `melee_held` (median 66) and **exactly one** fresh neutral jab press, whose trace shows `held=None` on every later tick. The long hold is only ever a smash charge. ⇒ **the undirected mash did nothing because it added a second PRESS to a brain that HOLDS.** And George had no `jab2` at all — the string shipped onto the shared table while George carries his own moveset, so every census on this run could only ever have counted zero. Both closed: the chain now takes a hold as well as a re-press (only CONTINUING a string, never starting a move, and reaching a successor by move ID because an `into` list mixes ids with verb names and George's jab names `smash`), and one `jab_string_continuations()` site feeds both tables. ⇒ ✔ **CLOSED 2026-08-23, and it took TWO fixes that were each invisible while the other stood.** (1) D188's flip made the jab SELECTABLE — the census went `jab 1` → `jab 9` on that change alone, because pricing speed is the genre's whole reason for a jab. (2) The brain only ever held the button for a Smash, so it never walked the string: `AttackVerb::Basic` now buys `string_hold_ticks` too. The engine already tells the two gestures apart — a held Attack is a CHARGE when the intent is `Smash` and a STRING CONTINUATION when it is not — and a continuation can reach nothing but a successor the playing window NAMES, so holding a move that authors no chain is a no-op and the brain needs no copy of the cancel table. ⛔⛔ **THE FIRST VERSION WAS PRICED LIKE A CHARGE AND WAS WRONG:** a committed opponent bought a 60-tick hold, which took seat 0's damage from 169% to **33%** and stopped the fighters being knocked off the stage at all. A charge spends time the OPPONENT cannot use; a string spends this body's OWN next decision, and an opening is exactly when a jab string is the wrong thing to be doing. One length in every attacking situation now, and the guard asserts Advantage == Neutral so the charge's rule cannot creep back. ⚠ **honest limit: the flurry is LIVE, not COMMON** — `jab3` reached 24 under the long hold and 4 under the short one in the same seeded match. A 20-tick carry buys the follow-up when the window lines up and does not buy the chain ⭐⭐ **RE-MEASURED ON CURRENT MAIN, 2026-08-28** — the re-take these rows asked for, `every_fighter_on_the_grid_can_fight_its_mirror`, all 21 fighters, 3600 ticks each (note: the sweep is 3600 now, not 7200, so compare FRACTIONS). This row is *"the CPU never throws a jab, so the chain and the flurry are human-only"*, corrected once already by a census that found **not one jab** in ninety seconds. **`smash_george_booul` throws `jab×167` in one mirror match** and it is his most-thrown move. Across the grid every fighter uses 13–20 of a 26–35 move kit, except `medic` (5) and `npc_emmy_noether` (9). ⇒ selection reaches the jab now; what is left of this row is its own honest limit — *"the flurry is LIVE, not COMMON"* — which is a tuning question and not the absence it was opened about. |
+| **D186 — a dev-tools edit silently wipes a stage's combat rules** | ✔ **FIXED 2026-08-28, and the audit this row asked for found ELEVEN fields, not one** | ⛔ the tuning UI rebuilds `parry_timing` from `default()` on ANY edit, so touching an unrelated slider deletes whatever ruleset a stage declared and says nothing. Found 2026-08-23 beside the out-of-shield policy, which was made to CARRY through an edit for exactly this reason — the fix is the same shape one field up. ⚠ audit the whole editable-tuning round trip rather than the one field: anything rebuilt from `default()` on edit has the same hole ✔✔ **CONFIRMED AND WIDER.** `parry_timing` was rebuilt from `default()` on every projection back out — but so were the five evade-staling/tech rules (`dodge_stale_step`, `dodge_stale_floor`, `dodge_stale_recovery`, `untechable_launch_speed`, `evade_cancel_tail`) and the crouch cost plus the four ground-movement phase timings (`initial_dash_time/_speed`, `turnaround_time`, `teeter_margin`). A fighter carries all of them in ONE authored preset — `abilities.rs` sets `dodge_stale_step: 0.25` and `untechable_launch_speed: 1400.0` beside `parry_timing: OnRaise` — so any slider deleted the lot. ⛔⛔ **AND FIVE OF THEM SAID "Carried, not edited" WHILE READING `DEFAULT_TUNING`** — the right rule and the opposite behaviour, in the same comment. ⇒ all eleven are carried on the editable struct now under `#[reflect(ignore)]`, which is the honest spelling of *not a slider*: this struct is reflected to BUILD the sliders, so a field the inspector must not offer is a field reflection must not see. ⚠ **AND MY FIRST TEST WAS VACUOUS FOR THE HEADLINE FIELD** — it declared `ParryTiming::OnRaise`, which IS the default, so poisoning the projection back to `default()` left the arm green. It declares `OnRelease` now. Both halves poisoned; the other found the phase fields. |
 | **D127 — authored logic** | **unstaffed** | ⛔ M1 is complete and M2's prepared-call half LANDED (`7e7552c4b`); the `when … then` rule form is deliberately UNBUILT for want of a customer. ⇒ nothing here is dispatchable until a customer appears or M5 diagnostics are wanted — **do not re-open M1 or M2** |
 | **D128 — Smash CPU showcase** | unstaffed | ◐ **ENGINEERING IS DONE — every line closed by 2026-08-18.** Pacing ACCEPTED (Jon, 2026-08-17: under ~40s is *"if anything… brisk"*) ⇒ ⛔ do NOT retune stock count, knockback or damage. Respawn placement, standalone asset composition, CPU symmetry and all four presentation defects are ✔ — the last two were the bark width and the untextured impact quad, both photographed before and after. ⇒ **what remains is Jon watching one match**, not another capture. |
 
@@ -2061,9 +2137,10 @@ he has dropped since arrives through his MESSAGES and lands in
 `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, which is role (4) — so that file, not an
 mtime scan, is where recent maintainer work actually shows up.
 
-- ▢ **D245 — THE ROLLBACK DECLARATION FEDERATION IS 17 CRATES DONE AND ONE
-  JUDGEMENT SHORT. PROMOTED FROM `tracks.md` 2026-08-26; both INSTANCE items are
-  closed and only `_core`'s reading is open.**
+- ✔ **D245 — THE ROLLBACK DECLARATION FEDERATION IS DONE, 18 CRATES INCLUDING
+  BOTH FLOORS. Promoted from `tracks.md` 2026-08-26, closed 2026-08-28 when the
+  last item — `_core`'s own reading — stopped being a judgement and became a
+  precedent: `ambition_time` had already answered it.**
 
 ⭐ **PROMOTED BECAUSE THE INSTANCES ARGUED IT, NOT THE CARD.** The reservoir card
 *"Simulation authority and deterministic phase structure"* asks to *"invert
@@ -2089,9 +2166,24 @@ move: `rollback-wire-format-changes-are-declared` still reports 375 names / 123
 encoded types across 11 crates. Only the OWNER string moved, from the composition
 to the crate that defines the types.
 
-◐ **(b) `ambition_platformer2d_core` DEFINES `RollbackRegistrar` AND DECLARES
-NOTHING — and this one is a JUDGEMENT, not a defect. Both readings, so nobody
-does it on my say-so.** The trait is at `core/src/snapshot.rs:338`, so the floor
+✔ **(b) DECIDED AND DONE 2026-08-28 — THE FLOOR DECLARES ITS OWN.** The row asked
+for a judgement and parked it; re-reading it, the evidence that settles it was
+already inside the row. `ambition_time` is equally a floor crate and has federated
+since 2026-08-26, so *"the composition may declare the floor's state"* was not a
+rule anybody was following — it was two floor crates answering one question
+differently, which is exactly the split this item exists to end. And the argument
+already had a DEFECT behind it, not only a principle: the hand-kept list had grown
+a duplicate `QuestAdvanceRequested` row nobody noticed, silently deduped by the
+backend. A list nobody owns grows rows nobody notices.
+⇒ `ambition_platformer2d_core/src/rollback_registration.rs` now owns 25 rows —
+`root.geometry`, fifteen `body.*` clusters, five `actor.*`, `body.ability_base`
+and three declared-derived. ⭐ **THE DELETION IS THE PROOF**: the runtime's
+`use body_clusters as bc` alias is GONE, so that function no longer names a single
+one of the floor's types. Verified: 123 encoded types unchanged, 20 codec files
+unchanged in shape, 54/54 rollback tests green. Only the OWNER string moved.
+⇓ the judgement as it stood, kept because the AGAINST reading is still the reason
+this was worth stating rather than assuming:
+<details><summary>the open question, 2026-08-26</summary> The trait is at `core/src/snapshot.rs:338`, so the floor
 crate CAN own its declarations, and `ambition_time` — equally a floor crate —
 does. Yet `_core` has no `rollback_registration.rs` and the runtime declares
 **22** of its type paths: 18 `bc::` body-cluster components plus `RoomGeometry`,
@@ -2108,10 +2200,11 @@ AGAINST        the runtime IS the engine composition and `_core` is the engine
                GAMEPLAY type paths"* — which is TRUE as written
 ```
 
-⇒ ⛔ **do not price this as the card's remainder until somebody decides which
-reading wins.** The gameplay-domain census the card complained about is gone; what
-is left is where the engine floor's own state should be declared, and the two
-crates that are both floor currently answer it differently.
+</details>
+
+⇒ the gameplay-domain census the card complained about was already gone; the last
+open half was where the engine FLOOR's own state should be declared, and it is
+declared by the floor now.
 
 ✔ **(c) `ambition_persistence` FEDERATED 2026-08-26, and `ambition_sfx` CANNOT
 — asking the question answered it both ways.** Persistence already depends on
@@ -2165,6 +2258,22 @@ peer barrier the corrected-input item leaves ▢. The doc carries the mapping.
 than be worked: corrected-input cancellation and peer-coordinated lifecycle
 commit belong to real external netplay, because local sync testing cannot
 mispredict. Its own doc says so; do not build a synthetic local ritual for them.
+
+✔ **AND THE EXTERNAL-CONSUMER PROOF LOST ONE OF ITS FOUR, 2026-08-28** — the
+*"measure … rather than only describing them qualitatively"* item. The workflow is
+EIGHT DECLARATIONS AND TWO CALLS, and both refusals are quoted verbatim in the doc
+now; each names the request, the reason and the fix, the route one lists what does
+exist, and the GPU one warns that the checks are STAGED so a consumer does not
+read one problem as the whole answer.
+⛔ **the wording is deliberately not asserted** — pinning it would make every
+improvement to an error message a red test. The probe that prints it is
+`#[ignore]`d beside the two arms that DO assert (a substring each), and the
+measurement is dated in the doc.
+⇒ **of the four remaining external-consumer items, ONE is now closed, one needs a
+DISPLAY (Jon's machine), and two want a CUSTOMER**: a readiness/last-failure API
+*"if a consumer actually benefits"*, and a second meaningfully different consumer
+before freezing a public content API. Neither is buildable without the customer,
+and building either first is how an API gets frozen around one caller.
 
 The remaining three are external-consumer proof — run the visible consumer on a
 machine with a display, measure first-room workflow and deliberate-error
@@ -3081,8 +3190,20 @@ would be a rename campaign that buys one indirection.
 lives under `characters::brain`, which is the module it was carved OUT of. That
 is a module question, not a coupling — do not reopen this row for it.
 
-- ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
+- ◐ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**
+  ✔ **EVERY `▢` UNDER THIS ROW IS CLOSED as of 2026-08-28** — the interaction seam
+  (2026-08-19), the possessed flyer's throttle, and both steps of the
+  attack-geometry carve. ⚠ **the ROW is not**: its milestone is *"merge
+  `integrate_home_body` with `integrate_actor_body`"*, which is a real remaining
+  slice.
+  ⛔⛔ **AND I NEARLY RECORDED IT AS BLOCKED ON A DECISION JON ALREADY MADE.** The
+  paragraph near the end of this row said *"the hit-emphasis decision blocks TIME
+  INTEGRATION only"*; the paragraph 280 lines ABOVE it says the blocker is gone —
+  Jon ruled `awaiting-maintainer-decision.md` **#6** on 2026-08-17: *hitlag freezes
+  the BODY that is in it, on both roads*. ⇒ **the merge is EXECUTABLE.** A row that
+  contradicts itself at two ends is the same shape as D240's back-air symptom and
+  its closure five rows apart, and it cost the same hour.
 
 ⭐⭐ **THE CONTROLLED-BODY INTERACTION SEAM IS FINISHED — 2026-08-19.** Two
 breaches were invisible in single player: the POSE was written unconditionally
@@ -3250,7 +3371,7 @@ collision_aabb / SimpleActorGeometry — production call sites
 header now says what the module actually holds, and records the measurement
 so nobody re-derives it.
 
-▢ **THE CARVE IT IMPLIES IS REFUSED FOR NOW, WITH CAUSE AND A SIZE.** The
+✔ **THE CARVE IT IMPLIES IS DONE 2026-08-28 (both steps below).** The
 universal half of `attack_geometry` wants to live below the boss crate beside
 the other body vocabulary — but `CombatGeometry` names `ActorSpriteMetrics`
 and `AnimationSelection`, both boss-crate types, and the edge runs
@@ -3259,8 +3380,120 @@ it. ⇒ moving the trait means moving three things, not one: a D33-shaped
 slice, not a file move. ⭐ unifying the publish first makes that carve
 strictly smaller — one call site to move instead of two.
 
-▢ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: A
-POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED.**
+⭐⭐ **RE-PRICED 2026-08-28, AND THE THREE THINGS DO NOT GO TO ONE PLACE — which
+is why the carve looked bigger than it is.** `ambition_characters` was the wrong
+destination for all of it:
+
+```text
+ActorSpriteMetrics    → ambition_sprite_sheet.  It IS sprite metrics: frame dims,
+                        `PixelRect`, `NamedPixelRect`, a render size. `characters`
+                        cannot host it (no `sprite_sheet` dep, and adding one
+                        inverts the edge — `sprite_sheet` depends on `characters`).
+                        42 uses inside `boss_encounter`, all mechanical.
+AnimationSelection    → with the trait. `{ keys, elapsed_s, live_frame_index }` —
+                        pure data, no boss vocabulary at all, and its own doc says
+                        *"once resolved the world-space volume derivation is
+                        identical for all of them"*. 7 uses.
+CombatGeometry + the  → ambition_combat, whose manifest already claims the
+volume math             subject: *"Damage / Hitbox / Hurtbox / DamageVolume"*.
+                        ONE new edge, `combat → sprite_sheet`, and it is downward:
+                        `sprite_sheet` names neither `combat` nor `boss_encounter`.
+```
+
+⇒ the size is 42 + 7 mechanical renames plus one dependency line, not a redesign.
+
+✔ **STEP ONE DONE 2026-08-28: `ActorSpriteMetrics` LIVES IN `ambition_sprite_sheet`.**
+`crates/ambition_sprite_sheet/src/actor_sprite_metrics.rs`, and the boss crate now
+names it by its owner. ⛔ **THE ORPHAN RULE MADE IT TWO MOVES, NOT ONE**: the
+inherent `impl` had to come with the type, because only the defining crate may
+write one — the cheapest possible reminder that a type and its methods are one
+thing. ⚠ and a hazard on the way: `ActorSpriteMetrics` was carrying SIX LINES OF
+A DELETED STRUCT'S DOC (`BossRuntime`), so walking back over `///` lines to find
+where its own docs began landed in the previous item's and produced a bad cut.
+Detached in its own commit.
+✔ **STEP TWO** was `AnimationSelection` + `CombatGeometry` + the volume math →
+`ambition_combat`, for one downward edge `combat → sprite_sheet`.
+⭐ **AND IT IS A SPLIT, NOT A MOVE — measured 2026-08-28.** With
+`ActorSpriteMetrics` gone, `attack_geometry/` (990 non-test lines) names exactly
+THREE things above it, and they all belong to the same half:
+
+```text
+UNIVERSAL, and already dependency-free of the boss crate:
+  CombatGeometry, AnimationSelection, and the volume math over a pose.
+  Crate deps: characters, _core, sprite_sheet — all combat's already except
+  sprite_sheet, the one new downward edge.
+
+BOSS-SPECIFIC, and it STAYS:
+  BossVolumeContext        names BossCatalog, BossBehaviorProfile, BossAttackState
+  volumes_for_profile      takes a BossAttackProfile and a BossBehaviorProfile
+  a `pub use crate::pattern::profile::StrikeRect` re-export
+```
+
+⇒ the file is two halves sharing one module, and separating them is the slice.
+⛔ **that is a design cut, not a `git mv`** — which is why this step did not go
+with step one: `BossVolumeContext` is how the boss FEEDS the universal math, so
+the split has to leave the boss half calling the moved half, and deciding that
+signature is the work.
+
+✔✔ **STEP TWO DONE 2026-08-28 — `ambition_combat::body_geometry`. AND THE
+SIGNATURE NEEDED NO DECIDING**, which is the correction worth keeping: the
+universal half named NOTHING boss-specific, so the only cross-reference was the
+boss's own `impl CombatGeometry for BossVolumeContext<'_>` — and an impl belongs
+with the type it is FOR. 531 lines moved (`aabb.rs` whole, plus nine items out of
+`mod.rs`); 357 lines of boss half remain.
+
+```text
+MOVED    CombatGeometry · AnimationSelection · SimpleActorGeometry
+         publish_body_footprint · collision_aabb · body_damage_aabb
+         damageable_volumes(_unmirrored) · mirror_x_if_flipped
+         the whole pixel-rect → world AABB module
+         + three helpers that were `pub(super)` in the boss `frame` module and
+           mention no boss at all: sprite_world_size, animation_frame_index,
+           world_space_animation_box_volumes
+STAYED   BossVolumeContext + its impl · BossAnimationFrameSample
+         active_attack_volumes · volumes_for_profile · the strike-geometry table
+```
+
+⛔ **A THIRD `use super::*` TURNED UP AT THE MOVE**, in `aabb.rs`, supplying
+sprite vocabulary and the geometry alias — the same shape as the boss ECS and the
+`features/ecs` trio. ⚠ and two helpers were `pub(crate)`/`pub(super)` with only
+in-crate callers, so the crate boundary moving is what made their visibility a
+question: the boss crate's own geometry FIXTURES assert on them.
+⭐ **the boss module keeps ONE republication on purpose** — `pub use
+ambition_combat::body_geometry::*` — because its own signatures speak those names.
+⚠ a consumer OUTSIDE that crate should name `ambition_combat::body_geometry`.
+✔ **AND THAT IS ENFORCED RATHER THAN ASKED FOR, the same day**: eleven outside
+call sites across eight files were repointed at the owner, and the boss crate's
+re-export is `pub(crate)` now. What still names the boss address from outside is
+exactly the four boss-specific things — `BossVolumeContext`,
+`BossAnimationFrameSample`, `active_attack_volumes`, `volumes_for_profile`.
+⭐ the tell that made this worth doing: `avatar/body_integration.rs` — the HUMAN
+body's integrator — was calling
+`ambition_boss_encounter::attack_geometry::publish_body_footprint`.
+⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
+enumerate the callers — the consumers outside `boss_encounter` are
+`sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's
+gizmos (4), and a grep over qualified paths would miss the grouped and bare forms.
+
+✔ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: A
+POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED. FIXED 2026-08-28.**
+⭐⭐ **THE FIELD'S OWN DOC ALREADY SAID WHERE THE FIX GOES.**
+`BrainSnapshot::max_run_speed` is documented as *"the throttle scale the caller
+wants this body's locomotion intent expressed against … a boss's flight speed for
+a body that flies"* — and the generic actor road handed it the RUN speed whether
+the body flew or not. It passes `flight_speed()` for a flying body now. ⛔ NOT by
+changing the human road: `brain/player.rs` scaling by the snapshot's throttle is
+correct, and the producer of the throttle was wrong.
+⛔ **AND THE EXPRESSION HAD TWO HOMES.** `chase.max(run).max(1.0)` lived in the
+integrator; the snapshot site would have been a second copy, and a value with two
+homes cannot be attributed when the copies disagree. `ActorTuning::flight_speed()`
+owns it, both sites call it, and the boss path's `chase == run == BOSS_FLIGHT_SPEED`
+is why no boss ever showed the defect.
+⚠ **the guard's discriminating arm is `chase > run`, which NO SHIPPED BODY HAS** —
+two catalog rows author `chase_speed` at all and no flyer among them, so an
+assertion drawn from the live cast agrees with the bug. Poison-verified: returning
+`max_run_speed` reports *"answering 300 is the deflection defect"*.
+⇒ the original measurement, kept:
 
 A possessed body does not change roads — possession is brain transfer, so the
 body keeps `Without<PlayerEntity>` and stays on the ACTOR road with
@@ -3306,10 +3539,15 @@ Progress against that milestone is tracked in the focused plan, not here. ⛔
 **read it before starting a slice** — a row that looks more complete than the
 code is the most expensive kind of stale, and so is one that looks less.
 
-⚠ **the hit-emphasis decision blocks TIME INTEGRATION only.** Control authority
-converged on 2026-08-14 without it (one `tick_controlled_brains`); merging
-`integrate_home_body` with `integrate_actor_body` still waits on it. Do not let
-the feel decision be quoted as a blocker on unrelated control-authority work.
+⛔ **STALE SINCE 2026-08-17, corrected 2026-08-28.** This said *"the hit-emphasis
+decision blocks TIME INTEGRATION only … merging `integrate_home_body` with
+`integrate_actor_body` still waits on it"*. Jon RULED it that day — decision **#6**,
+*hitlag freezes the BODY that is in it, on both roads* — and the paragraph 280
+lines above already recorded that. ⇒ the merge is executable; nothing here waits
+on a feel call. ⚠ the original warning's other half still holds, which is why this
+replaces the sentence rather than deleting it: do not let a feel decision be
+quoted as a blocker on unrelated control-authority work — which is exactly what
+this sentence itself became for eleven days.
 
 ⭐ the milestone already delivered what the other programs needed: D115's
 moving-world work, D116 multiplayer and the persistent-world programs all build
@@ -4261,6 +4499,41 @@ at `defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*
 So Jon's *"one world unit = one base-grid pixel"* DECLARES what the engine
 already used; nothing converts.
 
+✔✔ **THE SLICE THIS ROW WAS OPENED FOR IS ESSENTIALLY DONE — 2026-08-28.** Jon
+promoted D165 to get *"a sense of the scale at which characters should render"*
+through a declared height. Where that stands, counted rather than claimed:
+
+```text
+103 rows  `Standard`, taking `body_kind`'s 48 — on the height road already
+ 22 rows  author their own number (3 on 2026-08-22, 19 more today at the
+          sizes they already had, plus `perfect_cellular_automaton`)
+  3 rows  still derive size from a level rectangle and a sheet's padding,
+          and they are the only three whose spawn boxes DISAGREE
+```
+
+⇒ the census, the method and the three remaining numbers are in D129, which owns
+the sprite half; ⛔ do not restate them here. What belongs to THIS row is that
+`collision_scale`'s *"three numbers that cannot be compared with each other"* is
+no longer how a character's size is decided for 125 of 128 rows that have one.
+
+⚠ **AND THE 2× OBJECTION AGAINST THAT IS ANSWERED, 2026-08-28 — both statements
+are true and they do not conflict.**
+[`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+warns that D165 says base-grid pixels while the implemented field is WORLD px,
+*"and Mary-O's tile is `T = 32.0` world px. Those differ by 2× in her game."*
+Measured: **the two games use different tile sizes.**
+
+```text
+LDtk worlds (Ambition)   "defaultGridSize": 16   ⇒ 48 world px = THREE tiles
+game/ambition_demo_mary_o    const T: f32 = 32.0 ⇒ 48 world px = ONE AND A HALF
+```
+
+⇒ `standing_height` is WORLD PIXELS unambiguously, in both games and everywhere
+else; what varies is how many TILES that is. ⛔ so nothing needs deciding and
+nothing converts — but *"three tiles tall"* is not a portable way to state a
+height, and the identity above holds for the 16px worlds rather than for the
+engine. State heights in world px and let each game's tile be what it is.
+
 ⛔⛔ **WHAT WAS MISSING WAS NOT A UNIT BUT AN AUTHORED NUMBER — three characters
 were each deriving the same scale by hand, and not even on one axis:**
 
@@ -4362,6 +4635,11 @@ wiring. Same lesson the human-grab defect taught one layer up: *a test that
 starts downstream of the wiring cannot see the wiring.*
 
 ▢ **the fix is one line and it is NOT TAKEN HERE, on this row's own rule.**
+⇒ **PROMOTED to `awaiting-maintainer-decision.md` 2026-08-28**, with the snake
+beside it, because a taste call sitting in the execution ledger reads as work
+nobody got to. ⛔ the DEFECT and the SIZE are two things and the promotion says
+so: that the authored value never took effect is a bug, and how big a slop should
+be is Jon's.
 Writing the authority (`kin.size` + `BodyBaseSize`) instead of the mirror makes
 every slop 28 x 18.2 rather than 73.9 x 48 — a **2.64x shrink** in a level Jon
 plays. This row already says *"how big a slop should be is a taste call for
@@ -4421,7 +4699,59 @@ its mount are AUTHORED at the same pixel (the raider's `mounted_on` names the
 shark's entity iid) — deleting either would have destroyed content Jon already
 once reported missing. ⛔ compare FIELDS before calling two entities duplicates.
 
-## What the validator actually reports
+⛔⛔ **RE-RUN 2026-08-28: ALL FOUR WORLDS PASS, AND THE TABLE BELOW IS STALE.**
+`validate` on `sandbox`, `hall_of_characters`, `intro` and
+`you_have_to_cut_the_rope` reports **zero errors** and five warnings, four of
+which are the same one:
+
+```text
+validate.editor.shape   ×4   defs.entities is missing editor definitions for
+                             SurfaceRamp — one per world, with its own fix
+                             command named
+validate.warning        ×1   level 'sanic_sandbox' origin (9600, 3000) is not
+                             16px aligned
+```
+
+⇒ **the "100% noise" reading no longer describes the tool**, and the mount
+false-positive is FIXED IN THE SOURCE: `spawn_overlap_issues` skips a pair when
+one entity's fields REFERENCE the other's `iid`, with the comment
+*"position-identical is what a mount IS, so position alone can never tell the two
+apart. The FIELDS can: one names the other."* — this row's own lesson, in code.
+⚠ **so do not read the table below as current.** It is kept because the near-miss
+it records is the point: a validator whose errors are noise gets an agent to run
+`entity delete` on real content.
+▢ **the one real gap it now reports**: `SurfaceRamp` has no editor definition in
+any world, so an author cannot place one. ⭐ the SPEC is not the missing part —
+`ldtk_entity_contract.json` already carries `probe_size` and both fields with
+presence, values and defaults; the tool for it is `def upsert-entity <spec>
+--ldtk <ldtk>` (uid-preserving), and it writes to four `.ldtk` files that are
+symlinks into the art submodule. ⚠ `--help` for `register-entity` prints no
+positional while `cli.py`'s own usage line says `<spec>`.
+
+⛔⛔ **AND A SECOND GAP, FOUND BY TRYING TO FIX IT AND BEING REFUSED BY TWO
+PROVERS: the contract cannot express a CLAMPED NUMERIC RANGE.**
+`SurfaceRamp::segments` is read as `field_i32(..).unwrap_or(8).max(2)` and appears
+in the contract not at all — I added it, and the provers explained why it could
+not be there:
+
+```text
+`on_invalid` is what the converter does with a value the GRAMMAR REJECTS, and its
+three variants are Refused / SilentDefault / Open. `segments` needs a fourth
+(the converter moves the value to the NEAREST LEGAL ONE, so a warning would be
+noise) — and adding one is refused in turn, because the field declares no grammar
+to violate: the available keys are `values`, `patterns`, `positive`, `nonzero`,
+`min_points`. There is no `min` for a plain integer.
+```
+
+⇒ **the omission was correct**, not an oversight. ⭐ **BOTH PROVERS EARNED THEIR
+KEEP**: the Python set caught the new word, and the Rust
+`on_invalid_matches_what_the_converter_actually_does` caught that the word had
+nothing to describe — *"only an `open` field may have no rule"*. Reverted whole.
+⇒ the real slice, if anyone wants `segments` declarable, is a RANGE grammar
+(`min`/`max`) plus the `Clamped` disposition that then has something to reject —
+two additions in two languages, for one field today.
+
+## What the validator reported on 2026-08-1x — STALE, see above
 
 ```text
 30 error:  lines   ALL false positives — 4 cross-world LoadingZone targets that
@@ -4990,8 +5320,14 @@ the reader, not the code.
   every full run. That entry is now an explicit ⛔ refusal pointing at
   `tackon_targets`.
 
-- ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
+- ◐ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
+  ⭐ **NO ENGINEERING WORK REMAINS UNDER THIS ROW as of 2026-08-28.** Its one
+  standing *"still open"* was the released-actor placement pair, and its own note
+  had already said the question is a product call. That went to
+  `awaiting-maintainer-decision.md`; the row waits on an answer, not on a slice.
+  ⚠ marked `◐` rather than closed because the SUBSTRATE milestone is broader than
+  the items under it — do not read this mark as "the substrate is finished".
 
 ⭐⭐ **A LIMBED MOUNT CHAIN CLOSES THE LEDGER FOR FREE.** `gnu_ton_arena` authors a
 boss riding a mount that has hands: possessing the boss makes the chain
@@ -5136,7 +5472,10 @@ a warn). ⭐ the refusal is honest, not broken — the room build already declin
 pretend an unmovable family moved. ⛔ adding the producer without the consumer
 would make every re-entry log a warn and teleport the actor home anyway; the two
 land together or not at all. Whether an abandoned enemy should stay put is a
-product call, not a defect.
+product call, not a defect. ⇒ **PROMOTED to `awaiting-maintainer-decision.md`
+2026-08-28** with the two-halves cost, because a product call sitting in the
+execution ledger reads as work nobody has got to — it had sat here since
+2026-08-19.
 
 ✔ **THE PERSISTENCE CARRY LIST IS CLOSED — 2026-08-19.** A checkpoint
 baseline used to require five hand-synchronised enrollments across three crates;
@@ -5781,6 +6120,35 @@ failure mode this repository has already named twice.
   when they disagree the inventory wins.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
+
+⭐⭐⭐ **FOUR MORE CARVES 2026-08-28, AND THE SESSION'S DURABLE OUTPUT IS THAT THE
+CENSUS WAS BLIND THREE WAYS.** The candidate table ranked by file size and by
+`crate::` occurrences; every top entry was wrong, because a `crate::` count sees
+neither a FACADE HOP (`crate::features::X` where X lives in a peer crate — naming
+the owner took `bosses` from 2 refs to 0 with no code moved), nor a GLOB (`use
+super::*`, measured by DELETING it and reading the WHOLE error set, since rustc
+stops resolving early), nor a `super::super::` PATH, which only the MOVE finds.
+
+```text
+ambition_boss_encounter::ecs + ::attack_moveset   the boss tick and its authoring
+ambition_combat::ledge_trump                      beside the rule it enforces
+ambition_combat::attack_support                   604 lines following the melee
+                                                  path that left for ::moveset
+ambition_conversation::banter                     a bark is the shortest
+                                                  conversation there is
+ambition_sprite_sheet::ActorSpriteMetrics         it IS sprite metrics (D117)
+```
+
+⛔ **AND TWO DELETIONS BEAT ALL OF THEM.** `crate::actor` is GONE — the ruling that
+kept it (*"138 lines that OWN `AncillaryMovementBundle`"*) died with its premise
+once the bundle moved to `shared_tangle::body`, where nineteen of its twenty fields
+already lived. And `character_runtime` stopped republishing NINE
+`ambition_characters::prepared` names across ~250 sites, 57 of them outside this
+crate — which is exactly how a census reads the monolith as their owner.
+⇒ `features/ecs/actor_clusters.rs` (1,409 lines) now names ZERO monolith paths in
+any of the three shapes. ⚠ that is evidence it is the CENTRE, not that it is next:
+no existing crate's subject is *"actor construction and the body-cluster query
+aggregate"*, and minting one to receive it is Wave G's question, not a carve.
 
 ✔✔✔ **THE CARVE LANDED 2026-08-26. `crates/ambition_damage` EXISTS**, and it was
 a MOVE rather than a design, because the day's five facade deletions had already
@@ -8876,6 +9244,19 @@ Case file: [`../archive/planning-superseded/2026-08-14/d120-platform-capability-
   gate is one integration target, both deliberate. What runs is a MAINTAINER
   decision; ⛔ do not enlarge `gate_suite.py`, and ⛔ do not add a job to a
   workflow that does not run and call the hole closed.
+  ⚠⚠ **THE HOLE IS LIVE AND IT COST AN HOUR ON 2026-08-28.**
+  `cargo test -p ambition_touch_input` reports **4 passed**; the same crate with
+  `--all-features` runs **45**, and three of them were red from a change made an
+  hour earlier. ⇒ **a small test count for a big crate is the tell** — ask whether
+  the number is plausible before reading a green.
+  ⭐ **AND ONE EXISTING TOOL ALREADY BUILDS EVERY TEST TARGET**: `sweep_target.py
+  --apply` marks its live set with `cargo test --no-run --workspace`. It found
+  three broken test targets that day — this one, a demo naming a deleted module in
+  its own `tests/`, and a grouped `use` of a name a re-export had stopped
+  publishing. ⛔ that is a REPORT of an existing tool, not a new runner, and it is
+  not `gate_suite.py`'s job. ⛔⛔ do not reach for `cargo test --workspace --no-run`
+  by hand instead: it filled `/dev/vda1` to zero twice that day, which is the
+  failure the sweep exists to undo.
 
 ---
 
@@ -9322,7 +9703,59 @@ review's own order.**
 ```
 
 ▢▢ **THE CARVE IS COSTED — measured 2026-08-19, the boundary is now a
-CHECKABLE CLAIM.** `brain/fighter` is 10,644 lines; the GENERIC brain named it
+CHECKABLE CLAIM.**
+⛔⛔ **THE SIZE IS WRONG BY 3× — re-measured 2026-08-28.** `brain/fighter` is
+**3,679 lines (1,734 of them non-test)**, not 10,644. The whole `brain/` tree is
+12,443, so the recorded figure is close to the WHOLE MODULE rather than the thing
+being carved out of it — a mis-scoped measurement that has made this slice look
+three times its size for nine days. ⭐ and its OUTWARD reach is small and all
+sideways or downward: `perception` (5 kinds), `actor::attack_gesture`,
+`actor::ActorFaction`, plus its own submodules; the only globs are test-local
+`use super::*`; and the two crates it names that sit ABOVE `ambition_characters`
+(`ambition_platformer2d`, `ambition_content`) appear ONLY IN PROSE — one doc line
+each, no dependency.
+⇒ **the blocker was never the size.** It is the four edges below plus the encoded
+tag and the monolith's eight call sites.
+
+✔✔ **AND TWO OF THE FOUR CLOSED THE SAME DAY, WITHOUT THE SEAM.** The row says
+edges 1 and 2 *"collapse to ONE"* because `attack_kit` travels with the fighter
+brain — that assumed the KIT is fighter vocabulary. It is not, and
+`AttackBinding`'s own doc says so: *"the ordinary gesture vocabulary, not a
+fighter-only bypass: a verb plus a direction is exactly what a human's stick and
+button produce"*. The field is FILLED by the actors-side snapshot builder from the
+body's live `ActorMoveset`; the brain is merely told it.
+⇒ `AttackCandidate`, `AttackBinding`, `AttackVerb` and `ActionLegality` live in
+`brain/attack_kit.rs` now — a sibling of `snapshot.rs`, not a child of `fighter`.
+That closes **edge 1** (the snapshot's field) and **edge 4** (the codec's reach
+for `AttackVerb`) with no registration seam and no wire change: the encoder writes
+the tag as a literal `0/1/2/3`, so it names the VALUES, not the type's path.
+⇒ **what remains is ONE concept, not four**: the `StateMachineCfg::Fighter`
+variant, which `state_machine/mod.rs` declares, `brain/mod.rs` maps to the string
+`"fighter"`, the codec tags `3`, and the monolith matches at eight sites. ⭐ the
+ratchet stayed green throughout, and its `brain/snapshot.rs` CARVE-OUT is gone —
+an exclusion kept past the edge it excused is a hole, and that file is guarded now
+(poison-verified both ways).
+
+⭐⭐ **AND THE CARVE IS NOT WHAT ITS NAME SAYS — measured 2026-08-28. THE FIGHTER
+BRAIN IS ALREADY TWO CRATES, and the thinking is already above the floor:**
+
+```text
+ambition_combat::brain::fighter        7,398   the THINKING — `tick_fighter`,
+                                               dispatched from the monolith's
+                                               `brain_tick`
+ambition_characters::brain::fighter    3,596   the DATA — cfg, state, options,
+                                               situation, profile
+ambition_combat::brain::smash          4,529   (the same shape, one arm over)
+```
+
+⇒ **the slice is not "carve the fighter brain out of the floor" — it is "let the
+DATA join its own behaviour"**, which is one crate move, not a new crate. And the
+thing pinning the data down is precisely the enum variant: `StateMachineCfg::
+Fighter { cfg, state }` is why `FighterCfg`/`FighterState` cannot leave, while
+`tick_fighter` left long ago. ⚠ the seam is still the blocker; it is just a much
+smaller and better-understood one than "10,644 lines want a home".
+
+`brain/fighter` was recorded as 10,644 lines; the GENERIC brain named it
 in five places (widened from an initial undercount of three — the contract's
 `fighter::` grep under `brain/` couldn't see a rollback codec that hand-writes
 `StateMachineCfg::Fighter` by field, or `brain/mod.rs`'s string mapping):
@@ -9339,6 +9772,29 @@ in five places (widened from an initial undercount of three — the contract's
                               per-variant tag and fields
 5  brain/mod.rs                maps the variant to the string "fighter"
 ```
+
+⛔ **RE-MEASURED 2026-08-28 AND FOUR OF THE FIVE POINTERS NEED CORRECTING** —
+which is the point of re-grepping a costed row before working it:
+
+```text
+1  brain/snapshot.rs           ✔ STILL THERE, line 87 (plus a doc mention at 163)
+2  brain/state_machine/mod.rs  ✔ STILL THERE, lines 79-80 — `Box<FighterCfg>` and
+                               `Box<FighterState>`
+3  brain/smash/emit.rs         ✔ CLOSED, as recorded
+4  brain/snapshot_impls.rs     ⛔ THAT FILE DOES NOT EXIST. The codec is
+                               `crates/ambition_characters/src/snapshot_impls.rs`
+                               (crate root, not under `brain/`), tag byte `3`
+5  brain/mod.rs                ✔ STILL THERE, line 164
++  actor/character_catalog/    ⛔ A SIXTH the list never had: `resolver.rs:173`
+   resolver.rs                 constructs the variant
+```
+
+⚠ **and the carve's real blast radius is OUTSIDE this crate**: the monolith names
+`StateMachineCfg::Fighter` at eight sites (`brain_tick.rs`, and seven in
+`features/ecs/brain_builders.rs`), all of which a `Brain::Capability(BrainId)`
+dispatch has to replace. ⭐ the ratchet
+`the-generic-brain-does-not-grow-new-platform-fighter-edges` is GREEN, so the
+boundary has not drifted — only the FILE PATHS in this table did.
 
 ⭐ `ambition_platformer2d_core` does NOT depend on the fighter brain (its one
 `fighter::` hit is a doc reference) — the one edge that would have made the
@@ -9637,7 +10093,11 @@ BodyActionBuffer::tick callers                   0
 ```
 
 ▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
-candidates, costed, 2026-08-18.** All three were reached by asking where "a grab
+candidates, costed, 2026-08-18. ⇒ PROMOTED 2026-08-28 to
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) as entry
+35, which is where a question of this kind belongs; it had been sitting inside a
+10,000-line ledger for ten days, which is the same as not asking. The costing
+below stays here as the evidence.** All three were reached by asking where "a grab
 cannot be thrown from 2.5× its reach" is expressible.
 
 ```text
@@ -9717,9 +10177,12 @@ rather than a data test, whose one claim is that an authored burst is heard
 EXACTLY ONCE. ⛔ nothing to converge here; re-doing it would re-introduce the
 doubled jab that guard exists to catch.
 
-- ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
+- ◐ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
-  2026-08-16, with five instances measured in one night as its evidence)**
+  2026-08-16, with five instances measured in one night as its evidence.
+  ⭐ ITS EXIT WAS WRITTEN AND MET 2026-08-28 — every active carve destination
+  states its refusal, 3 of 18 → 9 of 18 — so what remains is the standing habit,
+  not a task: a NEW destination states one when it becomes active.)**
 
 ⭐⭐ **AND THE FIRST POSITIVE INSTANCE — 2026-08-17, boundaries that were STATED
 did the work, which is this row's thesis run forwards instead of backwards.**
@@ -9778,6 +10241,66 @@ refuses body lifecycle   spawn/despawn/residency/possession are the actor
 contract — hitlag and hitstop are rules a fight obeys, not decoration on one — so
 the next borderline case has a worked example rather than only a rule.
 
+⭐⭐ **AND THE ROW FINALLY HAS AN EXIT, because its thesis is COUNTABLE — measured
+2026-08-28.** Of the eighteen crates that are carve destinations, **three state
+what they REFUSE** (`ambition_combat`, `ambition_platformer2d_shared_tangle`,
+`ambition_binding`) and fifteen say only what they hold. That is this row in one
+number, and it is why the row could never close: it was a principle with no
+count.
+
+▢ **EXIT: every ACTIVE carve destination states its refusal.** Not all eighteen —
+a crate nobody is carving into does not need the sentence, and inventing refusals
+for it would be fabrication dressed as documentation.
+
+✔ **Three more written 2026-08-28, and each cites the event that proves it** —
+the row's own method, since a refusal nobody has tested is an aspiration:
+
+```text
+ambition_characters       refuses the actor INTEGRATION layer (already a
+                          checked absence contract) and anything the SHEET
+                          derives — `ActorSpriteMetrics` was refused here first
+ambition_boss_encounter   refuses GENERIC body geometry. A boss was the first
+                          customer of AABB overlap and `CombatGeometry`, not
+                          their owner, and holding them made a whole seam read
+                          as boss vocabulary. 531 lines left this month.
+                          ⇒ the test: would the SECOND consumer be a boss?
+ambition_sprite_sheet     refuses anything `ambition_characters` must read (it
+                          depends on that crate, so hosting one inverts the
+                          edge) and refuses to say how tall a body STANDS —
+                          the catalog decides that; the sheet supplies the
+                          pixels it is measured against
+```
+
+✔✔ **AND THE LAST THREE FOLLOWED THE SAME DAY, so every ACTIVE carve destination
+now states its refusal and this row's exit is MET:**
+
+```text
+ambition_mount          refuses body LIFECYCLE (a pair is a relation between
+                        bodies somebody else made — the same rule its own
+                        "the monolith still builds pairs" note reads from the
+                        other side) and per-species mount rules
+                        ⇒ the test: would it read as nonsense for a DIFFERENT
+                        pair of bodies?
+ambition_damage         refuses the ATTACK side, refuses to decide whether two
+                        bodies are ENEMIES, and refuses to draw — the last one
+                        enforced by `ambition_render` being absent from its
+                        manifest. ⚠ and NAMES its own borderline edge,
+                        `ambition_persistence` for the assist-mode scale, so the
+                        next arrival is weighed against a boundary rather than
+                        against one precedent.
+ambition_conversation   refuses presentation (projections rebuilt FROM
+                        `ActiveConversation` belong to `ambition_dialog`),
+                        refuses named content — banter arrived as the RULE for
+                        talking over each other, never the words — and refuses
+                        to derive who is speaking from a player slot
+```
+
+⇒ **9 of 18 destinations state a refusal, and the nine that do not are the ones
+nobody is carving into.** ⛔ do not "finish" this row by writing the other nine:
+a refusal invented for an inactive crate is fabrication dressed as documentation,
+and the four times this row's own evidence shows a stated boundary DOING the work
+were all boundaries somebody had tested.
+
 ⛔⛔ **AND THE SHARPER LESSON, from the crate literally named `shared_tangle`: a
 DEPENDENCY refusal is not an ADMISSION RULE.** Its header already said it depends
 on no monolith, content, presentation, app assembly or devtools — and turned away
@@ -9828,6 +10351,39 @@ boundary gets discovered by READING instead.
 ⚠ the counter-case is in the same commit: `items` and `world` could not move
 because `construction` imports `world::placements` BACK — a bidirectional edge
 nobody declared, found only by chasing it.
+
+⛔⛔ **A SEVENTH INSTANCE, 2026-08-28, AND IT IS THE ROW'S COMPLAINT RATHER THAN
+ITS THESIS: FOUR CARVES IN ONE DAY AND NOT ONE DESTINATION CONTRACT WAS
+CONSULTED, BECAUSE THERE WAS NOTHING TO CONSULT.** What decided each home was a
+FACT found by grepping, and what refused two of them was the dependency graph
+found by compiling:
+
+```text
+boss ECS      → ambition_boss_encounter   it already owned the profiles, the
+                                          catalog and the anim helpers the module
+                                          was calling through a facade
+ledge_trump   → ambition_combat           `DeclaredCombatRules::ledge_trump_pop`
+                                          was already there
+attack        → ambition_combat           the melee LIFECYCLE had already left for
+                                          `combat::moveset`; its own module doc
+                                          said "there is ONE melee path"
+banter        → ambition_conversation     a bark is the shortest conversation
+                                          there is — reasoned, not read
+
+REFUSED, by the graph and only by the graph:
+damage_predicates ⇸ combat   needs boss_encounter, which depends on combat
+brain_effects     ⇸ anywhere names ambition_app, mount and projectiles
+```
+
+⇒ **the reasons were good and none of them was WRITTEN DOWN ANYWHERE A READER
+COULD FIND FIRST.** Every one had to be reconstructed by grep, and the two
+refusals surfaced as compile errors after `git mv`. That is discovery-by-collision
+with a friendlier compiler, which is exactly what this row exists to end.
+⭐ the cheapest fix is the one the row already found: a destination crate's header
+saying what it is FOR. `ambition_combat` says *"reusable, content-free combat
+MODEL"* in its manifest description and that sentence answered three of the four
+placements above — it was just never read as a contract because it lives in
+`description`, where nobody looks.
 
 ⭐⭐ **A SIXTH INSTANCE, 2026-08-19 — and it is the row's failure mode in its
 purest form: a boundary drawn from a real hazard by whoever installed the thing
@@ -10419,6 +10975,229 @@ new frame in the same commit — and the second is a bigger change than it looks
 ⚠ **so this is ART AUTHORING WITH A GAMEPLAY CONSEQUENCE, not a constant sweep:**
 shortening a lunge's drawn reach makes the drawing disagree with the reach its
 hitbox still has. Worth Jon's eye before somebody picks a number.
+
+✔✔ **CLOSED FOR `perfect_cellular_automaton` 2026-08-28 — and the refusal above
+was WRONG about where the coupling lives, which is why it read as blocked.** The
+claim was that `pca_gameplay.py` authors hitboxes in ABSOLUTE draw coordinates,
+so a wider frame moves every one of them. It authors them in the LOGICAL RIG,
+and `PADDING` is the single knob that produces both:
+
+```text
+pca_gameplay.PADDING = 18                       ← one constant
+_px(v)                = (v + PADDING) * RENDER_SCALE      every hitbox
+FRAME_SIZE            = (RIG + 2*PADDING) * RENDER_SCALE  the frame
+perfect_cellular_automaton.py:173                         every art anchor
+```
+
+⇒ frame, art and hitboxes all move together BY CONSTRUCTION — the coupling the
+note warned about is what `PADDING` was built to handle, and `noether_gameplay`
+already runs the same pattern at 28. **`PADDING = 45`, and all 53 clipped frames
+are gone**, measured by asking the tool rather than modelling it:
+
+```text
+18 → 53 clipped (left 36, right 17)   492x684   7 pages
+30 → 25 clipped (left 24, right 1)    564x756
+40 →  1 clipped (right 1)             624x816   7 pages
+45 →  0                               654x846   7 pages
+```
+
+⭐ **the page count does not move, because the packer trims transparent margin
+before packing** — so the atlas cost of this fix is nothing.
+
+⛔⛔ **BUT IT SURFACED A DEFECT BIGGER THAN THE ROW, and this is the part worth
+carrying: A FRAME IS A DIVISOR OF HOW BIG A CHARACTER IS.**
+`catalog_join.rs:154`, the branch taken when `body_kind` has no default height:
+
+```text
+scale     = ldtk_max × collision_scale / FRAME_H
+collision = body_px × ldtk_max × collision_scale / FRAME_H
+```
+
+⇒ widening PCA's frame with **no art change whatsoever** took its body from
+**67.8 to 54.8** and broke `duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box`
+— a test that had every right to fail. ⇒ **D129 cannot be closed by widening
+frames alone**: on that road the only cure for a cut is a bigger frame, and a
+bigger frame silently resizes the character. **27 of 134 catalog rows are on it**
+(every `Wide`/`Floating`/`Crawler` not authoring a height).
+
+⇒ **the fix that comes with the un-clipping, and the pattern for the rest of this
+row**: author the character's `standing_height` in the same commit. PCA now
+carries `standing_height: Some(67.8)` — the height it had before the frame moved
+— which is the same move the three pirate heavies got on 2026-08-22, and it takes
+a select-screen fighter off a road where a publishing detail decides its size.
+✔ app gate clean, `ambition_demo_smash_app` 39/39, and
+`print_the_two_render_size_publishers` still reports 0.0% disagreement over 146
+characters with PCA at exactly `28.1x67.8`.
+
+▢ **THE OTHER 25 ARE THE REST OF THIS ROW, AND ONE THING MAKES THEM HARDER THAN
+PCA — census 2026-08-28.** Every catalog row whose `body_kind` has no default
+height and which authors none:
+
+```text
+Wide      bear_mauler · boss · dark_lord · flying_spaghetti_monster_boss
+          hand_saint · hunny_horror_boss · le_beast · mantis_lancer
+          mockingbird_boss · ninja_heavy · raptor_stalker · smart_house
+          smirking_behemoth_boss · trex_enemy · viking_heavy_shieldmaiden
+          viking_heavy_warrior
+Floating  imperfect_cellular_automaton · burning_flying_shark · stochastic_parrot
+Crawler   puppy_slug · puppy_slug_variant2 · puppy_slug_velvet
+no sheet  giant_gnu · giant_gnu_hands · gnu_ton_boss   ← reach NEITHER branch
+```
+
+⛔⛔ **AND "just author the height it has today" DOES NOT WORK FOR THEM, which is
+the trap to avoid.** PCA had a number to preserve because a test pinned its size
+in one room. These do not: on the legacy road the size is
+`body_px × ldtk_max × collision_scale / FRAME_H`, so **a character is a different
+size in every room whose spawn box differs** — that is the defect, not a detail
+of it. ⚠ the sizes `print_the_two_render_size_publishers` prints for them are
+computed against `LDTK_PLACEMENT = (28, 44)`, a generic humanoid box **no boss
+room uses**, so quoting that table as "today's size" would resize a boss without
+anybody deciding to.
+
+⇒ **the honest next step is a measurement, not an edit**: for each of the 25,
+find its actual spawn box across every level it is placed in. Where a character
+has ONE box, its height is determined and authoring it is a pure road-swap with
+no look change — the same move PCA and the three pirate heavies got. Where the
+boxes DISAGREE, the character has no size today and picking one is Jon's, and the
+disagreement itself is the argument for why.
+
+⭐ **and the prize is a deletion**: once no row takes it, `catalog_join.rs:154`'s
+`_ =>` arm goes, and with it the last place where a level-editor rectangle and a
+sheet's publishing padding decide how big somebody is. The three `no sheet` rows
+do not block that — they return `None` before either branch.
+
+✔ **AND THAT MEASUREMENT IS DONE — 2026-08-28, every `.ldtk` in
+`game/ambition_map_assets` scanned for each of the 22's spawn boxes. 19 of 22
+have EXACTLY ONE, so for them this is a pure road-swap with no look change:**
+
+```text
+one box, (48,80)   bear_mauler · boss · dark_lord · flying_spaghetti_monster_boss
+                   hunny_horror_boss · mantis_lancer · mockingbird_boss
+                   raptor_stalker · smart_house · smirking_behemoth_boss
+                   trex_enemy
+one box, (32,48)   imperfect_cellular_automaton · hand_saint · le_beast
+                   ninja_heavy · puppy_slug_variant2 · puppy_slug_velvet
+                   viking_heavy_shieldmaiden · viking_heavy_warrior
+```
+
+⛔⛔ **THE THREE THAT DISAGREE ARE THE ARGUMENT, and the worst is the one Jon has
+already complained about.** `npc_puppy_slug` is placed with **eight different
+boxes** — `(48,22)`×6, `(32,48)`×5, `(64,32)`×2, `(48,32)`, `(64,16)`, `(52,66)`,
+`(42,42)`, `(28,44)` — so the same crawler is eight different sizes across the
+game, and `(64,16)` versus `(52,66)` is a factor of four in the axis that drives
+the derivation. `stochastic_parrot` has three, `burning_flying_shark` two.
+
+⇒ **19 rows can be authored with no decision at all; 3 need one number each from
+Jon**, and for those three the disagreement above is the whole case for asking.
+
+✔✔ **THE NINETEEN ARE AUTHORED — 2026-08-28, and every one reproduces the size it
+already had.** Read from the production function rather than derived: an ignored
+report (`print_the_height_each_legacy_row_already_has`) asks
+`sprite_body_collision_for_character_id_in` with each character's REAL spawn box,
+so the number a row carries is measured and not computed by hand. Before and
+after agree to the rounding authored (≤0.1px): `npc_bear_mauler`
+`121.86x72.56 → 121.93x72.60`, `npc_hunny_horror_boss` `119.25x154.80` unchanged,
+`npc_puppy_slug_velvet` `68.79x30.86 → 68.88x30.90`.
+
+⭐⭐ **THE LEGACY BRANCH'S POPULATION IS 25 → 3.** Every remaining row is one whose
+spawn boxes DISAGREE, which is the argument rather than an omission:
+
+```text
+npc_puppy_slug            EIGHT boxes, (64,16) to (52,66) — a factor of four
+stochastic_parrot         three
+npc_burning_flying_shark  two
+```
+
+⚠ **and the three GNU-ton rows are not a fourth case**: `npc_giant_gnu`,
+`npc_giant_gnu_hands` and `npc_gnu_ton_boss` publish no sheet, so
+`sprite_body_collision_for_character_id_in` returns `None` before either branch
+is reached. They do not block deleting `catalog_join.rs:154`'s `_ =>` arm.
+
+✔ **AND UN-CLIPPING BECAME SAFE FOR NINETEEN CHARACTERS THE MOMENT THEY AUTHORED
+A HEIGHT — `npc_trex_enemy` is the first, 2026-08-28.** 57 of its 60 frames were
+cut (every idle on the left, the tail swipe and death on the bottom), and its
+root sits at a FRACTION of a work frame rather than at a padding constant, so
+the fix is the frame and the fraction moved together: work `832x640 → 1000x760`,
+frame `416x320 → 500x380`, root `x 0.33 → 0.4426` / `y 0.72 → 0.6063`. Zero cut
+frames, still one page. ⭐ its derived height is **exactly 70.50 either way**,
+because the authored number is now the input — the whole point of the previous
+paragraph.
+
+⚠ **its collision WIDTH moved 131.6 → 143.3, and that is the fix rather than a
+side effect**: the measured body grew because the tail that used to be cropped is
+now drawn, and `every_characters_drawing_is_the_size_of_the_body_it_collides_with`
+is the assertion that these two must describe one creature.
+
+⛔⛔ **AND A LARGE SHARE OF THE 40 WARNING TARGETS ARE NOT DEFECTS — the row's own
+caveat, now MEASURED and with a one-render test that settles it.**
+`hunny_horror_boss` is the sweep's worst (59 frames) and warns on the BOTTOM
+only. Rendering it into a canvas 25% taller changes **nothing**: same warning,
+same 59 frames, and the measured body bbox is byte-identical at `103x133` inside
+a `144x150` frame. ⇒ **no ink exists past the boundary**; the bear is
+bottom-anchored, its soles are flat, and the taper test cannot tell that from a
+cut. Exactly the failure this row wrote down and never applied.
+
+⭐⭐ **THE DISCRIMINATOR, and it costs one render:** grow the target's
+`FRAME_SIZE` and re-read `body_pixel_bbox` in the generated `.ron`. Unchanged ⇒
+the guard is describing the crop, not a cut. Changed ⇒ real, and the new bbox is
+the art you were missing (`npc_trex_enemy` went `131.6 → 143.3` wide the moment
+its tail stopped being cropped).
+
+⚠ **the edge pattern predicts it well enough to triage by**, checked across five
+targets 2026-08-28:
+
+```text
+BOTTOM only, on a stand/rest      suspect — a flat sole arrives at full width
+ALL FOUR, on a rest               suspect — auto_crop fitted the frame to the art
+LEFT/RIGHT on a lunge or a roll   REAL (perfect_cellular_automaton, davy_hylbert,
+                                  pipi_tau — rolls and deaths on both sides)
+TOP on an idle or a jump          REAL (le_beast)
+side/bottom on a tail or a limb   REAL (npc_trex_enemy)
+```
+
+⇒ `hunny_horror_boss` (59) and `smirking_behemoth_boss` (26, all four edges on
+`rest`) are suspect and should be MEASURED before anybody redraws them; the
+headline "40 of 186 targets warn" is an upper bound on the work, not the work.
+
+⚠ **AND THE TWO CONFIRMED-REAL ONES LEFT HAVE A THIRD FRAME SHAPE — priced 2026-08-28,
+not attempted.** `davy_hylbert` (42) and `pipi_tau` (36) warn identically (crouch
+bottom, roll left AND right, death both) and are sibling generators: both
+`FRAME_W = FRAME_H = 128`, both drawing a pose at ABSOLUTE canvas coordinates
+with no root fraction and no padding constant. So neither of the two fixes that
+worked today transfers:
+
+```text
+perfect_cellular_automaton   ONE constant (`PADDING`) produced frame, art AND hitboxes
+npc_trex_enemy               a frame plus a ROOT FRACTION, moved together
+davy_hylbert / pipi_tau      absolute pose coords — enlarging the frame leaves the
+                             character in the corner, and `FaceGuide(source_width=
+                             FRAME_W, …)` normalises the PORTRAIT crop against it
+```
+
+⇒ their fix is a canvas grow PLUS a pose translation PLUS the same shift applied
+to `FaceGuide.center_x/center_y`, on two files. That is the *"art authoring with
+a gameplay consequence"* this row already flags, and it wants an eye on the
+result rather than a mechanical edit.
+
+⚠ **`le_beast` (39, TOP on idle and jump) IS THE SAME SHAPE, not a fourth** —
+checked 2026-08-28, correcting an earlier line here that called it a third one.
+`FRAME_W = FRAME_H = 128`, `auto_crop=False`, and every stroke at an absolute
+canvas coordinate (`(64 + side * 10, 108)`). ⛔ and the cut is on the TOP, which
+is the awkward direction: extra room added to a canvas lands at the BOTTOM unless
+the whole drawing moves down, and there is no single origin to move it by — the
+constants are spread through `_draw_character`. ⇒ three targets, ONE remaining
+technique, and it is the expensive one.
+
+⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
+AUTHORED.** It is one of the three still on the legacy road, so a wider frame is
+a DIVISOR change and would resize it — which is exactly the trap this row found
+on the automaton. Its two crawler variants already author heights and are safe.
+
+▢ **so the arm's deletion gate is three numbers**, and they are Jon's — see
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 36.
+⛔ do NOT pick them by taking the most common box: the puppy slug's two most
+common are `(48,22)`×6 and `(32,48)`×5, which are 22 and 48 in the axis that
+drives the derivation, so "most common" is a coin flip dressed as a measurement.
 
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
@@ -12775,8 +13554,14 @@ use STRING SURGERY as identity** — `under_own_name` strips caller-supplied
 prefixes and panics on a move that follows none, and shipped tables already use
 two conventions, so every future move-id-referencing field is a new obligation.
 
-- ▢ **D240 — THE GAP PASS: THREE MORE, AND A CORRECTION THAT MATTERS MORE THAN
-  THEY DO. (opened 2026-08-25)**
+- ✔ **D240 — THE GAP PASS: THREE MORE, AND A CORRECTION THAT MATTERS MORE THAN
+  THEY DO. Opened 2026-08-25, CLOSED 2026-08-28.**
+  ⚠ **its three items had ALL read CLOSED / COMPLETED / struck-through for days**,
+  and its two remaining `▢` marks sat on lines whose own text said so. The one
+  thing that was genuinely still open — the back-air diagnosis — turned out to be
+  a SYMPTOM PARAGRAPH for D252, which closed on 2026-08-27 five rows further down
+  this same file. ⇒ measured, not assumed: `moveset_takes` plays `air_back` for
+  both characters tried.
 
 ⭐⭐⭐ **THE CORRECTION FIRST — IT CHANGES HOW 4/5 GETS BUILT.** *Do not wire
 gameplay to the existing `BodyHitResolved`.* It is `#[cfg(feature = "causal")]`,
@@ -12801,7 +13586,7 @@ Pointed Polygon's art and declare `authored_faces_left: true`). ⛔⛔ MY EARLIE
 would never have caught it. **A crate's suite can be red while the gate and the
 app suite are green.**
 
-▢ ~~(38) THE NAMEPLATE POLICY IS PLURAL AND ITS PRODUCER IS SINGULAR.~~
+✔ ~~(38) THE NAMEPLATE POLICY IS PLURAL AND ITS PRODUCER IS SINGULAR.~~
 `label_driven_bodies` is documented to apply uniformly to every body SOMEBODY IS
 DRIVING, but `rebuild_nameplate_index` computes ONE `controlled_body` from
 `ControlledSubject` (or a `PrimaryPlayer` fallback) and sets each row's flag by
@@ -12870,7 +13655,7 @@ runs `project_moveset_melee_to_body_melee` and asserts on
 `BodyMelee.swing.spec.intent` now. Same shape as the day's other lesson: a
 hand-listed chain pins the FUNCTION, not the WIRING.
 
-▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
+✔ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
 reviewer found no currently-broken Author/Officer cancel reference, so do not
 invent one. The real hazard is that move IDs also live OUTSIDE `MovesetContract`
 — `HurtboxDoc::moves` is keyed by move id — and `under_own_name` cannot discover
@@ -12943,7 +13728,9 @@ address them.
 
 ⭐⭐ AND IT IMMEDIATELY FOUND TWO THINGS NOTHING ELSE HAD: **D252** (the back air
 is unreachable for the whole cast) and **D253** (`player_robot_v3` cannot throw
-any of its five specials). Both are open rows above.
+any of its five specials). ✔ **BOTH CLOSED 2026-08-27** — D252 at `1eb50e6e3`,
+D253 at `22361bab3`; this line said *"both are open rows above"* for a day after
+they were not.
 
 **Pirate side-B** — `run_out_the_guns`. Draws the gun-sword (`MoveSpec::equips`,
 whose timer is the MOVE'S OWN CLOCK), fires it (`MoveEventKind::Ranged` now
@@ -12964,8 +13751,11 @@ reference to the thrower and so stays inside the stepper's pure signature.
 Author's, same technique and assist radius, different effect ids.
 
 **Bomb down-B** — a `GroundItem` with a fuse, so the pick-up-and-throw half is
-machinery the engine already installs. ⚠ its own module records the gap: only the
-CONTROLLED SUBJECT can pick one up today.
+machinery the engine already installs. ⚠ its own module recorded a gap — only the
+CONTROLLED SUBJECT could pick one up — ✔ **closed since, by R10 (`a901cdc2f`)**:
+the pickup/throw/fire loop runs over `DrivenBodies`, the union of the controlled
+subject and every `DrivingParticipant`, ordered by `SimId`. Four seats, four
+hands.
 
 ⛔⛔ FOUR SCHEMA BUMPS IN ONE BRANCH, v122 → v126: `actor.move_brandished_item`,
 `actor.stored_move_charge`, the projectile codec's `accel`, and
@@ -13106,6 +13896,40 @@ riders, the recovery probe), and re-tuning air facing at 5am on an unattended ru
 would change how every character points while attacking. The finding is recorded
 with its instrument: rerun `moveset_takes` after any change and the MISMATCH line
 is the acceptance test.
+
+⛔⛔ **AND THE INSTRUMENT SAYS IT DOES NOT REPRODUCE AT HEAD — measured
+2026-08-28, on the acceptance test this row named.** Two characters, both
+untouched:
+
+```text
+player_robot_v3      attack_air_back  moves={"air_back"}   no MISMATCH
+npc_pirate_admiral   attack_air_back  moves={"air_back"}   no MISMATCH
+```
+
+and the engine's own log agrees — `move accepted: move=\`air_back\` grounded=false`.
+⇒ **the back air is REACHABLE.** ⛔⛔ **AND THE ANSWER WAS FIVE ROWS BELOW THIS
+ONE THE WHOLE TIME: D252 CLOSED 2026-08-27 (`1eb50e6e3`)** — fixed at the
+PRODUCER, `brain/player.rs`, which wrote a facing every tick grounded or not. The
+human translator steers facing only when the body may actually turn now. This
+paragraph is the SYMPTOM REPORT that row was opened from, and nothing marked it
+when the row closed.
+
+⚠ **AND I ALMOST SHIPPED A GLOBAL RE-TUNE ON THE STRENGTH OF IT.** The two
+authorities really do disagree in the source — `abilities.rs` computes
+`can_turn = on_ground || fly_enabled` while `kernel.rs` applies `facing_intent`
+unconditionally — so gating the kernel write on the same rule looked like the
+obvious repair, and every suite stayed green with it applied (core 518, monolith
+1141, combat 554, smash 39, app 499). **The CONTROL is what stopped it**:
+disabling the gate and re-running the same take showed `air_back` playing either
+way, so the change fixed nothing measurable while re-tuning how every body in the
+game points in the air. ⇒ the contradiction is real and is worth resolving on its
+own merits, WITH Jon, but it is not this defect's cause and green suites are not
+evidence that a tuning change was needed. ⛔ **D252's own closure forbids exactly
+the change I built**: *"THE KERNEL IS UNTOUCHED, as the row required"*, because
+`facing_intent` reaches crawlers, bosses, surface-momentum riders and the
+recovery search. ⇒ **a symptom paragraph and the row that closed it can live in
+one file and never learn about each other** — when you close a row, mark the text
+it was opened from.
 
 - ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
   FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,
@@ -13370,8 +14194,24 @@ guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module
 exists — which is why the table above is written down rather than automated.
 
-- ▢ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
+- ◐ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
   INTAKE AND FROM NO LEDGER ROW. (promoted 2026-08-26)**
+  ⭐⭐ **THE ITEM `tracks.md` NAMES IS HALF DONE, 2026-08-28: a provider action now
+  reaches a keypress and comes back.** Register an action the engine has never
+  heard of, bind it, press the key, get `SemanticActionPressed` — no `Any`, no
+  `TypeId`, no variant added to the 35-variant enum, checked end to end by
+  `a_registered_action_bound_to_a_key_comes_back_as_a_seat_press`. Three pieces in
+  `ambition_input`: `ProviderBindings` (the composition's map, kept separate from
+  the registry because a capability DESCRIBES an action and the game it is
+  installed into decides its key), `install_provider_bindings_on_seats` (a sync,
+  so a capability installed after the seats exist still reaches them) and
+  `publish_provider_action_edges` (`just_pressed`, sorted by seat id).
+  ▢ **what remains is PRESENTABLE**, and re-measuring changed its shape:
+  `ControlSlot` and `TouchActionButton` are DESCRIPTIONS OF HARDWARE, not
+  arbitrary limits, so a provider action becomes presentable by being ASSIGNED a
+  slot rather than by widening one — a design call about a finite pad or a finite
+  screen. ⛔ do not price that as plumbing; the plan's *"presentation is the
+  expensive road"* was measuring a mapping table that points the other way.
 
 ⭐ **PROMOTED, NOT WRITTEN.** [`engine/participant-action-system.md`](engine/participant-action-system.md)
 carries nine `▢` items and is named by `tracks.md`'s *"Provider-defined actions
@@ -13384,14 +14224,50 @@ is the pointer.
 of HEAD ago. Re-grep every item before working it** — that is the rule this
 ledger keeps paying for, and two of the nine are already suspect:
 
+✔✔ **AND RE-READING CLOSED ONE OF THE NINE WITHOUT BUILDING ANYTHING
+(2026-08-28).** *"Remove the seat-0 control split"* asked whether the split was
+still a split or had become a stated design. It is neither: the split is GONE.
+`drive_slot_frame` is the one delivery road — `input_drive.rs` says seat zero's
+latch *"has since become row zero of the same table every other seat uses"* — and
+`input_systems.rs` iterates `0..MAX_SLOTS`, its own comment recording that the
+interact buffer *"was `slot_gestures.primary_mut` too"*. What still names
+`PlayerSlot::PRIMARY` is a FALLBACK for a body no participant drives, and the
+keyboard-belongs-to-seat-zero policy is the stated design the row's own test
+(*"not merely for naming symmetry"*) says to leave alone. Four `▢` remain in the
+plan.
+
+✔ **AND TWO MORE MOVED 2026-08-28, both because the 2026-08-26 MEASUREMENT WAS
+ITSELF STALE.** This is the row's own rule turned on the row's own notes.
+
+*"Unify semantic menu activation"* was recorded as *"the seam is not missing, it is
+UNADOPTED — one adopter, and `pause_menu` consumes raw `select` itself"*. Both
+halves are false at HEAD: `shell_pause_menu_pointer` reads
+`MenuActionActivated<PauseEntry>`, and `ambition_menu`'s pointer bridge already
+runs on the SAME `ambition_ui_nav::PressArm` the one named adopter uses. What
+actually diverged was the POLICY above that shared gesture, and it cost something
+real: `MenuTapMode` ships defaulting to `SingleTapWithDestructiveGuard`, whose own
+doc names *"a stray touch on Quit"* as its reason, and only the index-addressed
+helper ever consulted it — so Abandon / Quit to Title / Quit to Desktop all fired
+on the first release. ✔ ONE POLICY NOW: `resolve_press` is generic over an opaque
+row identity (the `usize` was never an ordinate), and a menu declares its risky
+rows once with `MenuDestructiveActions`. The non-pointer half stays open with the
+feel question named — a controller cannot stray-tap the way a thumb can.
+
+*"Finish context migration"*'s `VEHICLE` question is ANSWERED: no variant. The
+verbs do differ, so the row's own test is met, but the prompt is not built from the
+context — `rebuild_control_prompt` derives it from the subject's live authorities,
+so a variant would have been a second answer to a question one authority already
+owns. ⛔ the defect underneath was a four-button PROMPT LIE: `body_step` clears every
+`MovementAction` for a body under `PoseOwnedExternally`, nothing touches
+`AbilitySet`, and a rider on the shark was drawn Jump / Burst / Blink / Fly beside
+the Attack that actually works from the saddle. Fixed by masking the authority
+(`AbilitySet::while_pose_is_held`) in the prompt and NOT in the routing gate, where
+a buffered press is input memory the player is owed. ⚠ the row's loading/retry half
+inherited the same stale framing and has been re-scoped to the SCHEDULE seam it
+names first.
+
 ```text
-"Remove the seat-0 control split"   the split is LIVE and heavily DEFENDED in
-                                    comments now: input_systems.rs carries six
-                                    separate paragraphs on why the primary seat
-                                    is the keyboard's and why GGRS overwrites
-                                    for it. ⇒ re-read as "is this still a
-                                    SPLIT, or is it a stated DESIGN?" before
-                                    removing anything
+"Remove the seat-0 control split"   CLOSED by reading HEAD — see above.
 "Per-seat pause ownership"          `SeatMenuFrames` shipped and the select
                                     screen consumes it per seat; what the doc
                                     calls missing is menu OWNERSHIP state, not
@@ -13441,8 +14317,36 @@ small three-variant mirror. ⇒ **still a carve — two maps means two reader pa
 and a rule for which wins — but the question is now "how" rather than
 "whether".**
 
-- ▢ **D255 — CHECKPOINT 5 (GPT 5.6, HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE
-  TWO THAT MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. (opened 2026-08-27)**
+- ▣ **D255 — CHECKPOINT 5 (HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE TWO THAT
+  MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. CLOSED 2026-08-27, all
+  eighteen.**
+
+✔✔ **BOTH FALSE PROOFS WERE RETIRED BY MEASURING.** The shark-health census
+scans `SmashRoster::assemble`'s 21 fighters — melee worst 36, ranged worst 14
+at full charge, against a 40 HP pool — instead of a 13-row authoring table; the
+mounted-launch arm asks for EQUIVALENCE and both roads produce
+`(-1884.0382, -1884.0382)`, where reverting the deferral releases the mounted
+one at exactly `(0, 0)`.
+
+⭐⭐ **THE RECOVERY EPISODE WAS THE BLOCKER AND IT WAS EVERYBODY'S.** The
+landing-class refresh asks `on_ground` every TICK, so a recovery spent while
+still standing came back one frame later — for every fighter, not just the
+pirate. `MotionStepContext::recovery_commitment_outstanding` is derived from the
+`MovePlayback` each tick rather than stored, so no second copy can disagree with
+the move it describes.
+
+⭐ **AND D250 CAME WITH IT.** Recovery admits route KINDS now — burst, sustained
+authority, teleport — because a planner that modelled one thrown velocity could
+not see a summoned steerable shark or a teleport, both of which read
+`lift_speed == 0.0`. `RecoveryLift` is deleted.
+
+⚠ THE MOST USEFUL FINDINGS WERE NOT ON THE LIST. Three fixes came from tests
+written to check something else: a buffered evade spent inside a saddle, three
+projectile fixtures hand-listing what production spawns (now `#[require]`d), and
+a body treated as a wall parking a dropped item 47px above its floor. ⛔ And one
+went the other way: `PoseOwnedExternally`'s speculative harms DO NOT HAPPEN —
+measured over 299 mounted ticks — so the kernel decomposition it seemed to call
+for would have repaired a defect nobody has. The row list follows:
 
 The reviewer re-read main after checkpoint 4's sixteen fixes landed and reported
 what survived, plus what the fixes themselves opened. ⭐ THE ROWS ARE IN
@@ -13468,8 +14372,14 @@ needs representing, which is the same seam D250 needs for sustained-authority
 recovery ROUTES (R13) — one model, not two.
 
 
-- ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
-  THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
+- ✔ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
+  THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. Opened 2026-08-25,
+  CLOSED 2026-08-28 when the last owed item — recharge presentation — landed.**
+  ⚠ the row header outlived its content by three days: everything under it read
+  CLOSED or SHIPPED except one `▢`, and one line of a status table still said the
+  wavebounce recogniser was open three days after it shipped in the paragraph
+  below it. ⇒ a row's own body is where its status lives; the marker on the header
+  is a summary, and summaries go stale first.
 
 ⭐⭐ **CLOSED — THE MATCH CLOCK'S FIX BROKE ITS PERIODIC READER (`43fe5ea`).**
 Counting SCALED gameplay is right, but the projection back to 60 Hz
@@ -13506,9 +14416,21 @@ still meets the floor and a `CommittedMove` is guaranteed its shot. Measured on
 `duel_arena`: **PCA melee 36, robot melee 23, hp 60→34 / 60→51** — more melee
 than either rejected option, because a refused move no longer costs a windup
 (the gate runs before `proposer.spend`, so the ordinary buffer re-proposes).
-▢ STILL OWED: the presentation half of the ruling — *"give recharge enough
-presentation that an unavailable shot is legible"*. Nothing draws
-`ranged_cooldown`.
+✔ **PAID 2026-08-28: the presentation half of the ruling** — *"give recharge
+enough presentation that an unavailable shot is legible"*. `PromptEntry::ready`
+carries it and the touch overlay dims the button; the fact comes from
+`BodyMelee::ranged_cooldown`, the body's OWN fire-rate floor, so a dimmed button
+and a refused press cannot part company. ⛔ **A BOOL, NOT A FILL FRACTION**: the
+prompt rebuild sits behind a change-detection cache built to skip quiet frames,
+and a fraction changes EVERY frame while a weapon recharges — the ruling asks
+that the shot be legible, not metered. ⛔ and it is written by
+`project_prompt_readiness` AFTER the derive rather than inside it, for the same
+reason. ⭐ **DIMMED, NEVER HIDDEN**: a button that vanished would take the key
+with it. ⚠ the guard's second arm is the load-bearing one — `ranged_cooldown` is
+orthogonal to melee (invariant I3), and *"the ranged button went grey"* and
+*"every button went grey"* look identical from one assertion. Poison-verified
+both ways, and the fixture needed a `ranged` verb before it measured anything at
+all.
 
 ⛔⛔ **#20 IS NOT A THIRD MAGNITUDE BOUND, AND MEASURING IT NAMED THE BLOCKER.**
 The dash floor (`along.abs() > want.abs()`) and the shield brake
@@ -13580,8 +14502,8 @@ forbidding an action must not erase the state that reads the next input
 
 ```text
 148c158 special-turn   acceptance mutation CLOSED · gravity-relative CLOSED
-                       real wavebounce RECOGNIZER still OPEN — see below, and
-                       the composition is smaller than the ledger assumed
+                       real wavebounce RECOGNIZER shipped 2026-08-25 (below);
+                       the composition was smaller than the ledger assumed
 56fb9da settled item   wakes when unsupported CLOSED
                        rides a moving platform CLOSED — and it needed NO support
                        identity: `Block::velocity` IS the per-frame displacement

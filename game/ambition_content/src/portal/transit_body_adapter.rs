@@ -193,7 +193,7 @@ pub fn apply_portal_carried_momentum(
 /// one, exited a rotated portal travelling the mapped way while its "come home"
 /// pull still pointed along the pre-portal world axis. It stopped decelerating
 /// along the path it had just emerged on and traced a different arc entirely
-/// (GPT 5.6, 2026-08-27).
+///.
 ///
 /// ⭐ HERE RATHER THAN IN THE PORTAL CORE, which knows nothing about projectiles
 /// and should not: this is the same adapter shape the carried-momentum and

@@ -40,8 +40,9 @@ impl<'a> CharacterSpawnPlan<'a> {
     /// configuration failure.
     pub(crate) fn definition<'r>(
         &self,
-        registry: &'r crate::character_runtime::PreparedCharacterRegistry,
-    ) -> Result<&'r crate::character_runtime::PreparedCharacterDefinition, &'a CharacterId> {
+        registry: &'r ambition_characters::prepared::PreparedCharacterRegistry,
+    ) -> Result<&'r ambition_characters::prepared::PreparedCharacterDefinition, &'a CharacterId>
+    {
         registry.get(self.character.as_str()).ok_or(self.character)
     }
 }
@@ -57,7 +58,7 @@ impl<'a> CharacterSpawnPlan<'a> {
 pub(crate) fn report_unprepared_character(
     missing: &str,
     placement: &str,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     fallback: Option<&str>,
 ) {
     assert!(
@@ -107,14 +108,14 @@ mod tests {
     /// constructed to be asked; there is no fallback for it to resolve TO.
     #[test]
     fn a_plan_resolves_the_character_it_names() {
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_busy_beaver",
                 "Busy Beaver",
                 "test",
             ),
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
 
@@ -144,7 +145,7 @@ mod tests {
     /// point.
     #[test]
     fn an_authored_character_that_is_not_prepared_is_an_error() {
-        let registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         let named = CharacterId::new("iron_mary");
         let plan = CharacterSpawnPlan::new(&named, context());
         assert_eq!(
@@ -157,11 +158,15 @@ mod tests {
 
     /// A registry with somebody in it, so `is_empty()` is false and the rule's
     /// composition carve-out does not apply.
-    fn a_cast_of_one() -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    fn a_cast_of_one() -> ambition_characters::prepared::PreparedCharacterRegistry {
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            ambition_characters::actor::definition::CharacterDefinition::new("npc_somebody", "Somebody", "test"),
-            &crate::character_runtime::CharacterBindings::default(),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "npc_somebody",
+                "Somebody",
+                "test",
+            ),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
         registry
@@ -197,7 +202,7 @@ mod tests {
         report_unprepared_character(
             "iron_mary",
             "enemy `EnemySpawn-9`",
-            &crate::character_runtime::PreparedCharacterRegistry::default(),
+            &ambition_characters::prepared::PreparedCharacterRegistry::default(),
             None,
         );
     }

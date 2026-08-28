@@ -190,15 +190,46 @@ class Job:
 class JobResult:
     """One executed job and its wall-clock/test-execution timings.
 
-    `executed_seconds` sums libtest's reported execution time. Cargo jobs with no
-    test binaries and non-libtest jobs report 0.0, so the derived execution
-    percentage applies to the Cargo/libtest portion of the suite.
+    `executed_seconds` sums the runner's own reported execution time — libtest's
+    per-binary `finished in`, or nextest's per-run `Summary`.
     """
     name: str
     argv: list[str]
     ok: bool
     seconds: float
-    executed_seconds: float = 0.0
+    # ⛔⛔ `None` MEANS UNMEASURED AND `0.0` MEANS ZERO. A nextest job cannot
+    # report its duration at all (see `timing_report`), and a zero there is a
+    # MEASUREMENT — "this job spent no time running tests" — which hands its
+    # whole wall clock to the derived build column. `wall_time_split` is the only
+    # thing entitled to aggregate this; do not sum it with `or 0.0`.
+    executed_seconds: float | None = None
+
+
+def wall_time_split(results: list[JobResult]) -> dict:
+    """Wall time divided into what was MEASURED and what could not be.
+
+    ⛔⛔ THREE NUMBERS, BECAUSE TWO CANNOT SAY THIS. `seconds - executed` is only
+    "the build graph" for a job whose runner REPORTED its execution time; for one
+    that did not, the same subtraction hands its entire wall clock to the build
+    column and states that as a measurement.
+
+    ⇒ `unclassified_seconds` is the wall time of jobs that reported nothing, and
+    `build_seconds` is derived ONLY from the jobs that did — so a reader gets the
+    denominator it is entitled to (`executed + build`) and can see how much of
+    the run that denominator does not cover.
+    """
+    measured = [r for r in results if r.executed_seconds is not None]
+    unmeasured = [r for r in results if r.executed_seconds is None]
+    executed = sum(r.executed_seconds or 0.0 for r in measured)
+    measured_wall = sum(r.seconds for r in measured)
+    return {
+        "executed_seconds": round(executed, 1),
+        # Never negative: a runner can report a duration slightly longer than
+        # the wall clock this process measured around it.
+        "build_seconds": round(max(0.0, measured_wall - executed), 1),
+        "unclassified_seconds": round(sum(r.seconds for r in unmeasured), 1),
+        "unclassified_jobs": len(unmeasured),
+    }
 
 
 def timing_report(results: list[JobResult]) -> str:
@@ -209,18 +240,46 @@ def timing_report(results: list[JobResult]) -> str:
     itself stays in the summary block, which lists failures separately.
     """
     total = sum(r.seconds for r in results) or 1.0
-    executed = sum(r.executed_seconds for r in results)
-    lines = ["  job timings (slowest first, `run` = libtest's own execution time):"]
+    split = wall_time_split(results)
+    executed = split["executed_seconds"]
+    lines = ["  job timings (slowest first, `run` = the runner's own execution time):"]
     for r in sorted(results, key=lambda r: -r.seconds):
         tag = "ok  " if r.ok else "FAIL"
-        lines.append(
-            f"    {r.seconds:8.1f}s  {tag}  {r.name}"
-            f"   (run {r.executed_seconds:.1f}s)"
+        run = (
+            f"{r.executed_seconds:.1f}s"
+            if r.executed_seconds is not None
+            else "not reported"
         )
-    lines.append(
-        f"    ── {executed:.0f}s of {total:.0f}s executing tests "
-        f"({executed / total * 100:.0f}%); the rest is the build graph."
-    )
+        lines.append(f"    {r.seconds:8.1f}s  {tag}  {r.name}   (run {run})")
+    # ⛔⛔ AN INSTRUMENT THAT CANNOT MEASURE SAYS SO. libtest prints
+    # `finished in Xs` on STDOUT, which this runner pipes; nextest prints its
+    # `Summary [ Xs ]` on STDERR, which it deliberately does NOT pipe so cargo's
+    # progress bar keeps rendering. So under nextest the number is unavailable —
+    # and printing "0s of 1734s executing tests (0%)" said, in the voice of a
+    # measurement, that the suite spent no time running tests.
+    #
+    # ⛔ NOT FIXED BY MERGING STDERR INTO THE PIPE. Cargo's progress bar has no
+    # newlines, so a line-buffered reader would stall on it — which is the whole
+    # reason stderr stays attached.
+    if executed:
+        classified = executed + split["build_seconds"]
+        lines.append(
+            f"    ── {executed:.0f}s of {classified:.0f}s executing tests "
+            f"({executed / max(classified, 1.0) * 100:.0f}%); the rest is the "
+            f"build graph."
+        )
+        if split["unclassified_jobs"]:
+            lines.append(
+                f"    ── and {split['unclassified_seconds']:.0f}s across "
+                f"{split['unclassified_jobs']} job(s) is NEITHER: their runner "
+                "reported no execution time, so that wall clock is unsplit."
+            )
+    else:
+        lines.append(
+            f"    ── {total:.0f}s total. Test-execution time is NOT REPORTED: "
+            "nextest prints it on stderr, which is left attached so cargo's "
+            "progress renders. Read its own `Summary [ Xs ]` line above."
+        )
     return "\n".join(lines)
 
 
@@ -232,7 +291,13 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
             "command": " ".join(r.argv),
             "ok": r.ok,
             "seconds": round(r.seconds, 3),
-            "executed_seconds": round(r.executed_seconds, 3),
+            # `null`, not `0`, for a job whose runner did not report — see
+            # `JobResult.executed_seconds`.
+            "executed_seconds": (
+                round(r.executed_seconds, 3)
+                if r.executed_seconds is not None
+                else None
+            ),
         }
         for r in results
     ]
@@ -310,20 +375,32 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         return (["--"] + tail) if tail else []
 
     # Package filters run that package directly; the unfiltered backbone uses one workspace graph.
+    # ⛔ THE CLASS NEXTEST CANNOT SEE, and the suite could not either: it ran no
+    # doctests until 2026-08-27, and one had been failing to compile for as long
+    # as it had existed (`ambition_sim_harness`, `use crate::` in a block that
+    # compiles as its own crate).
+    #
+    # ⛔⛔ IT BELONGS ON BOTH BRANCHES AND ONLY UNDER NEXTEST, which the first
+    # version got wrong in both directions. `-p` had no doctest job at all, so
+    # `./run_tests.sh -p ambition_sim_harness` covered LESS than the plain
+    # `cargo test -p ambition_sim_harness` it replaced — on the very crate whose
+    # broken doctest started this. And the workspace job ran unconditionally,
+    # which under plain cargo is a second doctest pass, because `cargo test`
+    # already runs them.
     if only:
         for crate in members:
             if crate.name in only:
                 jobs.append(Job(f"{crate.name} (default features)",
                                 cargo_test(["-p", crate.name], list(libtest_args))))
+                if NEXTEST:
+                    jobs.append(Job(f"{crate.name} doctests",
+                                    [CARGO, "test", "-p", crate.name, "--doc"]))
     else:
         jobs.append(Job("workspace (default features)",
                         cargo_test(["--workspace"], list(libtest_args))))
-        # ⛔ THE CLASS NEXTEST CANNOT SEE, and the suite could not either: it
-        # ran no doctests until 2026-08-27, and one had been failing to compile
-        # for as long as it had existed (`ambition_sim_harness`, `use crate::`
-        # in a block that compiles as its own crate).
-        jobs.append(Job("workspace doctests",
-                        [CARGO, "test", "--workspace", "--doc"]))
+        if NEXTEST:
+            jobs.append(Job("workspace doctests",
+                            [CARGO, "test", "--workspace", "--doc"]))
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.
@@ -550,17 +627,28 @@ def build_maintenance_jobs() -> list[Job]:
 # libtest ends every binary with a line naming how long IT ran, and that number
 # is the only part of a job's wall clock that is not the build graph.
 LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
+# ⛔⛔ AND NEXTEST DOES NOT SAY THAT SENTENCE, NOR ON THIS STREAM. It ends a run
+# with one `Summary [ 265.439s] …` line, and it writes it to STDERR — which this
+# runner deliberately leaves attached so cargo's progress bar keeps rendering. So
+# the pattern is here and matches nothing today; what stops the metric LYING is
+# the "not reported" arm in `format_timings`, not this regex.
+NEXTEST_DURATION = re.compile(r"Summary \[\s*([0-9]+\.[0-9]+)s\]")
 
 
-def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
+def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
     """Run one job, echoing its output live, and total libtest's own runtime.
 
     ⚠ **live output is not negotiable**, which is why this streams rather than
     capturing: somebody watching a suite needs to see the failure as it happens.
-    stdout is piped only so the "finished in Xs" lines can be counted on the way
-    past; stderr (where cargo writes progress) stays attached to the terminal.
+    stdout is piped only so the duration lines can be counted on the way past;
+    stderr (where cargo writes progress) stays attached to the terminal.
+
+    ⛔ BOTH RUNNERS ARE READ, and a job never mixes them: libtest prints one
+    `finished in Xs` per binary and nextest prints one `Summary [ Xs ]` per run.
+    Summing whichever appears keeps the number meaning "time spent running
+    tests" under either.
     """
-    executed = 0.0
+    executed: float | None = None
     proc = subprocess.Popen(
         job.argv,
         cwd=job.cwd or REPO,
@@ -572,9 +660,9 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
     assert proc.stdout is not None
     for line in proc.stdout:
         sys.stdout.write(line)
-        match = LIBTEST_DURATION.search(line)
+        match = LIBTEST_DURATION.search(line) or NEXTEST_DURATION.search(line)
         if match:
-            executed += float(match.group(1))
+            executed = (executed or 0.0) + float(match.group(1))
     sys.stdout.flush()
     return proc.wait(), executed
 
@@ -583,7 +671,9 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
     """The finished jobs, for a reader of the status file."""
     return [
         {"job": r.name, "ok": r.ok, "seconds": round(r.seconds, 1),
-         "executed_seconds": round(r.executed_seconds, 1)}
+         "executed_seconds": (
+             round(r.executed_seconds, 1) if r.executed_seconds is not None else None
+         )}
         for r in results
     ]
 
@@ -659,7 +749,7 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "finished": time.time(),
         "jobs": len(results),
         "seconds": round(sum(r.seconds for r in results), 1),
-        "executed_seconds": round(sum(r.executed_seconds for r in results), 1),
+        **wall_time_split(results),
         "passed": sum(1 for r in results if r.ok),
         "exhaustive": exhaustive,
         "filtered": filtered,
@@ -867,8 +957,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     write_status(status, {**base, "state": "done", "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
-                          "executed_seconds": round(
-                              sum(r.executed_seconds for r in results), 1),
+                          **wall_time_split(results),
                           "completed": completed_rows(results),
                           "current_job": None,
                           "free_gb_at_end": round(free_after, 1),

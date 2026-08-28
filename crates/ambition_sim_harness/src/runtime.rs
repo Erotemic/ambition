@@ -11,7 +11,7 @@ use ambition_platformer2d::actor::{
 };
 use ambition_platformer2d::character::{CharacterBrain, CharacterId};
 use ambition_platformer2d::engine::{
-    add_headless_foundation, SimulationHost, SimulationHostAppExt as _, SIM_TICK_HZ,
+    add_headless_foundation, SimulationHost, SimulationHostAppExt as _,
 };
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::participant::{
@@ -105,21 +105,30 @@ impl Platformer2dSimHarness {
         // EXACTLY (same `Duration`, so integer nanos, so no drift): the
         // accumulator then expends precisely once per `app.update()` and one
         // `step()` is one tick — forever, not just for the first few thousand.
-        if rollback.enabled() {
-            app.insert_resource(TimeUpdateStrategy::ManualDuration(
-                std::time::Duration::from_nanos(
-                    1_000_000_000u64 / SIM_TICK_HZ as u64,
-                ),
-            ));
-        } else if let TimestepMode::Fixed { dt } = timestep {
-            let frame_dt = if options.fixed_tick {
-                app.world()
-                    .resource::<bevy::time::Time<bevy::time::Fixed>>()
-                    .timestep()
+        // ⭐⭐ THE CANONICAL PERIOD COMES FROM THE ENGINE, for the two hosts that
+        // HAVE one. This spelled out the GGRS integer-nanosecond division and the
+        // `Time<Fixed>` lookup itself, which made three places in the repo that
+        // knew the same one-nanosecond distinction — and a fourth was written
+        // before it was noticed. `ambition_platformer2d::app::manual_step_period`
+        // reads `SimulationHost` and answers once.
+        //
+        // ⛔ THE ARBITRARY-dt PATH IS DELIBERATELY NOT THAT. A caller asking for
+        // `TimestepMode::Fixed { dt }` without `fixed_tick` is asking for a
+        // DIFFERENT clock on purpose, and folding it into the canonical helper
+        // would silently ignore the number it passed.
+        if rollback.enabled() || matches!(timestep, TimestepMode::Fixed { .. }) {
+            let canonical = if rollback.enabled() || options.fixed_tick {
+                ambition_platformer2d::sim::manual_step_period(&app)
             } else {
-                std::time::Duration::from_secs_f32(dt)
+                None
             };
-            app.insert_resource(TimeUpdateStrategy::ManualDuration(frame_dt));
+            let frame_dt = canonical.or_else(|| match timestep {
+                TimestepMode::Fixed { dt } => Some(std::time::Duration::from_secs_f32(dt)),
+                _ => None,
+            });
+            if let Some(frame_dt) = frame_dt {
+                app.insert_resource(TimeUpdateStrategy::ManualDuration(frame_dt));
+            }
         }
         // First update runs Startup. In rollback mode there is deliberately no
         // Session yet, so no simulation frame can advance before the canonical
@@ -218,11 +227,10 @@ impl Platformer2dSimHarness {
     pub fn set_timestep(&mut self, timestep: TimestepMode) {
         if self.rollback.enabled() {
             self.timestep = TimestepMode::fixed_60hz();
-            self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
-                std::time::Duration::from_nanos(
-                    1_000_000_000u64 / SIM_TICK_HZ as u64,
-                ),
-            ));
+            // ⛔ THE SETTER SPELLED THE PERIOD ITSELF, and the constructor beside
+            // it had just been migrated off doing exactly that — so the
+            // deduplication was announced while one of the two copies survived.
+            ambition_platformer2d::sim::enable_manual_stepping(&mut self.app);
             return;
         }
         self.timestep = timestep;

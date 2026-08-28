@@ -164,7 +164,7 @@ pub fn drive_wave_encounters(
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         // The prepared cast: a wave names a character, and as of AC6 that is
         // the only thing it can name.
-        Res<crate::character_runtime::PreparedCharacterRegistry>,
+        Res<ambition_characters::prepared::PreparedCharacterRegistry>,
     ),
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     encounter_mobs: Query<(

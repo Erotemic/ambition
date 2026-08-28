@@ -93,6 +93,26 @@ impl Default for ActorTuning {
 }
 
 impl ActorTuning {
+    /// THE SPEED THIS BODY FLIES AT — the one number two callers were computing
+    /// separately.
+    ///
+    /// ⭐ A flying body's throttle is its CHASE speed, not its run speed: the
+    /// flight limb sets `flight_terminal_speed` from this, and a stick deflection
+    /// is a commanded velocity divided by that terminal. So a producer that
+    /// scaled a human's command by `max_run_speed` while the integrator
+    /// normalised by this one handed a fully deflected stick
+    /// `max_run_speed / flight_speed` of the available deflection — a possessed
+    /// flyer could not reach its own top speed (D117).
+    ///
+    /// ⛔ ONE OWNER, because the two sites were the same expression twice and a
+    /// value with two homes cannot be attributed when it disagrees with itself.
+    /// `BrainSnapshot::max_run_speed`'s own doc already said what this is for:
+    /// *"the throttle scale the caller wants this body's locomotion intent
+    /// expressed against … a boss's flight speed for a body that flies."*
+    pub fn flight_speed(&self) -> f32 {
+        self.chase_speed.max(self.max_run_speed).max(1.0)
+    }
+
     /// Where this body contests space when it fights — the one fact the
     /// crowding signal needs that positions do not carry.
     pub fn crowd_kind(&self) -> crate::crowd::CrowdKind {
@@ -132,6 +152,56 @@ impl ActorTuning {
                     .axis_swept_params(),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod flight_speed_tests {
+    use super::*;
+
+    /// A FLYING BODY'S THROTTLE IS ITS CHASE SPEED, and the arms straddle the
+    /// comparison rather than sitting on one side of it.
+    ///
+    /// ⭐⭐ THE DEFECT THIS PINS (D117): the flight limb sets
+    /// `flight_terminal_speed` from this, and a stick deflection is a commanded
+    /// velocity divided by that terminal — so a producer scaling a human's
+    /// command by `max_run_speed` while the integrator normalised by this handed
+    /// a fully deflected stick `max_run_speed / flight_speed` of the deflection.
+    /// A possessed flyer could not reach its own top speed.
+    ///
+    /// ⛔ THE `chase > run` ARM IS THE ONE THAT DISCRIMINATES. Every shipped
+    /// body has `chase <= run` (only two catalog rows author `chase_speed` at
+    /// all, and no flyer among them), so an assertion taken from the live cast
+    /// agrees with the OLD behaviour and with the new one — the defect is
+    /// latent because the content cannot currently express it.
+    #[test]
+    fn a_flying_bodys_throttle_is_whichever_speed_is_larger() {
+        let mut tuning = ActorTuning {
+            chase_speed: 900.0,
+            max_run_speed: 300.0,
+            ..Default::default()
+        };
+        assert_eq!(
+            tuning.flight_speed(),
+            900.0,
+            "a body that chases faster than it runs flies at its CHASE speed; \
+             answering 300 is the deflection defect"
+        );
+
+        // The ordinary shape, and the reason the defect hid: every shipped body
+        // is on this side of the comparison.
+        tuning.chase_speed = 100.0;
+        assert_eq!(
+            tuning.flight_speed(),
+            300.0,
+            "a body that runs faster than it chases still flies at the larger"
+        );
+
+        // ⛔ AND THE FLOOR IS NOT DECORATION: a zero throttle is a division the
+        // integrator performs, and `0` there is every stick reading NaN.
+        tuning.chase_speed = 0.0;
+        tuning.max_run_speed = 0.0;
+        assert_eq!(tuning.flight_speed(), 1.0);
     }
 }
 

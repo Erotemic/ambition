@@ -22,7 +22,7 @@ pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // A persisted-hostile NPC re-establishes its grudge against a stable player
     // slot on load (the original attacker entity doesn't survive a save round-trip;
@@ -62,7 +62,10 @@ pub fn sync_ecs_actors_with_save(
     // anchor hostility to the lowest PlayerSlot so save-load behavior is replay-safe.
     let stable_player_grudge = players
         .iter()
-        .min_by_key(|(_, slot)| slot.copied().unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY))
+        .min_by_key(|(_, slot)| {
+            slot.copied()
+                .unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY)
+        })
         .map(|(entity, _)| entity);
     for (
         entity,

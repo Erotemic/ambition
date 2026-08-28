@@ -906,7 +906,7 @@ pub(crate) fn integrate_actor_body(
     // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
     // publish, so the same `to_world_half(size*0.5)` box comes out either way.
     let footprint = envelope.unwrap_or(em.kin.size);
-    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+    ambition_combat::body_geometry::publish_body_footprint(
         aabb,
         em.kin.pos,
         footprint,
@@ -1573,7 +1573,7 @@ pub(super) fn attack_kit_of(
     // `ActionLegality`. `None` means nothing owns the body and everything is
     // startable.
     playback: Option<&ambition_combat::moveset::MovePlayback>,
-) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
+) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
         brain,
@@ -1585,9 +1585,7 @@ pub(super) fn attack_kit_of(
         return Vec::new();
     };
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::{
-        AttackBinding, AttackCandidate, AttackVerb,
-    };
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
 
     // ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.
     //
@@ -1666,8 +1664,8 @@ fn legality_of(
     playback: Option<&ambition_combat::moveset::MovePlayback>,
     verb_name: &str,
     move_id: &str,
-) -> ambition_characters::brain::fighter::options::ActionLegality {
-    use ambition_characters::brain::fighter::options::ActionLegality;
+) -> ambition_characters::brain::attack_kit::ActionLegality {
+    use ambition_characters::brain::attack_kit::ActionLegality;
     let Some(pb) = playback else {
         // Nothing owns the body: every candidate is startable.
         return ActionLegality::Now;
@@ -1706,11 +1704,9 @@ fn capture_candidate(
     moveset: &ambition_combat::moveset::ActorMoveset,
     grounded: bool,
     playback: Option<&ambition_combat::moveset::MovePlayback>,
-) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
+) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::{
-        AttackBinding, AttackCandidate, AttackVerb,
-    };
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
     use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
@@ -1843,7 +1839,20 @@ fn build_enemy_brain_snapshot(
         // threading it is what makes the difficulty knob live in-engine.
         sim_time,
         dt,
-        max_run_speed: body.config.tuning.max_run_speed,
+        // ⛔⛔ THE THROTTLE SCALE, WHICH FOR A FLYING BODY IS ITS FLIGHT SPEED —
+        // this field's own doc says so (*"a boss's flight speed for a body that
+        // flies"*) and this site handed it the RUN speed regardless. The flight
+        // limb normalises a commanded velocity by `flight_terminal_speed`, so a
+        // human possessing a body whose `chase_speed` exceeds its `max_run_speed`
+        // got `max_run_speed / flight_speed` of the stick and could not reach the
+        // body's own top speed (D117). ⚠ latent on the shipped cast — no flyer
+        // authors `chase_speed` — which is why it survived: a defect the content
+        // cannot currently express.
+        max_run_speed: if body.flight.fly_enabled {
+            body.config.tuning.flight_speed()
+        } else {
+            body.config.tuning.max_run_speed
+        },
         // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
         // predict rather than steer. The line above takes one number out of the
         // same tuning as a throttle scale; a rollout has to step the body
@@ -1954,7 +1963,7 @@ pub fn tick_npc_idle_barks(
     // a composition with no registered characters is the ordinary case — but a
     // registered-only character has no catalog row, so this is the only place
     // its voice can come from.
-    prepared_cast: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared_cast: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;

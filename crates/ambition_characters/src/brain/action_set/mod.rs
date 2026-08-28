@@ -602,7 +602,7 @@ impl ProjectileFlight {
     /// shot that is accelerating backwards is not a little — measured against the
     /// real 60Hz integrator at the ponytail's own 430 px/s and `out_s = 0.34`,
     /// the tail expired **79.2 px BEHIND the launch point travelling 603 px/s
-    /// backwards** (GPT 5.6, 2026-08-27). A fast rearward projectile, where the
+    /// backwards**. A fast rearward projectile, where the
     /// doc said "caught". Deleting the term lands it 1.4 px past the hand, and
     /// the same deletion holds across the range: `out_s` 0.25 → 7.2 px, 0.5 →
     /// 0.0 px, against 82 and 73 before.

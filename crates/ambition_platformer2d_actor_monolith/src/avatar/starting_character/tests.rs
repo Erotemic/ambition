@@ -181,7 +181,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -247,7 +247,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -319,7 +319,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -433,7 +433,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -510,7 +510,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -598,7 +598,7 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -660,7 +660,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -800,11 +800,11 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 /// and a `MovesetVerb` character still loses it.
 #[test]
 fn an_authored_charging_character_keeps_its_projectile_press() {
-    use crate::character_runtime::CharacterBindings;
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::definition::CharacterDefinition;
     use ambition_characters::brain::ActionSet;
     use ambition_characters::control::ActorControl;
+    use ambition_characters::prepared::CharacterBindings;
     use bevy::prelude::*;
 
     let charge_frame = || {
@@ -821,7 +821,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     app.add_systems(Update, gate_worn_player_control);
 
     // Two characters, identical but for how they fire.
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for (id, execution) in [
         (
             "gunner",
@@ -1154,7 +1154,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
     };
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     let prepared = crate::character_runtime::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new("hero", "Hero", "demo")
             .with_moveset(MovesetContract {
@@ -1164,7 +1164,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
                 )]),
                 moves: vec![swat],
             }),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
     registry.insert_prepared(prepared.prepared);
 
@@ -1207,7 +1207,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     let mut registry = registry;
     let unarmed = crate::character_runtime::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new("monk", "Monk", "demo"),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
     registry.insert_prepared(unarmed.prepared);
     crate::avatar::apply_worn_character_overlay(
@@ -1276,7 +1276,7 @@ fn catalog_granting_melee(id: &str) -> CharacterCatalog {
 /// Run the one production writer and hand back what it put on the body.
 fn wear(
     catalog: &CharacterCatalog,
-    registry: &crate::character_runtime::PreparedCharacterRegistry,
+    registry: &ambition_characters::prepared::PreparedCharacterRegistry,
     id: &str,
 ) -> (ActionSet, ActorMoveset) {
     let mut name = Name::new("placeholder");
@@ -1314,7 +1314,7 @@ fn wear(
 
 fn prepared(
     definition: ambition_characters::actor::definition::CharacterDefinition,
-) -> crate::character_runtime::PreparedCharacterRegistry {
+) -> ambition_characters::prepared::PreparedCharacterRegistry {
     prepared_against(definition, None)
 }
 
@@ -1329,12 +1329,12 @@ fn prepared(
 fn prepared_against(
     definition: ambition_characters::actor::definition::CharacterDefinition,
     catalog: Option<&CharacterCatalog>,
-) -> crate::character_runtime::PreparedCharacterRegistry {
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+) -> ambition_characters::prepared::PreparedCharacterRegistry {
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(
         crate::character_runtime::prepare_and_finalize_against_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
             catalog,
         )
         .prepared,
@@ -1573,7 +1573,7 @@ fn an_authored_special_action_set_derives_a_special_move() {
 #[test]
 fn an_unregistered_authored_persona_derives_its_ranged_move() {
     let catalog = catalog_granting_melee_and_ranged("drifter");
-    let empty = crate::character_runtime::PreparedCharacterRegistry::default();
+    let empty = ambition_characters::prepared::PreparedCharacterRegistry::default();
 
     let (action_set, moveset) = wear(&catalog, &empty, "drifter");
 
@@ -1688,7 +1688,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             ActorMoveset(Default::default()),
             ambition_characters::brain::action_set::IdentityKit::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1769,7 +1769,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
                 health.health.current = 6;
                 health
             },
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1920,7 +1920,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     const DUELIST_MAX_HEALTH: i32 = 60;
     const DUELIST_MASS: f32 = 2.0;
 
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for (id, vitals) in [
         (
             "heavy_duelist",
@@ -1944,7 +1944,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
         definition.vitals = vitals;
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(prepared.prepared);
     }
@@ -1968,7 +1968,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             )),
             ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2049,7 +2049,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for (id, mass) in [("heavy_duelist", Some(2.0)), ("silent_persona", None)] {
         let mut definition =
             ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
@@ -2061,7 +2061,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         };
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(prepared.prepared);
     }
@@ -2081,7 +2081,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2126,14 +2126,14 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for id in ["quiet_one", "quiet_two"] {
         // Neither authors health or mass — the ordinary case for most of the cast.
         let definition =
             ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(prepared.prepared);
     }
@@ -2156,7 +2156,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
                 100,
             )),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2226,7 +2226,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     /// this time round.
     fn prepared_duelist(
         vitals: ambition_characters::actor::definition::Vitals,
-    ) -> crate::character_runtime::PreparedCharacterDefinition {
+    ) -> ambition_characters::prepared::PreparedCharacterDefinition {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "heavy_duelist",
             "heavy_duelist",
@@ -2235,12 +2235,12 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
         definition.vitals = vitals;
         crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         )
         .prepared
     }
 
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(prepared_duelist(
         ambition_characters::actor::definition::Vitals {
             max_health: Some(60),
@@ -2269,7 +2269,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             )),
             ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2296,7 +2296,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     // `insert_prepared` publishes, which moves the generation the derive
     // compares against — the body's `WornCharacter` is never touched.
     app.world_mut()
-        .resource_mut::<crate::character_runtime::PreparedCharacterRegistry>()
+        .resource_mut::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .insert_prepared(prepared_duelist(
             ambition_characters::actor::definition::Vitals::default(),
         ));
@@ -2332,7 +2332,7 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
             Name::new("unset"),
             ActionSet::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2410,7 +2410,7 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
             Name::new("unset"),
             ActionSet::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),

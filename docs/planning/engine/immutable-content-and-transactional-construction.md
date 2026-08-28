@@ -163,8 +163,49 @@ content, run headlessly, route a shell, stage a character/enemy, and traverse an
 in-room transition through the umbrella. The remaining useful proof is:
 
 - ▢ run the visible external consumer on a machine with a display;
-- ▢ measure first-room workflow and deliberate-error diagnostics rather than only
-  describing them qualitatively;
+- ✔ **MEASURED 2026-08-28, and both halves came out better than "describe them
+  qualitatively" implied.**
+
+  **THE FIRST-ROOM WORKFLOW IS EIGHT DECLARATIONS AND TWO CALLS.** A consumer's
+  whole path to a running first room:
+
+```text
+  manifest()   name + asset source                             2 lines
+  define()     .experience .launcher_route .gameplay_route
+               .room .no_audio .playable .capability           7 calls
+  build        PlatformerApp::headless().mount(M).build()      1 expression
+```
+
+  ⭐ `.playable(..)` carries five arguments (display name, blurb, character id,
+  room id, rooms) and is what REGISTERS the gameplay route — which is why the
+  ghost-route refusal below names it as the fix. `.no_audio()` is a DECLARED
+  silence rather than an omission; the draft has a word for saying so.
+
+  **THE DELIBERATE-ERROR DIAGNOSTICS, quoted verbatim** (`probe_what_the_refusals_tell_a_stranger`,
+  print-only and `#[ignore]`d — see its own doc for why the wording is not
+  asserted):
+
+```text
+this game's composition cannot be built (1 problem(s)):
+  - `without_gpu` needs a windowed face; headless has no render graph
+  (these are the DECLARATION's problems. The capability-dependent checks —
+   routes, roster — have not run yet, so fixing these may reveal more.)
+
+this game's composition cannot be built (1 problem(s)):
+  - experience `outlander` declared gameplay route `ghost/gameplay`, which no
+    mounted capability registers — call `playable(..)`, or install a capability
+    that registers it. Registered routes: outlander_launcher
+```
+
+  ⇒ each names the REQUEST, the REASON, and the FIX; the second lists what does
+  exist; and the first warns that the checks are STAGED, so a consumer does not
+  read one problem as the whole answer. ⚠ the count is `1 problem(s)` — the
+  builder collects and reports all of them, which is the affordance that makes
+  `try_build` worth having over a panic, and one is simply all these fixtures
+  provoke.
+  ⛔ **the wording is deliberately NOT asserted.** Pinning it would make every
+  improvement to an error message a red test, which is how a diagnostic stops
+  improving. This measurement is dated; re-take it by running the probe.
 - ▢ add a queryable readiness/last-failure convenience API if a consumer actually
   benefits from it;
 - ▢ exercise construction/content authoring from a second meaningfully different

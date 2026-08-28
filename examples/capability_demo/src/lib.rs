@@ -4,15 +4,20 @@
 //! The crate owns the capability's behavior, authored schema, semantic action,
 //! rollback state, and causal facts without a direct actor-monolith dependency.
 //! `PulseBody`/`PulseAffected` keep the example independent of actor-domain types.
-//! The action is declared, but input currently reaches the capability by writing
-//! `PulseRequested` until semantic actions own device bindings.
+//! The action is declared, and since 2026-08-28 a registered action CAN carry a
+//! device binding: a composition puts the registry-minted key in
+//! `ambition_input::ProviderBindings`, and a press comes back as
+//! `SemanticActionPressed`. What the composition still owns is the last hop —
+//! which seat drives which body — because that is the one fact this crate refuses
+//! to know. `PulseRequested` is unchanged and stays the seam either way: a
+//! scripted sequence and an AI write it the same way a press does.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 mod schema;
 
-pub use schema::{PULSE_SCHEMA, PulseProfile, PulseProfiles, pulse_schema};
+pub use schema::{pulse_schema, PulseProfile, PulseProfiles, PULSE_SCHEMA};
 
 /// The capability's name, used by the content compiler, the action registry and
 /// the rollback owner label. One string, so a diagnostic from any of the three
@@ -51,9 +56,10 @@ impl PulseCooldown {
 
 /// A consumer asking this body to pulse.
 ///
-/// The seam an input router will write once `PULSE_ACTION` can carry a device
-/// binding. Until then a game writes it directly, which is also how a scripted
-/// sequence or an AI would.
+/// The seam an input router writes — `PULSE_ACTION` can carry a device binding
+/// now, so a composition maps `SemanticActionPressed { id: "pulse" }` onto this
+/// for the body that seat drives. A game may also write it directly, which is how
+/// a scripted sequence or an AI reaches the same mechanic.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct PulseRequested {
     pub body: Entity,

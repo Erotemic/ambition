@@ -267,21 +267,26 @@ authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
 # the `#[cfg(feature = "audio")]` gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
 # loader, the env writer, etc. actually fire.
 web_audio = ["audio"]
-# The DIALOGUE/YARN umbrella. Its callers still select it for the Yarn runtime and
-# `ambition_dialog/ui`.
-ui = [
-    "ambition_conversation/ui",
-    "ambition_dialog/ui",
-]
+# The DIALOGUE/YARN umbrella.
+#
+# ⛔⛔ IT NO LONGER FORWARDS `ambition_dialog/ui`, and that forward was the last
+# thing holding a declared `ambition_dialog` edge on this crate's shipping
+# surface. Production code here names NO dialog path — every reference left is in
+# a `tests.rs` — so the dep existed for the forward alone, exactly as
+# `ambition_ui_nav` did before it (see the `input` feature below, which records
+# that removal). A caller that wants the dialogue UI names it, and both callers
+# that select this already depend on `ambition_dialog`.
+ui = ["ambition_conversation/ui"]
 physics_debris = ["dep:avian2d"]
 input = [
     "dep:leafwing-input-manager",
     "ambition_input/input",
-    # The `ambition_ui_nav` dependency existed for nothing but this forward — this crate names no
-    # ui_nav path — so removing the forward removed a declared Cargo edge and one of the capability
-    # crates a movement-only consumer inherits. See
-    # `docs/planning/engine/actor-monolith-decomposition.md`.
-    "ambition_dialog/input",
+    # ⭐ AND `ambition_dialog/input` IS GONE FOR THE SAME REASON, 2026-08-28. The
+    # note that used to sit here says it: *"the `ambition_ui_nav` dependency
+    # existed for nothing but this forward — this crate names no ui_nav path — so
+    # removing the forward removed a declared Cargo edge and one of the capability
+    # crates a movement-only consumer inherits."* Dialog was the next one down
+    # that list. See `docs/planning/engine/actor-monolith-decomposition.md`.
 ]
 # Mobile / Android touch input. Pulls `virtual_joystick` for the
 # on-screen sticks; the supporting Bevy systems live behind this feature
@@ -404,7 +409,7 @@ ambition_persistence = { path = "../ambition_persistence" }
 # Reusable dialogue runtime (E1c): DialogState view model + typewriter reveal +
 # input systems + the bevy_yarnspinner bridge and binding-installer seam. The
 # game-specific Yarn bindings + GameMode sync stay in `src/dialog`.
-ambition_dialog = { path = "../ambition_dialog" }
+
 # Reusable developer-tooling state + logic (E1d): DeveloperTools, the editable
 # player-tuning/ability/stats resources, profile enums, startup profiler,
 # DeveloperTools disk persistence, and the live-edit sync system. gameplay-core
@@ -477,6 +482,10 @@ ambition_characters = { path = "../ambition_characters", features = ["test-suppo
 # cross a crate boundary, and a production `[dependencies]` edge would put the
 # fixtures on the shipping surface.
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
+# ⛔ TEST-ONLY, and that is the whole finding: this crate's production code names
+# no dialog path, so the interact fixtures were the only thing left standing an
+# `ambition_dialog` edge on the shipping surface.
+ambition_dialog = { path = "../ambition_dialog" }
 # The observation-boundary crate: the headless camera example resolves its
 # snapshot through it (dev-only; cyclic dev-deps are fine).
 ambition_sim_view = { path = "../ambition_sim_view" }

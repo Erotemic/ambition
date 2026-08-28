@@ -887,6 +887,72 @@ impl RecoveryUse {
     }
 }
 
+/// WHAT KIND OF WAY HOME THIS MOVE OFFERS, as its author states it.
+///
+/// ⭐⭐ THE GENRE HAS MORE THAN ONE, AND THE PLANNER KNEW ONE. Recovery
+/// reasoning modelled every route as a `RecoveryLift`: one commanded velocity,
+/// thrown once. That is the genre's ordinary up-B and it is not the only shape —
+/// a fighter can teleport, and the pirate's up-B summons a steerable flying
+/// shark and hands its rider SECONDS OF MOVEMENT AUTHORITY. Neither is a burst,
+/// so `lift_speed` reads `0.0` for both and the CPU saw no way home at all
+/// (D250).
+///
+/// ⛔ AND THE ANSWER IS NOT TO FAKE A LIFT. A fabricated impulse would make the
+/// planner certify a rise the move does not throw, and the search would then be
+/// wrong in the confident direction. ⛔ Nor a name check: what makes a move a
+/// recovery is what it DOES, which is the rule `RecoveryUse` already states one
+/// field up.
+///
+/// `None` here means *"whatever this move's frame data implies"*, which is a
+/// burst when it commands one and nothing when it does not — every move authored
+/// before route kinds existed still means what it meant.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum AuthoredRecoveryRoute {
+    /// SECONDS OF MOVEMENT AUTHORITY, from something the move summons or mounts.
+    ///
+    /// ⛔ `reach` IS AUTHORED, and it is the claim the planner spends: *"this
+    /// gets you home from within this far"*. Deriving it would mean reading the
+    /// summoned body's own locomotion out of a registry the planner cannot see,
+    /// and guessing it would make the search confidently wrong.
+    SustainedAuthority { seconds: f32, reach: f32 },
+    /// A DISCONTINUITY: the body is somewhere else, up to `distance` away.
+    Teleport { distance: f32 },
+}
+
+/// The way home a move offers, RESOLVED — the authored statement above folded
+/// with what the move's own frame data implies. See
+/// [`MoveSpec::frame_data`], which is the only place the fold happens.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub enum RecoveryRoute {
+    /// This move is no way home.
+    #[default]
+    None,
+    /// ONE COMMANDED VELOCITY, thrown `at_s` into the move. The genre's ordinary
+    /// up-B, and what every route was before there were kinds.
+    Burst { speed: f32, side: f32, at_s: f32 },
+    /// See [`AuthoredRecoveryRoute::SustainedAuthority`].
+    SustainedAuthority { seconds: f32, reach: f32 },
+    /// See [`AuthoredRecoveryRoute::Teleport`].
+    Teleport { distance: f32 },
+}
+
+impl RecoveryRoute {
+    pub fn offers_a_way_home(self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    /// How far toward home this route CARRIES the body before it is an ordinary
+    /// falling body again. `0.0` for a burst, whose whole effect is a velocity
+    /// the kernel already simulates.
+    pub fn carry(self) -> f32 {
+        match self {
+            Self::SustainedAuthority { reach, .. } => reach,
+            Self::Teleport { distance } => distance,
+            Self::None | Self::Burst { .. } => 0.0,
+        }
+    }
+}
+
 /// Activation gates for a move. Narrow on purpose — add knobs when real
 /// moves need them.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -956,6 +1022,11 @@ pub struct MoveGates {
     /// legitimate feel, and a blanket engine rule would take it away.
     #[serde(default)]
     pub roots_steering: bool,
+    /// The way home this move offers, when its frame data cannot say. See
+    /// [`AuthoredRecoveryRoute`]; `None` leaves the answer to the frame data,
+    /// which is where every burst still comes from.
+    #[serde(default)]
+    pub recovery_route: Option<AuthoredRecoveryRoute>,
 }
 
 impl MoveGates {
@@ -1177,6 +1248,25 @@ pub struct SmashChargeSpec {
     /// them.
     #[serde(default)]
     pub stores: bool,
+    /// Does the freeze ROOT the body?
+    ///
+    /// ⭐⭐ `true` FOR EVERY SMASH IN THE GAME, and Jon's rule is why: *"when
+    /// the character is charging their smash attack, they should not be able to
+    /// walk or move."* A windup you can stroll out of is not a commitment.
+    ///
+    /// ⛔⛔ AND IT IS A PROPERTY OF THE POLICY, NOT OF CHARGING. The Actor's
+    /// trapdoor freezes its timeline through this exact mechanic — hold the
+    /// button, hold the beat — and the beat it holds is TRAVEL: she is under
+    /// the stage steering, and Jon asked for that in the same breath as the
+    /// move itself (*"I do want the player to be able to control where they
+    /// move"*). Rooting that freeze would delete the move. So the two uses of
+    /// one mechanic say which they are instead of the runtime guessing from
+    /// the gesture.
+    ///
+    /// DEFAULT `true`, which is byte-parity for every policy authored before
+    /// this field existed.
+    #[serde(default = "charge_roots_by_default")]
+    pub roots: bool,
 }
 
 /// Which press holds a move's charge.
@@ -1213,6 +1303,12 @@ impl SmashChargeSpec {
         }
         (held_s / self.max_hold_s).clamp(0.0, 1.0)
     }
+}
+
+/// Serde default for [`SmashChargeSpec::roots`]: a charge roots its body, which
+/// is what every policy authored before the field meant.
+fn charge_roots_by_default() -> bool {
+    true
 }
 
 /// Serde default for [`MoveEventKind::Vfx::scale`]: the presentation default
@@ -1420,6 +1516,7 @@ impl MoveSpec {
                 // smash you could bank and throw later is a different mechanic
                 // and would arrive here by accident rather than by authoring.
                 stores: false,
+                roots: true,
             })
         }) else {
             return None;
@@ -1601,6 +1698,26 @@ impl MoveSpec {
             lift_speed,
             lift_at_s,
             lift_side,
+            // ⭐⭐ THE ONE PLACE THE FOLD HAPPENS. An author who stated a route
+            // kind gets it; everybody else gets what their frame data implies,
+            // which is a burst when the move commands a rise against gravity and
+            // nothing when it does not. That second arm IS the rule the planner
+            // has always used (`lift_speed > 0.0`), moved here so no consumer
+            // has to spell it a second time.
+            recovery_route: match self.gates.recovery_route {
+                Some(AuthoredRecoveryRoute::SustainedAuthority { seconds, reach }) => {
+                    RecoveryRoute::SustainedAuthority { seconds, reach }
+                }
+                Some(AuthoredRecoveryRoute::Teleport { distance }) => {
+                    RecoveryRoute::Teleport { distance }
+                }
+                None if lift_speed > 0.0 => RecoveryRoute::Burst {
+                    speed: lift_speed,
+                    side: lift_side,
+                    at_s: lift_at_s,
+                },
+                None => RecoveryRoute::None,
+            },
         }
     }
 }
@@ -1793,11 +1910,15 @@ pub struct MoveFrameData {
     pub lift_at_s: f32,
     /// Along-facing component of the commanded lift velocity, body-local
     /// (`+x` toward facing). Together with [`Self::lift_speed`] this is the
-    /// complete 2-D velocity-shaped recovery proposal. Position-changing moves
-    /// such as teleports require a different affordance and world validation;
-    /// consumers still ask the movement kernel whether a proposal is useful in
-    /// the current state.
+    /// complete 2-D velocity-shaped recovery proposal.
     pub lift_side: f32,
+    /// THE WAY HOME THIS MOVE OFFERS, resolved — a burst from the two fields
+    /// above, or whatever its author stated instead.
+    ///
+    /// ⭐ ONE ANSWER, so a planner never has to correlate `lift_speed` against a
+    /// gate to find out whether a move is a recovery at all. The fields above
+    /// remain what a BURST is made of; this is which kind of route it is.
+    pub recovery_route: RecoveryRoute,
 }
 
 // ---------------------------------------------------------------------------

@@ -504,14 +504,39 @@ class SuiteTotals:
     runs: int
     seconds: float
     executed_seconds: float
+    # ⛔⛔ WALL TIME THE RUNNER COULD NOT SPLIT, and it is not build time.
+    # `build_seconds` USED to be `seconds - executed_seconds` over every run,
+    # which quietly handed a nextest run's entire wall clock to the build column
+    # — nextest prints its `Summary [ Xs ]` on stderr, which the runner leaves
+    # attached, so those jobs report no execution time at all. The build figure
+    # is now derived ONLY from the runs that reported, and this is what the rest
+    # is.
+    unclassified_seconds: float = 0.0
+
+    @property
+    def classified_seconds(self) -> float:
+        return round(self.seconds - self.unclassified_seconds, 6)
 
     @property
     def build_seconds(self) -> float:
-        return round(self.seconds - self.executed_seconds, 6)
+        return round(self.classified_seconds - self.executed_seconds, 6)
 
     @property
     def build_share(self) -> float | None:
-        return self.build_seconds / self.seconds if self.seconds else None
+        """Build as a share of the time this report can actually account for."""
+        classified = self.classified_seconds
+        return self.build_seconds / classified if classified else None
+
+
+def _unclassified(run: dict) -> float:
+    """Wall time in one run that no runner attributed.
+
+    ⚠ A row written before 2026-08-28 has no `unclassified_seconds` key AND an
+    `executed_seconds` that may be a zero standing in for "unknown". Its zero is
+    kept as-is rather than reinterpreted: guessing which historical zeros were
+    real would rewrite the series this report exists to show.
+    """
+    return run.get("unclassified_seconds") or 0.0
 
 
 def suite_totals(run_rows: list[dict]) -> SuiteTotals:
@@ -519,6 +544,7 @@ def suite_totals(run_rows: list[dict]) -> SuiteTotals:
         runs=len(run_rows),
         seconds=round(sum(r.get("seconds") or 0.0 for r in run_rows), 6),
         executed_seconds=round(sum(r.get("executed_seconds") or 0.0 for r in run_rows), 6),
+        unclassified_seconds=round(sum(_unclassified(r) for r in run_rows), 6),
     )
 
 
@@ -529,13 +555,17 @@ def suite_series(run_rows: list[dict]) -> list[dict]:
         finished = run.get("finished")
         seconds = run.get("seconds") or 0.0
         executed = run.get("executed_seconds") or 0.0
+        unclassified = _unclassified(run)
         points.append(
             {
                 "finished": finished,
                 "when": _epoch_to_day(finished),
                 "seconds": seconds,
                 "executed": executed,
-                "build": max(seconds - executed, 0.0),
+                # ⛔ the same rule as `SuiteTotals`: only the classified part of
+                # a run may be called build time.
+                "build": max(seconds - unclassified - executed, 0.0),
+                "unclassified": unclassified,
                 "jobs": run.get("jobs"),
                 "passed": run.get("passed"),
                 "exhaustive": bool(run.get("exhaustive")),

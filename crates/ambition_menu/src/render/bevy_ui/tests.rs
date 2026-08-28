@@ -657,3 +657,180 @@ fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
         fraction.reference_pixels(),
     );
 }
+
+/// The Setting row's entity in the spawned sample page.
+fn setting_row(app: &mut App) -> Entity {
+    let mut q = app
+        .world_mut()
+        .query::<(Entity, &AmbitionMenuControl<Action>)>();
+    q.iter(app.world())
+        .find_map(|(entity, control)| (control.action == Some(Action::Setting)).then_some(entity))
+        .expect("sample page has a Setting row")
+}
+
+/// One tap: press, then release over the same row.
+fn tap(app: &mut App, entity: Entity) -> Vec<crate::MenuActionActivated<Action>> {
+    set_interaction(app, entity, Interaction::Pressed);
+    set_interaction(app, entity, Interaction::Hovered);
+    drain_activations(app)
+}
+
+#[test]
+fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone() {
+    // `MenuTapMode::SingleTapWithDestructiveGuard` is the SHIPPED DEFAULT, and
+    // its stated reason is a stray touch on Quit. It was reaching only the rows
+    // routed through `ambition_ui_nav`; every menu drawn by this bridge — the
+    // pause menu and its Quit rows included — activated on the first release.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    // No `UserSettings` resource: absent is the default policy, which is the
+    // one under test.
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+    let setting = setting_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, setting),
+        vec![crate::MenuActionActivated {
+            action: Action::Setting
+        }],
+        "a reversible row still costs one tap; a guard everywhere is only a tax"
+    );
+
+    assert!(
+        tap(&mut app, equip).is_empty(),
+        "the first tap on the destructive row arms it and nothing more"
+    );
+    assert_eq!(
+        tap(&mut app, equip),
+        vec![crate::MenuActionActivated {
+            action: Action::Equip
+        }],
+        "the second tap on the SAME row is the answer to the guard"
+    );
+
+    // And the arm does not survive going somewhere else in between: an armed
+    // Quit that the user walked away from must not fire on their return tap.
+    assert!(tap(&mut app, equip).is_empty(), "arm again");
+    assert_eq!(tap(&mut app, setting).len(), 1);
+    assert!(
+        tap(&mut app, equip).is_empty(),
+        "touching another row abandoned the pending confirm"
+    );
+}
+
+/// ⛔⛔ TWO ROWS THAT DO THE SAME THING ARE STILL TWO ROWS.
+///
+/// The destructive arm was keyed by `format!("{action:?}")`, then by `Action`
+/// itself. The second removed a `Debug` dependency and was still one layer too
+/// coarse: an action says what a row DOES. Arm destructive row A, tap
+/// destructive row B once, and B — carrying an EQUAL action — reads as already
+/// armed and fires on the first tap. In a pause menu that is *Quit to Desktop*
+/// answering a guard the user armed somewhere else.
+///
+/// ⭐ `MenuFocusKey` is the identity the menu already carries, and it is
+/// distinct here while the action is not — which is exactly the case neither
+/// earlier key could tell apart.
+#[test]
+fn two_destructive_rows_with_the_same_action_arm_separately() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+
+    // A page whose two actionable rows carry ONE action and two focus keys.
+    let mut page = MenuPageModel::new(Page::Inventory, "Twins", MenuColor::BLUE_PANEL);
+    let a = MenuRect::new(10.0, 20.0, 30.0, 8.0);
+    let b = MenuRect::new(10.0, 30.0, 30.0, 8.0);
+    for rect in [a, b] {
+        page.control(
+            rect,
+            MenuControlKind::Action,
+            "Quit",
+            None,
+            false,
+            false,
+            Some(Action::Equip),
+        );
+    }
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView {
+            tabs: &tabs,
+            active_tab: 0,
+            page: &page,
+            focused: None,
+            focused_tab: None,
+        };
+        let mut commands = world.commands();
+        spawn_bevy_ui_menu(&mut commands, &view);
+    });
+    app.update();
+
+    let (key_a, key_b) = (focus_key_for(a), focus_key_for(b));
+    assert_ne!(key_a, key_b, "the two rows must be distinguishable at all");
+    let row = |app: &mut App, key: MenuFocusKey| {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<Action>)>();
+        q.iter(app.world())
+            .find_map(|(entity, control)| (control.focus == key).then_some(entity))
+            .expect("both twin rows are in the world")
+    };
+    let (row_a, row_b) = (row(&mut app, key_a), row(&mut app, key_b));
+
+    assert!(tap(&mut app, row_a).is_empty(), "A's first tap arms A");
+    assert!(
+        tap(&mut app, row_b).is_empty(),
+        "B fired on its FIRST tap because it does the same thing as the armed A"
+    );
+    assert_eq!(
+        tap(&mut app, row_b).len(),
+        1,
+        "B's own second tap is what answers B's guard"
+    );
+}
+
+#[test]
+fn a_menu_that_registers_no_destructive_rows_is_unguarded() {
+    // The default for every existing host, and the reason this change needed no
+    // edit at 21 `MenuPage::control` call sites: a menu with no irreversible row
+    // registers nothing and keeps single-tap throughout.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, equip).len(),
+        1,
+        "no registration, no guard, one tap"
+    );
+}
+
+#[test]
+fn single_tap_mode_answers_for_the_destructive_row_too() {
+    // The guard is the user's setting, not this bridge's opinion: someone who
+    // has chosen `SingleTap` has said they do not want the second tap, and a
+    // Quit row is exactly where a hardcoded policy would override them.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+    let mut settings = ambition_persistence::settings::UserSettings::default();
+    settings.controls.menu_tap_mode = ambition_input::settings::MenuTapMode::SingleTap;
+    app.insert_resource(settings);
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, equip).len(),
+        1,
+        "the configured policy wins over the row's riskiness"
+    );
+}

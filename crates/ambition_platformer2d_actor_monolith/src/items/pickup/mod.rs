@@ -363,6 +363,31 @@ const GROUND_ITEM_GRAVITY: f32 = 1400.0;
 const THROW_SPEED_X: f32 = 320.0;
 const THROW_SPEED_UP: f32 = 260.0;
 
+/// THIS ITEM REACHED A BODY THIS TICK, AND HOW FAST IT WAS GOING.
+///
+/// ⭐⭐ THE OTHER HARD CONTACT. `SettledItem` says an item stopped against the
+/// collision world; this says it arrived at a fighter. Jon's rule for the live
+/// bomb is *"4 seconds or if it hits something with enough velocity, whichever
+/// comes first"* — and a fighter is something, so a bomb thrown into somebody's
+/// chest kept its fuse for as long as "impact" meant "touched a block"
+///.
+///
+/// ⛔ IT DOES NOT STOP THE ITEM. A body is not a wall: the first attempt settled
+/// the item on contact, which made every fighter a shelf and left a minted drop
+/// resting 47px above the floor it used to land on.
+///
+/// ⛔ REPUBLISHED EVERY TICK by the system that owns item motion, so a consumer
+/// reads this tick's contact and never a stale one. `SettledItem` needs no such
+/// rule because the stop it records ends the item's motion.
+///
+/// ⛔ THE SPEED, NOT A BOOLEAN, for the same reason `SettledItem` carries one:
+/// the difference between a hit and a placement is how fast it arrived, and each
+/// consumer sets its own bar.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ItemStruckBody {
+    pub impact_speed: f32,
+}
+
 /// THIS ITEM IS AT REST ON SOMETHING and does not need stepping.
 ///
 /// ⭐⭐ AN EXPLICIT FACT, because the alternative was asking `vel == ZERO` to
@@ -470,6 +495,27 @@ pub fn ground_item_physics(
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
     mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
+    // ⭐⭐ THE OTHER CONTACT POPULATION. A thrown item's world is not only the
+    // collision world: it is also full of BODIES, and Jon's rule for a live bomb
+    // is *"4 seconds or if it hits something with enough velocity, whichever
+    // comes first"* — a fighter is something. `SettledItem` was published only
+    // for a stop against static geometry, so "impact detonation" quietly meant
+    // "touched a block" and a bomb thrown into somebody's chest bounced off them
+    // and kept its fuse.
+    //
+    // ⛔ THE FACT IS PRODUCED HERE, by the system that owns an item's motion,
+    // and not by a distance check in `bomb.rs`. A bomb is one consumer of "this
+    // item stopped hard"; a gravity grenade and whatever comes next are others,
+    // and each writing its own overlap loop is how one rule becomes three.
+    bodies: Query<
+        (
+            Entity,
+            &ambition_platformer2d_core::CenteredAabb,
+            &ambition_characters::actor::BodyHealth,
+            Has<ambition_combat::death_rules::OutOfPlay>,
+        ),
+        With<ambition_characters::actor::BodyHealth>,
+    >,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -516,6 +562,64 @@ pub fn ground_item_physics(
             || next.y < -200.0
             || next.x > world.size.x + 200.0
             || next.x < -200.0;
+        // ⛔⛔ A NEWLY ENTERED OVERLAP, NOT AN OVERLAP. A thrown item leaves a
+        // HAND, so on its first free tick it is standing inside the thrower and
+        // an "is it touching a body" test settles it before it has travelled a
+        // pixel. Comparing the two positions asks the question that actually
+        // means impact: did this item ARRIVE somewhere a body is?
+        //
+        // ⛔⛔ AND "NEWLY ENTERED" IS PER VICTIM, NOT AGGREGATE. This asked
+        // "is the item touching ANY body" at each end, which loses WHICH body:
+        // an item still standing inside its thrower while it reaches an opponent
+        // reads touching-then-touching and reports no strike at all — the
+        // ordinary case of a bomb thrown at somebody from arm's length.
+        //
+        // ⛔⛔ AND THE PATH IS SWEPT, because two endpoints are not a
+        // trajectory. A fast item crosses a whole body between one tick's
+        // position and the next while overlapping at neither, and the same
+        // formula that reports the strike also decides a bomb's detonation.
+        // `aabb_path_contacts` is the repo's own answer to this and takes the
+        // end centre plus the delta it arrived by.
+        let entered_now = |at: ae::Aabb, entity: Entity| {
+            bodies
+                .get(entity)
+                .is_ok_and(|(_, aabb, _, _)| at.strict_intersects(aabb.aabb()))
+        };
+        let struck_bodies = || {
+            let here = ae::Aabb::new(item.pos, item.half_extent);
+            bodies
+                .iter()
+                .filter(|(_, _, health, out_of_play)| {
+                    !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play)
+                })
+                .any(|(victim, aabb, _, _)| {
+                    ambition_platformer2d_core::cast::aabb_path_contacts(
+                        next,
+                        item.half_extent,
+                        item.vel * dt,
+                        aabb.aabb(),
+                    ) && !entered_now(here, victim)
+                })
+        };
+        // ⛔⛔ AND A BODY IS NOT A WALL. The first version STOPPED the item here,
+        // and that turns every fighter into a shelf: an item dropped or falling
+        // near somebody parked in mid-air on them — measured, a minted drop came
+        // to rest 47px above the floor it used to land on. Being STRUCK by
+        // something and STOPPING it are different facts, and only the first is
+        // what a thrown bomb asks about.
+        let struck = struck_bodies().then(|| ItemStruckBody {
+            impact_speed: item.vel.length(),
+        });
+        match struck {
+            Some(hit) => {
+                commands.entity(entity).try_insert(hit);
+            }
+            // Republished every tick, so a consumer reads THIS tick's contact
+            // rather than a stale one.
+            None => {
+                commands.entity(entity).remove::<ItemStruckBody>();
+            }
+        }
         if blocked || outside_world {
             // Settle in place (simple — no slide), and SAY SO: the marker is
             // what stops this item being stepped again, replacing the
@@ -552,7 +656,7 @@ pub fn return_released_items(
     // against it dropped the real object on the floor. The move then ended and
     // rebuilt `HeldItem` from its remembered id, leaving the body logically
     // holding an item that was also lying in the world: ONE object, two owners
-    // (GPT 5.6, 2026-08-27).
+    //.
     holders: Query<(
         &BodyKinematics,
         Option<&HeldItem>,
@@ -1269,6 +1373,67 @@ pub fn unequip_portal_gun(
     }
 }
 
+/// EVERY BODY WHOSE PRESSES ARE SOMEBODY'S — the population a press-gated item
+/// action acts on.
+///
+/// ⭐⭐ ONE ANSWER FOR EVERY ITEM VERB, because three of them asked the same
+/// question separately and all three got it wrong the same way. Pickup, throw and
+/// held-weapon fire each read `ControlledSubject`, which is ONE entity — correct
+/// for the adventure game, where you drive one body, and wrong for a Smash stage
+/// with two people on the couch. The second seat could not pick anything up, and
+/// what it looked like from the sofa is a bomb that ignores you
+///.
+///
+/// ⛔ IT IS A UNION, NOT A REPLACEMENT. `ControlledSubject` is still the answer
+/// for a possessed body in a room with no match around it, and `DrivingParticipant`
+/// is the answer for a seat. Dropping either would move the defect rather than
+/// fix it.
+///
+/// ⛔⛔ ORDERED BY STABLE IDENTITY, NEVER BY QUERY ORDER. Two bodies standing on
+/// one bomb is exactly the case this population exists for, and Bevy iteration
+/// order is not a fact a resimulation reproduces — bevy_ggrs destroys and
+/// recreates rollback entities, so the raw id a rewind sees is not the one the
+/// confirmed timeline saw (ADR 0023). Whoever gets the bomb has to be decided by
+/// something both timelines agree on.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct DrivenBodies<'w, 's> {
+    controlled: Res<'w, ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    seats: Query<
+        'w,
+        's,
+        (
+            Entity,
+            Option<&'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        ),
+        With<ambition_characters::control::DrivingParticipant>,
+    >,
+}
+
+impl DrivenBodies<'_, '_> {
+    /// The driven bodies, deduplicated, in an order a rewind reproduces.
+    pub fn entities(&self) -> Vec<Entity> {
+        let mut seated: Vec<(Option<String>, Entity)> = self
+            .seats
+            .iter()
+            .map(|(entity, sim)| (sim.map(|id| id.as_str().to_string()), entity))
+            .collect();
+        seated.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut out: Vec<Entity> = Vec::with_capacity(seated.len() + 1);
+        // The possessed subject first: a body somebody is DRIVING outranks a
+        // seat it may also occupy, and putting it first keeps the single-subject
+        // adventure road byte-identical to what it was.
+        if let Some(subject) = self.controlled.0 {
+            out.push(subject);
+        }
+        for (_, entity) in seated {
+            if !out.contains(&entity) {
+                out.push(entity);
+            }
+        }
+        out
+    }
+}
+
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 ///
@@ -1290,7 +1455,7 @@ pub fn unequip_portal_gun(
 /// it does not DESTROY the item. See [`ItemCustody`].
 pub fn pickup_held_item_system(
     mut commands: Commands,
-    controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    driven: DrivenBodies,
     mut bodies: Query<(
         &mut ActorControl,
         &BodyKinematics,
@@ -1302,71 +1467,70 @@ pub fn pickup_held_item_system(
     mut grounds: Query<(&mut GroundItem, &mut ItemCustody)>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    let Some(player) = controlled.0 else {
-        return;
-    };
-    let Ok((mut control, kin, mut action_set, held)) = bodies.get_mut(player) else {
-        return;
-    };
-    // One item at a time: already holding a physical item, or the portal gun.
-    if held.is_some() {
-        return;
-    }
-    #[cfg(feature = "portal")]
-    if portal_guns.get(player).is_ok() {
-        return;
-    }
-    // Gameplay authority is the body's brain-resolved `ActorControl`.
-    if !control.0.melee_pressed {
-        return;
-    }
-    let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    for (mut ground, mut custody) in &mut grounds {
-        // Only an item that is IN THE WORLD can be grabbed.
-        if !custody.in_world() {
+    for player in driven.entities() {
+        let Ok((mut control, kin, mut action_set, held)) = bodies.get_mut(player) else {
+            continue;
+        };
+        // One item at a time: already holding a physical item, or the portal gun.
+        if held.is_some() {
             continue;
         }
-        let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
-        // AMBITION_REVIEW(discrete_ok): CC2 §3.3 GroundItem pickup — gated on a
-        // deliberate `melee_pressed` while overlapping (the button-press branch
-        // above), not a path-dependent auto-collect. You cannot fly THROUGH and
-        // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
-        // ring/coin) would instead route through `cast::aabb_path_contacts`.
-        if player_aabb.strict_intersects(ground_aabb) {
-            // A player who picked a weapon up after the last shrine and died got the object back on
-            // its pedestal AND kept the row; the inventory menu would then equip the phantom and
-            // mint a SECOND weapon on the first throw, and the durable save wrote it to disk on the
-            // way past.
-            //
-            // the object is the record. `OwnedItems::count` PROJECTS the hand
-            // (via the equipped slot `equip_held_spec` writes below), so the grid
-            // still shows the axe you are carrying — derived, retracted by the
-            // same reset that retracts the object, and impossible to disagree
-            // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
-            //
-            // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-            equip_held_spec(
-                &mut commands,
-                player,
-                &mut action_set,
-                ground.spec.clone(),
-                owned.as_deref_mut(),
-            );
-            // The Attack press is *consumed* by the pickup so the same press
-            // doesn't also fire the just-equipped item this frame. Clear the
-            // brain-resolved `ActorControl` (the subject-generic held-item / ability
-            // systems — blink/grapple/gun — read `melee_pressed` there). Raw slot
-            // input is immutable intent for this tick; action consumers arbitrate
-            // on body state and commit by spending the semantic control edge.
-            control.0.melee_pressed = false;
-            *custody = ItemCustody::Held { holder: player };
-            // A carried item is not in flight. Zeroing here (rather than relying
-            // on the custody gate alone) also keeps the fuse arming honest:
-            // `arm_thrown_bombs` / `arm_thrown_gravity_grenades` treat "moving"
-            // as "thrown", and a bomb picked up mid-arc must not stay armed in
-            // a hand because its last world velocity was nonzero.
-            ground.vel = Vec2::ZERO;
-            break;
+        #[cfg(feature = "portal")]
+        if portal_guns.get(player).is_ok() {
+            continue;
+        }
+        // Gameplay authority is the body's brain-resolved `ActorControl`.
+        if !control.0.melee_pressed {
+            continue;
+        }
+        let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        for (mut ground, mut custody) in &mut grounds {
+            // Only an item that is IN THE WORLD can be grabbed.
+            if !custody.in_world() {
+                continue;
+            }
+            let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
+            // AMBITION_REVIEW(discrete_ok): CC2 §3.3 GroundItem pickup — gated on a
+            // deliberate `melee_pressed` while overlapping (the button-press branch
+            // above), not a path-dependent auto-collect. You cannot fly THROUGH and
+            // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
+            // ring/coin) would instead route through `cast::aabb_path_contacts`.
+            if player_aabb.strict_intersects(ground_aabb) {
+                // A player who picked a weapon up after the last shrine and died got the object back on
+                // its pedestal AND kept the row; the inventory menu would then equip the phantom and
+                // mint a SECOND weapon on the first throw, and the durable save wrote it to disk on the
+                // way past.
+                //
+                // the object is the record. `OwnedItems::count` PROJECTS the hand
+                // (via the equipped slot `equip_held_spec` writes below), so the grid
+                // still shows the axe you are carrying — derived, retracted by the
+                // same reset that retracts the object, and impossible to disagree
+                // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
+                //
+                // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
+                equip_held_spec(
+                    &mut commands,
+                    player,
+                    &mut action_set,
+                    ground.spec.clone(),
+                    owned.as_deref_mut(),
+                );
+                // The Attack press is *consumed* by the pickup so the same press
+                // doesn't also fire the just-equipped item this frame. Clear the
+                // brain-resolved `ActorControl` (the subject-generic held-item / ability
+                // systems — blink/grapple/gun — read `melee_pressed` there). Raw slot
+                // input is immutable intent for this tick; action consumers arbitrate
+                // on body state and commit by spending the semantic control edge.
+                control.0.melee_pressed = false;
+                *custody = ItemCustody::Held { holder: player };
+                // A carried item is not in flight. Zeroing here (rather than relying
+                // on the custody gate alone) also keeps the fuse arming honest:
+                // `arm_thrown_bombs` / `arm_thrown_gravity_grenades` treat "moving"
+                // as "thrown", and a bomb picked up mid-arc must not stay armed in
+                // a hand because its last world velocity was nonzero.
+                ground.vel = Vec2::ZERO;
+                break;
+            }
         }
     }
 }
@@ -1413,7 +1577,7 @@ enum Release {
 /// two phases that exist to be independent.
 pub fn throw_held_item_system(
     mut commands: Commands,
-    controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    driven: DrivenBodies,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut bodies: Query<(
         &mut ActorControl,
@@ -1434,143 +1598,143 @@ pub fn throw_held_item_system(
     )>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    let Some(player) = controlled.0 else {
-        return;
-    };
-    let Ok((mut control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
-        return;
-    };
-    // ⭐ TWO WAYS TO LET GO, AND THEY DIFFER ONLY IN THE LAUNCH.
-    //
-    // A THROW sends the item forward and up; a Z-DROP (Grab, while holding) lets
-    // it go where the body is standing, with nothing added. The genre keeps them
-    // apart because they are different decisions — one is an attack, the other is
-    // handing the item to the floor or to somebody below you — and both are the
-    // SAME custody transition, `Held → InWorld`.
-    //
-    // ⛔ NOT A SECOND SYSTEM. Everything after this point — emptying the hand,
-    // clearing the equipped slot, returning the live object rather than minting a
-    // replacement, and the mint arm for a body holding a quantity — is identical,
-    // and a copy of it would be a second place for the custody rules to drift.
-    let release = if control.0.grab_pressed {
-        control.0.grab_pressed = false;
-        Release::Drop
-    } else if control.0.melee_pressed
+    for player in driven.entities() {
+        let Ok((mut control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
+            continue;
+        };
+        // ⭐ TWO WAYS TO LET GO, AND THEY DIFFER ONLY IN THE LAUNCH.
+        //
+        // A THROW sends the item forward and up; a Z-DROP (Grab, while holding) lets
+        // it go where the body is standing, with nothing added. The genre keeps them
+        // apart because they are different decisions — one is an attack, the other is
+        // handing the item to the floor or to somebody below you — and both are the
+        // SAME custody transition, `Held → InWorld`.
+        //
+        // ⛔ NOT A SECOND SYSTEM. Everything after this point — emptying the hand,
+        // clearing the equipped slot, returning the live object rather than minting a
+        // replacement, and the mint arm for a body holding a quantity — is identical,
+        // and a copy of it would be a second place for the custody rules to drift.
+        let release = if control.0.grab_pressed {
+            control.0.grab_pressed = false;
+            Release::Drop
+        } else if control.0.melee_pressed
         // Shield+Attack throws anything; plain Attack throws only items whose
         // authored `use_behavior` opts in, leaving `UseSystem` abilities to
         // their own systems.
         && (control.0.shield_held || held.spec.throws_on_plain_attack())
-    {
-        // The throw IS this press's action — see the note on the signature.
-        control.0.melee_pressed = false;
-        Release::Throw
-    } else {
-        return;
-    };
-    let spec = held.spec.clone();
-    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    // The launch is authored in the body's LOCAL frame (x = forward/side,
-    // y = toward-feet) and rotated into the body's gravity frame, so the throw
-    // arcs "ahead + away from feet" under ANY gravity — identity under normal
-    // gravity. The subsequent free-fall (`ground_item_physics`) is already
-    // gravity-relative, so the whole toss now flips with the field.
-    let frame = ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
-    let (throw_pos, throw_vel) = match release {
-        // Forward + away-from-feet, in the local frame → world.
-        Release::Throw => (
-            kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0)),
-            frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
-        ),
-        // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop
-        // that inherited a fraction of the forward offset would still place the
-        // item ahead of the body, and the whole point is that it lands where you
-        // are. `ground_item_physics` takes it from there under the live frame, so
-        // a drop in flipped gravity falls the way that room falls.
-        Release::Drop => (kin.pos, Vec2::ZERO),
-    };
-    // CUSTODY, one operation: the hand empties and the catalog's equipped slot clears together.
-    // A weapon PICKED UP has no stored row at all, so letting go of it is letting go of it: the
-    // object on the floor is the only record, and the grid dims. A weapon equipped out of a
-    // GRANTED quantity still has its row, so the thrower keeps catalog ownership and can
-    // re-equip.
-    //
-    // The rule the note still carries is the useful part: only the equipped slot moves here, never
-    // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
-    // object.
-    unequip_held(
-        &mut commands,
-        player,
-        &mut action_set,
-        stashed,
-        owned.as_deref_mut(),
-    );
-    // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
-    // is still a live entity carrying its own identity, so the throw resets its custody and writes
-    // the launch onto it.
-    if let Some((entity, mut ground, mut custody)) = carried
-        .iter_mut()
-        .find(|(_, _, custody)| custody.held_by(player))
-    {
-        ground.pos = throw_pos;
-        ground.vel = throw_vel;
-        *custody = ItemCustody::InWorld;
-        // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
-        // launches at ZERO velocity, so an object that kept the settled marker
-        // it wore when it was picked up would hang at head height forever.
-        commands.entity(entity).remove::<SettledItem>();
-        return;
-    }
-    // NO OBJECT BEHIND THE HAND — materialize one. A body can come to hold
-    // an item with no world instance at all: the inventory menu equips straight
-    // out of `OwnedItems`, which is a count table. Throwing that turns a
-    // QUANTITY into an INSTANCE, and an instance owes an identity, so it takes
-    // `SimId::spawned(thrower, counter.next())` here rather than joining the
-    // population of anonymous dropped items. This arm is the visible edge of the
-    // unclosed inventory leg described on [`ItemCustody`] — not a fallback that
-    // should quietly absorb the common case.
-    //
-    // the pair is `Option` as ONE value: a thrower with no identity mints
-    // neither half, so "dynamic, parent unknown" stays unspellable.
-    let minted = identities.get_mut(player).ok().map(|(id, mut counter)| {
-        let sequence = counter.next();
-        (
-            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, sequence),
-            ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
-                parent: id.clone(),
-                sequence,
+        {
+            // The throw IS this press's action — see the note on the signature.
+            control.0.melee_pressed = false;
+            Release::Throw
+        } else {
+            return;
+        };
+        let spec = held.spec.clone();
+        let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+        // The launch is authored in the body's LOCAL frame (x = forward/side,
+        // y = toward-feet) and rotated into the body's gravity frame, so the throw
+        // arcs "ahead + away from feet" under ANY gravity — identity under normal
+        // gravity. The subsequent free-fall (`ground_item_physics`) is already
+        // gravity-relative, so the whole toss now flips with the field.
+        let frame =
+            ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
+        let (throw_pos, throw_vel) = match release {
+            // Forward + away-from-feet, in the local frame → world.
+            Release::Throw => (
+                kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0)),
+                frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
+            ),
+            // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop
+            // that inherited a fraction of the forward offset would still place the
+            // item ahead of the body, and the whole point is that it lands where you
+            // are. `ground_item_physics` takes it from there under the live frame, so
+            // a drop in flipped gravity falls the way that room falls.
+            Release::Drop => (kin.pos, Vec2::ZERO),
+        };
+        // CUSTODY, one operation: the hand empties and the catalog's equipped slot clears together.
+        // A weapon PICKED UP has no stored row at all, so letting go of it is letting go of it: the
+        // object on the floor is the only record, and the grid dims. A weapon equipped out of a
+        // GRANTED quantity still has its row, so the thrower keeps catalog ownership and can
+        // re-equip.
+        //
+        // The rule the note still carries is the useful part: only the equipped slot moves here, never
+        // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
+        // object.
+        unequip_held(
+            &mut commands,
+            player,
+            &mut action_set,
+            stashed,
+            owned.as_deref_mut(),
+        );
+        // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
+        // is still a live entity carrying its own identity, so the throw resets its custody and writes
+        // the launch onto it.
+        if let Some((entity, mut ground, mut custody)) = carried
+            .iter_mut()
+            .find(|(_, _, custody)| custody.held_by(player))
+        {
+            ground.pos = throw_pos;
+            ground.vel = throw_vel;
+            *custody = ItemCustody::InWorld;
+            // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
+            // launches at ZERO velocity, so an object that kept the settled marker
+            // it wore when it was picked up would hang at head height forever.
+            commands.entity(entity).remove::<SettledItem>();
+            return;
+        }
+        // NO OBJECT BEHIND THE HAND — materialize one. A body can come to hold
+        // an item with no world instance at all: the inventory menu equips straight
+        // out of `OwnedItems`, which is a count table. Throwing that turns a
+        // QUANTITY into an INSTANCE, and an instance owes an identity, so it takes
+        // `SimId::spawned(thrower, counter.next())` here rather than joining the
+        // population of anonymous dropped items. This arm is the visible edge of the
+        // unclosed inventory leg described on [`ItemCustody`] — not a fallback that
+        // should quietly absorb the common case.
+        //
+        // the pair is `Option` as ONE value: a thrower with no identity mints
+        // neither half, so "dynamic, parent unknown" stays unspellable.
+        let minted = identities.get_mut(player).ok().map(|(id, mut counter)| {
+            let sequence = counter.next();
+            (
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, sequence),
+                ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+                    parent: id.clone(),
+                    sequence,
+                },
+            )
+        });
+        // AND THE MINT SPENDS THE ENTITLEMENT IT CAME FROM — gate, opened. A quantity that
+        // turns into an object must stop being a quantity, or the row and the object both claim it
+        // and the next equip throws a second one.
+        //
+        // `OwnedItemsBaseline` answers that — the reset puts the row back — so the two halves land
+        // together and neither is a bug on its own.
+        //
+        // `take`, not a `count` write. `count` PROJECTS the equipped slot, and
+        // writing a projection back into the table is the fork this domain already
+        // paid for once; `take` is the stored quantity alone.
+        // resolved from the SPEC's id, the same way `unequip_held` finds the slot
+        // it clears — a held spec that answers to no catalog Item was never a
+        // quantity and has no row to spend.
+        if let (Some(owned), Some(item)) = (
+            owned.as_deref_mut(),
+            ambition_items::Item::from_held_item_id(spec.id.as_str()),
+        ) {
+            owned.take(item, 1);
+        }
+        let mut thrown = commands.spawn_room_scoped((
+            GroundItem {
+                spec,
+                vel: throw_vel,
+                pos: throw_pos,
+                half_extent: MINTED_ITEM_HALF_EXTENT,
             },
-        )
-    });
-    // AND THE MINT SPENDS THE ENTITLEMENT IT CAME FROM — gate, opened. A quantity that
-    // turns into an object must stop being a quantity, or the row and the object both claim it
-    // and the next equip throws a second one.
-    //
-    // `OwnedItemsBaseline` answers that — the reset puts the row back — so the two halves land
-    // together and neither is a bug on its own.
-    //
-    // `take`, not a `count` write. `count` PROJECTS the equipped slot, and
-    // writing a projection back into the table is the fork this domain already
-    // paid for once; `take` is the stored quantity alone.
-    // resolved from the SPEC's id, the same way `unequip_held` finds the slot
-    // it clears — a held spec that answers to no catalog Item was never a
-    // quantity and has no row to spend.
-    if let (Some(owned), Some(item)) = (
-        owned.as_deref_mut(),
-        ambition_items::Item::from_held_item_id(spec.id.as_str()),
-    ) {
-        owned.take(item, 1);
-    }
-    let mut thrown = commands.spawn_room_scoped((
-        GroundItem {
-            spec,
-            vel: throw_vel,
-            pos: throw_pos,
-            half_extent: MINTED_ITEM_HALF_EXTENT,
-        },
-        Name::new("Ground item: thrown"),
-    ));
-    if let Some((sim_id, origin)) = minted {
-        thrown.insert((sim_id, origin));
+            Name::new("Ground item: thrown"),
+        ));
+        if let Some((sim_id, origin)) = minted {
+            thrown.insert((sim_id, origin));
+        }
     }
 }
 
@@ -1694,11 +1858,11 @@ pub fn ability_aim_world(
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
     mut commands: Commands,
-    // SUBJECT-GENERIC held-weapon fire: acts on the `ControlledSubject`, reading
-    // that body's OWN `ActorControl` (brain output) + `HeldItem`. No
-    // `With<PlayerEntity>` filter or entity-local input copy — a possessed body firing
-    // its held gun works exactly like the home avatar.
-    controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    // SUBJECT-GENERIC held-weapon fire: every DRIVEN body, reading its OWN
+    // `ActorControl` (brain output) + `HeldItem`. No `With<PlayerEntity>` filter
+    // or entity-local input copy — a possessed body firing its held gun works
+    // exactly like the home avatar, and so does a second seat.
+    driven: DrivenBodies,
     bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -1707,98 +1871,97 @@ pub fn fire_held_ranged_system(
     )>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((control, kin, resolved_frame, held)) = bodies.get(subject) else {
-        return;
-    };
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
-    }
-    let Some(ranged) = held.spec.ranged.clone() else {
-        return;
-    };
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let frame = resolved_frame.basis();
-    let local_dir = ability_aim_local(&c, kin.facing);
-    let dir = frame.to_world(local_dir).normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return;
-    }
-    let muzzle_side = if local_dir.x.abs() > 0.001 {
-        local_dir.x.signum()
-    } else {
-        kin.facing.signum()
-    };
-    let muzzle = frame.to_world(Vec2::new(
-        muzzle_side * (kin.size.x * 0.5 + 8.0),
-        -kin.size.y * 0.12,
-    ));
-    let origin = kin.pos + muzzle;
-    // A Fireball shot explodes on contact; every other ranged held item fires a
-    // plain single-target bolt (`explode_half` 0).
-    let explode_half = if held.spec.id == FIREBALL_ID {
-        FIREBALL_EXPLODE_HALF
-    } else {
-        0.0
-    };
-    #[allow(unused_mut)]
-    let mut shot = commands.spawn_room_scoped((
-        // Position + velocity live in the shared body; size matches contact.
-        BodyKinematics {
+    for subject in driven.entities() {
+        let Ok((control, kin, resolved_frame, held)) = bodies.get(subject) else {
+            continue;
+        };
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        let Some(ranged) = held.spec.ranged.clone() else {
+            return;
+        };
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let frame = resolved_frame.basis();
+        let local_dir = ability_aim_local(&c, kin.facing);
+        let dir = frame.to_world(local_dir).normalize_or_zero();
+        if dir == Vec2::ZERO {
+            return;
+        }
+        let muzzle_side = if local_dir.x.abs() > 0.001 {
+            local_dir.x.signum()
+        } else {
+            kin.facing.signum()
+        };
+        let muzzle = frame.to_world(Vec2::new(
+            muzzle_side * (kin.size.x * 0.5 + 8.0),
+            -kin.size.y * 0.12,
+        ));
+        let origin = kin.pos + muzzle;
+        // A Fireball shot explodes on contact; every other ranged held item fires a
+        // plain single-target bolt (`explode_half` 0).
+        let explode_half = if held.spec.id == FIREBALL_ID {
+            FIREBALL_EXPLODE_HALF
+        } else {
+            0.0
+        };
+        #[allow(unused_mut)]
+        let mut shot = commands.spawn_room_scoped((
+            // Position + velocity live in the shared body; size matches contact.
+            BodyKinematics {
+                pos: origin,
+                vel: dir * ranged.speed(),
+                size: HELD_SHOT_HALF * 2.0,
+                facing: if dir.x >= 0.0 { 1.0 } else { -1.0 },
+            },
+            // The projectile *marker*: excludes the bolt from actor-generic queries
+            // (auto-righting, actor portal tagging). Its kinematics are driven by
+            // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
+            // projectile step (keyed on `LiveProjectile`), so this marker never
+            // double-steps the bolt.
+            ambition_projectiles::ProjectileGameplay {
+                age: 0.0,
+                max_lifetime: f32::MAX,
+                gravity: 0.0,
+                damage: ranged.damage(),
+                bounces_remaining: 0,
+                // Stepped by `held_projectile_step` (keyed on `HeldProjectile`), not
+                // the ECS projectile world-collision path, so this is inert here; a
+                // detonate-on-contact bolt is `ExpireOnContact` in spirit.
+                world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
+                accel: ae::Vec2::ZERO,
+                // No `accel`, so no return leg and no ledger to clear.
+                hits_cleared_on_leg: 0,
+            },
+            HeldProjectile {
+                damage: ranged.damage(),
+                traveled: 0.0,
+                explode_half,
+            },
+            Name::new("Held ranged shot"),
+        ));
+        // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
+        #[cfg(feature = "portal")]
+        shot.insert((
+            ambition_portal2d::PortalBody,
+            ambition_portal2d::PortalPolicy {
+                reorient: false,
+                carry_velocity: true,
+            },
+        ));
+        let _ = &shot;
+        // Fireball currently reuses the dash whoosh instead of the gun-sword zap.
+        let fire_sfx = if held.spec.id == FIREBALL_ID {
+            ambition_sfx::ids::PLAYER_DASH
+        } else {
+            ambition_sfx::SfxId::from_static("weapon.lasersword.fire")
+        };
+        sfx.write(ambition_sfx::SfxMessage::Play {
+            id: fire_sfx,
             pos: origin,
-            vel: dir * ranged.speed(),
-            size: HELD_SHOT_HALF * 2.0,
-            facing: if dir.x >= 0.0 { 1.0 } else { -1.0 },
-        },
-        // The projectile *marker*: excludes the bolt from actor-generic queries
-        // (auto-righting, actor portal tagging). Its kinematics are driven by
-        // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
-        // projectile step (keyed on `LiveProjectile`), so this marker never
-        // double-steps the bolt.
-        ambition_projectiles::ProjectileGameplay {
-            age: 0.0,
-            max_lifetime: f32::MAX,
-            gravity: 0.0,
-            damage: ranged.damage(),
-            bounces_remaining: 0,
-            // Stepped by `held_projectile_step` (keyed on `HeldProjectile`), not
-            // the ECS projectile world-collision path, so this is inert here; a
-            // detonate-on-contact bolt is `ExpireOnContact` in spirit.
-            world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
-            accel: ae::Vec2::ZERO,
-            // No `accel`, so no return leg and no ledger to clear.
-            hits_cleared_on_leg: 0,
-        },
-        HeldProjectile {
-            damage: ranged.damage(),
-            traveled: 0.0,
-            explode_half,
-        },
-        Name::new("Held ranged shot"),
-    ));
-    // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
-    #[cfg(feature = "portal")]
-    shot.insert((
-        ambition_portal2d::PortalBody,
-        ambition_portal2d::PortalPolicy {
-            reorient: false,
-            carry_velocity: true,
-        },
-    ));
-    let _ = &shot;
-    // Fireball currently reuses the dash whoosh instead of the gun-sword zap.
-    let fire_sfx = if held.spec.id == FIREBALL_ID {
-        ambition_sfx::ids::PLAYER_DASH
-    } else {
-        ambition_sfx::SfxId::from_static("weapon.lasersword.fire")
-    };
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: fire_sfx,
-        pos: origin,
-    });
+        });
+    }
 }
 
 /// Advance held ranged shots; damage the first feature they overlap, or expire

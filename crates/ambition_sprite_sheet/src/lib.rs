@@ -10,6 +10,19 @@
 //! the host crate's baked sheet table. Re-running sprite generation and
 //! then building is enough to refresh the baked table for desktop, Android, wasm,
 //! and other targets.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES, because a destination that says nothing accepts
+//! everything.
+//!
+//! - **Anything `ambition_characters` must read.** This crate DEPENDS on it, so a
+//!   type placed here that a character needs inverts the edge — which is why
+//!   `ActorSpriteMetrics` could arrive (only sheet consumers read it) and why a
+//!   character-facing fact may not.
+//! - **What a character IS.** This crate answers what a generated SHEET says: the
+//!   frame, the row layout, the measured body inside a frame. How tall a body
+//!   stands in the world is the catalog's answer, and the sheet only supplies the
+//!   pixels it is measured against — see `character::catalog_join`, where the two
+//!   meet and the catalog wins.
 
 // SheetRecord / SheetRow / BodyMetrics / FrameRect / PixelRect /
 // PixelPoint / NormPoint carry the full generator-emitted schema.
@@ -27,7 +40,9 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use tracing::{info, warn};
 
+pub mod actor_sprite_metrics;
 pub mod binding;
+pub use actor_sprite_metrics::ActorSpriteMetrics;
 pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
 
 mod frames;

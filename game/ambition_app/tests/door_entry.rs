@@ -390,7 +390,7 @@ fn the_rollback_door_host_publishes_a_prepared_cast() {
     use ambition_app::rl_sim::{
         AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
     };
-    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()

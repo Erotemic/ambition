@@ -58,11 +58,14 @@ pub fn rebuild_player_hud_facts(
     };
 }
 
-/// The controlled body's held item, resolved sim-side: the geometry facts
-/// the hand-sprite needs plus the item identity and its brain-resolved aim
-/// (so a possessed body's ranged item points where THAT body aims).
+/// EVERY body's held item, resolved sim-side: the geometry facts the hand-sprite
+/// needs plus the item identity and its brain-resolved aim (so a possessed
+/// body's ranged item points where THAT body aims).
+///
+/// ⛔ Not every holder — every holder [`drawn_in_the_hand`] claims. The
+/// over-hand road takes the rest; see that function for why the line is there.
 #[derive(Resource, Default, Clone, Debug)]
-pub struct HeldItemView(pub Option<HeldItemFact>);
+pub struct HeldItemView(pub Vec<HeldItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HeldItemFact {
@@ -74,27 +77,92 @@ pub struct HeldItemFact {
     pub aim: ae::Vec2,
 }
 
+/// WHICH OF THE TWO HELD-ITEM ROADS A HOLDER IS ON, stated once.
+///
+/// ⛔⛔ THE TWO ROADS MUST PARTITION THE HOLDERS — every holder on exactly one.
+/// [`HeldItemView`] draws the item IN the hand from `HeldItemArtManifest`;
+/// [`HostileWieldedItemsView`] draws it OVER the hand from
+/// `WieldedItemVisualCatalog`, scaled to the wielder and gripped at an authored
+/// point. Both registries carry `gun_sword`, so a holder on both roads is drawn
+/// TWICE, and a holder on neither is drawn not at all — which is the defect this
+/// function exists to make impossible to reintroduce in one road alone.
+///
+/// The line is the over-hand road's own admission test, hoisted out of it: a
+/// living body with a hostile disposition. A match fighter carries no
+/// `ActorDisposition` at all and a peaceful NPC's is `Peaceful`, so both fall to
+/// the in-hand road, which is where their art is registered.
+pub fn drawn_over_the_hand(
+    disposition: Option<ambition_combat::components::ActorDisposition>,
+    alive: Option<bool>,
+) -> bool {
+    disposition.is_some_and(|d| !d.is_peaceful()) && alive.unwrap_or(false)
+}
+
+/// The complement of [`drawn_over_the_hand`], for the road that reads it.
+pub fn drawn_in_the_hand(
+    disposition: Option<ambition_combat::components::ActorDisposition>,
+    alive: Option<bool>,
+) -> bool {
+    !drawn_over_the_hand(disposition, alive)
+}
+
+#[allow(clippy::type_complexity)]
 pub fn rebuild_held_item_view(
     mut view: ResMut<HeldItemView>,
-    controlled: Option<Res<ControlledSubject>>,
     bodies: Query<(
         &BodyKinematics,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         &ActorControl,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Option<&ambition_combat::components::ActorDisposition>,
+        Option<&BodyHealth>,
     )>,
 ) {
-    view.0 = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
-        .and_then(|e| bodies.get(e).ok())
-        .map(|(kin, held, control)| HeldItemFact {
-            pos: kin.pos,
-            size: kin.size,
-            facing: kin.facing,
-            item_id: held.spec.id.clone(),
-            ranged: held.spec.ranged.is_some(),
-            aim: control.0.aim.vec(),
-        });
+    // ⛔⛔ THIS READ ONLY `ControlledSubject`, so exactly ONE held item was ever
+    // drawn — in a couch match seat one's drawn weapon was invisible, and in a
+    // CPU-versus-CPU match neither Admiral's gun-sword showed at all. The
+    // argument against that is written twelve lines below for a sibling view:
+    // *"it is plural: a couch-versus match has two driven bodies and neither is
+    // more protected than the other, because a rule that privileges one
+    // participant stops being a rule about bodies."* Same rule, same reason.
+    //
+    // ⛔⛔ AND `With<DrivingParticipant>` WAS STILL THE WRONG POPULATION, which
+    // the plural fix did not go far enough to see: a weapon is visible because a
+    // BODY holds it, not because a human drives that body. The Admiral's side-B
+    // draws `admiral_gun_sword`, which is registered in the IN-HAND art manifest
+    // and nowhere else, so a CPU Admiral's gun-sword was drawn by no road at all
+    // — and a match fighter carries no `ActorDisposition`, so the over-hand road
+    // could not pick it up either.
+    //
+    // ⇒ every holder now, minus the ones the over-hand road claims. See
+    // [`drawn_over_the_hand`] for why that subtraction is a partition and not a
+    // carve-out.
+    //
+    // ⛔ SORTED BY `SimId`, because this is a Vec built in query order and the
+    // consumer spawns one visual per row: unsorted, two held items would swap
+    // draw order between runs.
+    let mut rows: Vec<_> = bodies
+        .iter()
+        .filter(|(_, _, _, _, disposition, health)| {
+            drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
+        })
+        .map(|(kin, held, control, id, _, _)| {
+            (
+                id.clone(),
+                HeldItemFact {
+                    pos: kin.pos,
+                    size: kin.size,
+                    facing: kin.facing,
+                    item_id: held.spec.id.clone(),
+                    ranged: held.spec.ranged.is_some(),
+                    aim: control.0.aim.vec(),
+                },
+            )
+        })
+        .collect();
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    view.0.clear();
+    view.0.extend(rows.into_iter().map(|(_, fact)| fact));
 }
 
 /// The box of every body a participant is DRIVING this tick.
@@ -373,13 +441,12 @@ pub fn rebuild_hostile_wielded_items_view(
         .or_else(|| player_q.single().ok())
         .map(|kin| kin.pos);
     for (disposition, held_item, kin, health, target) in &wielders {
-        if disposition.is_peaceful() {
-            continue;
-        }
-        let (Some(kin), Some(health)) = (kin, health) else {
+        let Some(kin) = kin else {
             continue;
         };
-        if !health.alive() {
+        // ⛔ THE SAME LINE THE IN-HAND ROAD READS, so the two cannot both claim a
+        // holder or both skip one.
+        if !drawn_over_the_hand(Some(*disposition), health.map(|health| health.alive())) {
             continue;
         }
         let wielder_height = kin.size.y;
@@ -941,5 +1008,186 @@ mod tests {
             0.0,
             "pulse clamps at zero"
         );
+    }
+}
+
+#[cfg(test)]
+mod held_item_view_tests {
+    use super::*;
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::prelude::*;
+
+    fn holder(app: &mut App, sim: &str, x: f32, item: &str, slot: u8) {
+        let spec = ambition_characters::brain::HeldItemSpec {
+            id: item.to_owned(),
+            melee: None,
+            ranged: None,
+            use_behavior: Default::default(),
+        };
+        app.world_mut().spawn((
+            BodyKinematics {
+                pos: ae::Vec2::new(x, 0.0),
+                size: ae::Vec2::splat(32.0),
+                ..Default::default()
+            },
+            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ActorControl::default(),
+            SimId::placement(sim),
+            DrivingParticipant(PlayerSlot(slot)),
+        ));
+    }
+
+    fn undriven_holder(
+        app: &mut App,
+        sim: &str,
+        item: &str,
+        standing: Option<(ambition_combat::components::ActorDisposition, bool)>,
+    ) {
+        let spec = ambition_characters::brain::HeldItemSpec {
+            id: item.to_owned(),
+            melee: None,
+            ranged: None,
+            use_behavior: Default::default(),
+        };
+        let mut body = app.world_mut().spawn((
+            BodyKinematics {
+                size: ae::Vec2::splat(32.0),
+                ..Default::default()
+            },
+            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ActorControl::default(),
+            SimId::placement(sim),
+        ));
+        if let Some((disposition, alive)) = standing {
+            let mut health = BodyHealth::new(ambition_characters::actor::Health::new(10));
+            if !alive {
+                health.damage(10);
+            }
+            body.insert((disposition, health));
+        }
+    }
+
+    /// EVERY DRIVEN HOLDER DRAWS, NOT JUST THE ONE YOU ARE LOOKING THROUGH.
+    ///
+    /// ⛔⛔ THIS VIEW WAS AN `Option`, filled from `ControlledSubject`, so exactly
+    /// one held item existed in the whole world: a couch match drew seat zero's
+    /// weapon and nothing else, and a CPU-versus-CPU match drew neither Admiral's
+    /// gun-sword. The argument against that was already written for a sibling view
+    /// in this file — *"a couch-versus match has two driven bodies and neither is
+    /// more protected than the other, because a rule that privileges one
+    /// participant stops being a rule about bodies"*.
+    ///
+    /// ⛔ THE ORDER IS ASSERTED, not incidental. This is a `Vec` built from an
+    /// unordered query and the renderer spawns one visual per row, so an unsorted
+    /// build would swap two items' draw order between runs of the same match.
+    #[test]
+    fn two_driven_holders_publish_two_facts_in_sim_id_order() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        // Spawned in the REVERSE of the expected order, so a pass-through of
+        // query order cannot agree with the assertion by luck.
+        holder(&mut app, "seat_two", 200.0, "gun_sword", 1);
+        holder(&mut app, "seat_one", 100.0, "axe", 0);
+        app.update();
+
+        let view = app.world().resource::<HeldItemView>();
+        assert_eq!(
+            view.0
+                .iter()
+                .map(|f| f.item_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["axe", "gun_sword"],
+            "both driven holders publish, ordered by `SimId` — one fact means the \
+             view is still singular"
+        );
+    }
+
+    /// ⛔⛔ A CPU FIGHTER'S WEAPON IS DRAWN, and the previous version of this test
+    /// asserted the opposite.
+    ///
+    /// It read *"an autonomous holder drawing its item is a separate question
+    /// about NPC presentation"* — but the Pirate Admiral's side-B draws
+    /// `admiral_gun_sword`, an id registered in the IN-HAND art manifest and in no
+    /// other, so in a CPU-versus-CPU match neither Admiral's gun-sword was drawn
+    /// by any road at all. `DrivingParticipant` was never the question a renderer
+    /// was asking; custody is.
+    #[test]
+    fn a_holder_nobody_drives_still_publishes() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        undriven_holder(&mut app, "cpu_admiral", "admiral_gun_sword", None);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<HeldItemView>()
+                .0
+                .iter()
+                .map(|f| f.item_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["admiral_gun_sword"],
+        );
+    }
+
+    /// ⛔ AND THE PARTITION HOLDS AT ITS OWN EDGE: a LIVING HOSTILE holder is the
+    /// over-hand road's, so the in-hand road must not also claim it.
+    ///
+    /// Without this the widening above would draw a hostile pirate's `gun_sword`
+    /// TWICE — once in the hand from `HeldItemArtManifest` and once over it from
+    /// `WieldedItemVisualCatalog`, both of which register that id.
+    #[test]
+    fn a_living_hostile_holder_belongs_to_the_other_road() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        undriven_holder(
+            &mut app,
+            "hostile_pirate",
+            "gun_sword",
+            Some((ambition_combat::components::ActorDisposition::Hostile, true)),
+        );
+        app.update();
+        assert!(
+            app.world().resource::<HeldItemView>().0.is_empty(),
+            "a living hostile wielder is drawn over the hand, so publishing it \
+             here too would draw its gun-sword twice"
+        );
+    }
+
+    /// ⛔ AND A DEAD ONE COMES BACK, because the over-hand road drops it. Nobody
+    /// may be on NEITHER road — that is how the Admiral vanished in the first
+    /// place, and a corpse is the arm where the two conditions disagree.
+    #[test]
+    fn a_dead_hostile_holder_falls_back_to_the_in_hand_road() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        undriven_holder(
+            &mut app,
+            "fallen_pirate",
+            "gun_sword",
+            Some((
+                ambition_combat::components::ActorDisposition::Hostile,
+                false,
+            )),
+        );
+        app.update();
+        assert_eq!(app.world().resource::<HeldItemView>().0.len(), 1);
+    }
+
+    /// A PEACEFUL holder is nobody's over-hand business either.
+    #[test]
+    fn a_peaceful_holder_is_drawn_in_the_hand() {
+        assert!(drawn_in_the_hand(
+            Some(ambition_combat::components::ActorDisposition::Peaceful),
+            Some(true)
+        ));
+        assert!(drawn_in_the_hand(None, Some(true)));
+        assert!(!drawn_in_the_hand(
+            Some(ambition_combat::components::ActorDisposition::Hostile),
+            Some(true)
+        ));
     }
 }

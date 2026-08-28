@@ -114,18 +114,18 @@ pub mod host_seams {
 /// a direct `ambition_platformer2d_actor_monolith` dependency.
 pub mod demo_fixture {
     pub use ambition_boss_encounter::BossCatalog;
+    pub use ambition_characters::prepared::PreparedCharacterRegistry;
     pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
     pub use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-    pub use ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry;
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
     };
     pub use ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry;
+    pub use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.
     pub use ambition_platformer2d_core::ActiveMovementTuning;
     pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;

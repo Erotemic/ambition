@@ -98,7 +98,7 @@ pub fn ledge_assisted_arrival(
         // gravity axis rather than `y`: the teleport itself has always aimed in
         // the resolved frame, and this half searched the world's `+y` faces —
         // so under flipped or sideways gravity the ability aimed one way and
-        // its assist looked the other (GPT 5.6, 2026-08-27).
+        // its assist looked the other.
         if surface.dot(down) > destination.dot(down) {
             continue;
         }
@@ -422,8 +422,8 @@ pub fn apply_authored_teleports(
         // collision oracle as unexplained clipping, and a SECOND Class-B
         // authority remapping this body on the same frame becomes invisible to
         // the contention check — the two things that ledger exists for. Blink
-        // has always recorded here; this road was added without it (GPT 5.6,
-        // 2026-08-27).
+        // has always recorded here; this road was added without it
+        //.
         if let Some(log) = class_b.as_mut() {
             log.record(
                 message.actor,

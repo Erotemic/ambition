@@ -184,6 +184,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
         app.init_resource::<item_visuals::FailedItemArt>()
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
+            .add_systems(Startup, submerged::build_trapdoor_sprite)
             .add_systems(
                 Update,
                 (
@@ -194,6 +195,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // `Inherited`; whichever runs last wins, and only one of
                     // them knows the body is under the stage.
                     submerged::sync_submerged_visibility.in_set(SpriteVisualSync),
+                    // The other half of hiding her: what the stage shows
+                    // INSTEAD. Behind the hide because a door drawn for a body
+                    // still on screen would be two of her.
+                    submerged::sync_trapdoor_visuals.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)

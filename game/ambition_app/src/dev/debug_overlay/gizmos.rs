@@ -283,8 +283,8 @@ pub(crate) fn draw_player_debug(
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
     // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition_platformer2d::boss_encounter::attack_geometry::collision_aabb(
-        &ambition_platformer2d::boss_encounter::attack_geometry::SimpleActorGeometry {
+    let body = ambition_platformer2d::combat::body_geometry::collision_aabb(
+        &ambition_platformer2d::combat::body_geometry::SimpleActorGeometry {
             // The presented centre, with the size/facing/frame the sim published:
             // the shared-geometry guarantee above is about the SHAPE, and moving
             // the centre onto the render clock leaves that untouched.
@@ -346,19 +346,18 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume =
-                ambition_platformer2d::actors::features::ecs::attack::player_attack_hitbox(
-                    character_catalog,
-                    authored_attack_volumes,
-                    Some(worn_character_id),
-                    &view,
-                    attack_state.spec.intent,
-                    gravity_dir,
-                )
-                .unwrap_or_else(|| {
-                    ambition_platformer2d::combat::attack_hitbox_from_view(&view, attack_state.spec)
-                        .into()
-                });
+            let volume = ambition_platformer2d::combat::attack_support::player_attack_hitbox(
+                character_catalog,
+                authored_attack_volumes,
+                Some(worn_character_id),
+                &view,
+                attack_state.spec.intent,
+                gravity_dir,
+            )
+            .unwrap_or_else(|| {
+                ambition_platformer2d::combat::attack_hitbox_from_view(&view, attack_state.spec)
+                    .into()
+            });
             let color = match attack_state.phase() {
                 Some(ambition_platformer2d::combat::AttackPhase::Startup) => yellow(),
                 Some(ambition_platformer2d::combat::AttackPhase::Active) => red(),
@@ -624,9 +623,7 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in
-            ambition_platformer2d::boss_encounter::attack_geometry::damageable_volumes(&ctx)
-        {
+        for hurtbox in ambition_platformer2d::combat::body_geometry::damageable_volumes(&ctx) {
             // The published silhouette's REAL shape — a boss part may be an
             // authored hull, and drawing its bounding box here is how an
             // overlay tells you a lie that looks like a measurement.

@@ -3963,6 +3963,7 @@ fn charging_smash() -> MoveSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
             stores: false,
+            roots: true,
         }),
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -4201,6 +4202,59 @@ fn the_released_fraction_is_frozen_for_the_rest_of_the_move() {
         );
         assert!((pb.charge_scale() - scale).abs() < 1e-6);
     }
+}
+
+/// ⛔⛔ ...AND A CHARGING TRAPDOOR TRAVELS. The freeze is one mechanic and it
+/// serves two moves: a smash holds a WINDUP, and the Actor's trapdoor holds a
+/// second of travel under the stage. Jon asked for both in his own words — *"they
+/// should not be able to walk or move"* for the first, *"I do want the player to
+/// be able to control where they move"* for the second — so the policy says
+/// which it is instead of the runtime inferring it from the gesture.
+///
+/// ⛔ THE SAME FIXTURE AND THE SAME PRESS as the rooted arm below, with ONE
+/// field changed. A test that built its own app could pass while agreeing with
+/// the bug, because what is being pinned is that `roots` reaches
+/// `motion_scale_now` through the live playback — not that the field exists.
+#[test]
+fn a_charge_whose_policy_does_not_root_leaves_the_body_its_steering() {
+    let (mut app, body) = smash_charge_app();
+    // The one difference from the rooted arm: this policy holds travel.
+    {
+        let mut moveset = app
+            .world_mut()
+            .get_mut::<ActorMoveset>(body)
+            .expect("the fixture body carries a moveset");
+        for m in &mut moveset.0.moves {
+            if let Some(policy) = m.smash_charge.as_mut() {
+                policy.roots = false;
+            }
+        }
+    }
+    press_smash(&mut app, body, true);
+    for _ in 0..6 {
+        app.update();
+    }
+    let held = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the smash is playing")
+        .clone();
+    assert!(
+        held.charge.is_some_and(|c| c.charging()),
+        "the premise: the clock is frozen at the hold point, t = {}",
+        held.t,
+    );
+    assert!(
+        !held.rooted_by_charge(),
+        "a policy that does not root reported a rooted body",
+    );
+    assert_eq!(
+        held.motion_scale_now(),
+        held.spec.motion_scale_at(held.t),
+        "a non-rooting freeze took {} of the body's steering; the move's own \
+         authored lock is the only authority while it holds",
+        held.motion_scale_now(),
+    );
 }
 
 /// ⛔ A CHARGING FIGHTER DOES NOT WALK. Jon, 2026-08-23: *"when the character is
@@ -6121,7 +6175,7 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     // built from the SAME `charging_smash()` spec the body plays, so the frame
     // data the brain reasons about and the timeline the charge freezes on are
     // one authoring.
-    use ambition_characters::brain::fighter::options::{
+    use ambition_characters::brain::attack_kit::{
         ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
     let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
@@ -7512,6 +7566,7 @@ fn storing_smash() -> MoveSpec {
         hold_at_s: CHARGE_HOLD_AT_S,
         max_hold_s: CHARGE_MAX_HOLD_S,
         stores: true,
+        roots: true,
     });
     spec
 }
@@ -7677,7 +7732,7 @@ fn a_bank_made_by_one_move_does_not_feed_another() {
 /// interrupted and what it had is banked."* True of a clank, a grab, a landing.
 /// FALSE of a death — and death goes through the SAME canonical teardown, so a
 /// fighter knocked out mid-charge respawned with the charge banked and carried
-/// it across a stock boundary (GPT 5.6, 2026-08-27).
+/// it across a stock boundary.
 ///
 /// ⭐ THE PAIRED ARM IS THE ONE ABOVE. `an_interrupted_charge_is_banked_...`
 /// proves the bank still happens; without that pair, "clear it on death" and
@@ -7770,5 +7825,89 @@ fn leaving_play_clears_a_charge_that_was_already_banked() {
         banked(&app, body),
         None,
         "the bank survived a death that happened after it was stowed"
+    );
+}
+
+/// ⭐⭐ THE DELIBERATE STOW — a fighter decides to put the charge away.
+///
+/// ⛔⛔ BANKING ONLY HAPPENED TO YOU. A charge was banked whenever something
+/// INTERRUPTED the hold, so the way to keep one was to be hit; there was no way
+/// to choose it. Sitting on a full charge waiting to be interrupted is not the
+/// plan the move exists for.
+///
+/// ⛔ THE GUARD IS THE BUTTON, which is the genre's answer and needs nothing new
+/// on the body. ⛔ And the gate is the AUTHORED POLICY: the paired arm below
+/// holds the guard over a charge that does NOT store and gets no bank, so this
+/// is about `stores` rather than about shield cancelling anything.
+///
+/// The whole flow, in order: partial charge → stow → the bank exists and the
+/// move is over → the next press RESUMES from the bank rather than from zero.
+#[test]
+fn holding_the_guard_puts_a_storing_charge_away_and_the_next_press_resumes_it() {
+    let (mut app, body) = storing_charge_app();
+    app.add_systems(Update, super::stow_a_stored_charge_on_guard);
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    let accrued = charge_of(&app, body).held_s;
+    assert!(
+        accrued > 0.0,
+        "the hold accrued nothing, so there is no charge to put away"
+    );
+    assert_eq!(banked(&app, body), None, "nothing is banked yet");
+
+    // THE DECISION. Guard up, and it is the only thing that changes.
+    set_frame(&mut app, body, |f| f.shield_held = true);
+    app.update();
+
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "the move is still running after the fighter put its charge away"
+    );
+    let stowed = banked(&app, body).expect("the guard press banked nothing");
+    assert!(
+        (stowed - accrued).abs() < 0.05,
+        "the bank holds {stowed}s where the charge stood at {accrued}s — a stow \
+         must put away the shot the player was holding, not a different one"
+    );
+
+    // AND THE NEXT PRESS RESUMES IT. Guard down, press again, and the charge
+    // starts from the bank instead of from zero.
+    set_frame(&mut app, body, |f| f.shield_held = false);
+    press_smash(&mut app, body, true);
+    app.update();
+    let resumed = charge_of(&app, body).held_s;
+    assert!(
+        resumed >= stowed - 0.05,
+        "the next press started at {resumed}s with {stowed}s in the bank — a \
+         stored charge that does not come back is a charge you threw away"
+    );
+}
+
+/// ⛔ THE PAIRED ARM. The same guard press over a charge whose policy does NOT
+/// store banks nothing — so the arm above is about `stores`, not about the
+/// guard cancelling every charge into a bank.
+#[test]
+fn the_guard_banks_nothing_from_a_charge_that_does_not_store() {
+    let (mut app, body) = smash_charge_app();
+    app.add_systems(Update, super::stow_a_stored_charge_on_guard);
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    assert!(
+        charge_of(&app, body).held_s > 0.0,
+        "poison: nothing accrued, so the arm below cannot tell a refused stow \
+         from an empty charge"
+    );
+    set_frame(&mut app, body, |f| f.shield_held = true);
+    app.update();
+    assert_eq!(
+        banked(&app, body),
+        None,
+        "an ordinary smash was banked by a guard press; only a policy that says \
+         `stores` has a bank to put a shot in"
     );
 }

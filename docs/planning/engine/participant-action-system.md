@@ -9,18 +9,39 @@
 
 ## Remaining architecture
 
-- ▢ **Remove the seat-0 control split.** `ControlFrame`/`ControlFrameLatch` still
-  carry a primary-seat special path while secondary seats use slot/seat state.
-  Converge on one participant-keyed input channel without changing simulation
-  semantics merely for naming symmetry.
-  ⚠ **RE-READ THIS ONE BEFORE REMOVING ANYTHING (2026-08-26).** The split is
-  still there and it is now DEFENDED rather than merely present: `input_systems.rs`
-  carries six separate paragraphs on why the primary seat is the keyboard's, why
-  `gamepad_only()` for every non-primary seat encoded the wrong thing, and why
-  the primary seat *"has no equivalent hazard because GGRS overwrites"*. ⇒ the
-  first question is no longer *how* to converge but whether this is still a
-  SPLIT or has become a stated DESIGN — and this row's own last sentence
-  (*"not merely for naming symmetry"*) is the test to apply.
+- ✔ **Remove the seat-0 control split — THE SPLIT THIS ROW NAMES IS GONE.
+  Verified by reading HEAD, 2026-08-28.** The row asked whether this was still a
+  split or had become a stated design, and its own test was *"not merely for
+  naming symmetry"*. Applied:
+
+  ⭐ **DELIVERY IS ONE ROAD.** `drive_slot_frame(world, slot, frame)` is the
+  channel every seat uses, and `input_drive.rs` says in its own words that this
+  *"was TWO functions with the same shape"* and that *"seat zero's latch has
+  since become row zero of the same table every other seat uses"*.
+  `drive_control_frame` survives as the NAME for the primary seat and is
+  documented as *"a convenience over this, not a second road with different
+  rules"*. Measured the same day by a two-seat test driving slots 0 and 1
+  through the identical call.
+
+  ⭐ **AND THE LOOPS ARE PER SEAT.** `input_systems.rs` iterates
+  `0..SlotControls::MAX_SLOTS` and resolves each seat's own gravity, gestures and
+  interact buffer — with a comment recording that the interact buffer *"was
+  `slot_gestures.primary_mut` too"*, so *"a second player standing at a door
+  pressed a button that was buffered for nobody"*. That was the split, and it was
+  fixed.
+
+  ⛔ **WHAT STILL NAMES `PlayerSlot::PRIMARY` IS A FALLBACK, NOT A CHANNEL.**
+  Every surviving site is `body_driving_seat(slot).or_else(|| PRIMARY.then(…))`
+  or `driving_slot(body).unwrap_or(PRIMARY)` — the answer for a body no
+  participant drives, which `acting.rs` states outright: it *"preserves the
+  behaviour every existing single-player fixture depends on"* and is *"NOT a
+  claim that a body with no participant may consume the primary seat's input
+  during play"*.
+
+  ⛔ **AND THE DEVICE POLICY IS THE STATED DESIGN THIS ROW WARNED ABOUT.** The
+  keyboard belonging to the primary seat is six defended paragraphs in
+  `input_systems.rs`, not an accident of the old channel. Converging it would be
+  naming symmetry, which this row forbids.
 
 - ✔ **Per-seat pause ownership — SHIPPED, verified at HEAD 2026-08-26.** This
   doc's header predates it. `PauseMenu` carries the owner
@@ -64,21 +85,40 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   ruling: the world runs, you cannot act, and being hit cuts the conversation
   short — do not "fix" the gate without deciding the mode.
 
-- ▢ **Unify semantic menu activation.** Controller submit, virtual-touch submit,
-  and pointer release should produce one semantic activation seam. Pointer
-  press/release-with-drag-cancel is already shared; backend-specific select
-  consumption remains.
-  ⭐ **AND "REMAINS" NOW HAS A NUMBER, measured 2026-08-26: the shared seam has
-  exactly ONE adopter.** `ambition_ui_nav::resolve_selectable_row_interaction`
-  (press/release with drag cancel, `ROW_TAP_SLOP_PX`) is used only by
-  `ambition_dialog` (two call sites). `ambition_game_shell` reads the raw
-  `MenuControlFrame::select` flag and routes it itself at three separate places —
-  `input.rs` maps it to `confirm`, `startup_acknowledge` AND `loading_continue`,
-  and `pause_menu` consumes it directly. ⇒ **the seam is not missing, it is
-  UNADOPTED**, which makes this a migration with a countable finish line rather
-  than a design question. ⛔ mind the three shell meanings: one flag currently
-  answers three different questions there, so moving it needs those to stay
-  distinguishable.
+- ◐ **Unify semantic menu activation.** Controller submit, virtual-touch submit,
+  and pointer release should produce one semantic activation seam.
+  ⛔ **THE 2026-08-26 MEASUREMENT BELOW WAS PART STALE AND PART MIS-SCOPED; RE-MEASURED
+  2026-08-28 against HEAD.** It read "the shared seam has exactly ONE adopter
+  (`ambition_dialog`), and `ambition_game_shell`'s pause menu consumes raw
+  `MenuControlFrame::select` itself". Both halves of that are wrong today:
+  `shell_pause_menu_pointer` consumes `MenuActionActivated<PauseEntry>`
+  (`pause_menu.rs:478`), and `ambition_menu`'s pointer bridge
+  (`publish_bevy_ui_menu_actions`) already runs on `ambition_ui_nav::PressArm` — the
+  SAME tap-geometry primitive `resolve_selectable_row_interaction` uses. The three
+  `input.rs` edges (`confirm`, `startup_acknowledge`, `loading_continue`) are three
+  different questions asked in three different app phases, not one seam fanned out.
+  ⭐ **What was actually divergent was the POLICY on top of that shared gesture, and
+  the divergence had a user-visible cost.** `MenuTapMode` has three arms and ships
+  defaulting to `SingleTapWithDestructiveGuard`, whose own doc names its reason: *"a
+  stray touch on Quit"*. Only `ambition_ui_nav`'s index-addressed helper consulted it.
+  Every menu drawn by the pointer bridge — the pause menu, with `Abandon`,
+  `QuitToTitle` and `QuitToDesktop` on it — activated on the first release. The
+  setting's default guarded nothing on the exact row it was written for.
+  ✔ **DONE 2026-08-28 — one policy, two call shapes.** `MenuTapMode::resolve_press`
+  is now generic over an opaque row identity (it only ever asked whether two presses
+  landed on the same row; the `usize` was never an ordinate), so the entity/action-
+  addressed bridge calls the same function the index-addressed helper does. A menu
+  declares its risky rows once with `MenuDestructiveActions<Action>` — destructiveness
+  belongs to the action, not to the drawn rect, so this cost one registration in
+  `ShellPauseMenuPlugin` rather than a flag at 21 `MenuPage::control` call sites — and
+  a menu that registers nothing stays single-tap throughout.
+  ▢ **STILL OPEN: the non-pointer half.** Controller submit and virtual-touch submit
+  reach activation without passing through any tap policy, so the destructive guard
+  is a POINTER guard today. Whether it should also apply to a gamepad A-press is a
+  feel question, not a plumbing one — a controller cannot stray-tap the way a thumb
+  can, so the honest default may well be "pointer only". ⛔ mind the three shell
+  meanings: `confirm` / `startup_acknowledge` / `loading_continue` answer three
+  different questions, so anything that merges them needs those distinguishable.
 
 - ◐ **Move directional repeat/focus/wrap behind `ambition_ui_nav`.** Preserve the
   existing navigation semantics while removing backend-specific duplication.
@@ -149,10 +189,44 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   before adding a variant, measure whether a mounted body's verbs actually
   differ from an unmounted one's. If the same buttons do the same things, the
   variant buys a label and costs a seam.
-  ⛔ the loading/retry half is confirmed and is not a question: `game_shell`'s
-  `input.rs` maps the raw `MenuControlFrame::select` straight onto
-  `startup_acknowledge` and `loading_continue`, which is the same unadopted-seam
-  finding as the activation item above — one flag answering three questions.
+  ✔ **MEASURED 2026-08-28, AND THE ANSWER IS NO VARIANT.** The verbs DO differ —
+  the row's own test is met — but a `VEHICLE` context is the wrong instrument for
+  it, and the measurement says why. `Menu` and `Dialogue` exist because a SURFACE
+  owns the participant's input; a rider is still driving a body through gameplay.
+  The prompt is not built from the context at all: `rebuild_control_prompt` derives
+  it from the subject's live authorities through the same `derive_action_scheme`
+  the gameplay routing gate calls, precisely so a button's label and what it fires
+  cannot drift. A context variant would have added a second, parallel answer to a
+  question one authority already owns.
+  ⛔ **The actual defect was a PROMPT LIE, and it was four buttons wide.**
+  `body_step` zeroes the stick and clears every `MovementAction`
+  (`Jump`/`Burst`/`Blink`/`FlyToggle`/`FastFall`) the moment `PoseOwnedExternally`
+  is on the body, and the movement kernel refuses the buffered burst on top of
+  that. None of that touches `AbilitySet`, so the derive kept advertising Jump,
+  Burst, Blink and Fly to a rider whose presses were already being thrown away —
+  beside Attack, which really does work from the saddle, looking identical.
+  ✔ **FIXED by masking the authority, not by adding a context:**
+  `AbilitySet::while_pose_is_held` (exhaustive, so a new ability must be
+  classified rather than defaulting into "still available"), applied in the prompt
+  derive and NOT in the routing gate — a press made a moment before the constraint
+  took the body is input memory the player is entitled to, so the refusal stays
+  ⛔ FORBIDDEN, NOT ERASED where it is. Boarding adds a component and dismounting
+  removes one, so the fact also had to join the rebuild's presence key.
+  ⭐ **One thing the mask deliberately does NOT clear: `move_horizontal`.**
+  `steer_mount_from_rider` copies exactly `locomotion`, `velocity_target` and
+  `facing` across the saddle, so a rider's lean is the one intent that still
+  reaches the world. The same function states the boundary: *"the jump edge is the
+  mount's own to decide."* ⚠ the first draft of the mask cleared the stick too,
+  which would have been a new false statement in the other direction.
+  ▢ the loading/retry half stands, but its 2026-08-26 framing does not: it called
+  `game_shell`'s `input.rs` mapping of `MenuControlFrame::select` onto
+  `startup_acknowledge` and `loading_continue` *"the same unadopted-seam finding as
+  the activation item above — one flag answering three questions"*. Re-measured
+  2026-08-28 with that item: those ARE three different questions, asked in three
+  different app phases, and `shell_action_edges` already publishes them as three
+  named fields. The open work here is the SCHEDULE ownership seam the row names in
+  its first paragraph — loading/retry input arriving outside the normal participant
+  context path — not a flag that needs splitting.
 
 - ✔ **Pad-specific calibration filtering with shared bindings — SHIPPED,
   verified at HEAD 2026-08-26.** Bindings remain machine-wide by decision, and
@@ -254,6 +328,122 @@ struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
   `InputControlKind` has no `Eq` and no `Hash`. ⇒ a real implementation carries a
   small three-variant mirror beside the registry rather than widening either
   upstream type, and that mirror is the honest price of this route.
+  ⛔⛔ **THAT PRICE WAS NOT REAL — measured 2026-08-28 by building it.** The
+  sentence quietly treated two very different types as one obstacle.
+  `InputControlKind` is leafwing's and genuinely cannot be a field; but
+  `ActionControlKind` is OURS, three lines above in the same file, and it is a
+  fieldless enum — `Hash` and `Reflect` derive for free. The mirror only existed
+  because the check was written inside a test function, where reaching for a local
+  type is easier than editing the one four hundred lines up. ⇒ no mirror ships.
+  ✔ **AND THE KEY IS PRODUCTION NOW, not a shape argued for inside a test.**
+  `ProviderAction { id: String, kind: ActionControlKind }` lives beside the
+  registry with its `Actionlike` impl, and `ActionRegistry::key` is the ONLY way to
+  get one. That last part is not tidiness: the kind is part of the hash, so two
+  hand-built keys for one action could disagree about its shape and miss each other
+  in the map. Minting through the registry extends its one-kind-per-id rule to the
+  bindings, and an unregistered id mints `None` rather than a binding to a slot
+  nobody polls. The test that used to hand-build the key now asks the registry for
+  it, and its two local types are deleted.
+  ▢ **WHAT REMAINS IS THE ROUTING**: nothing installs an `InputMap<ProviderAction>`
+  in production, so a provider action is registerable, bindable, and still neither
+  presentable nor consumable.
+  ✔ **AND THE CARVE WARNING SHRANK WHEN MEASURED, 2026-08-28.** *"Two maps means
+  two reader paths and a rule for which wins a conflict"* assumed the maps live
+  somewhere separate. They do not: `InputMap` and `ActionState` are COMPONENTS on
+  the `InputParticipant` entity — `input_systems.rs` spawns both seats' worth in
+  one tuple each (lines ~136 and ~383) and every reader is already a query over
+  that entity. A second map is a second component in the same tuple, read by the
+  same pass. ⇒ there is no precedence rule to invent: a physical key bound in both
+  maps fires both actions, which is a BINDING mistake for a rebind UI to catch, not
+  an architectural ambiguity.
+  ⛔⛔ **THE ACTUAL BLOCKER IS UPSTREAM OF THE MAP, AND THE TWO REMAINING ITEMS ARE
+  ORDERED BACKWARDS BECAUSE OF IT.** Nothing can say *"pulse is on G"*.
+  `SemanticActionDef` describes an action and carries no binding; `BindingRecipe`
+  binds, and it is preset-based over the closed enum. So an `InputMap<ProviderAction>`
+  has nothing to put in it. The last item — *"Author input schemas/assets"* — is
+  marked **GATED BY** this one; measured, the dependency runs the other way for
+  this half: a place to AUTHOR a provider binding is what unblocks the routing, not
+  the reverse.
+  ⭐ **THERE IS A REAL CUSTOMER, not a hypothetical one.** `examples/capability_demo`
+  is the capability-integration sentinel, it registers `PULSE_ACTION`, and its own
+  module doc names the workaround: *"The action is declared, but input currently
+  reaches the capability by writing `PulseRequested` until semantic actions own
+  device bindings."* Closing this deletes that sentence. ⚠ `PulseRequested` itself
+  STAYS — its doc is right that a scripted sequence or an AI writes it the same way.
+  What is missing is the router that writes it from a press.
+
+  ✔✔ **THE ROAD IS OPEN AS OF 2026-08-28, and it is checked end to end.**
+  `a_registered_action_bound_to_a_key_comes_back_as_a_seat_press` registers an
+  action the engine has never heard of, binds it to a key, presses the key and gets
+  a `SemanticActionPressed` back — no `Any`, no `TypeId`, no variant added to the
+  35-variant enum. Three pieces, all in `ambition_input`:
+
+```text
+ProviderBindings                     the composition's map. SEPARATE from the
+                                     registry: a capability DESCRIBES its action,
+                                     the game it is installed into decides the key
+install_provider_bindings_on_seats   PreUpdate, before leafwing resolves. A SYNC,
+                                     not a spawn edit — a capability installed
+                                     after the seats exist still reaches them
+publish_provider_action_edges        `InputSet::Route`. `just_pressed`, sorted by
+                                     seat id so two seats pressing on one frame
+                                     publish in the same order every run
+```
+
+  ⛔⛔ **AND A SECOND `InputManagerPlugin` IS NOT HOW YOU ADD A SECOND KEYSPACE.**
+  `InputManagerPlugin::<A>::build` guards only `CentralInputStorePlugin`; it adds
+  `clear_central_input_store` and `filter_captured_input` UNCONDITIONALLY, so a
+  second action type registers both TWICE — and `clear_central_input_store` DRAINS
+  the store. The app's own `no_system_is_registered_twice_in_one_schedule` caught it
+  and stated the class in its own words: a doubled system that drains or decays is a
+  rate bug that reads as bad tuning. The host registers the three GENERIC-half
+  systems instead (`tick_action_state::<A>`, `update_action_state::<A>`,
+  `release_on_input_map_removed::<A>`) in the sets the plugin puts them in.
+  ⚠ this is an upstream limitation, not a design choice: leafwing 0.20 has no
+  "additional action type" entry point.
+  ⛔ **AND THE TEST EARNED ITS KEEP ON THE FIRST RUN: BOTH SYSTEMS IN `PreUpdate`
+  PUBLISHED ON NO FRAME.** `InputSet::*` is configured in `Update`, so an `in_set`
+  in `PreUpdate` orders nothing at all — the edge ran before leafwing had resolved
+  anything, silently, every frame. The split is now stated where it lives: the map
+  must land before `InputManagerSystem::Update`, and the edge is a routed semantic
+  like every other one.
+  ▢ **WHAT IS STILL THE COMPOSITION'S**: which seat drives which body. The demo
+  refuses to know that on purpose (it carries `PulseBody`, not an actor-domain
+  type), so the last hop — `SemanticActionPressed` → `PulseRequested { body }` —
+  belongs to whoever mounts both, and that is the correct place for it.
+  ▢ **AND A SHAPE QUESTION THE PROMPT HAS NOT ANSWERED, noticed 2026-08-28 while
+  making `HeldItemView` plural.** `ControlPrompt` is ONE global resource filled
+  from `ControlledSubject`, and its own doc justifies that as *"the same
+  relativity rule the camera and input already obey"* — but the CAMERA went
+  per-view (D118: `CameraReferenceFrame` is a component on the local view) and the
+  prompt did not. ⇒ on a couch, seat one reads seat zero's verbs.
+  ⚠ **it may be right anyway**, and that is why this is a question rather than a
+  defect: the touch overlay is one per DEVICE, so one screen wants one prompt. The
+  repo already distinguishes the two cases elsewhere — `SeatMenuFrames` is the
+  per-seat answer beside a global `MenuControlFrame` — so the shape exists; nobody
+  has said which one a gameplay prompt is. ⛔ do not answer it by making the
+  resource plural: a second on-screen overlay is a UI decision, not a plumbing one.
+
+  ◐ **AND PRESENTABLE IS A DIFFERENT KIND OF PROBLEM THAN THE PLAN RECORDS —
+  re-measured 2026-08-28.** The *"a provider action has to appear in THREE closed
+  enums"* table counts `ControlSlot` and `TouchActionButton` as arbitrary limits
+  alongside the device enum. They are not the same kind of thing. The device enum
+  is a closed vocabulary with no reason to be closed; the other two are
+  DESCRIPTIONS OF HARDWARE — `ControlSlot` is the buttons a controller has (11 of
+  them at HEAD, not the 8 the table says), and `TouchActionButton` is the buttons
+  that fit on a phone screen. And the touch mapping runs the direction the table
+  implies it does not: `touch_button_slot` goes BUTTON → slot → `prompt.label_for`,
+  so the overlay draws its fixed set and asks the prompt what each one is called.
+  ⇒ **a provider action becomes presentable by being ASSIGNED a slot, not by
+  widening one.** Adding a 21st on-screen button is a layout decision about finite
+  screen space; giving a provider action a face button is a decision about a finite
+  controller. Neither is plumbing, and neither is expensive in the way the note
+  meant — *"presentation is the expensive road"* was measuring a hand-written
+  mapping table that turns out to point the other way.
+  ⚠ **and keyboard already sidesteps it entirely**: `ProviderBindings` binds
+  `pulse` to a key with no slot in sight, which is why the road above works today.
+  What has no answer yet is a provider action on a PAD or a PHONE, and that answer
+  is a design call about which finite button it takes.
 
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination

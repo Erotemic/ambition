@@ -30,6 +30,7 @@ pub(crate) fn grounded_only() -> MoveGates {
         // describe one posture and a fighter authored through this file must
         // not feel different from one authored through the repertoire.
         roots_steering: true,
+        recovery_route: None,
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,
@@ -51,6 +52,7 @@ pub(crate) fn airborne_only() -> MoveGates {
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.
         roots_steering: false,
+        recovery_route: None,
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,
@@ -412,6 +414,7 @@ pub fn fighter_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // it is the one a body reached by both takes. This is the base: the same
@@ -465,6 +468,7 @@ pub fn fighter_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     moves.push(up_smash);
 
@@ -489,6 +493,7 @@ pub fn fighter_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     moves.push(down_smash);
 

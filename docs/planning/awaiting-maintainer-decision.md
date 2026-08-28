@@ -38,6 +38,140 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
+### 36. HOW TALL ARE THE PUPPY SLUG, THE PARROT AND THE FLYING SHARK?
+
+⭐ **Three numbers, and they are the last thing standing between the engine and a
+deleted code path.** Until 2026-08-28, 25 catalog rows took a branch where a
+character's size is `body_px × ldtk_max × collision_scale / FRAME_H` — a level
+editor's rectangle and the sprite sheet's publishing padding, neither of which is
+a claim about how tall anything is. Nineteen have been moved off it at the exact
+size they already had, because each is placed with ONE spawn box everywhere it
+appears, so the number was determined and nobody had to choose it.
+
+**These three are not, and that is the whole question:**
+
+```text
+npc_puppy_slug            EIGHT different spawn boxes across the levels —
+                          (48,22)x6 · (32,48)x5 · (64,32)x2 · (48,32) ·
+                          (64,16) · (52,66) · (42,42) · (28,44)
+stochastic_parrot         three
+npc_burning_flying_shark  two — (108,96)x7 and (32,48)
+```
+
+⇒ the same puppy slug is **eight different sizes** depending on which room you
+meet it in, and `(64,16)` versus `(52,66)` is a factor of four in the axis that
+drives the derivation. There is no "size it already has" to preserve.
+
+⛔ **DO NOT LET AN AGENT PICK THESE BY THE MOST COMMON BOX.** The slug's top two
+are `(48,22)`×6 and `(32,48)`×5 — 22 against 48 — so a majority vote is a coin
+flip wearing a measurement's clothes. Same for the shark: the seven `(108,96)`
+placements and the one `(32,48)` differ by more than 2×.
+
+**What is needed:** one `standing_height` (world px, feet to the top of the
+visible body) for each. For scale, every `Standard` humanoid is **48**, the
+player robot is 48, and the three pirate heavies are 56–60. The slug is a
+sprawled quadruped, so its height is the small number; today's placements imply
+anywhere from 21 to 63.
+
+⭐ **What it buys:** with these three authored, `catalog_join.rs:154`'s `_ =>` arm
+has no users and can be deleted — the last place in the engine where a level
+rectangle and a sheet's transparent margin decide how big a character is. The
+three GNU-ton rows do not block it; they publish no sheet and return `None`
+before either branch.
+
+
+### 35. WHERE DOES "CAN I CLOSE THE GAP DURING MY OWN STARTUP" LIVE?
+
+⭐ **This is D166's last open half, and it has been sitting inside a 10,000-line
+ledger since 2026-08-18 rather than in front of you.** The measurement is done —
+nothing here is waiting on more probing. Promoting it is the only thing that was
+missing.
+
+The fighter brain prices an attack partly by whether its reach spans the gap:
+
+```text
+options.rs:487   (1.0 - miss / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
+options.rs:184   const REACH_TOLERANCE: f32 = 2.0;
+```
+
+⇒ a move survives the "cannot reach" filter out to **3× its own reach**. That
+constant is a PROXY for a real question — *how much of this gap can I close
+while the move is starting up?* — and the proxy is a single global number for
+every body, every move and every game the engine runs.
+
+⚠ **the symptom it was found by is FIXED, and that matters for how you weigh
+this.** In August the grab was the last option standing at long range and was
+therefore chosen exactly when it could not be pressed. That corrected itself once
+`capture_value` priced a hold from the opponent and `ActionLegality` stopped the
+brain offering moves the body cannot begin — **`REACH_TOLERANCE` was neither
+widened nor narrowed** (D166 carries the before/after histogram). So this is no
+longer a bug report. It is a question about whether a global proxy should stay.
+
+**The three ways to answer it, costed:**
+
+```text
+1  per-move tolerance on MoveFrameData    a new GENERIC field on the shared
+                                          frame-data type for one genre's verb —
+                                          the exact pressure the grab campaign
+                                          was told not to add. Cheap, and buys
+                                          the smallest thing.
+
+2  derive it: tolerance = what this body  principled, and WIDE. It changes how
+   can close during the move's startup    every CPU in every game this engine
+                                          runs spaces itself.
+
+3  the platform-fighter capability ranks   right, and it is the carve — deferred
+   its own verbs                          out of product work on purpose.
+```
+
+⛔ **(2) COSTS ONE THING THE TABLE ABOVE DOES NOT NAME, re-checked at HEAD
+2026-08-28.** The startup half is free: `AttackOption.frames.startup_s` is
+already in hand at the scoring site. The CLOSING-SPEED half is not — and the
+velocity that IS available is the wrong one.
+
+```text
+generate_options sees   view.self_view: PerceivedActor
+PerceivedActor carries  pos, vel, facing, half_extent, faction, phase,
+                        shield_raised, ledge_hanging, damage_taken, …
+                        and NO top ground speed  (verified 2026-08-28)
+options.rs:245          "Nothing here knows whose body it is."   <- deliberate
+```
+
+`me.vel` is what the body IS doing, not what it CAN do, so a standing fighter
+would read a closing speed of zero and refuse every attack whose reach does not
+already span the gap exactly. The question asks about a CAPABILITY, and the
+capability lives in the body's tuning.
+
+⇒ **so (2) is really "thread the body's own top ground speed into perception,
+then derive."** That is a new `PerceivedActor` field on a struct describing FOES
+as well as self — arguably right, since an opponent's closing speed prices the
+same spacing question from the other side, but wider than "derive it from
+`startup_s`" reads.
+
+⭐ **AND ONE CLASS OF MOVE ALREADY CARRIES THE NUMBER (2) WANTS — measured
+2026-08-28.** The closing-speed half is missing from `PerceivedActor` for ordinary
+movement, which is what makes (2) expensive. But a move with a `start_impulse`
+states its own travel: the oni leader's `iaijutsu` authors
+`impulse(0.05, (700.0, 0.0))` at the same instant as its Active window, and the
+grid census shows it thrown at **3.81× its 64px authored coverage** — past even
+the 3× this constant permits — 88 times, fighting fine at 117%. ⇒ for that class
+the tolerance is not a proxy for anything: the distance is on the move.
+
+⚠ **it is a CLASS, not the population**: 5 of the 8 moves thrown past their reach
+in that census carry no impulse. So this narrows (2) rather than answering it —
+impulse moves could derive their reach exactly while everything else still needs
+the closing speed threaded into perception.
+
+⚠ **the honest instrument if you pick (2)** is `capture_probe`'s move histogram
+plus the fighter option tests, over several seeds. ⛔ `ladder_probe` is NOT it —
+it measures self-KO time against a passive opponent, which is stage awareness.
+
+**A fourth answer is available and may be the right one: leave it.** The constant
+is doing no harm today, the symptom that exposed it is fixed, and (3) is where
+the design wants to end up anyway. Saying "not now, and it goes with the carve"
+closes this as cleanly as picking 1 or 2.
+
+
 ### 34. DO WE WAKE **TUMBLE**? — THREE MECHANICS ARE PROXYING FOR IT
 
 ⭐ **NOTHING LOOKS WRONG TODAY; this is here because a review asked and the
@@ -260,6 +394,26 @@ D165, whose measurement section carries the same data.
 BY DESIGN. Should they get one, or does a sprawled quadruped legitimately have no
 "standing height"? Nothing is blocked on this; it decides whether the shared unit
 is the cast's road or the humanoids'.
+
+▢ **TWO LOOK-AT-IT CALLS THE MEASUREMENTS ARE ALREADY WAITING ON (promoted from
+D165, 2026-08-28).** Both have their numbers; neither has an answer, and both have
+sat in the execution ledger where a taste call reads as work nobody got to.
+
+```text
+THE SLOP     writing the AUTHORITY (`kin.size` + `BodyBaseSize`) instead of the
+             mirror makes every slop 28 × 18.2 rather than 73.9 × 48 — a 2.64×
+             shrink, in a level you play. ⛔ THE DEFECT AND THE SIZE ARE TWO
+             THINGS: that the authored value never took effect is a bug; how big
+             a slop should be is yours. The fix is one line and is deliberately
+             not taken until you have said which size you want.
+THE SNAKE    `snake_body_width()` derives from `mary_o_body_width()`, so the
+             one-brick rescale halved it with nothing saying so: `world_per_pixel`
+             0.35 → 0.182, collision 41 × 18 → 21.3 × 9.5 — 0.30 tiles tall.
+             ⭐ the ratchet beside it could not notice: it pins the quad/body
+             RATIO, which is scale-invariant, so it read 2.46× before and after.
+             Whether a third-of-a-tile snake still reads as an enemy is yours,
+             and the constant to change, if any, is HERS.
+```
 
 
 
@@ -1743,6 +1897,34 @@ three mechanics green and inert (the smash charge, DI, the tech), each caught by
 counting in a real match rather than by a unit test — so `match_report` should
 show a windbox connecting before this row is called done.
 
+⭐⭐ **THE WINDBOX IS NOT ALONE — an ADOPTION CENSUS of the authored move
+vocabulary, taken 2026-08-28 across `ambition_content`, `ambition_demo_smash` and
+the shared authoring helpers (comments and tests excluded):**
+
+```text
+motion_scale            40   the committed-strike damp; thoroughly adopted
+boomerang_return_s      10   the ponytail
+WindowTag::Cancelable    5   jab strings and chains
+WindowTag::Invuln        5   the Actress's trapdoor + THREE teleports (added
+                             2026-08-28; it was ONE until that day)
+on_hit: Some(..)         4   still only `technique::POGO_BOUNCE_KEY` behind them
+fixed_knockback          3
+equips: Some(..)         2   the Admiral's gun-sword, the Polygon's ponytail
+stores: true             1   the power ball
+with_aim_assist          1   the Officer's shot
+WindowTag::Armor         0   ⛔ DORMANT
+windbox                  0   ⛔ DORMANT — this row
+```
+
+⇒ **two dormant, not one**, and they are the same question with two names: which
+fighter takes a hit and keeps swinging, and which one gusts. ⚠ a mechanic at ONE
+adopter is barely better — `stores`, `with_aim_assist` and (until this week)
+`Invuln` are each one authoring mistake away from looking unused, and an unused
+mechanic is one nobody notices breaking.
+⭐ **the census is a grep, not a tool**: count the authoring hook in the content
+crates. It is worth re-taking whenever a mechanic ships, because *shipping* and
+*being used* are the two facts this demo keeps proving are different.
+
 ⭐ the sibling parity row *"Vacuum / suction hitboxes"* needs NO further work:
 it is the same primitive with the launch aimed inward, so authoring one move
 closes both rows.
@@ -1918,3 +2100,92 @@ cursor, and only (a) fixes that.
 places the headless suite does. Jon: *"It might be the case that we build a tool
 so it works on a machine with a gpu. Not sure yet though."* Held here until that
 is decided.
+
+## 2026-08-28 — Does an enemy you left in a foreign room STAY there?
+
+**The question, and it is a product call rather than a defect** (D125 says so in
+its own words): an actor RELEASED in a room that is not its authored home writes
+no `Placed` row today, so it is retired when that room is left and re-authored at
+home on re-entry. *"The enemy goes home"* is a defensible rule. *"The enemy stays
+where you dragged it"* is the other one.
+
+**What it costs, measured — and the two halves cannot land apart:**
+
+```text
+PRODUCER   the placement recorder is items-only; a released body needs the same
+           `republish_placements` call
+CONSUMER   `construction::relocate_request` returns FALSE for anything but a
+           ground item, so an actor request is refused and the body is rebuilt at
+           its authored spot with a warn
+```
+
+⛔ **adding the producer alone makes every re-entry log a warn and teleport the
+actor home anyway.** They land together or not at all.
+
+⭐ **the current refusal is honest, not broken**: the room build already declines
+to pretend an unmovable family moved, and says so.
+
+⚠ **why this is here rather than in the ledger**: D125 has carried it as *"still
+open — two named pieces"* since 2026-08-19 with the note *"whether an abandoned
+enemy should stay put is a product call"*, and a product call sitting in the
+execution ledger reads as work nobody has got to. Promoted 2026-08-28.
+
+
+## 2026-08-27 — `moveset_takes` determinism — ✅ RESOLVED, AND THE DIAGNOSIS BELOW WAS WRONG
+
+⛔⛔ THE SECTION THAT FOLLOWS IS RETAINED BECAUSE IT IS A MISTAKE WORTH KEEPING,
+not because it is true. It reported the SIMULATION as non-deterministic on the
+evidence that two runs agreed on only 6 of 19 takes. Re-measured ignoring raw
+entity ids: **19/19 identical, before any change**. The simulation was
+deterministic the whole time.
+
+What actually varied was entity INDICES leaking into body labels — the same shark
+called `1311v10` in one run and `1329v6` in the next, at the same position to the
+last float. I measured a real difference and attributed it to the wrong cause,
+which is exactly the failure of taking a coherent story for a verified one.
+
+⭐ RESOLVED. `moveset_takes` now emits `id` (`SimId`, the engine's deterministic
+identity), `character` and a reader-facing `label` as three separate fields, and
+sorts rows by stable identity before writing. Two independent runs now produce
+the SAME SHA256.
+
+⭐ AND THE STEPPING SEAM EXISTS — `app::manual_step_period` /
+`enable_manual_stepping`, folded into `PlatformerApp`'s Rule 8, which already
+owned the rule. Its value is a GUARANTEE rather than a repair: "150 ticks" now
+means 150 sim ticks on any machine under any load, where before it merely
+happened to be 1:1 on this one.
+
+## (the original, wrong, diagnosis — kept as a record)
+
+## 2026-08-27 — `moveset_takes` is not deterministic, and it never was
+
+MEASURED, twice: two runs of the SAME binary on the SAME tree agree on only
+**6 of 19 takes**. Nothing was changed between them.
+
+⛔⛔ THE MECHANISM. `bevy_ggrs` advances the simulation from a wall-clock
+`accumulator`, so one `app.update()` runs the sim ZERO, ONE or SEVERAL times
+depending on how long the previous iteration took. `moveset_takes` drives a fixed
+number of LOOP ITERATIONS and calls them ticks — so `TAKE_TICKS = 150` is 150
+iterations, not 150 sim ticks, and how much simulation each take contains depends
+on how fast the machine was that second.
+
+⛔ IT IS WHY THE TOOL IS SLOW, TOO. A recording of 2.5 seconds of game time costs
+at least 2.5 seconds of real time, because the accumulator will not hand out ticks
+faster than the clock produces them. Removing wasted work took a character from
+7m08 to 1m27, and CHANGED 14 of 19 takes as a side effect — because doing less
+work per iteration changes how many sim ticks each iteration gets.
+
+⚠ WHAT THIS COSTS US. Takes cannot be compared across runs; a `MISMATCH` report
+may be a fluke of timing; and any finding drawn from a single recording is weaker
+than it looked. D252 and D253 were both found this way — the *which move came
+out* half is probably stable, but nobody has checked.
+
+⭐ THE FIX IS A DETERMINISTIC STEP SEAM: the recorder should advance the sim
+exactly one tick per iteration instead of letting a wall-clock accumulator decide.
+There is no such seam today (`ambition_time::advance_sim_tick` is a system, not a
+driver). It would make the tool fast AND repeatable, and would let a take be
+diffed against a previous take — which is what a balance tool is for.
+
+⚠ NOT ATTEMPTED HERE because it is surgery on the rollback host's timing and this
+is a viewer's data source; a wrong step seam is a silently wrong simulation. Held
+for a maintainer.

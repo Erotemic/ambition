@@ -142,7 +142,7 @@ impl InitialBodyPolicy {
 /// `Option<&Registry>` through them would make "there is no registry here" and
 /// "the registry had nothing" the same call.
 pub fn motion_model_spec_for_character(
-    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     catalog: &CharacterCatalog,
     character_id: &str,
 ) -> ambition_platformer2d_core::MotionModelSpec {
@@ -176,7 +176,7 @@ pub fn motion_model_spec_for_character(
 /// marker REMOVED — otherwise a re-wear from an authored feel back to the
 /// sandbox protagonist never returns the body to the live inspector sliders.
 pub fn movement_tuning_for_character(
-    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     catalog: &CharacterCatalog,
     character_id: &str,
 ) -> Option<ambition_platformer2d_core::MovementTuning> {
@@ -220,7 +220,7 @@ pub fn apply_worn_motion_model(
 /// a cross-model transition preserves every shared body fact and initializes
 /// ONLY destination-private state — through the one kernel transition seam.
 fn sync_worn_motion_model_preserving_state(
-    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     catalog: &CharacterCatalog,
     character_id: &str,
     current: &mut MotionModel,
@@ -357,7 +357,7 @@ pub fn apply_worn_character_overlay(
     // set, the identity baseline and the moveset have to be built together, or
     // equipment reconciliation re-derives from a baseline that disagrees with the
     // moveset actually on the body.
-    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
@@ -428,7 +428,7 @@ fn match_kit_for_seat<'a>(
 /// reset their name, authored kit, or persistent movement state.
 fn apply_worn_character_kit(
     catalog: &CharacterCatalog,
-    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
@@ -475,7 +475,7 @@ fn apply_worn_character_kit(
         (kit.clone(), derived, execution)
     } else {
         match prepared.map(|prepared| &prepared.kit) {
-            Some(crate::character_runtime::PreparedKit::Authored {
+            Some(ambition_characters::prepared::PreparedKit::Authored {
                 action_set,
                 moveset,
             }) => (
@@ -495,7 +495,7 @@ fn apply_worn_character_kit(
                     prepared.ranged_execution
                 }),
             ),
-            Some(crate::character_runtime::PreparedKit::Unauthored { authored_moveset }) => {
+            Some(ambition_characters::prepared::PreparedKit::Unauthored { authored_moveset }) => {
                 let set = crate::avatar::bundles::default_player_action_set(base_abilities);
                 let execution = RangedExecution::ChargedProjectile;
                 let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
@@ -570,7 +570,7 @@ pub fn apply_worn_character_gameplay(
     catalog: Res<CharacterCatalog>,
     // Optional, like every other reader of it: a composition with no registered
     // characters is the ordinary case and must not require the resource.
-    registry: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
@@ -636,7 +636,7 @@ pub fn apply_worn_character_gameplay(
         let id = character.id();
         let generation = registry
             .as_deref()
-            .map(crate::character_runtime::PreparedCharacterRegistry::generation)
+            .map(ambition_characters::prepared::PreparedCharacterRegistry::generation)
             .unwrap_or_default();
         // Re-derive automatically only when the prepared cast generation changed
         // or the body lacks a baseline. Identity changes request recharacterization
@@ -865,7 +865,7 @@ pub fn apply_worn_character_gameplay(
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PersonaBaseline {
     pub id: String,
-    pub generation: crate::character_runtime::CharacterCatalogGeneration,
+    pub generation: ambition_characters::prepared::CharacterCatalogGeneration,
     /// See [`DisplacedPhysicals`](crate::character_runtime::DisplacedPhysicals).
     /// Grows once per field, at the first persona that overrides that field, and
     /// is carried forward verbatim through every later re-wear.
@@ -884,7 +884,7 @@ pub fn gate_worn_player_control(
     catalog: Res<CharacterCatalog>,
     // The prepared cast, so this gate can ask a CHARACTER how it fires.
     // See the charge gate below for why the catalog alone stopped being enough.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut players: Query<
         (
             &WornCharacter,
@@ -1024,8 +1024,7 @@ pub fn sustain_bubble_shield(
         }
         let playing = playback.is_some_and(|p| p.spec.id == *key);
         // ⛔⛔ A RAW SPECIAL EDGE IS NOT A BUBBLE-SHIELD PRESS, and reading it as
-        // one broke every OTHER special the body owns (D253, GPT 5.6 review
-        // 2026-08-27). `player_robot_v3` names `bubble_shield` as its body-kit
+        // one broke every OTHER special the body owns (D253). `player_robot_v3` names `bubble_shield` as its body-kit
         // special AND authors a full directional repertoire — rocket dash,
         // phase shift, the stabilizers. This ran in `PlayerInputSet::ControlGate`
         // on the bare `special_pressed` edge, so EVERY special press raised the

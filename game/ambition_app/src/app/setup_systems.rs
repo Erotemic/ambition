@@ -55,9 +55,8 @@ pub(crate) struct CharacterAuthorities<'w> {
     catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     /// `None` for a composition that registers no characters — the ordinary
     /// case, not a degraded one.
-    prepared: Option<
-        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
-    >,
+    prepared:
+        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
     sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
     brain_profiles: Option<
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,

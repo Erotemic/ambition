@@ -1,8 +1,8 @@
 use super::*;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
 use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, Update};
 
 fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
@@ -274,8 +274,8 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
 fn npc_cast(
     flight: Option<bool>,
     max_health: Option<i32>,
-) -> crate::character_runtime::PreparedCharacterRegistry {
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+) -> ambition_characters::prepared::PreparedCharacterRegistry {
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "npc_test_parrot",
         "Test Parrot",
@@ -289,7 +289,7 @@ fn npc_cast(
     definition.vitals.max_health = max_health;
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
     registry.insert_prepared(finalized.prepared);
     registry
@@ -299,7 +299,7 @@ fn npc_cast(
 /// production character-first seed so the body is the one the game constructs.
 fn spawn_character_npc(
     app: &mut App,
-    cast: &crate::character_runtime::PreparedCharacterRegistry,
+    cast: &ambition_characters::prepared::PreparedCharacterRegistry,
 ) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
@@ -345,8 +345,8 @@ fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
 /// fixture's own disagreement rather than from provocation.
 #[test]
 fn a_flying_npc_stays_flying_when_it_is_provoked() {
-    use ambition_platformer2d_core::ActorSurfaceState;
     use ambition_characters::brain::{Brain, StateMachineCfg};
+    use ambition_platformer2d_core::ActorSurfaceState;
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();

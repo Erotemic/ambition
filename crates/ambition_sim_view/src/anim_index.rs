@@ -20,7 +20,7 @@ use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 /// declare `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
 ///
 /// All fields are required (not `Option`): every spawned actor carries the full
-/// [`ambition_platformer2d_actor_monolith::actor::AncillaryMovementBundle`] (the same bundle the player nests)
+/// [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`] (the same bundle the player nests)
 /// plus `ActorStatus` / `ActorConfig` / `BodyMelee`, so an entity that is missing
 /// any of them — a boss (its own cluster + anim path) or a prop — correctly does
 /// not match and is skipped, instead of half-resolving from a sparse read. This

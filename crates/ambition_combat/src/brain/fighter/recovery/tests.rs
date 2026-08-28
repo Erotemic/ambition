@@ -151,16 +151,20 @@ fn a_view_with_no_stage_builds_no_lens() {
 }
 
 /// A straight-up route: rise only, no lateral component.
-fn rise(speed: f32, after_s: f32) -> RecoveryLift {
-    RecoveryLift {
+fn rise(speed: f32, after_s: f32) -> ambition_entity_catalog::RecoveryRoute {
+    ambition_entity_catalog::RecoveryRoute::Burst {
         speed,
         side: 0.0,
-        after_s,
+        at_s: after_s,
     }
 }
 
 /// A lens over a body that owns the given routes, in the given order.
-fn lens_with(view: &WorldView, abilities: ae::AbilitySet, routes: &[RecoveryLift]) -> RecoveryLens {
+fn lens_with(
+    view: &WorldView,
+    abilities: ae::AbilitySet,
+    routes: &[ambition_entity_catalog::RecoveryRoute],
+) -> RecoveryLens {
     RecoveryLens::from_view(view, kit(abilities), routes, DT).expect("the stage is known")
 }
 
@@ -306,18 +310,18 @@ fn distant_ledge_stage(airborne_at: ae::Vec2) -> WorldView {
 /// A grapple line: 980px/s across, 300px/s up, after a 0.16s windup. The whole
 /// move is the lateral half; the rise is barely enough to keep the body level
 /// while it travels.
-fn grapple_route() -> RecoveryLift {
-    RecoveryLift {
+fn grapple_route() -> ambition_entity_catalog::RecoveryRoute {
+    ambition_entity_catalog::RecoveryRoute::Burst {
         speed: 300.0,
         side: 980.0,
-        after_s: 0.16,
+        at_s: 0.16,
     }
 }
 
 /// A small rising aerial — the stall-and-juggle every platform fighter has one
 /// of. It commands a REAL and LARGER against-gravity speed than the grapple
 /// above, and it is not a way home from anywhere.
-fn rising_aerial_route() -> RecoveryLift {
+fn rising_aerial_route() -> ambition_entity_catalog::RecoveryRoute {
     rise(420.0, 0.10)
 }
 
@@ -380,12 +384,17 @@ fn a_tiny_lifting_move_does_not_suppress_a_viable_recovery() {
         "poison: the aerial must be genuinely useless from here, or the test \
          below is comparing two routes that both work"
     );
+    // The scalar a burst is RANKED by, which is the trap this arm reproduces.
+    let lift_of = |route: ambition_entity_catalog::RecoveryRoute| match route {
+        ambition_entity_catalog::RecoveryRoute::Burst { speed, .. } => speed,
+        other => panic!("this arm is about bursts and got {other:?}"),
+    };
     assert!(
-        rising_aerial_route().speed > grapple_route().speed,
+        lift_of(rising_aerial_route()) > lift_of(grapple_route()),
         "poison: the aerial must OUTRANK the grapple on the scalar, or nothing \
          here reproduces the trap — {} vs {}",
-        rising_aerial_route().speed,
-        grapple_route().speed
+        lift_of(rising_aerial_route()),
+        lift_of(grapple_route())
     );
 
     // (3) THE INVARIANT. Both routes, aerial first.
@@ -420,8 +429,10 @@ fn the_grapples_lateral_half_is_the_half_that_gets_home() {
     let whole = lens_with(&view, drifter(), &[grapple_route()]);
     assert!(whole.best_route(at).regained());
 
-    let shadow = grapple_route();
-    let de_sided = lens_with(&view, drifter(), &[rise(shadow.speed, shadow.after_s)]);
+    let ambition_entity_catalog::RecoveryRoute::Burst { speed, at_s, .. } = grapple_route() else {
+        panic!("the grapple is a burst");
+    };
+    let de_sided = lens_with(&view, drifter(), &[rise(speed, at_s)]);
     let outlook = de_sided.best_route(at);
     assert!(
         !outlook.regained(),
@@ -485,4 +496,89 @@ fn a_lens_probes_at_most_the_bounded_prefix_of_routes() {
     // is a cut and not a bug.
     let inside = lens_with(&view, drifter(), &[rising_aerial_route(), grapple_route()]);
     assert!(inside.best_route(at).regained());
+}
+
+/// ⭐⭐ A ROUTE THAT CARRIES THE BODY IS A ROUTE, AND THE SEARCH SPENDS WHAT ITS
+/// AUTHOR CLAIMED.
+///
+/// ⛔⛔ D250: the planner modelled every way home as one thrown velocity. The
+/// pirate's up-B summons a steerable flying shark and hands its rider seconds of
+/// movement authority; the Author teleports. Neither commands an impulse, so
+/// `lift_speed` reads `0.0` for both and a fighter whose ONLY recovery is one of
+/// them looked to the CPU like a fighter with none. ⛔ Faking a lift would have
+/// made the search certify a rise the move does not throw.
+///
+/// ⛔ THREE ARMS, because "reach is used at all" and "reach is used correctly"
+/// are different claims: the body cannot get home on its buttons, a route whose
+/// claimed reach covers the gap brings it home, and the SAME route with a reach
+/// that does not fails. Without the third, any positive constant would pass.
+#[test]
+fn a_carrying_route_gets_home_exactly_as_far_as_its_author_claimed() {
+    use ambition_entity_catalog::RecoveryRoute;
+
+    let at = far_from_the_ledge();
+    let view = distant_ledge_stage(at.pos);
+    // The ledge this body has to reach — its near face, from where it hangs.
+    let gap = 900.0 - 250.0 - at.pos.x;
+    assert!(
+        gap > 0.0,
+        "poison: the fixture's ledge is not to the body's right, so 'reach' \
+         means nothing here"
+    );
+
+    let buttons_only = lens_with(&view, drifter(), &[]);
+    assert!(
+        !buttons_only.best_route(at).regained(),
+        "poison: this body already gets home with no route at all, so nothing \
+         below is about a route"
+    );
+
+    let far_enough = lens_with(
+        &view,
+        drifter(),
+        &[RecoveryRoute::SustainedAuthority {
+            seconds: 5.0,
+            reach: gap + 120.0,
+        }],
+    );
+    let verdict = far_enough.best_route(at);
+    assert!(
+        verdict.regained(),
+        "a ride that claims to carry {:.0}px across a {gap:.0}px gap did not \
+         bring the body home: {verdict:?}",
+        gap + 120.0
+    );
+    assert_eq!(
+        verdict.route,
+        Some(0),
+        "the verdict must NAME the route that worked, or a caller cannot press it"
+    );
+
+    let too_short = lens_with(
+        &view,
+        drifter(),
+        &[RecoveryRoute::SustainedAuthority {
+            seconds: 5.0,
+            reach: gap * 0.25,
+        }],
+    );
+    assert!(
+        !too_short.best_route(at).regained(),
+        "a ride claiming a quarter of the gap still got home — the search is not \
+         spending the authored reach, so any positive number would pass above"
+    );
+
+    // ⭐ AND A TELEPORT IS THE SAME QUESTION with a different word for the
+    // distance, which is why they share one predicate.
+    let blink = lens_with(
+        &view,
+        drifter(),
+        &[RecoveryRoute::Teleport {
+            distance: gap + 120.0,
+        }],
+    );
+    assert!(
+        blink.best_route(at).regained(),
+        "a teleport that reaches the ledge did not count as a way home"
+    );
 }

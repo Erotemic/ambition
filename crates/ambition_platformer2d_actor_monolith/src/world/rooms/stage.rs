@@ -20,9 +20,9 @@ use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
-use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component_mut, SessionSpawnScope,
 };
@@ -401,24 +401,28 @@ mod tests {
     ///
     /// `'static`: `ActorConstructionContext` BORROWS the cast, so a per-test
     /// local would not outlive the plan it is handed to.
-    fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
-        static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
+    fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRegistry {
+        static CAST: std::sync::OnceLock<ambition_characters::prepared::PreparedCharacterRegistry> =
             std::sync::OnceLock::new();
         CAST.get_or_init(|| {
-            let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+            let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
             // `npc_giant_gnu_hands` is minted by `giant_cluster_rows` for the two
             // limb rows, so a cast without it refuses the whole giant cluster.
             for id in ["combatant", "npc_giant_gnu_hands"] {
                 let mut definition =
-                    ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
-                        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    ambition_characters::actor::definition::CharacterDefinition::new(
+                        id, id, "test",
+                    )
+                    .with_locomotion(
+                        ambition_characters::actor::CharacterLocomotion {
                             run_speed: 155.0,
                             ..Default::default()
-                        });
+                        },
+                    );
                 definition.vitals.max_health = Some(4);
                 let finalized = crate::character_runtime::prepare_and_finalize_for_test(
                     definition,
-                    &crate::character_runtime::CharacterBindings::default(),
+                    &ambition_characters::prepared::CharacterBindings::default(),
                 );
                 registry.insert_prepared(finalized.prepared);
             }
@@ -519,7 +523,7 @@ mod tests {
     /// lowers to a limbed host.
     fn prepare_with(
         spec: RoomSpec,
-        cast: &crate::character_runtime::PreparedCharacterRegistry,
+        cast: &ambition_characters::prepared::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
@@ -539,13 +543,16 @@ mod tests {
     /// A cast whose `"giant_gnu"` is a `"giant"`-class limbed host.
     fn giant_cast(
         mount_class: Option<&str>,
-    ) -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut definition =
-            ambition_characters::actor::definition::CharacterDefinition::new("giant_gnu", "Giant GNU", "test")
-                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                    run_speed: 0.0,
-                    ..Default::default()
-                });
+    ) -> ambition_characters::prepared::PreparedCharacterRegistry {
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "giant_gnu",
+            "Giant GNU",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 0.0,
+            ..Default::default()
+        });
         definition.vitals.max_health = Some(42);
         if let Some(class) = mount_class {
             definition.mount = Some(ambition_characters::actor::CharacterMount {
@@ -555,7 +562,7 @@ mod tests {
         }
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         // The hands travel with the host: `giant_cluster_rows` mints two limb
         // rows naming `npc_giant_gnu_hands`.

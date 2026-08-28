@@ -59,23 +59,49 @@ SPRITES = (
 )
 
 
-def capture_scene_candidates() -> list[Path]:
-    """Every place the renderer might be, in the order worth trying.
+def renderer_candidates() -> list[Path]:
+    """Every place `moveset_render` might be, in the order worth trying.
 
-    ⛔⛔ NOT JUST `target/debug`. This hard-coded one path, which is wrong two
-    ways that both bite real setups: `CARGO_TARGET_DIR` relocates the whole
-    directory (this repo ships `scripts/setup_target_bindmount.sh` for exactly
-    that), and a release build lands in `target/release`. Either one produced
-    "capture_scene is not built" against a tree where it plainly was.
-
-    ⭐ THE SAME CONVENTION `scripts/profile_desktop.sh` ALREADY USES —
-    `${CARGO_TARGET_DIR:-$repo_root/target}`, release and debug — so the two
-    agree about where this repo puts its binaries.
+    ⛔⛔ NOT JUST `target/debug`. `CARGO_TARGET_DIR` relocates the whole directory
+    (this repo ships `scripts/setup_target_bindmount.sh` for exactly that) and a
+    release build lands in `target/release`. Either produced "not built" against
+    a tree where it plainly was. Same convention `scripts/profile_desktop.sh`
+    uses.
     """
     import os
 
     root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
-    return [root / "release" / "capture_scene", root / "debug" / "capture_scene"]
+    return [root / "release" / "moveset_render", root / "debug" / "moveset_render"]
+
+
+def _newest(candidates: list[Path]) -> Path | None:
+    """The most recently built of these, or `None` if none exist.
+
+    ⛔⛤ NEWEST, NOT FIRST. Taking the first existing candidate meant `release`
+    always outranked `debug` — so a release binary from last week beat a debug
+    binary built a minute ago, while the build hint this same server prints tells
+    the reader to run an ordinary debug `cargo build`. The tool preferred the
+    binary its own advice does not produce, and nothing on the page said which
+    one had answered.
+    """
+    live = [(c.stat().st_mtime, c) for c in candidates if c.exists()]
+    return max(live)[1] if live else None
+
+
+def find_renderer() -> Path | None:
+    """The renderer this server will run.
+
+    ⭐ AN EXPLICIT OVERRIDE WINS OUTRIGHT. Somebody testing a build elsewhere has
+    said which one they mean, and a freshness heuristic has no business
+    second-guessing that.
+    """
+    import os
+
+    override = os.environ.get("AMBITION_MOVESET_RENDER")
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+    return _newest(renderer_candidates())
 
 
 def _built_at(path: Path) -> str | None:
@@ -89,85 +115,104 @@ def _built_at(path: Path) -> str | None:
     return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
 
 
-def find_capture_scene() -> Path | None:
-    for candidate in capture_scene_candidates():
-        if candidate.exists():
-            return candidate
-    return None
+def render_animation(character: str, verb: str, frames: int, stride: int) -> tuple[int, dict]:
+    """Render one fighter PERFORMING ONE MOVE, through the real engine.
 
+    ⭐⭐ CHARACTER **AND VERB**. This took only a character and photographed a
+    fighter STANDING in `hall_of_characters` — twenty-four frames of somebody
+    doing nothing, cached under whatever move you happened to be looking at.
+    `moveset_render` drives the move through the ordinary control-frame seam and
+    names the exact `SimTick` of every PNG.
 
-def render_animation(character: str, frames: int, stride: int) -> tuple[int, dict]:
-    """Render one fighter's animation through the real engine, on demand.
-
-    ⭐⭐ THE GPU HALF OF THE DECISION. The Engine Takes view derives its animation
-    frame on the CPU so the tool runs anywhere; this produces the REAL thing, by
-    asking the engine to draw it. Jon, 2026-08-27: *"having the animation be
-    generated on demand, and using a fallback visualization if it wasn't
-    available or we didn't have the gpu."*
-
-    ⛔ EVERY FAILURE IS A JSON ANSWER, NOT AN EXCEPTION. The whole point of this
-    route is that it may legitimately be unavailable — no GPU, no binary built,
-    a driver that will not start — and the UI has something to fall back to. A
-    500 with a stack trace would make "this machine cannot render" look like a
-    bug in the inspector.
+    ⛔ EVERY FAILURE IS A JSON ANSWER, NOT AN EXCEPTION. This route may
+    legitimately be unavailable — no GPU, no binary, a driver that will not
+    start — and the viewer has a CPU fallback. A 500 would make "this machine
+    cannot render" look like a bug in the inspector.
     """
     import subprocess
 
     safe = "".join(ch for ch in character if ch.isalnum() or ch in "_-")
+    safe_verb = "".join(ch for ch in verb if ch.isalnum() or ch in "_-")
     if not safe or safe != character:
         return 400, {"error": "character must be a plain catalog id"}
+    if not safe_verb or safe_verb != verb:
+        return 400, {"error": "verb must be a plain repertoire verb"}
 
-    out_dir = RENDERS / safe
+    # ⭐ CACHED BY WHAT WAS ASKED FOR — character AND verb AND shape. Caching by
+    # character alone served the up-B's frames for a jab.
+    out_dir = RENDERS / f"{safe}__{safe_verb}"
     manifest = out_dir / "manifest.json"
-    # ⭐ CACHED BY WHAT WAS ASKED FOR. A second request for the same shape is a
-    # file read; a request for MORE frames re-renders rather than silently
-    # serving fewer than asked.
+    binary = find_renderer()
+
+    # ⛔⛔ A CACHE THAT OUTLIVES THE BINARY THAT FILLED IT IS A STALE ANSWER
+    # WEARING A CURRENT ONE'S CLOTHES. This accepted any manifest with enough
+    # frames at the right stride, so a render taken before an hour of engine
+    # changes was served as this build's picture of the move — the exact failure
+    # the provenance stamp exists to make visible, silently defeated one layer
+    # above it.
+    cached = None
     if manifest.exists():
         try:
             have = json.loads(manifest.read_text())
-            if have.get("frames") >= frames and have.get("stride") == stride:
-                return 200, have
+            if have.get("frames", 0) >= frames and have.get("stride") == stride:
+                cached = have
         except (OSError, ValueError):
-            pass
+            cached = None
+    if cached is not None and binary is not None:
+        drawn_by = cached.get("renderer_mtime")
+        if drawn_by is not None and drawn_by >= binary.stat().st_mtime:
+            return 200, cached
+        cached["stale"] = (
+            f"drawn by an older {binary.name}; re-rendering with the one built "
+            f"{_built_at(binary)}"
+        )
 
-    binary = find_capture_scene()
     if binary is None:
+        # ⭐ A CACHED PICTURE IS BETTER THAN NO PICTURE, **SAID PLAINLY**. Nothing
+        # here builds, so "there is no renderer" is a state a reader can be in
+        # for a long time; serving the last render unlabelled would make it look
+        # like this build's.
+        if cached is not None:
+            cached = dict(cached)
+            cached["cached_only"] = True
+            cached["reason"] = (
+                "moveset_render is not built — this is the last render, drawn by "
+                f"{cached.get('renderer_built') or 'an unknown build'}"
+            )
+            return 200, cached
         return 503, {
             "available": False,
-            "reason": "capture_scene is not built",
-            "hint": "cargo build -p ambition_app_tools --bin capture_scene",
-            "looked_in": [str(p) for p in capture_scene_candidates()],
+            "reason": "moveset_render is not built",
+            "hint": "cargo build -p ambition_app_tools --bin moveset_render",
+            "looked_in": [str(p) for p in renderer_candidates()],
         }
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    for stale in out_dir.glob("*.png"):
-        stale.unlink()
+    # ⛔⛔ THE OLD MANIFEST GOES FIRST. This re-rendered and then read whatever
+    # manifest was on disk, so a renderer that failed to write one left the
+    # PREVIOUS render's document to be read back and served as the new one —
+    # returning 200 with a stale picture through the very branch added to refuse
+    # stale pictures. What is on disk after the run must be what the run wrote.
+    manifest.unlink(missing_ok=True)
     try:
         result = subprocess.run(
             [
                 str(binary),
-                "hall_of_characters",
-                "player",
-                str(out_dir / "frame.png"),
-                "480x360",
-                "--warmup", "60",
                 "--character", safe,
+                "--verb", safe_verb,
+                "--out", str(out_dir),
                 "--frames", str(frames),
                 "--stride", str(stride),
             ],
             cwd=str(REPO),
             capture_output=True,
             text=True,
-            timeout=900,
+            timeout=1800,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         return 503, {"available": False, "reason": f"the renderer did not run: {error}"}
 
-    shots = sorted(p.name for p in out_dir.glob("frame.*.png"))
-    if result.returncode != 0 or not shots:
-        # ⛔ THE RENDERER'S OWN LAST WORDS, not a generic failure. "no GPU" and
-        # "that character is not on the roster" are different problems and the
-        # person reading this is the one who can tell them apart.
+    if result.returncode != 0 or not manifest.exists():
         tail = (result.stderr or result.stdout or "").strip().splitlines()
         return 503, {
             "available": False,
@@ -175,18 +220,33 @@ def render_animation(character: str, frames: int, stride: int) -> tuple[int, dic
             "detail": tail[-3:] if tail else [],
         }
 
-    # ⭐ THE BINARY'S OWN PROVENANCE TRAVELS WITH THE FRAMES. Nothing here builds,
-    # so "which binary drew this and when was it built" is the only thing that
-    # distinguishes a current picture from one an hour of engine changes ago.
-    document = {
-        "available": True,
-        "character": safe,
-        "frames": len(shots),
-        "stride": stride,
-        "renderer": str(binary),
-        "renderer_built": _built_at(binary),
-        "urls": [f"/render/{safe}/{name}" for name in shots],
-    }
+    document = json.loads(manifest.read_text())
+    document.update(
+        available=True,
+        renderer_path=str(binary),
+        renderer_built=_built_at(binary),
+        # ⭐ THE RAW STAMP BESIDE THE READABLE ONE, so the next request can ask
+        # whether this picture predates the binary on disk. A minute-resolution
+        # string cannot answer that.
+        renderer_mtime=binary.stat().st_mtime,
+        urls=[f"/render/{out_dir.name}/{shot['file']}" for shot in document.get("shots", [])],
+    )
+    # ⛔⛔ A MISMATCH IS REPORTED, NEVER CACHED UNDER THE REQUESTED NAME. A press
+    # is a REQUEST; the engine decides what comes out. Serving another move's
+    # animation as this one's is the worst thing a reference tool can do.
+    # ⛔⛔ A MISMATCH IS THE INTENDED MOVE NOT APPEARING, not "no move appeared".
+    # This read `observed_moves` and then ignored it, declaring success whenever
+    # ANY move played — so a verb that resolved to a different move would have
+    # been cached and served under the name that was asked for.
+    document["mismatch"] = not document.get("reached_intended_move")
+    if document["mismatch"]:
+        intended = document.get("intended_move")
+        observed = document.get("observed_moves") or []
+        document["reason"] = (
+            f"`{safe_verb}` is bound to {intended!r} and the engine played {observed!r}"
+            if intended
+            else f"`{safe_verb}` is not bound on {safe}; the engine played {observed!r}"
+        )
     manifest.write_text(json.dumps(document))
     return 200, document
 
@@ -220,14 +280,15 @@ def inspector_status() -> dict:
         except (OSError, ValueError) as error:
             bundle_meta["error"] = str(error)
 
+    # ⛔⛔ THE NEWEST ONE, NOT THE FIRST ONE. This took `release` before `debug`,
+    # so a release binary from last week outranked a debug binary built a minute
+    # ago — while the build hint beside it told the reader to run an ordinary
+    # debug `cargo build`. The tool answered with the binary its own advice did
+    # not produce.
     binaries = {}
     root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
-    for name in ("moveset_export", "moveset_takes", "capture_scene"):
-        found = next(
-            (root / profile / name for profile in ("release", "debug")
-             if (root / profile / name).exists()),
-            None,
-        )
+    for name in ("moveset_export", "moveset_takes", "moveset_render"):
+        found = _newest([root / profile / name for profile in ("release", "debug")])
         binaries[name] = {
             "found": found is not None,
             "path": str(found) if found else None,
@@ -379,11 +440,12 @@ class InspectorHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/render":
             query = parse_qs(parsed.query)
             character = (query.get("character") or [""])[0]
-            if not character:
-                return self._json(400, {"error": "character is required"})
+            verb = (query.get("verb") or [""])[0]
+            if not character or not verb:
+                return self._json(400, {"error": "character and verb are required"})
             frames = min(int((query.get("frames") or ["24"])[0]), 120)
             stride = min(int((query.get("stride") or ["2"])[0]), 30)
-            return self._json(*render_animation(character, frames, stride))
+            return self._json(*render_animation(character, verb, frames, stride))
         if parsed.path == "/api/review":
             subject = (parse_qs(parsed.query).get("subject") or [""])[0]
             if not subject:

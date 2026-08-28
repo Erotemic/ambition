@@ -80,10 +80,16 @@
       <input type="range" id="take-scrub" min="0" max="0" value="0" style="flex:1;min-width:220px">
       <span class="note mono" id="take-frame"></span>
       <span class="note" id="take-source">sprites: derived</span>
+      <span class="note" id="take-loaded"></span>
     </div>
-    <div class="cols">
+    <div class="cols takes-cols">
+      <div class="panel" id="engine-render-panel">
+        <h2>Engine render</h2>
+        <img id="engine-render" alt="the engine's own picture of this move" style="width:100%;image-rendering:pixelated">
+        <p class="note" id="engine-render-note">select a move to render it</p>
+      </div>
       <div class="panel">
-        <h2>What the engine did</h2>
+        <h2>Diagnostic take</h2>
         <canvas class="hitboxes" id="take-canvas" width="1000" height="560"></canvas>
         <div class="legend">
           <span><i style="background:var(--active)"></i>live hitbox</span>

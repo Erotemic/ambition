@@ -37,6 +37,18 @@ pub fn apply_authored_trapdoors(
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
+    // ⛔⛔ THE SURFACING IS A CLASS-B REMAP AND WENT UNRECORDED. It picks a
+    // position with `ledge_assisted_arrival` — up to `surface_reach` px from
+    // where she was — and writes it with `transit_body`, which is exactly what
+    // blink, dive, mark-recall and the authored teleport all declare. Without
+    // the record an instrument cannot tell this deliberate relocation from
+    // unexplained displacement, and same-frame contention with another Class-B
+    // writer cannot see this one at all.
+    //
+    // ⚠ `Option`, like every other writer here: a minimal test app installs no
+    // log, and a traversal that refuses to run without an instrument would be an
+    // instrument deciding gameplay.
+    mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
     let mut collision = None;
     for message in actions.read() {
@@ -108,6 +120,15 @@ pub fn apply_authored_trapdoors(
                 surfaced,
                 ae::movement::TransitVelocity::Zero,
             );
+            // ⛔ AT THE WRITE, not beside it. Recording where the position is
+            // actually set is what makes the log a record of what happened
+            // rather than of what a system intended.
+            if let Some(log) = class_b.as_mut() {
+                log.record(
+                    message.actor,
+                    ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport,
+                );
+            }
         }
 
         // The look and the sound are the MOVE's, not this system's — the same

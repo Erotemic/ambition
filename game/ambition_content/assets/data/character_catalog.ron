@@ -823,6 +823,13 @@
             manifest: "sprites/perfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
+            // Its MEASURED height, authored 2026-08-28 so the FRAME stops deciding
+            // it. `Floating` has no default, so this row rode
+            // `ldtk_box x collision_scale / FRAME_H` — and a frame is publishing
+            // padding, not a claim about how tall anybody is. Widening the frame to
+            // clear D129's 53 clipped frames shrank the body 67.8 -> 54.8 with no
+            // art change, which is the whole reason this number is written down now.
+            standing_height: Some(67.8),
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
             // and third travellers). Both automatons share one `authored_intrinsics`
@@ -847,6 +854,13 @@
             manifest: "sprites/imperfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(50.0),
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
             // and third travellers). Both automatons share one `authored_intrinsics`
@@ -1420,6 +1434,13 @@
             manifest: "sprites/bear_mauler_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(72.6),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1437,6 +1458,13 @@
             manifest: "sprites/boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(75.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1490,6 +1518,13 @@
             manifest: "sprites/dark_lord_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(90.7),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1543,6 +1578,13 @@
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(86.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1699,6 +1741,13 @@
             manifest: "sprites/hand_saint_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(59.7),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -1769,6 +1818,13 @@
             manifest: "sprites/mantis_lancer_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(73.5),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -1786,6 +1842,13 @@
             manifest: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(92.2),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -1804,6 +1867,13 @@
             manifest: "sprites/ninja_heavy_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(55.3),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -1894,6 +1964,13 @@
             manifest: "sprites/puppy_slug_variant2_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(41.7),
             composition: None,
             default_brain: "wanderer_puppy_slug",
             default_action_set: "peaceful_slither",
@@ -1910,6 +1987,13 @@
             manifest: "sprites/raptor_stalker_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(75.8),
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
@@ -1932,6 +2016,13 @@
             manifest: "sprites/smart_house_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(84.3),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -2020,6 +2111,13 @@
             manifest: "sprites/trex_enemy_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(70.5),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -2073,6 +2171,13 @@
             manifest: "sprites/viking_heavy_shieldmaiden_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(46.5),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -2090,6 +2195,13 @@
             manifest: "sprites/viking_heavy_warrior_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(50.8),
             composition: None,
             default_brain: "melee_brute_brute",
             default_action_set: "brute_lunge",
@@ -2311,6 +2423,13 @@
             manifest: "sprites/puppy_slug_velvet_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(30.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -2341,6 +2460,13 @@
             manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(110.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -2447,6 +2573,13 @@
             manifest: "sprites/le_beast_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(49.1),
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
@@ -3051,6 +3184,13 @@
             manifest: "sprites/hunny_horror_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // Its MEASURED height under the ONE spawn box every level places it
+            // with, authored 2026-08-28 (D129). This row had no default, so its
+            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
+            // rectangle and the sheet's publishing padding, neither of which is a
+            // claim about how tall anybody is. Same output today; the point is
+            // that changing it is now one number.
+            standing_height: Some(154.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

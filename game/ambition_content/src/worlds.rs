@@ -128,7 +128,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .clone();
 
         // ONE manifest, every world: `world_manifest()` declares the sandbox
@@ -278,7 +278,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .clone();
 
         let manifest = world_manifest();
@@ -366,8 +366,8 @@ mod tests {
     #[test]
     fn the_pirate_sky_riders_lower_into_authored_mount_links() {
         use ambition_entity_catalog::placements::CharacterBrain;
-        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
         use ambition_platformer2d_core::AabbExt;
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         const LOOKOUT: &str = "pirate_sky_lookout";
 

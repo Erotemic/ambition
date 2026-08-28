@@ -3,14 +3,13 @@
 //! lookups, so activation is deterministic and replayable. The plan itself is not rollback state;
 //! the active receipt and spawned bodies are.
 
+use ambition_characters::prepared::PreparedCharacterDefinition;
+use ambition_characters::prepared::PreparedCharacterRegistry;
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::Vec2;
 
-use super::{
-    ControllerBinding, MatchParticipantRoster, PreparedCharacterDefinition,
-    PreparedCharacterRegistry, RosterProblem,
-};
+use super::{ControllerBinding, MatchParticipantRoster, RosterProblem};
 
 /// What will drive a fighter, once the fighter exists.
 ///
@@ -363,7 +362,7 @@ pub struct PreparedMatch {
     ///
     /// Silently re-resolving would put a live authority back inside activation, which is the
     /// one property this module exists to remove.
-    cast_generation: super::CharacterCatalogGeneration,
+    cast_generation: ambition_characters::prepared::CharacterCatalogGeneration,
     /// The frozen seat topology the ROSTER was agreed under, carried through so
     /// the activation can cite it.
     ///
@@ -444,7 +443,10 @@ impl PreparedMatch {
     /// Whether the live cast generation differs from the frozen generation this
     /// plan was prepared against. This is a staleness diagnostic only; activation
     /// never re-resolves the plan.
-    pub(crate) fn cast_moved_on(&self, live: super::CharacterCatalogGeneration) -> bool {
+    pub(crate) fn cast_moved_on(
+        &self,
+        live: ambition_characters::prepared::CharacterCatalogGeneration,
+    ) -> bool {
         self.cast_generation != live
     }
 
@@ -474,7 +476,7 @@ impl PreparedMatch {
         Self {
             seats: Vec::new(),
             rules: MatchRules::default(),
-            cast_generation: super::CharacterCatalogGeneration::default(),
+            cast_generation: ambition_characters::prepared::CharacterCatalogGeneration::default(),
             seat_topology: None,
             // A teardown test cares about the OWNER and nothing else: tick zero
             // is a plan every clock has already reached, and no session means
@@ -1309,7 +1311,7 @@ pub fn activate_the_prepared_match(
     // `Option` for the reason given on preparation's own `tick`.
     tick: Option<Res<ambition_time::SimTick>>,
     // not to re-resolve anything: see `PreparedMatch:cast_moved_on`.
-    registry: Option<Res<super::PreparedCharacterRegistry>>,
+    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
 ) {
     let Some(prepared) = prepared else {
         return;

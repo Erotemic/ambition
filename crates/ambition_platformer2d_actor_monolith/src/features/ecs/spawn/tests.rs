@@ -59,25 +59,28 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
 fn body_driven_by(
     template: ambition_characters::brain::CharacterBrainTemplate,
 ) -> (ActorConfig, ambition_platformer2d_core::AbilitySet) {
-    let mut definition =
-        ambition_characters::actor::definition::CharacterDefinition::new("fixture_body", "Fixture Body", "test")
-            .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                run_speed: 155.0,
-                move_style: MoveStyleSpec::Walk,
-                ..Default::default()
-            })
-            .with_autonomous_profile(ambition_characters::brain::BrainProfile {
-                template,
-                aggro_radius: 460.0,
-                attack_range: 150.0,
-                patrol_effort: 0.6774,
-                chase_effort: 1.0,
-                ..Default::default()
-            });
+    let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        "fixture_body",
+        "Fixture Body",
+        "test",
+    )
+    .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+        run_speed: 155.0,
+        move_style: MoveStyleSpec::Walk,
+        ..Default::default()
+    })
+    .with_autonomous_profile(ambition_characters::brain::BrainProfile {
+        template,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
+        ..Default::default()
+    });
     definition.vitals.max_health = Some(4);
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
     let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
         &Default::default(),
@@ -105,13 +108,13 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
-    use ambition_platformer2d_world::placements::PlacementRecord;
     use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
     use ambition_platformer2d_core::Vec2;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::placements::PlacementRecord;
 
     #[derive(bevy::prelude::Component)]
     struct TestLoweredMarker;
@@ -233,7 +236,7 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
 
 /// A body-complete fixture character that declares a SMASH controller policy —
 /// the shape the deleted `medium_striker` row carried.
-fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
+fn smash_fixture_cast() -> ambition_characters::prepared::PreparedCharacterRegistry {
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "fixture_striker",
         "Fixture Striker",
@@ -255,9 +258,9 @@ fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
     definition.vitals.max_health = Some(4);
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(finalized.prepared);
     registry
 }
@@ -671,7 +674,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -692,7 +695,7 @@ mod authored_enemy_reads_its_character {
 
         let generation = app
             .world()
-            .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .generation();
         let world = app.world_mut();
         let mut q = world.query::<&crate::avatar::PersonaBaseline>();
@@ -747,7 +750,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -872,7 +875,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -900,7 +903,7 @@ mod authored_enemy_reads_its_character {
             .patrol_speed
     }
 
-    fn prepared() -> crate::character_runtime::PreparedCharacterRegistry {
+    fn prepared() -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_busy_beaver",
             "Busy Beaver",
@@ -909,16 +912,16 @@ mod authored_enemy_reads_its_character {
         definition.vitals.max_health = Some(9);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
     }
 
     /// A character COMPLETE enough to build a body from: it states how fast it
     /// runs, which is the discriminator `is_complete_body` uses.
-    fn prepared_complete() -> crate::character_runtime::PreparedCharacterRegistry {
+    fn prepared_complete() -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_busy_beaver",
             "Busy Beaver",
@@ -936,9 +939,9 @@ mod authored_enemy_reads_its_character {
         definition.vitals.max_health = Some(9);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
     }
@@ -974,22 +977,25 @@ mod authored_enemy_reads_its_character {
 
     /// The held-item id on the body a complete character builds, if any.
     fn spawn_held_item(item: Option<&'static str>) -> Option<String> {
-        let mut definition =
-            ambition_characters::actor::definition::CharacterDefinition::new("npc_raider", "Cove Raider", "test")
-                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                    run_speed: 230.0,
-                    move_style: ambition_characters::brain::MoveStyleSpec::Walk,
-                    ..Default::default()
-                });
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "npc_raider",
+            "Cove Raider",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 230.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            ..Default::default()
+        });
         if let Some(item) = item {
             definition = definition.with_held_item(item);
         }
         definition.vitals.max_health = Some(4);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
 
         let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
@@ -1015,7 +1021,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -1156,7 +1162,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -1184,14 +1190,14 @@ mod authored_enemy_reads_its_character {
 
     /// The two roads, sharing one harness: `(max health, run speed, contact damage)`.
     fn spawn_with(
-        prepared: crate::character_runtime::PreparedCharacterRegistry,
+        prepared: ambition_characters::prepared::PreparedCharacterRegistry,
         character_id: &'static str,
     ) -> (i32, f32, i32) {
         spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
     }
 
     fn spawn_with_prepared_and_brain(
-        prepared: crate::character_runtime::PreparedCharacterRegistry,
+        prepared: ambition_characters::prepared::PreparedCharacterRegistry,
         // was `Option`, and both callers always passed `Some`. The placement
         // type requires a character now, so the axis this could vary no longer
         // exists.
@@ -1219,7 +1225,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(
@@ -1274,7 +1280,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
                   prepared: bevy::prelude::Res<
-                crate::character_runtime::PreparedCharacterRegistry,
+                ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
                 crate::features::spawn_enemy_with_faction_into(

@@ -14,10 +14,10 @@ use bevy::window::PrimaryWindow;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
-use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 use super::world_flow::{
     build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
@@ -109,9 +109,8 @@ struct StartupAssetInputs<'w, 's> {
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     /// Registered character definitions: a real source of sheets, since a
     /// character may be declared only through `register_character`.
-    prepared_characters: Option<
-        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
-    >,
+    prepared_characters:
+        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]

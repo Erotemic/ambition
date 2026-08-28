@@ -1,3 +1,4 @@
+use ambition_characters::prepared::PreparedCharacterRegistry;
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
 // preparation publishes its registry there — so a fixture that only updated
@@ -12,7 +13,7 @@ use ambition_platformer2d_core::Vec2;
 use super::*;
 use crate::character_runtime::{
     ActiveMatch, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
-    MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
+    MatchParticipantRoster, MatchSeat,
 };
 use ambition_characters::actor::definition::CharacterDefinition;
 
@@ -1628,7 +1629,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     // reload, or a second composition landing on a running session.
     let rebalanced = crate::character_runtime::prepare_and_finalize_for_test(
         CharacterDefinition::new("veteran", "Veteran", "demo").with_action_set(swiping(9)),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     )
     .prepared;
     app.world_mut()
@@ -1958,7 +1959,7 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
 
     let generation = app
         .world()
-        .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+        .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .generation();
     let world = app.world_mut();
     let mut q = world.query_filtered::<(
@@ -2013,7 +2014,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
 
     let generation = app
         .world()
-        .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+        .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .generation();
 
     // The two applied-template records, read together: a body carrying one and
@@ -3194,7 +3195,7 @@ fn a_plan_can_tell_when_the_cast_moved_on_under_it() {
     // registration could never produce this state.
     let latecomer = crate::character_runtime::prepare_and_finalize_for_test(
         CharacterDefinition::new("latecomer", "Latecomer", "demo"),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     )
     .prepared;
     app.world_mut()

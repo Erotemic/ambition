@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `HEAD` (see `git log -1`) (2026-08-26 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-28 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -20,7 +20,273 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-26, LATEST — the mount is free, and four review rows were already finished
+## 2026-08-28, LATEST — where this session left off
+
+⭐ **Tree clean, `main` pushed, submodule at `53dbceb`.** App suite 500/500,
+smash 39/39, 35/35 absence contracts, renderer suite 692 green, dev-tools 14/14.
+
+**The three things a next session would otherwise re-derive:**
+
+1. **The ledger has TWO shapes** and the standard grep sees one — see the section
+   below. The sweep is DONE: 16 table rows checked, 15 already built or stale.
+   Only **D186** (real, eleven fields wide) and **D199** (real, one of three
+   defects fixed) needed work.
+2. **The grid census was re-taken on current main** (`691792ca4`) — the re-measure
+   D187/D190/D191/D193 all asked for. Nobody is silent, nobody is locked at 99%;
+   `smash_george_booul` is the new outlier at 436% and 3809 hitstun ticks in a
+   3600-tick match, and three fighters barely engage (`medic` 39% on 5 of 17
+   verbs, Noether 54%, the Author 87%). The raw sweep is not committed — re-run
+   `every_fighter_on_the_grid_can_fight_its_mirror` to reproduce it.
+3. **A tidy explanation for the quiet three was REFUTED** (`4f60af962`): thrown
+   distance over authored reach does not predict damage — 13 of 15 fighters throw
+   their most-used move from beyond its reach, median 124%. ⛔ do not reopen
+   `awaiting-maintainer-decision.md` entry 35 on it.
+
+▢ **Nearest open work, in the order I would take it**: D199's remaining two
+defects (sweep + wall-before-body ordering, a restructure its row warns against
+doing by call-swap); D246, now unblocked, as ONE slice — `WorldEdgePolicy` alone
+would be a mechanism with no customer; D129's three remaining cut targets, which
+share one expensive technique (canvas grow + pose translation + portrait guide).
+
+⚠ **D249's lesson is homed** in `dev/journals/poisons-that-passed-2026-08-28.md`
+— `docs/reviewer-guide.md` is NOT an agent's to edit (Jon, 2026-08-28).
+
+## 2026-08-28 — the coverage census, and what it says about D203's premise
+
+⭐⭐ **`moveset_export` emits a `coverage` block per move now** —
+`covers_body_fraction`, `covers_crouched_fraction`, `gap_above_px`,
+`gap_below_px`, `reach_px` and the owner's `body_height_px` — which is the step
+D203 named as the one that turns *"hit volumes are authored in absolute numbers"*
+into a pattern. ⛔ it REPORTS and does not judge: Jon wants moves that break the
+rule on purpose, and a pass/fail with no way to declare an exception makes an
+undeclared exception indistinguishable from a mistake.
+
+⛔⛔ **AND RUN OVER THE CAST IT CONTRADICTS THE ROW'S HEADLINE.** A crouch is
+exactly HALF height (`BodyShape::Crouching`), so a crouching opponent occupies
+the lower half of your silhouette. **0 of 21 forward smashes are duckable**; the
+worst still covers 58% of a crouched foe. ⇒ *"every one of them reads as too
+conservative"* is about REACH or the vertical game, not the hole the row
+describes — read the census before authoring a pattern from that premise. ⚠ 94
+of 430 forward-reaching moves touch nothing on a crouching opponent, and almost
+all are up-smashes and aerials; that is what an exception looks like, not a bug.
+
+⭐ **D246 is UNBLOCKED** — its recorded blocker (the `ambition_damage` carve
+reaching main) landed 2026-08-26. **D205 was already built** when it was marked
+unstaffed. Both are table rows, which is the next section's point.
+
+## 2026-08-28 — the ledger has TWO shapes and the standard grep sees one
+
+⛔⛔ **READ THIS BEFORE REGENERATING AN OPEN-WORK LIST.** `queue.md` holds open
+work as `- ▢ **D…` bullet rows AND as rows of its staffing TABLE. The command
+every session uses — `grep -n '^- ▢ \*\*D' docs/planning/queue.md` — returns **7**;
+the table holds **25 more** that are not `✔`/`☑`. ⇒ a session following that
+instruction literally reads a fifth of the ledger, and has been all month.
+
+⭐ Five of the twenty-five are Jon's own asks from 2026-08-25/26 — D203, D205,
+D246, D247, D248. The correction and the two-command replacement are in
+`queue.md`'s own header. (The local `.goal/active.json` is corrected too, but it
+is gitignored and therefore machine-local — the ledger is the durable copy.)
+
+⛔⛔ **THE SWEEP IS DONE, AND FIFTEEN OF SIXTEEN ROWS WERE ALREADY BUILT OR
+STALE**, because nobody has been marking work nobody's list contains:
+
+```text
+built    D183 D188 D192 D195 D196 D197 D198 D205 D250 D251
+stale    D184 (its own "this half is stale" note confirmed)
+         D189 (roster is 21, not 3) · D246 (blocker landed) · D249 (lesson homed)
+REAL     D186 — and eleven fields wide rather than the one it named
+         D199 — one of its three defects fixed; two are its restructure
+```
+
+⇒ **the useful reflex is not "work the row", it is "grep the row first"** — the
+standing rule, with sixteen data points behind it now. ⭐ the two that were real
+are why the sweep was worth doing rather than a formality.
+
+## 2026-08-28 — a thirteen-finding review, and the sharpest was about the previous fix
+
+⭐⭐ **The whole pass is recorded with a sha per finding in
+[`triage/gpt-review-2026-08-28.md`](triage/gpt-review-2026-08-28.md).** Read that
+before re-deriving any of it. Four things belong on the cold-start map:
+
+⛔⛔ **A FIX THAT IS 90% RIGHT SHIPS A TEST DEFENDING THE LAST 10% OF THE BUG.**
+`HeldItemView` was made plural — correct, and one step short. It still asked
+`With<DrivingParticipant>`, and the Admiral's side-B draws `admiral_gun_sword`,
+an id in the IN-HAND art manifest and no other, so in CPU-versus-CPU neither
+gun-sword was drawn by any road. The new test asserted that as intended.
+⇒ presentation follows CUSTODY now, minus the holders the over-hand road claims,
+and `drawn_over_the_hand` is that road's own admission test hoisted out so both
+systems read one sentence.
+
+⛔⛔ **A SPRITE FRAME IS A DIVISOR OF HOW BIG A CHARACTER IS.**
+`catalog_join.rs:154`, for any `body_kind` with no default height:
+`collision = body_px × ldtk_max × collision_scale / FRAME_H`. Un-clipping
+`perfect_cellular_automaton` (D129: 53 cut frames → 0, one constant, no atlas
+cost) shrank its body **67.8 → 54.8 with no art change**. ⇒ D129 cannot be closed
+by widening frames alone; the height must be authored in the same commit. **25 of
+134 rows are on that road**, 19 of them with exactly one spawn box — and
+`npc_puppy_slug` is placed with **eight**.
+
+⭐ **THREE OF THE ACTOR'S MOVES DID NOT DO WHAT THEIR DOCS SAY.** The Trap could
+not steer under the stage (its stated reason for being a kernel mode), the
+Monologue's doc names a helper it does not call, and the wire asked for
+`player.blink` beside the teleport executor's — *inside the exemption written to
+explain why it was not a duplicate*.
+
+⚠ **MOST THIN DEPENDENCY EDGES CANNOT SHRINK THE FOOTPRINT.** Removing
+`ambition_dialog` from the monolith took declared edges 28 → 27 and left the
+closure at 34, because `ambition_conversation` brings it. **Ask
+`cargo tree -i <dep>` first**; only four crates reach the monolith by one path
+(`dev_tools`, `mount`, `items`, `damage`) and the weights are in
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
+
+⭐ **D166's last open half is now
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 35**
+rather than line 9984 of the ledger. A question asked inside a 10,000-line file
+is not asked.
+
+## 2026-08-28 — three sizes in three documents were 3–4× wrong
+
+⛔⛔ **A NUMBER INSIDE REASONING NOBODY DOUBTS IS NEVER RE-CHECKED.** Three
+figures, all describing the same module, all quoted to price the same carve:
+
+```text
+D166 (queue.md)          "brain/fighter is 10,644 lines"      → 3,596
+brain/mod.rs (a comment) "three arms are 22k lines"           → 5,399
+brain_tick.rs            the same 22k, in the file the split   → corrected
+                         produced
+```
+
+⇒ the ARGUMENTS did not depend on them (a floor-crate dispatcher cannot call
+upward at any size), which is exactly why they survived — and a slice looked 3× its
+size for nine days. ⭐ **`wc -l` the thing before quoting a plan's size.**
+
+⭐⭐ **AND THE FIGHTER CARVE IS NOT WHAT ITS NAME SAYS.** The thinking already
+lives above the floor (`ambition_combat::brain::fighter`, 7,398 lines,
+`tick_fighter` dispatched from the monolith); what is stuck in `ambition_characters`
+is the DATA (3,596). ⇒ the slice is *"let the data join its own behaviour"*, and
+the thing pinning it down is one enum variant.
+✔ **two of its four edges closed the same day, with no seam and no wire change**:
+`AttackCandidate`/`AttackBinding`/`AttackVerb`/`ActionLegality` were never fighter
+vocabulary — `AttackBinding`'s own doc says *"the ordinary gesture vocabulary, not
+a fighter-only bypass"* — and live in `brain/attack_kit.rs` now. The ratchet's
+`brain/snapshot.rs` carve-out went with the edge it excused; ⛔ an exclusion kept
+past its edge is a hole, not a record.
+
+⚠ **AND WHEN A CHECKER REFUSES YOUR ADDITION, READ WHAT IT SAYS THE RULE IS.** I
+tried to declare `SurfaceRamp::segments` in the LDtk contract; the Python set
+rejected the new `on_invalid` word and the Rust prover then explained the actual
+constraint — *"only an `open` field may have no rule"* — because a disposition
+describes what happens to a value the GRAMMAR rejects, and that field declares no
+grammar. The omission was CORRECT. Reverted whole.
+
+## 2026-08-28 — the only whole-workspace test build is a disk tool
+
+⛔⛔ **`cargo check -p ambition_app --all-targets` CANNOT SEE ANOTHER CRATE'S TEST
+TARGET, AND NEITHER CAN `cargo build -p <demo>`.** Three broken test targets
+survived both today, from three different changes of mine:
+
+```text
+ambition_touch_input   45 tests, of which `cargo test -p` runs FOUR — the rest
+                       are behind `--all-features`. A small count for a big
+                       crate is the tell.
+ambition_demo_mary_o   named a module I deleted, in `tests/power_loop.rs`; and
+                       its LIB named `platformer2d::content` while enabling no
+                       `content_pack` — red on main, compiling only when another
+                       crate unified the feature on.
+ambition_content       imported a name inside a grouped `use` from a re-export
+                       I removed; reports as *"private struct"*, not as missing.
+```
+
+⭐ **What found all three: `scripts/sweep_target.py --apply`.** Its marking pass
+runs `cargo test --no-run --workspace` to decide what is live, so the disk-reclaim
+tool is the repository's only routine whole-workspace test build. Worth running
+after any change that moves a type or deletes a module.
+⛔⛔ **but not `cargo test --workspace --no-run` by hand** — that filled `/dev/vda1`
+to zero twice today, which is the failure the sweep exists to undo. Run the SWEEP,
+which builds the same graph and then reclaims.
+
+## 2026-08-28 — three carves, and a census that was blind three ways
+
+⭐⭐⭐ **THE ONE SENTENCE FOR D33: A CARVE CENSUS THAT COUNTS `crate::` PATHS IS
+BLIND, AND IT IS BLIND THREE DIFFERENT WAYS.** The candidate table ranked by file
+size and by `crate::` occurrences, and every one of its top entries was wrong.
+What a census misses:
+
+```text
+a FACADE HOP     `crate::features::X` where X already lives in a peer crate.
+                 Naming the owner took the boss module from 2 refs to 0 with no
+                 code moved.
+a GLOB           `use super::*` / `use super::super::*`. Measure by DELETING it
+                 and reading the compile errors — read the WHOLE set, rustc stops
+                 resolving early. Four module sets in a row supplied only bevy's
+                 prelude and floor crates.
+a `super::` PATH neither a `crate::` path nor a glob. Only the MOVE found these:
+                 three reaches that kept `integrate_boss_bodies` behind.
+```
+
+✔ **CARVED TODAY:** `ambition_boss_encounter::ecs` + `::attack_moveset` (the boss
+ECS tick and its moveset authoring), `ambition_combat::ledge_trump` (beside the
+`ledge_trump_pop` rule it enforces), `ambition_combat::attack_support` (604 lines
+following the melee path that left for `combat::moveset` long ago), and
+`ambition_conversation::banter` (a bark is the shortest conversation there is).
+
+⛔ **AND EVERY CARVE MUST GO LOOKING FOR TWO THINGS A COMPILER WILL NOT FIND**:
+a SOURCE-SCANNING guard (`the_reaction_timer_clock_forks_on_purpose` walks one
+crate's `src/` and wants two decay sites — widen the roots, never lower the count)
+and a TYPE PATH HELD AS A STRING (`rollback_coverage.rs` waives resources by
+literal path; poison-verified both ways).
+
+⚠ **the line-count scoreboard cannot tell a carve from a feature** — 110,911 →
+107,354 across three weeks in which six things left. Read the per-module OUTWARD
+EDGE COUNTS instead.
+
+## 2026-08-28 — four notes were the obstacle, not the code
+
+⭐⭐⭐ **THE ONE SENTENCE: FOUR TIMES TODAY THE THING BLOCKING A ROW WAS A
+MEASUREMENT A PREVIOUS AGENT WROTE DOWN, NOT THE TREE.** Same failure mode this
+page already warns about, one level up: a `▢` on finished work is the cheap case,
+and a recorded *reason* that is wrong is the expensive one, because it reads as
+careful.
+
+- **D245's last item was parked as a judgement.** The precedent that settles it
+  was inside the row: `ambition_time` is equally a floor crate and has federated
+  since 2026-08-26. `ambition_platformer2d_core` declares its own 25 rows now, and
+  the runtime's `use body_clusters as bc` alias is GONE — it no longer names a
+  single one of the floor's types. D245 CLOSED.
+- **A recorded design COST was a test's own convenience.** The provider-action
+  proof said a three-variant control-kind mirror was *"the honest price"*. One of
+  the two blocking types is ours, three lines up, fieldless — `Hash` and `Reflect`
+  derive for free. The mirror existed because the check lived inside a `#[test]`.
+- **A twintrack bug note said *"one impulse at construction, not a walk"***, and
+  pointed at the causal recorder as the next step. It is a walk, a twelve-line
+  probe found it, and five tests that had failed since `a945c1de5` are green.
+- **Two review measurements from 2026-08-26 were part stale**: the menu activation
+  seam is not unadopted (both roads already share `PressArm`), and four parity
+  rows said absent about work that shipped last week.
+
+⭐⭐ **THE PROVIDER-ACTION ROAD IS OPEN** (D242's item, the one `tracks.md`
+names). Register an action the engine has never heard of, bind it, press the key,
+get a `SemanticActionPressed` back — no `Any`, no `TypeId`, no variant added to
+the 35-variant enum. ⚠ what remains is PRESENTABLE, and re-measuring that changed
+its shape too: `ControlSlot` and `TouchActionButton` are descriptions of hardware,
+not arbitrary limits, so a provider action becomes presentable by being ASSIGNED a
+slot rather than by widening one.
+
+⛔⛔ **A QUEUED COMPONENT INSERT LEAVES ONE TICK UNDER THE OLD POLICY.** The
+laboratory twin's whole bug: adoption QUEUES `DrivingParticipant`, the seat lands
+a flush later, and one tick of her life runs as a seatless `Passive` stroller.
+⚠ and the first fix sampled the wrong moment — correcting her inside the adoption
+reads a body that has not taken the step yet, and prints a line that looks like
+success. `Added<Marker>` is where that correction belongs.
+
+⚠ **A SHIPPED USER SETTING CAN GUARD NOTHING.** `MenuTapMode` defaults to
+`SingleTapWithDestructiveGuard` and its own doc names *"a stray touch on Quit"* —
+and only the index-addressed helper consulted it, so the pause menu's Abandon /
+Quit to Title / Quit to Desktop all fired on the first release. One policy now,
+generic over an opaque row identity. ⇒ **when a setting has arms, count the
+readers, not the writers.**
+
+## 2026-08-26 — the mount is free, and four review rows were already finished
 
 ⭐⭐⭐ **THE ONE SENTENCE: FOUR OF THE SIX OPEN LEDGER ROWS I RE-READ TODAY WERE
 FINISHED AND STILL MARKED OPEN.** D237, D238, D239 and D179 all closed by

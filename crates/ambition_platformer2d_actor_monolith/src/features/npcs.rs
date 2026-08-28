@@ -22,7 +22,6 @@ pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 /// patrol range.
 pub const NPC_TALK_RADIUS: f32 = 80.0;
 
-
 /// Engine-generic on-hit barks for an interactable actor whose catalog row
 /// authors no `barks.on_hit` pool (an unnamed mob, or a placed NPC carrying no
 /// `character_id`). Named per-character voices live in the catalog — this is
@@ -61,7 +60,7 @@ pub(crate) fn resolve_npc_brain(
     catalog: &CharacterCatalog,
     // An EMPTY registry is a legal, meaningful value: no character states a default, which is
     // what this path assumed before definitions could state one.
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     interactable: &Interactable,
     spawn_world_x: f32,
     // The body being built, so a character whose default policy is a
@@ -215,7 +214,7 @@ pub(crate) fn npc_hit_bark_line<'a>(
     // AD8: the prepared cast, so a REGISTERED-only character is hurt in its own
     // voice. Without it the floor for this situation was engine-generic English
     // — see the fall-through below.
-    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
     strikes: i32,
 ) -> &'a str {
@@ -242,7 +241,7 @@ pub(crate) fn npc_hostile_bark_line<'a>(
     catalog: &'a CharacterCatalog,
     // AD8: as above — the moment a character turns on you is the worst one to
     // say it in somebody else's words.
-    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
 ) -> &'a str {
     if let Some(cid) = npc_character_id(interactable) {
@@ -266,7 +265,7 @@ pub(crate) fn npc_ambient_bark_line<'a>(
     // The prepared cast, when this composition has one. A REGISTERED-only
     // character has no catalog row to hold pools, so without this it is mute —
     // which is what four Hall pedestals were.
-    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
     situation: BarkSituation,
     rotation: u32,
@@ -421,12 +420,12 @@ mod tests {
     /// One registered character, prepared and published, with no `App` around it.
     fn registry_with(
         definition: ambition_characters::actor::definition::CharacterDefinition,
-    ) -> crate::character_runtime::PreparedCharacterRegistry {
+    ) -> ambition_characters::prepared::PreparedCharacterRegistry {
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
     }
@@ -445,8 +444,12 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
         let npc = interactable();
         let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
-                .with_voice(["only line", "second line"]),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "voice",
+                "Voice",
+                "another_game",
+            )
+            .with_voice(["only line", "second line"]),
         );
 
         assert_eq!(
@@ -493,8 +496,12 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(AMBIENT_ONLY));
         let npc = interactable();
         let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
-                .with_voice(["ow, my paint", "that is enough"]),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "voice",
+                "Voice",
+                "another_game",
+            )
+            .with_voice(["ow, my paint", "that is enough"]),
         );
 
         // VACUITY FIRST: without the registry these are the engine's lines, which
@@ -536,8 +543,12 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
         let npc = interactable();
         let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
-                .with_voice(["floor line"]),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "voice",
+                "Voice",
+                "another_game",
+            )
+            .with_voice(["floor line"]),
         );
 
         assert_eq!(
@@ -591,7 +602,9 @@ pub fn speak_conversation_cut_barks(
         &ambition_combat::ActorInteraction,
     )>,
     character_catalog: Option<bevy::prelude::Res<CharacterCatalog>>,
-    prepared_cast: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared_cast: Option<
+        bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
+    >,
     mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     for request in requests.read() {
@@ -701,7 +714,7 @@ mod default_profile_tests {
     /// the repo ever authored and which is now deleted.
     fn registry_naming(
         profile: Option<ambition_characters::brain::CharacterBrainTemplate>,
-    ) -> crate::character_runtime::PreparedCharacterRegistry {
+    ) -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_puppy_slug",
             "Puppy Slug",
@@ -711,9 +724,9 @@ mod default_profile_tests {
             profile.map(ambition_characters::brain::BrainProfile::from_template);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
     }
@@ -778,7 +791,7 @@ mod default_profile_tests {
         let catalog = assembled_catalog();
         for registry in [
             registry_naming(None),
-            crate::character_runtime::PreparedCharacterRegistry::default(),
+            ambition_characters::prepared::PreparedCharacterRegistry::default(),
         ] {
             let (brain, _) = resolve_npc_brain(
                 &catalog,

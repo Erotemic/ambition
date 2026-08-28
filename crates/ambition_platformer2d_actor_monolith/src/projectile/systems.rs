@@ -543,7 +543,7 @@ pub fn step_projectiles(
             // EACH. The ponytail despawned on its first body contact, which made
             // every bit of the landed return-flight work unobservable in
             // combat — she threw it, it hit somebody, and it never came back
-            // (GPT 5.6, 2026-08-27). ⛔ AND SIMPLY DELETING THE DESPAWN IS THE
+            //. ⛔ AND SIMPLY DELETING THE DESPAWN IS THE
             // WRONG FIX: a shot that survives contact overlaps its victim for as
             // many ticks as it takes to pass through, and damages on every one.
             //
@@ -567,7 +567,32 @@ pub fn step_projectiles(
             }
             let mut struck = false;
             let mut reflected = false;
-            for victim in &victims {
+            // ⛔⛔ NEAREST FIRST, AND IT USED TO BE QUERY ORDER. This loop `break`s
+            // on the first row that qualifies, and `&victims` is a Bevy query —
+            // archetype order, which is not a promise and is not reproduced by a
+            // rollback resimulation. So a shot arriving on two overlapping
+            // bodies in one tick damaged whichever the archetype happened to
+            // list first, and a resim could pick the other one. Damage is
+            // rollback-authoritative state; deciding it by iteration order is
+            // deterministically wrong.
+            //
+            // ⭐ ORDERED BY GEOMETRY, which resimulation DOES reproduce exactly:
+            // distance from where the shot started this leg, so the body it
+            // reached first is the body it hits. ⚠ ties break on the victim's
+            // own position rather than on its entity — an entity index is not
+            // stable across a rewind and a position is, for the same reason the
+            // ordering itself is trustworthy.
+            let leg_start = kin.pos - kin.vel * dt;
+            let mut ordered: Vec<_> = victims.iter().collect();
+            let sort_key = |c: ae::Vec2| ((c - leg_start).length(), c.x, c.y);
+            ordered.sort_by(|a, b| {
+                let (ad, ax, ay) = sort_key(a.aabb.aabb().center());
+                let (bd, bx, by) = sort_key(b.aabb.aabb().center());
+                ad.total_cmp(&bd)
+                    .then(ax.total_cmp(&bx))
+                    .then(ay.total_cmp(&by))
+            });
+            for victim in &ordered {
                 if Some(victim.entity) == owner_entity {
                     continue;
                 }

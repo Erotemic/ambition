@@ -9,12 +9,18 @@
 //! dialogue domain, and keeping it here was the last thing pinning `ambition_dialog` into
 //! `features`.
 
-use super::*;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::*` over the whole
+// `features/ecs` module — a channel no `crate::` grep sees. Measured by
+// deleting it: bevy's prelude, `ambition_vfx`'s two message types and
+// `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb, FeatureId, FeatureName,
 };
 use ambition_encounter::switches::{SwitchActivated, SwitchFeature, SwitchOn};
 use ambition_persistence::quest::QuestAdvanceRequested;
+use ambition_platformer2d_core::AabbExt;
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use bevy::prelude::*;
 
 // the ONLY dialogue name this module has left, and it is a port rather than a
 // type from `ambition_dialog`. See `ambition_conversation::opening`.

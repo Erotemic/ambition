@@ -188,6 +188,7 @@ fn charge_shot() -> MoveSpec {
             // engine and wrong for this character: at maximum the shot now
             // WAITS, and getting hit banks it instead of wasting it.
             stores: true,
+            roots: true,
         }),
         charge_gesture: ChargeGesture::Special,
         repeat: None,

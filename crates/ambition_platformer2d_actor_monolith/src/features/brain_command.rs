@@ -240,7 +240,7 @@ pub fn apply_brain_commands(
     // policy: that policy is recovered by identity, never from the mutable
     // `ActorConfig::brain_profile` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut commands_in: MessageReader<BrainCommand>,
     mut actors: Query<(
         Entity,
@@ -372,7 +372,7 @@ fn apply_catalog_mode(
     catalog: &CharacterCatalog,
     // The prepared cast, so the peaceful projection asks the CHARACTER whether
     // it flies before it asks the catalog's silhouette. See `peaceful_config`.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
     kit: Option<&CombatKit>,

@@ -76,6 +76,11 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
             // so two fighters wanting it should get the same number until one of
             // them has a reason not to.
             ledge_assist: 44.0,
+            // ⭐ THE SAME WINDOW THE ROBOT GETS, and the same reasoning as the
+            // ledge assist beside it: intangibility through a vanish is a
+            // property of teleporting, not of either fighter, so two fighters
+            // wanting it get the same number until one has a reason not to.
+            intangible_s: 0.12,
             depart_vfx: "four_point_glint".to_string(),
             arrive_vfx: "four_point_glint".to_string(),
         },
@@ -84,13 +89,16 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
     // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
     // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same
-    // cue down a second road, and Author's Revision requested it twice (GPT 5.6,
-    // 2026-08-27). The executor is the one authority, which is what it already
+    // cue down a second road, and Author's Revision requested it twice
+    //. The executor is the one authority, which is what it already
     // is for every other teleport in the game.
     //
-    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS. The Actor's trap and
-    // wire and Alice's side-B author the cue for moves that do NOT run the
-    // teleport executor; those are the cue being chosen, not duplicated.
+    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is
+    // whether the move RUNS THE EXECUTOR — not whose move it is. The Actor's
+    // trap (`author_trapdoor`) and Alice's side-B (an `impulse`) never do, so
+    // their cue is chosen rather than duplicated. ⛔ any move authored through
+    // `author_teleport` is on the other side of that line and must not carry
+    // one.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. This move is
     // inserted AFTER `SmashRepertoire::into_contract` has lowered the table it
     // joins, so nothing else will stamp `gates.recovery` on it — and an up-B

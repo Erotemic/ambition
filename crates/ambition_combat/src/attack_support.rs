@@ -12,6 +12,12 @@
 //!
 //! Pure sim + message emission — it writes `SfxMessage`/`VfxMessage` *facts* and
 //! holds no render dependency.
+//!
+//! ⭐ MOVED OUT OF THE ACTOR MONOLITH 2026-08-28 (D33). 604 lines reaching it
+//! through no `crate::` path, no `super::` path and no glob — the melee lifecycle
+//! had already left for `combat::moveset`, and what stayed behind was support for
+//! a path that lives here. The one dependency it brought is
+//! `ambition_platformer2d_world`, a clean downward edge.
 
 use bevy::prelude::{Entity, Query, Res};
 
@@ -19,11 +25,11 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
-use ambition_combat::BodyMelee;
-use ambition_combat::{AttackIntent, AttackView};
+use crate::BodyMelee;
+use crate::{AttackIntent, AttackView};
 
+use crate::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_shared_tangle::frame_env as physics;
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::SfxMessage;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -258,8 +264,8 @@ pub fn pogo_moveset_off_world_orbs(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut hitboxes: Query<(
         Entity,
-        &ambition_combat::strike::Hitbox,
-        &mut ambition_combat::on_hit::HitboxOnHit,
+        &crate::strike::Hitbox,
+        &mut crate::on_hit::HitboxOnHit,
     )>,
     boxes: Query<&ae::CenteredAabb>,
     mut owners: Query<(
@@ -275,7 +281,7 @@ pub fn pogo_moveset_off_world_orbs(
     // (hitbox, owner, world box, rise, the cue the effect authored)
     let pogo: Vec<(Entity, Entity, ae::Aabb, f32, Option<ambition_sfx::SfxId>)> = hitboxes
         .iter()
-        .filter(|(_, _, on_hit)| on_hit.effect.key == ambition_combat::on_hit::POGO_BOUNCE_KEY)
+        .filter(|(_, _, on_hit)| on_hit.effect.key == crate::on_hit::POGO_BOUNCE_KEY)
         .filter(|(_, _, on_hit)| !on_hit.world_fired())
         .filter_map(|(hb_entity, hitbox, on_hit)| {
             let owner_box = boxes.get(hitbox.owner).ok()?;
@@ -284,8 +290,8 @@ pub fn pogo_moveset_off_world_orbs(
                 hb_entity,
                 hitbox.owner,
                 world_box,
-                ambition_combat::on_hit::pogo_rise_from(&on_hit.effect),
-                ambition_combat::on_hit::pogo_sfx_from(&on_hit.effect),
+                crate::on_hit::pogo_rise_from(&on_hit.effect),
+                crate::on_hit::pogo_sfx_from(&on_hit.effect),
             ))
         })
         .collect();
@@ -325,7 +331,6 @@ pub fn pogo_moveset_off_world_orbs(
     }
 }
 
-
 /// Source the body's melee hitbox from the sprite manifest — the box authored
 /// and shown by `debug-hitboxes` — so the debug overlay draws the visible blade
 /// through the same data-driven path bosses use via the App-local
@@ -334,7 +339,7 @@ pub fn pogo_moveset_off_world_orbs(
 /// `AttackSpec` volume. Consumed by `dev/debug_overlay/gizmos.rs`.
 pub fn player_attack_hitbox(
     character_catalog: &CharacterCatalog,
-    authored_volumes: &ambition_combat::authored_volumes::AuthoredAttackVolumeResolver,
+    authored_volumes: &crate::authored_volumes::AuthoredAttackVolumeResolver,
     sprite_character_id: Option<&str>,
     view: &AttackView,
     intent: AttackIntent,
@@ -398,8 +403,8 @@ mod tests {
     /// checked "the attack is gone" would pass against that.
     #[test]
     fn a_helpless_fighter_keeps_its_drift_and_loses_everything_else() {
+        use crate::feel::Platformer2dFeelTuningMonolith;
         use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -452,8 +457,8 @@ mod tests {
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
+        use crate::feel::Platformer2dFeelTuningMonolith;
         use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
         let dt = 1.0 / 60.0;
 
         // Normal: jump held + burst + blink-release route to the movement edges.

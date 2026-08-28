@@ -7,7 +7,7 @@
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{Brain, BrainProfile};
 
-use crate::character_runtime::PreparedCharacterRegistry;
+use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_combat::actor_tuning::ActorConfig;
 
 /// The character-authored autonomous policy, if the prepared cast provides one.

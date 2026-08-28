@@ -169,7 +169,7 @@ pub struct ActorConstructionContext<'a> {
     /// degraded one: it means no character states a default, which is exactly
     /// what this path assumed before a definition could state one. Every
     /// existing caller keeps its behaviour by saying nothing.
-    pub prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    pub prepared: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     /// The published controller policies, so a PLACEMENT may name one
     /// (`EnemySpawnSpec::brain_profile`). Same `Option` contract as the cast: an
     /// absent registry means this composition publishes no shared policies,
@@ -229,7 +229,7 @@ impl<'a> ActorConstructionContext<'a> {
         // defines, so stating a default sentinel instead makes every plan a
         // stale-looking stranger to the epoch it will commit under.
         active_binding: Option<&crate::rooms::ActiveContentBinding>,
-        prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+        prepared: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
         brain_profiles: Option<
             &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
         >,
@@ -258,7 +258,7 @@ impl<'a> ActorConstructionContext<'a> {
     #[must_use]
     pub fn with_prepared(
         mut self,
-        prepared: &'a crate::character_runtime::PreparedCharacterRegistry,
+        prepared: &'a ambition_characters::prepared::PreparedCharacterRegistry,
     ) -> Self {
         self.prepared = Some(prepared);
         self
@@ -932,7 +932,7 @@ pub fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     mob: EncounterMobSeed<'_>,

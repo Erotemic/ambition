@@ -528,3 +528,39 @@ fn flying_suppresses_ladder_auto_climb() {
         "with flight off, Up on a ladder climbs",
     );
 }
+
+/// ⛔⛔ A MODE THIS DRIVER DOES NOT OWN SURVIVES IT, and `Submerged` did not.
+///
+/// The Actor's trapdoor drops her under the stage by setting
+/// `BodyMode::Submerged` and schedules a surfacing beat a second later. This
+/// driver's tail resolves Standing-or-Crouching from the stick and writes it
+/// unconditionally, so she was stood back up on the NEXT tick: drawn, hittable,
+/// gravity and geometry restored, and blinking the move's i-frames for a full
+/// second while she stood on the boards she had just dropped through. Every
+/// visible symptom of that bug was one missing arm in a hand-kept list.
+///
+/// ⛔ THE ARMS STRADDLE THE STICK. A driver that ignored input entirely would
+/// pass an arm that only checks a neutral stick — and Down HELD is the press
+/// that started the move, so it is the reading most likely to be live when the
+/// mode is set.
+#[test]
+fn a_submerged_body_is_not_stood_back_up_by_the_posture_driver() {
+    for (down, what) in [(false, "stick neutral"), (true, "down still held")] {
+        let (mut app, player) = build_body_mode_test_app();
+        app.world_mut()
+            .get_mut::<BodyModeState>(player)
+            .unwrap()
+            .body_mode = ae::BodyMode::Submerged;
+        set_control(&mut app, player, |c| {
+            if down {
+                c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0);
+            }
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<BodyModeState>(player).unwrap().body_mode,
+            ae::BodyMode::Submerged,
+            "a body under the stage must still be under it with the {what}",
+        );
+    }
+}

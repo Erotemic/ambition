@@ -145,7 +145,7 @@ impl SmashRoster {
     ///
     /// Both halves are needed and neither implies the other.
     pub fn assemble(
-        registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     ) -> Self {
         let present = |id: &str| registry.get(id).is_some();
         Self(

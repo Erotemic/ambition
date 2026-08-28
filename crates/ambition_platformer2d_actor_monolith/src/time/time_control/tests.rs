@@ -31,18 +31,35 @@ fn the_reaction_timer_clock_forks_on_purpose() {
         }
     }
 
-    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // ⛔ TWO ROOTS, because the BOSS half left this crate. The boss ECS tick moved
+    // to `ambition_boss_encounter` on 2026-08-28, and a scan rooted at one crate
+    // then found ONE site and reported *"the scan is broken"* — which it was. The
+    // invariant did not move; the code did. ⚠ each site is reported relative to
+    // its OWN root, so `CONTROLLED` below still matches on its own path.
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src = manifest.join("src");
     let mut files = Vec::new();
     walk(&src, &mut files);
+    let boss_src = manifest
+        .parent()
+        .expect("the crate sits inside `crates/`")
+        .join("ambition_boss_encounter")
+        .join("src");
+    let mut boss_files = Vec::new();
+    walk(&boss_src, &mut boss_files);
 
     // The one site that decays on the UNSCALED clock, and why.
     const CONTROLLED: &str = "control/input_systems.rs";
 
     let mut scaled = Vec::new();
     let mut unscaled = Vec::new();
-    for path in &files {
+    for (path, root) in files
+        .iter()
+        .map(|p| (p, &src))
+        .chain(boss_files.iter().map(|p| (p, &boss_src)))
+    {
         let rel = path
-            .strip_prefix(&src)
+            .strip_prefix(root)
             .ok()
             .and_then(|p| p.to_str())
             .unwrap_or("<non-utf8>")

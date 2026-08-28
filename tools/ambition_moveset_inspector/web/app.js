@@ -72,22 +72,36 @@ function takesCarryArt() {
 }
 
 const RENDERS = new Map();
-function renderedFramesFor(character) {
-  if (!character) return null;
-  const have = RENDERS.get(character);
+function renderedFramesFor(character, verb) {
+  /* ⛔⛔ KEYED ON CHARACTER **AND VERB**. This asked for a character alone, and
+   * the endpoint photographed a fighter STANDING — so every move of a fighter
+   * shared one cache entry of somebody doing nothing. A move renderer that
+   * ignores which move was selected is the bug this whole campaign was about. */
+  if (!character || !verb) return null;
+  const key = `${character}/${verb}`;
+  const have = RENDERS.get(key);
   if (have !== undefined) return have;
-  RENDERS.set(character, null);
-  fetch(`/api/render?character=${encodeURIComponent(character)}&frames=24&stride=2`)
+  RENDERS.set(key, null);
+  fetch(`/api/render?character=${encodeURIComponent(character)}&verb=${encodeURIComponent(verb)}&frames=24&stride=2`)
     .then((r) => r.json())
     .then((doc) => {
       if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
         /* Remember the refusal so the page does not re-ask on every redraw. */
-        RENDERS.set(character, {
+        /* ⛔ THE COMPOSITE KEY, like every other write here. This stored the
+         * refusal under `character` alone while lookups use `character/verb`,
+         * so a failure was never found again and the page re-asked the endpoint
+         * on every redraw — a failed GPU render re-spawning the renderer once a
+         * frame. */
+        RENDERS.set(key, {
           available: false,
           reason: doc && doc.reason,
           hint: doc && doc.hint,
         });
-        renderStatus(character);
+        renderStatus(key);
+        /* ⛔ AND REPAINT. The panel is showing "rendering…" and the answer has
+         * arrived; without this it keeps saying that until something else
+         * happens to redraw. */
+        if (state.view === "takes") drawTake();
         return;
       }
       const images = doc.urls.map((u) => {
@@ -96,25 +110,33 @@ function renderedFramesFor(character) {
         img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
         return img;
       });
-      RENDERS.set(character, {
+      RENDERS.set(key, {
+        ...doc,
         available: true,
         images,
         stride: doc.stride,
         renderer: doc.renderer,
         built: doc.renderer_built,
       });
-      renderStatus(character);
+      renderStatus(key);
+      /* ⛔⛔ REPAINT ON THE MANIFEST, NOT ONLY ON AN IMAGE `load`. A cached image
+       * can be `complete` before its listener is attached, so the load event
+       * never fires and the panel keeps saying "rendering…" with every frame
+       * already in the page. The manifest arriving IS the moment there is
+       * something to draw. */
+      if (state.view === "takes") drawTake();
     })
     .catch((error) => {
-      RENDERS.set(character, { available: false, reason: String(error) });
-      renderStatus(character);
+      RENDERS.set(key, { available: false, reason: String(error) });
+      renderStatus(key);
+      if (state.view === "takes") drawTake();
     });
   return null;
 }
 
 /* Say WHICH picture is on screen. A view that silently swaps between engine
  * frames and a CPU approximation is a view whose fidelity nobody can trust. */
-function renderStatus(character) {
+function renderStatus(key) {
   const node = $("#take-source");
   if (!node) return;
   /* ⛔⛔ A RECORDING WITH NO ART MAKES THE ART BUTTON LOOK BROKEN. Pressing it
@@ -126,18 +148,23 @@ function renderStatus(character) {
     node.title = "cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>";
     return;
   }
-  const have = RENDERS.get(character);
+  const have = RENDERS.get(key);
   if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
   /* WHICH BINARY DREW THIS, AND WHEN IT WAS BUILT. Nothing in this tool builds,
    * so that stamp is the only thing separating a current picture from one taken
    * before an hour of engine changes. On the unavailable path, the build command
    * is the useful half — a reason without a remedy is just a complaint. */
-  node.textContent = have.available
-    ? `sprites: rendered by the engine${have.built ? ` (capture_scene built ${have.built})` : ""}`
-    : `sprites: derived — ${have.reason || "engine render unavailable"}`;
-  node.title = have.available
-    ? have.renderer || ""
-    : have.hint || "";
+  /* ⛔ AVAILABLE IS NOT THE SAME AS SHOWN. A mismatched or unbound render is a
+   * perfectly available manifest that the panel REFUSES to display, and this
+   * said "rendered by the engine" beside a panel saying UNBOUND. */
+  const refused = have.available && (have.mismatch || have.outcome === "unbound"
+    || have.outcome === "missed" || have.outcome === "not_prepared");
+  node.textContent = refused
+    ? `sprites: derived — the engine render is ${have.outcome || "a mismatch"} for this verb`
+    : have.available
+      ? `sprites: rendered by the engine${have.built ? ` (moveset_render built ${have.built})` : ""}`
+      : `sprites: derived — ${have.reason || "engine render unavailable"}`;
+  node.title = refused ? (have.reason || "") : have.available ? (have.renderer || "") : (have.hint || "");
 }
 
 const SHEETS = new Map();
@@ -187,13 +214,19 @@ function rowCursorsFor(take) {
   let cached = ROW_CURSORS.get(take);
   if (cached) return cached;
   cached = [];
-  /* body identity within a take is its label + seat: the entity id is not
-   * stable across a rollback and the label is what a reader recognises. */
+  /* ⛔⛤ JOIN ON `id`, NOT ON WHAT A READER SEES. This keyed on `label + seat`,
+   * and the recorder now says plainly that `label` is reader-facing and joins
+   * nothing: a take deliberately seats TWO FIGHTERS WEARING THE SAME CHARACTER,
+   * so the label names both of them. `id` is `SimId`, the engine's deterministic
+   * identity, independent of Bevy entity allocation.
+   *
+   * ⭐ THE OLD KEY IS THE FALLBACK, not the rule: a recording made before `id`
+   * existed still animates rather than collapsing two bodies into one cursor. */
   const held = new Map();
   take.frames.forEach((frame, i) => {
     const perFrame = new Map();
     for (const b of frame.bodies) {
-      const id = `${b.label}#${b.seat ?? "-"}`;
+      const id = b.id || `${b.label}#${b.seat ?? "-"}`;
       const key = b.art ? `${b.art[0]}:${b.art[1]}` : null;
       const prev = held.get(id);
       const ticks = prev && prev.key === key ? prev.ticks + 1 : 0;
@@ -282,6 +315,15 @@ let state = {
   takeFighter: null,
   takeFrame: 0,
   playing: false,
+  /* ⛔⛔ WHICH VIEW IS ON SCREEN, and it was READ IN TWO PLACES AND WRITTEN IN
+   * NONE. Both the sprite-sheet loader and the engine-render loader redraw with
+   * `if (state.view === "takes") drawTake()`, and against a field nothing ever
+   * assigned that condition is false forever — so an image arriving after the
+   * last draw NEVER repainted. The engine panel sat on "rendering special_up…"
+   * with all 24 PNGs already loaded in the page, and a sheet that finished late
+   * left boxes where its art should have been. Nothing but a browser could find
+   * this: every endpoint was correct and every file was served. */
+  view: "fighter",
 };
 
 /* ---------- small helpers ---------- */
@@ -908,6 +950,26 @@ function renderTakeList() {
     return;
   }
   const fighters = takeFighters();
+  /* ⭐ SAY WHAT WAS LOADED, where the picker is. "Only one fighter" is either a
+   * recording with one fighter or a stale fetch, and those are indistinguishable
+   * from a combo box. Naming the count makes the difference readable without
+   * opening a tab or a console. */
+  const note = $("#take-loaded");
+  if (note) {
+    /* ⭐ AGAINST THE GRID, not in isolation. "2 fighters" invites "why not all
+     * of them"; "2 of 21 grid fighters recorded" answers it, and naming the
+     * command means the answer is actionable rather than just honest. */
+    const grid = (BUNDLE && BUNDLE.smash_grid) || [];
+    const missing = grid.filter((id) => !fighters.includes(id));
+    note.textContent =
+      `${TAKES.takes.length} takes · ${fighters.length}` +
+      (grid.length ? ` of ${grid.length} grid fighters` : " fighters") +
+      ` recorded: ${fighters.join(", ")}`;
+    note.title = missing.length
+      ? `not recorded: ${missing.join(", ")}\n\n` +
+        "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"
+      : "the whole grid is recorded";
+  }
   /* ⭐ FOLLOW THE FIGHTER THE READER WAS ALREADY LOOKING AT. Arriving from the
    * Fighter view and being shown somebody else is the tool losing the reader's
    * place — and it is why this view felt unrelated to the rest of the page. */
@@ -980,6 +1042,18 @@ function drawTake() {
    * hitbox be placed on it. Until then the derived sprites below are drawn in
    * the take's own space, which is at least self-consistent. */
 
+  /* ⭐⭐ THE ENGINE'S OWN PICTURE, IN ITS OWN PANEL. It is NOT composited onto
+   * this canvas: the render is a whole-scene shot in the CAMERA's space and the
+   * boxes below are in the TAKE's world space, and drawing one over the other
+   * put a strike nowhere near its fighter — the thing Jon saw as "a room with a
+   * hitbox drawn randomly on it". Side by side gives the real art AND accurate
+   * diagnostics without conflating two coordinate systems.
+   *
+   * ⭐ SYNCHRONISED BY `action_tick`, not by absolute `sim_tick`. The recorded
+   * take and the GPU run are separate sessions with no shared origin; what they
+   * share is how far into the EXERCISE each frame is. */
+  syncEngineRender(t, state.takeFrame);
+
   /* platforms */
   ctx.fillStyle = "#232733";
   for (const p of t.platforms || []) {
@@ -992,7 +1066,7 @@ function drawTake() {
      * legible on top of the sprite; drawing it under would hide the very
      * alignment somebody opened this view to check. */
     const cursor = rowCursorsFor(t)[state.takeFrame];
-    const ticksOnRow = cursor ? cursor.get(`${b.label}#${b.seat ?? "-"}`) : 0;
+    const ticksOnRow = cursor ? cursor.get(b.id || `${b.label}#${b.seat ?? "-"}`) : 0;
     const drew = state.takeArt !== false && drawBodyArt(ctx, b, X, Y, scale, ticksOnRow);
     ctx.strokeStyle = subject ? "#6fb3ff" : b.kind === "summon" ? "#47b78a" : "#7d8598";
     /* An unfilled box once the art is under it: a translucent wash over a sprite
@@ -1078,6 +1152,72 @@ function takeFacts(t, frame) {
   $("#take-facts").replaceChildren(kv);
 }
 
+/* Show the engine's rendered frame for wherever the scrubber is.
+ *
+ * ⛔ A MISMATCHED SEQUENCE IS REFUSED. If the engine played a different move
+ * than the verb asked for, showing it here would label one move with another's
+ * name — the single worst thing a reference tool can do. The panel says so and
+ * the diagnostic canvas beside it carries on. */
+function syncEngineRender(take, frameIndex) {
+  const img = $("#engine-render");
+  const note = $("#engine-render-note");
+  if (!img || !note) return;
+  /* An image with no `src` is a BROKEN IMAGE ICON in every browser, which reads
+   * as "this failed to load" rather than "there is nothing to show yet". */
+  const nothing = (text) => { img.removeAttribute("src"); img.hidden = true; note.textContent = text; };
+  const verb = takeVerb(take);
+  if (!verb) return nothing("this take names no verb, so there is nothing to render");
+  const doc = renderedFramesFor(take.character, verb);
+  if (!doc) return nothing(`rendering ${verb}…`);
+  if (!doc.available) {
+    return nothing(`engine render unavailable — ${doc.reason || "no renderer"}` +
+      (doc.hint ? ` · ${doc.hint}` : ""));
+  }
+  /* ⛔⛔ FOUR WAYS A RENDER CAN FAIL TO BE THIS MOVE, and showing the pictures
+   * for any of them labels one move with another's name — the single worst thing
+   * a reference tool can do. `outcome` is the renderer's own word for which one
+   * it was; `mismatch` is kept for a manifest recorded before it existed. */
+  if (doc.outcome === "not_prepared") {
+    return nothing(
+      `NOT PREPARED — the posture ${verb} needs could not be established, so the ` +
+      `engine answered a different button. Showing the diagnostic take only.`);
+  }
+  if (doc.outcome === "unbound") {
+    return nothing(`UNBOUND — ${doc.reason || `${take.character} binds no move to ${verb}`}`);
+  }
+  if (doc.mismatch || doc.outcome === "missed") {
+    return nothing(`MISMATCH — ${doc.reason || "the engine played another move"}`);
+  }
+  /* Nearest shot at or before this action tick: the take records every tick and
+   * the render samples by stride, so most take frames have no exact shot. */
+  const shots = doc.shots || [];
+  let pick = shots[0];
+  for (const shot of shots) {
+    if (shot.action_tick <= frameIndex) pick = shot; else break;
+  }
+  if (!pick) return nothing("this render took no pictures");
+  const url = (doc.urls || [])[shots.indexOf(pick)];
+  if (url && img.getAttribute("src") !== url) img.setAttribute("src", url);
+  img.hidden = false;
+  note.textContent =
+    `${doc.renderer || "moveset_render"} · ${pick.file} · action tick ${pick.action_tick}` +
+    ` · sim tick ${pick.sim_tick}` +
+    (doc.renderer_built ? ` · built ${doc.renderer_built}` : "") +
+    /* ⛔ A RUN THAT NEVER REACHED THE RELEASE photographed a charge that never
+     * paid out, and a viewer scrubbing its last frame would read that as the
+     * whole move. */
+    (doc.release_reached === false
+      ? ` · ⚠ stopped at action tick ${doc.last_action_tick} of ${doc.hold_ticks}, before the release`
+      : "") +
+    (doc.cached_only ? " · ⚠ CACHED, no renderer on this machine" : "");
+}
+
+/* Which repertoire verb this take drove. The recorder files takes under the
+ * verb it pressed, which is exactly what the renderer needs. */
+function takeVerb(take) {
+  return take.verb || take.label_verb || null;
+}
+
 /* ---------- status ---------- */
 
 /* ⭐⭐ THE PAGE EXPLAINS ITSELF. All of this was already answerable on the
@@ -1114,6 +1254,7 @@ async function renderStatusView() {
   const b = doc.bundle || {};
   panel("Data", [
     ["Bundle", b.exists ? `${b.fighters} fighters, ${b.sheets} sheets, ${b.schema} (built ${b.built})` : "MISSING — run moveset_export"],
+    ["Recording", "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"],
     ["Takes", doc.takes && doc.takes.exists
       ? `${doc.takes.takes} takes recorded ${doc.takes.built} — ` +
         `${doc.takes.with_art}/${doc.takes.bodies} bodies with art, ` +
@@ -1137,8 +1278,8 @@ async function renderStatusView() {
       ["Status", info.found ? `built ${info.built}` : "NOT BUILT"],
       ["Path", info.found ? info.path : info.looked_in.join("  |  ")],
       ["Build", info.build_command],
-    ], info.found ? "" : name === "capture_scene"
-      ? "Without it, Engine Takes falls back to CPU-derived sprites and says so."
+    ], info.found ? "" : name === "moveset_render"
+      ? "Without it, Engine Takes shows the diagnostic canvas alone and says why."
       : name === "moveset_takes"
         ? "Without it there are no recorded takes to look at."
         : "Without it the bundle already on disk is served as-is.");
@@ -1149,6 +1290,7 @@ async function renderStatusView() {
 
 /* ---------- shell ---------- */
 function showView(name) {
+  state.view = name;
   for (const b of document.querySelectorAll("nav.tabs button")) b.classList.toggle("on", b.dataset.view === name);
   for (const v of document.querySelectorAll(".view")) v.classList.toggle("on", v.id === `view-${name}`);
   if (name === "compare") renderCompare();
@@ -1160,7 +1302,17 @@ function showView(name) {
 
 async function boot() {
   try {
-    const res = await fetch("data/moveset_bundle.json");
+    /* ⛔⛔ CACHE-BUSTED, NOT TRUSTED TO HEADERS. A `no-store` header only helps a
+     * browser that has not ALREADY cached the file, and this bundle and the
+     * takes beside it were served for a day with no cache directives at all. A
+     * stale 5.7MB takes.json is invisible and total: the fighter list shows the
+     * characters that recording had, the art shows what it carried, and every
+     * one of those is a phantom bug in the tool rather than in the data on disk.
+     *
+     * ⭐ IT IS A LOCALHOST DEV TOOL READING GENERATED ARTIFACTS. Always-fresh is
+     * the only correct policy, and a query parameter enforces it without asking
+     * anybody to know about a hard reload. */
+    const res = await fetch(`data/moveset_bundle.json?t=${Date.now()}`);
     BUNDLE = await res.json();
   } catch (err) {
     $("#bundle-meta").innerHTML =
@@ -1171,7 +1323,7 @@ async function boot() {
     `${BUNDLE.characters.length} fighters · ${BUNDLE.smash_grid.length} on the grid · cast generation ${BUNDLE.cast_generation} · ${BUNDLE.sim_hz}Hz`;
 
   try {
-    const res = await fetch("data/takes/takes.json");
+    const res = await fetch(`data/takes/takes.json?t=${Date.now()}`);
     if (res.ok) TAKES = await res.json();
   } catch (_) { /* takes are optional; the static views stand alone */ }
 

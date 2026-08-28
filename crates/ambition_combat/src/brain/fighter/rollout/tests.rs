@@ -32,6 +32,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         lift_speed: 0.0,
         lift_at_s: 0.0,
         lift_side: 0.0,
+        recovery_route: Default::default(),
     }
 }
 
@@ -88,8 +89,8 @@ fn profile(rollout_k: u32, rollout_depth: u32, read_weight: f32) -> FighterBrain
 
 fn attack(id: &str, frames: MoveFrameData) -> AttackOption {
     AttackOption {
-        binding: ambition_characters::brain::fighter::options::AttackBinding {
-            verb: ambition_characters::brain::fighter::options::AttackVerb::Basic,
+        binding: ambition_characters::brain::attack_kit::AttackBinding {
+            verb: ambition_characters::brain::attack_kit::AttackVerb::Basic,
             direction: ambition_characters::actor::attack_gesture::AttackDir::Forward,
         },
         move_id: id.to_string(),

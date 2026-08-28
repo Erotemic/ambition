@@ -55,6 +55,72 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
     *query.single(app.world()).unwrap()
 }
 
+/// PROBE — what moves the laboratory twin, who is supposed to be at rest.
+///
+/// Five tests in this file failed on her drift from at least `a945c1de5` until
+/// 2026-08-28, and this probe is what found the cause. Kept because the numbers
+/// below are the reproduction, and because two earlier readings of them were
+/// wrong in instructive ways.
+///
+/// ⭐⭐ WHAT SHE ACTUALLY DID: appeared on tick 3 already carrying
+/// `vel = (-95.98, 0)`, drag ate it over seven ticks, and she stopped 6.16px LEFT
+/// of the `LAB_POS` she is placed at. Her `y` reads `446.015` from the first tick
+/// she is visible — 3.98px above the authored 450, with zero `y` velocity — which
+/// is construction resolving a standing centre and is not part of the defect.
+///
+/// ⛔ FIRST WRONG READING: *"the traveler is standing inside her, and two bodies
+/// separate"*. Refuted by a control — moving the room's spawn point 96px away
+/// leaves her drift BYTE-IDENTICAL. That control was right and worth keeping.
+///
+/// ⛔⛔ SECOND WRONG READING, and it survived longer because the first control
+/// made it look careful: *"ONE IMPULSE AT CONSTRUCTION, not a force and not a
+/// walk — the velocity only decays"*. It IS a walk. Spawning a second body from
+/// the same request shape 420px away showed it accelerating -96, -194, -294, -398,
+/// -506 and pinning at the -540 cap, walking left forever: a seatless `Passive`
+/// NPC is what the engine calls an "undescribed-pool STROLLER". The decay in this
+/// probe was never drag on an impulse — it was drag on the ONE stroll step she
+/// gets before her seat arrives.
+///
+/// ⇒ **the gap is a commands flush.** `adopt_the_laboratory_twin` QUEUES
+/// `DrivingParticipant`, and one tick of her life happens before it lands.
+///
+/// ⛔⛔ AND THE FIRST FIX FOR THAT WAS THE WRONG SHAPE. A system on
+/// `Added<LaboratoryTwin>` put her `x` and velocity back the tick after
+/// adoption — which repairs the two fields it knows about and leaves whatever
+/// else a brute's tick touched. She is authored `CharacterBrainTemplate::
+/// StandStill` now (`BrainProfile::default()` is `MeleeBrute`, so a character
+/// that authors no profile is CONSTRUCTED as one), so the tick before her seat
+/// lands has nothing to do and there is nothing to undo. Poisoning the template
+/// back to `MeleeBrute` fails five arms in this file.
+#[test]
+#[ignore = "PROBE, print-only: what moves the laboratory twin"]
+fn probe_what_moves_the_laboratory_twin() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    for tick in 0..50 {
+        app.update();
+        let lab = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&BodyKinematics, With<LaboratoryTwin>>();
+            q.iter(app.world()).next().copied()
+        };
+        let traveler = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&BodyKinematics, With<TravelerTwin>>();
+            q.iter(app.world()).next().copied()
+        };
+        if let Some(lab) = lab {
+            println!(
+                "TWIN {tick:>3} lab pos={:?} vel={:?} | traveler pos={:?}",
+                lab.pos,
+                lab.vel,
+                traveler.map(|t| t.pos)
+            );
+        }
+    }
+}
+
 fn laboratory_body(app: &mut App) -> BodyKinematics {
     let mut query = app
         .world_mut()

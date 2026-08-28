@@ -21,8 +21,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 
-use crate::features::ecs::attack::engine_input_from_actor_control;
 use ambition_characters::actor::BodyCombat;
+use ambition_combat::attack_support::engine_input_from_actor_control;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the
@@ -185,7 +185,7 @@ pub fn integrate_home_body(
     };
 
     // A home body's collision box IS its footprint, so it passes no envelope.
-    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+    ambition_combat::body_geometry::publish_body_footprint(
         hurtbox,
         clusters.kinematics.pos,
         clusters.kinematics.size,

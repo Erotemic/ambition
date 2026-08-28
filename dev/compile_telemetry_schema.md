@@ -327,12 +327,33 @@ Its vocabulary is **reused, not replaced** — it got there first and it is righ
 | field | meaning |
 |---|---|
 | `seconds` | total wall time |
-| `executed_seconds` | the part of `seconds` spent RUNNING tests (libtest's own "finished in Xs") — so `seconds - executed_seconds` is the build graph |
-| `per_job[]` | `{job, command, ok, seconds, executed_seconds}` |
+| `executed_seconds` | the part of `seconds` spent RUNNING tests, summed over the jobs whose runner REPORTED one |
+| `unclassified_seconds` | wall time in jobs whose runner reported nothing — neither build nor run |
+| `build_seconds` | `seconds - unclassified_seconds - executed_seconds`; the build graph of the MEASURED jobs only |
+| `per_job[]` | `{job, command, ok, seconds, executed_seconds}` — `executed_seconds` is `null` for a job whose runner reported none |
 | `jobs` / `passed` / `exhaustive` / `filtered` | plan and outcome |
 | `finished` | float epoch — **superseded** by the envelope's `recorded_at`, kept for the 75 existing rows |
 
-⚠ **`executed_seconds` counts LIBTEST only**, so the pytest jobs read 0.0.
+⚠ **`executed_seconds` is `null` when the runner did not report one**, and that
+is different from `0`. libtest prints `finished in Xs` on stdout, which the
+runner pipes; **nextest prints `Summary [ Xs ]` on stderr, which is deliberately
+left attached** so cargo's progress bar keeps rendering — so a nextest job has no
+duration to read. Writing `0.0` there made every such job claim it spent no time
+running tests, and the derived build-vs-execution split then attributed the whole
+wall clock to the build. A reader must treat `null` as unmeasured and exclude it
+from that split rather than summing it as a zero. Pytest jobs are `null` for the
+same reason: nothing parsed a duration out of them.
+
+⛔⛔ **AND THE PER-JOB NULL WAS NOT ENOUGH ON ITS OWN — the aggregates undid it,
+2026-08-28.** Three roads summed `executed_seconds or 0.0` (the cost-ledger row,
+the status payload, the human report) and `compile_report.py` derived
+`build_seconds = seconds - executed_seconds`, so an unmeasured job's ENTIRE wall
+clock landed in the build column and was stated as a measurement. ⇒ the split is
+three numbers now, and `build_seconds` is derived only from the jobs that
+reported. ⚠ **rows written before this date carry no `unclassified_seconds` and
+an `executed_seconds` that may be a zero standing in for "unknown"** — those
+zeros are read as-is rather than reinterpreted, because guessing which historical
+zeros were real would rewrite the series the report exists to show.
 
 The `seconds` / `executed_seconds` split is the same idea as the unit ledger's
 `frontend_seconds` / `codegen_seconds`: a total, and the split that matters. They

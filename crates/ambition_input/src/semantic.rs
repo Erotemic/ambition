@@ -2,9 +2,12 @@
 //!
 //! [`SemanticActionId`] lets capabilities register actions without extending the
 //! closed leafwing device-action enum. [`ActionRegistry`] is authoritative for
-//! each id and its control kind. Capability actions can currently be declared
-//! and routed through existing device actions; independent leafwing bindings
-//! still use the concrete device-action type.
+//! each id and its control kind, and mints the [`ProviderAction`] key that binds
+//! one — so a registered action is now describable AND bindable without touching
+//! the device enum.
+//!
+//! ⚠ Not yet ROUTED: nothing installs an `InputMap<ProviderAction>` in production,
+//! because two maps means two reader paths and a rule for which wins a conflict.
 
 use std::collections::BTreeMap;
 
@@ -24,7 +27,13 @@ impl std::fmt::Display for SemanticActionId {
 /// What SHAPE of input an action carries. Mirrors leafwing's control kinds,
 /// because a binding UI and a prompt both need to know whether they are drawing
 /// a button or a stick.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// ⭐ `Hash` and `Reflect` are here for [`ProviderAction`], which carries this as
+/// a FIELD because leafwing's `input_control_kind` takes `&self` — the key has to
+/// know its own shape rather than look it up. They cost nothing on a fieldless
+/// enum, and they are what keeps the provider key from needing a second copy of
+/// this vocabulary beside it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bevy::prelude::Reflect)]
 pub enum ActionControlKind {
     Button,
     Axis,
@@ -136,6 +145,188 @@ impl ActionRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.actions.is_empty()
+    }
+
+    /// Mint the leafwing key for a registered action — the ONLY way to get one.
+    ///
+    /// ⭐ THE REGISTRY MINTS IT BECAUSE THE REGISTRY OWNS THE KIND. `ProviderAction`
+    /// hashes on both id and kind, so two keys built by hand for one action could
+    /// disagree about its shape and silently miss each other in an `InputMap`. The
+    /// registry already enforces one kind per id ([`ActionRegistry::register`]),
+    /// and routing every key through it is what extends that rule to the bindings.
+    ///
+    /// `None` for an unregistered id: a key for an action nobody declared is a
+    /// binding to nothing, and the honest place to notice is here.
+    #[cfg(feature = "input")]
+    pub fn key(&self, id: SemanticActionId) -> Option<ProviderAction> {
+        self.get(id).map(|def| ProviderAction {
+            id: def.id.0.to_string(),
+            kind: def.kind,
+        })
+    }
+}
+
+/// A registered action AS A LEAFWING KEY — the second map's keyspace.
+///
+/// ⭐⭐ THE POINT IS THAT IT IS NOT AN ENUM. `InputMap<A: Actionlike>` is already
+/// generic, so a composition installs one of these beside the engine's map and a
+/// capability binds an action the engine has never heard of — with no `Any`, no
+/// `TypeId`, no service locator, and no edit to the 35-variant device enum. Every
+/// previous escape from that enum reached for erasure and was refused twice.
+///
+/// ⛔ MINT IT WITH [`ActionRegistry::key`], never by hand. The kind is part of the
+/// hash, so a hand-built key that guesses wrong binds into a slot nothing reads.
+///
+/// ⚠ WHAT THIS DOES NOT YET DO: nothing installs a map over it in production, so
+/// a provider action is bindable and not yet routed. Two maps means two reader
+/// paths and a rule for which wins a conflict, and that rule is the next slice —
+/// see `docs/planning/engine/participant-action-system.md`.
+#[cfg(feature = "input")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, bevy::prelude::Reflect)]
+pub struct ProviderAction {
+    /// The registered [`SemanticActionId`], owned because a key must outlive the
+    /// registration's `&'static str` in a reflected, serialisable map.
+    pub id: String,
+    /// Carried, not looked up: leafwing's `input_control_kind` takes `&self`, so
+    /// the key has to know its own shape with no registry in hand.
+    pub kind: ActionControlKind,
+}
+
+#[cfg(feature = "input")]
+impl leafwing_input_manager::Actionlike for ProviderAction {
+    fn input_control_kind(&self) -> leafwing_input_manager::InputControlKind {
+        match self.kind {
+            ActionControlKind::Button => leafwing_input_manager::InputControlKind::Button,
+            ActionControlKind::Axis => leafwing_input_manager::InputControlKind::Axis,
+            ActionControlKind::DualAxis => leafwing_input_manager::InputControlKind::DualAxis,
+        }
+    }
+}
+
+/// The physical bindings a composition gives its provider actions.
+///
+/// ⭐ SEPARATE FROM [`ActionRegistry`] ON PURPOSE. The registry DESCRIBES an
+/// action — id, kind, contexts, doc — and describing is what a capability can do
+/// alone. What key it sits on is the COMPOSITION's answer, the same split the
+/// engine's own vocabulary already has between the registry and `BindingRecipe`.
+/// A capability that shipped its own key would be deciding a thing the game it is
+/// installed into owns.
+///
+/// Empty is the honest default: a composition that binds nothing routes nothing,
+/// and every action stays reachable by whoever writes its message directly.
+#[cfg(feature = "input")]
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct ProviderBindings(pub leafwing_input_manager::prelude::InputMap<ProviderAction>);
+
+/// A registered provider action was pressed by a seat this frame.
+///
+/// ⛔ AN EDGE, NOT A LEVEL. `just_pressed`, so a held key is one message and not
+/// one per frame — the same rule the menu and pointer channels beside it keep.
+///
+/// The consumer is the capability that registered the action: it reads this and
+/// writes whatever its own request message is. That indirection is the point —
+/// `ambition_input` never learns what a pulse is, and the capability never learns
+/// what a keyboard is.
+#[cfg(feature = "input")]
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SemanticActionPressed {
+    pub id: SemanticActionId,
+    pub participant: crate::participant::ParticipantId,
+}
+
+/// Give every seat the composition's provider map, and keep it current.
+///
+/// ⭐ A SYNC RATHER THAN A SPAWN EDIT, because a capability may be installed after
+/// the seats exist and a binding change must reach seats that are already sitting
+/// there. The two spawn sites in `input_systems.rs` build their tuples from the
+/// engine's `BindingRecipe`, which knows nothing about provider actions; making
+/// them know would put a capability's concern in the seat constructor.
+#[cfg(feature = "input")]
+pub fn install_provider_bindings_on_seats(
+    mut commands: bevy::prelude::Commands,
+    bindings: Option<bevy::prelude::Res<ProviderBindings>>,
+    seats: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            Option<&leafwing_input_manager::prelude::InputMap<ProviderAction>>,
+        ),
+        bevy::prelude::With<crate::participant::InputParticipant>,
+    >,
+) {
+    use bevy::prelude::DetectChanges;
+    let Some(bindings) = bindings.as_ref() else {
+        return;
+    };
+    if !bindings.is_changed() && seats.iter().all(|(_, map)| map.is_some()) {
+        return;
+    }
+    for (seat, _) in &seats {
+        commands.entity(seat).insert((
+            bindings.0.clone(),
+            leafwing_input_manager::prelude::ActionState::<ProviderAction>::default(),
+        ));
+    }
+}
+
+/// Publish this frame's provider-action presses as semantic edges.
+///
+/// ⛔ THE REGISTRY IS THE FILTER, and that is what makes the id in the message a
+/// `&'static str` rather than the key's owned `String`. A key whose id no longer
+/// resolves is an action the composition stopped installing, and routing it would
+/// deliver a press to a capability that is no longer there.
+#[cfg(feature = "input")]
+pub fn publish_provider_action_edges(
+    registry: Option<bevy::prelude::Res<InstalledActions>>,
+    // ⛔⛔ THE CONTEXT IS NOT ADVICE, AND THIS SYSTEM USED TO IGNORE IT.
+    // `SemanticActionDef::contexts` says in its own doc that *"a router asks it
+    // to decide whether a press means anything here"* — and this router, the
+    // only one a provider's action has, checked that the action existed and that
+    // its key went down and published. So a gameplay action minted by a
+    // capability fired while its seat was in the pause menu, in dialogue, at the
+    // launcher or in a cutscene: a different authority model from every built-in
+    // control, granted by being new rather than by anyone deciding it.
+    //
+    // ⛔ NOT `Option`. `ambition_input`'s own plugin inits this resource, so an
+    // absent one means the input plugin is not mounted — and refusing every
+    // provider edge in silence is exactly how a missing wire becomes the rule
+    // nobody wrote. A composition that publishes provider edges without a
+    // context authority should fail where it is assembled, not go quiet in play.
+    contexts: bevy::prelude::Res<crate::participant::SeatInputContexts>,
+    seats: bevy::prelude::Query<(
+        &crate::participant::InputParticipant,
+        &leafwing_input_manager::prelude::ActionState<ProviderAction>,
+    )>,
+    mut pressed: bevy::prelude::MessageWriter<SemanticActionPressed>,
+) {
+    let Some(registry) = registry else {
+        return;
+    };
+    // ⛔ SEAT ORDER IS NOT QUERY ORDER. Two seats pressing the same action on one
+    // frame must publish in the same order every run, and Bevy's iteration order
+    // is not a promise. Sorted by the seat's own id, which is the only stable
+    // name a participant has.
+    let mut rows: Vec<_> = seats.iter().collect();
+    rows.sort_by_key(|(participant, _)| participant.id.0);
+    for (participant, actions) in rows {
+        // An UNRESOLVED seat owns nothing, which is the ordinary state of a
+        // couch slot with no pad — so this is the same answer as "captured by a
+        // menu", and both are the absence of permission rather than an error.
+        let seat = contexts.for_seat(participant.id.slot());
+        for key in actions.get_just_pressed() {
+            let Some(def) = registry
+                .all()
+                .find(|def| def.id.0 == key.id && def.kind == key.kind)
+            else {
+                continue;
+            };
+            if !def.contexts.iter().any(|id| seat.allows(*id)) {
+                continue;
+            }
+            pressed.write(SemanticActionPressed {
+                id: def.id,
+                participant: participant.id,
+            });
+        }
     }
 }
 
@@ -521,6 +712,216 @@ mod tests {
         Box::leak(name.to_string().into_boxed_str())
     }
 
+    /// A REGISTERED ACTION REACHES A SEAT'S PRESS — the whole road, in one app.
+    ///
+    /// ⭐⭐ WHAT THIS PINS is the claim the plan could previously only argue:
+    /// register an action the engine has never heard of, bind it to a key, press
+    /// the key, and get a semantic edge back — with no `Any`, no `TypeId`, and no
+    /// variant added to the 35-variant device enum. The capability demo's module
+    /// doc named the missing half of exactly this.
+    ///
+    /// ⛔ THE PRESS IS HELD ACROSS TWO FRAMES on purpose. A one-frame press cannot
+    /// tell an edge channel from a level one, and this channel owes the edge rule:
+    /// a held key is one message, not one per frame.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_registered_action_bound_to_a_key_comes_back_as_a_seat_press() {
+        use bevy::prelude::*;
+        use leafwing_input_manager::prelude::*;
+
+        const PULSE: SemanticActionDef = SemanticActionDef {
+            id: SemanticActionId("pulse"),
+            capability: "pulse",
+            kind: ActionControlKind::Button,
+            contexts: GAMEPLAY,
+            doc: "Fire a shockwave",
+        };
+        let mut registry = ActionRegistry::with_engine_actions();
+        registry.register(PULSE).expect("a fresh id");
+        let key = registry.key(PULSE.id).expect("just registered");
+
+        let mut bindings = ProviderBindings::default();
+        bindings.0.insert(key, KeyCode::KeyG);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(InputManagerPlugin::<ProviderAction>::default())
+            .insert_resource(InstalledActions(registry))
+            .insert_resource(bindings)
+            .add_message::<SemanticActionPressed>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                install_provider_bindings_on_seats
+                    .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            )
+            .add_systems(Update, publish_provider_action_edges);
+        // ⛔ THE SEAT CLAIMS GAMEPLAY, through the real resolver. Before the
+        // router consulted the context this test constructed none at all and
+        // still expected an edge, so the bypass was locked into the suite rather
+        // than caught by it.
+        app.init_resource::<crate::participant::SeatInputContexts>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                crate::participant::resolve_active_input_context,
+            );
+        let mut claims = crate::participant::ParticipantContexts::default();
+        claims.declare(crate::participant::ContextClaim::capturing(
+            GAMEPLAY_CONTEXT,
+            0,
+        ));
+        app.world_mut()
+            .spawn((crate::participant::InputParticipant::primary(), claims));
+
+        // A frame with nothing pressed: the seat acquires the map, and an
+        // unpressed binding must not announce itself.
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "a bound action nobody pressed published an edge"
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app),
+            vec![SemanticActionPressed {
+                id: SemanticActionId("pulse"),
+                participant: crate::participant::ParticipantId::PRIMARY,
+            }],
+            "a key bound to a provider-minted action did not reach the seat"
+        );
+
+        // Still held. `Bevy`'s `ButtonInput` keeps it pressed across the frame,
+        // so this is the level-vs-edge question asked honestly.
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "holding the key republished the press every frame"
+        );
+    }
+
+    /// ⛔⛔ A CAPTURED SEAT DOES NOT FIRE A GAMEPLAY ACTION, and the same press
+    /// that DOES fire one is used to say so.
+    ///
+    /// A refusal arm that never establishes the permitted case proves only that
+    /// something is off — it cannot tell "the context refused" from "the binding
+    /// never worked". So this presses `KeyG` in gameplay, proves the edge, opens
+    /// the pause context over the same seat, presses again and proves silence,
+    /// then hands gameplay back and proves it resumes.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_seat_captured_by_a_menu_publishes_no_gameplay_edge() {
+        use crate::participant::PAUSE_CONTEXT;
+        use bevy::prelude::*;
+        use leafwing_input_manager::prelude::*;
+
+        const PULSE: SemanticActionDef = SemanticActionDef {
+            id: SemanticActionId("pulse"),
+            capability: "pulse",
+            kind: ActionControlKind::Button,
+            contexts: GAMEPLAY,
+            doc: "Fire a shockwave",
+        };
+        let mut registry = ActionRegistry::with_engine_actions();
+        registry.register(PULSE).expect("a fresh id");
+        let key = registry.key(PULSE.id).expect("just registered");
+        let mut bindings = ProviderBindings::default();
+        bindings.0.insert(key, KeyCode::KeyG);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(InputManagerPlugin::<ProviderAction>::default())
+            .insert_resource(InstalledActions(registry))
+            .insert_resource(bindings)
+            .init_resource::<crate::participant::SeatInputContexts>()
+            .add_message::<SemanticActionPressed>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                (
+                    install_provider_bindings_on_seats
+                        .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+                    crate::participant::resolve_active_input_context,
+                ),
+            )
+            .add_systems(Update, publish_provider_action_edges);
+        let seat = app
+            .world_mut()
+            .spawn((
+                crate::participant::InputParticipant::primary(),
+                crate::participant::ParticipantContexts::default(),
+            ))
+            .id();
+
+        // Through the REAL resolver: a surface declares a capturing claim and
+        // retracts it, which is what a pause menu does.
+        let own = |app: &mut App, context: InputContextId| {
+            let mut claims = app
+                .world_mut()
+                .get_mut::<crate::participant::ParticipantContexts>(seat)
+                .expect("the seat keeps its claims");
+            claims.retract(GAMEPLAY_CONTEXT);
+            claims.retract(PAUSE_CONTEXT);
+            claims.declare(crate::participant::ContextClaim::capturing(context, 0));
+        };
+
+        own(&mut app, GAMEPLAY_CONTEXT);
+        app.update();
+        let _ = drain_presses(&mut app);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app).len(),
+            1,
+            "the permitted case must work, or the refusal below proves nothing"
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::KeyG);
+        app.update();
+        let _ = drain_presses(&mut app);
+
+        own(&mut app, PAUSE_CONTEXT);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "a gameplay action fired while the seat was captured by the pause menu"
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::KeyG);
+        app.update();
+        let _ = drain_presses(&mut app);
+
+        own(&mut app, GAMEPLAY_CONTEXT);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app).len(),
+            1,
+            "the edge did not come back when the seat got gameplay again"
+        );
+    }
+
+    /// Drain the semantic edges published this frame.
+    #[cfg(feature = "input")]
+    fn drain_presses(app: &mut bevy::prelude::App) -> Vec<SemanticActionPressed> {
+        app.world_mut()
+            .resource_mut::<bevy::prelude::Messages<SemanticActionPressed>>()
+            .drain()
+            .collect()
+    }
+
     /// A PROVIDER'S ACTION CAN BE A LEAFWING KEY — checked, not argued.
     ///
     /// ⭐⭐ THE OPEN QUESTION THIS ANSWERS is why a registered action is
@@ -545,47 +946,8 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn a_registry_minted_key_satisfies_leafwing_without_erasure() {
-        use bevy::prelude::*;
+        use bevy::prelude::KeyCode;
         use leafwing_input_manager::prelude::*;
-
-        // ⛔ THE KIND IS MIRRORED, and THAT IS THE COST THIS CHECK FOUND.
-        // Neither the registry's `ActionControlKind` (no `Hash`, no `Reflect`)
-        // nor leafwing's `InputControlKind` (no `Eq`, no `Hash`) can be a field
-        // of a hashed, reflected key. A real implementation carries a small
-        // mirror beside the registry — three variants, derived — rather than
-        // widening either upstream type.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
-        enum ProviderControlKind {
-            Button,
-            Axis,
-            DualAxis,
-        }
-
-        impl From<ActionControlKind> for ProviderControlKind {
-            fn from(kind: ActionControlKind) -> Self {
-                match kind {
-                    ActionControlKind::Button => Self::Button,
-                    ActionControlKind::Axis => Self::Axis,
-                    ActionControlKind::DualAxis => Self::DualAxis,
-                }
-            }
-        }
-
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
-        struct ProviderAction {
-            id: String,
-            kind: ProviderControlKind,
-        }
-
-        impl Actionlike for ProviderAction {
-            fn input_control_kind(&self) -> InputControlKind {
-                match self.kind {
-                    ProviderControlKind::Button => InputControlKind::Button,
-                    ProviderControlKind::Axis => InputControlKind::Axis,
-                    ProviderControlKind::DualAxis => InputControlKind::DualAxis,
-                }
-            }
-        }
 
         // Minted from a registration, exactly as a provider would reach it.
         const GRAPPLE: SemanticActionDef = SemanticActionDef {
@@ -597,13 +959,9 @@ mod tests {
         };
         let mut registry = ActionRegistry::with_engine_actions();
         registry.register(GRAPPLE).expect("a fresh id");
-        let def = registry
-            .get(SemanticActionId("grapple"))
-            .expect("just registered");
-        let key = ProviderAction {
-            id: def.id.0.to_string(),
-            kind: def.kind.into(),
-        };
+        let key = registry
+            .key(SemanticActionId("grapple"))
+            .expect("the registry mints a key for what it registered");
 
         let mut map = InputMap::default();
         map.insert(key.clone(), KeyCode::KeyG);
@@ -612,6 +970,9 @@ mod tests {
             "a provider-minted key bound nothing, so the second-map route does \
              not reach `InputMap` after all"
         );
+        // An id nobody registered mints nothing: a key for an undeclared action
+        // is a binding to a slot no reader will ever poll.
+        assert!(registry.key(SemanticActionId("nonesuch")).is_none());
         assert_eq!(key.input_control_kind(), InputControlKind::Button);
     }
 }

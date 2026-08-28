@@ -1,5 +1,6 @@
 //! A4: the cast's sources are authorized by PRODUCTION code, not by a test.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
 // preparation publishes its registry there — so a fixture that only updated
@@ -8,8 +9,8 @@
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
 use super::*;
-use ambition_characters::actor::definition::CharacterDefinition;
 use crate::character_runtime::{CharacterDefinitionAppExt, CharacterRuntimePlugin};
+use ambition_characters::actor::definition::CharacterDefinition;
 use ambition_sfx::PresentationSourceId;
 
 /// One gameplay session owning the speakers, with `ambition_platformer2d` as the primary.
@@ -723,7 +724,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
     // reload, or a second composition's registry landing on a running session.
     let replacement = crate::character_runtime::prepare_and_finalize_for_test(
         CharacterDefinition::new("hero", "Hero", "demo").with_moveset(one_move("new_swing")),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     )
     .prepared;
     app.world_mut()
@@ -779,7 +780,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     // Same id, new cast, authoring NOTHING.
     let stripped = crate::character_runtime::prepare_and_finalize_for_test(
         CharacterDefinition::new("armored", "Armored", "demo"),
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     )
     .prepared;
     app.world_mut()
@@ -809,9 +810,11 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
 fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     let mut app = session_app();
     let mut shaped = CharacterDefinition::new("serpent", "Serpent", "demo").with_sheet("robot");
-    shaped.body = Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
-        world_per_pixel: 2.5,
-    });
+    shaped.body = Some(
+        ambition_characters::actor::definition::BodySource::SpriteAuthored {
+            world_per_pixel: 2.5,
+        },
+    );
     app.register_character(shaped);
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo").with_sheet("robot"));
 

@@ -298,3 +298,62 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
         wrong.join("\n"),
     );
 }
+
+/// WHAT EACH LEGACY-ROAD CHARACTER MEASURES UNDER ITS OWN SPAWN BOX.
+///
+/// ⛔⛔ `print_the_two_render_size_publishers` asks every character the same
+/// question with `LDTK_PLACEMENT` — a generic humanoid rectangle no boss room
+/// uses — and on the legacy road (`body_kind` with no default height) the answer
+/// is `body_px × ldtk_max × collision_scale / FRAME_H`, so it scales with the
+/// box. Quoting that table as "today's size" for a boss would resize it.
+///
+/// ⭐ THIS ASKS THE PRODUCTION FUNCTION WITH THE REAL BOX, so the number a row
+/// should author is read rather than derived. The boxes are the ones every
+/// `.ldtk` under `game/ambition_map_assets` places these characters with,
+/// measured 2026-08-28; each of these nineteen has exactly ONE, which is what
+/// makes authoring its height a road-swap and not a decision.
+#[test]
+#[ignore]
+fn print_the_height_each_legacy_row_already_has() {
+    const BOXES: &[(&str, f32, f32)] = &[
+        ("npc_bear_mauler", 48.0, 80.0),
+        ("npc_boss", 48.0, 80.0),
+        ("npc_dark_lord", 48.0, 80.0),
+        ("npc_flying_spaghetti_monster_boss", 48.0, 80.0),
+        ("npc_hunny_horror_boss", 48.0, 80.0),
+        ("npc_mantis_lancer", 48.0, 80.0),
+        ("npc_mockingbird_boss", 48.0, 80.0),
+        ("npc_raptor_stalker", 48.0, 80.0),
+        ("npc_smart_house", 48.0, 80.0),
+        ("npc_smirking_behemoth_boss", 48.0, 80.0),
+        ("npc_trex_enemy", 48.0, 80.0),
+        ("imperfect_cellular_automaton", 32.0, 48.0),
+        ("npc_hand_saint", 32.0, 48.0),
+        ("npc_le_beast", 32.0, 48.0),
+        ("npc_ninja_heavy", 32.0, 48.0),
+        ("npc_puppy_slug_variant2", 32.0, 48.0),
+        ("npc_puppy_slug_velvet", 32.0, 48.0),
+        ("npc_viking_heavy_shieldmaiden", 32.0, 48.0),
+        ("npc_viking_heavy_warrior", 32.0, 48.0),
+    ];
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let catalog = app.world().resource::<CharacterCatalog>();
+    println!(
+        "{:>36} {:>10} {:>18}",
+        "character", "spawn box", "derived w x h"
+    );
+    for (id, w, h) in BOXES {
+        match sprite_body_collision_for_character_id_in(
+            &Default::default(),
+            catalog,
+            id,
+            Vec2::new(*w, *h),
+        ) {
+            Some(derived) => println!(
+                "{id:>36} {:>4.0}x{:<5.0} {:>8.2} x {:<8.2}",
+                w, h, derived.collision.x, derived.collision.y
+            ),
+            None => println!("{id:>36} {:>4.0}x{:<5.0}   (no sheet)", w, h),
+        }
+    }
+}

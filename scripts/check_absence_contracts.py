@@ -37,6 +37,33 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "the-two-move-drivers-do-not-author-their-own-presses",
+        "paths": [
+            "game/ambition_app_tools/src/bin/moveset_takes.rs",
+            "game/ambition_app_tools/src/bin/moveset_render.rs",
+        ],
+        "patterns": [
+            r"(jump|attack|special|grab|taunt)_pressed",
+            r"attack_strong_hint",
+            r"attack_held",
+        ],
+        "reason": (
+            "ONE DEFINITION OF 'PERFORM THIS MOVE'. `moveset_takes` records what the "
+            "engine does with a press and `moveset_render` photographs it, and for a "
+            "while each had its own: its own take-off loop, its own aim settle, its own "
+            "retry count, and its own hold schedule -- the recorder held while "
+            "`tick < TAKE_TICKS / 4` and the renderer while `shot < frames / 4`. Those "
+            "happened to agree at 37 ticks, which is why nothing caught it: two tools "
+            "photographing the same move by coincidence. Worse, the renderer's spelling "
+            "made CAPTURE PARAMETERS change the move -- asking for 12 pictures instead "
+            "of 24 charged the smash half as long. "
+            "`support/move_exercise.rs` owns the press table, `action_frame`, "
+            "`HOLD_TICKS` and `prepare`; a driver that constructs a button field is "
+            "growing a second answer to a question that has one. If a driver needs a "
+            "posture or a schedule the shared exercise cannot express, add it THERE."
+        ),
+    },
+    {
         "id": "ending-a-move-goes-through-the-one-teardown-path",
         "paths": [
             "crates/",
@@ -76,11 +103,14 @@ ABSENCE_CONTRACTS: list[dict] = [
             # THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
             # capability; it is allowed to know what it is.
             ":(exclude)crates/ambition_characters/src/brain/fighter",
-            # 1. the generic `BrainSnapshot` carries `attack_kit:
-            #    Vec<fighter::options::AttackCandidate>` — every brain in the
-            #    game pays for a field only one of them reads, in a type only
-            #    one of them owns.
-            ":(exclude)crates/ambition_characters/src/brain/snapshot.rs",
+            # 1. ✔ CLOSED 2026-08-28, so the CARVE-OUT GOES WITH IT. The generic
+            #    `BrainSnapshot` carried `attack_kit:
+            #    Vec<fighter::options::AttackCandidate>` — every brain paying for
+            #    a field only one of them reads, in a type only one of them owns.
+            #    The kit was never fighter vocabulary (`AttackBinding`'s own doc:
+            #    *"the ordinary gesture vocabulary, not a fighter-only bypass"*)
+            #    and lives in `brain/attack_kit.rs` now. ⛔ an exclusion kept past
+            #    the edge it excused is a hole, not a record.
             # 2. the generic `StateMachineCfg` has a `Fighter` VARIANT holding
             #    `FighterCfg`/`FighterState`, so the shared state-machine brain
             #    cannot compile without the fighter one. This is the big edge:
@@ -89,7 +119,11 @@ ABSENCE_CONTRACTS: list[dict] = [
             ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
             # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
             #    fields. The capability owes its own rollback row before this can
-            # go — the pattern `SmashHoldState` proved.
+            #    go — the pattern `SmashHoldState` proved. ⇒ the file is excluded
+            #    HERE and re-covered by its own contract below, which watches
+            #    `fighter::` on it and lets only the enum variant through. A
+            #    whole-file exemption for one known edge is a hole: a returning
+            #    `fighter::` type would have walked in beside it.
             ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
             # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
             #    diagnostics. The SMALLEST edge and the one a registration seam
@@ -107,9 +141,31 @@ ABSENCE_CONTRACTS: list[dict] = [
             "load-bearing first and let a dedicated platform-fighter capability crate "
             "follow only if the dependency result comes out clean. This contract is that "
             "boundary, stated as a checkable claim: the generic brain names the "
-            "platform-fighter brain in exactly three places, and it may not grow a "
-            "fourth. Without it the carve gets costed from a photograph months later, "
+            "platform-fighter brain in exactly TWO places now (2026-08-28, down from "
+            "three when this was written and five when it was first costed), and it "
+            "may not grow a third. Without it the carve gets costed from a photograph months later, "
             "which is how the previous estimate went stale."
+        ),
+    },
+    {
+        "id": "the-brain-codec-names-the-fighter-only-through-the-enum-variant",
+        "paths": ["crates/ambition_characters/src/snapshot_impls.rs"],
+        # ⛔ ONE PATTERN, DELIBERATELY. The sibling contract above watches BOTH
+        # `fighter::` and `StateMachineCfg::Fighter`; this file legitimately
+        # matches the second (the rollback cursor codec has to encode the variant
+        # it is rewinding), so it is excluded there and covered here by the half
+        # that is still forbidden.
+        "patterns": [r"\bfighter::"],
+        "reason": (
+            "The rollback cursor codec matches `StateMachineCfg::Fighter` because it "
+            "encodes the brain it rewinds, and that edge goes when the registration "
+            "seam does. It must not acquire any OTHER platform-fighter dependency in "
+            "the meantime. The sibling contract excluded this whole file for the one "
+            "known match, which meant a new `fighter::` type could be added here and "
+            "the ratchet would stay green -- the exemption was broader than the edge "
+            "it excused, during the migration it exists to ratchet. Zero `fighter::` "
+            "matches here as of 2026-08-28, when `AttackVerb` moved to "
+            "`brain::attack_kit`; this keeps it that way."
         ),
     },
     {

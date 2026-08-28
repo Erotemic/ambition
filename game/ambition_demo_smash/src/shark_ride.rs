@@ -95,7 +95,7 @@ const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 /// ~24; but the pool must also survive ONE MAXIMUM hit.
 ///
 /// ⛔⛔ AND THE MAXIMUM WAS MEASURED AGAINST THE WRONG SUBJECT — 36 → 40 on
-/// 2026-08-27 (GPT 5.6). The floor was derived from the PIRATE ADMIRAL's own
+/// 2026-08-27. The floor was derived from the PIRATE ADMIRAL's own
 /// moveset, because that is all
 /// `a_recovery_mount_cannot_be_deleted_by_one_hit` scanned; his worst is 29 and
 /// 36 cleared it comfortably. The cast's worst is George Booul's forward smash —

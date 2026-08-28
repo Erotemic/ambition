@@ -931,6 +931,12 @@ pub struct TouchActionLabel(pub TouchActionButton);
 /// As a struct, the fallback is never overwritten and the current verb is `Option`, so "the prompt
 /// has nothing to say" resolves to the spawn label instead of to stale text.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
+// ⛔ REQUIRED BESIDE THE VERB, not beside `ButtonPressed`. The system that
+// reads the prompt takes `(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)`,
+// so the requirement belongs on the component that query is ABOUT — three test
+// fixtures spawn a label and a verb with no press state, and hanging it off
+// `ButtonPressed` made them match nothing and silently stop relabelling.
+#[require(ButtonReady)]
 pub struct ButtonVerb {
     /// Spawn-time fallback label. Only buttons without a contextual
     /// [`ControlSlot`] keep this text permanently; gameplay-slot labels come from
@@ -1010,9 +1016,17 @@ fn is_menu_button(action: TouchActionButton) -> bool {
 /// Reads the sim-published read-model, never the sim's live components.
 pub fn update_button_verb_from_prompt(
     prompt: Res<ControlPrompt>,
-    mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
+    mut labels: Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
 ) {
-    for (TouchActionLabel(action), mut verb) in &mut labels {
+    for (TouchActionLabel(action), mut verb, mut ready) in &mut labels {
+        // ⭐ THE SAME PASS ANSWERS BOTH, because both are the same lookup: this
+        // system already resolves the button's slot, and asking the prompt a
+        // second question about it costs nothing. ⛔ Change-detected, so a button
+        // whose readiness did not move does not wake the restyle below.
+        let next_ready = touch_button_slot(*action).is_none_or(|slot| prompt.ready_for(slot));
+        if ready.0 != next_ready {
+            ready.0 = next_ready;
+        }
         let next: Option<String> = match prompt.context {
             ControlContextKind::Gameplay => touch_button_slot(*action)
                 .and_then(|slot| prompt.label_for(slot))
@@ -1266,6 +1280,25 @@ pub struct ButtonGlyph(pub Cow<'static, str>);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
+/// Can this button's action FIRE right now?
+///
+/// ⭐ READ FROM THE PROMPT, never timed here. `ControlPrompt`'s entry carries the
+/// answer the SIM gives — the body's own fire-rate floor — so a dimmed button and
+/// a refused press cannot part company. A cooldown counted in the overlay would
+/// be a second answer to a question the body already answers.
+///
+/// `true` for every button with no cooldown behind it, which is all of them but
+/// the ranged one today, and `true` for a button whose slot the prompt does not
+/// carry at all (that is "no such action", which the LABEL says).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ButtonReady(pub bool);
+
+impl Default for ButtonReady {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 /// Map a touch button to its canonical gameplay [`Platformer2dInputActionMonolith`].
 ///
 /// Two maps over one enum is the shape that produced the gamepad glyph table's "if those bindings
@@ -1371,16 +1404,27 @@ pub fn update_button_pressed_from_actions(
 /// background color so the on-screen overlay doubles as a streamer-
 /// style input display.
 pub fn sync_button_pressed_visual(
-    mut buttons: Query<(&ButtonPressed, &mut BackgroundColor), Changed<ButtonPressed>>,
+    mut buttons: Query<
+        (&ButtonPressed, &ButtonReady, &mut BackgroundColor),
+        Or<(Changed<ButtonPressed>, Changed<ButtonReady>)>,
+    >,
 ) {
-    for (pressed, mut bg) in &mut buttons {
-        bg.0 = if pressed.0 {
+    for (pressed, ready, mut bg) in &mut buttons {
+        // ⛔ ONE WRITER FOR THE COLOUR, and that is why readiness folds in here
+        // rather than getting a system of its own. Two systems assigning one
+        // `BackgroundColor` would decide the button's look by schedule order,
+        // and the loser would flicker on exactly the frames both facts changed.
+        bg.0 = match (pressed.0, ready.0) {
             // Brighter, opaque when held — reads as "this is the
             // input I'm pressing right now."
-            Color::srgba(0.42, 0.58, 0.95, 0.78)
-        } else {
+            (true, _) => Color::srgba(0.42, 0.58, 0.95, 0.78),
             // Match the default authored in `spawn_action_button_at`.
-            Color::srgba(0.16, 0.19, 0.27, 0.38)
+            (false, true) => Color::srgba(0.16, 0.19, 0.27, 0.38),
+            // ⭐ RECHARGING: dimmer and flatter, never HIDDEN. A button that
+            // vanished while a weapon cooled would take the key with it, and the
+            // player would have to rediscover where the shot lives; the ruling
+            // this answers asks that an unavailable shot be LEGIBLE.
+            (false, false) => Color::srgba(0.10, 0.11, 0.15, 0.22),
         };
     }
 }
@@ -1769,6 +1813,9 @@ mod prompt_tests {
                     // physical binding is `SeatBindings`' answer and a separate
                     // test covers it.
                     binding: None,
+                    // Ready, for the same reason: a recharging slot is what
+                    // `ButtonReady` and the colour arm answer, not the label.
+                    ready: true,
                 })
                 .collect(),
             menu_confirm: None,

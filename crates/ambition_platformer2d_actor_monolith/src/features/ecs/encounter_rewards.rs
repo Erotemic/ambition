@@ -9,13 +9,19 @@
 //!
 //! These two never shared anything but this file.
 
-use super::*;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::*` over the whole
+// `features/ecs` module — a channel no `crate::` grep sees. Measured by
+// deleting it: bevy's prelude, `ambition_vfx`'s two message types and
+// `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
 use ambition_combat::components::{
     CenteredAabb, ChestFeature, EncounterRewardChest, FeatureId, FeatureName, Opened,
 };
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::Name;
+use bevy::prelude::*;
 
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
 pub fn clear_encounter_reward_ecs(

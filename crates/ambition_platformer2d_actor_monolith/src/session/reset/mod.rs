@@ -58,12 +58,12 @@ pub struct RoomReplayRequested;
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameResetCommitted;
 
-use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use crate::world::physics;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_world::rooms::RoomSet;
 
@@ -89,7 +89,7 @@ pub struct ResetPlayState<'w> {
     recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
     /// `Option` like every other reader of it: a composition with no registered characters is
     /// the ordinary case.
-    prepared_characters: Option<Res<'w, crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared_characters: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     /// The session's live content binding, so a reset's plan states the SAME
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
@@ -165,7 +165,9 @@ pub fn process_new_game_reset_request(
         ambition_platformer2d_core::RoomGeometry,
     >,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
-    mut respawn_visuals: MessageWriter<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
+    mut respawn_visuals: MessageWriter<
+        ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested,
+    >,
     mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<ambition_combat::events::GameplayBanner>,
     // **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room

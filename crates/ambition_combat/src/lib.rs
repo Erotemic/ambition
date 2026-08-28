@@ -20,8 +20,10 @@
 //! sounds and looks like.
 
 pub mod actor_tuning;
+pub mod attack_support;
 pub mod authored_volumes;
 pub mod banner;
+pub mod body_geometry;
 pub mod brain;
 pub mod breakables;
 pub mod capture;
@@ -44,9 +46,9 @@ pub mod hit_camera_shake;
 pub mod hit_reaction;
 pub mod hitbox;
 pub mod impact_hitstop;
+pub mod ledge_trump;
 pub mod moveset;
 pub mod on_hit;
-pub mod vitality;
 pub mod path_motion;
 pub mod rules;
 mod snapshot_impls;
@@ -58,6 +60,7 @@ pub mod strike;
 pub mod targeting;
 pub mod util;
 pub mod variation;
+pub mod vitality;
 
 pub use components::*;
 pub use death_rules::{

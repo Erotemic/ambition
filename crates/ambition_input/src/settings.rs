@@ -82,41 +82,48 @@ pub enum MenuPointerPress {
 }
 
 impl MenuTapMode {
-    /// Decide what a pointer press on `target_index` should do, given
-    /// the current selection and whether the target is destructive.
+    /// Decide what a pointer press on `target` should do, given the current
+    /// selection and whether the target is destructive.
+    ///
+    /// `Row` is an opaque identity, never an ordinate: nothing here compares or
+    /// orders rows, it only asks whether two presses landed on the SAME one. An
+    /// index-addressed menu passes `usize`; the pointer bridge, which knows a row
+    /// by its action rather than its position, passes that instead. One policy,
+    /// both call shapes — the alternative was a second implementation of the
+    /// destructive guard for whichever caller did not fit.
     ///
     /// `armed` tracks "this destructive row was selected by a prior
     /// press and is awaiting a confirm tap". The function may clear or
     /// set it.
-    pub fn resolve_press(
+    pub fn resolve_press<Row: Clone + PartialEq>(
         self,
-        target_index: usize,
-        currently_selected: usize,
+        target: Row,
+        currently_selected: &Row,
         is_destructive: bool,
-        armed: &mut Option<usize>,
+        armed: &mut Option<Row>,
     ) -> MenuPointerPress {
+        let armed_here = armed.as_ref() == Some(&target);
         match self {
             Self::SingleTap => {
                 *armed = None;
                 MenuPointerPress::Confirm
             }
             Self::TapToSelectThenConfirm => {
-                if currently_selected == target_index && *armed == Some(target_index) {
+                if *currently_selected == target && armed_here {
                     *armed = None;
                     MenuPointerPress::Confirm
                 } else {
-                    *armed = Some(target_index);
+                    *armed = Some(target);
                     MenuPointerPress::SelectOnly
                 }
             }
             Self::SingleTapWithDestructiveGuard => {
-                let confirm_now = !is_destructive
-                    || (currently_selected == target_index && *armed == Some(target_index));
+                let confirm_now = !is_destructive || (*currently_selected == target && armed_here);
                 if confirm_now {
                     *armed = None;
                     MenuPointerPress::Confirm
                 } else {
-                    *armed = Some(target_index);
+                    *armed = Some(target);
                     MenuPointerPress::SelectOnly
                 }
             }

@@ -573,7 +573,7 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
     // ⛔⛔ AND IT IS CAUGHT, NOT MERELY PASSING. "Eventually crossed zero" is
     // satisfied by a tail that sails on through and expires as a fast rearward
     // projectile — which is exactly what it did: 79.2px behind the hand at
-    // 603 px/s (GPT 5.6, 2026-08-27). Run it to despawn and BOUND the overshoot.
+    // 603 px/s. Run it to despawn and BOUND the overshoot.
     let mut last = body.kin.pos.x;
     while body.tick(DT, Vec2::new(0.0, 1.0)) {
         last = body.kin.pos.x;

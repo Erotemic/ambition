@@ -86,7 +86,7 @@ pub(crate) fn apply_actor_hit(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     // AD8: the prepared cast, for the voice floor under the two bark paths that
     // did not have one.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     actor_entity: Entity,
     disposition: ActorDisposition,
@@ -105,7 +105,7 @@ pub(crate) fn apply_actor_hit(
     aggression: Option<&mut ambition_combat::components::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
+    combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
@@ -661,7 +661,9 @@ pub(crate) fn apply_actor_hit(
                 // `encounter:*` ids keep their own state machine; `InPlace`
                 // is unreachable here (the timer arm above returned).
                 if !em.config.id.starts_with("encounter:") {
-                    use crate::features::RespawnPolicy as P;
+                    // ⭐ NAMED WHERE IT LIVES: `RespawnPolicy` is
+                    // `ambition_entity_catalog`'s; `crate::features` only republished it.
+                    use ambition_entity_catalog::placements::RespawnPolicy as P;
                     let flag_id = match em.config.tuning.respawn {
                         P::OnRoomReenter | P::InPlace(_) => None,
                         P::OnRest => Some(format!(

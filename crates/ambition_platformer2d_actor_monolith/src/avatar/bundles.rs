@@ -4,23 +4,23 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-use crate::actor::AncillaryMovementBundle;
 use crate::body_mode::BodyModeCapabilities;
-use crate::control::{LocalPlayer};
+use crate::control::LocalPlayer;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, Brain};
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::DrivingParticipant;
+use ambition_characters::control::PlayerSlot;
 use ambition_combat::components::{
     ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_combat::BodyMelee;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
-use ambition_characters::control::PlayerSlot;
 
 /// All simulation components required on the player entity.
 ///
@@ -247,7 +247,7 @@ impl PlayerSimulationBundle {
         // DEFINITION rather than its catalog row was built with the row's kit, so
         // the protagonist's own repertoire was invisible on the one path that
         // spawns the protagonist.
-        prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+        prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
         // HOW THIS BODY FIRES, handed back to the caller.
         ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {

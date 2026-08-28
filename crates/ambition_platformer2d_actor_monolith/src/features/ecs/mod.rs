@@ -23,17 +23,16 @@
 //! `hitbox`, `overlay`, `pickups`, ...) so call sites stay
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
-use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
 use super::*;
+use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
 // `BodyCombat`/`BodyHealth` live on the reusable actor crate. This module surfaces them to the
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
-use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_characters::actor::BodyCombat;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
-    Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With,
-    Without,
+    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
 };
 
 use ambition_time::WorldTime;
@@ -43,8 +42,9 @@ pub mod actor_clusters;
 mod actors;
 mod aggression;
 pub mod anim_helpers;
-pub mod attack;
-mod bosses;
+mod boss_bodies;
+#[cfg(test)]
+mod boss_scripted_pattern_tests;
 mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
@@ -67,7 +67,6 @@ mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
 mod interact;
-pub mod ledge_trump;
 pub mod perception;
 pub mod pickups;
 mod reset;
@@ -76,7 +75,6 @@ mod spawn;
 mod spawn_actors;
 pub mod spawn_static;
 mod target_volumes;
-
 
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
@@ -102,20 +100,24 @@ pub use ambition_boss_encounter::anim::{
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
-pub use crate::world::overlay::{
-    rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet,
-};
-pub use bosses::boss_component_snapshot;
+pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet};
+// ⭐ THE BOSS ECS MODULE LIVES IN `ambition_boss_encounter` NOW, beside the boss
+// profiles, catalog and anim helpers it was already calling. These stay as the
+// monolith's façade rows so its schedule registration and its callers did not
+// have to move with it; the definitions are one hop away and named as such.
+pub use ambition_boss_encounter::ecs::boss_component_snapshot;
 #[allow(
     unused_imports,
     reason = "marker re-exported for tests / external visualizers"
 )]
-pub use bosses::BossSpriteMetricsApplied;
-pub use bosses::{
-    boss_spawn_hurtboxes, derive_boss_sprite_metrics, drive_boss_animators, integrate_boss_bodies,
+pub use ambition_boss_encounter::ecs::BossSpriteMetricsApplied;
+pub use ambition_boss_encounter::ecs::{
+    boss_spawn_hurtboxes, derive_boss_sprite_metrics, drive_boss_animators,
     project_boss_attack_state_from_move, sync_boss_actor_components, sync_boss_encounter_phase,
     tick_boss_brains_system, trigger_boss_attack_moves, update_ecs_bosses,
 };
+// ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.
+pub use boss_bodies::integrate_boss_bodies;
 pub use brain_effects::spawn_projectiles_from_brain_actions;
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
@@ -172,8 +174,6 @@ pub use targeting::{
     can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
     FriendlyFire,
 };
-
-
 
 #[cfg(test)]
 mod tests;

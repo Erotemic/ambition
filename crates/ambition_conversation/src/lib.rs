@@ -9,8 +9,25 @@
 //! caller supplies [`ConversationInputOwner`]. Payload vocabulary remains owned by
 //! the domain that consumes it, while [`ConversationPlugin`] owns conversation
 //! registration and ordering.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES.
+//!
+//! - **Presentation.** A live conversation's UI, reveal timing and overlay are
+//!   projections rebuilt FROM [`ActiveConversation`], and they belong to
+//!   `ambition_dialog` — which this crate depends on and which declares itself
+//!   content-free for the same reason.
+//! - **Named content.** No line of dialogue, no speaker, no barks table. Banter
+//!   arrived here as the RULE for when characters may talk over each other; the
+//!   words are a game content crate's.
+//! - **Who is speaking to whom.** The caller supplies
+//!   [`ConversationInputOwner`]; deriving it from a player slot here would make
+//!   this crate reason about seats it cannot see.
 
 mod authority;
+// ⛔ NOT GATED, and it must not be: the COMBAT hit path reads this, and the hit
+// path exists in a headless sim with no `ui`. It sits below the `dialog` line
+// rather than above it because that line's `#[cfg]` belongs to `dialog`.
+pub mod banter;
 // Session/UI glue that projects the conversation authority into `ambition_dialog`.
 #[cfg(feature = "ui")]
 pub mod dialog;
@@ -29,10 +46,10 @@ mod tests;
 pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use instance::ConversationInstanceId;
-pub use music::NarrativeMusicRequest;
 pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
+pub use music::NarrativeMusicRequest;
 pub use opening::{character_id_of, DialogueDispatch};
 pub use plugin::ConversationPlugin;
 pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};

@@ -515,8 +515,8 @@ pub fn install_twintrack_content(app: &mut App) {
         .expect("TwinTrack character catalog should be valid"),
     );
     {
+        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
         use ambition_platformer2d::character::CharacterDefinition;
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(
                 TWINTRACK_CHARACTER_ID,
@@ -552,6 +552,26 @@ pub fn install_twintrack_content(app: &mut App) {
                     ..Default::default()
                 },
             )
+            // ⛔⛔ SHE IS BUILT STILL, AND WITHOUT THIS SHE WAS BUILT A BRAWLER.
+            // `BrainProfile::default().template` is `MeleeBrute`, so a character
+            // that authors no profile is CONSTRUCTED as one — and
+            // `adopt_the_laboratory_twin` QUEUES her seat, which does not land
+            // until the commands flush. That left exactly one tick of her life
+            // driven by a brute's brain: one stroll step worth -96 px/s, bled by
+            // drag over seven ticks into a permanent 6.16px offset, on a body
+            // whose whole exhibit is that she sits equidistant between two
+            // beacons.
+            //
+            // ⭐ AUTHORED, NOT REPAIRED. A system used to put her back on her
+            // mark the tick after adoption, which fixes the two fields it knows
+            // about and leaves whatever else that tick touched. Standing still is
+            // what an unmanned reference frame DOES, so saying so at construction
+            // means the wrong authority never had anything to do.
+            .with_autonomous_profile(ambition_platformer2d::characters::brain::BrainProfile {
+                template:
+                    ambition_platformer2d::characters::brain::CharacterBrainTemplate::StandStill,
+                ..Default::default()
+            })
             .with_voice([
                 "I am the frame everybody else is moving in.",
                 "My clock is the plaza's, by construction.",

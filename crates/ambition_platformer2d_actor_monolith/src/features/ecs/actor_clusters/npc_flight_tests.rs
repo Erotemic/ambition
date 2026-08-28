@@ -30,7 +30,7 @@ fn npc_at(character_id: Option<&str>) -> ambition_interaction::Interactable {
 }
 
 /// A registry holding one character whose locomotion says what it is given.
-fn cast_saying(flight: Option<bool>) -> crate::character_runtime::PreparedCharacterRegistry {
+fn cast_saying(flight: Option<bool>) -> ambition_characters::prepared::PreparedCharacterRegistry {
     cast_saying_with(flight, 120.0, None)
 }
 
@@ -39,19 +39,22 @@ fn cast_saying_with(
     flight: Option<bool>,
     run_speed: f32,
     max_health: Option<i32>,
-) -> crate::character_runtime::PreparedCharacterRegistry {
-    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-    let mut definition =
-        ambition_characters::actor::definition::CharacterDefinition::new("npc_test_flyer", "Test Flyer", "test")
-            .with_locomotion(CharacterLocomotion {
-                run_speed,
-                baseline_free_flight: flight,
-                ..Default::default()
-            });
+) -> ambition_characters::prepared::PreparedCharacterRegistry {
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        "npc_test_flyer",
+        "Test Flyer",
+        "test",
+    )
+    .with_locomotion(CharacterLocomotion {
+        run_speed,
+        baseline_free_flight: flight,
+        ..Default::default()
+    });
     definition.vitals.max_health = max_health;
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
-        &crate::character_runtime::CharacterBindings::default(),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
     registry.insert_prepared(finalized.prepared);
     registry
@@ -59,7 +62,7 @@ fn cast_saying_with(
 
 /// The seed for a placement naming `npc_test_flyer`, or naming nothing.
 fn seed_for(
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
 ) -> ActorClusterSeed {
     let interactable = npc_at(character_id);
@@ -142,14 +145,14 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
     // No locomotion at all  not body-complete  the blueprint refuses, which is
     // the state ~150 NPC placements are in.
     let bare = {
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_test_flyer",
                 "Test Flyer",
                 "test",
             ),
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
         registry
@@ -173,7 +176,7 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
 }
 
 fn is_aerial(
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
 ) -> bool {
     let interactable = npc_at(character_id);

@@ -736,6 +736,28 @@ pub struct MenuActionActivated<Action> {
     pub action: Action,
 }
 
+/// Which of a menu's actions are destructive enough to want a confirm tap.
+///
+/// `MenuTapMode::SingleTapWithDestructiveGuard` — the shipped default — spends a
+/// second tap on exactly the rows worth guarding, and it can only do that if
+/// something says which those are. Destructiveness belongs to the ACTION, not to
+/// the drawn rect: the same *Quit to Desktop* is equally final wherever a page
+/// happens to place it, so this is one registration per menu rather than a flag
+/// on all 21 `MenuPage::control` calls.
+///
+/// Absent, nothing is guarded. That is the right default for a menu with no
+/// irreversible row, and it keeps every existing host unchanged.
+#[derive(Resource)]
+pub struct MenuDestructiveActions<Action> {
+    pub is_destructive: fn(&Action) -> bool,
+}
+
+impl<Action> MenuDestructiveActions<Action> {
+    pub fn new(is_destructive: fn(&Action) -> bool) -> Self {
+        Self { is_destructive }
+    }
+}
+
 /// A tab in the flat Bevy-UI renderer was activated by pointer or touch.
 ///
 /// Tabs are renderer structure rather than host-defined actions, so their
@@ -1137,11 +1159,9 @@ mod tests {
         assert_eq!(page.actionable_nodes().count(), 0);
         match &page.nodes[2] {
             MenuNode::Control { detail, .. } => {
-                assert!(
-                    detail
-                        .as_ref()
-                        .is_some_and(|text| text.contains("not owned"))
-                );
+                assert!(detail
+                    .as_ref()
+                    .is_some_and(|text| text.contains("not owned")));
             }
             node => panic!("expected item control, got {node:?}"),
         }

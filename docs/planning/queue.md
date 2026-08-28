@@ -9592,7 +9592,21 @@ review's own order.**
 ```
 
 ▢▢ **THE CARVE IS COSTED — measured 2026-08-19, the boundary is now a
-CHECKABLE CLAIM.** `brain/fighter` is 10,644 lines; the GENERIC brain named it
+CHECKABLE CLAIM.**
+⛔⛔ **THE SIZE IS WRONG BY 3× — re-measured 2026-08-28.** `brain/fighter` is
+**3,679 lines (1,734 of them non-test)**, not 10,644. The whole `brain/` tree is
+12,443, so the recorded figure is close to the WHOLE MODULE rather than the thing
+being carved out of it — a mis-scoped measurement that has made this slice look
+three times its size for nine days. ⭐ and its OUTWARD reach is small and all
+sideways or downward: `perception` (5 kinds), `actor::attack_gesture`,
+`actor::ActorFaction`, plus its own submodules; the only globs are test-local
+`use super::*`; and the two crates it names that sit ABOVE `ambition_characters`
+(`ambition_platformer2d`, `ambition_content`) appear ONLY IN PROSE — one doc line
+each, no dependency.
+⇒ **the blocker was never the size.** It is the four edges below plus the encoded
+tag and the monolith's eight call sites.
+
+`brain/fighter` was recorded as 10,644 lines; the GENERIC brain named it
 in five places (widened from an initial undercount of three — the contract's
 `fighter::` grep under `brain/` couldn't see a rollback codec that hand-writes
 `StateMachineCfg::Fighter` by field, or `brain/mod.rs`'s string mapping):

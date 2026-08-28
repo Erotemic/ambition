@@ -190,9 +190,10 @@ class Job:
 class JobResult:
     """One executed job and its wall-clock/test-execution timings.
 
-    `executed_seconds` sums libtest's reported execution time. Cargo jobs with no
-    test binaries and non-libtest jobs report 0.0, so the derived execution
-    percentage applies to the Cargo/libtest portion of the suite.
+    `executed_seconds` sums the runner's own reported execution time — libtest's
+    per-binary `finished in`, or nextest's per-run `Summary`. Cargo jobs with no
+    test binaries report 0.0, so the derived execution percentage applies to the
+    test-running portion of the suite.
     """
     name: str
     argv: list[str]
@@ -210,17 +211,32 @@ def timing_report(results: list[JobResult]) -> str:
     """
     total = sum(r.seconds for r in results) or 1.0
     executed = sum(r.executed_seconds for r in results)
-    lines = ["  job timings (slowest first, `run` = libtest's own execution time):"]
+    lines = ["  job timings (slowest first, `run` = the runner's own execution time):"]
     for r in sorted(results, key=lambda r: -r.seconds):
         tag = "ok  " if r.ok else "FAIL"
+        run = f"{r.executed_seconds:.1f}s" if r.executed_seconds else "not reported"
+        lines.append(f"    {r.seconds:8.1f}s  {tag}  {r.name}   (run {run})")
+    # ⛔⛔ AN INSTRUMENT THAT CANNOT MEASURE SAYS SO. libtest prints
+    # `finished in Xs` on STDOUT, which this runner pipes; nextest prints its
+    # `Summary [ Xs ]` on STDERR, which it deliberately does NOT pipe so cargo's
+    # progress bar keeps rendering. So under nextest the number is unavailable —
+    # and printing "0s of 1734s executing tests (0%)" said, in the voice of a
+    # measurement, that the suite spent no time running tests.
+    #
+    # ⛔ NOT FIXED BY MERGING STDERR INTO THE PIPE. Cargo's progress bar has no
+    # newlines, so a line-buffered reader would stall on it — which is the whole
+    # reason stderr stays attached.
+    if executed:
         lines.append(
-            f"    {r.seconds:8.1f}s  {tag}  {r.name}"
-            f"   (run {r.executed_seconds:.1f}s)"
+            f"    ── {executed:.0f}s of {total:.0f}s executing tests "
+            f"({executed / total * 100:.0f}%); the rest is the build graph."
         )
-    lines.append(
-        f"    ── {executed:.0f}s of {total:.0f}s executing tests "
-        f"({executed / total * 100:.0f}%); the rest is the build graph."
-    )
+    else:
+        lines.append(
+            f"    ── {total:.0f}s total. Test-execution time is NOT REPORTED: "
+            "nextest prints it on stderr, which is left attached so cargo's "
+            "progress renders. Read its own `Summary [ Xs ]` line above."
+        )
     return "\n".join(lines)
 
 
@@ -550,6 +566,12 @@ def build_maintenance_jobs() -> list[Job]:
 # libtest ends every binary with a line naming how long IT ran, and that number
 # is the only part of a job's wall clock that is not the build graph.
 LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
+# ⛔⛔ AND NEXTEST DOES NOT SAY THAT SENTENCE, NOR ON THIS STREAM. It ends a run
+# with one `Summary [ 265.439s] …` line, and it writes it to STDERR — which this
+# runner deliberately leaves attached so cargo's progress bar keeps rendering. So
+# the pattern is here and matches nothing today; what stops the metric LYING is
+# the "not reported" arm in `format_timings`, not this regex.
+NEXTEST_DURATION = re.compile(r"Summary \[\s*([0-9]+\.[0-9]+)s\]")
 
 
 def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
@@ -557,8 +579,13 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
 
     ⚠ **live output is not negotiable**, which is why this streams rather than
     capturing: somebody watching a suite needs to see the failure as it happens.
-    stdout is piped only so the "finished in Xs" lines can be counted on the way
-    past; stderr (where cargo writes progress) stays attached to the terminal.
+    stdout is piped only so the duration lines can be counted on the way past;
+    stderr (where cargo writes progress) stays attached to the terminal.
+
+    ⛔ BOTH RUNNERS ARE READ, and a job never mixes them: libtest prints one
+    `finished in Xs` per binary and nextest prints one `Summary [ Xs ]` per run.
+    Summing whichever appears keeps the number meaning "time spent running
+    tests" under either.
     """
     executed = 0.0
     proc = subprocess.Popen(
@@ -572,7 +599,7 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
     assert proc.stdout is not None
     for line in proc.stdout:
         sys.stdout.write(line)
-        match = LIBTEST_DURATION.search(line)
+        match = LIBTEST_DURATION.search(line) or NEXTEST_DURATION.search(line)
         if match:
             executed += float(match.group(1))
     sys.stdout.flush()

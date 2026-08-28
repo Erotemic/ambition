@@ -22,6 +22,7 @@ pub mod motion_codec;
 pub mod motion_quality;
 pub mod movement;
 pub mod player_state;
+pub mod rollback_registration;
 pub mod sim_random;
 pub mod snapshot;
 mod snapshot_impls;
@@ -46,6 +47,7 @@ pub use body_clusters::{
     BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
     RecoveryRefresh, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };
+pub use rollback_registration::register_rollback_state;
 // TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove
 // these extraction-era re-exports from `ambition_platformer2d_core`.
 pub use ambition_geometry::combat_volume::CombatVolume;

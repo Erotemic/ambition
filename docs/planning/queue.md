@@ -2089,9 +2089,24 @@ move: `rollback-wire-format-changes-are-declared` still reports 375 names / 123
 encoded types across 11 crates. Only the OWNER string moved, from the composition
 to the crate that defines the types.
 
-◐ **(b) `ambition_platformer2d_core` DEFINES `RollbackRegistrar` AND DECLARES
-NOTHING — and this one is a JUDGEMENT, not a defect. Both readings, so nobody
-does it on my say-so.** The trait is at `core/src/snapshot.rs:338`, so the floor
+✔ **(b) DECIDED AND DONE 2026-08-28 — THE FLOOR DECLARES ITS OWN.** The row asked
+for a judgement and parked it; re-reading it, the evidence that settles it was
+already inside the row. `ambition_time` is equally a floor crate and has federated
+since 2026-08-26, so *"the composition may declare the floor's state"* was not a
+rule anybody was following — it was two floor crates answering one question
+differently, which is exactly the split this item exists to end. And the argument
+already had a DEFECT behind it, not only a principle: the hand-kept list had grown
+a duplicate `QuestAdvanceRequested` row nobody noticed, silently deduped by the
+backend. A list nobody owns grows rows nobody notices.
+⇒ `ambition_platformer2d_core/src/rollback_registration.rs` now owns 25 rows —
+`root.geometry`, fifteen `body.*` clusters, five `actor.*`, `body.ability_base`
+and three declared-derived. ⭐ **THE DELETION IS THE PROOF**: the runtime's
+`use body_clusters as bc` alias is GONE, so that function no longer names a single
+one of the floor's types. Verified: 123 encoded types unchanged, 20 codec files
+unchanged in shape, 54/54 rollback tests green. Only the OWNER string moved.
+⇓ the judgement as it stood, kept because the AGAINST reading is still the reason
+this was worth stating rather than assuming:
+<details><summary>the open question, 2026-08-26</summary> The trait is at `core/src/snapshot.rs:338`, so the floor
 crate CAN own its declarations, and `ambition_time` — equally a floor crate —
 does. Yet `_core` has no `rollback_registration.rs` and the runtime declares
 **22** of its type paths: 18 `bc::` body-cluster components plus `RoomGeometry`,
@@ -2108,10 +2123,11 @@ AGAINST        the runtime IS the engine composition and `_core` is the engine
                GAMEPLAY type paths"* — which is TRUE as written
 ```
 
-⇒ ⛔ **do not price this as the card's remainder until somebody decides which
-reading wins.** The gameplay-domain census the card complained about is gone; what
-is left is where the engine floor's own state should be declared, and the two
-crates that are both floor currently answer it differently.
+</details>
+
+⇒ the gameplay-domain census the card complained about was already gone; the last
+open half was where the engine FLOOR's own state should be declared, and it is
+declared by the floor now.
 
 ✔ **(c) `ambition_persistence` FEDERATED 2026-08-26, and `ambition_sfx` CANNOT
 — asking the question answered it both ways.** Persistence already depends on

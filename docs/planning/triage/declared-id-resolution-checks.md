@@ -33,8 +33,8 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    the TYPO and cannot answer the fresh-clone question. Measured at the time:
    260 declared paths across the shipped catalog, 0 missing.
 
-2. ◐ **Runtime-composed misses — RE-MEASURED 2026-08-26 as this item asked, and
-   the count moved in the GOOD direction.** Every `Option`-returning resolver in
+2. ✔ **Runtime-composed misses — CLOSED 2026-08-28. Re-measured twice as this
+   item asked, and the shape it proposes a diagnostic for is still absent.** Every `Option`-returning resolver in
    `crates/` (14 of them, by `fn *resolve*` returning `Option`) was checked at its
    call sites, and the ones that could discard a miss do not:
 
@@ -57,6 +57,14 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    ⚠ **so do not build the diagnostic this item proposes without first naming a
    site that needs it.** The July "roughly six" was a count of a pattern the code
    has since stopped using; re-run the same two greps before reopening.
+
+   ⭐ **2026-08-28, the second re-measure, and it is the one that closes this.**
+   The resolver population GREW — 42 `Option`-returning resolvers now, up from 14
+   — and the silent-discard grep is STILL empty across `crates/` and `game/`. That
+   is the interesting result: a growing population with no new instances of the
+   defect means the shape is not being reintroduced, so the diagnostic has no
+   customer and this item is not "unfinished", it is ANSWERED. ⛔ Reopen only on a
+   named site, never on the count.
 
 3. **Typed/generated ids only when the owning pipeline is already open.** If the
    sprite/content pipeline naturally exposes stable generated symbols, use them

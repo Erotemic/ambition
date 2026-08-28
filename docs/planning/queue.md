@@ -10855,6 +10855,43 @@ a select-screen fighter off a road where a publishing detail decides its size.
 `print_the_two_render_size_publishers` still reports 0.0% disagreement over 146
 characters with PCA at exactly `28.1x67.8`.
 
+▢ **THE OTHER 25 ARE THE REST OF THIS ROW, AND ONE THING MAKES THEM HARDER THAN
+PCA — census 2026-08-28.** Every catalog row whose `body_kind` has no default
+height and which authors none:
+
+```text
+Wide      bear_mauler · boss · dark_lord · flying_spaghetti_monster_boss
+          hand_saint · hunny_horror_boss · le_beast · mantis_lancer
+          mockingbird_boss · ninja_heavy · raptor_stalker · smart_house
+          smirking_behemoth_boss · trex_enemy · viking_heavy_shieldmaiden
+          viking_heavy_warrior
+Floating  imperfect_cellular_automaton · burning_flying_shark · stochastic_parrot
+Crawler   puppy_slug · puppy_slug_variant2 · puppy_slug_velvet
+no sheet  giant_gnu · giant_gnu_hands · gnu_ton_boss   ← reach NEITHER branch
+```
+
+⛔⛔ **AND "just author the height it has today" DOES NOT WORK FOR THEM, which is
+the trap to avoid.** PCA had a number to preserve because a test pinned its size
+in one room. These do not: on the legacy road the size is
+`body_px × ldtk_max × collision_scale / FRAME_H`, so **a character is a different
+size in every room whose spawn box differs** — that is the defect, not a detail
+of it. ⚠ the sizes `print_the_two_render_size_publishers` prints for them are
+computed against `LDTK_PLACEMENT = (28, 44)`, a generic humanoid box **no boss
+room uses**, so quoting that table as "today's size" would resize a boss without
+anybody deciding to.
+
+⇒ **the honest next step is a measurement, not an edit**: for each of the 25,
+find its actual spawn box across every level it is placed in. Where a character
+has ONE box, its height is determined and authoring it is a pure road-swap with
+no look change — the same move PCA and the three pirate heavies got. Where the
+boxes DISAGREE, the character has no size today and picking one is Jon's, and the
+disagreement itself is the argument for why.
+
+⭐ **and the prize is a deletion**: once no row takes it, `catalog_join.rs:154`'s
+`_ =>` arm goes, and with it the last place where a level-editor rectangle and a
+sheet's publishing padding decide how big somebody is. The three `no sheet` rows
+do not block that — they return `None` before either branch.
+
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
 

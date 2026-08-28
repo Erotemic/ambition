@@ -27,7 +27,9 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use tracing::{info, warn};
 
+pub mod actor_sprite_metrics;
 pub mod binding;
+pub use actor_sprite_metrics::ActorSpriteMetrics;
 pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
 
 mod frames;

@@ -6,6 +6,7 @@
 //! the fallback.
 
 use ambition_platformer2d_core as ae;
+use ambition_sprite_sheet::ActorSpriteMetrics;
 
 // The volumes this module returns are shaped now, so the LIB stopped measuring
 // boxes with this trait — but the sibling test modules still do, and they
@@ -18,7 +19,7 @@ use bevy::prelude::Component;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_sprite_sheet::{AnimationBox, BodyMetrics, PixelRect};
 
-use super::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+use super::behavior::BossBehaviorProfile;
 
 mod aabb;
 mod frame;
@@ -39,7 +40,7 @@ pub struct BossVolumeContext<'a> {
     /// RON carries `body_metrics` and the derivation system has
     /// snapshotted it. `damageable_volumes` prefers multi-rect
     /// hurtboxes from here over the legacy single-AABB fallback.
-    pub sprite_metrics: Option<&'a crate::behavior::ActorSpriteMetrics>,
+    pub sprite_metrics: Option<&'a ambition_sprite_sheet::ActorSpriteMetrics>,
     /// Optional frame sample from the live boss sprite animator.
     /// When present and its profile matches the requested attack,
     /// sprite-authored hit/hurt boxes use this exact frame index

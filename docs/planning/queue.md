@@ -3297,6 +3297,18 @@ volume math             subject: *"Damage / Hitbox / Hurtbox / DamageVolume"*.
 ```
 
 ⇒ the size is 42 + 7 mechanical renames plus one dependency line, not a redesign.
+
+✔ **STEP ONE DONE 2026-08-28: `ActorSpriteMetrics` LIVES IN `ambition_sprite_sheet`.**
+`crates/ambition_sprite_sheet/src/actor_sprite_metrics.rs`, and the boss crate now
+names it by its owner. ⛔ **THE ORPHAN RULE MADE IT TWO MOVES, NOT ONE**: the
+inherent `impl` had to come with the type, because only the defining crate may
+write one — the cheapest possible reminder that a type and its methods are one
+thing. ⚠ and a hazard on the way: `ActorSpriteMetrics` was carrying SIX LINES OF
+A DELETED STRUCT'S DOC (`BossRuntime`), so walking back over `///` lines to find
+where its own docs began landed in the previous item's and produced a bad cut.
+Detached in its own commit.
+▢ **STEP TWO** is `AnimationSelection` + `CombatGeometry` + the volume math →
+`ambition_combat`, for one downward edge `combat → sprite_sheet`.
 ⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
 enumerate the callers — the consumers outside `boss_encounter` are
 `sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's

@@ -43,7 +43,7 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
 /// `damageable_volumes` use this so the head invariants stay
 /// pinned even though gnu_ton_runtime doesn't go through
 /// `derive_boss_sprite_metrics`.
-fn gnu_ton_sprite_metrics_fixture() -> ambition_boss_encounter::behavior::ActorSpriteMetrics {
+fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
     use std::collections::HashMap;
     let head_rest = NamedPixelRect {
@@ -98,7 +98,7 @@ fn gnu_ton_sprite_metrics_fixture() -> ambition_boss_encounter::behavior::ActorS
     let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
     animations.insert("rest".to_string(), rest_entry);
     animations.insert("gnu_head_descent".to_string(), descent_entry);
-    ambition_boss_encounter::behavior::ActorSpriteMetrics {
+    ambition_sprite_sheet::ActorSpriteMetrics {
         frame_width: 768,
         frame_height: 576,
         body_pixel_bbox: None,

@@ -2,6 +2,7 @@
 //! read-model components, derive sprite metrics + render targets, and build the
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
+use ambition_sprite_sheet::ActorSpriteMetrics;
 // ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
 // whole `features/ecs` module — a channel a `crate::` grep cannot see, and
 // the reason a carve estimate needs more than an import count. Measured by
@@ -12,7 +13,6 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
 use crate::attack_geometry::bounding_aabb;
-use crate::behavior::ActorSpriteMetrics;
 use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;

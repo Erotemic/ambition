@@ -5,13 +5,12 @@
 //! kinematics use the same shared body components as other actors. Mutable boss
 //! queries stay disjoint from other actor archetypes through the marker.
 
-use super::behavior::{
-    canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile, BossBehaviorProfileExt,
-};
+use super::behavior::{canonical_boss_id_from, BossBehaviorProfile, BossBehaviorProfileExt};
 use super::BossEncounterPhase;
-use ambition_platformer2d_core::snapshot::{put_bool, put_f32, SnapshotCursor, SnapshotState};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::snapshot::{put_bool, put_f32, SnapshotCursor, SnapshotState};
 use ambition_platformer2d_core::AabbExt;
+use ambition_sprite_sheet::ActorSpriteMetrics;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 

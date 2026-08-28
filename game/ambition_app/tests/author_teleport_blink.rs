@@ -15,9 +15,15 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// ⛔ COUNTED, NOT "AT LEAST ONE". A duplicate is exactly what "at least one"
 /// cannot see, and it is the only failure this arm exists for.
 ///
-/// ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS. The Actor's trap and
-/// wire and Alice's side-B author the cue for moves that never run the teleport
-/// executor; those are the cue being CHOSEN, not duplicated.
+/// ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS — the Actor's trap and
+/// Alice's side-B author the cue for moves that never run the teleport executor,
+/// so those are the cue being CHOSEN rather than duplicated.
+///
+/// ⛔⛔ THIS SENTENCE USED TO NAME THE ACTOR'S WIRE TOO, AND THAT WAS WRONG. Her
+/// up-B IS authored through `author_teleport`, so it ran the executor and
+/// carried its own `player.blink` at the same instant — the same duplicate this
+/// arm exists for, sitting inside the exemption written to explain why it was
+/// not one. Corrected 2026-08-28; the authored cue is gone.
 #[test]
 fn the_authors_revision_asks_for_exactly_one_blink() {
     use ambition_platformer2d::actor::MatchSeat;

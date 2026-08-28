@@ -5875,6 +5875,35 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
+⭐⭐⭐ **FOUR MORE CARVES 2026-08-28, AND THE SESSION'S DURABLE OUTPUT IS THAT THE
+CENSUS WAS BLIND THREE WAYS.** The candidate table ranked by file size and by
+`crate::` occurrences; every top entry was wrong, because a `crate::` count sees
+neither a FACADE HOP (`crate::features::X` where X lives in a peer crate — naming
+the owner took `bosses` from 2 refs to 0 with no code moved), nor a GLOB (`use
+super::*`, measured by DELETING it and reading the WHOLE error set, since rustc
+stops resolving early), nor a `super::super::` PATH, which only the MOVE finds.
+
+```text
+ambition_boss_encounter::ecs + ::attack_moveset   the boss tick and its authoring
+ambition_combat::ledge_trump                      beside the rule it enforces
+ambition_combat::attack_support                   604 lines following the melee
+                                                  path that left for ::moveset
+ambition_conversation::banter                     a bark is the shortest
+                                                  conversation there is
+ambition_sprite_sheet::ActorSpriteMetrics         it IS sprite metrics (D117)
+```
+
+⛔ **AND TWO DELETIONS BEAT ALL OF THEM.** `crate::actor` is GONE — the ruling that
+kept it (*"138 lines that OWN `AncillaryMovementBundle`"*) died with its premise
+once the bundle moved to `shared_tangle::body`, where nineteen of its twenty fields
+already lived. And `character_runtime` stopped republishing NINE
+`ambition_characters::prepared` names across ~250 sites, 57 of them outside this
+crate — which is exactly how a census reads the monolith as their owner.
+⇒ `features/ecs/actor_clusters.rs` (1,409 lines) now names ZERO monolith paths in
+any of the three shapes. ⚠ that is evidence it is the CENTRE, not that it is next:
+no existing crate's subject is *"actor construction and the body-cluster query
+aggregate"*, and minting one to receive it is Wave G's question, not a carve.
+
 ✔✔✔ **THE CARVE LANDED 2026-08-26. `crates/ambition_damage` EXISTS**, and it was
 a MOVE rather than a design, because the day's five facade deletions had already
 taken the module's outward edges from an apparent ~70 to zero.

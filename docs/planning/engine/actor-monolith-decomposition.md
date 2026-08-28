@@ -29,6 +29,55 @@ consumer dependency leakage and compile-unit cost. The work is no longer
 conditional on discovering whether a carve is justified. The remaining design
 question is where each incremental boundary belongs.
 
+## ⭐⭐ WHICH EDGES ARE ACTUALLY WORTH CARVING — measured 2026-08-28
+
+A 2026-08-18 review said the monolith *"still has approximately 30 direct
+internal Ambition dependencies, essentially unchanged"* and that **the next
+payoff comes from carves that remove a dependency edge, not files**. Right, and
+the number it quotes is a PROXY: it counts `Cargo.toml` lines, which include
+optional and dev edges. The default resolved graph is **28 direct, 34 in the full
+closure** (`cargo tree -p … --edges normal`).
+
+⛔⛔ **AND MOST THIN EDGES CANNOT MOVE THE CLOSURE, because another path already
+supplies them.** Removing `ambition_dialog` (2026-08-28, below) took the DECLARED
+edge from 28 to 27 and left the closure at 34 — `ambition_conversation` brings it.
+⇒ **before carving for footprint, ask `cargo tree -i <dep>`**; if it lists a
+second path, the carve buys edit-surface and not a linked crate.
+
+⭐ **Exactly four edges reach the monolith by ONE path**, so these are the only
+ones whose removal would shrink the closure. Production-code references (comments
+and `tests.rs` excluded), which is the real cost of moving each:
+
+```text
+ambition_dev_tools      18 refs,  6 files    ← thinnest of the four
+ambition_mount          29 refs, 10 files
+ambition_items          33 refs, 10 files
+ambition_damage         36 refs,  7 files
+```
+
+⚠ **the other thin ones are cheaper and buy less**: `ambition_asset_manager` (6
+refs, 2 files) has FOUR other paths, `ambition_cutscene` (15 refs, 2 files) and
+`ambition_gameplay_trace` (30 refs, 7 files) have two each.
+
+✔ **`ambition_dialog` — DONE 2026-08-28, and it was a forward, not a carve.**
+Production code here names NO dialog path; every reference left is in a
+`tests.rs`. The `[dependencies]` edge was held by two feature forwards
+(`ui = [… "ambition_dialog/ui"]`, `input = [… "ambition_dialog/input"]`), and
+**both were already redundant**: `ambition_conversation/ui` forwards the first,
+and `ambition_platformer2d` / `ambition_platformer2d_runtime` both declare
+`ambition_dialog` with `features = ["input"]` outright. ⇒ moved to
+`[dev-dependencies]` for the interact fixtures. Same shape as the `ambition_ui_nav`
+removal whose note in the `input` feature named it.
+
+⛔ **`ambition_cutscene` LOOKS like the next one and is not.** `cutscene.rs`
+(208 lines, 2 files) is self-contained and is not actor simulation — but its own
+header states the reason it is here and the reason is TRUE: the systems couple to
+rooms (`RoomSet`), save (`AmbitionGameSave`) and the sim schedule, and
+`ambition_cutscene` *"sits below this crate and must stay content- and
+gameplay-free"*. Moving it down inverts three edges. It needs a host that owns
+gameplay-coupled orchestration, and naming that host is the open question — not
+whether the module belongs here.
+
 ## Goal
 
 Drain the current monolith until the remaining crate is honestly the reusable

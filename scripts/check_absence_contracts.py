@@ -93,6 +93,14 @@ ABSENCE_CONTRACTS: list[dict] = [
             # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
             #    fields. The capability owes its own rollback row before this can
             # go — the pattern `SmashHoldState` proved.
+            #    ⚠ 2026-08-28: this file no longer names a `fighter::` TYPE at all
+            #    (`AttackVerb` moved to `brain::attack_kit`); its one remaining
+            #    match is `StateMachineCfg::Fighter` at line ~413. So the exclusion
+            #    is now BROADER THAN THE EDGE IT EXCUSES — a returning `fighter::`
+            #    type here would not be seen. ⛔ narrowing it means splitting this
+            #    contract in two (one pattern per path set), which is the
+            #    registration seam's job to make unnecessary rather than a reason
+            #    to grow the checker now.
             ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
             # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
             #    diagnostics. The SMALLEST edge and the one a registration seam

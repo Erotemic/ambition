@@ -12792,8 +12792,14 @@ use STRING SURGERY as identity** — `under_own_name` strips caller-supplied
 prefixes and panics on a move that follows none, and shipped tables already use
 two conventions, so every future move-id-referencing field is a new obligation.
 
-- ▢ **D240 — THE GAP PASS: THREE MORE, AND A CORRECTION THAT MATTERS MORE THAN
-  THEY DO. (opened 2026-08-25)**
+- ✔ **D240 — THE GAP PASS: THREE MORE, AND A CORRECTION THAT MATTERS MORE THAN
+  THEY DO. Opened 2026-08-25, CLOSED 2026-08-28.**
+  ⚠ **its three items had ALL read CLOSED / COMPLETED / struck-through for days**,
+  and its two remaining `▢` marks sat on lines whose own text said so. The one
+  thing that was genuinely still open — the back-air diagnosis — turned out to be
+  a SYMPTOM PARAGRAPH for D252, which closed on 2026-08-27 five rows further down
+  this same file. ⇒ measured, not assumed: `moveset_takes` plays `air_back` for
+  both characters tried.
 
 ⭐⭐⭐ **THE CORRECTION FIRST — IT CHANGES HOW 4/5 GETS BUILT.** *Do not wire
 gameplay to the existing `BodyHitResolved`.* It is `#[cfg(feature = "causal")]`,
@@ -12818,7 +12824,7 @@ Pointed Polygon's art and declare `authored_faces_left: true`). ⛔⛔ MY EARLIE
 would never have caught it. **A crate's suite can be red while the gate and the
 app suite are green.**
 
-▢ ~~(38) THE NAMEPLATE POLICY IS PLURAL AND ITS PRODUCER IS SINGULAR.~~
+✔ ~~(38) THE NAMEPLATE POLICY IS PLURAL AND ITS PRODUCER IS SINGULAR.~~
 `label_driven_bodies` is documented to apply uniformly to every body SOMEBODY IS
 DRIVING, but `rebuild_nameplate_index` computes ONE `controlled_body` from
 `ControlledSubject` (or a `PrimaryPlayer` fallback) and sets each row's flag by
@@ -12887,7 +12893,7 @@ runs `project_moveset_melee_to_body_melee` and asserts on
 `BodyMelee.swing.spec.intent` now. Same shape as the day's other lesson: a
 hand-listed chain pins the FUNCTION, not the WIRING.
 
-▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
+✔ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
 reviewer found no currently-broken Author/Officer cancel reference, so do not
 invent one. The real hazard is that move IDs also live OUTSIDE `MovesetContract`
 — `HurtboxDoc::moves` is keyed by move id — and `under_own_name` cannot discover
@@ -12960,7 +12966,9 @@ address them.
 
 ⭐⭐ AND IT IMMEDIATELY FOUND TWO THINGS NOTHING ELSE HAD: **D252** (the back air
 is unreachable for the whole cast) and **D253** (`player_robot_v3` cannot throw
-any of its five specials). Both are open rows above.
+any of its five specials). ✔ **BOTH CLOSED 2026-08-27** — D252 at `1eb50e6e3`,
+D253 at `22361bab3`; this line said *"both are open rows above"* for a day after
+they were not.
 
 **Pirate side-B** — `run_out_the_guns`. Draws the gun-sword (`MoveSpec::equips`,
 whose timer is the MOVE'S OWN CLOCK), fires it (`MoveEventKind::Ranged` now

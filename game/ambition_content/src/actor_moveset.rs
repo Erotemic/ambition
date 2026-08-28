@@ -124,14 +124,12 @@ fn the_monologue() -> MoveSpec {
         on_hit: None,
     });
     spec.display_name = Some("Monologue".to_string());
-    // ⛔⛔ AND THE DOC ABOVE NAMED A HELPER THIS FUNCTION DOES NOT CALL. It says
-    // *"She is held by `hitless_special`'s rooting, which every special gets"* —
-    // but the monologue is built from `strike`, and `strike` authors
-    // `motion_scale: 1.0` on all three of its windows. She could walk through her
-    // own speech while everyone she hit was held by the fixed knockback, which is
-    // the one asymmetry the move is about.
+    // ⛔⛔ SHE IS HELD TOO, and `strike` does not do it: it authors
+    // `motion_scale: 1.0` on all three of its windows, so without this she walks
+    // through her own speech while everyone she hit is pinned by the fixed
+    // knockback — the inverse of the one asymmetry this move is about.
     //
-    // ⇒ rooted on the strike's OWN windows rather than by pushing another one
+    // ⇒ rooted on the strike's OWN windows rather than by pushing a blanket one
     // over the top: `motion_scale_at` folds with `min` so either works, but a
     // blanket window would have to carry a tag, and every tag says something to
     // the scorer that is not true of a whole move.
@@ -222,22 +220,15 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     let mut spec =
         ambition_characters::moveset_authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
     spec.display_name = Some("The Trap".to_string());
-    // ⛔⛔ AND THE MOVE DID NOT DO THE THING ITS DOC SAYS IT EXISTS TO DO.
-    // `hitless_special` roots the body for the WHOLE duration — Startup and
-    // Recovery both author `motion_scale: 0.0` — and `MoveSpec::motion_scale_at`
-    // folds overlapping windows with `min`, so every second she spent under the
-    // stage had her steering intent multiplied by zero. *"no gravity, no
-    // geometry — and still steering. That is why this is a technique and a kernel
-    // mode rather than a longer animation on a teleport"* was false in the same
-    // file that says it.
-    //
-    // ⭐ THE RECOVERY BEGINS WHEN SHE SURFACES, which is also just a truer
-    // description than the one it replaces: her follow-through is climbing back
-    // out, not the second she drops through the boards. Between `SINK_AT_S` and
-    // `SURFACE_AT_S` NO window covers the timeline, so the fold returns its
-    // identity and she steers at full authority — and the `Invuln` window
+    // ⛔⛔ THE RECOVERY BEGINS WHEN SHE SURFACES, and the gap between the two
+    // beats is load-bearing. `hitless_special` roots the body across its whole
+    // duration and `MoveSpec::motion_scale_at` folds overlapping windows with
+    // `min`, so a Recovery window starting at `SINK_AT_S` multiplies her
+    // steering by zero for the entire submerged beat — the beat this move exists
+    // for. With no window covering `SINK_AT_S..SURFACE_AT_S` the fold returns
+    // its identity and she steers at full authority; the `Invuln` window
     // authored below still covers that span for the cancel and scoring layers,
-    // which is why leaving the gap costs them nothing.
+    // so leaving the gap costs them nothing.
     for window in &mut spec.windows {
         if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
             window.start_s = SURFACE_AT_S;
@@ -306,15 +297,11 @@ fn the_flyline() -> MoveSpec {
         },
     );
     let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
-    // ⛔⛔ NO `player.blink` HERE, AND THE EXEMPTION THAT USED TO COVER ONE WAS
-    // FACTUALLY WRONG. `author_teleport_blink.rs` reads *"the Actor's trap and
-    // wire and Alice's side-B author the cue for moves that never run the
-    // teleport executor"* — true of the trap (`author_trapdoor`) and of Alice
-    // (an `impulse`), and FALSE of this wire, which is authored through
-    // `author_teleport` twelve lines up. `apply_authored_teleports` emits
-    // `PLAYER_BLINK` at every transit, so the same frame asked for the same cue
-    // down two roads — the exact defect D255/R17 fixed for the Author's Revision.
-    // The executor is the authority; a move does not also ask.
+    // ⛔⛔ NO `player.blink` HERE. This move is authored through
+    // `author_teleport` twelve lines up, and `apply_authored_teleports` emits
+    // `PLAYER_BLINK` at every transit — so a cue on this timeline would ask for
+    // the same sound down a second road on the same frame. The executor is the
+    // one authority; a move that runs it does not also ask.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. Inserted after
     // `SmashRepertoire::into_contract` has lowered the table it joins, nothing
     // else will stamp `gates.recovery` on it — and an up-B that spends nothing

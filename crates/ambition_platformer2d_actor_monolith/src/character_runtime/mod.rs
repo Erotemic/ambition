@@ -26,11 +26,10 @@ pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
-// ⛔⛔ NINE REPUBLISHED NAMES DELETED 2026-08-28. They are
-// `ambition_characters::prepared`'s, and republishing them here put ~250 sites —
-// 57 of them OUTSIDE this crate — on an address that names the monolith as their
-// owner. Every coupling census read it that way. Same defect and same fix as
-// `crate::actor`'s 27 the day before; callers name the crate that owns the thing.
+// ⛔⛔ DO NOT REPUBLISH `ambition_characters::prepared`'s NAMES HERE. A
+// re-export gives them an address that names the monolith as their owner, and
+// every coupling census reads it that way — nine of them once accounted for ~250
+// call sites, 57 outside this crate. Callers name the crate that owns the thing.
 pub use definition::CharacterDefinitionAppExt;
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,

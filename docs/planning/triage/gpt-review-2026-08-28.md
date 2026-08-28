@@ -137,7 +137,18 @@ current recorder may emit.
 
 ## Not closed by this pass
 
-▢ **Production-comment cleanup.** The review is right that source still carries
-dated incident chronology, old hypotheses and debugging narratives beside the
-comments that state a contract. Lower priority than any of the above, and the
-ledger should not read as if that campaign finished.
+◐ **Production-comment cleanup.** The review is right that source carries dated
+incident chronology and debugging narrative beside the comments that state a
+contract — and it raised this TWICE, the second time noting that the batch fixing
+its own findings added more of it.
+
+✔ **The six I wrote this session are trimmed** (`9fbb92256`): the Trap, the
+Monologue, both copies of the blink exemption, `JobResult`, the brain dispatcher's
+line-count correction, and the re-export note — which got STRONGER, from a record
+of nine deleted names to an instruction not to add more.
+
+▢ **What is left is other people's and older**, and it is a sweep rather than a
+fix. ⚠ do NOT turn it into a de-dating campaign: `Moved 2026-08-28 (D33)` on a
+carved module is PROVENANCE and the repo uses it everywhere. The target is the
+incident TRANSCRIPT around a rule — what the code used to do, when it was
+corrected, and a quotation of the sentence that was wrong.

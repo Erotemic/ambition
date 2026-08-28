@@ -4423,6 +4423,41 @@ at `defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*
 So Jon's *"one world unit = one base-grid pixel"* DECLARES what the engine
 already used; nothing converts.
 
+✔✔ **THE SLICE THIS ROW WAS OPENED FOR IS ESSENTIALLY DONE — 2026-08-28.** Jon
+promoted D165 to get *"a sense of the scale at which characters should render"*
+through a declared height. Where that stands, counted rather than claimed:
+
+```text
+103 rows  `Standard`, taking `body_kind`'s 48 — on the height road already
+ 22 rows  author their own number (3 on 2026-08-22, 19 more today at the
+          sizes they already had, plus `perfect_cellular_automaton`)
+  3 rows  still derive size from a level rectangle and a sheet's padding,
+          and they are the only three whose spawn boxes DISAGREE
+```
+
+⇒ the census, the method and the three remaining numbers are in D129, which owns
+the sprite half; ⛔ do not restate them here. What belongs to THIS row is that
+`collision_scale`'s *"three numbers that cannot be compared with each other"* is
+no longer how a character's size is decided for 125 of 128 rows that have one.
+
+⚠ **AND THE 2× OBJECTION AGAINST THAT IS ANSWERED, 2026-08-28 — both statements
+are true and they do not conflict.**
+[`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+warns that D165 says base-grid pixels while the implemented field is WORLD px,
+*"and Mary-O's tile is `T = 32.0` world px. Those differ by 2× in her game."*
+Measured: **the two games use different tile sizes.**
+
+```text
+LDtk worlds (Ambition)   "defaultGridSize": 16   ⇒ 48 world px = THREE tiles
+game/ambition_demo_mary_o    const T: f32 = 32.0 ⇒ 48 world px = ONE AND A HALF
+```
+
+⇒ `standing_height` is WORLD PIXELS unambiguously, in both games and everywhere
+else; what varies is how many TILES that is. ⛔ so nothing needs deciding and
+nothing converts — but *"three tiles tall"* is not a portable way to state a
+height, and the identity above holds for the 16px worlds rather than for the
+engine. State heights in world px and let each game's tile be what it is.
+
 ⛔⛔ **WHAT WAS MISSING WAS NOT A UNIT BUT AN AUTHORED NUMBER — three characters
 were each deriving the same scale by hand, and not even on one axis:**
 
@@ -10066,9 +10101,12 @@ rather than a data test, whose one claim is that an authored burst is heard
 EXACTLY ONCE. ⛔ nothing to converge here; re-doing it would re-introduce the
 doubled jab that guard exists to catch.
 
-- ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
+- ◐ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
-  2026-08-16, with five instances measured in one night as its evidence)**
+  2026-08-16, with five instances measured in one night as its evidence.
+  ⭐ ITS EXIT WAS WRITTEN AND MET 2026-08-28 — every active carve destination
+  states its refusal, 3 of 18 → 9 of 18 — so what remains is the standing habit,
+  not a task: a NEW destination states one when it becomes active.)**
 
 ⭐⭐ **AND THE FIRST POSITIVE INSTANCE — 2026-08-17, boundaries that were STATED
 did the work, which is this row's thesis run forwards instead of backwards.**
@@ -10126,6 +10164,66 @@ refuses body lifecycle   spawn/despawn/residency/possession are the actor
 ⚠ the header also records why `feel.rs` was a CORRECT arrival under that
 contract — hitlag and hitstop are rules a fight obeys, not decoration on one — so
 the next borderline case has a worked example rather than only a rule.
+
+⭐⭐ **AND THE ROW FINALLY HAS AN EXIT, because its thesis is COUNTABLE — measured
+2026-08-28.** Of the eighteen crates that are carve destinations, **three state
+what they REFUSE** (`ambition_combat`, `ambition_platformer2d_shared_tangle`,
+`ambition_binding`) and fifteen say only what they hold. That is this row in one
+number, and it is why the row could never close: it was a principle with no
+count.
+
+▢ **EXIT: every ACTIVE carve destination states its refusal.** Not all eighteen —
+a crate nobody is carving into does not need the sentence, and inventing refusals
+for it would be fabrication dressed as documentation.
+
+✔ **Three more written 2026-08-28, and each cites the event that proves it** —
+the row's own method, since a refusal nobody has tested is an aspiration:
+
+```text
+ambition_characters       refuses the actor INTEGRATION layer (already a
+                          checked absence contract) and anything the SHEET
+                          derives — `ActorSpriteMetrics` was refused here first
+ambition_boss_encounter   refuses GENERIC body geometry. A boss was the first
+                          customer of AABB overlap and `CombatGeometry`, not
+                          their owner, and holding them made a whole seam read
+                          as boss vocabulary. 531 lines left this month.
+                          ⇒ the test: would the SECOND consumer be a boss?
+ambition_sprite_sheet     refuses anything `ambition_characters` must read (it
+                          depends on that crate, so hosting one inverts the
+                          edge) and refuses to say how tall a body STANDS —
+                          the catalog decides that; the sheet supplies the
+                          pixels it is measured against
+```
+
+✔✔ **AND THE LAST THREE FOLLOWED THE SAME DAY, so every ACTIVE carve destination
+now states its refusal and this row's exit is MET:**
+
+```text
+ambition_mount          refuses body LIFECYCLE (a pair is a relation between
+                        bodies somebody else made — the same rule its own
+                        "the monolith still builds pairs" note reads from the
+                        other side) and per-species mount rules
+                        ⇒ the test: would it read as nonsense for a DIFFERENT
+                        pair of bodies?
+ambition_damage         refuses the ATTACK side, refuses to decide whether two
+                        bodies are ENEMIES, and refuses to draw — the last one
+                        enforced by `ambition_render` being absent from its
+                        manifest. ⚠ and NAMES its own borderline edge,
+                        `ambition_persistence` for the assist-mode scale, so the
+                        next arrival is weighed against a boundary rather than
+                        against one precedent.
+ambition_conversation   refuses presentation (projections rebuilt FROM
+                        `ActiveConversation` belong to `ambition_dialog`),
+                        refuses named content — banter arrived as the RULE for
+                        talking over each other, never the words — and refuses
+                        to derive who is speaking from a player slot
+```
+
+⇒ **9 of 18 destinations state a refusal, and the nine that do not are the ones
+nobody is carving into.** ⛔ do not "finish" this row by writing the other nine:
+a refusal invented for an inactive crate is fabrication dressed as documentation,
+and the four times this row's own evidence shows a stated boundary DOING the work
+were all boundaries somebody had tested.
 
 ⛔⛔ **AND THE SHARPER LESSON, from the crate literally named `shared_tangle`: a
 DEPENDENCY refusal is not an ADMISSION RULE.** Its header already said it depends
@@ -11003,8 +11101,16 @@ davy_hylbert / pipi_tau      absolute pose coords — enlarging the frame leaves
 ⇒ their fix is a canvas grow PLUS a pose translation PLUS the same shift applied
 to `FaceGuide.center_x/center_y`, on two files. That is the *"art authoring with
 a gameplay consequence"* this row already flags, and it wants an eye on the
-result rather than a mechanical edit. ⭐ `le_beast` (39, TOP on idle and jump) is
-a third shape again and is the smallest of the three.
+result rather than a mechanical edit.
+
+⚠ **`le_beast` (39, TOP on idle and jump) IS THE SAME SHAPE, not a fourth** —
+checked 2026-08-28, correcting an earlier line here that called it a third one.
+`FRAME_W = FRAME_H = 128`, `auto_crop=False`, and every stroke at an absolute
+canvas coordinate (`(64 + side * 10, 108)`). ⛔ and the cut is on the TOP, which
+is the awkward direction: extra room added to a canvas lands at the BOTTOM unless
+the whole drawing moves down, and there is no single origin to move it by — the
+constants are spread through `_draw_character`. ⇒ three targets, ONE remaining
+technique, and it is the expensive one.
 
 ⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
 AUTHORED.** It is one of the three still on the legacy road, so a wider frame is

@@ -18,6 +18,23 @@
 //! because the component vocabulary (`BodyCombat`, `ae::BodyClustersMut`)
 //! does. The relativity-principle fix is the actor-unification rename of those
 //! types, tracked separately; this drain only relocates and de-render-couples.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES.
+//!
+//! - **The ATTACK side.** This resolves what happens TO a body: what a swing is,
+//!   when it is active and who it reaches are the attacker's, and they live in
+//!   `ambition_combat`. A `HitEvent` arriving here has already been adjudicated.
+//! - **Whether two bodies are ENEMIES.** Hostility, teams and friendly fire are
+//!   the disposition layer's answer; this crate applies a hit somebody else
+//!   decided was legal.
+//! - **Drawing.** Enforced rather than promised: `ambition_vfx` supplies the cue
+//!   vocabulary and `ambition_render` is absent from this crate's manifest, so a
+//!   thing that must DRAW cannot compile here.
+//!
+//! ⚠ AND ONE EDGE THAT IS BORDERLINE RATHER THAN REFUSED: `ambition_persistence`,
+//! for the assist-mode damage scale. A damage resolver reading a settings store
+//! is worth somebody's judgement; it is named here so the next arrival is weighed
+//! against a stated boundary rather than against this one precedent.
 
 use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};

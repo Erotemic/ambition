@@ -1039,6 +1039,16 @@ actors               2892       29             4
 spawn                2025       34             2
 ```
 
+✔ **`ledge_trump` CARVED 2026-08-28 → `ambition_combat::ledge_trump`**, beside the
+`DeclaredCombatRules::ledge_trump_pop` it enforces, which this crate already
+owned. Zero new dependency edges; the eight tests went with it.
+⛔ **AND CHECK THE DESTINATION FOR A CYCLE BEFORE PROMISING THE OTHER THREE.**
+`damage_predicates` needs `ambition_boss_encounter`, which depends on
+`ambition_combat` — so combat is not its home. `brain_effects` names
+`ambition_app`, `ambition_mount` and `ambition_projectiles`, so it cannot go down
+at all yet. **`attack` (604 lines) is the one that can**: it wants
+`ambition_platformer2d_world`, a clean downward edge combat does not have yet.
+
 ⭐ **FOUR MODULES — `attack`, `brain_effects`, `damage_predicates`, `ledge_trump`,
 1,336 lines together — REACH THE MONOLITH IN NO SHAPE AT ALL.** They are the
 carve-ready set, and none of them appeared in the old ranking because it counted

@@ -10,8 +10,9 @@ use super::*;
 use ae::ledge_grab::{LedgeContact, LedgeGrabState};
 
 fn hanging_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity {
-    let mut model =
-        ambition_platformer2d_core::movement::MotionModel::axis_swept(ae::DEFAULT_TUNING.axis_swept_params());
+    let mut model = ambition_platformer2d_core::movement::MotionModel::axis_swept(
+        ae::DEFAULT_TUNING.axis_swept_params(),
+    );
     let ae::MotionModel::AxisSwept(axis) = &mut model else {
         unreachable!("axis_swept built an axis model")
     };
@@ -180,7 +181,7 @@ mod outward_pop {
         let mut app = app();
         if let Some(pop) = pop {
             app.world_mut()
-                .insert_resource(ambition_combat::rules::ResolvedCombatTuning {
+                .insert_resource(crate::rules::ResolvedCombatTuning {
                     ledge_trump_pop: pop,
                     ..Default::default()
                 });
@@ -235,7 +236,7 @@ mod outward_pop {
     fn the_pop_leaves_along_the_bodys_own_side_under_rotated_gravity() {
         let mut app = app();
         app.world_mut()
-            .insert_resource(ambition_combat::rules::ResolvedCombatTuning {
+            .insert_resource(crate::rules::ResolvedCombatTuning {
                 ledge_trump_pop: 420.0,
                 ..Default::default()
             });
@@ -284,10 +285,10 @@ mod outward_pop {
 /// test, which declares no rules at all.
 #[test]
 fn the_ledge_policy_decides_which_holder_survives() {
-    let contest = |occupancy: Option<ambition_combat::rules::LedgeOccupancy>| -> (bool, bool) {
+    let contest = |occupancy: Option<crate::rules::LedgeOccupancy>| -> (bool, bool) {
         let mut app = app();
         if let Some(occupancy) = occupancy {
-            app.insert_resource(ambition_combat::rules::ResolvedCombatTuning {
+            app.insert_resource(crate::rules::ResolvedCombatTuning {
                 ledge_occupancy: occupancy,
                 ..Default::default()
             });
@@ -302,14 +303,14 @@ fn the_ledge_policy_decides_which_holder_survives() {
     // TRUMP — declared explicitly, so this arm is about the RULE rather than
     // about a world that happens to declare nothing.
     assert_eq!(
-        contest(Some(ambition_combat::rules::LedgeOccupancy::Trump)),
+        contest(Some(crate::rules::LedgeOccupancy::Trump)),
         (false, true),
         "under Trump the newcomer must take the edge and the camper must fall"
     );
 
     // HOG — the same contest, the other survivor.
     assert_eq!(
-        contest(Some(ambition_combat::rules::LedgeOccupancy::Hog)),
+        contest(Some(crate::rules::LedgeOccupancy::Hog)),
         (true, false),
         "under Hog the body that got there first must keep the edge"
     );

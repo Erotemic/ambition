@@ -68,7 +68,6 @@ mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
 mod interact;
-pub mod ledge_trump;
 pub mod perception;
 pub mod pickups;
 mod reset;

@@ -11,9 +11,12 @@
 //! registration and ordering.
 
 mod authority;
+// ⛔ NOT GATED, and it must not be: the COMBAT hit path reads this, and the hit
+// path exists in a headless sim with no `ui`. It sits below the `dialog` line
+// rather than above it because that line's `#[cfg]` belongs to `dialog`.
+pub mod banter;
 // Session/UI glue that projects the conversation authority into `ambition_dialog`.
 #[cfg(feature = "ui")]
-pub mod banter;
 pub mod dialog;
 mod hold;
 mod instance;
@@ -30,10 +33,10 @@ mod tests;
 pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use instance::ConversationInstanceId;
-pub use music::NarrativeMusicRequest;
 pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
+pub use music::NarrativeMusicRequest;
 pub use opening::{character_id_of, DialogueDispatch};
 pub use plugin::ConversationPlugin;
 pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};

@@ -16,12 +16,12 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod bomb;
 pub mod capture;
 pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
 pub mod select_screen;
-pub mod bomb;
 pub mod shark_ride;
 pub mod smash_pack;
 
@@ -850,7 +850,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // capture release and the stale-move recorder.
         app.add_systems(
             sim,
-            ambition_platformer2d::actors::features::ecs::ledge_trump::resolve_ledge_trumps
+            ambition_platformer2d::combat::ledge_trump::resolve_ledge_trumps
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // A capture ends in `Settle`, where post-damage bookkeeping belongs.

@@ -300,6 +300,9 @@ USAGE:
 
 OPTIONS:
     --characters ID,ID   comma-separated catalog ids to record
+                         `grid` (or `all`) records every fighter on the smash
+                         grid: 21 fighters at ~7 min each is about 2.5 HOURS
+                         (measured 2026-08-27) — a background job, not a click
                          [default: npc_pirate_admiral]
     --out PATH           where to write the takes
                          [default: tools/ambition_moveset_inspector/data/takes/takes.json]
@@ -313,7 +316,8 @@ NOTES:
 
     There is no positional argument; use --out.
 
-    Minutes per character: every take is a real match settled between presses.
+    ~7 minutes per character, measured: every take is a real match settled
+    between presses, and there are 19 verbs.
     Prints a `[presentation]` census at the end — see the docs for what its
     zeroes mean.
 ";
@@ -900,9 +904,7 @@ fn main() {
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());
-    let who: Vec<String> = arg("--characters")
-        .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
-        .unwrap_or_else(|| vec!["npc_pirate_admiral".to_string()]);
+    let asked = arg("--characters");
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -910,6 +912,39 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
+
+    // ⭐⭐ `--characters grid` RECORDS THE WHOLE SMASH GRID, and it is the flag
+    // this tool should always have had. The default of one fighter made the
+    // inspector's take view look broken — *"There are 2 fighters now, why not
+    // them all?"* — because the picker lists what was RECORDED and recording is
+    // opt-in per name. Nobody should have to type twenty-one ids to answer a
+    // roster-wide question that a balance tool exists to answer.
+    //
+    // ⛔ THE GRID, NOT THE WHOLE CAST. The registry holds 48 prepared characters
+    // and most are NPCs with no moveset; the grid is the set a player can pick,
+    // which is the set a balance view is about.
+    let who: Vec<String> = match asked.as_deref() {
+        Some("grid") | Some("all") => {
+            let registry = app
+                .world()
+                .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+                .expect("the composed host has a prepared-character registry");
+            ambition_demo_smash::select::SmashRoster::assemble(registry)
+                .ids()
+                .map(|id| id.to_string())
+                .collect()
+        }
+        Some(list) => list.split(',').map(|x| x.trim().to_string()).collect(),
+        None => vec!["npc_pirate_admiral".to_string()],
+    };
+    // ⛔ SAY HOW LONG THIS WILL TAKE. Every take settles a real match between
+    // presses, so a grid run is tens of minutes — and a tool that goes quiet for
+    // half an hour without saying so reads as hung.
+    eprintln!(
+        "[moveset-takes] recording {} character(s): {}",
+        who.len(),
+        who.join(", ")
+    );
 
     let mut takes = Vec::new();
 

@@ -914,8 +914,19 @@ function renderTakeList() {
    * opening a tab or a console. */
   const note = $("#take-loaded");
   if (note) {
+    /* ⭐ AGAINST THE GRID, not in isolation. "2 fighters" invites "why not all
+     * of them"; "2 of 21 grid fighters recorded" answers it, and naming the
+     * command means the answer is actionable rather than just honest. */
+    const grid = (BUNDLE && BUNDLE.smash_grid) || [];
+    const missing = grid.filter((id) => !fighters.includes(id));
     note.textContent =
-      `${TAKES.takes.length} takes · ${fighters.length} fighter${fighters.length === 1 ? "" : "s"}: ${fighters.join(", ")}`;
+      `${TAKES.takes.length} takes · ${fighters.length}` +
+      (grid.length ? ` of ${grid.length} grid fighters` : " fighters") +
+      ` recorded: ${fighters.join(", ")}`;
+    note.title = missing.length
+      ? `not recorded: ${missing.join(", ")}\n\n` +
+        "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"
+      : "the whole grid is recorded";
   }
   /* ⭐ FOLLOW THE FIGHTER THE READER WAS ALREADY LOOKING AT. Arriving from the
    * Fighter view and being shown somebody else is the tool losing the reader's
@@ -1123,6 +1134,7 @@ async function renderStatusView() {
   const b = doc.bundle || {};
   panel("Data", [
     ["Bundle", b.exists ? `${b.fighters} fighters, ${b.sheets} sheets, ${b.schema} (built ${b.built})` : "MISSING — run moveset_export"],
+    ["Recording", "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"],
     ["Takes", doc.takes && doc.takes.exists
       ? `${doc.takes.takes} takes recorded ${doc.takes.built} — ` +
         `${doc.takes.with_art}/${doc.takes.bodies} bodies with art, ` +

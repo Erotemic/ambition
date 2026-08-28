@@ -9610,6 +9610,29 @@ in five places (widened from an initial undercount of three — the contract's
 5  brain/mod.rs                maps the variant to the string "fighter"
 ```
 
+⛔ **RE-MEASURED 2026-08-28 AND FOUR OF THE FIVE POINTERS NEED CORRECTING** —
+which is the point of re-grepping a costed row before working it:
+
+```text
+1  brain/snapshot.rs           ✔ STILL THERE, line 87 (plus a doc mention at 163)
+2  brain/state_machine/mod.rs  ✔ STILL THERE, lines 79-80 — `Box<FighterCfg>` and
+                               `Box<FighterState>`
+3  brain/smash/emit.rs         ✔ CLOSED, as recorded
+4  brain/snapshot_impls.rs     ⛔ THAT FILE DOES NOT EXIST. The codec is
+                               `crates/ambition_characters/src/snapshot_impls.rs`
+                               (crate root, not under `brain/`), tag byte `3`
+5  brain/mod.rs                ✔ STILL THERE, line 164
++  actor/character_catalog/    ⛔ A SIXTH the list never had: `resolver.rs:173`
+   resolver.rs                 constructs the variant
+```
+
+⚠ **and the carve's real blast radius is OUTSIDE this crate**: the monolith names
+`StateMachineCfg::Fighter` at eight sites (`brain_tick.rs`, and seven in
+`features/ecs/brain_builders.rs`), all of which a `Brain::Capability(BrainId)`
+dispatch has to replace. ⭐ the ratchet
+`the-generic-brain-does-not-grow-new-platform-fighter-edges` is GREEN, so the
+boundary has not drifted — only the FILE PATHS in this table did.
+
 ⭐ `ambition_platformer2d_core` does NOT depend on the fighter brain (its one
 `fighter::` hit is a doc reference) — the one edge that would have made the
 carve impossible does not exist.

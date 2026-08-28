@@ -322,15 +322,21 @@ pub fn drive_boss_animators(
 ) {
     for (entity, feature_id, mut frame, scale) in &mut frames {
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
-        let Some((_, state)) =
-            crate::features::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
-        else {
+        // ⭐ NAMED WHERE IT LIVES. Both of these are
+        // `ambition_boss_encounter::anim`'s; reaching them through
+        // `crate::features` was two hops of the monolith's own facade
+        // republishing a peer domain, which is the shape that makes a module
+        // look coupled to the monolith when it is not.
+        let Some((_, state)) = ambition_boss_encounter::anim::ecs_boss_anim_state_and_entity(
+            feature_id.as_str(),
+            &ecs_bosses,
+        ) else {
             continue;
         };
         let anim = ambition_boss_encounter::sprites::pick_boss_anim(state);
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
-        match crate::features::ecs_boss_animation_frame_sample(
+        match ambition_boss_encounter::anim::ecs_boss_animation_frame_sample(
             &boss_catalog,
             feature_id.as_str(),
             &ecs_bosses,

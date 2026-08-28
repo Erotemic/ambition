@@ -891,6 +891,43 @@ spawn            3352         154
 ⇒ **`damage_apply` is now the strongest candidate left** — 3,674 lines against
 SEVENTEEN outward references, where mount carved at 1,871 against four.
 
+⛔⛔ **THAT TABLE IS STALE AND THE RANKING IS WRONG — RE-MEASURED 2026-08-28.**
+`damage_apply` does not exist any more; the work is in `features/ecs/damage/`.
+And the old counts mix TEST lines into the size and count every `crate::`
+occurrence rather than the distinct concepts behind them, which is what put the
+biggest file on top. Non-test lines, total outward `crate::` refs, and how many
+DISTINCT monolith modules those name:
+
+```text
+                non-test   refs   modules named
+bosses              1181      2   1   ← and both were a facade hop; now ZERO
+damage              2144      9   2   (banter registry, character_runtime)
+damage_drops         333      5   3
+interact             255      3   2
+aggression           214      3   2
+actors              2892     25   5
+spawn               2025     52   7
+```
+
+⭐⭐ **`bosses` IS THE CARVE, and it was already almost free.** Its two outward
+references were `crate::features::ecs_boss_anim_state_and_entity` and
+`ecs_boss_animation_frame_sample` — **both of which already live in
+`ambition_boss_encounter::anim`** and were reached through two hops of the
+monolith's own facade republishing a peer domain. That is precisely the shape
+this section already names for the SDK case. Both call sites name the crate
+directly now, so **`features/ecs/bosses/` production code names ZERO monolith
+paths** — the milestone the mount pair reached before it carved. ⭐ its test-side
+`crate::` refs are all SELF-references (`crate::features::bosses::…`), which
+become `super::` inside the new crate rather than being coupling at all.
+⇒ the remaining price is the MOVE, not an inversion: `ambition_boss_encounter`
+already exists and already owns the profiles, the catalog and the anim helpers.
+
+⚠ **`damage`'s nine refs are FOUR concepts**, which is what a carve would have to
+subtract: `CombatBanterRegistry` (×3), `PreparedCharacterRegistry` (×2),
+`ActiveMatch` (×2), and `RespawnPolicy` + `ENEMY_DEAD_UNTIL_REST_SUFFIX`. Count
+the concepts, not the occurrences — the occurrence count is what made this table
+rank by file size.
+
 ⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
 138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
 vocabulary names from FOUR crates, so it composes something a single alias does

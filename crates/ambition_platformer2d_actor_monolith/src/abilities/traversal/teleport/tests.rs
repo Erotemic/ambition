@@ -246,6 +246,9 @@ fn an_authored_teleport_records_one_scripted_remap() {
                 // No assist: this arm is about the LEDGER, and a ledge catch
                 // would move the arrival for a second reason.
                 ledge_assist: 0.0,
+                // Nor i-frames, for the same reason: this arm asks what the
+                // teleport SPENT, and intangibility is a different question.
+                intangible_s: 0.0,
                 depart_vfx: "blink".to_string(),
                 arrive_vfx: "blink".to_string(),
             })

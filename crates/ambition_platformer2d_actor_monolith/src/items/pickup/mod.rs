@@ -363,6 +363,31 @@ const GROUND_ITEM_GRAVITY: f32 = 1400.0;
 const THROW_SPEED_X: f32 = 320.0;
 const THROW_SPEED_UP: f32 = 260.0;
 
+/// THIS ITEM REACHED A BODY THIS TICK, AND HOW FAST IT WAS GOING.
+///
+/// ⭐⭐ THE OTHER HARD CONTACT. `SettledItem` says an item stopped against the
+/// collision world; this says it arrived at a fighter. Jon's rule for the live
+/// bomb is *"4 seconds or if it hits something with enough velocity, whichever
+/// comes first"* — and a fighter is something, so a bomb thrown into somebody's
+/// chest kept its fuse for as long as "impact" meant "touched a block" (GPT 5.6,
+/// 2026-08-27).
+///
+/// ⛔ IT DOES NOT STOP THE ITEM. A body is not a wall: the first attempt settled
+/// the item on contact, which made every fighter a shelf and left a minted drop
+/// resting 47px above the floor it used to land on.
+///
+/// ⛔ REPUBLISHED EVERY TICK by the system that owns item motion, so a consumer
+/// reads this tick's contact and never a stale one. `SettledItem` needs no such
+/// rule because the stop it records ends the item's motion.
+///
+/// ⛔ THE SPEED, NOT A BOOLEAN, for the same reason `SettledItem` carries one:
+/// the difference between a hit and a placement is how fast it arrived, and each
+/// consumer sets its own bar.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ItemStruckBody {
+    pub impact_speed: f32,
+}
+
 /// THIS ITEM IS AT REST ON SOMETHING and does not need stepping.
 ///
 /// ⭐⭐ AN EXPLICIT FACT, because the alternative was asking `vel == ZERO` to
@@ -470,6 +495,26 @@ pub fn ground_item_physics(
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
     mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
+    // ⭐⭐ THE OTHER CONTACT POPULATION. A thrown item's world is not only the
+    // collision world: it is also full of BODIES, and Jon's rule for a live bomb
+    // is *"4 seconds or if it hits something with enough velocity, whichever
+    // comes first"* — a fighter is something. `SettledItem` was published only
+    // for a stop against static geometry, so "impact detonation" quietly meant
+    // "touched a block" and a bomb thrown into somebody's chest bounced off them
+    // and kept its fuse (GPT 5.6, 2026-08-27).
+    //
+    // ⛔ THE FACT IS PRODUCED HERE, by the system that owns an item's motion,
+    // and not by a distance check in `bomb.rs`. A bomb is one consumer of "this
+    // item stopped hard"; a gravity grenade and whatever comes next are others,
+    // and each writing its own overlap loop is how one rule becomes three.
+    bodies: Query<
+        (
+            &ambition_platformer2d_core::CenteredAabb,
+            &ambition_characters::actor::BodyHealth,
+            Has<ambition_combat::death_rules::OutOfPlay>,
+        ),
+        With<ambition_characters::actor::BodyHealth>,
+    >,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -516,6 +561,38 @@ pub fn ground_item_physics(
             || next.y < -200.0
             || next.x > world.size.x + 200.0
             || next.x < -200.0;
+        // ⛔⛔ A NEWLY ENTERED OVERLAP, NOT AN OVERLAP. A thrown item leaves a
+        // HAND, so on its first free tick it is standing inside the thrower and
+        // an "is it touching a body" test settles it before it has travelled a
+        // pixel. Comparing the two positions asks the question that actually
+        // means impact: did this item ARRIVE somewhere a body is?
+        let touches = |at: ae::Aabb| {
+            bodies.iter().any(|(aabb, health, out_of_play)| {
+                !ambition_combat::util::body_is_untouchable(Some(health), out_of_play)
+                    && at.strict_intersects(aabb.aabb())
+            })
+        };
+        // ⛔⛔ AND A BODY IS NOT A WALL. The first version STOPPED the item here,
+        // and that turns every fighter into a shelf: an item dropped or falling
+        // near somebody parked in mid-air on them — measured, a minted drop came
+        // to rest 47px above the floor it used to land on. Being STRUCK by
+        // something and STOPPING it are different facts, and only the first is
+        // what a thrown bomb asks about.
+        let struck = (touches(next_aabb)
+            && !touches(ae::Aabb::new(item.pos, item.half_extent)))
+        .then(|| ItemStruckBody {
+            impact_speed: item.vel.length(),
+        });
+        match struck {
+            Some(hit) => {
+                commands.entity(entity).try_insert(hit);
+            }
+            // Republished every tick, so a consumer reads THIS tick's contact
+            // rather than a stale one.
+            None => {
+                commands.entity(entity).remove::<ItemStruckBody>();
+            }
+        }
         if blocked || outside_world {
             // Settle in place (simple — no slide), and SAY SO: the marker is
             // what stops this item being stepped again, replacing the

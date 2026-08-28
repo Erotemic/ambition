@@ -137,6 +137,11 @@ pub fn burn_fuses_and_answer_impacts(
         &ambition_platformer2d::item::GroundItem,
         &ambition_platformer2d::item::ItemCustody,
         Option<&ambition_platformer2d::item::SettledItem>,
+        // ⭐ THE OTHER HARD CONTACT, and it is the same question. A bomb that
+        // reaches a fighter at speed has hit something with enough velocity —
+        // Jon's rule names no surface — and reading only the world settle is
+        // what made "impact detonation" mean "touched a block".
+        Option<&ambition_platformer2d::item::ItemStruckBody>,
     )>,
     // ⭐⭐ WHERE THE BOMB IS, WHOEVER HAS IT. `GroundItem::pos` is the WORLD's
     // copy and the world stops updating it the moment somebody picks the bomb
@@ -146,7 +151,7 @@ pub fn burn_fuses_and_answer_impacts(
     where_it_is: ambition_platformer2d::item::ItemWorldPos,
 ) {
     let dt = time.sim_dt();
-    for (entity, mut bomb, item, custody, settled) in &mut bombs {
+    for (entity, mut bomb, item, custody, settled, struck_body) in &mut bombs {
         let at = where_it_is.of(custody, item);
         // ⛔ A CARRIED BOMB STILL BURNS. That is the whole tension of holding
         // one, and it is why the fuse is ticked before the custody check rather
@@ -160,8 +165,15 @@ pub fn burn_fuses_and_answer_impacts(
         // on its FIRST free tick, when the remembered speed is still the zero it
         // had in a hand; and a falling bomb can cross the threshold on the
         // gravity of the very tick it lands.
-        let struck_hard = custody.in_world()
-            && settled.is_some_and(|settled| settled.impact_speed >= bomb.impact_speed);
+        // ⛔ ONE THRESHOLD, TWO SURFACES. The bomb sets the bar for "hard" and
+        // the collision authority says what was reached; a second number for
+        // bodies would be a second policy nobody asked for.
+        let hardest = settled
+            .map(|settled| settled.impact_speed)
+            .into_iter()
+            .chain(struck_body.map(|hit| hit.impact_speed))
+            .fold(0.0_f32, f32::max);
+        let struck_hard = custody.in_world() && hardest >= bomb.impact_speed;
         if bomb.fuse_s > 0.0 && !struck_hard {
             continue;
         }

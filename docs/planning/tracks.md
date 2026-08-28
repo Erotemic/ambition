@@ -202,9 +202,23 @@ These cards are capability fronts, not a serial mega-campaign.
   history.** The campaign's mechanism landed (`Ref<N>`, `Resolver<N>`, `Bound<N>`,
   structured unresolved diagnostics, construction-time refusal); what remains is
   (1) per-frame item-art diagnostics passing generic declarers like `"ground
-  item"` instead of provider/source identity, so **two providers with the same
-  unresolved id suppress one another's diagnostic**, and (2) failed-file detection
-  beyond item art where invisibility is real. ⛔ **do not reopen a campaign to
+  item"` instead of provider/source identity, and (2) failed-file detection
+  beyond item art where invisibility is real.
+  ⛔⛔ **(1)'s STATED SYMPTOM IS WRONG, re-measured 2026-08-28.** It read *"two
+  providers with the same unresolved id suppress one another's diagnostic"*. The
+  dedupe key is `(namespace, declared_by, id)` — **it already includes the id** —
+  so two providers sharing one unresolved id produce two IDENTICAL messages
+  (`unknown item_art \`axe\` declared by \`ground item\``), and suppressing the
+  second costs nothing. The suppression is a symptom, not the defect.
+  ⭐ **THE REAL GAP IS A STATED CONTRACT GOING UNMET.** `UnresolvedRef::declared_by`
+  documents itself as *"a plan row, character id, catalog entry. Free-form, but it
+  must let a reader find the authored line."* `"ground item"` and `"held item"` do
+  not. ⚠ and one call site in the same file already does it right —
+  `"world item \`cinder_beacon\`"` — so the shape is known and two sites simply
+  cannot reach it: `GroundItemFact` is `{pos, half_extent, item_id}` with no
+  provenance, so satisfying the contract means the VIEW carrying a source.
+  ⇒ that is one field, not *"wrap every string id"* — but it is a sim-view widening
+  for a diagnostic, which is the trade to weigh rather than assume. ⛔ **do not reopen a campaign to
   wrap every string id** — keep a slice only when it removes a real silent-failure
   or duplicate-authority path. ⭐ note the adjacency: this machinery is what A9's
   reverse-reference queries and D127's prepared references would build on. Use

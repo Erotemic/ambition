@@ -277,6 +277,9 @@ let state = {
   sort: { key: "slot", asc: true },
   compareSort: { key: "fighter", asc: true },
   take: null,
+  /* Which fighter's takes are listed. Seeded from `fighter` on entry so the
+   * view follows the reader rather than starting over. */
+  takeFighter: null,
   takeFrame: 0,
   playing: false,
 };
@@ -846,16 +849,50 @@ async function renderReview() {
 }
 
 /* ---------- engine takes ---------- */
+/* ⛔⛤ ONE FLAT LIST OF EVERY TAKE was unusable the moment a second fighter was
+ * recorded: nineteen entries per character, all prefixed with the same name, and
+ * no way to say "show me this one". A fighter picker in front of it makes the
+ * take list mean "this fighter's takes" — and makes it obvious WHICH fighters
+ * have been recorded at all, which is the question behind "why can I only select
+ * the pirate admiral". */
+function takeFighters() {
+  const rows = (TAKES && TAKES.takes) || [];
+  return [...new Set(rows.map((t) => t.character))].sort();
+}
+
 function renderTakeList() {
   const pick = $("#take-pick");
+  const who = $("#take-fighter");
   if (!TAKES || !TAKES.takes.length) {
-    pick.replaceChildren(el("option", {}, "no takes recorded"));
+    who.replaceChildren(el("option", {}, "—"));
+    pick.replaceChildren(el("option", {}, "no takes recorded — run moveset_takes"));
     return;
   }
-  pick.replaceChildren(...TAKES.takes.map((t, i) =>
-    el("option", { value: String(i) }, `${t.character} · ${t.label} (${t.frames.length}f)`)));
-  state.take = 0;
-  loadTake(0);
+  const fighters = takeFighters();
+  /* ⭐ FOLLOW THE FIGHTER THE READER WAS ALREADY LOOKING AT. Arriving from the
+   * Fighter view and being shown somebody else is the tool losing the reader's
+   * place — and it is why this view felt unrelated to the rest of the page. */
+  if (!fighters.includes(state.takeFighter)) {
+    state.takeFighter = fighters.includes(state.fighter) ? state.fighter : fighters[0];
+  }
+  who.replaceChildren(...fighters.map((id) =>
+    el("option", { value: id, ...(id === state.takeFighter ? { selected: "" } : {}) }, id)));
+  renderTakeOptions();
+}
+
+function renderTakeOptions() {
+  const pick = $("#take-pick");
+  const rows = (TAKES && TAKES.takes) || [];
+  const mine = rows
+    .map((t, i) => ({ t, i }))
+    .filter(({ t }) => t.character === state.takeFighter);
+  if (!mine.length) {
+    pick.replaceChildren(el("option", {}, "no takes for this fighter"));
+    return;
+  }
+  pick.replaceChildren(...mine.map(({ t, i }) =>
+    el("option", { value: String(i) }, `${t.label} (${t.frames.length}f)`)));
+  loadTake(mine[0].i);
 }
 
 function loadTake(i) {
@@ -890,30 +927,19 @@ function drawTake() {
   const X = (x) => (x - view[0]) * scale;
   const Y = (y) => (y - view[1]) * scale;
 
-  /* ⭐⭐ THE ENGINE'S OWN PICTURE, WHEN THERE IS ONE. A rendered frame is the
-   * whole scene as the game drew it, so it REPLACES the canvas rather than
-   * being composited into it — and the hitboxes still go over the top, because
-   * those are the diagnostic somebody opened this view for. Falls through to
-   * the derived sprites the moment the render is unavailable. */
-  const rendered = renderedFramesFor(t.character);
-  if (state.takeArt !== false && rendered && rendered.available) {
-    const images = rendered.images;
-    const shot = images[Math.min(Math.floor(state.takeFrame / (rendered.stride || 1)), images.length - 1)];
-    if (shot && shot.complete && shot.naturalWidth) {
-      ctx.drawImage(shot, 0, 0, cssW, cssH);
-      for (const h of frame.hitboxes || []) {
-        ctx.strokeStyle = "#e2564a";
-        ctx.fillStyle = "rgba(226,86,74,.22)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.rect(X(h.pos[0] - h.half[0]), Y(h.pos[1] - h.half[1]), h.half[0] * 2 * scale, h.half[1] * 2 * scale);
-        ctx.fill(); ctx.stroke();
-      }
-      $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
-      takeFacts(t, frame);
-      return;
-    }
-  }
+  /* ⛔⛔ THE ENGINE RENDER IS NOT COMPOSITED HERE, AND THE ATTEMPT WAS WRONG.
+   * `/api/render` photographs a fighter standing in `hall_of_characters`: a
+   * whole-room shot, in the CAMERA's coordinate space, of a scene that is not
+   * this take. Drawing it as the canvas background and then overlaying hitboxes
+   * computed in the TAKE's world coordinates put two unrelated spaces on one
+   * picture — so the strike landed nowhere near the fighter and the whole thing
+   * read as "a room with a box on it". A view that draws a wrong picture is
+   * worse than one that draws none, because it is believed.
+   *
+   * ⭐ THE RENDER COMES BACK when it is driven PER MOVE and reports the camera
+   * transform it was taken with, which are the two things that would let a
+   * hitbox be placed on it. Until then the derived sprites below are drawn in
+   * the take's own space, which is at least self-consistent. */
 
   /* platforms */
   ctx.fillStyle = "#232733";
@@ -1087,7 +1113,9 @@ function showView(name) {
   for (const b of document.querySelectorAll("nav.tabs button")) b.classList.toggle("on", b.dataset.view === name);
   for (const v of document.querySelectorAll(".view")) v.classList.toggle("on", v.id === `view-${name}`);
   if (name === "compare") renderCompare();
-  if (name === "takes") drawTake();
+  /* Re-pick on ENTRY, so switching fighters elsewhere and coming back here
+   * lands on the fighter you were reading rather than wherever you last were. */
+  if (name === "takes") renderTakeList();
   if (name === "status") renderStatusView();
 }
 
@@ -1132,6 +1160,10 @@ async function boot() {
     b.addEventListener("click", () => showView(b.dataset.view));
   }
   $("#take-pick").addEventListener("change", (e) => loadTake(Number(e.target.value)));
+  $("#take-fighter").addEventListener("change", (e) => {
+    state.takeFighter = e.target.value;
+    renderTakeOptions();
+  });
   $("#take-scrub").addEventListener("input", (e) => { state.takeFrame = Number(e.target.value); drawTake(); });
   /* The art can be turned off. A hitbox that sits behind a big sprite is hard to
    * read, and "where exactly is this volume" is a question the boxes answer

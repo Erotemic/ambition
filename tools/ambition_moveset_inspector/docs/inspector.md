@@ -268,3 +268,20 @@ cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>,<id>
 The Status tab reports it directly — `14390/14445 bodies with art, 481/481
 strikes with geometry` — and flags a recording that carries neither. The Engine
 Takes label says it too, where the button is.
+
+## Only one fighter in Engine Takes?
+
+The take list shows the fighters that have been RECORDED, which is only ever the
+ones you asked for:
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes -- \
+    --characters npc_pirate_admiral,projectile_polygon
+```
+
+The fighter picker in front of the take list is the set of recorded characters,
+and it follows the fighter you were reading in the Fighter view when you switch
+tabs. Status names them too.
+
+⚠ Minutes per character — every take settles a real match between presses — so
+recording the whole grid is an overnight job rather than a click.

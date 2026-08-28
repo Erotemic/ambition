@@ -531,11 +531,23 @@ fn publish_bevy_ui_menu_actions<Action>(
     rows: Query<(Entity, &Interaction, &AmbitionMenuControl<Action>), With<Button>>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
-    mut arm: Local<ambition_ui_nav::PressArm<String>>,
-    // The armed control's payload and the entity that drew it when the pointer
-    // went down. Beside the arm rather than inside it because neither fact is
-    // the tap-geometry primitive's business.
-    mut armed: Local<Option<(Action, Entity)>>,
+    // ⛔⛔ KEYED BY THE ACTION, NOT BY ITS `Debug` TEXT. This held a
+    // `PressArm<String>` filled with `format!("{action:?}")`, which makes a
+    // DEBUGGING PRESENTATION part of a menu row's identity: two rows whose
+    // `Debug` happens to agree become one control, and changing a `Debug` impl
+    // changes what a tap does. `PressArm` is generic over any `Clone + PartialEq`
+    // row and every menu action type already derives equality, so the real value
+    // was always available.
+    //
+    // ⭐ AND `Debug` IS GONE FROM THE BOUND, which is the guard rather than a
+    // tidying: identity cannot be taken from a debugging presentation here
+    // because this code can no longer reach one. A test would restate what the
+    // signature now enforces.
+    mut arm: Local<ambition_ui_nav::PressArm<Action>>,
+    // The entity that drew the armed control when the pointer went down. Beside
+    // the arm rather than inside it because it is not the tap-geometry
+    // primitive's business — the ACTION now lives in the arm itself.
+    mut armed_entity: Local<Option<Entity>>,
     risk: Option<Res<crate::MenuDestructiveActions<Action>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     // The SECOND arm, and it is a different question from `arm` above. That one
@@ -543,9 +555,9 @@ fn publish_bevy_ui_menu_actions<Action>(
     // destructive row already been tapped once". A gesture ends every frame the
     // pointer lifts; a confirm arm has to outlive that, or the guard would be
     // spent before the user could answer it.
-    mut confirm_armed: Local<Option<String>>,
+    mut confirm_armed: Local<Option<Action>>,
 ) where
-    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
+    Action: Clone + PartialEq + Send + Sync + 'static,
 {
     // The pointer position, for the drag test. Multi-touch is approximated by
     // the first located pointer: `PressArm` treats a missing position as "no
@@ -557,18 +569,17 @@ fn publish_bevy_ui_menu_actions<Action>(
         .find_map(|p| p.location())
         .map(|l| l.position);
 
-    let mut pressed: Option<(String, Action, Entity)> = None;
+    let mut pressed: Option<(Action, Entity)> = None;
     let mut armed_now: Option<(Entity, Interaction)> = None;
     for (entity, interaction, control) in &rows {
         let Some(action) = control.action.clone() else {
             continue;
         };
-        let key = format!("{action:?}");
-        if arm.armed() == Some(&key) {
+        if arm.armed() == Some(&action) {
             armed_now = Some((entity, *interaction));
         }
         if *interaction == Interaction::Pressed && pressed.is_none() {
-            pressed = Some((key, action, entity));
+            pressed = Some((action, entity));
         }
     }
 
@@ -576,38 +587,36 @@ fn publish_bevy_ui_menu_actions<Action>(
         // Still (or newly) held. A press on a DIFFERENT control replaces the
         // arm: two fingers on two rows is one gesture as far as this bridge is
         // concerned, and the later one is the live one.
-        Some((key, action, entity)) => {
-            if arm.armed() == Some(&key) {
+        Some((action, entity)) => {
+            if arm.armed() == Some(&action) {
                 arm.moved(at);
                 // Re-anchor: a rebuild WHILE held moves the control, and the
                 // leave test below compares against where it is now.
-                if let Some(held) = armed.as_mut() {
-                    held.1 = entity;
-                }
+                *armed_entity = Some(entity);
             } else {
                 // Pressing a DIFFERENT row abandons any pending confirm: an
                 // armed *Quit to Desktop* must not still be armed after the
                 // user has gone and touched something else.
-                if confirm_armed.as_deref() != Some(key.as_str()) {
+                if confirm_armed.as_ref() != Some(&action) {
                     *confirm_armed = None;
                 }
-                arm.press(key, at);
-                *armed = Some((action, entity));
+                arm.press(action, at);
+                *armed_entity = Some(entity);
             }
         }
         None if arm.is_armed() => {
-            let pressed_at = armed.as_ref().map(|(_, entity)| *entity);
+            let pressed_at = *armed_entity;
             match armed_now {
                 // Came up ON the armed control.
                 Some((_, Interaction::Hovered)) => {
-                    let survived = arm.release_anywhere().is_some();
-                    if let (true, Some((action, _))) = (survived, armed.take()) {
+                    let released = arm.release_anywhere();
+                    if let Some(action) = released {
+                        *armed_entity = None;
                         // The release landed on the row. Whether it ACTIVATES is
                         // the user's configured tap policy, and the policy is
                         // `ambition_input`'s — this bridge only supplies the two
                         // facts it is the one that knows: which row was released
                         // on, and whether that row is destructive.
-                        let key = format!("{action:?}");
                         let destructive = risk
                             .as_deref()
                             .is_some_and(|risk| (risk.is_destructive)(&action));
@@ -619,8 +628,8 @@ fn publish_bevy_ui_menu_actions<Action>(
                         // selection are the same row by construction; the guard
                         // reduces to "was this row already armed".
                         let press = tap_mode.resolve_press(
-                            key.clone(),
-                            &key,
+                            action.clone(),
+                            &action,
                             destructive,
                             &mut confirm_armed,
                         );
@@ -632,7 +641,7 @@ fn publish_bevy_ui_menu_actions<Action>(
                 // Same entity, no longer under the pointer: it was left.
                 Some((entity, Interaction::None)) if Some(entity) == pressed_at => {
                     arm.clear();
-                    *armed = None;
+                    *armed_entity = None;
                 }
                 // Absent, or present at a NEW entity: mid-rebuild. Hold the
                 // arm — the release will find the control again.
@@ -649,9 +658,9 @@ fn publish_bevy_ui_menu_actions<Action>(
 fn publish_bevy_ui_menu_previews<Action>(
     rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
     mut previewed: MessageWriter<crate::MenuActionPreviewed<Action>>,
-    mut last: Local<Option<String>>,
+    mut last: Local<Option<Action>>,
 ) where
-    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
+    Action: Clone + PartialEq + Send + Sync + 'static,
 {
     let hovered = rows
         .iter()
@@ -661,11 +670,13 @@ fn publish_bevy_ui_menu_previews<Action>(
     // Edge-triggered. A pointer resting on a row holds `Hovered` every frame,
     // and a message per frame would turn "the mouse is here" into a stream the
     // host has to debounce — the same shape as the press latch above.
-    let key = hovered.as_ref().map(|action| format!("{action:?}"));
-    if key == *last {
+    // ⛔ THE ACTION, not its `Debug` text — same rule as the press arm above: a
+    // hover edge is a claim about WHICH ROW, and two rows whose debugging
+    // presentation agrees are still two rows.
+    if hovered == *last {
         return;
     }
-    *last = key;
+    *last = hovered.clone();
     if let Some(action) = hovered {
         previewed.write(crate::MenuActionPreviewed { action });
     }
@@ -743,7 +754,7 @@ fn publish_bevy_ui_menu_tabs(
 /// distinct ECS component type.
 pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
 where
-    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
+    Action: Clone + PartialEq + Send + Sync + 'static,
 {
     install_bevy_ui_menu_text_scaling(app);
     install_bevy_ui_menu_restyle(app);

@@ -201,6 +201,29 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
+            // The SECOND map, over a keyspace a capability can mint. It is a
+            // second component on the same participant entity, not a second
+            // road: the seats, the resolve pass and the readers are all the
+            // ones already here.
+            .add_plugins(InputManagerPlugin::<ambition_input::ProviderAction>::default())
+            .init_resource::<ambition_input::ProviderBindings>()
+            .add_message::<ambition_input::SemanticActionPressed>()
+            // ⛔ TWO SCHEDULES, AND THE SPLIT IS THE POINT. The map has to be on
+            // the seat BEFORE leafwing resolves this frame, which happens in
+            // `PreUpdate`; the edge is a routed semantic, which belongs in
+            // `InputSet::Route` — and those sets are configured in `Update`, so
+            // an `in_set` here would have ordered nothing at all. Measured: with
+            // both in `PreUpdate` the press published on no frame.
+            .add_systems(
+                bevy::app::PreUpdate,
+                ambition_input::install_provider_bindings_on_seats
+                    .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            )
+            .add_systems(
+                Update,
+                ambition_input::publish_provider_action_edges
+                    .in_set(ambition_input::InputSet::Route),
+            )
             .add_systems(
                 bevy::app::PreUpdate,
                 tune_clash_strategy_to_bindings

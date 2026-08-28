@@ -203,6 +203,111 @@ impl leafwing_input_manager::Actionlike for ProviderAction {
     }
 }
 
+/// The physical bindings a composition gives its provider actions.
+///
+/// ⭐ SEPARATE FROM [`ActionRegistry`] ON PURPOSE. The registry DESCRIBES an
+/// action — id, kind, contexts, doc — and describing is what a capability can do
+/// alone. What key it sits on is the COMPOSITION's answer, the same split the
+/// engine's own vocabulary already has between the registry and `BindingRecipe`.
+/// A capability that shipped its own key would be deciding a thing the game it is
+/// installed into owns.
+///
+/// Empty is the honest default: a composition that binds nothing routes nothing,
+/// and every action stays reachable by whoever writes its message directly.
+#[cfg(feature = "input")]
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct ProviderBindings(pub leafwing_input_manager::prelude::InputMap<ProviderAction>);
+
+/// A registered provider action was pressed by a seat this frame.
+///
+/// ⛔ AN EDGE, NOT A LEVEL. `just_pressed`, so a held key is one message and not
+/// one per frame — the same rule the menu and pointer channels beside it keep.
+///
+/// The consumer is the capability that registered the action: it reads this and
+/// writes whatever its own request message is. That indirection is the point —
+/// `ambition_input` never learns what a pulse is, and the capability never learns
+/// what a keyboard is.
+#[cfg(feature = "input")]
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SemanticActionPressed {
+    pub id: SemanticActionId,
+    pub participant: crate::participant::ParticipantId,
+}
+
+/// Give every seat the composition's provider map, and keep it current.
+///
+/// ⭐ A SYNC RATHER THAN A SPAWN EDIT, because a capability may be installed after
+/// the seats exist and a binding change must reach seats that are already sitting
+/// there. The two spawn sites in `input_systems.rs` build their tuples from the
+/// engine's `BindingRecipe`, which knows nothing about provider actions; making
+/// them know would put a capability's concern in the seat constructor.
+#[cfg(feature = "input")]
+pub fn install_provider_bindings_on_seats(
+    mut commands: bevy::prelude::Commands,
+    bindings: Option<bevy::prelude::Res<ProviderBindings>>,
+    seats: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            Option<&leafwing_input_manager::prelude::InputMap<ProviderAction>>,
+        ),
+        bevy::prelude::With<crate::participant::InputParticipant>,
+    >,
+) {
+    use bevy::prelude::DetectChanges;
+    let Some(bindings) = bindings.as_ref() else {
+        return;
+    };
+    if !bindings.is_changed() && seats.iter().all(|(_, map)| map.is_some()) {
+        return;
+    }
+    for (seat, _) in &seats {
+        commands.entity(seat).insert((
+            bindings.0.clone(),
+            leafwing_input_manager::prelude::ActionState::<ProviderAction>::default(),
+        ));
+    }
+}
+
+/// Publish this frame's provider-action presses as semantic edges.
+///
+/// ⛔ THE REGISTRY IS THE FILTER, and that is what makes the id in the message a
+/// `&'static str` rather than the key's owned `String`. A key whose id no longer
+/// resolves is an action the composition stopped installing, and routing it would
+/// deliver a press to a capability that is no longer there.
+#[cfg(feature = "input")]
+pub fn publish_provider_action_edges(
+    registry: Option<bevy::prelude::Res<InstalledActions>>,
+    seats: bevy::prelude::Query<(
+        &crate::participant::InputParticipant,
+        &leafwing_input_manager::prelude::ActionState<ProviderAction>,
+    )>,
+    mut pressed: bevy::prelude::MessageWriter<SemanticActionPressed>,
+) {
+    let Some(registry) = registry else {
+        return;
+    };
+    // ⛔ SEAT ORDER IS NOT QUERY ORDER. Two seats pressing the same action on one
+    // frame must publish in the same order every run, and Bevy's iteration order
+    // is not a promise. Sorted by the seat's own id, which is the only stable
+    // name a participant has.
+    let mut rows: Vec<_> = seats.iter().collect();
+    rows.sort_by_key(|(participant, _)| participant.id.0);
+    for (participant, actions) in rows {
+        for key in actions.get_just_pressed() {
+            let Some(def) = registry
+                .all()
+                .find(|def| def.id.0 == key.id && def.kind == key.kind)
+            else {
+                continue;
+            };
+            pressed.write(SemanticActionPressed {
+                id: def.id,
+                participant: participant.id,
+            });
+        }
+    }
+}
+
 /// The composition's action vocabulary, as a resource.
 ///
 /// A registry is a value; this is where the running app keeps one. Built by the
@@ -583,6 +688,92 @@ mod tests {
     #[cfg(feature = "input")]
     fn leak(name: &str) -> &'static str {
         Box::leak(name.to_string().into_boxed_str())
+    }
+
+    /// A REGISTERED ACTION REACHES A SEAT'S PRESS — the whole road, in one app.
+    ///
+    /// ⭐⭐ WHAT THIS PINS is the claim the plan could previously only argue:
+    /// register an action the engine has never heard of, bind it to a key, press
+    /// the key, and get a semantic edge back — with no `Any`, no `TypeId`, and no
+    /// variant added to the 35-variant device enum. The capability demo's module
+    /// doc named the missing half of exactly this.
+    ///
+    /// ⛔ THE PRESS IS HELD ACROSS TWO FRAMES on purpose. A one-frame press cannot
+    /// tell an edge channel from a level one, and this channel owes the edge rule:
+    /// a held key is one message, not one per frame.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_registered_action_bound_to_a_key_comes_back_as_a_seat_press() {
+        use bevy::prelude::*;
+        use leafwing_input_manager::prelude::*;
+
+        const PULSE: SemanticActionDef = SemanticActionDef {
+            id: SemanticActionId("pulse"),
+            capability: "pulse",
+            kind: ActionControlKind::Button,
+            contexts: GAMEPLAY,
+            doc: "Fire a shockwave",
+        };
+        let mut registry = ActionRegistry::with_engine_actions();
+        registry.register(PULSE).expect("a fresh id");
+        let key = registry.key(PULSE.id).expect("just registered");
+
+        let mut bindings = ProviderBindings::default();
+        bindings.0.insert(key, KeyCode::KeyG);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(InputManagerPlugin::<ProviderAction>::default())
+            .insert_resource(InstalledActions(registry))
+            .insert_resource(bindings)
+            .add_message::<SemanticActionPressed>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                install_provider_bindings_on_seats
+                    .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            )
+            .add_systems(Update, publish_provider_action_edges);
+        app.world_mut()
+            .spawn(crate::participant::InputParticipant::primary());
+
+        // A frame with nothing pressed: the seat acquires the map, and an
+        // unpressed binding must not announce itself.
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "a bound action nobody pressed published an edge"
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app),
+            vec![SemanticActionPressed {
+                id: SemanticActionId("pulse"),
+                participant: crate::participant::ParticipantId::PRIMARY,
+            }],
+            "a key bound to a provider-minted action did not reach the seat"
+        );
+
+        // Still held. `Bevy`'s `ButtonInput` keeps it pressed across the frame,
+        // so this is the level-vs-edge question asked honestly.
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "holding the key republished the press every frame"
+        );
+    }
+
+    /// Drain the semantic edges published this frame.
+    #[cfg(feature = "input")]
+    fn drain_presses(app: &mut bevy::prelude::App) -> Vec<SemanticActionPressed> {
+        app.world_mut()
+            .resource_mut::<bevy::prelude::Messages<SemanticActionPressed>>()
+            .drain()
+            .collect()
     }
 
     /// A PROVIDER'S ACTION CAN BE A LEAFWING KEY — checked, not argued.

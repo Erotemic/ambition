@@ -372,6 +372,39 @@ struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
   STAYS — its doc is right that a scripted sequence or an AI writes it the same way.
   What is missing is the router that writes it from a press.
 
+  ✔✔ **THE ROAD IS OPEN AS OF 2026-08-28, and it is checked end to end.**
+  `a_registered_action_bound_to_a_key_comes_back_as_a_seat_press` registers an
+  action the engine has never heard of, binds it to a key, presses the key and gets
+  a `SemanticActionPressed` back — no `Any`, no `TypeId`, no variant added to the
+  35-variant enum. Three pieces, all in `ambition_input`:
+
+```text
+ProviderBindings                     the composition's map. SEPARATE from the
+                                     registry: a capability DESCRIBES its action,
+                                     the game it is installed into decides the key
+install_provider_bindings_on_seats   PreUpdate, before leafwing resolves. A SYNC,
+                                     not a spawn edit — a capability installed
+                                     after the seats exist still reaches them
+publish_provider_action_edges        `InputSet::Route`. `just_pressed`, sorted by
+                                     seat id so two seats pressing on one frame
+                                     publish in the same order every run
+```
+
+  ⛔ **AND THE TEST EARNED ITS KEEP ON THE FIRST RUN: BOTH SYSTEMS IN `PreUpdate`
+  PUBLISHED ON NO FRAME.** `InputSet::*` is configured in `Update`, so an `in_set`
+  in `PreUpdate` orders nothing at all — the edge ran before leafwing had resolved
+  anything, silently, every frame. The split is now stated where it lives: the map
+  must land before `InputManagerSystem::Update`, and the edge is a routed semantic
+  like every other one.
+  ▢ **WHAT IS STILL THE COMPOSITION'S**: which seat drives which body. The demo
+  refuses to know that on purpose (it carries `PulseBody`, not an actor-domain
+  type), so the last hop — `SemanticActionPressed` → `PulseRequested { body }` —
+  belongs to whoever mounts both, and that is the correct place for it.
+  ▢ **AND PRESENTABLE IS STILL OPEN**: `ControlSlot` has 8 variants and
+  `TouchActionButton` 20, so a provider action can now be pressed and still cannot
+  be DRAWN. That is the next slice, and the measurement above still stands — the
+  presentation road is the expensive one.
+
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination
   every previous attempt failed. ⛔ it is still a carve — two maps means two

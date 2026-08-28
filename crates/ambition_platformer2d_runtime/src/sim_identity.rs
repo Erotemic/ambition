@@ -9,7 +9,14 @@
 /// primary player's slot. Dynamically-spawned entities are NOT covered —
 /// N3.1's pin says they get `(spawner SimId, per-spawner counter)`, which the
 /// spawn sites must mint at spawn (they know their spawner; this system does not).
-/// `unidentified_bodies` counts what is left, so the migration has a number.
+///
+/// ⛔ THIS USED TO SAY *"`unidentified_bodies` counts what is left, so the
+/// migration has a number"*. No such function was ever written, and the doc
+/// naming it meant nobody looked for one. The number comes from the take
+/// recorder instead (`moveset_takes`), which is the first consumer that CANNOT
+/// work without identity — it refuses to write a recording containing a body
+/// with no `SimId`, and names it, because its ordering and its bundle join are
+/// built on one.
 ///
 /// Runs at the head of the sim, before anything reads identity.
 pub fn ensure_sim_id(

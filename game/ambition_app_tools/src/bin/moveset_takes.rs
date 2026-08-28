@@ -276,6 +276,16 @@ fn press(v: &Verb, edge: bool, facing: f32) -> ControlFrame {
 /// Everything one recorded tick says.
 #[derive(Default)]
 struct Frame {
+    /// Recorded bodies that carry NO `SimId`, by the label a reader would see.
+    ///
+    /// ⛔⛔ THE TAKE'S ORDERING AND JOIN CONTRACT ARE BUILT ON `SimId`, and a
+    /// body without one used to be written as `"id": null` and sorted under the
+    /// empty string — canonical-looking output whose ordering is query order.
+    /// `ensure_sim_id` covers authored placements and the primary player only;
+    /// its own doc says a dynamically spawned body stays unidentified unless its
+    /// spawn site mints an id, so this is reachable rather than theoretical.
+    /// ⇒ counted here, refused at the take.
+    unidentified: Vec<String>,
     bodies: Vec<serde_json::Value>,
     hitboxes: Vec<serde_json::Value>,
     projectiles: Vec<serde_json::Value>,
@@ -615,6 +625,11 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                     })
                     .unwrap_or_else(|| "<unidentified mount>".to_string())
             });
+        }
+        if sim_id.is_none() {
+            frame
+                .unidentified
+                .push(worn.clone().unwrap_or_else(|| "<unnamed body>".to_string()));
         }
         frame.bodies.push(serde_json::json!({
             "pos": [pos.0, pos.1],
@@ -1050,9 +1065,18 @@ fn settle(app: &mut App) -> bool {
     false
 }
 
-/// Sample the world and append it to a take.
-fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
+/// Sample the world and append it to a take, reporting any body it could not
+/// identify.
+///
+/// ⛔⛔ THE CALLER MUST NOT WRITE A TAKE THAT REPORTED ONE. `SimId` is what the
+/// bundle joins and orders on, and a body without one was written as
+/// `"id": null` and sorted under the empty string — so its position in a
+/// "byte-stable, canonical" recording was query order wearing a contract's
+/// clothes. The viewer's null-tolerance is right for LEGACY takes and must not
+/// decide what this recorder may emit.
+fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) -> Vec<String> {
     let frame = sample(app.world_mut(), 0);
+    let unidentified = frame.unidentified.clone();
     frames.push(serde_json::json!({
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
@@ -1065,6 +1089,7 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
         "gesture": frame.gesture,
         "riding": frame.riding,
     }));
+    unidentified
 }
 
 fn main() {
@@ -1252,6 +1277,9 @@ fn main() {
                 }
             }
             let mut frames: Vec<serde_json::Value> = Vec::new();
+            // Every body this take could not identify, collected across its
+            // ticks — see `record`.
+            let mut unidentified: std::collections::BTreeSet<String> = Default::default();
             let facing = sample(app.world_mut(), 0).facing.unwrap_or(1.0);
             drive(&mut app, press(verb, true, facing));
             // ⛔ THE PRESS TICK IS FRAME ZERO. `ResolvedAttackGesture::pressed`
@@ -1259,7 +1287,7 @@ fn main() {
             // started one tick later showed `gesture: null` on every frame of
             // every take — the one field that says what the engine understood
             // the input to be, absent from all of them.
-            record(&mut app, &mut frames);
+            unidentified.extend(record(&mut app, &mut frames));
             for tick in 1..TAKE_TICKS {
                 // A charge move releases when the button comes up. Half the take
                 // held, half released, so both the hold and the payoff are on
@@ -1273,7 +1301,25 @@ fn main() {
                         ControlFrame::default()
                     },
                 );
-                record(&mut app, &mut frames);
+                unidentified.extend(record(&mut app, &mut frames));
+            }
+
+            // ⛔⛔ A TAKE WITH AN UNIDENTIFIED BODY IS NOT CANONICAL, so it is not
+            // written. Its row order would be query order, and the bundle joins
+            // on `SimId` — a reader comparing two recordings would see changes
+            // that are allocation order rather than physics. The message names
+            // the body so the fix is at ITS SPAWN SITE, which is the only place
+            // that can mint the id (`ensure_sim_id` covers authored placements
+            // and the primary player, and says so).
+            if !unidentified.is_empty() {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - {} recorded \
+                     without a SimId, so this take cannot be ordered or joined; \
+                     mint one at that body's spawn site",
+                    verb.verb,
+                    unidentified.iter().cloned().collect::<Vec<_>>().join(", ")
+                );
+                continue;
             }
 
             let moves: std::collections::BTreeSet<String> = frames

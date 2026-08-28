@@ -1,3 +1,6 @@
+//! What a generated sheet says about the BODY inside its frames: frame size,
+//! the per-animation pixel rectangles, and the render size those imply.
+
 use ambition_platformer2d_core as ae;
 
 // ⭐⭐ MOVED OUT OF `ambition_boss_encounter` 2026-08-28 (D117). It is SPRITE

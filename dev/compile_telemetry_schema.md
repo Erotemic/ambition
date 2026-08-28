@@ -332,7 +332,15 @@ Its vocabulary is **reused, not replaced** — it got there first and it is righ
 | `jobs` / `passed` / `exhaustive` / `filtered` | plan and outcome |
 | `finished` | float epoch — **superseded** by the envelope's `recorded_at`, kept for the 75 existing rows |
 
-⚠ **`executed_seconds` counts LIBTEST only**, so the pytest jobs read 0.0.
+⚠ **`executed_seconds` is `null` when the runner did not report one**, and that
+is different from `0`. libtest prints `finished in Xs` on stdout, which the
+runner pipes; **nextest prints `Summary [ Xs ]` on stderr, which is deliberately
+left attached** so cargo's progress bar keeps rendering — so a nextest job has no
+duration to read. Writing `0.0` there made every such job claim it spent no time
+running tests, and the derived build-vs-execution split then attributed the whole
+wall clock to the build. A reader must treat `null` as unmeasured and exclude it
+from that split rather than summing it as a zero. Pytest jobs are `null` for the
+same reason: nothing parsed a duration out of them.
 
 The `seconds` / `executed_seconds` split is the same idea as the unit ledger's
 `frontend_seconds` / `codegen_seconds`: a total, and the split that matters. They

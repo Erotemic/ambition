@@ -24,12 +24,13 @@
 | [`motion_quality`](src/motion_quality.rs) | Numeric diagnostics for the shape of an authoritative per-tick trajectory. |
 | [`movement`](src/movement/mod.rs) | One trusted, frame-aware movement kernel with swappable physics policies. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
+| [`rollback_registration`](src/rollback_registration.rs) | The engine floor's own rollback declarations. |
 | [`sim_random`](src/sim_random.rs) | RANDOMNESS THAT SURVIVES A REWIND — and it survives by not existing. |
 | [`snapshot`](src/snapshot.rs) | Backend-neutral deterministic snapshot vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

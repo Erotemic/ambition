@@ -8,9 +8,11 @@
 |---|---|
 | [`anim`](src/anim.rs) | Boss animation-state derivation from boss-owned runtime state. |
 | [`attack_geometry`](src/attack_geometry/mod.rs) | Pure authored attack/body volume math; no ECS access or mutation. |
+| [`attack_moveset`](src/attack_moveset.rs) | Boss runtime glue for constructing the shared data-driven attack moveset. |
 | [`behavior`](src/behavior.rs) | Boss behavior-profile vocabulary (data-driven). |
 | [`catalog`](src/catalog.rs) | App-local composition of provider-authored boss data. |
 | [`clusters`](src/clusters.rs) | Authoritative boss ECS components and `BossMut` / `BossRef` views. |
+| [`ecs`](src/ecs/mod.rs) | Boss encounter-phase projection, brain tick, and body integration systems. |
 | [`encounter_entity`](src/encounter_entity.rs) | The ENCOUNTER as a first-class, OPTIONAL entity. |
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script EXECUTION + its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
@@ -25,7 +27,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
 
-_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`authority`](src/authority.rs) | Rollback-owned authority for the live conversation. |
+| [`banter`](src/banter.rs) | Combat-banter registry (generic half). |
 | [`dialog`](src/dialog.rs) | Sim-side dialogue glue. |
 | [`hold`](src/hold.rs) | Project conversation authority onto participant control. |
 | [`instance`](src/instance.rs) | Deterministic identity for one logical conversation. |
@@ -18,7 +19,7 @@
 | [`rules`](src/rules.rs) | Conversation continuity rules and cut notifications. |
 | [`ui_bridge`](src/ui_bridge.rs) | Bridge conversation simulation authority and the presentation text runner. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

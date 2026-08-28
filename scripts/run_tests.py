@@ -199,7 +199,15 @@ class JobResult:
     argv: list[str]
     ok: bool
     seconds: float
-    executed_seconds: float = 0.0
+    # ⛔⛔ `None` MEANS UNMEASURED, AND IT USED TO BE `0.0`. A zero is a
+    # MEASUREMENT — "this job spent no time running tests" — and nextest jobs
+    # cannot report their duration at all (see `timing_report`), so every one of
+    # them wrote a real zero into the timing payload and the compile-cost
+    # ledger. The derived build-vs-execution split then read as "the suite ran
+    # tests for zero seconds and built for the whole wall clock", which is the
+    # shape of an answer rather than the absence of one — on a number being used
+    # to make build-speed decisions.
+    executed_seconds: float | None = None
 
 
 def timing_report(results: list[JobResult]) -> str:
@@ -210,11 +218,15 @@ def timing_report(results: list[JobResult]) -> str:
     itself stays in the summary block, which lists failures separately.
     """
     total = sum(r.seconds for r in results) or 1.0
-    executed = sum(r.executed_seconds for r in results)
+    executed = sum(r.executed_seconds or 0.0 for r in results)
     lines = ["  job timings (slowest first, `run` = the runner's own execution time):"]
     for r in sorted(results, key=lambda r: -r.seconds):
         tag = "ok  " if r.ok else "FAIL"
-        run = f"{r.executed_seconds:.1f}s" if r.executed_seconds else "not reported"
+        run = (
+            f"{r.executed_seconds:.1f}s"
+            if r.executed_seconds is not None
+            else "not reported"
+        )
         lines.append(f"    {r.seconds:8.1f}s  {tag}  {r.name}   (run {run})")
     # ⛔⛔ AN INSTRUMENT THAT CANNOT MEASURE SAYS SO. libtest prints
     # `finished in Xs` on STDOUT, which this runner pipes; nextest prints its
@@ -248,7 +260,13 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
             "command": " ".join(r.argv),
             "ok": r.ok,
             "seconds": round(r.seconds, 3),
-            "executed_seconds": round(r.executed_seconds, 3),
+            # `null`, not `0`, for a job whose runner did not report — see
+            # `JobResult.executed_seconds`.
+            "executed_seconds": (
+                round(r.executed_seconds, 3)
+                if r.executed_seconds is not None
+                else None
+            ),
         }
         for r in results
     ]
@@ -326,20 +344,32 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         return (["--"] + tail) if tail else []
 
     # Package filters run that package directly; the unfiltered backbone uses one workspace graph.
+    # ⛔ THE CLASS NEXTEST CANNOT SEE, and the suite could not either: it ran no
+    # doctests until 2026-08-27, and one had been failing to compile for as long
+    # as it had existed (`ambition_sim_harness`, `use crate::` in a block that
+    # compiles as its own crate).
+    #
+    # ⛔⛔ IT BELONGS ON BOTH BRANCHES AND ONLY UNDER NEXTEST, which the first
+    # version got wrong in both directions. `-p` had no doctest job at all, so
+    # `./run_tests.sh -p ambition_sim_harness` covered LESS than the plain
+    # `cargo test -p ambition_sim_harness` it replaced — on the very crate whose
+    # broken doctest started this. And the workspace job ran unconditionally,
+    # which under plain cargo is a second doctest pass, because `cargo test`
+    # already runs them.
     if only:
         for crate in members:
             if crate.name in only:
                 jobs.append(Job(f"{crate.name} (default features)",
                                 cargo_test(["-p", crate.name], list(libtest_args))))
+                if NEXTEST:
+                    jobs.append(Job(f"{crate.name} doctests",
+                                    [CARGO, "test", "-p", crate.name, "--doc"]))
     else:
         jobs.append(Job("workspace (default features)",
                         cargo_test(["--workspace"], list(libtest_args))))
-        # ⛔ THE CLASS NEXTEST CANNOT SEE, and the suite could not either: it
-        # ran no doctests until 2026-08-27, and one had been failing to compile
-        # for as long as it had existed (`ambition_sim_harness`, `use crate::`
-        # in a block that compiles as its own crate).
-        jobs.append(Job("workspace doctests",
-                        [CARGO, "test", "--workspace", "--doc"]))
+        if NEXTEST:
+            jobs.append(Job("workspace doctests",
+                            [CARGO, "test", "--workspace", "--doc"]))
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.
@@ -574,7 +604,7 @@ LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
 NEXTEST_DURATION = re.compile(r"Summary \[\s*([0-9]+\.[0-9]+)s\]")
 
 
-def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
+def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
     """Run one job, echoing its output live, and total libtest's own runtime.
 
     ⚠ **live output is not negotiable**, which is why this streams rather than
@@ -587,7 +617,7 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
     Summing whichever appears keeps the number meaning "time spent running
     tests" under either.
     """
-    executed = 0.0
+    executed: float | None = None
     proc = subprocess.Popen(
         job.argv,
         cwd=job.cwd or REPO,
@@ -601,7 +631,7 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
         sys.stdout.write(line)
         match = LIBTEST_DURATION.search(line) or NEXTEST_DURATION.search(line)
         if match:
-            executed += float(match.group(1))
+            executed = (executed or 0.0) + float(match.group(1))
     sys.stdout.flush()
     return proc.wait(), executed
 
@@ -610,7 +640,9 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
     """The finished jobs, for a reader of the status file."""
     return [
         {"job": r.name, "ok": r.ok, "seconds": round(r.seconds, 1),
-         "executed_seconds": round(r.executed_seconds, 1)}
+         "executed_seconds": (
+             round(r.executed_seconds, 1) if r.executed_seconds is not None else None
+         )}
         for r in results
     ]
 
@@ -686,7 +718,7 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "finished": time.time(),
         "jobs": len(results),
         "seconds": round(sum(r.seconds for r in results), 1),
-        "executed_seconds": round(sum(r.executed_seconds for r in results), 1),
+        "executed_seconds": round(sum(r.executed_seconds or 0.0 for r in results), 1),
         "passed": sum(1 for r in results if r.ok),
         "exhaustive": exhaustive,
         "filtered": filtered,
@@ -895,7 +927,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
                           "executed_seconds": round(
-                              sum(r.executed_seconds for r in results), 1),
+                              sum(r.executed_seconds or 0.0 for r in results), 1),
                           "completed": completed_rows(results),
                           "current_job": None,
                           "free_gb_at_end": round(free_after, 1),

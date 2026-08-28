@@ -34,6 +34,7 @@ fn app_with_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_trapdoors);
+    app.init_resource::<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>();
     let body = app
         .world_mut()
         .spawn((
@@ -128,7 +129,11 @@ fn the_first_beat_puts_her_under_the_stage() {
 #[test]
 fn going_under_ends_the_motion_she_arrived_with() {
     let (mut app, body) = app_with_body(ae::Vec2::new(0.0, -32.0));
-    assert_ne!(kin(&app, body).vel, ae::Vec2::ZERO, "premise: she was moving");
+    assert_ne!(
+        kin(&app, body).vel,
+        ae::Vec2::ZERO,
+        "premise: she was moving"
+    );
     fire(&mut app, body, down(120.0));
     assert_eq!(kin(&app, body).vel, ae::Vec2::ZERO);
 }
@@ -175,6 +180,45 @@ fn she_surfaces_where_she_travelled_to_and_not_where_she_entered() {
         "she came up at {} rather than where she steered to",
         kin(&app, body).pos.x
     );
+}
+
+/// ⛔⛔ THE SURFACING DECLARES ITSELF, and it used to move her in silence.
+///
+/// It picks a position with `ledge_assisted_arrival` and writes it with
+/// `transit_body` — the same shape as blink, dive, mark-recall and the authored
+/// teleport, every one of which records a Class-B remap. Without the record an
+/// instrument reading this frame sees a body somewhere else with nothing to say
+/// why, and same-frame contention between two Class-B writers cannot see this
+/// one at all.
+///
+/// ⛔ THE PAIR IS THE POINT. Going UNDER writes no position — it sets a mode and
+/// zeroes velocity — so it must NOT record one. A rule that logged both would
+/// make the log a record of the move rather than of the displacement.
+#[test]
+fn coming_up_declares_the_remap_and_going_under_does_not() {
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    let (mut app, body) = app_with_body(ae::Vec2::new(-200.0, 60.0));
+    fire(&mut app, body, down(120.0));
+    assert!(
+        app.world()
+            .resource::<ClassBRemapLog>()
+            .entries()
+            .is_empty(),
+        "going under the stage moved no body, so it must claim no remap"
+    );
+
+    fire(&mut app, body, up(120.0));
+    let entries: Vec<_> = app
+        .world()
+        .resource::<ClassBRemapLog>()
+        .entries()
+        .iter()
+        .copied()
+        .collect();
+    assert_eq!(entries.len(), 1, "surfacing recorded {entries:?}");
+    assert_eq!(entries[0].body, body);
+    assert_eq!(entries[0].kind, ClassBRemap::ScriptedTeleport);
 }
 
 /// ⛔ AND A SURFACE OUT OF REACH LEAVES HER WHERE SHE IS RATHER THAN TELEPORTING

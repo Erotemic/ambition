@@ -1567,4 +1567,61 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
         "the item struck the body it was thrown FROM — every throw would \
          detonate in the thrower's hand"
     );
+
+    // ── AND IT REACHES ONE WHILE STILL STANDING IN THE THROWER. ──
+    //
+    // ⛔⛔ THE ARM THE AGGREGATE TEST COULD NOT HAVE. "Is the item touching ANY
+    // body" was asked at each end and compared, which loses WHICH body: an item
+    // that has not yet left its thrower and has already reached an opponent
+    // reads touching-then-touching and reports nothing. That is a bomb thrown at
+    // somebody from arm's length, which is the ordinary way to throw one.
+    let mut app = App::new();
+    stage(&mut app);
+    // The thrower, which the item overlaps at BOTH samples — that is what makes
+    // the aggregate reading "touching, then touching" and hides the victim.
+    body_at(&mut app, Vec2::new(200.0, 200.0));
+    // The victim: clear of the item's 36px box at 200 (`[182, 218]` vs
+    // `[222, 254]`) and inside it after one tick at 210 (`[192, 228]`).
+    body_at(&mut app, Vec2::new(238.0, 200.0));
+    let point_blank = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            pos: Vec2::new(200.0, 200.0),
+            vel: Vec2::new(600.0, 0.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<ItemStruckBody>(point_blank).is_some(),
+        "the item reached a second body while still inside the first and \
+         reported no strike"
+    );
+
+    // ── AND IT DOES NOT PASS THROUGH ONE. ──
+    //
+    // ⛔⛔ TWO ENDPOINTS ARE NOT A TRAJECTORY. At 6000px/s an item covers 100px
+    // in a tick, so it can start clear of a 32px-wide body and end clear on the
+    // far side having crossed it — overlapping at neither sample. The endpoint
+    // test called that a miss, and the same formula decides whether a live bomb
+    // goes off.
+    let mut app = App::new();
+    stage(&mut app);
+    body_at(&mut app, Vec2::new(250.0, 200.0));
+    let fast = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            pos: Vec2::new(200.0, 200.0),
+            vel: Vec2::new(6000.0, 0.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<ItemStruckBody>(fast).is_some(),
+        "a 6000px/s item crossed a fighter between two samples and was \
+         reported as having missed"
+    );
 }

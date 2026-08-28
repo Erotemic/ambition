@@ -908,6 +908,15 @@ function renderTakeList() {
     return;
   }
   const fighters = takeFighters();
+  /* ⭐ SAY WHAT WAS LOADED, where the picker is. "Only one fighter" is either a
+   * recording with one fighter or a stale fetch, and those are indistinguishable
+   * from a combo box. Naming the count makes the difference readable without
+   * opening a tab or a console. */
+  const note = $("#take-loaded");
+  if (note) {
+    note.textContent =
+      `${TAKES.takes.length} takes · ${fighters.length} fighter${fighters.length === 1 ? "" : "s"}: ${fighters.join(", ")}`;
+  }
   /* ⭐ FOLLOW THE FIGHTER THE READER WAS ALREADY LOOKING AT. Arriving from the
    * Fighter view and being shown somebody else is the tool losing the reader's
    * place — and it is why this view felt unrelated to the rest of the page. */
@@ -1160,7 +1169,17 @@ function showView(name) {
 
 async function boot() {
   try {
-    const res = await fetch("data/moveset_bundle.json");
+    /* ⛔⛔ CACHE-BUSTED, NOT TRUSTED TO HEADERS. A `no-store` header only helps a
+     * browser that has not ALREADY cached the file, and this bundle and the
+     * takes beside it were served for a day with no cache directives at all. A
+     * stale 5.7MB takes.json is invisible and total: the fighter list shows the
+     * characters that recording had, the art shows what it carried, and every
+     * one of those is a phantom bug in the tool rather than in the data on disk.
+     *
+     * ⭐ IT IS A LOCALHOST DEV TOOL READING GENERATED ARTIFACTS. Always-fresh is
+     * the only correct policy, and a query parameter enforces it without asking
+     * anybody to know about a hard reload. */
+    const res = await fetch(`data/moveset_bundle.json?t=${Date.now()}`);
     BUNDLE = await res.json();
   } catch (err) {
     $("#bundle-meta").innerHTML =
@@ -1171,7 +1190,7 @@ async function boot() {
     `${BUNDLE.characters.length} fighters · ${BUNDLE.smash_grid.length} on the grid · cast generation ${BUNDLE.cast_generation} · ${BUNDLE.sim_hz}Hz`;
 
   try {
-    const res = await fetch("data/takes/takes.json");
+    const res = await fetch(`data/takes/takes.json?t=${Date.now()}`);
     if (res.ok) TAKES = await res.json();
   } catch (_) { /* takes are optional; the static views stand alone */ }
 

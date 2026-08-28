@@ -20,7 +20,49 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — three sizes in three documents were 3–4× wrong
+## 2026-08-28, LATEST — a thirteen-finding review, and the sharpest was about the previous fix
+
+⭐⭐ **The whole pass is recorded with a sha per finding in
+[`triage/gpt-review-2026-08-28.md`](triage/gpt-review-2026-08-28.md).** Read that
+before re-deriving any of it. Four things belong on the cold-start map:
+
+⛔⛔ **A FIX THAT IS 90% RIGHT SHIPS A TEST DEFENDING THE LAST 10% OF THE BUG.**
+`HeldItemView` was made plural — correct, and one step short. It still asked
+`With<DrivingParticipant>`, and the Admiral's side-B draws `admiral_gun_sword`,
+an id in the IN-HAND art manifest and no other, so in CPU-versus-CPU neither
+gun-sword was drawn by any road. The new test asserted that as intended.
+⇒ presentation follows CUSTODY now, minus the holders the over-hand road claims,
+and `drawn_over_the_hand` is that road's own admission test hoisted out so both
+systems read one sentence.
+
+⛔⛔ **A SPRITE FRAME IS A DIVISOR OF HOW BIG A CHARACTER IS.**
+`catalog_join.rs:154`, for any `body_kind` with no default height:
+`collision = body_px × ldtk_max × collision_scale / FRAME_H`. Un-clipping
+`perfect_cellular_automaton` (D129: 53 cut frames → 0, one constant, no atlas
+cost) shrank its body **67.8 → 54.8 with no art change**. ⇒ D129 cannot be closed
+by widening frames alone; the height must be authored in the same commit. **25 of
+134 rows are on that road**, 19 of them with exactly one spawn box — and
+`npc_puppy_slug` is placed with **eight**.
+
+⭐ **THREE OF THE ACTOR'S MOVES DID NOT DO WHAT THEIR DOCS SAY.** The Trap could
+not steer under the stage (its stated reason for being a kernel mode), the
+Monologue's doc names a helper it does not call, and the wire asked for
+`player.blink` beside the teleport executor's — *inside the exemption written to
+explain why it was not a duplicate*.
+
+⚠ **MOST THIN DEPENDENCY EDGES CANNOT SHRINK THE FOOTPRINT.** Removing
+`ambition_dialog` from the monolith took declared edges 28 → 27 and left the
+closure at 34, because `ambition_conversation` brings it. **Ask
+`cargo tree -i <dep>` first**; only four crates reach the monolith by one path
+(`dev_tools`, `mount`, `items`, `damage`) and the weights are in
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
+
+⭐ **D166's last open half is now
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 35**
+rather than line 9984 of the ledger. A question asked inside a 10,000-line file
+is not asked.
+
+## 2026-08-28 — three sizes in three documents were 3–4× wrong
 
 ⛔⛔ **A NUMBER INSIDE REASONING NOBODY DOUBTS IS NEVER RE-CHECKED.** Three
 figures, all describing the same module, all quoted to price the same carve:

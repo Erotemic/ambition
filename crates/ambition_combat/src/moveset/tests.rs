@@ -7772,3 +7772,87 @@ fn leaving_play_clears_a_charge_that_was_already_banked() {
         "the bank survived a death that happened after it was stowed"
     );
 }
+
+/// ⭐⭐ THE DELIBERATE STOW — a fighter decides to put the charge away.
+///
+/// ⛔⛔ BANKING ONLY HAPPENED TO YOU. A charge was banked whenever something
+/// INTERRUPTED the hold, so the way to keep one was to be hit; there was no way
+/// to choose it. Sitting on a full charge waiting to be interrupted is not the
+/// plan the move exists for (GPT 5.6, 2026-08-27).
+///
+/// ⛔ THE GUARD IS THE BUTTON, which is the genre's answer and needs nothing new
+/// on the body. ⛔ And the gate is the AUTHORED POLICY: the paired arm below
+/// holds the guard over a charge that does NOT store and gets no bank, so this
+/// is about `stores` rather than about shield cancelling anything.
+///
+/// The whole flow, in order: partial charge → stow → the bank exists and the
+/// move is over → the next press RESUMES from the bank rather than from zero.
+#[test]
+fn holding_the_guard_puts_a_storing_charge_away_and_the_next_press_resumes_it() {
+    let (mut app, body) = storing_charge_app();
+    app.add_systems(Update, super::stow_a_stored_charge_on_guard);
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    let accrued = charge_of(&app, body).held_s;
+    assert!(
+        accrued > 0.0,
+        "the hold accrued nothing, so there is no charge to put away"
+    );
+    assert_eq!(banked(&app, body), None, "nothing is banked yet");
+
+    // THE DECISION. Guard up, and it is the only thing that changes.
+    set_frame(&mut app, body, |f| f.shield_held = true);
+    app.update();
+
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "the move is still running after the fighter put its charge away"
+    );
+    let stowed = banked(&app, body).expect("the guard press banked nothing");
+    assert!(
+        (stowed - accrued).abs() < 0.05,
+        "the bank holds {stowed}s where the charge stood at {accrued}s — a stow \
+         must put away the shot the player was holding, not a different one"
+    );
+
+    // AND THE NEXT PRESS RESUMES IT. Guard down, press again, and the charge
+    // starts from the bank instead of from zero.
+    set_frame(&mut app, body, |f| f.shield_held = false);
+    press_smash(&mut app, body, true);
+    app.update();
+    let resumed = charge_of(&app, body).held_s;
+    assert!(
+        resumed >= stowed - 0.05,
+        "the next press started at {resumed}s with {stowed}s in the bank — a \
+         stored charge that does not come back is a charge you threw away"
+    );
+}
+
+/// ⛔ THE PAIRED ARM. The same guard press over a charge whose policy does NOT
+/// store banks nothing — so the arm above is about `stores`, not about the
+/// guard cancelling every charge into a bank.
+#[test]
+fn the_guard_banks_nothing_from_a_charge_that_does_not_store() {
+    let (mut app, body) = smash_charge_app();
+    app.add_systems(Update, super::stow_a_stored_charge_on_guard);
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    assert!(
+        charge_of(&app, body).held_s > 0.0,
+        "poison: nothing accrued, so the arm below cannot tell a refused stow \
+         from an empty charge"
+    );
+    set_frame(&mut app, body, |f| f.shield_held = true);
+    app.update();
+    assert_eq!(
+        banked(&app, body),
+        None,
+        "an ordinary smash was banked by a guard press; only a policy that says \
+         `stores` has a bank to put a shot in"
+    );
+}

@@ -55,8 +55,7 @@ impl Plugin for CombatSchedulePlugin {
         // drains it. Registered here so the writers never hit an unregistered
         // message.
         app.add_message::<ambition_vfx::EffectRequest>();
-        app.add_message::<ambition_combat::moveset::MoveEventMessage>(
-        );
+        app.add_message::<ambition_combat::moveset::MoveEventMessage>();
         // One authoritative resolved body-contact fact. The shared hitbox resolver
         // writes it; move confirms and authored on-hit techniques both consume it
         // instead of independently deciding whether the strike connected.
@@ -160,6 +159,10 @@ impl Plugin for CombatSchedulePlugin {
                     // would leave it paying lag in mid-air, the one state the
                     // rule exists to prevent.
                     ambition_combat::moveset::edge_cancel_landing_recovery,
+                    // BEFORE the advance: a stow is a decision about the charge
+                    // as it stands, and running the clock first would bank a
+                    // shot one tick fuller than the one the player put away.
+                    ambition_combat::moveset::stow_a_stored_charge_on_guard,
                     ambition_combat::moveset::advance_move_playback,
                     // Right behind the clock that moves them: a move's authored
                     // Invuln / Armor windows are republished onto the two facts
@@ -179,8 +182,7 @@ impl Plugin for CombatSchedulePlugin {
                 // ⭐ THE OTHER HALF OF THE SPECIAL TURN, after the trigger that
                 // opens its window — a flick on the same tick as the press is
                 // the press, not a B-reverse.
-                ambition_combat::moveset::apply_special_turn_flicks
-                    .run_if(gameplay_allowed),
+                ambition_combat::moveset::apply_special_turn_flicks.run_if(gameplay_allowed),
                 // ⛔ BEFORE `dispatch_move_events`, and that ordering is the
                 // whole mechanic: the move's `Ranged` event is dispatched there
                 // and `spawn_projectiles_from_brain_actions` routes the shot by

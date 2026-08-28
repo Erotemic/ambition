@@ -1611,6 +1611,51 @@ pub fn resolve_aerial_landings(
     }
 }
 
+/// PUT THE CHARGE AWAY — the deliberate half of the genre's stored shot.
+///
+/// ⭐⭐ JON ASKED FOR SAMUS/MEWTWO PARITY, and storing a charge is only half of
+/// that mechanic. Banking already happened whenever something INTERRUPTED the
+/// hold, so a fighter could keep a charge by being hit; what it could not do was
+/// decide to. Sitting on a full charge waiting to be interrupted is not the plan
+/// the move is for.
+///
+/// ⛔ THE GUARD IS THE BUTTON, which is what the genre does and what the body
+/// already has: a fighter holding a charge presses shield and comes out of it
+/// holding the shot. Nothing new reaches the body — no verb, no binding, no
+/// second input road — because the press it needs is one every fighter already
+/// makes.
+///
+/// ⛔ AND THE GATE IS THE AUTHORED POLICY, never a character. `charge.policy
+/// .stores` is what makes a move stowable, so a second chargeable special that
+/// says it stores gets this for free and one that does not cannot be stowed into
+/// a bank it has no room for.
+///
+/// ⭐ IT ROUTES THROUGH `cancel_move_playback(.., Interrupted)`, so the bank, the
+/// live volumes and the playback teardown stay in the ONE place that owns them.
+/// A stow that inserted `StoredMoveCharge` itself would be the fifth copy of a
+/// rule that function exists to hold.
+pub fn stow_a_stored_charge_on_guard(
+    mut commands: Commands,
+    mut charging: Query<(
+        Entity,
+        &mut MovePlayback,
+        &ambition_characters::control::ActorControl,
+    )>,
+) {
+    for (owner, mut playback, control) in &mut charging {
+        if !control.0.shield_held {
+            continue;
+        }
+        let stowable = playback
+            .charge
+            .is_some_and(|charge| charge.policy.stores && charge.charging());
+        if !stowable {
+            continue;
+        }
+        cancel_move_playback(&mut commands, owner, &mut playback, MoveEnd::Interrupted);
+    }
+}
+
 /// Reduce an attack aim axis to a discrete [`AttackDir`] for directional move
 /// selection, relative to the body's current `facing` (±1).
 ///

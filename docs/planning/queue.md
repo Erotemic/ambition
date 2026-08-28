@@ -2183,6 +2183,22 @@ than be worked: corrected-input cancellation and peer-coordinated lifecycle
 commit belong to real external netplay, because local sync testing cannot
 mispredict. Its own doc says so; do not build a synthetic local ritual for them.
 
+✔ **AND THE EXTERNAL-CONSUMER PROOF LOST ONE OF ITS FOUR, 2026-08-28** — the
+*"measure … rather than only describing them qualitatively"* item. The workflow is
+EIGHT DECLARATIONS AND TWO CALLS, and both refusals are quoted verbatim in the doc
+now; each names the request, the reason and the fix, the route one lists what does
+exist, and the GPU one warns that the checks are STAGED so a consumer does not
+read one problem as the whole answer.
+⛔ **the wording is deliberately not asserted** — pinning it would make every
+improvement to an error message a red test. The probe that prints it is
+`#[ignore]`d beside the two arms that DO assert (a substring each), and the
+measurement is dated in the doc.
+⇒ **of the four remaining external-consumer items, ONE is now closed, one needs a
+DISPLAY (Jon's machine), and two want a CUSTOMER**: a readiness/last-failure API
+*"if a consumer actually benefits"*, and a second meaningfully different consumer
+before freezing a public content API. Neither is buildable without the customer,
+and building either first is how an API gets frozen around one caller.
+
 The remaining three are external-consumer proof — run the visible consumer on a
 machine with a display, measure first-room workflow and deliberate-error
 diagnostics rather than describing them, and exercise authoring from a second

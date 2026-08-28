@@ -5282,7 +5282,10 @@ a warn). ⭐ the refusal is honest, not broken — the room build already declin
 pretend an unmovable family moved. ⛔ adding the producer without the consumer
 would make every re-entry log a warn and teleport the actor home anyway; the two
 land together or not at all. Whether an abandoned enemy should stay put is a
-product call, not a defect.
+product call, not a defect. ⇒ **PROMOTED to `awaiting-maintainer-decision.md`
+2026-08-28** with the two-halves cost, because a product call sitting in the
+execution ledger reads as work nobody has got to — it had sat here since
+2026-08-19.
 
 ✔ **THE PERSISTENCE CARRY LIST IS CLOSED — 2026-08-19.** A checkpoint
 baseline used to require five hand-synchronised enrollments across three crates;

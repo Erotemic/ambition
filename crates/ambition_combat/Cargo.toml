@@ -30,6 +30,10 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_time = { path = "../ambition_time" }
 ambition_vfx = { path = "../ambition_vfx" }
+# `CollisionWorld` — the down-air pogo in `attack_support` probes the room for a
+# world orb. A clean downward edge: `_world` sees only asset_manager / _core /
+# entity_catalog / shared_tangle.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
 # Only the schema handler parses RON here.
 ron = { workspace = true, optional = true }

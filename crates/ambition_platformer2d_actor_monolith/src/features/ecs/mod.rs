@@ -42,7 +42,6 @@ pub mod actor_clusters;
 mod actors;
 mod aggression;
 pub mod anim_helpers;
-pub mod attack;
 mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;

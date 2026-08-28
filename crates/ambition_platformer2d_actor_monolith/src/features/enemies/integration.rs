@@ -359,7 +359,7 @@ impl<'a> ActorMut<'a> {
         // knockback carries the body, it can't steer back in), hitstun reduces
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
-        crate::features::ecs::attack::apply_post_hit_input_gates(
+        ambition_combat::attack_support::apply_post_hit_input_gates(
             &mut input,
             feel,
             combat,

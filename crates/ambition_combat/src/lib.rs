@@ -20,6 +20,7 @@
 //! sounds and looks like.
 
 pub mod actor_tuning;
+pub mod attack_support;
 pub mod authored_volumes;
 pub mod banner;
 pub mod brain;

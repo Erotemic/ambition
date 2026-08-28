@@ -346,19 +346,18 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume =
-                ambition_platformer2d::actors::features::ecs::attack::player_attack_hitbox(
-                    character_catalog,
-                    authored_attack_volumes,
-                    Some(worn_character_id),
-                    &view,
-                    attack_state.spec.intent,
-                    gravity_dir,
-                )
-                .unwrap_or_else(|| {
-                    ambition_platformer2d::combat::attack_hitbox_from_view(&view, attack_state.spec)
-                        .into()
-                });
+            let volume = ambition_platformer2d::combat::attack_support::player_attack_hitbox(
+                character_catalog,
+                authored_attack_volumes,
+                Some(worn_character_id),
+                &view,
+                attack_state.spec.intent,
+                gravity_dir,
+            )
+            .unwrap_or_else(|| {
+                ambition_platformer2d::combat::attack_hitbox_from_view(&view, attack_state.spec)
+                    .into()
+            });
             let color = match attack_state.phase() {
                 Some(ambition_platformer2d::combat::AttackPhase::Startup) => yellow(),
                 Some(ambition_platformer2d::combat::AttackPhase::Active) => red(),

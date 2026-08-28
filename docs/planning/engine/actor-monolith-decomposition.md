@@ -1046,8 +1046,12 @@ owned. Zero new dependency edges; the eight tests went with it.
 `damage_predicates` needs `ambition_boss_encounter`, which depends on
 `ambition_combat` — so combat is not its home. `brain_effects` names
 `ambition_app`, `ambition_mount` and `ambition_projectiles`, so it cannot go down
-at all yet. **`attack` (604 lines) is the one that can**: it wants
-`ambition_platformer2d_world`, a clean downward edge combat does not have yet.
+at all yet. ✔ **`attack` CARVED THE SAME DAY → `ambition_combat::attack_support`** (604 lines),
+for that one clean edge. ⭐ its own module doc had already argued the move: the
+melee LIFECYCLE left for `combat::moveset` some time ago and *"there is ONE melee
+path"* — what stayed behind in the monolith was support for a path that lives in
+combat. Renamed on the way in, because `combat::attack` beside `combat::moveset`
+would have read as a second melee road.
 
 ⭐ **FOUR MODULES — `attack`, `brain_effects`, `damage_predicates`, `ledge_trump`,
 1,336 lines together — REACH THE MONOLITH IN NO SHAPE AT ALL.** They are the

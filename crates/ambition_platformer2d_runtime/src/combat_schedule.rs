@@ -90,8 +90,7 @@ impl Plugin for CombatSchedulePlugin {
                 // frame for every body (a ranged body freezes after one shot without
                 // it). The strike-spawning `advance_body_melee` / `start_body_melee`
                 // are deleted; this is only their surviving cooldown tick.
-                ambition_platformer2d_actor_monolith::features::ecs::attack::tick_body_melee_cooldowns
-                    .run_if(gameplay_allowed),
+                ambition_combat::attack_support::tick_body_melee_cooldowns.run_if(gameplay_allowed),
                 // ── Moveset runtime FIRST: produce this frame's action messages ──
                 //
                 // The move runtime (trigger → advance → dispatch) runs BEFORE the
@@ -133,7 +132,8 @@ impl Plugin for CombatSchedulePlugin {
                 // OR a content-technique special's per-frame `Effect{key}` sustain.
                 // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
                 // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
-                ambition_platformer2d_actor_monolith::features::trigger_boss_attack_moves.run_if(gameplay_allowed),
+                ambition_platformer2d_actor_monolith::features::trigger_boss_attack_moves
+                    .run_if(gameplay_allowed),
             )
                 .chain()
                 .in_set(CombatSet::Trigger),
@@ -320,7 +320,7 @@ impl Plugin for CombatSchedulePlugin {
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
                 // into this world-surface representation.
-                ambition_platformer2d_actor_monolith::features::ecs::attack::pogo_moveset_off_world_orbs
+                ambition_combat::attack_support::pogo_moveset_off_world_orbs
                     .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the
@@ -329,7 +329,8 @@ impl Plugin for CombatSchedulePlugin {
                 // overlapping an actor while a conversation runs keeps registering
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
-                ambition_platformer2d_actor_monolith::features::apply_feature_hit_events.run_if(gameplay_allowed),
+                ambition_platformer2d_actor_monolith::features::apply_feature_hit_events
+                    .run_if(gameplay_allowed),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
                 // to slot in at exactly this point — AFTER the feature-hit resolution so it
                 // observes this frame's alive-flag transitions, BEFORE the mount/rider bookkeeping.

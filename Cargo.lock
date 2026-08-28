@@ -286,6 +286,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_sfx",
  "ambition_time",
  "ambition_vfx",

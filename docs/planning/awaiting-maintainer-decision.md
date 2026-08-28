@@ -1918,3 +1918,32 @@ cursor, and only (a) fixes that.
 places the headless suite does. Jon: *"It might be the case that we build a tool
 so it works on a machine with a gpu. Not sure yet though."* Held here until that
 is decided.
+
+## 2026-08-28 — Does an enemy you left in a foreign room STAY there?
+
+**The question, and it is a product call rather than a defect** (D125 says so in
+its own words): an actor RELEASED in a room that is not its authored home writes
+no `Placed` row today, so it is retired when that room is left and re-authored at
+home on re-entry. *"The enemy goes home"* is a defensible rule. *"The enemy stays
+where you dragged it"* is the other one.
+
+**What it costs, measured — and the two halves cannot land apart:**
+
+```text
+PRODUCER   the placement recorder is items-only; a released body needs the same
+           `republish_placements` call
+CONSUMER   `construction::relocate_request` returns FALSE for anything but a
+           ground item, so an actor request is refused and the body is rebuilt at
+           its authored spot with a warn
+```
+
+⛔ **adding the producer alone makes every re-entry log a warn and teleport the
+actor home anyway.** They land together or not at all.
+
+⭐ **the current refusal is honest, not broken**: the room build already declines
+to pretend an unmovable family moved, and says so.
+
+⚠ **why this is here rather than in the ledger**: D125 has carried it as *"still
+open — two named pieces"* since 2026-08-19 with the note *"whether an abandoned
+enemy should stay put is a product call"*, and a product call sitting in the
+execution ledger reads as work nobody has got to. Promoted 2026-08-28.

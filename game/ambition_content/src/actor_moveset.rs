@@ -124,6 +124,20 @@ fn the_monologue() -> MoveSpec {
         on_hit: None,
     });
     spec.display_name = Some("Monologue".to_string());
+    // ⛔⛔ AND THE DOC ABOVE NAMED A HELPER THIS FUNCTION DOES NOT CALL. It says
+    // *"She is held by `hitless_special`'s rooting, which every special gets"* —
+    // but the monologue is built from `strike`, and `strike` authors
+    // `motion_scale: 1.0` on all three of its windows. She could walk through her
+    // own speech while everyone she hit was held by the fixed knockback, which is
+    // the one asymmetry the move is about.
+    //
+    // ⇒ rooted on the strike's OWN windows rather than by pushing another one
+    // over the top: `motion_scale_at` folds with `min` so either works, but a
+    // blanket window would have to carry a tag, and every tag says something to
+    // the scorer that is not true of a whole move.
+    for window in &mut spec.windows {
+        window.motion_scale = 0.0;
+    }
     let spec = fixed_knockback(spec);
     let spec = sfx(spec, 0.0, "player.attack.charge");
     let spec = sfx(spec, 0.225, "player.slash");
@@ -208,6 +222,27 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     let mut spec =
         ambition_characters::moveset_authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
     spec.display_name = Some("The Trap".to_string());
+    // ⛔⛔ AND THE MOVE DID NOT DO THE THING ITS DOC SAYS IT EXISTS TO DO.
+    // `hitless_special` roots the body for the WHOLE duration — Startup and
+    // Recovery both author `motion_scale: 0.0` — and `MoveSpec::motion_scale_at`
+    // folds overlapping windows with `min`, so every second she spent under the
+    // stage had her steering intent multiplied by zero. *"no gravity, no
+    // geometry — and still steering. That is why this is a technique and a kernel
+    // mode rather than a longer animation on a teleport"* was false in the same
+    // file that says it.
+    //
+    // ⭐ THE RECOVERY BEGINS WHEN SHE SURFACES, which is also just a truer
+    // description than the one it replaces: her follow-through is climbing back
+    // out, not the second she drops through the boards. Between `SINK_AT_S` and
+    // `SURFACE_AT_S` NO window covers the timeline, so the fold returns its
+    // identity and she steers at full authority — and the `Invuln` window
+    // authored below still covers that span for the cancel and scoring layers,
+    // which is why leaving the gap costs them nothing.
+    for window in &mut spec.windows {
+        if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
+            window.start_s = SURFACE_AT_S;
+        }
+    }
     // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
     // the second one is the half whose absence is a fighter gone for the match.
     let spec = author_trapdoor(
@@ -271,7 +306,15 @@ fn the_flyline() -> MoveSpec {
         },
     );
     let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
-    let spec = ambition_characters::moveset_authoring::sfx(spec, WIRE_AT_S, "player.blink");
+    // ⛔⛔ NO `player.blink` HERE, AND THE EXEMPTION THAT USED TO COVER ONE WAS
+    // FACTUALLY WRONG. `author_teleport_blink.rs` reads *"the Actor's trap and
+    // wire and Alice's side-B author the cue for moves that never run the
+    // teleport executor"* — true of the trap (`author_trapdoor`) and of Alice
+    // (an `impulse`), and FALSE of this wire, which is authored through
+    // `author_teleport` twelve lines up. `apply_authored_teleports` emits
+    // `PLAYER_BLINK` at every transit, so the same frame asked for the same cue
+    // down two roads — the exact defect D255/R17 fixed for the Author's Revision.
+    // The executor is the authority; a move does not also ask.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. Inserted after
     // `SmashRepertoire::into_contract` has lowered the table it joins, nothing
     // else will stamp `gates.recovery` on it — and an up-B that spends nothing
@@ -282,6 +325,104 @@ fn the_flyline() -> MoveSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⛔⛔ SHE STEERS UNDER THE STAGE, AND FOR A WHILE SHE DID NOT.
+    ///
+    /// The Trap is built on `hitless_special`, which roots the body across the
+    /// WHOLE duration — Startup and Recovery both author `motion_scale: 0.0` —
+    /// and `MoveSpec::motion_scale_at` folds overlapping windows with `min`. So
+    /// the submerged second, the beat this move exists FOR, ran with the
+    /// player's steering multiplied by zero while the module doc said *"no
+    /// gravity, no geometry — and still steering"*.
+    ///
+    /// ⛔ THE ARMS STRADDLE BOTH EDGES, because a rule about an interval that is
+    /// only sampled inside it cannot tell "the gap is open" from "every window
+    /// is 1.0". Dropping through the boards and climbing back out are still
+    /// committed, and that is half of what makes the middle a decision.
+    #[test]
+    fn the_trap_roots_her_at_both_ends_and_lets_her_steer_between_them() {
+        let set = actor_moveset();
+        let trap = set
+            .moves
+            .iter()
+            .find(|m| m.id == "actor_trapdoor")
+            .expect("the trap is in the table");
+        for (t, want, what) in [
+            (SINK_AT_S * 0.5, 0.0, "dropping through the boards"),
+            (SINK_AT_S + 0.01, 1.0, "just under"),
+            (SURFACE_AT_S - 0.01, 1.0, "about to come up"),
+            (SURFACE_AT_S + 0.01, 0.0, "climbing back out"),
+        ] {
+            assert!(
+                (trap.motion_scale_at(t) - want).abs() < 1e-4,
+                "at {t}s ({what}) the trap allows {} of her steering, wanted {want}",
+                trap.motion_scale_at(t),
+            );
+        }
+    }
+
+    /// ⛔⛔ THE SPEECH HOLDS HER TOO, and for a while it held only the audience.
+    ///
+    /// The doc on [`the_monologue`] says *"She is held by `hitless_special`'s
+    /// rooting, which every special gets"* — and the function is built from
+    /// `strike`, which authors `motion_scale: 1.0` on every window it makes. So
+    /// the one asymmetry the move is about ran backwards: everyone she hit was
+    /// pinned by the fixed knockback and she could walk away mid-sentence.
+    #[test]
+    fn the_monologue_holds_the_speaker_as_well_as_the_room() {
+        let set = actor_moveset();
+        let speech = set
+            .moves
+            .iter()
+            .find(|m| m.id == "actor_monologue")
+            .expect("her neutral special");
+        for t in [0.05, 0.3, 0.5] {
+            assert_eq!(
+                speech.motion_scale_at(t),
+                0.0,
+                "at {t}s she can still steer out of her own speech"
+            );
+        }
+    }
+
+    /// ⛔⛔ ONE TELEPORT, ONE BLINK — and the wire was asking twice.
+    ///
+    /// `apply_authored_teleports` emits `PLAYER_BLINK` at every transit, which is
+    /// exactly what D255/R17 established for the Author's Revision. Her up-B runs
+    /// that executor (it is authored through `author_teleport`) AND carried a
+    /// `player.blink` on its own timeline at `WIRE_AT_S`, so the same frame asked
+    /// for the same cue down both roads.
+    ///
+    /// ⛔ THE EXEMPTION IN `author_teleport_blink.rs` NAMED THIS MOVE as one that
+    /// *"never runs the teleport executor"*, which was simply not true of it —
+    /// so the note written to explain why a duplicate was not a duplicate was
+    /// covering a real one. This arm is here so the sentence cannot drift back.
+    #[test]
+    fn the_wire_leaves_the_blink_cue_to_the_teleport_executor() {
+        use ambition_characters::smash_teleport::TELEPORT;
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = actor_moveset();
+        let wire = set
+            .moves
+            .iter()
+            .find(|m| m.id == "actor_curtain_call")
+            .expect("her up special");
+        assert!(
+            wire.events.iter().any(|e| matches!(
+                &e.kind,
+                MoveEventKind::Effect(effect) if effect.key == TELEPORT
+            )),
+            "the wire must still BE a teleport, or this arm proves nothing"
+        );
+        assert!(
+            !wire.events.iter().any(|e| matches!(
+                &e.kind,
+                MoveEventKind::Sfx { cue } if cue == "player.blink"
+            )),
+            "the wire authors its own blink beside the executor's"
+        );
+    }
 
     /// ⛔ THE DOWN SLOT IS A PAIR, and half a swap is a press that falls through.
     /// The archetype's down special is a `DownSpecial::ByPosture`, so

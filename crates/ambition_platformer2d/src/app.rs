@@ -1334,13 +1334,7 @@ impl PlatformerApp {
             // 180. LEAK, found by migrating the fixture onto this
             // builder; the rule existed only in a comment on the code being
             // deleted.
-            let frame_dt = if rollback_participants.is_some() {
-                std::time::Duration::from_nanos(
-                    1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64,
-                )
-            } else {
-                app.world().resource::<Time<Fixed>>().timestep()
-            };
+            let frame_dt = manual_step_period(app, rollback_participants.is_some());
             app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(frame_dt));
         }
 
@@ -1540,6 +1534,46 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
 /// Public because a standalone demo shell needs exactly this and nothing else:
 /// three demos hand-roll their own `DefaultPlugins` today and each re-derives
 /// the disables that [`Display`] documents. A fourth copy would be the leak.
+/// The manual-step period for the simulation host this app is building — the ONE
+/// answer to *"how much time is one externally-driven `App::update()` worth"*.
+///
+/// ⛔⛤ THE TWO HOSTS DIFFER BY ONE NANOSECOND AND IT IS NOT COSMETIC.
+/// `Time::<Fixed>::from_hz(60.0)` rounds to `16_666_667ns`; GGRS truncates to
+/// `16_666_666`. Feeding a GGRS host the rounded value cost a parity fixture 192
+/// `update()` calls to reach a state the fixed-tick host reached in 180 — the
+/// accumulator gains a tick every few thousand frames.
+///
+/// ⛔⛔ SO NOBODY ELSE MAY COMPUTE IT. This was Rule 8's private arithmetic, and
+/// a headless driver that wanted the same guarantee had no way to ask for it —
+/// so one was written a third time (`runtime::deterministic_step`, deleted with
+/// this commit) that hardcoded the GGRS value and would have been silently wrong
+/// by a nanosecond under `Fixed60Hz`. `ambition_sim_harness` computes its own as
+/// well. This is the seam those callers should consume.
+pub fn manual_step_period(app: &App, rollback: bool) -> std::time::Duration {
+    if rollback {
+        std::time::Duration::from_nanos(1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64)
+    } else {
+        app.world().resource::<Time<Fixed>>().timestep()
+    }
+}
+
+/// Put an already-built app under manual stepping, so one `update()` is one
+/// simulation tick.
+///
+/// ⭐ FOR AN APP THAT IS NOT `Face::Headless`. Rule 8 pins manual time at build
+/// time for the headless face; an offscreen or windowed app that a DRIVER steps
+/// itself wants the same contract and cannot get it from the builder. Presence
+/// of presentation and who owns the clock are independent questions — a GPU
+/// capture of a deterministic simulation needs both.
+///
+/// ⛔ INSTALL BEFORE THE SESSION RUNS. Switching a live rollback host from wall
+/// time to manual time leaves whatever the accumulator had already banked, so
+/// the first few steps are not one-for-one.
+pub fn take_manual_steps(app: &mut App, rollback: bool) {
+    let period = manual_step_period(app, rollback);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(period));
+}
+
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 

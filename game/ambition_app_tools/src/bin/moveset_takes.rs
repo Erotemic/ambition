@@ -616,8 +616,17 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
             "seat": seat,
-            // Worn character, else the STABLE sim identity, else a marker. Never
-            // the raw entity id: see the query row above.
+            // ⛔⛔ IDENTITY AND APPEARANCE ARE TWO FIELDS, NOT ONE. Preferring
+            // the worn character as a "label" cannot identify a body in this
+            // recording at all: the take deliberately seats TWO FIGHTERS WEARING
+            // THE SAME CHARACTER, so `npc_pirate_admiral` names both of them.
+            // `SimId` is the engine's deterministic identity, independent of
+            // Bevy entity allocation and ordered so snapshots can establish a
+            // canonical order.
+            "id": sim_id.clone(),
+            "character": worn.clone(),
+            // What a reader recognises, which is allowed to be ambiguous
+            // because it is not what anything joins on.
             "label": worn
                 .clone()
                 .or_else(|| sim_id.clone())
@@ -742,6 +751,32 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             "subject_owned": Some(hitbox.owner) == subject_entity,
         }));
     }
+
+    // ⛔⛔ SORTED BY STABLE IDENTITY BEFORE IT IS WRITTEN. Removing entity numbers
+    // from the strings is not enough to promise byte-stable JSON: the ORDER of
+    // these rows is Bevy query iteration order, which is archetype order, which
+    // changes when anything about component composition changes. A recording
+    // that two runs cannot compare byte-for-byte is a recording nothing can be
+    // diffed against.
+    frame.bodies.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["label"].as_str().unwrap_or("").to_string(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    frame.hitboxes.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+                v["damage"].as_i64().unwrap_or_default(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
 
     frame
 }
@@ -982,7 +1017,14 @@ fn main() {
     // which made `TAKE_TICKS = 150` mean 150 LOOP ITERATIONS, made a recording
     // cost at least as much real time as the game time it contained, and made
     // two runs of this binary disagree on 13 of 19 takes.
-    ambition_platformer2d::runtime::take_manual_control(&mut app);
+    // ⭐ THE ENGINE'S OWN MANUAL-STEP CONTRACT, not a private one. See
+    // `ambition_platformer2d::app::manual_step_period`: the two simulation hosts
+    // need periods that differ by one nanosecond, and a driver that computed its
+    // own would be silently wrong under one of them.
+    //
+    // ⚠ `true` because this composition boots the ROLLBACK host. When a driver
+    // can ask the app which host it has, that argument should come from the app.
+    ambition_platformer2d::app::take_manual_steps(&mut app, true);
     for _ in 0..30 {
         app.update();
     }

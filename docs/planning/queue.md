@@ -5136,8 +5136,14 @@ the reader, not the code.
   every full run. That entry is now an explicit ⛔ refusal pointing at
   `tackon_targets`.
 
-- ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
+- ◐ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
+  ⭐ **NO ENGINEERING WORK REMAINS UNDER THIS ROW as of 2026-08-28.** Its one
+  standing *"still open"* was the released-actor placement pair, and its own note
+  had already said the question is a product call. That went to
+  `awaiting-maintainer-decision.md`; the row waits on an answer, not on a slice.
+  ⚠ marked `◐` rather than closed because the SUBSTRATE milestone is broader than
+  the items under it — do not read this mark as "the substrate is finished".
 
 ⭐⭐ **A LIMBED MOUNT CHAIN CLOSES THE LEDGER FOR FREE.** `gnu_ton_arena` authors a
 boss riding a mount that has hands: possessing the boss makes the chain

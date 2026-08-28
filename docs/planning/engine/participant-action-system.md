@@ -9,18 +9,39 @@
 
 ## Remaining architecture
 
-- ▢ **Remove the seat-0 control split.** `ControlFrame`/`ControlFrameLatch` still
-  carry a primary-seat special path while secondary seats use slot/seat state.
-  Converge on one participant-keyed input channel without changing simulation
-  semantics merely for naming symmetry.
-  ⚠ **RE-READ THIS ONE BEFORE REMOVING ANYTHING (2026-08-26).** The split is
-  still there and it is now DEFENDED rather than merely present: `input_systems.rs`
-  carries six separate paragraphs on why the primary seat is the keyboard's, why
-  `gamepad_only()` for every non-primary seat encoded the wrong thing, and why
-  the primary seat *"has no equivalent hazard because GGRS overwrites"*. ⇒ the
-  first question is no longer *how* to converge but whether this is still a
-  SPLIT or has become a stated DESIGN — and this row's own last sentence
-  (*"not merely for naming symmetry"*) is the test to apply.
+- ✔ **Remove the seat-0 control split — THE SPLIT THIS ROW NAMES IS GONE.
+  Verified by reading HEAD, 2026-08-28.** The row asked whether this was still a
+  split or had become a stated design, and its own test was *"not merely for
+  naming symmetry"*. Applied:
+
+  ⭐ **DELIVERY IS ONE ROAD.** `drive_slot_frame(world, slot, frame)` is the
+  channel every seat uses, and `input_drive.rs` says in its own words that this
+  *"was TWO functions with the same shape"* and that *"seat zero's latch has
+  since become row zero of the same table every other seat uses"*.
+  `drive_control_frame` survives as the NAME for the primary seat and is
+  documented as *"a convenience over this, not a second road with different
+  rules"*. Measured the same day by a two-seat test driving slots 0 and 1
+  through the identical call.
+
+  ⭐ **AND THE LOOPS ARE PER SEAT.** `input_systems.rs` iterates
+  `0..SlotControls::MAX_SLOTS` and resolves each seat's own gravity, gestures and
+  interact buffer — with a comment recording that the interact buffer *"was
+  `slot_gestures.primary_mut` too"*, so *"a second player standing at a door
+  pressed a button that was buffered for nobody"*. That was the split, and it was
+  fixed.
+
+  ⛔ **WHAT STILL NAMES `PlayerSlot::PRIMARY` IS A FALLBACK, NOT A CHANNEL.**
+  Every surviving site is `body_driving_seat(slot).or_else(|| PRIMARY.then(…))`
+  or `driving_slot(body).unwrap_or(PRIMARY)` — the answer for a body no
+  participant drives, which `acting.rs` states outright: it *"preserves the
+  behaviour every existing single-player fixture depends on"* and is *"NOT a
+  claim that a body with no participant may consume the primary seat's input
+  during play"*.
+
+  ⛔ **AND THE DEVICE POLICY IS THE STATED DESIGN THIS ROW WARNED ABOUT.** The
+  keyboard belonging to the primary seat is six defended paragraphs in
+  `input_systems.rs`, not an accident of the old channel. Converging it would be
+  naming symmetry, which this row forbids.
 
 - ✔ **Per-seat pause ownership — SHIPPED, verified at HEAD 2026-08-26.** This
   doc's header predates it. `PauseMenu` carries the owner

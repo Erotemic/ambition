@@ -13384,14 +13384,20 @@ is the pointer.
 of HEAD ago. Re-grep every item before working it** — that is the rule this
 ledger keeps paying for, and two of the nine are already suspect:
 
+✔✔ **AND RE-READING CLOSED ONE OF THE NINE WITHOUT BUILDING ANYTHING
+(2026-08-28).** *"Remove the seat-0 control split"* asked whether the split was
+still a split or had become a stated design. It is neither: the split is GONE.
+`drive_slot_frame` is the one delivery road — `input_drive.rs` says seat zero's
+latch *"has since become row zero of the same table every other seat uses"* — and
+`input_systems.rs` iterates `0..MAX_SLOTS`, its own comment recording that the
+interact buffer *"was `slot_gestures.primary_mut` too"*. What still names
+`PlayerSlot::PRIMARY` is a FALLBACK for a body no participant drives, and the
+keyboard-belongs-to-seat-zero policy is the stated design the row's own test
+(*"not merely for naming symmetry"*) says to leave alone. Four `▢` remain in the
+plan.
+
 ```text
-"Remove the seat-0 control split"   the split is LIVE and heavily DEFENDED in
-                                    comments now: input_systems.rs carries six
-                                    separate paragraphs on why the primary seat
-                                    is the keyboard's and why GGRS overwrites
-                                    for it. ⇒ re-read as "is this still a
-                                    SPLIT, or is it a stated DESIGN?" before
-                                    removing anything
+"Remove the seat-0 control split"   CLOSED by reading HEAD — see above.
 "Per-seat pause ownership"          `SeatMenuFrames` shipped and the select
                                     screen consumes it per seat; what the doc
                                     calls missing is menu OWNERSHIP state, not

@@ -210,6 +210,37 @@ class JobResult:
     executed_seconds: float | None = None
 
 
+def wall_time_split(results: list[JobResult]) -> dict:
+    """Wall time divided into what was MEASURED and what could not be.
+
+    ⛔⛔ THREE NUMBERS, BECAUSE TWO CANNOT SAY THIS. `seconds - executed` is only
+    "the build graph" for a job whose runner reported its execution time.
+    Summing an unreported job's `executed_seconds` as zero — which every
+    aggregate here used to do, even after the per-job field became nullable —
+    hands that job's ENTIRE wall clock to the build column and states it as a
+    measurement. A 100s nextest run was persisted as 0s executing and 100s
+    building, and a mixed run produced a plausible partial number with nothing
+    saying it was partial.
+
+    ⇒ `unclassified_seconds` is the wall time of jobs whose runner reported
+    nothing, and `build_seconds` is derived ONLY from the jobs that did. A
+    reader that wants a build/run ratio has the denominator it is entitled to
+    (`executed + build`) and can see how much of the run it does not cover.
+    """
+    measured = [r for r in results if r.executed_seconds is not None]
+    unmeasured = [r for r in results if r.executed_seconds is None]
+    executed = sum(r.executed_seconds or 0.0 for r in measured)
+    measured_wall = sum(r.seconds for r in measured)
+    return {
+        "executed_seconds": round(executed, 1),
+        # Never negative: a runner can report a duration slightly longer than
+        # the wall clock this process measured around it.
+        "build_seconds": round(max(0.0, measured_wall - executed), 1),
+        "unclassified_seconds": round(sum(r.seconds for r in unmeasured), 1),
+        "unclassified_jobs": len(unmeasured),
+    }
+
+
 def timing_report(results: list[JobResult]) -> str:
     """Per-job timings ranked slowest -> fastest.
 
@@ -218,7 +249,8 @@ def timing_report(results: list[JobResult]) -> str:
     itself stays in the summary block, which lists failures separately.
     """
     total = sum(r.seconds for r in results) or 1.0
-    executed = sum(r.executed_seconds or 0.0 for r in results)
+    split = wall_time_split(results)
+    executed = split["executed_seconds"]
     lines = ["  job timings (slowest first, `run` = the runner's own execution time):"]
     for r in sorted(results, key=lambda r: -r.seconds):
         tag = "ok  " if r.ok else "FAIL"
@@ -239,10 +271,18 @@ def timing_report(results: list[JobResult]) -> str:
     # newlines, so a line-buffered reader would stall on it — which is the whole
     # reason stderr stays attached.
     if executed:
+        classified = executed + split["build_seconds"]
         lines.append(
-            f"    ── {executed:.0f}s of {total:.0f}s executing tests "
-            f"({executed / total * 100:.0f}%); the rest is the build graph."
+            f"    ── {executed:.0f}s of {classified:.0f}s executing tests "
+            f"({executed / max(classified, 1.0) * 100:.0f}%); the rest is the "
+            f"build graph."
         )
+        if split["unclassified_jobs"]:
+            lines.append(
+                f"    ── and {split['unclassified_seconds']:.0f}s across "
+                f"{split['unclassified_jobs']} job(s) is NEITHER: their runner "
+                "reported no execution time, so that wall clock is unsplit."
+            )
     else:
         lines.append(
             f"    ── {total:.0f}s total. Test-execution time is NOT REPORTED: "
@@ -718,7 +758,7 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "finished": time.time(),
         "jobs": len(results),
         "seconds": round(sum(r.seconds for r in results), 1),
-        "executed_seconds": round(sum(r.executed_seconds or 0.0 for r in results), 1),
+        **wall_time_split(results),
         "passed": sum(1 for r in results if r.ok),
         "exhaustive": exhaustive,
         "filtered": filtered,
@@ -926,8 +966,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     write_status(status, {**base, "state": "done", "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
-                          "executed_seconds": round(
-                              sum(r.executed_seconds or 0.0 for r in results), 1),
+                          **wall_time_split(results),
                           "completed": completed_rows(results),
                           "current_job": None,
                           "free_gb_at_end": round(free_after, 1),

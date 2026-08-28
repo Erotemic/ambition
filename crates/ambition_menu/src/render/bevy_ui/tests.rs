@@ -722,6 +722,79 @@ fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone(
     );
 }
 
+/// ⛔⛔ TWO ROWS THAT DO THE SAME THING ARE STILL TWO ROWS.
+///
+/// The destructive arm was keyed by `format!("{action:?}")`, then by `Action`
+/// itself. The second removed a `Debug` dependency and was still one layer too
+/// coarse: an action says what a row DOES. Arm destructive row A, tap
+/// destructive row B once, and B — carrying an EQUAL action — reads as already
+/// armed and fires on the first tap. In a pause menu that is *Quit to Desktop*
+/// answering a guard the user armed somewhere else.
+///
+/// ⭐ `MenuFocusKey` is the identity the menu already carries, and it is
+/// distinct here while the action is not — which is exactly the case neither
+/// earlier key could tell apart.
+#[test]
+fn two_destructive_rows_with_the_same_action_arm_separately() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+
+    // A page whose two actionable rows carry ONE action and two focus keys.
+    let mut page = MenuPageModel::new(Page::Inventory, "Twins", MenuColor::BLUE_PANEL);
+    let a = MenuRect::new(10.0, 20.0, 30.0, 8.0);
+    let b = MenuRect::new(10.0, 30.0, 30.0, 8.0);
+    for rect in [a, b] {
+        page.control(
+            rect,
+            MenuControlKind::Action,
+            "Quit",
+            None,
+            false,
+            false,
+            Some(Action::Equip),
+        );
+    }
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView {
+            tabs: &tabs,
+            active_tab: 0,
+            page: &page,
+            focused: None,
+            focused_tab: None,
+        };
+        let mut commands = world.commands();
+        spawn_bevy_ui_menu(&mut commands, &view);
+    });
+    app.update();
+
+    let (key_a, key_b) = (focus_key_for(a), focus_key_for(b));
+    assert_ne!(key_a, key_b, "the two rows must be distinguishable at all");
+    let row = |app: &mut App, key: MenuFocusKey| {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<Action>)>();
+        q.iter(app.world())
+            .find_map(|(entity, control)| (control.focus == key).then_some(entity))
+            .expect("both twin rows are in the world")
+    };
+    let (row_a, row_b) = (row(&mut app, key_a), row(&mut app, key_b));
+
+    assert!(tap(&mut app, row_a).is_empty(), "A's first tap arms A");
+    assert!(
+        tap(&mut app, row_b).is_empty(),
+        "B fired on its FIRST tap because it does the same thing as the armed A"
+    );
+    assert_eq!(
+        tap(&mut app, row_b).len(),
+        1,
+        "B's own second tap is what answers B's guard"
+    );
+}
+
 #[test]
 fn a_menu_that_registers_no_destructive_rows_is_unguarded() {
     // The default for every existing host, and the reason this change needed no

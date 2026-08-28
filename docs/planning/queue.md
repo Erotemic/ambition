@@ -13137,9 +13137,12 @@ npc_pirate_admiral   attack_air_back  moves={"air_back"}   no MISMATCH
 ```
 
 and the engine's own log agrees — `move accepted: move=\`air_back\` grounded=false`.
-⇒ **the back air is REACHABLE.** Something between 2026-08-25 and today closed
-it; this row's diagnosis (the fighter turns before the press is read, so
-`attack_dir_from_axis` folds the reversal away) no longer describes HEAD.
+⇒ **the back air is REACHABLE.** ⛔⛔ **AND THE ANSWER WAS FIVE ROWS BELOW THIS
+ONE THE WHOLE TIME: D252 CLOSED 2026-08-27 (`1eb50e6e3`)** — fixed at the
+PRODUCER, `brain/player.rs`, which wrote a facing every tick grounded or not. The
+human translator steers facing only when the body may actually turn now. This
+paragraph is the SYMPTOM REPORT that row was opened from, and nothing marked it
+when the row closed.
 
 ⚠ **AND I ALMOST SHIPPED A GLOBAL RE-TUNE ON THE STRENGTH OF IT.** The two
 authorities really do disagree in the source — `abilities.rs` computes
@@ -13151,7 +13154,12 @@ disabling the gate and re-running the same take showed `air_back` playing either
 way, so the change fixed nothing measurable while re-tuning how every body in the
 game points in the air. ⇒ the contradiction is real and is worth resolving on its
 own merits, WITH Jon, but it is not this defect's cause and green suites are not
-evidence that a tuning change was needed.
+evidence that a tuning change was needed. ⛔ **D252's own closure forbids exactly
+the change I built**: *"THE KERNEL IS UNTOUCHED, as the row required"*, because
+`facing_intent` reaches crawlers, bosses, surface-momentum riders and the
+recovery search. ⇒ **a symptom paragraph and the row that closed it can live in
+one file and never learn about each other** — when you close a row, mark the text
+it was opened from.
 
 - ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
   FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,

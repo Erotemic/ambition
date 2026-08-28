@@ -922,3 +922,40 @@ now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
 ⭐ THE LESSON IS THE MIS-ATTRIBUTION, not the reds. A job that prints one verdict
 for six thousand tests is a job whose failures get explained by whatever else was
 failing that morning, and I did exactly that. `./run_tests.sh` names them now.
+
+### The Trap: she is visible under the stage, and the trapdoor is a puff (2026-08-28)
+
+⭐⭐ **JON:** *"the actor's down-b has her go subterranian, but her body needs to
+be masked so its not visible when she is under ground, right now her head is
+poking out, and she is flashing likely due to the invulnerability state always
+producing a flash, which is not what it should be doing. Often it does but it
+shouldn't always be the case. There should be a trapdoor sprite she is replaced
+with on the ground that can only move along a ground surface (i.e. it can't go
+over a ledge). And she should be able to pop up at any time from it in a big
+firework display that damages whoever is on top or above the trap door when she
+emerges. I'm thinking it might be a good idea to rename the actor given its
+conflation with a very core concept in the architecture. But we can do that in a
+different pass."*
+
+* ✔ **VISIBLE + FLASHING — ONE CAUSE, FIXED 2026-08-28.** `update_body_mode`
+  resolved Standing-or-Crouching from the stick and wrote it UNCONDITIONALLY, so
+  `BodyMode::Submerged` was deleted on the tick AFTER the trapdoor set it.
+  `Climbing` and `MorphBall` survived only because they have arms of their own in
+  that function; the mode the trapdoor added had none. Every symptom followed:
+  she was never hidden (so `sync_submerged_visibility` had nothing to hide), she
+  kept gravity and geometry, and the move's `Invuln` window blinked her for a
+  second while she stood on the boards she had just dropped through. The blink
+  itself is innocent — `overlay_look` already returns zero intensity for a hidden
+  source, so a body that is properly absent does not flash. Photographed either
+  side with `capture_scene pirate_cove player --character actor --press
+  hold:down,g,release:down --frames 30 --stride 3`.
+* ▢ **A TRAPDOOR SPRITE SHE IS REPLACED WITH.** Today the door is a 0.42s
+  `trapdoor_boards` puff at each end and nothing in between; while she is under
+  there is no object on the stage at all.
+* ▢ **SURFACE-LOCKED TRAVEL.** `integrate_submerged_clusters` steers her
+  horizontally with no geometry whatsoever, so she passes under a ledge and out
+  past the end of the stage. Jon: the door *"can't go over a ledge"*.
+* ▢ **POP UP AT ANY TIME, WITH A FIREWORK THAT HITS ABOVE THE DOOR.** Surfacing
+  is fixed at `SURFACE_AT_S` and is hitless.
+* ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
+  actor concept. Explicitly deferred to its own pass.

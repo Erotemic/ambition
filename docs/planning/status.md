@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `HEAD` (see `git log -1`) (2026-08-26 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-28 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -20,7 +20,53 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-26, LATEST — the mount is free, and four review rows were already finished
+## 2026-08-28, LATEST — four notes were the obstacle, not the code
+
+⭐⭐⭐ **THE ONE SENTENCE: FOUR TIMES TODAY THE THING BLOCKING A ROW WAS A
+MEASUREMENT A PREVIOUS AGENT WROTE DOWN, NOT THE TREE.** Same failure mode this
+page already warns about, one level up: a `▢` on finished work is the cheap case,
+and a recorded *reason* that is wrong is the expensive one, because it reads as
+careful.
+
+- **D245's last item was parked as a judgement.** The precedent that settles it
+  was inside the row: `ambition_time` is equally a floor crate and has federated
+  since 2026-08-26. `ambition_platformer2d_core` declares its own 25 rows now, and
+  the runtime's `use body_clusters as bc` alias is GONE — it no longer names a
+  single one of the floor's types. D245 CLOSED.
+- **A recorded design COST was a test's own convenience.** The provider-action
+  proof said a three-variant control-kind mirror was *"the honest price"*. One of
+  the two blocking types is ours, three lines up, fieldless — `Hash` and `Reflect`
+  derive for free. The mirror existed because the check lived inside a `#[test]`.
+- **A twintrack bug note said *"one impulse at construction, not a walk"***, and
+  pointed at the causal recorder as the next step. It is a walk, a twelve-line
+  probe found it, and five tests that had failed since `a945c1de5` are green.
+- **Two review measurements from 2026-08-26 were part stale**: the menu activation
+  seam is not unadopted (both roads already share `PressArm`), and four parity
+  rows said absent about work that shipped last week.
+
+⭐⭐ **THE PROVIDER-ACTION ROAD IS OPEN** (D242's item, the one `tracks.md`
+names). Register an action the engine has never heard of, bind it, press the key,
+get a `SemanticActionPressed` back — no `Any`, no `TypeId`, no variant added to
+the 35-variant enum. ⚠ what remains is PRESENTABLE, and re-measuring that changed
+its shape too: `ControlSlot` and `TouchActionButton` are descriptions of hardware,
+not arbitrary limits, so a provider action becomes presentable by being ASSIGNED a
+slot rather than by widening one.
+
+⛔⛔ **A QUEUED COMPONENT INSERT LEAVES ONE TICK UNDER THE OLD POLICY.** The
+laboratory twin's whole bug: adoption QUEUES `DrivingParticipant`, the seat lands
+a flush later, and one tick of her life runs as a seatless `Passive` stroller.
+⚠ and the first fix sampled the wrong moment — correcting her inside the adoption
+reads a body that has not taken the step yet, and prints a line that looks like
+success. `Added<Marker>` is where that correction belongs.
+
+⚠ **A SHIPPED USER SETTING CAN GUARD NOTHING.** `MenuTapMode` defaults to
+`SingleTapWithDestructiveGuard` and its own doc names *"a stray touch on Quit"* —
+and only the index-addressed helper consulted it, so the pause menu's Abandon /
+Quit to Title / Quit to Desktop all fired on the first release. One policy now,
+generic over an opaque row identity. ⇒ **when a setting has arms, count the
+readers, not the writers.**
+
+## 2026-08-26 — the mount is free, and four review rows were already finished
 
 ⭐⭐⭐ **THE ONE SENTENCE: FOUR OF THE SIX OPEN LEDGER ROWS I RE-READ TODAY WERE
 FINISHED AND STILL MARKED OPEN.** D237, D238, D239 and D179 all closed by

@@ -343,6 +343,32 @@ this machine falls back to llvmpipe/lavapipe, `summary.md` says
 the rasterizer's unsymbolized JIT'd shader code — that is a measurement of a
 CPU emulating a GPU, and adapter selection is the bug to fix first.
 
+#### Exercising the render path with no GPU
+
+`lvp_icd.json` (lavapipe, Mesa's software Vulkan) plus `Xvfb` is enough to make
+the whole render composition run on this VM:
+
+```bash
+xvfb-run -a -s "-screen 0 1280x720x24" ./scripts/profile_desktop.sh --duration 60
+```
+
+The bundle then carries real camera resolutions and a populated
+`render_diagnostics.csv` — five passes with `elapsed_cpu`, `elapsed_gpu`,
+vertex/fragment shader invocations and clipper counts. Use it to check that a
+diagnostic is WIRED, and to see the shape of the pass set.
+
+⛔ **The timings are a CPU emulating a GPU and are not a GPU measurement.**
+`summary.md` says SOFTWARE RENDERING at the top for exactly this reason. Never
+report a lavapipe `elapsed_gpu` as a rendering cost.
+
+#### Tracy on a VM with no invariant TSC
+
+The Tracy client aborts at startup — taking the game with it — on a CPU that
+does not advertise `constant_tsc` **and** `nonstop_tsc`, which is every VM whose
+hypervisor hides the second flag. The script detects that, sets
+`TRACY_NO_INVARIANT_CHECK=1`, and writes `tracy.caveat` into the bundle. Zone
+RATIOS stay sound; treat the absolute microseconds as approximate.
+
 ### Dev build versus optimized runtime
 
 These are two different questions and the bundle names which one it answered:

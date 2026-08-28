@@ -9,6 +9,19 @@
 //! caller supplies [`ConversationInputOwner`]. Payload vocabulary remains owned by
 //! the domain that consumes it, while [`ConversationPlugin`] owns conversation
 //! registration and ordering.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES.
+//!
+//! - **Presentation.** A live conversation's UI, reveal timing and overlay are
+//!   projections rebuilt FROM [`ActiveConversation`], and they belong to
+//!   `ambition_dialog` — which this crate depends on and which declares itself
+//!   content-free for the same reason.
+//! - **Named content.** No line of dialogue, no speaker, no barks table. Banter
+//!   arrived here as the RULE for when characters may talk over each other; the
+//!   words are a game content crate's.
+//! - **Who is speaking to whom.** The caller supplies
+//!   [`ConversationInputOwner`]; deriving it from a player slot here would make
+//!   this crate reason about seats it cannot see.
 
 mod authority;
 // ⛔ NOT GATED, and it must not be: the COMBAT hit path reads this, and the hit

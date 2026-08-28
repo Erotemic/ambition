@@ -22,6 +22,19 @@
 //! into its dismounted behavior, while a dead rider leaves the mount independent.
 //! Authored pairs are lowered from linked placements into the same engine-owned
 //! relation; the engine contains no mount-species special case.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES.
+//!
+//! - **Body LIFECYCLE.** Spawn, despawn and residency are the actor layer's; the
+//!   note above is the same rule read from the other side — 106 references in the
+//!   monolith's construction and spawn roads BUILD pairs, and that is a caller
+//!   naming a domain rather than a dependency this domain has. A pair is a
+//!   RELATION between bodies somebody else made.
+//! - **Per-species mount rules.** *"the engine contains no mount-species special
+//!   case"* is the design, so a shark's behaviour, a saddle's art and a mount's
+//!   authored stats belong to the character package that owns that creature.
+//!   ⇒ the test for anything arriving here: would it read as nonsense for a
+//!   different pair of bodies?
 
 use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, With, Without};
 

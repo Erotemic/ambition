@@ -10066,9 +10066,12 @@ rather than a data test, whose one claim is that an authored burst is heard
 EXACTLY ONCE. ⛔ nothing to converge here; re-doing it would re-introduce the
 doubled jab that guard exists to catch.
 
-- ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
+- ◐ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
-  2026-08-16, with five instances measured in one night as its evidence)**
+  2026-08-16, with five instances measured in one night as its evidence.
+  ⭐ ITS EXIT WAS WRITTEN AND MET 2026-08-28 — every active carve destination
+  states its refusal, 3 of 18 → 9 of 18 — so what remains is the standing habit,
+  not a task: a NEW destination states one when it becomes active.)**
 
 ⭐⭐ **AND THE FIRST POSITIVE INSTANCE — 2026-08-17, boundaries that were STATED
 did the work, which is this row's thesis run forwards instead of backwards.**
@@ -10157,9 +10160,35 @@ ambition_sprite_sheet     refuses anything `ambition_characters` must read (it
                           pixels it is measured against
 ```
 
-⇒ **six of the active destinations now state one; `ambition_mount`,
-`ambition_damage` and `ambition_conversation` do not yet**, and those three are
-the remaining work on this row rather than the other twelve.
+✔✔ **AND THE LAST THREE FOLLOWED THE SAME DAY, so every ACTIVE carve destination
+now states its refusal and this row's exit is MET:**
+
+```text
+ambition_mount          refuses body LIFECYCLE (a pair is a relation between
+                        bodies somebody else made — the same rule its own
+                        "the monolith still builds pairs" note reads from the
+                        other side) and per-species mount rules
+                        ⇒ the test: would it read as nonsense for a DIFFERENT
+                        pair of bodies?
+ambition_damage         refuses the ATTACK side, refuses to decide whether two
+                        bodies are ENEMIES, and refuses to draw — the last one
+                        enforced by `ambition_render` being absent from its
+                        manifest. ⚠ and NAMES its own borderline edge,
+                        `ambition_persistence` for the assist-mode scale, so the
+                        next arrival is weighed against a boundary rather than
+                        against one precedent.
+ambition_conversation   refuses presentation (projections rebuilt FROM
+                        `ActiveConversation` belong to `ambition_dialog`),
+                        refuses named content — banter arrived as the RULE for
+                        talking over each other, never the words — and refuses
+                        to derive who is speaking from a player slot
+```
+
+⇒ **9 of 18 destinations state a refusal, and the nine that do not are the ones
+nobody is carving into.** ⛔ do not "finish" this row by writing the other nine:
+a refusal invented for an inactive crate is fabrication dressed as documentation,
+and the four times this row's own evidence shows a stated boundary DOING the work
+were all boundaries somebody had tested.
 
 ⛔⛔ **AND THE SHARPER LESSON, from the crate literally named `shared_tangle`: a
 DEPENDENCY refusal is not an ADMISSION RULE.** Its header already said it depends

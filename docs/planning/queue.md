@@ -10954,6 +10954,37 @@ side effect**: the measured body grew because the tail that used to be cropped i
 now drawn, and `every_characters_drawing_is_the_size_of_the_body_it_collides_with`
 is the assertion that these two must describe one creature.
 
+⛔⛔ **AND A LARGE SHARE OF THE 40 WARNING TARGETS ARE NOT DEFECTS — the row's own
+caveat, now MEASURED and with a one-render test that settles it.**
+`hunny_horror_boss` is the sweep's worst (59 frames) and warns on the BOTTOM
+only. Rendering it into a canvas 25% taller changes **nothing**: same warning,
+same 59 frames, and the measured body bbox is byte-identical at `103x133` inside
+a `144x150` frame. ⇒ **no ink exists past the boundary**; the bear is
+bottom-anchored, its soles are flat, and the taper test cannot tell that from a
+cut. Exactly the failure this row wrote down and never applied.
+
+⭐⭐ **THE DISCRIMINATOR, and it costs one render:** grow the target's
+`FRAME_SIZE` and re-read `body_pixel_bbox` in the generated `.ron`. Unchanged ⇒
+the guard is describing the crop, not a cut. Changed ⇒ real, and the new bbox is
+the art you were missing (`npc_trex_enemy` went `131.6 → 143.3` wide the moment
+its tail stopped being cropped).
+
+⚠ **the edge pattern predicts it well enough to triage by**, checked across five
+targets 2026-08-28:
+
+```text
+BOTTOM only, on a stand/rest      suspect — a flat sole arrives at full width
+ALL FOUR, on a rest               suspect — auto_crop fitted the frame to the art
+LEFT/RIGHT on a lunge or a roll   REAL (perfect_cellular_automaton, davy_hylbert,
+                                  pipi_tau — rolls and deaths on both sides)
+TOP on an idle or a jump          REAL (le_beast)
+side/bottom on a tail or a limb   REAL (npc_trex_enemy)
+```
+
+⇒ `hunny_horror_boss` (59) and `smirking_behemoth_boss` (26, all four edges on
+`rest`) are suspect and should be MEASURED before anybody redraws them; the
+headline "40 of 186 targets warn" is an upper bound on the work, not the work.
+
 ⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
 AUTHORED.** It is one of the three still on the legacy road, so a wider frame is
 a DIVISOR change and would resize it — which is exactly the trap this row found

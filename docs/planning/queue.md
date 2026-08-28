@@ -4610,10 +4610,35 @@ apart. The FIELDS can: one names the other."* — this row's own lesson, in code
 it records is the point: a validator whose errors are noise gets an agent to run
 `entity delete` on real content.
 ▢ **the one real gap it now reports**: `SurfaceRamp` has no editor definition in
-any world, so an author cannot place one. Closing it means AUTHORING a spec
-(fields, size, colour) for `def register-entity`, which is content design rather
-than a tool fix. ⚠ `--help` for that subcommand also prints no positional while
-`cli.py`'s own usage line says `<spec>`.
+any world, so an author cannot place one. ⭐ the SPEC is not the missing part —
+`ldtk_entity_contract.json` already carries `probe_size` and both fields with
+presence, values and defaults; the tool for it is `def upsert-entity <spec>
+--ldtk <ldtk>` (uid-preserving), and it writes to four `.ldtk` files that are
+symlinks into the art submodule. ⚠ `--help` for `register-entity` prints no
+positional while `cli.py`'s own usage line says `<spec>`.
+
+⛔⛔ **AND A SECOND GAP, FOUND BY TRYING TO FIX IT AND BEING REFUSED BY TWO
+PROVERS: the contract cannot express a CLAMPED NUMERIC RANGE.**
+`SurfaceRamp::segments` is read as `field_i32(..).unwrap_or(8).max(2)` and appears
+in the contract not at all — I added it, and the provers explained why it could
+not be there:
+
+```text
+`on_invalid` is what the converter does with a value the GRAMMAR REJECTS, and its
+three variants are Refused / SilentDefault / Open. `segments` needs a fourth
+(the converter moves the value to the NEAREST LEGAL ONE, so a warning would be
+noise) — and adding one is refused in turn, because the field declares no grammar
+to violate: the available keys are `values`, `patterns`, `positive`, `nonzero`,
+`min_points`. There is no `min` for a plain integer.
+```
+
+⇒ **the omission was correct**, not an oversight. ⭐ **BOTH PROVERS EARNED THEIR
+KEEP**: the Python set caught the new word, and the Rust
+`on_invalid_matches_what_the_converter_actually_does` caught that the word had
+nothing to describe — *"only an `open` field may have no rule"*. Reverted whole.
+⇒ the real slice, if anyone wants `segments` declarable, is a RANGE grammar
+(`min`/`max`) plus the `Clamped` disposition that then has something to reject —
+two additions in two languages, for one field today.
 
 ## What the validator reported on 2026-08-1x — STALE, see above
 

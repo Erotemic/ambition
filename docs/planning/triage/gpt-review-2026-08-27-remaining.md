@@ -117,7 +117,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   semantic, not another local health approximation. Regression: two hostile
   candidates, the nearer one `OutOfPlay`, shot bends to the live one.
 
-- ▢ **R8 — no deliberate stow for a stored charge.** Stored charge survives
+- ▣ **R8 — CLOSED `7656d8124`. No deliberate stow for a stored charge.** The
+  GUARD is the button — the genre's answer, and one every fighter already
+  presses, so nothing new reaches the body. The gate is `charge.policy.stores`,
+  with a paired arm proving a non-storing charge banks nothing. Routed through
+  `cancel_move_playback(.., Interrupted)` so the bank stays in the one place that
+  owns it, and scheduled BEFORE the advance so the stow banks the charge the
+  player was holding rather than one tick more. Stored charge survives
   interruption and clears on death, but there is no player action equivalent to
   putting a Samus/Mewtwo charge away. Define the interaction and route it
   through GENERIC charge semantics — ⛔ not a Projectile Polygon id check.

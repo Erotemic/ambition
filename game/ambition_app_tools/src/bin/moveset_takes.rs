@@ -301,8 +301,9 @@ USAGE:
 OPTIONS:
     --characters ID,ID   comma-separated catalog ids to record
                          `grid` (or `all`) records every fighter on the smash
-                         grid: 21 fighters at ~7 min each is about 2.5 HOURS
-                         (measured 2026-08-27) — a background job, not a click
+                         grid: 21 fighters at ~1m17 each is about 27 MINUTES
+                         (measured 2026-08-27, after the settle stopped
+                         serialising a frame to read three booleans)
                          [default: npc_pirate_admiral]
     --out PATH           where to write the takes
                          [default: tools/ambition_moveset_inspector/data/takes/takes.json]
@@ -316,8 +317,9 @@ NOTES:
 
     There is no positional argument; use --out.
 
-    ~7 minutes per character, measured: every take is a real match settled
-    between presses, and there are 19 verbs.
+    ~1m17 per character, measured 2026-08-27. It was 7m08 until `settle`
+    stopped calling the full sampler — which built a JSON frame, and rebuilt the
+    catalog join, up to 480 times a take to read three booleans.
     Prints a `[presentation]` census at the end — see the docs for what its
     zeroes mean.
 ";
@@ -670,21 +672,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         Option<&ambition_platformer2d::projectiles::ProjectileOwner>,
+        // ⛔ THE STABLE IDENTITY, for the same reason bodies carry one: the
+        // ORDER these arrive in is ECS query order, and a recording that two
+        // runs cannot compare byte-for-byte is one nothing can be diffed
+        // against.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let flying: Vec<_> = shots
         .iter(world)
-        .map(|(kin, shot, owner)| {
+        .map(|(kin, shot, owner, sim_id)| {
             (
                 kin.pos,
                 kin.vel,
                 kin.size,
                 shot.damage,
                 owner.map(|owner| owner.0),
+                sim_id.map(|id| id.as_str().to_string()),
             )
         })
         .collect();
-    for (pos, vel, size, damage, owner) in flying {
+    for (pos, vel, size, damage, owner, sim_id) in flying {
         frame.projectiles.push(serde_json::json!({
+            "id": sim_id,
             "pos": [pos.x, pos.y],
             "vel": [vel.x, vel.y],
             "half": [size.x * 0.5, size.y * 0.5],
@@ -749,6 +758,14 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.
             "subject_owned": Some(hitbox.owner) == subject_entity,
+            // ⛔ WHOSE STRIKE, by stable identity. A hitbox has no `SimId` of its
+            // own — it is a volume, not a body — so it is keyed by the body that
+            // threw it, which is what makes the sort canonical rather than
+            // merely usually-stable.
+            "owner_id": rows
+                .iter()
+                .find(|(e, ..)| *e == hitbox.owner)
+                .and_then(|row| row.14.clone()),
         }));
     }
 
@@ -767,12 +784,29 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         };
         key(a).cmp(&key(b))
     });
+    // ⛔⛔ POSITION AND DAMAGE ARE NOT AN IDENTITY. Two volumes of one move can
+    // share both — a multi-hit's mirrored pair does — and ties then fall back to
+    // ECS query order, which is the thing being canonicalised. The owner's
+    // stable id leads the key, and geometry only breaks ties within one owner.
     frame.hitboxes.sort_by(|a, b| {
         let key = |v: &serde_json::Value| {
             (
+                v["owner_id"].as_str().unwrap_or("").to_string(),
                 v["pos"][0].as_f64().unwrap_or_default().to_bits(),
                 v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+                v["half"][0].as_f64().unwrap_or_default().to_bits(),
+                v["half"][1].as_f64().unwrap_or_default().to_bits(),
                 v["damage"].as_i64().unwrap_or_default(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    frame.projectiles.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
             )
         };
         key(a).cmp(&key(b))
@@ -1022,9 +1056,11 @@ fn main() {
     // need periods that differ by one nanosecond, and a driver that computed its
     // own would be silently wrong under one of them.
     //
-    // ⚠ `true` because this composition boots the ROLLBACK host. When a driver
-    // can ask the app which host it has, that argument should come from the app.
-    ambition_platformer2d::app::take_manual_steps(&mut app, true);
+    // ⭐ THE APP ANSWERS WHICH HOST IT HAS. This passed a literal `true` under a
+    // comment admitting the app should know; `SimulationHost` is a resource and
+    // was already the canonical answer, so the caller had no business having an
+    // opinion about it.
+    ambition_platformer2d::app::enable_manual_stepping(&mut app);
     for _ in 0..30 {
         app.update();
     }

@@ -215,6 +215,30 @@ try {
       }
     }
   }
+  /* ⛔ THE IDENTITY FIELD, when the recording is current. The viewer joins
+   * animation cursors on `id`; a recording that carries none silently falls back
+   * to `label + seat`, which names two same-character fighters identically. */
+  let bodies = 0;
+  let withId = 0;
+  for (const take of rows) {
+    for (const frame of take.frames ?? []) {
+      for (const b of frame.bodies ?? []) {
+        bodies += 1;
+        if (b.id) withId += 1;
+      }
+    }
+  }
+  if (bodies && !withId) {
+    console.warn(
+      "[bundle-contract] WARN — no recorded body carries `id`; the viewer will " +
+      "join on label+seat, which cannot tell two fighters wearing one character apart"
+    );
+  } else if (bodies && withId < bodies) {
+    console.warn(
+      `[bundle-contract] WARN — ${bodies - withId}/${bodies} bodies carry no \`id\``
+    );
+  }
+
   const total = [...kinds.values()].reduce((a, b) => a + b, 0);
   if (total && (kinds.get("MISSING") ?? 0) > 0) {
     console.warn(

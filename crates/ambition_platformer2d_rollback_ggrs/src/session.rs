@@ -481,26 +481,6 @@ pub fn session_is_active(world: &World) -> bool {
 /// Found while giving the external-consumer fixture a rollback host: it had to
 /// carry its own copy of this branch, which is the definition of a leak — every
 /// consumer rediscovering an engine rule the engine could have stated once.
-/// The rollback host's own frame number — how many world ADVANCES have run.
-///
-/// ⭐⭐ THE FACT A HEADLESS DRIVER HAS TO ASSERT ON, and it had no way to read it.
-/// "I called `app.update()` 150 times" is a statement about a LOOP; under a
-/// wall-clock accumulator one update runs zero, one or several advances, so the
-/// two are different numbers and every driver in this repo has been conflating
-/// them.
-///
-/// ⛔ NOT `SimTick`. That counter is advanced by `ambition_time::advance_sim_tick`
-/// from the PLAYER schedule, and it stays at zero through a live smash match
-/// under this host — measured 2026-08-27, and it made a step probe report the
-/// stepper broken when the stepper had not been asked anything.
-///
-/// `None` when no rollback session exists, which is every non-rollback host.
-pub fn rollback_frame(world: &World) -> Option<i32> {
-    world
-        .get_resource::<bevy_ggrs::RollbackFrameCount>()
-        .map(|count| count.0)
-}
-
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     drive_slot_frame(
         world,

@@ -411,18 +411,34 @@ def build_summary(bundle: Bundle) -> str:
             except ValueError:
                 continue
             totals.setdefault(path, []).append(value)
-        ranked = sorted(totals.items(), key=lambda item: -(sum(item[1]) / len(item[1])))
-        lines += [
-            "Mean and max over the sampled frames, from Bevy's `RenderDiagnosticsPlugin`.",
-            "",
-            "```text",
-            f'{"mean":>10} {"max":>10} {"samples":>8}  diagnostic',
-        ]
-        for path, values in ranked[:30]:
-            lines.append(
-                f"{sum(values) / len(values):10.3f} {max(values):10.3f} {len(values):8d}  {path}"
-            )
-        lines += ["```", ""]
+        # Times and counts are different units and must not share a ranking:
+        # sorted together, a million shader invocations always outranks a 20ms
+        # pass and the expensive pass falls off the bottom of the table.
+        def emit(out: list[str], title: str, paths: list[str], unit: str) -> None:
+            if not paths:
+                return
+            ranked = sorted(paths, key=lambda path: -(sum(totals[path]) / len(totals[path])))
+            out += [title, "", "```text", f'{"mean":>14} {"max":>14} {"samples":>8}  {unit}']
+            for path in ranked[:30]:
+                values = totals[path]
+                out.append(
+                    f"{sum(values) / len(values):14.3f} {max(values):14.3f} {len(values):8d}  {path}"
+                )
+            out += ["```", ""]
+
+        lines += ["Mean and max over the sampled frames, from Bevy's `RenderDiagnosticsPlugin`.", ""]
+        emit(
+            lines,
+            "Pass time, milliseconds:",
+            [path for path in totals if path.endswith(("/elapsed_cpu", "/elapsed_gpu"))],
+            "diagnostic (ms)",
+        )
+        emit(
+            lines,
+            "Pipeline statistics, counts per frame:",
+            [path for path in totals if not path.endswith(("/elapsed_cpu", "/elapsed_gpu"))],
+            "diagnostic (count)",
+        )
         gpu = sum(1 for path in totals if path.endswith("/elapsed_gpu"))
         stats = sum(1 for path in totals if not path.endswith(("/elapsed_cpu", "/elapsed_gpu")))
         lines.append(f"- CPU pass timings: **measured** ({sum(1 for p in totals if p.endswith('/elapsed_cpu'))} spans).")

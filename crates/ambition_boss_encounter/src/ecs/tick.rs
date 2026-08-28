@@ -6,14 +6,13 @@
 // the reason a carve estimate needs more than an import count. Measured by
 // deleting it: everything it actually supplied was bevy's prelude and
 // `WorldTime`, and NO monolith vocabulary at all.
-use ambition_combat::components::{BossDeathAnimation, BossPatternTimer, BossPhase, CenteredAabb};
+use ambition_combat::components::{BossDeathAnimation, BossPatternTimer, BossPhase};
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 use bevy::prelude::{Query, Res, With, Without};
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
 use ambition_characters::control::ActorControl;
-use ambition_combat::events::HitEvent;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{Commands, Entity};
@@ -39,7 +38,7 @@ use bevy::prelude::{Commands, Entity};
 /// (pinned by `possession_verb_map_tests`).
 fn possessed_attack_choice(
     frame: &ambition_characters::actor::control::ActorControlFrame,
-    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
+    behavior: &crate::pattern::profile::BossBehaviorProfile,
     capability: Option<&ambition_characters::brain::BossCapability>,
     facing: f32,
 ) -> Option<ambition_characters::brain::BossAttackProfile> {
@@ -92,9 +91,9 @@ fn possessed_attack_choice(
 ///
 /// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
-    mut bosses: Query<ambition_boss_encounter::BossClusterQueryData, With<FeatureSimEntity>>,
+    mut bosses: Query<crate::BossClusterQueryData, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
-        std::collections::HashMap<String, ambition_boss_encounter::BossEncounterPhase>,
+        std::collections::HashMap<String, crate::BossEncounterPhase>,
     >,
 ) {
     for mut feature in &mut bosses {
@@ -302,19 +301,19 @@ pub fn project_boss_attack_state_from_move(
 }
 
 /// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish the per-frame
-/// [`ambition_boss_encounter::attack_geometry::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
+/// [`crate::attack_geometry::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
 /// render→sim WRITE-BACK: render no longer owns or writes the frame. Now the SIM owns the
 /// cursor: it picks the anim from the projected `BossAttackState`, advances the frame, and
 /// writes the sample; the renderer mirrors that cursor into its draw-only
-/// [`BossAnimator`](ambition_boss_encounter::sprites::BossAnimator).
+/// [`BossAnimator`](crate::sprites::BossAnimator).
 pub fn drive_boss_animators(
     mut commands: Commands,
-    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
+    boss_catalog: Res<crate::BossCatalog>,
     world_time: Res<WorldTime>,
     ecs_bosses: Query<(
         Entity,
         &ambition_combat::components::FeatureId,
-        ambition_boss_encounter::BossClusterRef,
+        crate::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &BossAttackState,
@@ -323,27 +322,26 @@ pub fn drive_boss_animators(
     mut frames: Query<(
         Entity,
         &ambition_combat::components::FeatureId,
-        &mut ambition_boss_encounter::sprites::BossAnimFrame,
+        &mut crate::sprites::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
 ) {
     for (entity, feature_id, mut frame, scale) in &mut frames {
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // ⭐ NAMED WHERE IT LIVES. Both of these are
-        // `ambition_boss_encounter::anim`'s; reaching them through
+        // `crate::anim`'s; reaching them through
         // `crate::features` was two hops of the monolith's own facade
         // republishing a peer domain, which is the shape that makes a module
         // look coupled to the monolith when it is not.
-        let Some((_, state)) = ambition_boss_encounter::anim::ecs_boss_anim_state_and_entity(
-            feature_id.as_str(),
-            &ecs_bosses,
-        ) else {
+        let Some((_, state)) =
+            crate::anim::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
+        else {
             continue;
         };
-        let anim = ambition_boss_encounter::sprites::pick_boss_anim(state);
+        let anim = crate::sprites::pick_boss_anim(state);
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
-        match ambition_boss_encounter::anim::ecs_boss_animation_frame_sample(
+        match crate::anim::ecs_boss_animation_frame_sample(
             &boss_catalog,
             feature_id.as_str(),
             &ecs_bosses,
@@ -356,7 +354,7 @@ pub fn drive_boss_animators(
             None => {
                 commands
                     .entity(entity)
-                    .remove::<ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>();
+                    .remove::<crate::attack_geometry::BossAnimationFrameSample>();
             }
         }
     }
@@ -387,7 +385,7 @@ pub fn tick_boss_brains_system(
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
-            ambition_boss_encounter::BossClusterRef,
+            crate::BossClusterRef,
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
@@ -587,13 +585,7 @@ pub fn tick_boss_brains_system(
                     }),
                 };
                 let mut attack_intent = core::mem::take(&mut state.attack_intent);
-                ambition_boss_encounter::pattern::tick_boss_pattern(
-                    cfg,
-                    state,
-                    &ctx,
-                    &mut frame,
-                    &mut attack_intent,
-                );
+                crate::pattern::tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_intent);
                 state.attack_intent = attack_intent;
                 &state.attack_intent
             }
@@ -614,7 +606,7 @@ pub fn tick_boss_brains_system(
 
 pub(crate) fn boss_front_wall_clearance(
     world: &ae::World,
-    boss: &ambition_boss_encounter::BossRef<'_>,
+    boss: &crate::BossRef<'_>,
     target_pos: ae::Vec2,
     standoff: f32,
 ) -> Option<f32> {
@@ -686,145 +678,6 @@ pub(crate) fn horizontal_front_wall_clearance(
         }
     }
     best
-}
-
-/// This is the boss sibling of the player's `integrate_home_body` arm and the
-/// actor arm of `integrate_sim_bodies`: three disjoint archetypes, ONE shared
-/// integrator. It keeps its own scheduled slot (chain 1, between
-/// `tick_boss_brains_system` and `update_ecs_bosses`) so the boss's presentation
-/// systems still read this frame's already-moved position. Byte-identical to the
-/// old bespoke arm: a boss's flight produces no jump/dash/land move-events (no
-/// movement FX), never `shark_charge_crash`es (its caps lack `charge_crash_explodes`),
-/// and its stagger timers are always zero (the boss victim path arms none), so
-/// every extra thing `integrate_actor_body` does is a no-op here.
-///
-/// E6(d) no-boss-arm fold verdict: do NOT merge this into
-/// `integrate_sim_bodies` by adding a boss branch. The cheap bound fails because
-/// the fold requires a schedule move (chain-2 body movement ahead of chain-1 boss
-/// presentation), boss-only query inputs (`BossConfig` + `BodyEnvelope` +
-/// combat-size self-heal), and no-FX/no-mount policy skips. That would be a new
-/// adapter branch, not deletion of a path. The shared seam is
-/// `integrate_actor_body`; keep this as the boss orchestrator around that seam.
-pub fn integrate_boss_bodies(
-    // A13: whose cues each boss body emits.
-    body_sources: Query<&ambition_sfx::BodyPresentationSource>,
-    world_time: Res<WorldTime>,
-    // The composed collision read-API rather than its three ingredients.
-    collision: ambition_platformer2d_world::collision::CollisionWorld,
-    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    steering: Res<super::super::actors::ActorSteering>,
-    mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
-    mut bosses: Query<
-        (
-            Entity,
-            super::super::actor_clusters::ActorClusterQueryData,
-            &ambition_boss_encounter::BossConfig,
-            &ambition_combat::BodyEnvelope,
-            Option<&mut ActorControl>,
-            Option<&mut ambition_characters::actor::BodyAnimFacts>,
-            &ambition_combat::components::ActorTarget,
-            &mut CenteredAabb,
-            &mut ambition_characters::actor::BodyCombat,
-            // The body's explicit movement policy — a boss carries one from
-            // spawn like every integrated body (absence is never a policy).
-            &'static mut ambition_platformer2d_core::movement::MotionModel,
-            // The per-tick resolved frame published by the frame resolution
-            // phase — the SAME artifact every other body integrates under.
-            &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-            &'static mut ambition_platformer2d_core::BodyMotionFacts,
-            Option<&'static ambition_combat::moveset::MovePlayback>,
-            // ADR 0033's window, asked rather than assumed — see the call below.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
-        ),
-        (
-            With<FeatureSimEntity>,
-            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-        ),
-    >,
-) {
-    let dt = world_time.sim_dt();
-    let Some(feature_world) = collision.solids() else {
-        return;
-    };
-    let combat_tuning = feel_tuning.feature_combat_tuning();
-    for (
-        entity,
-        mut cq,
-        boss_config,
-        envelope,
-        mut control,
-        mut anim,
-        target,
-        mut aabb,
-        mut combat,
-        mut motion_model,
-        resolved_frame,
-        mut motion_facts,
-        playback,
-        boss_out_of_play,
-    ) in &mut bosses
-    {
-        // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
-        // robust to the profile / spawn-override / sprite-derive timing that writes
-        // `behavior.combat_size`. The coarse render footprint stays in `BodyEnvelope`.
-        let combat_size = boss_config.behavior.combat_size.unwrap_or(cq.kin.size);
-        let mut em = cq.as_actor_mut();
-        em.kin.size = combat_size;
-        super::super::actors::integrate_actor_body(
-            entity,
-            body_sources.get(entity).ok().map(|s| s.id()),
-            &mut em,
-            &mut aabb,
-            &mut combat,
-            control.as_deref_mut(),
-            anim.as_deref_mut(),
-            // The boss's coarse render envelope publishes the `CenteredAabb`
-            // (byte-identical to the old render-sized box); an ordinary actor
-            // would pass `None` and publish from `kin.size`.
-            Some(envelope.0),
-            &mut motion_model,
-            target.pos,
-            // A boss is never mounted, and nothing carries one either.
-            false,
-            false,
-            &feature_world,
-            combat_tuning,
-            &steering,
-            resolved_frame.get(),
-            playback.map_or(1.0, |pb| pb.motion_scale_now()),
-            // A boss authors no recovery, so this is `None` today and the
-            // derivation answers "not helpless" — by the rule, not by an
-            // exception written into the boss road.
-            playback,
-            // The same published read the actor loop makes: last tick's tumble,
-            // so a launched boss keeps its tech press too.
-            motion_facts.tumbling,
-            // The same read too, and by the RULE rather than by a boss
-            // exemption. Nothing opens a death window on a boss today, so this
-            // is `false` in every shipped composition — which is exactly why it
-            // is asked instead of asserted: the last road that asserted it
-            // silently stopped holding a body still the day a second opener
-            // appeared.
-            boss_out_of_play,
-            dt,
-            *feel_tuning,
-            // A boss authors its feel through its own catalog today; when one
-            // grows an `AuthoredMovementTuning` this is the line that reads it.
-            None,
-            &mut sfx,
-            &mut vfx,
-            &mut hit_events,
-            #[cfg(feature = "causal")]
-            None,
-            // a boss is not in the contact snapshot. Body contact is
-            // granted per body by a composition; nothing grants it to a boss,
-            // and an inert field resolves this body exactly as it did.
-            ae::BodyContactField::NONE,
-        );
-        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
-    }
 }
 
 /// Boss PRESENTATION — decay the boss's body-generic reaction timers and sync the

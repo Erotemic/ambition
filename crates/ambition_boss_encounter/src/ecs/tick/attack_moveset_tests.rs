@@ -1,12 +1,12 @@
 use super::*;
 // The prelude wholesale: this fixture builds an `App` and chains systems, which
 // is the prelude's own vocabulary rather than a dependency of the boss module.
-use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use crate::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::{BossAttackProfile, BossCapability};
 use bevy::prelude::*;
 
-fn warden_behavior() -> ambition_boss_encounter::pattern::profile::BossBehaviorProfile {
-    ambition_boss_encounter::pattern::profile::BossBehaviorProfile::clockwork_warden()
+fn warden_behavior() -> crate::pattern::profile::BossBehaviorProfile {
+    crate::pattern::profile::BossBehaviorProfile::clockwork_warden()
 }
 
 /// Boss-fold slice (fable review §A1): EVERY boss strike runs through the SHARED
@@ -24,7 +24,7 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
     };
     let combat_size = ambition_platformer2d_core::Vec2::new(80.0, 80.0);
     let moveset =
-        crate::features::bosses::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
+        crate::attack_moveset::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
             .expect("a boss with strikes → a moveset");
     // BOTH profiles now author a move — geometry AND special.
     assert_eq!(
@@ -93,7 +93,7 @@ fn telegraph_boss_app() -> (App, Entity) {
         specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.3)],
     };
     let combat_size = ambition_platformer2d_core::Vec2::new(80.0, 80.0);
-    let moveset = crate::features::bosses::boss_attack_moveset(
+    let moveset = crate::attack_moveset::boss_attack_moveset(
         &cap,
         &warden_behavior(),
         combat_size,
@@ -226,7 +226,7 @@ fn the_strike_speed_throttle_is_baked_as_the_moves_motion_lock() {
         specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.3)],
     };
     let behavior = warden_behavior(); // authors strike_speed_scale = 0.20
-    let moveset = crate::features::bosses::boss_attack_moveset(
+    let moveset = crate::attack_moveset::boss_attack_moveset(
         &cap,
         &behavior,
         ambition_platformer2d_core::Vec2::new(80.0, 80.0),
@@ -273,7 +273,7 @@ fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
         cue: Some("boss_windup".into()),
         vfx: Some("sparks".into()),
     };
-    let moveset = crate::features::bosses::boss_attack_moveset(
+    let moveset = crate::attack_moveset::boss_attack_moveset(
         &cap,
         &warden_behavior(),
         ambition_platformer2d_core::Vec2::new(80.0, 80.0),
@@ -289,7 +289,7 @@ fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
     assert_eq!(slam.events.len(), 2, "cue + vfx on the telegraph edge");
     for ev in &slam.events {
         assert!(
-            (ev.at_s - crate::features::bosses::TELEGRAPH_EDGE_S).abs() < f32::EPSILON,
+            (ev.at_s - crate::attack_moveset::TELEGRAPH_EDGE_S).abs() < f32::EPSILON,
             "anticipation fires on the windup's rising edge"
         );
         // Both events sit strictly inside the windup: a move started at the

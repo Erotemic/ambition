@@ -52,7 +52,6 @@ pub mod brain_command;
 pub mod combat_rules;
 pub mod stocks_match;
 // Stable facade for boss attack geometry.
-pub mod bosses;
 pub mod ecs;
 pub(crate) mod enemies;
 mod npcs;
@@ -123,7 +122,32 @@ pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut};
 // monolith's own module tree is a public surface many callers still walk.
 pub use ecs::anim_helpers::{advance_actor_anim_overlays, ecs_breakable_state, ecs_chest_opened};
 pub use ecs::{
-     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,   ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move, rebuild_dismounted_rider_brains, rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes, refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan, sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering, ChallengeRequested, EncounterMobSeed, FactionRelations, FeatureWorldOverlaySet, FriendlyFire, HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock, PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
+    apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests,
+    apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
+    can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
+    derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
+    drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
+    ecs_boss_animation_frame_sample, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable, integrate_boss_bodies, integrate_sim_bodies,
+    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
+    project_boss_attack_state_from_move, rebuild_dismounted_rider_brains,
+    rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
+    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
+    route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
+    spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
+    sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
+    sync_boss_encounter_phase, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_actor_brains,
+    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
+    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
+    ChallengeRequested, EncounterMobSeed, FactionRelations, FeatureWorldOverlaySet, FriendlyFire,
+    HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
+    OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
+    PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
@@ -136,14 +160,14 @@ pub(crate) use ecs::{
 // Callers name `_core`; the SDK keeps its own one-hop alias.
 pub use ambition_entity_catalog::placements::RespawnPolicy;
 pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
-pub use enemies::{ENEMY_DEAD_UNTIL_REST_SUFFIX};
+pub use enemies::ENEMY_DEAD_UNTIL_REST_SUFFIX;
 // ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
 // `ambition_combat::events`', re-exported up to `features` beside a whole-module
 // `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
 // crate for types it does not own, and `damage_apply`'s own tests reached the
 // monolith for exactly two names, both of them these. Callers name the owner.
 pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
-pub use npcs::{NPC_TALK_RADIUS};
+pub use npcs::NPC_TALK_RADIUS;
 
 use ambition_combat::util::*;
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
@@ -263,7 +287,8 @@ fn configure_actor_decision_phases(app: &mut App) {
     );
     app.configure_sets(
         sim,
-        ActorDecisionSet::Publish.before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+        ActorDecisionSet::Publish
+            .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
     );
     // ⭐⭐ THE ONE RESTRICTION PHASE, AND IT IS AFTER BOTH PUBLICATIONS (D202).
     //
@@ -323,7 +348,10 @@ mod actor_decision_phase_tests {
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
     ];
 
-    const MOVEMENT_MEMBERSHIP: [(&str, ambition_platformer2d_shared_tangle::schedule::WorldPrepSet); 8] = [
+    const MOVEMENT_MEMBERSHIP: [(
+        &str,
+        ambition_platformer2d_shared_tangle::schedule::WorldPrepSet,
+    ); 8] = [
         (
             "tick_capture_holds",
             ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
@@ -450,7 +478,10 @@ mod actor_decision_phase_tests {
             .expect("Publish must be registered");
         let before_integrate = graph
             .system_sets
-            .get_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate.intern())
+            .get_key(
+                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate
+                    .intern(),
+            )
             .expect("BeforeIntegrate must be registered");
         assert!(
             graph
@@ -533,8 +564,10 @@ mod actor_decision_phase_tests {
                 .get_key(set.intern())
                 .unwrap_or_else(|| panic!("{set:?} must be registered"))
         };
-        let settled = set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate);
-        let contact_set = set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage);
+        let settled =
+            set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate);
+        let contact_set =
+            set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage);
         assert!(
             graph
                 .dependency()
@@ -878,11 +911,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 snapshot_body_contact,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
+                ),
         );
         app.add_systems(
             sim,
-            integrate_sim_bodies.in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::Integrate),
+            integrate_sim_bodies
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::Integrate),
         );
         // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, and until now it
         // only SAID so. It sat in a chained tuple whose comment claimed it
@@ -903,7 +939,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
-            sync_actor_read_model.in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+            sync_actor_read_model.in_set(
+                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+            ),
         );
         // ⭐ AND IT FOLLOWS THE READ MODEL, exactly as the capture constraint
         // below does: the coarse-box mirror runs first so an external pose
@@ -912,7 +950,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_mount::sync_riders_to_mounts
                 .after(sync_actor_read_model)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+                ),
         );
         // A body already in somebody's hands is put back after it moved. The
         // coarse-box mirror runs first so this external constraint is the last
@@ -923,15 +963,18 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_combat::capture::systems::maintain_existing_capture_pose
                 .after(sync_actor_read_model)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+                ),
         );
         #[cfg(feature = "causal")]
         app.add_systems(
             sim,
             // Movement operations are published during integration. This observer
             // has no ordering dependency on post-integration projection.
-            crate::causal::record_movement_operations
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+            crate::causal::record_movement_operations.in_set(
+                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+            ),
         );
         app.add_systems(
             sim,
@@ -952,7 +995,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 ambition_platformer2d_shared_tangle::orientation::update_actor_roll,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+                ),
         );
         // TARGETING owns feud settlement and target/disposition selection. The
         // short chain is intentional: selection must see the grudge state produced
@@ -983,7 +1028,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 .after(ambition_mount::steer_mount_from_rider)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
+                ),
         );
         app.configure_sets(
             sim,

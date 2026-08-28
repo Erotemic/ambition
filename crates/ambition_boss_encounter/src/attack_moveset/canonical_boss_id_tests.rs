@@ -56,8 +56,8 @@ fn dormant_brain_falls_back_to_name() {
 #[test]
 fn boss_runtime_uses_phase_script_for_behavior_lookup() {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0));
-    let boss = ambition_boss_encounter::BossClusterScratch::new(
-        ambition_boss_encounter::test_boss_catalog(),
+    let boss = crate::BossClusterScratch::new(
+        crate::test_boss_catalog(),
         "boss_under_test",
         "System Boss",
         aabb,

@@ -11,17 +11,16 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::BossPatternTimer;
 use ambition_combat::components::{
-    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
-    CombatKit, DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy,
-    PogoTargetVolumes,
+    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb, CombatKit,
+    DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::prelude::{Message, Name};
-use ambition_platformer2d_core::body_clusters::BodyKinematics;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Programmatic actor-spawn request — the public seam for dropping a specific
 /// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
@@ -1096,7 +1095,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // special — runs through the SHARED moveset runtime (one move per profile), so the
     // boss's melee/special path is the actor's, retiring both `sync_boss_strike_hitboxes`
     // and `dispatch_boss_special` (§A1). Built from the capability repertoire.
-    let boss_attack_moves = crate::features::bosses::boss_attack_moveset(
+    let boss_attack_moves = ambition_boss_encounter::attack_moveset::boss_attack_moveset(
         &boss_capability,
         &boss_attack_behavior,
         boss_attack_combat_size,
@@ -1325,8 +1324,7 @@ pub(crate) fn spawn_runtime_minion_into(
     // flag on death and reads none on load. The two lines that made a summon
     // transient are now the two lines that say so — a timer that never fires and
     // a liveness nobody records.
-    enemy.config.tuning.respawn =
-        ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
+    enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
     EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),
@@ -2455,12 +2453,15 @@ mod runtime_giant_refusal_tests {
     /// A cast of one `"giant"`-class limbed host, which is what the refusal
     /// above reads.
     fn giant_cast() -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut definition =
-            ambition_characters::actor::definition::CharacterDefinition::new("test_giant", "Test Giant", "test")
-                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                    run_speed: 0.0,
-                    ..Default::default()
-                });
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "test_giant",
+            "Test Giant",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 0.0,
+            ..Default::default()
+        });
         definition.vitals.max_health = Some(2);
         definition.mount = Some(ambition_characters::actor::CharacterMount {
             class: Some("giant".to_string()),

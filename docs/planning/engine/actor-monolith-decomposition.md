@@ -941,6 +941,42 @@ them. rustc stops resolving early, so a truncated list reads as a short one.
 ✔ the globs are gone; both files name what they use, and the test modules that
 were living off the same glob name theirs.
 
+### ✔✔ CARVED 2026-08-28 — `ambition_boss_encounter::ecs`
+
+The boss ECS module lives with the boss profiles, catalog and anim helpers it was
+already calling. `features/bosses.rs` (the attack-moveset authoring, 218 lines and
+**zero** `crate::`/`super::` references) went with it as
+`attack_moveset`. `ambition_boss_encounter` gained one dependency,
+`ambition_platformer2d_world`. The monolith keeps facade rows so its schedule
+registration and callers did not move.
+
+⛔⛔ **AND A THIRD INVISIBLE CHANNEL SHOWED UP AT THE MOMENT OF THE MOVE.**
+`crate::` grep missed the glob; deleting the glob still missed
+**`super::super::`**, which is neither. The compiler found three the instant the
+files changed crates:
+
+```text
+super::super::actors::ActorSteering
+super::super::actor_clusters::ActorClusterQueryData
+super::super::actors::integrate_actor_body
+```
+
+⇒ all three belong to ONE function, `integrate_boss_bodies`, **whose own doc had
+already recorded the verdict**: *"The shared seam is `integrate_actor_body`; keep
+this as the boss orchestrator around that seam."* So it stayed, as
+`features/ecs/boss_bodies.rs`, and the rest left. Moving it would have meant
+moving the generic actor integrator — a different carve at a different price.
+⚠ one fixture came back for the same reason: `scripted_pattern_tests` builds an
+`ActorClusterSeed`, so it sits beside what it builds and names the boss crate.
+
+⛔ **ONE UNRELATED-LOOKING RED, AND IT WAS THE CARVE.**
+`the_reaction_timer_clock_forks_on_purpose` walks `CARGO_MANIFEST_DIR/src`
+counting `.decay_reaction_timers(sim_dt)` sites and wants TWO — actor and boss.
+The boss one left the crate, so it found one and printed its own escape hatch:
+*"the scan is broken, not the code."* It was. Widened to both roots rather than
+lowered to one: the invariant did not move, the code did. ⇒ **a source-scanning
+guard is a guard on WHERE CODE LIVES, so every carve has to look for one.**
+
 ⚠ **`damage`'s nine refs are FOUR concepts**, which is what a carve would have to
 subtract: `CombatBanterRegistry` (×3), `PreparedCharacterRegistry` (×2),
 `ActiveMatch` (×2), and `RespawnPolicy` + `ENEMY_DEAD_UNTIL_REST_SUFFIX`. Count

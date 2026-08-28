@@ -11,9 +11,11 @@
 
 pub mod anim;
 pub mod attack_geometry;
+pub mod attack_moveset;
 pub mod behavior;
 mod catalog;
 mod clusters;
+pub mod ecs;
 mod encounter_entity;
 mod encounter_script;
 mod events;

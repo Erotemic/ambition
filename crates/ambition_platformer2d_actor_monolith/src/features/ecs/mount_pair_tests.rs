@@ -1274,7 +1274,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             .map(|p| (p.clone(), 0.3))
             .collect(),
     };
-    let moveset = crate::features::bosses::boss_attack_moveset(
+    let moveset = ambition_boss_encounter::attack_moveset::boss_attack_moveset(
         &capability,
         &profile.behavior,
         ae::Vec2::new(54.0, 96.0),

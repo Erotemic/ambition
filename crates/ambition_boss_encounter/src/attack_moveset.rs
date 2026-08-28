@@ -6,7 +6,7 @@
 
 // TODO(compat-remove): migrate remaining boss-pattern callers to
 // `ambition_characters::brain::boss_pattern`, then remove these re-exports.
-use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
+use crate::pattern::profile::BossBehaviorProfile;
 // `BossPattern` and `BossPatternStep` only show up inside the
 // scripted profiles, which now live in `boss_profiles.ron`. They're
 // still publicly accessible via `ambition_characters::brain::boss_pattern`; we
@@ -15,9 +15,9 @@ use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 // The engine retains only the generic boss machinery (profile/spec/resolver) below.
 
 // TODO(compat-remove): migrate remaining behavior-profile callers to
-// `ambition_boss_encounter::behavior`, then remove these re-exports.
+// `crate::behavior`, then remove these re-exports.
 #[cfg(test)]
-use ambition_boss_encounter::behavior::canonical_boss_id_from;
+use crate::behavior::canonical_boss_id_from;
 
 /// Aggressor push for a boss strike (matches the old `sync_boss_strike_hitboxes`
 /// / `boss_attack_damage` strike arm). Carried on the geometry move's hit volume.
@@ -126,36 +126,35 @@ pub fn boss_attack_moveset(
                 // offset, local = center - pos). Convert each to a body-local
                 // `HitVolume` the move runtime mirrors by facing + rotates into the
                 // gravity frame at spawn.
-                let volumes: Vec<HitVolume> =
-                    ambition_boss_encounter::attack_geometry::volumes_for_profile(
-                        profile,
-                        ambition_platformer2d_core::Vec2::ZERO,
-                        combat_size,
-                        behavior,
-                    )
-                    .into_iter()
-                    .map(|aabb| {
-                        let c = aabb.center();
-                        let h = aabb.half_size();
-                        HitVolume {
-                            // An ordinary hit, not a gust.
-                            hit_sfx: None,
-                            shape: VolumeShape::Rect {
-                                offset: (c.x, c.y),
-                                half_extents: (h.x, h.y),
-                            },
-                            damage: behavior.attack_damage.max(1),
-                            knockback: BOSS_STRIKE_KNOCKBACK,
-                            knockback_growth: None,
-                            launch_dir: None,
-                            on_hit: None,
-                            // Boss geometry strikes are data-shaped volumes, not
-                            // bladed swings: no slash VFX, no manifest override.
-                            vfx: None,
-                            reaction: None,
-                        }
-                    })
-                    .collect();
+                let volumes: Vec<HitVolume> = crate::attack_geometry::volumes_for_profile(
+                    profile,
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    combat_size,
+                    behavior,
+                )
+                .into_iter()
+                .map(|aabb| {
+                    let c = aabb.center();
+                    let h = aabb.half_size();
+                    HitVolume {
+                        // An ordinary hit, not a gust.
+                        hit_sfx: None,
+                        shape: VolumeShape::Rect {
+                            offset: (c.x, c.y),
+                            half_extents: (h.x, h.y),
+                        },
+                        damage: behavior.attack_damage.max(1),
+                        knockback: BOSS_STRIKE_KNOCKBACK,
+                        knockback_growth: None,
+                        launch_dir: None,
+                        on_hit: None,
+                        // Boss geometry strikes are data-shaped volumes, not
+                        // bladed swings: no slash VFX, no manifest override.
+                        vfx: None,
+                        reaction: None,
+                    }
+                })
+                .collect();
                 // A geometry profile with no authored volume (defensive) contributes
                 // no move — skip it rather than a hitless Active window.
                 if volumes.is_empty() {
@@ -214,5 +213,8 @@ pub fn boss_attack_moveset(
 mod boss_profile_data_tests;
 #[cfg(test)]
 mod canonical_boss_id_tests;
-#[cfg(test)]
-mod scripted_pattern_tests;
+// ⛔ `scripted_pattern_tests` DID NOT COME. It builds an `ActorClusterSeed`
+// and an `ActorBody`, which the monolith still owns, so it lives beside them
+// as `features/ecs/boss_scripted_pattern_tests.rs` and names this module by
+// its crate. A fixture that has to reach upward is the honest place to keep
+// the upward reach.

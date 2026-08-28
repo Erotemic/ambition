@@ -23,6 +23,7 @@ pub mod actor_tuning;
 pub mod attack_support;
 pub mod authored_volumes;
 pub mod banner;
+pub mod body_geometry;
 pub mod brain;
 pub mod breakables;
 pub mod capture;

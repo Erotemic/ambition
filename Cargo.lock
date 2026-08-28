@@ -288,6 +288,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_sfx",
+ "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
  "bevy",

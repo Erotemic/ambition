@@ -3330,6 +3330,36 @@ BOSS-SPECIFIC, and it STAYS:
 with step one: `BossVolumeContext` is how the boss FEEDS the universal math, so
 the split has to leave the boss half calling the moved half, and deciding that
 signature is the work.
+
+✔✔ **STEP TWO DONE 2026-08-28 — `ambition_combat::body_geometry`. AND THE
+SIGNATURE NEEDED NO DECIDING**, which is the correction worth keeping: the
+universal half named NOTHING boss-specific, so the only cross-reference was the
+boss's own `impl CombatGeometry for BossVolumeContext<'_>` — and an impl belongs
+with the type it is FOR. 531 lines moved (`aabb.rs` whole, plus nine items out of
+`mod.rs`); 357 lines of boss half remain.
+
+```text
+MOVED    CombatGeometry · AnimationSelection · SimpleActorGeometry
+         publish_body_footprint · collision_aabb · body_damage_aabb
+         damageable_volumes(_unmirrored) · mirror_x_if_flipped
+         the whole pixel-rect → world AABB module
+         + three helpers that were `pub(super)` in the boss `frame` module and
+           mention no boss at all: sprite_world_size, animation_frame_index,
+           world_space_animation_box_volumes
+STAYED   BossVolumeContext + its impl · BossAnimationFrameSample
+         active_attack_volumes · volumes_for_profile · the strike-geometry table
+```
+
+⛔ **A THIRD `use super::*` TURNED UP AT THE MOVE**, in `aabb.rs`, supplying
+sprite vocabulary and the geometry alias — the same shape as the boss ECS and the
+`features/ecs` trio. ⚠ and two helpers were `pub(crate)`/`pub(super)` with only
+in-crate callers, so the crate boundary moving is what made their visibility a
+question: the boss crate's own geometry FIXTURES assert on them.
+⭐ **the boss module keeps ONE republication on purpose** — `pub use
+ambition_combat::body_geometry::*` — because its own signatures speak those names.
+⚠ a consumer OUTSIDE that crate should name `ambition_combat::body_geometry`;
+republishing a peer domain under this crate's address is the defect four carves
+went looking for today, and the comment there says so.
 ⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
 enumerate the callers — the consumers outside `boss_encounter` are
 `sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's

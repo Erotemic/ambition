@@ -6,7 +6,11 @@
 //! `_from_metrics`). `bounding_aabb` collapses multi-part bodies into one box
 //! for movement/clamping. Consumed by `mod` and `frame`.
 
-use super::*;
+// ⭐ NAMED, NOT GLOBBED — this was `use super::*`, the third such channel found
+// today. Everything it supplied is `ambition_sprite_sheet`'s vocabulary and the
+// geometry alias.
+use ambition_platformer2d_core as ae;
+use ambition_sprite_sheet::{BodyMetrics, PixelRect};
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -32,7 +36,10 @@ use super::*;
 ///
 /// World coords here: origin at the *center* of the rendered
 /// sprite; y also grows downward in Ambition's world.
-pub(super) fn world_aabb_from_pixel_rect(
+// ⭐ `pub` NOW, and the reason is a real consumer rather than tidiness: the boss
+// crate's geometry fixtures assert on this directly, and they stayed behind with
+// the boss half.
+pub fn world_aabb_from_pixel_rect(
     bbox: PixelRect,
     frame_width: u32,
     frame_height: u32,

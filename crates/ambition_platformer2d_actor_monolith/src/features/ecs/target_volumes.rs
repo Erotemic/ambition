@@ -100,7 +100,7 @@ pub fn refresh_boss_damageable_volumes(
             attack_state,
         )
         .with_animation_frame(animation_frame);
-        damageable.publish(ambition_boss_encounter::attack_geometry::damageable_volumes(&ctx));
+        damageable.publish(ambition_combat::body_geometry::damageable_volumes(&ctx));
     }
 }
 

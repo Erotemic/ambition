@@ -134,7 +134,7 @@ pub(crate) fn apply_boss_hit(
         // so core never names a specific boss. Keep this before the
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
-        let damageable = ambition_boss_encounter::attack_geometry::damageable_volumes(
+        let damageable = ambition_combat::body_geometry::damageable_volumes(
             &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
                 boss_catalog,
                 boss.as_ref(),
@@ -171,7 +171,7 @@ pub(crate) fn apply_boss_hit(
     // live) so GNU-ton's head-descent vulnerability window
     // and the standard whole-body hurtbox agree on a single
     // attack-state source.
-    let damageable = ambition_boss_encounter::attack_geometry::damageable_volumes(
+    let damageable = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             boss_catalog,
             boss.as_ref(),

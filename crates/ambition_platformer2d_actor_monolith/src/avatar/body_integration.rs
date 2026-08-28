@@ -185,7 +185,7 @@ pub fn integrate_home_body(
     };
 
     // A home body's collision box IS its footprint, so it passes no envelope.
-    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+    ambition_combat::body_geometry::publish_body_footprint(
         hurtbox,
         clusters.kinematics.pos,
         clusters.kinematics.size,

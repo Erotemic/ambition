@@ -906,7 +906,7 @@ pub(crate) fn integrate_actor_body(
     // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
     // publish, so the same `to_world_half(size*0.5)` box comes out either way.
     let footprint = envelope.unwrap_or(em.kin.size);
-    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+    ambition_combat::body_geometry::publish_body_footprint(
         aabb,
         em.kin.pos,
         footprint,

@@ -244,7 +244,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // exactly one head AABB.
     let boss = gnu_ton_runtime();
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
-    let rest_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+    let rest_head = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
@@ -265,7 +265,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     );
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
-    let descent_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+    let descent_head = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),

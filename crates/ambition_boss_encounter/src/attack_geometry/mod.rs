@@ -33,7 +33,11 @@ mod frame;
 // CRATE SHOULD NAME `ambition_combat::body_geometry` — republishing a peer
 // domain's vocabulary under this crate's address is the defect four carves went
 // looking for today.
-pub use ambition_combat::body_geometry::*;
+// ⭐ `pub(crate)` NOW, 2026-08-28: every consumer outside this crate names
+// `ambition_combat::body_geometry` directly, so the re-export is no longer a
+// republication of a peer domain — it is this crate's own convenience, and the
+// compiler enforces that rather than a comment asking for it.
+pub(crate) use ambition_combat::body_geometry::*;
 use frame::*;
 
 /// All the per-tick inputs the volume helpers need. Owned by the

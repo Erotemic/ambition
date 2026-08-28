@@ -1084,7 +1084,21 @@ fields are `_core` body clusters and the twentieth is `shared_tangle`'s
 name them all** — `AncillaryMovementBundle` lives there now and `actor.rs` is
 gone. ⇒ *"it composes something a single alias does not"* was true, and the thing
 it composed belonged one crate down. **A ruling that rests on a measurement dies
-with the measurement**: re-read the premise, not the verdict. But a census cannot tell composition from republication, so the
+with the measurement**: re-read the premise, not the verdict.
+
+✔✔ **AND `character_runtime` HAD THE SAME DEFECT, 2026-08-28 — nine names, ~250
+sites.** It republished `CharacterBodyBlueprint`, `CharacterCatalogGeneration`,
+`CharacterPreparationPlugin`, `MissingCharacterFacts`,
+`PreparedCharacterDefinition`, `PreparedCharacterRegistry`, `PreparedKit`,
+`CharacterBindings` and `CharacterRegistrationError` — all
+`ambition_characters::prepared`'s — and **57 of the sites naming them were OUTSIDE
+this crate**, which is precisely how a census reads the monolith as their owner.
+Deleted; 66 files repointed. ⭐ the module is not a facade otherwise: `MatchSeat`,
+`ActiveMatch`, `PreparedMatch`, `MatchRules` and the load states really are its
+own, so this is a republication removed rather than a module carved.
+⭐ **DO IT COMPILER-DRIVEN.** Delete the `pub use` block FIRST and let the 87
+errors enumerate the callers; a sed sweep over qualified paths misses the grouped
+`use super::{A, B}` forms and the bare names inside the module's own children. But a census cannot tell composition from republication, so the
 resolution is written down ONCE here instead of re-derived per carve:
 
 ```text

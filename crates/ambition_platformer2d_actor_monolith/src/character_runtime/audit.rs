@@ -201,7 +201,7 @@ impl std::fmt::Display for CharacterAuthorityConflict {
 /// Compare the two declaration authorities. Empty when they agree, or when only
 /// one of them exists — which is the ordinary case and not a conflict.
 pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthorityConflict> {
-    let registry = world.get_resource::<super::PreparedCharacterRegistry>();
+    let registry = world.get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
     let catalog = world.get_resource::<CharacterCatalog>();
     let owners = world
         .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalogOwners>();
@@ -347,9 +347,9 @@ pub fn report_character_capability_gaps(world: &mut World) {
 #[cfg(test)]
 mod authority_parity_tests {
     use super::*;
-    use ambition_characters::actor::definition::CharacterDefinition;
-    use crate::character_runtime::{CharacterDefinitionAppExt};
+    use crate::character_runtime::CharacterDefinitionAppExt;
     use ambition_characters::actor::character_catalog::parse_catalog;
+    use ambition_characters::actor::definition::CharacterDefinition;
 
     /// One catalog character, so the two authorities have something to disagree
     /// about. `mary_o` is spelled the same way the registration below spells it.

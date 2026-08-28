@@ -2,7 +2,7 @@
 //! art and that each shipped provider's starting character is actually registered.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
 #[test]
 fn every_registered_character_resolves_the_art_it_declares() {

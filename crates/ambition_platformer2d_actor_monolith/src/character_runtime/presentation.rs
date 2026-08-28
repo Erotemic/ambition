@@ -4,12 +4,13 @@
 //! same logical cue id can resolve differently for different characters in one
 //! session. Seating the cast establishes those authorizations.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 use bevy::prelude::*;
 use std::collections::BTreeSet;
 
 use ambition_characters::actor::character_catalog::CharacterCatalogOwners;
 
-use super::{CharacterLoadStates, PreparedCharacterRegistry};
+use super::CharacterLoadStates;
 
 /// The provider that authored a character, from either declaration source.
 ///
@@ -244,7 +245,7 @@ impl GrantedBodyFacts {
     /// then fail to retract exactly the fact that WAS granted. See
     /// [`grant_prepared_character_body`].
     fn of(
-        prepared: &super::PreparedCharacterDefinition,
+        prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
         movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
     ) -> Self {
         Self {
@@ -291,7 +292,7 @@ impl GrantedBodyFacts {
 /// against. Preparation already RESOLVES that target, so a typo is named at load
 /// rather than producing a body that silently never poses.
 fn posed_body_for(
-    prepared: &super::PreparedCharacterDefinition,
+    prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<ambition_sprite_sheet::character::SpritePosedBody> {
     match prepared.body.as_ref()? {
         ambition_characters::actor::definition::BodySource::SpriteAuthored { world_per_pixel } => {
@@ -457,7 +458,7 @@ pub enum KitOwnership {
 pub fn grant_prepared_character_body(
     commands: &mut Commands,
     entity: Entity,
-    prepared: &super::PreparedCharacterDefinition,
+    prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
     kit: KitOwnership,
     // THE BODY THIS ENTITY PLAYS WITH, already resolved by the caller.

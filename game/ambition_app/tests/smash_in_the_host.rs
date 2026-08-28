@@ -952,7 +952,8 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     {
         let registry = app
             .world()
-            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+        );
         for id in [SLUG, OPPONENT] {
             assert!(
                 registry.get(id).is_some(),
@@ -1379,10 +1380,9 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
 fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     let mut app = shell_host_app();
     settle(&mut app);
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let roster = app
         .world()
         .resource::<ambition_demo_smash::select::SmashRoster>();
@@ -1440,7 +1440,7 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     let (authored, silent): (Vec<String>, Vec<String>) = {
         let registry = app
             .world()
-            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
         );
         let roster = app
             .world()
@@ -1476,7 +1476,7 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     {
         let registry = app
             .world()
-            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
         );
         assert!(
             registry.get(&subject).is_some() && registry.get("goblin").is_some(),
@@ -1597,10 +1597,9 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
     settle(&mut app);
     // THE REGISTRY, NOT THE CATALOG — and this test asked the wrong one for five days. Nobody
     // saw the third, because dropping is the SAFE behaviour and safe behaviour is silent.
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
 
     let missing: Vec<&str> = SMASH_ROSTER
         .iter()
@@ -3667,10 +3666,9 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // fighters, and the header's promise is about what a watcher can SEE, which
     // any two authored fighters keep. Reorder the roster and this fails with the
     // fighter it drifted onto; author a kit for Sanic and it goes on passing.
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let seated: Vec<(String, bool)> = roster
         .participants
         .iter()
@@ -3736,7 +3734,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     // stopped reading authored vitals at all.
     let authored = |app: &App, id: &str| -> Option<i32> {
         app.world()
-            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
             .get(id)
             .expect("this stage cannot seat a character it has not prepared")
             .vitals

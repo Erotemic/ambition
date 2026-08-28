@@ -1171,7 +1171,7 @@ pub fn mount_capabilities_of(
     // with no prepared character contributes no character-owned mount capability;
     // there is no archetype fallback. This keeps preflight on the same authority
     // the construction commit will use.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> PlannedMountCapabilities {
     match parameters {
         // A pickup is neither rideable nor a pilot.
@@ -1244,7 +1244,7 @@ pub fn mount_capabilities_of(
 /// A body that states no mount rides nothing, which is what a body that says nothing has always
 /// meant.
 fn authored_mount_capabilities(
-    character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
+    character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
 ) -> PlannedMountCapabilities {
     character
         .and_then(|definition| definition.mount.as_ref())
@@ -1327,7 +1327,7 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
 /// cast cannot build a character body either.
 pub fn preflight_planned_bodies(
     requests: &[ActorConstructionRequest],
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Result<(), ActorConstructionError> {
     for request in requests {
         let Some(character) = planned_body_character(&request.parameters) else {
@@ -1358,7 +1358,7 @@ pub fn preflight_actor_relations(
     requests: &[ActorConstructionRequest],
     bosses: &BossCatalog,
     // See [`mount_capabilities_of`].
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Result<(), ActorConstructionError> {
     use std::collections::BTreeMap;
 
@@ -1639,7 +1639,7 @@ pub fn staged_actor_requests(
     // CHARACTER whether a placement is a limbed host before it asks the roster
     // — see `features::is_limbed_host`. `None` is the host that has no cast
     // prepared, and it plans exactly as it did before.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     let mut rows = Vec::new();
     for request in requests {
@@ -1737,7 +1737,7 @@ pub fn authored_actor_requests(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     // See [`staged_actor_requests`].
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
@@ -1880,9 +1880,9 @@ fn giant_cluster_rows(
 /// plan row now, and building it on the loop too would duplicate it.
 /// The prepared definition a placement names, if it names one the cast knows.
 fn resolve_planned_character<'a>(
-    prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     character: &ambition_entity_catalog::CharacterId,
-) -> Option<&'a crate::character_runtime::PreparedCharacterDefinition> {
+) -> Option<&'a ambition_characters::prepared::PreparedCharacterDefinition> {
     prepared.and_then(|cast| cast.get(character.as_str()))
 }
 

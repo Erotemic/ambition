@@ -2,6 +2,7 @@
 //!
 //! Every fixture here builds a bare `App` and adds ENGINE pieces only.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
 // preparation publishes its registry there — so a fixture that only updated

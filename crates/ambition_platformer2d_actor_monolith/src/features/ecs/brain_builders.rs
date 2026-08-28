@@ -6,7 +6,6 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 use super::HeldItem;
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
@@ -16,6 +15,7 @@ use ambition_characters::brain::{
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 use ambition_combat::components::CombatKit;
+use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
 /// Fallback fighting kit for bodies whose character authors no repertoire.
 ///
@@ -322,7 +322,7 @@ fn dismounted_rider_brain_and_action_set(
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
     // **The prepared cast**, so a rider that fell off can be asked what IT
     // swings rather than borrowing `pirate_raider`'s. See below.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> (Brain, ActionSet) {
     // Rebuild the rider's solo action set from its DURABLE stored combat
     // kit (`innate_melee` / `innate_ranged` / `move_style`) plus its live
@@ -898,7 +898,7 @@ pub fn rebuild_dismounted_rider_brains(
     >,
     // The prepared cast, so a dismounted rider swings its own weapon rather
     // than borrowing an archetype's.
-    prepared: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     riders: bevy::prelude::Query<(
         &ActorConfig,
         Option<&HeldItem>,

@@ -5,11 +5,11 @@
 //! live body retains accumulated damage and geometry may have another runtime
 //! authority. These facts are applied only at those boundaries, never per tick.
 
+use ambition_characters::prepared::PreparedCharacterDefinition;
 use bevy::ecs::system::EntityCommands;
 
-use super::{PreparedCharacterDefinition};
-use ambition_platformer2d_core::Vec2;
 use ambition_characters::actor::definition::BodySource;
+use ambition_platformer2d_core::Vec2;
 
 /// Boundary at which prepared physical facts may be applied to a body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

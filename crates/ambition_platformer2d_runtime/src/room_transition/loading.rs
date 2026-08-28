@@ -539,9 +539,7 @@ pub fn begin_room_transition_load_system(
     // two authorities travel together anyway: a placement names a character and
     // may name the policy that drives it.
     character_authorities: (
-        Option<
-            Res<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
-        >,
+        Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
         // The published controller policies, so an enemy placement may name
         // one. A composition that publishes none is ordinary, and a placement
         // naming into an absent registry is what refuses.

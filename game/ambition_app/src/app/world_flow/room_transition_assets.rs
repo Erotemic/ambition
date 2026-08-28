@@ -19,7 +19,6 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
-use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
@@ -34,6 +33,7 @@ use ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset;
 use ambition_platformer2d::sprite_sheet::game_assets::{
     ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
 };
+use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 
 use ambition_platformer2d::runtime::room_transition::{
     set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
@@ -161,9 +161,8 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
     /// registered-only fighter reaches the reveal barrier as a placeholder.
-    pub(crate) prepared_characters: Option<
-        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
-    >,
+    pub(crate) prepared_characters:
+        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
     /// Sheets this app's providers authored — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
@@ -276,7 +275,7 @@ pub(crate) fn demand_room_character_sheets(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
     states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
-    registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+    registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     // The provider-authored sheets — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
@@ -419,7 +418,7 @@ pub(crate) fn build_room_asset_manifest(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
     states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
-    registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+    registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
@@ -956,7 +955,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
-        Option<Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+        Option<Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
         Res<ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     ),
     quality: Res<ResolvedVisualQuality>,
@@ -965,7 +964,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
     let empty_registry =
-        ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry::default();
+        ambition_platformer2d::characters::prepared::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.source_room_id = None;

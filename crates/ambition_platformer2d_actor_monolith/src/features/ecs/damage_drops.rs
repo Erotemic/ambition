@@ -12,9 +12,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Commands, Entity};
 
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName, PickupFeature};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Which of a body's death drops this is — the `sequence` half of the drop's
 /// [`SpawnOrigin::Dynamic`].
@@ -175,14 +175,14 @@ pub(super) fn spawn_split_offspring(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // The offspring are a CHARACTER when one is registered for them — the same
     // resolution every other spawn road does.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
     // AC5.4: WHAT it splits into, from the parent character's own `divides_into`.
     offspring: &str,
 ) {
-    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         crate::features::spawn_runtime_minion(
             commands,

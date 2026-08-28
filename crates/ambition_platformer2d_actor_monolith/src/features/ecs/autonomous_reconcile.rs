@@ -111,7 +111,7 @@ pub(crate) struct PeacefulConfig {
 pub(crate) fn peaceful_config(
     catalog: &CharacterCatalog,
     // THE PREPARED CAST, asked FIRST — see below.
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
     combat_kit: &CombatKit,
     resolved_brain: &Brain,
@@ -318,18 +318,21 @@ mod peaceful_flight_tests {
 
     /// A character with the PCA's exact disagreement: a floating silhouette and
     /// an authored refusal to fly.
-    fn grounded_floater() -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-        let definition =
-            ambition_characters::actor::definition::CharacterDefinition::new("pca", "Automaton", "test")
-                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                    run_speed: 120.0,
-                    baseline_free_flight: Some(false),
-                    ..Default::default()
-                });
+    fn grounded_floater() -> ambition_characters::prepared::PreparedCharacterRegistry {
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "pca",
+            "Automaton",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 120.0,
+            baseline_free_flight: Some(false),
+            ..Default::default()
+        });
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
         registry
@@ -414,7 +417,7 @@ mod peaceful_body_authority_tests {
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
-            .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .clone();
 
         let calmed = peaceful_config(

@@ -15,6 +15,7 @@
 //! If a future change makes a character playable only in the app that happens to
 //! install some step, this test is the one that goes red.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
 // preparation publishes its registry there — so a fixture that only updated

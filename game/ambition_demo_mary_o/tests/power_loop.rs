@@ -610,10 +610,12 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
-    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
-    use ambition_platformer2d::actors::features::{apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed};
+    use ambition_platformer2d::actors::features::{
+        apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed,
+    };
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     // ⛔ `ProjectileBody` belongs to the projectile MODEL crate; the monolith's
     // glob forward of it was deleted, and no gate builds this target.
     use ambition_platformer2d::actors::projectile::step_projectiles;
@@ -701,7 +703,8 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
         let world_prepared = world
-            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+            )
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
@@ -853,7 +856,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
         let world_prepared = world
-            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+            )
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
@@ -1001,7 +1005,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
         let world_prepared = world
-            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+            )
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
@@ -1134,7 +1139,8 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
         let world_prepared = world
-            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+            )
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();

@@ -1139,9 +1139,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// The prepared cast, when this composition registered one. Activation builds
     /// the player's BODY, and a prepared character states what a body physically
     /// is — its health pool, its mass, its authored box.
-    prepared_characters: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
-    >,
+    prepared_characters: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     /// The published controller policies, so an enemy placement may name one
     /// (`EnemySpawnSpec::brain_profile`).
     brain_profiles:

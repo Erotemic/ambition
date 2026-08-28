@@ -72,7 +72,7 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
         .expect("the composed host has an assembled character catalog");
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
 
     // the ASSEMBLED grid, not the wish list: the demo's stand-in robots drop
@@ -212,7 +212,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
         .expect("the composed host has an assembled character catalog");
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
     let grid = SmashRoster::assemble(registry);
     assert!(grid.len() >= 8, "the grid is too short to be the host's");
@@ -283,10 +283,9 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let grid = SmashRoster::assemble(registry);
 
     assert!(
@@ -323,7 +322,7 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
     app.update();
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
     let assembled = SmashRoster::assemble(registry);
     let grid: Vec<String> = assembled.ids().map(str::to_string).collect();
@@ -396,7 +395,7 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
     app.update();
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
     let grid = SmashRoster::assemble(registry);
 
@@ -692,10 +691,9 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let grid = SmashRoster::assemble(registry);
 
     let mut rows: Vec<String> = Vec::new();
@@ -892,7 +890,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
     app.update();
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
     let grid = SmashRoster::assemble(registry);
 
@@ -1041,10 +1039,9 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
     let grid = SmashRoster::assemble(registry);
     let declared = ambition_demo_smash::SMASH_KNOCKBACK_GROWTH;
 

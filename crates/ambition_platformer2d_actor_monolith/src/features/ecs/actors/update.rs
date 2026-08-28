@@ -1954,7 +1954,7 @@ pub fn tick_npc_idle_barks(
     // a composition with no registered characters is the ordinary case — but a
     // registered-only character has no catalog row, so this is the only place
     // its voice can come from.
-    prepared_cast: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared_cast: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;

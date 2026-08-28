@@ -119,7 +119,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Res<world_manifest::WorldManifest>,
-        Option<Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+        Option<Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
         >,
@@ -371,7 +371,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
     world_manifest: &world_manifest::WorldManifest,
     prepared_characters: Option<
-        &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     >,
     brain_profiles: Option<
         &ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry,

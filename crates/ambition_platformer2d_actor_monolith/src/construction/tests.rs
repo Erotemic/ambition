@@ -30,11 +30,11 @@ fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
 ///
 /// `'static` because `ActorConstructionContext` BORROWS the cast, and a
 /// per-test local would not outlive the plan it is handed to.
-fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
-    static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
+fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRegistry {
+    static CAST: std::sync::OnceLock<ambition_characters::prepared::PreparedCharacterRegistry> =
         std::sync::OnceLock::new();
     CAST.get_or_init(|| {
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         for (id, mount) in [
             ("medium_striker", None),
             ("puppy_slug", None),
@@ -49,12 +49,13 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
             // The rideable body and its rider, the ADR 0020 pair.
             ("fixture_mount", Some(("shark", &[][..]))),
         ] {
-            let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
-                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                    run_speed: 155.0,
-                    move_style: ambition_characters::brain::MoveStyleSpec::Walk,
-                    ..Default::default()
-                });
+            let mut definition =
+                ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
+                    .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                        run_speed: 155.0,
+                        move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+                        ..Default::default()
+                    });
             definition.vitals.max_health = Some(4);
             if let Some((class, pilotable)) = mount {
                 definition.mount = Some(ambition_characters::actor::CharacterMount {
@@ -65,7 +66,7 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
             }
             let finalized = crate::character_runtime::prepare_and_finalize_for_test(
                 definition,
-                &crate::character_runtime::CharacterBindings::default(),
+                &ambition_characters::prepared::CharacterBindings::default(),
             );
             registry.insert_prepared(finalized.prepared);
         }
@@ -88,7 +89,7 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
         });
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             rider,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
         registry
@@ -2092,14 +2093,18 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     room.enemy_spawns.push(authored);
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-        ambition_characters::actor::definition::CharacterDefinition::new("npc_giant", "Giant GNU", "test")
-            .with_mount(ambition_characters::actor::CharacterMount {
-                class: Some("giant".to_string()),
-                ..Default::default()
-            }),
-        &crate::character_runtime::CharacterBindings::default(),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "npc_giant",
+            "Giant GNU",
+            "test",
+        )
+        .with_mount(ambition_characters::actor::CharacterMount {
+            class: Some("giant".to_string()),
+            ..Default::default()
+        }),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
-    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
 
     let without_cast = crate::construction::authored_actor_requests(&room, &[], None);
@@ -3136,8 +3141,8 @@ fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     };
     use ambition_entity_catalog::PickupKind;
     let mut room = empty_room("gallery");
-    room.placements
-        .push(ambition_platformer2d_world::placements::PlacementRecord::new(
+    room.placements.push(
+        ambition_platformer2d_world::placements::PlacementRecord::new(
             "ring_1",
             PlacementSchema::Pickup(PickupSpec {
                 kind: PickupKind::Health { amount: 1 },
@@ -3146,16 +3151,18 @@ fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
                 sprite: None,
             }),
             ae::Aabb::new(ae::Vec2::new(64.0, 32.0), ae::Vec2::splat(8.0)),
-        ));
-    room.placements
-        .push(ambition_platformer2d_world::placements::PlacementRecord::new(
+        ),
+    );
+    room.placements.push(
+        ambition_platformer2d_world::placements::PlacementRecord::new(
             "door_1",
             PlacementSchema::Interactable(InteractableSpec::new(
                 "Enter",
                 InteractionKindSpec::Door { target: None },
             )),
             ae::Aabb::new(ae::Vec2::new(128.0, 32.0), ae::Vec2::splat(16.0)),
-        ));
+        ),
+    );
     room
 }
 
@@ -3535,11 +3542,13 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
 
     // Registered, and deliberately incomplete: no locomotion, so it cannot say
     // how it moves and `body_blueprint` refuses it.
-    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(
         crate::character_runtime::prepare_and_finalize_for_test(
-            ambition_characters::actor::definition::CharacterDefinition::new("npc_mute", "Mute", "test"),
-            &crate::character_runtime::CharacterBindings::default(),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "npc_mute", "Mute", "test",
+            ),
+            &ambition_characters::prepared::CharacterBindings::default(),
         )
         .prepared,
     );
@@ -3590,14 +3599,18 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     *character = ambition_entity_catalog::CharacterId::new("npc_test_shark");
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-        ambition_characters::actor::definition::CharacterDefinition::new("npc_test_shark", "Shark", "test")
-            .with_mount(ambition_characters::actor::CharacterMount {
-                class: Some("shark".to_string()),
-                ..Default::default()
-            }),
-        &crate::character_runtime::CharacterBindings::default(),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "npc_test_shark",
+            "Shark",
+            "test",
+        )
+        .with_mount(ambition_characters::actor::CharacterMount {
+            class: Some("shark".to_string()),
+            ..Default::default()
+        }),
+        &ambition_characters::prepared::CharacterBindings::default(),
     );
-    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
 
     let bosses = ambition_boss_encounter::BossCatalog::default();

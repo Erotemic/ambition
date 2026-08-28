@@ -56,7 +56,7 @@ pub fn fire_puppy_slug_gun_system(
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and the empty registry is the honest value there.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     players: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -88,7 +88,7 @@ pub fn fire_puppy_slug_gun_system(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
     let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
-    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
         &character_catalog,

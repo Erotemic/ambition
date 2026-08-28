@@ -16,8 +16,8 @@
 
 use ambition_demo_smash::select::SmashRoster;
 use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
-use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 

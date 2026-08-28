@@ -1739,7 +1739,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
 /// point. The FIGURE above the floor is Jon's to choose; the floor is not.
 #[test]
 fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
-    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     // ⛔⛔ THE ROSTER THE HOST ASSEMBLES, NOT A TABLE SOMEBODY MAINTAINS. This
     // census read `ambition_content::authored_movesets::tables()` plus George

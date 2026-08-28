@@ -122,7 +122,7 @@ pub fn apply_spawn_actor_requests(
     // `Option`, matching its sibling on the authored path, and the absence is MEANINGFUL rather
     // than defensive: a composition that never registered a character has no such resource at
     // all, and that is exactly the state is about.
-    prepared: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
@@ -134,7 +134,7 @@ pub fn apply_spawn_actor_requests(
     // The stand-in for a composition that registered nothing. Named rather than
     // inlined so the two readings — "no cast published" and "this character is
     // not in the cast" — stay distinguishable at the call site.
-    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -178,7 +178,7 @@ pub(crate) fn spawn_staged_actor(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     req: &SpawnActorRequest,
@@ -230,7 +230,7 @@ pub(crate) fn spawn_staged_actor_into(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -549,7 +549,7 @@ impl NpcActorSpawnPlan {
     pub(super) fn peaceful(
         catalog: &CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        prepared: &crate::character_runtime::PreparedCharacterRegistry,
+        prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
         entity_name: impl Into<String>,
         feature_aabb: CenteredAabb,
         id: impl Into<String>,
@@ -1169,7 +1169,7 @@ pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
     name: impl Into<String>,
@@ -1213,7 +1213,7 @@ pub(crate) fn spawn_runtime_minion_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     id: impl Into<String>,
@@ -1375,7 +1375,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     // The published controller policies, so this PLACEMENT may name one.
     // See `EnemySpawnSpec::brain_profile`.
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
@@ -1614,7 +1614,7 @@ pub struct GiantHandPlan {
 ///  still scoped to the `"giant"` string. A data-driven "which mounts have
 /// limbs" flag waits for a SECOND limbed mount.
 pub(crate) fn is_limbed_host(
-    character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
+    character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
 ) -> bool {
     character
         .and_then(|definition| definition.mount.as_ref())
@@ -1822,7 +1822,7 @@ pub(crate) fn spawn_interactable_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &ambition_platformer2d_world::rooms::Authored<
@@ -1939,7 +1939,7 @@ pub(super) fn spawn_encounter_mob(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // The prepared cast — the body authority for every encounter mob that
     // names a character. `kind` is controller policy, not an alternate body key.
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     mob: EncounterMobSeed<'_>,
@@ -2113,7 +2113,7 @@ pub fn apply_summon_effects(
     // `Option` like every other reader of it: a composition with no registered characters is
     // ordinary, not degraded.
     prepared_characters: Option<
-        bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>,
+        bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
     >,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
@@ -2452,7 +2452,7 @@ mod runtime_giant_refusal_tests {
 
     /// A cast of one `"giant"`-class limbed host, which is what the refusal
     /// above reads.
-    fn giant_cast() -> crate::character_runtime::PreparedCharacterRegistry {
+    fn giant_cast() -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "test_giant",
             "Test Giant",
@@ -2469,9 +2469,9 @@ mod runtime_giant_refusal_tests {
         });
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
-            &crate::character_runtime::CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
-        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
     }

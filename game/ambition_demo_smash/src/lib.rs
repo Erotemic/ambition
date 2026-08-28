@@ -2494,9 +2494,7 @@ fn assemble_the_smash_roster(
     // is registered; an empty grid then says so honestly rather than offering
     // portraits nothing can build.
     registry: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
-        >,
+        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
     mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
 ) {
@@ -2748,9 +2746,7 @@ fn start_the_battle_when_asked(
     // moves is not handed this stage's generic kit.
     // `Option`, like every other reader of the cast.
     prepared: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
-        >,
+        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
     // THE STAGE'S OWN DECLARATION, read rather than re-stated. `Option` because this system
     // runs before the resource exists on the very first frame of a boot, and a screen with no rules

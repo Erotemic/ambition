@@ -22,7 +22,7 @@ pub fn apply_actor_stimuli(
     mut commands: Commands,
     // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
         (

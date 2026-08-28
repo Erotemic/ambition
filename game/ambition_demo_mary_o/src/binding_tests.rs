@@ -19,14 +19,15 @@ use crate::snake::SNAKE_DISPLAY_NAME;
 /// would prove nothing about the game. Hand the assertions to `check`, because
 /// the registry is read in place rather than cloned out.
 fn with_mary_o_prepared_cast(
-    check: impl FnOnce(&ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry),
+    check: impl FnOnce(&ambition_platformer2d::characters::prepared::PreparedCharacterRegistry),
 ) {
     let mut app = App::new();
     crate::install_mary_o_content(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     check(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
+            )
             .expect("installing this demo's content registers its characters"),
     );
 }
@@ -59,8 +60,8 @@ fn mary_o_world_item_art() -> WorldItemArtManifest {
 /// pinned.
 #[test]
 fn the_two_enemies_author_the_bodies_their_roster_rows_used_to() {
-    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
     use ambition_platformer2d::characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut app = bevy::prelude::App::new();
     crate::install_mary_o_content(&mut app);

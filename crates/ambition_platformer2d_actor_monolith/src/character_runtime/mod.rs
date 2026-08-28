@@ -5,6 +5,7 @@
 //! character tokens that require art, so room staging, match rosters, startup,
 //! and worn-identity changes share the same materialization path.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 pub mod audit;
 pub mod definition;
 pub mod hurtbox;
@@ -25,11 +26,11 @@ pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
-pub use ambition_characters::prepared::{
-    CharacterBodyBlueprint, CharacterCatalogGeneration, CharacterPreparationPlugin,
-    MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
-};
-pub use ambition_characters::prepared::{CharacterBindings, CharacterRegistrationError};
+// ⛔⛔ NINE REPUBLISHED NAMES DELETED 2026-08-28. They are
+// `ambition_characters::prepared`'s, and republishing them here put ~250 sites —
+// 57 of them OUTSIDE this crate — on an address that names the monolith as their
+// owner. Every coupling census read it that way. Same defect and same fix as
+// `crate::actor`'s 27 the day before; callers name the crate that owns the thing.
 pub use definition::CharacterDefinitionAppExt;
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
@@ -79,7 +80,7 @@ pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
         definition.vitals.max_health = Some(4);
         let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
-            &CharacterBindings::default(),
+            &ambition_characters::prepared::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);
     }

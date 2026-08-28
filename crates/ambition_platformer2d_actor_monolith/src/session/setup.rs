@@ -59,7 +59,7 @@ pub struct SimulationSetup<'a> {
     /// player took its health from the catalog row and its mass and box from
     /// nowhere, while a seated fighter wearing the same character took all three
     /// from the definition.
-    pub prepared_characters: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    pub prepared_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     /// App-local sheets this session's providers authored (U1). Sized bodies
     /// come from sheets, so setup needs it wherever it needs the catalog.
     pub authored_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -273,7 +273,7 @@ pub fn simulation_world(
                 .effective_id(default_character_id)
                 .to_string(),
             generation: prepared_characters
-                .map(crate::character_runtime::PreparedCharacterRegistry::generation)
+                .map(ambition_characters::prepared::PreparedCharacterRegistry::generation)
                 .unwrap_or_default(),
             displaced: Default::default(),
         });

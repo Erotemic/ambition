@@ -472,7 +472,7 @@ fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
 
 fn character_json(
     id: &str,
-    prepared: &ambition_platformer2d::actors::character_runtime::PreparedCharacterDefinition,
+    prepared: &ambition_platformer2d::characters::prepared::PreparedCharacterDefinition,
     catalog: Option<
         &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry,
     >,
@@ -624,7 +624,7 @@ fn main() {
 
     let world = app.world();
     let registry = world
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
     let catalog = world
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()

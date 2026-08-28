@@ -772,7 +772,7 @@ fn moveset_of(
     character: &str,
 ) -> Option<ambition_platformer2d::entity_catalog::MovesetContract> {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
         .and_then(|prepared| prepared.kit.projectable_moveset())
         .cloned()
@@ -937,7 +937,7 @@ fn main() {
         Some("grid") | Some("all") => {
             let registry = app
                 .world()
-                .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+                .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
                 .expect("the composed host has a prepared-character registry");
             ambition_demo_smash::select::SmashRoster::assemble(registry)
                 .ids()

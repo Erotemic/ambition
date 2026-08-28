@@ -37,6 +37,33 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "the-two-move-drivers-do-not-author-their-own-presses",
+        "paths": [
+            "game/ambition_app_tools/src/bin/moveset_takes.rs",
+            "game/ambition_app_tools/src/bin/moveset_render.rs",
+        ],
+        "patterns": [
+            r"(jump|attack|special|grab|taunt)_pressed",
+            r"attack_strong_hint",
+            r"attack_held",
+        ],
+        "reason": (
+            "ONE DEFINITION OF 'PERFORM THIS MOVE'. `moveset_takes` records what the "
+            "engine does with a press and `moveset_render` photographs it, and for a "
+            "while each had its own: its own take-off loop, its own aim settle, its own "
+            "retry count, and its own hold schedule -- the recorder held while "
+            "`tick < TAKE_TICKS / 4` and the renderer while `shot < frames / 4`. Those "
+            "happened to agree at 37 ticks, which is why nothing caught it: two tools "
+            "photographing the same move by coincidence. Worse, the renderer's spelling "
+            "made CAPTURE PARAMETERS change the move -- asking for 12 pictures instead "
+            "of 24 charged the smash half as long. "
+            "`support/move_exercise.rs` owns the press table, `action_frame`, "
+            "`HOLD_TICKS` and `prepare`; a driver that constructs a button field is "
+            "growing a second answer to a question that has one. If a driver needs a "
+            "posture or a schedule the shared exercise cannot express, add it THERE."
+        ),
+    },
+    {
         "id": "ending-a-move-goes-through-the-one-teardown-path",
         "paths": [
             "crates/",

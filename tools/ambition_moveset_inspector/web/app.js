@@ -98,6 +98,10 @@ function renderedFramesFor(character, verb) {
           hint: doc && doc.hint,
         });
         renderStatus(key);
+        /* ⛔ AND REPAINT. The panel is showing "rendering…" and the answer has
+         * arrived; without this it keeps saying that until something else
+         * happens to redraw. */
+        if (state.view === "takes") drawTake();
         return;
       }
       const images = doc.urls.map((u) => {
@@ -115,10 +119,17 @@ function renderedFramesFor(character, verb) {
         built: doc.renderer_built,
       });
       renderStatus(key);
+      /* ⛔⛔ REPAINT ON THE MANIFEST, NOT ONLY ON AN IMAGE `load`. A cached image
+       * can be `complete` before its listener is attached, so the load event
+       * never fires and the panel keeps saying "rendering…" with every frame
+       * already in the page. The manifest arriving IS the moment there is
+       * something to draw. */
+      if (state.view === "takes") drawTake();
     })
     .catch((error) => {
       RENDERS.set(key, { available: false, reason: String(error) });
       renderStatus(key);
+      if (state.view === "takes") drawTake();
     });
   return null;
 }
@@ -143,12 +154,17 @@ function renderStatus(key) {
    * so that stamp is the only thing separating a current picture from one taken
    * before an hour of engine changes. On the unavailable path, the build command
    * is the useful half — a reason without a remedy is just a complaint. */
-  node.textContent = have.available
-    ? `sprites: rendered by the engine${have.built ? ` (moveset_render built ${have.built})` : ""}`
-    : `sprites: derived — ${have.reason || "engine render unavailable"}`;
-  node.title = have.available
-    ? have.renderer || ""
-    : have.hint || "";
+  /* ⛔ AVAILABLE IS NOT THE SAME AS SHOWN. A mismatched or unbound render is a
+   * perfectly available manifest that the panel REFUSES to display, and this
+   * said "rendered by the engine" beside a panel saying UNBOUND. */
+  const refused = have.available && (have.mismatch || have.outcome === "unbound"
+    || have.outcome === "missed" || have.outcome === "not_prepared");
+  node.textContent = refused
+    ? `sprites: derived — the engine render is ${have.outcome || "a mismatch"} for this verb`
+    : have.available
+      ? `sprites: rendered by the engine${have.built ? ` (moveset_render built ${have.built})` : ""}`
+      : `sprites: derived — ${have.reason || "engine render unavailable"}`;
+  node.title = refused ? (have.reason || "") : have.available ? (have.renderer || "") : (have.hint || "");
 }
 
 const SHEETS = new Map();
@@ -299,6 +315,15 @@ let state = {
   takeFighter: null,
   takeFrame: 0,
   playing: false,
+  /* ⛔⛔ WHICH VIEW IS ON SCREEN, and it was READ IN TWO PLACES AND WRITTEN IN
+   * NONE. Both the sprite-sheet loader and the engine-render loader redraw with
+   * `if (state.view === "takes") drawTake()`, and against a field nothing ever
+   * assigned that condition is false forever — so an image arriving after the
+   * last draw NEVER repainted. The engine panel sat on "rendering special_up…"
+   * with all 24 PNGs already loaded in the page, and a sheet that finished late
+   * left boxes where its art should have been. Nothing but a browser could find
+   * this: every endpoint was correct and every file was served. */
+  view: "fighter",
 };
 
 /* ---------- small helpers ---------- */
@@ -1137,23 +1162,31 @@ function syncEngineRender(take, frameIndex) {
   const img = $("#engine-render");
   const note = $("#engine-render-note");
   if (!img || !note) return;
+  /* An image with no `src` is a BROKEN IMAGE ICON in every browser, which reads
+   * as "this failed to load" rather than "there is nothing to show yet". */
+  const nothing = (text) => { img.removeAttribute("src"); img.hidden = true; note.textContent = text; };
   const verb = takeVerb(take);
-  if (!verb) {
-    note.textContent = "this take names no verb, so there is nothing to render";
-    img.removeAttribute("src");
-    return;
-  }
+  if (!verb) return nothing("this take names no verb, so there is nothing to render");
   const doc = renderedFramesFor(take.character, verb);
-  if (!doc) { note.textContent = `rendering ${verb}…`; return; }
+  if (!doc) return nothing(`rendering ${verb}…`);
   if (!doc.available) {
-    img.removeAttribute("src");
-    note.textContent = `engine render unavailable — ${doc.reason || "no renderer"}`;
-    return;
+    return nothing(`engine render unavailable — ${doc.reason || "no renderer"}` +
+      (doc.hint ? ` · ${doc.hint}` : ""));
   }
-  if (doc.mismatch) {
-    img.removeAttribute("src");
-    note.textContent = `MISMATCH — ${doc.reason}`;
-    return;
+  /* ⛔⛔ FOUR WAYS A RENDER CAN FAIL TO BE THIS MOVE, and showing the pictures
+   * for any of them labels one move with another's name — the single worst thing
+   * a reference tool can do. `outcome` is the renderer's own word for which one
+   * it was; `mismatch` is kept for a manifest recorded before it existed. */
+  if (doc.outcome === "not_prepared") {
+    return nothing(
+      `NOT PREPARED — the posture ${verb} needs could not be established, so the ` +
+      `engine answered a different button. Showing the diagnostic take only.`);
+  }
+  if (doc.outcome === "unbound") {
+    return nothing(`UNBOUND — ${doc.reason || `${take.character} binds no move to ${verb}`}`);
+  }
+  if (doc.mismatch || doc.outcome === "missed") {
+    return nothing(`MISMATCH — ${doc.reason || "the engine played another move"}`);
   }
   /* Nearest shot at or before this action tick: the take records every tick and
    * the render samples by stride, so most take frames have no exact shot. */
@@ -1162,13 +1195,21 @@ function syncEngineRender(take, frameIndex) {
   for (const shot of shots) {
     if (shot.action_tick <= frameIndex) pick = shot; else break;
   }
-  if (!pick) return;
+  if (!pick) return nothing("this render took no pictures");
   const url = (doc.urls || [])[shots.indexOf(pick)];
   if (url && img.getAttribute("src") !== url) img.setAttribute("src", url);
+  img.hidden = false;
   note.textContent =
     `${doc.renderer || "moveset_render"} · ${pick.file} · action tick ${pick.action_tick}` +
     ` · sim tick ${pick.sim_tick}` +
-    (doc.renderer_built ? ` · built ${doc.renderer_built}` : "");
+    (doc.renderer_built ? ` · built ${doc.renderer_built}` : "") +
+    /* ⛔ A RUN THAT NEVER REACHED THE RELEASE photographed a charge that never
+     * paid out, and a viewer scrubbing its last frame would read that as the
+     * whole move. */
+    (doc.release_reached === false
+      ? ` · ⚠ stopped at action tick ${doc.last_action_tick} of ${doc.hold_ticks}, before the release`
+      : "") +
+    (doc.cached_only ? " · ⚠ CACHED, no renderer on this machine" : "");
 }
 
 /* Which repertoire verb this take drove. The recorder files takes under the
@@ -1237,8 +1278,8 @@ async function renderStatusView() {
       ["Status", info.found ? `built ${info.built}` : "NOT BUILT"],
       ["Path", info.found ? info.path : info.looked_in.join("  |  ")],
       ["Build", info.build_command],
-    ], info.found ? "" : name === "capture_scene"
-      ? "Without it, Engine Takes falls back to CPU-derived sprites and says so."
+    ], info.found ? "" : name === "moveset_render"
+      ? "Without it, Engine Takes shows the diagnostic canvas alone and says why."
       : name === "moveset_takes"
         ? "Without it there are no recorded takes to look at."
         : "Without it the bundle already on disk is served as-is.");
@@ -1249,6 +1290,7 @@ async function renderStatusView() {
 
 /* ---------- shell ---------- */
 function showView(name) {
+  state.view = name;
   for (const b of document.querySelectorAll("nav.tabs button")) b.classList.toggle("on", b.dataset.view === name);
   for (const v of document.querySelectorAll(".view")) v.classList.toggle("on", v.id === `view-${name}`);
   if (name === "compare") renderCompare();

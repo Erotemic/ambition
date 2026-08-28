@@ -115,12 +115,33 @@ td.cold { color: var(--cold); font-weight: 600; }
 .cols { display: grid; grid-template-columns: 1fr 420px; gap: 18px; align-items: start; }
 @media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } }
 
+/* ⛔⛔ ENGINE TAKES HAS THREE CHILDREN, AND THE GLOBAL `.cols` HAS TWO COLUMNS.
+ * Under `1fr 420px` the engine PNG took the WIDE column, the 1000x560 diagnostic
+ * canvas was squeezed into 420px, and the Frame panel wrapped underneath the
+ * render — the two things meant to be read side by side ended up stacked and the
+ * one that needs the room got the least of it. Scoped rather than changing every
+ * `.cols` in the application: three of the four views want the two-column rule. */
+.takes-cols { grid-template-columns: 480px minmax(0, 1fr) 300px; }
+@media (max-width: 1500px) { .takes-cols { grid-template-columns: 420px minmax(0, 1fr); } }
+@media (max-width: 1100px) { .takes-cols { grid-template-columns: 1fr; } }
+#engine-render-panel img { display: block; width: 100%; background: #05070c; border-radius: 5px; }
+/* ⛔⛔ AND `hidden` HAS TO WIN. The rule above is more specific than the user
+ * agent's `[hidden] { display: none }`, so a refused render still painted the
+ * broken-image icon and its alt text — "the engine's own picture of this move"
+ * sitting above the word MISMATCH. The panel said no and showed something. */
+#engine-render-panel img[hidden] { display: none; }
+
 .panel {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 9px; padding: 14px 16px; margin-bottom: 14px;
 }
 .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 13px; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 14px; font-size: 13px; }
+/* ⛔⛔ A STABLE ID IS ONE LONG UNBREAKABLE TOKEN, and the Frame panel prints
+ * them: `placement:npc_pirate_admiral#seat0/0` pushed its own column wider than
+ * the panel, painted its value outside the panel background and ran off the
+ * right of the page. The identity fields are exactly the ones worth reading. */
+.kv dd { min-width: 0; overflow-wrap: anywhere; margin: 0; }
 .kv dt { color: var(--dim); }
 .kv dd { margin: 0; text-align: right; font-family: ui-monospace, monospace; }
 

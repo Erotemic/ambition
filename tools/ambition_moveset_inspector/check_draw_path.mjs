@@ -24,6 +24,10 @@ const ctx = new Proxy({}, { get: (_, k) => (k === "canvas" ? {} : () => {}), set
 const node = () => new Proxy({
   classList: { toggle(){}, add(){}, remove(){} },
   addEventListener(){}, replaceChildren(){}, append(){},
+  // The engine-render panel is an <img> the draw path shows and hides. The
+  // catch-all below answers an unknown key with another NODE, so a missing
+  // method here fails as "not a function" rather than as a missing stub.
+  removeAttribute(){}, setAttribute(){}, getAttribute(){ return null; }, hidden: false,
   getContext: () => ctx, style: {}, dataset: {},
   clientWidth: 1000, textContent: "", title: "", value: "0", max: "0",
 }, { get: (t, k) => (k in t ? t[k] : node()), set: (t,k,v) => (t[k]=v, true) });

@@ -25,10 +25,9 @@
 #[path = "support/move_exercise.rs"]
 mod move_exercise;
 
-use ambition_platformer2d::engine_core::ControlFrame;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
-use move_exercise::{verb_named, TILT_AXIS, VERBS};
+use move_exercise::{verb_named, VERBS};
 
 const USAGE: &str = "\
 moveset_render — render a fighter performing one move, one PNG per simulation tick.
@@ -60,9 +59,6 @@ fn sim_tick(app: &App) -> u64 {
         .unwrap_or_default()
 }
 
-
-
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--help" || a == "-h") {
@@ -70,9 +66,17 @@ fn main() {
         return;
     }
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
-    if let Some(bad) = args.iter().skip(1).filter(|a| a.starts_with('-')).find(|a| {
-        !matches!(a.as_str(), "--character" | "--verb" | "--out" | "--frames" | "--stride")
-    }) {
+    if let Some(bad) = args
+        .iter()
+        .skip(1)
+        .filter(|a| a.starts_with('-'))
+        .find(|a| {
+            !matches!(
+                a.as_str(),
+                "--character" | "--verb" | "--out" | "--frames" | "--stride"
+            )
+        })
+    {
         eprintln!("moveset_render: unknown option '{bad}'\n");
         print!("{USAGE}");
         std::process::exit(2);
@@ -98,11 +102,16 @@ fn main() {
         );
         std::process::exit(2);
     };
-    let out_dir = std::path::PathBuf::from(
-        arg("--out").unwrap_or_else(|| "/tmp/moveset_render".to_string()),
-    );
-    let frames: usize = arg("--frames").and_then(|v| v.parse().ok()).unwrap_or(24).max(1);
-    let stride: u64 = arg("--stride").and_then(|v| v.parse().ok()).unwrap_or(1).max(1);
+    let out_dir =
+        std::path::PathBuf::from(arg("--out").unwrap_or_else(|| "/tmp/moveset_render".to_string()));
+    let frames: usize = arg("--frames")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(24)
+        .max(1);
+    let stride: u64 = arg("--stride")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1)
+        .max(1);
     let size = UVec2::new(480, 360);
 
     std::fs::create_dir_all(&out_dir).expect("the output directory is creatable");
@@ -190,11 +199,23 @@ fn main() {
         std::process::exit(1);
     }
 
-    // ── PREPARE. An aerial verb must be CONFIRMED airborne, and a horizontal
-    //    aim must settle before the press: a back-air driven on the tick the
-    //    stick reverses resolves FORWARD, because the gesture resolver reads
-    //    `-facing` while a turnaround runs. ──
-    let prepared = move_exercise::prepare(&mut app, verb);
+    // ── SETTLE, THEN PREPARE ──
+    //
+    // ⛔⛔ THE SETTLE IS NOT OPTIONAL, AND LEAVING IT OUT MADE `prepared` LIE.
+    // `session_is_active` is true while the cast is still DROPPING IN, so this
+    // pressed at whatever moment the readiness loop happened to break —
+    // `take_off` saw a falling body, called it airborne, returned true without
+    // ever jumping, and the fighter landed before the press. The manifest said
+    // `prepared: true` and every photograph showed a GROUNDED up-B, which is the
+    // one posture this whole campaign exists to look past. The recorder settles
+    // first and always did; only the renderer had half the algorithm.
+    let settled = move_exercise::settle(&mut app);
+    if let move_exercise::Settled::NoSubject = settled {
+        eprintln!("moveset_render: nobody reached seat zero for '{character}'");
+        std::process::exit(1);
+    }
+    let quiet = matches!(settled, move_exercise::Settled::Quiet);
+    let prepared = quiet && move_exercise::prepare(&mut app, verb);
 
     // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own
     // verb binding. Without it the only question a driver can ask is "did ANY
@@ -217,7 +238,10 @@ fn main() {
     let mut action_tick = 0usize;
 
     for shot in 0..frames {
-        move_exercise::step(&mut app, move_exercise::action_frame(verb, action_tick, facing));
+        move_exercise::step(
+            &mut app,
+            move_exercise::action_frame(verb, action_tick, facing),
+        );
         if let Some(id) = move_exercise::playing_move(&mut app) {
             observed.insert(id);
         }
@@ -230,8 +254,7 @@ fn main() {
             let target = world
                 .remove_resource::<ambition_platformer2d::render::capture::CaptureTarget>()
                 .expect("the capture target exists");
-            let mut progress =
-                ambition_platformer2d::render::capture::CaptureProgress::default();
+            let mut progress = ambition_platformer2d::render::capture::CaptureProgress::default();
             world.insert_resource(ambition_platformer2d::render::capture::CaptureSettings {
                 output: out_dir.join(format!("frame.{shot:04}.png")),
                 size,
@@ -258,7 +281,11 @@ fn main() {
         while pumps < 600 {
             app.update();
             pumps += 1;
-            debug_assert_eq!(sim_tick(&app), tick, "a zero-duration pump advanced the sim");
+            debug_assert_eq!(
+                sim_tick(&app),
+                tick,
+                "a zero-duration pump advanced the sim"
+            );
             if app
                 .world()
                 .get_resource::<ambition_platformer2d::render::capture::CaptureProgress>()
@@ -283,11 +310,20 @@ fn main() {
             // origin; they share this.
             "action_tick": at_action,
             "move": move_exercise::playing_move(&mut app),
+            // ⭐ THE POSTURE OF THE TICK IN THE PICTURE. `prepared` says the
+            // exercise ESTABLISHED a posture before the press; this says what the
+            // body was doing when the shutter opened, which is the thing a
+            // reader is actually looking at. Without it "is that an airborne
+            // up-B?" is answered by squinting at a 480x360 PNG.
+            "grounded": move_exercise::subject(&mut app).and_then(|s| s.grounded),
         }));
 
         // Advance the rest of the stride on the same schedule.
         for _ in 1..stride {
-            move_exercise::step(&mut app, move_exercise::action_frame(verb, action_tick, facing));
+            move_exercise::step(
+                &mut app,
+                move_exercise::action_frame(verb, action_tick, facing),
+            );
             action_tick += 1;
             if let Some(id) = move_exercise::playing_move(&mut app) {
                 observed.insert(id);
@@ -295,24 +331,69 @@ fn main() {
         }
     }
 
-    // ⛔⛔ SUCCESS IS THE INTENDED MOVE APPEARING, not any move appearing. This
-    // reported `reached = !observed.is_empty()` under a comment claiming a
-    // mismatch would be caught — a promise the code did not keep.
-    let reached_intended = match intended.as_deref() {
-        Some(want) => observed.contains(want),
-        // A verb this fighter binds to nothing cannot be mismatched; it can only
-        // be unbound, which is a different report.
-        None => false,
-    };
+    // ⛔⛔ A SHORT REQUEST MUST NOT SILENTLY SHORTEN THE MOVE. `--frames 4
+    // --stride 2` executes action ticks 0..8 and exits, so it never reaches the
+    // release at tick 37 — and a manifest that printed `hold_ticks: 37` said what
+    // the SCHEDULE is while proving nothing about what this run DID. So the
+    // exercise is carried past the release WITHOUT taking pictures, and what was
+    // seen after the last shot is reported separately from what was photographed.
+    let observed_in_shots = observed.clone();
+    let mut after_capture: std::collections::BTreeSet<String> = Default::default();
+    while !move_exercise::released_by(action_tick) {
+        move_exercise::step(
+            &mut app,
+            move_exercise::action_frame(verb, action_tick, facing),
+        );
+        action_tick += 1;
+        if let Some(id) = move_exercise::playing_move(&mut app) {
+            after_capture.insert(id.clone());
+            observed.insert(id);
+        }
+    }
+    let last_action_tick = action_tick.saturating_sub(1);
+
+    // ⛔⛔ SUCCESS IS THE INTENDED MOVE APPEARING **IN THE POSTURE ASKED FOR**,
+    // not any move appearing. This reported `reached = !observed.is_empty()`
+    // under a comment claiming a mismatch would be caught — a promise the code
+    // did not keep — and then, once that was fixed, still ignored `prepared`. A
+    // grounded up-B and an airborne one can be the SAME move id, so the move
+    // that came out cannot tell them apart, and the airborne one is the only one
+    // anybody opens this view to look at.
+    // ⛔⛔ AND THE POSTURE CLAIM IS CHECKED AGAINST THE PICTURES. `prepare` can
+    // only report what was true BEFORE the press; a body that was airborne by a
+    // hair lands on the next tick and the shutter opens on a grounded fighter.
+    // The first shot is the press tick, so its ground state is the strongest
+    // available answer to "is this the aerial the reader asked for" — and it is
+    // the answer that caught `prepared: true` over a photograph of a standing
+    // admiral.
+    let airborne_at_press = shots
+        .first()
+        .and_then(|shot| shot["grounded"].as_bool())
+        .map(|grounded| !grounded);
+    let posture_held = !verb.airborne || airborne_at_press == Some(true);
+    let verdict = move_exercise::outcome(prepared && posture_held, intended.as_deref(), &observed);
     let manifest = serde_json::json!({
         "character": character,
         "verb": verb.verb,
         "verb_label": verb.label,
         "prepared": prepared,
+        "settled": quiet,
+        // What the body was doing on the press tick, which is the posture the
+        // pictures actually show.
+        "airborne_at_press": airborne_at_press,
+        "posture_held": posture_held,
         "intended_move": intended,
         "observed_moves": observed.iter().cloned().collect::<Vec<_>>(),
-        "reached_intended_move": reached_intended,
+        "observed_in_shots": observed_in_shots.iter().cloned().collect::<Vec<_>>(),
+        "observed_after_capture": after_capture.iter().cloned().collect::<Vec<_>>(),
+        "reached_intended_move": verdict.reached(),
+        "outcome": verdict.as_str(),
         "hold_ticks": move_exercise::HOLD_TICKS,
+        // What this RUN did, as opposed to what the schedule says. A capture
+        // horizon shorter than the release is legitimate; claiming the charge
+        // paid out is not.
+        "last_action_tick": last_action_tick,
+        "release_reached": move_exercise::released_by(last_action_tick),
         "frames": shots.len(),
         "stride": stride,
         "shots": shots,
@@ -334,10 +415,13 @@ fn main() {
         observed,
         pumps_total,
     );
-    if !reached_intended {
+    if !verdict.reached() {
         println!(
-            "[moveset-render] MISMATCH: `{}` is bound to {:?} and the engine played {:?}",
-            verb.verb, intended, observed
+            "[moveset-render] {}: `{}` is bound to {:?}, prepared={prepared}, and the engine played {:?}",
+            verdict.as_str().to_uppercase(),
+            verb.verb,
+            intended,
+            observed
         );
     }
 }

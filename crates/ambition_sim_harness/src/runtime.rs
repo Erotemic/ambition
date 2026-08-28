@@ -11,7 +11,7 @@ use ambition_platformer2d::actor::{
 };
 use ambition_platformer2d::character::{CharacterBrain, CharacterId};
 use ambition_platformer2d::engine::{
-    add_headless_foundation, SimulationHost, SimulationHostAppExt as _, SIM_TICK_HZ,
+    add_headless_foundation, SimulationHost, SimulationHostAppExt as _,
 };
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::participant::{

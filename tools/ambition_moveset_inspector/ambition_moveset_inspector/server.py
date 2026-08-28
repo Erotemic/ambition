@@ -74,11 +74,34 @@ def renderer_candidates() -> list[Path]:
     return [root / "release" / "moveset_render", root / "debug" / "moveset_render"]
 
 
+def _newest(candidates: list[Path]) -> Path | None:
+    """The most recently built of these, or `None` if none exist.
+
+    ⛔⛤ NEWEST, NOT FIRST. Taking the first existing candidate meant `release`
+    always outranked `debug` — so a release binary from last week beat a debug
+    binary built a minute ago, while the build hint this same server prints tells
+    the reader to run an ordinary debug `cargo build`. The tool preferred the
+    binary its own advice does not produce, and nothing on the page said which
+    one had answered.
+    """
+    live = [(c.stat().st_mtime, c) for c in candidates if c.exists()]
+    return max(live)[1] if live else None
+
+
 def find_renderer() -> Path | None:
-    for candidate in renderer_candidates():
-        if candidate.exists():
-            return candidate
-    return None
+    """The renderer this server will run.
+
+    ⭐ AN EXPLICIT OVERRIDE WINS OUTRIGHT. Somebody testing a build elsewhere has
+    said which one they mean, and a freshness heuristic has no business
+    second-guessing that.
+    """
+    import os
+
+    override = os.environ.get("AMBITION_MOVESET_RENDER")
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+    return _newest(renderer_candidates())
 
 
 def _built_at(path: Path) -> str | None:
@@ -90,13 +113,6 @@ def _built_at(path: Path) -> str | None:
     except OSError:
         return None
     return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
-
-
-def find_capture_scene() -> Path | None:
-    for candidate in capture_scene_candidates():
-        if candidate.exists():
-            return candidate
-    return None
 
 
 def render_animation(character: str, verb: str, frames: int, stride: int) -> tuple[int, dict]:
@@ -126,16 +142,44 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
     # character alone served the up-B's frames for a jab.
     out_dir = RENDERS / f"{safe}__{safe_verb}"
     manifest = out_dir / "manifest.json"
+    binary = find_renderer()
+
+    # ⛔⛔ A CACHE THAT OUTLIVES THE BINARY THAT FILLED IT IS A STALE ANSWER
+    # WEARING A CURRENT ONE'S CLOTHES. This accepted any manifest with enough
+    # frames at the right stride, so a render taken before an hour of engine
+    # changes was served as this build's picture of the move — the exact failure
+    # the provenance stamp exists to make visible, silently defeated one layer
+    # above it.
+    cached = None
     if manifest.exists():
         try:
             have = json.loads(manifest.read_text())
             if have.get("frames", 0) >= frames and have.get("stride") == stride:
-                return 200, have
+                cached = have
         except (OSError, ValueError):
-            pass
+            cached = None
+    if cached is not None and binary is not None:
+        drawn_by = cached.get("renderer_mtime")
+        if drawn_by is not None and drawn_by >= binary.stat().st_mtime:
+            return 200, cached
+        cached["stale"] = (
+            f"drawn by an older {binary.name}; re-rendering with the one built "
+            f"{_built_at(binary)}"
+        )
 
-    binary = find_renderer()
     if binary is None:
+        # ⭐ A CACHED PICTURE IS BETTER THAN NO PICTURE, **SAID PLAINLY**. Nothing
+        # here builds, so "there is no renderer" is a state a reader can be in
+        # for a long time; serving the last render unlabelled would make it look
+        # like this build's.
+        if cached is not None:
+            cached = dict(cached)
+            cached["cached_only"] = True
+            cached["reason"] = (
+                "moveset_render is not built — this is the last render, drawn by "
+                f"{cached.get('renderer_built') or 'an unknown build'}"
+            )
+            return 200, cached
         return 503, {
             "available": False,
             "reason": "moveset_render is not built",
@@ -144,6 +188,12 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
         }
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    # ⛔⛔ THE OLD MANIFEST GOES FIRST. This re-rendered and then read whatever
+    # manifest was on disk, so a renderer that failed to write one left the
+    # PREVIOUS render's document to be read back and served as the new one —
+    # returning 200 with a stale picture through the very branch added to refuse
+    # stale pictures. What is on disk after the run must be what the run wrote.
+    manifest.unlink(missing_ok=True)
     try:
         result = subprocess.run(
             [
@@ -175,6 +225,10 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
         available=True,
         renderer_path=str(binary),
         renderer_built=_built_at(binary),
+        # ⭐ THE RAW STAMP BESIDE THE READABLE ONE, so the next request can ask
+        # whether this picture predates the binary on disk. A minute-resolution
+        # string cannot answer that.
+        renderer_mtime=binary.stat().st_mtime,
         urls=[f"/render/{out_dir.name}/{shot['file']}" for shot in document.get("shots", [])],
     )
     # ⛔⛔ A MISMATCH IS REPORTED, NEVER CACHED UNDER THE REQUESTED NAME. A press
@@ -195,6 +249,113 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
         )
     manifest.write_text(json.dumps(document))
     return 200, document
+
+
+def inspector_status() -> dict:
+    """Everything the page needs to explain ITSELF.
+
+    ⭐⭐ THE UI COULD NOT SAY WHAT IT WAS DOING. Jon, 2026-08-27: *"I don't see
+    any art at the moment. Not sure if that's because the binaries are not built,
+    because the webui is not reporting the status of what it has, or what it is
+    doing. I can't tell if it is trying to call the tool or not, or if it knows
+    where it is."* Every one of those was answerable on the server and none of it
+    was reachable from the browser — the provenance went to a terminal the person
+    looking at the pictures was not reading.
+    """
+    import os
+
+    bundle_path = DATA / "moveset_bundle.json"
+    takes_path = DATA / "takes" / "takes.json"
+    takes_meta: dict = {"exists": takes_path.exists()}
+    if takes_meta["exists"]:
+        takes_meta["built"] = _built_at(takes_path)
+    bundle_meta: dict = {"exists": bundle_path.exists()}
+    if bundle_meta["exists"]:
+        bundle_meta["built"] = _built_at(bundle_path)
+        try:
+            doc = json.loads(bundle_path.read_text())
+            bundle_meta["schema"] = doc.get("schema")
+            bundle_meta["fighters"] = len(doc.get("characters") or [])
+            bundle_meta["sheets"] = len(doc.get("sheets") or {})
+        except (OSError, ValueError) as error:
+            bundle_meta["error"] = str(error)
+
+    # ⛔⛔ THE NEWEST ONE, NOT THE FIRST ONE. This took `release` before `debug`,
+    # so a release binary from last week outranked a debug binary built a minute
+    # ago — while the build hint beside it told the reader to run an ordinary
+    # debug `cargo build`. The tool answered with the binary its own advice did
+    # not produce.
+    binaries = {}
+    root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
+    for name in ("moveset_export", "moveset_takes", "moveset_render"):
+        found = _newest([root / profile / name for profile in ("release", "debug")])
+        binaries[name] = {
+            "found": found is not None,
+            "path": str(found) if found else None,
+            "built": _built_at(found) if found else None,
+            "build_command": f"cargo build -p ambition_app_tools --bin {name}",
+            "looked_in": [str(root / p / name) for p in ("release", "debug")],
+        }
+
+    # ⭐⭐ ARE THE TAKES CURRENT? "takes.json exists, recorded 15:53" is not the
+    # question anybody has — the question is whether the recording carries the
+    # fields this build DRAWS. A take made before the art fields existed shows no
+    # sprites and no polygons, the Art button appears dead, and nothing on the
+    # page says why. Rebuilding the binaries does NOT re-record; only running
+    # moveset_takes does.
+    if takes_meta["exists"]:
+        try:
+            doc = json.loads(takes_path.read_text())
+            rows = doc.get("takes") if isinstance(doc, dict) else doc
+            bodies = art = shapes = boxes = 0
+            for take in rows or []:
+                for frame in take.get("frames") or []:
+                    for body in frame.get("bodies") or []:
+                        bodies += 1
+                        art += 1 if body.get("art") else 0
+                    for hit in frame.get("hitboxes") or []:
+                        boxes += 1
+                        shapes += 1 if hit.get("shape") else 0
+            takes_meta.update(
+                takes=len(rows or []),
+                bodies=bodies,
+                with_art=art,
+                hitboxes=boxes,
+                with_shape=shapes,
+            )
+            stale = []
+            if bodies and not art:
+                stale.append("no sprite art (bodies carry no `art`)")
+            if boxes and not shapes:
+                stale.append("no hitbox geometry (strikes carry no `shape`)")
+            if stale:
+                takes_meta["stale"] = (
+                    "recorded before this build: "
+                    + ", ".join(stale)
+                    + " — re-run moveset_takes"
+                )
+        except (OSError, ValueError) as error:
+            takes_meta["error"] = str(error)
+
+    return {
+        # ⛔⛔ HOW OLD IS THE PROCESS ANSWERING YOU. `server.py` is loaded into
+        # memory at start, so a server left running across an edit serves its OWN
+        # ROUTES from before that edit however current the files on disk are — a
+        # 19-hour-old process had no `/art/` route at all and 404'd every sprite,
+        # which is unfalsifiable from the browser. This is the fact that makes it
+        # falsifiable.
+        "server_started": _STARTED,
+        "server_uptime_minutes": int((time.time() - _STARTED_AT) / 60),
+        "server_module": str(Path(__file__).resolve()),
+        "repo": str(REPO),
+        "sprites_dir": str(SPRITES),
+        "sprites_dir_exists": SPRITES.exists(),
+        "bundle": bundle_meta,
+        "takes": takes_meta,
+        "renders_dir": str(RENDERS),
+        "cached_renders": sorted(p.name for p in RENDERS.glob("*")) if RENDERS.exists() else [],
+        "binaries": binaries,
+    }
 
 
 def _contained(root: Path, relative: str) -> str:

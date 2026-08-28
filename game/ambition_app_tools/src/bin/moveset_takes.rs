@@ -20,37 +20,12 @@
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
-use ambition_platformer2d::engine_core::ControlFrame;
-
 /// Ticks recorded per take. Long enough for a five-second shark ride to show its
 /// shape without every take carrying the tail of an idle stage.
 const TAKE_TICKS: usize = 150;
-/// The longest a take will wait for the stage to go quiet before the next press.
-///
-/// ⛔⛔ A FIXED SETTLE IS NOT A SETTLE. Forty-five ticks was less than the
-/// admiral's forward smash owes, so `smash_up`, `smash_down` and `special_up`
-/// each landed inside the previous move's recovery, were dropped, and were
-/// reported as moves that produced nothing — three false findings from one
-/// constant. The condition is "the body is idle and standing", which the world
-/// already publishes, so the wait ASKS instead of counting.
-/// ⛔ ABOVE THE LONGEST RIDE. A 240-tick limit is four seconds and the shark
-/// carries its rider for five, so the take after the up-B started while the
-/// admiral was still airborne on a mount and reported two moves as producing
-/// nothing. A settle that gives up before the previous take finishes is a
-/// settle that manufactures findings.
-const SETTLE_LIMIT: usize = 480;
-
 #[path = "support/move_exercise.rs"]
 mod move_exercise;
-use move_exercise::{Button, Verb, TILT_AXIS, VERBS};
-
-/// ⭐ THE PRESS TABLE AND THE PRESS ITSELF NOW LIVE IN `support/move_exercise.rs`,
-/// because the GPU renderer has to perform the SAME move this records. Two
-/// definitions of "how you perform a back air" is two answers to one question,
-/// and the recorder would have been the only one tested.
-fn press(v: &Verb, edge: bool, facing: f32) -> ControlFrame {
-    v.frame(edge, facing)
-}
+use move_exercise::{settle, step, Settled, VERBS};
 
 /// Everything one recorded tick says.
 #[derive(Default)]
@@ -223,26 +198,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // loop's clothes.
     static SHEET_KEYS: std::sync::OnceLock<std::collections::HashMap<String, String>> =
         std::sync::OnceLock::new();
-    let sheet_keys = SHEET_KEYS.get_or_init(|| world
-        .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
-        .map(|catalog| {
-            catalog
-                .data()
-                .characters
-                .iter()
-                .filter_map(|(id, entry)| {
-                    let base = entry
-                        .spritesheet
-                        .rsplit('/')
-                        .next()?
-                        .trim_end_matches(".png")
-                        .trim_end_matches("_spritesheet")
-                        .to_string();
-                    (!base.is_empty()).then(|| (id.clone(), base))
-                })
-                .collect()
-        })
-        .unwrap_or_default());
+    let sheet_keys = SHEET_KEYS.get_or_init(|| {
+        world
+            .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
+            .map(|catalog| {
+                catalog
+                    .data()
+                    .characters
+                    .iter()
+                    .filter_map(|(id, entry)| {
+                        let base = entry
+                            .spritesheet
+                            .rsplit('/')
+                            .next()?
+                            .trim_end_matches(".png")
+                            .trim_end_matches("_spritesheet")
+                            .to_string();
+                        (!base.is_empty()).then(|| (id.clone(), base))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
 
     let mut bodies = world.query::<(
         Entity,
@@ -349,7 +326,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         .map(|(entity, ..)| *entity);
 
     for (
-        entity,
+        _entity,
         pos,
         vel,
         half,
@@ -382,7 +359,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-.and_then(|row| row.6.clone())
+                    .and_then(|row| row.6.clone())
                     // ⛔ THE MOUNT'S STABLE ID, never its entity index: a raw
                     // entity id is not an identity and makes two runs differ.
                     .or_else(|| {
@@ -556,11 +533,10 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.
             "subject_owned": Some(hitbox.owner) == subject_entity,
-            // ⛔ WHOSE STRIKE, by stable identity. A hitbox has no `SimId` of its
-            // own — it is a volume, not a body — so it is keyed by the body that
-            // threw it, which is what makes the sort canonical rather than
-            // merely usually-stable.
-            // THE VOLUME'S OWN identity. ⛔ THE FALLBACK IS OWNER-QUALIFIED: a
+            // ⭐ THE VOLUME'S OWN IDENTITY. `advance_move_playback` inserts
+            // `SimId::strike_volume(owner, move, window, volume)` on the volume
+            // entity itself, so a strike is identified rather than merely
+            // attributed. ⛔ THE FALLBACK IS OWNER-QUALIFIED: a
             // bare `strike(window 1, volume 0)` names one volume of EVERY
             // unidentified owner, and an `id` that identifies two different
             // things is worse than an absent one.
@@ -669,11 +645,21 @@ fn reseat(app: &mut App, character: &str) {
     for _ in 0..240 {
         app.update();
     }
-}
-
-/// `verb -> move id` for one character, read from the composed host.
-fn verb_table(app: &mut App, character: &str) -> std::collections::BTreeMap<String, String> {
-    moveset_of(app, character).map_or_else(Default::default, |set| set.verbs)
+    // ⛔⛔ STAGING IS A POSTCONDITION, NOT A DURATION. This counted 240 updates
+    // and called the match seated; 240 updates is evidence of nothing, and every
+    // downstream check reads the ABSENCE of seat zero as an ordinary state of it
+    // — a settle returns "quiet", a press goes to nobody, and the take that comes
+    // out is a recording of an empty stage under a fighter's name.
+    for _ in 0..240 {
+        if move_exercise::subject(app).is_some() {
+            return;
+        }
+        app.update();
+    }
+    panic!(
+        "[moveset-takes] {character}: no fighter reached seat zero after 480 updates. \
+         Every take from here would record an empty stage under this character's name."
+    );
 }
 
 /// This fighter's repertoire, as the host prepared it.
@@ -703,109 +689,32 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
         })
 }
 
-/// The move a verb is bound to, or `None` when the fighter binds nothing there
-/// (an unbound slot is answered by the directional chain, and whatever it
-/// reaches is the right answer rather than a mismatch).
-fn intended_move<'a>(
-    bound: &'a std::collections::BTreeMap<String, String>,
-    verb: &str,
-) -> Option<&'a str> {
-    bound.get(verb).map(String::as_str)
-}
-
-fn drive(app: &mut App, frame: ControlFrame) {
-    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
-    app.update();
-}
-
-/// Jump, and wait until the world says the body has left the ground.
+/// ⛔⛤ A CURRENT RECORDING MAY NOT CARRY A MISSING IDENTITY.
 ///
-/// ⛔ ASK, DO NOT COUNT. A fixed wait recorded `attack_air_down` as `smash_down`
-/// and `attack_air_up` as nothing at all, because the press landed on a body the
-/// engine still called grounded and the directional chain walked past every
-/// aerial. The ground state is a fact the world publishes.
-fn ensure_airborne(app: &mut App) -> bool {
-    if sample(app.world_mut(), 0).grounded == Some(false) {
-        return true;
-    }
-    drive(
-        app,
-        ControlFrame {
-            jump_pressed: true,
-            jump_held: true,
-            ..Default::default()
-        },
-    );
-    for _ in 0..40 {
-        drive(
-            app,
-            ControlFrame {
-                jump_held: true,
-                ..Default::default()
-            },
-        );
-        if sample(app.world_mut(), 0).grounded == Some(false) {
-            return true;
+/// Every query here asks for `Option<&SimId>` and every sort maps a missing id
+/// to the empty string, so an unidentified body could enter a take while the
+/// comments beside it called the ordering byte-stable — and the bundle checker
+/// only WARNED. `ensure_sim_id` documents that a dynamically spawned body can
+/// remain unidentified, which makes this reachable rather than theoretical.
+///
+/// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong
+/// as a licence for the recorder: what an old file may contain does not define
+/// what a new one may emit. Measured on the admiral before this landed:
+/// 8202/8202 bodies and 166/166 strikes already identified, so this refuses a
+/// regression rather than demanding something new.
+fn assert_identified(character: &str, verb: &str, frames: &[serde_json::Value]) {
+    for (tick, frame) in frames.iter().enumerate() {
+        for kind in ["bodies", "projectiles", "hitboxes"] {
+            for row in frame[kind].as_array().into_iter().flatten() {
+                assert!(
+                    row["id"].as_str().is_some_and(|id| !id.is_empty()),
+                    "[moveset-takes] {character} {verb}: a {kind} row on tick {tick} carries no \
+                     stable id, so this take cannot be ordered or joined canonically however \
+                     byte-identical two runs of it look. The row: {row}"
+                );
+            }
         }
     }
-    false
-}
-
-/// Wait for a body that is idle, not riding anything, and standing IF IT CAN.
-///
-/// ⛔⛔ NOT EVERY FIGHTER CAN STAND. `player_robot_v3` can FLY, and a flying body
-/// is never grounded by construction (`integration.rs`: *"a flying body is never
-/// grounded — the collision sweep can still find support under a hovering
-/// flyer"*). A settle that demanded `grounded` therefore never succeeded for it:
-/// every take re-seated, timed out again, and started from whatever the last one
-/// left behind — which is why the robot's grounded forward tilt was recorded as
-/// its FORWARD AIR and both of its specials as producing nothing. Three findings
-/// from one condition that could not hold.
-///
-/// So the ground is required only of a body that has been seen standing. A
-/// fighter that never reports support settles on "idle and unencumbered", which
-/// is the strongest true statement available about it.
-/// The three facts a settle waits on, without building a frame to read them.
-///
-/// ⛔⛤ `settle` USED TO CALL `sample`, which queries every body, every hitbox and
-/// every projectile and serialises all of it to JSON -- then threw the JSON away
-/// to look at three booleans. At up to 480 iterations per take and 19 takes per
-/// character that is the dominant cost of a recording, and none of it was the
-/// simulation.
-fn settle_facts(world: &mut World) -> (bool, bool, bool) {
-    let mut q = world.query::<(
-        &ambition_platformer2d::actor::MatchSeat,
-        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
-        Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
-        Option<&ambition_platformer2d::mount::RidingOn>,
-    )>();
-    for (seat, ground, playing, riding) in q.iter(world) {
-        if seat.0 != 0 {
-            continue;
-        }
-        return (
-            ground.is_some_and(|g| g.on_ground),
-            playing.is_some(),
-            riding.is_some(),
-        );
-    }
-    (false, false, false)
-}
-
-fn settle(app: &mut App) -> bool {
-    let mut ever_stood = false;
-    for _ in 0..SETTLE_LIMIT {
-        drive(app, ControlFrame::default());
-        let (grounded, playing, riding) = settle_facts(app.world_mut());
-        ever_stood |= grounded;
-        if playing || riding {
-            continue;
-        }
-        if grounded || !ever_stood {
-            return true;
-        }
-    }
-    false
 }
 
 /// Sample the world and append it to a take.
@@ -917,10 +826,7 @@ fn main() {
         // inspector claims to be showing.
         reseat(&mut app, character);
         let stage = platforms(&mut app);
-        // The fighter's own verb table, so a take can say which move the press
-        // was SUPPOSED to reach rather than only which one came out.
-        let bound = verb_table(&mut app, character);
-        // And its whole repertoire, so a take can ask what the move it played
+        // The fighter's whole repertoire, so a take can ask what the move it played
         // AUTHORS and check its own recording against that. See
         // `authors_offense`.
         let repertoire = moveset_of(&mut app, character);
@@ -938,61 +844,42 @@ fn main() {
             // instrument whose answer depends on what ran before it is not
             // measuring the thing it names.
             reseat(&mut app, character);
-            let settled = settle(&mut app);
-            if !settled {
-                println!(
+            match settle(&mut app) {
+                Settled::Quiet => {}
+                Settled::Busy => println!(
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \
                      even after a re-seat; read this take with that in mind",
                     verb.verb
+                ),
+                // ⛔⛔ NOT A WARNING. A stage with nobody on it records a take of
+                // nothing under a fighter's name, which is worse than no take.
+                Settled::NoSubject => panic!(
+                    "[moveset-takes] {character} {}: seat zero vanished during the settle, so \
+                     this take would record an empty stage under this character's name.",
+                    verb.verb
+                ),
+            }
+            // ⭐⭐ ONE PREPARATION, SHARED WITH THE RENDERER. This had its own
+            // take-off loop, its own aim settle and its own retry count, so
+            // "perform a back air" meant one thing here and another in
+            // `moveset_render` — and only this one was ever tested. See
+            // `move_exercise::prepare`, which is this algorithm promoted.
+            let prepared = move_exercise::prepare(&mut app, verb);
+            if !prepared {
+                println!(
+                    "[take] {character:<24} {:<16} WARNING - could not be airborne at the \
+                     press; this take records the GROUNDED answer to that button",
+                    verb.verb
                 );
             }
-            if verb.airborne {
-                // ⛔⛔ AIRBORNE AT THE PRESS, CHECKED AT THE PRESS. Jumping and
-                // then doing anything else is not the same claim: an aim settle,
-                // a fast-fall, or simply a short hop meant the body was standing
-                // again by the time the button went down, and the take recorded
-                // the grounded move under the aerial's name. So the takeoff and
-                // the aim settle are one loop that ends only when the body is
-                // both airborne and pointing the right way.
-                let mut ready = false;
-                for _attempt in 0..3 {
-                    if !ensure_airborne(&mut app) {
-                        continue;
-                    }
-                    // Settle a HORIZONTAL aim only: a back-air driven the tick
-                    // the stick reversed resolves as FORWARD, because
-                    // `resolve_attack_gestures` reads `-facing` while a
-                    // turnaround runs (the pivot rule, which is correct and is
-                    // why a pivot grab needs no move of its own). Holding DOWN
-                    // for the same settle would fast-fall back to the floor.
-                    if verb.axis_x != 0.0 {
-                        for _ in 0..8 {
-                            let aim = sample(app.world_mut(), 0).facing.unwrap_or(1.0);
-                            drive(
-                                &mut app,
-                                ControlFrame {
-                                    axis_x: verb.axis_x * TILT_AXIS * aim.signum(),
-                                    ..Default::default()
-                                },
-                            );
-                        }
-                    }
-                    if sample(app.world_mut(), 0).grounded == Some(false) {
-                        ready = true;
-                        break;
-                    }
-                }
-                if !ready {
-                    println!(
-                        "[take] {character:<24} {:<16} WARNING - could not be airborne at the \
-                         press; this take records the GROUNDED answer to that button",
-                        verb.verb
-                    );
-                }
-            }
             let mut frames: Vec<serde_json::Value> = Vec::new();
-            let facing = sample(app.world_mut(), 0).facing.unwrap_or(1.0);
-            drive(&mut app, press(verb, true, facing));
+            let facing = move_exercise::facing_of(&mut app);
+            // ⛔⛔ THE SCHEDULE IS `move_exercise::action_frame`, AND NOTHING
+            // ELSE DECIDES IT. This held while `tick < TAKE_TICKS / 4` and the
+            // renderer while `shot < frames / 4`, which happened to agree at 37
+            // and would have drifted the moment either tool changed how much it
+            // records. What the player does is not the recorder's business.
+            step(&mut app, move_exercise::action_frame(verb, 0, facing));
             // ⛔ THE PRESS TICK IS FRAME ZERO. `ResolvedAttackGesture::pressed`
             // is set on the press tick and cleared after, so a recording that
             // started one tick later showed `gesture: null` on every frame of
@@ -1000,20 +887,11 @@ fn main() {
             // the input to be, absent from all of them.
             record(&mut app, &mut frames);
             for tick in 1..TAKE_TICKS {
-                // A charge move releases when the button comes up. Half the take
-                // held, half released, so both the hold and the payoff are on
-                // the recording.
-                let held = tick < TAKE_TICKS / 4;
-                drive(
-                    &mut app,
-                    if held {
-                        press(verb, false, facing)
-                    } else {
-                        ControlFrame::default()
-                    },
-                );
+                step(&mut app, move_exercise::action_frame(verb, tick, facing));
                 record(&mut app, &mut frames);
             }
+
+            assert_identified(character, verb.verb, &frames);
 
             let moves: std::collections::BTreeSet<String> = frames
                 .iter()
@@ -1128,16 +1006,24 @@ fn main() {
                 (x0, y0, x1, y1) = (-320.0, -240.0, 320.0, 240.0);
             }
 
-            // ⛔⛔ THE TAKE SAYS WHETHER IT REACHED THE MOVE IT DROVE. Eighteen
-            // of nineteen verbs do; `attack_air_back` does not, and that is an
-            // ENGINE finding rather than a driver one — the recorded gesture
-            // reads `Forward/Tilt/Airborne`, so the fighter turned to face the
-            // back input before the press was read, and the back air is
-            // unreachable for every fighter in the cast. Reporting it as "the
-            // forward air, under the back air's name" is what a tool that
-            // silently relabels its own failures does.
-            let intended = intended_move(&bound, verb.verb);
-            let reached = intended.is_none_or(|id| moves.contains(id));
+            // ⛔⛔ THE TAKE SAYS WHETHER IT REACHED THE MOVE IT DROVE, which is
+            // the whole reason it can be trusted. `attack_air_back` was the
+            // standing counter-example — the recorded gesture read
+            // `Forward/Tilt/Airborne`, so the fighter turned to face the back
+            // input before the press was read — and the horizontal aim settle in
+            // `move_exercise::prepare` closed it: measured 2026-08-28, all
+            // seventeen bound verbs on the admiral reach their move and the
+            // eighteenth, `special_air_down`, reports UNBOUND rather than
+            // crediting itself with the down-B the chain answered with.
+            // ⛔⛤ ONE VOCABULARY WITH THE RENDERER. This said
+            // `intended.is_none_or(|id| moves.contains(id))`, so an UNBOUND verb
+            // was a SUCCESS — while `moveset_render` called the same press a
+            // mismatch. The diagnostic panel and the engine panel beside it could
+            // therefore disagree about the same input. `Outcome` has four answers
+            // and none of them collapse into another.
+            let intended = move_exercise::intended_move(&mut app, character, verb.verb);
+            let verdict = move_exercise::outcome(prepared, intended.as_deref(), &moves);
+            let reached = verdict.reached();
             println!(
                 "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}",
                 verb.verb,
@@ -1146,8 +1032,9 @@ fn main() {
                     String::new()
                 } else {
                     format!(
-                        " MISMATCH: drove {} but the engine played {:?}",
-                        intended.unwrap_or("?"),
+                        " {}: drove {} but the engine played {:?}",
+                        verdict.as_str().to_uppercase(),
+                        intended.as_deref().unwrap_or("<unbound>"),
                         moves
                     )
                 }
@@ -1172,6 +1059,12 @@ fn main() {
                 "opponent_output": opponent_output,
                 "intended_move": intended,
                 "reached_intended_move": reached,
+                // ⭐ WHICH KIND OF "no" it was. `reached: false` covers a verb
+                // this fighter does not bind, a press that reached another move,
+                // and a posture that could not be established — three different
+                // things to a reader and to the viewer.
+                "outcome": verdict.as_str(),
+                "prepared": prepared,
                 "frames": frames,
             }));
         }

@@ -997,6 +997,32 @@ BOTH ways: with the old string the coverage arms go red naming the new path, and
 the new one they pass. ⇒ **every carve must grep its moved type names IN QUOTES**,
 not only as paths.
 
+✔ **AND TWO OF THE REMAINING THREE WERE FACADE HOPS, not coupling — the boss
+lesson again.** `PreparedCharacterRegistry` is `ambition_characters::prepared`'s
+and `RespawnPolicy` is `ambition_entity_catalog::placements`'; `crate::` only
+republished them. Named through their owners, `damage`'s `crate::` count is now
+**three, and `boss_hit.rs` names ZERO**.
+
+⛔⛔ **AND THAT NUMBER IS STILL NOT THE PRICE, for exactly the reason the boss
+carve found.** `damage/` reaches the monolith through `super::super::` and a
+`use super::*`, and THOSE are the real cost — thirteen distinct names across six
+concepts:
+
+```text
+actor_clusters::{ActorMut, ActorClusterQueryData, ACTOR_DAMAGE_IFRAME_S}
+damage_drops::{drop_currency_coin, drop_held_weapon, EXPLODER_BLAST_DAMAGE}
+npcs::{npc_flag_id, npc_hit_bark_line, npc_hostile_bark_line}
+damage_predicates::target_is_ignored
+NPC_HOSTILE_STRIKE_THRESHOLD
+ActiveMatch + ENEMY_DEAD_UNTIL_REST_SUFFIX   (the `crate::` three)
+```
+
+⇒ **`damage` is NOT the next carve.** `actor_clusters` is the same dependency the
+boss integrator kept it behind, and `npcs`/`damage_drops` are two more modules
+that would have to move or invert first. ⭐ **grep `super::` beside `crate::` on
+every candidate in the table above before ranking it** — the table's numbers count
+only one of the three shapes.
+
 ⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
 138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
 vocabulary names from FOUR crates, so it composes something a single alias does

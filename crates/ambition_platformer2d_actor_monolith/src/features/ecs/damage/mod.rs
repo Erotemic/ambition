@@ -31,10 +31,10 @@ use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use ambition_combat::components::PickupFeature;
 use ambition_combat::events::ActorStimulus;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
@@ -321,7 +321,7 @@ pub struct FeatureHitCatalogs<'w> {
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
-    pub prepared: Option<Res<'w, crate::character_runtime::PreparedCharacterRegistry>>,
+    pub prepared: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side

@@ -11,6 +11,21 @@ is not what its name says. Prefer those over the new features.
 
 Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
+✔✔ **ALL EIGHTEEN ARE CLOSED** (2026-08-27). ⭐ The two the file called its
+headline were both FALSE PROOFS, and both were retired by measuring rather than
+by building: the shark-health census now scans the 21-fighter assembled roster
+instead of a 13-row authoring table, and the mounted-launch arm asks for
+equivalence — both roads produce `(-1884.0382, -1884.0382)` — instead of a
+magnitude gravity supplies on its own.
+
+⚠ AND THE MOST USEFUL THING THIS FILE PRODUCED IS NOT ON ITS LIST. Three of the
+fixes were found by a test written to check a DIFFERENT claim: the buffered evade
+spent inside a saddle (R12), the three projectile fixtures that hand-list what
+production spawns (R10), and a body treated as a wall parking a dropped item 47px
+above its floor (R11). ⛔ R12 also went the other way — the harms it was written
+to fix do not happen, and the decomposition it seemed to call for would have
+repaired a defect nobody has.
+
 ## Priority 1 — recovery and the shark
 
 - ▣ **R1 — CLOSED `533bd9a05`. The shark recovery episode's cost is refunded
@@ -262,9 +277,9 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   request is gone from the code; add the regression through the real teleport
   that counts EXACTLY one cue.
 
-- ◐ **R18 — repair stale review and planning status.** `queue.md` (D252, D253,
-  D255) and `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current as of this push.
-  What remains is whatever the OPEN rows below close. D253 and D252 are closed
+- ▣ **R18 — CLOSED. Repair stale review and planning status.** `queue.md` and
+  `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current, and every row this file
+  opened is closed. D253 and D252 are closed
   as of `4a551ccc5`. Still to correct: the Author double-blink row (fixed at
   `947b97b`), `tick_departures` docs (already corrected), the `shark_ride_probe`
   fixed-frame-240 wait (already condition-based). REOPEN: shark health (R3),
@@ -273,7 +288,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   assembled half is not. ⛔ Do not preserve any claim that a hand-maintained
   authoring table is the selectable roster.
 
-- ▢ **R19 — trim incident history out of runtime source.** Recent fixes left
+- ▣ **R19 — CLOSED `613432dff`. Trim incident history out of runtime source.**
+  Thirty-one "GPT 5.6, 2026-08-27" attributions removed, every sentence kept.
+  ⛔ ONLY the attribution: 243 other dated comments stay, because a date on a
+  rule that CHANGED is part of the rule and stripping them would be a style
+  sweep nobody asked for dressed as a cleanup. Two mentions survive on purpose —
+  a waiver's reason string, where the text IS the contract, and a test title
+  naming its correction pass. Recent fixes left
   forensic narrative in production files. KEEP the invariant, the reason a
   non-obvious implementation exists, and which authority owns the decision.
   REMOVE dates, model attribution, dead hypotheses, debugging chronology and

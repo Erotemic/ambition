@@ -261,6 +261,26 @@ BY DESIGN. Should they get one, or does a sprawled quadruped legitimately have n
 "standing height"? Nothing is blocked on this; it decides whether the shared unit
 is the cast's road or the humanoids'.
 
+▢ **TWO LOOK-AT-IT CALLS THE MEASUREMENTS ARE ALREADY WAITING ON (promoted from
+D165, 2026-08-28).** Both have their numbers; neither has an answer, and both have
+sat in the execution ledger where a taste call reads as work nobody got to.
+
+```text
+THE SLOP     writing the AUTHORITY (`kin.size` + `BodyBaseSize`) instead of the
+             mirror makes every slop 28 × 18.2 rather than 73.9 × 48 — a 2.64×
+             shrink, in a level you play. ⛔ THE DEFECT AND THE SIZE ARE TWO
+             THINGS: that the authored value never took effect is a bug; how big
+             a slop should be is yours. The fix is one line and is deliberately
+             not taken until you have said which size you want.
+THE SNAKE    `snake_body_width()` derives from `mary_o_body_width()`, so the
+             one-brick rescale halved it with nothing saying so: `world_per_pixel`
+             0.35 → 0.182, collision 41 × 18 → 21.3 × 9.5 — 0.30 tiles tall.
+             ⭐ the ratchet beside it could not notice: it pins the quad/body
+             RATIO, which is scale-invariant, so it read 2.46× before and after.
+             Whether a third-of-a-tile snake still reads as an enemy is yours,
+             and the constant to change, if any, is HERS.
+```
+
 
 
 ## ✔ ANSWERED 2026-08-23 — yes, the rollback wire format may grow

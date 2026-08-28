@@ -4524,6 +4524,11 @@ wiring. Same lesson the human-grab defect taught one layer up: *a test that
 starts downstream of the wiring cannot see the wiring.*
 
 ▢ **the fix is one line and it is NOT TAKEN HERE, on this row's own rule.**
+⇒ **PROMOTED to `awaiting-maintainer-decision.md` 2026-08-28**, with the snake
+beside it, because a taste call sitting in the execution ledger reads as work
+nobody got to. ⛔ the DEFECT and the SIZE are two things and the promotion says
+so: that the authored value never took effect is a bug, and how big a slop should
+be is Jon's.
 Writing the authority (`kin.size` + `BodyBaseSize`) instead of the mirror makes
 every slop 28 x 18.2 rather than 73.9 x 48 — a **2.64x shrink** in a level Jon
 plays. This row already says *"how big a slop should be is a taste call for

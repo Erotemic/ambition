@@ -49,6 +49,38 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 /// instead. Declaring it here is what makes it content rather than a document.
 pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_brain_ladder.ron");
 
+/// One declared source's text: embedded when this build baked it in, otherwise
+/// read from the same file off disk.
+///
+/// The declared path IS the on-disk path — `pack.ron` spells sources exactly as
+/// they sit under this crate's `assets/` — so a source needs no second location
+/// to be kept in sync with.
+///
+/// `CARGO_MANIFEST_DIR` is a compile-time STRING, not a file dependency, so
+/// resolving through it costs no rebuild when the file changes. That is the
+/// whole point: see [`crate::audio_registries::MUSIC_REGISTRY_RON_STATIC`].
+///
+/// A missing file is fatal and says so. Content that silently lost a family is
+/// exactly the "silent partial start" [`compile_pack`] already refuses.
+fn source_text(declared_path: &str, embedded: Option<&'static str>) -> String {
+    if let Some(text) = embedded {
+        return text.to_string();
+    }
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join(declared_path);
+    std::fs::read_to_string(&path).unwrap_or_else(|err| {
+        panic!(
+            "content source {declared_path} is neither embedded in this build nor \
+             readable at {}: {err}\n\
+             Desktop development reads generated content off disk so a regen does \
+             not rebuild the crate; build with --features ambition_content/static_content \
+             to embed it instead.",
+            path.display()
+        )
+    })
+}
+
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
     // the boss encounters are appended from ONE table, not written out
@@ -84,7 +116,10 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         ),
         (
             MUSIC_REGISTRY_SOURCE_PATH.to_string(),
-            crate::audio_registries::MUSIC_REGISTRY_RON.to_string(),
+            source_text(
+                MUSIC_REGISTRY_SOURCE_PATH,
+                crate::audio_registries::MUSIC_REGISTRY_RON_STATIC,
+            ),
         ),
         (
             SFX_REGISTRY_SOURCE_PATH.to_string(),

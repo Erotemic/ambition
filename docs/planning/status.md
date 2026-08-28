@@ -20,7 +20,30 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — the ledger has TWO shapes and the standard grep sees one
+## 2026-08-28, LATEST — the coverage census, and what it says about D203's premise
+
+⭐⭐ **`moveset_export` emits a `coverage` block per move now** —
+`covers_body_fraction`, `covers_crouched_fraction`, `gap_above_px`,
+`gap_below_px`, `reach_px` and the owner's `body_height_px` — which is the step
+D203 named as the one that turns *"hit volumes are authored in absolute numbers"*
+into a pattern. ⛔ it REPORTS and does not judge: Jon wants moves that break the
+rule on purpose, and a pass/fail with no way to declare an exception makes an
+undeclared exception indistinguishable from a mistake.
+
+⛔⛔ **AND RUN OVER THE CAST IT CONTRADICTS THE ROW'S HEADLINE.** A crouch is
+exactly HALF height (`BodyShape::Crouching`), so a crouching opponent occupies
+the lower half of your silhouette. **0 of 21 forward smashes are duckable**; the
+worst still covers 58% of a crouched foe. ⇒ *"every one of them reads as too
+conservative"* is about REACH or the vertical game, not the hole the row
+describes — read the census before authoring a pattern from that premise. ⚠ 94
+of 430 forward-reaching moves touch nothing on a crouching opponent, and almost
+all are up-smashes and aerials; that is what an exception looks like, not a bug.
+
+⭐ **D246 is UNBLOCKED** — its recorded blocker (the `ambition_damage` carve
+reaching main) landed 2026-08-26. **D205 was already built** when it was marked
+unstaffed. Both are table rows, which is the next section's point.
+
+## 2026-08-28 — the ledger has TWO shapes and the standard grep sees one
 
 ⛔⛔ **READ THIS BEFORE REGENERATING AN OPEN-WORK LIST.** `queue.md` holds open
 work as `- ▢ **D…` bullet rows AND as rows of its staffing TABLE. The command

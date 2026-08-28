@@ -9133,6 +9133,19 @@ Case file: [`../archive/planning-superseded/2026-08-14/d120-platform-capability-
   gate is one integration target, both deliberate. What runs is a MAINTAINER
   decision; ⛔ do not enlarge `gate_suite.py`, and ⛔ do not add a job to a
   workflow that does not run and call the hole closed.
+  ⚠⚠ **THE HOLE IS LIVE AND IT COST AN HOUR ON 2026-08-28.**
+  `cargo test -p ambition_touch_input` reports **4 passed**; the same crate with
+  `--all-features` runs **45**, and three of them were red from a change made an
+  hour earlier. ⇒ **a small test count for a big crate is the tell** — ask whether
+  the number is plausible before reading a green.
+  ⭐ **AND ONE EXISTING TOOL ALREADY BUILDS EVERY TEST TARGET**: `sweep_target.py
+  --apply` marks its live set with `cargo test --no-run --workspace`. It found
+  three broken test targets that day — this one, a demo naming a deleted module in
+  its own `tests/`, and a grouped `use` of a name a re-export had stopped
+  publishing. ⛔ that is a REPORT of an existing tool, not a new runner, and it is
+  not `gate_suite.py`'s job. ⛔⛔ do not reach for `cargo test --workspace --no-run`
+  by hand instead: it filled `/dev/vda1` to zero twice that day, which is the
+  failure the sweep exists to undo.
 
 ---
 

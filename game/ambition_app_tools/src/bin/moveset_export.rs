@@ -269,8 +269,20 @@ fn coverage_census(coverage: &MoveCoverage, body_height: f32) -> Option<serde_js
         // an aerial the move passes under.
         "gap_above_px": round((coverage.min.1 - top).max(0.0), 10.0),
         // ⭐ THE ONE JON NAMED: the band between the bottom of the volume and
-        // the owner's feet, which is exactly what a crouching opponent occupies.
+        // the owner's feet.
         "gap_below_px": round((bottom - coverage.max.1).max(0.0), 10.0),
+        // ⭐⭐ AND THE QUESTION THAT BAND IS A PROXY FOR, answered directly.
+        // *"forward smash should leave NO HOLE a crouching opponent can duck
+        // under"* — and a crouch is exactly HALF height in this engine
+        // (`BodyShape::Crouching`, width unchanged), so a same-sized opponent
+        // crouching beside you occupies the LOWER HALF of your silhouette.
+        // ⇒ this is how much of that half the volume actually overlaps. `0.0`
+        // is duckable; anything above it is not, and the gap in pixels alone
+        // cannot say which because it does not know the crouch ratio.
+        "covers_crouched_fraction": round(
+            ((coverage.max.1.min(bottom) - coverage.min.1.max(0.0)).max(0.0)) / half,
+            1000.0,
+        ),
         "reach_px": round(coverage.max.0, 10.0),
         "body_height_px": round(body_height, 10.0),
     }))
@@ -847,6 +859,44 @@ mod tests {
         assert_eq!(census["gap_above_px"], serde_json::json!(12.0));
         // ⛔ THE ONE THAT MATTERS: 20px of standing room below the swing.
         assert_eq!(census["gap_below_px"], serde_json::json!(20.0));
+        // A crouching opponent occupies the lower half — `0..24` here — and this
+        // swing reaches to `+4`, so it overlaps 4 of those 24.
+        assert_eq!(census["covers_crouched_fraction"], serde_json::json!(0.167));
+    }
+
+    /// ⛔⛔ AND THE PIXELS ALONE CANNOT ANSWER JON'S QUESTION, which is why the
+    /// crouch fraction is its own field. A crouch is HALF height in this engine
+    /// (`BodyShape::Crouching`), so a swing that stops at the standing body's
+    /// midline touches a crouching opponent at exactly one point and a swing
+    /// that stops above it touches nothing — two moves whose `gap_below_px`
+    /// differ by a pixel and whose outcomes differ completely.
+    #[test]
+    fn a_swing_that_stops_above_the_midline_is_the_one_a_crouch_ducks() {
+        let stops_at_the_midline = MoveCoverage {
+            min: (10.0, -20.0),
+            max: (46.0, 0.0),
+        };
+        let just_above = MoveCoverage {
+            min: (10.0, -20.0),
+            max: (46.0, -1.0),
+        };
+        assert_eq!(
+            coverage_census(&stops_at_the_midline, 48.0).unwrap()["covers_crouched_fraction"],
+            serde_json::json!(0.0),
+        );
+        assert_eq!(
+            coverage_census(&just_above, 48.0).unwrap()["covers_crouched_fraction"],
+            serde_json::json!(0.0),
+        );
+        // One pixel lower and it is no longer duckable.
+        let reaches_in = MoveCoverage {
+            min: (10.0, -20.0),
+            max: (46.0, 1.0),
+        };
+        assert_eq!(
+            coverage_census(&reaches_in, 48.0).unwrap()["covers_crouched_fraction"],
+            serde_json::json!(0.042),
+        );
     }
 
     /// A box as tall as its owner has no hole either way — the shape the rule

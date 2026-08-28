@@ -4588,7 +4588,34 @@ its mount are AUTHORED at the same pixel (the raider's `mounted_on` names the
 shark's entity iid) — deleting either would have destroyed content Jon already
 once reported missing. ⛔ compare FIELDS before calling two entities duplicates.
 
-## What the validator actually reports
+⛔⛔ **RE-RUN 2026-08-28: ALL FOUR WORLDS PASS, AND THE TABLE BELOW IS STALE.**
+`validate` on `sandbox`, `hall_of_characters`, `intro` and
+`you_have_to_cut_the_rope` reports **zero errors** and five warnings, four of
+which are the same one:
+
+```text
+validate.editor.shape   ×4   defs.entities is missing editor definitions for
+                             SurfaceRamp — one per world, with its own fix
+                             command named
+validate.warning        ×1   level 'sanic_sandbox' origin (9600, 3000) is not
+                             16px aligned
+```
+
+⇒ **the "100% noise" reading no longer describes the tool**, and the mount
+false-positive is FIXED IN THE SOURCE: `spawn_overlap_issues` skips a pair when
+one entity's fields REFERENCE the other's `iid`, with the comment
+*"position-identical is what a mount IS, so position alone can never tell the two
+apart. The FIELDS can: one names the other."* — this row's own lesson, in code.
+⚠ **so do not read the table below as current.** It is kept because the near-miss
+it records is the point: a validator whose errors are noise gets an agent to run
+`entity delete` on real content.
+▢ **the one real gap it now reports**: `SurfaceRamp` has no editor definition in
+any world, so an author cannot place one. Closing it means AUTHORING a spec
+(fields, size, colour) for `def register-entity`, which is content design rather
+than a tool fix. ⚠ `--help` for that subcommand also prints no positional while
+`cli.py`'s own usage line says `<spec>`.
+
+## What the validator reported on 2026-08-1x — STALE, see above
 
 ```text
 30 error:  lines   ALL false positives — 4 cross-world LoadingZone targets that

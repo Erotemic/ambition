@@ -39,13 +39,13 @@ pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]
 pub use view_cones::{
-    debug_portal_view_zones, flush_portal_view_cone_debug_dump,
+    debug_portal_view_zones, effective_portal_capture_budget, flush_portal_view_cone_debug_dump,
     handle_portal_view_cone_dump_hotkey, selected_portal_view_cone_debug_rows,
-    sync_portal_view_cones, PortalApertureLosQuality, PortalCaptureCameraMode,
-    PortalCaptureQualityBudget, PortalConeMesh, PortalDebugOverlay, PortalViewConeConfig,
-    PortalViewConeDebugDumpRequest, PortalViewConeDebugRow, PortalViewConeMode,
-    PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode, PortalViewRig, PortalViewer,
-    PORTAL_WINDOW_RENDER_LAYER,
+    sync_portal_view_cones, EffectivePortalCaptureBudget, PortalApertureLosQuality,
+    PortalCaptureCameraMode, PortalCaptureQualityBudget, PortalConeMesh, PortalDebugOverlay,
+    PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeDebugRow,
+    PortalViewConeMode, PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode,
+    PortalViewRig, PortalViewer, PORTAL_WINDOW_RENDER_LAYER,
 };
 pub use visuals::{
     sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_visuals,

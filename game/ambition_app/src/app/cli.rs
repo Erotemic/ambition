@@ -335,6 +335,15 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     use std::time::Duration;
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    // `build_visible_app` drops `LogPlugin` from `NoWindow` because a TEST
+    // process builds several Apps and the tracing subscriber is process-global.
+    // This is not that process: it is an executable host with exactly one App.
+    // Tracy's recorder is a LAYER ON THAT SUBSCRIBER, so without it a
+    // `--features profile` headless capture records zero zones — and per-system
+    // timing is the measurement a machine with no GPU still has. Gated on the
+    // profiling feature, so the no-window tests keep their silent composition.
+    #[cfg(feature = "profile")]
+    app.add_plugins(ambition_log_plugin());
     super::shell_host::compose_ambition_startup_sequence(&mut app);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / SHARED_HOST_HEADLESS_TICK_HZ,
@@ -702,7 +711,7 @@ fn resolved_log_filter() -> String {
 }
 
 /// The log plugin this game's compositions install. See [`DEFAULT_LOG_FILTER`].
-fn ambition_log_plugin() -> bevy::log::LogPlugin {
+pub(crate) fn ambition_log_plugin() -> bevy::log::LogPlugin {
     bevy::log::LogPlugin {
         filter: resolved_log_filter(),
         ..bevy::log::LogPlugin::default()

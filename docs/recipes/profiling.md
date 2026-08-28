@@ -5,18 +5,28 @@
 These tools are not interchangeable, and reaching for the wrong one wastes
 hours. Pick by the question you are actually asking:
 
+**Start here.** `./scripts/profile_desktop.sh`, play, quit. It builds the
+optimized `profiling` profile with tracing on, captures perf + Tracy + the
+in-process workload censuses for the whole session, and writes one bundle whose
+`summary.md` answers most of the table below at once. Reach past it only when
+that summary points somewhere specific.
+
 | Question | Instrument | Reads as |
 |---|---|---|
-| Which machine layer owns the CPU — game code, GPU driver, or a software rasterizer? | `scripts/profile_desktop.sh` (default) | text, agent-readable |
+| Anything, first pass | `scripts/profile_desktop.sh` → `summary.md` | text, agent-readable |
+| Which machine layer owns the CPU — game code, GPU driver, or a software rasterizer? | same bundle, "Where the native time went" | text, agent-readable |
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
-| Which native function is hot, and during which part of my session? | `scripts/profile_desktop.sh` timeline chunks | text, agent-readable |
-| Which *Bevy system* is hot? | `--features profile` → Tracy | GUI, or `tracy-capture` + `tracy-csvexport` as text |
-| Which frames stuttered, and when? | `[frame-spike]` / `[frame-census]` (always on) | text, agent-readable |
-| Which textures decoded, how big, and when? | `[image]` / `[image-census]` (always on) | text, agent-readable |
+| Which native function is hot, and during which part of my session? | same bundle, `timeline.md` + `perf_windows/` | text, agent-readable |
+| Which *Bevy system* is hot? | same bundle, `tracy_summary.md` | text, agent-readable |
+| Which *render pass* is hot, on CPU and GPU? | same bundle, `render_diagnostics.csv` | CSV, agent-readable |
+| How many cameras/views/portal captures were live? | same bundle, `camera_views.csv` / `portal_activity.csv` | CSV, agent-readable |
+| How big did the scene get? | same bundle, `runtime_census.csv` / `draw_census.csv` | CSV, agent-readable |
+| Which frames stuttered, and when? | `[frame-spike]` / `[frame-census]` (always on) → `frame_spikes.csv` | text, agent-readable |
+| Which textures decoded, how big, and when? | `[image]` / `[image-census]` (always on) → `image_decodes.csv` | text, agent-readable |
 | Did a sprite get re-bound at a different size? | `[sprite-bind]` (always on) | text, agent-readable |
-| Which *render pass* is hot? | not yet wired (`RenderDiagnosticsPlugin`) | — |
 | Am I re-reading assets from disk every frame? | `profile_desktop.sh asset-run` | text, agent-readable |
 | Is this CPU-bound, memory-bound, or stalled? | `profile_desktop.sh stat-run` | text, agent-readable |
+| What can I measure on a VM with no GPU? | `profile_desktop.sh --headless` | text, agent-readable |
 | Give me a flame graph picture | `cargo flamegraph` | SVG, browser |
 
 Two properties matter more than they look:
@@ -125,6 +135,54 @@ Why each exists:
 Code: [`ambition_dev_tools::profiling`](../../crates/ambition_dev_tools/src/profiling.rs)
 and [`ambition_render::asset_census`](../../crates/ambition_render/src/asset_census.rs).
 
+## 1c. Profiling-only workload censuses
+
+The four above are always on and cheap. A second set answers the question a
+native profile structurally cannot — *what did Ambition ask Bevy to do* — and
+runs only when `AMBITION_PROFILE_CENSUS` is set, which
+`scripts/profile_desktop.sh` does for you:
+
+```text
+[census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
+[census] ecs            t=12.000 entities=8123 archetypes=412 components=1904 bodies=7 players=1
+[census] schedules      t=12.000 schedules=14 systems=1183
+[census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
+[census] camera         t=12.000 entity=64v1 role=main_gameplay active=true target=primary_window size=1920x1080 viewport=full order=0 layers=0 presents_view= name="Main Camera"
+[census] draws          t=12.000 sprites=2140 sprites_visible=311 text2d=18 per_view_projections=0
+[census] render_targets t=12.000 image_targets=2 cpu_bytes=0 largest_dim=512 images_resident=214
+[census] portal         t=12.000 rigs=2 active=2 max_resolution=1024 recursion_depth=1 max_active_captures=2 max_updates_per_frame=2 min_refresh_interval_s=0.000 include_parallax=true
+[census] render_pass    t=12.000 path=render/main_opaque_pass_2d/elapsed_cpu value=1.204000 avg=1.180000 suffix=ms
+[census] assets         t=12.000 decoded_images=214 decoded_megapixels=612.4 decoded_bytes=2449600000 images_resident=214
+```
+
+Every row in a frame carries the same `t=` because one clock decides which
+frame is a sample frame — that is what makes a camera count and a render-pass
+time from the same instant joinable. Cadence is 1 Hz
+(`AMBITION_PROFILE_CENSUS_HZ`); no census iterates a per-entity population on a
+frame that is not a sample frame, and with the variable unset each is a single
+bool test.
+
+Measured cost, headless sandbox, 6000 ticks, three interleaved runs each
+(2026-08-28): 121.60e9 retired instructions with the census off against
+121.51e9 with it on — the enabled run is *lower* than the disabled one, so the
+difference is under the ~0.06% run-to-run spread and no overhead is
+attributable. Wall-clock on this VM was useless for the comparison: run-to-run
+variance from other load was several times any plausible signal, which is why
+the number above is instructions retired over a fixed tick count and not
+seconds. The one term that grows with the scene is the sprite pass in
+`report_draw_census`: one iteration over the sprite population per SAMPLE, so
+1 Hz, not per frame.
+
+Camera roles come from the markers the spawner already set (`MainCamera`,
+`FrontHudCamera`, `PortalViewRig`, `PresentsView`, an image render target), not
+from inference — a camera nobody marked reports `role=other` and its `Name`,
+which is the honest answer.
+
+Code: [`ambition_dev_tools::runtime_census`](../../crates/ambition_dev_tools/src/runtime_census.rs)
+(sim side, runs headless) and
+[`ambition_render::runtime_census`](../../crates/ambition_render/src/runtime_census.rs)
+(cameras, targets, portals, render passes).
+
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 
 For a "give me a flame graph as a file" workflow that doesn't need
@@ -205,21 +263,25 @@ without if the GUI isn't running — your build, your call).
 
 ### Collect a profile
 
-1. Install the Tracy GUI (`tracy-profiler`) matching the Bevy version's
-   tracy-client. Bevy 0.18 expects Tracy 0.12.x. Check the bevy/Cargo
-   metadata if you upgrade.
-2. Launch the GUI **before** the game so the live capture starts at
-   T=0.
-3. `cargo run -p ambition_app --bin ambition_game_bin --features profile`.
-4. Click "Connect" in Tracy. Watch the flamegraph populate live.
-5. To save: Tracy menu → "Save trace". `.tracy` files compress well
-   and are reproducible.
+Use `scripts/profile_desktop.sh`. It starts `tracy-capture` before the game and
+finalizes the trace when the game exits, then exports
+`tracy_zones.csv` + `tracy_summary.md` — a ranked table of zones by total time,
+count, mean, and max. No GUI, no connect button, no timing on your part.
+
+The GUI is still there if you want it: open `tracy.trace` from the bundle in
+`tracy-profiler`. Note that a live GUI capture must be connected before the
+game starts to see T=0, which is exactly the coordination the script removes.
 
 ### What's captured
 
 - Every Bevy system's per-tick CPU time, automatically.
 - Custom `info_span!("...")` blocks added in code.
-- GPU timing if Tracy's GPU module is wired (off by default).
+- Per-render-pass CPU time, and GPU time where the adapter supports timestamp
+  queries: `bevy/trace_tracy` turns on `bevy_render/tracing-tracy`, which makes
+  `RenderPlugin` install `RenderDiagnosticsPlugin` itself. Without that feature
+  the presentation census installs the same plugin when
+  `AMBITION_PROFILE_CENSUS` is set, so `--no-tracy` runs still get per-pass
+  rows in `render_diagnostics.csv`.
 
 ### What's NOT captured
 
@@ -233,51 +295,141 @@ Tracy adds ~5-10% CPU overhead and grows the binary by ~3 MB. Both
 are negligible during dev. Default builds drop the dep entirely
 since `profile` is opt-in.
 
-### Desktop perf/stat/strace captures
-
-For desktop captures without Tracy, use
-[`scripts/profile_desktop.sh`](../../scripts/profile_desktop.sh):
+### The one-command workflow
 
 ```bash
-scripts/profile_desktop.sh
-scripts/profile_desktop.sh -- release
-scripts/profile_desktop.sh perf-run --duration 30
+./scripts/profile_desktop.sh
+```
+
+Play normally, reproduce the slowdown, quit the game normally. There is no
+Tracy window to open, no capture button, and no moment you have to hit. The
+script prints one output directory; read the `summary.md` in it.
+
+What it does, in order:
+
+1. asks `run_game.sh --print-plan` which executable this invocation resolves
+   to — it never guesses a path;
+2. builds it with the optimized `profiling` cargo profile and
+   `--features profile`;
+3. starts `tracy-capture` (headless, no GUI) if the tools are installed and
+   that binary carries the Tracy client;
+4. launches the game under `perf record`, with `AMBITION_PROFILE_CENSUS=1` so
+   the in-process workload censuses run at 1 Hz;
+5. stamps every line the game logs with seconds since launch;
+6. when the game exits — normally, by Ctrl-C, or by crashing — finalizes the
+   Tracy trace, slices the perf capture into time windows, turns the census log
+   into CSVs, writes `summary.md`, and tars the directory.
+
+Every optional profiler is optional. A missing `perf`, a missing Tracy, an
+adapter with no timestamp queries, a missing `strace` — each costs its own
+artifact, records why, and the rest of the run is still collected.
+
+### The no-GPU / VM workflow
+
+```bash
+./scripts/profile_desktop.sh --headless
+```
+
+This runs the game's own supported headless path (`--headless
+--headless-ticks N`, default 1800), which composes no renderer. You still get
+Tracy system timings, `perf`, the simulation systems, schedule and entity
+counts, body counts, asset CPU work, and the frame-interval census. The
+report marks every GPU and render-pass measurement **not applicable** rather
+than absent, because a headless run is not evidence that rendering is cheap.
+
+Do not use a software rasterizer as a stand-in for a GPU. If a windowed run on
+this machine falls back to llvmpipe/lavapipe, `summary.md` says
+**SOFTWARE RENDERING** at the top and the symbol rankings below it are mostly
+the rasterizer's unsymbolized JIT'd shader code — that is a measurement of a
+CPU emulating a GPU, and adapter selection is the bug to fix first.
+
+### Dev build versus optimized runtime
+
+These are two different questions and the bundle names which one it answered:
+
+```bash
+./scripts/profile_desktop.sh              # why is the optimized runtime slow?
+./scripts/profile_desktop.sh --dev-build  # why is my edit/play build slow?
+```
+
+`[profile.dev]` deliberately builds `ambition_app`, `ambition_render`, and
+`ambition_platformer2d_runtime` at `opt-level = 0` (see the measured table in
+`Cargo.toml`), so dev-build numbers are not release numbers and must never be
+reported as an architecture finding. `[profile.profiling]` is release
+optimization with `debug = 1` and `strip = "none"`, which is what lets `perf`
+and Tracy attribute a frame; `ship` is the wrong instrument here because it
+strips symbols and fat-LTOs everything into one unattributable blob.
+
+### Other modes
+
+```bash
+scripts/profile_desktop.sh perf-run --duration 30 --report-preset full
 scripts/profile_desktop.sh perf-attach --duration 30
 scripts/profile_desktop.sh stat-run --duration 30
 scripts/profile_desktop.sh asset-run --duration 30
+scripts/profile_desktop.sh --no-tracy --build-profile release -- sandbox
 ```
 
-With no arguments the script does a `timeline-run`: it launches the game the
-way `./run_game.sh` would, records until you quit the game (Ctrl-C in the
-terminal works too), then slices the capture into 12 time chunks and labels
-each with the room/boss/title/session log lines seen in that window. Read
-`target/profiles/desktop-timeline-run-*/timeline.md`; each chunk lists its
-own top symbols, so "what got slow when I entered the room" is a diff between
-two chunks rather than a whole-run average.
+The default open-ended capture records without call graphs (~15 KB/s of
+`perf.data`, so a long session stays manageable) and the per-window reports are
+flat self-time symbol lists. When you need caller attribution for a specific
+hotspot, follow up with `perf-run --duration 30 --report-preset full`, which
+keeps the DWARF stacks.
 
-Every capture also writes `host-environment.txt` (GPU, DRM render nodes,
-installed Vulkan ICDs, `VK_*`/`WGPU_*`/`MESA_*` overrides, session type) and
-puts the adapter the game actually selected at the top of
-`desktop-profile-summary.md`. Read that section first. Captures are often
-analyzed on a different machine than they were taken on, and if the run fell
-back to a CPU rasterizer then ~90% of the samples are the rasterizer's
-unsymbolized JIT'd shader code — the symbol rankings below it are then
-describing the few percent left over, and adapter selection is the bug.
+Arguments after `--` go to `run_game.sh`; a second `--` reaches the game
+(`-- sandbox -- --start-room mary_o_level_1`).
 
-Because that capture is open-ended, `timeline-run` records without call
-graphs (~15 KB/s of `perf.data`, so a long session stays manageable) and the
-per-chunk reports are flat self-time symbol lists. When you need caller
-attribution for a specific hotspot, follow up with a bounded capture:
-`scripts/profile_desktop.sh perf-run --duration 30 --report-preset full`,
-which keeps the DWARF stacks.
+Attach modes look for the launched binary by name, then `ambition_game_bin`,
+and also accept the historical `ambition_platformer2d_actor_monolith` name for
+older local builds. They cannot see the game's stdio, so an attach bundle has
+no census CSVs; it says so in `census.missing`.
 
-The cargo profile is whatever `run_game.sh` defaults to; pass `-- release` to
-profile an optimized build, and a second `--` to reach game arguments
-(`-- release -- --start-room mary_o_level_1`).
+### What is in the bundle
 
-Attach modes look for the current desktop game process, `ambition_game_bin`,
-and also accept the historical `ambition_platformer2d_actor_monolith` name for older local
-builds.
+`summary.md` is the front page and carries a table of every file with a
+present/absent column. The rest:
+
+| file | contents |
+|---|---|
+| `metadata.txt`, `metadata.json` | commit, branch, dirty files, cargo profile, features, executable, rustc, target, host, capture settings |
+| `host-environment.txt` | CPU, memory, session type, DRM render nodes, Vulkan ICDs, `VK_*`/`WGPU_*`/`MESA_*` overrides, adapters |
+| `timeline.md` | per-window perf symbols labelled with the game's own log markers |
+| `frame_times.csv` | per-census-window frame percentiles (mean/p50/p95/p99/min/max) |
+| `frame_spikes.csv`, `frame_windows.csv` | every frame over 33.4ms; the always-on 5s census |
+| `camera_views.csv` | ONE ROW PER CAMERA PER SAMPLE: role, active, target kind, resolution, viewport, order, render layers, presented view, name |
+| `view_totals.csv` | cameras / active / world-rendering / offscreen / local-view counts |
+| `portal_activity.csv` | capture rigs, active rigs, and the effective capture budget bounding them |
+| `render_target_census.csv` | offscreen image targets, their bytes, largest dimension |
+| `render_diagnostics.csv` | Bevy per-pass `elapsed_cpu`, `elapsed_gpu`, and pipeline statistics |
+| `runtime_census.csv` | entities, archetypes, components, bodies, players |
+| `draw_census.csv` | sprites, visible sprites, `Text2d`, per-view projections |
+| `schedule_census.csv` | registered systems per sample |
+| `asset_activity.csv`, `image_decodes.csv` | cumulative decode work; every notable texture with its path |
+| `tracy_summary.md`, `tracy_zones.csv` | per-Bevy-system and per-render-pass zones, ranked |
+| `tracy_zone_windows.csv` | the same zones bucketed into time windows (needs a `tracy-csvexport` with `--unwrap`) |
+| `tracy.trace` | the raw trace, if you do want the GUI |
+| `perf_windows/`, `perf_report.txt`, `perf-report-by-dso.txt` | the native profile |
+| `game-stderr-stamped.txt` | the game's whole log, stamped with seconds since launch |
+
+Everything shares one clock: the `[   12.345s]` stamp is seconds since the
+profiler launched the process and appears on every CSV row as `wall_s`, and
+each census row also carries `t=`, seconds since the census clock started
+inside the game. That is what makes "frame time rose at 74s, and so did the
+world-rendering camera count" a join rather than a guess.
+
+### Which measurements need real hardware
+
+| measurement | needs |
+|---|---|
+| per-pass `elapsed_cpu` | nothing; always recorded when the render app exists |
+| per-pass `elapsed_gpu` | a Vulkan or DX12 adapter with `TIMESTAMP_QUERY` |
+| primitive / shader-invocation counts | an adapter with `PIPELINE_STATISTICS_QUERY` |
+| anything about GPU rendering at all | a real GPU — not llvmpipe, not headless |
+| kernel-side perf symbols | `kernel.perf_event_paranoid <= 1` and `kptr_restrict = 0` (the script requests both) |
+
+`summary.md` distinguishes **measured**, **supported but unavailable on this
+machine/backend**, and **not applicable (headless run)** for each of these. A
+diagnostic is never silently omitted.
 
 ## 2c. Android native allocation profiling
 
@@ -323,13 +475,23 @@ scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interv
 lines in stderr. If a single phase dominates, add finer phase marks
 inside it.
 
-**"Why did frame time get worse?"** `--features profile`, capture
-30 seconds in Tracy, sort the system list by CPU time. Compare a
-known-good run side-by-side.
+**"Why did frame time get worse?"** `./scripts/profile_desktop.sh`, reproduce
+it, quit. Read `summary.md`: worst frames first, then the camera/view counts
+and render-pass times at the same second, then the Tracy zone table.
 
-**"Asset loading hitches the first time I enter a room"**
-`--features profile` + filter Tracy on the room-load frame. Asset
-load spans show up under `bevy_asset` system names.
+**"Is a feature costing me while it is visually inactive?"** Same bundle.
+`camera_views.csv` shows an `active=true` camera with no visible output;
+`portal_activity.csv` shows rigs alive with nothing on screen;
+`draw_census.csv` shows the gap between `sprites` and `sprites_visible`.
+
+**"Asset loading hitches the first time I enter a room"** Same bundle.
+`image_decodes.csv` names the sheet and the second, `frame_spikes.csv` says
+whether that second stuttered, and `timeline.md` says which room you were
+entering.
+
+**"I only have the VM."** `./scripts/profile_desktop.sh --headless`. You lose
+GPU and render-pass numbers (the report says so) and keep everything about the
+simulation, the schedule, the entity population, and asset CPU work.
 
 ## Adding manual spans
 

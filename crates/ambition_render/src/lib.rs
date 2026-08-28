@@ -24,5 +24,8 @@ pub mod platformer_presentation;
 pub mod quality;
 pub mod reading_layout;
 pub mod rendering;
+/// Profiling-only presentation census: cameras/views, offscreen targets, portal
+/// capture rigs, the draw population, and Bevy's render-pass diagnostics.
+pub mod runtime_census;
 pub mod screen_effects;
 pub mod ui_fonts;

@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Collect parseable desktop profiling artifacts for Ambition.
+# Collect a self-contained desktop profiling bundle for Ambition.
+#
+# `scripts/profile_desktop.sh` acts like `./run_game.sh`, and additionally dumps
+# the diagnostics needed to explain a slowdown afterwards. Run it, play, quit;
+# read `summary.md` in the directory it prints.
 #
 # Design goals:
-# - wrap ./run_game.sh so profiling follows the normal launch path;
-# - warm-build launch modes so compilation does not pollute captures;
-# - never hang forever in perf report / addr2line / perf script;
-# - emit small text summaries by default, not SVGs or giant raw archives.
+# - one command, no interactive profiler session, no capture button;
+# - profile an OPTIMIZED runtime by default, and say so in the report;
+# - never model what `run_game.sh` would launch -- ask it (`--print-plan`);
+# - degrade instead of failing: a missing perf, Tracy, or GPU costs its own
+#   artifact and nothing else;
+# - emit small text/CSV artifacts a human or an agent can read without a GUI.
 set -euo pipefail
 
 original_args=("$@")
@@ -32,99 +38,120 @@ report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
 timeline_chunks="12"
+
+# ── What is being profiled ────────────────────────────────────────────────
+# The optimized `profiling` cargo profile is the default because the question
+# people bring here is "why is the RUNTIME slow", and the dev profile answers a
+# different one (`--dev-build` asks that one deliberately). `profiling` is
+# release optimization with symbols and line tables kept -- see
+# [profile.profiling] in Cargo.toml.
+build_profile="profiling"
+# `--features profile` turns on bevy/trace + bevy/trace_tracy, which is what
+# makes per-Bevy-system zones and per-render-pass diagnostics exist at all.
+want_tracy="yes"
+census="yes"
+census_hz="1"
+headless="no"
+headless_ticks="1800"
+
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
 # `game-mode`/`sim-clock`/`world-event` are the world-state log: a frozen world
 # is two globals, and a timeline that shows neither cannot say which one froze.
-marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo|frame-spike|frame-census|image-census|sprite-bind|sprite-size|game-mode|sim-clock|world-event'
+marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo|frame-spike|frame-census|image-census|sprite-bind|sprite-size|game-mode|sim-clock|world-event|census'
 
 usage() {
     cat <<'USAGE'
 Usage:
   scripts/profile_desktop.sh [MODE] [OPTIONS] [-- RUN_GAME_ARGS ...]
 
-With no arguments: builds the game (same cargo profile ./run_game.sh would
-use), launches it under perf, records until you quit the game, then slices the
-capture into labelled time chunks. Read
-target/profiles/desktop-timeline-run-*/timeline.md afterwards.
+With no arguments: builds the game with the optimized `profiling` cargo profile
+and `--features profile`, launches it under perf with a Tracy capture and the
+in-process workload censuses running, records until you quit the game, and
+writes one bundle. Read the `summary.md` whose path it prints at the end.
+
+On a machine with no usable GPU (the dev VM):
+
+  scripts/profile_desktop.sh --headless
+
+runs the game's own supported headless path and collects everything that stays
+meaningful there, labelling the GPU measurements it could not take.
 
 Modes:
-  perf-run        Launch ./run_game.sh under perf record, then emit bounded text reports.
-  perf-attach     Attach perf record to an already-running ambition_game process.
-  stat-run        Launch ./run_game.sh under perf stat with interval output.
-  stat-attach     Attach perf stat to an already-running ambition_game process.
-  asset-run       Launch ./run_game.sh under strace and summarize repeated asset opens.
-  asset-attach    Attach strace to an already-running ambition_game process.
-  timeline-run    Launch under perf record and record until the game exits (or
-                  until --duration, if given), stamping game log output with
-                  seconds-since-launch, then slice the capture into time chunks
-                  and label each chunk with the log lines (room, boss, title,
-                  session...) seen in that window. One capture covers startup,
-                  title screen, and gameplay phases in one run.
+  timeline-run    Launch, record until the game exits (or --duration), slice
+                  the capture into labelled time chunks. THE DEFAULT.
+  perf-run        Launch under perf record, then emit bounded text reports.
+  perf-attach     Attach perf record to an already-running game process.
+  stat-run        Launch under perf stat with interval output.
+  stat-attach     Attach perf stat to an already-running game process.
+  asset-run       Launch under strace and summarize repeated asset opens.
+  asset-attach    Attach strace to an already-running game process.
   all-run         Run perf-run, stat-run, then asset-run sequentially.
 
-  Default mode: timeline-run
+Build selection:
+  --build-profile P       dev | release | profiling | ship. Default: profiling.
+  --dev-build             Shorthand for --build-profile dev. Answers "why is my
+                           edit/play build slow", which is a DIFFERENT question
+                           from "why is the optimized runtime slow"; the report
+                           names which one it measured.
+  --no-tracy              Do not add --features profile. Drops per-Bevy-system
+                           zones and Bevy's render-pass diagnostics.
+
+Headless / no-GPU:
+  --headless              Run the game's headless path (--headless) instead of
+                           opening a window. GPU/render-pass diagnostics are
+                           reported as not-applicable rather than missing.
+  --headless-ticks N      Ticks to run headlessly. Default: 1800.
+
+Census:
+  --census-hz N           Workload census sample rate. Default: 1 (per second).
+  --no-census             Do not set AMBITION_PROFILE_CENSUS. The bundle then
+                           has no camera/view/entity/portal rows.
 
 Options:
   -h, --help              Show this help.
-  -d, --duration SEC      Capture duration in seconds. timeline-run defaults to
-                           running until the game exits; every other mode
-                           defaults to 30. Quitting the game always ends a
-                           *-run capture early, whatever this is set to.
+  -d, --duration SEC      Capture duration. timeline-run defaults to running
+                           until the game exits; other modes default to 30.
   --chunks N              timeline-run: number of equal time slices. Default: 12.
-  --marker-regex RE       timeline-run: case-insensitive grep -E pattern that
-                           picks scenario-marker lines out of the game log.
-                           Defaults to scenario markers plus the game's own
-                           [frame-spike]/[frame-census]/[image-census]/
-                           [sprite-bind] census lines.
-  -F, --freq HZ           Sampling frequency for perf record. Default: 99.
+  --marker-regex RE       timeline-run: case-insensitive grep -E pattern picking
+                           scenario markers out of the game log.
+  -F, --freq HZ           perf record sampling frequency. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
-  -p, --pid PID           PID to attach to. If omitted, newest ambition_game_bin PID is used.
+  -p, --pid PID           PID to attach to (attach modes).
   -o, --out DIR           Output base directory. Default: target/profiles.
-  --name NAME             Output directory name suffix. Default: MODE-UTC_TIMESTAMP.
-  --events LIST           perf stat events. Default: task-clock,cycles,instructions,...
-  --call-graph SPEC       perf call graph spec, or 'none'. Default: none for
-                           timeline-run (an open-ended capture with DWARF stacks
-                           can reach gigabytes), dwarf,8192 for other modes.
+  --name NAME             Output directory name suffix. Default: MODE-TIMESTAMP.
+  --events LIST           perf stat events.
+  --call-graph SPEC       perf call graph spec, or 'none'.
   --report-preset PRESET  none, fast, or full. Default: fast.
-                           fast: one flat symbol report + summary.
-                           full: flat + children + self reports.
   --report-timeout SEC    Max seconds per perf report command. Default: 45.
-  --include-perf-script   Also run bounded perf script and gzip it. Default: off.
-  --include-raw-data      Include perf.data in the upload tarball. Default: off.
+  --include-perf-script   Also run bounded perf script and gzip it.
+  --include-raw-data      Include perf.data in the bundle tarball.
   --no-raw-data           Do not include perf.data in the tarball. Default.
-  --warm-build            Build the game before launch-based captures.
-  --no-warm-build         Skip the pre-profile build step for launch-based captures.
-  --                      Arguments after -- are passed to ./run_game.sh for run modes.
+  --warm-build            Build before launch-based captures.
+  --no-warm-build         Skip the pre-profile build step.
+  --                      Arguments after -- are passed to ./run_game.sh.
 
 Examples:
   scripts/profile_desktop.sh
-  scripts/profile_desktop.sh -- release
-  scripts/profile_desktop.sh --chunks 20 -- release -- --start-room you_have_to_cut_the_rope
-  scripts/profile_desktop.sh timeline-run --duration 180
-  scripts/profile_desktop.sh perf-run --duration 30
-  scripts/profile_desktop.sh perf-run --report-preset full --duration 30
-  scripts/profile_desktop.sh perf-attach --duration 30
-  scripts/profile_desktop.sh asset-run --duration 30
-  scripts/profile_desktop.sh stat-attach --duration 30
+  scripts/profile_desktop.sh --headless
+  scripts/profile_desktop.sh --dev-build
+  scripts/profile_desktop.sh -- sandbox
+  scripts/profile_desktop.sh --chunks 20 -- -- --start-room you_have_to_cut_the_rope
+  scripts/profile_desktop.sh perf-run --duration 30 --report-preset full
 
 Notes:
   - Ctrl-C during a capture ends the recording and still writes the reports.
-  - Report generation is time-limited. If a report times out, the script packages
-    the status/stderr and keeps going.
-  - Raw perf.data is excluded from tarballs by default because DWARF stacks can
-    produce hundreds of MB. Re-run with --include-raw-data when raw data is needed.
-  - Launch modes warm-build first by default so compile time is not profiled.
-    The cargo profile is whatever ./run_game.sh would use; pass '-- release' to
-    profile an optimized build.
-  - Where DWARF stacks are recorded, the stack dump is capped to 8 KiB to avoid
-    huge perf.data files.
+  - Every optional profiler is optional: a missing perf, Tracy, GPU timestamp
+    query, or strace records WHY it is missing and the run continues.
+  - Raw perf.data is excluded from the tarball by default (DWARF stacks reach
+    hundreds of MB). Re-run with --include-raw-data when it is needed.
 USAGE
 }
 
 fail() { echo "profile_desktop.sh: $*" >&2; exit 2; }
 log() { printf '[profile-desktop] %s\n' "$*" >&2; }
 require_tool() { command -v "$1" >/dev/null 2>&1 || fail "required tool '$1' not found"; }
+have_tool() { command -v "$1" >/dev/null 2>&1; }
 is_positive_int() { [[ "$1" =~ ^[1-9][0-9]*$ ]]; }
 quote_cmd() { printf '%q ' "$@"; }
 
@@ -164,6 +191,16 @@ while [[ $# -gt 0 ]]; do
         --chunks=*) timeline_chunks="${1#--chunks=}"; is_positive_int "$timeline_chunks" || fail "--chunks must be positive" ;;
         --marker-regex) shift; [[ $# -gt 0 ]] || fail "--marker-regex requires a value"; marker_regex="$1" ;;
         --marker-regex=*) marker_regex="${1#--marker-regex=}" ;;
+        --build-profile) shift; [[ $# -gt 0 ]] || fail "--build-profile requires a value"; build_profile="$1" ;;
+        --build-profile=*) build_profile="${1#--build-profile=}" ;;
+        --dev-build|--dev-profile) build_profile="dev" ;;
+        --no-tracy) want_tracy="no" ;;
+        --headless) headless="yes" ;;
+        --headless-ticks) shift; [[ $# -gt 0 ]] || fail "--headless-ticks requires a value"; is_positive_int "$1" || fail "--headless-ticks must be positive"; headless="yes"; headless_ticks="$1" ;;
+        --headless-ticks=*) headless_ticks="${1#--headless-ticks=}"; is_positive_int "$headless_ticks" || fail "--headless-ticks must be positive"; headless="yes" ;;
+        --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
+        --census-hz=*) census_hz="${1#--census-hz=}" ;;
+        --no-census) census="no" ;;
         --include-perf-script) include_perf_script="yes" ;;
         --include-raw-data) include_raw_data="yes" ;;
         --no-raw-data) include_raw_data="no" ;;
@@ -177,7 +214,78 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$report_preset" in none|fast|full) ;; *) fail "--report-preset must be none, fast, or full" ;; esac
-run_cmd=("$repo_root/run_game.sh" "${run_args[@]}")
+case "$build_profile" in dev|release|profiling|ship) ;; *) fail "--build-profile must be dev, release, profiling, or ship" ;; esac
+[[ "$census_hz" =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "--census-hz must be a number"
+
+# ── The launch this run is about ──────────────────────────────────────────
+# The script contributes the build profile, the tracing feature, and (headless)
+# the game's own headless flags; everything the caller passed after `--` comes
+# after them, so a caller can override any of it exactly as they would on
+# run_game.sh's own command line.
+#
+# `run_args` may itself contain a `--` separating run_game.sh options from game
+# arguments. Split on the first one so appended game arguments land on the game
+# side rather than being read as launcher options.
+split_run_args() {
+    launcher_args=()
+    game_args=()
+    local seen_separator=0 arg
+    for arg in "$@"; do
+        if [[ "$seen_separator" -eq 0 && "$arg" == "--" ]]; then seen_separator=1; continue; fi
+        if [[ "$seen_separator" -eq 1 ]]; then game_args+=("$arg"); else launcher_args+=("$arg"); fi
+    done
+}
+
+build_effective_run_args() {
+    split_run_args "${run_args[@]+"${run_args[@]}"}"
+    effective_run_args=("$build_profile")
+    if [[ "$want_tracy" == "yes" ]]; then effective_run_args+=(--features profile); fi
+    effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
+    local extra_game_args=()
+    if [[ "$headless" == "yes" ]]; then
+        extra_game_args+=(--headless --headless-ticks "$headless_ticks")
+    fi
+    if [[ "${#game_args[@]}" -gt 0 || "${#extra_game_args[@]}" -gt 0 ]]; then
+        effective_run_args+=(--)
+        effective_run_args+=("${game_args[@]+"${game_args[@]}"}")
+        effective_run_args+=("${extra_game_args[@]+"${extra_game_args[@]}"}")
+    fi
+}
+
+build_effective_run_args
+run_cmd=("$repo_root/run_game.sh" "${effective_run_args[@]}")
+
+# ASK the launcher which executable this is, do not model it. The old code
+# scanned target/debug first and reported "no Tracy client" about a binary the
+# command was not launching.
+plan_binary=""
+plan_package=""
+plan_bin=""
+plan_profile_dir=""
+plan_features=""
+plan_build_cmd=()
+plan_status="unresolved"
+resolve_launch_plan() {
+    local line key value
+    plan_build_cmd=()
+    if ! plan_text="$("$repo_root/run_game.sh" --print-plan "${effective_run_args[@]}" 2>/dev/null)"; then
+        plan_status="run_game.sh --print-plan failed"
+        log "could not resolve the launch plan; falling back to a bare launch"
+        return 0
+    fi
+    while IFS= read -r line; do
+        key="${line%%=*}"; value="${line#*=}"
+        case "$key" in
+            binary_path) plan_binary="$value" ;;
+            package) plan_package="$value" ;;
+            binary) plan_bin="$value" ;;
+            profile_dir) plan_profile_dir="$value" ;;
+            features) plan_features="$value" ;;
+            build_arg) plan_build_cmd+=("$value") ;;
+        esac
+    done <<< "$plan_text"
+    plan_status="ok"
+}
 
 # timeline-run is the "just record my session" mode: it runs until the game
 # exits and skips call-graph capture, so an open-ended session cannot balloon
@@ -188,6 +296,31 @@ if [[ -z "$perf_call_graph" ]]; then
         timeline-run) perf_call_graph="none" ;;
         *) perf_call_graph="dwarf,8192" ;;
     esac
+fi
+
+# ⛔ Tracy REFUSES TO START, AND TAKES THE GAME WITH IT, on a CPU that does not
+# advertise an invariant TSC -- which is every VM whose hypervisor hides
+# `nonstop_tsc`. The client aborts during initialization and the process exits
+# 1 before a frame runs, so `--features profile` would make the DEFAULT command
+# of this script kill the game it was asked to profile. Set the documented
+# escape hatch when the flags are absent, and record that the zone timestamps
+# came off a TSC the kernel does not vouch for.
+tracy_tsc_note=""
+if [[ "$want_tracy" == "yes" ]]; then
+    cpu_flags="$(grep -m1 '^flags' /proc/cpuinfo 2>/dev/null || true)"
+    if [[ -n "$cpu_flags" ]] && ! { [[ "$cpu_flags" == *constant_tsc* ]] && [[ "$cpu_flags" == *nonstop_tsc* ]]; }; then
+        export TRACY_NO_INVARIANT_CHECK=1
+        tracy_tsc_note="this CPU does not advertise an invariant TSC (constant_tsc + nonstop_tsc); TRACY_NO_INVARIANT_CHECK=1 was set so the game could run. Tracy zone durations here come from a timer the kernel does not vouch for: treat their RATIOS as sound and their absolute microseconds as approximate."
+    fi
+fi
+
+# The in-process censuses read this. Exported here, once, so every launch mode
+# and the attach modes' target inherit the same cadence.
+if [[ "$census" == "yes" ]]; then
+    export AMBITION_PROFILE_CENSUS=1
+    export AMBITION_PROFILE_CENSUS_HZ="$census_hz"
+else
+    unset AMBITION_PROFILE_CENSUS || true
 fi
 
 # perf rejects `-g` alongside no call graph, so drop both flags for 'none'
@@ -207,61 +340,62 @@ bounded_argv() {
     printf '%s\0' "$@"
 }
 
+# ── Tracy ─────────────────────────────────────────────────────────────────
 # Tracy answers what perf structurally cannot: per-Bevy-system and per-render-
 # pass timings. It is used when it is USABLE and skipped loudly otherwise --
-# never installed, never silently enabled, and never a reason for the default
-# run to fail. Two independent conditions must hold: the tools exist (setup
-# installs them) and the binary was built with --features profile (which the
-# default build is not, because forcing it would silently change what is being
-# profiled).
+# never installed here, and never a reason for the default run to fail.
 tracy_tools_present() {
-    command -v tracy-capture >/dev/null 2>&1 && command -v tracy-csvexport >/dev/null 2>&1
+    have_tool tracy-capture && have_tool tracy-csvexport
 }
 
 binary_has_tracy() {
     local bin="${1:-}"
     [[ -n "$bin" && -f "$bin" ]] || return 1
     # The tracy client leaves its symbols in the binary; no need to run it.
-    strings -a "$bin" 2>/dev/null | grep -q "TracyPlot\|tracy_emit_zone_begin"
-}
-
-game_binary_path() {
-    local candidate
-    for candidate in \
-        "${CARGO_TARGET_DIR:-$repo_root/target}/debug/ambition_game_bin" \
-        "${CARGO_TARGET_DIR:-$repo_root/target}/release/ambition_game_bin" \
-        "$HOME/ambition-target/debug/ambition_game_bin" \
-        "$HOME/ambition-target/release/ambition_game_bin"; do
-        [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
-    done
-    return 1
+    # `grep -a -m1` reads the file directly and stops at the first hit -- a
+    # profiling build with DWARF is over a gigabyte, and piping it all through
+    # `strings` first would cost tens of seconds before the game even launches.
+    grep -aqm1 -e 'tracy_emit_zone_begin' -e 'TracyPlot' "$bin" 2>/dev/null
 }
 
 # Start a Tracy capture in the background if this run can produce one. Echoes
 # the capture PID so the caller can wait on it; echoes nothing when skipped.
 start_tracy_capture() {
-    local out_dir="$1" bin
+    local out_dir="$1"
+    if [[ "$want_tracy" == "no" ]]; then
+        echo "--no-tracy was passed; no per-system or per-render-pass timings were collected" \
+            > "$out_dir/tracy.skipped"
+        return 0
+    fi
     if ! tracy_tools_present; then
-        echo "tracy-capture/tracy-csvexport not found; per-system timings unavailable" \
+        echo "tracy-capture/tracy-csvexport not found; per-system timings unavailable (run ./run_developer_setup.sh)" \
             > "$out_dir/tracy.skipped"
         log "Tracy tools not installed; skipping per-system capture (run ./run_developer_setup.sh)"
         return 0
     fi
-    bin="$(game_binary_path || true)"
-    if ! binary_has_tracy "$bin"; then
-        echo "game binary lacks the tracy client; rebuild with: ./run_game.sh --features profile" \
-            > "$out_dir/tracy.skipped"
-        log "binary has no Tracy client; skipping per-system capture"
-        log "  for Bevy-system timings, rerun as: $0 $(quote_cmd "${original_args[@]}") -- --features profile"
+    # The binary this command LAUNCHES, resolved by run_game.sh itself.
+    if ! binary_has_tracy "$plan_binary"; then
+        {
+            echo "the launched binary has no tracy client"
+            echo "binary: ${plan_binary:-<unresolved>}"
+            echo "features: ${plan_features:-<none>}"
+            echo "rebuild with --features profile (the default unless --no-tracy was passed)"
+        } > "$out_dir/tracy.skipped"
+        log "binary has no Tracy client: ${plan_binary:-<unresolved>}"
         return 0
     fi
-    log "Tracy client detected; capturing per-system timings alongside perf"
-    tracy-capture -o "$out_dir/trace.tracy" -f > "$out_dir/tracy-capture.log" 2>&1 &
+    log "Tracy client detected in $plan_binary; capturing per-system timings alongside perf"
+    if [[ -n "$tracy_tsc_note" ]]; then
+        printf '%s\n' "$tracy_tsc_note" > "$out_dir/tracy.caveat"
+        log "$tracy_tsc_note"
+    fi
+    tracy-capture -o "$out_dir/tracy.trace" -f > "$out_dir/tracy-capture.log" 2>&1 &
     printf '%s\n' "$!"
 }
 
 # Turn the trace into the thing that is actually readable without a GUI: a
-# ranked table of the costliest zones (Bevy systems and render passes).
+# ranked table of the costliest zones (Bevy systems and render passes), plus
+# per-window tables when the exporter can unwrap individual zone instances.
 finish_tracy_capture() {
     local out_dir="$1" capture_pid="${2:-}"
     [[ -n "$capture_pid" ]] || return 0
@@ -274,51 +408,30 @@ finish_tracy_capture() {
     done
     kill "$capture_pid" 2>/dev/null || true
     wait "$capture_pid" 2>/dev/null || true
-    [[ -s "$out_dir/trace.tracy" ]] || { log "Tracy produced no trace"; return 0; }
-    if ! tracy-csvexport "$out_dir/trace.tracy" > "$out_dir/tracy-zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then
-        log "tracy-csvexport failed; the raw trace.tracy is still usable in the GUI"
+    if [[ ! -s "$out_dir/tracy.trace" ]]; then
+        echo "tracy-capture produced no trace (the game never connected)" > "$out_dir/tracy.skipped"
+        log "Tracy produced no trace"
         return 0
     fi
-    python3 - "$out_dir" <<'PY'
-import csv, os, sys
-out = sys.argv[1]
-path = os.path.join(out, 'tracy-zones.csv')
-try:
-    with open(path, newline='', errors='replace') as f:
-        rows = list(csv.DictReader(f))
-except FileNotFoundError:
-    sys.exit(0)
-
-def num(row, *names):
-    for name in names:
-        value = row.get(name)
-        if value not in (None, ''):
-            try:
-                return float(value)
-            except ValueError:
-                pass
-    return 0.0
-
-# Rank by total time in the zone: that is what a frame budget is spent on,
-# regardless of whether it is one slow call or ten thousand cheap ones.
-ranked = sorted(rows, key=lambda r: num(r, 'total_ns', 'total', 'sum_ns'), reverse=True)
-lines = ['# Tracy zones (per-Bevy-system / per-pass timings)', '',
-         'Ranked by total time. perf cannot produce this: a Bevy system is not',
-         'a native symbol. Counts matter as much as totals -- a cheap zone run',
-         'ten thousand times is a scheduling problem, not a slow function.', '',
-         '```text',
-         f'{"total_ms":>10} {"mean_us":>9} {"count":>8}  zone']
-for row in ranked[:40]:
-    total_ns = num(row, 'total_ns', 'total', 'sum_ns')
-    count = num(row, 'counts', 'count')
-    mean_ns = num(row, 'mean_ns', 'mean') or (total_ns / count if count else 0.0)
-    name = row.get('name') or row.get('zone') or '<unnamed>'
-    lines.append(f'{total_ns/1e6:10.1f} {mean_ns/1e3:9.1f} {count:8.0f}  {name[:90]}')
-lines.append('```')
-with open(os.path.join(out, 'tracy-zones.md'), 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-print(f'[profile-desktop] tracy zone table: {os.path.join(out, "tracy-zones.md")}', file=sys.stderr)
-PY
+    if ! tracy-csvexport "$out_dir/tracy.trace" > "$out_dir/tracy_zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then
+        log "tracy-csvexport failed; the raw tracy.trace is still in the bundle"
+        echo "tracy-csvexport failed; see tracy-csvexport.stderr" > "$out_dir/tracy.skipped"
+        return 0
+    fi
+    # `--unwrap` emits one row per zone INSTANCE with its start time, which is
+    # the only way to say "this system got slow between 74s and 81s" rather
+    # than "this system cost 4s over the whole session". It is not present in
+    # every Tracy build, so its absence is recorded, not fatal.
+    if tracy-csvexport --unwrap "$out_dir/tracy.trace" > "$out_dir/tracy_zone_instances.csv" 2>/dev/null \
+        && [[ -s "$out_dir/tracy_zone_instances.csv" ]]; then
+        log "tracy zone instances exported (windowed zone tables available)"
+    else
+        rm -f "$out_dir/tracy_zone_instances.csv"
+        echo "this tracy-csvexport has no --unwrap; zone tables are whole-session totals only" \
+            > "$out_dir/tracy_zone_instances.missing"
+    fi
+    python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
+        || log "tracy zone report failed; tracy_zones.csv is still in the bundle"
 }
 
 describe_window() {
@@ -336,21 +449,17 @@ make_profile_dir() {
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
     local found="" candidate
-    for candidate in ambition_game_bin ambition_platformer2d_actor_monolith; do
+    local names=(ambition_game_bin ambition_platformer2d_actor_monolith)
+    [[ -n "$plan_bin" ]] && names=("$plan_bin" "${names[@]}")
+    for candidate in "${names[@]}"; do
         found="$(pgrep -n -x "$candidate" 2>/dev/null || true)"
-        if [[ -n "$found" ]]; then
-            printf '%s\n' "$found"
-            return 0
-        fi
+        if [[ -n "$found" ]]; then printf '%s\n' "$found"; return 0; fi
     done
-    for candidate in ambition_game_bin ambition_platformer2d_actor_monolith; do
+    for candidate in "${names[@]}"; do
         found="$(pgrep -n -f "$candidate" 2>/dev/null || true)"
-        if [[ -n "$found" ]]; then
-            printf '%s\n' "$found"
-            return 0
-        fi
+        if [[ -n "$found" ]]; then printf '%s\n' "$found"; return 0; fi
     done
-    fail "could not find ambition_game_bin or ambition_platformer2d_actor_monolith; pass --pid or use a *-run mode"
+    fail "could not find a running game process; pass --pid or use a *-run mode"
 }
 
 # The pgrep -f fallback can latch onto anything whose command line mentions an
@@ -363,7 +472,7 @@ record_attach_target() {
     printf '%s\n' "$cmdline" > "$out_dir/pid-cmdline.txt"
     log "attach target PID $target_pid: ${cmdline:-<process not found>}"
     case "$cmdline" in
-        *ambition_game_bin*|*mary_o_demo*|*sanic_demo*) ;;
+        *ambition_game_bin*|*mary_o_demo*|*sanic_demo*|*smash_demo*|*twintrack_demo*) ;;
         *) log "WARNING: attach target does not look like a game binary; pass --pid to override" ;;
     esac
 }
@@ -429,51 +538,19 @@ warm_build_is_enabled_for() {
     esac
 }
 
-derive_cargo_build_cmd() {
-    local release=0 hot_reload=0 no_default_features=0 cargo_jobs="" cargo_timings=0
-    local extra_features=() arg
-    while [[ $# -gt 0 ]]; do
-        arg="$1"
-        case "$arg" in
-            -r|--release|release) release=1 ;;
-            --debug|debug|dev) release=0 ;;
-            --hot|--hot-reload|--dev-hot-reload|hot|hot-reload|dev-hot-reload) hot_reload=1 ;;
-            --no-hot-reload) hot_reload=0 ;;
-            --features) shift; [[ $# -gt 0 ]] || fail "--features requires value"; extra_features+=("$1") ;;
-            --features=*) extra_features+=("${arg#--features=}") ;;
-            --no-default-features) no_default_features=1 ;;
-            -j|--jobs) shift; [[ $# -gt 0 ]] || fail "$arg requires value"; cargo_jobs="$1" ;;
-            -j[0-9]*) cargo_jobs="${arg#-j}" ;;
-            --jobs=*) cargo_jobs="${arg#--jobs=}" ;;
-            --timings) cargo_timings=1 ;;
-            --) break ;;
-            *) ;;
-        esac
-        shift
-    done
-    local cmd=(cargo build -p ambition_app --bin ambition_game_bin)
-    [[ "$no_default_features" -eq 1 ]] && cmd+=(--no-default-features)
-    [[ -n "$cargo_jobs" ]] && cmd+=(--jobs "$cargo_jobs")
-    [[ "$cargo_timings" -eq 1 ]] && cmd+=(--timings)
-    local features=()
-    [[ "$hot_reload" -eq 1 ]] && features+=(dev_hot_reload)
-    local feature_list
-    for feature_list in "${extra_features[@]}"; do [[ -n "$feature_list" ]] && features+=("$feature_list"); done
-    if [[ "${#features[@]}" -gt 0 ]]; then local IFS=,; cmd+=(--features "${features[*]}"); fi
-    [[ "$release" -eq 1 ]] && cmd+=(--release)
-    printf '%s\0' "${cmd[@]}"
-}
-
 run_warm_build_if_needed() {
     local out_dir="$1" local_mode="$2"
     if ! warm_build_is_enabled_for "$local_mode"; then echo "skipped" > "$out_dir/warm-build.status"; return 0; fi
+    if [[ "${#plan_build_cmd[@]}" -eq 0 ]]; then
+        echo "no build plan (run_game.sh --print-plan failed); the launch will build instead" \
+            > "$out_dir/warm-build.status"
+        return 0
+    fi
     require_tool cargo
-    local build_cmd=() item
-    while IFS= read -r -d '' item; do build_cmd+=("$item"); done < <(derive_cargo_build_cmd "${run_args[@]}")
-    echo "$(quote_cmd "${build_cmd[@]}")" > "$out_dir/warm-build-command.txt"
-    log "warm-building: $(quote_cmd "${build_cmd[@]}")"
+    echo "$(quote_cmd "${plan_build_cmd[@]}")" > "$out_dir/warm-build-command.txt"
+    log "warm-building: $(quote_cmd "${plan_build_cmd[@]}")"
     set +e
-    (cd "$repo_root" && "${build_cmd[@]}") > >(tee "$out_dir/warm-build.stdout") 2> >(tee "$out_dir/warm-build.stderr" >&2)
+    (cd "$repo_root" && "${plan_build_cmd[@]}") > >(tee "$out_dir/warm-build.stdout") 2> >(tee "$out_dir/warm-build.stderr" >&2)
     local status=$?
     set -e
     echo "$status" > "$out_dir/warm-build.status"
@@ -498,12 +575,28 @@ write_metadata() {
         echo "report_timeout_seconds=$report_timeout"
         echo "include_raw_data=$include_raw_data"
         echo "include_perf_script=$include_perf_script"
+        echo "cargo_profile=$build_profile"
+        echo "profile_dir=$plan_profile_dir"
+        echo "cargo_features=$plan_features"
+        echo "package=$plan_package"
+        echo "binary=$plan_bin"
+        echo "binary_path=$plan_binary"
+        echo "launch_plan_status=$plan_status"
+        echo "headless=$headless"
+        echo "headless_ticks=$headless_ticks"
+        echo "tracy_requested=$want_tracy"
+        echo "census_enabled=$census"
+        echo "census_hz=$census_hz"
         echo "run_command=$(quote_cmd "${run_cmd[@]}")"
         echo "warm_build_setting=$warm_build"
         echo "script_command=$(quote_cmd "$0" "${original_args[@]}")"
         echo "hostname=$(hostname 2>/dev/null || true)"
         echo "uname=$(uname -a 2>/dev/null || true)"
-        echo "git_head=$(cd "$repo_root" && git rev-parse --short=12 HEAD 2>/dev/null || true)"
+        echo "rust_target=$(rustc -vV 2>/dev/null | awk '/^host:/ {print $2}' || true)"
+        echo "rustc_version=$(rustc --version 2>/dev/null || true)"
+        echo "git_head=$(cd "$repo_root" && git rev-parse HEAD 2>/dev/null || true)"
+        echo "git_head_short=$(cd "$repo_root" && git rev-parse --short=12 HEAD 2>/dev/null || true)"
+        echo "git_branch=$(cd "$repo_root" && git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
         echo "git_status_porcelain_begin"
         (cd "$repo_root" && git status --short 2>/dev/null || true)
         echo "git_status_porcelain_end"
@@ -516,8 +609,12 @@ write_metadata() {
         echo "kptr_restrict=$(cat /proc/sys/kernel/kptr_restrict 2>/dev/null || true)"
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
+        echo "tracy_invariant_tsc_override=${TRACY_NO_INVARIANT_CHECK:-0}"
+        echo "tracy_capture=$(command -v tracy-capture 2>/dev/null || echo '<not installed>')"
+        echo "tracy_csvexport=$(command -v tracy-csvexport 2>/dev/null || echo '<not installed>')"
     } > "$out_dir/metadata.txt"
     write_host_environment "$out_dir"
+    python3 "$repo_root/scripts/lib/profile_metadata_json.py" "$out_dir" || true
 }
 
 # Samples alone cannot tell you which GPU -- if any -- the run actually used,
@@ -633,7 +730,7 @@ write_perf_reports() {
     [[ "$report_preset" == "none" ]] && return 0
 
     # Fast, robust, no callgraph report first. This is the one most likely to finish.
-    run_timed_report "$out_dir" perf-report-flat-fast \
+    run_timed_report "$out_dir" perf_report \
         perf report -i "$data_file" --stdio --sort comm,dso,symbol --call-graph none --percent-limit 0.25 --no-inline --no-source
 
     # Whole-population rollups at no percent limit. These answer "which layer
@@ -686,8 +783,6 @@ def write_counts(filename, counts):
 write_counts('image-open-counts.tsv', image_counts)
 write_counts('asset-open-counts.tsv', asset_counts)
 write_counts('all-open-counts.tsv', all_counts)
-with open(os.path.join(out_dir, 'image-open-counts.txt'), 'w') as f:
-    for path, count in image_counts.most_common(): f.write(f'{count:6d} {path}\n')
 with open(os.path.join(out_dir, 'asset-trace-summary.md'), 'w') as f:
     f.write('# Asset trace summary\n\n')
     for title, counts, limit in [('Top image opens', image_counts, 40), ('Top asset opens', asset_counts, 60)]:
@@ -701,146 +796,14 @@ with open(os.path.join(out_dir, 'asset-trace-summary.md'), 'w') as f:
 PY
 }
 
-write_summary() {
+# The two report writers every mode ends with: the census log becomes CSVs, and
+# everything in the directory becomes one summary.md.
+write_bundle_reports() {
     local out_dir="$1"
-    python3 - "$out_dir" <<'PY'
-import os, re, sys
-out = sys.argv[1]
-def read(name):
-    try:
-        with open(os.path.join(out, name), 'r', errors='replace') as f: return f.read()
-    except FileNotFoundError: return ''
-def status(name):
-    txt = read(name + '.status').strip(); return txt or 'missing'
-lines = ['# Desktop profile summary', '']
-
-# Which adapter the game actually got, first thing, before any symbol table.
-# Bevy logs this once at startup; it decides whether the rest of this file is
-# about game code or about a CPU emulating a GPU.
-adapter = ''
-for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt', 'perf-record.stderr',
-             'perf-record.stdout', 'perf-stat.stdout', 'strace.stderr'):
-    found = re.search(r'AdapterInfo \{[^}]*\}', read(name))
-    if found:
-        adapter = found.group(0)
-        break
-if adapter:
-    software = ('device_type: Cpu' in adapter or 'llvmpipe' in adapter or 'lavapipe' in adapter
-                or 'swiftshader' in adapter.lower())
-    lines += ['## Renderer', '', '```text', adapter, '```', '']
-    if software:
-        lines += [
-            '**SOFTWARE RENDERING — READ THIS BEFORE THE SYMBOLS BELOW.**',
-            '',
-            'This run had no GPU: every pixel was rasterized on the CPU. Expect the',
-            'bulk of samples in llvmpipe/lavapipe threads and in unsymbolized `[JIT]`',
-            'frames, which are the rasterizer\'s runtime-compiled shaders -- perf can',
-            'never attribute those to a pass, a material, or a draw call. Game-code',
-            'symbols in this profile describe only the few percent left over, so',
-            'ranking them tells you almost nothing about why frames are slow.',
-            '',
-            'Check `host-environment.txt` for why no GPU adapter was selected',
-            '(missing ICD, VK_*/WGPU_* override, no DRM render node, headless session)',
-            'and fix adapter selection before optimizing anything listed below.',
-            '',
-        ]
-else:
-    lines += ['## Renderer', '',
-              '(no `AdapterInfo` line found in the captured logs; see host-environment.txt)', '']
-
-# The game's own censuses, if it emitted any. These name assets and frames --
-# things a native profile cannot -- so they belong above the symbol tables.
-game_log = read('game-stderr-stamped.txt') or read('perf-record.stderr')
-if game_log:
-    spikes = [l for l in game_log.splitlines() if '[frame-spike]' in l]
-    windows = [l for l in game_log.splitlines() if '[frame-census]' in l]
-    binds = [l for l in game_log.splitlines() if '[sprite-bind]' in l or '[sprite-size]' in l]
-    decodes = [l for l in game_log.splitlines() if '[image-census]' in l]
-    if spikes or windows:
-        lines += ['## Frame time', '', '```text']
-        # Worst first: the tail is the complaint, not the average.
-        def spike_ms(line):
-            try:
-                return float(line.split()[-1].rstrip('ms'))
-            except (ValueError, IndexError):
-                return 0.0
-        for line in sorted(spikes, key=spike_ms, reverse=True)[:12]:
-            lines.append(line[:200])
-        if len(spikes) > 12:
-            lines.append(f'... {len(spikes) - 12} more spikes; see game-stderr-stamped.txt ...')
-        lines += [''] + [w[:200] for w in windows[:12]] + ['```', '']
-    if decodes or binds:
-        lines += ['## Textures and sprite binds', '', '```text']
-        lines += [d[:200] for d in decodes[:10]]
-        lines += [b[:200] for b in binds[:10]]
-        lines += ['```', '',
-                  'Per-texture lines (`[image]`) are in game-stderr-stamped.txt. A decode',
-                  'window overlapping a frame spike is the launch hitch; two [sprite-bind]',
-                  'lines with different render sizes are a visible mid-launch resize.', '']
-
-# Which LAYER owns the machine. Symbol rankings answer "which function is
-# hot" only once you know the answer here is "game code" -- when it is the
-# renderer or a software rasterizer instead, the function list is a footnote.
-dso_report = read('perf-report-by-dso.txt')
-if dso_report:
-    buckets = [
-        ('software rasterizer (CPU emulating a GPU)',
-         ('llvmpipe', 'lvp', 'lavapipe', 'swiftshader', 'softpipe', '[JIT]')),
-        ('GPU driver / graphics stack',
-         ('nvidia', 'radeonsi', 'iris', 'amdgpu', 'i965', 'libvulkan', 'libGLX', 'libEGL', 'libdrm', 'zink')),
-        ('kernel', ('[kernel', '[kvm', '[nvidia_uvm', '[snd', '[vdso')),
-        ('audio', ('pipewire', 'pulse', 'alsa', 'libspa')),
-    ]
-    tally, total = {}, 0.0
-    for line in dso_report.splitlines():
-        m = re.match(r'\s+([0-9.]+)%\s+(\S.*?)\s*$', line)
-        if not m:
-            continue
-        pct, dso = float(m.group(1)), m.group(2)
-        total += pct
-        low = dso.lower()
-        label = 'game binary + its Rust/C deps'
-        for name, needles in buckets:
-            if any(n.lower() in low for n in needles):
-                label = name
-                break
-        tally[label] = tally.get(label, 0.0) + pct
-    if total > 0:
-        lines += ['## Where the time went (by layer)', '', '```text']
-        for label, pct in sorted(tally.items(), key=lambda kv: -kv[1]):
-            lines.append(f'{pct:6.1f}%  {label}')
-        lines += ['```', '',
-                  'Derived from perf-report-by-dso.txt. If the top bucket is not the game',
-                  'binary, optimizing the symbol list further down is optimizing the wrong',
-                  'machine layer.', '']
-
-lines.append('## Status')
-for name in ['warm-build','perf-record','perf-report-flat-fast','perf-report-self-symbols','perf-report-children-symbols','perf-script','perf-stat','strace']:
-    p = os.path.join(out, name + '.status')
-    if os.path.exists(p): lines.append(f'- {name}: {status(name)}')
-perf = os.path.join(out, 'perf.data')
-if os.path.exists(perf): lines.append(f'- perf.data bytes: {os.path.getsize(perf)}')
-report = read('perf-report-flat-fast.txt') or read('perf-report-self-symbols.txt') or read('perf-report-children-symbols.txt')
-if report:
-    lines += ['', '## Top perf report lines', '```text']
-    n = 0
-    for line in report.splitlines():
-        if re.match(r'\s*[0-9]+(\.[0-9]+)?%', line):
-            lines.append(line[:220]); n += 1
-            if n >= 60: break
-    lines.append('```')
-asset = read('asset-trace-summary.md')
-if asset:
-    lines += ['', '## Asset trace summary excerpt']
-    lines.extend(asset.splitlines()[:90])
-stat = read('perf-stat-interval.txt')
-if stat:
-    lines += ['', '## perf stat excerpt', '```text']
-    lines.extend([x[:220] for x in stat.splitlines()[:80]])
-    lines.append('```')
-with open(os.path.join(out, 'desktop-profile-summary.md'), 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-PY
+    python3 "$repo_root/scripts/lib/profile_census_csv.py" "$out_dir" \
+        || log "census CSV extraction failed; the stamped log is still in the bundle"
+    python3 "$repo_root/scripts/lib/profile_bundle_summary.py" "$out_dir" \
+        || log "summary generation failed; the raw artifacts are still in the bundle"
 }
 
 package_dir() {
@@ -860,13 +823,84 @@ package_dir() {
     printf '%s\n' "$tarball"
 }
 
+# Bevy colorizes its log; the escapes survive into the file and break naive
+# greps for module paths (`[2mambition::save[0m`). Strip them and prefix each
+# line with seconds since launch, so the game's own census rows share one clock
+# with the perf capture wrapped around them.
+#
+# NB: keep every quote in here a double quote -- this is a single-quoted bash
+# string, so an escaped \" would reach Python verbatim and fail to parse,
+# silently producing an EMPTY stamped log.
+stamp_py='
+import re, sys, time
+ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+t0 = time.monotonic()
+for line in sys.stdin:
+    clean = ansi.sub("", line)
+    sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {clean}")
+    sys.stdout.flush()
+'
+
+assert_stamper_starts() {
+    local out_dir="$1"
+    # If the stamper cannot start, its pipe closes, the capture takes a SIGPIPE
+    # mid-run, and perf.data is silently truncated to an unreadable stub -- the
+    # whole session lost, discovered only at report time.
+    if ! printf '' | python3 -c "$stamp_py" >/dev/null 2>"$out_dir/stamper-check.stderr"; then
+        log "log stamper failed to start; see $out_dir/stamper-check.stderr"
+        fail "refusing to record a capture that would be truncated by a dead stamper"
+    fi
+    rm -f "$out_dir/stamper-check.stderr"
+}
+
+# Launch the game under whatever capture wrapper the mode built, with the Tracy
+# capture running alongside and both streams stamped. Always writes the status
+# file, always finalizes Tracy -- an interrupted or crashed game must still
+# leave usable artifacts behind.
+run_instrumented_launch() {
+    local out_dir="$1" status_file="$2"; shift 2
+    assert_stamper_starts "$out_dir"
+    echo "$(quote_cmd "$@")" > "${status_file%.status}.command.txt"
+
+    local tracy_pid=""
+    tracy_pid="$(start_tracy_capture "$out_dir")"
+
+    local heartbeat_pid=""
+    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
+    heartbeat_pid=$!
+    # A handler (not `trap '' INT`) is deliberate: ignoring INT would be
+    # inherited by perf as SIG_IGN, so Ctrl-C would no longer stop the capture.
+    # With a handler installed, perf still takes the interrupt and flushes
+    # perf.data, and this script survives to write the reports.
+    trap 'log "interrupt received; ending capture and writing reports"' INT
+    set +e
+    "$@" \
+        > >(python3 -u -c "$stamp_py" > "$out_dir/game-stdout-stamped.txt") \
+        2> >(python3 -u -c "$stamp_py" | tee "$out_dir/game-stderr-stamped.txt" >&2)
+    local status=$?
+    set -e
+    trap - INT
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+    echo "$status" > "$status_file"
+    if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 130 ]]; then
+        log "the game exited with status $status; finalizing the artifacts collected so far"
+    fi
+    finish_tracy_capture "$out_dir" "$tracy_pid"
+}
+
+prepare_launch_mode() {
+    local out_dir="$1" local_mode="$2"
+    write_metadata "$out_dir" "$local_mode"
+    run_warm_build_if_needed "$out_dir" "$local_mode" || true
+}
+
 run_perf_record() {
     local local_mode="$1" out_dir="$2"
     require_tool perf
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    write_metadata "$out_dir" "$local_mode"
-    run_warm_build_if_needed "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode"
     local record_argv=() item
     while IFS= read -r -d '' item; do record_argv+=("$item"); done < <(perf_record_argv "$out_dir/perf.data")
     if [[ "$local_mode" == "perf-attach" ]]; then
@@ -879,7 +913,7 @@ run_perf_record() {
         while IFS= read -r -d '' item; do capture_argv+=("$item"); done \
             < <(bounded_argv "${record_argv[@]}" -- "${run_cmd[@]}")
         log "launching under perf ($(describe_window)): $(quote_cmd "${run_cmd[@]}")"
-        run_capture_command "$out_dir/perf-record.status" "${capture_argv[@]}"
+        run_instrumented_launch "$out_dir" "$out_dir/perf-record.status" "${capture_argv[@]}"
     fi
     write_perf_reports "$out_dir"
 }
@@ -889,29 +923,26 @@ run_perf_stat() {
     require_tool perf
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    write_metadata "$out_dir" "$local_mode"
-    run_warm_build_if_needed "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode"
+    # `-o` keeps perf's interval table off stderr, which belongs to the game's
+    # census rows.
     if [[ "$local_mode" == "stat-attach" ]]; then
         local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording perf stat on PID $target_pid for ${duration}s"
-        set +e
-        perf stat -p "$target_pid" -I "$interval_ms" -e "$perf_events" -- sleep "$duration" > >(tee "$out_dir/perf-stat.stdout") 2> >(tee "$out_dir/perf-stat-interval.txt" >&2)
-        local status=$?
-        set -e; echo "$status" > "$out_dir/perf-stat.status"
+        run_capture_command "$out_dir/perf-stat.status" \
+            perf stat -o "$out_dir/perf-stat-interval.txt" -p "$target_pid" -I "$interval_ms" -e "$perf_events" -- sleep "$duration"
     else
         log "launching under perf stat for ${duration}s: $(quote_cmd "${run_cmd[@]}")"
-        set +e
-        timeout --signal=INT --kill-after=5s "${duration}s" perf stat -I "$interval_ms" -e "$perf_events" -- "${run_cmd[@]}" > >(tee "$out_dir/perf-stat.stdout") 2> >(tee "$out_dir/perf-stat-interval.txt" >&2)
-        local status=$?
-        set -e; echo "$status" > "$out_dir/perf-stat.status"
+        run_instrumented_launch "$out_dir" "$out_dir/perf-stat.status" \
+            timeout --signal=INT --kill-after=5s "${duration}s" \
+            perf stat -o "$out_dir/perf-stat-interval.txt" -I "$interval_ms" -e "$perf_events" -- "${run_cmd[@]}"
     fi
 }
 
 run_asset_trace() {
     local local_mode="$1" out_dir="$2"
     require_tool strace; require_tool python3
-    write_metadata "$out_dir" "$local_mode"
-    run_warm_build_if_needed "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode"
     if [[ "$local_mode" == "asset-attach" ]]; then
         local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording strace asset opens on PID $target_pid for ${duration}s"
@@ -920,7 +951,7 @@ run_asset_trace() {
             strace -f -yy -tt -s 240 -e trace=openat,openat2,read,pread64,close -p "$target_pid" -o "$out_dir/strace-assets.txt"
     else
         log "launching under strace for ${duration}s: $(quote_cmd "${run_cmd[@]}")"
-        run_capture_command "$out_dir/strace.status" \
+        run_instrumented_launch "$out_dir" "$out_dir/strace.status" \
             timeout --signal=INT --kill-after=5s "${duration}s" \
             strace -f -yy -tt -s 240 -e trace=openat,openat2,read,pread64,close -o "$out_dir/strace-assets.txt" -- "${run_cmd[@]}"
     fi
@@ -935,88 +966,16 @@ write_timeline_reports() {
     # Whole-run reports first, then one flat report per equal time slice of the
     # capture (perf's a%-b% --time filter operates on trace-relative time).
     write_perf_reports "$out_dir"
+    mkdir -p "$out_dir/perf_windows"
     local i lo hi label
     for (( i = 0; i < timeline_chunks; i++ )); do
         lo=$(( i * 100 / timeline_chunks ))
         hi=$(( (i + 1) * 100 / timeline_chunks ))
-        label="$(printf 'perf-chunk-%02d' "$i")"
+        label="$(printf 'perf_windows/chunk-%02d' "$i")"
         run_timed_report "$out_dir" "$label" \
             perf report -i "$data_file" --stdio --sort comm,dso,symbol --call-graph none \
             --percent-limit 0.5 --no-inline --no-source --time "${lo}%-${hi}%"
     done
-}
-
-write_timeline_summary() {
-    local out_dir="$1"
-    python3 - "$out_dir" "$timeline_chunks" "$marker_regex" <<'PY'
-import os, re, sys
-out, chunks, marker = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-pat = re.compile(marker, re.I)
-stamp_pat = re.compile(r'^\[\s*([0-9.]+)s\]\s?(.*)$')
-events = []
-adapter = ''
-for name in ('game-stderr-stamped.txt', 'game-stdout-stamped.txt'):
-    path = os.path.join(out, name)
-    if not os.path.exists(path):
-        continue
-    with open(path, errors='replace') as f:
-        for line in f:
-            m = stamp_pat.match(line)
-            if m:
-                events.append((float(m.group(1)), m.group(2).rstrip()))
-            if not adapter:
-                found = re.search(r'AdapterInfo \{[^}]*\}', line)
-                if found:
-                    adapter = found.group(0)
-events.sort(key=lambda e: e[0])
-total = max((t for t, _ in events), default=0.0)
-markers = [(t, s) for t, s in events if pat.search(s)]
-perc = re.compile(r'\s*[0-9]+(\.[0-9]+)?%')
-lines = ['# Timeline profile', '',
-         f'Observed span: {total:.1f}s, sliced into {chunks} chunks.',
-         f'Marker regex: `{marker}`', '',
-         'Chunk boundaries assume log time tracks trace time from launch;',
-         'if the game exited early or idled past the last log line, edges skew.', '']
-if adapter:
-    software = ('device_type: Cpu' in adapter or 'llvmpipe' in adapter
-                or 'lavapipe' in adapter or 'swiftshader' in adapter.lower())
-    if software:
-        lines += ['> **SOFTWARE RENDERING.** This run had no GPU, so the per-chunk symbols',
-                  '> below are mostly the CPU rasterizer\'s unsymbolized JIT frames, not',
-                  '> your code. See the Renderer section of desktop-profile-summary.md',
-                  '> and host-environment.txt before drawing conclusions.', '']
-    else:
-        lines += [f'Renderer: `{adapter}`', '']
-for i in range(chunks):
-    lo, hi = total * i / chunks, total * (i + 1) / chunks
-    lines.append(f'## Chunk {i}: {lo:.1f}s - {hi:.1f}s')
-    carry = [s for t, s in markers if t < lo]
-    if carry:
-        lines.append(f'Carried context: `{carry[-1][:200]}`')
-    inwin = [(t, s) for t, s in markers if lo <= t < hi]
-    if inwin:
-        lines += ['', 'Markers:', '```text']
-        shown = inwin if len(inwin) <= 10 else inwin[:5] + inwin[-5:]
-        for t, s in shown:
-            lines.append(f'{t:9.3f}s {s[:200]}')
-        if len(inwin) > 10:
-            lines.append(f'... {len(inwin) - 10} more marker lines omitted ...')
-        lines.append('```')
-    else:
-        lines.append('(no marker lines in this window)')
-    try:
-        with open(os.path.join(out, f'perf-chunk-{i:02d}.txt'), errors='replace') as f:
-            rpt = f.read()
-    except FileNotFoundError:
-        rpt = ''
-    top = [l[:200] for l in rpt.splitlines() if perc.match(l)][:15]
-    if top:
-        lines += ['', 'Top symbols:', '```text'] + top + ['```']
-    lines.append('')
-with open(os.path.join(out, 'timeline.md'), 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-PY
-    log "timeline summary: $out_dir/timeline.md"
 }
 
 run_timeline() {
@@ -1024,8 +983,7 @@ run_timeline() {
     require_tool perf; require_tool python3
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    write_metadata "$out_dir" "$local_mode"
-    run_warm_build_if_needed "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode"
     local capture_argv=() item
     while IFS= read -r -d '' item; do capture_argv+=("$item"); done < <(
         record_argv=()
@@ -1033,56 +991,13 @@ run_timeline() {
         bounded_argv "${record_argv[@]}" -- "${run_cmd[@]}"
     )
     log "timeline capture: $(describe_window), ${timeline_chunks} chunks -- play through the phases you want profiled"
-    if [[ -z "$duration" ]]; then log "quit the game (or Ctrl-C here) when you are done; reports are written after it exits"; fi
-    echo "$(quote_cmd "${capture_argv[@]}")" > "$out_dir/perf-record.command.txt"
-    # Bevy colorizes its log; the escapes survive into the file and break
-    # naive greps for module paths (`[2mambition::save[0m`). Strip them so the
-    # stamped log is plain text a reader or script can match against.
-    # NB: keep every quote in here a double quote -- this is a single-quoted
-    # bash string, so an escaped \" would reach Python verbatim and fail to
-    # parse, silently producing an EMPTY stamped log.
-    local stamp_py='
-import re, sys, time
-ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-t0 = time.monotonic()
-for line in sys.stdin:
-    clean = ansi.sub("", line)
-    sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {clean}")
-    sys.stdout.flush()
-'
-    # If the stamper cannot start, its pipe closes, perf takes a SIGPIPE mid-capture, and
-    # perf.data is silently truncated to an unreadable stub -- the whole session lost,
-    # discovered only at report time.
-    if ! printf '' | python3 -c "$stamp_py" >/dev/null 2>"$out_dir/stamper-check.stderr"; then
-        log "log stamper failed to start; see $out_dir/stamper-check.stderr"
-        fail "refusing to record a capture that would be truncated by a dead stamper"
+    if [[ -z "$duration" && "$headless" == "no" ]]; then
+        log "quit the game (or Ctrl-C here) when you are done; reports are written after it exits"
     fi
-    rm -f "$out_dir/stamper-check.stderr"
-
-    local tracy_pid=""
-    tracy_pid="$(start_tracy_capture "$out_dir")"
-
-    local heartbeat_pid=""
-    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "timeline capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
-    heartbeat_pid=$!
-    # A handler (not `trap '' INT`) is deliberate: ignoring INT would be
-    # inherited by perf as SIG_IGN, so Ctrl-C would no longer stop the capture.
-    # With a handler installed, perf still takes the interrupt and flushes
-    # perf.data, and this script survives to write the reports.
-    trap 'log "interrupt received; ending capture and writing reports"' INT
-    set +e
-    "${capture_argv[@]}" \
-        > >(python3 -u -c "$stamp_py" > "$out_dir/game-stdout-stamped.txt") \
-        2> >(python3 -u -c "$stamp_py" | tee "$out_dir/game-stderr-stamped.txt" >&2)
-    local status=$?
-    set -e
-    trap - INT
-    kill "$heartbeat_pid" 2>/dev/null || true
-    wait "$heartbeat_pid" 2>/dev/null || true
-    echo "$status" > "$out_dir/perf-record.status"
-    finish_tracy_capture "$out_dir" "$tracy_pid"
+    run_instrumented_launch "$out_dir" "$out_dir/perf-record.status" "${capture_argv[@]}"
     write_timeline_reports "$out_dir"
-    write_timeline_summary "$out_dir"
+    python3 "$repo_root/scripts/lib/profile_timeline.py" "$out_dir" "$timeline_chunks" "$marker_regex" \
+        || log "timeline summary failed; the per-window perf reports are still in the bundle"
 }
 
 run_one_mode() {
@@ -1095,27 +1010,45 @@ run_one_mode() {
         timeline-run) run_timeline "$local_mode" "$out_dir" ;;
         *) fail "unsupported mode '$local_mode'" ;;
     esac
-    write_summary "$out_dir"
-    if grep -q "SOFTWARE RENDERING" "$out_dir/desktop-profile-summary.md" 2>/dev/null; then
-        log "WARNING: this run had NO GPU (software rasterizer). Most samples are the"
-        log "         CPU rasterizer's JIT'd shaders, not game code. See the Renderer"
-        log "         section of $out_dir/desktop-profile-summary.md"
-    fi
+    write_bundle_reports "$out_dir"
 }
 
 main() {
     mkdir -p "$out_base"; cd "$repo_root"
+    resolve_launch_plan
+    log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
+    if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
+    if [[ "$headless" == "yes" ]]; then
+        log "headless run ($headless_ticks ticks): GPU and render-pass measurements are not applicable"
+        # `--headless` alone steps the production shared host, which sits on the
+        # startup/launcher route and simulates no bodies. That is the right
+        # default (it is what the windowed binary opens on), and it is not what
+        # somebody profiling the simulation wants.
+        case " ${launcher_args[*]-} ${game_args[*]-} " in
+            *" sandbox "*|*" --direct "*|*" ambition-sandbox "*) ;;
+            *) log "  for a gameplay/simulation capture instead: $0 --headless -- sandbox" ;;
+        esac
+    fi
+    local out_dir tarball
     if [[ "$mode" == "all-run" ]]; then
-        local out_dir; out_dir="$(make_profile_dir "$mode")"; mkdir -p "$out_dir"; write_metadata "$out_dir" "$mode"
+        out_dir="$(make_profile_dir "$mode")"; mkdir -p "$out_dir"; write_metadata "$out_dir" "$mode"
         run_one_mode perf-run "$out_dir/perf-run"
         run_one_mode stat-run "$out_dir/stat-run"
         run_one_mode asset-run "$out_dir/asset-run"
-        write_summary "$out_dir"
-        package_dir "$out_dir"
+        write_bundle_reports "$out_dir"
     else
-        local out_dir; out_dir="$(make_profile_dir "$mode")"
+        out_dir="$(make_profile_dir "$mode")"
         run_one_mode "$mode" "$out_dir"
-        package_dir "$out_dir"
     fi
+    tarball="$(package_dir "$out_dir")"
+    if grep -q 'SOFTWARE RENDERING' "$out_dir/summary.md" 2>/dev/null; then
+        log "WARNING: this run had NO GPU (software rasterizer). Most samples are the"
+        log "         CPU rasterizer's JIT'd shaders, not game code. See the Renderer"
+        log "         section of $out_dir/summary.md"
+    fi
+    printf '\n' >&2
+    log "profiling bundle: file://$out_dir"
+    log "read first:       file://$out_dir/summary.md"
+    log "archive:          file://$tarball"
 }
 main

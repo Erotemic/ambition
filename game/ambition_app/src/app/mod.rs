@@ -19,7 +19,10 @@
 //! Use the function API when you need to inject resources between steps
 //! (e.g. `StartRoomOverride`); use the plugin API otherwise.
 
-mod cli;
+// `pub(crate)` for `ambition_log_plugin`: the headless runner in
+// `crate::headless` installs the same log plugin under `--features profile`,
+// because Tracy records through a layer on the tracing subscriber.
+pub(crate) mod cli;
 mod dev_runtime;
 mod feedback;
 mod hud;

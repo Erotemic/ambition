@@ -360,6 +360,12 @@ pub fn player_robot_moveset() -> MovesetContract {
             // platform edge either lands on it or dies a few pixels under it,
             // and that margin is a stick angle nobody can hold.
             ledge_assist: 44.0,
+            // ⭐ INTANGIBLE THROUGH THE VANISH. About seven frames, ending well
+            // before the move does — the 0.28s of tail after the transit is what
+            // the recovery still costs, and an edgeguarder who reads it still
+            // wins. Without this the one frame that decides the stock is the one
+            // where the body is nowhere.
+            intangible_s: 0.12,
             depart_vfx: "teleport_depart".to_string(),
             arrive_vfx: "teleport_arrive".to_string(),
         },

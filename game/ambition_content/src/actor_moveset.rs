@@ -205,12 +205,8 @@ fn the_trap_airborne() -> MoveSpec {
 /// a move whose timeline claimed she was vulnerable under the stage would be
 /// scored as a punishable commitment it is not.
 fn trapdoor(id: &str, clip: &str) -> MoveSpec {
-    let mut spec = ambition_characters::moveset_authoring::hitless_special(
-        id,
-        clip,
-        SINK_AT_S,
-        TRAP_ENDS_S,
-    );
+    let mut spec =
+        ambition_characters::moveset_authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
     spec.display_name = Some("The Trap".to_string());
     // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
     // the second one is the half whose absence is a fighter gone for the match.
@@ -237,11 +233,8 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // ⛔ NOT A BLINK CUE ANYWHERE ON IT. The trap is carpentry: the boards give,
     // they bang shut behind her, and they give again somewhere else.
     let spec = ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
-    let spec = ambition_characters::moveset_authoring::sfx(
-        spec,
-        SINK_AT_S + 0.06,
-        "world.door.close",
-    );
+    let spec =
+        ambition_characters::moveset_authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
     let spec =
         ambition_characters::moveset_authoring::sfx(spec, TRAP_ENDS_S - 0.06, "world.door.close");
     ambition_characters::moveset_authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
@@ -269,6 +262,10 @@ fn the_flyline() -> MoveSpec {
             // ⭐⭐ THE SAME RADIUS THE AUTHOR AND THE ROBOT GET. It is a property
             // of recovering onto a stage rather than of any one fighter.
             ledge_assist: 44.0,
+            // ⭐ THE SAME WINDOW THE OTHER TWO GET. She already authors i-frames
+            // on the trapdoor, where being underground is the reason; this is the
+            // other one — being NOWHERE, mid-wire.
+            intangible_s: 0.12,
             depart_vfx: "four_point_glint".to_string(),
             arrive_vfx: "four_point_glint".to_string(),
         },

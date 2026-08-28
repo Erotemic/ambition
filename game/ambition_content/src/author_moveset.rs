@@ -76,6 +76,11 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
             // so two fighters wanting it should get the same number until one of
             // them has a reason not to.
             ledge_assist: 44.0,
+            // ⭐ THE SAME WINDOW THE ROBOT GETS, and the same reasoning as the
+            // ledge assist beside it: intangibility through a vanish is a
+            // property of teleporting, not of either fighter, so two fighters
+            // wanting it get the same number until one has a reason not to.
+            intangible_s: 0.12,
             depart_vfx: "four_point_glint".to_string(),
             arrive_vfx: "four_point_glint".to_string(),
         },

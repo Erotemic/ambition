@@ -94,6 +94,24 @@ pub struct TeleportParams {
     ///
     /// `0.0` disables it, which is what a teleport that is not a recovery wants.
     pub ledge_assist: f32,
+    /// How long the fighter is INTANGIBLE from the transit, in seconds of the
+    /// move's own clock. `0.0` (the default, and what every teleport authored
+    /// before this field meant) is no intangibility at all.
+    ///
+    /// ⭐⭐ THE GENRE'S ANSWER, AND IT IS A KNOB RATHER THAN A RULE. A teleport
+    /// recovery that can be struck while it is nowhere is a coin flip: the
+    /// fighter is off-stage, committed, and the one frame that decides the stock
+    /// is the one where the body has no honest position. Every teleport recovery
+    /// in the genre answers this the same way, so this is research rather than a
+    /// design question — but it ships as a number a move sets, because a teleport
+    /// that is an AMBUSH ([`Self::behind_nearest_foe`]) wants `0.0` and would be
+    /// a different move with it.
+    ///
+    /// ⛔ IT DELIBERATELY ENDS BEFORE THE MOVE DOES. The tail of a recovery is
+    /// what makes it punishable, and a window that ran to the end would hand
+    /// back the commitment the move is supposed to cost.
+    #[serde(default)]
+    pub intangible_s: f32,
     /// The effect drawn where the fighter LEFT.
     pub depart_vfx: String,
     /// The effect drawn where the fighter ARRIVED.
@@ -129,6 +147,28 @@ pub fn author_teleport(mut spec: MoveSpec, at_s: f32, params: TeleportParams) ->
     // velocity — could not see it (D250). ⛔ Not by fabricating a lift: a burst
     // the move never throws would have the search certify a rise that does not
     // happen. What it offers is a DISCONTINUITY of a stated size.
+    // ⭐ THE INTANGIBILITY IS STATED HERE for the same reason the route above is:
+    // it is a property of TELEPORTING, not of whose move it is, so the two
+    // fighters that share this technique cannot drift apart on it. The mechanism
+    // already existed and nothing authored one — `WindowTag::Invuln` becomes
+    // `Invulnerability::MOVE` in `project_move_defense_windows`, written every
+    // tick for every combat body, which is what makes the grant RETRACT when the
+    // window closes.
+    //
+    // ⛔ CLAMPED TO THE MOVE. An `end_s` past `duration_s` is a window that never
+    // closes on this timeline, and the clamp is silent because the honest reading
+    // of "intangible longer than the move lasts" is "intangible for the move".
+    // ⛔ THROUGH THE SHARED HELPER, not a hand-pushed window. The Actress's
+    // trapdoor already authors one this way, and two spellings of "the owner
+    // cannot be hit here" is how the two drift.
+    let mut spec = spec;
+    if params.intangible_s > 0.0 {
+        // ⛔ CLAMPED TO THE MOVE. An `end_s` past `duration_s` is a window that
+        // never closes on this timeline, and the honest reading of "intangible
+        // longer than the move lasts" is "intangible for the move".
+        let ends = (at_s + params.intangible_s).min(spec.duration_s);
+        spec = crate::moveset_authoring::invuln(spec, at_s, ends);
+    }
     spec.gates.recovery_route = Some(ambition_entity_catalog::AuthoredRecoveryRoute::Teleport {
         distance: params.distance,
     });

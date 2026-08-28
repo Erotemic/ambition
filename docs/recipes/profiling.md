@@ -46,11 +46,19 @@ of zone statistics — per-Bevy-system timings an agent can rank.
 
 ### Getting the tools
 
-`./run_developer_setup.sh` installs the whole profiling toolchain: `perf` and
-`strace` (which `profile_desktop.sh` requires), `vulkaninfo`/`glxinfo` (which
-its host-environment report reads), `cargo-flamegraph`, `hotspot`,
-`heaptrack`, and Tracy built from source into `~/.local/bin`. Pass
-`--no-profile` to skip all of it.
+`./run_developer_setup.sh --profile` installs the whole profiling toolchain:
+`perf` and `strace` (which `profile_desktop.sh` requires), `vulkaninfo`/`glxinfo`
+(which its host-environment report reads), `cargo-flamegraph`, `hotspot`,
+`heaptrack`, and Tracy built from source into `~/.local/bin` — plus the cargo
+analysis tools (`llvm-cov`, `modules`, `sweep`, `mark-sweep`, `nextest`).
+
+⚠ **It is opt-in, and it used to be the default.** A bare setup is the fast path
+to a running game and installs none of this: `hotspot` alone pulls the KDE
+Frameworks stack (~190 apt packages between them), and every cargo tool above is
+a source build. Nothing here is needed to run or test the game — `run_tests.py`
+falls back to plain `cargo test` when nextest is absent — so it is not on the
+zero-to-runnable path. Pass `--profile` when you intend to profile, or `--full`
+to add the sampled instrument libraries as well.
 
 Tracy is built rather than installed because Ubuntu does not package it, and
 it is pinned to the version read out of the `tracy-client-sys` crate the game
@@ -331,11 +339,26 @@ artifact, records why, and the rest of the run is still collected.
 ```
 
 This runs the game's own supported headless path (`--headless
---headless-ticks N`, default 1800), which composes no renderer. You still get
-Tracy system timings, `perf`, the simulation systems, schedule and entity
-counts, body counts, asset CPU work, and the frame-interval census. The
-report marks every GPU and render-pass measurement **not applicable** rather
-than absent, because a headless run is not evidence that rendering is cheap.
+--headless-ticks N`, default 1800) in the **sandbox** scenario, which composes
+no renderer. You still get Tracy system timings, `perf`, the simulation
+systems, schedule and entity counts, body counts, asset CPU work, and the
+frame-interval census. The report marks every GPU and render-pass measurement
+**not applicable** rather than absent, because a headless run is not evidence
+that rendering is cheap.
+
+The scenario is chosen because a bare headless host sits on the startup/launcher
+route and simulates **zero bodies** — it succeeds, and it profiles nothing worth
+profiling. `sandbox` is `run_game.sh`'s ordinary direct-entry alias, not a
+profiling-only setup; the profiler adds the word and changes nothing else. Name
+your own and it is used instead:
+
+```bash
+./scripts/profile_desktop.sh --headless -- smash
+./scripts/profile_desktop.sh --headless -- -- --start-room goblin_encounter
+```
+
+`summary.md` records which scenario ran, in the `scenario` row of its first
+table.
 
 Do not use a software rasterizer as a stand-in for a GPU. If a windowed run on
 this machine falls back to llvmpipe/lavapipe, `summary.md` says

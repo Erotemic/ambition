@@ -27,8 +27,10 @@ python3 "$REPO/scripts/package_asset_guard.py" compose \
     --contract "$ASSET_CONTRACT" \
     --hash-manifest "$ASSET_HASH_MANIFEST"
 
-# Safest build: keep default desktop features, add static_map fallback.
-cargo build -p ambition_app --bin ambition_game_bin --release --features static_map
+# Safest build: keep default desktop features, add the static_map + static_content
+# fallbacks so the deployed binary carries its world JSON and generated content
+# rather than needing the source tree beside it.
+cargo build -p ambition_app --bin ambition_game_bin --release --features static_map,static_content
 
 ssh "$DECK" "mkdir -p '$APPDIR'"
 

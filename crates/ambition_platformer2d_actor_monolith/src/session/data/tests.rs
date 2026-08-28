@@ -120,10 +120,24 @@ fn embedded_music_includes_original_and_long_default() {
         music.track("long_lofi_drift").is_some(),
         "long_lofi_drift present"
     );
-    // FSM radio entry is the new roots boss, not the retired fight mix.
+    // The FSM radio entry is the choir-backing roots boss — the only FSM cue
+    // that has a score and therefore the only one a checkout can render.
+    //
+    // This previously pinned `flying_spaghetti_monster_roots_boss`, which has
+    // never had a score in this repo. The registry is a PROJECTION of the
+    // rendered-OGG tree, so regenerating it correctly dropped that id, this
+    // assertion went red, and 38d15197a put seven unbuildable ids back into
+    // shipped data to make it green again. That left the registry
+    // unregeneratable for a month: every honest regen wanted to drop the same
+    // seven, and the removal guard stopped it — which also silently kept 16
+    // cues that DO exist off the radio.
+    //
+    // Pin something the build can actually produce.
     assert!(
-        music.track("flying_spaghetti_monster_roots_boss").is_some(),
-        "roots boss registered"
+        music
+            .track("flying_spaghetti_monster_roots_boss_choir_backing")
+            .is_some(),
+        "roots boss (choir backing) registered"
     );
     assert!(
         music.track("flying_spaghetti_monster_fight").is_none(),

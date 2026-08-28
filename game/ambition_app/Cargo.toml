@@ -79,6 +79,7 @@ visible_web_base = [
     "ldtk_runtime",
     "input",
     "static_map",
+    "static_content",
     "portal",
     "portal_render",
     "bevy_ui_menu",
@@ -113,6 +114,11 @@ headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
 static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
+# Embed generated content RON. Rides with every build that embeds the world
+# JSON, for the same reason: no filesystem (web/Android) or no source tree
+# alongside the binary (Steam Deck). Desktop dev leaves it off so a music
+# regen does not rebuild the content crate and everything downstream.
+static_content = ["ambition_content/static_content"]
 static_core_assets = ["ambition_platformer2d/static_core_assets"]
 static_sfx_bank = ["ambition_platformer2d/static_sfx_bank"]
 android = [
@@ -121,6 +127,7 @@ android = [
     "mobile_touch",
     "rl_sim",
     "static_map",
+    "static_content",
     "mimalloc_alloc",
 ]
 android_dev = ["android", "dev_tools"]

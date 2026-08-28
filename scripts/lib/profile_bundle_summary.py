@@ -136,6 +136,7 @@ def build_summary(bundle: Bundle) -> str:
         f"| kernel | `{meta.get('uname', '?')}` |",
         f"| workload census | {'on at ' + meta.get('census_hz', '?') + ' Hz' if meta.get('census_enabled') == 'yes' else 'OFF (--no-census)'} |",
         f"| headless | {'yes, ' + meta.get('headless_ticks', '?') + ' ticks' if headless else 'no'} |",
+        f"| scenario | `{meta.get('headless_scenario', 'n/a')}` |",
         "",
     ]
     if meta.get("cargo_profile") == "dev":
@@ -366,11 +367,12 @@ def build_summary(bundle: Bundle) -> str:
 
     if headless and ecs and max(number(row, "bodies") for row in ecs) == 0:
         lines += [
-            "> **No simulated bodies existed in this run.** `--headless` alone steps the",
-            "> production shared host, which sits on the startup/launcher route: the",
-            "> numbers above describe host composition, not gameplay. For a sim-heavy",
-            "> capture — bodies, movement, collision — add the sandbox launch target:",
-            "> `scripts/profile_desktop.sh --headless -- sandbox`.",
+            "> **No simulated bodies existed in this run.** The scenario named in the",
+            f"> table above (`{meta.get('headless_scenario', 'n/a')}`) never reached a",
+            "> state with a body in it, so the numbers here describe composition rather",
+            "> than gameplay, and no simulation cost can be read off them. A capture",
+            "> that was supposed to exercise the sim and reports this either did not",
+            "> run long enough (`--headless-ticks`) or never activated a session.",
             "",
         ]
 

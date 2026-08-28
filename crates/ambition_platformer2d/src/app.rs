@@ -1590,11 +1590,12 @@ fn host_step_period(app: &App, rollback: bool) -> std::time::Duration {
 /// Put an already-built app under manual stepping, so one `update()` is one
 /// simulation tick. Returns the period installed.
 ///
-/// ⭐ FOR AN APP THAT IS NOT `Face::Headless`. Rule 8 pins manual time at build
-/// time for the headless face; an offscreen or windowed app that a DRIVER steps
-/// itself wants the same contract and cannot get it from the builder. Presence
-/// of presentation and who owns the clock are independent questions — a GPU
-/// capture of a deterministic simulation needs both.
+/// ⭐ FOR ANY APP A DRIVER STEPS, headless or not. Rule 8 calls this for the
+/// headless face; an offscreen or windowed app that a driver steps itself wants
+/// the same contract and reaches it the same way. Presence of presentation and
+/// who owns the clock are INDEPENDENT questions — a GPU capture of a
+/// deterministic simulation needs both, which is precisely the case this exists
+/// for and the reason it is not gated on a face.
 ///
 /// ⛔ INSTALL BEFORE THE SESSION RUNS. Switching a live rollback host from wall
 /// time to manual time leaves whatever the accumulator had already banked, so

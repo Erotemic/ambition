@@ -704,9 +704,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         }));
     }
 
-    // ⛔⛤ A HITBOX DOES HAVE ITS OWN IDENTITY, and this file previously said in a
-    // comment that it did not — then re-derived an inferior one from the owner
-    // plus geometry. `advance_move_playback` inserts
+    // ⭐⭐ A HITBOX HAS ITS OWN IDENTITY. `advance_move_playback` inserts
     // `SimId::strike_volume(owner, move, window, volume)` on the volume entity
     // itself, and `StrikeRank { window, volume }` beside it. Sorting by owner +
     // position + damage still tied whenever one owner's two volumes shared them
@@ -783,10 +781,16 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // own — it is a volume, not a body — so it is keyed by the body that
             // threw it, which is what makes the sort canonical rather than
             // merely usually-stable.
-            // THE VOLUME'S OWN identity. `StrikeRank` is the fallback for a
-            // strike outside the authored move path, which has no derived id.
+            // THE VOLUME'S OWN identity. ⛔ THE FALLBACK IS OWNER-QUALIFIED: a
+            // bare `strike(window 1, volume 0)` names one volume of EVERY
+            // unidentified owner, and an `id` that identifies two different
+            // things is worse than an absent one.
             "id": strike_id.clone().or_else(|| {
-                rank.map(|(window, volume)| format!("strike(window {window}, volume {volume})"))
+                let owner = rows
+                    .iter()
+                    .find(|(e, ..)| *e == hitbox.owner)
+                    .and_then(|row| row.14.clone())?;
+                rank.map(|(window, volume)| format!("{owner}/strike/w{window}/v{volume}"))
             }),
             // Provenance, not identity: whose swing this is.
             "owner_id": rows

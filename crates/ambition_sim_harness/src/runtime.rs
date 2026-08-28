@@ -227,11 +227,10 @@ impl Platformer2dSimHarness {
     pub fn set_timestep(&mut self, timestep: TimestepMode) {
         if self.rollback.enabled() {
             self.timestep = TimestepMode::fixed_60hz();
-            self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
-                std::time::Duration::from_nanos(
-                    1_000_000_000u64 / SIM_TICK_HZ as u64,
-                ),
-            ));
+            // ⛔ THE SETTER SPELLED THE PERIOD ITSELF, and the constructor beside
+            // it had just been migrated off doing exactly that — so the
+            // deduplication was announced while one of the two copies survived.
+            ambition_platformer2d::sim::enable_manual_stepping(&mut self.app);
             return;
         }
         self.timestep = timestep;

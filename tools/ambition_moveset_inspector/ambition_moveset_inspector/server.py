@@ -59,23 +59,26 @@ SPRITES = (
 )
 
 
-def capture_scene_candidates() -> list[Path]:
-    """Every place the renderer might be, in the order worth trying.
+def renderer_candidates() -> list[Path]:
+    """Every place `moveset_render` might be, in the order worth trying.
 
-    ⛔⛔ NOT JUST `target/debug`. This hard-coded one path, which is wrong two
-    ways that both bite real setups: `CARGO_TARGET_DIR` relocates the whole
-    directory (this repo ships `scripts/setup_target_bindmount.sh` for exactly
-    that), and a release build lands in `target/release`. Either one produced
-    "capture_scene is not built" against a tree where it plainly was.
-
-    ⭐ THE SAME CONVENTION `scripts/profile_desktop.sh` ALREADY USES —
-    `${CARGO_TARGET_DIR:-$repo_root/target}`, release and debug — so the two
-    agree about where this repo puts its binaries.
+    ⛔⛔ NOT JUST `target/debug`. `CARGO_TARGET_DIR` relocates the whole directory
+    (this repo ships `scripts/setup_target_bindmount.sh` for exactly that) and a
+    release build lands in `target/release`. Either produced "not built" against
+    a tree where it plainly was. Same convention `scripts/profile_desktop.sh`
+    uses.
     """
     import os
 
     root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
-    return [root / "release" / "capture_scene", root / "debug" / "capture_scene"]
+    return [root / "release" / "moveset_render", root / "debug" / "moveset_render"]
+
+
+def find_renderer() -> Path | None:
+    for candidate in renderer_candidates():
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _built_at(path: Path) -> str | None:
@@ -96,78 +99,70 @@ def find_capture_scene() -> Path | None:
     return None
 
 
-def render_animation(character: str, frames: int, stride: int) -> tuple[int, dict]:
-    """Render one fighter's animation through the real engine, on demand.
+def render_animation(character: str, verb: str, frames: int, stride: int) -> tuple[int, dict]:
+    """Render one fighter PERFORMING ONE MOVE, through the real engine.
 
-    ⭐⭐ THE GPU HALF OF THE DECISION. The Engine Takes view derives its animation
-    frame on the CPU so the tool runs anywhere; this produces the REAL thing, by
-    asking the engine to draw it. Jon, 2026-08-27: *"having the animation be
-    generated on demand, and using a fallback visualization if it wasn't
-    available or we didn't have the gpu."*
+    ⭐⭐ CHARACTER **AND VERB**. This took only a character and photographed a
+    fighter STANDING in `hall_of_characters` — twenty-four frames of somebody
+    doing nothing, cached under whatever move you happened to be looking at.
+    `moveset_render` drives the move through the ordinary control-frame seam and
+    names the exact `SimTick` of every PNG.
 
-    ⛔ EVERY FAILURE IS A JSON ANSWER, NOT AN EXCEPTION. The whole point of this
-    route is that it may legitimately be unavailable — no GPU, no binary built,
-    a driver that will not start — and the UI has something to fall back to. A
-    500 with a stack trace would make "this machine cannot render" look like a
-    bug in the inspector.
+    ⛔ EVERY FAILURE IS A JSON ANSWER, NOT AN EXCEPTION. This route may
+    legitimately be unavailable — no GPU, no binary, a driver that will not
+    start — and the viewer has a CPU fallback. A 500 would make "this machine
+    cannot render" look like a bug in the inspector.
     """
     import subprocess
 
     safe = "".join(ch for ch in character if ch.isalnum() or ch in "_-")
+    safe_verb = "".join(ch for ch in verb if ch.isalnum() or ch in "_-")
     if not safe or safe != character:
         return 400, {"error": "character must be a plain catalog id"}
+    if not safe_verb or safe_verb != verb:
+        return 400, {"error": "verb must be a plain repertoire verb"}
 
-    out_dir = RENDERS / safe
+    # ⭐ CACHED BY WHAT WAS ASKED FOR — character AND verb AND shape. Caching by
+    # character alone served the up-B's frames for a jab.
+    out_dir = RENDERS / f"{safe}__{safe_verb}"
     manifest = out_dir / "manifest.json"
-    # ⭐ CACHED BY WHAT WAS ASKED FOR. A second request for the same shape is a
-    # file read; a request for MORE frames re-renders rather than silently
-    # serving fewer than asked.
     if manifest.exists():
         try:
             have = json.loads(manifest.read_text())
-            if have.get("frames") >= frames and have.get("stride") == stride:
+            if have.get("frames", 0) >= frames and have.get("stride") == stride:
                 return 200, have
         except (OSError, ValueError):
             pass
 
-    binary = find_capture_scene()
+    binary = find_renderer()
     if binary is None:
         return 503, {
             "available": False,
-            "reason": "capture_scene is not built",
-            "hint": "cargo build -p ambition_app_tools --bin capture_scene",
-            "looked_in": [str(p) for p in capture_scene_candidates()],
+            "reason": "moveset_render is not built",
+            "hint": "cargo build -p ambition_app_tools --bin moveset_render",
+            "looked_in": [str(p) for p in renderer_candidates()],
         }
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    for stale in out_dir.glob("*.png"):
-        stale.unlink()
     try:
         result = subprocess.run(
             [
                 str(binary),
-                "hall_of_characters",
-                "player",
-                str(out_dir / "frame.png"),
-                "480x360",
-                "--warmup", "60",
                 "--character", safe,
+                "--verb", safe_verb,
+                "--out", str(out_dir),
                 "--frames", str(frames),
                 "--stride", str(stride),
             ],
             cwd=str(REPO),
             capture_output=True,
             text=True,
-            timeout=900,
+            timeout=1800,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         return 503, {"available": False, "reason": f"the renderer did not run: {error}"}
 
-    shots = sorted(p.name for p in out_dir.glob("frame.*.png"))
-    if result.returncode != 0 or not shots:
-        # ⛔ THE RENDERER'S OWN LAST WORDS, not a generic failure. "no GPU" and
-        # "that character is not on the roster" are different problems and the
-        # person reading this is the one who can tell them apart.
+    if result.returncode != 0 or not manifest.exists():
         tail = (result.stderr or result.stdout or "").strip().splitlines()
         return 503, {
             "available": False,
@@ -175,126 +170,22 @@ def render_animation(character: str, frames: int, stride: int) -> tuple[int, dic
             "detail": tail[-3:] if tail else [],
         }
 
-    # ⭐ THE BINARY'S OWN PROVENANCE TRAVELS WITH THE FRAMES. Nothing here builds,
-    # so "which binary drew this and when was it built" is the only thing that
-    # distinguishes a current picture from one an hour of engine changes ago.
-    document = {
-        "available": True,
-        "character": safe,
-        "frames": len(shots),
-        "stride": stride,
-        "renderer": str(binary),
-        "renderer_built": _built_at(binary),
-        "urls": [f"/render/{safe}/{name}" for name in shots],
-    }
+    document = json.loads(manifest.read_text())
+    document.update(
+        available=True,
+        renderer_path=str(binary),
+        renderer_built=_built_at(binary),
+        urls=[f"/render/{out_dir.name}/{shot['file']}" for shot in document.get("shots", [])],
+    )
+    # ⛔⛔ A MISMATCH IS REPORTED, NEVER CACHED UNDER THE REQUESTED NAME. A press
+    # is a REQUEST; the engine decides what comes out. Serving another move's
+    # animation as this one's is the worst thing a reference tool can do.
+    observed = document.get("observed_moves") or []
+    document["mismatch"] = not document.get("reached_a_move")
+    if document["mismatch"]:
+        document["reason"] = f"no move became active for `{safe_verb}`"
     manifest.write_text(json.dumps(document))
     return 200, document
-
-
-def inspector_status() -> dict:
-    """Everything the page needs to explain ITSELF.
-
-    ⭐⭐ THE UI COULD NOT SAY WHAT IT WAS DOING. Jon, 2026-08-27: *"I don't see
-    any art at the moment. Not sure if that's because the binaries are not built,
-    because the webui is not reporting the status of what it has, or what it is
-    doing. I can't tell if it is trying to call the tool or not, or if it knows
-    where it is."* Every one of those was answerable on the server and none of it
-    was reachable from the browser — the provenance went to a terminal the person
-    looking at the pictures was not reading.
-    """
-    import os
-
-    bundle_path = DATA / "moveset_bundle.json"
-    takes_path = DATA / "takes" / "takes.json"
-    takes_meta: dict = {"exists": takes_path.exists()}
-    if takes_meta["exists"]:
-        takes_meta["built"] = _built_at(takes_path)
-    bundle_meta: dict = {"exists": bundle_path.exists()}
-    if bundle_meta["exists"]:
-        bundle_meta["built"] = _built_at(bundle_path)
-        try:
-            doc = json.loads(bundle_path.read_text())
-            bundle_meta["schema"] = doc.get("schema")
-            bundle_meta["fighters"] = len(doc.get("characters") or [])
-            bundle_meta["sheets"] = len(doc.get("sheets") or {})
-        except (OSError, ValueError) as error:
-            bundle_meta["error"] = str(error)
-
-    binaries = {}
-    root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
-    for name in ("moveset_export", "moveset_takes", "capture_scene"):
-        found = next(
-            (root / profile / name for profile in ("release", "debug")
-             if (root / profile / name).exists()),
-            None,
-        )
-        binaries[name] = {
-            "found": found is not None,
-            "path": str(found) if found else None,
-            "built": _built_at(found) if found else None,
-            "build_command": f"cargo build -p ambition_app_tools --bin {name}",
-            "looked_in": [str(root / p / name) for p in ("release", "debug")],
-        }
-
-    # ⭐⭐ ARE THE TAKES CURRENT? "takes.json exists, recorded 15:53" is not the
-    # question anybody has — the question is whether the recording carries the
-    # fields this build DRAWS. A take made before the art fields existed shows no
-    # sprites and no polygons, the Art button appears dead, and nothing on the
-    # page says why. Rebuilding the binaries does NOT re-record; only running
-    # moveset_takes does.
-    if takes_meta["exists"]:
-        try:
-            doc = json.loads(takes_path.read_text())
-            rows = doc.get("takes") if isinstance(doc, dict) else doc
-            bodies = art = shapes = boxes = 0
-            for take in rows or []:
-                for frame in take.get("frames") or []:
-                    for body in frame.get("bodies") or []:
-                        bodies += 1
-                        art += 1 if body.get("art") else 0
-                    for hit in frame.get("hitboxes") or []:
-                        boxes += 1
-                        shapes += 1 if hit.get("shape") else 0
-            takes_meta.update(
-                takes=len(rows or []),
-                bodies=bodies,
-                with_art=art,
-                hitboxes=boxes,
-                with_shape=shapes,
-            )
-            stale = []
-            if bodies and not art:
-                stale.append("no sprite art (bodies carry no `art`)")
-            if boxes and not shapes:
-                stale.append("no hitbox geometry (strikes carry no `shape`)")
-            if stale:
-                takes_meta["stale"] = (
-                    "recorded before this build: "
-                    + ", ".join(stale)
-                    + " — re-run moveset_takes"
-                )
-        except (OSError, ValueError) as error:
-            takes_meta["error"] = str(error)
-
-    return {
-        # ⛔⛔ HOW OLD IS THE PROCESS ANSWERING YOU. `server.py` is loaded into
-        # memory at start, so a server left running across an edit serves its OWN
-        # ROUTES from before that edit however current the files on disk are — a
-        # 19-hour-old process had no `/art/` route at all and 404'd every sprite,
-        # which is unfalsifiable from the browser. This is the fact that makes it
-        # falsifiable.
-        "server_started": _STARTED,
-        "server_uptime_minutes": int((time.time() - _STARTED_AT) / 60),
-        "server_module": str(Path(__file__).resolve()),
-        "repo": str(REPO),
-        "sprites_dir": str(SPRITES),
-        "sprites_dir_exists": SPRITES.exists(),
-        "bundle": bundle_meta,
-        "takes": takes_meta,
-        "renders_dir": str(RENDERS),
-        "cached_renders": sorted(p.name for p in RENDERS.glob("*")) if RENDERS.exists() else [],
-        "binaries": binaries,
-    }
 
 
 def _contained(root: Path, relative: str) -> str:
@@ -379,11 +270,12 @@ class InspectorHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/render":
             query = parse_qs(parsed.query)
             character = (query.get("character") or [""])[0]
-            if not character:
-                return self._json(400, {"error": "character is required"})
+            verb = (query.get("verb") or [""])[0]
+            if not character or not verb:
+                return self._json(400, {"error": "character and verb are required"})
             frames = min(int((query.get("frames") or ["24"])[0]), 120)
             stride = min(int((query.get("stride") or ["2"])[0]), 30)
-            return self._json(*render_animation(character, frames, stride))
+            return self._json(*render_animation(character, verb, frames, stride))
         if parsed.path == "/api/review":
             subject = (parse_qs(parsed.query).get("subject") or [""])[0]
             if not subject:

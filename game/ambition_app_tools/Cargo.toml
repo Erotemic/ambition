@@ -114,3 +114,7 @@ bench = false
 [[bin]]
 name = "zero_time_capture_spike"
 path = "src/bin/zero_time_capture_spike.rs"
+
+[[bin]]
+name = "moveset_render"
+path = "src/bin/moveset_render.rs"

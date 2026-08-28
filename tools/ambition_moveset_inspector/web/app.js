@@ -72,12 +72,17 @@ function takesCarryArt() {
 }
 
 const RENDERS = new Map();
-function renderedFramesFor(character) {
-  if (!character) return null;
-  const have = RENDERS.get(character);
+function renderedFramesFor(character, verb) {
+  /* ⛔⛔ KEYED ON CHARACTER **AND VERB**. This asked for a character alone, and
+   * the endpoint photographed a fighter STANDING — so every move of a fighter
+   * shared one cache entry of somebody doing nothing. A move renderer that
+   * ignores which move was selected is the bug this whole campaign was about. */
+  if (!character || !verb) return null;
+  const key = `${character}/${verb}`;
+  const have = RENDERS.get(key);
   if (have !== undefined) return have;
-  RENDERS.set(character, null);
-  fetch(`/api/render?character=${encodeURIComponent(character)}&frames=24&stride=2`)
+  RENDERS.set(key, null);
+  fetch(`/api/render?character=${encodeURIComponent(character)}&verb=${encodeURIComponent(verb)}&frames=24&stride=2`)
     .then((r) => r.json())
     .then((doc) => {
       if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
@@ -96,25 +101,25 @@ function renderedFramesFor(character) {
         img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
         return img;
       });
-      RENDERS.set(character, {
+      RENDERS.set(key, {
         available: true,
         images,
         stride: doc.stride,
         renderer: doc.renderer,
         built: doc.renderer_built,
       });
-      renderStatus(character);
+      renderStatus(key);
     })
     .catch((error) => {
-      RENDERS.set(character, { available: false, reason: String(error) });
-      renderStatus(character);
+      RENDERS.set(key, { available: false, reason: String(error) });
+      renderStatus(key);
     });
   return null;
 }
 
 /* Say WHICH picture is on screen. A view that silently swaps between engine
  * frames and a CPU approximation is a view whose fidelity nobody can trust. */
-function renderStatus(character) {
+function renderStatus(key) {
   const node = $("#take-source");
   if (!node) return;
   /* ⛔⛔ A RECORDING WITH NO ART MAKES THE ART BUTTON LOOK BROKEN. Pressing it
@@ -126,7 +131,7 @@ function renderStatus(character) {
     node.title = "cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>";
     return;
   }
-  const have = RENDERS.get(character);
+  const have = RENDERS.get(key);
   if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
   /* WHICH BINARY DREW THIS, AND WHEN IT WAS BUILT. Nothing in this tool builds,
    * so that stamp is the only thing separating a current picture from one taken

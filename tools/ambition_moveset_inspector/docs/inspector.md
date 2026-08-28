@@ -312,3 +312,37 @@ console nobody had open.
 
 `check_draw_path.mjs` draws every frame of every recorded take against a stubbed
 canvas and fails on the first exception. Run it after touching `app.js`.
+
+## The move renderer (`moveset_render`)
+
+The GPU path renders a fighter **performing a selected move**, one PNG per exact
+simulation tick.
+
+```bash
+cargo build -p ambition_app_tools --bin moveset_render
+target/debug/moveset_render --character npc_pirate_admiral --verb special_up \
+    --out /tmp/upb --frames 24 --stride 2
+```
+
+`/api/render?character=<id>&verb=<verb>` drives it and caches on **character and
+verb** — it used to take a character alone and photograph a fighter standing, so
+every move of a fighter shared one cache entry of somebody doing nothing.
+
+⛔⛔ IT DOES NOT REUSE `capture_scene`, and the reason is concrete: that tool calls
+`App::run()`, so the RUNNER owns the loop and a driver cannot decide what a frame
+costs. Its `--frames` cadence shows the cost — `request_capture` returns early
+while a readback is pending but the app keeps updating, so shots are spaced by
+`stride + however long the GPU took`.
+
+⭐ SIMULATION TIME AND GPU TIME ARE SEPARATE HERE. The sim advances only at the
+canonical manual period; a readback is serviced with `ManualDuration(ZERO)`,
+which runs the schedules and moves no clock (measured: 3 pumps per shot). So the
+manifest can say the frames are at ticks 31, 33, 35 … and mean it.
+
+⛔ A PRESS IS A REQUEST. The manifest records the verb asked for, every move
+observed, and whether one was reached; a mismatch is reported rather than cached
+under the requested move's name.
+
+⚠ Capture-state verbs (pummels, throws) are deliberately absent from the shared
+exercise: they need a grabbed opponent, which it cannot set up, and listing them
+would promise a capture that would only ever report a mismatch.

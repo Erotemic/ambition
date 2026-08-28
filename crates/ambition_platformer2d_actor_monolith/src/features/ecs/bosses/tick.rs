@@ -1,8 +1,15 @@
 //! The per-frame boss tick: encounter-phase sync + brain ticking + the main
 //! ECS boss update (`update_ecs_bosses`).
 
-use super::super::*;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
+// whole `features/ecs` module — a channel a `crate::` grep cannot see, and
+// the reason a carve estimate needs more than an import count. Measured by
+// deleting it: everything it actually supplied was bevy's prelude and
+// `WorldTime`, and NO monolith vocabulary at all.
 use ambition_combat::components::{BossDeathAnimation, BossPatternTimer, BossPhase, CenteredAabb};
+use ambition_platformer2d_core as ae;
+use ambition_time::WorldTime;
+use bevy::prelude::{Query, Res, With, Without};
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
 use ambition_characters::control::ActorControl;

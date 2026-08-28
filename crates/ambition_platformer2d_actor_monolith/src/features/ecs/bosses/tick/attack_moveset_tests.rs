@@ -1,6 +1,9 @@
 use super::*;
+// The prelude wholesale: this fixture builds an `App` and chains systems, which
+// is the prelude's own vocabulary rather than a dependency of the boss module.
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::{BossAttackProfile, BossCapability};
+use bevy::prelude::*;
 
 fn warden_behavior() -> ambition_boss_encounter::pattern::profile::BossBehaviorProfile {
     ambition_boss_encounter::pattern::profile::BossBehaviorProfile::clockwork_warden()
@@ -20,8 +23,9 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
         ],
     };
     let combat_size = ambition_platformer2d_core::Vec2::new(80.0, 80.0);
-    let moveset = crate::features::bosses::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
-        .expect("a boss with strikes → a moveset");
+    let moveset =
+        crate::features::bosses::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
+            .expect("a boss with strikes → a moveset");
     // BOTH profiles now author a move — geometry AND special.
     assert_eq!(
         moveset.0.moves.len(),

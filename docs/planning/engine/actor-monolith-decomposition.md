@@ -921,6 +921,25 @@ paths** — the milestone the mount pair reached before it carved. ⭐ its test-
 become `super::` inside the new crate rather than being coupling at all.
 ⇒ the remaining price is the MOVE, not an inversion: `ambition_boss_encounter`
 already exists and already owns the profiles, the catalog and the anim helpers.
+It is missing exactly ONE dependency the module needs —
+`ambition_platformer2d_world`, for `CollisionWorld` — and that is a clean
+downward edge: `_world` depends only on `asset_manager`, `_core`,
+`entity_catalog` and `shared_tangle`, so there is no cycle. ⚠ the
+`ambition_platformer2d::` strings in `tick.rs` are LOG TARGETS, not a facade
+dependency; a grep for the crate name reports them and they cost nothing.
+
+⛔⛔ **AND AN IMPORT COUNT NEARLY MISSED THE ONE CHANNEL THAT MATTERED.** Both
+non-test files opened with `use super::super::*` — a glob over the whole
+`features/ecs` module, which no `crate::` grep can see and which could have been
+hiding any amount of monolith vocabulary. Measured by DELETING it and reading
+what the compiler asked for: bevy's prelude, `WorldTime`, and
+`ambition_platformer2d_core as ae`. **No monolith types at all**, so the estimate
+survived the harder test — but it survived by measurement, not by the grep.
+⚠ read the WHOLE error set when you do this: the first run reported only six
+missing names, and adding those revealed `ae` and the `Component` derive behind
+them. rustc stops resolving early, so a truncated list reads as a short one.
+✔ the globs are gone; both files name what they use, and the test modules that
+were living off the same glob name theirs.
 
 ⚠ **`damage`'s nine refs are FOUR concepts**, which is what a carve would have to
 subtract: `CombatBanterRegistry` (×3), `PreparedCharacterRegistry` (×2),

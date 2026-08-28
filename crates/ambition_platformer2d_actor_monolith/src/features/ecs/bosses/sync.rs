@@ -2,16 +2,22 @@
 //! read-model components, derive sprite metrics + render targets, and build the
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
-use super::super::*;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
+// whole `features/ecs` module — a channel a `crate::` grep cannot see, and
+// the reason a carve estimate needs more than an import count. Measured by
+// deleting it: everything it actually supplied was bevy's prelude and
+// `WorldTime`, and NO monolith vocabulary at all.
 use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
+use ambition_platformer2d_core as ae;
+use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
-use ambition_boss_encounter::behavior::ActorSpriteMetrics;
 use ambition_boss_encounter::attack_geometry::bounding_aabb;
+use ambition_boss_encounter::behavior::ActorSpriteMetrics;
 use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::Commands;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Marker that a boss entity has had its sprite metrics applied
 /// (once-per-boss derivation gate). Inserted by
@@ -258,7 +264,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 
 #[cfg(test)]
 mod boss_combat_rebuild_contract {
-    use super::*;
+    use ambition_characters::actor::BodyCombat;
 
     /// EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.
     ///

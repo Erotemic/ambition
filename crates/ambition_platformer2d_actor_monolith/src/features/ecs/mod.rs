@@ -23,17 +23,16 @@
 //! `hitbox`, `overlay`, `pickups`, ...) so call sites stay
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
-use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
 use super::*;
+use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
 // `BodyCombat`/`BodyHealth` live on the reusable actor crate. This module surfaces them to the
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
-use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_characters::actor::BodyCombat;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
-    Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With,
-    Without,
+    Commands, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With, Without,
 };
 
 use ambition_time::WorldTime;
@@ -77,7 +76,6 @@ mod spawn_actors;
 pub mod spawn_static;
 mod target_volumes;
 
-
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
@@ -102,9 +100,7 @@ pub use ambition_boss_encounter::anim::{
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
-pub use crate::world::overlay::{
-    rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet,
-};
+pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet};
 pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
@@ -172,8 +168,6 @@ pub use targeting::{
     can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
     FriendlyFire,
 };
-
-
 
 #[cfg(test)]
 mod tests;

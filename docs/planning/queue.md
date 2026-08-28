@@ -3309,6 +3309,27 @@ where its own docs began landed in the previous item's and produced a bad cut.
 Detached in its own commit.
 ▢ **STEP TWO** is `AnimationSelection` + `CombatGeometry` + the volume math →
 `ambition_combat`, for one downward edge `combat → sprite_sheet`.
+⭐ **AND IT IS A SPLIT, NOT A MOVE — measured 2026-08-28.** With
+`ActorSpriteMetrics` gone, `attack_geometry/` (990 non-test lines) names exactly
+THREE things above it, and they all belong to the same half:
+
+```text
+UNIVERSAL, and already dependency-free of the boss crate:
+  CombatGeometry, AnimationSelection, and the volume math over a pose.
+  Crate deps: characters, _core, sprite_sheet — all combat's already except
+  sprite_sheet, the one new downward edge.
+
+BOSS-SPECIFIC, and it STAYS:
+  BossVolumeContext        names BossCatalog, BossBehaviorProfile, BossAttackState
+  volumes_for_profile      takes a BossAttackProfile and a BossBehaviorProfile
+  a `pub use crate::pattern::profile::StrikeRect` re-export
+```
+
+⇒ the file is two halves sharing one module, and separating them is the slice.
+⛔ **that is a design cut, not a `git mv`** — which is why this step did not go
+with step one: `BossVolumeContext` is how the boss FEEDS the universal math, so
+the split has to leave the boss half calling the moved half, and deciding that
+signature is the work.
 ⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
 enumerate the callers — the consumers outside `boss_encounter` are
 `sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's

@@ -949,13 +949,34 @@ different pass."*
   source, so a body that is properly absent does not flash. Photographed either
   side with `capture_scene pirate_cove player --character actor --press
   hold:down,g,release:down --frames 30 --stride 3`.
-* ▢ **A TRAPDOOR SPRITE SHE IS REPLACED WITH.** Today the door is a 0.42s
-  `trapdoor_boards` puff at each end and nothing in between; while she is under
-  there is no object on the stage at all.
-* ▢ **SURFACE-LOCKED TRAVEL.** `integrate_submerged_clusters` steers her
-  horizontally with no geometry whatsoever, so she passes under a ledge and out
-  past the end of the stage. Jon: the door *"can't go over a ledge"*.
-* ▢ **POP UP AT ANY TIME, WITH A FIREWORK THAT HITS ABOVE THE DOOR.** Surfacing
-  is fixed at `SURFACE_AT_S` and is hitless.
+* ✔ **A TRAPDOOR SPRITE SHE IS REPLACED WITH — 2026-08-28.**
+  `rendering/submerged.rs` grew a door: one per submerged body (not a singleton
+  — `morph_ball.rs` next door is one and its own comments record what that
+  cost), drawn at her FEET because a submerged body never moves along gravity so
+  the feet line IS the surface she is under, and retired the tick she surfaces.
+  Procedural, for the reason the morph ball is: the shipped `trapdoor_boards`
+  art is an EFFECT that plays once and ends, and what was wanted is a persistent
+  object.
+* ✔ **SURFACE-LOCKED TRAVEL — 2026-08-28.** `integrate_submerged_clusters`
+  refuses a step whose LEADING FOOT would leave solid ground. ⛔ The first
+  version probed the whole footprint and stopped her a body-width PAST the lip,
+  hanging over open air — *"is any of me still over ground"* is the wrong
+  question. Refused whole rather than clamped to the edge: a tick of submerged
+  travel is about four world px. Written in the integrator and not the sweep,
+  because a submerged body is passable against every block in the world so the
+  sweep has nothing to stop her with.
+* ✔ **POP UP AT ANY TIME, WITH A FIREWORK THAT HITS ABOVE THE DOOR —
+  2026-08-28.** The beat under the stage is the shipped CHARGE mechanic, not a
+  new one: `MoveCharge` freezes a timeline at an authored point while a button
+  is held and resumes on release or at the maximum. So the second Jon authored
+  becomes a CEILING, releasing Special surfaces her early, and the emergence
+  window arrives whenever she comes up without knowing when that was.
+  ⛔ ONE NEW KNOB: `SmashChargeSpec::roots`, default `true`. A smash's freeze
+  roots because a windup is a commitment (*"they should not be able to walk or
+  move"*); this one holds TRAVEL (*"I do want the player to be able to control
+  where they move"*). Two uses of one mechanic, saying which they are.
+  The emergence is a centred, unfaced column from below her feet to well over
+  her head — the door is UNDER her, so a firework that leaned would let a camper
+  stand on the hinge side.
 * ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
   actor concept. Explicitly deferred to its own pass.

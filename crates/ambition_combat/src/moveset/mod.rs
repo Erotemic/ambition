@@ -696,9 +696,17 @@ impl MovePlayback {
     /// Distinct from `charge.charging()`, which is true from the move's first
     /// tick: a body on its way TO the hold point is still swinging, and only the
     /// freeze roots it.
+    ///
+    /// ⛔⛔ AND THE POLICY DECIDES, because one mechanic serves two moves. The
+    /// Actor's trapdoor freezes its timeline exactly the way a smash does and
+    /// the beat it freezes is TRAVEL under the stage — rooting that would
+    /// delete the move. `SmashChargeSpec::roots` is where the two say which
+    /// they are; it defaults to `true`, so every smash is unmoved.
     pub fn rooted_by_charge(&self) -> bool {
         self.charge.is_some_and(|charge| {
-            charge.charging() && self.t >= charge.policy.hold_at_s.min(self.spec.duration_s)
+            charge.policy.roots
+                && charge.charging()
+                && self.t >= charge.policy.hold_at_s.min(self.spec.duration_s)
         })
     }
 

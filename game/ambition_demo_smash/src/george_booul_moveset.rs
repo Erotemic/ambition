@@ -216,6 +216,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // a body reached by both takes it. This is the base: the same commitment
@@ -271,6 +272,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     let up_smash = feel(up_smash, Feel::Heavy);
 
@@ -293,6 +295,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         stores: false,
+        roots: true,
     });
     let down_smash = feel(down_smash, Feel::Heavy);
 

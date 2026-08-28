@@ -15,6 +15,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
 pub mod checkpoint_horizon;
+mod deterministic_step;
 mod combat_schedule;
 pub mod content_identity;
 pub mod durable_save_horizon;
@@ -73,6 +74,10 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 /// The canonical timeline (netcode N0.1). Re-exported here because the sim
 /// schedule this crate assembles is what advances it.
 pub use ambition_time::SimTick;
+pub use deterministic_step::{
+    real_elapsed, release_manual_control, sim_tick, step_simulation, take_manual_control,
+    tick_period,
+};
 /// The per-tick input recorder (netcode N0.2).
 pub use input_stream::{input_stream_recording, record_input_stream, InputStreamRecorder};
 #[cfg(feature = "ldtk")]

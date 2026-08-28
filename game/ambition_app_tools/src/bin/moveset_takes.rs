@@ -501,11 +501,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // mount as an empty box. `ActorConfig::sprite_character_id` is what the
         // renderer itself falls back to for exactly these bodies.
         Option<&ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+        // ⛔⛔ A RAW ENTITY ID IS NOT AN IDENTITY. The label fell back to
+        // `format!("{entity}")`, and an entity index depends on every spawn and
+        // despawn the whole app made first — so two runs of this binary labelled
+        // the SAME shark `1311v10` and `1329v6`, and a byte-diff of two
+        // recordings reported 15 of 19 takes as changed when their physics were
+        // identical to the last float. `SimId` is the engine's own stable
+        // identity, the one rollback remaps across a rewind.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let rows: Vec<_> = bodies
         .iter(world)
         .map(
-            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
+            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config, sim_id)| {
                 (
                     e,
                     (kin.pos.x, kin.pos.y),
@@ -533,6 +541,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                         ground.map(|g| g.on_ground),
                     ),
                     pose.is_some(),
+                    sim_id.map(|id| id.as_str().to_string()),
                 )
             },
         )
@@ -573,6 +582,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         gesture,
         drawn,
         has_pose,
+        sim_id,
     ) in &rows
     {
         let subject = *seat == Some(subject_seat);
@@ -591,15 +601,27 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-                    .and_then(|(.., worn, _, _, _, _, _, _, _)| worn.clone())
-                    .unwrap_or_else(|| format!("{mount}"))
+.and_then(|row| row.6.clone())
+                    // ⛔ THE MOUNT'S STABLE ID, never its entity index: a raw
+                    // entity id is not an identity and makes two runs differ.
+                    .or_else(|| {
+                        rows.iter()
+                            .find(|(e, ..)| *e == mount)
+                            .and_then(|row| row.14.clone())
+                    })
+                    .unwrap_or_else(|| "<unidentified mount>".to_string())
             });
         }
         frame.bodies.push(serde_json::json!({
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
             "seat": seat,
-            "label": worn.clone().unwrap_or_else(|| format!("{entity}")),
+            // Worn character, else the STABLE sim identity, else a marker. Never
+            // the raw entity id: see the query row above.
+            "label": worn
+                .clone()
+                .or_else(|| sim_id.clone())
+                .unwrap_or_else(|| "<unidentified body>".to_string()),
             // A summoned mount is neither a seat nor scenery, and a viewer that
             // could not tell it apart would draw the shark as another fighter.
             "kind": if *is_mount { "summon" } else if seat.is_some() { "fighter" } else { "body" },
@@ -944,6 +966,13 @@ fn main() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.add_plugins(bevy::log::LogPlugin::default());
+    // ⭐⭐ THE CLOCK IS OURS FROM HERE. Without this the rollback host advances
+    // from a WALL-CLOCK accumulator, so one `app.update()` runs zero, one or
+    // several sim ticks depending on how long the previous iteration took —
+    // which made `TAKE_TICKS = 150` mean 150 LOOP ITERATIONS, made a recording
+    // cost at least as much real time as the game time it contained, and made
+    // two runs of this binary disagree on 13 of 19 takes.
+    ambition_platformer2d::runtime::take_manual_control(&mut app);
     for _ in 0..30 {
         app.update();
     }

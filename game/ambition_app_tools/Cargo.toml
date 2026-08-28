@@ -110,3 +110,7 @@ name = "moveset_takes"
 path = "src/bin/moveset_takes.rs"
 test = false
 bench = false
+
+[[bin]]
+name = "step_probe"
+path = "src/bin/step_probe.rs"

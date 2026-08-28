@@ -454,6 +454,7 @@ pub mod sim {
     pub use ambition_input::ControlFrame;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_control_frame;
+    pub use ambition_platformer2d_rollback_ggrs::rollback_frame;
     #[cfg(not(feature = "rollback"))]
     pub use ambition_platformer2d_runtime::input_drive::drive_control_frame;
 

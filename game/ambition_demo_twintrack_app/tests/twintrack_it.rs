@@ -57,27 +57,36 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
 
 /// PROBE — what moves the laboratory twin, who is supposed to be at rest.
 ///
-/// Five tests in this file fail on her drift, and have since at least
-/// `a945c1de5` — measured against a worktree at that commit, not inferred.
+/// Five tests in this file failed on her drift from at least `a945c1de5` until
+/// 2026-08-28, and this probe is what found the cause. Kept because the numbers
+/// below are the reproduction, and because two earlier readings of them were
+/// wrong in instructive ways.
 ///
-/// ⭐⭐ WHAT SHE ACTUALLY DOES, from this probe: she appears on tick 3 already
-/// carrying `vel = (-95.98, 0)`, and drag eats it over seven ticks. She stops at
-/// `x = 713.8359`, 6.16px LEFT of the `LAB_POS` she is placed at, and her `y`
-/// reads `446.015` — 3.98px above her authored 450 — from the first tick she is
-/// visible. ⇒ ONE IMPULSE AT CONSTRUCTION, not a force and not a walk: the
-/// velocity only decays, and it never returns.
+/// ⭐⭐ WHAT SHE ACTUALLY DID: appeared on tick 3 already carrying
+/// `vel = (-95.98, 0)`, drag ate it over seven ticks, and she stopped 6.16px LEFT
+/// of the `LAB_POS` she is placed at. Her `y` reads `446.015` from the first tick
+/// she is visible — 3.98px above the authored 450, with zero `y` velocity — which
+/// is construction resolving a standing centre and is not part of the defect.
 ///
-/// ⛔⛔ THE OBVIOUS EXPLANATION IS REFUTED, and the control is why this probe is
-/// worth keeping. The room's spawn point IS `LAB_POS`, so the traveler starts
-/// inside the twin's 48px body — an overlap two bodies would separate from.
-/// Moving the room spawn 96px away puts the traveler at `816.0` and leaves the
-/// twin's drift BYTE-IDENTICAL: same `-95.978`, same final `713.8359`. Nobody
-/// pushed her; she was launched.
+/// ⛔ FIRST WRONG READING: *"the traveler is standing inside her, and two bodies
+/// separate"*. Refuted by a control — moving the room's spawn point 96px away
+/// leaves her drift BYTE-IDENTICAL. That control was right and worth keeping.
 ///
-/// ⇒ THE NEXT STEP IS THE CAUSAL INSTRUMENT, which exists to answer exactly
-/// "who wrote this velocity" — build with `--features causal` and read the
-/// authorship record for her first three ticks, rather than guessing at a
-/// second story that also fits.
+/// ⛔⛔ SECOND WRONG READING, and it survived longer because the first control
+/// made it look careful: *"ONE IMPULSE AT CONSTRUCTION, not a force and not a
+/// walk — the velocity only decays"*. It IS a walk. Spawning a second body from
+/// the same request shape 420px away showed it accelerating -96, -194, -294, -398,
+/// -506 and pinning at the -540 cap, walking left forever: a seatless `Passive`
+/// NPC is what the engine calls an "undescribed-pool STROLLER". The decay in this
+/// probe was never drag on an impulse — it was drag on the ONE stroll step she
+/// gets before her seat arrives.
+///
+/// ⇒ **the gap is a commands flush.** `adopt_the_laboratory_twin` QUEUES
+/// `DrivingParticipant`, and one tick of her life happens before it lands.
+/// `restore_the_laboratory_twins_mark` puts her back, and the reason it is a
+/// separate system on `Added` rather than a line inside the adoption is that the
+/// adoption samples her BEFORE the step it needs to undo — measured, it read
+/// `720.0` with zero velocity and corrected nothing.
 #[test]
 #[ignore = "PROBE, print-only: what moves the laboratory twin"]
 fn probe_what_moves_the_laboratory_twin() {

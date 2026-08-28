@@ -840,8 +840,25 @@ the job's own output. It was not. Switching the runner to `cargo nextest`
 printed the failures by name for the first time — 6458 tests, seven red. Each has
 now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
 
-* ▢ **`ambition_demo_twintrack_app::twintrack_it` — five, PRE-EXISTING and
-  MEASURED so.** At `a945c1de5`, run alone, `each_seat_moves_its_own_body_and_leaves_the_others_alone`
+* ✔ **`ambition_demo_twintrack_app::twintrack_it` — five, PRE-EXISTING, FIXED
+  2026-08-28. 24/24 pass.** The laboratory twin spends exactly ONE tick of her
+  life as a seatless `Passive` NPC, because `adopt_the_laboratory_twin` QUEUES
+  `DrivingParticipant` and the insert lands a flush later. A seatless `Passive` is
+  what the engine calls an "undescribed-pool STROLLER", so she takes one stroll
+  step worth -96 px/s and drag bleeds it over seven ticks into a permanent 6.16px
+  offset — which every reading taken against *"the twin is at rest"* inherited.
+  `restore_the_laboratory_twins_mark` puts her back on `Added<LaboratoryTwin>`.
+  ⛔ **AND MY OWN EARLIER NOTE WAS THE LAST OBSTACLE.** It read *"ONE IMPULSE AT
+  CONSTRUCTION, not a force and not a walk — the velocity only decays"*, and
+  pointed at the causal instrument as the next step. It is a walk: a second body
+  spawned from the same request 420px away accelerates -96, -194, -294, -398, -506
+  and pins at the -540 cap, walking left forever. The decay was drag on the ONE
+  step, not the shape of an impulse. The instrument that answered it was a
+  twelve-line probe, not the causal recorder.
+  ⚠ **and the first fix attempt sampled the wrong moment**: correcting her inside
+  the adoption read `720.0` with zero velocity — before the step it needed to
+  undo — and changed nothing, while printing a line that looked like success.
+  <details><summary>the original measurement</summary> At `a945c1de5`, run alone, `each_seat_moves_its_own_body_and_leaves_the_others_alone`
   fails with the same numbers as today: the laboratory twin goes
   `715.9127 → 713.8359` while seat zero presses RIGHT. The four siblings
   (`both_observers_measure_the_light_pulse_at_the_invariant_speed` — *"the lab
@@ -858,6 +875,7 @@ now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
     `450` → `446.015` between that baseline and today, which the movement work
     merged from `specials-are-real-moves` explains. The failing assertion is on
     `x` and is identical either side.
+  </details>
 * ✔ **`ambition_demo_smash_app::…::holding_attack_walks_the_jab_string_into_the_rapid_jab`
   is NOT a regression.** It passes ALONE at HEAD (39/39) and at every bisect
   point between the merge and HEAD. It failed only inside the 6458-test run,

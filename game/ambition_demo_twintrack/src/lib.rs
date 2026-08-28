@@ -515,8 +515,8 @@ pub fn install_twintrack_content(app: &mut App) {
         .expect("TwinTrack character catalog should be valid"),
     );
     {
+        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
         use ambition_platformer2d::character::CharacterDefinition;
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(
                 TWINTRACK_CHARACTER_ID,
@@ -706,7 +706,10 @@ impl Plugin for TwinTrackExperiencePlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            participants::adopt_the_laboratory_twin
+            (
+                participants::adopt_the_laboratory_twin,
+                participants::restore_the_laboratory_twins_mark,
+            )
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))

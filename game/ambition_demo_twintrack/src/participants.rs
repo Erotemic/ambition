@@ -323,6 +323,37 @@ pub(crate) fn adopt_the_laboratory_twin(
     ));
 }
 
+/// Put the laboratory twin back on her mark, once, the tick after she is adopted.
+///
+/// ⛔⛔ ONE STRAY STEP, AND IT IS PERMANENT. `adopt_the_laboratory_twin` QUEUES
+/// `DrivingParticipant`; the insert does not land until the commands flush, so
+/// exactly one tick of her life is spent as a seatless `Passive` NPC — which the
+/// engine calls an "undescribed-pool STROLLER". Measured: she takes a single
+/// stroll step worth -96 px/s and drag bleeds it over seven ticks into a
+/// permanent 6.16px offset. (A twin that is never adopted keeps accelerating to
+/// the -540 cap, which is what proves the seat is doing its job the moment it
+/// arrives.)
+///
+/// ⭐ SO THIS RUNS ON `Added`, NOT INSIDE THE ADOPTION. Correcting her in the
+/// same system samples the wrong moment: it reads a body that has not taken the
+/// step yet and puts back a position she has not left. `Added<LaboratoryTwin>`
+/// first matches after the flush, with the stray step already integrated.
+///
+/// ⭐ X AND VELOCITY ONLY, and the asymmetry is the physics. Her `x` is a
+/// PREMISE — the beacons sit symmetrically about `LAB_POS.x` and the simultaneity
+/// exhibit IS the claim that she is equidistant from both. Her `y` is the BODY's:
+/// construction resolves a standing centre 3.98px above the authored value with
+/// zero `y` velocity, before she has taken a step, and forcing that back would be
+/// arguing with the body model over a number the beacons' symmetry ignores.
+pub(crate) fn restore_the_laboratory_twins_mark(
+    mut twin: Query<&mut ae::BodyKinematics, Added<LaboratoryTwin>>,
+) {
+    for mut kin in &mut twin {
+        kin.pos.x = LAB_POS.x;
+        kin.vel = ae::Vec2::ZERO;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

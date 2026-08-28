@@ -1334,11 +1334,15 @@ impl PlatformerApp {
             // 180. LEAK, found by migrating the fixture onto this
             // builder; the rule existed only in a comment on the code being
             // deleted.
-            // ⛔ RULE 8 RUNS DURING THE BUILD, before `SimulationHost` is
-            // necessarily installed, so it passes the fact it already holds
-            // rather than asking a resource that may not be there yet.
-            let frame_dt = host_step_period(app, rollback_participants.is_some());
-            app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(frame_dt));
+            // ⭐ RULE 8 ASKS THE SAME QUESTION EVERYBODY ELSE DOES. It briefly
+            // passed `rollback_participants.is_some()` under a comment claiming
+            // `SimulationHost` might not exist yet — MEASURED FALSE: Rule 5
+            // installs either `RollbackEnginePlugin` (which inserts
+            // `SimulationHost::Rollback`) or the fixed-tick foundation (which
+            // calls `set_simulation_host`), and Rule 5 is ~280 lines above this.
+            // So the last host interpretation is gone from the clock policy and
+            // there is genuinely one answer.
+            enable_manual_stepping(app);
         }
 
         Ok(())
@@ -1573,10 +1577,8 @@ pub fn manual_step_period(app: &App) -> Option<std::time::Duration> {
 
 /// THE arithmetic, in one place, for the two hosts that have a fixed tick.
 ///
-/// ⛔ PRIVATE AND TAKING THE FACT RATHER THAN READING IT, because Rule 8 runs
-/// DURING THE BUILD — before `SimulationHost` is necessarily installed — and
-/// already holds the answer. That is the one caller allowed to state the host;
-/// everybody else goes through [`manual_step_period`], which asks the resource.
+/// ⛔ PRIVATE, and reached only through [`manual_step_period`]. Nothing outside
+/// this file gets to state which host it has; the resource is the answer.
 fn host_step_period(app: &App, rollback: bool) -> std::time::Duration {
     if rollback {
         std::time::Duration::from_nanos(1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64)

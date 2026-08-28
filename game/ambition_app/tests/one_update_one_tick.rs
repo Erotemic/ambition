@@ -55,17 +55,30 @@ fn one_update_is_one_simulation_tick_in_a_live_rollback_match() {
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
 
+    // ⛔⛔ TWO CONDITIONS, NOT ONE. A `MatchSeat` existing proves a fighter was
+    // STAGED; it does not prove the GGRS SESSION is running. An update in the gap
+    // between the two legitimately advances zero ticks, and a test that started
+    // asserting there would accuse `SimTick` of a defect that is really its own
+    // impatience — which matters enormously here, because a failure of this test
+    // is meant to be read as an ENGINE INVARIANT defect.
     let mut live = false;
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut all = world.query::<&MatchSeat>();
-        if all.iter(world).count() > 0 {
+        let staged = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            all.iter(world).count() > 0
+        };
+        if staged && ambition_platformer2d::rollback::session_is_active(app.world()) {
             live = true;
             break;
         }
     }
-    assert!(live, "the match never staged, so nothing below is about a live sim");
+    assert!(
+        live,
+        "no live rollback session: either the match never staged or GGRS never \
+         activated, and nothing below is about a running simulation"
+    );
 
     // ⭐ EVERY UPDATE, NOT THE SUM OF THEM.
     let mut previous = sim_tick(&app);

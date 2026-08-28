@@ -704,9 +704,30 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         }));
     }
 
-    let mut hitboxes = world.query::<&ambition_platformer2d::combat::strike::Hitbox>();
-    let boxes: Vec<_> = hitboxes.iter(world).cloned().collect();
-    for hitbox in boxes {
+    // ⛔⛤ A HITBOX DOES HAVE ITS OWN IDENTITY, and this file previously said in a
+    // comment that it did not — then re-derived an inferior one from the owner
+    // plus geometry. `advance_move_playback` inserts
+    // `SimId::strike_volume(owner, move, window, volume)` on the volume entity
+    // itself, and `StrikeRank { window, volume }` beside it. Sorting by owner +
+    // position + damage still tied whenever one owner's two volumes shared them
+    // — a multi-hit's mirrored pair does — and a tie falls back to ECS order,
+    // which is the thing being canonicalised.
+    let mut hitboxes = world.query::<(
+        &ambition_platformer2d::combat::strike::Hitbox,
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+        Option<&ambition_platformer2d::combat::moveset::StrikeRank>,
+    )>();
+    let boxes: Vec<_> = hitboxes
+        .iter(world)
+        .map(|(hitbox, id, rank)| {
+            (
+                hitbox.clone(),
+                id.map(|id| id.as_str().to_string()),
+                rank.map(|r| (r.window, r.volume)),
+            )
+        })
+        .collect();
+    for (hitbox, strike_id, rank) in boxes {
         let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
         // The SAME resolution the combat runtime uses, so a recorded box is the
         // box that could hit somebody rather than a redrawn approximation.
@@ -762,6 +783,12 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // own — it is a volume, not a body — so it is keyed by the body that
             // threw it, which is what makes the sort canonical rather than
             // merely usually-stable.
+            // THE VOLUME'S OWN identity. `StrikeRank` is the fallback for a
+            // strike outside the authored move path, which has no derived id.
+            "id": strike_id.clone().or_else(|| {
+                rank.map(|(window, volume)| format!("strike(window {window}, volume {volume})"))
+            }),
+            // Provenance, not identity: whose swing this is.
             "owner_id": rows
                 .iter()
                 .find(|(e, ..)| *e == hitbox.owner)
@@ -788,14 +815,15 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // share both — a multi-hit's mirrored pair does — and ties then fall back to
     // ECS query order, which is the thing being canonicalised. The owner's
     // stable id leads the key, and geometry only breaks ties within one owner.
+    // ⭐ BY THE VOLUME'S OWN ID. Geometry only breaks ties among strikes that
+    // carry no derived identity at all.
     frame.hitboxes.sort_by(|a, b| {
         let key = |v: &serde_json::Value| {
             (
+                v["id"].as_str().unwrap_or("").to_string(),
                 v["owner_id"].as_str().unwrap_or("").to_string(),
                 v["pos"][0].as_f64().unwrap_or_default().to_bits(),
                 v["pos"][1].as_f64().unwrap_or_default().to_bits(),
-                v["half"][0].as_f64().unwrap_or_default().to_bits(),
-                v["half"][1].as_f64().unwrap_or_default().to_bits(),
                 v["damage"].as_i64().unwrap_or_default(),
             )
         };

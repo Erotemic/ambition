@@ -339,9 +339,24 @@ canonical manual period; a readback is serviced with `ManualDuration(ZERO)`,
 which runs the schedules and moves no clock (measured: 3 pumps per shot). So the
 manifest can say the frames are at ticks 31, 33, 35 … and mean it.
 
-⛔ A PRESS IS A REQUEST. The manifest records the verb asked for, every move
-observed, and whether one was reached; a mismatch is reported rather than cached
-under the requested move's name.
+⛔⛔ A PRESS IS A REQUEST, AND SUCCESS IS THE INTENDED MOVE APPEARING. The
+manifest carries `intended_move` (the composed host's own verb binding),
+`observed_moves`, and `reached_intended_move`. A mismatch is reported and the
+browser REFUSES the sequence, showing the reason and the diagnostic canvas —
+it briefly declared success whenever ANY move played, which would have filed a
+forward air under `attack_air_back`.
+
+⭐ TWO PANELS, NOT ONE PICTURE. The engine render is a whole-scene shot in the
+CAMERA's space; the diagnostic canvas is in the TAKE's world space. Compositing
+them put a strike nowhere near its fighter. They sit side by side and synchronise
+on `action_tick` — two separate sessions share no absolute `sim_tick`, but they
+share how far into the exercise each frame is.
+
+⛔ AND `--frames` / `--stride` CHOOSE WHAT IS OBSERVED, NEVER WHAT IS PERFORMED.
+The hold was `shot < frames / 4`, so asking for more pictures charged a smash
+differently: 24 frames at stride 2 held ~12 ticks, a 12-frame run ~6, the
+recorder ~37. `HOLD_TICKS` is now a shared constant and the exercise is a tick
+schedule both binaries execute.
 
 ⚠ Capture-state verbs (pummels, throws) are deliberately absent from the shared
 exercise: they need a grabbed opponent, which it cannot set up, and listing them

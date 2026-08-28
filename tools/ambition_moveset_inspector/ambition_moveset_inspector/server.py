@@ -180,10 +180,19 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
     # ⛔⛔ A MISMATCH IS REPORTED, NEVER CACHED UNDER THE REQUESTED NAME. A press
     # is a REQUEST; the engine decides what comes out. Serving another move's
     # animation as this one's is the worst thing a reference tool can do.
-    observed = document.get("observed_moves") or []
-    document["mismatch"] = not document.get("reached_a_move")
+    # ⛔⛔ A MISMATCH IS THE INTENDED MOVE NOT APPEARING, not "no move appeared".
+    # This read `observed_moves` and then ignored it, declaring success whenever
+    # ANY move played — so a verb that resolved to a different move would have
+    # been cached and served under the name that was asked for.
+    document["mismatch"] = not document.get("reached_intended_move")
     if document["mismatch"]:
-        document["reason"] = f"no move became active for `{safe_verb}`"
+        intended = document.get("intended_move")
+        observed = document.get("observed_moves") or []
+        document["reason"] = (
+            f"`{safe_verb}` is bound to {intended!r} and the engine played {observed!r}"
+            if intended
+            else f"`{safe_verb}` is not bound on {safe}; the engine played {observed!r}"
+        )
     manifest.write_text(json.dumps(document))
     return 200, document
 

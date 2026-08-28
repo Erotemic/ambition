@@ -19,6 +19,7 @@
 //! domain API it belongs in a domain crate, and moving it then is a rename.
 
 use ambition_platformer2d::engine_core::ControlFrame;
+use bevy::prelude::App;
 
 /// A full stick is a SMASH. A tilt has to ask for less.
 pub const TILT_AXIS: f32 = 0.65;
@@ -256,3 +257,127 @@ pub const VERBS: &[Verb] = &[
         airborne: false,
     },
 ];
+
+
+/// The move a verb is BOUND to on this fighter, as the composed host prepared it.
+///
+/// ⭐⭐ THE HOST'S ANSWER, NOT A SECOND MAPPING. A press is a REQUEST; the engine
+/// decides. Without this a driver can only ask "did ANY move play", which calls
+/// the known back-air-resolves-as-forward-air case a success and files the
+/// forward air under `attack_air_back`.
+pub fn intended_move(app: &mut App, character: &str, verb: &str) -> Option<String> {
+    app.world()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+        .and_then(|registry| registry.get(character))
+        .and_then(|prepared| prepared.kit.projectable_moveset())
+        .and_then(|set| set.verbs.get(verb).cloned())
+}
+
+/// How long the exercise HOLDS the button, in simulation ticks.
+///
+/// ⛔⛔ A CONSTANT, BECAUSE CAPTURE PARAMETERS MUST NOT CHANGE THE MOVE. The
+/// renderer held while `shot < frames / 4`, so the hold depended on `--frames`
+/// AND `--stride`: 24 frames at stride 2 held ~12 ticks, a 12-frame run held ~6,
+/// and the recorder's own exercise holds ~37. Asking for more pictures charged
+/// the smash differently, which means the two tools were photographing
+/// different moves and neither said so.
+pub const HOLD_TICKS: usize = 37;
+
+/// The whole exercise, tick by tick: what to drive on simulation tick `n`.
+///
+/// ⭐ ONE SCHEDULE, TWO CONSUMERS. `moveset_takes` records every tick of it;
+/// `moveset_render` photographs a subset. Which ticks are OBSERVED is the
+/// caller's business; what the player does is not.
+pub fn action_frame(verb: &Verb, action_tick: usize, facing: f32) -> ControlFrame {
+    if action_tick == 0 {
+        verb.frame(true, facing)
+    } else if action_tick < HOLD_TICKS {
+        verb.frame(false, facing)
+    } else {
+        // A charge move only pays out when the button comes UP.
+        ControlFrame::default()
+    }
+}
+
+/// Seat 0's facing, the axis a directional press is resolved against.
+pub fn facing_of(app: &mut App) -> f32 {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+    )>();
+    q.iter(world)
+        .find(|(seat, _)| seat.0 == 0)
+        .map(|(_, kin)| kin.facing)
+        .unwrap_or(1.0)
+}
+
+/// Is seat 0 on the ground? `None` when it has no ground state at all.
+pub fn grounded(app: &mut App) -> Option<bool> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
+    )>();
+    q.iter(world)
+        .find(|(seat, _)| seat.0 == 0)
+        .map(|(_, g)| g.is_some_and(|g| g.on_ground))
+}
+
+/// Which move seat 0 is playing right now, if any.
+pub fn playing_move(app: &mut App) -> Option<String> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::combat::moveset::MovePlayback,
+    )>();
+    q.iter(world)
+        .find(|(seat, _)| seat.0 == 0)
+        .map(|(_, play)| play.spec.id.clone())
+}
+
+/// Drive one control frame and advance one simulation tick.
+pub fn step(app: &mut App, frame: ControlFrame) {
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
+    app.update();
+}
+
+/// Bring the fighter to the posture this verb needs, and say whether it worked.
+///
+/// ⭐⭐ SHARED, BECAUSE THE TWO DRIVERS HAD DIFFERENT ALGORITHMS. The recorder
+/// and the renderer each grew their own airborne loop, so "perform a back air"
+/// meant two things and only one of them was ever tested.
+///
+/// ⛔ AIRBORNE IS CONFIRMED, NOT ASSUMED. An aerial pressed from the ground
+/// reaches the GROUNDED chain and performs a different move — a take reported
+/// `attack_air_down` as `smash_down` until this asked `BodyGroundState` instead
+/// of counting frames after a jump.
+///
+/// ⛔ AND A HORIZONTAL AIM SETTLES FIRST. A back-air driven on the tick the stick
+/// reverses resolves FORWARD, because the gesture resolver reads `-facing` while
+/// a turnaround runs. Holding DOWN for the same settle would fast-fall back to
+/// the floor, so only the horizontal axis is pre-aimed.
+pub fn prepare(app: &mut App, verb: &Verb) -> bool {
+    if !verb.airborne {
+        return true;
+    }
+    for _ in 0..6 {
+        step(app, ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() });
+        for _ in 0..10 {
+            step(app, ControlFrame { jump_held: true, ..Default::default() });
+        }
+        if verb.axis_x != 0.0 {
+            for _ in 0..8 {
+                let aim = facing_of(app);
+                step(app, ControlFrame {
+                    axis_x: verb.axis_x * TILT_AXIS * aim.signum(),
+                    ..Default::default()
+                });
+            }
+        }
+        if grounded(app) == Some(false) {
+            return true;
+        }
+    }
+    false
+}

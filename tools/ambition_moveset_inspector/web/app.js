@@ -87,12 +87,17 @@ function renderedFramesFor(character, verb) {
     .then((doc) => {
       if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
         /* Remember the refusal so the page does not re-ask on every redraw. */
-        RENDERS.set(character, {
+        /* ⛔ THE COMPOSITE KEY, like every other write here. This stored the
+         * refusal under `character` alone while lookups use `character/verb`,
+         * so a failure was never found again and the page re-asked the endpoint
+         * on every redraw — a failed GPU render re-spawning the renderer once a
+         * frame. */
+        RENDERS.set(key, {
           available: false,
           reason: doc && doc.reason,
           hint: doc && doc.hint,
         });
-        renderStatus(character);
+        renderStatus(key);
         return;
       }
       const images = doc.urls.map((u) => {
@@ -102,6 +107,7 @@ function renderedFramesFor(character, verb) {
         return img;
       });
       RENDERS.set(key, {
+        ...doc,
         available: true,
         images,
         stride: doc.stride,
@@ -138,7 +144,7 @@ function renderStatus(key) {
    * before an hour of engine changes. On the unavailable path, the build command
    * is the useful half — a reason without a remedy is just a complaint. */
   node.textContent = have.available
-    ? `sprites: rendered by the engine${have.built ? ` (capture_scene built ${have.built})` : ""}`
+    ? `sprites: rendered by the engine${have.built ? ` (moveset_render built ${have.built})` : ""}`
     : `sprites: derived — ${have.reason || "engine render unavailable"}`;
   node.title = have.available
     ? have.renderer || ""
@@ -1011,6 +1017,18 @@ function drawTake() {
    * hitbox be placed on it. Until then the derived sprites below are drawn in
    * the take's own space, which is at least self-consistent. */
 
+  /* ⭐⭐ THE ENGINE'S OWN PICTURE, IN ITS OWN PANEL. It is NOT composited onto
+   * this canvas: the render is a whole-scene shot in the CAMERA's space and the
+   * boxes below are in the TAKE's world space, and drawing one over the other
+   * put a strike nowhere near its fighter — the thing Jon saw as "a room with a
+   * hitbox drawn randomly on it". Side by side gives the real art AND accurate
+   * diagnostics without conflating two coordinate systems.
+   *
+   * ⭐ SYNCHRONISED BY `action_tick`, not by absolute `sim_tick`. The recorded
+   * take and the GPU run are separate sessions with no shared origin; what they
+   * share is how far into the EXERCISE each frame is. */
+  syncEngineRender(t, state.takeFrame);
+
   /* platforms */
   ctx.fillStyle = "#232733";
   for (const p of t.platforms || []) {
@@ -1107,6 +1125,56 @@ function takeFacts(t, frame) {
   row("Bodies", int(frame.bodies.length));
   if (frame.riding) row("Riding", frame.riding);
   $("#take-facts").replaceChildren(kv);
+}
+
+/* Show the engine's rendered frame for wherever the scrubber is.
+ *
+ * ⛔ A MISMATCHED SEQUENCE IS REFUSED. If the engine played a different move
+ * than the verb asked for, showing it here would label one move with another's
+ * name — the single worst thing a reference tool can do. The panel says so and
+ * the diagnostic canvas beside it carries on. */
+function syncEngineRender(take, frameIndex) {
+  const img = $("#engine-render");
+  const note = $("#engine-render-note");
+  if (!img || !note) return;
+  const verb = takeVerb(take);
+  if (!verb) {
+    note.textContent = "this take names no verb, so there is nothing to render";
+    img.removeAttribute("src");
+    return;
+  }
+  const doc = renderedFramesFor(take.character, verb);
+  if (!doc) { note.textContent = `rendering ${verb}…`; return; }
+  if (!doc.available) {
+    img.removeAttribute("src");
+    note.textContent = `engine render unavailable — ${doc.reason || "no renderer"}`;
+    return;
+  }
+  if (doc.mismatch) {
+    img.removeAttribute("src");
+    note.textContent = `MISMATCH — ${doc.reason}`;
+    return;
+  }
+  /* Nearest shot at or before this action tick: the take records every tick and
+   * the render samples by stride, so most take frames have no exact shot. */
+  const shots = doc.shots || [];
+  let pick = shots[0];
+  for (const shot of shots) {
+    if (shot.action_tick <= frameIndex) pick = shot; else break;
+  }
+  if (!pick) return;
+  const url = (doc.urls || [])[shots.indexOf(pick)];
+  if (url && img.getAttribute("src") !== url) img.setAttribute("src", url);
+  note.textContent =
+    `${doc.renderer || "moveset_render"} · ${pick.file} · action tick ${pick.action_tick}` +
+    ` · sim tick ${pick.sim_tick}` +
+    (doc.renderer_built ? ` · built ${doc.renderer_built}` : "");
+}
+
+/* Which repertoire verb this take drove. The recorder files takes under the
+ * verb it pressed, which is exactly what the renderer needs. */
+function takeVerb(take) {
+  return take.verb || take.label_verb || null;
 }
 
 /* ---------- status ---------- */

@@ -60,39 +60,8 @@ fn sim_tick(app: &App) -> u64 {
         .unwrap_or_default()
 }
 
-fn playing_move(app: &mut App) -> Option<String> {
-    let world = app.world_mut();
-    let mut q = world.query::<(
-        &ambition_platformer2d::actor::MatchSeat,
-        &ambition_platformer2d::combat::moveset::MovePlayback,
-    )>();
-    q.iter(world)
-        .find(|(seat, _)| seat.0 == 0)
-        .map(|(_, play)| play.spec.id.clone())
-}
 
-fn facing_of(app: &mut App) -> f32 {
-    let world = app.world_mut();
-    let mut q = world.query::<(
-        &ambition_platformer2d::actor::MatchSeat,
-        &ambition_platformer2d::engine_core::BodyKinematics,
-    )>();
-    q.iter(world)
-        .find(|(seat, _)| seat.0 == 0)
-        .map(|(_, kin)| kin.facing)
-        .unwrap_or(1.0)
-}
 
-fn grounded(app: &mut App) -> Option<bool> {
-    let world = app.world_mut();
-    let mut q = world.query::<(
-        &ambition_platformer2d::actor::MatchSeat,
-        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
-    )>();
-    q.iter(world)
-        .find(|(seat, _)| seat.0 == 0)
-        .map(|(_, g)| g.is_some_and(|g| g.on_ground))
-}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -221,61 +190,41 @@ fn main() {
         std::process::exit(1);
     }
 
-    let step = |app: &mut App, frame: ControlFrame| {
-        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
-        app.update();
-    };
-
     // ── PREPARE. An aerial verb must be CONFIRMED airborne, and a horizontal
     //    aim must settle before the press: a back-air driven on the tick the
     //    stick reverses resolves FORWARD, because the gesture resolver reads
     //    `-facing` while a turnaround runs. ──
-    let mut prepared = true;
-    if verb.airborne {
-        prepared = false;
-        for _ in 0..6 {
-            step(&mut app, ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() });
-            for _ in 0..10 {
-                step(&mut app, ControlFrame { jump_held: true, ..Default::default() });
-            }
-            if verb.axis_x != 0.0 {
-                for _ in 0..8 {
-                    let aim = facing_of(&mut app);
-                    step(&mut app, ControlFrame {
-                        axis_x: verb.axis_x * TILT_AXIS * aim.signum(),
-                        ..Default::default()
-                    });
-                }
-            }
-            if grounded(&mut app) == Some(false) {
-                prepared = true;
-                break;
-            }
-        }
-    }
+    let prepared = move_exercise::prepare(&mut app, verb);
+
+    // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own
+    // verb binding. Without it the only question a driver can ask is "did ANY
+    // move play", which calls the known back-air-resolves-as-forward-air case a
+    // success and files the forward air under `attack_air_back`.
+    let intended = move_exercise::intended_move(&mut app, &character, verb.verb);
 
     // ── PERFORM, AND PHOTOGRAPH ON EXACT TICKS ──
-    let facing = facing_of(&mut app);
+    //
+    // ⛔⛔ THE EXERCISE IS A TICK SCHEDULE; `--frames` AND `--stride` ONLY CHOOSE
+    // WHAT IS OBSERVED. This held while `shot < frames / 4`, so the hold depended
+    // on how many pictures were asked for: 24 frames at stride 2 held ~12 ticks,
+    // a 12-frame run ~6, and the recorder's own exercise ~37. Asking for more
+    // pictures charged the smash differently — the two tools were photographing
+    // different moves and neither said so.
+    let facing = move_exercise::facing_of(&mut app);
     let mut observed: std::collections::BTreeSet<String> = Default::default();
     let mut shots: Vec<serde_json::Value> = Vec::new();
     let mut pumps_total = 0usize;
+    let mut action_tick = 0usize;
 
     for shot in 0..frames {
-        let held = shot < frames / 4;
-        let frame = if shot == 0 {
-            verb.frame(true, facing)
-        } else if held {
-            verb.frame(false, facing)
-        } else {
-            ControlFrame::default()
-        };
-        step(&mut app, frame);
-        if let Some(id) = playing_move(&mut app) {
+        move_exercise::step(&mut app, move_exercise::action_frame(verb, action_tick, facing));
+        if let Some(id) = move_exercise::playing_move(&mut app) {
             observed.insert(id);
         }
         let tick = sim_tick(&app);
+        let at_action = action_tick;
+        action_tick += 1;
 
-        // Ask for the picture.
         {
             let world = app.world_mut();
             let target = world
@@ -299,8 +248,8 @@ fn main() {
             world.flush();
         }
 
-        // ⭐⭐ SERVICE THE GPU AT ZERO COST. Every pump here runs the schedules
-        // and moves no clock, so the picture belongs to `tick` and to no other.
+        // ⭐⭐ SERVICE THE GPU AT ZERO COST. Every pump runs the schedules and
+        // moves no clock, so the picture belongs to `tick` and to no other.
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             std::time::Duration::ZERO,
         ));
@@ -327,33 +276,43 @@ fn main() {
         }
         shots.push(serde_json::json!({
             "file": format!("frame.{shot:04}.png"),
-            // ⭐ THE WHOLE POINT: an exact simulation tick, not a stride the GPU
-            // silently widened.
+            // The absolute tick this picture belongs to...
             "sim_tick": tick,
-            "move": playing_move(&mut app),
+            // ...and the tick of the EXERCISE, which is what a recorded take's
+            // frame index also means. Two separate runs share no absolute
+            // origin; they share this.
+            "action_tick": at_action,
+            "move": move_exercise::playing_move(&mut app),
         }));
 
-        // Advance the remaining stride at the canonical period.
+        // Advance the rest of the stride on the same schedule.
         for _ in 1..stride {
-            let held = shot < frames / 4;
-            step(&mut app, if held { verb.frame(false, facing) } else { ControlFrame::default() });
-            if let Some(id) = playing_move(&mut app) {
+            move_exercise::step(&mut app, move_exercise::action_frame(verb, action_tick, facing));
+            action_tick += 1;
+            if let Some(id) = move_exercise::playing_move(&mut app) {
                 observed.insert(id);
             }
         }
     }
 
-    // ⛔⛔ WHAT WAS ASKED FOR AGAINST WHAT CAME OUT. A press is a request.
-    let intended = ambition_demo_smash::smash_roster([character.as_str(), character.as_str()]);
-    let _ = intended;
-    let reached = !observed.is_empty();
+    // ⛔⛔ SUCCESS IS THE INTENDED MOVE APPEARING, not any move appearing. This
+    // reported `reached = !observed.is_empty()` under a comment claiming a
+    // mismatch would be caught — a promise the code did not keep.
+    let reached_intended = match intended.as_deref() {
+        Some(want) => observed.contains(want),
+        // A verb this fighter binds to nothing cannot be mismatched; it can only
+        // be unbound, which is a different report.
+        None => false,
+    };
     let manifest = serde_json::json!({
         "character": character,
         "verb": verb.verb,
         "verb_label": verb.label,
         "prepared": prepared,
+        "intended_move": intended,
         "observed_moves": observed.iter().cloned().collect::<Vec<_>>(),
-        "reached_a_move": reached,
+        "reached_intended_move": reached_intended,
+        "hold_ticks": move_exercise::HOLD_TICKS,
         "frames": shots.len(),
         "stride": stride,
         "shots": shots,
@@ -367,14 +326,18 @@ fn main() {
     .expect("the manifest is writable");
 
     println!(
-        "[moveset-render] {character} {} -> {} frame(s) in {}, observed {:?}, {} zero-time pump(s)",
+        "[moveset-render] {character} {} -> {} frame(s) in {}, intended {:?}, observed {:?}, {} zero-time pump(s)",
         verb.verb,
-        shots.len(),
+        manifest["frames"],
         out_dir.display(),
+        intended,
         observed,
         pumps_total,
     );
-    if !reached {
-        println!("[moveset-render] WARNING: no move ever became active for this press");
+    if !reached_intended {
+        println!(
+            "[moveset-render] MISMATCH: `{}` is bound to {:?} and the engine played {:?}",
+            verb.verb, intended, observed
+        );
     }
 }

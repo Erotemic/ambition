@@ -76,11 +76,14 @@ ABSENCE_CONTRACTS: list[dict] = [
             # THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
             # capability; it is allowed to know what it is.
             ":(exclude)crates/ambition_characters/src/brain/fighter",
-            # 1. the generic `BrainSnapshot` carries `attack_kit:
-            #    Vec<fighter::options::AttackCandidate>` — every brain in the
-            #    game pays for a field only one of them reads, in a type only
-            #    one of them owns.
-            ":(exclude)crates/ambition_characters/src/brain/snapshot.rs",
+            # 1. ✔ CLOSED 2026-08-28, so the CARVE-OUT GOES WITH IT. The generic
+            #    `BrainSnapshot` carried `attack_kit:
+            #    Vec<fighter::options::AttackCandidate>` — every brain paying for
+            #    a field only one of them reads, in a type only one of them owns.
+            #    The kit was never fighter vocabulary (`AttackBinding`'s own doc:
+            #    *"the ordinary gesture vocabulary, not a fighter-only bypass"*)
+            #    and lives in `brain/attack_kit.rs` now. ⛔ an exclusion kept past
+            #    the edge it excused is a hole, not a record.
             # 2. the generic `StateMachineCfg` has a `Fighter` VARIANT holding
             #    `FighterCfg`/`FighterState`, so the shared state-machine brain
             #    cannot compile without the fighter one. This is the big edge:
@@ -107,8 +110,9 @@ ABSENCE_CONTRACTS: list[dict] = [
             "load-bearing first and let a dedicated platform-fighter capability crate "
             "follow only if the dependency result comes out clean. This contract is that "
             "boundary, stated as a checkable claim: the generic brain names the "
-            "platform-fighter brain in exactly three places, and it may not grow a "
-            "fourth. Without it the carve gets costed from a photograph months later, "
+            "platform-fighter brain in exactly TWO places now (2026-08-28, down from "
+            "three when this was written and five when it was first costed), and it "
+            "may not grow a third. Without it the carve gets costed from a photograph months later, "
             "which is how the previous estimate went stale."
         ),
     },

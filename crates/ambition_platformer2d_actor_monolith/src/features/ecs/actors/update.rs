@@ -1843,7 +1843,20 @@ fn build_enemy_brain_snapshot(
         // threading it is what makes the difficulty knob live in-engine.
         sim_time,
         dt,
-        max_run_speed: body.config.tuning.max_run_speed,
+        // ⛔⛔ THE THROTTLE SCALE, WHICH FOR A FLYING BODY IS ITS FLIGHT SPEED —
+        // this field's own doc says so (*"a boss's flight speed for a body that
+        // flies"*) and this site handed it the RUN speed regardless. The flight
+        // limb normalises a commanded velocity by `flight_terminal_speed`, so a
+        // human possessing a body whose `chase_speed` exceeds its `max_run_speed`
+        // got `max_run_speed / flight_speed` of the stick and could not reach the
+        // body's own top speed (D117). ⚠ latent on the shipped cast — no flyer
+        // authors `chase_speed` — which is why it survived: a defect the content
+        // cannot currently express.
+        max_run_speed: if body.flight.fly_enabled {
+            body.config.tuning.flight_speed()
+        } else {
+            body.config.tuning.max_run_speed
+        },
         // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
         // predict rather than steer. The line above takes one number out of the
         // same tuning as a throttle scale; a rollout has to step the body

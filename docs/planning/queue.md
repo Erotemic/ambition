@@ -3276,8 +3276,25 @@ it. ⇒ moving the trait means moving three things, not one: a D33-shaped
 slice, not a file move. ⭐ unifying the publish first makes that carve
 strictly smaller — one call site to move instead of two.
 
-▢ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: A
-POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED.**
+✔ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: A
+POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED. FIXED 2026-08-28.**
+⭐⭐ **THE FIELD'S OWN DOC ALREADY SAID WHERE THE FIX GOES.**
+`BrainSnapshot::max_run_speed` is documented as *"the throttle scale the caller
+wants this body's locomotion intent expressed against … a boss's flight speed for
+a body that flies"* — and the generic actor road handed it the RUN speed whether
+the body flew or not. It passes `flight_speed()` for a flying body now. ⛔ NOT by
+changing the human road: `brain/player.rs` scaling by the snapshot's throttle is
+correct, and the producer of the throttle was wrong.
+⛔ **AND THE EXPRESSION HAD TWO HOMES.** `chase.max(run).max(1.0)` lived in the
+integrator; the snapshot site would have been a second copy, and a value with two
+homes cannot be attributed when the copies disagree. `ActorTuning::flight_speed()`
+owns it, both sites call it, and the boss path's `chase == run == BOSS_FLIGHT_SPEED`
+is why no boss ever showed the defect.
+⚠ **the guard's discriminating arm is `chase > run`, which NO SHIPPED BODY HAS** —
+two catalog rows author `chase_speed` at all and no flyer among them, so an
+assertion drawn from the live cast agrees with the bug. Poison-verified: returning
+`max_run_speed` reports *"answering 300 is the deflection defect"*.
+⇒ the original measurement, kept:
 
 A possessed body does not change roads — possession is brain transfer, so the
 body keeps `Without<PlayerEntity>` and stays on the ACTOR road with

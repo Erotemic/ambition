@@ -65,8 +65,9 @@ asserts every field the UI reads is present; run it after changing either side.
   absolute deviations from the roster median for that slot are flagged high or
   low. This is the view that answers *"is this move out of line"*.
 - **Status** — what this server has, where it looked for it, how old each piece
-  is, and the build command for every binary whether or not it is present. Open
-  this FIRST when something is missing: it answers "is it trying", "does it know
+  is, whether the recorded takes carry the fields this build DRAWS, and the build
+  command for every binary whether or not it is present. Open this FIRST when
+  something is missing: it answers "is it trying", "does it know
   where it is" and "what do I run" without reading a terminal.
 - **Engine takes** — recorded playback of the real simulation **in the real art**:
   the fighter's own sprite, animated by the move that is playing, with its live
@@ -252,3 +253,18 @@ The AABB is still recorded beside the shape: it is the broad phase the engine
 itself uses, a viewer can draw it knowing no geometry, and a take made before the
 shape existed still renders. `check_bundle_contract.mjs` prints the shape census
 and warns if a recording carries none.
+
+## "I pressed Art and nothing happened"
+
+⛔⛔ REBUILDING THE BINARIES DOES NOT RE-RECORD THE TAKES. A `takes.json` made
+before a field existed keeps not having it forever, and the Art button then
+toggles between "sprites" and "boxes" with no sprites to toggle to — which reads
+as a dead control rather than as missing data.
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>,<id>
+```
+
+The Status tab reports it directly — `14390/14445 bodies with art, 481/481
+strikes with geometry` — and flags a recording that carries neither. The Engine
+Takes label says it too, where the button is.

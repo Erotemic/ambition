@@ -201,6 +201,9 @@ def inspector_status() -> dict:
 
     bundle_path = DATA / "moveset_bundle.json"
     takes_path = DATA / "takes" / "takes.json"
+    takes_meta: dict = {"exists": takes_path.exists()}
+    if takes_meta["exists"]:
+        takes_meta["built"] = _built_at(takes_path)
     bundle_meta: dict = {"exists": bundle_path.exists()}
     if bundle_meta["exists"]:
         bundle_meta["built"] = _built_at(bundle_path)
@@ -228,15 +231,52 @@ def inspector_status() -> dict:
             "looked_in": [str(root / p / name) for p in ("release", "debug")],
         }
 
+    # ⭐⭐ ARE THE TAKES CURRENT? "takes.json exists, recorded 15:53" is not the
+    # question anybody has — the question is whether the recording carries the
+    # fields this build DRAWS. A take made before the art fields existed shows no
+    # sprites and no polygons, the Art button appears dead, and nothing on the
+    # page says why. Rebuilding the binaries does NOT re-record; only running
+    # moveset_takes does.
+    if takes_meta["exists"]:
+        try:
+            doc = json.loads(takes_path.read_text())
+            rows = doc.get("takes") if isinstance(doc, dict) else doc
+            bodies = art = shapes = boxes = 0
+            for take in rows or []:
+                for frame in take.get("frames") or []:
+                    for body in frame.get("bodies") or []:
+                        bodies += 1
+                        art += 1 if body.get("art") else 0
+                    for hit in frame.get("hitboxes") or []:
+                        boxes += 1
+                        shapes += 1 if hit.get("shape") else 0
+            takes_meta.update(
+                takes=len(rows or []),
+                bodies=bodies,
+                with_art=art,
+                hitboxes=boxes,
+                with_shape=shapes,
+            )
+            stale = []
+            if bodies and not art:
+                stale.append("no sprite art (bodies carry no `art`)")
+            if boxes and not shapes:
+                stale.append("no hitbox geometry (strikes carry no `shape`)")
+            if stale:
+                takes_meta["stale"] = (
+                    "recorded before this build: "
+                    + ", ".join(stale)
+                    + " — re-run moveset_takes"
+                )
+        except (OSError, ValueError) as error:
+            takes_meta["error"] = str(error)
+
     return {
         "repo": str(REPO),
         "sprites_dir": str(SPRITES),
         "sprites_dir_exists": SPRITES.exists(),
         "bundle": bundle_meta,
-        "takes": {
-            "exists": takes_path.exists(),
-            "built": _built_at(takes_path) if takes_path.exists() else None,
-        },
+        "takes": takes_meta,
         "renders_dir": str(RENDERS),
         "cached_renders": sorted(p.name for p in RENDERS.glob("*")) if RENDERS.exists() else [],
         "binaries": binaries,

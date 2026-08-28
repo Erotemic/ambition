@@ -60,6 +60,17 @@ let TAKES = null;
  * per fighter per session and never awaited by the draw path — the canvas keeps
  * drawing the fallback until real frames arrive, so the view is never blocked
  * and never blank. */
+/* Does the loaded recording carry sprite art at all? Memoised: it is a scan of
+ * every body of every frame and the answer cannot change without a reload. */
+let TAKES_HAVE_ART = null;
+function takesCarryArt() {
+  if (TAKES_HAVE_ART !== null) return TAKES_HAVE_ART;
+  const rows = (TAKES && (TAKES.takes || TAKES)) || [];
+  TAKES_HAVE_ART = rows.some((t) =>
+    (t.frames || []).some((f) => (f.bodies || []).some((b) => b.art)));
+  return TAKES_HAVE_ART;
+}
+
 const RENDERS = new Map();
 function renderedFramesFor(character) {
   if (!character) return null;
@@ -106,6 +117,15 @@ function renderedFramesFor(character) {
 function renderStatus(character) {
   const node = $("#take-source");
   if (!node) return;
+  /* ⛔⛔ A RECORDING WITH NO ART MAKES THE ART BUTTON LOOK BROKEN. Pressing it
+   * toggles between sprites and boxes, and with nothing to toggle TO the page
+   * simply redraws the same picture — which reads as a dead control rather than
+   * as missing data. Say so where the button is. */
+  if (TAKES && !takesCarryArt()) {
+    node.textContent = "sprites: none in this recording — re-run moveset_takes";
+    node.title = "cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>";
+    return;
+  }
   const have = RENDERS.get(character);
   if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
   /* WHICH BINARY DREW THIS, AND WHEN IT WAS BUILT. Nothing in this tool builds,
@@ -1029,9 +1049,21 @@ async function renderStatusView() {
   const b = doc.bundle || {};
   panel("Data", [
     ["Bundle", b.exists ? `${b.fighters} fighters, ${b.sheets} sheets, ${b.schema} (built ${b.built})` : "MISSING — run moveset_export"],
-    ["Takes", doc.takes && doc.takes.exists ? `recorded ${doc.takes.built}` : "none yet — run moveset_takes"],
+    ["Takes", doc.takes && doc.takes.exists
+      ? `${doc.takes.takes} takes recorded ${doc.takes.built} — ` +
+        `${doc.takes.with_art}/${doc.takes.bodies} bodies with art, ` +
+        `${doc.takes.with_shape}/${doc.takes.hitboxes} strikes with geometry`
+      : "none yet — run moveset_takes"],
     ["Cached renders", (doc.cached_renders || []).length ? doc.cached_renders.join(", ") : "none yet"],
-  ], b.exists && !b.sheets ? "⚠ the bundle carries no sheet table, so Engine Takes can only draw boxes — re-export with a current moveset_export." : "");
+  ], [
+    b.exists && !b.sheets
+      ? "⚠ the bundle carries no sheet table, so Engine Takes can only draw boxes — re-export with a current moveset_export."
+      : "",
+    /* ⛔ THE STALE-TAKES CASE, said plainly. Rebuilding the binaries does NOT
+     * re-record; a recording made before these fields existed leaves the Art
+     * button looking broken, which is exactly what it did. */
+    doc.takes && doc.takes.stale ? `⚠ ${doc.takes.stale}` : "",
+  ].filter(Boolean).join("  "));
 
   /* ⛔ THE BUILD COMMAND FOR EVERY BINARY, PRESENT OR NOT. Somebody refreshing a
    * two-day-old binary needs the same line as somebody who has none. */

@@ -187,13 +187,19 @@ function rowCursorsFor(take) {
   let cached = ROW_CURSORS.get(take);
   if (cached) return cached;
   cached = [];
-  /* body identity within a take is its label + seat: the entity id is not
-   * stable across a rollback and the label is what a reader recognises. */
+  /* ⛔⛤ JOIN ON `id`, NOT ON WHAT A READER SEES. This keyed on `label + seat`,
+   * and the recorder now says plainly that `label` is reader-facing and joins
+   * nothing: a take deliberately seats TWO FIGHTERS WEARING THE SAME CHARACTER,
+   * so the label names both of them. `id` is `SimId`, the engine's deterministic
+   * identity, independent of Bevy entity allocation.
+   *
+   * ⭐ THE OLD KEY IS THE FALLBACK, not the rule: a recording made before `id`
+   * existed still animates rather than collapsing two bodies into one cursor. */
   const held = new Map();
   take.frames.forEach((frame, i) => {
     const perFrame = new Map();
     for (const b of frame.bodies) {
-      const id = `${b.label}#${b.seat ?? "-"}`;
+      const id = b.id || `${b.label}#${b.seat ?? "-"}`;
       const key = b.art ? `${b.art[0]}:${b.art[1]}` : null;
       const prev = held.get(id);
       const ticks = prev && prev.key === key ? prev.ticks + 1 : 0;
@@ -1012,7 +1018,7 @@ function drawTake() {
      * legible on top of the sprite; drawing it under would hide the very
      * alignment somebody opened this view to check. */
     const cursor = rowCursorsFor(t)[state.takeFrame];
-    const ticksOnRow = cursor ? cursor.get(`${b.label}#${b.seat ?? "-"}`) : 0;
+    const ticksOnRow = cursor ? cursor.get(b.id || `${b.label}#${b.seat ?? "-"}`) : 0;
     const drew = state.takeArt !== false && drawBodyArt(ctx, b, X, Y, scale, ticksOnRow);
     ctx.strokeStyle = subject ? "#6fb3ff" : b.kind === "summon" ? "#47b78a" : "#7d8598";
     /* An unfilled box once the art is under it: a translucent wash over a sprite

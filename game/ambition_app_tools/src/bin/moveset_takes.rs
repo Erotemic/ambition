@@ -301,8 +301,9 @@ USAGE:
 OPTIONS:
     --characters ID,ID   comma-separated catalog ids to record
                          `grid` (or `all`) records every fighter on the smash
-                         grid: 21 fighters at ~7 min each is about 2.5 HOURS
-                         (measured 2026-08-27) — a background job, not a click
+                         grid: 21 fighters at ~1m17 each is about 27 MINUTES
+                         (measured 2026-08-27, after the settle stopped
+                         serialising a frame to read three booleans)
                          [default: npc_pirate_admiral]
     --out PATH           where to write the takes
                          [default: tools/ambition_moveset_inspector/data/takes/takes.json]
@@ -316,8 +317,9 @@ NOTES:
 
     There is no positional argument; use --out.
 
-    ~7 minutes per character, measured: every take is a real match settled
-    between presses, and there are 19 verbs.
+    ~1m17 per character, measured 2026-08-27. It was 7m08 until `settle`
+    stopped calling the full sampler — which built a JSON frame, and rebuilt the
+    catalog join, up to 480 times a take to read three booleans.
     Prints a `[presentation]` census at the end — see the docs for what its
     zeroes mean.
 ";
@@ -434,7 +436,15 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // ⭐ CHARACTER ID -> SHEET KEY, off the catalog the composed host loaded. The
     // catalog stores `sprites/<name>_spritesheet.png`; the baked sheet index is
     // keyed by the bare name, and that reduction is the join.
-    let sheet_keys: std::collections::HashMap<String, String> = world
+    //
+    // ⛔⛔ BUILT ONCE. This was rebuilt on EVERY `sample`, and `settle` calls
+    // `sample` up to 480 times per take -- roughly nine thousand rebuilds of a
+    // 48-entry map, each one re-splitting every catalog path, per character. The
+    // catalog cannot change during a run, so the map is a constant wearing a
+    // loop's clothes.
+    static SHEET_KEYS: std::sync::OnceLock<std::collections::HashMap<String, String>> =
+        std::sync::OnceLock::new();
+    let sheet_keys = SHEET_KEYS.get_or_init(|| world
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .map(|catalog| {
             catalog
@@ -453,7 +463,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                 })
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default());
 
     let mut bodies = world.query::<(
         Entity,
@@ -493,11 +503,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // mount as an empty box. `ActorConfig::sprite_character_id` is what the
         // renderer itself falls back to for exactly these bodies.
         Option<&ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+        // ⛔⛔ A RAW ENTITY ID IS NOT AN IDENTITY. The label fell back to
+        // `format!("{entity}")`, and an entity index depends on every spawn and
+        // despawn the whole app made first — so two runs of this binary labelled
+        // the SAME shark `1311v10` and `1329v6`, and a byte-diff of two
+        // recordings reported 15 of 19 takes as changed when their physics were
+        // identical to the last float. `SimId` is the engine's own stable
+        // identity, the one rollback remaps across a rewind.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let rows: Vec<_> = bodies
         .iter(world)
         .map(
-            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
+            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config, sim_id)| {
                 (
                     e,
                     (kin.pos.x, kin.pos.y),
@@ -525,6 +543,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                         ground.map(|g| g.on_ground),
                     ),
                     pose.is_some(),
+                    sim_id.map(|id| id.as_str().to_string()),
                 )
             },
         )
@@ -565,6 +584,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         gesture,
         drawn,
         has_pose,
+        sim_id,
     ) in &rows
     {
         let subject = *seat == Some(subject_seat);
@@ -583,15 +603,36 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-                    .and_then(|(.., worn, _, _, _, _, _, _, _)| worn.clone())
-                    .unwrap_or_else(|| format!("{mount}"))
+.and_then(|row| row.6.clone())
+                    // ⛔ THE MOUNT'S STABLE ID, never its entity index: a raw
+                    // entity id is not an identity and makes two runs differ.
+                    .or_else(|| {
+                        rows.iter()
+                            .find(|(e, ..)| *e == mount)
+                            .and_then(|row| row.14.clone())
+                    })
+                    .unwrap_or_else(|| "<unidentified mount>".to_string())
             });
         }
         frame.bodies.push(serde_json::json!({
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
             "seat": seat,
-            "label": worn.clone().unwrap_or_else(|| format!("{entity}")),
+            // ⛔⛔ IDENTITY AND APPEARANCE ARE TWO FIELDS, NOT ONE. Preferring
+            // the worn character as a "label" cannot identify a body in this
+            // recording at all: the take deliberately seats TWO FIGHTERS WEARING
+            // THE SAME CHARACTER, so `npc_pirate_admiral` names both of them.
+            // `SimId` is the engine's deterministic identity, independent of
+            // Bevy entity allocation and ordered so snapshots can establish a
+            // canonical order.
+            "id": sim_id.clone(),
+            "character": worn.clone(),
+            // What a reader recognises, which is allowed to be ambiguous
+            // because it is not what anything joins on.
+            "label": worn
+                .clone()
+                .or_else(|| sim_id.clone())
+                .unwrap_or_else(|| "<unidentified body>".to_string()),
             // A summoned mount is neither a seat nor scenery, and a viewer that
             // could not tell it apart would draw the shark as another fighter.
             "kind": if *is_mount { "summon" } else if seat.is_some() { "fighter" } else { "body" },
@@ -631,21 +672,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         Option<&ambition_platformer2d::projectiles::ProjectileOwner>,
+        // ⛔ THE STABLE IDENTITY, for the same reason bodies carry one: the
+        // ORDER these arrive in is ECS query order, and a recording that two
+        // runs cannot compare byte-for-byte is one nothing can be diffed
+        // against.
+        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
     )>();
     let flying: Vec<_> = shots
         .iter(world)
-        .map(|(kin, shot, owner)| {
+        .map(|(kin, shot, owner, sim_id)| {
             (
                 kin.pos,
                 kin.vel,
                 kin.size,
                 shot.damage,
                 owner.map(|owner| owner.0),
+                sim_id.map(|id| id.as_str().to_string()),
             )
         })
         .collect();
-    for (pos, vel, size, damage, owner) in flying {
+    for (pos, vel, size, damage, owner, sim_id) in flying {
         frame.projectiles.push(serde_json::json!({
+            "id": sim_id,
             "pos": [pos.x, pos.y],
             "vel": [vel.x, vel.y],
             "half": [size.x * 0.5, size.y * 0.5],
@@ -710,8 +758,59 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.
             "subject_owned": Some(hitbox.owner) == subject_entity,
+            // ⛔ WHOSE STRIKE, by stable identity. A hitbox has no `SimId` of its
+            // own — it is a volume, not a body — so it is keyed by the body that
+            // threw it, which is what makes the sort canonical rather than
+            // merely usually-stable.
+            "owner_id": rows
+                .iter()
+                .find(|(e, ..)| *e == hitbox.owner)
+                .and_then(|row| row.14.clone()),
         }));
     }
+
+    // ⛔⛔ SORTED BY STABLE IDENTITY BEFORE IT IS WRITTEN. Removing entity numbers
+    // from the strings is not enough to promise byte-stable JSON: the ORDER of
+    // these rows is Bevy query iteration order, which is archetype order, which
+    // changes when anything about component composition changes. A recording
+    // that two runs cannot compare byte-for-byte is a recording nothing can be
+    // diffed against.
+    frame.bodies.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["label"].as_str().unwrap_or("").to_string(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    // ⛔⛔ POSITION AND DAMAGE ARE NOT AN IDENTITY. Two volumes of one move can
+    // share both — a multi-hit's mirrored pair does — and ties then fall back to
+    // ECS query order, which is the thing being canonicalised. The owner's
+    // stable id leads the key, and geometry only breaks ties within one owner.
+    frame.hitboxes.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["owner_id"].as_str().unwrap_or("").to_string(),
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+                v["half"][0].as_f64().unwrap_or_default().to_bits(),
+                v["half"][1].as_f64().unwrap_or_default().to_bits(),
+                v["damage"].as_i64().unwrap_or_default(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+    frame.projectiles.sort_by(|a, b| {
+        let key = |v: &serde_json::Value| {
+            (
+                v["id"].as_str().unwrap_or("").to_string(),
+                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
+                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
 
     frame
 }
@@ -855,16 +954,43 @@ fn ensure_airborne(app: &mut App) -> bool {
 /// So the ground is required only of a body that has been seen standing. A
 /// fighter that never reports support settles on "idle and unencumbered", which
 /// is the strongest true statement available about it.
+/// The three facts a settle waits on, without building a frame to read them.
+///
+/// ⛔⛤ `settle` USED TO CALL `sample`, which queries every body, every hitbox and
+/// every projectile and serialises all of it to JSON -- then threw the JSON away
+/// to look at three booleans. At up to 480 iterations per take and 19 takes per
+/// character that is the dominant cost of a recording, and none of it was the
+/// simulation.
+fn settle_facts(world: &mut World) -> (bool, bool, bool) {
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
+        Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
+        Option<&ambition_platformer2d::mount::RidingOn>,
+    )>();
+    for (seat, ground, playing, riding) in q.iter(world) {
+        if seat.0 != 0 {
+            continue;
+        }
+        return (
+            ground.is_some_and(|g| g.on_ground),
+            playing.is_some(),
+            riding.is_some(),
+        );
+    }
+    (false, false, false)
+}
+
 fn settle(app: &mut App) -> bool {
     let mut ever_stood = false;
     for _ in 0..SETTLE_LIMIT {
         drive(app, ControlFrame::default());
-        let now = sample(app.world_mut(), 0);
-        ever_stood |= now.grounded == Some(true);
-        if now.move_id.is_some() || now.riding.is_some() {
+        let (grounded, playing, riding) = settle_facts(app.world_mut());
+        ever_stood |= grounded;
+        if playing || riding {
             continue;
         }
-        if now.grounded == Some(true) || !ever_stood {
+        if grounded || !ever_stood {
             return true;
         }
     }
@@ -919,6 +1045,22 @@ fn main() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.add_plugins(bevy::log::LogPlugin::default());
+    // ⭐⭐ THE CLOCK IS OURS FROM HERE. Without this the rollback host advances
+    // from a WALL-CLOCK accumulator, so one `app.update()` runs zero, one or
+    // several sim ticks depending on how long the previous iteration took —
+    // which made `TAKE_TICKS = 150` mean 150 LOOP ITERATIONS, made a recording
+    // cost at least as much real time as the game time it contained, and made
+    // two runs of this binary disagree on 13 of 19 takes.
+    // ⭐ THE ENGINE'S OWN MANUAL-STEP CONTRACT, not a private one. See
+    // `ambition_platformer2d::app::manual_step_period`: the two simulation hosts
+    // need periods that differ by one nanosecond, and a driver that computed its
+    // own would be silently wrong under one of them.
+    //
+    // ⭐ THE APP ANSWERS WHICH HOST IT HAS. This passed a literal `true` under a
+    // comment admitting the app should know; `SimulationHost` is a resource and
+    // was already the canonical answer, so the caller had no business having an
+    // opinion about it.
+    ambition_platformer2d::app::enable_manual_stepping(&mut app);
     for _ in 0..30 {
         app.update();
     }

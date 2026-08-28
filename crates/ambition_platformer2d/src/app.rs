@@ -1334,13 +1334,10 @@ impl PlatformerApp {
             // 180. LEAK, found by migrating the fixture onto this
             // builder; the rule existed only in a comment on the code being
             // deleted.
-            let frame_dt = if rollback_participants.is_some() {
-                std::time::Duration::from_nanos(
-                    1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64,
-                )
-            } else {
-                app.world().resource::<Time<Fixed>>().timestep()
-            };
+            // ⛔ RULE 8 RUNS DURING THE BUILD, before `SimulationHost` is
+            // necessarily installed, so it passes the fact it already holds
+            // rather than asking a resource that may not be there yet.
+            let frame_dt = host_step_period(app, rollback_participants.is_some());
             app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(frame_dt));
         }
 
@@ -1540,6 +1537,81 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
 /// Public because a standalone demo shell needs exactly this and nothing else:
 /// three demos hand-roll their own `DefaultPlugins` today and each re-derives
 /// the disables that [`Display`] documents. A fourth copy would be the leak.
+/// The manual-step period for the simulation host this app is running — the ONE
+/// answer to *"how much time is one externally-driven `App::update()` worth"*.
+///
+/// ⛔⛤ THE TWO HOSTS DIFFER BY ONE NANOSECOND AND IT IS NOT COSMETIC.
+/// `Time::<Fixed>::from_hz(60.0)` rounds to `16_666_667ns`; GGRS truncates to
+/// `16_666_666`. Feeding a GGRS host the rounded value cost a parity fixture 192
+/// `update()` calls to reach a state the fixed-tick host reached in 180 — the
+/// accumulator gains a tick every few thousand frames.
+///
+/// ⛔⛔ AND THE CALLER DOES NOT GET TO ANSWER WHICH HOST IT HAS. This briefly took
+/// a `rollback: bool`, which moved the arithmetic into one place and left the
+/// DECISION scattered — `moveset_takes` passed a literal `true` under a comment
+/// admitting the app should know. `SimulationHost` is already a resource and is
+/// already the canonical answer; asking it is the difference between one
+/// authority and one formula with many opinions about its input.
+///
+/// `RenderFrame` REFUSES rather than defaulting: that host has no fixed tick at
+/// all — it advances with the render frame — so "one update is one tick" is not
+/// a promise it can keep, and quietly handing back a 60Hz period would fabricate
+/// a guarantee.
+pub fn manual_step_period(app: &App) -> Option<std::time::Duration> {
+    use crate::runtime::SimulationHost;
+    match app
+        .world()
+        .get_resource::<SimulationHost>()
+        .copied()
+        .unwrap_or_default()
+    {
+        SimulationHost::Rollback => Some(host_step_period(app, true)),
+        SimulationHost::Fixed60Hz => Some(host_step_period(app, false)),
+        SimulationHost::RenderFrame => None,
+    }
+}
+
+/// THE arithmetic, in one place, for the two hosts that have a fixed tick.
+///
+/// ⛔ PRIVATE AND TAKING THE FACT RATHER THAN READING IT, because Rule 8 runs
+/// DURING THE BUILD — before `SimulationHost` is necessarily installed — and
+/// already holds the answer. That is the one caller allowed to state the host;
+/// everybody else goes through [`manual_step_period`], which asks the resource.
+fn host_step_period(app: &App, rollback: bool) -> std::time::Duration {
+    if rollback {
+        std::time::Duration::from_nanos(1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64)
+    } else {
+        app.world().resource::<Time<Fixed>>().timestep()
+    }
+}
+
+/// Put an already-built app under manual stepping, so one `update()` is one
+/// simulation tick. Returns the period installed.
+///
+/// ⭐ FOR AN APP THAT IS NOT `Face::Headless`. Rule 8 pins manual time at build
+/// time for the headless face; an offscreen or windowed app that a DRIVER steps
+/// itself wants the same contract and cannot get it from the builder. Presence
+/// of presentation and who owns the clock are independent questions — a GPU
+/// capture of a deterministic simulation needs both.
+///
+/// ⛔ INSTALL BEFORE THE SESSION RUNS. Switching a live rollback host from wall
+/// time to manual time leaves whatever the accumulator had already banked, so
+/// the first few steps are not one-for-one.
+///
+/// # Panics
+///
+/// Under `SimulationHost::RenderFrame`, which cannot honour the contract. A
+/// silent no-op would leave a driver stepping by the wall clock while believing
+/// otherwise, which is the failure this whole seam exists to end.
+pub fn enable_manual_stepping(app: &mut App) -> std::time::Duration {
+    let period = manual_step_period(app).expect(
+        "manual stepping needs a fixed-tick simulation host; `SimulationHost::RenderFrame` \
+         advances with the render frame and cannot promise one tick per update",
+    );
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(period));
+    period
+}
+
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 

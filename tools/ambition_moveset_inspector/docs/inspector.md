@@ -289,8 +289,9 @@ Or record the whole grid:
 cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid
 ```
 
-⚠ MEASURED 2026-08-27: **~7 minutes per character**, so the 21-fighter grid is
-about **2.5 hours**. Every take settles a real match between presses and there
+⚠ MEASURED 2026-08-27: **~1m17 per character**, so the 21-fighter grid is about
+**27 minutes**. (It was 7m08 until `settle` stopped serialising a whole frame to
+read three booleans.) Every take settles a real match between presses and there
 are 19 verbs. This is a background job, not a click — which is why the default
 records one fighter and the take view shows coverage (`2 of 21 grid fighters
 recorded`) rather than pretending the roster is there.

@@ -9846,6 +9846,39 @@ boundary gets discovered by READING instead.
 because `construction` imports `world::placements` BACK — a bidirectional edge
 nobody declared, found only by chasing it.
 
+⛔⛔ **A SEVENTH INSTANCE, 2026-08-28, AND IT IS THE ROW'S COMPLAINT RATHER THAN
+ITS THESIS: FOUR CARVES IN ONE DAY AND NOT ONE DESTINATION CONTRACT WAS
+CONSULTED, BECAUSE THERE WAS NOTHING TO CONSULT.** What decided each home was a
+FACT found by grepping, and what refused two of them was the dependency graph
+found by compiling:
+
+```text
+boss ECS      → ambition_boss_encounter   it already owned the profiles, the
+                                          catalog and the anim helpers the module
+                                          was calling through a facade
+ledge_trump   → ambition_combat           `DeclaredCombatRules::ledge_trump_pop`
+                                          was already there
+attack        → ambition_combat           the melee LIFECYCLE had already left for
+                                          `combat::moveset`; its own module doc
+                                          said "there is ONE melee path"
+banter        → ambition_conversation     a bark is the shortest conversation
+                                          there is — reasoned, not read
+
+REFUSED, by the graph and only by the graph:
+damage_predicates ⇸ combat   needs boss_encounter, which depends on combat
+brain_effects     ⇸ anywhere names ambition_app, mount and projectiles
+```
+
+⇒ **the reasons were good and none of them was WRITTEN DOWN ANYWHERE A READER
+COULD FIND FIRST.** Every one had to be reconstructed by grep, and the two
+refusals surfaced as compile errors after `git mv`. That is discovery-by-collision
+with a friendlier compiler, which is exactly what this row exists to end.
+⭐ the cheapest fix is the one the row already found: a destination crate's header
+saying what it is FOR. `ambition_combat` says *"reusable, content-free combat
+MODEL"* in its manifest description and that sentence answered three of the four
+placements above — it was just never read as a contract because it lives in
+`description`, where nobody looks.
+
 ⭐⭐ **A SIXTH INSTANCE, 2026-08-19 — and it is the row's failure mode in its
 purest form: a boundary drawn from a real hazard by whoever installed the thing
 first.** `PersistenceSchedulePlugin`'s own doc said *"for visible builds.

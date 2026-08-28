@@ -4423,6 +4423,24 @@ at `defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*
 So Jon's *"one world unit = one base-grid pixel"* DECLARES what the engine
 already used; nothing converts.
 
+⚠ **AND THE 2× OBJECTION AGAINST THAT IS ANSWERED, 2026-08-28 — both statements
+are true and they do not conflict.**
+[`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+warns that D165 says base-grid pixels while the implemented field is WORLD px,
+*"and Mary-O's tile is `T = 32.0` world px. Those differ by 2× in her game."*
+Measured: **the two games use different tile sizes.**
+
+```text
+LDtk worlds (Ambition)   "defaultGridSize": 16   ⇒ 48 world px = THREE tiles
+game/ambition_demo_mary_o    const T: f32 = 32.0 ⇒ 48 world px = ONE AND A HALF
+```
+
+⇒ `standing_height` is WORLD PIXELS unambiguously, in both games and everywhere
+else; what varies is how many TILES that is. ⛔ so nothing needs deciding and
+nothing converts — but *"three tiles tall"* is not a portable way to state a
+height, and the identity above holds for the 16px worlds rather than for the
+engine. State heights in world px and let each game's tile be what it is.
+
 ⛔⛔ **WHAT WAS MISSING WAS NOT A UNIT BUT AN AUTHORED NUMBER — three characters
 were each deriving the same scale by hand, and not even on one axis:**
 

@@ -509,6 +509,7 @@ pub fn ground_item_physics(
     // and each writing its own overlap loop is how one rule becomes three.
     bodies: Query<
         (
+            Entity,
             &ambition_platformer2d_core::CenteredAabb,
             &ambition_characters::actor::BodyHealth,
             Has<ambition_combat::death_rules::OutOfPlay>,
@@ -566,11 +567,39 @@ pub fn ground_item_physics(
         // an "is it touching a body" test settles it before it has travelled a
         // pixel. Comparing the two positions asks the question that actually
         // means impact: did this item ARRIVE somewhere a body is?
-        let touches = |at: ae::Aabb| {
-            bodies.iter().any(|(aabb, health, out_of_play)| {
-                !ambition_combat::util::body_is_untouchable(Some(health), out_of_play)
-                    && at.strict_intersects(aabb.aabb())
-            })
+        //
+        // ⛔⛔ AND "NEWLY ENTERED" IS PER VICTIM, NOT AGGREGATE. This asked
+        // "is the item touching ANY body" at each end, which loses WHICH body:
+        // an item still standing inside its thrower while it reaches an opponent
+        // reads touching-then-touching and reports no strike at all — the
+        // ordinary case of a bomb thrown at somebody from arm's length.
+        //
+        // ⛔⛔ AND THE PATH IS SWEPT, because two endpoints are not a
+        // trajectory. A fast item crosses a whole body between one tick's
+        // position and the next while overlapping at neither, and the same
+        // formula that reports the strike also decides a bomb's detonation.
+        // `aabb_path_contacts` is the repo's own answer to this and takes the
+        // end centre plus the delta it arrived by.
+        let entered_now = |at: ae::Aabb, entity: Entity| {
+            bodies
+                .get(entity)
+                .is_ok_and(|(_, aabb, _, _)| at.strict_intersects(aabb.aabb()))
+        };
+        let struck_bodies = || {
+            let here = ae::Aabb::new(item.pos, item.half_extent);
+            bodies
+                .iter()
+                .filter(|(_, _, health, out_of_play)| {
+                    !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play)
+                })
+                .any(|(victim, aabb, _, _)| {
+                    ambition_platformer2d_core::cast::aabb_path_contacts(
+                        next,
+                        item.half_extent,
+                        item.vel * dt,
+                        aabb.aabb(),
+                    ) && !entered_now(here, victim)
+                })
         };
         // ⛔⛔ AND A BODY IS NOT A WALL. The first version STOPPED the item here,
         // and that turns every fighter into a shelf: an item dropped or falling
@@ -578,10 +607,9 @@ pub fn ground_item_physics(
         // to rest 47px above the floor it used to land on. Being STRUCK by
         // something and STOPPING it are different facts, and only the first is
         // what a thrown bomb asks about.
-        let struck = (touches(next_aabb) && !touches(ae::Aabb::new(item.pos, item.half_extent)))
-            .then(|| ItemStruckBody {
-                impact_speed: item.vel.length(),
-            });
+        let struck = struck_bodies().then(|| ItemStruckBody {
+            impact_speed: item.vel.length(),
+        });
         match struck {
             Some(hit) => {
                 commands.entity(entity).try_insert(hit);

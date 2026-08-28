@@ -10916,6 +10916,107 @@ the derivation. `stochastic_parrot` has three, `burning_flying_shark` two.
 ⇒ **19 rows can be authored with no decision at all; 3 need one number each from
 Jon**, and for those three the disagreement above is the whole case for asking.
 
+✔✔ **THE NINETEEN ARE AUTHORED — 2026-08-28, and every one reproduces the size it
+already had.** Read from the production function rather than derived: an ignored
+report (`print_the_height_each_legacy_row_already_has`) asks
+`sprite_body_collision_for_character_id_in` with each character's REAL spawn box,
+so the number a row carries is measured and not computed by hand. Before and
+after agree to the rounding authored (≤0.1px): `npc_bear_mauler`
+`121.86x72.56 → 121.93x72.60`, `npc_hunny_horror_boss` `119.25x154.80` unchanged,
+`npc_puppy_slug_velvet` `68.79x30.86 → 68.88x30.90`.
+
+⭐⭐ **THE LEGACY BRANCH'S POPULATION IS 25 → 3.** Every remaining row is one whose
+spawn boxes DISAGREE, which is the argument rather than an omission:
+
+```text
+npc_puppy_slug            EIGHT boxes, (64,16) to (52,66) — a factor of four
+stochastic_parrot         three
+npc_burning_flying_shark  two
+```
+
+⚠ **and the three GNU-ton rows are not a fourth case**: `npc_giant_gnu`,
+`npc_giant_gnu_hands` and `npc_gnu_ton_boss` publish no sheet, so
+`sprite_body_collision_for_character_id_in` returns `None` before either branch
+is reached. They do not block deleting `catalog_join.rs:154`'s `_ =>` arm.
+
+✔ **AND UN-CLIPPING BECAME SAFE FOR NINETEEN CHARACTERS THE MOMENT THEY AUTHORED
+A HEIGHT — `npc_trex_enemy` is the first, 2026-08-28.** 57 of its 60 frames were
+cut (every idle on the left, the tail swipe and death on the bottom), and its
+root sits at a FRACTION of a work frame rather than at a padding constant, so
+the fix is the frame and the fraction moved together: work `832x640 → 1000x760`,
+frame `416x320 → 500x380`, root `x 0.33 → 0.4426` / `y 0.72 → 0.6063`. Zero cut
+frames, still one page. ⭐ its derived height is **exactly 70.50 either way**,
+because the authored number is now the input — the whole point of the previous
+paragraph.
+
+⚠ **its collision WIDTH moved 131.6 → 143.3, and that is the fix rather than a
+side effect**: the measured body grew because the tail that used to be cropped is
+now drawn, and `every_characters_drawing_is_the_size_of_the_body_it_collides_with`
+is the assertion that these two must describe one creature.
+
+⛔⛔ **AND A LARGE SHARE OF THE 40 WARNING TARGETS ARE NOT DEFECTS — the row's own
+caveat, now MEASURED and with a one-render test that settles it.**
+`hunny_horror_boss` is the sweep's worst (59 frames) and warns on the BOTTOM
+only. Rendering it into a canvas 25% taller changes **nothing**: same warning,
+same 59 frames, and the measured body bbox is byte-identical at `103x133` inside
+a `144x150` frame. ⇒ **no ink exists past the boundary**; the bear is
+bottom-anchored, its soles are flat, and the taper test cannot tell that from a
+cut. Exactly the failure this row wrote down and never applied.
+
+⭐⭐ **THE DISCRIMINATOR, and it costs one render:** grow the target's
+`FRAME_SIZE` and re-read `body_pixel_bbox` in the generated `.ron`. Unchanged ⇒
+the guard is describing the crop, not a cut. Changed ⇒ real, and the new bbox is
+the art you were missing (`npc_trex_enemy` went `131.6 → 143.3` wide the moment
+its tail stopped being cropped).
+
+⚠ **the edge pattern predicts it well enough to triage by**, checked across five
+targets 2026-08-28:
+
+```text
+BOTTOM only, on a stand/rest      suspect — a flat sole arrives at full width
+ALL FOUR, on a rest               suspect — auto_crop fitted the frame to the art
+LEFT/RIGHT on a lunge or a roll   REAL (perfect_cellular_automaton, davy_hylbert,
+                                  pipi_tau — rolls and deaths on both sides)
+TOP on an idle or a jump          REAL (le_beast)
+side/bottom on a tail or a limb   REAL (npc_trex_enemy)
+```
+
+⇒ `hunny_horror_boss` (59) and `smirking_behemoth_boss` (26, all four edges on
+`rest`) are suspect and should be MEASURED before anybody redraws them; the
+headline "40 of 186 targets warn" is an upper bound on the work, not the work.
+
+⚠ **AND THE TWO CONFIRMED-REAL ONES LEFT HAVE A THIRD FRAME SHAPE — priced 2026-08-28,
+not attempted.** `davy_hylbert` (42) and `pipi_tau` (36) warn identically (crouch
+bottom, roll left AND right, death both) and are sibling generators: both
+`FRAME_W = FRAME_H = 128`, both drawing a pose at ABSOLUTE canvas coordinates
+with no root fraction and no padding constant. So neither of the two fixes that
+worked today transfers:
+
+```text
+perfect_cellular_automaton   ONE constant (`PADDING`) produced frame, art AND hitboxes
+npc_trex_enemy               a frame plus a ROOT FRACTION, moved together
+davy_hylbert / pipi_tau      absolute pose coords — enlarging the frame leaves the
+                             character in the corner, and `FaceGuide(source_width=
+                             FRAME_W, …)` normalises the PORTRAIT crop against it
+```
+
+⇒ their fix is a canvas grow PLUS a pose translation PLUS the same shift applied
+to `FaceGuide.center_x/center_y`, on two files. That is the *"art authoring with
+a gameplay consequence"* this row already flags, and it wants an eye on the
+result rather than a mechanical edit. ⭐ `le_beast` (39, TOP on idle and jump) is
+a third shape again and is the smallest of the three.
+
+⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
+AUTHORED.** It is one of the three still on the legacy road, so a wider frame is
+a DIVISOR change and would resize it — which is exactly the trap this row found
+on the automaton. Its two crawler variants already author heights and are safe.
+
+▢ **so the arm's deletion gate is three numbers**, and they are Jon's — see
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 36.
+⛔ do NOT pick them by taking the most common box: the puppy slug's two most
+common are `(48,22)`×6 and `(32,48)`×5, which are 22 and 48 in the axis that
+drives the derivation, so "most common" is a coin flip dressed as a measurement.
+
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
 

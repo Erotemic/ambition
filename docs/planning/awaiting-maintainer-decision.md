@@ -38,6 +38,48 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
+### 36. HOW TALL ARE THE PUPPY SLUG, THE PARROT AND THE FLYING SHARK?
+
+⭐ **Three numbers, and they are the last thing standing between the engine and a
+deleted code path.** Until 2026-08-28, 25 catalog rows took a branch where a
+character's size is `body_px × ldtk_max × collision_scale / FRAME_H` — a level
+editor's rectangle and the sprite sheet's publishing padding, neither of which is
+a claim about how tall anything is. Nineteen have been moved off it at the exact
+size they already had, because each is placed with ONE spawn box everywhere it
+appears, so the number was determined and nobody had to choose it.
+
+**These three are not, and that is the whole question:**
+
+```text
+npc_puppy_slug            EIGHT different spawn boxes across the levels —
+                          (48,22)x6 · (32,48)x5 · (64,32)x2 · (48,32) ·
+                          (64,16) · (52,66) · (42,42) · (28,44)
+stochastic_parrot         three
+npc_burning_flying_shark  two — (108,96)x7 and (32,48)
+```
+
+⇒ the same puppy slug is **eight different sizes** depending on which room you
+meet it in, and `(64,16)` versus `(52,66)` is a factor of four in the axis that
+drives the derivation. There is no "size it already has" to preserve.
+
+⛔ **DO NOT LET AN AGENT PICK THESE BY THE MOST COMMON BOX.** The slug's top two
+are `(48,22)`×6 and `(32,48)`×5 — 22 against 48 — so a majority vote is a coin
+flip wearing a measurement's clothes. Same for the shark: the seven `(108,96)`
+placements and the one `(32,48)` differ by more than 2×.
+
+**What is needed:** one `standing_height` (world px, feet to the top of the
+visible body) for each. For scale, every `Standard` humanoid is **48**, the
+player robot is 48, and the three pirate heavies are 56–60. The slug is a
+sprawled quadruped, so its height is the small number; today's placements imply
+anywhere from 21 to 63.
+
+⭐ **What it buys:** with these three authored, `catalog_join.rs:154`'s `_ =>` arm
+has no users and can be deleted — the last place in the engine where a level
+rectangle and a sheet's transparent margin decide how big a character is. The
+three GNU-ton rows do not block it; they publish no sheet and return `None`
+before either branch.
+
+
 ### 35. WHERE DOES "CAN I CLOSE THE GAP DURING MY OWN STARTUP" LIVE?
 
 ⭐ **This is D166's last open half, and it has been sitting inside a 10,000-line

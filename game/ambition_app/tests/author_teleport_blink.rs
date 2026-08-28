@@ -1,4 +1,4 @@
-//! D254/R17: the Author's Revision is ONE teleport, so it is one blink.
+//! D255/R17: the Author's Revision is ONE teleport, so it is one blink.
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 

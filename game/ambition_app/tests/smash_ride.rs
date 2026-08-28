@@ -2405,7 +2405,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
 
 /// PROBE — where the shark's recovery charge goes, tick by tick.
 ///
-/// The question is D254/R1's: `call_the_shark` is
+/// The question is D255/R1's: `call_the_shark` is
 /// `RecoveryUse::SpendWithoutFreefall` and `start_move` spends the charge, but
 /// the move begins on the FLOOR and the landing-class refresh runs on every
 /// grounded tick. This prints the four facts that decide whether the spend

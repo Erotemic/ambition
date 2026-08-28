@@ -1,4 +1,4 @@
-//! D254/R6: the Pirate Admiral's side-B fires a GUN-SWORD, and the game has to
+//! D255/R6: the Pirate Admiral's side-B fires a GUN-SWORD, and the game has to
 //! agree that it does.
 //!
 //! ⛔ IN THE SHIPPED COMPOSITION, for the reason `smash_ride` gives: the demo

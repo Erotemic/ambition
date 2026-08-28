@@ -13441,7 +13441,7 @@ small three-variant mirror. ⇒ **still a carve — two maps means two reader pa
 and a rule for which wins — but the question is now "how" rather than
 "whether".**
 
-- ▢ **D254 — CHECKPOINT 5 (GPT 5.6, HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE
+- ▢ **D255 — CHECKPOINT 5 (GPT 5.6, HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE
   TWO THAT MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. (opened 2026-08-27)**
 
 The reviewer re-read main after checkpoint 4's sixteen fixes landed and reported

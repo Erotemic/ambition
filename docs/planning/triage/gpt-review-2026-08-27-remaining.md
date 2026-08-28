@@ -227,7 +227,7 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   that counts EXACTLY one cue.
 
 - ◐ **R18 — repair stale review and planning status.** `queue.md` (D252, D253,
-  D254) and `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current as of this push.
+  D255) and `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current as of this push.
   What remains is whatever the OPEN rows below close. D253 and D252 are closed
   as of `4a551ccc5`. Still to correct: the Author double-blink row (fixed at
   `947b97b`), `tick_departures` docs (already corrected), the `shark_ride_probe`

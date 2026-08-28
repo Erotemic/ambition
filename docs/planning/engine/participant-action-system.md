@@ -344,11 +344,33 @@ struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
   bindings, and an unregistered id mints `None` rather than a binding to a slot
   nobody polls. The test that used to hand-build the key now asks the registry for
   it, and its two local types are deleted.
-  ▢ **WHAT REMAINS IS THE ROUTING, and it is the part the carve warning was
-  always about**: nothing installs an `InputMap<ProviderAction>` in production, so
-  a provider action is registerable, bindable, and still neither presentable nor
-  consumable. Two maps means two reader paths and a rule for which wins a
-  conflict — that rule is the next slice, and it is a decision before it is code.
+  ▢ **WHAT REMAINS IS THE ROUTING**: nothing installs an `InputMap<ProviderAction>`
+  in production, so a provider action is registerable, bindable, and still neither
+  presentable nor consumable.
+  ✔ **AND THE CARVE WARNING SHRANK WHEN MEASURED, 2026-08-28.** *"Two maps means
+  two reader paths and a rule for which wins a conflict"* assumed the maps live
+  somewhere separate. They do not: `InputMap` and `ActionState` are COMPONENTS on
+  the `InputParticipant` entity — `input_systems.rs` spawns both seats' worth in
+  one tuple each (lines ~136 and ~383) and every reader is already a query over
+  that entity. A second map is a second component in the same tuple, read by the
+  same pass. ⇒ there is no precedence rule to invent: a physical key bound in both
+  maps fires both actions, which is a BINDING mistake for a rebind UI to catch, not
+  an architectural ambiguity.
+  ⛔⛔ **THE ACTUAL BLOCKER IS UPSTREAM OF THE MAP, AND THE TWO REMAINING ITEMS ARE
+  ORDERED BACKWARDS BECAUSE OF IT.** Nothing can say *"pulse is on G"*.
+  `SemanticActionDef` describes an action and carries no binding; `BindingRecipe`
+  binds, and it is preset-based over the closed enum. So an `InputMap<ProviderAction>`
+  has nothing to put in it. The last item — *"Author input schemas/assets"* — is
+  marked **GATED BY** this one; measured, the dependency runs the other way for
+  this half: a place to AUTHOR a provider binding is what unblocks the routing, not
+  the reverse.
+  ⭐ **THERE IS A REAL CUSTOMER, not a hypothetical one.** `examples/capability_demo`
+  is the capability-integration sentinel, it registers `PULSE_ACTION`, and its own
+  module doc names the workaround: *"The action is declared, but input currently
+  reaches the capability by writing `PulseRequested` until semantic actions own
+  device bindings."* Closing this deletes that sentence. ⚠ `PulseRequested` itself
+  STAYS — its doc is right that a scripted sequence or an AI writes it the same way.
+  What is missing is the router that writes it from a press.
 
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination

@@ -434,7 +434,15 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // ⭐ CHARACTER ID -> SHEET KEY, off the catalog the composed host loaded. The
     // catalog stores `sprites/<name>_spritesheet.png`; the baked sheet index is
     // keyed by the bare name, and that reduction is the join.
-    let sheet_keys: std::collections::HashMap<String, String> = world
+    //
+    // ⛔⛔ BUILT ONCE. This was rebuilt on EVERY `sample`, and `settle` calls
+    // `sample` up to 480 times per take -- roughly nine thousand rebuilds of a
+    // 48-entry map, each one re-splitting every catalog path, per character. The
+    // catalog cannot change during a run, so the map is a constant wearing a
+    // loop's clothes.
+    static SHEET_KEYS: std::sync::OnceLock<std::collections::HashMap<String, String>> =
+        std::sync::OnceLock::new();
+    let sheet_keys = SHEET_KEYS.get_or_init(|| world
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .map(|catalog| {
             catalog
@@ -453,7 +461,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                 })
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default());
 
     let mut bodies = world.query::<(
         Entity,
@@ -845,16 +853,43 @@ fn ensure_airborne(app: &mut App) -> bool {
 /// So the ground is required only of a body that has been seen standing. A
 /// fighter that never reports support settles on "idle and unencumbered", which
 /// is the strongest true statement available about it.
+/// The three facts a settle waits on, without building a frame to read them.
+///
+/// ⛔⛤ `settle` USED TO CALL `sample`, which queries every body, every hitbox and
+/// every projectile and serialises all of it to JSON -- then threw the JSON away
+/// to look at three booleans. At up to 480 iterations per take and 19 takes per
+/// character that is the dominant cost of a recording, and none of it was the
+/// simulation.
+fn settle_facts(world: &mut World) -> (bool, bool, bool) {
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
+        Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
+        Option<&ambition_platformer2d::mount::RidingOn>,
+    )>();
+    for (seat, ground, playing, riding) in q.iter(world) {
+        if seat.0 != 0 {
+            continue;
+        }
+        return (
+            ground.is_some_and(|g| g.on_ground),
+            playing.is_some(),
+            riding.is_some(),
+        );
+    }
+    (false, false, false)
+}
+
 fn settle(app: &mut App) -> bool {
     let mut ever_stood = false;
     for _ in 0..SETTLE_LIMIT {
         drive(app, ControlFrame::default());
-        let now = sample(app.world_mut(), 0);
-        ever_stood |= now.grounded == Some(true);
-        if now.move_id.is_some() || now.riding.is_some() {
+        let (grounded, playing, riding) = settle_facts(app.world_mut());
+        ever_stood |= grounded;
+        if playing || riding {
             continue;
         }
-        if now.grounded == Some(true) || !ever_stood {
+        if grounded || !ever_stood {
             return true;
         }
     }

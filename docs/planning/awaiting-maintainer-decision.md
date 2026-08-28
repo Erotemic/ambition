@@ -1918,3 +1918,37 @@ cursor, and only (a) fixes that.
 places the headless suite does. Jon: *"It might be the case that we build a tool
 so it works on a machine with a gpu. Not sure yet though."* Held here until that
 is decided.
+
+
+## 2026-08-27 — `moveset_takes` is not deterministic, and it never was
+
+MEASURED, twice: two runs of the SAME binary on the SAME tree agree on only
+**6 of 19 takes**. Nothing was changed between them.
+
+⛔⛔ THE MECHANISM. `bevy_ggrs` advances the simulation from a wall-clock
+`accumulator`, so one `app.update()` runs the sim ZERO, ONE or SEVERAL times
+depending on how long the previous iteration took. `moveset_takes` drives a fixed
+number of LOOP ITERATIONS and calls them ticks — so `TAKE_TICKS = 150` is 150
+iterations, not 150 sim ticks, and how much simulation each take contains depends
+on how fast the machine was that second.
+
+⛔ IT IS WHY THE TOOL IS SLOW, TOO. A recording of 2.5 seconds of game time costs
+at least 2.5 seconds of real time, because the accumulator will not hand out ticks
+faster than the clock produces them. Removing wasted work took a character from
+7m08 to 1m27, and CHANGED 14 of 19 takes as a side effect — because doing less
+work per iteration changes how many sim ticks each iteration gets.
+
+⚠ WHAT THIS COSTS US. Takes cannot be compared across runs; a `MISMATCH` report
+may be a fluke of timing; and any finding drawn from a single recording is weaker
+than it looked. D252 and D253 were both found this way — the *which move came
+out* half is probably stable, but nobody has checked.
+
+⭐ THE FIX IS A DETERMINISTIC STEP SEAM: the recorder should advance the sim
+exactly one tick per iteration instead of letting a wall-clock accumulator decide.
+There is no such seam today (`ambition_time::advance_sim_tick` is a system, not a
+driver). It would make the tool fast AND repeatable, and would let a take be
+diffed against a previous take — which is what a balance tool is for.
+
+⚠ NOT ATTEMPTED HERE because it is surgery on the rollback host's timing and this
+is a viewer's data source; a wrong step seam is a silently wrong simulation. Held
+for a maintainer.

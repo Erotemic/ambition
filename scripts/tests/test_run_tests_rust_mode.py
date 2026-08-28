@@ -157,3 +157,57 @@ def test_an_unreported_execution_time_serializes_as_absent_not_as_zero():
     # And the human report says so in words rather than printing `0.0s`.
     assert "not reported" in run_tests.timing_report([unmeasured])
     assert "9.2s" in run_tests.timing_report([measured])
+
+
+def test_an_unmeasured_job_s_wall_time_is_unclassified_not_build_time():
+    """⛔⛔ THE PER-JOB NULL WAS NOT ENOUGH, and the aggregates undid it.
+
+    Making `JobResult.executed_seconds` nullable fixed the per-job payload and
+    left three aggregate roads summing `r.executed_seconds or 0.0` — the ledger
+    row, the status payload and the human report. So a nextest run whose split is
+    unknown was still PERSISTED as "0s executing, 100s building", which is the
+    number this telemetry exists to inform. A mixed run was worse: a plausible
+    partial figure with nothing saying it was partial.
+
+    ⇒ the split is three numbers now. Build time is derived only from jobs whose
+    runner reported, and everything else is named as unsplit rather than
+    attributed to the build.
+    """
+    nextest = run_tests.JobResult("nextest job", ["cargo", "nextest"], True, 100.0)
+    libtest = run_tests.JobResult("libtest job", ["cargo", "test"], True, 40.0, 30.0)
+
+    only_unknown = run_tests.wall_time_split([nextest])
+    assert only_unknown["executed_seconds"] == 0.0
+    assert only_unknown["build_seconds"] == 0.0, (
+        "a job that reported nothing gave its whole wall clock to the build column"
+    )
+    assert only_unknown["unclassified_seconds"] == 100.0
+    assert only_unknown["unclassified_jobs"] == 1
+
+    mixed = run_tests.wall_time_split([nextest, libtest])
+    assert mixed["executed_seconds"] == 30.0
+    assert mixed["build_seconds"] == 10.0, "build is the measured jobs' remainder"
+    assert mixed["unclassified_seconds"] == 100.0
+
+    # ⛔ AND THE REPORT SAYS SO IN WORDS. A reader must be able to see that 100s
+    # of a 140s run is unaccounted for rather than infer it from a ratio.
+    report = run_tests.timing_report([nextest, libtest])
+    assert "NEITHER" in report and "100s" in report
+
+
+def test_the_report_calls_unclassified_time_neither_build_nor_run():
+    """The reader of the persisted ledger gets the same three numbers."""
+    import compile_report
+
+    rows = [
+        {"seconds": 100.0, "executed_seconds": 0.0, "unclassified_seconds": 100.0},
+        {"seconds": 40.0, "executed_seconds": 30.0, "unclassified_seconds": 0.0},
+    ]
+    totals = compile_report.suite_totals(rows)
+    assert totals.executed_seconds == 30.0
+    assert totals.build_seconds == 10.0, (
+        "the unmeasured run's 100s was counted as build time"
+    )
+    assert totals.unclassified_seconds == 100.0
+    # The share is against what the report can account for, not the wall clock.
+    assert abs(totals.build_share - 0.25) < 1e-9

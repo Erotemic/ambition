@@ -411,6 +411,19 @@ publish_provider_action_edges        `InputSet::Route`. `just_pressed`, sorted b
   refuses to know that on purpose (it carries `PulseBody`, not an actor-domain
   type), so the last hop — `SemanticActionPressed` → `PulseRequested { body }` —
   belongs to whoever mounts both, and that is the correct place for it.
+  ▢ **AND A SHAPE QUESTION THE PROMPT HAS NOT ANSWERED, noticed 2026-08-28 while
+  making `HeldItemView` plural.** `ControlPrompt` is ONE global resource filled
+  from `ControlledSubject`, and its own doc justifies that as *"the same
+  relativity rule the camera and input already obey"* — but the CAMERA went
+  per-view (D118: `CameraReferenceFrame` is a component on the local view) and the
+  prompt did not. ⇒ on a couch, seat one reads seat zero's verbs.
+  ⚠ **it may be right anyway**, and that is why this is a question rather than a
+  defect: the touch overlay is one per DEVICE, so one screen wants one prompt. The
+  repo already distinguishes the two cases elsewhere — `SeatMenuFrames` is the
+  per-seat answer beside a global `MenuControlFrame` — so the shape exists; nobody
+  has said which one a gameplay prompt is. ⛔ do not answer it by making the
+  resource plural: a second on-screen overlay is a UI decision, not a plumbing one.
+
   ◐ **AND PRESENTABLE IS A DIFFERENT KIND OF PROBLEM THAN THE PLAN RECORDS —
   re-measured 2026-08-28.** The *"a provider action has to appear in THREE closed
   enums"* table counts `ControlSlot` and `TouchActionButton` as arbitrary limits

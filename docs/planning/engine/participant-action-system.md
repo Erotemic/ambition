@@ -390,6 +390,17 @@ publish_provider_action_edges        `InputSet::Route`. `just_pressed`, sorted b
                                      publish in the same order every run
 ```
 
+  ⛔⛔ **AND A SECOND `InputManagerPlugin` IS NOT HOW YOU ADD A SECOND KEYSPACE.**
+  `InputManagerPlugin::<A>::build` guards only `CentralInputStorePlugin`; it adds
+  `clear_central_input_store` and `filter_captured_input` UNCONDITIONALLY, so a
+  second action type registers both TWICE — and `clear_central_input_store` DRAINS
+  the store. The app's own `no_system_is_registered_twice_in_one_schedule` caught it
+  and stated the class in its own words: a doubled system that drains or decays is a
+  rate bug that reads as bad tuning. The host registers the three GENERIC-half
+  systems instead (`tick_action_state::<A>`, `update_action_state::<A>`,
+  `release_on_input_map_removed::<A>`) in the sets the plugin puts them in.
+  ⚠ this is an upstream limitation, not a design choice: leafwing 0.20 has no
+  "additional action type" entry point.
   ⛔ **AND THE TEST EARNED ITS KEEP ON THE FIRST RUN: BOTH SYSTEMS IN `PreUpdate`
   PUBLISHED ON NO FRAME.** `InputSet::*` is configured in `Update`, so an `in_set`
   in `PreUpdate` orders nothing at all — the edge ran before leafwing had resolved

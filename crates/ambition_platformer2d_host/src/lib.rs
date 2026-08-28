@@ -205,7 +205,36 @@ impl Plugin for HostInputBindingsPlugin {
             // second component on the same participant entity, not a second
             // road: the seats, the resolve pass and the readers are all the
             // ones already here.
-            .add_plugins(InputManagerPlugin::<ambition_input::ProviderAction>::default())
+            //
+            // ⛔⛔ AND IT IS THE PER-ACTION SYSTEMS, NOT THE PLUGIN.
+            // `InputManagerPlugin::<A>::build` adds `clear_central_input_store`
+            // and `filter_captured_input` UNCONDITIONALLY — it guards only
+            // `CentralInputStorePlugin` — so a SECOND action type registers both
+            // twice, and `clear_central_input_store` DRAINS the store. Caught by
+            // `no_system_is_registered_twice_in_one_schedule`, which says why in
+            // its own words: a doubled system that drains or decays is a rate bug
+            // that reads as bad tuning. These are exactly the generic half of that
+            // plugin, in the sets it puts them in.
+            .add_systems(
+                bevy::app::PreUpdate,
+                (
+                    leafwing_input_manager::systems::tick_action_state::<
+                        ambition_input::ProviderAction,
+                    >
+                        .in_set(leafwing_input_manager::plugin::InputManagerSystem::Tick)
+                        .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+                    leafwing_input_manager::systems::update_action_state::<
+                        ambition_input::ProviderAction,
+                    >
+                        .in_set(leafwing_input_manager::plugin::InputManagerSystem::Update),
+                ),
+            )
+            .add_systems(
+                bevy::app::PostUpdate,
+                leafwing_input_manager::systems::release_on_input_map_removed::<
+                    ambition_input::ProviderAction,
+                >,
+            )
             .init_resource::<ambition_input::ProviderBindings>()
             .add_message::<ambition_input::SemanticActionPressed>()
             // ⛔ TWO SCHEDULES, AND THE SPLIT IS THE POINT. The map has to be on

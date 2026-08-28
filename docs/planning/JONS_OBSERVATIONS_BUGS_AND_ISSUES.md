@@ -830,3 +830,33 @@ in `741a1f59b`, which the exit oracle caught).
 ⚠ AND IT IS WHY THE RETURN-LEG FIX IS CURRENTLY UNOBSERVABLE IN PLAY. `1ba3a5fa0`
 made the tail come home to the hand instead of 79px past it; until the first hit
 stops ending the flight, most throws never reach the return leg at all.
+
+### The workspace suite has been RED, and nobody could see which tests (2026-08-28)
+
+⛔⛔ **`workspace (default features)` HAS BEEN FAILING SINCE AT LEAST HEAD
+`a945c1de5`, AND I MIS-ATTRIBUTED IT.** A sweep that morning reported the job red
+and I read it as the flinch test that was red at the same time, without opening
+the job's own output. It was not. Switching the runner to `cargo nextest`
+printed the failures by name for the first time — 6458 tests, six still red:
+
+* ▢ **`ambition_demo_twintrack_app::twintrack_it` — five, and they share a
+  shape: a body that should be STILL is moving.** `both_observers_measure_the_light_pulse_at_the_invariant_speed`
+  fails its own premise — *"the lab twin should be at rest, was 0.08836941"*, a
+  beta of 0.088 rather than under 1e-4. `each_seat_moves_its_own_body_and_leaves_the_others_alone`,
+  `with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched`,
+  `the_two_observers_disagree_about_the_pulses_direction_and_colour` and
+  `two_observers_report_different_orderings_of_the_same_flash_pair` fail beside
+  it. ⚠ NOT ATTRIBUTED. They reproduce identically under libtest, so this is not
+  a process-isolation effect of the new runner; what the runner changed is that
+  the names are now printed. The twintrack crate itself has not been touched in
+  weeks, so the cause is upstream of it — most likely the movement work merged
+  from `specials-are-real-moves`, and that is a guess rather than a measurement.
+* ▢ **`ambition_demo_smash_app::smash_it::the_repertoire_gets_used::holding_attack_walks_the_jab_string_into_the_rapid_jab`.**
+  Same status: red, unattributed, reproduces under both runners.
+* ✔ `ambition_sprite_sheet::fx::every_authored_effect_row_is_reachable_by_name`
+  was the seventh and is fixed — 196 rows, because the trapdoor art arrived with
+  the renderer that draws one.
+
+⭐ THE LESSON IS THE MIS-ATTRIBUTION, not the reds. A job that prints one verdict
+for six hundred tests is a job whose failures get explained by whatever else was
+failing that morning. `./run_tests.sh` names them now.

@@ -1763,6 +1763,34 @@ three mechanics green and inert (the smash charge, DI, the tech), each caught by
 counting in a real match rather than by a unit test — so `match_report` should
 show a windbox connecting before this row is called done.
 
+⭐⭐ **THE WINDBOX IS NOT ALONE — an ADOPTION CENSUS of the authored move
+vocabulary, taken 2026-08-28 across `ambition_content`, `ambition_demo_smash` and
+the shared authoring helpers (comments and tests excluded):**
+
+```text
+motion_scale            40   the committed-strike damp; thoroughly adopted
+boomerang_return_s      10   the ponytail
+WindowTag::Cancelable    5   jab strings and chains
+WindowTag::Invuln        5   the Actress's trapdoor + THREE teleports (added
+                             2026-08-28; it was ONE until that day)
+on_hit: Some(..)         4   still only `technique::POGO_BOUNCE_KEY` behind them
+fixed_knockback          3
+equips: Some(..)         2   the Admiral's gun-sword, the Polygon's ponytail
+stores: true             1   the power ball
+with_aim_assist          1   the Officer's shot
+WindowTag::Armor         0   ⛔ DORMANT
+windbox                  0   ⛔ DORMANT — this row
+```
+
+⇒ **two dormant, not one**, and they are the same question with two names: which
+fighter takes a hit and keeps swinging, and which one gusts. ⚠ a mechanic at ONE
+adopter is barely better — `stores`, `with_aim_assist` and (until this week)
+`Invuln` are each one authoring mistake away from looking unused, and an unused
+mechanic is one nobody notices breaking.
+⭐ **the census is a grep, not a tool**: count the authoring hook in the content
+crates. It is worth re-taking whenever a mechanic ships, because *shipping* and
+*being used* are the two facts this demo keeps proving are different.
+
 ⭐ the sibling parity row *"Vacuum / suction hitboxes"* needs NO further work:
 it is the same primitive with the launch aimed inward, so authoring one move
 closes both rows.

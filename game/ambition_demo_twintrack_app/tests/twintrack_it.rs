@@ -55,6 +55,58 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
     *query.single(app.world()).unwrap()
 }
 
+/// PROBE — what moves the laboratory twin, who is supposed to be at rest.
+///
+/// Five tests in this file fail on her drift, and have since at least
+/// `a945c1de5` — measured against a worktree at that commit, not inferred.
+///
+/// ⭐⭐ WHAT SHE ACTUALLY DOES, from this probe: she appears on tick 3 already
+/// carrying `vel = (-95.98, 0)`, and drag eats it over seven ticks. She stops at
+/// `x = 713.8359`, 6.16px LEFT of the `LAB_POS` she is placed at, and her `y`
+/// reads `446.015` — 3.98px above her authored 450 — from the first tick she is
+/// visible. ⇒ ONE IMPULSE AT CONSTRUCTION, not a force and not a walk: the
+/// velocity only decays, and it never returns.
+///
+/// ⛔⛔ THE OBVIOUS EXPLANATION IS REFUTED, and the control is why this probe is
+/// worth keeping. The room's spawn point IS `LAB_POS`, so the traveler starts
+/// inside the twin's 48px body — an overlap two bodies would separate from.
+/// Moving the room spawn 96px away puts the traveler at `816.0` and leaves the
+/// twin's drift BYTE-IDENTICAL: same `-95.978`, same final `713.8359`. Nobody
+/// pushed her; she was launched.
+///
+/// ⇒ THE NEXT STEP IS THE CAUSAL INSTRUMENT, which exists to answer exactly
+/// "who wrote this velocity" — build with `--features causal` and read the
+/// authorship record for her first three ticks, rather than guessing at a
+/// second story that also fits.
+#[test]
+#[ignore = "PROBE, print-only: what moves the laboratory twin"]
+fn probe_what_moves_the_laboratory_twin() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    for tick in 0..50 {
+        app.update();
+        let lab = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&BodyKinematics, With<LaboratoryTwin>>();
+            q.iter(app.world()).next().copied()
+        };
+        let traveler = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&BodyKinematics, With<TravelerTwin>>();
+            q.iter(app.world()).next().copied()
+        };
+        if let Some(lab) = lab {
+            println!(
+                "TWIN {tick:>3} lab pos={:?} vel={:?} | traveler pos={:?}",
+                lab.pos,
+                lab.vel,
+                traveler.map(|t| t.pos)
+            );
+        }
+    }
+}
+
 fn laboratory_body(app: &mut App) -> BodyKinematics {
     let mut query = app
         .world_mut()

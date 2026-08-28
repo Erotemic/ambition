@@ -241,12 +241,27 @@ fn main() {
             &mut app,
             move_exercise::action_frame(verb, action_tick, facing),
         );
-        if let Some(id) = move_exercise::playing_move(&mut app) {
-            observed.insert(id);
-        }
         let tick = sim_tick(&app);
         let at_action = action_tick;
         action_tick += 1;
+
+        // ⭐⭐ THE TICK'S SEMANTICS ARE READ **BEFORE THE SHUTTER**, and written
+        // into the manifest afterwards from these saved values.
+        //
+        // ⛔⛔ THEY USED TO BE RE-QUERIED AFTER THE PUMP LOOP, which describes a
+        // different moment. `SimTick` is frozen across a zero-duration pump —
+        // that is the whole scheme — but frozen time is not a frozen WORLD: the
+        // pump runs `Update` every iteration, and anything there that does not
+        // gate on the fixed clock keeps running. So the manifest's `move` and
+        // `grounded` described the world after N passes of the render service
+        // loop while claiming to describe `sim_tick`. Whatever a later pump does
+        // is not what the picture shows.
+        let at_shutter = move_exercise::subject(&mut app);
+        let shot_move = at_shutter.as_ref().and_then(|s| s.playing.clone());
+        let shot_grounded = at_shutter.and_then(|s| s.grounded);
+        if let Some(id) = shot_move.clone() {
+            observed.insert(id);
+        }
 
         {
             let world = app.world_mut();
@@ -280,11 +295,28 @@ fn main() {
         while pumps < 600 {
             app.update();
             pumps += 1;
-            debug_assert_eq!(
-                sim_tick(&app),
-                tick,
-                "a zero-duration pump advanced the sim"
-            );
+            // ⛔⛔ A HARD INVARIANT, NOT A `debug_assert!`. This was one, and a
+            // `debug_assert` COMPILES OUT OF A RELEASE BUILD — which is a build
+            // the inspector's server will happily select, because it prefers the
+            // NEWEST renderer on disk regardless of profile. So the one check
+            // standing between "this PNG belongs to tick N" and a silent lie
+            // was absent from exactly the binary most likely to be running.
+            //
+            // ⛔ AND IT REFUSES RATHER THAN RECORDS. Every shot's `sim_tick` is
+            // provenance the viewer synchronises on; a picture taken while the
+            // simulation moved underneath it is worse than no picture, so the
+            // half-written frame goes with the process.
+            let now = sim_tick(&app);
+            if now != tick {
+                let _ = std::fs::remove_file(out_dir.join(format!("frame.{shot:04}.png")));
+                eprintln!(
+                    "moveset_render: a zero-duration pump advanced the simulation from tick \
+                     {tick} to {now} on shot {shot} (pump {pumps}). Every PNG names the tick it \
+                     was captured on, and this one cannot; refusing rather than writing false \
+                     provenance."
+                );
+                std::process::exit(1);
+            }
             if app
                 .world()
                 .get_resource::<ambition_platformer2d::render::capture::CaptureProgress>()
@@ -308,13 +340,14 @@ fn main() {
             // frame index also means. Two separate runs share no absolute
             // origin; they share this.
             "action_tick": at_action,
-            "move": move_exercise::playing_move(&mut app),
+            // Saved at the shutter, not re-read after the pump — see above.
+            "move": shot_move,
             // ⭐ THE POSTURE OF THE TICK IN THE PICTURE. `prepared` says the
             // exercise ESTABLISHED a posture before the press; this says what the
             // body was doing when the shutter opened, which is the thing a
             // reader is actually looking at. Without it "is that an airborne
             // up-B?" is answered by squinting at a 480x360 PNG.
-            "grounded": move_exercise::subject(&mut app).and_then(|s| s.grounded),
+            "grounded": shot_grounded,
         }));
 
         // Advance the rest of the stride on the same schedule.

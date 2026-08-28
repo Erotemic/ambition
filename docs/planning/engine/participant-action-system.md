@@ -85,21 +85,40 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   ruling: the world runs, you cannot act, and being hit cuts the conversation
   short — do not "fix" the gate without deciding the mode.
 
-- ▢ **Unify semantic menu activation.** Controller submit, virtual-touch submit,
-  and pointer release should produce one semantic activation seam. Pointer
-  press/release-with-drag-cancel is already shared; backend-specific select
-  consumption remains.
-  ⭐ **AND "REMAINS" NOW HAS A NUMBER, measured 2026-08-26: the shared seam has
-  exactly ONE adopter.** `ambition_ui_nav::resolve_selectable_row_interaction`
-  (press/release with drag cancel, `ROW_TAP_SLOP_PX`) is used only by
-  `ambition_dialog` (two call sites). `ambition_game_shell` reads the raw
-  `MenuControlFrame::select` flag and routes it itself at three separate places —
-  `input.rs` maps it to `confirm`, `startup_acknowledge` AND `loading_continue`,
-  and `pause_menu` consumes it directly. ⇒ **the seam is not missing, it is
-  UNADOPTED**, which makes this a migration with a countable finish line rather
-  than a design question. ⛔ mind the three shell meanings: one flag currently
-  answers three different questions there, so moving it needs those to stay
-  distinguishable.
+- ◐ **Unify semantic menu activation.** Controller submit, virtual-touch submit,
+  and pointer release should produce one semantic activation seam.
+  ⛔ **THE 2026-08-26 MEASUREMENT BELOW WAS PART STALE AND PART MIS-SCOPED; RE-MEASURED
+  2026-08-28 against HEAD.** It read "the shared seam has exactly ONE adopter
+  (`ambition_dialog`), and `ambition_game_shell`'s pause menu consumes raw
+  `MenuControlFrame::select` itself". Both halves of that are wrong today:
+  `shell_pause_menu_pointer` consumes `MenuActionActivated<PauseEntry>`
+  (`pause_menu.rs:478`), and `ambition_menu`'s pointer bridge
+  (`publish_bevy_ui_menu_actions`) already runs on `ambition_ui_nav::PressArm` — the
+  SAME tap-geometry primitive `resolve_selectable_row_interaction` uses. The three
+  `input.rs` edges (`confirm`, `startup_acknowledge`, `loading_continue`) are three
+  different questions asked in three different app phases, not one seam fanned out.
+  ⭐ **What was actually divergent was the POLICY on top of that shared gesture, and
+  the divergence had a user-visible cost.** `MenuTapMode` has three arms and ships
+  defaulting to `SingleTapWithDestructiveGuard`, whose own doc names its reason: *"a
+  stray touch on Quit"*. Only `ambition_ui_nav`'s index-addressed helper consulted it.
+  Every menu drawn by the pointer bridge — the pause menu, with `Abandon`,
+  `QuitToTitle` and `QuitToDesktop` on it — activated on the first release. The
+  setting's default guarded nothing on the exact row it was written for.
+  ✔ **DONE 2026-08-28 — one policy, two call shapes.** `MenuTapMode::resolve_press`
+  is now generic over an opaque row identity (it only ever asked whether two presses
+  landed on the same row; the `usize` was never an ordinate), so the entity/action-
+  addressed bridge calls the same function the index-addressed helper does. A menu
+  declares its risky rows once with `MenuDestructiveActions<Action>` — destructiveness
+  belongs to the action, not to the drawn rect, so this cost one registration in
+  `ShellPauseMenuPlugin` rather than a flag at 21 `MenuPage::control` call sites — and
+  a menu that registers nothing stays single-tap throughout.
+  ▢ **STILL OPEN: the non-pointer half.** Controller submit and virtual-touch submit
+  reach activation without passing through any tap policy, so the destructive guard
+  is a POINTER guard today. Whether it should also apply to a gamepad A-press is a
+  feel question, not a plumbing one — a controller cannot stray-tap the way a thumb
+  can, so the honest default may well be "pointer only". ⛔ mind the three shell
+  meanings: `confirm` / `startup_acknowledge` / `loading_continue` answer three
+  different questions, so anything that merges them needs those distinguishable.
 
 - ◐ **Move directional repeat/focus/wrap behind `ambition_ui_nav`.** Preserve the
   existing navigation semantics while removing backend-specific duplication.

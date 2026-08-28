@@ -225,7 +225,7 @@ pub fn handle_selectable_row_interaction(
             RowPointerOutcome::Hovered
         }
         Interaction::Pressed => {
-            let press = tap_mode.resolve_press(index, *selected, destructive, pointer_armed);
+            let press = tap_mode.resolve_press(index, &*selected, destructive, pointer_armed);
             *selected = index;
             focus.mark_pointer(index);
             if matches!(press, MenuPointerPress::Confirm) {

@@ -416,7 +416,6 @@ fn bevy_ui_scrollbar_fraction(
     scrollbar_fraction_from_rect(top_y, height, pointer_y)
 }
 
-
 /// Feature C: a press that lands on the `bevy_ui` scrollbar marks the track held by
 /// that pointer (so [`bevy_ui_scrollbar_press_drag`] tracks the live position) and
 /// immediately jumps the scroll to the pressed position (emits the neutral
@@ -537,6 +536,14 @@ fn publish_bevy_ui_menu_actions<Action>(
     // went down. Beside the arm rather than inside it because neither fact is
     // the tap-geometry primitive's business.
     mut armed: Local<Option<(Action, Entity)>>,
+    risk: Option<Res<crate::MenuDestructiveActions<Action>>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The SECOND arm, and it is a different question from `arm` above. That one
+    // asks "is a finger still down on this control"; this one asks "has this
+    // destructive row already been tapped once". A gesture ends every frame the
+    // pointer lifts; a confirm arm has to outlive that, or the guard would be
+    // spent before the user could answer it.
+    mut confirm_armed: Local<Option<String>>,
 ) where
     Action: Clone + std::fmt::Debug + Send + Sync + 'static,
 {
@@ -578,6 +585,12 @@ fn publish_bevy_ui_menu_actions<Action>(
                     held.1 = entity;
                 }
             } else {
+                // Pressing a DIFFERENT row abandons any pending confirm: an
+                // armed *Quit to Desktop* must not still be armed after the
+                // user has gone and touched something else.
+                if confirm_armed.as_deref() != Some(key.as_str()) {
+                    *confirm_armed = None;
+                }
                 arm.press(key, at);
                 *armed = Some((action, entity));
             }
@@ -589,7 +602,31 @@ fn publish_bevy_ui_menu_actions<Action>(
                 Some((_, Interaction::Hovered)) => {
                     let survived = arm.release_anywhere().is_some();
                     if let (true, Some((action, _))) = (survived, armed.take()) {
-                        activated.write(crate::MenuActionActivated { action });
+                        // The release landed on the row. Whether it ACTIVATES is
+                        // the user's configured tap policy, and the policy is
+                        // `ambition_input`'s — this bridge only supplies the two
+                        // facts it is the one that knows: which row was released
+                        // on, and whether that row is destructive.
+                        let key = format!("{action:?}");
+                        let destructive = risk
+                            .as_deref()
+                            .is_some_and(|risk| (risk.is_destructive)(&action));
+                        let tap_mode = settings
+                            .as_deref()
+                            .map(|settings| settings.controls.menu_tap_mode)
+                            .unwrap_or_default();
+                        // A pointer release IS the selection here, so target and
+                        // selection are the same row by construction; the guard
+                        // reduces to "was this row already armed".
+                        let press = tap_mode.resolve_press(
+                            key.clone(),
+                            &key,
+                            destructive,
+                            &mut confirm_armed,
+                        );
+                        if press == ambition_input::settings::MenuPointerPress::Confirm {
+                            activated.write(crate::MenuActionActivated { action });
+                        }
                     }
                 }
                 // Same entity, no longer under the pointer: it was left.

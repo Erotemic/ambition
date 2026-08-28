@@ -275,6 +275,17 @@ pub struct ShellPauseMenuPlugin;
 impl Plugin for ShellPauseMenuPlugin {
     fn build(&self, app: &mut App) {
         install_bevy_ui_menu_actions::<PauseEntry>(app);
+        // The three rows a stray touch must not spend. `MenuTapMode`'s shipped
+        // default guards exactly these and nothing else — Resume and the audio
+        // rows stay one tap, because a guard on a reversible row is only a tax.
+        app.insert_resource(ambition_menu::MenuDestructiveActions::<PauseEntry>::new(
+            |entry| {
+                matches!(
+                    entry,
+                    PauseEntry::Abandon | PauseEntry::QuitToTitle | PauseEntry::QuitToDesktop
+                )
+            },
+        ));
         app.init_resource::<ShellPauseMenu>()
             .init_resource::<ShellPauseMenuSuppressed>()
             .add_message::<OwnedSfxMessage>()

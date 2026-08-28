@@ -52,7 +52,8 @@ ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # `RoomSet` — the room graph the map draws.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
-# `AmbitionGameSave` — the visited-room set the Map tab hydrates from.
+# `AmbitionGameSave` — the visited-room set the Map tab hydrates from; and
+# `UserSettings.controls.menu_tap_mode`, the pointer bridge's activation policy.
 ambition_persistence = { path = "../ambition_persistence" }
 # `ActiveLdtkProject` — room rectangles, behind the `ldtk` feature.
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }

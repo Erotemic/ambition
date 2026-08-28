@@ -657,3 +657,107 @@ fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
         fraction.reference_pixels(),
     );
 }
+
+/// The Setting row's entity in the spawned sample page.
+fn setting_row(app: &mut App) -> Entity {
+    let mut q = app
+        .world_mut()
+        .query::<(Entity, &AmbitionMenuControl<Action>)>();
+    q.iter(app.world())
+        .find_map(|(entity, control)| (control.action == Some(Action::Setting)).then_some(entity))
+        .expect("sample page has a Setting row")
+}
+
+/// One tap: press, then release over the same row.
+fn tap(app: &mut App, entity: Entity) -> Vec<crate::MenuActionActivated<Action>> {
+    set_interaction(app, entity, Interaction::Pressed);
+    set_interaction(app, entity, Interaction::Hovered);
+    drain_activations(app)
+}
+
+#[test]
+fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone() {
+    // `MenuTapMode::SingleTapWithDestructiveGuard` is the SHIPPED DEFAULT, and
+    // its stated reason is a stray touch on Quit. It was reaching only the rows
+    // routed through `ambition_ui_nav`; every menu drawn by this bridge — the
+    // pause menu and its Quit rows included — activated on the first release.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    // No `UserSettings` resource: absent is the default policy, which is the
+    // one under test.
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+    let setting = setting_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, setting),
+        vec![crate::MenuActionActivated {
+            action: Action::Setting
+        }],
+        "a reversible row still costs one tap; a guard everywhere is only a tax"
+    );
+
+    assert!(
+        tap(&mut app, equip).is_empty(),
+        "the first tap on the destructive row arms it and nothing more"
+    );
+    assert_eq!(
+        tap(&mut app, equip),
+        vec![crate::MenuActionActivated {
+            action: Action::Equip
+        }],
+        "the second tap on the SAME row is the answer to the guard"
+    );
+
+    // And the arm does not survive going somewhere else in between: an armed
+    // Quit that the user walked away from must not fire on their return tap.
+    assert!(tap(&mut app, equip).is_empty(), "arm again");
+    assert_eq!(tap(&mut app, setting).len(), 1);
+    assert!(
+        tap(&mut app, equip).is_empty(),
+        "touching another row abandoned the pending confirm"
+    );
+}
+
+#[test]
+fn a_menu_that_registers_no_destructive_rows_is_unguarded() {
+    // The default for every existing host, and the reason this change needed no
+    // edit at 21 `MenuPage::control` call sites: a menu with no irreversible row
+    // registers nothing and keeps single-tap throughout.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, equip).len(),
+        1,
+        "no registration, no guard, one tap"
+    );
+}
+
+#[test]
+fn single_tap_mode_answers_for_the_destructive_row_too() {
+    // The guard is the user's setting, not this bridge's opinion: someone who
+    // has chosen `SingleTap` has said they do not want the second tap, and a
+    // Quit row is exactly where a hardcoded policy would override them.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
+        matches!(action, Action::Equip)
+    }));
+    let mut settings = ambition_persistence::settings::UserSettings::default();
+    settings.controls.menu_tap_mode = ambition_input::settings::MenuTapMode::SingleTap;
+    app.insert_resource(settings);
+    spawn_view(&mut app, 0, None);
+    let equip = equip_row(&mut app);
+
+    assert_eq!(
+        tap(&mut app, equip).len(),
+        1,
+        "the configured policy wins over the row's riskiness"
+    );
+}

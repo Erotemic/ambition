@@ -87,11 +87,9 @@ fn materialize_matching(
             seq.next(),
             LiveProjectile,
             RoomScopedEntity,
-            // ⭐ EVERY SHOT CARRIES THE LEDGER, empty, rather than only the ones
-            // that come back. A component inserted later by whoever notices is a
-            // tick in which the shot has no answer to "have I hit this body
-            // already" — and under rollback that tick is resimulated.
-            ambition_platformer2d_shared_tangle::projectile::ProjectileHits::default(),
+            // ⭐ The victim ledger arrives with `LiveProjectile`, which
+            // `#[require]`s it — see that marker. Listing it here as well would
+            // be the fourth copy of a fact one place should own.
         ));
         scope.apply_to(&mut entity);
         round_scope.apply_to(&mut entity);

@@ -102,6 +102,39 @@ bodies might lack a stable `SimId` and order nondeterministically. Prepared matc
 bodies carry seat-specific `FeatureId`s and `ensure_sim_id` runs before core
 simulation. ⇒ **that row is dead; do not carry it forward.**
 
+## ▢ THREE FINDINGS FROM THE SECOND PASS BELONG TO ANOTHER AGENT'S WORK
+
+Recorded here so they are not lost between two agents' lanes. None of these
+touch code I wrote; all three are on the `moveset_takes` / handedness-checker
+road that landed in parallel.
+
+▢ **`moveset_takes::settle` treats a MISSING seat zero as settled.**
+`settle_facts` returns `(false, false, false)` both for a real idle airborne
+fighter and for no seat-zero fighter at all, and `settle` accepts
+`grounded || !ever_stood` with `ever_stood` starting false. ⇒ on the first
+iteration a missing fighter, an ordinary airborne fighter and a flying Robot all
+read as settled; only the third is intended. ⛔ `ever_stood` answers *"has this
+body reported ground since this call began"*, not *"is this a body whose
+locomotion may settle in the air"* — the question it is standing in for. The
+reviewer also flags that `reseat` treats 240 app updates as proof of staging with
+no postcondition that seat zero exists.
+
+▢ **`check_clip_handedness.py` passes when there is nothing to check.**
+`check_sheet` returns no findings when the generated `*_spritesheet.yaml` is
+absent, and the default target population is a glob over those same generated
+files — which are gitignored. Run on a clean tree it reports
+`OK: 0 sheet(s), every clip reaches forward`, and naming `officer` explicitly
+still succeeds while skipping it. It is also wired into no test or gate, so a
+backwards clip can land without it ever running. ⛔ absence must not be success.
+
+▢ **The take writer claims canonical identity and allows `id: null`.** Both
+queries ask for `Option<&SimId>`, the sort maps a missing id to the empty string,
+and the bundle checker only warns. `ensure_sim_id` documents that a dynamically
+spawned body can remain unidentified — so an unidentified body can enter a take
+and silently downgrade the ordering/join contract the comments call byte-stable.
+⚠ the viewer's fallback is right for LEGACY takes; it should not define what the
+current recorder may emit.
+
 ## Not closed by this pass
 
 ▢ **Production-comment cleanup.** The review is right that source still carries

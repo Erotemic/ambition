@@ -539,70 +539,72 @@ pub fn sync_held_item_visual(
     else {
         return;
     };
-    let Some(held) = held_view.0.as_ref() else {
-        return;
-    };
-    let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
-    // In the subject's hand: just in front at hand height (y-down → small +y).
-    let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
-    let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
+    // ⭐ ONE VISUAL PER DRIVEN HOLDER. This read a single `Option`, so a couch
+    // match drew seat zero's weapon and nothing else; the view is plural now and
+    // ordered by `SimId`, so the draw order is the same every run.
+    for held in &held_view.0 {
+        let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
+        // In the subject's hand: just in front at hand height (y-down → small +y).
+        let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
 
-    // A ranged held item (the gun-sword) points where you're AIMING — the same
-    // direction it fires — just like the pirates' wielded gun-sword. Melee /
-    // thrown items keep the simple facing flip. Aim is the subject's
-    // brain-resolved frame (screen-relative fallback to facing), so a possessed
-    // body's item tracks ITS aim, not the home avatar's device stick.
-    let (rotation, flip_x, flip_y) = if held.ranged {
-        let aim = if held.aim.length_squared() > 1e-4 {
-            held.aim.normalize()
-        } else {
-            Vec2::new(held.facing, 0.0)
-        };
-        // World is y-down, render space y-up. Aiming left flips vertically so
-        // the gun stays upright instead of rotating upside-down.
-        let angle = (-aim.y).atan2(aim.x);
-        (Quat::from_rotation_z(angle), false, aim.x < 0.0)
-    } else {
-        (Quat::IDENTITY, facing < 0.0, false)
-    };
-
-    if art.as_ref().is_some_and(|art| art.is_changed()) {
-        reported.clear();
-    }
-    let bound = resolve_art(
-        art.as_deref().map(|art| &art.0),
-        failed_art.as_deref().map(|failed| &failed.held),
-        held.item_id.as_str(),
-        || "held item".to_owned(),
-        &mut reported,
-        "held item visual",
-    );
-
-    let sprite = bound
-        .map(|(image, size)| Sprite {
-            image,
-            custom_size: Some(size),
-            flip_x,
-            flip_y,
-            ..default()
-        })
-        .unwrap_or_else(|| {
-            let color = match held.item_id.as_str() {
-                "axe" => Color::srgb(0.72, 0.52, 0.30),
-                "javelin" => Color::srgb(0.86, 0.84, 0.62),
-                _ => Color::srgb(0.82, 0.82, 0.82),
+        // A ranged held item (the gun-sword) points where you're AIMING — the same
+        // direction it fires — just like the pirates' wielded gun-sword. Melee /
+        // thrown items keep the simple facing flip. Aim is the subject's
+        // brain-resolved frame (screen-relative fallback to facing), so a possessed
+        // body's item tracks ITS aim, not the home avatar's device stick.
+        let (rotation, flip_x, flip_y) = if held.ranged {
+            let aim = if held.aim.length_squared() > 1e-4 {
+                held.aim.normalize()
+            } else {
+                Vec2::new(held.facing, 0.0)
             };
-            Sprite::from_color(color, Vec2::new(14.0, 28.0))
-        });
-    commands.spawn_session_scoped(
-        session_scope,
-        (
-            HeldItemVisual,
-            sprite,
-            Transform::from_translation(translation).with_rotation(rotation),
-            Name::new("Held item visual"),
-        ),
-    );
+            // World is y-down, render space y-up. Aiming left flips vertically so
+            // the gun stays upright instead of rotating upside-down.
+            let angle = (-aim.y).atan2(aim.x);
+            (Quat::from_rotation_z(angle), false, aim.x < 0.0)
+        } else {
+            (Quat::IDENTITY, facing < 0.0, false)
+        };
+
+        if art.as_ref().is_some_and(|art| art.is_changed()) {
+            reported.clear();
+        }
+        let bound = resolve_art(
+            art.as_deref().map(|art| &art.0),
+            failed_art.as_deref().map(|failed| &failed.held),
+            held.item_id.as_str(),
+            || "held item".to_owned(),
+            &mut reported,
+            "held item visual",
+        );
+
+        let sprite = bound
+            .map(|(image, size)| Sprite {
+                image,
+                custom_size: Some(size),
+                flip_x,
+                flip_y,
+                ..default()
+            })
+            .unwrap_or_else(|| {
+                let color = match held.item_id.as_str() {
+                    "axe" => Color::srgb(0.72, 0.52, 0.30),
+                    "javelin" => Color::srgb(0.86, 0.84, 0.62),
+                    _ => Color::srgb(0.82, 0.82, 0.82),
+                };
+                Sprite::from_color(color, Vec2::new(14.0, 28.0))
+            });
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                HeldItemVisual,
+                sprite,
+                Transform::from_translation(translation).with_rotation(rotation),
+                Name::new("Held item visual"),
+            ),
+        );
+    }
 }
 
 /// Texture handles used by held-shot visuals. Kept alive in system-local state

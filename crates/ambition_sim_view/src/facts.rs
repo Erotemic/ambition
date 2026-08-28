@@ -62,7 +62,7 @@ pub fn rebuild_player_hud_facts(
 /// the hand-sprite needs plus the item identity and its brain-resolved aim
 /// (so a possessed body's ranged item points where THAT body aims).
 #[derive(Resource, Default, Clone, Debug)]
-pub struct HeldItemView(pub Option<HeldItemFact>);
+pub struct HeldItemView(pub Vec<HeldItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HeldItemFact {
@@ -76,25 +76,51 @@ pub struct HeldItemFact {
 
 pub fn rebuild_held_item_view(
     mut view: ResMut<HeldItemView>,
-    controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<(
-        &BodyKinematics,
-        &ambition_platformer2d_actor_monolith::features::HeldItem,
-        &ActorControl,
-    )>,
+    bodies: Query<
+        (
+            &BodyKinematics,
+            &ambition_platformer2d_actor_monolith::features::HeldItem,
+            &ActorControl,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ),
+        With<ambition_characters::control::DrivingParticipant>,
+    >,
 ) {
-    view.0 = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
-        .and_then(|e| bodies.get(e).ok())
-        .map(|(kin, held, control)| HeldItemFact {
-            pos: kin.pos,
-            size: kin.size,
-            facing: kin.facing,
-            item_id: held.spec.id.clone(),
-            ranged: held.spec.ranged.is_some(),
-            aim: control.0.aim.vec(),
-        });
+    // ⛔⛔ THIS READ ONLY `ControlledSubject`, so exactly ONE held item was ever
+    // drawn — in a couch match seat one's drawn weapon was invisible, and in a
+    // CPU-versus-CPU match neither Admiral's gun-sword showed at all. The
+    // argument against that is written twelve lines below for a sibling view:
+    // *"it is plural: a couch-versus match has two driven bodies and neither is
+    // more protected than the other, because a rule that privileges one
+    // participant stops being a rule about bodies."* Same rule, same reason.
+    //
+    // ⭐ DRIVEN bodies, which is the plural of what it already did and the same
+    // population `DrivenBodies` gave the pickup/throw/fire loops (D255 R10). ▢ an
+    // AUTONOMOUS holder still draws nothing — that is a wider question about NPC
+    // presentation, not this defect.
+    //
+    // ⛔ SORTED BY `SimId`, because this is a Vec built in query order and the
+    // consumer spawns one visual per row: unsorted, two held items would swap
+    // draw order between runs.
+    let mut rows: Vec<_> = bodies
+        .iter()
+        .map(|(kin, held, control, id)| {
+            (
+                id.clone(),
+                HeldItemFact {
+                    pos: kin.pos,
+                    size: kin.size,
+                    facing: kin.facing,
+                    item_id: held.spec.id.clone(),
+                    ranged: held.spec.ranged.is_some(),
+                    aim: control.0.aim.vec(),
+                },
+            )
+        })
+        .collect();
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    view.0.clear();
+    view.0.extend(rows.into_iter().map(|(_, fact)| fact));
 }
 
 /// The box of every body a participant is DRIVING this tick.
@@ -941,5 +967,98 @@ mod tests {
             0.0,
             "pulse clamps at zero"
         );
+    }
+}
+
+#[cfg(test)]
+mod held_item_view_tests {
+    use super::*;
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::prelude::*;
+
+    fn holder(app: &mut App, sim: &str, x: f32, item: &str, slot: u8) {
+        let spec = ambition_characters::brain::HeldItemSpec {
+            id: item.to_owned(),
+            melee: None,
+            ranged: None,
+            use_behavior: Default::default(),
+        };
+        app.world_mut().spawn((
+            BodyKinematics {
+                pos: ae::Vec2::new(x, 0.0),
+                size: ae::Vec2::splat(32.0),
+                ..Default::default()
+            },
+            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ActorControl::default(),
+            SimId::placement(sim),
+            DrivingParticipant(PlayerSlot(slot)),
+        ));
+    }
+
+    /// EVERY DRIVEN HOLDER DRAWS, NOT JUST THE ONE YOU ARE LOOKING THROUGH.
+    ///
+    /// ⛔⛔ THIS VIEW WAS AN `Option`, filled from `ControlledSubject`, so exactly
+    /// one held item existed in the whole world: a couch match drew seat zero's
+    /// weapon and nothing else, and a CPU-versus-CPU match drew neither Admiral's
+    /// gun-sword. The argument against that was already written for a sibling view
+    /// in this file — *"a couch-versus match has two driven bodies and neither is
+    /// more protected than the other, because a rule that privileges one
+    /// participant stops being a rule about bodies"*.
+    ///
+    /// ⛔ THE ORDER IS ASSERTED, not incidental. This is a `Vec` built from an
+    /// unordered query and the renderer spawns one visual per row, so an unsorted
+    /// build would swap two items' draw order between runs of the same match.
+    #[test]
+    fn two_driven_holders_publish_two_facts_in_sim_id_order() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        // Spawned in the REVERSE of the expected order, so a pass-through of
+        // query order cannot agree with the assertion by luck.
+        holder(&mut app, "seat_two", 200.0, "gun_sword", 1);
+        holder(&mut app, "seat_one", 100.0, "axe", 0);
+        app.update();
+
+        let view = app.world().resource::<HeldItemView>();
+        assert_eq!(
+            view.0
+                .iter()
+                .map(|f| f.item_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["axe", "gun_sword"],
+            "both driven holders publish, ordered by `SimId` — one fact means the \
+             view is still singular"
+        );
+    }
+
+    /// ⛔ THE FLOOR: a body holding an item that NOBODY DRIVES publishes nothing,
+    /// which is the behaviour this change deliberately did not widen. An
+    /// autonomous holder drawing its item is a separate question about NPC
+    /// presentation, and answering it here by accident would have been a visual
+    /// change to every enemy in the game.
+    #[test]
+    fn an_undriven_holder_publishes_nothing() {
+        let mut app = App::new();
+        app.init_resource::<HeldItemView>()
+            .add_systems(Update, rebuild_held_item_view);
+        let spec = ambition_characters::brain::HeldItemSpec {
+            id: "axe".to_owned(),
+            melee: None,
+            ranged: None,
+            use_behavior: Default::default(),
+        };
+        app.world_mut().spawn((
+            BodyKinematics {
+                size: ae::Vec2::splat(32.0),
+                ..Default::default()
+            },
+            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ActorControl::default(),
+            SimId::placement("nobody_drives_me"),
+        ));
+        app.update();
+        assert!(app.world().resource::<HeldItemView>().0.is_empty());
     }
 }

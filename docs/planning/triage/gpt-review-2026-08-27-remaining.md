@@ -169,7 +169,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   action controls still working. Contract tests for whatever is deliberately
   allowed to advance.
 
-- ▢ **R13 — D250: recovery AI needs sustained-authority routes.** CPU recovery
+- ▣ **R13 — CLOSED `1a1daddc9`. D250: recovery AI needs sustained-authority
+  routes.** `AuthoredRecoveryRoute` is what an author states, `RecoveryRoute` is
+  the resolved answer, and `MoveSpec::frame_data` is the only place the fold
+  happens. The two carrying kinds share ONE predicate — each puts the body up to
+  `carry` closer to something it can stand on and then it is an ordinary falling
+  body, which is the half the kernel owns. ⛔ It does not simulate the ride, and
+  says so; the shark's reach is authored and deliberately under the arithmetic.
+  `RecoveryLift` is DELETED. Poisoned: restoring `lift_speed > 0.0` offers only
+  the burst. CPU recovery
   understands only a `RecoveryLift`, a one-shot displacement. `call_the_shark`
   is deliberately not one: it summons a steerable flying body and BUYS SECONDS
   OF MOVEMENT AUTHORITY. ⛔ Do not fake a lift and do not special-case the id.

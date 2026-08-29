@@ -2194,6 +2194,30 @@ will build it.**
 duplicated build AND duplicated memory. Sharing one index removes both; warming is
 the cheap half.
 
+##### ✔ THE LAZY-GLOBAL SWEEP IS FINISHED — 18 CANDIDATES, 3 REAL
+
+The row asked for every `OnceLock`/`Lazy` on a gameplay path. All of them, with
+the verdict, so nobody sweeps this twice:
+
+| lazy global | first toucher | verdict |
+|---|---|---|
+| `attack_hitbox::file_root_registry` | **a punch** (`advance_move_playback`) | ⛔ **REAL — 189ms.** Warmed |
+| `character::sheets::record_index` | **a frame** (`sync_sprite_posed_bodies`, sim schedule) | ⛔ **REAL** — same 870-entry table. Warmed |
+| `sprite_sheet::portrait` target index | portrait draw | ⚠ warmed with the others (cheap, but same shape) |
+| `sprite_packs::catalogs` | tier lookup | ⚠ warmed with the others (parses baked JSON per tier) |
+| `render::fx::effect_index` | first VFX | ✔ **13 entries.** Its doc says hashing once at first use keeps the draw path allocation-free — deliberate and trivial |
+| `sprite_sheet::fx::authored_effects` | the above | ✔ warmed anyway; 13 rows |
+| `ldtk::contract` | LDtk conversion | ✔ **STARTUP** — content merges at boot ("merged 11 level(s)"), one JSON parse |
+| `ldtk::conversion::standard_converters` | LDtk conversion | ✔ a small map of FUNCTION POINTERS |
+| `content::pack::prepared` / `smash_pack` | catalog + audio registry builders | ✔ **STARTUP** — the catalog is assembled during plugin build, so the pack compiles before play |
+| `items::ITEM_CATALOG_OVERRIDE`, `sfx` fingerprints, `dev_tools::PROCESS_STARTED_AT`, vanity `CARD`, `rooms::stage::CAST`, `portal2d::PortalFrameHistory` | — | ✔ overrides, ids, or dev-only |
+
+⇒ **THE ONLY REAL ONES WERE THE THREE OVER THE 870-ENTRY SHEET TABLE**, and the
+tell was uniform: *a big compile-time table indexed lazily, first asked for by
+something that runs during play.* ⭐ Size of the table, not count of the
+`OnceLock`s, is what separated the three from the fifteen.
+
+
 #### ✔ SECOND FIX: THE ROSTER NOW ASKS FOR ITS CAST, INSTEAD OF THE OPENING BELL
 
 `demand_actor_character_sheets` keys on **`Added<ActorConfig>`** — the instant a

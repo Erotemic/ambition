@@ -154,8 +154,26 @@ install_system_packages() {
     # report; nothing installed them, so a fresh clone could not profile at
     # all. cmake builds Tracy below. hotspot/heaptrack are the GUI companions
     # for perf.data and allocation traces.
+    #
+    # ⭐ `g++` IS HERE FOR THE C++ STANDARD LIBRARY'S *DEV* PACKAGE, NOT FOR A
+    # COMPILER. Tracy's client is C++: `tracy-client-sys` emits
+    # `cargo:rustc-link-lib=stdc++`, so every `--features profile` link ends in
+    # `-lstdc++`. The runtime `libstdc++6` that ships with any desktop is NOT
+    # enough — the linker needs the `libstdc++.so` symlink from
+    # `libstdc++-N-dev`, which `g++` depends on and which nothing else here
+    # pulls in by name. `build-essential` above carries it transitively, so a
+    # fully set-up machine never notices; a machine with clang but no g++ builds
+    # and RUNS the game perfectly and fails only when you try to profile it.
+    #
+    # ⚠ That is the trap, met for real on `calculex` 2026-08-29: every crate
+    # compiled, all 537 rlibs landed, and the run died on the last link with
+    # `mold: library not found: stdc++`. It reads like a stale-cache or
+    # disk-space failure and is neither; there is nothing to delete. Named
+    # `g++` rather than `libstdc++-13-dev` so this does not rot across Ubuntu
+    # releases.
     local -a profiling_pkgs=(
         cmake
+        g++
         heaptrack
         hotspot
         linux-tools-common

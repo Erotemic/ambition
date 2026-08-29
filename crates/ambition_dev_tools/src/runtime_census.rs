@@ -877,7 +877,6 @@ impl Plugin for RuntimeCensusPlugin {
                 report_ecs_census,
                 report_schedule_load_census,
                 report_entity_populations,
-                report_sim_phase_census,
             ),
         );
         let enabled = app.world().resource::<RuntimeCensus>().enabled();
@@ -887,6 +886,14 @@ impl Plugin for RuntimeCensusPlugin {
         // instrument must not join the population it measures when nobody asked.
         if enabled {
             install_sim_phase_boundaries(app);
+            // ⛔⛔ THE REPORTER GOES HERE, NOT IN THE UNCONDITIONAL LIST. It takes
+            // `ResMut<SimPhaseCensus>`, and that resource is inserted by
+            // `install_sim_phase_boundaries` — which only runs when the census
+            // is on. Registered unconditionally it panics with "Resource does
+            // not exist" on every run with the census OFF, which is every test
+            // in the suite. An instrument that is not asked for must not be
+            // able to stop the game.
+            app.add_systems(Last, report_sim_phase_census);
         }
 
         // ⛔ THE PHASE MARKS ARE NOT REGISTERED WHEN THE CENSUS IS OFF. Every

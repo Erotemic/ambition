@@ -9,8 +9,10 @@ use ambition_platformer2d::relativity2d::{
 };
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::Viewport;
+use bevy::camera::{
+    ClearColorConfig, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
+};
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::camera::{ClearColorConfig, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -46,7 +48,6 @@ const TRACK_LABELS: [&str; 7] = [
     "DJ Blue Shift",
     "Photon Fox",
 ];
-
 
 #[derive(Resource, Clone, Copy, Debug)]
 pub(crate) struct SpacetimeMinimapState {
@@ -111,7 +112,24 @@ struct SpacetimeAxis3d(usize);
 struct SpacetimeLegend3d(usize);
 
 pub(crate) fn install(app: &mut App) {
-    app.init_resource::<SpacetimeMinimapState>().add_systems(
+    app.init_resource::<SpacetimeMinimapState>();
+
+    // ⭐⭐ THE SPACETIME DISPLAY IS DORMANT OUTSIDE TWINTRACK, and it now says so
+    // ONCE instead of thirteen times. Every one of these already no-opped
+    // elsewhere — most by an early return on a `TwinTrackExperiment` query that
+    // matches nothing — which is the "install many systems, then spend every
+    // frame discovering they have nothing to do" shape. The predicate was
+    // already in this file; only two of the thirteen consulted it.
+    //
+    // ⭐ A tuple-level `run_if` in Bevy 0.18 is COLLECTIVE — it builds one
+    // anonymous set and is evaluated at most once per schedule run — so this is
+    // twelve system invocations replaced by one condition.
+    //
+    // ⚠ NOT A MEASURED SPEED WIN, and it should not be sold as one: twelve
+    // early-returning systems are microseconds, far under this machine's noise
+    // floor. It is here because a dormant capability should be dormant, which
+    // is the invariant the whole runtime-composition direction rests on.
+    app.add_systems(
         Update,
         (
             spawn_spacetime_3d,
@@ -126,9 +144,27 @@ pub(crate) fn install(app: &mut App) {
             update_simultaneity_planes,
             update_axes,
             update_legend,
-            cleanup_spacetime_3d_when_inactive,
-        ),
+        )
+            .run_if(twintrack_display_is_live),
     );
+
+    // ⛔⛔ THE CLEANUP IS DELIBERATELY UNGATED, and gating it with the rest would
+    // be a bug rather than an optimization. It despawns the 3D visuals and
+    // restores the minimap flag precisely WHEN TWINTRACK IS NOT ACTIVE — putting
+    // it inside a live-only gate means leaving the display standing forever
+    // after the experience ends. Its own first line is `if twintrack_is_active
+    // { return; }`, which is the opposite condition to the tuple above.
+    app.add_systems(Update, cleanup_spacetime_3d_when_inactive);
+}
+
+/// Run condition: the twintrack spacetime display has something to draw.
+///
+/// The same question [`twintrack_is_active`] answers, in the shape a run
+/// condition needs. Kept beside it so the two cannot drift.
+fn twintrack_display_is_live(
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+) -> bool {
+    twintrack_is_active(&roots)
 }
 
 fn twintrack_is_active(
@@ -152,7 +188,10 @@ fn track_color(label: &str) -> Color {
     }
 }
 
-fn unlit_material(materials: &mut Assets<StandardMaterial>, color: Color) -> Handle<StandardMaterial> {
+fn unlit_material(
+    materials: &mut Assets<StandardMaterial>,
+    color: Color,
+) -> Handle<StandardMaterial> {
     materials.add(StandardMaterial {
         base_color: color,
         unlit: true,
@@ -328,7 +367,9 @@ fn spawn_spacetime_3d(
                 Visibility::Hidden,
                 Transform::default(),
                 layer.clone(),
-                Name::new(format!("TwinTrack 3D past-light-cone ring {ring}:{segment}")),
+                Name::new(format!(
+                    "TwinTrack 3D past-light-cone ring {ring}:{segment}"
+                )),
             ));
         }
     }
@@ -620,7 +661,8 @@ fn update_worldlines(
             *visibility = Visibility::Hidden;
             continue;
         };
-        let Some((&start, &end)) = points.get(segment.slot).zip(points.get(segment.slot + 1)) else {
+        let Some((&start, &end)) = points.get(segment.slot).zip(points.get(segment.slot + 1))
+        else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -722,7 +764,9 @@ fn update_current_events(
             *visibility = Visibility::Hidden;
             continue;
         }
-        let Some(sample) = track_samples(&history, event.0).and_then(|rows| sample_at_or_before(rows, now)) else {
+        let Some(sample) =
+            track_samples(&history, event.0).and_then(|rows| sample_at_or_before(rows, now))
+        else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -771,11 +815,9 @@ fn update_signal_paths(
     let mut rows: Vec<(Vec3, Vec3)> = Vec::new();
     if active {
         if experiment.phase == TwinTrackPhase::Complete {
-            for arrival in signals
-                .recent_arrivals
-                .iter()
-                .filter(|arrival| arrival.coordinate_time <= now && arrival.coordinate_time >= earliest)
-            {
+            for arrival in signals.recent_arrivals.iter().filter(|arrival| {
+                arrival.coordinate_time <= now && arrival.coordinate_time >= earliest
+            }) {
                 let Some(start_position) = arrival_start_position(
                     &history,
                     arrival.emitter_tag,
@@ -814,10 +856,7 @@ fn update_signal_paths(
     }
 }
 
-fn observer_sample(
-    history: &WorldlineHistoryView2d,
-    now: f64,
-) -> Option<&WorldlineSample2d> {
+fn observer_sample(history: &WorldlineHistoryView2d, now: f64) -> Option<&WorldlineSample2d> {
     track_samples(history, "traveler").and_then(|samples| sample_at_or_before(samples, now))
 }
 
@@ -826,10 +865,7 @@ fn update_light_cone(
     signals: Res<RelativitySignalView2d>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut spokes: Query<(&ConeSpoke3d, &mut Transform, &mut Visibility)>,
-    mut rings: Query<
-        (&ConeRing3d, &mut Transform, &mut Visibility),
-        Without<ConeSpoke3d>,
-    >,
+    mut rings: Query<(&ConeRing3d, &mut Transform, &mut Visibility), Without<ConeSpoke3d>>,
 ) {
     let Ok(experiment) = experiment.single() else {
         return;
@@ -854,8 +890,8 @@ fn update_light_cone(
             continue;
         }
         let angle = spoke.0 as f32 / CONE_SPOKES as f32 * std::f32::consts::TAU;
-        let past_position = observer.position
-            + Vec2::from_angle(angle) * INVARIANT_SPEED * age as f32;
+        let past_position =
+            observer.position + Vec2::from_angle(angle) * INVARIANT_SPEED * age as f32;
         let end = graph_point(past_position, age);
         *visibility = if set_line_3d(&mut transform, apex, end, 2.2) {
             Visibility::Visible
@@ -895,7 +931,11 @@ fn update_simultaneity_planes(
     let active = true;
     let now = selected_time(experiment, &history, signals.coordinate_time);
     let observer = observer_sample(&history, now);
-    let plane_size = Vec3::new(ROOM_WIDTH * SPACE_SCALE * 1.55, 0.65, ROOM_HEIGHT * SPACE_SCALE * 1.55);
+    let plane_size = Vec3::new(
+        ROOM_WIDTH * SPACE_SCALE * 1.55,
+        0.65,
+        ROOM_HEIGHT * SPACE_SCALE * 1.55,
+    );
 
     for (plane, mut transform, mut visibility) in &mut planes {
         if !active {
@@ -950,9 +990,18 @@ fn update_axes(
             continue;
         }
         let (start, end) = match axis.0 {
-            0 => (Vec3::new(-half_x, 0.0, -half_z), Vec3::new(half_x, 0.0, -half_z)),
-            1 => (Vec3::new(-half_x, 0.0, -half_z), Vec3::new(-half_x, 0.0, half_z)),
-            _ => (Vec3::new(-half_x, -past, -half_z), Vec3::new(-half_x, 60.0, -half_z)),
+            0 => (
+                Vec3::new(-half_x, 0.0, -half_z),
+                Vec3::new(half_x, 0.0, -half_z),
+            ),
+            1 => (
+                Vec3::new(-half_x, 0.0, -half_z),
+                Vec3::new(-half_x, 0.0, half_z),
+            ),
+            _ => (
+                Vec3::new(-half_x, -past, -half_z),
+                Vec3::new(-half_x, 60.0, -half_z),
+            ),
         };
         *visibility = if set_line_3d(&mut transform, start, end, 4.2) {
             Visibility::Visible
@@ -974,12 +1023,7 @@ fn update_spacetime_camera(
     let center = Vec3::new(0.0, -height * 0.43, 0.0);
     let radius = (height * 0.86).max(520.0);
     let angle = 0.55 + time.elapsed_secs() * 0.13;
-    let eye = center
-        + Vec3::new(
-            angle.cos() * radius,
-            radius * 0.38,
-            angle.sin() * radius,
-        );
+    let eye = center + Vec3::new(angle.cos() * radius, radius * 0.38, angle.sin() * radius);
     for mut transform in &mut cameras {
         *transform = Transform::from_translation(eye).looking_at(center, Vec3::Y);
     }

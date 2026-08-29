@@ -637,7 +637,7 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
 ///
 ///  after the placer, like the gauges: a panel tracks a position that
 /// frame settled on.
-/// Portrait handles this process has already loaded, kept alive on purpose.
+/// HUD image handles this process has already loaded, kept alive on purpose.
 ///
 /// ⛔⛔ WITHOUT THIS, EVERY SELECT-SCREEN VISIT RE-DECODES THE SAME PORTRAITS.
 /// The HUD holds the only handle to a portrait; when its entity despawns the last
@@ -653,11 +653,11 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
 /// set of small images is a different object from a 470MB-per-character sheet
 /// table, and it needs no eviction policy to stay bounded.
 #[derive(Resource, Default)]
-pub struct RetainedPortraits {
+pub struct RetainedHudImages {
     by_path: std::collections::HashMap<String, Handle<Image>>,
 }
 
-impl RetainedPortraits {
+impl RetainedHudImages {
     /// The handle for `path`, loading it once and keeping it thereafter.
     fn handle(&mut self, asset_server: &AssetServer, path: String) -> Handle<Image> {
         self.by_path
@@ -672,7 +672,7 @@ pub fn update_declared_hud_panels(
     active: Res<ActiveHudDeclaration>,
     presentation: Res<ResolvedGameplayPresentation>,
     asset_server: Res<AssetServer>,
-    mut retained_portraits: ResMut<RetainedPortraits>,
+    mut retained_hud_images: ResMut<RetainedHudImages>,
     mut slots: Query<
         (&DeclaredHudSlot, &DeclaredHudSpec, &mut Node),
         (
@@ -752,7 +752,7 @@ pub fn update_declared_hud_panels(
             Some(path) => {
                 set_shown(&mut visibility);
                 // Through the retained cache: a second visit must not re-decode.
-                let handle = retained_portraits.handle(&asset_server, path);
+                let handle = retained_hud_images.handle(&asset_server, path);
                 if image.image != handle {
                     image.image = handle;
                 }
@@ -787,7 +787,13 @@ pub fn update_declared_hud_panels(
             continue;
         }
         set_shown(&mut visibility);
-        let handle: Handle<Image> = asset_server.load(path);
+        // Same cache as the portraits, for the same reason: the HUD holds the
+        // only handle, so despawning its entity drops the icon and the next
+        // screen decodes it again.
+        // ⚠ NOT observed in the hardware run — a stock icon is below the census's
+        // 1MP notable threshold, so it would not have appeared either way. Fixed
+        // because it is the IDENTICAL defect, not because it was measured.
+        let handle = retained_hud_images.handle(&asset_server, path);
         if image.image != handle {
             image.image = handle;
         }
@@ -882,7 +888,7 @@ impl Plugin for DeclaredHudPlugin {
         );
         // Outlives any one session on purpose: the point is that leaving the
         // select screen and coming back does not decode the portraits again.
-        app.init_resource::<RetainedPortraits>();
+        app.init_resource::<RetainedHudImages>();
     }
 }
 
@@ -1212,8 +1218,8 @@ mod tests {
 }
 
 #[cfg(test)]
-mod retained_portrait_tests {
-    use super::RetainedPortraits;
+mod retained_hud_image_tests {
+    use super::RetainedHudImages;
     use bevy::prelude::*;
 
     fn asset_app() -> App {
@@ -1245,7 +1251,7 @@ mod retained_portrait_tests {
     fn the_cache_keeps_a_handle_after_the_caller_drops_theirs() {
         let app = asset_app();
         let server = app.world().resource::<AssetServer>().clone();
-        let mut retained = RetainedPortraits::default();
+        let mut retained = RetainedHudImages::default();
 
         let handle = retained.handle(&server, "sprites/noether_portraits.png".to_string());
         let id = handle.id();
@@ -1267,7 +1273,7 @@ mod retained_portrait_tests {
     fn different_portraits_keep_separate_entries() {
         let app = asset_app();
         let server = app.world().resource::<AssetServer>().clone();
-        let mut retained = RetainedPortraits::default();
+        let mut retained = RetainedHudImages::default();
 
         retained.handle(&server, "sprites/noether_portraits.png".to_string());
         retained.handle(&server, "sprites/officer_portraits.png".to_string());

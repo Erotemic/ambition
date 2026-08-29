@@ -2773,7 +2773,7 @@ with **nothing but portraits**, in two bursts:
 opens, loads them, closes, drops the last handle, and the next visit reloads.
 ⇒ **every other decode in the run is boot (31) or a room still arriving (7).**
 
-✔✔ **FIXED 2026-08-29: `RetainedPortraits`.** The HUD held the ONLY handle to a
+✔✔ **FIXED 2026-08-29: `RetainedHudImages`.** The HUD held the ONLY handle to a
 portrait, so despawning its entity dropped the image and the next visit decoded it
 again. A process-lifetime `HashMap<String, Handle<Image>>` now hands out the
 handle and keeps it.
@@ -2784,7 +2784,14 @@ SERVICE THE SHEET STORE FORBIDS.** It holds one entry per portrait ACTUALLY SHOW
 images is a different object from a 470MB-per-character sheet table and needs no
 eviction policy to stay bounded. ⇒ the "there must not be an evictor" rule is not
 in play here, and the residency DECISION is not blocked on this.
-211 render tests, gate clean. ▢ Verified on the next windowed run: the two
+⭐ **AND ITS SIBLING, BECAUSE THE SAME FILE HAD THE SAME BUG TWICE.** The stock
+icons went through a bare `asset_server.load` too, so they drop and reload
+identically; both now share the cache, which is why it is named for HUD images
+rather than portraits. ⚠ **NOT observed in the hardware run** — a stock icon is
+below the census's 1MP notable threshold, so it could never have appeared. Fixed
+because it is the identical defect, and said so rather than implied a measurement.
+
+213 render tests, gate clean. ▢ Verified on the next windowed run: the two
 portrait bursts should become one.
 
 ⛔⛔ **AND THE FIRST TEST I WROTE FOR IT COULD NOT FAIL — THE POISON SAID SO.** I

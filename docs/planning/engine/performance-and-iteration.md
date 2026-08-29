@@ -1221,10 +1221,33 @@ machinery is mostly not ours and mostly not about our states.
 ⭐⭐⭐ **AND THREE OF THE TWENTY-ONE ARE `apply_deferred` — COMMAND-FLUSH SYNC
 POINTS.** In a room with 2048–4096 entities a flush is not cheap, and three of
 them inside one phase is a far better hypothesis for 2.06ms than transition logic
-over a state that rarely changes. ⚠ HYPOTHESIS, NOT MEASURED: settling it needs
-per-system attribution inside `StateTransition` (Tracy, or boundaries around the
-three flushes). ⛔ And it argues AGAINST the reflex of replacing Bevy's state
+over a state that rarely changes. ⛔ And it argues AGAINST the reflex of replacing Bevy's state
 machinery — if the cost is command flushing, the states are not the problem.
+
+⛔⛔ **TWO EXPLANATIONS TESTED, BOTH DEAD.** (a) *"flushes get expensive with
+population"* — `sanic_sandbox` reports `entities=2048`, IDENTICAL to a Smash
+match, and still costs 2.06ms against 0.14ms. (b) *"the compositions register
+different state machinery"* — `[census] membership` returns **the same 21
+systems, same names, same counts** in both the `capture_scene` production path
+and the `NoWindow` smash path. ⇒ same systems, same entity count, FIFTEEN TIMES
+the cost.
+
+⚠ THREE HYPOTHESES REMAIN AND THIS CAMPAIGN CANNOT SEPARATE THEM:
+1. **commands queued per frame** — a flush costs what it flushes, which tracks
+   spawn/despawn CHURN rather than resident population, and nothing here measures
+   it;
+2. **`StateScoped` population** — the six `despawn_entities_on_*_state` systems
+   iterate state-scoped entities, and a real room may hold far more than a Smash
+   stage;
+3. ⭐ **MEASUREMENT ARTIFACT** — the phase census attributes WALL TIME between
+   markers, and `capture_scene` renders offscreen. If GPU submission or readback
+   blocks the main thread, whichever phase brackets that moment absorbs it.
+   ⛔ THIS ONE MUST BE RULED OUT FIRST: it would make the whole 2.06ms a property
+   of the VEHICLE rather than of the engine.
+
+⇒ ▢ settling it needs Tracy attribution on a run where the phase reads 2ms —
+exactly the job this campaign's rules reserve Tracy for. ⛔ Nobody should
+optimize against this number until hypothesis 3 is excluded.
 
 ⭐ **`RunFixedMainLoop` IS EXPLAINED AND IS NOT A DEFECT.** Its 17 systems are
 `run_fixed_main_schedule` — which runs the WHOLE fixed-timestep sim — plus

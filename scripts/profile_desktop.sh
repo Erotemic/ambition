@@ -752,9 +752,40 @@ run_warm_build_if_needed() {
     require_tool cargo
     echo "$(quote_cmd "${plan_build_cmd[@]}")" > "$out_dir/warm-build-command.txt"
     log "warm-building: $(quote_cmd "${plan_build_cmd[@]}")"
+    # ⭐ CARGO'S PROGRESS BAR IS TTY-GATED, AND THE `tee` BELOW MAKES CARGO'S
+    # STDERR A PIPE. Nothing here ever wanted the bar gone -- it is collateral
+    # damage from capturing the build log into the bundle. The `Compiling <crate>`
+    # lines survive a pipe; the `Building [===>] 45/312: bevy_render, wgpu` line
+    # does not, and that is the one carrying the denominator. A cold `profiling`
+    # build of bevy + wgpu then looks identical to a hung one for minutes.
+    #
+    # Force it back on, but ONLY when a human is watching: under redirection
+    # (`> log 2>&1`, CI) those carriage returns are noise, and the width cannot
+    # be queried. Cargo cannot ask a pipe how wide it is, so pass the width too.
+    local -a build_env=()
+    if [[ -t 2 ]]; then
+        local progress_width
+        progress_width="$( { tput cols; } 2>/dev/null || true )"
+        [[ "$progress_width" =~ ^[0-9]+$ ]] || progress_width=100
+        build_env=(env CARGO_TERM_PROGRESS_WHEN=always "CARGO_TERM_PROGRESS_WIDTH=$progress_width")
+    fi
     set +e
-    (cd "$repo_root" && "${plan_build_cmd[@]}") > >(tee "$out_dir/warm-build.stdout") 2> >(tee "$out_dir/warm-build.stderr" >&2)
+    # ⚠ `warm-build.stderr` is the BUNDLE'S record of the build and has to stay
+    # greppable, so the escapes and the redrawn bar frames are stripped on the
+    # way to the file while the terminal keeps them. `s/.*\r//` keeps only what
+    # follows the final carriage return on a line, which is exactly the settled
+    # text; the transient frames drop out instead of becoming thousands of lines.
+    (cd "$repo_root" && "${build_env[@]}" "${plan_build_cmd[@]}") \
+        > >(tee "$out_dir/warm-build.stdout") \
+        2> >(tee >(sed -u -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' -e 's/.*\r//' > "$out_dir/warm-build.stderr") >&2)
     local status=$?
+    # ⚠ FLUSH THE `tee`/`sed` CHAIN BEFORE ANYONE READS THE FILES. On a build
+    # FAILURE this function returns immediately below, and
+    # `profile_bundle_to_history.py` quotes the last six lines of
+    # `warm-build.stderr` to say why -- exactly the tail a half-flushed process
+    # substitution loses. Safe as a bare `wait`: the warm build runs from
+    # `prepare_launch_mode`, before any capture or heartbeat is backgrounded.
+    wait
     set -e
     echo "$status" > "$out_dir/warm-build.status"
     if [[ "$status" -ne 0 ]]; then log "warm build failed; see $out_dir/warm-build.stderr"; return "$status"; fi

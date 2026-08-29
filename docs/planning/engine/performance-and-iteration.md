@@ -2514,6 +2514,28 @@ than over a `BTreeSet`.
 means unbounded by its own definition, so the "before" arm is a one-character
 change rather than a revert.
 
+⭐⭐⭐ **AND THE FRAMES FOLLOW THE LANDINGS — THE WORST DROPS 3.75x.** Same two
+capture runs, `[frame-spike]` rows (threshold 110.6ms):
+
+| arm | spikes over threshold | worst four frames |
+|---|---|---|
+| unbounded | **8** | **1797.9 / 965.2 / 749.4 / 639.9 ms** |
+| bounded | **22** | **479.2 / 407.8 / 183.6 / 164.0 ms** |
+
+⇒ **worst frame 1797.9ms → 479.2ms.**
+
+⛔ **AND THE SPIKE COUNT WENT UP, 8 → 22 — READ THAT CORRECTLY OR IT LOOKS LIKE A
+REGRESSION.** Spreading the work means MORE frames do some of it, so more frames
+cross a FIXED threshold; what shrinks is the tail. That is the trade frame pacing
+wants — many small hitches instead of a few catastrophic ones — but a dashboard
+counting "spikes" alone would have reported this fix as 2.75x WORSE.
+⇒ **count and magnitude have to be read together**; either alone inverts the
+verdict here.
+
+⚠ Software rasterization inflates every absolute number in this run, and
+`capture_scene` adds its own warmup. **Both arms share both**, so the ratio holds
+and the milliseconds do not transfer to hardware.
+
 ⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
 `resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
 characters and stepped ONE frame, expecting both resident. It now steps until the

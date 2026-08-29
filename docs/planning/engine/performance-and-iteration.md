@@ -1052,6 +1052,39 @@ remaining breadth is priced. ⇒ what is left needs the real-hardware profile �
 where the RENDER cost this host cannot produce finally joins the frame — not more
 CPU archaeology here.
 
+### ⭐⭐ A BLOCKING `fs::metadata` WAS RUNNING INSIDE THE SIMULATION — FIXED 2026-08-29
+
+`poll_world_source_changes`, the LDtk hot-reload watcher, was registered in the
+sim schedule `.in_set(WorldPrep)` — **the sim's largest phase**. It does a
+blocking `fs::metadata`, measured at up to **3.9ms on virtiofs**.
+
+⛔ **AND IT WAS UNFIT FOR THAT SCHEDULE ON DETERMINISM GROUNDS TOO:** it reads
+wall-clock `Res<Time>` and keeps its debounce in a `Local<f32>`, neither of which
+rewinds, so a session that actually rolled back would re-stat the file once per
+RE-SIMULATED tick. `check_distance: 0` makes that latent rather than live —
+which is exactly when it is cheap to fix.
+
+⇒ Moved to `Update`. **Every reader of `WorldSourceHotReload` is a menu system in
+`Update` already**, so this puts the writer in its readers' schedule, and the
+watcher now also polls while the simulation is paused — which is what a
+hot-reload watcher should do. Verified by `[census] membership`: 0 occurrences in
+`GgrsSchedule`, 1 in `Update`.
+
+⛔⛔ **NO SPEED CLAIM, AND n=1 WOULD HAVE SUPPORTED A FALSE ONE.** `WorldPrep` in
+`goblin_encounter` read **0.248ms** after the move against **0.269ms** before —
+a tidy "7.8% win" from a single sample. Three samples each say otherwise:
+
+| | samples | mean |
+|---|---|---|
+| before | 0.269, 0.273, 0.277 | 0.273ms |
+| after | 0.248, 0.274, 0.258 | 0.260ms |
+
+The ranges OVERLAP. ⇒ **not separable from noise on this host**, which is
+expected: the stat is debounced to ~3Hz and this filesystem is fast. The payoff
+is for slow mounts, Android storage and network shares — and for keeping blocking
+IO off the deterministic tick. ⭐ This change is justified by ARCHITECTURE, not by
+a measurement, and saying so is the point.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

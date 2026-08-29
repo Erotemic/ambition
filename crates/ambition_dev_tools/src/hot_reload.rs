@@ -131,8 +131,18 @@ fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
 /// ⚠ `fs::metadata` is a BLOCKING syscall on the main thread. Debounced to ~3Hz
 /// it is invisible on a local disk, and it was measured at up to 3.9ms on
 /// virtiofs. On a network mount, Android storage, or a slow card it is a frame
-/// hitch, and the fix there is to move the stat off-thread rather than to poll
-/// less often. See `docs/planning/engine/performance-and-iteration.md`.
+/// hitch.
+///
+/// ⛔⛔ **REGISTER THIS IN `Update`, NEVER IN THE SIMULATION SCHEDULE.** It ran in
+/// `WorldPrep` — the sim's largest phase — until 2026-08-29, which put a blocking
+/// stat on the deterministic tick. It is also unfit for that schedule on its own
+/// terms: `Res<Time>` is wall-clock and the debounce lives in a `Local`, so
+/// neither rewinds, and a session that actually rolled back would re-stat the
+/// file once per re-simulated tick. Every reader of `WorldSourceHotReload` is a
+/// menu system in `Update` anyway.
+///
+/// ⇒ If the remaining ~3Hz stat ever shows up in a frame, move it off-thread —
+/// do NOT poll less often. See `docs/planning/engine/performance-and-iteration.md`.
 pub fn poll_world_source_changes(
     time: Res<Time>,
     mut state: ResMut<WorldSourceHotReload>,

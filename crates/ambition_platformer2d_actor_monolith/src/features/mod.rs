@@ -769,10 +769,29 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Default = watcher disabled; the visible app pre-inserts its resolved
         // value before the engine group (init never clobbers).
         app.init_resource::<ambition_dev_tools::WorldSourceHotReload>();
+        // ⛔⛔ THE WATCHER RUNS IN `Update`, NOT IN THE SIMULATION, AND IT USED TO
+        // RUN IN `WorldPrep`. It does a BLOCKING `fs::metadata` — measured at up
+        // to 3.9ms on virtiofs — so a dev-tooling stat was sitting inside the
+        // sim's largest phase, on the deterministic tick, where a slow mount
+        // turns it into a frame hitch.
+        //
+        // It also has no business being there on determinism grounds: it reads
+        // wall-clock `Res<Time>` and keeps its debounce in a `Local`, neither of
+        // which rewinds. Under a session that actually rolls back it would
+        // re-stat the file per re-simulated tick. `check_distance: 0` means that
+        // is latent today, not live — which is exactly when it is cheap to fix.
+        //
+        // ⭐ Every reader of `WorldSourceHotReload` is a MENU system in `Update`
+        // already, so this moves the writer to its readers' schedule. The
+        // watcher now also polls while the simulation is paused, which is what a
+        // hot-reload watcher should do.
+        app.add_systems(
+            bevy::app::Update,
+            ambition_dev_tools::poll_world_source_changes,
+        );
         app.add_systems(
             sim,
             (
-                ambition_dev_tools::poll_world_source_changes,
                 // Sprite-driven boss metrics must be available before
                 // boss damageable/pogo volumes are derived, otherwise
                 // composite bosses such as GNU-ton would briefly fall

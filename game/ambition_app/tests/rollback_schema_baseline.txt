@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v131
+ggrs-rollback-schema-v132
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -436,10 +436,10 @@ resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerH
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.quest_registry	resource-clone	QuestRegistry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_save	resource-clone	AmbitionGameSave	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

@@ -527,3 +527,62 @@ fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
          calls that, so the two hosts disagree about what a room transition IS."
     );
 }
+
+/// ⭐⭐ THE POSITIVE CONTROL FOR THE SESSION CHECKSUM'S COVERAGE OF THE SAVE.
+///
+/// This reproduces the recorded hazard exactly — a `Local` edge-detector that
+/// writes rollback-REGISTERED save state once — and requires the sync test to
+/// CATCH it. The `Local` is not rollback state, so it does not rewind: the first
+/// simulation of a frame writes the flag, and the resimulation of that same
+/// frame takes the other branch and does not. That is a genuine divergence.
+///
+/// ⛔ IT WAS INVISIBLE UNTIL 2026-08-29. `resource.sandbox_save` was registered
+/// with `rollback_resource_clone`, which saves and restores but installs a
+/// PRESENCE-ONLY probe and no checksum projection — so this divergence moved no
+/// checksum and the proof pulse that exists to find it reported a clean session.
+/// Delete the `checksum` argument from that registration and this test goes
+/// green-blind: no mismatch is ever reported.
+#[test]
+fn a_local_guarded_save_write_diverges_and_the_sync_test_says_so() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::PersistedFlag;
+    use bevy::prelude::{Local, ResMut};
+
+    let mut sim = repro_sim();
+
+    // The hazard, in four lines. Writes once per SIMULATION of the tick, which
+    // is once per tick on the first pass and never on a resimulation.
+    sim.app_mut().add_systems(
+        ambition_platformer2d::rollback::GgrsSchedule,
+        |mut written: Local<bool>, save: Option<ResMut<AmbitionGameSave>>| {
+            let Some(mut save) = save else {
+                return;
+            };
+            if !*written {
+                *written = true;
+                save.data_mut()
+                    .flags
+                    .push(PersistedFlag::new("probe_visited", true));
+            }
+        },
+    );
+
+    // check_distance is 4, so every frame past the window is resimulated and
+    // compared. The divergence is written on the first tick and detected as
+    // soon as that tick is re-run.
+    let mut caught_at = None;
+    for frame in 0..60 {
+        sim.step(AgentAction::default());
+        if sim.rollback_health().is_err() {
+            caught_at = Some(frame);
+            break;
+        }
+    }
+
+    assert!(
+        caught_at.is_some(),
+        "a save write guarded by a non-rewinding `Local` diverges on \
+         resimulation, and the sync test must report it — a clean session here \
+         means the checksum cannot see `AmbitionGameSave` at all"
+    );
+}

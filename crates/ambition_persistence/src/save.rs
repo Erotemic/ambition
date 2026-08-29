@@ -32,6 +32,28 @@ pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 pub struct AmbitionGameSave(pub AmbitionGameSaveData);
 
 impl AmbitionGameSave {
+    /// Canonical projection of the whole save, for the session checksum.
+    ///
+    /// ⭐ SERIALIZED RATHER THAN HAND-PROJECTED, DELIBERATELY. The save is an
+    /// open set — every collection is `#[serde(default)]` so it can grow — and a
+    /// hand-written field list would silently stop covering the field somebody
+    /// adds next. Hashing the type's own serde form is exhaustive by
+    /// construction, and it is the same form the file on disk already uses.
+    ///
+    /// Deterministic: `AmbitionGameSaveData` derives `Eq`, so it holds no
+    /// floats, and every collection in it is an ordered `Vec`.
+    ///
+    /// ⛔ A FALLBACK OF `0` WOULD BE A CHECKSUM THAT CANNOT DISAGREE. RON
+    /// serialization of this type does not fail, but if it ever did, hashing the
+    /// error text keeps two peers that fail differently distinguishable.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::checksum_bytes;
+        match ron::ser::to_string(&self.0) {
+            Ok(text) => checksum_bytes(text.as_bytes()),
+            Err(error) => checksum_bytes(error.to_string().as_bytes()),
+        }
+    }
+
     pub fn data(&self) -> &AmbitionGameSaveData {
         &self.0
     }
@@ -698,5 +720,41 @@ mod tests {
         let s = load_save(&path);
         assert_eq!(s.data, AmbitionGameSaveData::default());
         let _ = fs::remove_dir_all(&root);
+    }
+}
+
+#[cfg(test)]
+mod save_checksum_tests {
+    use super::AmbitionGameSave;
+    use crate::save_data::PersistedFlag;
+
+    /// ⭐ THE POSITIVE CONTROL FOR `track_room_visits`, whose `Local`
+    /// edge-detector does not rewind: a resimulation can skip the save write, so
+    /// a lost `room_visited_*` flag has to move the session checksum or the
+    /// sync test cannot report it.
+    #[test]
+    fn a_lost_room_visited_flag_moves_the_checksum() {
+        let base = AmbitionGameSave::default();
+        let mut visited = base.clone();
+        visited
+            .data_mut()
+            .flags
+            .push(PersistedFlag::new("room_visited_hall", true));
+        assert_ne!(
+            base.checksum(),
+            visited.checksum(),
+            "a dropped visited-room flag must be visible to the session checksum"
+        );
+    }
+
+    /// ⛔ The arm that would catch a checksum that never agrees.
+    #[test]
+    fn equal_saves_agree() {
+        let mut a = AmbitionGameSave::default();
+        a.data_mut()
+            .flags
+            .push(PersistedFlag::new("room_visited_hall", true));
+        let b = a.clone();
+        assert_eq!(a.checksum(), b.checksum());
     }
 }

@@ -666,14 +666,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
              starter inventory over it) and must NOT be checksummed",
         ),
         (
-            "ambition_persistence::quest::registry::QuestRegistry",
-            "authored quest registry; immutable at runtime",
-        ),
-        (
-            "ambition_persistence::save::AmbitionGameSave",
-            "the whole save document; rewritten wholesale, never edited in place",
-        ),
-        (
             "ambition_portal2d::eviction::PortalFrameHistory",
             "channel -> aperture geometry; holds no entity handle (checked 2026-07-27)",
         ),

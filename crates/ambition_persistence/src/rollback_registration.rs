@@ -20,11 +20,25 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    // ⭐ CHECKSUMMED, NOT MERELY CLONED, SINCE 2026-08-29. Both of these were
+    // registered with `rollback_resource_clone`, which saves and restores but
+    // installs a PRESENCE-ONLY probe and no checksum projection. So a rewind
+    // that lost a visited-room flag or a `RoomEntered` quest push moved no
+    // checksum: the sync test could not see the divergence it exists to find,
+    // and the ~6 systems that pair a non-rewinding `Local` edge-detector with
+    // these very resources would have failed SILENTLY once rollback went live.
     registrar
-        .rollback_resource_clone::<crate::save::AmbitionGameSave>(OWNER, "resource.sandbox_save")
-        .rollback_resource_clone::<crate::quest::registry::QuestRegistry>(
+        .rollback_resource_clone_checksum::<crate::save::AmbitionGameSave>(
+            OWNER,
+            "resource.sandbox_save",
+            "serialized whole-save checksum projection",
+            crate::save::AmbitionGameSave::checksum,
+        )
+        .rollback_resource_clone_checksum::<crate::quest::registry::QuestRegistry>(
             OWNER,
             "resource.quest_registry",
+            "quest identity, progression and pending-advance checksum projection",
+            crate::quest::registry::QuestRegistry::checksum,
         )
         // ⛔ A SAME-TICK HANDSHAKE. The quest advance is announced and consumed
         // inside one tick, so a cursor GGRS did not rewind would let the

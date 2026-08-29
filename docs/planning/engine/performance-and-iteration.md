@@ -1887,6 +1887,73 @@ are CORRECTNESS items for the day rollback goes live, not performance items, and
 they touch quest and save logic — they want a deliberate decision, not a
 drive-by fix from a performance campaign.
 
+#### ⛔⛔ CORRECTION 2026-08-29 — "LATENT UNTIL ROLLBACK GOES LIVE" WAS WRONG FOR THE TWO WORST. THEY WOULD HAVE FAILED SILENTLY *EVEN THEN*.
+
+The sentence above assumes turning rollback on would EXPOSE these. For #1 and #2
+it would not, and the reason is structural.
+
+`rollback_resource_clone` — the call both of them used — saves and restores, and
+installs a **PRESENCE-ONLY** probe with **no checksum projection**. Its own
+comment says so: *"no projection was supplied. 0-or-1 distinguishes 'absent after
+a load' from 'present', and nothing else."* ⇒ a rewind that dropped a
+`room_visited_*` flag or a `RoomEntered` push moved **no checksum and no probe**.
+**The GGRS sync test — the developer proof pulse that exists to catch exactly
+this — reported a clean session.**
+
+⭐⭐ **MEASURED, NOT ARGUED. A POISON RUN IS THE EVIDENCE.** A test adds the hazard
+itself to the sim schedule (a `Local<bool>` edge-detector that pushes one flag
+into `AmbitionGameSave`) and steps 60 frames at `check_distance: 4`, so every
+frame is resimulated and compared. With the checksum projection the session goes
+unhealthy immediately. **Reverted to the shipped `rollback_resource_clone`, 60
+frames of continuous resimulation over a provably diverging save report a CLEAN
+SESSION.** `a_local_guarded_save_write_diverges_and_the_sync_test_says_so`.
+
+⛔⛔ **AND BOTH WAIVERS SAID IT WAS FINE, IN SENTENCES THAT ARE FALSE.**
+`rollback_exit_oracle.rs` requires every presence-only probe to carry a reason.
+Theirs were:
+
+| type | recorded reason | why it is false |
+|---|---|---|
+| `QuestRegistry` | *"authored quest registry; immutable at runtime"* | `push_room_entered_quest_events` — **item #2 of the table above** — pushes into `pending_events`, and `apply_quest_advance_events` drains it and advances `step` |
+| `AmbitionGameSave` | *"the whole save document; rewritten wholesale, never edited in place"* | `track_room_visits` — **item #1** — pushes a flag IN PLACE, as do `persist_inventory_to_save`, `persist_occurrence_horizon_to_save` and `autosave_sandbox_save` |
+
+⇒ each waiver was contradicted by the very system the table names, and the list
+that holds them already warns this happens: *"this list enforced that a sentence
+EXISTS, never that it is true, and nine of its thirteen entity-handle claims were
+false."* **These are the tenth and eleventh.** ⭐ A waiver naming a PROPERTY
+("immutable", "never edited in place") is a claim about code that drifts; the
+checker can only see that a sentence is present.
+
+✔ **FIXED — THE OBSERVABILITY HALF ONLY, WHICH IS THE HALF THAT IS SAFE.** Both
+resources now register through `rollback_resource_clone_checksum`, so the sync
+test can finally see them. ⛔ **This changes NO quest or save behaviour** — it
+cannot corrupt a player's progress, which is precisely the risk that made the
+table's fix "a decision, not a drive-by". The behavioural half (#3–#6, and the
+idempotency question for #1/#2) is untouched and still wants Jon's call.
+
+- **Schema v131 → v132.** The snapshot bytes are unchanged — both are still clone
+  snapshots — but a peer that checksums them and one that does not compute
+  different checksums over identical state, so the two cannot agree.
+- `AmbitionGameSave` hashes its **serde form**, not a hand-written field list: the
+  save is an open set (every collection is `#[serde(default)]`) and a hand list
+  would stop covering the next field somebody adds. It derives `Eq`, so it holds
+  no floats, and every collection in it is an ordered `Vec` ⇒ exactly
+  deterministic.
+- `QuestRegistry` hashes an **exhaustive destructure**, so a new field must be
+  answered for or the build breaks.
+- ⚠ **THE RISK THIS COULD HAVE INTRODUCED WAS CHECKED, NOT ASSUMED.** The
+  adjacent `SaveRestored` waiver records that state written in literal `Update`
+  is out of step with sim ticks and *"must NOT be checksummed"* — and the save
+  IS written from `Update` (`autosave_sandbox_save` and three others). It is
+  nonetheless safe: GGRS resimulates inside `PreUpdate` and the snapshot RESTORES
+  the resource before re-running, so an `Update` write is rewound rather than
+  compared. Confirmed by the test that waiver names,
+  `the_calibration_lab_is_checksum_stable_at_rest`, plus 56/56 rollback tests and
+  the room-transition suite's 240+180 frames of real rewinding.
+- ⚠ **NO DESYNC WAS FOUND IN LIVE CONTENT.** The room-transition suite crosses a
+  room under a rewinding session and stays healthy, so these `Local`s do not bite
+  in that window today. What changed is that if they ever do, **something says so.**
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

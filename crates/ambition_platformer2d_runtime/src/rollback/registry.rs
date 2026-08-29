@@ -34,7 +34,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// variant went on the end — but a peer on 126 cannot decode a `6`, and a
 /// fighter under the stage is exactly the state a desync would hide: invisible
 /// and intangible on one machine, standing in the open on the other.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 131;
+/// ⛔ v132: `resource.sandbox_save` and `resource.quest_registry` gained CHECKSUM
+/// PROJECTIONS. The snapshot bytes are unchanged — both are still clone
+/// snapshots — but a peer that checksums them and one that does not compute
+/// different checksums over identical state, so the two cannot agree. They were
+/// registered with `rollback_resource_clone`, whose probe is PRESENCE-ONLY: a
+/// rewind that lost a visited-room flag or a `RoomEntered` push moved no
+/// checksum at all, which is exactly the divergence the sync test exists to
+/// report, and exactly what the systems pairing a non-rewinding `Local`
+/// edge-detector with these resources would produce.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 132;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

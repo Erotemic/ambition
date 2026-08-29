@@ -46,6 +46,8 @@ Thumbs.db
 captures/
 recordings/
 profiles/
+# Bundles now live in dev/ambition_dev_measurements/profiles/ (ignored there too);
+# this line stays so an older bundle left at the repo root is still ignored.
 screenshots/
 traces/
 

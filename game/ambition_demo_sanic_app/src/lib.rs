@@ -94,70 +94,29 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// this by writing a blank file first.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
 pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -> App {
-    use bevy::render::settings::{RenderCreation, WgpuSettings};
-    use bevy::render::RenderPlugin;
-    use bevy::window::{ExitCondition, WindowPlugin};
-
     let mut app = App::new();
+    // Sanic-specific and it stays: a headless shell RECORDS audio rather than
+    // opening an output device. Inserted before the foundation for the same
+    // reason it was inserted before `DefaultPlugins` — the audio plugin reads it
+    // as it builds.
     if matches!(render, RenderMode::Headless) {
         app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
     }
-    let asset_root = desktop_asset_root();
-    eprintln!("sanic_demo: asset root = {asset_root}");
-    let plugins = DefaultPlugins
-        .set(bevy::asset::AssetPlugin {
-            file_path: asset_root,
-            ..default()
-        })
-        .set(WindowPlugin {
-            primary_window: match render {
-                RenderMode::Windowed => Some(Window {
-                    title: "Sanic — momentum demo".into(),
-                    ..default()
-                }),
-                RenderMode::Headless | RenderMode::OffscreenGpu => None,
-            },
-            exit_condition: match render {
-                RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::Headless | RenderMode::OffscreenGpu => ExitCondition::DontExit,
-            },
-            close_when_requested: matches!(render, RenderMode::Windowed),
-            ..default()
-        });
-    match render {
-        RenderMode::Windowed => app.add_plugins(plugins),
-        // `winit` is also the RUNNER. Without it Bevy's default runner
-        // performs ONE update and returns, so a capture exits 0 having rendered
-        // nothing. Mary-O's binary found that the hard way.
-        RenderMode::OffscreenGpu => app
-            .add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
-            .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
-                std::time::Duration::from_millis(0),
-            )),
-        RenderMode::Headless => app.add_plugins(
-            plugins
-                // Presentation tests construct several Apps in one process. Bevy's
-                // logger/tracing subscriber is process-global, and the no-backend
-                // render recipe intentionally has no RenderApp to receive extract
-                // diagnostics. Disable logging in this test-only shell instead of
-                // reporting expected global-subscriber/extract errors as failures.
-                .disable::<bevy::log::LogPlugin>()
-                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
-                // `backends: None` deliberately omits the RenderApp. Disable
-                // extract/render-only plugins so expected test topology stays
-                // silent instead of resembling a runtime failure.
-                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-                .set(RenderPlugin {
-                    render_creation: RenderCreation::Automatic(WgpuSettings {
-                        backends: None,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .disable::<bevy::winit::WinitPlugin>(),
-        ),
-    };
+    // ⭐ THE ENGINE'S FACE, NOT A THIRD COPY OF IT — see D183. The asset root,
+    // the window/exit/close matrix and the per-mode plugin disables were a
+    // duplicate of `install_windowed_foundation`, and so was this crate's own
+    // `desktop_asset_root()`: both resolve to
+    // `crates/ambition_platformer2d_actor_monolith/assets` by canonicalizing the
+    // same directory from a different manifest, with the same `BEVY_ASSET_ROOT`
+    // early-out and the same `"assets"` fallback. `init_engine_states` is called
+    // by the foundation and is no longer called again below.
+    //
+    // ⛔ The offscreen arm also installed `ScheduleRunnerPlugin`, because
+    // disabling `winit` removes the app RUNNER and `run()` would otherwise do ONE
+    // update and return — a capture exiting 0 having drawn nothing. The engine's
+    // `Display::Offscreen` is deliberately CALLER-STEPPED, so that runner moved
+    // to `bin/capture_sanic.rs`, the consumer that calls `run()`.
+    ambition_platformer2d::app::install_windowed_foundation(&mut app, "Sanic", render.into());
     ambition_platformer2d::engine::init_engine_states(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
@@ -259,33 +218,33 @@ pub enum RenderMode {
     /// `ambition_render::capture` and Mary-O's identical variant.
     OffscreenGpu,
 }
-
-#[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
-fn desktop_asset_root() -> String {
-    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-        return "assets".to_string();
+// Gated exactly as `RenderMode` is.
+#[cfg(feature = "visible")]
+impl From<RenderMode> for ambition_platformer2d::app::Display {
+    fn from(mode: RenderMode) -> Self {
+        match mode {
+            RenderMode::Windowed => Self::Window,
+            RenderMode::Headless => Self::NoGpu,
+            RenderMode::OffscreenGpu => Self::Offscreen,
+        }
     }
-    let shared_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../crates/ambition_platformer2d_actor_monolith/assets");
-    match shared_assets.canonicalize() {
-        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
-        _ => "assets".to_string(),
-    }
-}
-
-#[cfg(all(feature = "visible", target_arch = "wasm32"))]
-fn desktop_asset_root() -> String {
-    "assets".to_string()
 }
 
 #[cfg(all(test, feature = "visible", not(target_arch = "wasm32")))]
 mod tests {
     #[test]
+    /// ⭐ ASSERTS THE ROOT THE SHELL ACTUALLY USES. This used to call a
+    /// crate-local `desktop_asset_root()` that duplicated the engine's — same
+    /// `BEVY_ASSET_ROOT` early-out, same canonicalized target, same fallback.
+    /// Once the shell moved to `install_windowed_foundation` that copy was dead,
+    /// and a test asserting a function nothing calls proves nothing.
     fn development_asset_root_contains_the_shared_shader_tree() {
         if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
             return;
         }
-        let root = std::path::PathBuf::from(super::desktop_asset_root());
+        let root = std::path::PathBuf::from(
+            ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
+        );
         assert!(
             root.join("shaders/hit_flash.wgsl").is_file(),
             "Sanic's visible shell must resolve the shared Ambition asset tree; got {}",
@@ -308,7 +267,9 @@ mod tests {
 
     #[test]
     fn published_local_sanic_forms_bind_through_game_assets() {
-        let root = std::path::PathBuf::from(super::desktop_asset_root());
+        let root = std::path::PathBuf::from(
+            ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
+        );
         let forms = [
             (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
             (

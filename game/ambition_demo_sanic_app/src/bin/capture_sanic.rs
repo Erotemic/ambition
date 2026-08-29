@@ -96,6 +96,15 @@ fn main() {
         ambition_demo_sanic_app::RenderMode::OffscreenGpu,
         ambition_demo_sanic::SANIC_GAMEPLAY_ROUTE,
     );
+    // ⛔⛔ THE RUNNER, AND THIS BINARY IS WHY IT EXISTS. `Display::Offscreen`
+    // disables `winit`, which is also Bevy's app RUNNER — so without this the
+    // `run()` below performs exactly ONE update and returns, the process exits 0
+    // and NO FILE IS WRITTEN. It lives here rather than in the builder because
+    // the engine's offscreen face is deliberately CALLER-STEPPED: the tests drive
+    // `update()` themselves and must not inherit a run loop.
+    app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+        std::time::Duration::from_millis(0),
+    ));
     app.insert_resource(CaptureSettings {
         output,
         size,

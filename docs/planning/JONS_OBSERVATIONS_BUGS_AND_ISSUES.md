@@ -1042,3 +1042,20 @@ different pass."*
   the sprite renderer (target, rig, art source and the `performer_stage_v1`
   motion library). ⛔ Every GENERIC use of "actor" is untouched, including the
   `*_actor.ron` sidecar suffix that made `actor_actor.ron`.
+
+### The Performer's up-B is a wire, not a teleport (2026-08-29)
+
+⭐⭐ **JON:** *"It is not a teleport and should not get the teleport sound. It
+needs to be a rope or wire that reaches down from the sky… she gets lifted up by
+the wire, a fairly large vertical distance, and while she is being lifted by the
+wire her motion controls should let her swing like a pendulum so she has a bit of
+horizontal recovery with it too. So, this might need a bit of engine work to make
+the motion work and be expressable elegantly."*
+
+* ▢ **NOT STARTED — handed off 2026-08-29 to a different machine.** Full brief,
+  the six clauses as falsifiable claims, the engine seams, and the proof bar
+  in [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md).
+  ⛔ `Curtain Call` is currently the Author's teleport with a different comment,
+  and the blink cue comes from the EXECUTOR — muting the timeline will not
+  silence it, because a move that runs the teleport executor is a teleport.
+

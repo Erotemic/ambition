@@ -430,7 +430,10 @@ census is trustworthy — see the render caveat below):
 - ⭐⭐ **THE FRAME IS FULLY ATTRIBUTED** (4.45ms, 2 fighters, windowless): 0.83ms
   marked gameplay sim · **0.21ms GGRS driver overhead** (cheap, as
   `check_distance: 0` predicts) · **0.93ms `PreUpdate` OUTSIDE the driver** ·
-  1.23ms `Update` · 0.51ms `PostUpdate` · 0.31ms `RunFixedMainLoop`;
+  1.23ms `Update` · 0.51ms `PostUpdate` · 0.31ms `RunFixedMainLoop`.
+  ⚠ **READ THESE AS ±10%** — a second attribution of the same scenario reads
+  4.7ms with the sim at 0.93; both are real runs and the SHARES are the durable
+  part, not the milliseconds;
 - ⛔ **`PreUpdate` IS NOT "THE SIMULATION TICK"** — the sim is 0.83 of its 1.98ms.
   And the remainder is not purely `DefaultPlugins`: the membership census shows
   our OWN systems there too (falling sand's particles, chunk loading, effect
@@ -463,6 +466,16 @@ IS needs a host with a GPU.
 and a fighter is NOT a body — at ~125–240us it is 8–15x the per-body constant, because
 it carries a sprite rig and a brain and combat state, not just kinematics. ⛔
 Optimising only the sim addresses a THIRD of a fighter.
+
+⭐⭐⭐ **WHO OWNS THE FRAME — the most decision-relevant result, because it says
+where optimisation CANNOT help.** The **SIM is OURS**: 545 systems over 29 crates,
+`ambition_platformer2d_actor_monolith` at **162 = 30% of the simulation** (the
+number a decomposition can be planned against). **`PreUpdate` (137) and
+`PostUpdate` (169) are MOSTLY THE ENGINE'S** — our code owns ~20 of 137 and ~5 of
+169. ⇒ **effort should go where AUTHORSHIP is**, and the ~third of a fighter that
+lands in `PostUpdate` — transform propagation, visibility, sprite extraction —
+**cannot be optimised by editing our code.** ⛔ Nor by handing it less: a fighter
+is already **8 entities and 1 sprite**.
 
 ⭐ **AND THE INPUT PATH IS ALREADY CORRECT.** Responsiveness to a player is input
 LATENCY, not frame time. `bevy_ggrs` declares `RunGgrsSystems.after(InputSystems)`,

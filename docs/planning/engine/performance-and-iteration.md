@@ -2265,12 +2265,27 @@ mechanical, but the valuable fix is 2 and change detection inside an exclusive
 system is exactly the kind of thing that must be compiled and tested, not
 reasoned about. ⚠ Recorded rather than half-done.
 
-⭐ **ALSO SEEN IN THE SAME SWEEP, AND UNCLAIMED BY THE ROW:**
-`update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — MORE
-than the hit-flash material — at 178.3us mean, which implies ~2 invocations per
-frame. ▢ Worth asking why it runs twice. ⚠ `bevy_framepace::framerate_limiter`
-(1080us) and `render_system` (1078us) are the VSync wait and the render itself:
-expected, not findings.
+⭐ **ALSO SEEN IN THE SAME SWEEP, AND IT IS THE LARGEST RECURRING SYSTEM OF ALL:**
+`update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — more
+than the hit-flash material (8.87s) or the session contract (8.29s) — at 178.3us
+mean over **56,706 calls against 28,353 frames, exactly twice per frame**.
+
+✔ **THE "TWICE" IS NOT A DEFECT, AND I CHECKED BEFORE FILING ONE.** There is only
+ONE production registration (`platformer2d_host/src/lib.rs:203`), and leafwing
+0.20 adds the system twice ON PURPOSE: once in `PreUpdate` for the variable-rate
+frame, and once in `RunFixedMainLoop`/`BeforeFixedMainLoop` with its own comment —
+*"we want to update the ActionState only once, even if the FixedMain schedule runs
+multiple times."* ⇒ the count is correct.
+
+▢ **WHAT IS OPEN IS THE UNIT COST: 178.3us for ONE input update is a lot**
+(~356us/frame traced, ~149us real). It scales with entities x actions, and the
+type is called a MONOLITH for a reason. ⇒ the lever is the size of the action
+enum or the number of `ActionState` entities, which is an architecture question,
+not a quick fix. ⛔ Do not "fix" the double registration; it is the library's
+design and removing one arm breaks either the frame or the fixed tick.
+
+⚠ `bevy_framepace::framerate_limiter` (1080us) and `render_system` (1078us) are
+the VSync wait and the render itself: expected, not findings.
 
 #### ⛔ THE LARGEST RECURRING COST IN THE TRACE IS AN INVISIBLE EFFECT RE-UPLOADING ITSELF
 

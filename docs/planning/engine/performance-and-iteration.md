@@ -452,8 +452,19 @@ BELOW even the tighter 0.2ms threshold:
 | ui focus + picking | ~12 | **0.00** |
 | `bevy_lunex` / `bevy_ui` | 24 + 12 | ⛔ not dormant — the HUD is live in a match |
 
+⭐ **`Update`'S OWNERS RE-SCANNED AGAINST THE ~30-SYSTEM BAR TOO, since that is the
+largest population** (497 systems, 46 crates): `ambition_render` **99** ·
+`ambition_app` 54 · `ambition_platformer2d_actor_monolith` 43 ·
+`ambition_demo_twintrack` **39** · `ambition_game_shell` 30 · `ambition_content` 20.
+
+⇒ four groups clear 30 systems, and **none is a candidate**: `ambition_render`,
+`ambition_app`, the monolith and `game_shell` are all ACTIVE in a match (gating
+them breaks rendering, the host, or the shell), and `ambition_demo_twintrack` is a
+DORMANT experience that was **already removed together with the other three** — the
+test whose treatment range sits on top of the measured baseline.
+
 ⇒ **the tighter floor lowers the bar from ~500 systems to ~30, and every group
-that could clear it has already been measured under it.** ⭐ The correction still
+that could clear it is either ACTIVE or already measured under it.** ⭐ The correction still
 matters — the "~500" rule would have wrongly dismissed a 30-system gate a future
 reader proposes — but it does not resurrect any gate on TODAY's evidence.
 

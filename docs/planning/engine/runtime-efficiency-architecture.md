@@ -94,9 +94,23 @@ DEFAULT projection model.
 authoritative input set first; a missed invalidation path is a correctness bug,
 so each conversion owes a regression test covering every path.
 
-Measured candidates: `rebuild_control_prompt` (31.8us/frame),
-`rebuild_feature_view_index`, `rebuild_attack_vfx_views`,
-`sync_ecs_actors_with_save`. See D-PERF-3 in
+⛔⛔ **CLOSED 2026-08-29 — DO NOT FUND THIS AS A PERFORMANCE DIRECTION.** The four
+candidates were re-examined and none survives:
+
+- **`rebuild_control_prompt` ALREADY HAS THE GATE**, and a careful one (it keys on
+  resource-PRESENCE bits, because `Option<Res<T>>` cannot report its own removal,
+  and invalidates on rebind, pad swap and naming flip). Its own comment records
+  the payoff at ~1.4% of frame CPU. ⛔ **The 31.8us/frame figure was stale.**
+- the other three are bounded by the sim phase they sit in: `FeatureViewSync`
+  **0.000ms**, `Progression` 0.054ms, `PresentationVisualSync` + `PresentationSync`
+  0.081ms ⇒ **under ~0.14ms of a 4.45ms frame between them**, each a fraction of
+  its phase, and the one in `FeatureViewSync` cannot pay at all.
+
+⇒ against that, a change-detection conversion risks a STALE DERIVED VIEW, which is
+a player-visible bug — the paragraph above already says a missed invalidation is a
+correctness bug. ⭐ The method worth reusing: **a phase total is a CEILING on every
+system inside it**, so the prize can be bounded from data already collected before
+any work is funded. Full working in
 [`performance-and-iteration.md`](performance-and-iteration.md).
 
 ### 4. Render views need explicit ownership, lifecycle and cost accounting

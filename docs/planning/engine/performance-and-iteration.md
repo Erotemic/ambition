@@ -181,6 +181,25 @@ evaluations.
 `configure_sets(..., MySet.run_if(gameplay_allowed))` evaluates it once. The
 systems are already grouped by phase; the condition is what is ungrouped.
 
+⭐ **FOLLOWED UP 2026-08-29 — THE DIRECTION IS SOUND AND THE REMAINING HEADROOM IS
+SMALL.** After the `gameplay_allowed` hoist, a Smash match measures **1719.9
+run-condition evaluations per frame**, and `[census] conditions` names where they
+sit: **196 conditions on individual SYSTEMS** against 70 on 67 SETS, led by
+`resource_exists`=42, `Assets`=31 (Bevy's own), a `{{closure}}`=22,
+`session_world_exists`=12, `input_system_is_enabled`=10.
+
+⛔ **BUT DO NOT SELL A HOIST AS A FRAME WIN, AND THIS IS THE PART I HAD WRONG.**
+`gameplay_allowed` paid because gating the SET OFF retired its systems' WORK
+(0.95ms shed against 0.93ms measured) — **not because 83 condition evaluations
+were expensive.** A hoist that changes nothing about what RUNS saves only the
+evaluations: 1720 of them at tens of nanoseconds is **~1-2% of a 4.45ms frame**,
+and the 12 systems carrying `session_world_exists` already skip individually. ⇒
+hoist for CLARITY and for the ability to retire a class in one place; expect the
+frame not to move.
+
+⭐ The number worth watching is not the evaluation count but **how many systems a
+single condition can retire at once**.
+
 ### 2. A shipped game should not schedule the experiences it does not contain
 
 **Measured:** the sandbox run — which never entered Sanic, Smash, or Mary-O —

@@ -914,6 +914,42 @@ next highest is 9. ⇒ the item "name the room that chugs" is CLOSED: the room
 exists, it is not a gameplay room, and its cost is explained and proportional.
 The useful residue is the CONSTANT: **budget ~16us of sim per body.**
 
+### ⭐⭐⭐ SMASH'S FRAME SPIKES ARE NOT IN THE SIMULATION — 2026-08-29
+
+The campaign measured MEANS throughout. Responsiveness lives in the TAIL, so
+this asks a different question: a 4000-tick match, census at 20Hz, 340 intervals
+with `frames>=5`, split into quartiles by WORST FRAME in the interval.
+
+| | calm quartile | spiky quartile | delta |
+|---|---|---|---|
+| every individual sim phase | — | — | **<= +0.004ms** |
+| **sim total** | **0.837ms** | **0.849ms** | **+0.012ms (1.4%)** |
+| frame mean | 4.204ms | 4.924ms | +0.72ms |
+| frame max | 4.640ms | 8.275ms | **+3.6ms** |
+
+⇒ **THE SIMULATION IS FLAT ACROSS INTERVALS WHOSE WORST FRAME DIFFERS BY 3.6ms.**
+Every gameplay phase moves by at most 4 MICROseconds while the tail moves by
+milliseconds. ⛔ **Optimising gameplay systems cannot remove Smash's frame
+spikes**, which prices the whole "make the sim cheaper" direction for
+RESPONSIVENESS at approximately zero. (It remains the right direction for
+THROUGHPUT — the sim is 0.84ms of a 4.2ms frame.)
+
+⚠ **WHAT THE SPIKE IS, IS NOT ANSWERED HERE, AND THIS HOST CANNOT ANSWER IT.**
+The remaining candidates are the renderer, asset streaming, the allocator, and
+OS scheduling — and on a GPU-less VM under variable load, host scheduling alone
+can produce them. One interval reached a 172ms max, which is a one-off, not a
+pattern. ⇒ this folds into the open real-hardware item rather than standing as
+its own lead.
+
+⛔⛔ **AND THE PHASE-LEVEL VERSION OF THIS ANALYSIS WAS ATTEMPTED FIRST AND
+ABANDONED, CORRECTLY.** `[census] phases_warning` fired
+`untrustworthy=render_blocking world_rendering=1` on the windowless smash run —
+`NoWindow` still reports a rendering world camera, so whole-frame phase splits
+are contaminated there exactly as the retracted `StateTransition` finding was.
+⭐ The guard added earlier in this campaign caught its own author about to repeat
+the mistake it was written for. `sim_phases` is inside the gameplay tick and is
+the instrument that survives.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

@@ -2222,6 +2222,24 @@ system could satisfy the assertion and the roster path could be dead code.
 Poisoned (the request loop removed) it fails with `got []`. 1150 monolith tests
 green, gate clean.
 
+⚠⚠ **THE SIZE OF THE HEAD START IS NOT MEASURED, AND I TRIED.** The unit test
+proves the roster path RAISES demand with no body present; it says nothing about
+how many frames earlier that is in a real match, and if the answer were ZERO the
+change would buy nothing. An integration test was written and **REMOVED rather
+than left `#[ignore]`d**: `build_demo_app()` boots to CHARACTER SELECT and
+publishes no roster at all (600 frames, none), and inserting a roster plus routing
+to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced no
+`MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
+debugging test plumbing, not the engine.
+
+⭐ **WHAT DOES SUPPORT THE HEAD START IS THE RIG'S OWN CODE:** `place_at` is
+documented to return *"false until both seats are present, so the caller keeps
+trying"*, and `run_bout_at` inserts the roster and THEN loops `app.update()`
+waiting for seating. Seating demonstrably lags roster publication. ⇒ the direction
+is right and the magnitude is unknown. ▢ The honest way to get the number is the
+NEXT WINDOWED PROFILE — `asset_activity.csv` should show the decode burst moving
+off the opening bell — not another harness.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

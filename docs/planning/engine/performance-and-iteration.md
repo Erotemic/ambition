@@ -983,9 +983,14 @@ systems): **31 `Assets` trackers**; ~15 PARTICLE systems (`msgr_spawn_particle`,
 `register_transform_particles`, `sync_particle_type_registry`); ~12 PICKING
 systems (`ui_picking`, `lunex_2d_picking`, `cube_3d_picking`, `generate_hovermap`,
 `update_window_hits`, `update_pointer_map`); the egui pass; and the input writers.
-⚠ Also visible: `release_confirmed_effects` registered **7 times** and
-`tick_action_state` / `update_action_state` **twice each** — an architecture smell
-worth a look, not a measured cost.
+⛔ **NOT A FINDING, checked and explained:** `release_confirmed_effects` appears
+**7 times** and `tick_action_state` / `update_action_state` twice each, which
+reads as duplicate registration. It is not —
+`release_confirmed_effects::<M: Message>` is GENERIC over the effect message
+type, so seven rows mean seven effect types, one registration each
+(`external_effects.rs:224`). ⇒ a repeated name in a membership census is a
+MONOMORPHISATION before it is a bug; check the generic parameter before
+reporting it.
 
 ⛔⛔ **STOPPED HERE DELIBERATELY, AND THE STAGE IS THE REASON.** At 4.45ms the
 frame is a QUARTER of the 60Hz budget; the spikes are proven NOT to be sim; and

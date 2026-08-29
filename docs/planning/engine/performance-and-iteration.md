@@ -1821,7 +1821,35 @@ press: a frame stepping the sim twice spawns two clones. The key read moved to
 `Update`; the SPAWN stayed in the sim, where it belongs.
 `SpawnPlayerCloneRequest` was already the seam (tests poke it directly).
 
-▢ **RECORDED, NOT FIXED — a latent class worth a decision.** Several systems pair
+▢ **RECORDED, NOT FIXED — a latent class worth a decision. DECISION-READY TABLE
+BELOW so the call is cheap.**
+
+**The shape, in one sentence:** a `Local` edge-detector decides whether to write
+state that IS rollback-registered. The write rewinds; the `Local` does not; so
+after a rewind the effect is gone AND the stale `Local` says "already done", so it
+is never re-applied. ⚠ **All of it is LATENT under `check_distance: 0`, which never
+rewinds** — these are correctness items for the day rollback goes live, not bugs
+today.
+
+| # | system | file | writes | if it fires wrong |
+|---|---|---|---|---|
+| 1 | `track_room_visits` | `ambition_menu/src/map/systems.rs:13` | save flag `room_visited_*` (`AmbitionGameSave` is rollback-registered, `ambition_persistence/src/rollback_registration.rs:24`) | a visited room is silently forgotten |
+| 2 | `push_room_entered_quest_events` | `actor_monolith/src/quest/mod.rs:13` | `RoomEntered` into `QuestRegistry` (registered `:25`) | **a quest step is lost** — the worst of the set |
+| 3 | `despawn_bfs_particles_when_the_room_changes` | `ambition_content/src/falling_sand.rs:265` | despawns every `Particle` | stale particles survive a room change (cosmetic) |
+| 4 | `advance_room_transition_content_epoch_system` | `room_transition/loading.rs:102` | bumps `RoomTransitionContentEpoch` | an epoch bump is skipped |
+| 5 | `sync_developer_body_profile` | `dev_tools/editable.rs:555` | **`BodyKinematics` + `BodyBaseSize`** | an inspector edit reverts and cannot be re-applied (dev-only) |
+| 6 | `commit_ready_room_transition_system` | `room_transition/commit.rs:562` | `Instant::now()` on the tick | already guarded by an `is_rollback()` early return — a RUNTIME check, not a structural one |
+
+⇒ **the recommended shape of the fix, if funded:** the guard has to live wherever
+the effect lives — either move the edge-detector's state INTO the rollback-registered
+resource it guards, or make the write idempotent so a re-run is harmless. ⛔ Do NOT
+simply delete the `Local`s: they exist to stop per-tick rewrites, and removing them
+trades a latent bug for a live one.
+
+⚠ **Why this is not a drive-by fix:** #1 and #2 touch save and quest logic, where a
+wrong idempotency assumption corrupts a player's progress — a strictly worse
+failure than the one being fixed. ⇒ it wants a deliberate decision and its own
+tests, not a performance campaign's spare afternoon. Several systems pair
 a non-rewinding `Local` edge-detector with state that IS rollback-registered, so a
 rewind erases the effect while the stale `Local` prevents it being re-applied:
 `track_room_visits` (`menu/map/systems.rs:13`) writing save flags;

@@ -155,6 +155,39 @@ fn spawn_scaling_sprites(world: &mut World, count: usize) {
     );
 }
 
+/// Say — loudly — when a scaling population was spawned and then CULLED.
+///
+/// ⛔⛔ THE GUARD THAT WAS MISSING. `spawn_scaling_sprites` checks it has an
+/// anchor; it cannot check that the sprites became VISIBLE, because visibility
+/// is computed later in the frame. Four placement attempts each spawned a
+/// thousand sprites and each measured a flat curve, and only
+/// `[census] draws sprites_visible` — a number in a DIFFERENT row — revealed
+/// that none of them was ever drawn.
+///
+/// ⚠ AND THE ANSWER TURNED OUT TO BE ARCHITECTURAL: a raw
+/// `Sprite + Transform + Visibility` is never drawn in this composition at all.
+/// Presentation is PROJECTED PER VIEW (`[census] draws per_view_projections`),
+/// so a sprite outside that projection is invisible wherever it is put. A
+/// synthetic sprite benchmark here has to go THROUGH the projection. This check
+/// exists so the next person learns that in one run instead of four.
+fn warn_if_scaling_sprites_were_culled(world: &mut World, spawned: usize) {
+    if spawned == 0 {
+        return;
+    }
+    let visible = {
+        let mut q = world.query::<&ViewVisibility>();
+        q.iter(world).filter(|v| v.get()).count()
+    };
+    if visible < spawned / 2 {
+        eprintln!(
+            "[smash-profile] ⛔ SCALING POPULATION CULLED: spawned {spawned} sprites and only \
+             {visible} entities are visible. This run measures INVISIBLE sprites and its curve \
+             is meaningless. A raw Sprite+Transform+Visibility is not drawable in this \
+             composition — presentation is projected per view."
+        );
+    }
+}
+
 fn cast_state(world: &mut World) -> (usize, usize) {
     let seated = world.query::<&MatchSeat>().iter(world).count();
     let held = world
@@ -270,6 +303,9 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
     // lobby and the stage, and the run would silently measure zero of them.
     if scaling_sprites > 0 {
         spawn_scaling_sprites(app.world_mut(), scaling_sprites);
+        // Visibility is computed later in the frame, so ask on the NEXT one.
+        app.update();
+        warn_if_scaling_sprites_were_culled(app.world_mut(), scaling_sprites);
     }
 
     for _ in 0..ticks {

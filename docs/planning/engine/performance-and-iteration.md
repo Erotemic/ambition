@@ -219,6 +219,91 @@ The anchor is fixed (`profiling::note_process_start`). The COST is not: plugin
 build scales with registered systems, so directions 1 and 2 shorten startup and
 the frame together. This is the number a player feels on a phone.
 
+## Campaign 2026-08-29 — runtime efficiency, 24h
+
+Jon armed a 24-hour goal: *"make this game run faster, more efficiently, and
+elegantly"*, on evidence, with BOTH deliverables required — measurements
+preserved as history, and landed work with before/after numbers. His constraint
+on method: be cheap with the machine (6-CPU VM, no GPU, shared target dir — one
+cargo invocation at a time, no `--workspace --tests`). Build times are fair game
+opportunistically but do not outrank the frame.
+
+### Open work, in leverage order
+
+Each row is a lever already MEASURED in the baseline above. Do not re-derive the
+baseline; extend it.
+
+- ▢ **D-PERF-1 — hoist `gameplay_allowed` off 89 systems onto a set.** The
+  baseline measured 87 evaluations per frame of this one condition. ⭐ THE
+  MECHANISM ALREADY EXISTS AND IS ALREADY USED: `configure_platformer2d_simulation_phases`
+  puts `simulation_authorized` on `GameplaySimulationRoot` with ONE
+  `configure_sets` call. `gameplay_allowed` is a second, different condition
+  (`GameMode` vs the session gate) that never got the same treatment.
+  **Measured shape of the work:** 89 `.run_if(gameplay_allowed)` sites in 11
+  files; 76 of them in four — `items/pickup/mod.rs` (29),
+  `runtime/combat_schedule.rs` (26), `content/portal/plugin.rs` (13),
+  `runtime/player_schedule.rs` (8). All four attach to `app.sim_schedule()`, so
+  one set configured once covers the bulk.
+  ⛔ NOT EVERY SYSTEM IN THOSE TUPLES WANTS THE GATE — `pickup/mod.rs` already
+  carries a comment marking the shrine-resume system as deliberately ungated.
+  The exceptions are the whole risk; find them before moving anything.
+  ⭐ Bevy 0.18.1 semantics, read from `bevy_ecs/src/schedule/config.rs` rather
+  than assumed: `.run_if` on a TUPLE pushes to `collective_conditions` and is
+  *"evaluated at most once (per schedule run)"*; `.distributive_run_if` copies it
+  onto each system. So even a tuple-level hoist helps, and a named set shared
+  across files collapses the whole population to one evaluation.
+
+- ▢ **D-PERF-2 — a shipped title should not schedule experiences it does not
+  contain.** Baseline: a sandbox run that never entered Sanic, Smash or Mary-O
+  still ticked `tick_rolling`, `offer_to_exit_the_match` and
+  `refuse_a_weaker_form_pickup` 1802 times each. ⛔ The broad launcher host MUST
+  keep working — this is per-experience `SystemSet` gating plus a documented
+  single-experience composition, not deletion. `ambition_demo_mary_o_app`
+  already demonstrates the composition half.
+
+- ▢ **D-PERF-3 — per-frame rebuilds whose inputs change on events.**
+  `rebuild_control_prompt` (31.8us/frame), `rebuild_feature_view_index`,
+  `rebuild_attack_vfx_views`, `sync_ecs_actors_with_save`. Determine the
+  COMPLETE authoritative input set before converting any of them; a missed
+  invalidation path is a correctness bug, so each needs a regression test that
+  covers every path.
+
+- ▢ **D-PERF-4 — dev instrumentation is a top-five per-frame cost in an
+  OPTIMIZED build.** `record_actor_oob_frame_system` (40.5us) +
+  `record_frame_system` (37.9us) together outweigh `tick_actor_brains`;
+  `poll_world_source_changes` adds 34.5us AND does a blocking `fs::metadata` on
+  the main thread (3.9ms max on virtiofs). A budget question, not a bug: decide
+  what `--ship` carries, and scale the recorder with bodies rather than frames.
+
+- ▢ **D-PERF-5 — the runtime measurement series.** `dev/ambition_dev_measurements/`
+  had only compile-cost series; there was no runtime history, so no commit could
+  be compared against any other. Normalized JSONL summaries that survive the raw
+  trace being deleted, with a comparability key strict enough that a lavapipe run
+  can never group with a hardware-GPU run, nor a Tracy run with an unprofiled one.
+
+### Rules this campaign is working under
+
+- ⛔ A LAVAPIPE RUN IS NOT A GPU RUN, and a Tracy frame time is not an
+  unprofiled one — Tracy inflates this app's frame ~9x. Size every optimization
+  against a `--no-tracy` run; use traced runs for ATTRIBUTION only.
+- ⛔ Preserve expressiveness. Portals, multiple local views, rich VFX, systemic
+  simulation, extensible characters, rollback and dev tooling all stay. The goal
+  is that a capability pays PROPORTIONALLY: absent costs nothing, dormant costs
+  little, active costs something attributable. Deleting a capability is not an
+  optimization.
+- ⛔ No cargo-cult perf work: do not replace Bevy scheduling, write a custom
+  sprite renderer, merge systems to shrink a count, add unsafe, or lower visual
+  quality to fix an architectural inefficiency.
+- ⭐ A REJECTED HYPOTHESIS IS A DELIVERABLE. Record it here so the next session
+  does not re-run the dead end.
+
+### Investigations
+
+| # | Hypothesis | Result | Conclusion |
+|---|---|---|---|
+| I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
+| I2 | The `smash_it` link failure after the knockout fix was caused by that fix | ⛔ REJECTED — clean tree, `HEAD` lacks the symbol, `grep` finds no reference anywhere in the crate | A draft test compiled and then `git checkout --`'d hours earlier left an incremental `.rcgu.o` referencing the dead symbol. A build-cache lie, not a source defect. `CARGO_INCREMENTAL=0` rebuilds past it. ⛔ do not delete under `target/`. |
+
 ## Near-term opportunities
 
 - continue actor-monolith decomposition where dependency isolation improves

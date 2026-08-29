@@ -2270,6 +2270,32 @@ mechanism it implies is wrong.
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 
+##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
+
+The `<runtime-generated>` decodes the summary flagged are **portal capture
+targets**, and they are not spread out — 16 at 2048x512 and 12 at 512x2048, all
+created in ONE frame. Attributed end to end from the bundle:
+
+```text
+170.253s  room-transition begin  central_hub_complex -> portal_lab
+170.280s  room-loaded portal_lab
+170.308s  28 render targets created (16x 2048x512, 12x 512x2048)
+170.360s  51.2ms frame        170.399s  39.2ms frame
+```
+
+and `portal_activity.csv` across the same seconds: `rigs=0` → **`rigs=14,
+active=0`** → `rigs=14, active=2`.
+
+⇒ **entering `portal_lab` allocates 14 rigs' worth of capture targets — 28 images,
+~29MP, ~117MB — in a single frame, and TWO are ever active.** `max_active_captures`
+is 4. ⚠ `min_refresh_interval_s = 0.000`: no floor on recapture rate either.
+
+⇒ **allocate a rig's targets on first ACTIVATION, or bound allocation by
+`max_active_captures`.** ⭐ This is a different defect from the sheet extract: same
+symptom (a burst of image work on one frame), different cause (eager allocation
+rather than unpaced completion), and it is a DEMO ROOM, not the match — so it does
+not touch the Smash hitch and should not be bundled with it.
+
 ##### ▢ `RenderAssetUsages::RENDER_WORLD` IS AVAILABLE FOR LOADED SHEETS — AND IT WILL LIE TO THE INSTRUMENT
 
 **Checked, not assumed: nothing reads the pixels of a LOADED sprite sheet.** The

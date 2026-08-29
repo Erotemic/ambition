@@ -2606,6 +2606,14 @@ verdict here.
 `capture_scene` adds its own warmup. **Both arms share both**, so the ratio holds
 and the milliseconds do not transfer to hardware.
 
+⚠ **A LATER READING, LABELLED AS INDICATIVE BECAUSE IT IS NOT A CONTROLLED ARM.**
+Re-running the same capture after the index warms, the HUD image cache and a
+rebase onto other people's commits: **worst 376.0ms, 12 worst-simultaneous**,
+against 479.2/15 for pacing alone. ⇒ consistent with continued improvement and
+**not evidence of it** — different build, different block, and the A/B above owes
+its weight to having been run back-to-back. Quoted so the number is not
+rediscovered later and mistaken for a measured delta.
+
 ##### ⛔⛔ FEATURE-GATED TARGETS NEVER REACH THE GATE — TWO WERE BROKEN
 
 `cargo check -p ambition_app --all-targets` does not build a target with

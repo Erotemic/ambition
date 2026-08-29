@@ -2306,11 +2306,11 @@ But it is READ first, because a `ResMut` deref-mut marks `GameAssets` changed fo
 every reader downstream, every frame, forever."* Same defect, same fix, one crate
 apart. ⇒ read, compare, write only a real change.
 
-⚠⚠ **NOT GATED YET — THE DISK IS 100% FULL AND A BUILD ON A FULL DISK LEAVES A
-TRUNCATED ARTIFACT.** The change is mechanical and the comparison is field-wise
-(`Vec4` and `Handle<Image>` are both `PartialEq`, so the material needs no new
-derive), but it has NOT been compiled. ⇒ `cargo check -p ambition_render` is owed
-the moment there is space, before this is believed.
+✔ **GATED 2026-08-29 once space was reclaimed** — `cargo check -p ambition_render`
+and `cargo check -p ambition_app --all-targets` both clean. The field-wise
+comparison needs no new derive (`Vec4` and `Handle<Image>` are `PartialEq`).
+⚠ The debt was real while it lasted: the change sat committed and uncompiled,
+which is why it was labelled rather than assumed correct.
 
 ⚠ Tracy inflates ~2.4x, so the real figure is ~130us/frame — **~1.7% of a 7.77ms
 frame**. Worth taking because it is constant and free, not because it is large.

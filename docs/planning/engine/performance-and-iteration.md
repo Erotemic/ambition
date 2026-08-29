@@ -2194,6 +2194,34 @@ will build it.**
 duplicated build AND duplicated memory. Sharing one index removes both; warming is
 the cheap half.
 
+#### ✔ SECOND FIX: THE ROSTER NOW ASKS FOR ITS CAST, INSTEAD OF THE OPENING BELL
+
+`demand_actor_character_sheets` keys on **`Added<ActorConfig>`** — the instant a
+BODY exists, which is the opening bell. That is why ~7 sheets and ~470MB of RGBA
+per fighter were still being decoded during play.
+
+✔ `demand_rostered_character_sheets` raises the same demand from
+`MatchParticipantRoster`, whose `MatchParticipant::character` is a `CharacterId`
+and which is published at select/prepare time, **before any body is seated**.
+⚠ **ADDITIVE, NOT A REPLACEMENT** — a body can appear that no roster named (a
+summon, a possession, a dev spawn), and demand is a SET, so asking twice is free.
+
+⭐⭐ **AND THE READINESS BARRIER FOR THIS ALREADY EXISTS WITH ZERO ADOPTERS.**
+`audit::unsettled_staged_characters` says so in its own doc — *"returned rather
+than logged so a reveal barrier can BLOCK on it: this is the thing that must be
+empty before the curtain opens"* — and `character_reveal_ready` is the predicate.
+**Nothing in production calls either.** Only tests and one doc comment do.
+⇒ so the gap was never "there is no barrier"; it is that demand arrived too late
+for a barrier to be worth blocking on. ▢ **BLOCKING THE OPENING BELL ON
+`character_reveal_ready` IS THE NEXT STEP** and it is a behavioural change — it
+needs a loading presentation to block behind, which is why it is not bundled here.
+
+⭐ **THE TEST'S CONTROL IS THE WHOLE TEST:** `a_roster_demands_its_cast_before_any_body_is_spawned`
+asserts `world.entities().len() == 0`, because with a body present the spawn-keyed
+system could satisfy the assertion and the roster path could be dead code.
+Poisoned (the request loop removed) it fails with `got []`. 1150 monolith tests
+green, gate clean.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

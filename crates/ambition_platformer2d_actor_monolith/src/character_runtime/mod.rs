@@ -572,6 +572,42 @@ pub fn demand_actor_character_sheets(
 /// `Changed` covers first appearance AND every later swap, so a runtime form
 /// change into another declared sheet (Mary-O growing into `mary_o_tall`) demands
 /// its art the tick the identity changes.
+/// Ask for the whole cast the moment a ROSTER names it, not when its bodies spawn.
+///
+/// ⛔⛔ THIS IS THE UPSTREAM HALF, AND ITS ABSENCE IS A MEASURED HITCH.
+/// `demand_actor_character_sheets` below keys on `Added<ActorConfig>` — the
+/// instant a BODY exists — which is the opening bell. The first hardware profile
+/// (2026-08-29) caught the consequence: **+307 megapixels of 4096x4096 sheets
+/// decoded inside a 2.5s window whose worst frame was 516ms**, because one
+/// character is ~7 sheets and ~470MB of RGBA and none of it was asked for until
+/// the fighter stood on the stage.
+///
+/// ⭐ The ROSTER knows the cast strictly earlier: `MatchParticipant::character` is
+/// a `CharacterId` and the roster is published at select/prepare time, before any
+/// body is seated. Moving the consumer upstream widens what it sees — the select
+/// screen knows who is playing, and a spawn only knows who just arrived.
+///
+/// ⚠ ADDITIVE, NOT A REPLACEMENT. `demand_actor_character_sheets` stays: a body
+/// can appear that no roster named (a summon, a possession, a dev spawn), and
+/// demand is a SET, so asking twice for the same character is free. This system
+/// makes the roster case EARLY, it does not make the spawn case wrong.
+pub fn demand_rostered_character_sheets(
+    roster: Option<Res<staging::MatchParticipantRoster>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+) {
+    let (Some(roster), Some(mut demand)) = (roster, demand) else {
+        return;
+    };
+    // Only when the roster itself moved: this walks every participant, and the
+    // answer cannot change while the roster does not.
+    if !roster.is_changed() {
+        return;
+    }
+    for participant in &roster.participants {
+        demand.request(participant.character.as_str());
+    }
+}
+
 pub fn demand_worn_character_sheets(
     worn: Query<
         &ambition_characters::actor::WornCharacter,
@@ -911,6 +947,10 @@ impl Plugin for CharacterRuntimePlugin {
                     declare_registered_characters,
                     // The cast belongs to ONE session.
                     retire_previous_session_cast,
+                    // EARLIEST FIRST: the roster names the cast before any body
+                    // is seated, so this is the one that gets the decode started
+                    // during preparation instead of at the opening bell.
+                    demand_rostered_character_sheets,
                     demand_worn_character_sheets,
                     demand_actor_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the

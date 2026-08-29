@@ -1114,3 +1114,62 @@ mod live_quality_apply {
         );
     }
 }
+
+/// ⭐⭐ A ROSTER MUST RAISE DEMAND BEFORE ANY BODY EXISTS.
+///
+/// The measured hitch: `demand_actor_character_sheets` keys on
+/// `Added<ActorConfig>`, so nothing asked for a fighter's ~7 4096x4096 sheets
+/// (~470MB of RGBA) until the body stood on the stage — and the first hardware
+/// profile caught +307 megapixels decoding inside a 2.5s window whose worst frame
+/// was 516ms.
+///
+/// ⛔ THE CONTROL IS "NO BODY", AND IT IS THE WHOLE TEST. If a body existed, the
+/// spawn-keyed system could satisfy this assertion and the roster path could be
+/// dead code. The world here has no entities at all.
+#[test]
+fn a_roster_demands_its_cast_before_any_body_is_spawned() {
+    use super::staging::{MatchParticipant, MatchParticipantRoster};
+    use super::{demand_rostered_character_sheets, CharacterLoadDemand};
+
+    let mut app = App::new();
+    app.init_resource::<CharacterLoadDemand>();
+    app.add_systems(bevy::app::Update, demand_rostered_character_sheets);
+
+    let mut roster = MatchParticipantRoster::default();
+    roster.participants.push(MatchParticipant::new("noether"));
+    roster
+        .participants
+        .push(MatchParticipant::new("perfect_cellular_automaton"));
+    app.insert_resource(roster);
+    app.update();
+
+    assert_eq!(
+        app.world().entities().len(),
+        0,
+        "the point of this test is that NOTHING is spawned — if a body exists, \
+         the spawn-keyed demand system could be the one satisfying it"
+    );
+    let demand = app.world().resource::<CharacterLoadDemand>();
+    let pending: Vec<&str> = demand.pending().collect();
+    assert!(
+        pending.contains(&"noether") && pending.contains(&"perfect_cellular_automaton"),
+        "a published roster must ask for its whole cast with no body seated, got {pending:?}"
+    );
+}
+
+/// And the arm that makes the one above mean something: no roster, no demand.
+#[test]
+fn without_a_roster_nothing_is_demanded() {
+    use super::{demand_rostered_character_sheets, CharacterLoadDemand};
+
+    let mut app = App::new();
+    app.init_resource::<CharacterLoadDemand>();
+    app.add_systems(bevy::app::Update, demand_rostered_character_sheets);
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<CharacterLoadDemand>().pending().count(),
+        0,
+        "demand appeared from nowhere, so the roster test proves nothing"
+    );
+}

@@ -2411,6 +2411,22 @@ pins that every demanded token is taken exactly once across frames, and
 strand one. The split is over a `BTreeSet`, so which token goes first is
 deterministic — a rollback host needs that and a `HashSet` could not promise it.
 
+✔ **MEASURED AFTER, AND IT CHANGED NOTHING HEADLESS — WHICH IS THE PREDICTED
+RESULT, NOT A DISAPPOINTMENT.** 2500 ticks, 3 reps, 100% live cast each:
+**5.12 / 5.04 / 5.06, median 5.06ms** against the same configuration's **5.12ms**
+before. Inside the noise floor, as expected: the hit-flash re-upload needs a
+RENDER APP (absent headless), and the session-contract memo is ~122us real against
+a ~5.1ms frame — **2.4%, under the ~7% bar.** ⇒ these three fixes are provable in
+a TRACE, not in a headless mean, and the next windowed run is their instrument.
+
+⛔ **AND THE FIRST ATTEMPT AT THAT MEASUREMENT WAS INVALID — THE TOOL SAID SO.**
+At 4000 ticks the run reported `measured_window_live_cast=80%` and
+`seats_at_end=0`: the match ENDED inside the measured window, and post-match
+frames cost about half, so the mean was dragged DOWN. The guard that prints that
+token IN the summary row is what caught it; 2500 ticks restores a 100% window.
+⚠ 4000 ticks gave 100% earlier the same day, so match length moved — plausibly the
+cast rename. **A tick count is not a fixed window; check the token every time.**
+
 ⚠ **THIS ONLY WORKS BECAUSE DEMAND MOVED UPSTREAM.** Spreading starts across
 frames costs frames; raising demand at match PREPARATION is what supplies them.
 The two changes are one design.

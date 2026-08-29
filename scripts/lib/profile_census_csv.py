@@ -37,6 +37,18 @@ WINDOW = re.compile(
 # `live=` says whether gameplay was running when the decode landed, and it is
 # emitted on BOTH branches so its ABSENCE means "this log predates the marker",
 # not "nothing was late". Optional here for exactly that reason.
+# ⭐ THE ARRIVAL RATE, WHICH IS THE EXTRACT-SPIKE PREDICTOR. Each image that
+# reaches `Assets<Image>` is extracted into the render world exactly once, and
+# that extract is what lands on a frame — measured at 454.9ms max against a 0.1ms
+# mean on hardware. So "+N images this window" forecasts the spike better than any
+# cumulative total does. The module docstring claimed these lines were lifted;
+# they were not, and the one signal that predicts the hitch never reached a CSV.
+IMAGE_CENSUS = re.compile(
+    r"^\[image-census\]\s+(?P<t>[0-9.]+)s\s+\+(?P<images>\d+) images"
+    r"\s+\(\+(?P<mp>[0-9.]+)MP\)\s+\|\s+total (?P<total_images>\d+) images,"
+    r"\s+(?P<total_mp>[0-9.]+)MP,\s+(?P<resident_mb>[0-9.]+)MB"
+)
+
 IMAGE = re.compile(
     r"^\[image\]\s+(?P<t>[0-9.]+)s\s+(?P<w>\d+)x(?P<h>\d+)\s+(?P<mp>[0-9.]+)MP"
     r"\s+(?:live=(?P<live>[01])\s+)?(?P<path>.*)$"
@@ -107,7 +119,7 @@ def collect_census(lines: list[tuple[float, str]]) -> dict[str, list[dict]]:
 
 def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str, int]:
     """The censuses that run without the profiling gate."""
-    spikes, windows, images = [], [], []
+    spikes, windows, images, arrivals = [], [], [], []
     for wall, text in lines:
         match = SPIKE.match(text)
         if match:
@@ -127,6 +139,20 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
                     "p95_ms": match.group(5),
                     "p99_ms": match.group(6),
                     "max_ms": match.group(7),
+                }
+            )
+            continue
+        match = IMAGE_CENSUS.match(text)
+        if match:
+            arrivals.append(
+                {
+                    "wall_s": f"{wall:.3f}",
+                    "game_s": match.group("t"),
+                    "images_this_window": match.group("images"),
+                    "megapixels_this_window": match.group("mp"),
+                    "total_images": match.group("total_images"),
+                    "total_megapixels": match.group("total_mp"),
+                    "resident_mb": match.group("resident_mb"),
                 }
             )
             continue
@@ -158,6 +184,12 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
         windows,
     )
     write_csv(
+        os.path.join(out_dir, "image_arrivals.csv"),
+        ["wall_s", "game_s", "images_this_window", "megapixels_this_window",
+         "total_images", "total_megapixels", "resident_mb"],
+        arrivals,
+    )
+    write_csv(
         os.path.join(out_dir, "image_decodes.csv"),
         ["wall_s", "game_s", "width", "height", "megapixels", "path", "during_gameplay"],
         images,
@@ -166,6 +198,7 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
         "frame_spikes": len(spikes),
         "frame_windows": len(windows),
         "image_decodes": len(images),
+        "image_arrivals": len(arrivals),
     }
 
 

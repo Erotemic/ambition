@@ -757,6 +757,22 @@ def build_summary(bundle: Bundle) -> str:
                 "purely measured.",
                 "",
             ]
+    # ⭐ THE ARRIVAL RATE IS THE EXTRACT-SPIKE PREDICTOR. Every image that reaches
+    # `Assets<Image>` is extracted into the render world exactly once, and that
+    # extract is what lands on a frame (`extract_render_asset<GpuImage>`, measured
+    # at 454.9ms max against a 0.1ms mean). So the worst WINDOW forecasts the
+    # hitch, where a cumulative total says nothing about when it arrived.
+    arrivals = bundle.rows("image_arrivals.csv")
+    if arrivals:
+        worst = max(arrivals, key=lambda row: number(row, "images_this_window"))
+        lines += [
+            f"- Busiest arrival window: **{number(worst, 'images_this_window'):.0f} "
+            f"images ({number(worst, 'megapixels_this_window'):.1f} MP)** at "
+            f"{number(worst, 'game_s'):.1f}s. Each is extracted into the render "
+            "world once, so this is what a frame spike is made of.",
+            "",
+        ]
+
     if decodes:
         # ⭐⭐ THE CONTRACT LINE, AND IT GOES FIRST. A decode that lands while
         # gameplay is LIVE is a frame the player felt — every one of the five
@@ -904,6 +920,7 @@ def build_summary(bundle: Bundle) -> str:
         ("portal_activity.csv", "portal capture rigs and the budget bounding them"),
         ("asset_activity.csv", "cumulative decode work and resident images"),
         ("image_decodes.csv", "every notable texture decode, with its path"),
+        ("image_arrivals.csv", "images reaching Assets<Image> per census window"),
         ("schedule_census.csv", "registered system counts per sample"),
         ("schedule_phases.csv", "per-frame milliseconds in each main-schedule phase"),
         ("tracy_summary.md / tracy_zones.csv", "per-Bevy-system and per-render-pass zones"),

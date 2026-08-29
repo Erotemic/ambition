@@ -2529,6 +2529,20 @@ finished decodes land together**.
 re-derive it from the megapixel correlation: the correlation is real and the
 mechanism it implies is wrong.
 
+✔ **AND THE INSTRUMENT FOR IT ALREADY EXISTED, UNPARSED.** The engine has emitted
+`[image-census] +N images (+X MP)` per window all along — the ARRIVAL RATE, which
+is the extract-spike predictor, because every image reaching `Assets<Image>` is
+extracted into the render world exactly once. ⛔ `profile_census_csv.py`'s own
+docstring CLAIMED it lifted those lines; it did not, so the one signal that
+forecasts the hitch never reached a CSV or the summary. ⇒ now
+`image_arrivals.csv`, with the summary naming the busiest window — for the second
+hardware run, **126 images (93.5MP) at 5.0s**.
+
+⭐ **NO RENDER-WORLD PLUMBING WAS NEEDED**, which is what I was about to build: the
+main world already knows how many images arrived, and that count IS the extract
+volume. ⚠ A cumulative total says nothing about WHEN; a per-window count is the
+same data asked the useful way.
+
 ✔✔ **LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.**
 `CharacterLoadDemand::take()` was `std::mem::take` — it drained the WHOLE demand
 set in one frame, so every fighter's sheets started loading together, finished

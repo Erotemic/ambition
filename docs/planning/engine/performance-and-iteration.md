@@ -397,9 +397,16 @@ session around (c) without pricing it first.
 2. ▢ name the room that actually chugs. Four sampled rooms do not, and the
    premise may be about content nobody has measured;
 3. ▢ `Update` is 1.42ms over 494 systems with `ambition_render` owning 99 and NOT
-   dormant — the last phase both ours and unattributed. ⛔ AND TRACY CANNOT
-   SPLIT IT: Bevy 0.18 emits no per-system execution span. Attributing it means
-   hand-rolled brackets around suspected SETS, the way `sim_phases` was done;
+   dormant — the last phase both ours and unattributed. ⛔ **AND NEITHER TOOL CAN
+   SPLIT IT TODAY.** Tracy emits no per-system execution span (above), and a
+   hand-rolled bracket needs a SET to stand beside: `ambition_render` spreads its
+   99 systems over nine different sets (`SpriteVisualSync`, `ActorOverlaySet`,
+   `ActorNameplateSet`, `DialogPresentationSet`, `WorldLabelLayoutSet`, …) with
+   no umbrella. ⇒ attributing `Update` means FIRST giving presentation an
+   umbrella set, which is an architectural change made for a measurement.
+   ⚠ Price it against the prior: every other phase came out diffuse, and 494
+   systems at 1.42ms is ~2.9us each. The expected finding is "nothing to find",
+   and that is worth knowing before the umbrella is built;
 4. ⛔ do NOT fund capability composition as a performance migration. It is
    architecture and startup work; both were measured and neither moved.
 

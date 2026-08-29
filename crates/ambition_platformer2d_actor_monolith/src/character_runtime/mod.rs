@@ -190,7 +190,22 @@ impl CharacterLoadDemand {
 /// ⭐ One, because one character is ~7 sheets at 4096x4096 (~470MB of RGBA) and the
 /// cost that lands on a frame is the render-world extract of everything that
 /// finished decoding. Spreading the STARTS spreads the finishes.
-/// ⚠ Not a memory budget — a arrival-rate limit. Eviction is a separate question.
+/// ⚠ Not a memory budget — an arrival-rate limit. Eviction is a separate question.
+///
+/// ⭐ SWEPT, SO THE VALUE IS A CHOICE AND NOT A GUESS. One same-block run per arm
+/// of `capture_scene hall_of_characters` (the gallery, worst case on purpose):
+///
+/// ```text
+/// bound   worst simultaneous decodes   worst frame
+///   0                          31         1049.0ms
+///   1                          14          222.3ms
+///   2                          14          393.1ms
+/// ```
+///
+/// ⇒ bounding at all is what matters: 31 → 14 and ~1049ms → a few hundred.
+/// ⚠ **1 AND 2 ARE NOT SEPARATED BY THIS DATA** — same simultaneous count, and one
+/// run each cannot tell 222ms from 393ms under a software rasteriser. 1 is the
+/// conservative end and nothing here argues for 2; raising it would want reps.
 const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
 
 /// Why a demanded character has no art.

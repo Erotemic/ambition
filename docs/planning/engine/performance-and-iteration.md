@@ -2588,6 +2588,22 @@ token IN the summary row is what caught it; 2500 ticks restores a 100% window.
 ⚠ 4000 ticks gave 100% earlier the same day, so match length moved — plausibly the
 cast rename. **A tick count is not a fixed window; check the token every time.**
 
+⭐⭐ **AND THE BOUND ITSELF IS SWEPT, SO 1 IS A CHOICE RATHER THAN A GUESS.** One
+same-block run per arm on the gallery:
+
+| bound | worst simultaneous decodes | worst frame |
+|---|---|---|
+| 0 (unbounded) | 31 | **1049.0ms** |
+| **1 (shipped)** | 14 | **222.3ms** |
+| 2 | 14 | 393.1ms |
+
+⇒ **bounding AT ALL is what matters** — 31 → 14 and ~1049ms down to a few hundred.
+⚠ **1 AND 2 ARE NOT SEPARATED BY THIS DATA**: identical simultaneous counts, and
+one run each cannot tell 222ms from 393ms under a software rasteriser. 1 is the
+conservative end, nothing here argues for 2, and raising it would want reps.
+⇒ recorded in the constant's own doc so the next reader inherits the sweep rather
+than the number.
+
 ⚠ **THIS ONLY WORKS BECAUSE DEMAND MOVED UPSTREAM.** Spreading starts across
 frames costs frames; raising demand at match PREPARATION is what supplies them.
 The two changes are one design.

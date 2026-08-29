@@ -787,7 +787,15 @@ census is trustworthy — see the render caveat below):
   1.23ms `Update` · 0.51ms `PostUpdate` · 0.31ms `RunFixedMainLoop`.
   ⚠ **READ THESE AS ±10%** — a second attribution of the same scenario reads
   4.7ms with the sim at 0.93; both are real runs and the SHARES are the durable
-  part, not the milliseconds;
+  part, not the milliseconds. ⭐ **RE-VERIFIED ON A QUIET MACHINE** (load 0.40, two
+  reps, both `measured_window_live_cast=100%`): `PreUpdate` **1.950 / 1.944**,
+  `Update` **1.218 / 1.237**, `PostUpdate` **0.529 / 0.521**, ggrs driver **~1.01**
+  — every one within ~1.5% of the recorded figure AND of each other. ⛔ **The one
+  exception is `RunFixedMainLoop`: recorded 0.31, re-measured 0.521 twice.** That
+  is not drift — it is the phase that tracks PHYSICS, and the combat A/B showed
+  `RunFixedMainLoop` takes **58% of what a fight costs**. ⇒ **it varies with how
+  much fighting happened in the sampled window and is the least reproducible phase
+  in this document;** the others are solid;
 - ⛔ **`PreUpdate` IS NOT "THE SIMULATION TICK"** — the sim is 0.83 of its 1.98ms.
   And the remainder is not purely `DefaultPlugins`: the membership census shows
   our OWN systems there too (falling sand's particles, chunk loading, effect

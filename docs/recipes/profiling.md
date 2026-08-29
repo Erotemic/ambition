@@ -394,6 +394,23 @@ gameplay screen, and waits for the opening ceremony to release the cast before
 it reports that it is measuring anything. If the ceremony never releases it, the
 run aborts with exit code 3 rather than filing a menu under a match's name.
 
+⛔⛔ **AND ON A GPU MACHINE, DO NOT READ `[census] phases` OR THE PHASE SPLIT IN
+`summary.md`.** That census attributes WALL TIME between schedule markers, so
+when the render path blocks the main thread — submission, readback, a
+rasterizer — whichever phase happens to bracket that moment absorbs it. Measured
+2026-08-29 on the headless offscreen path: raising the render target from
+320x240 to 1280x960 took `StateTransition` from 0.169ms to **1.822ms**. A phase
+containing nothing but state machinery, scaling with PIXELS. An entire
+"StateTransition is 14% of a real room's frame" finding was built on that number
+and had to be retracted.
+
+⚠ `fragment_shader_invocations = 0` does NOT make phase timings safe — submission
+and upscaling cost real time even when the opaque pass shades nothing. The census
+now prints a `[census] phases_warning … untrustworthy=render_blocking` line
+whenever any camera is rendering; believe it. Phase splits are meaningful ONLY
+from a run with no rendering at all (`--smash --headless`), and per-system
+attribution on a rendering run is Tracy's job, not the phase census's.
+
 `--smash-seconds` counts from the OPENING BELL, not from process start: a cold
 launch spends ten-plus seconds on cargo, assets and the shell, and `--duration`
 would spend a different share of its budget on those on every machine.

@@ -156,21 +156,31 @@ install_system_packages() {
     # for perf.data and allocation traces.
     #
     # ⭐ `g++` IS HERE FOR THE C++ STANDARD LIBRARY'S *DEV* PACKAGE, NOT FOR A
-    # COMPILER. Tracy's client is C++: `tracy-client-sys` emits
-    # `cargo:rustc-link-lib=stdc++`, so every `--features profile` link ends in
-    # `-lstdc++`. The runtime `libstdc++6` that ships with any desktop is NOT
-    # enough — the linker needs the `libstdc++.so` symlink from
-    # `libstdc++-N-dev`, which `g++` depends on and which nothing else here
-    # pulls in by name. `build-essential` above carries it transitively, so a
-    # fully set-up machine never notices; a machine with clang but no g++ builds
-    # and RUNS the game perfectly and fails only when you try to profile it.
+    # COMPILER. Tracy's client is C++: `tracy-client-sys` is the ONLY crate in
+    # the whole graph that emits `cargo:rustc-link-lib=stdc++`, and it makes
+    # every `--features profile` link end in `-lstdc++`. The runtime
+    # `libstdc++6` that ships with any desktop is NOT enough — the linker needs
+    # the `libstdc++.so` symlink out of `libstdc++-N-dev`.
     #
-    # ⚠ That is the trap, met for real on `calculex` 2026-08-29: every crate
-    # compiled, all 537 rlibs landed, and the run died on the last link with
-    # `mold: library not found: stdc++`. It reads like a stale-cache or
-    # disk-space failure and is neither; there is nothing to delete. Named
-    # `g++` rather than `libstdc++-13-dev` so this does not rot across Ubuntu
-    # releases.
+    # ⚠⚠ **INSTALLING `g++` IS NOT PROOF THAT THIS IS SATISFIED, and this array
+    # cannot fully guarantee it.** clang picks the NEWEST gcc version directory
+    # it finds under `/usr/lib/gcc/<triple>/` and passes only that one as `-L`.
+    # If some other package has pulled in a newer gcc's runtime bits without its
+    # `libstdc++-N-dev`, clang points the linker at a directory that has no
+    # `libstdc++.so` and the link fails with `g++` sitting installed and
+    # innocent. The check that actually answers it is one line:
+    #
+    #     clang -print-file-name=libstdc++.so     # a bare name back = not found
+    #     ls /usr/lib/gcc/*/*/libstdc++.so        # which versions really have it
+    #
+    # and the fix is `libstdc++-<the version clang picked>-dev`.
+    #
+    # ⚠ The trap, met on `calculex` 2026-08-29: every crate compiled, all 537
+    # rlibs landed, and the run died on the last link with `mold: library not
+    # found: stdc++`. A machine in this state builds the game, RUNS the game and
+    # passes tests — it fails only under `--features profile`. The message reads
+    # like a stale incremental cache or a full disk and is neither; there is
+    # nothing to delete.
     local -a profiling_pkgs=(
         cmake
         g++

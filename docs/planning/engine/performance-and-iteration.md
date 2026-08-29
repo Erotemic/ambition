@@ -2110,6 +2110,26 @@ against `frame_spikes.csv`:
 
 ⇒ **monotone in megapixels: the bigger the decode, the bigger the hitch.**
 
+⛔⛔ **AND THE CLUSTERS ARE NOT ALL THE SAME EVENT — ATTRIBUTED 2026-08-29, WHICH
+CORRECTS THE HEADLINE.** The log says what each one was:
+
+| cluster | what the log says | worst frame |
+|---|---|---|
+| 50.5 → 51.6s | `session-start experience=smash`, `room-loaded smash_stage` | **162ms** |
+| 114.8 → 117.3s | `central_hub_complex -> hall_of_characters` | **516 / 467 / 393ms** |
+
+⇒ **THE 516ms IS THE CHARACTER GALLERY, NOT A MATCH.** `hall_of_characters` is the
+room this campaign already priced as *"130 bodies, `WorldPrep` 2.373ms, a GALLERY,
+funds nothing"* — a screen whose entire purpose is to show the whole cast, so it
+decodes the whole cast. **MATCH ENTRY IS THE 162ms ONE.**
+
+⭐ That does not retire the work — one character is still ~470MB and the
+pacing/upstream-demand fixes target exactly the 51s shape. It **re-prices** it: the
+match-entry hitch is ~162ms, and the 516ms headline belongs to a dev gallery.
+⚠ A number is not a priority until you know which screen it came from; both
+clusters were "a decode burst, monotone in megapixels" and only the log separates
+them.
+
 ⭐⭐ **AND `image_decodes.csv` NAMES THE FILES. THEY ARE 4096x4096 SHEETS, ~7 PER
 CHARACTER.** `noether_spritesheet.png` plus `.1`–`.6` — seven sheets at ~16.8 MP
 each, **~117 MP ≈ 470 MB of decoded RGBA for ONE character** — all decoded between

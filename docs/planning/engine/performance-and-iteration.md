@@ -768,6 +768,21 @@ six busy loops on the box and frames over 8ms go **0.9% → 11.8% (13x)** while 
 median moves 6.8%. ⛔ Several "dropped frame" readings recorded during this
 campaign were the measuring session's OWN builds and probes.
 
+⭐ **AND THAT 4.31ms IS THE CONSERVATIVE NUMBER — it is an UNOPTIMIZED `dev`
+build.** Players get an optimized profile, which this document records at
+**2.8–3.2ms**. ⇒ the headroom argument does not depend on the optimized figure at
+all: *even in a debug build* Smash sits nearly 4x under the 60Hz budget.
+
+⛔ **A BLOCKER IF YOU TRY TO RE-MEASURE THE OPTIMIZED BUILD ON THIS HOST:** the
+existing `target/profiling/smash_match_profile` is built `--features profile`,
+which links Tracy, and Tracy ABORTS AT STARTUP here — *"CPU doesn't support
+invariant TSC"*. The binary exits having produced NO census rows, which looks
+exactly like a silent failure. Either set `TRACY_NO_INVARIANT_CHECK=1` (accepting
+Tracy's ~2.4x observer effect, so useless for a clean frame number) or build the
+`profiling` profile WITHOUT the `profile` feature — ⚠ a feature-set change that
+recompiles the dependency graph, which was declined here at 93% disk for a number
+that changes no conclusion.
+
 ⇒ **there is no fundable frame-time lever here, and that is a measurement, not a
 shrug.** Twelve-plus hypotheses were tested and the levers that exist are all
 below the noise floor or in code this repo does not author. What the work produced

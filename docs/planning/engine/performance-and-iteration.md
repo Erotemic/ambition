@@ -760,6 +760,20 @@ use the token both ways.
 
 ### ⭐ READ THIS FIRST — the campaign in one screen
 
+⭐⭐⭐ **THE ANSWER, FIRST: SMASH IS NOT SLOW, AND ITS SPIKES ARE NOT THE ENGINE.**
+On a quiet machine a 2-fighter match runs a **4.31ms mean against a 16.67ms 60Hz
+budget** — nearly 4x headroom — and **ZERO of 5,164 match frames exceeded that
+budget** (worst 10.56ms). The tail that motivated this campaign is CONTENTION: put
+six busy loops on the box and frames over 8ms go **0.9% → 11.8% (13x)** while the
+median moves 6.8%. ⛔ Several "dropped frame" readings recorded during this
+campaign were the measuring session's OWN builds and probes.
+
+⇒ **there is no fundable frame-time lever here, and that is a measurement, not a
+shrug.** Twelve-plus hypotheses were tested and the levers that exist are all
+below the noise floor or in code this repo does not author. What the work produced
+instead is a COST MODEL, an OWNERSHIP MAP, and a set of instruments that now
+refuse to lie — all below.
+
 Everything below is the working record, including retractions. This is what
 survived.
 

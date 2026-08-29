@@ -263,6 +263,49 @@ pub fn report_draw_census(
     );
 }
 
+/// How much presentation state is REWRITTEN each frame versus how much exists.
+///
+/// ⭐⭐ THE PROJECTION QUESTION, MADE MEASURABLE. A campaign measurement put
+/// `ambition_render` at 99 systems in `Update` — the largest owner of the one
+/// phase that is both ours and unexplained — and the open charge against a
+/// simulation-to-presentation projection is that it rewrites state which did
+/// not semantically change. Bevy's own extraction then pays for that churn
+/// again downstream.
+///
+/// ⛔ IT COUNTS WHAT BEVY WILL BELIEVE, NOT WHAT ACTUALLY DIFFERS. `Changed<T>`
+/// is set by any `DerefMut`, so a projection that writes an identical value
+/// every frame reports as changed here — which is exactly the defect being
+/// looked for, and exactly why a low number is a real acquittal while a high
+/// number is only a suspicion. `changed == total` on a scene standing still is
+/// the tell.
+///
+/// ⚠ Two bodies do not make a case either way. The number to watch is the ratio
+/// on a scene with hundreds of sprites, which is the workload the whole campaign
+/// was opened about.
+pub fn report_presentation_churn_census(
+    census: Res<RuntimeCensus>,
+    transforms: Query<(), With<Transform>>,
+    transforms_changed: Query<(), Changed<Transform>>,
+    sprites: Query<(), With<Sprite>>,
+    sprites_changed: Query<(), Changed<Sprite>>,
+    visibility: Query<(), With<Visibility>>,
+    visibility_changed: Query<(), Changed<Visibility>>,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    eprintln!(
+        "[census] churn t={at:.3} transforms={} transforms_changed={} sprites={} \
+         sprites_changed={} visibility={} visibility_changed={}",
+        transforms.iter().count(),
+        transforms_changed.iter().count(),
+        sprites.iter().count(),
+        sprites_changed.iter().count(),
+        visibility.iter().count(),
+        visibility_changed.iter().count(),
+    );
+}
+
 /// Offscreen render targets and the memory they hold.
 ///
 /// Growth here across room transitions is the leak shape a frame-time graph
@@ -426,18 +469,25 @@ pub struct PresentationCensusPlugin;
 
 impl Plugin for PresentationCensusPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Last,
-            (
-                report_view_census,
-                report_draw_census,
-                report_render_target_census,
-                report_render_pass_census,
-                report_asset_census,
-            ),
-        );
-        #[cfg(feature = "portal_render")]
-        app.add_systems(Last, report_portal_census);
+        // ⛔ Registered only when asked — see the note in
+        // `ambition_dev_tools::runtime_census`. `due_at` is only set while the
+        // census is enabled, so these could never have reported when off; they
+        // simply had no business being in a shipped frame's schedule.
+        if RuntimeCensus::from_env().enabled() {
+            app.add_systems(
+                Last,
+                (
+                    report_view_census,
+                    report_draw_census,
+                    report_render_target_census,
+                    report_render_pass_census,
+                    report_asset_census,
+                    report_presentation_churn_census,
+                ),
+            );
+            #[cfg(feature = "portal_render")]
+            app.add_systems(Last, report_portal_census);
+        }
 
         // `bevy_render` installs this itself under `bevy/trace_tracy`, which is
         // what `--features profile` turns on; adding it a second time panics.

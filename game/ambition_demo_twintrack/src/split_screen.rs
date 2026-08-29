@@ -239,15 +239,30 @@ enum PaneElement {
 }
 
 pub(crate) fn install(app: &mut App) {
+    // ⭐ The third instance of the same shape in this crate — and the fact that
+    // `twintrack_is_active` is HAND-COPIED into three files is the tell that the
+    // gate was always wanted and never written.
     app.add_systems(
         Update,
         (
             spawn_split_observer_panes,
             sync_split_observer_cameras,
             update_split_observer_panes,
-            cleanup_split_observer_panes_when_inactive,
-        ),
+        )
+            .run_if(twintrack_display_is_live),
     );
+
+    // ⛔ Ungated on purpose: `cleanup_split_observer_panes_when_inactive` opens
+    // with `if twintrack_is_active { return; }` and tears the panes down when the
+    // experience ENDS. Gating it with the rest leaves them on screen forever.
+    app.add_systems(Update, cleanup_split_observer_panes_when_inactive);
+}
+
+/// Run condition: the split observer panes have something to show.
+fn twintrack_display_is_live(
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+) -> bool {
+    twintrack_is_active(&roots)
 }
 
 fn twintrack_is_active(

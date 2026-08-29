@@ -913,16 +913,30 @@ impl Plugin for RuntimeCensusPlugin {
         // schedule have not initialized yet, so their graphs still hold the
         // conditions this counts. One frame later they are gone.
         app.add_systems(PreStartup, report_schedule_conditions_census);
-        app.add_systems(
-            Last,
-            (
-                report_frame_interval_census,
-                report_ecs_census,
-                report_schedule_load_census,
-                report_entity_populations,
-            ),
-        );
         let enabled = app.world().resource::<RuntimeCensus>().enabled();
+
+        // ⛔⛔ THE REPORTERS ARE GATED AT BUILD TIME TOO, and until now they were
+        // not — nine of them across this crate and `ambition_render` were
+        // registered unconditionally, two lines from the comment below saying an
+        // instrument must not join the population it measures. Each early-returns
+        // on `census.due()`, so the cost was small; the point is that it was not
+        // ZERO, and a census that installs itself into every shipped frame to
+        // discover it was not asked for is the exact shape this campaign spent
+        // eleven probes cataloguing elsewhere.
+        //
+        // ⭐ PROVABLY BEHAVIOUR-PRESERVING: `due_at` is only ever set while
+        // enabled, so a disabled census could never have reported anything.
+        if enabled {
+            app.add_systems(
+                Last,
+                (
+                    report_frame_interval_census,
+                    report_ecs_census,
+                    report_schedule_load_census,
+                    report_entity_populations,
+                ),
+            );
+        }
 
         // ⛔ THE BOUNDARIES ARE NOT REGISTERED WHEN THE CENSUS IS OFF. They run
         // inside the SIM schedule — the hottest schedule in the app — and an

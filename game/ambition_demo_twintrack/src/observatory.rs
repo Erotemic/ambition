@@ -162,6 +162,19 @@ struct OpticalAberrationGuide;
 struct OpticalVelocityLine;
 
 pub(crate) fn install(app: &mut App) {
+    // ⭐⭐ THE OBSERVATORY IS DORMANT OUTSIDE TWINTRACK and now says so ONCE.
+    // Fifteen of these sixteen already no-opped elsewhere — eleven by an early
+    // return on a `TwinTrackExperiment` query matching nothing, three by
+    // iterating a `TwinTrackVisible` query matching nothing — which is the
+    // "install many systems, then spend every frame discovering they are idle"
+    // shape. The predicate is in THIS FILE and only two of the sixteen consulted
+    // it. A tuple-level `run_if` is collective in Bevy 0.18, so this is fifteen
+    // invocations replaced by one condition.
+    //
+    // ⚠ NOT A MEASURED WIN and not offered as one: early-returning systems cost
+    // microseconds, far under this machine's noise floor, and removing four
+    // whole experiences moved the frame by nothing. It is here because a dormant
+    // capability should be dormant.
     app.add_systems(
         Update,
         (
@@ -180,9 +193,26 @@ pub(crate) fn install(app: &mut App) {
             update_optical_proxies,
             update_lab_orbit_visuals,
             update_lab_beacon_visuals,
-            cleanup_visuals_when_inactive,
-        ),
+        )
+            .run_if(twintrack_display_is_live),
     );
+
+    // ⛔⛔ THE CLEANUP RUNS ON THE OPPOSITE CONDITION and must stay ungated.
+    // `cleanup_visuals_when_inactive` opens with `if twintrack_is_active { return; }`
+    // — it despawns the observatory precisely WHEN TWINTRACK IS NOT LIVE. Sweep
+    // it into the gate above and the visuals stand forever after the experience
+    // ends. Same trap as `spacetime_3d`.
+    app.add_systems(Update, cleanup_visuals_when_inactive);
+}
+
+/// Run condition: the observatory has something to draw.
+///
+/// The question [`twintrack_is_active`] answers, in the shape a run condition
+/// needs. Kept beside it so the two cannot drift.
+fn twintrack_display_is_live(
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+) -> bool {
+    twintrack_is_active(&roots)
 }
 
 fn twintrack_is_active(

@@ -912,6 +912,7 @@ impl Plugin for CharacterRuntimePlugin {
             // take it as a plain `Res` and would fail parameter validation
             // otherwise.
             .init_resource::<live_match_clock::LiveMatchTicks>()
+            .init_resource::<audit::LateMatchCriticalArt>()
             .add_systems(
                 // The SIM schedule, not `Update`. (§4.11)
                 //
@@ -1103,6 +1104,11 @@ impl Plugin for CharacterRuntimePlugin {
                     // cast is what authorizes presentation sources, and the
                     // ledger is where "staged" is written down.
                     presentation::authorize_staged_character_presentation_sources,
+                    // ALSO after the materializer, and for the same reason it is
+                    // a different reason: this reads the OUTCOMES the materializer
+                    // just wrote. Ahead of it, a character would be reported late
+                    // on the very frame its load completed.
+                    audit::report_late_match_critical_art,
                 )
                     .chain(),
             );

@@ -517,3 +517,102 @@ mod authority_parity_tests {
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 }
+
+// ── THE OPENING BELL IS NOT ALLOWED TO OUTRUN THE ART ───────────────────────
+
+/// Match-critical characters whose art was still loading after the opening hold
+/// came off.
+///
+/// ⭐ THE CONTRACT THIS NAMES: a fighter in the roster is known at select time,
+/// so its sheets have the whole preparation window to arrive. If one is still
+/// resolving once the match is LIVE, the decode lands on a gameplay frame — the
+/// shape the first hardware profile measured as a 516ms frame.
+///
+/// ⛔ THIS REPORTS; IT MUST NEVER GATE. `release_the_opening_hold` releases on the
+/// countdown alone, and that is correct: the countdown is replayed by rollback,
+/// so making it wait on asset readiness would make the simulation depend on IO
+/// and desync two peers whose disks disagree. The bell is deterministic and the
+/// loading is not, which is exactly why this is an instrument.
+#[derive(Resource, Default, Debug)]
+pub struct LateMatchCriticalArt {
+    late: std::collections::BTreeSet<String>,
+    unready_frames: u32,
+    live_frames: u32,
+}
+
+impl LateMatchCriticalArt {
+    /// Roster characters observed unready after the bell, deterministically ordered.
+    pub fn late_characters(&self) -> impl Iterator<Item = &str> {
+        self.late.iter().map(String::as_str)
+    }
+
+    /// Frames on which at least one roster character was still resolving after the bell.
+    pub fn unready_frames(&self) -> u32 {
+        self.unready_frames
+    }
+
+    /// ⚠ THE POPULATION BESIDE THE FINDING. Zero late characters means nothing
+    /// until this is non-zero: a run that never reached a live match cannot have
+    /// observed a violation, and reporting that as "clean" is the instrument's
+    /// silence wearing a number.
+    pub fn live_frames_observed(&self) -> u32 {
+        self.live_frames
+    }
+}
+
+/// Name every match-critical character whose art was still resolving after the bell.
+///
+/// ⚠ Keyed on "has no terminal outcome yet", NOT on `is_ready`. A character whose
+/// sheet FAILED is a content defect the art tests already own, and counting it
+/// here would report a missing manifest as a performance violation every frame of
+/// every match.
+pub fn report_late_match_critical_art(
+    roster: Option<Res<super::staging::MatchParticipantRoster>>,
+    states: Option<Res<CharacterLoadStates>>,
+    active: Option<Res<super::seating::ActiveMatch>>,
+    prepared: Option<Res<super::prepared_match::PreparedMatch>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+    late: Option<ResMut<LateMatchCriticalArt>>,
+) {
+    let (Some(roster), Some(states), Some(active), Some(prepared), Some(mut late)) =
+        (roster, states, active, prepared, late)
+    else {
+        return;
+    };
+    // Before the bell there is nothing to violate: preparation is exactly when
+    // this work is SUPPOSED to happen.
+    let Some(elapsed) = tick
+        .as_deref()
+        .and_then(|now| active.ticks_since_activation(now.get()))
+    else {
+        return;
+    };
+    if prepared.rules().opening_phase(elapsed) != super::prepared_match::OpeningPhase::Live {
+        return;
+    }
+    late.live_frames += 1;
+
+    let mut any_unready = false;
+    for participant in &roster.participants {
+        let id = participant.character.as_str();
+        if states.outcome(id).is_some() {
+            continue;
+        }
+        any_unready = true;
+        if late.late.insert(id.to_string()) {
+            // `eprintln!` with a bare `[tag]`, not `warn!` — that is the census
+            // convention in this repo and the profiler's extractors anchor on
+            // `^\[`, so a tracing prefix would make this unparseable. One line,
+            // every field on it: a qualifier on its own line is one `grep` away
+            // from being separated from the number it qualifies.
+            eprintln!(
+                "[late-art] ticks_after_live={elapsed} character={id} \
+                 (a rostered fighter still resolving after the bell decodes on \
+                 gameplay frames; the roster named it at preparation time)"
+            );
+        }
+    }
+    if any_unready {
+        late.unready_frames += 1;
+    }
+}

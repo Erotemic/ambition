@@ -1244,3 +1244,78 @@ fn an_unbounded_or_undersized_take_drains_completely() {
     assert_eq!(demand.take_bounded(0).len(), 1, "a zero limit means unbounded");
     assert_eq!(demand.pending().count(), 0);
 }
+
+// ── THE LATE-ART INSTRUMENT, BOTH DIRECTIONS ───────────────────────────────
+
+/// A world with one rostered fighter, a match that has already gone live, and
+/// whatever load outcome the caller wants that fighter to have.
+fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) -> App {
+    let mut app = App::new();
+    let mut roster = super::staging::MatchParticipantRoster::default();
+    roster
+        .participants
+        .push(super::staging::MatchParticipant::new("iron_mary"));
+    app.insert_resource(roster);
+
+    let mut states = super::CharacterLoadStates::default();
+    if let Some(outcome) = outcome {
+        states.record("iron_mary".to_string(), "iron_mary", outcome);
+    }
+    app.insert_resource(states);
+
+    // `activated_on: Some(0)` with a tick of 0 and the default ruleset's zero
+    // countdown puts the match past its opening on the first observed frame.
+    app.insert_resource(super::seating::ActiveMatch::activated(1, None, None, Some(0)));
+    app.insert_resource(super::prepared_match::PreparedMatch::for_test_published_by(
+        None,
+    ));
+    app.insert_resource(ambition_time::SimTick::default());
+    app.init_resource::<super::audit::LateMatchCriticalArt>();
+    app.add_systems(Update, super::audit::report_late_match_critical_art);
+    app.update();
+    app
+}
+
+#[test]
+fn a_rostered_fighter_still_resolving_after_the_bell_is_named() {
+    let app = live_match_with_roster_outcome(None);
+    let late = app.world().resource::<super::audit::LateMatchCriticalArt>();
+    assert_eq!(
+        late.late_characters().collect::<Vec<_>>(),
+        vec!["iron_mary"],
+        "a roster character with no terminal outcome once the match is live is \
+         decoding on gameplay frames, which is the whole contract this names"
+    );
+    assert_eq!(late.unready_frames(), 1);
+}
+
+#[test]
+fn a_rostered_fighter_whose_art_settled_is_not_named() {
+    let app = live_match_with_roster_outcome(Some(super::CharacterLoadOutcome::Ready));
+    let late = app.world().resource::<super::audit::LateMatchCriticalArt>();
+    assert!(late.late_characters().next().is_none());
+    assert_eq!(late.unready_frames(), 0);
+    // ⚠ THE POPULATION BESIDE THE FINDING. Without this the clean result above
+    // is indistinguishable from a system that never ran at all — which is how a
+    // zero from an instrument that reports nothing gets believed.
+    assert_eq!(
+        late.live_frames_observed(),
+        1,
+        "the instrument must have OBSERVED a live match to report a clean one"
+    );
+}
+
+#[test]
+fn a_fighter_whose_art_failed_is_a_content_defect_not_a_late_load() {
+    let app = live_match_with_roster_outcome(Some(super::CharacterLoadOutcome::Failed(
+        super::CharacterLoadFailure::NoSheetResolved,
+    )));
+    let late = app.world().resource::<super::audit::LateMatchCriticalArt>();
+    assert!(
+        late.late_characters().next().is_none(),
+        "a sheet that will never resolve is the art tests' defect. Counting it \
+         here would report a missing manifest as a performance violation on \
+         every frame of every match"
+    );
+    assert_eq!(late.live_frames_observed(), 1);
+}

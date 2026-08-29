@@ -60,6 +60,15 @@ IMAGE_CENSUS = re.compile(
     r"\s+(?P<total_mp>[0-9.]+)MP,\s+(?P<resident_mb>[0-9.]+)MB"
 )
 
+# ⛔ THE CONTRACT VIOLATION, NAMED. A fighter in the roster is known at select
+# time, so its sheets have the whole preparation window to arrive. One still
+# resolving after the opening bell decodes on gameplay frames — the shape that
+# measured 516ms. The engine emits this at most once per character, so a row here
+# is a defect rather than a rate.
+LATE_ART = re.compile(
+    r"^\[late-art\]\s+ticks_after_live=(?P<ticks>\d+)\s+character=(?P<character>\S+)"
+)
+
 IMAGE = re.compile(
     r"^\[image\]\s+(?P<t>[0-9.]+)s\s+(?P<w>\d+)x(?P<h>\d+)\s+(?P<mp>[0-9.]+)MP"
     r"\s+(?:live=(?P<live>[01])\s+)?(?P<path>.*)$"
@@ -131,6 +140,7 @@ def collect_census(lines: list[tuple[float, str]]) -> dict[str, list[dict]]:
 def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str, int]:
     """The censuses that run without the profiling gate."""
     spikes, windows, images, arrivals, world_events = [], [], [], [], []
+    late_art = []
     for wall, text in lines:
         match = SPIKE.match(text)
         if match:
@@ -179,6 +189,16 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
                 }
             )
             continue
+        match = LATE_ART.match(text)
+        if match:
+            late_art.append(
+                {
+                    "wall_s": f"{wall:.3f}",
+                    "ticks_after_live": match.group("ticks"),
+                    "character": match.group("character"),
+                }
+            )
+            continue
         match = IMAGE.match(text)
         if match:
             images.append(
@@ -216,6 +236,11 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
         ["wall_s", "game_s", "images_this_window", "megapixels_this_window",
          "total_images", "total_megapixels", "resident_mb"],
         arrivals,
+    )
+    write_csv(
+        os.path.join(out_dir, "late_match_critical_art.csv"),
+        ["wall_s", "ticks_after_live", "character"],
+        late_art,
     )
     write_csv(
         os.path.join(out_dir, "image_decodes.csv"),

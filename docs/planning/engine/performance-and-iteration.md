@@ -2232,6 +2232,46 @@ to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced 
 `MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
 debugging test plumbing, not the engine.
 
+#### ▢ `enforce_session_contract` REBUILDS A 40KB STRING AND HASHES IT, EVERY FRAME
+
+**292.3us mean over 28,353 frames = 8.29s, max 13.4ms** — the second largest
+recurring zone in the hardware trace. The cause is three lines:
+
+```rust
+let current_schema = world
+    .get_resource::<RollbackRegistry>()
+    .cloned()                     // deep-clones a BTreeMap of ~450 descriptors
+    .unwrap_or_default()
+    .schema_fingerprint();        // schema_dump() -> a ~40KB String -> blake3
+```
+
+⇒ every frame it (1) DEEP-CLONES the whole registry, (2) builds the entire schema
+DUMP as a string — the same ~400-line TSV that
+`game/ambition_app/tests/rollback_schema_baseline.txt` records — and (3) blake3es
+it. To detect a change that can only happen when `RollbackRegistry` itself
+changes, which after startup is **never**.
+
+⇒ **THREE FIXES, IN INCREASING VALUE:**
+1. Drop the `.cloned()` — `schema_fingerprint` takes `&self`. It is there to dodge
+   a borrow against the later `&mut World`, and computing the fingerprint inside
+   the borrow removes the need.
+2. **Do not recompute at all unless the registry changed.** The contract resource
+   ALREADY stores the expected `schema`; the only reason to re-derive is a
+   registry that moved. ⚠ needs care with exclusive-system change ticks.
+3. Memoize the fingerprint on the registry, so every other caller stops paying too.
+
+⛔ **NOT ATTEMPTED — THE DISK IS FULL AND THIS ONE NEEDS A COMPILER.** Fix 1 is
+mechanical, but the valuable fix is 2 and change detection inside an exclusive
+system is exactly the kind of thing that must be compiled and tested, not
+reasoned about. ⚠ Recorded rather than half-done.
+
+⭐ **ALSO SEEN IN THE SAME SWEEP, AND UNCLAIMED BY THE ROW:**
+`update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — MORE
+than the hit-flash material — at 178.3us mean, which implies ~2 invocations per
+frame. ▢ Worth asking why it runs twice. ⚠ `bevy_framepace::framerate_limiter`
+(1080us) and `render_system` (1078us) are the VSync wait and the render itself:
+expected, not findings.
+
 #### ⛔ THE LARGEST RECURRING COST IN THE TRACE IS AN INVISIBLE EFFECT RE-UPLOADING ITSELF
 
 `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>`: **312.8us mean over 28,353

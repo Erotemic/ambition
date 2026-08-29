@@ -232,6 +232,30 @@ pub fn report_view_census(
          offscreen={offscreen} local_views={}",
         views.iter().count(),
     );
+
+    // ⛔⛔ THE PHASE SPLIT IS NOT TRUSTWORTHY WHILE ANYTHING RENDERS, and the
+    // warning is emitted HERE — beside the evidence, in the same log a reader is
+    // already scrolling — rather than left in a document nobody opens mid-run.
+    //
+    // `[census] phases` attributes WALL TIME between schedule markers. When the
+    // render path blocks the main thread (submission, readback, a software
+    // rasterizer), whichever phase happens to bracket that moment absorbs it.
+    // Measured 2026-08-29: raising the render target from 320x240 to 1280x960
+    // took `StateTransition` from 0.169ms to 1.822ms — a phase full of state
+    // machinery, scaling with PIXELS — and every other phase moved with it. A
+    // whole "StateTransition is 14% of a real room's frame" finding was built on
+    // that and had to be retracted.
+    //
+    // ⚠ `fragment_shader_invocations = 0` DOES NOT MAKE IT SAFE: submission and
+    // upscaling cost real time even when the opaque pass shades nothing.
+    if world_rendering > 0 || offscreen > 0 {
+        eprintln!(
+            "[census] phases_warning t={at:.3} untrustworthy=render_blocking \
+             world_rendering={world_rendering} offscreen={offscreen} — `[census] phases` \
+             attributes wall time between markers, so GPU blocking lands in whichever \
+             phase brackets it. Trust phase splits only from a run with no rendering."
+        );
+    }
 }
 
 /// The draw population: how much there IS, and how much of it survived

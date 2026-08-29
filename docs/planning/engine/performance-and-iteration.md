@@ -326,8 +326,23 @@ how a debris body ends up never waking.
 so touching `Time<Physics>` every frame would announce a change that did not
 happen to every reader — the defect fixed in the hot-reload watcher that same
 morning.
-⚠ NO frame-time claim: ~1%, below the noise floor, and sized before it was
-written.
+⭐⭐ **VERIFIED STRUCTURALLY, and the proportionality is exactly right:**
+
+| Tracy zone | before | after | |
+|---|---|---|---|
+| `PhysicsSchedule` calls | 1975 | **359** | **−82%** |
+| `SubstepSchedule` calls | 11850 | **2154** | **−82%** |
+| `FixedPostUpdate` | 589us | **295us** | **−50%** |
+| `RunFixedMainLoop` | 823us | 506us | −39% |
+
+Physics now runs on ~18% of frames rather than all of them — a Smash match DOES
+spawn debris on hits, so the right answer was never zero. ⭐ And its per-call
+cost ROSE (370 → 457us) because when it runs it now has real bodies to solve.
+**That is the invariant working: the capability pays for what it does.**
+
+⚠ Tracy numbers, so ~2.4x inflated — the RATIOS are the result, not the
+microseconds. And still NO frame-time claim: the whole thing is ~1% of a frame,
+below this machine's noise floor, sized before the code was written.
 
 **⭐⭐ THE ONLY NAMED PER-SYSTEM COST TRACY FOUND WAS egui — AND IT IS NOW GATED.**
 Per-system attribution on the trustworthy `NoWindow` path ranked everything, and

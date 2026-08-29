@@ -1191,6 +1191,27 @@ the facts, believed for an hour because nothing had contradicted it yet.
 | Update | 1.42 | 2.931 | 2x |
 | PostUpdate | 0.65 | 1.171 | 1.8x |
 
+⛔⛔ **AND MY OWN INSTRUMENT LIED ABOUT WHAT IS IN IT — same root cause as I3,
+walked into again.** `[census] membership` reported `StateTransition systems=0`,
+which would mean 2ms of PURE Bevy machinery with no systems at all, and I began
+counting registered state types on that basis (there is exactly one, `GameMode`)
+before checking it against the other census. `[census] schedules` reports
+**`StateTransition=8`**. The membership census reads `schedule.graph().systems`
+and `Schedule::initialize` DRAINS the graph; `StateTransition` runs during
+startup, so by `PreStartup` its graph is empty while `systems_len()` still finds
+eight in the executable.
+
+⇒ it prints `unavailable=graph_already_initialized` now instead of a zero,
+because *"zero systems costing 2ms"* is a conclusion somebody will draw — I drew
+it. ⚠ **`StateTransition` HAS 8 SYSTEMS and this census cannot name them**;
+naming them needs a read before that schedule first runs, or Tracy.
+
+⭐ **`RunFixedMainLoop` IS EXPLAINED AND IS NOT A DEFECT.** Its 17 systems are
+`run_fixed_main_schedule` — which runs the WHOLE fixed-timestep sim — plus
+`swap_to_fixed_update`/`swap_to_update`, transform easing, three gizmo context
+pairs and `update_action_state`. Its 6x inflation is the sim taking more fixed
+steps in a heavier room: the work the room asked for, not overhead.
+
 ⭐⭐⭐ **`StateTransition` IS 2.06ms — 14% OF A REAL ROOM'S FRAME.** The 2026-08-28
 baseline measured it at 0.15ms in an empty sandbox, correctly identified it as
 Bevy's per-state machinery rather than our code, and concluded it was NOT where

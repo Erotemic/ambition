@@ -371,3 +371,40 @@ fn the_survival_cap_is_what_lets_the_foe_decide_a_safe_launch() {
     );
     let _ = local_b;
 }
+
+/// ⭐ WHERE THE TWO DEFLECTIONS ACTUALLY DIFFER, THE CHOICE MUST NOT DEPEND ON
+/// WHICH WAY THE BODY WAS LAUNCHED.
+///
+/// ⛔ NOT a mirror assertion at centre stage: there both perpendiculars outlast
+/// `needed`, the argmax ties, and the tie falls to `+perpendicular` — whose world
+/// direction follows the launch sign. The code says so itself ("at centre stage
+/// ... the argmax between them was noise"), so asserting symmetry there asserts
+/// against the design.
+///
+/// Near the FLOOR the two differ: deflecting a horizontal launch downward shortens
+/// the life, upward lengthens it. That answer is a property of the STAGE, so it
+/// must be the same for a body thrown left as for one thrown right.
+///
+/// `gravity_down=(0,1)` makes `AccelerationFrame` the identity, so these local
+/// components are world components — +y is toward the floor.
+#[test]
+fn near_the_floor_the_deflection_does_not_depend_on_the_launch_sign() {
+    let low_y = 560.0; // 40px above the 600-tall stage's floor edge
+    // ⛔ `phase_remaining` MUST BE SET, and leaving it default silently defeats
+    // this test. The survival term is `time_inside(..).min(needed)` where
+    // `needed` IS `phase_remaining`, so at the default 0 BOTH deflections score
+    // zero, the argmax ties, and the tie-break answers instead of the ranking —
+    // which is the very thing being tested.
+    let launched = |vx: f32| {
+        let mut view = reeling(ae::Vec2::new(400.0, low_y), ae::Vec2::new(vx, 0.0));
+        view.self_view.phase_remaining = 0.5;
+        view
+    };
+    let right = stick(&launched(1200.0));
+    let left = stick(&launched(-1200.0));
+    assert!(
+        right.y < 0.0 && left.y < 0.0,
+        "close to the floor both bodies must deflect AWAY from it (-y), whichever way \
+         they were launched: right asked {right:?}, left asked {left:?}"
+    );
+}

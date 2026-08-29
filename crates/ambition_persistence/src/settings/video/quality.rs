@@ -321,6 +321,18 @@ pub struct RasterBudget {
     pub msaa_samples: u8,
 }
 
+impl Default for RasterBudget {
+    /// ⭐ THE DEFAULT IS WHAT THE ENGINE DID BEFORE THIS FIELD EXISTED — honour
+    /// the compositor's scale, and Bevy's own default 4x MSAA. A settings file
+    /// written before `raster` was added therefore deserialises to exactly the
+    /// behaviour it was written under, which is the only correct answer: the
+    /// user never chose a raster budget, so they must not be given a cheaper one
+    /// by surprise.
+    fn default() -> Self {
+        Self { max_scale_factor: None, msaa_samples: 4 }
+    }
+}
+
 impl RasterBudget {
     /// Bevy wants a power-of-two sample count it recognises; anything else is
     /// a typo in a config file and must not reach the renderer.
@@ -356,6 +368,23 @@ pub struct VisualQualityBudget {
     pub parallax: ParallaxBudget,
     pub shaders: ShaderBudget,
     pub particles: ParticleBudget,
+    /// ⛔ `serde(default)` IS LOAD-BEARING, AND ITS ABSENCE COST A REAL SETTINGS
+    /// FILE. `VisualQualitySettings.custom` is serialised into the user's
+    /// `settings.ron`, so a budget field added later is MISSING from every file
+    /// written before it existed. Without a default, that is not a missing
+    /// field — it fails the whole `settings.ron` parse, and the user silently
+    /// loses audio, video, gameplay and control settings together:
+    ///
+    /// ```text
+    /// WARN could not parse settings file .../settings.ron:
+    ///      Unexpected missing field named `raster` in `VisualQualityBudget`;
+    ///      using defaults
+    /// ```
+    ///
+    /// ⚠ Observed on `calculex` 2026-08-29, in the run that was measuring
+    /// something else. EVERY future field on a serialised settings struct needs
+    /// this, and the guard below is `settings_ron_without_raster_still_parses`.
+    #[serde(default)]
     pub raster: RasterBudget,
 }
 

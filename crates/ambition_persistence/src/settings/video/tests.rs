@@ -346,3 +346,32 @@ fn raster_env_overrides_apply_on_top_of_the_tier() {
     assert_eq!(base().with_env_overrides().sanitized_msaa_samples(), 4, "junk keeps the tier");
     clear();
 }
+
+#[test]
+fn settings_ron_without_raster_still_parses() {
+    // ⛔ THE REGRESSION THIS GUARDS COST A REAL SETTINGS FILE. `custom` is
+    // serialised into the user's `settings.ron`; a budget field added later is
+    // absent from every file written before it existed. Without `serde(default)`
+    // that is not a missing field — the WHOLE settings parse fails and the user
+    // silently loses audio, video, gameplay and controls together.
+    let without_raster = r#"(
+        portal: (max_resolution: 1024, texels_per_world_px: 1.0, recursion_depth: 1,
+                 max_active_captures: 2, max_updates_per_frame: 2,
+                 min_refresh_interval_s: 0.0, include_parallax: true),
+        sprites: (resolution_scale: Full, prefer_scaled_variants: false),
+        backgrounds: (resolution_scale: Full, max_texture_resolution: 2048,
+                      prefer_scaled_variants: false),
+        parallax: (enabled: true, max_layers: None, resolution_scale: Full),
+        shaders: (screen_shader_scale: 1.0, allow_expensive_materials: true),
+        particles: (max_particles: 4096, spawn_rate_scale: 1.0),
+    )"#;
+    let parsed: VisualQualityBudget =
+        ron::from_str(without_raster).expect("a pre-raster budget must still deserialize");
+
+    // ⭐ AND IT MUST DESERIALIZE TO WHAT THE ENGINE DID BEFORE THE FIELD EXISTED.
+    // The user never chose a raster budget, so they must not be handed a cheaper
+    // one by surprise on upgrade.
+    assert_eq!(parsed.raster.max_scale_factor, None, "must still honour the compositor");
+    assert_eq!(parsed.raster.sanitized_msaa_samples(), 4, "must still be Bevy's default MSAA");
+    assert_eq!(parsed.raster, RasterBudget::default());
+}

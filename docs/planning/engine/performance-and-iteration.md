@@ -1302,6 +1302,19 @@ total delta of **+0.485ms** against rep 1's +0.25ms.
 | `PostUpdate` share of the delta | 31% | 33% |
 | `PreUpdate` share | 42% | 27% |
 
+⭐⭐ **AND THE REASON IS GENERAL, WORTH KEEPING: ABSOLUTE PHASE COSTS HERE ARE
+REPRODUCIBLE; DIFFERENCES BETWEEN ARMS ARE NOT.** Across every 2-fighter run
+today `PreUpdate` landed in **1.96–2.03ms**, `Update` in **1.23–1.31**,
+`PostUpdate` in **0.50–0.54** — tight. But the 2→4 DELTA of those same tight
+numbers swung 2x, because **subtracting two noisy quantities amplifies the
+relative error**: a ±0.04ms wobble on a 0.53ms phase is 8%, and on the 0.08ms
+DIFFERENCE it is 50%.
+
+⇒ **an absolute measurement here needs one careful run; a DELTA needs several.**
+That is why the campaign's absolute findings (frame attribution, phase splits,
+per-room `WorldPrep`) held up on re-measurement while this cross-arm delta did
+not, and it is the rule to apply to any future A/B on this host.
+
 ⇒ **THE SHARES ARE STABLE; THE MAGNITUDE IS NOT.** A fighter costs **~125–240us**,
 not the precise 125us this section first claimed, and `PostUpdate` reliably takes
 about a THIRD of it. ⭐ The conclusion that survives is the SHAPE — a fighter is

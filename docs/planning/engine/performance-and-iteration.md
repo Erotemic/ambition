@@ -758,8 +758,15 @@ microseconds in the phase named after it, against 150 in the frame.
 SPIKES ARE NOT IN THE SIMULATION.** 340 intervals quartile-split by worst frame:
 sim total 0.837 → 0.849ms (**+1.4%**) while the frame max goes **4.64 → 8.28ms**;
 every gameplay phase moves ≤4 MICROseconds. ⇒ making the sim cheaper is worth
-**~zero for responsiveness** and remains correct for throughput. What the spike
-IS needs a host with a GPU.
+**~zero for responsiveness** and remains correct for throughput.
+
+⭐⭐⭐ **AND WHAT THE SPIKES ARE IS NOW ANSWERED — THEY ARE CONTENTION, NOT THE
+ENGINE.** Frames over 8ms become **8.6x more common** under CPU load (1.1% →
+9.5%) while the median moves 5% — the signature of scheduling, since engine work
+would raise the median with the tail. ⭐ **ON AN IDLE MACHINE, ZERO of 15,747
+frames exceeded the 16.67ms budget** (worst 13.66ms). ⛔ Earlier "dropped frame"
+readings here were measured while this session ran its own builds and probes.
+⇒ **record MACHINE LOAD beside every frame number.**
 
 ⭐⭐ **THE COST MODEL — the sheet to price a feature against:**
 

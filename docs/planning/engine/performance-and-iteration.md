@@ -2536,6 +2536,29 @@ verdict here.
 `capture_scene` adds its own warmup. **Both arms share both**, so the ratio holds
 and the milliseconds do not transfer to hardware.
 
+##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT
+
+Chased so nobody chases it twice:
+
+| instrument | sees the 4K sheet path? |
+|---|---|
+| `smash_match_profile` (headless) | ⛔ **NO** — 57 images, 21.0MP total, 0.37MP average. No render app, and no big sheets |
+| `match_shots` (smash demo, RENDERS a CPU-vs-CPU match) | ⛔ **NO — zero notable decodes.** The demo's cast does not use 4096x4096 sheets |
+| `capture_scene <room>` (full app, RENDERS) | ✔ **YES** — `hall_of_characters` decodes 93 notable images |
+| the full app, entering smash | ✔ yes on hardware: `session-start experience=smash` at 51.09s decoded the `noether` set |
+
+⭐ **THE DEMO CANNOT REPRODUCE IT BECAUSE ITS CATALOG IS SMALLER — which is D189's
+finding, not a new one:** the demo shell seats **3** characters against the app's
+**21**, so `noether` and `perfect_cellular_automaton` — the 4096x4096 casts — are
+not seatable there. In the full app they are, which is why Jon's run decoded
++128MP entering a match and `match_shots` decodes nothing.
+
+⇒ **`capture_scene hall_of_characters` is the local proxy for this mechanism**, and
+it is a fair one: same demand → materialize → extract path, same asset sizes, just
+more of them. ⛔ What no local tool reaches is match entry IN THE FULL APP, because
+the smash stage is not one of `capture_scene`'s 72 rooms and the shell route is
+what gets there. ⇒ that number stays a hardware measurement.
+
 ⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
 `resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
 characters and stepped ONE frame, expecting both resident. It now steps until the

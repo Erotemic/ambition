@@ -2441,6 +2441,40 @@ but was depended on; anything that assumes it must now step. 1152 monolith tests
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 
+##### ⛔⛔ "THERE IS NO EVICTOR AND THERE MUST NOT BE ONE" — AND THE MAP SAYING SO IS THE OWNER THAT NEVER RELEASES
+
+Item 4 of the campaign asks for eviction and a budget. **The code explicitly
+forbids it**, in `demote_stale_realizations`' own doc:
+
+> *"clone here plus whatever a live presentation still holds until it rebinds.
+> there is no evictor and there must not be one — ownership does the whole job."*
+
+⭐ So the question is not "where should the evictor go" but **"is ownership
+actually doing the job?"** It is not, and the same file is why:
+`CharacterSpriteAssets.sheets` is a `HashMap<String, CharacterSpriteAsset>` with
+**three insert sites and exactly ONE removal** — the one inside
+`demote_stale_realizations`, which fires only on a QUALITY-TIER change. Jon's
+hardware run had **zero** quality transitions (`grep "quality transition"` = 0).
+
+⇒ **that map holds every realization ever loaded, for the life of the process.**
+It is the ownership the comment appeals to, and it never lets go. That is the
+mechanism behind *"resident climbs 128 → 339 images and 2.62GB and never falls"*.
+⚠ **A COMMENT STATING A RULE IS A SPEC TO CHECK**, and this one is contradicted by
+the struct it is written on.
+
+⇒ **THE FIX THE CODE'S OWN PHILOSOPHY WANTS IS NOT AN EVICTOR.** It is to make the
+OWNERSHIP end where the owner does: `retire_previous_session_cast` already clears
+the cast's `ids` when the session scope changes, and it does NOT drop the
+corresponding `sheets`. Releasing them there is ownership doing its job, not a
+new subsystem — and it is safe by exactly the argument `demote_stale_realizations`
+already relies on (a live presentation holds its own clone until it rebinds).
+
+▢ **NOT TAKEN HERE, DELIBERATELY.** The rule is stated in the code and a change to
+it is a design call, not a performance chore: the same sentence that names the
+leak also forbids the obvious fix. ⇒ Jon's call — and either answer wants the
+sentence rewritten, because as it stands it describes a world the struct does not
+implement.
+
 ##### ▢ THE PORTRAIT RE-DECODES ARE A DROPPED HANDLE, AND THEY ARE MINOR
 
 Diagnosed 2026-08-29. The HUD (`hud/declared.rs`) calls `asset_server.load(path)`

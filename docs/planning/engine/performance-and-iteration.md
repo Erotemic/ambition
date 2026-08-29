@@ -1382,6 +1382,32 @@ room-set build is cheaper than the duplication suggested. ⇒ this change is
 justified because building the same thing twice is WRONG, not because 25ms was
 worth chasing — the same standing as the hot-reload move.
 
+### ⭐⭐ INPUT LATENCY — the question the brief actually asked, and it is already right
+
+This campaign measured frame TIME and frame TAILS throughout. **Responsiveness to a
+fighting-game player is INPUT LATENCY** — press to visible response — which is a
+different quantity, and nothing here had measured it.
+
+**The architectural half is settled, and needs no change.** The hazard would be
+the sim consuming LAST frame's input: if `run_ggrs_schedules` (in `PreUpdate`) ran
+before Bevy's input systems, every press would cost a full extra frame. ⛔ A grep
+finds no ordering constraint in THIS repo — which is true and misleading. The
+constraint is declared **upstream, where it belongs**: `bevy_ggrs-0.21.0/src/lib.rs:255`
+adds `RunGgrsSystems` `.after(InputSystems)` with the comment *"if we are in
+PreUpdate, run after input is read"*, and documents it at line 155. ⇒ **input is
+read and consumed in the SAME frame, guaranteed by construction.** ⛔ Do not add a
+duplicate ordering here; it would be noise.
+
+⛔⛔ **AND THE EMPIRICAL HALF CANNOT BE MEASURED ON THIS HOST — a real boundary,
+not a gap in effort.** A headless probe cannot press a button through the DEVICE
+path: the input latch is consulted only `if latch.is_device_authority()`, which is
+false with no real device wired, so a synthesised `ButtonInput` press is dropped
+by design (it protects harnesses that drive `PendingLocalInput` directly).
+`drive_control_frame` injects input BELOW that path, so it measures the sim's
+response and NOT device-to-sim latency. ⇒ **true input latency needs a real device
+on real hardware**, and it joins the real-hardware item rather than standing as
+its own lead.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

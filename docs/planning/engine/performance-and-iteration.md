@@ -1203,8 +1203,28 @@ eight in the executable.
 
 ⇒ it prints `unavailable=graph_already_initialized` now instead of a zero,
 because *"zero systems costing 2ms"* is a conclusion somebody will draw — I drew
-it. ⚠ **`StateTransition` HAS 8 SYSTEMS and this census cannot name them**;
-naming them needs a read before that schedule first runs, or Tracy.
+it. ⭐ **FIXED, AND THEY ARE NAMED NOW.** The graph and the executable are
+COMPLEMENTARY, not alternatives: `initialize` moves systems from one to the
+other, so the graph answers before first run and `Schedule::systems()` answers
+after. The census reads both, and `StateTransition` resolves to **21 systems**:
+
+```text
+last_transition x10   despawn_entities_on_enter_state x3
+apply_state_transition x2   despawn_entities_on_exit_state x3   apply_deferred x3
+```
+
+⭐⭐ **`last_transition` x10 MEANS TEN REGISTERED STATE TYPES — and this workspace
+declares exactly ONE.** `init_state::<GameMode>` is the only one in `crates/` or
+`game/`; the other nine belong to Bevy's own plugins. So the per-frame state
+machinery is mostly not ours and mostly not about our states.
+
+⭐⭐⭐ **AND THREE OF THE TWENTY-ONE ARE `apply_deferred` — COMMAND-FLUSH SYNC
+POINTS.** In a room with 2048–4096 entities a flush is not cheap, and three of
+them inside one phase is a far better hypothesis for 2.06ms than transition logic
+over a state that rarely changes. ⚠ HYPOTHESIS, NOT MEASURED: settling it needs
+per-system attribution inside `StateTransition` (Tracy, or boundaries around the
+three flushes). ⛔ And it argues AGAINST the reflex of replacing Bevy's state
+machinery — if the cost is command flushing, the states are not the problem.
 
 ⭐ **`RunFixedMainLoop` IS EXPLAINED AND IS NOT A DEFECT.** Its 17 systems are
 `run_fixed_main_schedule` — which runs the WHOLE fixed-timestep sim — plus

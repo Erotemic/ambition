@@ -538,13 +538,30 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
         // systems=0` while `[census] schedules`, which falls back to
         // `systems_len()`'s executable count, reported EIGHT. Say which it is,
         // because "zero systems costing 2ms" is a conclusion somebody will draw.
+        // ⭐ THE EXECUTABLE IS THE OTHER HALF OF THE ANSWER. A drained graph is not
+        // an empty schedule — `Schedule::initialize` MOVES the systems into the
+        // private executable, and `Schedule::systems()` reads them back from
+        // exactly there. So the two accessors are complementary: the graph
+        // answers before first run, the executable answers after. Reading only
+        // the graph reported `StateTransition systems=0` while
+        // `[census] schedules` said EIGHT, and "zero systems costing 2ms" is a
+        // conclusion somebody will draw from that.
         if names.is_empty() {
-            eprintln!(
-                "[census] membership t=0.000 schedule={wanted} \
-                 unavailable=graph_already_initialized (it ran before PreStartup; \
-                 see `[census] schedules` for its executable count)"
-            );
-            return;
+            match schedule.systems() {
+                Ok(systems) => {
+                    names = systems
+                        .map(|(_key, system)| condition_label(system.name().as_ref()))
+                        .collect();
+                    names.sort();
+                }
+                Err(_) => {
+                    eprintln!(
+                        "[census] membership t=0.000 schedule={wanted} \
+                         unavailable=never_initialized"
+                    );
+                    return;
+                }
+            }
         }
         eprintln!(
             "[census] membership t=0.000 schedule={wanted} systems={} {}",

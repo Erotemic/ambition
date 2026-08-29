@@ -280,12 +280,27 @@ survived.
 **WHAT IS TRUE ABOUT THE FRAME** (all from `NoWindow` runs, where the phase
 census is trustworthy — see the render caveat below):
 - a 2-fighter Smash match is **4.5–5.0ms** (`dev`) / **2.8–3.2ms** (`profiling`);
-- the whole gameplay simulation is **0.93ms across 17 phases**, largest
-  `WorldPrep` at 0.22ms;
-- **~0.95ms of `PreUpdate` is not the sim at all** — it is the `DefaultPlugins`
-  population, and it is DIFFUSE: gating its two largest groups (ui focus +
-  picking, 31 asset trackers) recovered nothing;
+- the whole gameplay simulation is **0.83–0.93ms across 17 phases**;
+- ⭐⭐ **THE FRAME IS FULLY ATTRIBUTED** (4.45ms, 2 fighters, windowless): 0.83ms
+  marked gameplay sim · **0.21ms GGRS driver overhead** (cheap, as
+  `check_distance: 0` predicts) · **0.93ms `PreUpdate` OUTSIDE the driver** ·
+  1.23ms `Update` · 0.51ms `PostUpdate` · 0.31ms `RunFixedMainLoop`;
+- ⛔ **`PreUpdate` IS NOT "THE SIMULATION TICK"** — the sim is 0.83 of its 1.98ms.
+  And the remainder is not purely `DefaultPlugins`: the membership census shows
+  our OWN systems there too (falling sand's particles, chunk loading, effect
+  release) alongside 31 asset trackers and ~12 picking systems;
+- **that 0.93ms is BREADTH, not a hot spot** — 0.93ms over ~135 systems is
+  **6.9us each**, and `Update` is 1.23ms over 521 systems (**2.4us each**), both
+  inside the measured 2.9–15.6us band. Gating its two largest groups recovered
+  nothing;
 - **there is no hot system.** ~630 systems at 2.9–15.6us each.
+
+⭐⭐⭐ **AND RESPONSIVENESS IS A DIFFERENT QUESTION FROM THROUGHPUT: SMASH'S FRAME
+SPIKES ARE NOT IN THE SIMULATION.** 340 intervals quartile-split by worst frame:
+sim total 0.837 → 0.849ms (**+1.4%**) while the frame max goes **4.64 → 8.28ms**;
+every gameplay phase moves ≤4 MICROseconds. ⇒ making the sim cheaper is worth
+**~zero for responsiveness** and remains correct for throughput. What the spike
+IS needs a host with a GPU.
 
 **WHAT IS TRUE ABOUT THE PREMISES WE STARTED FROM** — most did not survive:
 - ⭐ *"a room with hundreds of sprites chugs"* — **HALF TRUE, corrected 2026-08-29

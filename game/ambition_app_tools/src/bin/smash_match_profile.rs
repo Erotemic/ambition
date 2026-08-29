@@ -199,8 +199,19 @@ fn cast_state(world: &mut World) -> (usize, usize) {
 
 /// Install the roster and ask the shell for the gameplay route. Both in one
 /// tick, in this order: the route activation reads the roster.
-fn seat_the_match(world: &mut World, fighters: usize) {
-    world.insert_resource(ambition_demo_smash::smash_roster(vec!["actor"; fighters]));
+/// ⭐ ANY CHARACTER THE COMPOSITION CARRIES, not just the default stand-in.
+///
+/// D189 records that the smash rigs can only measure the DEMO SHELL's three ids,
+/// so two regressions were missed on characters only the full app seats. This bin
+/// composes the FULL app — `composition_can_seat=` reports 21, including
+/// `npc_pirate_admiral` — so the roster it seats should not be hard-coded to one.
+///
+/// ⛔ An unseatable id must FAIL LOUDLY. Seating a character the catalog does not
+/// carry produces a match with no fighter brain and every number zero, which
+/// reads as "a quiet fight" rather than "you asked for somebody who is not here"
+/// — the exact failure `match_report` had to grow an abort for.
+fn seat_the_match(world: &mut World, fighters: usize, character: &str) {
+    world.insert_resource(ambition_demo_smash::smash_roster(vec![character; fighters]));
     world.write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));
@@ -249,6 +260,11 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(2)
         .clamp(2, SlotControls::MAX_SLOTS);
+    // ⭐ WHICH FIGHTER. Defaults to the stand-in this bin has always seated, so
+    // every existing invocation measures exactly what it measured before. The
+    // full app carries 21 ids (`composition_can_seat=`), which is the point:
+    // D189's rigs can reach three.
+    let character: String = arg_value(&args, "--character").unwrap_or_else(|| "actor".to_string());
     // Wall seconds of LIVE match to measure before quitting, windowed only.
     // ⭐ It starts when the ROUND goes live, not when the process starts: a cold
     // launch spends ten-plus seconds on cargo, assets and the shell, and a
@@ -265,15 +281,15 @@ fn main() {
         .unwrap_or(0);
 
     if arg_flag(&args, "--window") {
-        run_windowed(fighters, seconds);
+        run_windowed(fighters, seconds, character);
     } else {
-        run_windowless(fighters, ticks, scaling_sprites);
+        run_windowless(fighters, ticks, scaling_sprites, character);
     }
 }
 
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
-fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
+fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character: String) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
 
@@ -289,43 +305,6 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
     for _ in 0..SETTLE_FRAMES {
         app.update();
     }
-    seat_the_match(app.world_mut(), fighters);
-
-    let mut live_at = None;
-    for tick in 0..LIVE_DEADLINE_FRAMES {
-        app.update();
-        let (seated, held) = cast_state(app.world_mut());
-        if seated > 0 && held == 0 {
-            live_at = Some(tick);
-            break;
-        }
-    }
-    let Some(live_at) = live_at else {
-        eprintln!(
-            "[smash-profile] ABORT: the opening ceremony never released the cast, so nothing \
-             below would have measured a match"
-        );
-        std::process::exit(3);
-    };
-    // ⛔⛔ THE ROSTER YOU ASKED FOR IS NOT NECESSARILY THE ROSTER THAT SEATED, and
-    // a run that quietly seats fewer answers a DIFFERENT question than the one
-    // on the command line. Measured 2026-08-29: `--fighters 4` reported 3
-    // bodies, which invalidated a fighter-count scaling comparison that
-    // otherwise looked like three clean arms.
-    let (seated_now, _) = cast_state(app.world_mut());
-    if seated_now != fighters {
-        eprintln!(
-            "[smash-profile] ⛔ ROSTER MISMATCH: asked for {fighters} fighters, {seated_now} are \
-             seated. This run does NOT measure a {fighters}-fighter match, and comparing it \
-             against another arm compares different rosters."
-        );
-    }
-    // ⭐ THE ENTITY COUNT AT THE QUIET MOMENT. Differencing TOTAL live entities
-    // between a 2- and a 4-fighter run does not work later on: combat VFX spawn
-    // and despawn make `live` swing ~40 WITHIN a single run, which is as large as
-    // the whole fighter delta. Right here the round has just gone live and no
-    // combat has happened, so two arms differ by their ROSTER and little else —
-    // which is what makes "how many entities is a fighter" askable at all.
     // ⭐ WHICH CAST THIS COMPOSITION CAN ACTUALLY SEAT. `SmashRoster` is
     // `SMASH_ROSTER` filtered at `Startup` to the ids the ASSEMBLED CATALOG
     // carries, so it is a fact about the composition rather than about the grid.
@@ -347,6 +326,59 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
             format!(" — {}", seatable.join(", "))
         }
     );
+    seat_the_match(app.world_mut(), fighters, &character);
+
+    let mut live_at = None;
+    for tick in 0..LIVE_DEADLINE_FRAMES {
+        app.update();
+        let (seated, held) = cast_state(app.world_mut());
+        if seated > 0 && held == 0 {
+            live_at = Some(tick);
+            break;
+        }
+    }
+    let Some(live_at) = live_at else {
+        // ⛔⛔ NAME THE REAL CAUSE. The generic "the ceremony never released the
+        // cast" is true but points at the ceremony, and the commonest reason to
+        // reach it is a character this composition does not carry — measured
+        // 2026-08-29 with `--character not_a_real_character`, which aborted with
+        // the ceremony message and sent the reader to the wrong place. The
+        // seatable list is already in hand, so say which it is.
+        if !seatable.is_empty() && !seatable.iter().any(|id| id == &character) {
+            eprintln!(
+                "[smash-profile] ABORT: '{character}' is not one of the {} ids this \
+                 composition carries, so no fighter was ever seated and the ceremony had \
+                 nothing to release. Carried: {}",
+                seatable.len(),
+                seatable.join(", ")
+            );
+        } else {
+            eprintln!(
+                "[smash-profile] ABORT: the opening ceremony never released the cast, so \
+                 nothing below would have measured a match"
+            );
+        }
+        std::process::exit(3);
+    };
+    // ⛔⛔ THE ROSTER YOU ASKED FOR IS NOT NECESSARILY THE ROSTER THAT SEATED, and
+    // a run that quietly seats fewer answers a DIFFERENT question than the one
+    // on the command line. Measured 2026-08-29: `--fighters 4` reported 3
+    // bodies, which invalidated a fighter-count scaling comparison that
+    // otherwise looked like three clean arms.
+    let (seated_now, _) = cast_state(app.world_mut());
+    if seated_now != fighters {
+        eprintln!(
+            "[smash-profile] ⛔ ROSTER MISMATCH: asked for {fighters} fighters, {seated_now} are \
+             seated. This run does NOT measure a {fighters}-fighter match, and comparing it \
+             against another arm compares different rosters."
+        );
+    }
+    // ⭐ THE ENTITY COUNT AT THE QUIET MOMENT. Differencing TOTAL live entities
+    // between a 2- and a 4-fighter run does not work later on: combat VFX spawn
+    // and despawn make `live` swing ~40 WITHIN a single run, which is as large as
+    // the whole fighter delta. Right here the round has just gone live and no
+    // combat has happened, so two arms differ by their ROSTER and little else —
+    // which is what makes "how many entities is a fighter" askable at all.
     let live_entities = app
         .world_mut()
         .query::<bevy::prelude::Entity>()
@@ -426,7 +458,7 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
 /// writes as straight-line code has to become a system that reaches the same
 /// states one frame at a time. [`MatchDriver`] is that sequence, not a second
 /// policy — the conditions it tests are the ones above.
-fn run_windowed(fighters: usize, seconds: f32) {
+fn run_windowed(fighters: usize, seconds: f32, character: String) {
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::Windowed,
         true,
@@ -444,6 +476,7 @@ fn run_windowed(fighters: usize, seconds: f32) {
     // are ten seconds of measured logo.
     app.insert_resource(MatchDriver {
         fighters,
+        character,
         measure_for: (seconds > 0.0).then_some(seconds),
         live_frames: 0,
         warned_empty: false,
@@ -481,6 +514,8 @@ enum Stage {
 #[derive(Resource)]
 struct MatchDriver {
     fighters: usize,
+    /// The catalog id every seat wears. See `seat_the_match`.
+    character: String,
     /// `None` means "until the window closes".
     measure_for: Option<f32>,
     /// Frames since the round went live, for [`PREMISE_CHECK_EVERY`].
@@ -504,7 +539,7 @@ fn drive_match(world: &mut World) {
     };
     match driver.stage {
         Stage::Settling(0) => {
-            seat_the_match(world, driver.fighters);
+            seat_the_match(world, driver.fighters, &driver.character);
             driver.stage = Stage::WaitingForLive(0);
         }
         Stage::Settling(left) => driver.stage = Stage::Settling(left - 1),

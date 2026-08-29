@@ -136,6 +136,26 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
         eprintln!("[startup] total before first frame: {total_ms:.1}ms (no phase marks)");
         return;
     }
+    // ⛔⛔ SAY WHAT A MARK INTERVAL ACTUALLY MEASURES, BECAUSE IT IS NOT WHAT THE
+    // NAME SUGGESTS. The marks chain themselves to the systems they bracket, but
+    // NOT to the rest of the schedule: `Startup` carries ~43 systems and only a
+    // handful are ordered against these marks, so the executor may run the others
+    // BETWEEN two marks and the interval is billed for them.
+    //
+    // Measured 2026-08-29: `after_load_data_handle` read +169.2ms — 28% of a
+    // 608ms startup — for an interval whose only chained system is ONE LINE
+    // (`asset_server.load(path)`, which returns a handle immediately). The
+    // interval was real and the attribution was not, and it was published as
+    // "169ms of loading" before anyone read the system.
+    //
+    // ⇒ same defect as bracketing an unordered set in `PreUpdate`. A mark chain
+    // is a well-defined interval only where the schedule is `.chain()`ed end to
+    // end. Rather than pretend otherwise, the report says so.
+    eprintln!(
+        "[startup] ⚠ a mark interval includes any UNORDERED system the executor \
+         ran inside it — `Startup` is not chained end to end, so a phase name is \
+         where time was BILLED, not what spent it"
+    );
     let mut prev = profiler.resource_created_at;
     for (name, at) in &profiler.marks {
         let delta = at.duration_since(prev).as_secs_f32() * 1000.0;

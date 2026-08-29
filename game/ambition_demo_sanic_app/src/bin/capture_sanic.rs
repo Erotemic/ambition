@@ -150,6 +150,11 @@ fn shoot_when_warm(
     target: Option<Res<CaptureTarget>>,
     mut progress: ResMut<CaptureProgress>,
     mut warmup: ResMut<Warmup>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    players: Query<
+        &GlobalTransform,
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+    >,
 ) {
     let Some(target) = target else {
         return;
@@ -173,7 +178,61 @@ fn shoot_when_warm(
         warmup.settle -= 1;
         return;
     }
+    warn_if_the_subject_left_the_frame(&cameras, &players);
     request_capture(&mut commands, &target, &mut progress);
+}
+
+/// Say when the picture does not contain the thing it is a picture OF.
+///
+/// ⛔⛔ D257, AND IT REPORTED SUCCESS THREE TIMES BEFORE ANYONE LOOKED AT THE
+/// FILE. Sanic declares `high_speed_full_bleed()` — velocity-aware framing where
+/// the camera LEADS the runner rather than trailing him, which is the whole feel
+/// of a speedway and must not be "fixed". But a lead is a fixed world-space
+/// offset: shrink the visible region and the runner walks out of frame. Measured
+/// 2026-08-29 — correct at 1280x720, subject at the extreme edge at the default
+/// 960x540, and NOTHING BUT SKY at 320x240, with `capture: wrote …` and exit 0
+/// every time.
+///
+/// ⭐ This does not change the framing, because that is a design call
+/// (`capture_scene` answers the same problem with `--fit-room`). It makes the
+/// tool ADMIT the failure instead of reporting success — the same rule the rest
+/// of this repo's instruments follow: a probe that can mislead says so in its own
+/// output.
+fn warn_if_the_subject_left_the_frame(
+    cameras: &Query<(&Camera, &GlobalTransform)>,
+    players: &Query<
+        &GlobalTransform,
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+    >,
+) {
+    let Ok(player) = players.single() else {
+        return; // no subject to lose; the shot is of whatever is there
+    };
+    let subject = player.translation();
+    // ANY active camera seeing it is enough — a demo may carry a HUD camera too.
+    let framed = cameras.iter().any(|(camera, camera_at)| {
+        camera.is_active
+            && camera
+                .world_to_viewport(camera_at, subject)
+                .is_ok_and(|point| {
+                    camera.logical_viewport_size().is_some_and(|size| {
+                        point.x >= 0.0 && point.y >= 0.0 && point.x <= size.x && point.y <= size.y
+                    })
+                })
+    });
+    if !framed {
+        eprintln!(
+            "[capture_sanic] ⛔ THE SUBJECT IS NOT IN FRAME: the player is at \
+             ({:.0},{:.0}) and no active camera's viewport contains it. This shot will \
+             report success and show the background. The camera LEADS the runner \
+             (`high_speed_full_bleed`), so a small --size walks him out of the picture — \
+             try the native 1280x720. ⚠ The coordinates are ENGINE WORLD SPACE, where the \
+             level is CENTRED on the origin: a 6400-wide level spans -3200..3200, so a \
+             large negative x near -3040 is the LDtk spawn at px=146, not an escaped \
+             player. See queue.md D257.",
+            subject.x, subject.y
+        );
+    }
 }
 
 /// Hold RIGHT while there are walking frames left.

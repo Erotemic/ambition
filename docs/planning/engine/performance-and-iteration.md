@@ -231,10 +231,30 @@ frames and `QueryState::iter` still updates archetypes, so nothing is missed.
 Fixed in `world::gated_lock_walls::sync_authored_gated_lock_walls`
 (33.1us/frame before, in the top ten systems, for a room with no gated walls).
 There are ~73 `world.query*` sites outside tests; most are setup or spawn paths
-where the cost is paid once and the pattern is fine. **A guard that flags a
-`world.query*` reached from a system registered in a per-frame schedule would
-keep this from recurring** — the existing `scripts/check_*.py` family is the
-right shape for it.
+where the cost is paid once and the pattern is fine.
+
+⭐⭐ **CLOSED 2026-08-29 BY COUNTING, AND THE PROPOSED CHECKER IS NOT NEEDED.** With
+the sim schedule finally enumerable, all 147 `world.query*` sites were
+cross-referenced against the 1189 system names the membership census reports
+across `PreUpdate`, `Update`, `PostUpdate`, `StateTransition`, `RunFixedMainLoop`
+and `GgrsSchedule`. **Exactly ONE is a function registered in a per-frame
+schedule:** `apply_summon_effects`
+(`features/ecs/spawn_actors.rs:2323`).
+
+And it is not a per-frame cost: the `world.query` sits inside
+`for … in board_after_commit`, a loop that is EMPTY unless a summon happened that
+frame. ⚠ It does rebuild the `QueryState` once per summon rather than once per
+call, which is a real inefficiency and a negligible one — summons are rare and
+few. ⛔ Left alone deliberately: at this stage that is polish.
+
+⇒ **an earlier note here proposed a `scripts/check_*.py` guard to stop the
+pattern recurring. Do not build it** — the population it would police is ONE
+site, and it is benign. Counting the population beat writing the checker.
+
+⚠ **Method limits, stated so the "one" is read correctly:** systems are matched
+by FUNCTION NAME against the census, so a system registered under a closure or a
+generic instantiation would not match, and a `world.query*` inside a HELPER
+called by a per-frame system is not followed.
 
 ### 4. Per-frame rebuilds that could be change-detection driven
 

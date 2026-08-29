@@ -72,6 +72,13 @@ smash_fighters="2"
 # Wall seconds of LIVE match before the game quits itself, or 0 for "play until
 # you quit", which is timeline-run's own default shape.
 smash_seconds="0"
+# ⭐ APPEND THE BUNDLE'S FRAME COST TO THE MEASUREMENT LEDGER when the run ends.
+# A bundle is hundreds of megabytes and gets deleted; the ledger row is what
+# survives it, and it is the only thing that can answer "did this commit make
+# the frame slower than last week's". Leaving the ingest as a SEPARATE command
+# meant a run on real hardware -- the scarcest kind -- could produce numbers
+# nobody ever recorded.
+record_history="yes"
 # Passed straight through to run_game.sh, so the warm build and the launch it
 # wraps both honour it. Empty means "cargo's default", which on an agent
 # worktree is the WHOLE machine -- see scripts/agent_worktree.sh jobs.
@@ -151,6 +158,8 @@ Census:
   --census-hz N           Workload census sample rate. Default: 1 (per second).
   --no-census             Do not set AMBITION_PROFILE_CENSUS. The bundle then
                            has no camera/view/entity/portal rows.
+  --no-record             Do not append this run's frame cost to the measurement
+                          ledger. The ledger row is what outlives the bundle.
 
 Options:
   -h, --help              Show this help.
@@ -259,6 +268,7 @@ while [[ $# -gt 0 ]]; do
         --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
         --census-hz=*) census_hz="${1#--census-hz=}" ;;
         --no-census) census="no" ;;
+        --no-record) record_history="no" ;;
         --include-perf-script) include_perf_script="yes" ;;
         --include-raw-data) include_raw_data="yes" ;;
         --no-raw-data) include_raw_data="no" ;;
@@ -1225,5 +1235,29 @@ main() {
     log "profiling bundle: file://$out_dir"
     log "read first:       file://$out_dir/summary.md"
     log "archive:          file://$tarball"
+    if [[ "$record_history" == "yes" ]]; then
+        # ⛔ NON-FATAL ON PURPOSE. A profiling run that succeeded must not report
+        # failure because the bookkeeping step did -- the expensive artifact is
+        # already on disk, and losing it to a `set -e` would be the worst
+        # possible trade.
+        # ⛔⛔ EXIT STATUS IS NOT ENOUGH, AND TRUSTING IT PRINTED A LIE ONCE.
+        # The ingest REFUSES a bundle that never reached a frame -- correctly,
+        # since a row of zeroes would read as an improvement -- and it refuses
+        # by returning 0. So "the command succeeded" and "a row was recorded"
+        # are different questions, and only the second one is worth announcing.
+        # Count the ledger instead.
+        local ledger before after
+        ledger="$repo_root/dev/ambition_dev_measurements/runtime_frame_cost.jsonl"
+        before="$(wc -l < "$ledger" 2>/dev/null || echo 0)"
+        python3 "$repo_root/scripts/lib/profile_bundle_to_history.py" "$out_dir" >&2 || true
+        after="$(wc -l < "$ledger" 2>/dev/null || echo 0)"
+        if [[ "$after" -gt "$before" ]]; then
+            log "ledger:           appended to dev/ambition_dev_measurements/runtime_frame_cost.jsonl"
+        else
+            log "WARNING: nothing was appended to the measurement ledger (see above)."
+            log "         The bundle is intact; ingest it by hand with:"
+            log "         python3 scripts/lib/profile_bundle_to_history.py $out_dir"
+        fi
+    fi
 }
 main

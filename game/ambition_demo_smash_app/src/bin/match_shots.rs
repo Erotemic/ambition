@@ -237,7 +237,14 @@ fn main() {
     // Past the ceremony: every fighter carries scripted control for the whole
     // 3-2-1-GO, so a shot inside the hold photographs bodies that are forbidden
     // to act. Read the count from the ruleset rather than restating it.
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    // ⛔ The roster's eight loose rule fields were folded into ONE `rules`
+    // (`MatchRules`) and this binary was not updated, so it has not compiled
+    // since. Nothing caught it: `required-features = ["visible", "capture"]`
+    // keeps it out of `cargo check -p ambition_app --all-targets` and out of
+    // every test run. A feature-gated binary is invisible to the gate.
+    let countdown = ambition_demo_smash::smash_roster(characters)
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as u32 + shots.after) {
         app.update();
     }

@@ -1046,11 +1046,29 @@ already draws and STILL culled them — the camera census reports `Main Camera
 layers=0+2+5` beside a `Front HUD Camera layers=1`, so the anchor almost
 certainly landed on a HUD sprite in screen space rather than a world one.
 
-⇒ ▢ **OPEN WORK, and it is a placement problem, not a measurement one:** the
-population has to land inside the world camera's frustum on a layer it draws.
-Someone with a GPU machine and a window can see where the sprites went in one
-glance; on a headless host it is guesswork. The knob and its abort guard are in
-place for exactly that.
+⛔⛔ **AND IT IS NOT A PLACEMENT PROBLEM. FOUR ATTEMPTS SETTLED THAT.** Origin
+grid: culled. Anchored on the first entity with `ViewVisibility`: culled — that
+matched a HUD sprite in SCREEN space, because presentation entities are the only
+ones carrying visibility at all. Anchored on `(&MatchSeat, &GlobalTransform)`:
+matched NOTHING and tripped the abort, because **this engine splits simulation
+from presentation** — the sim body carries `BodyKinematics` and the `Transform`
+lives on a separate projected entity. Anchored on the fighter's actual
+`BodyKinematics.pos`: **still `sprites_visible=5` with 1025 sprites present.**
+
+⇒ ⭐⭐ **THE FINDING IS ARCHITECTURAL: A RAW SPRITE IS NOT DRAWABLE IN THIS
+COMPOSITION.** The census reports `per_view_projections=6`; the engine's sprites
+are PROJECTED PER VIEW, not rendered from world entities directly. A sprite that
+is not part of that projection never becomes visible no matter where it is put.
+
+⇒ ▢ **A synthetic sprite benchmark here must go THROUGH the presentation
+projection, not around it** — spawn whatever the projection consumes and let it
+produce the render entities, or drive a real room that already contains hundreds.
+That is a different piece of work from a `--sprites N` knob, and it is the honest
+next step for the hundreds-of-sprites question.
+
+⭐ The abort guard earned its place twice: it turned a silent flat curve into an
+explicit failure naming exactly what was missing, which made the third diagnosis
+a two-minute read instead of another speculative run.
 
 ⭐⭐ **THE METHOD LESSON, THIRD INSTANCE TODAY.** Every one of these was caught by
 a SECONDARY number in the same census row while the primary looked fine:

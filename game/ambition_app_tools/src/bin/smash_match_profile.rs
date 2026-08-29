@@ -38,7 +38,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
 use ambition_platformer2d::characters::control::{ScriptedControl, SlotControls};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
@@ -102,16 +102,26 @@ fn spawn_scaling_sprites(world: &mut World, count: usize) {
     // a thousand invisible sprites and came out flat. A scaling curve whose
     // population is culled is worse than no curve, and only having
     // `sprites_visible` in the same census row caught it.
+    // ⛔⛔ ANCHOR ON A FIGHTER, NOT ON "ANY VISIBLE SPRITE". The previous version
+    // took the first entity with `ViewVisibility` set and still culled all
+    // thousand: the camera census reports `Main Camera layers=0+2+5` beside a
+    // `Front HUD Camera layers=1`, so "visible" matched a HUD sprite in SCREEN
+    // space and the grid landed nowhere the world camera looks. A `MatchSeat`
+    // body is world-space by definition and is what the match camera frames.
+    // ⛔⛔ THE FIGHTER'S POSITION IS IN `BodyKinematics`, NOT IN A `GlobalTransform`.
+    // Querying `(&MatchSeat, &GlobalTransform)` matched NOTHING and tripped the
+    // abort below even though the round was live — because this engine splits
+    // simulation from presentation: the sim body carries `BodyKinematics`, and
+    // the `Transform` lives on a separate presentation entity projected from it.
+    // Anchoring on the sim position is anchoring on where the fighter actually
+    // IS, which is what the match camera follows.
     let anchor = {
-        let mut visible = world.query::<(&ViewVisibility, &GlobalTransform)>();
-        visible
-            .iter(world)
-            .find(|(visibility, _)| visibility.get())
-            .map(|(_, transform)| transform.translation().truncate())
+        let mut seated = world.query::<(&MatchSeat, &BodyKinematics)>();
+        seated.iter(world).map(|(_, kin)| kin.pos).next()
     };
     let Some(anchor) = anchor else {
         eprintln!(
-            "[smash-profile] ABORT: no sprite is visible to anchor on, so the scaling \
+            "[smash-profile] ABORT: no seated fighter to anchor on, so the scaling \
              population would be culled and the curve would be meaningless"
         );
         std::process::exit(3);

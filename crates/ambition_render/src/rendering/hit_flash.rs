@@ -427,11 +427,37 @@ pub fn sync_hit_flash_overlays(
         // and we sidestep the InheritedVisibility-propagation gotcha
         // documented at the spawn site.
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
-        if let Some(material) = materials.get_mut(&material_handle.0) {
-            material.uv_rect = uv_rect;
-            material.control = Vec4::new(intensity, flip, 0.0, 0.0);
-            material.color_texture = source_sprite.image.clone();
-            material.tint = tint.extend(1.0);
+        // ⛔⛔ READ BEFORE WRITING, AND ONLY WRITE A CHANGE. `Assets::get_mut`
+        // MARKS THE ASSET MODIFIED, and a modified material is re-uploaded to the
+        // GPU that frame. These overlays are deliberately kept alive forever (see
+        // the visibility note above — the shader's `discard` makes an idle one
+        // free), so an unconditional `get_mut` re-uploaded EVERY overlay EVERY
+        // frame including the idle ones.
+        //
+        // Measured on hardware 2026-08-29:
+        // `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` cost **312.8us
+        // mean over 28,353 frames — 8.87s of the session**, the largest recurring
+        // cost in the trace, for an effect that is invisible most of the time.
+        //
+        // ⭐ The rule is already written down in this repo, in
+        // `converge_character_residency_to_active_quality`: *"it is READ first,
+        // because a `ResMut` deref-mut marks it changed for every reader
+        // downstream, every frame, forever."* Same defect, different asset.
+        let control = Vec4::new(intensity, flip, 0.0, 0.0);
+        let tint = tint.extend(1.0);
+        let unchanged = materials.get(&material_handle.0).is_some_and(|material| {
+            material.uv_rect == uv_rect
+                && material.control == control
+                && material.tint == tint
+                && material.color_texture == source_sprite.image
+        });
+        if !unchanged {
+            if let Some(material) = materials.get_mut(&material_handle.0) {
+                material.uv_rect = uv_rect;
+                material.control = control;
+                material.color_texture = source_sprite.image.clone();
+                material.tint = tint;
+            }
         }
     }
 }

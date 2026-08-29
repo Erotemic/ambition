@@ -885,7 +885,18 @@ mod live_quality_apply {
                 .resource_mut::<CharacterLoadDemand>()
                 .request(cid);
         }
+        // ⚠ TWO characters, so this needs TWO frames: the materializer starts at
+        // most `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` per frame, deliberately, so
+        // that a fighter's ~470MB of sheets do not all land on one frame. This
+        // test is about which TIER the pixels come from, not about pacing, so it
+        // steps until the demand is drained.
         finalize_and_update(&mut app);
+        for _ in 0..8 {
+            if app.world().resource::<CharacterLoadDemand>().is_empty() {
+                break;
+            }
+            finalize_and_update(&mut app);
+        }
 
         // The fixture must actually be mixed, or it proves nothing.
         let scaled_path = resident_image_path(&app, &scaled)
@@ -1172,4 +1183,64 @@ fn without_a_roster_nothing_is_demanded() {
         0,
         "demand appeared from nowhere, so the roster test proves nothing"
     );
+}
+
+/// ⭐⭐ A FRAME MAY START ONE CHARACTER, AND THE REST MUST SURVIVE TO THE NEXT.
+///
+/// A character is ~7 sheets at 4096x4096 (~470MB of RGBA), and draining the whole
+/// demand set in one frame is what put `extract_render_asset<GpuImage>` at 454.9ms
+/// inside a 516ms frame on hardware. `take_bounded` spreads the STARTS so the
+/// finishes land on different frames.
+///
+/// ⛔ THE SECOND ASSERTION IS THE ONE THAT MATTERS: a limit that DROPPED the
+/// remainder would also "fix" the hitch, by never loading the other fighter.
+#[test]
+fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
+    use super::CharacterLoadDemand;
+
+    let mut demand = CharacterLoadDemand::default();
+    for token in ["author", "noether", "perfect_cellular_automaton"] {
+        demand.request(token);
+    }
+
+    let first = demand.take_bounded(1);
+    assert_eq!(first.len(), 1, "one frame may start exactly one character");
+    assert_eq!(
+        demand.pending().count(),
+        2,
+        "the characters not started must remain PENDING — dropping them would \
+         hide the hitch by never loading the other fighter"
+    );
+
+    let second = demand.take_bounded(1);
+    let third = demand.take_bounded(1);
+    assert_eq!(demand.pending().count(), 0, "everything is eventually taken");
+
+    let mut all: Vec<String> = first.into_iter().chain(second).chain(third).collect();
+    all.sort();
+    assert_eq!(
+        all,
+        vec![
+            "author".to_string(),
+            "noether".to_string(),
+            "perfect_cellular_automaton".to_string()
+        ],
+        "every demanded character is taken exactly once across the frames"
+    );
+}
+
+/// A limit of zero, or a set smaller than the limit, takes everything — so the
+/// bound can never strand a token.
+#[test]
+fn an_unbounded_or_undersized_take_drains_completely() {
+    use super::CharacterLoadDemand;
+
+    let mut demand = CharacterLoadDemand::default();
+    demand.request("author");
+    assert_eq!(demand.take_bounded(4).len(), 1);
+    assert_eq!(demand.pending().count(), 0);
+
+    demand.request("noether");
+    assert_eq!(demand.take_bounded(0).len(), 1, "a zero limit means unbounded");
+    assert_eq!(demand.pending().count(), 0);
 }

@@ -2222,6 +2222,291 @@ system could satisfy the assertion and the roster path could be dead code.
 Poisoned (the request loop removed) it fails with `got []`. 1150 monolith tests
 green, gate clean.
 
+⚠⚠ **THE SIZE OF THE HEAD START IS NOT MEASURED, AND I TRIED.** The unit test
+proves the roster path RAISES demand with no body present; it says nothing about
+how many frames earlier that is in a real match, and if the answer were ZERO the
+change would buy nothing. An integration test was written and **REMOVED rather
+than left `#[ignore]`d**: `build_demo_app()` boots to CHARACTER SELECT and
+publishes no roster at all (600 frames, none), and inserting a roster plus routing
+to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced no
+`MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
+debugging test plumbing, not the engine.
+
+#### ▢ `enforce_session_contract` REBUILDS A 40KB STRING AND HASHES IT, EVERY FRAME
+
+**292.3us mean over 28,353 frames = 8.29s, max 13.4ms** — the second largest
+recurring zone in the hardware trace. The cause is three lines:
+
+```rust
+let current_schema = world
+    .get_resource::<RollbackRegistry>()
+    .cloned()                     // deep-clones a BTreeMap of ~450 descriptors
+    .unwrap_or_default()
+    .schema_fingerprint();        // schema_dump() -> a ~40KB String -> blake3
+```
+
+⇒ every frame it (1) DEEP-CLONES the whole registry, (2) builds the entire schema
+DUMP as a string — the same ~400-line TSV that
+`game/ambition_app/tests/rollback_schema_baseline.txt` records — and (3) blake3es
+it. To detect a change that can only happen when `RollbackRegistry` itself
+changes, which after startup is **never**.
+
+⇒ **THREE FIXES, IN INCREASING VALUE:**
+1. Drop the `.cloned()` — `schema_fingerprint` takes `&self`. It is there to dodge
+   a borrow against the later `&mut World`, and computing the fingerprint inside
+   the borrow removes the need.
+2. **Do not recompute at all unless the registry changed.** The contract resource
+   ALREADY stores the expected `schema`; the only reason to re-derive is a
+   registry that moved. ⚠ needs care with exclusive-system change ticks.
+3. Memoize the fingerprint on the registry, so every other caller stops paying too.
+
+✔✔ **FIXED 2026-08-29 BY MEMOISING THE FINGERPRINT — FIX 3, AND DELIBERATELY NOT
+FIX 2.** I first wrote fix 2 (skip the recompute unless
+`RollbackRegistry::is_changed()`) and **reverted it**: it compiled, but it puts new
+logic on the path that decides whether a live session is still valid, and there is
+NO test covering that invalidation — building one needs a real GGRS session. A
+change-detection subtlety there fails silently and is load-bearing.
+
+⭐ **THE MEMO IS BEHAVIOUR-IDENTICAL, WHICH IS WHY IT IS THE SAFE ONE.**
+`schema_fingerprint` caches into a `OnceLock` on the registry and returns the same
+value it always did, so every existing schema and baseline test still pins it.
+Soundness rests on `entries` having **exactly one mutation site** — the `insert` in
+`try_register` — which clears the memo; `entries` stays private so a second path
+cannot appear silently. `Clone` is hand-written to start with an EMPTY memo, so a
+clone that is then mutated cannot answer for entries it no longer has.
+
+⚠ **TWO GUARDS, AND THE FIRST ONE FAILS UNDER POISON:** removing the invalidation
+makes `registering_after_reading_the_fingerprint_changes_it` fail with *"the memo
+is stale"*; `a_clone_agrees_with_its_source_and_still_notices_its_own_changes`
+covers the clone. 56/56 rollback tests, 45 runtime tests, gate clean.
+
+⭐ **ALSO SEEN IN THE SAME SWEEP, AND IT IS THE LARGEST RECURRING SYSTEM OF ALL:**
+`update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — more
+than the hit-flash material (8.87s) or the session contract (8.29s) — at 178.3us
+mean over **56,706 calls against 28,353 frames, exactly twice per frame**.
+
+✔ **THE "TWICE" IS NOT A DEFECT, AND I CHECKED BEFORE FILING ONE.** There is only
+ONE production registration (`platformer2d_host/src/lib.rs:203`), and leafwing
+0.20 adds the system twice ON PURPOSE: once in `PreUpdate` for the variable-rate
+frame, and once in `RunFixedMainLoop`/`BeforeFixedMainLoop` with its own comment —
+*"we want to update the ActionState only once, even if the FixedMain schedule runs
+multiple times."* ⇒ the count is correct.
+
+▢ **WHAT IS OPEN IS THE UNIT COST: 178.3us for ONE input update is a lot**
+(~356us/frame traced, ~149us real). It scales with entities x actions, and the
+type is called a MONOLITH for a reason. ⇒ the lever is the size of the action
+enum or the number of `ActionState` entities, which is an architecture question,
+not a quick fix. ⛔ Do not "fix" the double registration; it is the library's
+design and removing one arm breaks either the frame or the fixed tick.
+
+⚠ `bevy_framepace::framerate_limiter` (1080us) and `render_system` (1078us) are
+the VSync wait and the render itself: expected, not findings.
+
+#### ⛔ THE LARGEST RECURRING COST IN THE TRACE IS AN INVISIBLE EFFECT RE-UPLOADING ITSELF
+
+`prepare_assets<PreparedMaterial2d<HitFlashMaterial>>`: **312.8us mean over 28,353
+frames = 8.87s of the session** — the biggest recurring zone in the hardware
+trace, for an effect that is invisible most of the time.
+
+⭐ **CAUSE, IN ONE LINE:** `sync_hit_flash_overlays` called
+`materials.get_mut(&handle)` unconditionally every frame. **`Assets::get_mut`
+MARKS THE ASSET MODIFIED**, and a modified material is re-uploaded to the GPU that
+frame. These overlays are deliberately kept alive forever — the shader's `discard`
+arm makes an idle one free to DRAW — so every idle overlay was re-uploaded every
+frame anyway.
+
+⭐⭐ **AND THE RULE WAS ALREADY WRITTEN DOWN IN THIS REPO, ON A DIFFERENT ASSET.**
+`converge_character_residency_to_active_quality` says: *"NOT `Res`: this writes.
+But it is READ first, because a `ResMut` deref-mut marks `GameAssets` changed for
+every reader downstream, every frame, forever."* Same defect, same fix, one crate
+apart. ⇒ read, compare, write only a real change.
+
+✔ **GATED 2026-08-29 once space was reclaimed** — `cargo check -p ambition_render`
+and `cargo check -p ambition_app --all-targets` both clean. The field-wise
+comparison needs no new derive (`Vec4` and `Handle<Image>` are `PartialEq`).
+⚠ The debt was real while it lasted: the change sat committed and uncompiled,
+which is why it was labelled rather than assumed correct.
+
+⚠ Tracy inflates ~2.4x, so the real figure is ~130us/frame — **~1.7% of a 7.77ms
+frame**. Worth taking because it is constant and free, not because it is large.
+
+#### ⭐⭐⭐ THE DEV BUILD IS 42% SLOWER THAN IT NEEDS TO BE, AND THAT IS THE BUILD JON PLAYS
+
+**MEASURED 2026-08-29, three reps per arm, headless `smash_match_profile --ticks
+4000`, medians of per-second census windows after warmup:**
+
+| arm | reps (ms) | median |
+|---|---|---|
+| A — `ambition_render` / `..._runtime` / `ambition_app` pinned at `opt-level = 0` (SHIPPED) | 5.07, 5.12, 5.20 | **5.12** |
+| B — the same three raised to `opt-level = 1` | 3.02, 2.96, 2.89 | **2.96** |
+
+⇒ **-42%, and the two ranges DO NOT OVERLAP** (5.07–5.20 against 2.89–3.02), so
+this is far outside the 4–7% noise floor and needed no interleaving to see.
+
+⛔⛔ **AND THE REASON THE PINS EXIST IS THE REASON THEY ARE WRONG.** The comment
+justifying `ambition_render` at zero says render never runs in the HEADLESS
+benchmark — true, and exactly the wrong test for the build somebody PLAYS. Worse,
+the measurement above is headless too, so `ambition_render` contributes almost
+nothing to that 42%: it is `ambition_platformer2d_runtime` and `ambition_app`
+alone. **A windowed run should show MORE, not less.**
+
+⭐⭐ **THIS RECONCILES THE WHOLE CAMPAIGN WITH JON'S EXPERIENCE.** Every profile
+bundle is built `--profile profiling` (release-optimised), and every headless
+number was `dev`. "The engine is fast" and "the game feels slow" were measurements
+of two different binaries. ⇒ the four-times-under-budget headroom is real for the
+SHIPPED build and substantially smaller for the DEVELOPMENT one.
+
+▢ **NOT CHANGED — THE ROW SAID MEASURE FIRST, AND THE OTHER HALF OF THE TRADE IS
+STILL UNMEASURED.** The pins buy compile time, which is why they were added.
+⇒ owed: rebuild cost for those three crates at `opt-level` 0 vs 1 (the repo
+already tracks `compile_cost.jsonl`), then a proposal that states both numbers.
+⛔ Do not raise them on the strength of the runtime number alone.
+
+#### ⛔⛔ THE 516ms FRAME IS *EXTRACT*, NOT DECODE — AND THAT REDIRECTS THE FIX
+
+**I was about to make decode asynchronous. It already is.** Asking `tracy_zones.csv`
+instead of assuming:
+
+```text
+454.9ms max   0.1ms mean  n=28353  system{extract_render_asset<GpuImage>}
+455.7ms max                        schedule{name=ExtractSchedule}
+455.8ms max   0.6ms mean  n=28353  sub app{name=RenderExtractApp}
+617.7ms max 123.7ms mean  n=5      asset loading{ImageLoader "perfect_cellular_automaton_spritesheet.png"}
+486.7ms max 121.7ms mean  n=4      asset loading{ImageLoader "..._spritesheet.3.png"}
+```
+
+⇒ the `asset loading` zones are **async loader tasks on the IO pool** — long, but
+NOT on the frame. What is on the frame is
+`extract_render_asset<GpuImage>` at **454.9ms against a 0.1ms mean over 28,353
+frames**: the main-world → render-world copy of the decoded images.
+
+⭐⭐ **THE MECHANISM, STATED PROPERLY:** several ~16.8MP (4096x4096, ~67MB RGBA)
+sheets finish decoding at about the same time, and every one of them is extracted
+in the SAME frame. The hitch is not how long a decode takes; it is **how many
+finished decodes land together**.
+
+⇒ **THE LEVERS ARE THEREFORE DIFFERENT FROM THE ONES THE ROW ASSUMED:**
+1. **PACE WHAT BECOMES READY.** Nothing bounds how many big images complete in one
+   frame. ⭐ This is also why demanding at match PREP helps: it spreads completion
+   across preparation frames instead of piling it on the opening bell.
+2. **`RenderAssetUsages`** — an image kept in both worlds pays the copy; one that
+   only the render world needs can drop the CPU side.
+3. **Fewer bytes** (a GPU-compressed format) shrinks the copy itself, but that is a
+   content-pipeline change.
+⛔ **"Make decode async" is NOT on that list, because it already is.** Do not
+re-derive it from the megapixel correlation: the correlation is real and the
+mechanism it implies is wrong.
+
+✔✔ **LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.**
+`CharacterLoadDemand::take()` was `std::mem::take` — it drained the WHOLE demand
+set in one frame, so every fighter's sheets started loading together, finished
+together, and extracted together. `take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME
+= 1)` leaves the rest PENDING for the next frame.
+
+⭐ **IT DEFERS, IT DOES NOT DROP — AND THAT IS THE ASSERTION THAT MATTERS.** A
+bound that discarded the remainder would also "fix" the hitch, by never loading
+the second fighter. `bounding_the_take_defers_the_rest_instead_of_dropping_it`
+pins that every demanded token is taken exactly once across frames, and
+`an_unbounded_or_undersized_take_drains_completely` pins that the bound can never
+strand one. The split is over a `BTreeSet`, so which token goes first is
+deterministic — a rollback host needs that and a `HashSet` could not promise it.
+
+⚠ **THIS ONLY WORKS BECAUSE DEMAND MOVED UPSTREAM.** Spreading starts across
+frames costs frames; raising demand at match PREPARATION is what supplies them.
+The two changes are one design.
+
+⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
+`resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
+characters and stepped ONE frame, expecting both resident. It now steps until the
+demand drains. ⇒ "demand is satisfied within one update" was never written down
+but was depended on; anything that assumes it must now step. 1152 monolith tests,
+39 smash tests, gate clean.
+
+⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
+startup/shutdown, not gameplay — do not read them as spikes.
+
+##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
+
+The `<runtime-generated>` decodes the summary flagged are **portal capture
+targets**, and they are not spread out — 16 at 2048x512 and 12 at 512x2048, all
+created in ONE frame. Attributed end to end from the bundle:
+
+```text
+170.253s  room-transition begin  central_hub_complex -> portal_lab
+170.280s  room-loaded portal_lab
+170.308s  28 render targets created (16x 2048x512, 12x 512x2048)
+170.360s  51.2ms frame        170.399s  39.2ms frame
+```
+
+and `portal_activity.csv` across the same seconds: `rigs=0` → **`rigs=14,
+active=0`** → `rigs=14, active=2`.
+
+⇒ **entering `portal_lab` allocates 14 rigs' worth of capture targets — 28 images,
+~29MP, ~117MB — in a single frame, and TWO are ever active.** `max_active_captures`
+is 4. ⚠ `min_refresh_interval_s = 0.000`: no floor on recapture rate either.
+
+⇒ **allocate a rig's targets on first ACTIVATION, or bound allocation by
+`max_active_captures`.** ⭐ This is a different defect from the sheet extract: same
+symptom (a burst of image work on one frame), different cause (eager allocation
+rather than unpaced completion), and it is a DEMO ROOM, not the match — so it does
+not touch the Smash hitch and should not be bundled with it.
+
+##### ▢ `RenderAssetUsages::RENDER_WORLD` IS AVAILABLE FOR LOADED SHEETS — AND IT WILL LIE TO THE INSTRUMENT
+
+**Checked, not assumed: nothing reads the pixels of a LOADED sprite sheet.** The
+only three CPU-side readers of `Image::data` in the tree are all on
+RUNTIME-CREATED images — `runtime_census.rs:380` (the census), `bubble_shield.rs`
+:320, and `falling_sand.rs:1263`. Sheets loaded from disk are drawn, never
+sampled. ⇒ dropping their main-world copy is open, and it is the lever for the
+**2.62GB resident**, not for the hitch.
+
+⛔⛔ **BUT THE CENSUS COMPUTES `decoded_bytes` FROM `image.data`, SO DROPPING THE
+CPU COPY MAKES THE INSTRUMENT REPORT LESS WHETHER OR NOT MEMORY IMPROVED.**
+`images_resident` would fall too. Some of that drop is real memory saved and some
+of it is the instrument going blind, and the readout cannot tell them apart.
+⇒ **before making that change, teach the census to report the bytes it can no
+longer see** (the loader knows width x height x format) or the next run will show
+a spectacular fake win. Same family as every other instrument trap in this file:
+the number moved because the measurement changed.
+
+⚠ And it does NOT fix the 516ms: `extract_render_asset` still copies once. It
+shrinks what stays resident afterwards.
+
+#### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
+
+⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY
+FIXED.** `report_image_census` reads `State<GameMode>` and stamps every notable
+decode with `live=0`/`live=1`; `live=1` means it landed while gameplay was running
+— a frame the player felt. `image_decodes.csv` gains a `during_gameplay` column,
+and `summary.md` leads the assets section with **"N of M notable decodes happened
+DURING GAMEPLAY"** and the worst offenders by megapixels.
+
+⛔⛔ **`live=` IS EMITTED ON BOTH BRANCHES, AND THAT IS THE WHOLE DESIGN.** The
+first version marked only the late ones — so re-parsing an OLDER log, recorded
+before the marker existed, would have set every row to "not late" and printed a
+reassuring **✔ no notable texture decoded while gameplay was live**. That is a
+count of zero from an instrument that never reported the category. With `live=`
+on both branches its ABSENCE is distinguishable, the column is written EMPTY, and
+the summary says *"this bundle predates late-decode marking, so whether any decode
+landed during gameplay is UNKNOWN here, not zero."*
+✔ Verified by re-parsing the 2026-08-29 bundle's own log: 155 rows, `known=False`,
+branch = UNKNOWN.
+
+⚠ A warning, not an error — a legitimately late asset exists (an unpredictable
+summon, a dev spawn). What is never legitimate is not knowing.
+
+⚠ **NAMED GROUPS AFTER A NEAR-MISS:** adding one optional group to the parser
+silently renumbered `path`, which the round-trip test caught. Every field is
+named now.
+
+⭐ **WHAT DOES SUPPORT THE HEAD START IS THE RIG'S OWN CODE:** `place_at` is
+documented to return *"false until both seats are present, so the caller keeps
+trying"*, and `run_bout_at` inserts the roster and THEN loops `app.update()`
+waiting for seating. Seating demonstrably lags roster publication. ⇒ the direction
+is right and the magnitude is unknown. ▢ The honest way to get the number is the
+NEXT WINDOWED PROFILE — `asset_activity.csv` should show the decode burst moving
+off the opening bell — not another harness.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

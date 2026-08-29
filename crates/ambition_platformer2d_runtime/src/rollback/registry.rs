@@ -132,9 +132,27 @@ pub struct RollbackRegistrationDescriptor {
     pub detail: String,
 }
 
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Resource, Debug, Default)]
 pub struct RollbackRegistry {
     entries: BTreeMap<String, RollbackRegistrationDescriptor>,
+    /// Memoised [`Self::schema_fingerprint`]. See that method for why.
+    ///
+    /// ⭐ SOUND BECAUSE `entries` HAS EXACTLY ONE MUTATION SITE — the `insert` in
+    /// `try_register` — which clears this. A second mutation path would have to
+    /// clear it too, which is why `entries` stays private.
+    fingerprint: std::sync::OnceLock<SnapshotSchemaFingerprint>,
+}
+
+// ⛔ HAND-WRITTEN because `OnceLock` is not `Clone`. A clone starts with an EMPTY
+// memo rather than copying it: same value on next demand, and no risk of a clone
+// carrying a fingerprint its own entries no longer justify.
+impl Clone for RollbackRegistry {
+    fn clone(&self) -> Self {
+        Self {
+            entries: self.entries.clone(),
+            fingerprint: std::sync::OnceLock::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -285,6 +303,8 @@ impl RollbackRegistry {
             });
         }
         self.entries.insert(descriptor.name.clone(), descriptor);
+        // The memo describes the entry set that just changed.
+        self.fingerprint = std::sync::OnceLock::new();
         Ok(RollbackRegistrationOutcome::Inserted)
     }
 
@@ -366,7 +386,29 @@ impl RollbackRegistry {
             .collect()
     }
 
+    /// ⛔⛔ MEMOISED SINCE 2026-08-29, BECAUSE IT WAS COSTING 292us OF EVERY FRAME.
+    /// `enforce_session_contract` calls this once per frame to notice a schema
+    /// that changed under a live session. Uncached that meant building the entire
+    /// schema DUMP as a ~40KB `String` — the same table
+    /// `rollback_schema_baseline.txt` records — and blake3ing it, 60+ times a
+    /// second, to detect a change that can only happen when `entries` is mutated:
+    /// **8.29s of a four-minute hardware run, the second largest recurring zone
+    /// in the trace.**
+    ///
+    /// ⭐ The VALUE is unchanged, which is the point — this is a pure memo, so
+    /// every existing schema/baseline test still pins the same fingerprint and
+    /// no new correctness surface appears. `try_register` clears it.
     pub fn schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
+        if let Some(memo) = self.fingerprint.get() {
+            return memo.clone();
+        }
+        let computed = self.compute_schema_fingerprint();
+        // A racing caller may have filled it first; either value is identical.
+        let _ = self.fingerprint.set(computed.clone());
+        computed
+    }
+
+    fn compute_schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"ambition.ggrs-rollback-schema\0");
         hasher.update(&GGRS_ROLLBACK_SCHEMA_VERSION.to_le_bytes());
@@ -430,6 +472,63 @@ pub fn record_descriptor(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ THE GUARD ON THE FINGERPRINT MEMO, AND IT IS THE WHOLE REASON THE MEMO
+    /// IS SAFE. `schema_fingerprint` caches into a `OnceLock`; if `try_register`
+    /// ever stops clearing it, this registry would keep reporting a fingerprint
+    /// its own entries no longer justify — and a stale schema fingerprint is
+    /// exactly what `enforce_session_contract` exists to catch, so the failure
+    /// would be silent AND load-bearing.
+    #[test]
+    fn registering_after_reading_the_fingerprint_changes_it() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(entry("a", "owner", "detail"))
+            .expect("first registration");
+        // Read it FIRST, so the memo is populated before the mutation.
+        let before = registry.schema_fingerprint();
+        // ...and reading twice must agree, or the memo is not a memo.
+        assert_eq!(
+            before,
+            registry.schema_fingerprint(),
+            "two reads with no mutation between them disagreed"
+        );
+
+        registry
+            .try_register(entry("b", "owner", "detail"))
+            .expect("second registration");
+        assert_ne!(
+            before,
+            registry.schema_fingerprint(),
+            "a registration after the fingerprint was memoised did not change it — \
+             the memo is stale, and a stale schema fingerprint is what \
+             enforce_session_contract cannot afford to be wrong about"
+        );
+    }
+
+    /// A CLONE must not inherit a memo, because a clone that is then mutated
+    /// would otherwise answer for entries it no longer has.
+    #[test]
+    fn a_clone_agrees_with_its_source_and_still_notices_its_own_changes() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(entry("a", "owner", "detail"))
+            .expect("registration");
+        let _ = registry.schema_fingerprint();
+        let mut copy = registry.clone();
+        assert_eq!(
+            registry.schema_fingerprint(),
+            copy.schema_fingerprint(),
+            "a clone of the same entries must fingerprint the same"
+        );
+        copy.try_register(entry("b", "owner", "detail"))
+            .expect("registration on the clone");
+        assert_ne!(
+            registry.schema_fingerprint(),
+            copy.schema_fingerprint(),
+            "the clone changed and still reported the source's fingerprint"
+        );
+    }
 
     fn entry(name: &str, owner: &str, detail: &str) -> RollbackRegistrationDescriptor {
         RollbackRegistrationDescriptor {

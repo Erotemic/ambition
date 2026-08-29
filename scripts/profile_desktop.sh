@@ -607,6 +607,28 @@ finish_tracy_capture() {
     fi
     python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
         || log "tracy zone report failed; tracy_zones.csv is still in the bundle"
+    # ⛔⛔ AND THEN DROP IT: THIS INTERMEDIATE REACHED **90.6 GB** IN ONE BUNDLE.
+    # `--unwrap` emits a row per zone INSTANCE, and a Tracy-on run of this game
+    # emits ~4,000 zones per frame — 113.9 million rows for a four-minute
+    # session. Two bundles held 118GB between them and filled a 484GB disk to
+    # 100%, which stopped every build in the repo.
+    #
+    # ⭐ Nothing reads it after this point: `tracy_zone_report.py` has already
+    # reduced it to the per-window tables, and every other consumer (the summary,
+    # this file's own analysis) reads the AGGREGATE `tracy_zones.csv`.
+    # ⇒ it is a regenerable intermediate, and `tracy.trace` beside it is the
+    # thing that regenerates it — at ~3% of the size.
+    if [[ -f "$out_dir/tracy_zone_instances.csv" ]]; then
+        local instances_bytes
+        instances_bytes="$(stat -c %s "$out_dir/tracy_zone_instances.csv" 2>/dev/null || echo 0)"
+        rm -f "$out_dir/tracy_zone_instances.csv"
+        printf '%s\n' \
+            "removed after the zone report was built: it was ${instances_bytes} bytes." \
+            "Regenerate with:" \
+            "  tracy-csvexport --unwrap tracy.trace > tracy_zone_instances.csv" \
+            > "$out_dir/tracy_zone_instances.removed"
+        log "tracy zone instances pruned (${instances_bytes} bytes; regenerate from tracy.trace)"
+    fi
 }
 
 describe_window() {

@@ -264,6 +264,35 @@ derived view every frame. Their inputs change on events (a binding swap, a room
 transition, a spawn), not continuously. These are individually small and
 collectively the shape of the frame.
 
+⭐⭐ **CLOSED 2026-08-29. ONE WAS ALREADY DONE, AND THE OTHER THREE ARE BOUNDED
+TOO SMALL TO FUND.**
+
+**`rebuild_control_prompt` already carries the gate this section asks for** — and
+a careful one: it keys on resource-PRESENCE bits as well as `is_changed()`,
+because `Option<Res<T>>` cannot report its own removal, and it invalidates on
+rebind, on pad swap (spelling changes without the binding moving) and on a naming
+flip. Its own comment records the payoff: *"this was ~1.4% of frame CPU
+re-deriving an identical scheme"*. ⛔ **The 31.8us/frame above is STALE.**
+
+**The other three are priced by the phase they sit in, using the sim-phase census
+already in hand — no new measurement needed:**
+
+| system | phase | phase total |
+|---|---|---|
+| `rebuild_feature_view_index` | `FeatureViewSync` | **0.000ms** |
+| `sync_ecs_actors_with_save` | `Progression` | 0.054ms |
+| `rebuild_attack_vfx_views` | `PresentationVisualSync` + `PresentationSync` | 0.074 + 0.007ms |
+
+⇒ all three together are bounded UNDER ~0.14ms of a 4.45ms frame, and each is a
+FRACTION of its phase — `FeatureViewSync` rounds to zero, so that one cannot pay
+at all. ⛔ Against that, a change-detection conversion risks a STALE DERIVED VIEW,
+which is a player-visible bug (a prompt naming the wrong button), and the
+control-prompt implementation shows how much care correctness takes. **Not
+funded.**
+
+⭐ The method is the point: **bound the prize from data already collected before
+paying for the work.** A phase total is a ceiling on every system inside it.
+
 ### 5. Dev instrumentation is a top-five per-frame cost in an OPTIMIZED build
 
 `dev::trace::record_actor_oob_frame_system` (40.5us/frame) and

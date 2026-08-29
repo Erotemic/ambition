@@ -82,6 +82,26 @@ Use #1 to answer "where did startup go" without any tooling. Use #2
 when a regression slips in or a frame spends time in places #1 can't
 see.
 
+## 00. "THE GAME FEELS SLOW" — CHECK THE MACHINE BEFORE YOU PROFILE
+
+⭐⭐ **MEASURED 2026-08-29, AND IT IS THE MOST COMMON WRONG TURN.** On a quiet host
+a 2-fighter Smash match runs a **4.31ms mean against the 16.67ms 60Hz budget** and
+**zero of 5,164 match frames exceeded that budget**. Put six busy loops on the same
+box and frames over 8ms go from **0.9% to 11.8% — 13x — while the median moves
+6.8%.** The tail is dominated by CONTENTION, not by the engine.
+
+⇒ before opening a profiler:
+
+```bash
+uptime            # load average: is anything else on this box?
+# and in-game: UserSettings::video::show_fps turns on the existing FPS overlay
+```
+
+⛔ **A slow-feeling session with a compile, a test suite, or another agent running
+is a slow MACHINE, not a slow game** — several "dropped frame" readings recorded
+during the efficiency campaign turned out to be that campaign's own builds. Rule
+out load first; it costs one command and it was the answer.
+
 ## 0. MEASURE THE NOISE FLOOR FIRST — before designing any probe
 
 ⛔⛔ **DO THIS BEFORE YOU MEASURE ANYTHING YOU INTEND TO ACT ON.** The single

@@ -93,6 +93,12 @@ impl Plugin for AmbitionContentPlugin {
             app.add_systems(
                 bevy::prelude::Update,
                 super::yarn_vocabulary::refresh_yarn_state_mirror
+                    // ⭐ Only while a conversation is live — the mirror's only
+                    // reader is a Yarn `<<if>>`. See the system's own docs for
+                    // why the gate is conversation liveness and NOT dialog-box
+                    // presence: the mirror must be fresh on the frame the `<<if>>`
+                    // runs, and a presentation gate is one frame late.
+                    .run_if(super::yarn_vocabulary::a_conversation_is_live)
                     .in_set(ambition_dialog::YarnStateMirrorRefreshed)
                     .after(ambition_dialog::YarnPresentationCueCleared),
             );

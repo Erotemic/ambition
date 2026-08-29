@@ -50,10 +50,43 @@ pub fn install_game_bindings(
     register_functions(runner, mirror);
 }
 
-/// Per-frame refresh: copy the relevant slices of [`AmbitionGameSave`]
-/// into the mirror so Yarn functions read consistent values for the
-/// duration of a single tick. Runs unconditionally — cheap because
-/// the data is small (flags/bosses/quests are short Vecs).
+/// Run condition: a conversation is live, so the Yarn mirror has a reader.
+///
+/// ⭐⭐ DEFINED ONCE ON PURPOSE. Two systems feed this mirror and both used to
+/// run every frame of every room; the shape this campaign keeps finding is a
+/// predicate hand-copied into three files and consulted by nobody, so this one
+/// gets written down once and imported.
+///
+/// ⛔ IT IS CONVERSATION LIVENESS, NOT DIALOG-BOX PRESENCE. The mirror must be
+/// fresh on the frame a Yarn `<<if>>` evaluates; a presentation-shaped gate is
+/// one frame late and would feed the script a stale snapshot.
+pub fn a_conversation_is_live(
+    conversation: Option<bevy::prelude::Res<ambition_conversation::ActiveConversation>>,
+) -> bool {
+    conversation.is_some_and(|conversation| conversation.is_live())
+}
+
+/// Refresh the mirror so Yarn functions read consistent values for the duration
+/// of a single tick.
+///
+/// ⛔⛔ IT NO LONGER RUNS UNCONDITIONALLY, and the claim it used to carry —
+/// *"cheap because the data is small"* — had gone stale. Every frame of every
+/// room, in a Smash match as much as in a conversation, this took a WRITE guard
+/// on the mirror's `RwLock` and rebuilt three collections with a `String` clone
+/// per element. Two of them are bounded by content (`bosses`, `quests`); the
+/// third is not: `dialog_visits` GROWS MONOTONICALLY WITH PLAYTIME, so the
+/// per-frame cost of a save's dialogue history rises for as long as somebody
+/// keeps playing.
+///
+/// ⭐ The only reader is a live Yarn `<<if>>`, so the gate is exactly
+/// "a conversation is live". ⚠ AND IT MUST BE THAT, not "a dialog box is
+/// drawn": the mirror has to be fresh on the frame the `<<if>>` evaluates, and a
+/// presentation-shaped gate would hand it a one-frame-stale snapshot.
+///
+/// ⚠ NOT MEASURED. The cost tracks save-data size, not frame count, so on a
+/// fresh match it is small and on a long save it is not — and this machine's
+/// noise floor could not resolve either. It is fixed because unbounded per-frame
+/// work for a reader that is usually absent is wrong at any size.
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
     wallet: Query<
@@ -226,9 +259,7 @@ pub fn cmd_restore_brain(
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<
-        ambition_items::ItemGrantRequested,
-    >,
+    mut narrative: NarrativeInputWriter<ambition_items::ItemGrantRequested>,
 ) {
     let Some(request) = item_grant(&kind, count) else {
         warn!(
@@ -245,42 +276,34 @@ pub fn cmd_give_item(
 /// a purchase choice; the affordability check lives in [`ambition_items::shop::buy`].
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<
-        ambition_items::shop::ShopTransactionRequested,
-    >,
+    mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
 ) {
     let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
-    narrative.write(
-        ambition_items::shop::ShopTransactionRequested {
-            item,
-            price: price.max(0.0) as i32,
-            side: ambition_items::shop::ShopSide::Buy,
-        },
-    );
+    narrative.write(ambition_items::shop::ShopTransactionRequested {
+        item,
+        price: price.max(0.0) as i32,
+        side: ambition_items::shop::ShopSide::Buy,
+    });
 }
 
 /// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
 /// wallet if the player owns it. See [`ambition_items::shop::sell`].
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<
-        ambition_items::shop::ShopTransactionRequested,
-    >,
+    mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
 ) {
     let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
-    narrative.write(
-        ambition_items::shop::ShopTransactionRequested {
-            item,
-            price: price.max(0.0) as i32,
-            side: ambition_items::shop::ShopSide::Sell,
-        },
-    );
+    narrative.write(ambition_items::shop::ShopTransactionRequested {
+        item,
+        price: price.max(0.0) as i32,
+        side: ambition_items::shop::ShopSide::Sell,
+    });
 }
 
 /// Pure core of [`cmd_give_item`]: resolve a loosely-spelled kind and a Yarn
@@ -291,20 +314,15 @@ pub fn cmd_sell_item(
 /// `f32`-typed, so "1.9 potions" is a parsing question and belongs on the side
 /// that speaks Yarn. An applier that re-decided it would be a second place for
 /// the rule to live and drift.
-fn item_grant(
-    kind: &str,
-    count: f32,
-) -> Option<ambition_items::ItemGrantRequested> {
+fn item_grant(kind: &str, count: f32) -> Option<ambition_items::ItemGrantRequested> {
     if count <= 0.0 {
         return None;
     }
     let item = ambition_items::Item::from_dialog_id(kind)?;
-    Some(
-        ambition_items::ItemGrantRequested {
-            item,
-            count: count as u32,
-        },
-    )
+    Some(ambition_items::ItemGrantRequested {
+        item,
+        count: count as u32,
+    })
 }
 
 /// `<<spawn_chest "id">>` — spawn a reward chest by id. Logged-stub;
@@ -480,23 +498,19 @@ mod tests {
         // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
         assert_eq!(
             item_grant("health_potion", 2.0),
-            Some(
-                ambition_items::ItemGrantRequested {
-                    item: Item::HealthCell,
-                    count: 2
-                }
-            )
+            Some(ambition_items::ItemGrantRequested {
+                item: Item::HealthCell,
+                count: 2
+            })
         );
         // Loose spelling resolves, and the count is FLOORED — Yarn arithmetic is
         // f32-typed, so "1.9 potions" is a real thing an author can write.
         assert_eq!(
             item_grant("HealthPotion", 1.9),
-            Some(
-                ambition_items::ItemGrantRequested {
-                    item: Item::HealthCell,
-                    count: 1
-                }
-            )
+            Some(ambition_items::ItemGrantRequested {
+                item: Item::HealthCell,
+                count: 1
+            })
         );
 
         // Unknown kind asks for nothing.

@@ -389,9 +389,16 @@ impl Plugin for AmbitionBossContentPlugin {
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
+            // ⭐ Same gate as its sibling, and for the same reason: this took a
+            // WRITE guard on the Yarn mirror's `RwLock` and allocated two
+            // `String`s every frame of every room, feeding a value only a live
+            // `<<if>>` ever reads. Its `save.is_none()` bail is the rare path,
+            // not the common one.
             app.add_systems(
                 Update,
-                yarn::mirror_cut_rope_heavy_object.after(ambition_dialog::YarnStateMirrorRefreshed),
+                yarn::mirror_cut_rope_heavy_object
+                    .after(ambition_dialog::YarnStateMirrorRefreshed)
+                    .run_if(crate::yarn_vocabulary::a_conversation_is_live),
             );
         }
     }

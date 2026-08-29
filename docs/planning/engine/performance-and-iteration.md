@@ -440,6 +440,22 @@ the threshold is **~0.2ms**, which at the measured **6.9us/system** is about
 **30 systems**, not 500. ⇒ **the "~500 systems" rule is too pessimistic by more
 than an order of magnitude and should not be used to dismiss a gate.**
 
+⛔⛔ **AND THE REOPENING WAS CHECKED IMMEDIATELY — IT PRODUCES NO NEW LEVER.** The
+candidate groups the ownership map names have ALREADY been measured, and they sit
+BELOW even the tighter 0.2ms threshold:
+
+| candidate group | systems | measured |
+|---|---|---|
+| `bevy_falling_sand` | 19 `PreUpdate` + 11 `PostUpdate` = **30** | plugin REMOVED (I11): `PreUpdate` 137→116, **frame did not move** |
+| `bevy_asset` trackers | 33 + 31 = **64** | **<=0.145ms** |
+| ui focus + picking | ~12 | **0.00** |
+| `bevy_lunex` / `bevy_ui` | 24 + 12 | ⛔ not dormant — the HUD is live in a match |
+
+⇒ **the tighter floor lowers the bar from ~500 systems to ~30, and every group
+that could clear it has already been measured under it.** ⭐ The correction still
+matters — the "~500" rule would have wrongly dismissed a 30-system gate a future
+reader proposes — but it does not resurrect any gate on TODAY's evidence.
+
 ⚠ Two honest caveats before anyone acts on the tighter number: these five reps
 were back-to-back on an otherwise quiet machine, and a two-arm A/B carries roughly
 DOUBLE a single arm's uncertainty (the delta-amplification rule recorded elsewhere

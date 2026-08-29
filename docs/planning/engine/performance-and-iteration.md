@@ -2114,11 +2114,21 @@ rules are TUPLE-GATED (collective in Bevy 0.18, ~4 evaluations each, corrected
 earlier), and their presentation systems — measured here, in aggregate, at the
 upper bound — cost nothing recoverable.
 
-⭐ THE ARITHMETIC SAID SO IN ADVANCE, and it is the general lesson: ~77 systems
-at `Update`'s measured ~2.9us each is ~0.22ms, about 5% of frame, BELOW this
-machine's ~15% noise floor. ⇒ **on a frame this diffuse, no group of fewer than
-~500 systems can produce a measurable win.** Size the group against the noise
-floor BEFORE building the gate, every time.
+⭐ THE ARITHMETIC SAID SO IN ADVANCE: ~77 systems at `Update`'s measured ~2.9us
+each is ~0.22ms, about 5% of frame.
+
+⛔⛔ **BUT THE FLOOR IT WAS COMPARED AGAINST WAS WRONG, AND THAT WEAKENS THIS
+NULL.** The floor was taken as ~15%; **measured, it is 4.4%** (five back-to-back
+runs, 4.42–4.62ms). ⇒ 0.22ms is ~5% of the frame, which is **ABOVE** a 4.4% floor,
+not below it. **This experiment sat right AT the detection boundary**, so its null
+is weak evidence — consistent with "no effect" AND with "a real effect of about
+the size predicted, unresolvable at n=1".
+
+⇒ ⛔ **the derived rule "no group of fewer than ~500 systems can produce a
+measurable win" DOES NOT FOLLOW and should not be quoted.** At the measured floor
+the bar is ~0.2ms — about **30 systems**. ⭐ What survives is the METHOD, and it is
+the real lesson: **size the group against the noise floor BEFORE building the
+gate — and measure the floor rather than assuming it.**
 
 ⭐⭐ **AND STARTUP HAS NOW BEEN PRICED TOO — IT DOES NOT MOVE EITHER.** The same
 removal, measured against a startup baseline (the profile binary now calls
@@ -2150,11 +2160,12 @@ what removing four of them just demonstrated.
 
 ⛔⛔ **THIS SECTION WAS WRITTEN AS "the target list for capability gating" AND THAT
 CONTRADICTS THIS DOCUMENT'S OWN ARITHMETIC.** The groups it names are 27, 25, 10,
-8 and 7 systems, while the measured rule is that **on a frame this diffuse no
-group of fewer than ~500 systems can produce a measurable win** — the noise floor
-is ~10–15%. ⇒ read the list as OWNERSHIP (who is asking the frame for work), not
-as a work queue. ⭐ If one is gated anyway, size it against the noise floor FIRST
-and expect a null.
+8 and 7 systems. ⚠ The bar is **~0.2ms — about 30 systems** at the MEASURED 4.4%
+noise floor (an earlier "~500 systems, floor ~10–15%" rule here was derived from an
+assumed floor and is retired). ⇒ every group named below is still under it, so read
+the list as OWNERSHIP (who is asking the frame for work), not as a work queue.
+⭐ If one is gated anyway, size it against the measured floor FIRST, rep both arms
+three times, and expect a null.
 
 #### The ownership breakdown
 

@@ -66,6 +66,11 @@ path = "src/bin/shark_ride_probe.rs"
 test = false
 
 [[bin]]
+name = "trap_probe"
+path = "src/bin/trap_probe.rs"
+test = false
+
+[[bin]]
 name = "capture_scene"
 path = "src/bin/capture_scene.rs"
 test = false

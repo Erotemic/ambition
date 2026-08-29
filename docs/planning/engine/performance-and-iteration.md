@@ -202,11 +202,16 @@ single condition can retire at once**.
 
 ### 2. A shipped game should not schedule the experiences it does not contain
 
-**Measured:** the sandbox run — which never entered Sanic, Smash, or Mary-O —
+⛔⛔ **THIS DIRECTION'S HEADLINE EVIDENCE DID NOT SURVIVE RE-MEASUREMENT — see
+D-PERF-2 and I5 below.** The demos ARE gated, and gated the right way. Removing
+four whole experiences later moved neither frame time NOR startup registration.
+⇒ read the paragraph below as the ORIGINAL claim, not as a current fact.
+
+~~**Measured:** the sandbox run — which never entered Sanic, Smash, or Mary-O —
 still evaluated `ambition_demo_sanic::ball_dash::tick_rolling`,
 `ambition_demo_smash::offer_to_exit_the_match`, and
 `ambition_demo_mary_o::powerups::refuse_a_weaker_form_pickup` **1802 times
-each**, once per frame.
+each**, once per frame.~~
 
 That is correct for `shell_host`, which is a launcher that can start any of
 them, and it is the right default for the multi-game host. It is the wrong
@@ -350,6 +355,13 @@ every room — which is why the phase nearly vanishes there.
 | `hall_of_characters` | 1 | **130** | 0.281ms | 0.281 |
 
 ⇒ **`Trace` ≈ 0.13ms whenever a PRIMARY PLAYER exists, plus ~1.16us per body.**
+
+⚠ **ONE CENSUS ROW IN THIS DOCUMENT DISAGREES AND IS NOT EXPLAINED:** a Smash
+`sim_phases` line records `Trace=0.090`, six times the 0.015 the model predicts
+for `players=0`. ⇒ treat the model as PROVISIONAL — it reproduces four
+measurements including a 130-body outlier it was not fitted to, but a sixfold
+outlier inside the same census is unresolved, and whoever needs this number
+should re-measure rather than trust the fit.
 The constant is the player cluster walk; the slope is the OOB pass. The model
 reproduces all four measurements, including the 130-body outlier it was not
 fitted to.
@@ -371,8 +383,16 @@ through plugin build and anchored its deltas there. Tracy attributed **1.9s to
 system registrations and their schedule graphs.
 
 The anchor is fixed (`profiling::note_process_start`). The COST is not: plugin
-build scales with registered systems, so directions 1 and 2 shorten startup and
-the frame together. This is the number a player feels on a phone.
+build scales with registered systems. This is the number a player feels on a
+phone.
+
+⛔⛔ **BUT "directions 1 and 2 shorten startup and the frame together" WAS TESTED
+AND IS FALSE.** Removing 61 `Update` systems moved plugin registration
+**372.3ms → 380.8ms** — the wrong way, inside noise. ⇒ registration cost is
+Bevy's schedule-graph construction, not a function of OUR system count in any
+way this repo can exploit. ⚠ And the 2.6s here is a WINDOWED figure carrying
+window creation and shader compilation; the windowless composition is **608ms**.
+Both are recorded below.
 
 ## Campaign 2026-08-29 — runtime efficiency, 24h
 
@@ -394,9 +414,10 @@ census is trustworthy — see the render caveat below):
   our OWN systems there too (falling sand's particles, chunk loading, effect
   release) alongside 31 asset trackers and ~12 picking systems;
 - **that 0.93ms is BREADTH, not a hot spot** — 0.93ms over ~135 systems is
-  **6.9us each**, and `Update` is 1.23ms over 521 systems (**2.4us each**), both
-  inside the measured 2.9–15.6us band. Gating its two largest groups recovered
-  nothing;
+  **6.9us each**, and `Update` is 1.23–1.42ms over **494–497** systems
+  (**2.4–2.9us each**) — ⚠ the low end sits just BELOW the 2.9–15.6us band's
+  floor, which is the point: these are the CHEAPEST systems in the app, not
+  hidden expensive ones. Gating `Update`'s two largest groups recovered nothing;
 - **there is no hot system.** ~630 systems at 2.9–15.6us each.
 
 ⭐⭐⭐ **AND RESPONSIVENESS IS A DIFFERENT QUESTION FROM THROUGHPUT: SMASH'S FRAME
@@ -417,7 +438,7 @@ IS needs a host with a GPU.
 | a frame SPIKE | **+3.6ms** at the tail | ⛔ NOT the sim |
 
 **Fighter count is the ONLY thing measured that scales with a player's choice**,
-and a fighter is NOT a body — at ~125us it is ~10x the per-body constant, because
+and a fighter is NOT a body — at ~125–240us it is 8–15x the per-body constant, because
 it carries a sprite rig and a brain and combat state, not just kinematics. ⛔
 Optimising only the sim addresses a THIRD of a fighter.
 
@@ -617,11 +638,13 @@ expensive condition in the frame.
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
    on a GPU machine — every number here is from a GPU-less host;
-2. ▢ name the room that actually chugs. Four sampled rooms do not, and the
-   premise may be about content nobody has measured;
-3. ▢ `Update` is 1.42ms over 494 systems with `ambition_render` owning 99 and NOT
-   dormant — the last phase both ours and unattributed. ⛔ **AND NEITHER TOOL CAN
-   SPLIT IT TODAY.** Tracy emits no per-system execution span (above), and a
+2. ✅ **CLOSED — it is `hall_of_characters`** (130 bodies, `WorldPrep` 2.373ms,
+   ~16us of sim per body; a GALLERY, not a gameplay room). ⛔ ~~name the room that
+   actually chugs; four sampled rooms do not~~ — the four-room sample it cited is
+   itself retired; all 72 rooms were swept;
+3. ✅ **CLOSED — `Update` (1.23–1.42ms over 494–497 systems) is BREADTH**, ~2.4–2.9us
+   per system, and `PreUpdate`'s non-driver 0.93ms is 6.9us per system: no group
+   there hides a millisecond. ⛔ **AND NEITHER TOOL CAN SPLIT IT FURTHER TODAY.** Tracy emits no per-system execution span (above), and a
    hand-rolled bracket needs a SET to stand beside: `ambition_render` spreads its
    99 systems over nine different sets (`SpriteVisualSync`, `ActorOverlaySet`,
    `ActorNameplateSet`, `DialogPresentationSet`, `WorldLabelLayoutSet`, …) with
@@ -751,10 +774,14 @@ baseline; extend it.
   a local disk, a hitch on a network mount, Android storage or a slow card, and
   its own commit deliberately deferred moving it off-thread; (b)
   `record_actor_oob_frame_system` (40.5us) and `record_frame_system` (37.9us),
-  which together outweigh `tick_actor_brains`. Both recorders are per-frame and
+  which together outweigh `tick_actor_brains` ⚠ **in the 2026-08-28 SANDBOX trace
+  — NOT in a Smash match, where the whole `Trace` phase is 15-16us; do not carry
+  these into a Smash budget**. Both recorders are per-frame and
   the oob one takes a `CollisionWorld` plus a body query — the budget question is
-  what `--ship` carries, and whether the cost can scale with BODIES rather than
-  with frames.
+  what `--ship` carries. ⛔ **"can the cost scale with BODIES rather than frames"
+  is ANSWERED and the premise was wrong:** the `Trace` phase scales with
+  `players`, NOT `bodies` — ~0.13ms whenever a primary player exists, plus
+  ~1.16us per body — and a Smash match (`players=0`) pays 0.015ms.
 
 - ▢ **D-PERF-5 — the runtime measurement series.** `dev/ambition_dev_measurements/`
   had only compile-cost series; there was no runtime history, so no commit could
@@ -1068,8 +1095,9 @@ bodies `WorldPrep` alone is 2.3ms — more than double the ENTIRE gameplay sim o
 an ordinary room (0.93–1.37ms).
 
 ⛔ **BUT THIS DOES NOT FUND OPTIMISATION WORK, AND SHOULD NOT.** `hall_of_characters`
-is a GALLERY that displays every character at once. At 16us/body a Smash match's
-8 bodies costs ~0.13ms. No gameplay room in the game comes near 130 bodies — the
+is a GALLERY that displays every character at once. At 16us/body a Smash match costs a small
+fraction of a millisecond here — ⛔ measured `bodies=2` for two fighters; an
+earlier "8 bodies" figure in this document had no source. No gameplay room in the game comes near 130 bodies — the
 next highest is 9. ⇒ the item "name the room that chugs" is CLOSED: the room
 exists, it is not a gameplay room, and its cost is explained and proportional.
 The useful residue is the CONSTANT: **budget ~16us of sim per body.**
@@ -1112,12 +1140,24 @@ the instrument that survives.
 
 ### ⭐⭐⭐ THE SMASH FRAME, FULLY ATTRIBUTED AT LAST — 2026-08-29
 
-Unblocked by fixing the guard (below): `NoWindow` sets `backends: None` and omits
+Unblocked by fixing the phase-census guard — described in the `phases_warning`
+material later in this document, NOT the `GameplayGated` guard section above.
+⛔ An earlier passage praises that guard for "catching its own author"; it was in
+fact a FALSE POSITIVE and the praise is superseded here. `NoWindow` sets
+`backends: None` and omits
 the RenderApp, so a windowless smash run draws NOTHING and its phase splits ARE
 valid. The old guard warned on the CAMERA COUNT and condemned exactly the runs
 that were sound.
 
-3000 ticks, `dev`, 2 fighters, windowless. Frame mean **4.45ms**:
+3000 ticks, `dev`, 2 fighters, windowless. Frame mean **4.45ms**.
+
+⚠ **AN EARLIER SECTION ATTRIBUTES THE SAME SCENARIO AT 4.7ms** (sim 0.93 · driver
+0.26 · outside-driver 0.95 · `PostUpdate` 0.65). **Both are real runs and neither
+supersedes the other** — this is dev-profile run-to-run spread of roughly 5–10%,
+the same spread that made a cross-arm DELTA unusable elsewhere in this document.
+⇒ **read every number below as ±10%, and read the SHARES rather than the
+milliseconds.** The shares agree between the two runs to within a couple of
+points.
 
 | block | ms | share | how it was measured |
 |---|---|---|---|
@@ -1805,9 +1845,12 @@ Known dev-host costs, none yet priced this way:
 - the census family itself, which is why every one of its rows is registered
   only when the census is switched on.
 
-⭐ The recorders are the interesting ones: their cost should scale with BODIES,
-not with frames. A flight recorder for a two-body match should not cost what one
-for a two-hundred-body match does.
+⭐ The recorders are the interesting ones. ⛔ **BUT "their cost should scale with
+BODIES, not frames" IS SUPERSEDED** — measured later the same day, the `Trace`
+phase scales with `players` rather than `bodies`: ~0.13ms whenever a primary
+player exists plus ~1.16us per body, so a Smash match pays 0.015ms and a 130-body
+gallery pays 0.281ms. The instinct was right — it already scales with something —
+but the quantity named here is the wrong one.
 
 ### ▢ D-PERF-6 — the flight recorder should cost BODIES, not SOLIDS
 
@@ -1880,7 +1923,9 @@ lever with leverage is one that removes WHOLE GROUPS from the frame rather than
 making any member faster.
 
 ⛔ AND IT IS WHY THE MICRO-OPTIMIZATION DIRECTIONS ALL FAILED HERE. Nine
-hypotheses rejected this campaign, and the pattern behind every one is the same:
+hypotheses rejected this campaign (⚠ the authoritative tally is the Investigations
+table at the end — this sentence's count went stale as the table grew), and the
+pattern behind every one is the same:
 each targeted a single expensive thing, and there is no single expensive thing.
 Entity populations (three times), archetype fragmentation, rollback snapshots,
 multi-render, falling sand — all null. The one change that DID move a number
@@ -2192,9 +2237,12 @@ here (3.89us/sprite) was later confirmed at 8x the scale on `mockingbird_arena`'
 goes higher — four rooms at rest are not the population.
 
 ⇒ **THE CAMPAIGN'S FOUNDING PREMISE IS ANSWERED: sprite count is not why a room
-would chug.** Combined with the population table above — no shipped room exceeds
-46–87 visible sprites — the *"hundreds of sprites"* framing does not describe
-this engine's content, and sprite count does not describe its cost either.
+would chug.** ⛔⛔ ~~Combined with the population table above — no shipped room exceeds 46–87
+visible sprites~~ — **RETIRED, and this sentence sat five lines after its own
+retraction.** That was a FOUR-ROOM sample of rooms AT REST; `mockingbird_arena`
+bursts to **295 visible**. ⭐ What survives is the second half: **sprite count does
+not describe this engine's cost** — the slope held at 8x the scale (1.40us/sprite
+against an independent 3.89us probe).
 
 ⛔⛔⛔ **AND THE ~14ms IS *NOT* SOFTWARE RASTERIZATION. I WROTE THAT AND IT WAS
 WRONG.** The phase split settles it:
@@ -2323,7 +2371,13 @@ phase splits from those runs should be treated as void.
 pairs and `update_action_state`. Its 6x inflation is the sim taking more fixed
 steps in a heavier room: the work the room asked for, not overhead.
 
-⭐⭐⭐ **`StateTransition` IS 2.06ms — 14% OF A REAL ROOM'S FRAME.** The 2026-08-28
+⛔⛔⛔ **SUPERSEDED AND RETRACTED — DO NOT USE THIS SECTION.** The resolution
+A/B (320x240 vs 1280x960) showed `StateTransition` scales with PIXELS, so this
+number is GPU blocking billed to a state phase. The retraction is above; it is
+repeated here because this passage sits AFTER its own retraction and kept three
+stars for hours. The original text follows only as a record of the error.
+
+~~`StateTransition` IS 2.06ms — 14% OF A REAL ROOM'S FRAME.~~ The 2026-08-28
 baseline measured it at 0.15ms in an empty sandbox, correctly identified it as
 Bevy's per-state machinery rather than our code, and concluded it was NOT where
 to start. On real content it is fifteen times larger and the second-worst

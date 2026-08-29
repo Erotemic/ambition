@@ -743,6 +743,20 @@ def build_summary(bundle: Bundle) -> str:
             "being decoded again; `image_decodes.csv` names which.",
             "",
         ]
+        # ⭐ Say how much of the byte total was DERIVED rather than measured. An
+        # image whose main-world copy was dropped (RenderAssetUsages::RENDER_WORLD)
+        # has no `data` to weigh, and reporting 0 for it would make "decode work"
+        # FALL every time an asset moved to render-world only — a fake win the
+        # readout could not tell from a real one.
+        derived = number(last, "derived_byte_images")
+        if derived > 0:
+            lines += [
+                f"⚠ {derived:.0f} of those images had their bytes DERIVED from the "
+                "texture descriptor rather than measured, because their CPU copy "
+                "was dropped. The decode still happened; the total is no longer "
+                "purely measured.",
+                "",
+            ]
     if decodes:
         # ⭐⭐ THE CONTRACT LINE, AND IT GOES FIRST. A decode that lands while
         # gameplay is LIVE is a frame the player felt — every one of the five

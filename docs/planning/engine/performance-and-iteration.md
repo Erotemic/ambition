@@ -2425,6 +2425,23 @@ but was depended on; anything that assumes it must now step. 1152 monolith tests
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 
+##### ▢ THE PORTRAIT RE-DECODES ARE A DROPPED HANDLE, AND THEY ARE MINOR
+
+Diagnosed 2026-08-29. The HUD (`hud/declared.rs`) calls `asset_server.load(path)`
+**every frame** per portrait — it does guard the assignment (`if image.image !=
+handle`), so it costs a path->handle resolution, not change-detection churn. That
+is NOT what re-decodes: `load()` returns the same handle while the asset lives.
+
+⇒ the re-decodes are a **dropped handle**: when the HUD entity despawns on leaving
+a screen, the last handle goes and the image unloads; returning reloads it. That
+matches the observed times exactly (18.3s, 22.9s, 41.2s, 80.4s — visits, not a
+flap). ⛔ It is NOT quality-tier flapping: `grep "quality transition"` over the run
+returns **zero**, so that hypothesis is dead.
+
+⚠ **PRICED BEFORE FIXING: ~40MP of the run's 656MP.** Ten portrait sheets at 1.3MP
+re-decoded 3–4x each. Real, and small. ⇒ it wants the same retained-residency
+answer as everything else in this section, not its own special cache.
+
 ##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
 
 The `<runtime-generated>` decodes the summary flagged are **portal capture
@@ -2464,10 +2481,20 @@ sampled. ⇒ dropping their main-world copy is open, and it is the lever for the
 CPU COPY MAKES THE INSTRUMENT REPORT LESS WHETHER OR NOT MEMORY IMPROVED.**
 `images_resident` would fall too. Some of that drop is real memory saved and some
 of it is the instrument going blind, and the readout cannot tell them apart.
-⇒ **before making that change, teach the census to report the bytes it can no
-longer see** (the loader knows width x height x format) or the next run will show
-a spectacular fake win. Same family as every other instrument trap in this file:
-the number moved because the measurement changed.
+✔ **THE PREREQUISITE IS BUILT 2026-08-29, BEFORE THE CHANGE THAT NEEDS IT.** The
+census no longer reports `0` bytes for an image whose CPU copy was dropped: it
+DERIVES them from the texture descriptor (`width x height x
+format.block_copy_size`) and counts how many it had to derive, published as
+`derived_byte_images=` on the `[census] assets` row and surfaced by the bundle
+summary as *"N of those images had their bytes DERIVED rather than measured …
+the total is no longer purely measured."*
+
+⭐ **THE POINT IS THAT THE TOTAL SAYS HOW MUCH OF ITSELF IT SAW.** Without this,
+moving any asset to render-world only would make "decode work" FALL, and the
+readout could not tell that from a real saving. ⇒ the lever can now be taken
+without the next run showing a spectacular fake win. ⚠ `[census] render_targets`
+was already honest here — it names its number `cpu_bytes` and the summary already
+warns that an uploaded-and-dropped target reports 0 while still costing VRAM.
 
 ⚠ And it does NOT fix the 516ms: `extract_render_asset` still copies once. It
 shrinks what stays resident afterwards.

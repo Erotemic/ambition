@@ -493,10 +493,14 @@ pub fn report_asset_census(
     match images {
         Some(images) => eprintln!(
             "[census] assets t={at:.3} decoded_images={} decoded_megapixels={:.1} \
-             decoded_bytes={} images_resident={}",
+             decoded_bytes={} derived_byte_images={} images_resident={}",
             images.total_images(),
             images.total_megapixels(),
             images.total_bytes(),
+            // How much of `decoded_bytes` was DERIVED from the texture descriptor
+            // because the CPU copy was dropped. Non-zero does not invalidate the
+            // total; it says the total is no longer purely measured.
+            images.derived_byte_images(),
             image_assets.len(),
         ),
         None => eprintln!(

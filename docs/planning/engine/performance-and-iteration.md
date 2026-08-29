@@ -1338,7 +1338,7 @@ pipeline init and shader compilation. The shipped windowless composition
 | phase | ms | share |
 |---|---|---|
 | app construction (plugin registration) | **377.1** | 62% |
-| `after_load_data_handle` | **169.2** | 28% |
+| `after_load_data_handle` ⚠ see below | **169.2** | 28% |
 | `startup_begin` | 47.2 | 8% |
 | `before_audio_init` | 13.7 | 2% |
 | **total before first frame** | **607.7** | |
@@ -1346,6 +1346,21 @@ pipeline init and shader compilation. The shipped windowless composition
 ⇒ plugin registration is still the majority, and at ~0.43ms per registration over
 ~876 systems it is Bevy's schedule-graph construction, not our code. ⛔ Reducing it
 means having FEWER SYSTEMS, which is a capability decision, not an optimisation.
+
+⛔⛔ **AND `after_load_data_handle` IS NOT "169ms OF LOADING" — I WROTE THAT AND IT
+IS THE PHASE-ATTRIBUTION TRAP AGAIN, in the STARTUP profiler this time.** The
+`Startup` chain between the two marks contains exactly ONE system,
+`data::load_data_asset_handle`, and it is **one line**: `asset_server.load(path)`,
+which returns a handle immediately, plus a `insert_resource`. It cannot cost
+169ms. ⇒ the interval is real; the ATTRIBUTION is not. The likely occupant is
+synchronous work on the FIRST `AssetServer::load` — asset-source resolution, IO
+task-pool spin-up — or unrelated main-thread time the mark happens to bracket.
+**Not identified, and deliberately not guessed.**
+
+⚠ These marks measure WALL TIME BETWEEN TWO POINTS, exactly like `[census] phases`.
+The same rule applies: a phase name is where the time was BILLED, not what spent
+it. I applied that scepticism to the frame census all campaign and then dropped
+it for the startup profiler within the hour.
 
 **Fixed while here: `run_headless` built the ENTIRE ROOM SET TWICE** — once to
 check for an error, once to count the rooms — on every headless boot, which every

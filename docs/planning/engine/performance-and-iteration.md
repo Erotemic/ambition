@@ -2557,9 +2557,20 @@ nobody had built, not a decayed file** — the same trap as
 which is ungated, because a consumer that wants to know what an entity draws as
 should not have to enable a content COMPILER. The test imports it from there.
 
-⇒ **anything behind `required-features` needs its own check, or it rots
-invisibly** — `match_shots` had been broken long enough for a whole refactor to
-land on top of it.
+⛔⛔ **CORRECTION, WITHIN THE HOUR: A CHECK FOR THIS ALREADY EXISTS. IT IS BEHIND A
+FLAG NAMED `--run-everything-you-probably-dont-need-this`.** `run_tests.py` builds
+exactly the right job per crate —
+`cargo check -p <name> --all-targets --features <every non-default feature>` — and
+guards the whole block with `if everything:`. ⇒ my first reading ("nothing checks
+these") was wrong; the truth is worse and more useful: **the check that would have
+caught both breakages is named as something you probably do not need, and it
+turned out you did.**
+
+⇒ `match_shots` stayed broken through an entire refactor because nobody ran
+exhaustive mode in that window. ▢ **These are `cargo check` jobs, not test runs** —
+cheap by construction. Promoting them out of `everything` into the default run is
+the proportionate fix, and it is a scheduling decision (everyone's test time)
+rather than a new guardrail: the guardrail is already written.
 
 ##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT
 

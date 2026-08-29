@@ -62,9 +62,18 @@ where
     // catches: a declaration compiles perfectly well in the crate the type
     // left. ⛔ the STABLE NAMES are unchanged, so the wire did not move; only
     // the OWNER string did, from the monolith to the crate that defines them.
-    registrar.rollback_resource_clone::<crate::switches::SwitchActivationQueue>(
+    // ⭐ CHECKSUMMED 2026-08-29. This type's own doc names the hazard it was
+    // registered for — "a rewind keeps predicted activations and resimulation
+    // pushes them again, double-applying an encounter reset" — and
+    // `rollback_resource_clone` prevents that (it restores) while installing a
+    // PRESENCE-ONLY probe, so the sync test could not SEE the case the author
+    // was worried about. A queue is the sharpest form of this: presence cannot
+    // distinguish one entry from five.
+    registrar.rollback_resource_clone_checksum::<crate::switches::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",
+        "queued switch activations, in order, by id/action/target",
+        crate::switches::SwitchActivationQueue::checksum,
     );
     registrar.rollback_component_clone_probed::<crate::switches::SwitchOn>(
         OWNER,

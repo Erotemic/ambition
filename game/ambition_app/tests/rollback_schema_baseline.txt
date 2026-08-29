@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v132
+ggrs-rollback-schema-v133
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -447,7 +447,7 @@ resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot 
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.stocks_match_settled	resource-canonical	StocksMatchSettled	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sudden_death_entered	resource-canonical	SuddenDeathEntered	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.switch_activation_queue	resource-clone	SwitchActivationQueue	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.switch_activation_queue	resource-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

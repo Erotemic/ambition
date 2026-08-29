@@ -2046,6 +2046,17 @@ buys eight chances to redden the suite for one real win.
 whether its value is stable at sim-tick boundaries. The two fixed above were safe
 precisely because the snapshot RESTORES them before a resimulation re-runs.
 
+✔ **ONE OF THE EIGHT LANDED THE SAME DAY, THE ONE THAT ASKED FOR IT IN WRITING.**
+`SwitchActivationQueue`'s own doc comment states the hazard it was registered
+against: *"a rewind keeps predicted activations and resimulation pushes them
+again, double-applying an encounter reset."* The clone registration PREVENTS that
+— it restores — but the presence-only probe could not SEE it, and **presence
+cannot tell one queued entry from five.** It has a single sim writer
+(`encounter/systems.rs`), and `SwitchActivation` is three `String`s, so the
+projection is exact and order-sensitive: **order is part of a queue's value.**
+Schema **v132 → v133**; its stale waiver entry is gone; 42 encounter tests and
+56/56 rollback tests green.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

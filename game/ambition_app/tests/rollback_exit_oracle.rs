@@ -428,11 +428,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_sprite_sheet::character::sheets::SpritePosedBody",
             "authored per-pose body table; immutable at runtime",
         ),
-        (
-            "ambition_encounter::switches::SwitchActivationQueue",
-            "queued activations are (id, action, target) STRINGS — already stable identities, no handle to remap",
-        ),
-        (
+                (
             "ambition_encounter::switches::SwitchFeature",
             "authored switch payload; the mutable half is SwitchOn, value-probed",
         ),

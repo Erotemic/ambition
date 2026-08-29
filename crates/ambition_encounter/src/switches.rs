@@ -71,6 +71,71 @@ impl EncounterSwitchIndex {
 #[derive(Resource, Default, Clone)]
 pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);
 
+impl SwitchActivationQueue {
+    /// Canonical projection for the session checksum: length, then each entry
+    /// in queue order.
+    ///
+    /// ORDER IS PART OF THE VALUE — this is a queue, and two peers holding the
+    /// same activations in a different order have diverged.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let Self(entries) = self;
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, entries.len() as u64);
+        for entry in entries {
+            // Destructured so a new field on an activation must be answered for
+            // here rather than silently escaping the checksum.
+            let SwitchActivation {
+                id,
+                action,
+                target_encounter,
+            } = entry;
+            put_str(&mut bytes, id);
+            put_str(&mut bytes, action);
+            put_str(&mut bytes, target_encounter);
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+#[cfg(test)]
+mod queue_checksum_tests {
+    use super::{SwitchActivation, SwitchActivationQueue};
+
+    fn activation(id: &str) -> SwitchActivation {
+        SwitchActivation {
+            id: id.into(),
+            action: "reset".into(),
+            target_encounter: "boss".into(),
+        }
+    }
+
+    /// ⭐ The case the type's doc comment is about: a resimulation that pushes an
+    /// activation again must not hash like one that did not.
+    #[test]
+    fn a_duplicated_activation_moves_the_checksum() {
+        let one = SwitchActivationQueue(vec![activation("a")]);
+        let twice = SwitchActivationQueue(vec![activation("a"), activation("a")]);
+        assert_ne!(one.checksum(), twice.checksum());
+    }
+
+    /// A queue's ORDER is part of its value.
+    #[test]
+    fn reordering_the_queue_moves_the_checksum() {
+        let ab = SwitchActivationQueue(vec![activation("a"), activation("b")]);
+        let ba = SwitchActivationQueue(vec![activation("b"), activation("a")]);
+        assert_ne!(ab.checksum(), ba.checksum());
+    }
+
+    /// ⛔ And the arm that catches a checksum that can never agree.
+    #[test]
+    fn equal_queues_agree() {
+        let a = SwitchActivationQueue(vec![activation("a"), activation("b")]);
+        let b = SwitchActivationQueue(vec![activation("a"), activation("b")]);
+        assert_eq!(a.checksum(), b.checksum());
+    }
+}
+
 #[cfg(test)]
 mod switch_index_tests {
     //! Encounter arming from switch state. The authored semantics are

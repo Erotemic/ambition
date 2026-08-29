@@ -43,7 +43,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// checksum at all, which is exactly the divergence the sync test exists to
 /// report, and exactly what the systems pairing a non-rewinding `Local`
 /// edge-detector with these resources would produce.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 132;
+/// ⛔ v133: `resource.switch_activation_queue` gained a CHECKSUM PROJECTION, for
+/// the reason its own type doc already gives — "a rewind keeps predicted
+/// activations and resimulation pushes them again, double-applying an encounter
+/// reset". The clone registration PREVENTS that (it restores); the presence-only
+/// probe could not SEE it, and presence cannot tell one queued entry from five.
+/// Bytes unchanged; a peer that checksums it and one that does not disagree.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 133;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

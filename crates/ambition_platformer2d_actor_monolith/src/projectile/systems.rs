@@ -619,6 +619,39 @@ pub fn step_projectiles(
                     continue;
                 }
                 let victim_body = victim.aabb.aabb();
+                // ⛔⛔ D199: A WALL BETWEEN THE MUZZLE AND THE VICTIM STOPS THE SHOT
+                // FIRST. This loop runs BEFORE `resolve_world_collision`, so
+                // without this a shot whose endpoint lands on a body standing
+                // behind blocking geometry damaged it before anything asked
+                // whether a wall had stopped the travel. Confirmed behaviourally
+                // 2026-08-29 by `a_shot_does_not_damage_a_victim_standing_behind_a_wall`,
+                // which took the victim from 4 HP to 3 through a solid block.
+                //
+                // ⛔ NOT A SWAP OF THE TWO BLOCKS — the row's own warning is that
+                // resolving the world first trades this wrong answer for its
+                // opposite when the body genuinely came first. This asks the
+                // ordering question directly: cast from where the shot STARTED
+                // this leg toward the victim and skip it only if a solid stands
+                // strictly nearer than the body does.
+                //
+                // ⚠ SOLIDS ONLY (`include_one_way = false`). A fireball crosses a
+                // one-way platform from below by design, and treating one-ways as
+                // blockers here would silently un-hit victims standing on ledges.
+                let leg_to_victim = victim_body.center() - leg_start;
+                let victim_distance = leg_to_victim.length();
+                if victim_distance > f32::EPSILON {
+                    if let Some((wall_hit, _)) = ae::cast::raycast_solids(
+                        &*collision_world,
+                        leg_start,
+                        leg_to_victim,
+                        victim_distance,
+                        false,
+                    ) {
+                        if (wall_hit - leg_start).length() < victim_distance {
+                            continue;
+                        }
+                    }
+                }
                 // Projectiles use the same published victim geometry as melee.
                 // An empty `DamageableVolumes` is intangible; absence falls back to
                 // the coarse body box inside `reached_by`.

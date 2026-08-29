@@ -363,3 +363,89 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
          is being chosen by archetype order, which a rewind does not reproduce"
     );
 }
+
+/// D199: a shot must not damage a victim standing BEHIND a wall.
+///
+/// ⛔ THE ORDER UNDER TEST. `projectile/systems.rs` moves the shot to its new
+/// endpoint, then runs the victim loop (overlap → damage → despawn), and only
+/// then calls `resolve_world_collision`. So a shot whose endpoint lands on a
+/// victim behind blocking geometry can damage them before anything asks whether
+/// a wall stopped the travel — and because both tests are ENDPOINT overlap
+/// rather than swept, a fast shot crosses a thin wall in one tick.
+///
+/// This is the cheap regression D199 asks for, and it is the first BEHAVIOURAL
+/// check of that ordering: the row's confirmation was a reading of the source.
+#[test]
+fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
+    // A wall between the muzzle and the victim. Thin on purpose: the swept
+    // question and the ordering question have the same symptom here, and a thin
+    // wall is what a fast shot tunnels.
+    let world = ae::World::new(
+        "wall_between",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::solid(
+            "wall",
+            ae::Vec2::new(380.0, 260.0),
+            ae::Vec2::new(8.0, 120.0),
+        )],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.add_systems(
+        Startup,
+        |mut commands: Commands,
+         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            crate::features::spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &Default::default(),
+                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "projectile_test",
+                crate::features::EncounterMobSeed {
+                    id: "walled_enemy".into(),
+                    character: Some("fixture_striker"),
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "fixture_striker".into(),
+                    ),
+                    // BEHIND the wall from the shot's point of view.
+                    pos: ae::Vec2::new(400.0, 300.0),
+                    size: ae::Vec2::new(28.0, 46.0),
+                },
+            );
+        },
+    );
+    app.update();
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(360.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        // Fast enough that ONE tick carries the endpoint past the wall and onto
+        // the victim — which is exactly the case the endpoint test cannot see.
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let (health, max) = {
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let (_, health) = query
+            .iter(world)
+            .find(|(identity, _)| identity.id() == "walled_enemy")
+            .expect("the walled enemy should be spawned as an ECS actor");
+        (health.health.current, health.health.max)
+    };
+    assert_eq!(
+        health, max,
+        "a wall stands between the muzzle and the victim, so the victim must take \
+         NO damage (was {max}, now {health})"
+    );
+}

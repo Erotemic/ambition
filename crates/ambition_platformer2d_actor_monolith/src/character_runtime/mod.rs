@@ -146,7 +146,52 @@ impl CharacterLoadDemand {
     fn take(&mut self) -> BTreeSet<String> {
         std::mem::take(&mut self.pending)
     }
+
+    /// Take at most `limit` tokens, leaving the rest pending for later frames.
+    ///
+    /// ⛔⛔ WHY A LIMIT EXISTS AT ALL: a character is ~7 sheets at 4096x4096, about
+    /// **470MB of decoded RGBA**, and `take()` drained the WHOLE demand set in one
+    /// frame — so every fighter's sheets started loading together, finished
+    /// together, and were extracted into the render world together. The first
+    /// hardware profile (2026-08-29) measured the result:
+    /// `extract_render_asset<GpuImage>` at **454.9ms against a 0.1ms mean**, inside
+    /// a 516ms frame.
+    ///
+    /// ⭐ The hitch is not how long a decode takes — decode is already async on the
+    /// IO pool. It is **how many finished decodes land on the same frame**. Starting
+    /// them on different frames is what spreads the landing.
+    ///
+    /// ⚠ This DELAYS readiness, it does not drop it: whatever is not taken stays
+    /// pending and is taken next frame, and the reveal barrier
+    /// (`character_reveal_ready`) still waits for every demanded token to reach a
+    /// terminal state. That is affordable precisely because demand is now raised at
+    /// match PREPARATION rather than at the opening bell — there are frames to
+    /// spread across.
+    fn take_bounded(&mut self, limit: usize) -> BTreeSet<String> {
+        if limit == 0 || self.pending.len() <= limit {
+            return self.take();
+        }
+        // `BTreeSet`, so this split is by sorted token — deterministic, which a
+        // rollback host needs and a `HashSet` could not promise.
+        let mut taken = BTreeSet::new();
+        for _ in 0..limit {
+            let Some(token) = self.pending.iter().next().cloned() else {
+                break;
+            };
+            self.pending.remove(&token);
+            taken.insert(token);
+        }
+        taken
+    }
 }
+
+/// How many characters may BEGIN materialising on one frame.
+///
+/// ⭐ One, because one character is ~7 sheets at 4096x4096 (~470MB of RGBA) and the
+/// cost that lands on a frame is the render-world extract of everything that
+/// finished decoding. Spreading the STARTS spreads the finishes.
+/// ⚠ Not a memory budget — a arrival-rate limit. Eviction is a separate question.
+const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
 
 /// Why a demanded character has no art.
 ///
@@ -416,7 +461,10 @@ pub fn materialize_character_demand(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
 ) {
-    for token in demand.take() {
+    // ⭐ ONE CHARACTER PER FRAME. See `take_bounded`: each is ~470MB of decoded
+    // RGBA, and landing two in one frame is what produced a 516ms frame on
+    // hardware. Anything not taken stays pending for the next frame.
+    for token in demand.take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME) {
         // Whose cues this character will emit under, resolved BEFORE any decode:
         // the cast is a roster, not a report on the art, and it must be right for a
         // character whose sheet never resolves.

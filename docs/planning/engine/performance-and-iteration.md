@@ -2397,6 +2397,31 @@ finished decodes land together**.
 re-derive it from the megapixel correlation: the correlation is real and the
 mechanism it implies is wrong.
 
+✔✔ **LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.**
+`CharacterLoadDemand::take()` was `std::mem::take` — it drained the WHOLE demand
+set in one frame, so every fighter's sheets started loading together, finished
+together, and extracted together. `take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME
+= 1)` leaves the rest PENDING for the next frame.
+
+⭐ **IT DEFERS, IT DOES NOT DROP — AND THAT IS THE ASSERTION THAT MATTERS.** A
+bound that discarded the remainder would also "fix" the hitch, by never loading
+the second fighter. `bounding_the_take_defers_the_rest_instead_of_dropping_it`
+pins that every demanded token is taken exactly once across frames, and
+`an_unbounded_or_undersized_take_drains_completely` pins that the bound can never
+strand one. The split is over a `BTreeSet`, so which token goes first is
+deterministic — a rollback host needs that and a `HashSet` could not promise it.
+
+⚠ **THIS ONLY WORKS BECAUSE DEMAND MOVED UPSTREAM.** Spreading starts across
+frames costs frames; raising demand at match PREPARATION is what supplies them.
+The two changes are one design.
+
+⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
+`resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
+characters and stepped ONE frame, expecting both resident. It now steps until the
+demand drains. ⇒ "demand is satisfied within one update" was never written down
+but was depended on; anything that assumes it must now step. 1152 monolith tests,
+39 smash tests, gate clean.
+
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 

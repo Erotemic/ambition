@@ -23,10 +23,10 @@ use bevy::prelude::*;
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
+use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_platformer2d_actor_monolith::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
-use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_render::quality::ResolvedVisualQuality;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 
@@ -103,7 +103,28 @@ impl Plugin for IntroPlugin {
                     load_intro_prop_sprites_system,
                     install_intro_banter_system,
                     install_intro_gated_zones_system,
-                    super::route_state::emit_intro_flag_chains,
+                ),
+            )
+            // ⛔ THE FLAG CHAINS ARE NOT AN INSTALLER and do not belong in the
+            // tuple above. The five beside them are one-shot latches guarded by
+            // `if installed { return; }`, which MUST keep running so they can
+            // observe `GameAssets` / `CutsceneLibrary` arriving. This one
+            // re-derives a table from the save every frame FOREVER, long after
+            // every flag in it is set.
+            //
+            // ⭐ AND ITS COST GROWS WITH THE SAVE. `SaveData::flag` is a linear
+            // scan with a string compare over a flag vector that lengthens as
+            // the player progresses, and this asks it twice per table row every
+            // frame. Change detection is the right shape: the chains can only
+            // fire when the flags they read have moved, and a flag this system
+            // writes marks the save changed again, so a chain-of-chains still
+            // resolves on the following frame.
+            .add_systems(
+                Update,
+                super::route_state::emit_intro_flag_chains.run_if(
+                    bevy::prelude::resource_exists_and_changed::<
+                        ambition_persistence::save::AmbitionGameSave,
+                    >,
                 ),
             );
         // Intro dialog redirects are handled by the unified

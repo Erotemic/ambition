@@ -2117,12 +2117,27 @@ upper bound — cost nothing recoverable.
 ⭐ THE ARITHMETIC SAID SO IN ADVANCE: ~77 systems at `Update`'s measured ~2.9us
 each is ~0.22ms, about 5% of frame.
 
-⛔⛔ **BUT THE FLOOR IT WAS COMPARED AGAINST WAS WRONG, AND THAT WEAKENS THIS
-NULL.** The floor was taken as ~15%; **measured, it is 4.4%** (five back-to-back
-runs, 4.42–4.62ms). ⇒ 0.22ms is ~5% of the frame, which is **ABOVE** a 4.4% floor,
-not below it. **This experiment sat right AT the detection boundary**, so its null
-is weak evidence — consistent with "no effect" AND with "a real effect of about
-the size predicted, unresolvable at n=1".
+⚠ **THE FLOOR IT WAS COMPARED AGAINST WAS WRONG** — taken as ~15%, whereas
+**measured it is 4.4%**. So 0.22ms (~5% of frame) is ABOVE the real floor, not
+below it, and this experiment sat right AT the detection boundary rather than
+safely under it.
+
+⭐⭐ **BUT THE NULL SURVIVES THAT, AND IT SURVIVES IT STRONGER — resolved without
+re-running the removal.** The experiment compared its treatment against a
+hand-waved baseline of *"4.5–5.0ms"*. That baseline has since been MEASURED
+properly: five back-to-back runs give **4.42 / 4.52 / 4.55 / 4.62 / 4.43ms, mean
+4.508**.
+
+| | frame mean |
+|---|---|
+| baseline, 5 reps, measured | **4.42–4.62 (mean 4.508)** |
+| all four experiences removed | **4.40–4.67** |
+| what a 0.22ms saving would predict | ~4.29, **below the baseline minimum** |
+
+⇒ **the treatment range sits directly ON TOP of the measured baseline**, and the
+effect a 77-system saving predicts is not there. ⭐ The conclusion is unchanged and
+now rests on a MEASURED baseline instead of an assumed floor — which is a better
+footing than it had when it was first recorded.
 
 ⇒ ⛔ **the derived rule "no group of fewer than ~500 systems can produce a
 measurable win" DOES NOT FOLLOW and should not be quoted.** At the measured floor

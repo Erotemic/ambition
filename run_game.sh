@@ -71,6 +71,24 @@ if profile is not None:
             f"run_game.sh: quality.profile={profile!r} is not one of {', '.join(known)}; ignoring it\n"
         )
 
+raster = config.get("raster") or {}
+if "max_scale_factor" in raster:
+    value = raster["max_scale_factor"]
+    if isinstance(value, str) and value.strip().lower() in ("none", "off", "native"):
+        out["AMBITION_MAX_SCALE_FACTOR"] = value.strip().lower()
+    elif isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+        out["AMBITION_MAX_SCALE_FACTOR"] = repr(float(value))
+    else:
+        sys.stderr.write(
+            f"run_game.sh: raster.max_scale_factor={value!r} must be a positive number or 'none'; ignoring it\n"
+        )
+if "msaa" in raster:
+    value = raster["msaa"]
+    if isinstance(value, int) and not isinstance(value, bool) and value in (1, 2, 4, 8):
+        out["AMBITION_MSAA"] = str(value)
+    else:
+        sys.stderr.write(f"run_game.sh: raster.msaa={value!r} must be 1, 2, 4 or 8; ignoring it\n")
+
 for key, value in (config.get("env") or {}).items():
     if not isinstance(value, (str, int, float, bool)):
         sys.stderr.write(f"run_game.sh: env.{key} is not a scalar; ignoring it\n")

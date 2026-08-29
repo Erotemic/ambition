@@ -19,14 +19,15 @@ pub struct ResolvedVisualQuality {
 
 impl Default for ResolvedVisualQuality {
     fn default() -> Self {
-        if let Some(forced) = profile_override_from_env() {
-            return Self { profile: forced, budget: VisualQualityBudget::for_profile(forced) };
-        }
-        let settings = ambition_persistence::settings::VisualQualitySettings::default();
-        Self {
-            profile: settings.profile,
-            budget: settings.resolved_budget(),
-        }
+        let (profile, mut budget) = match profile_override_from_env() {
+            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
+            None => {
+                let settings = ambition_persistence::settings::VisualQualitySettings::default();
+                (settings.profile, settings.resolved_budget())
+            }
+        };
+        budget.raster = budget.raster.with_env_overrides();
+        Self { profile, budget }
     }
 }
 
@@ -43,13 +44,12 @@ impl ResolvedVisualQuality {
     /// `log_quality_profile_override` says so once at startup rather than
     /// leaving someone to discover it by clicking.
     pub fn from_settings(settings: &UserSettings) -> Self {
-        if let Some(forced) = profile_override_from_env() {
-            return Self { profile: forced, budget: VisualQualityBudget::for_profile(forced) };
-        }
-        Self {
-            profile: settings.video.quality.profile,
-            budget: settings.video.quality.resolved_budget(),
-        }
+        let (profile, mut budget) = match profile_override_from_env() {
+            Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
+            None => (settings.video.quality.profile, settings.video.quality.resolved_budget()),
+        };
+        budget.raster = budget.raster.with_env_overrides();
+        Self { profile, budget }
     }
 }
 

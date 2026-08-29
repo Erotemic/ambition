@@ -75,6 +75,50 @@ impl VisualQualityProfile {
     }
 }
 
+/// Per-process overrides for the two raster knobs, applied ON TOP of whichever
+/// tier is active.
+///
+/// ⭐ WHY THESE ARE SEPARATE FROM THE TIER. Changing tier to reach the raster
+/// knobs also changes texture resolution, parallax layers, portal budget and
+/// particle counts — four other variables moving at once. An A/B that swaps
+/// tiers cannot attribute its result to any of them. These exist so the pixel
+/// count and the sample count can each be moved ALONE against an unchanged
+/// baseline, which is the only way the answer means anything.
+pub const MAX_SCALE_FACTOR_ENV: &str = "AMBITION_MAX_SCALE_FACTOR";
+/// See [`MAX_SCALE_FACTOR_ENV`]. `1` turns MSAA off; 2, 4 and 8 are the counts
+/// Bevy names.
+pub const MSAA_ENV: &str = "AMBITION_MSAA";
+
+impl RasterBudget {
+    /// This budget with any per-process override applied.
+    ///
+    /// ⚠ A value that cannot be read is IGNORED, not defaulted. Substituting a
+    /// number nobody typed would make a typo look like a successful experiment.
+    pub fn with_env_overrides(mut self) -> Self {
+        if let Ok(raw) = std::env::var(MAX_SCALE_FACTOR_ENV) {
+            match raw.trim().to_ascii_lowercase().as_str() {
+                "" => {}
+                // An explicit way to say "honour the compositor", so a config
+                // can turn the cap OFF as well as on.
+                "none" | "off" | "native" => self.max_scale_factor = None,
+                other => {
+                    if let Ok(value) = other.parse::<f32>() {
+                        if value.is_finite() && value > 0.0 {
+                            self.max_scale_factor = Some(value);
+                        }
+                    }
+                }
+            }
+        }
+        if let Ok(raw) = std::env::var(MSAA_ENV) {
+            if let Ok(value) = raw.trim().parse::<u8>() {
+                self.msaa_samples = value;
+            }
+        }
+        self
+    }
+}
+
 /// The environment variable that forces a visual quality profile at boot.
 ///
 /// This is the seam the launcher's TOML config drives: `run_game.sh` reads the

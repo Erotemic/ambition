@@ -25,7 +25,8 @@ pub use video::{
     profile_override_from_env, BackgroundTextureBudget, CameraAspectPolicy, ParallaxBudget,
     ParticleBudget, PortalCaptureBudget, RasterBudget, ScreenShaderSettings, ShaderBudget,
     SpriteTextureBudget, TextureResolutionScale, VideoSettings, VisualQualityBudget,
-    VisualQualityProfile, VisualQualitySettings, QUALITY_PROFILE_ENV,
+    VisualQualityProfile, VisualQualitySettings, MAX_SCALE_FACTOR_ENV, MSAA_ENV,
+    QUALITY_PROFILE_ENV,
 };
 
 #[cfg(test)]

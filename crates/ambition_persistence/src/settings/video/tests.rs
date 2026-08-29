@@ -301,3 +301,48 @@ fn from_label_tolerates_hand_editing_but_not_custom() {
     assert_eq!(VisualQualityProfile::from_label("mediun"), None);
     assert_eq!(VisualQualityProfile::from_label(""), None);
 }
+
+// ⚠ These mutate process-wide environment, so they run in ONE test with the
+// variables cleared between cases. Split into separate `#[test]`s they would
+// race each other under the default parallel harness and fail intermittently —
+// which is worse than the bug they are meant to catch.
+#[test]
+fn raster_env_overrides_apply_on_top_of_the_tier() {
+    let base = || RasterBudget { max_scale_factor: None, msaa_samples: 4 };
+    let clear = || {
+        unsafe {
+            std::env::remove_var(MAX_SCALE_FACTOR_ENV);
+            std::env::remove_var(MSAA_ENV);
+        }
+    };
+
+    clear();
+    assert_eq!(base().with_env_overrides(), base(), "no variables set changes nothing");
+
+    unsafe { std::env::set_var(MAX_SCALE_FACTOR_ENV, "1.0") };
+    assert_eq!(base().with_env_overrides().max_scale_factor, Some(1.0));
+
+    // Turning the cap OFF must be expressible, or a config can only ever make
+    // the picture cheaper and never restore it.
+    unsafe { std::env::set_var(MAX_SCALE_FACTOR_ENV, "none") };
+    assert_eq!(base().with_env_overrides().max_scale_factor, None);
+
+    // ⛔ A value that cannot be read is IGNORED, never defaulted: substituting a
+    // number nobody typed makes a typo look like a successful experiment.
+    for junk in ["", "  ", "abc", "-1", "0", "nan", "inf"] {
+        unsafe { std::env::set_var(MAX_SCALE_FACTOR_ENV, junk) };
+        let got = RasterBudget { max_scale_factor: Some(2.0), msaa_samples: 4 }
+            .with_env_overrides()
+            .max_scale_factor;
+        assert_eq!(got, Some(2.0), "{junk:?} should leave the tier's value alone");
+    }
+
+    clear();
+    unsafe { std::env::set_var(MSAA_ENV, "1") };
+    assert_eq!(base().with_env_overrides().sanitized_msaa_samples(), 1);
+    unsafe { std::env::set_var(MSAA_ENV, "8") };
+    assert_eq!(base().with_env_overrides().sanitized_msaa_samples(), 8);
+    unsafe { std::env::set_var(MSAA_ENV, "banana") };
+    assert_eq!(base().with_env_overrides().sanitized_msaa_samples(), 4, "junk keeps the tier");
+    clear();
+}

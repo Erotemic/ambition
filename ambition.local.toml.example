@@ -33,6 +33,28 @@
 #
 # profile = "medium"
 
+[raster]
+# The two costs that scale with SCREEN AREA, settable WITHOUT changing tier.
+#
+# ⭐ WHY THESE ARE SEPARATE FROM `quality.profile`. Dropping a tier to reach
+# these also changes texture resolution, parallax layers, portal budget and
+# particle counts — four other variables moving at once, which makes any
+# before/after unattributable. Set these to move the pixel count or the sample
+# count ALONE against an otherwise unchanged build.
+#
+# max_scale_factor: upper bound on the window's DPI scale. `"none"` honours the
+# compositor (the default). `1.0` on a 2x display is four times fewer fragments
+# for the same picture at the same size; on a 1x display it does nothing.
+#
+# max_scale_factor = 1.0
+
+# msaa: samples per pixel — 1 (off), 2, 4 or 8. Bevy's default is 4. It
+# antialiases geometry edges, which sprite quads do not have; what it buys here
+# is gizmos, lines and shapes. Above 1 it also adds a full-screen
+# `msaa_writeback` pass.
+#
+# msaa = 1
+
 [env]
 # Extra environment variables exported before the game launches, verbatim.
 # Anything `AMBITION_*` the game already understands works here; this is the

@@ -863,6 +863,36 @@ in `741a1f59b`, which the exit oracle caught).
 made the tail come home to the hand instead of 79px past it; until the first hit
 stops ending the flight, most throws never reach the return leg at all.
 
+### The actor → performer rename has a FOURTH place to reach: the art FILES (2026-08-29)
+
+⛔ **`character_catalog.ron` NAMES `sprites/performer_spritesheet.{png,ron}`. THE
+FILES ON DISK ARE STILL `actor_*`.** Four workspace tests are red on it:
+
+```text
+declared_art_resolves::every_catalog_character_names_a_manifest_that_exists
+    assertion failed: the set of characters with no sheet MANIFEST has CHANGED
+    left: ["performer"]
+declared_art_resolves::every_catalog_character_names_a_spritesheet_that_exists
+declared_art_resolves::every_catalog_character_that_derives_a_portrait_has_the_art
+registered_character_art_resolves::every_registered_character_resolves_the_art_it_declares
+```
+
+⭐ **THE RENAME REACHED THE CATALOG AND THE SPRITE ROSTER; IT HAS NOT REACHED THE
+ASSETS.** Every quality tier carries its own copy, so the remaining move is
+`actor_* → performer_*` across **all** of them:
+
+```text
+crates/ambition_platformer2d_actor_monolith/assets/sprites/       actor_{spritesheet.png,spritesheet.ron,spritesheet.yaml,portraits.png,portraits.ron,actor.ron}
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x/  (same six)
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x/ (same six)
+```
+
+⚠ **NOT DONE BY ME, DELIBERATELY** — Jon was pushing rename fixes as this was
+found, and renaming art under an in-flight working tree invites a conflict over
+files git cannot merge. ⇒ his call, and the test tells him when it is complete.
+⭐ The test is doing exactly its job: *"the pixels being present does not help"* —
+a manifest that names nothing leaves the character with no frame rects.
+
 ### The workspace suite has been RED, and nobody could see which tests (2026-08-28)
 
 ⛔⛔ **`workspace (default features)` HAS BEEN FAILING SINCE AT LEAST HEAD

@@ -20,14 +20,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use bevy::prelude::{Res, ResMut, Resource, Time};
+use bevy::ecs::change_detection::DetectChangesMut;
+use bevy::prelude::{Local, Res, ResMut, Resource, Time};
 
 /// Watch state for the authored world file the developer controls can reload.
 #[derive(Resource, Clone, Debug)]
 pub struct WorldSourceHotReload {
     pub pending: bool,
     pub auto_apply: bool,
-    pub poll_timer: f32,
     pub last_modified: Option<SystemTime>,
     pub last_status: String,
     pub last_errors: Vec<String>,
@@ -44,7 +44,6 @@ impl Default for WorldSourceHotReload {
         Self {
             pending: false,
             auto_apply: false,
-            poll_timer: 0.0,
             last_modified: None,
             last_status: "world hot reload idle".to_string(),
             last_errors: Vec::new(),
@@ -121,25 +120,42 @@ fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
 }
 
 /// Debounced mtime poll. Short-circuits when no path is armed.
-pub fn poll_world_source_changes(time: Res<Time>, mut state: ResMut<WorldSourceHotReload>) {
-    state.poll_timer -= time.delta_secs();
-    if state.poll_timer > 0.0 {
+///
+/// ⛔ THE COUNTDOWN LIVES IN A `Local`, NOT IN THE RESOURCE. `ResMut` marks its
+/// resource changed the moment it is dereferenced, so ticking the timer through
+/// it announced "the hot-reload watcher changed" on every frame of every run —
+/// a lie that costs every `Res<WorldSourceHotReload>` reader its change
+/// detection. The resource is now touched mutably only when something about the
+/// WATCH actually moved.
+///
+/// ⚠ `fs::metadata` is a BLOCKING syscall on the main thread. Debounced to ~3Hz
+/// it is invisible on a local disk, and it was measured at up to 3.9ms on
+/// virtiofs. On a network mount, Android storage, or a slow card it is a frame
+/// hitch, and the fix there is to move the stat off-thread rather than to poll
+/// less often. See `docs/planning/engine/performance-and-iteration.md`.
+pub fn poll_world_source_changes(
+    time: Res<Time>,
+    mut state: ResMut<WorldSourceHotReload>,
+    mut poll_timer: Local<f32>,
+) {
+    *poll_timer -= time.delta_secs();
+    if *poll_timer > 0.0 {
         return;
     }
-    state.poll_timer = 0.35;
-    let Some(path) = state.watch_path.clone() else {
+    *poll_timer = 0.35;
+    // Reading the armed path is not a change to it.
+    let Some(path) = state.bypass_change_detection().watch_path.clone() else {
         return; // Profile doesn't support watching — stay idle.
     };
     let Ok(modified) = modified_time_for(&path) else {
         return;
     };
-    let changed = state
-        .last_modified
-        .map(|last| modified > last)
-        .unwrap_or(false);
-    if changed {
+    let last_modified = state.bypass_change_detection().last_modified;
+    if last_modified.is_some_and(|last| modified > last) {
+        // A pending reload IS a change, and readers should see it.
         state.mark_pending(modified);
-    } else if state.last_modified.is_none() {
-        state.last_modified = Some(modified);
+    } else if last_modified.is_none() {
+        // Seeding the baseline is bookkeeping, not news.
+        state.bypass_change_detection().last_modified = Some(modified);
     }
 }

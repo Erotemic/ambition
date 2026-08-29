@@ -176,14 +176,28 @@ pub fn report_schedule_load_census(census: Res<RuntimeCensus>, schedules: Res<Sc
     };
     let mut total = 0usize;
     let mut visible = 0usize;
-    for (_, schedule) in schedules.iter() {
+    // ⭐ PER-SCHEDULE, NOT JUST A TOTAL. `[census] phases` says which phase of
+    // the frame cost the most; this says how many systems that phase is
+    // carrying. Together they turn "StateTransition is 10% of the frame" into
+    // an answerable question — a phase that is expensive with four systems in
+    // it is a different bug from one that is expensive with four hundred.
+    let mut populations: Vec<(String, usize)> = Vec::new();
+    for (label, schedule) in schedules.iter() {
         let count = schedule.systems_len();
         if count > 0 {
             visible += 1;
             total += count;
+            populations.push((format!("{label:?}"), count));
         }
     }
-    eprintln!("[census] schedules t={at:.3} schedules={visible} systems={total}");
+    // Biggest first, and by name within a tie so the row is stable between
+    // samples and a diff between two runs means something.
+    populations.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    let mut row = format!("[census] schedules t={at:.3} schedules={visible} systems={total}");
+    for (label, count) in &populations {
+        row.push_str(&format!(" {label}={count}"));
+    }
+    eprintln!("{row}");
 }
 
 /// Frame times on the census interval.

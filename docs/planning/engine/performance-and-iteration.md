@@ -108,15 +108,29 @@ Where that 1.52ms goes, from `[census] phases` (headless, 657-frame window):
    0.042 ms    3%  RunFixedMainLoop
 ```
 
-⭐ **`StateTransition` is 10% of the frame** for an app with ONE state
-(`GameMode`), zero `OnEnter`/`OnExit`/`OnTransition` registrations, and no
-state-scoped entities. That is not a Tracy artifact — it survives into the
-unprofiled run. Nothing in the source explains it yet, and it is the largest
-single unexplained share of the frame. Start here.
+`SpawnScene` costing more than `First` is one surprise, and it is only visible
+because the phase list is read from `MainScheduleOrder` rather than hardcoded.
 
-`SpawnScene` costing more than `First` is the other surprise, and it is only
-visible because the phase list is read from `MainScheduleOrder` rather than
-hardcoded.
+⭐ **ONE SCHEDULE HOLDS 93% OF THE ENGINE.** `[census] schedules` reports the
+population behind each of those times:
+
+```text
+Update=822  PostUpdate=15  PreUpdate=9  Startup=8  StateTransition=8
+First=4  FixedMain=1  FixedPostUpdate=1  RunFixedMainLoop=1
+```
+
+822 of 886 systems are in `Update`. That single fact explains the frame: the
+861 run-condition evaluations per frame are 822 systems each carrying their own
+condition, and directions 1 and 2 below are both really "stop making `Update`
+carry everything". Any per-system overhead the engine pays, it pays 822 times.
+
+**On `StateTransition`, correcting an earlier reading of this data:** it holds
+**8 systems** and still costs ~0.15ms, which is ~20x the per-system cost of
+`Update`'s 822. So it is not our code being slow — it is Bevy's per-state
+machinery (transition steps plus `try_run_schedule` for `OnEnter`/`OnExit`/
+`OnTransition` that are all empty here) being expensive per system. Worth a
+look before shipping, but it is NOT the place to start: `Update`'s 822 systems
+are, because that is where both the frame and the 1.9s of plugin build live.
 
 ## Directions with strong efficiency leverage
 

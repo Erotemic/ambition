@@ -35,6 +35,15 @@ DSO_BUCKETS = [
     ("audio", ("pipewire", "pulse", "alsa", "libspa")),
 ]
 
+# perf truncates COMM to 15 characters, so every needle here must match within
+# that prefix ("Tracy Symbol Wo", not "Tracy Symbol Worker").
+THREAD_BUCKETS = [
+    ("profiler (Tracy)", ("tracy",)),
+    ("build tooling", ("cargo", "rustc", "bash", "dirname", "sh")),
+    ("audio", ("pipewire", "pulse", "alsa", "spa-")),
+]
+GAME_THREADS = "the game itself"
+
 
 class Bundle:
     def __init__(self, path: str) -> None:
@@ -352,14 +361,32 @@ def build_summary(bundle: Bundle) -> str:
             "```",
             "",
         ]
-        growth = number(last, "entities") - number(first, "entities")
+        # A leak is monotonic growth that KEEPS GOING. Spawning a room once and
+        # then holding steady has the same start-to-end delta and is the
+        # healthy case, so comparing first to last flags every normal run.
+        # Split the session and ask whether the second half is still climbing.
+        counts = [number(row, "entities") for row in ecs]
+        growth = counts[-1] - counts[0]
         if growth > 0:
-            lines += [
-                f"Entity count rose by {growth:.0f} over the session. A rise that never",
-                "falls across room transitions is the shape of a lifecycle leak; check",
-                "`runtime_census.csv` against the room markers in `timeline.md`.",
-                "",
-            ]
+            half = len(counts) // 2
+            late_growth = counts[-1] - counts[half] if half else 0.0
+            settled = max(counts[half:]) - min(counts[half:]) if half else 0.0
+            if late_growth > 0 and settled > 0:
+                lines += [
+                    f"⚠ Entity count rose by {growth:.0f} over the session and was **still",
+                    f"climbing in the second half** (+{late_growth:.0f} after t="
+                    f"{number(ecs[half], 't'):.1f}s). Growth that never falls across room",
+                    "transitions is the shape of a lifecycle leak; check `runtime_census.csv`",
+                    "against the room markers in `timeline.md`.",
+                    "",
+                ]
+            else:
+                lines += [
+                    f"Entity count rose by {growth:.0f} and then held flat at "
+                    f"{counts[-1]:.0f} for the rest of the session — the shape of a scene",
+                    "spawning once, not a leak.",
+                    "",
+                ]
     elif meta.get("census_enabled") != "yes":
         lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
     else:
@@ -499,6 +526,133 @@ def build_summary(bundle: Bundle) -> str:
     else:
         lines += ["UNAVAILABLE — no Tracy artifacts in this bundle.", ""]
 
+    # ── Frame phase breakdown ────────────────────────────────────────────
+    section(lines, "Which phase of the frame owned the time")
+    phases = bundle.rows("schedule_phases.csv")
+    if phases:
+        # Column order is schedule order; taking labels off the row keeps this
+        # table honest if a phase is ever added to the census.
+        labels = [key for key in phases[0] if key not in ("wall_s", "t", "frames")]
+        totals = {label: 0.0 for label in labels}
+        frames = 0.0
+        for row in phases:
+            weight = number(row, "frames")
+            frames += weight
+            for label in labels:
+                totals[label] += number(row, label) * weight
+        if frames > 0:
+            per_frame = {label: total / frames for label, total in totals.items()}
+            budget = sum(per_frame.values())
+            lines += [
+                f"Mean milliseconds per frame over {frames:.0f} frames, "
+                f"summing to {budget:.2f}ms:",
+                "",
+                "```text",
+            ]
+            for label, value in sorted(per_frame.items(), key=lambda item: -item[1]):
+                share = (value / budget * 100.0) if budget > 0 else 0.0
+                lines.append(f"{value:8.2f} ms  {share:5.1f}%  {label}")
+            lines += [
+                "```",
+                "",
+                "From `[census] phases`, which needs no profiler and works on every",
+                "platform that can write to stderr. `outside` is the gap between the end",
+                "of `Last` and the next `First`: present/vsync wait when windowed, the",
+                "runner loop when headless. A phase with no mark of its own is charged to",
+                "the phase before it, so these are frame shares rather than schedule",
+                "totals. Full series: `schedule_phases.csv`.",
+                "",
+            ]
+    elif meta.get("census_enabled") != "yes":
+        lines += ["OFF — the workload census was disabled with `--no-census`.", ""]
+    else:
+        lines += [
+            "UNAVAILABLE — no `[census] phases` rows in this bundle. The phase marks",
+            "are registered only when `AMBITION_PROFILE_CENSUS` is set at App build",
+            "time, so a run that enabled the census later has none.",
+            "",
+        ]
+
+    # ── Observer effect ──────────────────────────────────────────────────
+    #
+    # This section exists because the DSO tally below CANNOT answer it. Tracy's
+    # worker threads live inside the game binary, so a capture where the
+    # profiler outweighs the game still reports ~100% "game binary" and reads as
+    # a clean profile. Only the per-thread split separates them, and if the
+    # profiler is a large share then every frame time in this bundle is
+    # inflated -- which is a conclusion about the whole report, not a footnote.
+    section(lines, "Observer effect (what the profiler itself cost)")
+    threads = bundle.read("perf-report-by-thread.txt")
+    profiler_share = 0.0
+    if threads:
+        tally: dict[str, float] = {}
+        for line in threads.splitlines():
+            match = re.match(r"\s+([0-9.]+)%\s+(\S.*?)\s*$", line)
+            if not match:
+                continue
+            percent, name = float(match.group(1)), match.group(2)
+            label = GAME_THREADS
+            for bucket, needles in THREAD_BUCKETS:
+                if any(needle.lower() in name.lower() for needle in needles):
+                    label = bucket
+                    break
+            tally[label] = tally.get(label, 0.0) + percent
+        if tally:
+            profiler_share = tally.get("profiler (Tracy)", 0.0)
+            game_share = tally.get(GAME_THREADS, 0.0)
+            lines += ["```text"]
+            for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
+                lines.append(f"{percent:6.1f}%  {label}")
+            lines += ["```", ""]
+        if profiler_share >= 25.0:
+            lines += [
+                f"⚠ **The profiler cost {profiler_share:.0f}% of sampled cycles"
+                + (", more than the game itself." if profiler_share >= game_share else ".")
+                + "**",
+                "Tracy's symbol-resolution and compression threads",
+                "compete with the game for the same cores, so **every frame time, zone",
+                "duration, and plugin-build number in this bundle is inflated**, and the",
+                "native symbol table below is largely Tracy's own code.",
+                "",
+                "Zone RATIOS remain usable — the instrumentation is uniform across systems.",
+                "Absolute per-frame costs are not. For an honest frame time, re-run:",
+                "",
+                "```bash",
+                "scripts/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
+                "```",
+                "",
+                "which drops `--features profile` (and with it the per-system zones), and",
+                "compare its frame census against this one to size the gap.",
+                "",
+            ]
+        elif profiler_share:
+            lines += [
+                f"The profiler cost {profiler_share:.0f}% of sampled cycles. Low enough that the",
+                "measurements below stand on their own.",
+                "",
+            ]
+        else:
+            lines += [
+                "No profiler threads were sampled, so nothing but `perf` itself was",
+                "observing the game and the frame times in this bundle are the honest ones.",
+                "A `build tooling` share is the launcher's own `cargo` resolving the build;",
+                "it competes for cores but is not attributed to the game.",
+                "",
+            ]
+    elif bundle.exists("tracy.trace"):
+        lines += [
+            "UNKNOWN — no per-thread `perf` report, so the profiler's own cost could not",
+            "be separated from the game's. A Tracy capture is never free; treat absolute",
+            "frame times here as an upper bound.",
+            "",
+        ]
+    else:
+        lines += [
+            "NOT APPLICABLE — no Tracy capture in this bundle, so nothing but `perf`'s",
+            "own sampling was observing the game.",
+            "",
+        ]
+
     # ── Native profile ───────────────────────────────────────────────────
     section(lines, "Where the native time went")
     dso = bundle.read("perf-report-by-dso.txt")
@@ -524,6 +678,10 @@ def build_summary(bundle: Bundle) -> str:
                 "",
                 "From `perf-report-by-dso.txt`. If the top bucket is not the game binary,",
                 "ranking game symbols is ranking the wrong machine layer.",
+                "",
+                "This split is by SHARED OBJECT, not by thread: statically linked",
+                "profiler, allocator, and runtime code all report as the game binary.",
+                "Read it together with the observer-effect section above.",
                 "",
             ]
     report = bundle.read("perf_report.txt")
@@ -599,6 +757,7 @@ def build_summary(bundle: Bundle) -> str:
         ("asset_activity.csv", "cumulative decode work and resident images"),
         ("image_decodes.csv", "every notable texture decode, with its path"),
         ("schedule_census.csv", "registered system counts per sample"),
+        ("schedule_phases.csv", "per-frame milliseconds in each main-schedule phase"),
         ("tracy_summary.md / tracy_zones.csv", "per-Bevy-system and per-render-pass zones"),
         ("tracy_zone_windows.csv", "the same zones bucketed into time windows"),
         ("tracy.trace", "the raw Tracy trace, for the GUI"),

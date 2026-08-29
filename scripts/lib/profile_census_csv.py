@@ -51,6 +51,7 @@ CSV_NAMES = {
     "render_pass_summary": "render_diagnostics_status.csv",
     "portal": "portal_activity.csv",
     "assets": "asset_activity.csv",
+    "phases": "schedule_phases.csv",
     "config": "census_config.csv",
 }
 

@@ -882,6 +882,31 @@ impl Plugin for SheetRegistryPlugin {
 
 fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
     *registry = baked_sheet_registry();
+    warm_baked_indexes();
+}
+
+/// Force every process-global index derived from a BAKED table, at `Startup`.
+///
+/// ⛔⛔ ONE PLACE, BECAUSE THERE WERE THREE INDEXES OVER ONE TABLE AND ONLY THIS
+/// ONE RAN AT STARTUP. The hardware profile of 2026-08-29 caught the second being
+/// built by a punch — `advance_move_playback` logged `loaded 870 sheets` at 23.9s,
+/// twenty seconds after this system logged the same line, and Tracy priced that
+/// call at **189ms against a 21us mean**. The third
+/// (`character::sheets::record_index`) is reached from the sim schedule's
+/// `sync_sprite_posed_bodies` and from actor animation, and nothing warmed it
+/// either.
+///
+/// ⭐ EVERY MEMBER OF THIS LIST IS A PURE CACHE OF A COMPILE-TIME TABLE — no
+/// content, no overrides, nothing a provider can have registered yet — which is
+/// exactly why forcing them early is safe and why authored/provider state
+/// (`AuthoredSheets`) must NOT join them.
+/// ⇒ a new `OnceLock` over a baked table belongs here, or a frame will build it.
+pub fn warm_baked_indexes() {
+    crate::character::sheets::warm_record_index();
+    let _ = crate::fx::authored_effects();
+    let _ = crate::portrait::available_portrait_targets();
+    // No zero-arg accessor; any tier lookup builds the whole catalog map.
+    let _ = crate::sprite_packs::catalog_for_tier("full");
 }
 
 /// Register a sheet a PROVIDER authored, keyed by the file root a catalog row

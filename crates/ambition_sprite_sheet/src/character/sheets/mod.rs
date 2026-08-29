@@ -332,6 +332,22 @@ pub fn try_load_spec_for_target_authored(
 /// by the record's authored `target` and this one by file root, so one shared engine resource
 /// answered "give me sheet `robot`" with `tech_bro_disruptor`'s page while this
 /// index answered correctly.
+/// Build the baked record index NOW, so a gameplay frame does not.
+///
+/// ⛔⛔ THE SAME 870-ENTRY TABLE AS `init_sheet_registry`, PARSED AGAIN, AND ITS
+/// FIRST CALLER IS A FRAME. Measured on hardware 2026-08-29, the sibling index in
+/// `attack_hitbox` cost **189ms** the first time a punch asked for it. This one is
+/// reached from `posed_body::{42,68}` — which `sync_sprite_posed_bodies` runs in
+/// the SIM schedule every frame — and from `rendering/actors/animation.rs`.
+/// Nothing warmed it, so the first frame to pose or draw a character paid the
+/// parse.
+///
+/// ⭐ The `OnceLock` is not the defect. "Lazily" is: it means *on whichever frame
+/// first asks*. Warming keeps the cache and moves the cost to `Startup`.
+pub fn warm_record_index() {
+    let _ = record_index();
+}
+
 fn record_index() -> &'static HashMap<String, SheetRecord> {
     static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
     INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)

@@ -2171,7 +2171,26 @@ reproduce the "before", and a zero from it would be the instrument's silence
 wearing a number. ⇒ the empirical proof is the NEXT WINDOWED PROFILE: no second
 `loaded 870 sheets` under `advance_move_playback`.
 
-▢ **THE DEEPER HALF IS UNTAKEN:** two indexes over one 870-entry table is a
+⛔⛔ **AND THE SIBLING SWEEP THE ROW ASKED FOR FOUND A THIRD INDEX OVER THE SAME
+TABLE, ALSO FIRST TOUCHED BY A FRAME.** `character::sheets::record_index()` is
+`index_baked_table(BAKED_SHEET_RONS)` again, and its callers are `posed_body.rs`
+:42/:68 — reached by `sync_sprite_posed_bodies`, which runs in the **sim schedule
+every frame** — and `rendering/actors/animation.rs`:446/:483. Nothing warmed it,
+so the first frame to pose or draw a character paid the 870-entry parse.
+
+⇒ **THREE indexes over one baked table, and only ONE of them ran at `Startup`.**
+
+✔ **ONE SEAM NOW OWNS ALL OF THEM:** `warm_baked_indexes()` in
+`ambition_sprite_sheet`, called from `init_sheet_registry` — the Startup system
+that already logs the first `loaded 870 sheets`. It forces the record index, the
+authored-effect index, the portrait target index and the pack-catalog map.
+⭐ Every member is a PURE CACHE OF A COMPILE-TIME TABLE — no content, no
+overrides, nothing a provider can have registered yet — which is why forcing them
+early is safe, and why authored/provider state (`AuthoredSheets`) must NOT join
+them. ⇒ **a new `OnceLock` over a baked table belongs in that list, or a frame
+will build it.**
+
+▢ **THE DEEPER HALF IS STILL UNTAKEN:** three indexes over one 870-entry table is
 duplicated build AND duplicated memory. Sharing one index removes both; warming is
 the cheap half.
 

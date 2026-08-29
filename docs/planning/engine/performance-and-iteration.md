@@ -1119,6 +1119,37 @@ this up should vary ROOMS (or content within one) under `capture_scene` on a GPU
 machine and read `sprites_visible` beside the frame — the population is real, the
 projection is real, and the census rows already exist.
 
+### ⭐⭐ NO SHIPPED ROOM HAS HUNDREDS OF VISIBLE SPRITES — the founding premise, measured
+
+Four real rooms through `capture_scene`:
+
+| room | sprites | **visible** | text2d | per-view projections | entities |
+|---|---|---|---|---|---|
+| `central_hub_complex` | 151 | **46** | 46 | 18 | 4096 |
+| `you_have_to_cut_the_rope` | 79 | **37** | 12 | 8 | 2048 |
+| `goblin_encounter` | 53 | **29** | 7 | 7 | 2048 |
+| `sanic_sandbox` | 95 | **27** | 5 | 5 | 2048 |
+
+⭐⭐ **THE MOST VISIBLE SPRITES IN ANY OF THEM IS 46.** The campaign was opened on
+*"a room with hundreds of sprites can visibly chug"* — and on this evidence no
+shipped room HAS hundreds of visible sprites. ⇒ either the chugging room is one
+not sampled here, or the sprite count was never the cause. ⛔ Somebody should
+name the actual room before more work is spent on sprite scaling; four of them
+say the premise does not hold.
+
+⚠ NOTE the strong correlate that is NOT sprites: `central_hub_complex` has 4096
+entities and **18 per-view projections** against 5–8 elsewhere. If a room is
+slow, per-view projection count is the dimension that actually varies between
+these rooms.
+
+⛔⛔ **THE FRAME TIMES IN THIS TABLE ARE NOT USABLE AND ARE OMITTED ON PURPOSE.**
+`capture_scene` is a SCREENSHOT tool: the whole run is ~1.3s and the census
+sampled `frames=2` to `frames=12`, so every mean is startup-contaminated.
+`goblin_encounter` reported 187.90ms over TWO frames — that is app construction,
+not a slow room. ⇒ using it as a profiling vehicle needs its `--warmup N` raised
+until the sample is steady state, which is the same lesson as the 0.72s probe
+window earlier.
+
 ### THE CAMPAIGN'S BEFORE/AFTER — and why it is NOT a 10% win
 
 Two measured Smash-match rows now sit in `runtime_frame_cost.jsonl`, same

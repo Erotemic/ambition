@@ -100,9 +100,20 @@ for i in 1 2 3 4 5; do
 done
 ```
 
-Five back-to-back runs of the SAME binary. The spread between them is your floor:
-on the campaign host, `4.42 / 4.52 / 4.55 / 4.62 / 4.43ms` — **4.4% of the mean**,
-so **~0.2ms is the smallest defensible single-arm win**.
+Five back-to-back runs of the SAME binary. ⛔⛔ **AND DO NOT STOP AT ONE BLOCK —
+the first block on the campaign host said 4.4%, a second said 22.6%, a third said
+7.4%, all within an hour of each other on the same binary.** Typical spread is
+**4–7%**, but individual runs occasionally land **~20% above the median**, and a
+short block that catches one reports a floor four times too loose.
+
+⇒ **use the MEDIAN of ≥5 reps, and budget ~7% (≈0.3ms here) as the smallest
+defensible single-arm win.**
+
+⛔⛔ **AND THE HAZARD THAT MATTERS MORE THAN THE FLOOR: THE BLOCK MEAN DRIFTS.**
+Two blocks minutes apart, nothing changed, gave means of **4.508ms and 4.305ms —
+4.7% apart**, which is as large as most effects worth finding. ⇒ **NEVER compare
+an arm measured in one block against an arm measured in another, even with reps
+each. INTERLEAVE them** — A, B, A, B — so the drift lands on both.
 
 ⭐ **Then double it for an A/B.** Subtracting two noisy quantities amplifies
 relative error: a ±0.04ms wobble on a 0.53ms phase is 8%; on the 0.08ms DIFFERENCE

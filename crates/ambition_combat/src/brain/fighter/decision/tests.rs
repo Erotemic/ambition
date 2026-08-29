@@ -1182,3 +1182,46 @@ fn an_ordinary_press_holds_nothing() {
     assert!(out.melee_pressed, "the press never came out");
     assert!(!out.melee_held, "a jab held the button down");
 }
+
+/// ⭐ D184: A BODY OFF EITHER LEDGE MUST STEER BACK TOWARD THE STAGE.
+///
+/// `recovery_left` engages in real bouts while `recovery_right` dies at 0%, from
+/// placements symmetric in every measured input. The DI overlay and the situation
+/// CLASSIFIER were both cleared by test, which leaves the movement the decision
+/// actually emits — this.
+///
+/// `gravity_down = (0,1)` makes `AccelerationFrame` the identity, so +x here is
+/// world +x: a body past the RIGHT ledge must ask for NEGATIVE x, and one past the
+/// LEFT ledge for positive.
+#[test]
+fn a_body_off_either_ledge_steers_back_toward_the_stage() {
+    let steer = |me_x: f32| -> f32 {
+        let mut cfg = FighterCfg::new(immediate_profile());
+        cfg.decision_interval_ticks = 1;
+        let mut state = FighterState::new(&cfg, 0x5EED);
+        let snapshot = BrainSnapshot::idle();
+        let mut view = scene(me_x, 400.0);
+        // Off the ledge, not standing on it.
+        view.self_view.on_ground = false;
+        let mut out = ActorControlFrame::neutral();
+        // Several ticks: the first decision arms, later ones emit.
+        let mut last = 0.0;
+        for _ in 0..8 {
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+            if out.locomotion.x != 0.0 {
+                last = out.locomotion.x;
+            }
+        }
+        last
+    };
+    let past_right = steer(880.0);
+    let past_left = steer(-80.0);
+    assert!(
+        past_right < 0.0,
+        "a body past the RIGHT ledge must steer back LEFT, asked {past_right}"
+    );
+    assert!(
+        past_left > 0.0,
+        "a body past the LEFT ledge must steer back RIGHT, asked {past_left}"
+    );
+}

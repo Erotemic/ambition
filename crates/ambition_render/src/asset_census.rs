@@ -83,15 +83,21 @@ impl ImageCensus {
         self.total_images
     }
 
-    /// Bytes of decoded image data seen so far. Cumulative, never decremented:
-    /// this counts DECODE WORK, so a rise with a flat `total_images` means the
-    /// same asset was decoded again, which is the churn the number is for.
     /// How many of the counted images had their bytes DERIVED rather than
     /// measured. `0` means every byte in `total_bytes` was seen directly.
     pub fn derived_byte_images(&self) -> u64 {
         self.derived_byte_images
     }
 
+    /// Bytes of decoded image data seen so far. Cumulative, never decremented:
+    /// this counts DECODE WORK, so a rise with a flat `total_images` means the
+    /// same asset was decoded again, which is the churn the number is for.
+    ///
+    /// ⚠ DECODE, NOT GPU-READY. This counts `AssetEvent::Added`, which fires when
+    /// the image reaches `Assets<Image>` — the main world is done with it and the
+    /// render world has not touched it yet. The frame cost measured on hardware is
+    /// the EXTRACT that follows (`extract_render_asset<GpuImage>`, 454.9ms max
+    /// against a 0.1ms mean), so "decoded" here is upstream of "ready to draw".
     pub fn total_bytes(&self) -> u64 {
         self.total_bytes
     }

@@ -54,6 +54,49 @@ impl VisualQualityProfile {
     }
 }
 
+impl VisualQualityProfile {
+    /// Parse a profile by the same label [`label`](Self::label) prints, so the
+    /// string in a config file and the string in a diagnostic are one spelling.
+    /// Case-insensitive and whitespace-tolerant, because this reads hand-edited
+    /// files.
+    ///
+    /// ⛔ `custom` is deliberately NOT parseable. It means "use the budget table
+    /// stored in the user's settings", which a boot override has no way to
+    /// supply — accepting it would silently boot High under another name.
+    pub fn from_label(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "potato" => Some(Self::Potato),
+            "low" => Some(Self::Low),
+            "medium" => Some(Self::Medium),
+            "high" => Some(Self::High),
+            "ultra" => Some(Self::Ultra),
+            _ => None,
+        }
+    }
+}
+
+/// The environment variable that forces a visual quality profile at boot.
+///
+/// This is the seam the launcher's TOML config drives: `run_game.sh` reads the
+/// file, exports this, and the game obeys it. Nothing is written back to the
+/// user's saved settings — a forced profile lasts exactly as long as the
+/// process, so profiling a laptop on Medium cannot quietly become that
+/// machine's permanent preference.
+pub const QUALITY_PROFILE_ENV: &str = "AMBITION_QUALITY_PROFILE";
+
+/// The forced profile for this process, if one was asked for and understood.
+///
+/// ⚠ An unparseable value returns `None` rather than falling back to a default,
+/// so a typo boots the user's OWN setting instead of silently substituting a
+/// tier they did not choose. Callers are expected to say so out loud.
+pub fn profile_override_from_env() -> Option<VisualQualityProfile> {
+    let raw = std::env::var(QUALITY_PROFILE_ENV).ok()?;
+    if raw.trim().is_empty() {
+        return None;
+    }
+    VisualQualityProfile::from_label(&raw)
+}
+
 pub fn default_visual_quality_profile() -> VisualQualityProfile {
     if cfg!(target_os = "android") {
         VisualQualityProfile::Medium
@@ -198,6 +241,69 @@ pub struct ParticleBudget {
     pub spawn_rate_scale: f32,
 }
 
+/// How many pixels the frame is actually rasterised into, and how many samples
+/// each one takes. The two knobs that scale with SCREEN AREA rather than with
+/// scene content — everything else in this budget trades away detail, these
+/// trade away fill.
+///
+/// ⭐ `max_scale_factor` IS NOT A RESOLUTION. It caps the DPI scale the
+/// compositor hands us; the window keeps its logical size and the game keeps
+/// its layout. On a 1x display it changes nothing at all. On a 2x display it
+/// is the difference between rasterising 1600x900 and 3200x1800 — four times
+/// the fragments for the same picture on the same monitor.
+///
+/// ⚠ Measured on `calculex` (i7-7700HQ, Intel HD 630) 2026-08-29: a 1600x900
+/// window on a 2x Wayland session rasterised at 3200x1800. Every full-screen
+/// pass reported exactly 5,760,000 fragment invocations, and the frame sat at
+/// a p50 of ~50ms. A discrete GPU never notices; integrated graphics pay it in
+/// full, and so does a handheld.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RasterBudget {
+    /// Upper bound on the window's DPI scale factor. `None` honours whatever
+    /// the compositor asks for, which is the right answer when there is a GPU
+    /// to spare and the wrong one when there is not.
+    pub max_scale_factor: Option<f32>,
+    /// MSAA samples per pixel: 1 (off), 2, 4, or 8.
+    ///
+    /// ⭐ MSAA ANTIALIASES GEOMETRY EDGES, and a 2D sprite is an axis-aligned
+    /// textured quad whose edges are already flush. What it buys here is
+    /// limited to the few things with real geometry — gizmos, lines, shapes —
+    /// which is why this is a tier knob rather than a deletion: the tiers that
+    /// can afford it keep it.
+    ///
+    /// Above 1 this also adds a `msaa_writeback` pass over the whole frame,
+    /// which is why it compounds with `max_scale_factor` rather than adding
+    /// to it.
+    pub msaa_samples: u8,
+}
+
+impl RasterBudget {
+    /// Bevy wants a power-of-two sample count it recognises; anything else is
+    /// a typo in a config file and must not reach the renderer.
+    pub fn sanitized_msaa_samples(&self) -> u8 {
+        match self.msaa_samples {
+            0 | 1 => 1,
+            2 => 2,
+            4 => 4,
+            8 => 8,
+            // Round DOWN to the nearest supported tier. A machine that asked
+            // for more than it can name should not be handed more work.
+            other if other > 8 => 8,
+            other if other > 4 => 4,
+            _ => 2,
+        }
+    }
+
+    /// The scale factor to actually use, given what the compositor reported.
+    /// `None` means "do not override".
+    pub fn effective_scale_factor(&self, reported: f32) -> Option<f32> {
+        let cap = self.max_scale_factor?;
+        // Only ever a CAP. A display reporting less than the cap keeps its own
+        // value; raising it would be inventing pixels nobody asked for.
+        (reported > cap).then_some(cap)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VisualQualityBudget {
     pub portal: PortalCaptureBudget,
@@ -206,6 +312,7 @@ pub struct VisualQualityBudget {
     pub parallax: ParallaxBudget,
     pub shaders: ShaderBudget,
     pub particles: ParticleBudget,
+    pub raster: RasterBudget,
 }
 
 impl VisualQualityBudget {
@@ -248,6 +355,10 @@ impl VisualQualityBudget {
                     max_particles: 16,
                     spawn_rate_scale: 0.1,
                 },
+                raster: RasterBudget {
+                    max_scale_factor: Some(1.0),
+                    msaa_samples: 1,
+                },
             },
             VisualQualityProfile::Low => Self {
                 portal: PortalCaptureBudget {
@@ -280,6 +391,10 @@ impl VisualQualityBudget {
                 particles: ParticleBudget {
                     max_particles: 128,
                     spawn_rate_scale: 0.5,
+                },
+                raster: RasterBudget {
+                    max_scale_factor: Some(1.0),
+                    msaa_samples: 1,
                 },
             },
             VisualQualityProfile::Medium => Self {
@@ -314,6 +429,10 @@ impl VisualQualityBudget {
                     max_particles: 256,
                     spawn_rate_scale: 0.75,
                 },
+                raster: RasterBudget {
+                    max_scale_factor: Some(1.0),
+                    msaa_samples: 1,
+                },
             },
             VisualQualityProfile::High | VisualQualityProfile::Custom => Self {
                 portal: PortalCaptureBudget {
@@ -347,6 +466,10 @@ impl VisualQualityBudget {
                     max_particles: 512,
                     spawn_rate_scale: 1.0,
                 },
+                raster: RasterBudget {
+                    max_scale_factor: None,
+                    msaa_samples: 4,
+                },
             },
             VisualQualityProfile::Ultra => Self {
                 portal: PortalCaptureBudget {
@@ -379,6 +502,10 @@ impl VisualQualityBudget {
                 particles: ParticleBudget {
                     max_particles: 1024,
                     spawn_rate_scale: 1.0,
+                },
+                raster: RasterBudget {
+                    max_scale_factor: None,
+                    msaa_samples: 4,
                 },
             },
         }

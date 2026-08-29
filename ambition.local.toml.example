@@ -1,0 +1,42 @@
+# Launcher configuration for `run_game.sh` — copy to `ambition.local.toml`.
+#
+#     cp ambition.local.toml.example ambition.local.toml
+#
+# `ambition.local.toml` is git-ignored, the way a `.env` is. It describes THIS
+# MACHINE: what it can afford to draw and what it should boot into. Nothing here
+# changes the game's saved settings, and nothing here travels to anyone else's
+# checkout — a laptop that needs Medium says so locally, and the repo's default
+# stays High for the machines that can take it.
+#
+# Every key is optional. An absent file, an empty file, and a file with no keys
+# all mean exactly "behave as `run_game.sh` did before this existed".
+
+[quality]
+# Force the visual quality profile for the life of the process:
+#
+#   potato   bare minimum, deliberately ugly — "does it run at all"
+#   low
+#   medium   caps DPI scale at 1x and turns MSAA off; half-resolution textures
+#   high     the default. Honours the compositor's DPI scale, 4x MSAA
+#   ultra
+#
+# ⭐ WHAT `medium` AND BELOW ACTUALLY CHANGE ABOUT THE RASTERISER, and why it is
+# the knob a weak GPU needs first: they cap the window's DPI scale factor at 1x
+# and switch MSAA off. On a 1x display the cap does nothing at all. On a 2x
+# display — a HiDPI laptop panel — it is the difference between rasterising
+# 1600x900 and 3200x1800, which is four times the fragments for the same picture
+# at the same size on the same screen.
+#
+# ⚠ While this is set, the in-game settings menu CANNOT change quality: the
+# forced profile is reapplied every frame. The game logs one line at startup
+# saying so. Comment this out to get the menu back.
+#
+# profile = "medium"
+
+[env]
+# Extra environment variables exported before the game launches, verbatim.
+# Anything `AMBITION_*` the game already understands works here; this is the
+# escape hatch so a machine-local quirk does not need a new key above.
+#
+# AMBITION_START_CHARACTER = "performer"
+# AMBITION_PROFILE_CENSUS = "1"

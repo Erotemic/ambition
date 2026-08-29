@@ -214,3 +214,90 @@ fn texture_resolution_scale_owns_variant_folder_names() {
     assert!(TextureResolutionScale::MANIFEST_VARIANTS.contains(&TextureResolutionScale::Potato));
     assert!(!TextureResolutionScale::MANIFEST_VARIANTS.contains(&TextureResolutionScale::Full));
 }
+
+// ── Raster budget ────────────────────────────────────────────────────────────
+// The two knobs that scale with SCREEN AREA. Everything asserted here is about
+// not surprising a machine that can afford the work.
+
+#[test]
+fn high_and_ultra_raster_budgets_are_todays_behaviour() {
+    // ⛔ THIS IS THE NO-KNEECAP GUARD. `max_scale_factor: None` honours the
+    // compositor and `msaa_samples: 4` is Bevy's own default, so a machine on
+    // High or Ultra rasterises exactly what it did before the budget existed.
+    // If either value changes here, capable hardware got quietly downgraded.
+    for profile in [VisualQualityProfile::High, VisualQualityProfile::Ultra] {
+        let raster = VisualQualityBudget::for_profile(profile).raster;
+        assert_eq!(raster.max_scale_factor, None, "{profile:?} must not cap DPI scale");
+        assert_eq!(raster.sanitized_msaa_samples(), 4, "{profile:?} must keep 4x MSAA");
+    }
+}
+
+#[test]
+fn the_cheaper_tiers_cap_dpi_scale_and_drop_msaa() {
+    for profile in
+        [VisualQualityProfile::Potato, VisualQualityProfile::Low, VisualQualityProfile::Medium]
+    {
+        let raster = VisualQualityBudget::for_profile(profile).raster;
+        assert_eq!(raster.max_scale_factor, Some(1.0), "{profile:?} should cap DPI scale at 1x");
+        assert_eq!(raster.sanitized_msaa_samples(), 1, "{profile:?} should run without MSAA");
+    }
+}
+
+#[test]
+fn capping_the_scale_factor_never_raises_it() {
+    // ⭐ A CAP, NOT A SETTING. The failure this guards is a 1x laptop being
+    // told to rasterise at 2x because a tier "sets" the scale factor.
+    let capped = RasterBudget { max_scale_factor: Some(1.0), msaa_samples: 1 };
+    assert_eq!(capped.effective_scale_factor(2.0), Some(1.0), "2x display is brought down");
+    assert_eq!(capped.effective_scale_factor(1.0), None, "1x display is left alone");
+    assert_eq!(capped.effective_scale_factor(0.75), None, "below the cap is left alone");
+
+    let uncapped = RasterBudget { max_scale_factor: None, msaa_samples: 4 };
+    assert_eq!(uncapped.effective_scale_factor(2.0), None, "no cap means no override");
+}
+
+#[test]
+fn msaa_sample_counts_round_down_to_something_bevy_accepts() {
+    // A hand-edited config is the expected source of a bad value here, and the
+    // safe direction to resolve one is DOWNWARD — never hand a struggling
+    // machine more samples than it asked for.
+    let samples = |n| RasterBudget { max_scale_factor: None, msaa_samples: n }
+        .sanitized_msaa_samples();
+    assert_eq!(samples(0), 1, "0 is off, not a crash");
+    assert_eq!(samples(1), 1);
+    assert_eq!(samples(2), 2);
+    assert_eq!(samples(4), 4);
+    assert_eq!(samples(8), 8);
+    assert_eq!(samples(3), 2, "rounds down");
+    assert_eq!(samples(6), 4, "rounds down");
+    assert_eq!(samples(16), 8, "clamped to the highest Bevy names");
+}
+
+#[test]
+fn profile_labels_round_trip_through_from_label() {
+    // The string a diagnostic prints must be the string a config file accepts,
+    // or the error message teaches the wrong spelling.
+    for profile in VisualQualityProfile::ALL {
+        if profile == VisualQualityProfile::Custom {
+            continue;
+        }
+        assert_eq!(
+            VisualQualityProfile::from_label(profile.label()),
+            Some(profile),
+            "{profile:?} should parse back from its own label",
+        );
+    }
+}
+
+#[test]
+fn from_label_tolerates_hand_editing_but_not_custom() {
+    assert_eq!(VisualQualityProfile::from_label("  MEDIUM \n"), Some(VisualQualityProfile::Medium));
+    assert_eq!(VisualQualityProfile::from_label("Low"), Some(VisualQualityProfile::Low));
+    // ⛔ `custom` means "use the budget stored in the user's settings", which a
+    // boot override cannot supply. Accepting it would boot High wearing another
+    // name.
+    assert_eq!(VisualQualityProfile::from_label("custom"), None);
+    // A typo must not resolve to a tier nobody chose.
+    assert_eq!(VisualQualityProfile::from_label("mediun"), None);
+    assert_eq!(VisualQualityProfile::from_label(""), None);
+}

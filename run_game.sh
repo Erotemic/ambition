@@ -14,6 +14,98 @@ ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
 source "$repo_root/scripts/lib/tool_python.sh"
 python_bin="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON)"
 
+# ── Machine-local launcher config ────────────────────────────────────────────
+# `ambition.local.toml` describes THIS MACHINE — what it can afford to draw and
+# what it should boot into. Git-ignored, the way a `.env` is;
+# `ambition.local.toml.example` is the committed template.
+#
+# ⭐ WHY A FILE RATHER THAN A FLAG. The setting that matters here is a property
+# of the hardware, not of the invocation: a laptop on integrated graphics wants
+# Medium for every run, including the ones a profiling script launches without
+# ever passing an argument. A flag has to be remembered every time and is absent
+# exactly when an automated run needs it most.
+#
+# ⛔ AN EXPLICIT ENVIRONMENT VARIABLE ALWAYS WINS. The file only fills in what
+# the caller did not already set, so `AMBITION_QUALITY_PROFILE=high ./run_game.sh`
+# overrides the file rather than being silently overridden by it. A config that
+# could not be beaten from the command line would be untestable.
+ambition_load_local_config() {
+    local config="$repo_root/ambition.local.toml"
+    [[ -f "$config" ]] || return 0
+    command -v python3 >/dev/null 2>&1 || {
+        echo "run_game.sh: ambition.local.toml found but python3 is not available to read it" >&2
+        return 0
+    }
+    local exports
+    # Emits `NAME=value` lines. Errors go to stderr and produce no exports, so a
+    # malformed config degrades to "no config" and says why -- it never takes
+    # the launch down with it.
+    exports="$(python3 - "$config" <<'PYEOF'
+import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # python < 3.11
+    sys.stderr.write("run_game.sh: python3 has no tomllib; ambition.local.toml ignored\n")
+    raise SystemExit(0)
+
+path = sys.argv[1]
+try:
+    with open(path, "rb") as handle:
+        config = tomllib.load(handle)
+except (OSError, tomllib.TOMLDecodeError) as exc:
+    sys.stderr.write(f"run_game.sh: {path} could not be read ({exc}); ignoring it\n")
+    raise SystemExit(0)
+
+out = {}
+
+profile = config.get("quality", {}).get("profile")
+if profile is not None:
+    # Validated HERE as well as in the engine, because the engine's complaint
+    # arrives after a build and a window; this one arrives before either.
+    known = ("potato", "low", "medium", "high", "ultra")
+    if str(profile).strip().lower() in known:
+        out["AMBITION_QUALITY_PROFILE"] = str(profile).strip().lower()
+    else:
+        sys.stderr.write(
+            f"run_game.sh: quality.profile={profile!r} is not one of {', '.join(known)}; ignoring it\n"
+        )
+
+for key, value in (config.get("env") or {}).items():
+    if not isinstance(value, (str, int, float, bool)):
+        sys.stderr.write(f"run_game.sh: env.{key} is not a scalar; ignoring it\n")
+        continue
+    if "\n" in str(value) or "=" in str(key):
+        sys.stderr.write(f"run_game.sh: env.{key} is not a usable name/value; ignoring it\n")
+        continue
+    out[str(key)] = "1" if value is True else "0" if value is False else str(value)
+
+for key, value in out.items():
+    print(f"{key}={value}")
+PYEOF
+)" || return 0
+    local line name value
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        name="${line%%=*}"
+        value="${line#*=}"
+        # Only fill in what the caller left unset.
+        if [[ -z "${!name:-}" ]]; then
+            export "$name=$value"
+            launcher_config_applied+=("$name=$value")
+        fi
+    done <<< "$exports"
+}
+
+launcher_config_applied=()
+ambition_load_local_config
+# ⛔ SAY WHAT THE FILE DID. A config that changes how the game boots and leaves
+# no trace is indistinguishable from a bug in the game. Printed to stderr so
+# `--print-plan`'s stdout contract is untouched.
+if ((${#launcher_config_applied[@]})); then
+    printf 'run_game.sh: ambition.local.toml set %s\n' "${launcher_config_applied[@]}" >&2
+fi
+
 build_profile="dev"
 clean_coverage=0
 coverage=0
@@ -164,7 +256,25 @@ Options and mode aliases:
                           demos are NOT protected and will be rebuilt cold.
   --                      Everything after this is passed to the game binary.
 
+Machine-local config:
+  ambition.local.toml       Git-ignored, like a .env; see
+                            ambition.local.toml.example for the template.
+                            Describes THIS machine, not this invocation --
+                            [quality] profile = "medium" forces the visual
+                            quality tier for every run, including the ones a
+                            profiling script launches with no arguments, and
+                            [env] passes any AMBITION_* through verbatim.
+                            An explicit environment variable always wins.
+
 Environment:
+  AMBITION_QUALITY_PROFILE=potato|low|medium|high|ultra
+                            Force the visual quality tier for this process.
+                            medium and below cap the window's DPI scale at 1x
+                            and turn MSAA off -- on a 2x display that is four
+                            times fewer fragments for the same picture, which is
+                            the first thing to reach for on a weak GPU. Nothing
+                            is written back to the saved settings, and the
+                            in-game menu cannot change quality while it is set.
   AMBITION_LDTK_PYTHON=/path/to/python
                             Override the LDtk tool-local .venv.
   PYTHON=/path/to/python   Legacy override for ambition_ldtk_tools.

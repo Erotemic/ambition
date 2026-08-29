@@ -604,11 +604,24 @@ your own and it is used instead:
 `summary.md` records which scenario ran, in the `scenario` row of its first
 table.
 
-Do not use a software rasterizer as a stand-in for a GPU. If a windowed run on
-this machine falls back to llvmpipe/lavapipe, `summary.md` says
-**SOFTWARE RENDERING** at the top and the symbol rankings below it are mostly
-the rasterizer's unsymbolized JIT'd shader code — that is a measurement of a
-CPU emulating a GPU, and adapter selection is the bug to fix first.
+Do not use a software rasterizer as a stand-in for a GPU. If a windowed run
+falls back to llvmpipe/lavapipe *when you meant to measure a GPU*, `summary.md`
+says **SOFTWARE RENDERING** at the top and the symbol rankings below it are
+mostly the rasterizer's unsymbolized JIT'd shader code — that is a CPU emulating
+a GPU, and adapter selection is the bug to fix first.
+
+⭐ **BUT "NOT A GPU MEASUREMENT" IS NOT THE SAME AS "NOT A MEASUREMENT."** Jon,
+2026-08-29: *"I want to make sure the game runs smoothly without a GPU if we
+don't have one. It should not be required."* Running with no GPU is a TARGET
+CONFIGURATION for this game, not a broken run. When that is the question, a
+lavapipe run is the experiment and its total frame time is the answer.
+
+What stays true either way is narrower than it first reads: a lavapipe
+`elapsed_gpu` is not evidence about GPU *hardware* cost, and perf's symbol
+ranking will be dominated by the rasterizer rather than by game code. Neither
+makes the frame time meaningless. Label which question you were asking — the
+`gpu.rendering` field in the ledger row already separates the two, and
+`comparable_key` will not group them.
 
 #### Exercising the render path with no GPU
 
@@ -624,9 +637,12 @@ The bundle then carries real camera resolutions and a populated
 vertex/fragment shader invocations and clipper counts. Use it to check that a
 diagnostic is WIRED, and to see the shape of the pass set.
 
-⛔ **The timings are a CPU emulating a GPU and are not a GPU measurement.**
-`summary.md` says SOFTWARE RENDERING at the top for exactly this reason. Never
-report a lavapipe `elapsed_gpu` as a rendering cost.
+⛔ **A lavapipe `elapsed_gpu` is not evidence about GPU hardware**, and
+`summary.md` says SOFTWARE RENDERING at the top for exactly that reason. Never
+report one as the cost of a rendering pass on a real adapter.
+
+⭐ It IS the right instrument for "does this run without a GPU at all", which is
+a question this game has to answer. Say which one you asked.
 
 #### Tracy on a VM with no invariant TSC
 

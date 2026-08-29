@@ -22,10 +22,10 @@ pub use controls::{
 };
 pub use gameplay::{AssistMode, GameplaySettings};
 pub use video::{
-    BackgroundTextureBudget, CameraAspectPolicy, ParallaxBudget, ParticleBudget,
-    PortalCaptureBudget, ScreenShaderSettings, ShaderBudget, SpriteTextureBudget,
-    TextureResolutionScale, VideoSettings, VisualQualityBudget, VisualQualityProfile,
-    VisualQualitySettings,
+    profile_override_from_env, BackgroundTextureBudget, CameraAspectPolicy, ParallaxBudget,
+    ParticleBudget, PortalCaptureBudget, RasterBudget, ScreenShaderSettings, ShaderBudget,
+    SpriteTextureBudget, TextureResolutionScale, VideoSettings, VisualQualityBudget,
+    VisualQualityProfile, VisualQualitySettings, QUALITY_PROFILE_ENV,
 };
 
 #[cfg(test)]

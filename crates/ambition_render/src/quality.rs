@@ -4,8 +4,12 @@
 //! side mirrors that into one resource every visual subsystem can read.
 
 use bevy::prelude::*;
+use bevy::camera::RenderTarget;
+use bevy::render::view::Msaa;
 
-use ambition_persistence::settings::{UserSettings, VisualQualityBudget, VisualQualityProfile};
+use ambition_persistence::settings::{
+    profile_override_from_env, UserSettings, VisualQualityBudget, VisualQualityProfile,
+};
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct ResolvedVisualQuality {
@@ -15,6 +19,9 @@ pub struct ResolvedVisualQuality {
 
 impl Default for ResolvedVisualQuality {
     fn default() -> Self {
+        if let Some(forced) = profile_override_from_env() {
+            return Self { profile: forced, budget: VisualQualityBudget::for_profile(forced) };
+        }
         let settings = ambition_persistence::settings::VisualQualitySettings::default();
         Self {
             profile: settings.profile,
@@ -24,7 +31,21 @@ impl Default for ResolvedVisualQuality {
 }
 
 impl ResolvedVisualQuality {
+    /// ⭐ THE BOOT OVERRIDE WINS, AND IT IS NOT WRITTEN BACK. `AMBITION_QUALITY_PROFILE`
+    /// (which `run_game.sh` sets from the launcher config) forces the tier for
+    /// the life of the process. It resolves the tier's own budget table rather
+    /// than the user's stored `custom` one, so a forced Medium is the same
+    /// Medium everywhere.
+    ///
+    /// ⚠ While an override is in force the settings menu cannot change quality:
+    /// this runs every frame and will put the forced tier straight back. That is
+    /// the intended behaviour of a forced profile, and the reason
+    /// `log_quality_profile_override` says so once at startup rather than
+    /// leaving someone to discover it by clicking.
     pub fn from_settings(settings: &UserSettings) -> Self {
+        if let Some(forced) = profile_override_from_env() {
+            return Self { profile: forced, budget: VisualQualityBudget::for_profile(forced) };
+        }
         Self {
             profile: settings.video.quality.profile,
             budget: settings.video.quality.resolved_budget(),
@@ -58,8 +79,9 @@ impl Plugin for VisualQualityPlugin {
             return;
         }
         app.insert_resource(VisualQualityInstalled);
+        log_quality_profile_override();
         app.init_resource::<ResolvedVisualQuality>();
-        app.add_systems(Update, sync_resolved_visual_quality);
+        app.add_systems(Update, (sync_resolved_visual_quality, sync_raster_budget).chain());
         // This bridge reads visual quality and writes portal presentation
         // quality, so register it only when the destination resource exists.
         #[cfg(feature = "portal_render")]
@@ -69,6 +91,30 @@ impl Plugin for VisualQualityPlugin {
                 resource_exists::<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
             ),
         );
+    }
+}
+
+/// Say once, at startup, that a forced profile is in force — and say it when the
+/// value was set but not understood, which is the case that would otherwise look
+/// exactly like the override working.
+fn log_quality_profile_override() {
+    let Ok(raw) = std::env::var(ambition_persistence::settings::QUALITY_PROFILE_ENV) else {
+        return;
+    };
+    if raw.trim().is_empty() {
+        return;
+    }
+    match VisualQualityProfile::from_label(&raw) {
+        Some(profile) => info!(
+            "visual quality forced to `{}` by {}; the settings menu cannot change it this run",
+            profile.label(),
+            ambition_persistence::settings::QUALITY_PROFILE_ENV,
+        ),
+        None => warn!(
+            "{}={raw:?} is not a profile; using the saved setting instead. \
+             Expected one of: potato, low, medium, high, ultra",
+            ambition_persistence::settings::QUALITY_PROFILE_ENV,
+        ),
     }
 }
 
@@ -101,5 +147,62 @@ pub fn sync_portal_quality_budget(
     };
     if *portal_budget != next {
         *portal_budget = next;
+    }
+}
+
+/// Apply the [`RasterBudget`](ambition_persistence::settings::RasterBudget): the
+/// DPI-scale cap on the window, and MSAA on every camera that draws to it.
+///
+/// ⭐ THESE ARE THE TWO COSTS THAT SCALE WITH SCREEN AREA. Every other knob in
+/// the quality budget trades away scene detail; these trade away fragments, and
+/// on hardware without a discrete GPU the fragments are the frame. Measured on
+/// `calculex` (Intel HD 630) 2026-08-29: a 1600x900 window on a 2x Wayland
+/// session rasterised at 3200x1800, every full-screen pass reported exactly
+/// 5,760,000 fragment invocations, and the frame sat at a p50 of ~50ms.
+///
+/// ⛔ CAPTURE CAMERAS ARE NOT TOUCHED. `ambition_render::capture` pins
+/// `Msaa::Off` on the image targets it adopts, deliberately, and a blanket
+/// write here would undo it. Only cameras whose target is a WINDOW are the
+/// screen-area cost this budget is about.
+///
+/// ⚠ THE SCALE CAP IS A REQUEST, AND THE INSTRUMENT THAT CONFIRMS IT ALREADY
+/// EXISTS. `set_scale_factor_override` asks winit for a smaller buffer; whether
+/// a given compositor honours it by upscaling (what we want) rather than by
+/// shrinking the window is a property of the platform, not of this code. The
+/// check is one number in any profiling bundle:
+/// `render/upscaling/fragment_shader_invocations` is the framebuffer's pixel
+/// count exactly. If capping the scale does not divide it, the cap did not take
+/// and the next lever is an explicit reduced render target — do not assume.
+pub fn sync_raster_budget(
+    quality: Res<ResolvedVisualQuality>,
+    mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
+    cameras: Query<(Entity, &RenderTarget, Option<&Msaa>), With<Camera>>,
+    mut commands: Commands,
+) {
+    let raster = &quality.budget.raster;
+
+    for mut window in &mut windows {
+        // Read through `Deref` so an unchanged window is not marked changed;
+        // only the assignment below takes `DerefMut`.
+        let reported = window.resolution.base_scale_factor();
+        let desired = raster.effective_scale_factor(reported);
+        if window.resolution.scale_factor_override() != desired {
+            window.resolution.set_scale_factor_override(desired);
+        }
+    }
+
+    let desired = match raster.sanitized_msaa_samples() {
+        1 => Msaa::Off,
+        2 => Msaa::Sample2,
+        8 => Msaa::Sample8,
+        _ => Msaa::Sample4,
+    };
+    for (entity, target, current) in &cameras {
+        if !matches!(target, RenderTarget::Window(_)) {
+            continue;
+        }
+        if current != Some(&desired) {
+            commands.entity(entity).insert(desired);
+        }
     }
 }

@@ -65,6 +65,9 @@ struct Bout {
 
 fn main() {
     let seeds = seed_count();
+    if std::env::args().any(|arg| arg == "--sweep-below") {
+        return run_sweep_below(seeds);
+    }
     if std::env::args().any(|arg| arg == "--scenarios") {
         return run_scenarios(seeds);
     }
@@ -241,6 +244,51 @@ fn run_scenarios(seeds: usize) {
                 &bouts,
             );
         }
+    }
+}
+
+/// `--sweep-below`: vary ONLY the level of the fighter placed below the stage.
+///
+/// ⭐ WHY THIS EXISTS. `--scenarios` walks `RUNGS.windows(2)`, which moves BOTH
+/// seats at once and yields four points for `recovery_below` — and at four points
+/// a threshold, a monotone trend and a scatter are indistinguishable. Two of the
+/// four fail totally (45/45 unfought) and the pattern is non-monotonic in every
+/// parameter `for_level` varies, so the honest next step is more points with one
+/// variable moving.
+///
+/// The partner is pinned at level 5 so the only thing changing between rows is
+/// the profile of the body that has to recover.
+fn run_sweep_below(seeds: usize) {
+    const PARTNER: u8 = 5;
+    let scenario = ambition_platformer2d::combat::brain::fighter::scenarios::suite()
+        .into_iter()
+        .find(|s| s.name == "recovery_below")
+        .expect("the suite authors recovery_below");
+    println!(
+        "[ladder_rig] --sweep-below: `recovery_below`, partner pinned at l{PARTNER}, \
+         median of {seeds} seeds, {}s each. Read `unfought n/{seeds}`: that is the \
+         count of bouts where NEITHER seat landed a hit, which is what a failure to \
+         recover looks like.",
+        TICKS / 60
+    );
+    println!(
+        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
+         peak%(hi:lo)     verdict"
+    );
+    // ⛔ PUBLISHED LEVELS ONLY. `smash_roster_at_levels` builds a
+    // `duelist_l{level}` policy key, and only 1/3/5/6/9 are published in
+    // `SMASH_CATALOG_RON` — asking for `l2` refuses the seat, nothing ever gets
+    // seated, and the bout measures the default spawn. ⭐ Which is exactly what
+    // the `placed` assert caught when this swept 1..=9: a loud stop rather than
+    // nine rows of a fixture that never applied.
+    for below in RUNGS.iter().copied() {
+        let bouts: Vec<Bout> = (0..seeds)
+            .map(|seed| run_bout_at(below, PARTNER, seed as u64, Some(scenario.clone())))
+            .collect();
+        report_row(
+            &format!("{:<18} {below:>2} vs {PARTNER:<2}", "recovery_below"),
+            &bouts,
+        );
     }
 }
 

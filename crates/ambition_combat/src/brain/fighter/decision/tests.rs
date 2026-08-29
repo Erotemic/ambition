@@ -1289,3 +1289,50 @@ fn a_body_below_the_stage_asks_to_rise() {
         );
     }
 }
+
+/// ⭐⭐ D184: DOES *ROLLOUT* STOP A FIGHTER ASKING TO RISE?
+///
+/// Measured in the ladder (`--sweep-below`, partner pinned at l5, 45 seeds): the
+/// level placed below the stage fails to recover at **l1 and l6** and succeeds at
+/// **l3, l5, l9**. l1 is unsurprising — the slowest reaction and the most
+/// execution noise. **l6 is a REGRESSION**, and it is exactly the level where
+/// `for_level` switches `rollout_depth`/`rollout_k` on (`level >= 6`), while l9
+/// carries the same rollout with a better reaction and less noise and recovers.
+///
+/// So: is the DECISION different at l6, or does l6 still ask to rise and lose the
+/// recovery downstream? This asks the brain directly, at each published level.
+#[test]
+fn every_published_level_below_the_stage_asks_to_rise() {
+    for level in [1u8, 3, 5, 6, 9] {
+        let mut cfg = FighterCfg::new(FighterBrainProfile::for_level(level));
+        cfg.decision_interval_ticks = 1;
+        let mut state = FighterState::new(&cfg, 0x5EED);
+        let snapshot = BrainSnapshot::idle();
+        let mut view = scene(400.0, 400.0);
+        view.self_view.pos = ae::Vec2::new(400.0, 640.0);
+        view.self_view.on_ground = false;
+        let mut out = ActorControlFrame::neutral();
+        // ⭐ EVERY decision, not just one. A fighter that asks to rise and then
+        // changes its mind falls anyway, so "asked at least once" would not
+        // distinguish a committed recovery from dithering. Measured: all five
+        // published levels ask on 120 of 120 decisions.
+        //
+        // ⚠ The view is CONSTANT here — the body does not actually move — so this
+        // pins that the decision is stable for a fixed below-stage state, not
+        // that it stays stable as the fall develops.
+        let mut rises = 0;
+        for _ in 0..120 {
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+            if out.jump_pressed || out.jump_held || out.locomotion.y < 0.0 {
+                rises += 1;
+            }
+        }
+        assert_eq!(
+            rises, 120,
+            "level {level} asked to rise on only {rises} of 120 decisions while \
+             below the stage. The ladder measures l1 and l6 failing to recover \
+             from here while l3/l5/l9 succeed; if a level ever stops asking, that \
+             failure is a DECISION defect rather than downstream execution"
+        );
+    }
+}

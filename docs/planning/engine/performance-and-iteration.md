@@ -1840,6 +1840,11 @@ today.
 | 5 | `sync_developer_body_profile` | `dev_tools/editable.rs:555` | **`BodyKinematics` + `BodyBaseSize`** | an inspector edit reverts and cannot be re-applied (dev-only) |
 | 6 | `commit_ready_room_transition_system` | `room_transition/commit.rs:562` | `Instant::now()` on the tick | already guarded by an `is_rollback()` early return — a RUNTIME check, not a structural one |
 
+⭐ **Every file:line in that table was VERIFIED against the source** (the systems
+are at the cited lines, and `rollback_registration.rs` does register both
+`AmbitionGameSave` and `QuestRegistry`) — the findings came from a subagent sweep
+and a table someone will act on should not rest on an unchecked report.
+
 ⇒ **the recommended shape of the fix, if funded:** the guard has to live wherever
 the effect lives — either move the edge-detector's state INTO the rollback-registered
 resource it guards, or make the write idempotent so a re-run is harmless. ⛔ Do NOT

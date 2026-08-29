@@ -57,6 +57,23 @@ pub struct TrapdoorParams {
     /// and the same function.
     #[serde(default)]
     pub surface_reach: f32,
+    /// How hard she LEAPS out of the boards, against gravity, in px/s.
+    /// Ignored when going under.
+    ///
+    /// ⛔⛔ IT LIVES HERE BECAUSE THE SURFACING BEAT IS THE ONE WRITER OF EXIT
+    /// VELOCITY, and for a while it was two. The move ALSO authored a
+    /// `MoveEventKind::Impulse` at the same instant — deliberately, so *"the
+    /// placement and the launch cannot disagree about where she left from"* —
+    /// but an impulse is applied inline in `advance_move_playback` while this
+    /// beat is a MESSAGE dispatched to a later system, and the later system's
+    /// `TransitVelocity::Zero` overwrote it every time. The two did not
+    /// disagree; one of them was deleted, and `LEAP_OUT_SPEED = 430.0` was dead
+    /// content nobody could see from either file alone.
+    ///
+    /// ⇒ so the placement and the launch are ONE write, which is what the
+    /// original comment was reaching for. `0.0` surfaces her standing.
+    #[serde(default)]
+    pub leap_speed: f32,
     /// The effect drawn at the door.
     pub vfx: String,
     /// The cue played at the door.

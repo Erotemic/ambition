@@ -949,6 +949,27 @@ different pass."*
   source, so a body that is properly absent does not flash. Photographed either
   side with `capture_scene pirate_cove player --character performer --press
   hold:down,g,release:down --frames 30 --stride 3`.
+* ⛔ **THE TWO ✔ MARKS BELOW WERE TRUE ON ONE ROAD ONLY, and you found it in
+  play: *"she can move around while in the submerged state, but her sprite still
+  draws on the stage and with blinking invincibility."* Both the hide and the
+  door were gated `With<PlayerVisual>` — a marker inserted in exactly ONE place
+  in the engine, the session's exploration player — so neither ever matched a
+  Smash fighter. They were verified with `capture_scene pirate_cove player`, an
+  Ambition room, which is the only road the gate passes.
+  * ✔ **FIXED 2026-08-29.** A submerged body is not drawn is stated ONCE now
+    (`BodyMode::hides_the_body`) and the actor road's own visibility authority
+    asks it, on the line that already hides a dead actor. The door reads the
+    same read-model. The blink needed no fix and stopped on its own: a hidden
+    source draws no overlay.
+  * ✔ **AND STAGE FIVE OF FIVE NOW HAPPENS.** `LEAP_OUT_SPEED = 430.0` was dead
+    content — authored as an impulse on the same frame as the surfacing beat,
+    which writes velocity from a later system and overwrote it every time. The
+    launch is part of the placement now (`TrapdoorParams::leap_speed`); measured
+    leaving the boards at exactly -430 px/s.
+  * ⭐ Instrument: `cargo run -p ambition_app_tools --bin trap_probe -- right render`
+    drives the real move on the real stage WITH presentation and prints the
+    whole chain per tick.
+
 * ✔ **A TRAPDOOR SPRITE SHE IS REPLACED WITH — 2026-08-28.**
   `rendering/submerged.rs` grew a door: one per submerged body (not a singleton
   — `morph_ball.rs` next door is one and its own comments record what that

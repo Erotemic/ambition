@@ -48,8 +48,10 @@ use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 ///    exists for, and it is the one the clock freezes on.
 /// 4. `EXIT_DOOR_OPENS_S` — the ask ends the freeze (or the ceiling does) and
 ///    the exit trapdoor bangs open. She is still under it.
-/// 5. `SURFACE_AT_S` — she LEAPS OUT: an upward impulse, the firework, and a
-///    hitbox over the door.
+/// 5. `SURFACE_AT_S` — she LEAPS OUT: the surfacing beat's own launch, the
+///    firework, and a hitbox over the door. The launch is the SAME write as the
+///    placement (`TrapdoorParams::leap_speed`) rather than a second event, which
+///    is what it was while it silently did nothing.
 ///
 /// ⭐⭐ THE SUBTERRANEAN BEAT IS A DURATION, NOT A HOLD. Jon caught the other
 /// reading in a day: *"The latest main the actor doesn't spend any time under
@@ -84,11 +86,15 @@ const SURFACE_AT_S: f32 = 0.30;
 /// How long the emergence hits for.
 const FIREWORK_S: f32 = 0.12;
 const TRAP_ENDS_S: f32 = 0.54;
-/// How hard she LEAPS out of the boards, body-local and against gravity.
+/// How hard she LEAPS out of the boards, against gravity.
 ///
 /// ⛔ A LEAP, NOT A STEP UP. She is coming out of a hole in the stage under her
 /// own power and the move's payoff is the space it buys; a body that surfaced
 /// standing still would be handing the position straight back.
+///
+/// ⛔⛔ AND IT REACHES THE BODY THROUGH `TrapdoorParams::leap_speed`, not through
+/// an authored impulse. As an impulse it was overwritten by the surfacing beat
+/// on the very frame it fired, every time, for as long as it existed.
 const LEAP_OUT_SPEED: f32 = 430.0;
 
 /// How far above her the engine looks for a floor to come up through.
@@ -372,6 +378,8 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
         TrapdoorParams {
             submerge: true,
             surface_reach: 0.0,
+            // Going under is not a launch.
+            leap_speed: 0.0,
             vfx: TRAPDOOR_VFX.to_string(),
             sfx: "world.door.heavy_open".to_string(),
         },
@@ -388,22 +396,31 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
         EXIT_DOOR_OPENS_S,
         "world.door.heavy_open",
     );
-    // ⭐⭐ STAGE FIVE: SHE LEAPS OUT. The impulse is what makes it a leap rather
-    // than a body appearing on the boards, and it lands on the same instant as
-    // the surfacing so the placement and the launch cannot disagree about where
-    // she left from. Body-local, against gravity.
-    let spec = ambition_characters::moveset_authoring::impulse(
-        spec,
-        SURFACE_AT_S,
-        (0.0, -LEAP_OUT_SPEED),
-        ambition_entity_catalog::ImpulseMode::Set,
-    );
+    // ⭐⭐ STAGE FIVE: SHE LEAPS OUT, and the leap is now part of the SURFACING
+    // rather than a second event racing it.
+    //
+    // ⛔⛔ THIS USED TO BE A `MoveEventKind::Impulse` ON THIS TIMELINE, authored
+    // at `SURFACE_AT_S` on the reasoning that landing it on the same instant as
+    // the surfacing meant *"the placement and the launch cannot disagree about
+    // where she left from."* They never disagreed: an impulse is applied inline
+    // in `advance_move_playback` and the trapdoor beat is a MESSAGE handled by a
+    // later system, whose `TransitVelocity::Zero` overwrote it on every single
+    // surfacing. `LEAP_OUT_SPEED` was dead content for as long as it existed and
+    // no reading of either file alone could show it — the probe's velocity
+    // column is what did: `(0,0)` on every tick from t197 to t212 with `y` never
+    // leaving the floor.
+    //
+    // ⇒ `TrapdoorParams::leap_speed`. One writer of exit velocity.
     let spec = author_trapdoor(
         spec,
         SURFACE_AT_S,
         TrapdoorParams {
             submerge: false,
             surface_reach: SURFACE_REACH,
+            // ⛔ A LEAP, NOT A STEP UP. She is coming out of a hole under her own
+            // power and the move's payoff is the space it buys; a body that
+            // surfaced standing still would hand the position straight back.
+            leap_speed: LEAP_OUT_SPEED,
             // ⛔ THE BOARDS ALREADY OPENED, one beat ago and on their own event.
             // Asking for them again here would draw a second set over the first
             // on the frame she comes through.
@@ -698,6 +715,65 @@ mod tests {
                 "{verb} names `{id}`, which is not in the table"
             );
         }
+    }
+
+    /// ⛔⛔ ONE WRITER OF EXIT VELOCITY, AND FOR MONTHS THERE WERE TWO.
+    ///
+    /// The trap authored `LEAP_OUT_SPEED` as a `MoveEventKind::Impulse` at
+    /// `SURFACE_AT_S` AND a `smash.trapdoor` surfacing beat on the same instant.
+    /// The impulse is applied inline in `advance_move_playback`; the beat is a
+    /// message handled by a later system whose `TransitVelocity::Zero` won every
+    /// time. Stage five of a five-stage move never happened, and the authoring
+    /// test was green throughout because both halves were correctly on the spec.
+    ///
+    /// ⇒ so the guard is not "is there an impulse" or "is there a leap" — it is
+    /// that the timeline does not carry BOTH. `TrapdoorParams::leap_speed` is
+    /// the authority; an `Impulse` re-added beside it would be the same bug.
+    #[test]
+    fn the_leap_has_one_authority_and_it_is_the_surfacing_beat() {
+        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        let set = performer_moveset();
+        let trap = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_trapdoor")
+            .expect("the trap is in her table");
+
+        assert!(
+            !trap
+                .events
+                .iter()
+                .any(|e| matches!(e.kind, MoveEventKind::Impulse { .. })),
+            "the trap authors an Impulse again. It lands on the same frame as \
+             the surfacing beat, which writes velocity from a LATER system, so \
+             the impulse is silently deleted — put the launch on \
+             `TrapdoorParams::leap_speed` instead"
+        );
+
+        let surfacing: Vec<TrapdoorParams> = trap
+            .events
+            .iter()
+            .filter_map(|e| match &e.kind {
+                MoveEventKind::Effect(effect) if effect.key == TRAPDOOR => {
+                    effect.params.clone().hydrate().ok()
+                }
+                _ => None,
+            })
+            .filter(|p: &TrapdoorParams| !p.submerge)
+            .collect();
+        assert_eq!(
+            surfacing.len(),
+            1,
+            "she comes back up exactly once; {} beats claim to",
+            surfacing.len()
+        );
+        assert!(
+            surfacing[0].leap_speed > 0.0,
+            "she surfaces at {} px/s, so she steps up out of the hole instead of \
+             leaping — the move's whole payoff is the space the leap buys",
+            surfacing[0].leap_speed
+        );
     }
 
     /// ⛔ AND THE ARCHETYPE'S DOWN SPECIAL IS GONE rather than left unreachable,

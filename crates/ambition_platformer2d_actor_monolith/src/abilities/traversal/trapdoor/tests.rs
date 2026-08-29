@@ -87,6 +87,7 @@ fn fire(app: &mut bevy::prelude::App, body: bevy::prelude::Entity, params: Trapd
 
 fn down(surface_reach: f32) -> TrapdoorParams {
     TrapdoorParams {
+        leap_speed: 0.0,
         submerge: true,
         surface_reach,
         vfx: "smoke_burst".to_string(),
@@ -96,6 +97,7 @@ fn down(surface_reach: f32) -> TrapdoorParams {
 
 fn up(surface_reach: f32) -> TrapdoorParams {
     TrapdoorParams {
+        leap_speed: 0.0,
         submerge: false,
         ..down(surface_reach)
     }
@@ -235,4 +237,45 @@ fn surfacing_far_below_any_floor_does_not_snap_her_to_one() {
         (kin(&app, body).pos.y - 800.0).abs() < 1e-3,
         "an unreachable floor must not pull her up to it"
     );
+}
+
+/// ⛔⛔ STAGE FIVE OF FIVE, AND IT SHIPPED DELETED. The Performer's trap authored
+/// `LEAP_OUT_SPEED = 430.0` as a `MoveEventKind::Impulse` on the SAME instant as
+/// this beat, reasoning that landing them together meant *"the placement and the
+/// launch cannot disagree about where she left from."* They never disagreed: an
+/// impulse is applied inline in `advance_move_playback` and this beat is a
+/// message handled by a LATER system, whose `TransitVelocity::Zero` overwrote it
+/// every single time. She surfaced standing exactly where she stopped, for as
+/// long as the constant existed, and no reading of either file alone showed it.
+///
+/// ⇒ the exit velocity belongs to the ONE system that places her. This is the
+/// guard that fails if it is ever taken back off.
+#[test]
+fn surfacing_with_a_leap_speed_launches_her_out_of_the_boards() {
+    let (mut app, body) = app_with_body(ae::Vec2::new(300.0, 500.0));
+    fire(&mut app, body, down(0.0));
+    let mut leap = up(140.0);
+    leap.leap_speed = 430.0;
+    fire(&mut app, body, leap);
+    let vel = kin(&app, body).vel;
+    assert!(
+        vel.y < -1.0,
+        "she surfaced at {vel:?}; a leap is AGAINST gravity and +y is down, so \
+         a non-negative y means the placement ate the launch again"
+    );
+    assert!(
+        (vel.y + 430.0).abs() < 1e-3,
+        "she left the boards at {vel:?}, wanted the authored 430 exactly"
+    );
+}
+
+/// ⛔ AND `0.0` STILL SURFACES HER STANDING. The Author's trapdoor authors no
+/// leap, so a default that launched everybody would change a move nobody asked
+/// to change.
+#[test]
+fn surfacing_without_a_leap_speed_stands_her_still() {
+    let (mut app, body) = app_with_body(ae::Vec2::new(300.0, 500.0));
+    fire(&mut app, body, down(0.0));
+    fire(&mut app, body, up(140.0));
+    assert_eq!(kin(&app, body).vel, ae::Vec2::ZERO);
 }

@@ -114,12 +114,20 @@ pub fn apply_authored_trapdoors(
             // still marked submerged is one the contact pass believes nothing
             // touches.
             clusters.body_mode.body_mode = ae::player_state::BodyMode::Standing;
-            ae::movement::transit_body(
-                &mut motion_model,
-                &mut clusters,
-                surfaced,
-                ae::movement::TransitVelocity::Zero,
-            );
+            // ⛔⛔ THE LAUNCH IS PART OF THE PLACEMENT, not a second write. A
+            // `Zero` here is what silently deleted the authored leap: the move's
+            // own `Impulse` event lands inline on this same instant and this
+            // system runs after it. One write, so the two cannot race.
+            //
+            // Against gravity, so a leap stays a leap under a flipped frame —
+            // the same reasoning the authored impulse's body-local `(0, -speed)`
+            // was written with.
+            let exit = if params.leap_speed > 0.0 {
+                ae::movement::TransitVelocity::Set(gravity_dir * -params.leap_speed)
+            } else {
+                ae::movement::TransitVelocity::Zero
+            };
+            ae::movement::transit_body(&mut motion_model, &mut clusters, surfaced, exit);
             // ⛔ AT THE WRITE, not beside it. Recording where the position is
             // actually set is what makes the log a record of what happened
             // rather than of what a system intended.

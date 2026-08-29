@@ -1044,6 +1044,27 @@ comparability group, with the campaign's changes between them:
    not that commit alone"* — so the two rows are not cleanly attributable to the
    commits between them.
 
+⭐⭐ **A THIRD SAMPLE SETTLED IT: THE p99 "REGRESSION" WAS NOISE.** Three rows in
+the group now, identical scenario/profile/instruments/machine:
+
+| run | mean | p99 |
+|---|---|---|
+| before (dirty tree) | 3.185ms | 6.100ms |
+| after | 2.866ms | **12.417ms** |
+| after, 3rd sample | 2.816ms | **7.713ms** |
+
+⛔⛔ **p99 RANGES 6.1–12.4ms ON IDENTICAL RUNS — A 2× SPREAD.** It must not be
+used as a regression signal on this host, and the ledger's 5% default threshold
+will cry wolf on it every time. **Mean is the usable metric**: 2.816–3.185ms
+across all three, a 13% total range, which is consistent with the ~10–15% floor
+measured from dev-profile runs and is why nothing under ~15% has been claimed
+during this campaign.
+
+⚠ The two post-campaign runs agree closely (2.816, 2.866) and both sit below the
+single pre-campaign run. **Suggestive and NOT a claim** — the before side is n=1
+and was taken on a dirty tree. Settling it needs repeated runs on a clean
+before-commit, which is its own piece of work.
+
 ⭐ The tool caught all three by itself, including the metrics only one side
 recorded. That is the provenance machinery earning its place: the easiest thing
 in the world here would have been to report a 10% improvement and be wrong.

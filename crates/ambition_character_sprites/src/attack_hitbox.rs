@@ -51,6 +51,30 @@ fn file_root_registry() -> &'static SheetRegistry {
     REG.get_or_init(|| SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS))
 }
 
+/// Build the file-root index NOW, so the first attack does not.
+///
+/// ⛔⛔ MEASURED ON HARDWARE 2026-08-29, and it was a 189ms GAMEPLAY FRAME. The
+/// `OnceLock` above is the right shape — an immutable, override-free cache of a
+/// compile-time table — but "lazily" means *on whichever frame first asks*, and
+/// the first asker is a punch:
+///
+/// ```text
+/// [  3.214s] init_sheet_registry:   SheetRegistry: loaded 870 sheets
+/// [ 23.927s] advance_move_playback: SheetRegistry: loaded 870 sheets   <- again
+/// ```
+///
+/// Tracy priced that call at **189,032,871 ns against a 21us mean** over 10,078
+/// calls, inside the 23.9s frame-spike cluster (a 198.3ms frame).
+///
+/// ⚠ THE TWO LINES ARE TWO DIFFERENT REGISTRIES, which is why nothing caught
+/// this: `init_sheet_registry` fills the Bevy resource keyed by `record.target`,
+/// while this one is keyed by FILE ROOT so `player_robot_v3` stays distinct from
+/// `robot`. Both walk the same 870-entry baked table. ▢ Sharing one index would
+/// remove the duplicated build AND its memory; warming is the cheap half.
+pub fn warm_file_root_registry() {
+    let _ = file_root_registry();
+}
+
 /// File roots the index REFUSED for naming several records, exposed so a
 /// caller that owns a character catalog can decide whether any of them matter.
 ///

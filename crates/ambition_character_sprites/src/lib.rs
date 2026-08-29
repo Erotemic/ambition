@@ -38,5 +38,10 @@ impl Plugin for SpritePosedBodyPlugin {
             sim,
             sync_sprite_posed_bodies.in_set(WorldPrepSet::BeforeIntegrate),
         );
+        // Pay the file-root index at Startup instead of on the first punch. See
+        // `attack_hitbox::warm_file_root_registry` for the 189ms frame this cost.
+        app.add_systems(bevy::app::Startup, |_: bevy::ecs::system::Commands| {
+            crate::attack_hitbox::warm_file_root_registry();
+        });
     }
 }

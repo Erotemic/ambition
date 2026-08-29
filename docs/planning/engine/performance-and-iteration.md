@@ -2141,6 +2141,40 @@ HEADLESS single-room Smash match whose cast is loaded once, before the measured
 window. This needs *play across rooms*. ⇒ the headless conclusion ("the sim is not
 slow") stands and was never the answer to *"the desktop feels slow."*
 
+#### ✔ FIRST FIX: THE 870-SHEET REGISTRY WAS BUILT TWICE, THE SECOND TIME BY A PUNCH
+
+⛔⛔ **THE SAME TABLE, BUILT AGAIN, ON A GAMEPLAY FRAME:**
+
+```text
+[  3.214s] init_sheet_registry:   SheetRegistry: loaded 870 sheets
+[ 23.927s] advance_move_playback: SheetRegistry: loaded 870 sheets   <- again
+```
+
+Tracy priced that second call at **189,032,871 ns against a 21us mean** over
+10,078 calls, inside the 23.9s spike cluster (a 198.3ms frame).
+
+⚠ **THEY ARE TWO DIFFERENT REGISTRIES, WHICH IS WHY NOTHING CAUGHT IT.**
+`init_sheet_registry` fills the Bevy resource keyed by `record.target`;
+`attack_hitbox.rs`'s `file_root_registry()` is a process-global `OnceLock` keyed
+by FILE ROOT, so `player_robot_v3` stays distinct from `robot`. Both walk the same
+870-entry baked table. ⭐ The `OnceLock` is the RIGHT shape — an immutable,
+override-free cache of a compile-time table — the defect is that "lazily" means
+*on whichever frame first asks*, and the first asker is a punch.
+
+✔ `warm_file_root_registry()` now runs at `Startup` from `SpritePosedBodyPlugin`
+(installed by `ambition_platformer2d_runtime`, so it is in the shipped game).
+⚠ **VERIFIED STRUCTURALLY, NOT YET EMPIRICALLY, AND THAT DISTINCTION IS THE
+POINT:** `Startup` necessarily precedes any sim tick, so the first attack cannot
+be the first asker. But **the headless `smash_match_profile` never emits that log
+line at all** — not even the startup one, with `RUST_LOG=info` — so it CANNOT
+reproduce the "before", and a zero from it would be the instrument's silence
+wearing a number. ⇒ the empirical proof is the NEXT WINDOWED PROFILE: no second
+`loaded 870 sheets` under `advance_move_playback`.
+
+▢ **THE DEEPER HALF IS UNTAKEN:** two indexes over one 870-entry table is a
+duplicated build AND duplicated memory. Sharing one index removes both; warming is
+the cheap half.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

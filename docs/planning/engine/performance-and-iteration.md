@@ -290,6 +290,26 @@ it**. Raising a render target 320x240 → 1280x960 took `StateTransition` from
 0.169 to 1.822ms — a state phase scaling with PIXELS. Phase splits are valid ONLY
 from non-rendering runs. `fragment_shader_invocations=0` does NOT make them safe.
 
+**⭐⭐ ONE THING TRACY FOUND THAT NOBODY HAD NAMED: A DEBRIS EFFECT INSTALLS A
+PHYSICS ENGINE.** `AmbitionPhysicsPlugin` is gated on a feature called
+`physics_debris` and installs `PhysicsPlugins::default()` — the whole of avian2d.
+A Smash match therefore runs, every fixed step:
+
+```text
+RunFixedMainLoop 823us → FixedMain 677 → FixedPostUpdate 589
+    → PhysicsSchedule 370us   → SubstepSchedule ~6.4 substeps/frame
+```
+
+⚠ Times are Tracy's (~9x inflated, and this CPU has no invariant TSC — the
+bundle's own `tracy.caveat` says treat RATIOS as sound and microseconds as
+approximate), so the real cost is perhaps 40–60us/frame, ~1% of the frame and
+BELOW the noise floor. ⇒ ⛔ not a performance fix, and consistent with everything
+else this campaign measured. **It is recorded because it is the invariant the
+brief states, violated exactly:** *capability installed but dormant ⇒ very small
+fixed cost.* Here a cosmetic effect costs a physics engine's schedules whether
+or not one debris body exists. ▢ A gate on `any_with_component::<RigidBody>` (or
+avian's own `Physics::pause`) is the obvious shape, sized at ~1%.
+
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
    on a GPU machine — every number here is from a GPU-less host;

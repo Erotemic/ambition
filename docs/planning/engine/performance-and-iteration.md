@@ -406,6 +406,28 @@ every gameplay phase moves ≤4 MICROseconds. ⇒ making the sim cheaper is wort
 **~zero for responsiveness** and remains correct for throughput. What the spike
 IS needs a host with a GPU.
 
+⭐⭐ **THE COST MODEL — the sheet to price a feature against:**
+
+| quantity | price | where it lands |
+|---|---|---|
+| baseline frame, 2-fighter match | **~4.5ms** | ~630 systems, 2.9–15.6us each, NO hot one |
+| **per FIGHTER** | **~125us** | ~1/3 sim, ~1/3 `PostUpdate`, ~1/4 `Update` |
+| per BODY | **~16us** | `WorldPrep` |
+| per VISIBLE SPRITE | **~1.4us** | render extraction |
+| a frame SPIKE | **+3.6ms** at the tail | ⛔ NOT the sim |
+
+**Fighter count is the ONLY thing measured that scales with a player's choice**,
+and a fighter is NOT a body — at ~125us it is ~10x the per-body constant, because
+it carries a sprite rig and a brain and combat state, not just kinematics. ⛔
+Optimising only the sim addresses a THIRD of a fighter.
+
+⭐ **AND THE INPUT PATH IS ALREADY CORRECT.** Responsiveness to a player is input
+LATENCY, not frame time. `bevy_ggrs` declares `RunGgrsSystems.after(InputSystems)`,
+so input is read and consumed in the SAME frame by construction — ⛔ a grep finds
+no such constraint in this repo because it lives in the dependency, where it
+belongs; do not add a duplicate. True device-to-sim latency cannot be measured
+headlessly (the latch needs device authority) and joins the real-hardware item.
+
 **WHAT IS TRUE ABOUT THE PREMISES WE STARTED FROM** — most did not survive:
 - ⭐ *"a room with hundreds of sprites chugs"* — **HALF TRUE, corrected 2026-08-29
   after sweeping ALL 72 ROOMS.** The room exists: `mockingbird_arena` bursts to

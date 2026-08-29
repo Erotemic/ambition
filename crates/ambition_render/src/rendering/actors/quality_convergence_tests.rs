@@ -90,6 +90,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         kind: FeatureVisualKind::Actor,
         visible: true,
         submerged: false,
+        wire_anchor: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

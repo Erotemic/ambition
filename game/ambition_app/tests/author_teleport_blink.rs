@@ -16,11 +16,14 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// cannot see, and it is the only failure this arm exists for.
 ///
 /// ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is whether
-/// the move RUNS THE EXECUTOR. The Performer's trap (`author_trapdoor`) and Alice's
-/// side-B (an `impulse`) never do, so their cue is chosen rather than
-/// duplicated. ⛔ naming a move here without checking that is how a second
-/// duplicate hid inside this exemption once already — her wire IS an
-/// `author_teleport`, and was on this list.
+/// the move RUNS THE EXECUTOR. The Performer's trap (`author_trapdoor`), her
+/// wire (`author_flyline`) and Alice's side-B (an `impulse`) never do, so their
+/// cue is chosen rather than duplicated. ⛔ naming a move here without checking
+/// that is how a second duplicate hid inside this exemption once already — her
+/// wire WAS an `author_teleport` while this list claimed otherwise, and the
+/// sentence is true now only because the move was rewritten
+/// (`the_wire_is_a_flyline_and_never_reaches_the_teleport_executor` is what
+/// keeps it true).
 #[test]
 fn the_authors_revision_asks_for_exactly_one_blink() {
     use ambition_platformer2d::actor::MatchSeat;

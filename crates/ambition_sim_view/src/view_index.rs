@@ -40,6 +40,20 @@ pub struct FeatureView {
     /// exists. A dead hostile is invisible too, and a trapdoor must not open over
     /// a corpse; the door is drawn for a body that is COMING BACK.
     pub submerged: bool,
+    /// WHERE THE WIRE THIS BODY IS HANGING FROM COMES DOWN FROM, in world
+    /// space, or `None` for a body not on one.
+    ///
+    /// ⭐⭐ ON THE ACTOR ROAD BECAUSE THAT IS THE ROAD A MATCH FIGHTER TAKES.
+    /// The same fact is on `BodyPoseView` for the exploration player, and the
+    /// pair is the whole lesson of the trapdoor: `PlayerVisual` is inserted in
+    /// exactly ONE place in the engine, so a presentation rule stated only there
+    /// is a rule that never fires in a versus match. Every one of the Trap's
+    /// tests spawned a `PlayerVisual`, so none of them could fail.
+    ///
+    /// ⛔ THE ANCHOR, NOT A FLAG — see `BodyMotionFacts::wire_anchor`. A renderer
+    /// needs the point to draw a rope to, and a bool would make it re-derive one
+    /// out of tuning it must not read.
+    pub wire_anchor: Option<ae::Vec2>,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -297,6 +311,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Pickup,
                 visible: collected.is_none(),
                 submerged: false,
+                wire_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -325,6 +340,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Chest,
                 visible: true,
                 submerged: false,
+                wire_anchor: None,
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -353,6 +369,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Breakable,
                 visible: !breakable.broken(),
                 submerged: false,
+                wire_anchor: None,
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -381,6 +398,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Switch,
                 visible: true,
                 submerged: false,
+                wire_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -470,6 +488,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Actor,
                 visible,
                 submerged,
+                wire_anchor: motion.and_then(|m| m.wire_anchor),
                 flash,
                 breakable_state: None,
                 chest_opened: false,
@@ -521,6 +540,7 @@ pub fn rebuild_feature_view_index(
                 kind: FeatureVisualKind::Hazard,
                 visible: hazard.hazard.active(),
                 submerged: false,
+                wire_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -558,6 +578,7 @@ pub fn rebuild_feature_view_index(
                 visible,
                 // A boss has no trapdoor: nothing puts one under the stage.
                 submerged: false,
+                wire_anchor: None,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -1000,6 +1021,7 @@ mod view_index_tests {
             kind: FeatureVisualKind::Switch,
             visible,
             submerged: false,
+            wire_anchor: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

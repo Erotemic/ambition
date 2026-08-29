@@ -147,6 +147,21 @@ pub struct BodyMotionFacts {
     /// AXIS, so no reader needs this body's jump tuning and none can form a
     /// second opinion about it.
     pub air_jump_rise_owned: f32,
+    /// WHERE THE WIRE SHE IS HANGING FROM COMES DOWN FROM, in world space, or
+    /// `None` for a body that is not on one.
+    ///
+    /// ⭐⭐ THE ANCHOR AND NOT A FLAG, because the only consumer is a renderer
+    /// that has to draw a rope from a point in the sky to her — and a `bool`
+    /// would force presentation to re-derive that point from tuning it has no
+    /// business reading. It is the same reasoning `air_jump_rise_owned` above is
+    /// a quantity: publish what the consumer needs, not a predicate it has to
+    /// reconstruct the number behind.
+    ///
+    /// ⛔ AND ONE SENTENCE FOR BOTH ROADS. `BodyPoseView` is the session's
+    /// exploration player and `FeatureView` is every ACTOR, which is what a
+    /// Smash fighter is; a rule stated on only one of them is not stated. That
+    /// split is what drew the Performer under the stage for a month.
+    pub wire_anchor: Option<crate::Vec2>,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -270,6 +285,7 @@ impl BodyMotionFacts {
             turning_around: state.turnaround_timer > 0.0,
             teetering: state.teetering,
             air_jump_rise_owned: state.air_jump_rise_owned,
+            wire_anchor: state.wire.map(|w| w.anchor),
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             // ⭐ THE SAFE HALF OF AN EVADE, WHICH IS SHORTER THAN THE MOVE WHEN

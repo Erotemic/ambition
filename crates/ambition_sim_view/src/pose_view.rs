@@ -95,6 +95,14 @@ pub struct BodyPoseView {
     /// to the renderer the same way `morph_ball` is, because presentation reads
     /// the view and never the sim's components.
     pub submerged: bool,
+    /// WHERE THE WIRE THIS BODY IS HANGING FROM COMES DOWN FROM, in world
+    /// space, or `None` for a body not on one.
+    ///
+    /// ⭐ THE SAME FIELD `FeatureView` CARRIES, and the pair is the point: this
+    /// road is the session's exploration player, that one is every ACTOR, and a
+    /// presentation rule stated on only one of them is not stated. Two
+    /// read-models, one sentence — the way `submerged` above is.
+    pub wire_anchor: Option<ambition_platformer2d_core::Vec2>,
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
@@ -152,6 +160,7 @@ impl Default for BodyPoseView {
             hp_max: 0,
             morph_ball: false,
             submerged: false,
+            wire_anchor: None,
             charge_tier: None,
             smash_charge: None,
             authored_render: None,
@@ -418,6 +427,9 @@ pub fn rebuild_body_pose_views(
             // The SAME predicate the actor road asks — see
             // `BodyMode::hides_the_body`. Two read-models, one sentence.
             submerged: body_mode.is_some_and(|m| m.body_mode.hides_the_body()),
+            // The SAME projection the actor road reads — see
+            // `BodyMotionFacts::wire_anchor`.
+            wire_anchor: motion_facts.and_then(|m| m.wire_anchor),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
             smash_charge: charge,

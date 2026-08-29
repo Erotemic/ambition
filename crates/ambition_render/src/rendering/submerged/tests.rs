@@ -179,6 +179,7 @@ fn actor_view(submerged: bool) -> ambition_sim_view::FeatureView {
         // trapdoor must not open over a corpse.
         visible: !submerged,
         submerged,
+        wire_anchor: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

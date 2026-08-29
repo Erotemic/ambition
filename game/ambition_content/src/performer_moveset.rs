@@ -22,7 +22,7 @@
 //! than shared or copied.
 
 use ambition_characters::moveset_authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
-use ambition_characters::smash_teleport::{author_teleport, TeleportParams};
+use ambition_characters::smash_flyline::{author_flyline, FlylineParams};
 use ambition_characters::smash_trapdoor::{author_trapdoor, TrapdoorParams};
 use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 
@@ -117,7 +117,71 @@ const FIREWORK_VFX: &str = "starstuff_burst";
 /// The flyline catches her later than the trap drops her: the wire goes taut
 /// before it pulls, which is the beat `fly`'s first two frames draw.
 const WIRE_AT_S: f32 = 0.12;
-const WIRE_ENDS_S: f32 = 0.46;
+/// When the winch stops and the rope lets go.
+///
+/// ⛔⛔ THE MOVE MUST OUTLAST THE LIFT, and this constant is the join. The kernel
+/// owns the wire's own clock (`WireState::lift_remaining_s`), so a timeline that
+/// ended first would leave her being flown by a maneuver nothing is animating.
+/// `the_lift_fits_inside_the_move_that_authors_it` is the guard.
+const WIRE_RELEASES_S: f32 = WIRE_AT_S + LIFT_S;
+const WIRE_ENDS_S: f32 = WIRE_RELEASES_S + 0.10;
+
+/// How far the wire lifts her, in world px.
+///
+/// ⭐⭐ JON ASKED FOR *"a fairly large vertical distance"*, and the only honest
+/// form of that is a number measured against the stage it is played on. The
+/// smash platform's surface sits **420px above the fall blast line** — so this
+/// is exactly the depth a fighter can be knocked to and still be brought back
+/// to the boards, and it is very nearly double the 215px the teleport it
+/// replaces covered.
+///
+/// ⛔ THE FIRST KNOB TO TURN when it proves too good, the way `MAX_UNDER_S` is
+/// the trapdoor's. Jon on the trap, and it applies here: *"I'm biasing towards
+/// making moves too powerful to start."*
+const RISE_PX: f32 = 420.0;
+
+/// How long the lift takes.
+///
+/// ⛔ LONG ENOUGH TO SEE, WHICH IS CLAUSE ONE. At 60Hz this is 33 ticks and the
+/// largest single one moves her about 13px; the teleport it replaces covered
+/// 215px in a single frame. *"She doesn't teleport up, she gets lifted up by the
+/// wire."*
+const LIFT_S: f32 = 0.55;
+
+/// How far above her the wire's anchor is when it catches.
+///
+/// ⭐⭐ THIS IS THE SWING RADIUS, and it is deliberately much longer than the
+/// rise. A long rope swings slowly through a wide arc; a short one snaps back
+/// hard. It must exceed [`RISE_PX`] or the winch would reel past its own pulley
+/// — with 300px left at the release, the pendulum is still meaningful at the
+/// moment it matters most.
+const ROPE_PX: f32 = 720.0;
+
+/// How far the swing may reach from straight down.
+///
+/// ⛔ *"A BIT"* OF HORIZONTAL RECOVERY, AND THIS IS WHAT BOUNDS IT. Measured: a
+/// held stick carries her 99px sideways off a 480px platform. An uncapped
+/// pendulum on a SHORTENING rope gains angle every tick — the skater pulling her
+/// arms in — and would end the lift halfway across the stage.
+const MAX_SWING_DEG: f32 = 18.0;
+
+/// What a held stick contributes to the swing, in rad/s².
+const SWING_ACCEL: f32 = 3.4;
+
+/// How fast she is still rising when the wire lets go.
+///
+/// ⭐⭐ IT IS ALSO THE WINCH'S FINAL RATE, which is the whole reason the number
+/// is small. The winch decelerates INTO the release, so the rope's last tick and
+/// her first free tick are the same speed; a flat winch with a small carry rose
+/// her at 764 px/s and cut her to 90, an eightfold stop at the apex that reads
+/// as the teleport's own feel arriving through a different mechanic.
+const RELEASE_RISE: f32 = 90.0;
+
+/// The wire going taut. ⛔ NOT `four_point_glint`, which is the Author's blink
+/// and half of the complaint: a stagehand's wire is rope and pulley, not a star
+/// flash. The rope ITSELF is drawn from the read model for the length of the
+/// lift — an FX row plays once and ends, and this beat is the catch.
+const WIRE_VFX: &str = "trapdoor_boards";
 
 /// Complete sword-fundamentals repertoire, attributed to the Performer, with her
 /// own down and up specials in place of the archetype's.
@@ -438,7 +502,27 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     ambition_characters::moveset_authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
 }
 
-/// Up special: a wire catches her at the waist and takes her out of the scene.
+/// Up special: a wire comes down out of the flies, takes her at the waist, and a
+/// winch walks her up while she swings.
+///
+/// ⭐⭐ JON, 2026-08-29, ON WHAT THIS IS NOT: *"It is not a teleport and should
+/// not get the teleport sound. It needs to be a rope or wire that reaches down
+/// from the sky… but she doesn't teleport up, she gets lifted up by the wire, a
+/// fairly large vertical distance, and while she is being lifted by the wire her
+/// motion controls should let her swing like a pendulum so she has a bit of
+/// horizontal recovery with it too."*
+///
+/// ⛔⛔ AND IT WAS LITERALLY THE AUTHOR'S TELEPORT WITH A DIFFERENT COMMENT —
+/// one beat, one placement, 215px of `smash.teleport`. The blink cue Jon heard
+/// came from `apply_authored_teleports`, which emits it at EVERY transit, so no
+/// edit to this timeline could ever have silenced it. A move that runs the
+/// teleport executor IS a teleport. The fix is a different technique.
+///
+/// ⛔⛔ AND THE MIDDLE BEAT IS THE MOVE, exactly as it is for the Trap. Between
+/// `WIRE_AT_S` and `WIRE_RELEASES_S` her position is `(anchor, rope, angle)`:
+/// gravity is off, her velocity is not integrated, and the stick buys ANGULAR
+/// acceleration. She is still drawn, still solid and still hittable — which is
+/// why the wire is a maneuver in the movement kernel and not a body mode.
 fn the_flyline() -> MoveSpec {
     let mut spec = ambition_characters::moveset_authoring::hitless_special(
         "performer_curtain_call",
@@ -447,37 +531,57 @@ fn the_flyline() -> MoveSpec {
         WIRE_ENDS_S,
     );
     spec.display_name = Some("Curtain Call".to_string());
-    let spec = author_teleport(
+    // ⛔⛔ THE ROOT IS LIFTED OFF THE LIFT, AND THAT GAP IS LOAD-BEARING. This is
+    // the same correction the Trap needed and for the same reason:
+    // `hitless_special` roots the body across its whole duration, the kernel's
+    // wire reads the DAMPED stick (`InputState::local_axis`, the one every other
+    // mode reads), and `MoveSpec::motion_scale_at` folds overlapping windows with
+    // `min` — so a Recovery window starting at `WIRE_AT_S` multiplies her swing
+    // by zero for the entire beat the move exists for, and clause six is deleted
+    // while every spec test stays green.
+    //
+    // ⇒ the Recovery begins where the rope lets go. With no window covering the
+    // lift the fold returns its identity and she steers the pendulum at full
+    // authority.
+    for window in &mut spec.windows {
+        if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
+            window.start_s = WIRE_RELEASES_S;
+        }
+    }
+    let spec = author_flyline(
         spec,
         WIRE_AT_S,
-        TeleportParams {
-            // Aimed, like every other recovery in the game.
-            behind_nearest_foe: false,
-            behind_gap: 0.0,
-            // Shorter than the Author's 250: his is a revision and hers is a
-            // stagehand, and a wire runs out.
-            distance: 215.0,
-            // ⭐⭐ THE SAME RADIUS THE AUTHOR AND THE ROBOT GET. It is a property
-            // of recovering onto a stage rather than of any one fighter.
-            ledge_assist: 44.0,
-            // ⭐ THE SAME WINDOW THE OTHER TWO GET. She already authors i-frames
-            // on the trapdoor, where being underground is the reason; this is the
-            // other one — being NOWHERE, mid-wire.
-            intangible_s: 0.12,
-            depart_vfx: "four_point_glint".to_string(),
-            arrive_vfx: "four_point_glint".to_string(),
+        FlylineParams {
+            rope_length: ROPE_PX,
+            rise: RISE_PX,
+            lift_s: LIFT_S,
+            max_swing_deg: MAX_SWING_DEG,
+            swing_accel: SWING_ACCEL,
+            release_rise: RELEASE_RISE,
+            vfx: WIRE_VFX.to_string(),
+            // Rope and pulley — the same bank the Trap's carpentry came out of.
+            // ⛔ NOT `player.blink`, and nothing on this move may reach it.
+            sfx: "world.door.heavy_open".to_string(),
         },
     );
+    // ⭐ THE SAME I-FRAMES THE OTHER RECOVERIES GET, over the span she is on the
+    // rope. The teleport bought them with `TeleportParams::intangible_s` for
+    // being NOWHERE mid-blink; hers are for being off the stage on a wire, which
+    // is a longer and more visible commitment.
+    //
+    // ⛔ AUTHORED ON THE TIMELINE rather than granted by the technique, for the
+    // reason the Trap's are: the window is what the CANCEL and scoring layers
+    // read without looking at a live body.
+    let spec = ambition_characters::moveset_authoring::invuln(spec, WIRE_AT_S, WIRE_RELEASES_S);
     let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
-    // ⛔⛔ NO `player.blink` HERE. This move is authored through
-    // `author_teleport` twelve lines up, and `apply_authored_teleports` emits
-    // `PLAYER_BLINK` at every transit — so a cue on this timeline would ask for
-    // the same sound down a second road on the same frame. The executor is the
-    // one authority; a move that runs it does not also ask.
+    // ⛔⛔ NO `player.blink` ANYWHERE ON IT, and now nothing downstream asks for
+    // one either. `apply_authored_flylines` writes no position, picks no
+    // destination and records no Class-B remap — there is nothing for a teleport
+    // cue to be attached to.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. Inserted after
     // `SmashRepertoire::into_contract` has lowered the table it joins, nothing
     // else will stamp `gates.recovery` on it — and an up-B that spends nothing
-    // is flight.
+    // is flight. The swing is *"a bit"* of recovery, not a free traversal.
     ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
@@ -656,20 +760,24 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ ONE TELEPORT, ONE BLINK — and the wire was asking twice.
+    /// ⛔⛔ IT IS NOT A TELEPORT, WHICH IS THE WHOLE COMPLAINT THIS MOVE WAS
+    /// REWRITTEN FOR. Jon, 2026-08-29: *"It is not a teleport and should not get
+    /// the teleport sound."*
     ///
-    /// `apply_authored_teleports` emits `PLAYER_BLINK` at every transit, which is
-    /// exactly what D255/R17 established for the Author's Revision. Her up-B runs
-    /// that executor (it is authored through `author_teleport`) AND carried a
-    /// `player.blink` on its own timeline at `WIRE_AT_S`, so the same frame asked
-    /// for the same cue down both roads.
+    /// ⛔⛔ AND THE ONLY ASSERTION THAT MEANS ANYTHING IS ON THE TECHNIQUE, NOT
+    /// ON THE CUE. `apply_authored_teleports` emits `PLAYER_BLINK` at every
+    /// transit, so a move authored through `author_teleport` makes the teleport's
+    /// sound no matter what its timeline says — this move carried no `player.blink`
+    /// of its own for months and Jon heard one anyway. A timeline that is merely
+    /// SILENT about the cue is the shape of the bug, not the fix. What has to be
+    /// true is that the move never reaches that executor.
     ///
     /// ⛔ THE EXEMPTION IN `author_teleport_blink.rs` NAMED THIS MOVE as one that
-    /// *"never runs the teleport executor"*, which was simply not true of it —
-    /// so the note written to explain why a duplicate was not a duplicate was
-    /// covering a real one. This arm is here so the sentence cannot drift back.
+    /// *"never runs the teleport executor"* while it plainly did. That sentence
+    /// is true now, and this arm is what keeps it true.
     #[test]
-    fn the_wire_leaves_the_blink_cue_to_the_teleport_executor() {
+    fn the_wire_is_a_flyline_and_never_reaches_the_teleport_executor() {
+        use ambition_characters::smash_flyline::FLYLINE;
         use ambition_characters::smash_teleport::TELEPORT;
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
@@ -682,16 +790,128 @@ mod tests {
         assert!(
             wire.events.iter().any(|e| matches!(
                 &e.kind,
-                MoveEventKind::Effect(effect) if effect.key == TELEPORT
+                MoveEventKind::Effect(effect) if effect.key == FLYLINE
             )),
-            "the wire must still BE a teleport, or this arm proves nothing"
+            "the up-B authors no flyline at all, so it lifts nobody"
         );
+        for event in &wire.events {
+            match &event.kind {
+                MoveEventKind::Effect(effect) => assert_ne!(
+                    effect.key, TELEPORT,
+                    "the wire is a flyline, not a teleport with a longer clip"
+                ),
+                MoveEventKind::Sfx { cue } => assert!(
+                    !cue.contains("blink"),
+                    "the wire plays `{cue}`; it is rope and pulley"
+                ),
+                MoveEventKind::Vfx { effect, .. } => assert!(
+                    !effect.contains("glint"),
+                    "the wire draws `{effect}`, which is the Author's blink"
+                ),
+                _ => {}
+            }
+        }
+    }
+
+    /// ⛔⛔ THE MOVE MUST OUTLAST THE LIFT IT AUTHORS. The wire's clock is the
+    /// KERNEL's (`WireState::lift_remaining_s`), and `author_flyline` can no more
+    /// see the rest of the timeline than `author_trapdoor` can — so a beat that
+    /// started a 0.55s lift on a 0.46s move would leave her being flown by a
+    /// maneuver nothing was animating, with her Recovery window already over.
+    ///
+    /// ⭐ THE SAME SHAPE AS THE TRAP'S "she goes under AND she comes back" guard,
+    /// and it exists for the same reason: the half that is missing is the half a
+    /// spec test cannot feel.
+    #[test]
+    fn the_lift_fits_inside_the_move_that_authors_it() {
+        use ambition_characters::smash_flyline::{FlylineParams, FLYLINE};
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = performer_moveset();
+        let wire = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_curtain_call")
+            .expect("her up special");
+        let (at_s, params) = wire
+            .events
+            .iter()
+            .find_map(|ev| match &ev.kind {
+                MoveEventKind::Effect(effect) if effect.key == FLYLINE => Some((
+                    ev.at_s,
+                    effect
+                        .params
+                        .hydrate::<FlylineParams>()
+                        .expect("flyline params hydrate"),
+                )),
+                _ => None,
+            })
+            .expect("the up-B authors a flyline");
         assert!(
-            !wire.events.iter().any(|e| matches!(
-                &e.kind,
-                MoveEventKind::Sfx { cue } if cue == "player.blink"
-            )),
-            "the wire authors its own blink beside the executor's"
+            at_s + params.lift_s <= wire.duration_s,
+            "the wire catches at {at_s}s and reels for {}s, past the move's own \
+             {}s",
+            params.lift_s,
+            wire.duration_s
+        );
+        // ⛔ AND THE ROPE MUST OUTLAST THE RISE, or the winch reels past its own
+        // pulley and the lift stops short at the kernel's minimum length.
+        assert!(
+            params.rope_length > params.rise,
+            "a {}px rope cannot deliver a {}px lift",
+            params.rope_length,
+            params.rise
+        );
+        // ⛔ AND THE CARRY MUST BE SLOWER THAN THE AVERAGE CLIMB, or the winch
+        // would have to ACCELERATE into the release to still travel the authored
+        // rise — see `apply_authored_flylines`, which clamps rather than obeying.
+        assert!(
+            params.release_rise < 2.0 * params.rise / params.lift_s,
+            "release_rise {} is faster than the climb it is supposed to end",
+            params.release_rise
+        );
+    }
+
+    /// ⛔⛔ SHE STEERS ON THE WIRE, AND THE ROOT IS WHAT WOULD DELETE IT.
+    ///
+    /// This is the Trap's bug in a second move. `hitless_special` authors
+    /// `motion_scale: 0.0` on Startup AND Recovery, the kernel's wire reads the
+    /// DAMPED stick like every other mode, and `motion_scale_at` folds with
+    /// `min` — so a Recovery window starting at the catch multiplies the swing by
+    /// zero for the whole lift. Clause six of the ask dies, the move still rises,
+    /// and every other test in this file stays green.
+    ///
+    /// ⛔ THE STRADDLE IS THE POINT: the beat BEFORE the catch must still be
+    /// rooted. A rule that simply removed the rooting would pass a "she can
+    /// steer" arm and hand her a special she can walk out of.
+    #[test]
+    fn she_steers_the_swing_and_is_rooted_either_side_of_it() {
+        let set = performer_moveset();
+        let wire = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_curtain_call")
+            .expect("her up special");
+        for t in [
+            WIRE_AT_S + 0.01,
+            WIRE_AT_S + LIFT_S * 0.5,
+            WIRE_RELEASES_S - 0.01,
+        ] {
+            assert!(
+                wire.motion_scale_at(t) > 0.0,
+                "at {t}s her swing is multiplied by {}",
+                wire.motion_scale_at(t)
+            );
+        }
+        assert_eq!(
+            wire.motion_scale_at(WIRE_AT_S - 0.01),
+            0.0,
+            "she can walk out of her own startup"
+        );
+        assert_eq!(
+            wire.motion_scale_at(WIRE_RELEASES_S + 0.01),
+            0.0,
+            "the landing lag is not lag"
         );
     }
 

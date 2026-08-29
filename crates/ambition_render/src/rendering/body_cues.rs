@@ -296,6 +296,7 @@ mod tests {
             kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             visible: true,
             submerged: false,
+            wire_anchor: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

@@ -19,6 +19,7 @@ pub mod debug_viz;
 pub mod deferred_write_safety;
 pub mod dizzy_stars;
 mod features;
+pub mod flyline;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
 mod health;
@@ -185,6 +186,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         app.init_resource::<item_visuals::FailedItemArt>()
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(Startup, submerged::build_trapdoor_sprite)
+            .add_systems(Startup, flyline::build_flyline_sprite)
             .add_systems(
                 Update,
                 (
@@ -199,6 +201,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // INSTEAD. Behind the hide because a door drawn for a body
                     // still on screen would be two of her.
                     submerged::sync_trapdoor_visuals.in_set(SpriteVisualSync),
+                    // THE WIRE. ⛔ NOT ordered against the door above: a move
+                    // authors one technique or the other, and a body on a rope
+                    // is not under the stage — a `chain()` here would state a
+                    // relationship that does not exist. It is inside this group
+                    // only because it shares the group's `after(sync_visuals)`
+                    // and readiness gate.
+                    flyline::sync_flyline_visuals.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)

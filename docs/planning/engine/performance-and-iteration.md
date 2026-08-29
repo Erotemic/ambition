@@ -2110,6 +2110,26 @@ against `frame_spikes.csv`:
 
 ⇒ **monotone in megapixels: the bigger the decode, the bigger the hitch.**
 
+⛔⛔ **AND THE CLUSTERS ARE NOT ALL THE SAME EVENT — ATTRIBUTED 2026-08-29, WHICH
+CORRECTS THE HEADLINE.** The log says what each one was:
+
+| cluster | what the log says | worst frame |
+|---|---|---|
+| 50.5 → 51.6s | `session-start experience=smash`, `room-loaded smash_stage` | **162ms** |
+| 114.8 → 117.3s | `central_hub_complex -> hall_of_characters` | **516 / 467 / 393ms** |
+
+⇒ **THE 516ms IS THE CHARACTER GALLERY, NOT A MATCH.** `hall_of_characters` is the
+room this campaign already priced as *"130 bodies, `WorldPrep` 2.373ms, a GALLERY,
+funds nothing"* — a screen whose entire purpose is to show the whole cast, so it
+decodes the whole cast. **MATCH ENTRY IS THE 162ms ONE.**
+
+⭐ That does not retire the work — one character is still ~470MB and the
+pacing/upstream-demand fixes target exactly the 51s shape. It **re-prices** it: the
+match-entry hitch is ~162ms, and the 516ms headline belongs to a dev gallery.
+⚠ A number is not a priority until you know which screen it came from; both
+clusters were "a decode burst, monotone in megapixels" and only the log separates
+them.
+
 ⭐⭐ **AND `image_decodes.csv` NAMES THE FILES. THEY ARE 4096x4096 SHEETS, ~7 PER
 CHARACTER.** `noether_spritesheet.png` plus `.1`–`.6` — seven sheets at ~16.8 MP
 each, **~117 MP ≈ 470 MB of decoded RGBA for ONE character** — all decoded between
@@ -2193,6 +2213,30 @@ will build it.**
 ▢ **THE DEEPER HALF IS STILL UNTAKEN:** three indexes over one 870-entry table is
 duplicated build AND duplicated memory. Sharing one index removes both; warming is
 the cheap half.
+
+##### ✔ THE LAZY-GLOBAL SWEEP IS FINISHED — 18 CANDIDATES, 3 REAL
+
+The row asked for every `OnceLock`/`Lazy` on a gameplay path. All of them, with
+the verdict, so nobody sweeps this twice:
+
+| lazy global | first toucher | verdict |
+|---|---|---|
+| `attack_hitbox::file_root_registry` | **a punch** (`advance_move_playback`) | ⛔ **REAL — 189ms.** Warmed |
+| `character::sheets::record_index` | **a frame** (`sync_sprite_posed_bodies`, sim schedule) | ⛔ **REAL** — same 870-entry table. Warmed |
+| `sprite_sheet::portrait` target index | portrait draw | ⚠ warmed with the others (cheap, but same shape) |
+| `sprite_packs::catalogs` | tier lookup | ⚠ warmed with the others (parses baked JSON per tier) |
+| `render::fx::effect_index` | first VFX | ✔ **13 entries.** Its doc says hashing once at first use keeps the draw path allocation-free — deliberate and trivial |
+| `sprite_sheet::fx::authored_effects` | the above | ✔ warmed anyway; 13 rows |
+| `ldtk::contract` | LDtk conversion | ✔ **STARTUP** — content merges at boot ("merged 11 level(s)"), one JSON parse |
+| `ldtk::conversion::standard_converters` | LDtk conversion | ✔ a small map of FUNCTION POINTERS |
+| `content::pack::prepared` / `smash_pack` | catalog + audio registry builders | ✔ **STARTUP** — the catalog is assembled during plugin build, so the pack compiles before play |
+| `items::ITEM_CATALOG_OVERRIDE`, `sfx` fingerprints, `dev_tools::PROCESS_STARTED_AT`, vanity `CARD`, `rooms::stage::CAST`, `portal2d::PortalFrameHistory` | — | ✔ overrides, ids, or dev-only |
+
+⇒ **THE ONLY REAL ONES WERE THE THREE OVER THE 870-ENTRY SHEET TABLE**, and the
+tell was uniform: *a big compile-time table indexed lazily, first asked for by
+something that runs during play.* ⭐ Size of the table, not count of the
+`OnceLock`s, is what separated the three from the fifteen.
+
 
 #### ✔ SECOND FIX: THE ROSTER NOW ASKS FOR ITS CAST, INSTEAD OF THE OPENING BELL
 
@@ -2356,11 +2400,29 @@ number was `dev`. "The engine is fast" and "the game feels slow" were measuremen
 of two different binaries. ⇒ the four-times-under-budget headroom is real for the
 SHIPPED build and substantially smaller for the DEVELOPMENT one.
 
-▢ **NOT CHANGED — THE ROW SAID MEASURE FIRST, AND THE OTHER HALF OF THE TRADE IS
-STILL UNMEASURED.** The pins buy compile time, which is why they were added.
-⇒ owed: rebuild cost for those three crates at `opt-level` 0 vs 1 (the repo
-already tracks `compile_cost.jsonl`), then a proposal that states both numbers.
-⛔ Do not raise them on the strength of the runtime number alone.
+✔✔ **THE OTHER HALF IS NOW MEASURED, AND THE TRADE IS LOPSIDED.** Edit-one-file
+rebuild of the profiling binary, 3 reps per arm (first rep discarded where cold):
+
+| edit-rebuild | `opt-level = 0` (SHIPPED) | `opt-level = 1` | delta |
+|---|---|---|---|
+| touch `ambition_render` | 6.91 / 6.87 / 6.89 → **6.89s** | 9.14 / 6.97 / 7.01 → **7.01s** | **+0.12s (2%)** |
+| touch `ambition_platformer2d_runtime` | 8.11 / 7.97 / 8.25 → **8.11s** | 12.46 / 8.19 / 8.12 → **8.19s** | **+0.08s (1%)** |
+
+⇒ **THE PINS SAVE 1–2% OF AN EDIT-REBUILD AND COST 42% OF FRAME TIME.** One-off:
+switching the profile forces a full rebuild, measured at **93.5s**, paid once.
+
+⭐ **AND THE STATED REASON FOR THE PINS IS REFUTED, NOT MERELY OUTWEIGHED.** The
+comment justifies `ambition_render` at zero because render never runs in the
+HEADLESS benchmark. The 42% was measured headless too — so it is
+`ambition_platformer2d_runtime` and `ambition_app`, not render, and a WINDOWED
+build should be worse still.
+
+▢ **PROPOSAL, NOT TAKEN: raise all three to `opt-level = 1`** (the value
+`profile.dev` already uses for every other workspace member, so this removes an
+exception rather than inventing a policy). ⛔ Left to Jon because build policy is
+everyone's compile time, not one campaign's — but the row's condition
+(*"if dev is dramatically slower"*) is met, and the cost side is now a number
+instead of a fear.
 
 #### ⛔⛔ THE 516ms FRAME IS *EXTRACT*, NOT DECODE — AND THAT REDIRECTS THE FIX
 
@@ -2411,9 +2473,141 @@ pins that every demanded token is taken exactly once across frames, and
 strand one. The split is over a `BTreeSet`, so which token goes first is
 deterministic — a rollback host needs that and a `HashSet` could not promise it.
 
+✔ **MEASURED AFTER, AND IT CHANGED NOTHING HEADLESS — WHICH IS THE PREDICTED
+RESULT, NOT A DISAPPOINTMENT.** 2500 ticks, 3 reps, 100% live cast each:
+**5.12 / 5.04 / 5.06, median 5.06ms** against the same configuration's **5.12ms**
+before. Inside the noise floor, as expected: the hit-flash re-upload needs a
+RENDER APP (absent headless), and the session-contract memo is ~122us real against
+a ~5.1ms frame — **2.4%, under the ~7% bar.** ⇒ these three fixes are provable in
+a TRACE, not in a headless mean, and the next windowed run is their instrument.
+
+⛔ **AND THE FIRST ATTEMPT AT THAT MEASUREMENT WAS INVALID — THE TOOL SAID SO.**
+At 4000 ticks the run reported `measured_window_live_cast=80%` and
+`seats_at_end=0`: the match ENDED inside the measured window, and post-match
+frames cost about half, so the mean was dragged DOWN. The guard that prints that
+token IN the summary row is what caught it; 2500 ticks restores a 100% window.
+⚠ 4000 ticks gave 100% earlier the same day, so match length moved — plausibly the
+cast rename. **A tick count is not a fixed window; check the token every time.**
+
 ⚠ **THIS ONLY WORKS BECAUSE DEMAND MOVED UPSTREAM.** Spreading starts across
 frames costs frames; raising demand at match PREPARATION is what supplies them.
 The two changes are one design.
+
+✔✔ **AND IT IS VERIFIED END TO END, IN A COMPOSITION THAT ACTUALLY RENDERS.** The
+headless `smash_match_profile` cannot show this — it decodes 57 images totalling
+**21.0MP** (0.37MP average, **no 4096x4096 sheets at all**), so the sheet path is
+simply not exercised there. `capture_scene` boots a real composition WITH
+rendering, so it is. Worst case on purpose: `hall_of_characters`, the gallery
+behind the 516ms frames.
+
+| arm | total notable decodes | worst SIMULTANEOUS landing |
+|---|---|---|
+| unbounded (`MAX_… = 0`) | 93 | **34** |
+| bounded (`MAX_… = 1`, shipped) | 93 | **15** |
+
+⇒ **the worst simultaneous landing more than halves, 34 → 15, and the TOTAL IS
+IDENTICAL.** The equal totals are the important half: it defers, it does not drop
+— the same property the unit test asserts, now shown in a real composition rather
+than over a `BTreeSet`.
+
+⭐ **THE A/B WAS FREE BECAUSE THE CODE ALREADY HAD THE SWITCH:** `take_bounded(0)`
+means unbounded by its own definition, so the "before" arm is a one-character
+change rather than a revert.
+
+⭐⭐⭐ **AND THE FRAMES FOLLOW THE LANDINGS — THE WORST DROPS 3.75x.** Same two
+capture runs, `[frame-spike]` rows (threshold 110.6ms):
+
+| arm | spikes over threshold | worst four frames |
+|---|---|---|
+| unbounded | **8** | **1797.9 / 965.2 / 749.4 / 639.9 ms** |
+| bounded | **22** | **479.2 / 407.8 / 183.6 / 164.0 ms** |
+
+⇒ **worst frame 1797.9ms → 479.2ms.**
+
+⛔ **AND THE SPIKE COUNT WENT UP, 8 → 22 — READ THAT CORRECTLY OR IT LOOKS LIKE A
+REGRESSION.** Spreading the work means MORE frames do some of it, so more frames
+cross a FIXED threshold; what shrinks is the tail. That is the trade frame pacing
+wants — many small hitches instead of a few catastrophic ones — but a dashboard
+counting "spikes" alone would have reported this fix as 2.75x WORSE.
+⇒ **count and magnitude have to be read together**; either alone inverts the
+verdict here.
+
+⚠ Software rasterization inflates every absolute number in this run, and
+`capture_scene` adds its own warmup. **Both arms share both**, so the ratio holds
+and the milliseconds do not transfer to hardware.
+
+##### ⛔⛔ FEATURE-GATED TARGETS NEVER REACH THE GATE — TWO WERE BROKEN
+
+`cargo check -p ambition_app --all-targets` does not build a target with
+`required-features`, and neither does any test run. There are **four** such
+targets in the tree, and sweeping them found **two** problems:
+
+| target | state |
+|---|---|
+| `match_shots` (smash, `visible`+`capture`) | ⛔ **HAD NOT COMPILED SINCE** the roster folded its eight loose rule fields into one `rules: MatchRules`. Fixed |
+| `ambition_demo_mary_o_app` under `--features capture` | ⛔ `unresolved import ambition_platformer2d::content`. Fixed |
+| `capture_sanic`, `capture_twintrack` | ✔ clean |
+
+⭐ **THE MARY-O ONE IS NOT ROT, AND CHECKING SAVED A WRONG BUG REPORT.** Default
+features compile fine; only `--features capture` fails, because `capture` does not
+imply `content_pack` and `content` is gated on it. ⇒ **a feature combination
+nobody had built, not a decayed file** — the same trap as
+`cargo test -p` hiding a feature-gated module.
+⭐ Fixed at the right end: `EntitySprite` is now ALSO re-exported from `view`,
+which is ungated, because a consumer that wants to know what an entity draws as
+should not have to enable a content COMPILER. The test imports it from there.
+
+⛔⛔ **CORRECTION, WITHIN THE HOUR: A CHECK FOR THIS ALREADY EXISTS. IT IS BEHIND A
+FLAG NAMED `--run-everything-you-probably-dont-need-this`.** `run_tests.py` builds
+exactly the right job per crate —
+`cargo check -p <name> --all-targets --features <every non-default feature>` — and
+guards the whole block with `if everything:`. ⇒ my first reading ("nothing checks
+these") was wrong; the truth is worse and more useful: **the check that would have
+caught both breakages is named as something you probably do not need, and it
+turned out you did.**
+
+⇒ `match_shots` stayed broken through an entire refactor because nobody ran
+exhaustive mode in that window.
+
+⭐⭐ **AND RUNNING A SAMPLE OF THOSE JOBS BY HAND FOUND A THIRD BREAKAGE
+IMMEDIATELY — NOT A BINARY THIS TIME, A LIBRARY FEATURE.**
+`cargo check -p ambition_damage --features causal` failed:
+`BodyReaction` is `#[cfg(feature = "causal")]` in `ambition_combat`, and
+`ambition_damage` declared `causal = []` — **it never forwarded the feature it
+re-exports through.** In the app something else turns combat's `causal` on, so the
+gap is invisible; enable it alone and the type is "configured out".
+✔ Fixed: `causal = ["ambition_combat/causal"]`. ⇒ **a feature that is DECLARED but
+not FORWARDED compiles everywhere except on its own.**
+
+▢ **THE COST OF PROMOTING THESE, MEASURED:** **32 crates** qualify (non-default
+features + tests), and three sampled jobs took **7.34s / 6.67s / 20.12s** — call it
+~11s each, **~6 minutes** added sequentially and less in parallel. They are
+`cargo check`, not test runs. ⇒ against that: **three real breakages found the
+first time anybody ran them this month.** The scheduling call is Jon's; the
+guardrail is already written and merely disarmed.
+
+##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT
+
+Chased so nobody chases it twice:
+
+| instrument | sees the 4K sheet path? |
+|---|---|
+| `smash_match_profile` (headless) | ⛔ **NO** — 57 images, 21.0MP total, 0.37MP average. No render app, and no big sheets |
+| `match_shots` (smash demo, RENDERS a CPU-vs-CPU match) | ⛔ **NO — zero notable decodes.** The demo's cast does not use 4096x4096 sheets |
+| `capture_scene <room>` (full app, RENDERS) | ✔ **YES** — `hall_of_characters` decodes 93 notable images |
+| the full app, entering smash | ✔ yes on hardware: `session-start experience=smash` at 51.09s decoded the `noether` set |
+
+⭐ **THE DEMO CANNOT REPRODUCE IT BECAUSE ITS CATALOG IS SMALLER — which is D189's
+finding, not a new one:** the demo shell seats **3** characters against the app's
+**21**, so `noether` and `perfect_cellular_automaton` — the 4096x4096 casts — are
+not seatable there. In the full app they are, which is why Jon's run decoded
++128MP entering a match and `match_shots` decodes nothing.
+
+⇒ **`capture_scene hall_of_characters` is the local proxy for this mechanism**, and
+it is a fair one: same demand → materialize → extract path, same asset sizes, just
+more of them. ⛔ What no local tool reaches is match entry IN THE FULL APP, because
+the smash stage is not one of `capture_scene`'s 72 rooms and the shell route is
+what gets there. ⇒ that number stays a hardware measurement.
 
 ⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
 `resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
@@ -2424,6 +2618,40 @@ but was depended on; anything that assumes it must now step. 1152 monolith tests
 
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
+
+##### ⛔⛔ "THERE IS NO EVICTOR AND THERE MUST NOT BE ONE" — AND THE MAP SAYING SO IS THE OWNER THAT NEVER RELEASES
+
+Item 4 of the campaign asks for eviction and a budget. **The code explicitly
+forbids it**, in `demote_stale_realizations`' own doc:
+
+> *"clone here plus whatever a live presentation still holds until it rebinds.
+> there is no evictor and there must not be one — ownership does the whole job."*
+
+⭐ So the question is not "where should the evictor go" but **"is ownership
+actually doing the job?"** It is not, and the same file is why:
+`CharacterSpriteAssets.sheets` is a `HashMap<String, CharacterSpriteAsset>` with
+**three insert sites and exactly ONE removal** — the one inside
+`demote_stale_realizations`, which fires only on a QUALITY-TIER change. Jon's
+hardware run had **zero** quality transitions (`grep "quality transition"` = 0).
+
+⇒ **that map holds every realization ever loaded, for the life of the process.**
+It is the ownership the comment appeals to, and it never lets go. That is the
+mechanism behind *"resident climbs 128 → 339 images and 2.62GB and never falls"*.
+⚠ **A COMMENT STATING A RULE IS A SPEC TO CHECK**, and this one is contradicted by
+the struct it is written on.
+
+⇒ **THE FIX THE CODE'S OWN PHILOSOPHY WANTS IS NOT AN EVICTOR.** It is to make the
+OWNERSHIP end where the owner does: `retire_previous_session_cast` already clears
+the cast's `ids` when the session scope changes, and it does NOT drop the
+corresponding `sheets`. Releasing them there is ownership doing its job, not a
+new subsystem — and it is safe by exactly the argument `demote_stale_realizations`
+already relies on (a live presentation holds its own clone until it rebinds).
+
+▢ **NOT TAKEN HERE, DELIBERATELY.** The rule is stated in the code and a change to
+it is a design call, not a performance chore: the same sentence that names the
+leak also forbids the obvious fix. ⇒ Jon's call — and either answer wants the
+sentence rewritten, because as it stands it describes a world the struct does not
+implement.
 
 ##### ▢ THE PORTRAIT RE-DECODES ARE A DROPPED HANDLE, AND THEY ARE MINOR
 
@@ -2499,6 +2727,30 @@ warns that an uploaded-and-dropped target reports 0 while still costing VRAM.
 ⚠ And it does NOT fix the 516ms: `extract_render_asset` still copies once. It
 shrinks what stays resident afterwards.
 
+⛔⛔ **CORRECTION 2026-08-29 — THE LEVER IS NOT AVAILABLE, AND I HAD THE
+CONSEQUENCE BACKWARDS.** "Nothing reads the PIXELS" is true and was the wrong
+question. **This codebase reads PRESENCE**, and `RenderAssetUsages::RENDER_WORLD`
+removes an image from `Assets<Image>` after extraction — which is exactly the
+signal it reads:
+
+- the sheet load site says so in place: *"readiness guards test
+  `images.get(&asset.texture)`"*;
+- `rendering/actors/boss.rs` takes `Res<Assets<Image>>` under the comment
+  *"Readiness, not residency — see `super::texture_is_ready`"*;
+- and a shipped test defines RETIREMENT as presence: *"the Half image is gone from
+  `Assets<Image>`, not merely unreferenced by the table"*
+  (`an_actor_body_converges_to_the_new_tier_and_the_old_image_dies`).
+
+⇒ dropping the main-world copy would make every sheet read as **never loaded**
+and every realization read as **already retired**. ⛔ **DO NOT TAKE THIS LEVER
+WITHOUT FIRST GIVING READINESS ITS OWN SIGNAL** (an explicit loaded/ready flag on
+`CharacterSpriteAsset`, or `AssetServer::load_state`), which is a redesign of what
+"ready" means, not a loader setting.
+
+⭐ The census work done for this is still worth having — `derived_byte_images`
+means the accounting is honest the day someone does redesign readiness. But the
+memory win is gated behind that, not behind the eviction question.
+
 #### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
 
 ⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY
@@ -2521,6 +2773,22 @@ branch = UNKNOWN.
 
 ⚠ A warning, not an error — a legitimately late asset exists (an unpredictable
 summon, a dev spawn). What is never legitimate is not knowing.
+
+⛔⛔ **AND THE WARNING GAVE ADVICE NOBODY COULD TAKE — CAUGHT WITHIN THE HOUR, BY
+ITS OWN FIRST OUTPUT.** A headless Smash match flagged two `<runtime-generated>`
+**2048x2048 (4.2MP, ~16MB each)** images as *"DECODED DURING GAMEPLAY … demand it
+at match preparation."* They have **no asset path**: they are generated — an atlas
+allocated the first time text draws, or a render target — and there is no
+preparation step to move them to. ⇒ the instruction was unfollowable.
+
+✔ The engine now says so in its own sentence (*"allocated during gameplay … not
+content that could have been demanded earlier"*), and the summary counts them
+SEPARATELY so they cannot inflate the number whose whole point is "this could
+have been demanded earlier".
+
+⭐ **A NEW INSTRUMENT'S FIRST OUTPUT IS ITS FIRST TEST**, and this one failed it
+in the direction that matters: not a wrong number, a right number with wrong
+advice attached. ⚠ Still worth REPORTING — 16MB a match is real.
 
 ⚠ **NAMED GROUPS AFTER A NEAR-MISS:** adding one optional group to the parser
 silently renumbered `path`, which the round-trip test caught. Every field is

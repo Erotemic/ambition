@@ -177,7 +177,22 @@ pub fn report_image_census(
             // unpredictable summon, a dev spawn). What is never legitimate is
             // not KNOWING.
             let live = u8::from(during_gameplay);
-            if during_gameplay {
+            // ⛔ A RUNTIME-GENERATED IMAGE IS NOT A CONTENT DECODE, AND TELLING
+            // SOMEBODY TO "DEMAND IT AT MATCH PREPARATION" IS ADVICE THEY CANNOT
+            // TAKE. Caught within an hour of shipping this warning: a headless
+            // match flagged two 2048x2048 `<runtime-generated>` images — an atlas
+            // allocated the first time text draws, with no path and no
+            // preparation step to move it to. It is still worth REPORTING (it is
+            // 16MB a match) but under its own sentence.
+            let generated = path == "<runtime-generated>";
+            if during_gameplay && generated {
+                eprintln!(
+                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
+                     — allocated during gameplay. No asset path, so this is generated \
+                     (an atlas or a render target), not content that could have been \
+                     demanded earlier."
+                );
+            } else if during_gameplay {
                 eprintln!(
                     "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
                      — DECODED DURING GAMEPLAY, so it cost a frame. If a match needs \

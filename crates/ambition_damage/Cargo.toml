@@ -28,4 +28,10 @@ ambition_persistence = { path = "../ambition_persistence" }
 
 [features]
 default = []
-causal = []
+# ⛔ MUST FORWARD, NOT JUST DECLARE. `BodyReaction` is `#[cfg(feature =
+# "causal")]` in `ambition_combat`, and this crate re-exports it under its own
+# `causal`. Declaring the feature without forwarding it means
+# `cargo check -p ambition_damage --features causal` fails on a type that was
+# "configured out" — invisible in the app, where something else turns combat's
+# `causal` on, and the reason feature unification hides this class.
+causal = ["ambition_combat/causal"]

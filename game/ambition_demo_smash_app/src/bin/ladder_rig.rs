@@ -163,6 +163,55 @@ fn force_no_rollout(app: &mut bevy::app::App) -> bool {
     found
 }
 
+/// `--reaction-ms N`: override every live fighter's reaction time.
+///
+/// ⭐ THE A/B FOR THE l1 FAILURE, which `--no-rollout` does NOT rescue, so it has a
+/// different cause. The published ladder runs 500ms at l1 down to 150ms at l9, and
+/// the `recovery_below` fixture drops the body **208px above the blastzone**
+/// (mapped y=512 on a 640x480 stage whose fall margin puts death at y=720). If the
+/// fall is shorter than half a second, l1 simply cannot react in time and its
+/// 45/45 is arithmetic rather than a defect. Setting this to 0 answers it: if l1
+/// then recovers, reaction time is the whole story.
+fn force_reaction_ms(app: &mut bevy::app::App, reaction_ms: f32) -> bool {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
+            cfg.profile.reaction_ms = reaction_ms;
+            found = true;
+        }
+    }
+    found
+}
+
+/// `--apm N` / `--noise X`: override the other two per-level knobs.
+///
+/// ⭐ THE REMAINING SUSPECTS FOR l1, after `--no-rollout` and `--reaction-ms 0`
+/// BOTH left it failing 45/45. `for_level` gives l1 the lowest `apm_cap` (120 —
+/// two actions per second, which can throttle a recovery input) and the highest
+/// `execution_noise` (0.45). Testing both at once first: if l1 still fails,
+/// neither is the cause and the suspect moves out of the profile entirely.
+fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option<f32>) -> bool {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
+            if let Some(apm) = apm {
+                cfg.profile.apm_cap = apm;
+            }
+            if let Some(noise) = noise {
+                cfg.profile.execution_noise = noise;
+            }
+            found = true;
+        }
+    }
+    found
+}
+
 /// The weights this run measures under: `v1` unless `--weight name=value` says
 /// otherwise, repeatable.
 ///
@@ -563,6 +612,14 @@ fn run_bout_at(
                 force_utility_weights(&mut app, weights);
                 if std::env::args().any(|arg| arg == "--no-rollout") {
                     force_no_rollout(&mut app);
+                }
+                if let Some(ms) = flag_value("--reaction-ms").and_then(|v| v.parse().ok()) {
+                    force_reaction_ms(&mut app, ms);
+                }
+                let apm = flag_value("--apm").and_then(|v| v.parse().ok());
+                let noise = flag_value("--noise").and_then(|v| v.parse().ok());
+                if apm.is_some() || noise.is_some() {
+                    force_apm_and_noise(&mut app, apm, noise);
                 }
             }
         }

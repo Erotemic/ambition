@@ -535,6 +535,19 @@ pub mod view {
     /// The decoded art the presentation draws from.
     pub use ambition_sprite_sheet::game_assets::GameAssets;
 
+    /// Which sprite an authored entity draws as.
+    ///
+    /// ⭐ HERE AS WELL AS IN `content`, because the two answer different
+    /// questions and only one of them is gated. `content::EntitySprite` is the
+    /// CONTENT-PACK surface and lives behind `feature = "content_pack"`; a
+    /// consumer that merely wants to read what an entity draws as should not
+    /// have to enable a content COMPILER to do it. Found when
+    /// `cargo check -p ambition_demo_mary_o_app --features capture --all-targets`
+    /// failed on `unresolved import ambition_platformer2d::content` — the
+    /// `capture` feature does not imply `content_pack`, and the test only wanted
+    /// this one type.
+    pub use ambition_sprite_sheet::game_assets::EntitySprite;
+
     /// Where the art comes from: every asset path/source policy the
     /// presentation reads.
     pub use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};

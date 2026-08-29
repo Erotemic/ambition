@@ -37,6 +37,14 @@ pub struct ImageCensus {
     window_images: u64,
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     window_megapixels: f64,
+    /// How many images' bytes were DERIVED from the texture descriptor rather
+    /// than measured, because their CPU copy had been dropped.
+    ///
+    /// ⭐ Reported so the total says how much of itself it actually saw. A byte
+    /// count that silently switches from measured to derived is the same class of
+    /// lie as a count of zero from an instrument that never reports the category.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    derived_byte_images: u64,
 }
 
 impl Default for ImageCensus {
@@ -51,6 +59,7 @@ impl Default for ImageCensus {
             total_bytes: 0,
             window_images: 0,
             window_megapixels: 0.0,
+            derived_byte_images: 0,
         }
     }
 }
@@ -77,6 +86,12 @@ impl ImageCensus {
     /// Bytes of decoded image data seen so far. Cumulative, never decremented:
     /// this counts DECODE WORK, so a rise with a flat `total_images` means the
     /// same asset was decoded again, which is the churn the number is for.
+    /// How many of the counted images had their bytes DERIVED rather than
+    /// measured. `0` means every byte in `total_bytes` was seen directly.
+    pub fn derived_byte_images(&self) -> u64 {
+        self.derived_byte_images
+    }
+
     pub fn total_bytes(&self) -> u64 {
         self.total_bytes
     }
@@ -110,7 +125,27 @@ pub fn report_image_census(
         };
         let (width, height) = (image.width(), image.height());
         let megapixels = f64::from(width) * f64::from(height) / 1.0e6;
-        let bytes = image.data.as_ref().map_or(0, |data| data.len() as u64);
+        // ⭐ MEASURE THE CPU COPY WHEN IT EXISTS, DERIVE IT WHEN IT DOES NOT.
+        // `image.data` is `None` for an image whose main-world copy was dropped
+        // (`RenderAssetUsages::RENDER_WORLD`), and reporting 0 for those would make
+        // "decoded bytes" FALL every time somebody moved an asset to render-world
+        // only — a spectacular fake win, and the readout could not tell it from a
+        // real one. The decode still happened; the pixels still exist on the GPU.
+        // ⇒ fall back to the texture's own descriptor: width x height x bytes-per-block.
+        let bytes = match image.data.as_ref() {
+            Some(data) => data.len() as u64,
+            None => {
+                census.derived_byte_images += 1;
+                let per_pixel = u64::from(
+                    image
+                        .texture_descriptor
+                        .format
+                        .block_copy_size(None)
+                        .unwrap_or(4),
+                );
+                u64::from(width) * u64::from(height) * per_pixel
+            }
+        };
 
         census.total_images += 1;
         census.total_megapixels += megapixels;

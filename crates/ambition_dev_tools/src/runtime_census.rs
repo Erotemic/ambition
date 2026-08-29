@@ -281,18 +281,18 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     // The two phases the campaign cannot yet attribute. `PreUpdate` because
     // 0.95ms of it is not the sim; `Update` because in the SHIPPED app the sim
     // lives in `GgrsSchedule`, so nobody knows what its 1.4ms is made of.
-    report_schedule_membership(&schedules, "PreUpdate");
-    report_schedule_membership(&schedules, "Update");
+    report_schedule_membership(&schedules, "PreUpdate", 0.0);
+    report_schedule_membership(&schedules, "Update", 0.0);
     // `PostUpdate` is 0.65ms of a Smash frame — 14% — and nothing has looked at
     // it. Presentation and render extraction live here.
-    report_schedule_membership(&schedules, "PostUpdate");
+    report_schedule_membership(&schedules, "PostUpdate", 0.0);
     // Who owns `Update` — the campaign's last unexplained phase that is ours.
     report_schedule_owners_in(&schedules, "Update");
     // ⭐ The two phases that inflate WORST between a Smash stage and a real room:
     // `StateTransition` 0.14ms -> 2.06ms (15x) and `RunFixedMainLoop` 0.40 ->
     // 2.42ms (6x). Naming their populations is the first question about either.
-    report_schedule_membership(&schedules, "StateTransition");
-    report_schedule_membership(&schedules, "RunFixedMainLoop");
+    report_schedule_membership(&schedules, "StateTransition", 0.0);
+    report_schedule_membership(&schedules, "RunFixedMainLoop", 0.0);
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
@@ -392,6 +392,61 @@ fn open_sim_phase_window(mut census: ResMut<SimPhaseCensus>) {
 /// ⭐ REPORTED AS A PER-TICK AVERAGE over the interval, because a single sim
 /// tick is microseconds and the interesting quantity is what the tick costs on
 /// average, not what one of them did.
+/// The SIM schedule's membership — the one schedule `report_schedule_conditions_census`
+/// could never name.
+///
+/// ⛔⛔ WHY THIS EXISTS: the `PreStartup` membership pass reports only MAIN-schedule
+/// labels, and the shipped sim lives in `GgrsSchedule`, which does not exist yet
+/// at `PreStartup` — it is created when a session activates. So a grep for a
+/// system in `GgrsSchedule` against that pass returns zero FOR EVERY SYSTEM,
+/// present or absent. Measured 2026-08-29, when exactly that zero was published
+/// as "verified: 0 occurrences in GgrsSchedule" for two systems that had been
+/// moved out. The move was real; the evidence was not.
+///
+/// ⇒ SAMPLED, and ONCE. By the time this can see the schedule its graph is
+/// drained, so it goes through `report_schedule_membership`, whose executable
+/// fallback reads the systems back out of the initialized schedule.
+///
+/// ⭐ Matched BY NAME rather than by label type, deliberately: `ambition_dev_tools`
+/// must not take a `bevy_ggrs` dependency (see `install_ggrs_driver_census`,
+/// which lives in the ggrs crate for exactly that reason).
+pub fn report_sim_schedule_membership(
+    census: Res<RuntimeCensus>,
+    schedules: Option<Res<bevy::ecs::schedule::Schedules>>,
+    mut reported: Local<bool>,
+) {
+    if *reported {
+        return;
+    }
+    let Some(at) = census.due() else {
+        return;
+    };
+    let Some(schedules) = schedules else {
+        return;
+    };
+    // Only once the session has actually built it; before that the honest answer
+    // is "not yet", and saying it every sample would be noise.
+    let present = schedules
+        .iter()
+        .any(|(label, _)| SIM_SCHEDULE_NAMES.contains(&format!("{label:?}").as_str()));
+    if !present {
+        return;
+    }
+    *reported = true;
+    for wanted in SIM_SCHEDULE_NAMES {
+        if schedules
+            .iter()
+            .any(|(label, _)| format!("{label:?}") == *wanted)
+        {
+            report_schedule_membership(&schedules, wanted, at);
+        }
+    }
+}
+
+/// The labels a sim schedule can wear in this repo. `GgrsSchedule` is the shipped
+/// one; `SimSchedule` is what a non-rollback host binds.
+const SIM_SCHEDULE_NAMES: &[&str] = &["GgrsSchedule", "SimSchedule"];
+
 pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<SimPhaseCensus>) {
     let Some(at) = census.due() else {
         return;
@@ -531,7 +586,7 @@ fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
 ///
 /// ⛔ ONE-SHOT AT `PreStartup`, for the reason in `report_schedule_conditions_census`:
 /// `Schedule::initialize` drains the graph, so this is readable exactly once.
-fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
+fn report_schedule_membership(schedules: &Schedules, wanted: &str, at: f64) {
     for (label, schedule) in schedules.iter() {
         if format!("{label:?}") != wanted {
             continue;
@@ -568,7 +623,7 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
                 }
                 Err(_) => {
                     eprintln!(
-                        "[census] membership t=0.000 schedule={wanted} \
+                        "[census] membership t={at:.3} schedule={wanted} \
                          unavailable=never_initialized"
                     );
                     return;
@@ -576,13 +631,13 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
             }
         }
         eprintln!(
-            "[census] membership t=0.000 schedule={wanted} systems={} {}",
+            "[census] membership t={at:.3} schedule={wanted} systems={} {}",
             names.len(),
             names.join(" ")
         );
         return;
     }
-    eprintln!("[census] membership t=0.000 schedule={wanted} unavailable=not_found");
+    eprintln!("[census] membership t={at:.3} schedule={wanted} unavailable=not_found");
 }
 
 /// WHO OWNS the registered systems — the population behind "this app installs
@@ -983,6 +1038,10 @@ impl Plugin for RuntimeCensusPlugin {
                     report_ecs_census,
                     report_schedule_load_census,
                     report_entity_populations,
+                    // ⭐ Names the SIM schedule's systems, which the `PreStartup`
+                    // pass structurally cannot: that schedule does not exist
+                    // until a session activates. Latches after one report.
+                    report_sim_schedule_membership,
                 ),
             );
         }

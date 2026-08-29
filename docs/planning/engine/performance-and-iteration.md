@@ -1081,10 +1081,30 @@ by `[census] membership`: 0 occurrences in `GgrsSchedule`, 1 in `Update`"*. The
 `1 in Update` is real. The **`0 in GgrsSchedule` is absence of the ROW, not of the
 system**: `report_schedule_membership` runs at `PreStartup` and filters to named
 main-schedule labels, so it emits no `GgrsSchedule` row at all — a grep for one
-can only ever return zero. ⇒ what actually establishes the move is that each
-system has exactly ONE registration site and it now names `Update`, plus positive
-presence in the `Update` row. Same family as the absence-grep trap: **a count of
+can only ever return zero. Same family as the absence-grep trap: **a count of
 zero from an instrument that never reports that category is not a measurement.**
+
+⭐⭐ **SO THE INSTRUMENT WAS BUILT, AND THE CLAIM NOW HOLDS.**
+`report_sim_schedule_membership` samples the sim schedule ONCE, after a session
+has activated (it does not exist at `PreStartup`) and through the executable
+fallback (its graph is drained by then). It matches BY NAME so `ambition_dev_tools`
+takes no `bevy_ggrs` dependency. `[census] membership t=0.313 schedule=GgrsSchedule
+systems=545` — the engine's most important schedule is enumerable for the first
+time.
+
+Re-verified against it, **with positive controls, which is the part the original
+claim lacked**:
+
+| system | in sim | expected |
+|---|---|---|
+| `poll_world_source_changes` | 0 | 0 — moved |
+| `request_player_clone_on_key` | 0 | 0 — moved |
+| `spawn_requested_player_clone` | **1** | 1 — correctly stayed |
+| `derive_boss_sprite_metrics` | **1** | 1 — untouched control |
+
+⇒ the two ones prove the instrument CAN report a non-zero for this category, so
+the two zeros mean something. ⛔ Before believing a zero, ask the instrument for
+a case you KNOW is present.
 
 ⛔⛔ **NO SPEED CLAIM, AND n=1 WOULD HAVE SUPPORTED A FALSE ONE.** `WorldPrep` in
 `goblin_encounter` read **0.248ms** after the move against **0.269ms** before —

@@ -992,11 +992,31 @@ type, so seven rows mean seven effect types, one registration each
 MONOMORPHISATION before it is a bug; check the generic parameter before
 reporting it.
 
-⛔⛔ **STOPPED HERE DELIBERATELY, AND THE STAGE IS THE REASON.** At 4.45ms the
-frame is a QUARTER of the 60Hz budget; the spikes are proven NOT to be sim; and
-splitting the remaining 0.93ms needs hand-placed brackets (Bevy 0.18 emits no
-per-system span) on a host whose timings are the weakest link in every finding
-here. ⇒ that work is gated behind the real-hardware profile, not ahead of it.
+⭐⭐⭐ **AND THE 0.93ms IS NOT A HIDDEN HOT SPOT — IT IS THE BROAD FRAME AGAIN.
+The arithmetic settles it without a probe:**
+
+| block | ms | systems | us/system |
+|---|---|---|---|
+| `PreUpdate` minus the driver | 0.93 | ~135 | **6.9** |
+| `Update` | 1.23 | 521 | **2.4** |
+
+Both land inside the campaign's independently measured **2.9–15.6us** per-system
+band. ⇒ there is no group in `PreUpdate` hiding a millisecond; there are ~135
+systems each costing a few microseconds, which is the SAME conclusion the whole
+campaign reached from the other direction. ⛔ **A per-group poison probe would
+recover TENS of microseconds each**, and an earlier probe already priced ui-focus
++ picking at **0.00** and the 31 asset trackers at **<=0.145ms**.
+
+⇒ **THE ONLY LEVER THAT MOVES A BROAD FRAME IS RETIRING A WHOLE CLASS AT ONCE**,
+which is exactly why `gameplay_allowed` (83 evaluations per run → 1) is the one
+change in this campaign with a measured win. Hunting the next 6.9us system is not
+that lever.
+
+⛔ **STOPPED HERE DELIBERATELY, AND THE STAGE AGREES.** At 4.45ms the frame is a
+QUARTER of the 60Hz budget, the spikes are proven NOT to be sim, and the
+remaining breadth is priced. ⇒ what is left needs the real-hardware profile —
+where the RENDER cost this host cannot produce finally joins the frame — not more
+CPU archaeology here.
 
 ### An instrument gotcha this cost a run to find
 

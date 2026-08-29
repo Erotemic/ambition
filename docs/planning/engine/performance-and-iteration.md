@@ -1245,9 +1245,47 @@ the cost.
    ⛔ THIS ONE MUST BE RULED OUT FIRST: it would make the whole 2.06ms a property
    of the VEHICLE rather than of the engine.
 
-⇒ ▢ settling it needs Tracy attribution on a run where the phase reads 2ms —
-exactly the job this campaign's rules reserve Tracy for. ⛔ Nobody should
-optimize against this number until hypothesis 3 is excluded.
+⛔⛔⛔ **HYPOTHESIS 3 IS CONFIRMED. THE `StateTransition` FINDING IS RETRACTED,
+AND SO IS EVERY PHASE NUMBER FROM A RENDERING VEHICLE.**
+
+The discriminator was render resolution — a phase full of state machinery has no
+business caring how many pixels exist. Same room, same warmup, 16x the pixels:
+
+| | 320x240 | 1280x960 | ratio |
+|---|---|---|---|
+| frame mean | 7.33ms | 16.19ms | 2.2x |
+| **StateTransition** | **0.169ms** | **1.822ms** | **10.8x** |
+| PreUpdate | 3.165 | 4.980 | 1.6x |
+| RunFixedMainLoop | 0.736 | 2.592 | 3.5x |
+| Update | 1.933 | 3.902 | 2.0x |
+
+⇒ **`StateTransition` SCALES WITH RESOLUTION**, and so does every other phase.
+The phase census attributes WALL TIME between schedule markers, so when the
+render path blocks the main thread — submission, readback, or a software
+rasterizer — whichever phase brackets that moment absorbs it. The "15x
+inflation" was the vehicle, not the engine.
+
+⛔⛔ **WHAT THIS INVALIDATES, stated plainly because these are recorded above:**
+- the `StateTransition = 2.06ms, 14% of a real room's frame` finding — RETRACTED;
+- the recommendation to reopen the brief's direction 8 on that evidence — WITHDRAWN;
+- the `apply_deferred`-flush hypothesis built on it — it was explaining a number
+  that is not real;
+- the claim that a room's ~14ms floor is *"CPU work in the app schedules"* —
+  the phases sum to the frame because the BLOCKING IS INSIDE THEM, which is not
+  the same thing as the app doing that work.
+
+⭐⭐⭐ **THE DURABLE LESSON, AND IT IS THE MOST IMPORTANT INSTRUMENT CAVEAT OF THIS
+CAMPAIGN: `[census] phases` IS ONLY MEANINGFUL WHERE NOTHING BLOCKS ON A GPU.**
+It is trustworthy in the `NoWindow` smash path, which is where the sim-tick
+split and the driver bracket were measured — those stand. It is NOT trustworthy
+in `capture_scene` or any windowed run, and the census should say so at the point
+of use. ⚠ Note `fragment_shader_invocations=0` did NOT protect against this:
+there is real GPU work in submission and upscaling even when the opaque pass
+shades nothing.
+
+⇒ ▢ what survives from the room measurements: the POPULATIONS (sprites, visible,
+projections, entities) and the CHURN ratios, none of which are wall-clock. The
+phase splits from those runs should be treated as void.
 
 ⭐ **`RunFixedMainLoop` IS EXPLAINED AND IS NOT A DEFECT.** Its 17 systems are
 `run_fixed_main_schedule` — which runs the WHOLE fixed-timestep sim — plus

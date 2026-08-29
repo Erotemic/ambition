@@ -32,9 +32,24 @@ GRAPH_LEDGER = MEASUREMENTS / "compile_graph.jsonl"
 SCENARIO_LEDGER = MEASUREMENTS / "compile_cost.jsonl"
 JOBS_LEDGER = MEASUREMENTS / "run_tests_cost.jsonl"
 CARVE_LEDGER = MEASUREMENTS / "carve_lineage.jsonl"
+#: Runtime frame cost, one row per profiling bundle.
+#: `scripts/lib/profile_bundle_to_history.py` writes it,
+#: `scripts/perf_history.py` reads it.
+#:
+#: ⛔ DELIBERATELY NOT IN `LEDGERS` below. That dict is the compile/test
+#: telemetry set, and `scripts/compile_report.py` renders every member of it
+#: on a page about compile cost. A runtime frame time shares the envelope and
+#: nothing else; putting it there would make the compile report claim to
+#: explain it.
+RUNTIME_LEDGER = MEASUREMENTS / "runtime_frame_cost.jsonl"
 
-#: Every ledger, keyed by the stem the schema doc and the report use. The five
-#: are enumerated ONCE; a reader that wants "all of them" asks for this.
+#: The compile/test telemetry ledgers, keyed by the stem the schema doc and the
+#: report use. The five are enumerated ONCE; a reader that wants "all of them"
+#: asks for this.
+#:
+#: ⚠ `scripts/compile_report.py` keeps a hand-written table of one row per
+#: member and indexes it by these keys. ADDING A MEMBER HERE WITHOUT ADDING A
+#: ROW THERE IS A KeyError, not a missing section.
 LEDGERS: dict[str, Path] = {
     "compile_units": UNIT_LEDGER,
     "compile_graph": GRAPH_LEDGER,

@@ -74,7 +74,23 @@ should remain cheap enough to be used as development tools.
 
 ## Measured baseline — headless sandbox, 2026-08-29
 
-Machine: `aivm-2404`, i7-7700HQ, 6 logical CPUs, no GPU. Workload:
+⚠⚠ **THE HOSTNAME IS NOT THE MACHINE, and this row is why.** As written below
+this baseline was taken on `aivm-2404`, i7-7700HQ, 6 logical CPUs. A session on
+2026-08-29 introspected a box ALSO called `aivm-2404` and found an **i9-11900K,
+12 logical CPUs, 64 GB** (`machine_id ec9af5ee…`, kernel 6.8.0-110-generic,
+Ubuntu 24.04.4, kvm). ⛔ DO NOT ASSUME EITHER LINE IS THE ERROR — these agents
+run on more than one host, the name is reused, and neither run recorded a
+`machine_id` to tell them apart. The row below is left exactly as it was
+recorded.
+
+⇒ ⛔ **treat these absolute milliseconds as belonging to an UNIDENTIFIED host**
+and do not compare a new timing against them. Counts, ratios and populations are
+hardware-independent and remain usable. This is precisely the failure the
+machine-readable series exists to prevent, and every row it writes carries a
+`machine_id` for exactly this reason.
+
+Machine, as recorded at the time: `aivm-2404`, i7-7700HQ, 6 logical CPUs, no
+GPU. Workload:
 `scripts/profile_desktop.sh --headless` (sandbox, 1800 ticks, `profiling`
 profile). Bundle: `desktop-timeline-run-20260829T000517Z`.
 
@@ -131,6 +147,22 @@ machinery (transition steps plus `try_run_schedule` for `OnEnter`/`OnExit`/
 `OnTransition` that are all empty here) being expensive per system. Worth a
 look before shipping, but it is NOT the place to start: `Update`'s 822 systems
 are, because that is where both the frame and the 1.9s of plugin build live.
+
+### That baseline is now a series, not a paragraph
+
+The bundle above is gone; these numbers survived only as prose. They are now the
+first two rows of `dev/ambition_dev_measurements/runtime_frame_cost.jsonl` —
+marked `backfilled: true`, because a transcription is not a measurement.
+
+- record a run: `scripts/lib/profile_bundle_to_history.py <bundle-dir>`
+  (it refuses, and writes nothing, for a bundle whose game never started);
+- read it back: `scripts/perf_history.py list | compare A B | latest --against X
+  | scenario sandbox | report`.
+
+⛔ Each row carries a `comparable_key` over scenario, machine, renderer and
+instruments, and the tool REFUSES to subtract rows whose keys differ, naming the
+field. The Tracy and `--no-tracy` baselines above are two such rows: same commit,
+same scenario, 9x apart, and permanently un-comparable to each other.
 
 ## Directions with strong efficiency leverage
 
@@ -268,12 +300,23 @@ baseline; extend it.
   invalidation path is a correctness bug, so each needs a regression test that
   covers every path.
 
-- ▢ **D-PERF-4 — dev instrumentation is a top-five per-frame cost in an
-  OPTIMIZED build.** `record_actor_oob_frame_system` (40.5us) +
-  `record_frame_system` (37.9us) together outweigh `tick_actor_brains`;
-  `poll_world_source_changes` adds 34.5us AND does a blocking `fs::metadata` on
-  the main thread (3.9ms max on virtiofs). A budget question, not a bug: decide
-  what `--ship` carries, and scale the recorder with bodies rather than frames.
+- ◐ **D-PERF-4 — dev instrumentation is a top-five per-frame cost in an
+  OPTIMIZED build.** ⚠ **PARTLY STALE ALREADY, re-checked 2026-08-29** — this is
+  why the campaign rule is grep before you build. `poll_world_source_changes` was
+  fixed in `6e6a5ce12` (2026-08-29 02:10Z): its debounce countdown ticked through
+  a `ResMut`, which marks the resource changed on DEREFERENCE, so the watcher
+  announced a change every frame of every run and cost every reader its change
+  detection for a false claim. The countdown is a `Local` now and the resource is
+  touched mutably only when the watch actually moves.
+  ⇒ **what is left of this row:** (a) the blocking `fs::metadata` on the main
+  thread, measured at 3.9ms on virtiofs and now debounced to ~3Hz — invisible on
+  a local disk, a hitch on a network mount, Android storage or a slow card, and
+  its own commit deliberately deferred moving it off-thread; (b)
+  `record_actor_oob_frame_system` (40.5us) and `record_frame_system` (37.9us),
+  which together outweigh `tick_actor_brains`. Both recorders are per-frame and
+  the oob one takes a `CollisionWorld` plus a body query — the budget question is
+  what `--ship` carries, and whether the cost can scale with BODIES rather than
+  with frames.
 
 - ▢ **D-PERF-5 — the runtime measurement series.** `dev/ambition_dev_measurements/`
   had only compile-cost series; there was no runtime history, so no commit could
@@ -297,11 +340,141 @@ baseline; extend it.
 - ⭐ A REJECTED HYPOTHESIS IS A DELIVERABLE. Record it here so the next session
   does not re-run the dead end.
 
+### The instrument this campaign added, and why it is not a profiler
+
+`[census] conditions` (in `ambition_dev_tools::runtime_census`) reports, per
+run, `system_conditions`, `set_conditions`, `sets_with_conditions`, and a ranked
+breakdown naming each condition attached four or more times.
+
+⭐ IT IS STRUCTURAL, NOT SAMPLED. The schedule graph already knows every
+attachment; `Schedule::graph()` exposes `systems.get_conditions()` and
+`system_sets.get_conditions()` in Bevy 0.18. So the number costs no profiler, has
+no observer effect, and is DETERMINISTIC — which is what makes it a usable
+regression gate, unlike a wall-clock millisecond on a shared VM.
+
+⛔ IT COUNTS ATTACHMENTS, NOT EVALUATIONS, and the gap is the entire point.
+Bevy evaluates a system's conditions once per system per run, and a SET's
+conditions once per run no matter how many systems the set holds. Hoisting one
+shared condition off N systems onto a set moves N out of `system_conditions` and
+1 into `set_conditions`. That is precisely the shape of D-PERF-1's improvement,
+and it is a change no timing measurement on this machine is quiet enough to
+resolve.
+
+⚠ The earlier "861 run-condition evaluations per frame" came from Tracy zone
+counts, on a run whose frame time was inflated ~9x. The structural count
+supersedes it as the metric to move: same fact, no distortion, and it does not
+need the profiler installed to be read.
+
+### The host THIS campaign measured on, introspected 2026-08-29
+
+⛔ Recorded rather than assumed, and not inherited from the row above — the two
+may or may not be the same box.
+
+```text
+hostname       aivm-2404          machine_id  ec9af5ee73e34e07a46bddf870f96f2e
+cpu            11th Gen Intel Core i9-11900K @ 3.50GHz    logical_cpus  12
+memory         64 GB              virt        kvm
+kernel         6.8.0-110-generic  os          Ubuntu 24.04.4 LTS
+rustc          1.95.0 (59807616e 2026-04-14)
+graphics       NO /dev/dri, no vulkaninfo, no glxinfo, DISPLAY unset, session=tty
+               ⇒ headless only. Any GPU number from this host would be software
+               rendering, and it is not comparable to a desktop GPU run.
+target dir     bindmount BOUND to ext4 (/dev/vda1), 158G — not virtiofs
+```
+
+⚠ `boot_id` changes per boot and is deliberately not part of any comparability
+key; `machine_id` is what identifies the host.
+
+### D-PERF-1 measured, before
+
+This host, debug profile, headless `sandbox`, 120 ticks. ⭐ THE PROFILE DOES
+NOT MATTER FOR THIS NUMBER — it is a property of the schedule graph, not of
+optimization, which is why the before/after cost no `profiling` rebuild.
+
+```text
+[census] conditions system_conditions=139 set_conditions=33 sets_with_conditions=30
+         gameplay_allowed=78 {{closure}}=22 resource_exists=10 spacetime_is_active=8 Assets=7
+[census] schedules  schedules=20 systems=887 Update=822 PostUpdate=15 PreUpdate=9 ...
+```
+
+⭐⭐ **`gameplay_allowed` IS 78 OF 139 — 56% of every per-system run-condition
+attachment in the app is one question about `GameMode`, asked 78 times per run
+for the same answer.** Nothing else comes close; the next entry is 22, and that
+is 22 DIFFERENT closures rather than one condition repeated.
+
+⚠ 78 counted against 83 source sites: this census sees what PLUGIN BUILD
+registered in this composition, and the sandbox does not install every content
+plugin. The source count and the runtime count are answering slightly different
+questions and both are right.
+
+### D-PERF-1 measured, after — ⭐⭐ 83 EVALUATIONS PER RUN BECOME 1
+
+```text
+[census] conditions system_conditions=61 set_conditions=29 sets_with_conditions=26
+         {{closure}}=22 resource_exists=10 spacetime_is_active=8 Assets=7
+```
+
+| metric | before | after | delta |
+|---|---|---|---|
+| `system_conditions` | 139 | **61** | **−78** |
+| `set_conditions` | 33 | 29 | −4 |
+| `sets_with_conditions` | 30 | 26 | −4 |
+| `gameplay_allowed` in the per-system breakdown | **78** | **absent** | gone |
+
+`system_conditions` fell by exactly the 78 the breakdown attributed to
+`gameplay_allowed`, and 56% of the app's per-system condition attachments went
+with it.
+
+⛔⛔ **AND THE `set_conditions` MOVED THE WRONG WAY, WHICH IS THE INTERESTING
+PART.** One new conditioned set should have made it 34, not 29. It is not a
+regression: **five of the 83 sites were TUPLE-level**
+(`(a, b, c).chain().run_if(gameplay_allowed)`), and in Bevy 0.18 a tuple-level
+`run_if` builds an ANONYMOUS SET carrying the condition — those were already
+costing one evaluation each, not one per member, and were counted under
+`set_conditions` rather than in the per-system breakdown. Converting them to
+membership retired five anonymous sets and added one named one: 33 − 5 + 1 = 29,
+and `sets_with_conditions` 30 − 5 + 1 = 26. Both arithmetics close exactly.
+
+⇒ **the honest before/after is 78 per-system + 5 collective = 83 evaluations of
+`gameplay_allowed` per schedule run, against 1 now.** ⚠ Had I not chased the
+wrong-signed −4, the headline would have been "−78" and the five collective
+sites would have been silently double-counted as a win they were not.
+
+### The guard, and the proof it can fail
+
+`the_gameplay_gate_is_carried_by_the_set` (in `app_it`) builds the SHIPPED app
+and asserts three things: a `GameplayGated` set exists, it carries a run
+condition, and ZERO systems still carry `gameplay_allowed` individually.
+
+⭐ IT READS THE APP, NOT THE CONFIGURATOR. Calling
+`configure_platformer2d_simulation_phases` in the test and then asserting it
+configured something would pin the function and say nothing about whether the
+shipped composition ever calls it — which is the actual hole.
+
+⛔ IT MUST NOT PUMP A FRAME FIRST, for the reason in I3: one `update()` drains
+the graph and the assertion becomes `0 == 0`.
+
+⭐⭐ POISONED, because a gate guard that passes on the first try has proved
+nothing. Dropping the `.run_if` from the one `configure_sets` call fails it with
+the message it was written for:
+
+```text
+`GameplayGated` exists in ["GgrsSchedule"] but carries NO run condition.
+Every system in it now runs at a menu, and nothing else in this build
+would have said so
+```
+
+⚠ And the poison named the schedule: in the shipped app the sim schedule IS
+`GgrsSchedule`, so this gate lives inside the rollback schedule rather than
+`Update`.
+
 ### Investigations
 
 | # | Hypothesis | Result | Conclusion |
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
+| I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I4 | `CARGO_INCREMENTAL=0` fixes the stale-object link failure | ◐ PARTLY — it BUILDS past it but does not CLEAR it; the next ordinary build resurrected the same undefined symbol | The poisoned state lives in the package's incremental dir and survives any number of `CARGO_INCREMENTAL=0` runs. `cargo clean -p <pkg>` is the durable fix, and it is cargo's own operation rather than a delete under `target/`. ⛔ do not reach for `rm -rf`. |
 | I2 | The `smash_it` link failure after the knockout fix was caused by that fix | ⛔ REJECTED — clean tree, `HEAD` lacks the symbol, `grep` finds no reference anywhere in the crate | A draft test compiled and then `git checkout --`'d hours earlier left an incremental `.rcgu.o` referencing the dead symbol. A build-cache lie, not a source defect. `CARGO_INCREMENTAL=0` rebuilds past it. ⛔ do not delete under `target/`. |
 
 ## Near-term opportunities

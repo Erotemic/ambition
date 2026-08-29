@@ -654,6 +654,12 @@ write_metadata() {
         echo "warm_build_setting=$warm_build"
         echo "script_command=$(quote_cmd "$0" "${original_args[@]}")"
         echo "hostname=$(hostname 2>/dev/null || true)"
+        # ⛔⛔ THE HOSTNAME IS NOT THE MACHINE. These hosts reuse names -- two
+        # different boxes have both answered to `aivm-2404`, with different CPUs
+        # and core counts, and a baseline recorded on one was read as if it came
+        # from the other. `/etc/machine-id` is per-installation and is what the
+        # history's comparability key keys on; the hostname stays for humans.
+        echo "machine_id=$(cat /etc/machine-id 2>/dev/null || true)"
         echo "uname=$(uname -a 2>/dev/null || true)"
         echo "rust_target=$(rustc -vV 2>/dev/null | awk '/^host:/ {print $2}' || true)"
         echo "rustc_version=$(rustc --version 2>/dev/null || true)"

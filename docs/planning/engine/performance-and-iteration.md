@@ -922,6 +922,45 @@ live, NOT in `PostUpdate` where the render extraction runs.
 `Update`: 1.42ms over 494 presentation systems.** That is the campaign's next
 measurement and the last place a lever can be hiding.
 
+### WHO OWNS `Update` — the target list for capability gating
+
+`[census] owners_in` breaks one schedule down by the crate owning each system.
+Smash match, shipped composition:
+
+```text
+schedule=Update systems=494 crates=46
+  ambition_render=99  ambition_app=53  actor_monolith=42  demo_twintrack=39
+  game_shell=30  content=20  demo_smash=17  touch_input=16  menu=15
+  platformer2d_host=15  load_presentation=14  conversation=12  bevy_lunex=11
+  demo_mary_o=10  portal2d_presentation=8  bevy_yarnspinner=7
+  menu_kaleidoscope=7  platformer2d_provider=7  audio=6  dialog=6
+```
+
+⭐⭐ **`ambition_demo_twintrack` OWNS 39 SYSTEMS IN `Update` DURING A SMASH
+MATCH.** Twelve are now gated (`spacetime_3d`); 27 remain. And it is not alone —
+the population belonging to capabilities this match provably is not using:
+
+| dormant here | systems | how we know it is dormant |
+|---|---|---|
+| twintrack, after the `spacetime_3d` gate | 27 | no `TwinTrackExperiment` exists |
+| conversation + dialog + yarnspinner | 25 | no conversation is running |
+| demo_mary_o | 10 | not the active mode |
+| portal2d_presentation | 8 | `[census] portal` measured `rigs=0 active=0` |
+| menu_kaleidoscope | 7 | not on a menu |
+| **≈** | **~77** | ~16% of `Update`'s population |
+
+⛔ **AND A COUNT IS STILL NOT A COST** — this is the target list for measurement,
+not a claim. The two largest groups in `PreUpdate` were worth nothing between
+them, and three separate entity-population leads came back null. Each of these
+gets gated and measured on its own; the ones that early-return cheaply will show
+nothing and are architectural tidying, and any that does REAL work while dormant
+is the measurable win.
+
+⚠ `ambition_render=99` is the largest owner and is NOT dormant — a match does
+render. If our presentation projection rewrites semantically unchanged state
+(the brief's direction 4), those 99 are where it lives, and that is a different
+investigation from gating.
+
 ### ⛔⛔ WHERE THE LEVERAGE IS NOT — read this before opening a perf campaign here
 
 Eleven hypotheses tested this campaign, ten rejected. Grouped by what they rule

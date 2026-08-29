@@ -274,6 +274,8 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     // `PostUpdate` is 0.65ms of a Smash frame — 14% — and nothing has looked at
     // it. Presentation and render extraction live here.
     report_schedule_membership(&schedules, "PostUpdate");
+    // Who owns `Update` — the campaign's last unexplained phase that is ours.
+    report_schedule_owners_in(&schedules, "Update");
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
@@ -459,6 +461,44 @@ pub fn report_entity_populations(
 fn short_type_name(name: &str) -> String {
     let head = name.split('<').next().unwrap_or(name);
     head.rsplit("::").next().unwrap_or(head).to_string()
+}
+
+/// WHO OWNS the systems in ONE schedule.
+///
+/// ⭐⭐ THE CUT THAT MAPS ONTO CAPABILITIES. `[census] owners` totals every
+/// schedule at once, and `[census] membership` names systems without grouping
+/// them. Neither answers "which crate should I gate to attribute `Update`'s
+/// 1.42ms", which is the campaign's last open question — the only phase both
+/// substantially OURS and unexplained.
+///
+/// ⛔ A COUNT IS STILL NOT A COST. This ranks who is REGISTERED here, which is
+/// how you choose what to gate and measure next; it does not claim any of them
+/// is expensive. Eleven probes on this codebase have found population size to be
+/// a poor predictor of frame time.
+fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
+    for (label, schedule) in schedules.iter() {
+        if format!("{label:?}") != wanted {
+            continue;
+        }
+        let mut by_owner: std::collections::BTreeMap<String, usize> = Default::default();
+        for (_key, system, _conditions) in schedule.graph().systems.iter() {
+            *by_owner
+                .entry(owning_crate(system.name().as_ref()))
+                .or_default() += 1;
+        }
+        let total: usize = by_owner.values().sum();
+        let mut ranked: Vec<(&String, &usize)> = by_owner.iter().collect();
+        ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
+        let mut row = format!(
+            "[census] owners_in t=0.000 schedule={wanted} systems={total} crates={}",
+            by_owner.len()
+        );
+        for (name, count) in ranked.iter().take(20) {
+            row.push_str(&format!(" {name}={count}"));
+        }
+        eprintln!("{row}");
+        return;
+    }
 }
 
 /// NAME every system in one schedule, so an unattributed cost stops being

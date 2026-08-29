@@ -2737,8 +2737,31 @@ flap). ⛔ It is NOT quality-tier flapping: `grep "quality transition"` over the
 returns **zero**, so that hypothesis is dead.
 
 ⚠ **PRICED BEFORE FIXING: ~40MP of the run's 656MP.** Ten portrait sheets at 1.3MP
-re-decoded 3–4x each. Real, and small. ⇒ it wants the same retained-residency
-answer as everything else in this section, not its own special cache.
+re-decoded 3–4x each. Real, and small.
+
+⛔⛔ **RE-PRIORITISED 2026-08-29 BY THE PHASE-SCOPED INSTRUMENT — "SMALL" WAS THE
+WRONG AXIS. THIS IS 15 OF 15 OF WHAT REMAINS.** Asked which decodes land in
+SETTLED play (>3s after a room finished loading), the second hardware run answers
+with **nothing but portraits**, in two bursts:
+
+```text
+56.2s   7.3s after a room load   noether, patent_clerk, medic, carl_stargan,
+                                 player_robot_v3, perfect_cellular_automaton,
+                                 oiler, officer   (8 portraits)
+71.9s  11.0s after a room load   noether, patent_clerk, perfect_cellular_automaton,
+                                 oiler, officer, author, player_robot_v3  (7)
+```
+
+⇒ **the same portraits, twice** — once per match entry, because the select screen
+opens, loads them, closes, drops the last handle, and the next visit reloads.
+⇒ **every other decode in the run is boot (31) or a room still arriving (7).**
+
+⭐ **So the remaining "asset work on a gameplay frame" problem in this build is
+ENTIRELY the select screen's portrait set.** 20.9MP, ~8 images of 1.3–2.0MP. It is
+small in bytes and it is the whole of what is left, which is exactly the kind of
+thing a megapixel ranking hides. ⇒ **a bounded retained cache for portraits —
+loaded lazily, never dropped — closes it**, and it is bounded by construction
+(one per character actually SHOWN, not the 163 baked manifests).
 
 ##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
 

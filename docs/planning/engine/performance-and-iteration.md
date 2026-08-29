@@ -758,6 +758,37 @@ the population is the cost when the SYSTEMS are the thing that runs.
 bracket cheap, and the honest order is largest-group-first — but 31 `track_assets`
 systems doing nothing may cost less than 4 egui systems doing something.
 
+### ⭐ DEVELOPER TOOLING IS OPTIMIZED, NOT STRIPPED
+
+Jon, 2026-08-29: *"developer tooling should be optimized too"*. That settles a
+question this campaign had been circling and rules out a whole class of
+"solution":
+
+⛔ **NOT** "measure a runtime without dev tooling and call that the real number".
+⛔ **NOT** "move it behind a ship gate and stop caring what it costs".
+⭐ **YES** "these systems stay available and get cheaper" — the same standard the
+brief sets for every other capability: absent costs nothing, dormant costs
+little, active costs something attributable.
+
+⚠ AND THE MEASUREMENT PROBLEM IS REAL (see I12): a cargo feature is NOT a clean
+A/B for runtime cost, because toggling one changes feature unification across
+the dependency graph. Pricing any of this honestly means disabling the systems
+AT RUNTIME inside ONE build.
+
+Known dev-host costs, none yet priced this way:
+- `record_actor_oob_frame_system` (40.5us/frame in the 08-28 trace) and
+  `record_frame_system` (37.9us) — together they outweighed `tick_actor_brains`;
+- `poll_world_source_changes` — its per-frame change announcement is FIXED
+  (`6e6a5ce12`), but its `fs::metadata` is still a blocking main-thread syscall,
+  3.9ms worst case on virtiofs, now debounced to ~3Hz;
+- four egui systems and the inspector plugins in `PreUpdate`;
+- the census family itself, which is why every one of its rows is registered
+  only when the census is switched on.
+
+⭐ The recorders are the interesting ones: their cost should scale with BODIES,
+not with frames. A flight recorder for a two-body match should not cost what one
+for a two-hundred-body match does.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and
@@ -774,6 +805,7 @@ problem into a startup one.
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
 | I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I12 | A runtime measured WITHOUT `dev_tools` prices what a shipped game would pay | ⛔ **THE PROBE IS VOID, and it failed in the most tempting direction.** With `dev_tools` off the frame got 2-3x SLOWER — 9.2-13.7ms against a 4.5-5.0ms baseline, `ggrs_driver` 3.44ms against 1.19-1.83ms | ⛔ Do NOT read this as "developer tooling makes the game faster". Turning one feature off `ambition_app` changes FEATURE UNIFICATION across the whole dependency graph, so the two builds differ in more than the thing being varied — the same trap that flips `cargo test -p` results in this repo. ⇒ **a cargo feature is not a clean A/B for runtime cost.** Pricing dev tooling honestly needs the systems disabled AT RUNTIME inside one build, not a second build. ⚠ Jon's steer, same day: **developer tooling should be OPTIMIZED, not removed** — so the useful question was never "what would a shipped game pay" but "what do these systems cost, and can they cost less while staying available". |
 | I11 | Falling sand's ~20 `PreUpdate` SYSTEMS cost the Smash frame something (I10 tested only the chunks) | ⛔ **REJECTED, and this time the experiment was the right one.** Removing `FallingSandRoomPlugin` took `PreUpdate` from 137 to 116 systems — `msgr_spawn_particle` and the rest confirmed gone from `[census] membership` — and the frame did not move: 4.50–4.76ms over six steady-state samples against a 4.41–4.99ms baseline, `seats_at_end=2` | ⇒ **falling sand costs nothing measurable in a Smash frame — plugin, systems AND chunks.** It still deserves dormancy on DESIGN grounds (a fighting game should not install a sand grid) but it is not a performance lever and never was. ⚠ two failed attempts preceded this: one where `--no-default-features` silently did not disable the feature (I9), and one where the removal worked but the window was 0.72s of startup-contaminated samples with `max=40.66ms`. ⛔ A probe needs BOTH a check that the thing left AND a steady-state window. |
 | I10 | The 1024 `bevy_falling_sand` chunk entities cost the Smash frame something | ⛔ **REJECTED.** Shrinking `with_map_size(32)` to `2` took the world from 2048 entities to 512 — every chunk gone — and the frame got **SLOWER**: 5.24ms against the 4.33–4.93ms band | ⇒ **entity population is NOT a proxy for frame cost in this engine, and that is now three-for-three** (1297 `AttackVfxView`, 64 archetypes, 1536 chunk entities — none of them bought a millisecond). ⛔ Stop reaching for the biggest number in `[census] populations`; it has never once been the answer. Falling sand still deserves dormancy on DESIGN grounds — a fighting game should not install a sand grid — but it is not a performance lever and must not be sold as one. |
 | I9 | `--no-default-features` on `ambition_app_tools` disables the `falling_sand` feature | ⛔ REJECTED, AND THE EXPERIMENT SILENTLY DID NOT RUN — the census still reported `ChunkRegion=1024` and an identical archetype count | A dependency's own `default = ["desktop_dev"]` is not disabled by `--no-default-features` on the DEPENDENT; that needs `default-features = false` on the dependency declaration. ⛔ The run LOOKED like a clean negative result. Always check that the thing you removed actually left — `[census] populations` was the only reason this was caught rather than published as "falling sand costs nothing". |

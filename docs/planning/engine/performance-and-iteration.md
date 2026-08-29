@@ -1329,6 +1329,34 @@ are CORRECTNESS items for the day rollback goes live, not performance items, and
 they touch quest and save logic — they want a deliberate decision, not a
 drive-by fix from a performance campaign.
 
+### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
+
+Direction 6's 2.6s is a WINDOWED figure and carries window creation, render
+pipeline init and shader compilation. The shipped windowless composition
+(`smash_match_profile`) reports:
+
+| phase | ms | share |
+|---|---|---|
+| app construction (plugin registration) | **377.1** | 62% |
+| `after_load_data_handle` | **169.2** | 28% |
+| `startup_begin` | 47.2 | 8% |
+| `before_audio_init` | 13.7 | 2% |
+| **total before first frame** | **607.7** | |
+
+⇒ plugin registration is still the majority, and at ~0.43ms per registration over
+~876 systems it is Bevy's schedule-graph construction, not our code. ⛔ Reducing it
+means having FEWER SYSTEMS, which is a capability decision, not an optimisation.
+
+**Fixed while here: `run_headless` built the ENTIRE ROOM SET TWICE** — once to
+check for an error, once to count the rooms — on every headless boot, which every
+test and the RL harness pays. The `Result` already carries what the count needs.
+
+⛔ **The measured win is small and is not the reason.** Steady-state headless boot
+went **0.65-0.66s → 0.63s** (4 runs, all 0.63): about **20-25ms, ~3.5%**. The
+room-set build is cheaper than the duplication suggested. ⇒ this change is
+justified because building the same thing twice is WRONG, not because 25ms was
+worth chasing — the same standing as the hot-reload move.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

@@ -107,14 +107,15 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
             report.errors.len()
         ));
     }
-    if let Err(errors) = project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
-        return Err(errors.join("; "));
-    }
-    let room_count = project
-        .to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary())
-        .expect("just validated above")
-        .rooms
-        .len();
+    // ⛔ ONE `to_room_set`, NOT TWO. This used to call it once to check for an
+    // error and a second time to count the rooms — building the ENTIRE room set
+    // twice on every headless boot, which every test and the RL harness pays.
+    // The `Result` already carries the room set the count needs.
+    let room_count = match project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary())
+    {
+        Ok(rooms) => rooms.rooms.len(),
+        Err(errors) => return Err(errors.join("; ")),
+    };
 
     let mut app = App::new();
     // The shared engine foundation (schedules/time, asset + image registries,

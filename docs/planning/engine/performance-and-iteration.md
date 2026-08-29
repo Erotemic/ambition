@@ -427,6 +427,27 @@ brackets like this campaign's `sim_phases` boundaries, around a set you already
 suspect; (c) a patched Bevy that spans system execution. ⛔ Nobody should plan a
 session around (c) without pricing it first.
 
+**⚠ THE COMPILE RATCHET HAS THREE FINDINGS, AND THEY ARE MOSTLY NOT THIS
+CAMPAIGN'S.** `compile_ratchet.py --report-only` against the baseline frozen at
+`11ef33c5b5a5` (2026-08-27) reports two `REGRESSED` budgets (+36.6s against a
++34.0s allowance) and `critical_path_crates 14 → 15`. The `--diff` traces the
+regressed pair to `ambition_platformer2d_core +713 lines`; the biggest movers
+overall are `ambition_combat` (+2,521), `ambition_boss_encounter` (+1,615) and
+`ambition_input` (+52,111 edit cost from fan-in). None of those is this campaign.
+
+⛔ **DELIBERATELY NOT RE-FROZEN.** `--update` would launder three days of other
+agents' growth under a performance commit, and a per-crate ledger that absorbs
+somebody else's debt stops being evidence. Whoever lands the `platformer2d_core`
+growth should re-freeze and say which change did it.
+
+⚠ **WHAT IS OURS, stated because measuring is not free:** `ambition_dev_tools
++1,388 lines` and `ambition_render +1,121`, of which roughly 600 are this
+campaign's censuses — and `ambition_dev_tools` has 18 dependents, so that is real
+edit cost paid by every one of them. The censuses earn it (they found egui,
+avian, the 494-vs-822 correction and twelve rejections) but the trade should be
+visible, and it is the same lesson as the instrument being the fourth most
+expensive condition in the frame.
+
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
    on a GPU machine — every number here is from a GPU-less host;

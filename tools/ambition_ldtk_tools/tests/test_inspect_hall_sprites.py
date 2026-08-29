@@ -61,3 +61,11 @@ def test_inspect_hall_sprites_only_issues_filters_out_ok_rows():
         assert not line.lstrip().startswith("[ok"), (
             f"--only-issues leaked an ok row: {line!r}"
         )
+
+
+def test_provider_owned_hall_entries_are_not_catalog_drift(tmp_path):
+    from ambition_ldtk_tools.inspect_hall_sprites import classify
+
+    status, detail = classify("sanic", {"characters": {}}, tmp_path)
+    assert status == "provider_owned"
+    assert "assembled runtime catalog" in detail

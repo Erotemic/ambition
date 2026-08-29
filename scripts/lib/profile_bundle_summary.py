@@ -806,10 +806,15 @@ def build_summary(bundle: Bundle) -> str:
         # game's own log carries `room-loaded` with a timestamp. A big decode
         # seconds after the room settled is the thing worth naming.
         settle_s = 3.0
+        # ⭐ FROM THE CSV, NOT A RE-REGEX OF THE LOG. The first version scraped
+        # `room-loaded` out of the raw text because world events were not parsed;
+        # they are now, so this reads the same structured rows every other section
+        # reads. A classifier that depends on a signal should not be the only
+        # thing that knows how to extract it.
         room_times = sorted(
-            float(m.group(1))
-            for m in re.finditer(r"^\[\s*([0-9.]+)s\]\s+\[world-event\].*room-loaded",
-                                 log, re.MULTILINE)
+            number(row, "wall_s")
+            for row in bundle.rows("world_events.csv")
+            if row.get("kind") == "room-loaded"
         )
 
         # ⛔ THREE CATEGORIES, NOT TWO. Anything before the FIRST `room-loaded` is
@@ -921,6 +926,7 @@ def build_summary(bundle: Bundle) -> str:
         ("asset_activity.csv", "cumulative decode work and resident images"),
         ("image_decodes.csv", "every notable texture decode, with its path"),
         ("image_arrivals.csv", "images reaching Assets<Image> per census window"),
+        ("world_events.csv", "room loads and session starts/ends, with game time"),
         ("schedule_census.csv", "registered system counts per sample"),
         ("schedule_phases.csv", "per-frame milliseconds in each main-schedule phase"),
         ("tracy_summary.md / tracy_zones.csv", "per-Bevy-system and per-render-pass zones"),

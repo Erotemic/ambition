@@ -37,6 +37,17 @@ WINDOW = re.compile(
 # `live=` says whether gameplay was running when the decode landed, and it is
 # emitted on BOTH branches so its ABSENCE means "this log predates the marker",
 # not "nothing was late". Optional here for exactly that reason.
+# ⭐ WORLD EVENTS — room loads, session starts/ends — with a game clock and a
+# frame number. These say WHAT THE PLAYER WAS DOING when a number moved, and the
+# summary's decode classifier already depends on them: a big decode seconds after
+# a `room-loaded` is a room still arriving, the same decode in settled play is a
+# contract violation. That classifier re-regexed the raw log because this was not
+# parsed; a signal something already depends on belongs in a CSV.
+WORLD_EVENT = re.compile(
+    r"^\[world-event\]\s+(?P<t>[0-9.]+)s\s+f\s*(?P<frame>\d+)\s+(?P<kind>\S+)"
+    r"(?:\s+(?P<detail>.*))?$"
+)
+
 # ⭐ THE ARRIVAL RATE, WHICH IS THE EXTRACT-SPIKE PREDICTOR. Each image that
 # reaches `Assets<Image>` is extracted into the render world exactly once, and
 # that extract is what lands on a frame — measured at 454.9ms max against a 0.1ms
@@ -119,7 +130,7 @@ def collect_census(lines: list[tuple[float, str]]) -> dict[str, list[dict]]:
 
 def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str, int]:
     """The censuses that run without the profiling gate."""
-    spikes, windows, images, arrivals = [], [], [], []
+    spikes, windows, images, arrivals, world_events = [], [], [], [], []
     for wall, text in lines:
         match = SPIKE.match(text)
         if match:
@@ -139,6 +150,18 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
                     "p95_ms": match.group(5),
                     "p99_ms": match.group(6),
                     "max_ms": match.group(7),
+                }
+            )
+            continue
+        match = WORLD_EVENT.match(text)
+        if match:
+            world_events.append(
+                {
+                    "wall_s": f"{wall:.3f}",
+                    "game_s": match.group("t"),
+                    "frame": match.group("frame"),
+                    "kind": match.group("kind"),
+                    "detail": (match.group("detail") or "").strip(),
                 }
             )
             continue
@@ -184,6 +207,11 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
         windows,
     )
     write_csv(
+        os.path.join(out_dir, "world_events.csv"),
+        ["wall_s", "game_s", "frame", "kind", "detail"],
+        world_events,
+    )
+    write_csv(
         os.path.join(out_dir, "image_arrivals.csv"),
         ["wall_s", "game_s", "images_this_window", "megapixels_this_window",
          "total_images", "total_megapixels", "resident_mb"],
@@ -199,6 +227,7 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
         "frame_windows": len(windows),
         "image_decodes": len(images),
         "image_arrivals": len(arrivals),
+        "world_events": len(world_events),
     }
 
 

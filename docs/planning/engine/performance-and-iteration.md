@@ -2543,6 +2543,16 @@ main world already knows how many images arrived, and that count IS the extract
 volume. ⚠ A cumulative total says nothing about WHEN; a per-window count is the
 same data asked the useful way.
 
+✔ **AND `[world-event]` IS PARSED NOW TOO, FOR THE SAME REASON.** Room loads and
+session starts/ends carry a game clock and a frame number — they say WHAT THE
+PLAYER WAS DOING when a number moved — and the decode classifier above already
+DEPENDED on them, by re-regexing the raw log because nothing had parsed them.
+⇒ `world_events.csv`, and the classifier reads the same structured rows every
+other section reads. Output is identical (31 boot / 7 streaming / 15 settled), as
+a refactor's should be. ⭐ **A signal something already depends on belongs in a
+CSV** — otherwise the one consumer is also the only thing that knows how to
+extract it.
+
 ✔✔ **LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.**
 `CharacterLoadDemand::take()` was `std::mem::take` — it drained the WHOLE demand
 set in one frame, so every fighter's sheets started loading together, finished

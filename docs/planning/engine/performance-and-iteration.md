@@ -362,12 +362,27 @@ every room — which is why the phase nearly vanishes there.
 
 ⇒ **`Trace` ≈ 0.13ms whenever a PRIMARY PLAYER exists, plus ~1.16us per body.**
 
-⚠ **ONE CENSUS ROW IN THIS DOCUMENT DISAGREES AND IS NOT EXPLAINED:** a Smash
-`sim_phases` line records `Trace=0.090`, six times the 0.015 the model predicts
-for `players=0`. ⇒ treat the model as PROVISIONAL — it reproduces four
-measurements including a 130-body outlier it was not fitted to, but a sixfold
-outlier inside the same census is unresolved, and whoever needs this number
-should re-measure rather than trust the fit.
+⚠ **ONE OLDER CENSUS ROW IN THIS DOCUMENT DISAGREES — CHASED, AND HERE IS WHERE IT
+LANDED.** A `sim_phases` line recorded `Trace=0.090`, six times what the model
+predicts for `players=0`.
+
+⛔ **The obvious explanation was tested and REJECTED.** That row has `ticks=41`, so
+the hypothesis was warm-up: a trace ring buffer paying allocation in early ticks.
+Measuring early-vs-late intervals inside one 3000-tick run kills it — `Trace` reads
+**0.013 at ticks=32, 0.014 at 70, 0.013 at 109 … 0.015-0.016 at the end**. There is
+no warm-up inflation at all.
+
+⭐ **What the row does tell us is that it is a COMPOSITION difference, not a
+measurement artifact.** Its `WorldPrep=0.222` matches today's first interval
+(0.223) almost exactly, so the run was sampled at the same point in the same
+scenario — yet its `Trace` is 6x higher while every other phase matches. The most
+likely reading is that the older build left a PRIMARY PLAYER alive in that run
+(`players=1` puts `Trace` at ~0.13, and 0.090 sits between the two regimes).
+
+⇒ **the model holds for the CURRENT build** — 0.013–0.016ms across 3000 ticks,
+every interval — and the old row is recorded as NOT REPRODUCIBLE rather than as an
+open contradiction. ⚠ It cannot be settled without re-running that commit, which is
+not worth a build.
 The constant is the player cluster walk; the slope is the OOB pass. The model
 reproduces all four measurements, including the 130-body outlier it was not
 fitted to.

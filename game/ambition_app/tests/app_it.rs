@@ -130,6 +130,7 @@ mod smash_cpus_damage_each_other;
 mod smash_in_the_host;
 mod one_update_one_tick;
 mod zero_duration_pump;
+mod a_knockout_takes_you_home;
 mod smash_ride;
 mod the_trap_holds_her_under;
 mod smash_roster_movesets;

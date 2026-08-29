@@ -533,7 +533,8 @@ pub fn drive_slot_frame(
     if let Some(mut raw) = world.get_resource_mut::<ambition_characters::control::SeatRawFrames>() {
         raw.set(slot, frame);
     }
-    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::control::SlotControls>() {
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::control::SlotControls>()
+    {
         slots.set(slot, frame);
     }
 }
@@ -701,7 +702,10 @@ fn publish_ggrs_input(
 ) {
     for (handle, (input, _)) in inputs.iter().enumerate() {
         if let Some(slots) = slots.as_deref_mut() {
-            slots.set(ambition_characters::control::PlayerSlot(handle as u8), *input);
+            slots.set(
+                ambition_characters::control::PlayerSlot(handle as u8),
+                *input,
+            );
         }
     }
     //  from the table, not from `inputs[0]` — so the mirror cannot disagree
@@ -740,12 +744,12 @@ fn publish_replay_pass(
 /// brand-new frame at the end of a rollback.
 ///
 /// [`ConfirmedFrameBoundary`] is the separate, stronger fact: which frames can
-/// never be simulated again. `ConfirmedFrameCount` is maintained by `bevy_ggrs`
-/// for both session kinds (a P2P session's confirmed frame; `current -
-/// check_distance` under sync test), so this works in the harness and online.
+/// never be simulated again. It is derived from the live session rather than
+/// read off `ConfirmedFrameCount` — see [`confirmed_line`] for why.
 fn count_advance_run(
     frame: Res<RollbackFrameCount>,
     confirmed: Option<Res<ConfirmedFrameCount>>,
+    session: Option<Res<AmbitionGgrsSession>>,
     mut stats: ResMut<RollbackExecutionStats>,
     mut replay: ResMut<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
     boundary: Option<ResMut<ConfirmedFrameBoundary>>,
@@ -764,8 +768,47 @@ fn count_advance_run(
     publish_replay_pass(&mut replay, simulated_before);
     if let Some(mut boundary) = boundary {
         boundary.current = frame.0;
-        boundary.confirmed = confirmed.map_or(-1, |confirmed| confirmed.0);
+        boundary.confirmed = confirmed_line(
+            frame.0,
+            session.as_deref(),
+            confirmed.map(|confirmed| confirmed.0),
+        );
     }
+}
+
+/// Where the confirmed line sits DURING the advance of `frame`.
+///
+/// ⛔⛔ NOT `ConfirmedFrameCount`, and that resource is why this function
+/// exists. `bevy_ggrs` computes it from the frame counter it reads BEFORE
+/// bumping it, so inside `AdvanceWorld` it always describes the PREVIOUS frame.
+/// Under the shipped local session -- a sync test with `check_distance: 0`,
+/// where rollback is dormant and NOTHING is ever speculative -- that published
+/// `confirmed == current - 1` on every frame the game ever ran, so
+/// `fully_confirmed()` was false forever and every consumer waiting for settled
+/// truth stood down silently: the winner card, the return to character select,
+/// and the persistence save. A match ended and the stage never went home.
+///
+/// ⭐ The session is the authority, asked about the frame being advanced. This
+/// mirrors `bevy_ggrs`'s own rule; only the frame it is applied to differs.
+fn confirmed_line(
+    frame: i32,
+    session: Option<&AmbitionGgrsSession>,
+    published: Option<i32>,
+) -> i32 {
+    match session {
+        // A sync test re-simulates the last `check_distance` frames, so
+        // everything older than that window can never be simulated again. At
+        // zero the window is empty and the frame just advanced is already final.
+        Some(Session::SyncTest(session)) => frame.saturating_sub(session.check_distance() as i32),
+        // Online, confirmation is a network fact and nothing local may widen it.
+        Some(Session::P2P(session)) => session.confirmed_frame(),
+        // A spectator only ever receives frames that are already confirmed.
+        Some(Session::Spectator(_)) => frame,
+        // No session in the world: a hand-built harness. Believe what it
+        // published, and `-1` (GGRS's own convention) when it published nothing.
+        None => published.unwrap_or(-1),
+    }
+    .max(-1)
 }
 
 /// `LoadWorld`: the host has restored `frame`, so the simulation now sits
@@ -1279,7 +1322,12 @@ mod replay_pass_tests {
     }
 
     /// The confirmed boundary is the fact external effects key on, and it is
-    /// republished every advance from GGRS's own counters.
+    /// republished every advance.
+    ///
+    /// ⚠ NO SESSION HERE, so this pins the HARNESS FALLBACK, not the rule a
+    /// running game gets. `a_sync_test_with_rollback_dormant_confirms_the_frame_it_just_ran`
+    /// is the one that reads the session, and it is the arm that was missing when
+    /// the boundary published a permanent one-frame lag.
     #[test]
     fn each_advance_publishes_where_the_confirmed_line_sits() {
         let mut world = rollback_world();
@@ -1295,6 +1343,52 @@ mod replay_pass_tests {
             !boundary.fully_confirmed(),
             "frames 3..=6 are still predicted"
         );
+    }
+
+    /// ⛔⛔ WITH ROLLBACK DORMANT, THE FRAME JUST RUN IS ALREADY FINAL.
+    ///
+    /// The shipped app runs a sync test with `check_distance: 0`: nothing is
+    /// ever re-simulated, so nothing is ever speculative. Reading
+    /// `ConfirmedFrameCount` instead published `current - 1` here, which made
+    /// `fully_confirmed()` false on every frame the game ever ran and stood down
+    /// the winner card, the return to character select and the persistence save
+    /// without a word.
+    ///
+    /// ⭐ THE ARMS STRADDLE THE CHECK DISTANCE, everything else held still: a
+    /// claim about a boundary that compares two frame numbers is worth nothing
+    /// unless one arm sits on each side of the window.
+    #[test]
+    fn a_sync_test_with_rollback_dormant_confirms_the_frame_it_just_ran() {
+        for (check_distance, expected) in [(0usize, 9i32), (7, 2)] {
+            let session = build_sync_test_session(SyncTestSettings {
+                check_distance,
+                max_prediction_window: 12,
+                players: 1,
+            })
+            .expect("a sync-test session builds");
+
+            let mut world = rollback_world();
+            world.insert_resource(ConfirmedFrameBoundary::default());
+            world.insert_resource(session);
+            // The stale value a real advance would find in the world: bevy_ggrs
+            // computes it before bumping the frame, so it is one behind.
+            world.insert_resource(ConfirmedFrameCount(8 - check_distance as i32));
+
+            advance_to(&mut world, 9);
+
+            let boundary = *world.resource::<ConfirmedFrameBoundary>();
+            assert_eq!(boundary.current, 9);
+            assert_eq!(
+                boundary.confirmed, expected,
+                "check_distance {check_distance} confirms up to frame {expected}"
+            );
+            assert_eq!(
+                boundary.fully_confirmed(),
+                check_distance == 0,
+                "a dormant window leaves nothing predicted; a window of \
+                 {check_distance} leaves frames still open"
+            );
+        }
     }
 
     /// `LoadWorld` moves the simulation back to the restored frame. The

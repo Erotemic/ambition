@@ -978,5 +978,13 @@ different pass."*
   The emergence is a centred, unfaced column from below her feet to well over
   her head — the door is UNDER her, so a firework that leaned would let a camper
   stand on the hinge side.
+* After a character loses all the stocks a smash match can just softlock,
+  forcing you to use the menu to exit to the shell. The match should end and you
+  should go back to the character select screen.
+  * ✔ Fixed — the confirmed-frame boundary was published one frame stale, so
+    `fully_confirmed()` was false on every frame the shipped app ever ran and
+    silently stood down the winner card, the return to select, AND the
+    persistence save. The publisher now asks the session, not `ConfirmedFrameCount`.
+
 * ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
   actor concept. Explicitly deferred to its own pass.

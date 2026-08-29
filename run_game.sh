@@ -602,6 +602,40 @@ fi
 
 cd "$repo_root"
 
+# ⛔⛔ INCREMENTAL COMPILATION IS FOR THE EDIT LOOP, AND `.cargo/config.toml`
+# TURNS IT ON FOR EVERY PROFILE — including the OPTIMIZED ones nobody edits in.
+#
+# Two things go wrong when a `release`-level build is compiled incrementally:
+#
+# 1. ⛔ IT BREAKS THE LINK, REPRODUCIBLY. Measured on `calculex` 2026-08-29:
+#    `mold: error: undefined symbol: anon.<hash>.llvm.<hash>`, 164 then 330 of
+#    them, every one from a single crate's rlib. Clearing the cache does not
+#    cure it, because the next build is incremental again and reproduces it.
+#
+# 2. ⚠ AND IT CHANGES THE CODE YOU ARE MEASURING. rustc splits an incremental
+#    crate into more, smaller codegen units and inhibits inlining across them.
+#    A `profiling` build compiled incrementally is therefore NOT the shipped
+#    runtime it exists to describe — the measurement is partly an artifact of
+#    how it was compiled.
+#
+# ⚠ THE PROFILE SETTING DOES NOT WORK HERE, which is why this is an env var and
+# not a line in `Cargo.toml`. Cargo lets `build.incremental` OVERRIDE
+# `profile.<name>.incremental`, the opposite of the usual precedence. Verified
+# 2026-08-29: with `[build] incremental = true`, `[profile.profiling]
+# incremental = false` still produced an incremental directory; only
+# `CARGO_INCREMENTAL` in the environment suppressed it.
+#
+# The dev profile is untouched: it is the edit loop, incremental is what it is
+# for, and `.cargo/config.toml` explains why it is on. An explicit
+# `CARGO_INCREMENTAL` from the caller still wins, so this is overridable.
+case "$build_profile" in
+    release|ship|profiling)
+        if [[ -z "${CARGO_INCREMENTAL:-}" ]]; then
+            export CARGO_INCREMENTAL=0
+        fi
+        ;;
+esac
+
 # The launch plan, for tooling that must talk about the SAME executable this
 # script is about to run. A profiler that re-derives the path itself gets it
 # wrong the moment a flag here changes -- it inspects target/debug while the

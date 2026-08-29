@@ -4,7 +4,24 @@
 #
 # Incremental compilation is for the edit loop. `run_tests.sh` disables it because feature jobs
 # share little incremental state. Switching between those modes invalidates Cargo fingerprints.
-# If incremental artifacts cause linker failures, remove `target/debug/incremental`.
+#
+# ⛔⛔ THIS KEY APPLIES TO EVERY PROFILE, INCLUDING THE OPTIMIZED ONES, and on a
+# `release`-level profile incremental breaks the LINK: `mold: error: undefined symbol:
+# anon.<hash>.llvm.<hash>`, measured on `calculex` 2026-08-29. Clearing the cache does not cure
+# it — the next build is incremental again and reproduces it. `run_game.sh` therefore exports
+# `CARGO_INCREMENTAL=0` for `release`/`ship`/`profiling` and leaves `dev` alone.
+#
+# ⚠ AND THE FIX CANNOT LIVE IN `Cargo.toml`. Cargo lets THIS key override
+# `profile.<name>.incremental`, the opposite of the usual precedence — verified 2026-08-29:
+# `[profile.profiling] incremental = false` still produced an incremental directory. Only
+# `CARGO_INCREMENTAL` in the environment suppresses it.
+#
+# ⚠ It is also a measurement bug, not only a build one: rustc splits an incremental crate into
+# more, smaller codegen units and inhibits inlining across them, so an incrementally-compiled
+# `profiling` build is not the shipped runtime it exists to describe.
+#
+# If incremental artifacts cause linker failures in the DEV profile, remove
+# `target/debug/incremental`.
 incremental = true
 
 [target.x86_64-unknown-linux-gnu]

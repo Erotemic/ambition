@@ -704,6 +704,55 @@ regenerate_assets() {
     "$repo_root/regen_assets.sh"
 }
 
+# **`-lstdc++` fails at the END of a cold profiling build, and having `g++`
+# installed does not prevent it.** Tracy's client is C++, so `tracy-client-sys`
+# emits `cargo:rustc-link-lib=stdc++` and every `--features profile` link ends
+# in `-lstdc++`. clang resolves that against the ONE gcc version directory it
+# selected — the newest COMPLETE installation under `/usr/lib/gcc/<triple>/` —
+# so if that directory has no `libstdc++.so`, the link dies with
+# `mold: library not found: stdc++` while `g++` sits installed and innocent,
+# because the version that owns the symlink is not the version clang picked.
+#
+# ⚠ Met on `calculex` 2026-08-29 (Ubuntu 22.04, clang 14): gcc 9 and gcc 11
+# both had `libstdc++.so`, `apt install g++` reported "already the newest
+# version", and the link still failed after all 537 rlibs had compiled.
+#
+# ⛔ The message reads like a stale incremental cache or a full disk. It is
+# neither, and nothing under `target/` should be deleted for it.
+#
+# Same bargain as `check_cargo_target_dir_is_reachable` below: turn a linker
+# error at the end of a twenty-minute build into a sentence at the start of
+# setup, naming the package to install.
+check_profiling_cxx_stdlib() {
+    [ "$want_profiling" -eq 1 ] || return 0
+    have clang || return 0
+    # clang echoes the bare name back when it cannot resolve it, so the test is
+    # "did I get a path that exists", not "did the command succeed".
+    resolved=$(clang -print-file-name=libstdc++.so 2>/dev/null || true)
+    [ -e "$resolved" ] && return 0
+
+    # `-v` prints the selection before it fails on the empty translation unit.
+    selected=$(clang -v -x c++ /dev/null -o /dev/null 2>&1 \
+        | sed -n 's/^Selected GCC installation: //p' | head -1 || true)
+    log "⛔ clang cannot resolve libstdc++.so; a --features profile build will"
+    log "   fail at the LINK with: mold: library not found: stdc++"
+    if [ -n "$selected" ]; then
+        log "   clang selected GCC installation: $selected"
+        log "   install the C++ stdlib dev package for THAT version:"
+        log "     sudo apt install libstdc++-$(basename "$selected")-dev"
+    else
+        log "   could not read clang's GCC selection; run it by hand:"
+        log "     clang -v -x c++ /dev/null -o /dev/null 2>&1 | grep 'GCC installation'"
+    fi
+    log "   ⚠ \"g++ is already the newest version\" does NOT settle this: the"
+    log "   version that owns the symlink need not be the one clang picked."
+    for d in /usr/lib/gcc/*/*/; do
+        [ -e "$d/libstdc++.so" ] && log "   present in: $d"
+    done
+    log "   ⛔ this is not a stale cache and not a full disk — do not delete"
+    log "   anything under target/ for it."
+}
+
 check_desktop_target() {
     if [ "$skip_cargo_check" -eq 1 ]; then
         log "skipping Cargo fetch/check"
@@ -762,6 +811,7 @@ check_cargo_target_dir_is_reachable
 install_system_packages
 ensure_rust
 ensure_profiling_tools
+check_profiling_cxx_stdlib
 ensure_resource_tally
 ensure_submodules
 ensure_python_tools

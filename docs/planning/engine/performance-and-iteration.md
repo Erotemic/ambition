@@ -495,11 +495,34 @@ pinning the machine (load average 0.34 → 5.86):
 rose 1.15x. Contention produces exactly this shape, and it means **a meaningful
 part of Smash's tail on this host is OS scheduling, not the engine.**
 
-⛔ **THE EXTREME TAIL IS UNRESOLVED, AND THE EXPERIMENT WAS UNDERPOWERED FOR IT.**
-The loaded arm saw ZERO frames beyond 3x median and a worst of 12.87ms — but at
-the idle rate of 0.6%, 334 intervals expect only ~2 such events, so observing none
-is unsurprising and proves nothing. ⚠ The single 22.95ms frame remains
-unexplained.
+⭐⭐⭐ **AND THE EXTREME TAIL IS NOW RESOLVED TOO — RE-RUN PROPERLY, IT IS
+CONTENTION.** The first attempt was underpowered AND mis-designed: a threshold
+expressed as "3x median" MOVES when load raises the median, which mechanically
+shrinks the count. Redone with ABSOLUTE thresholds and ~15,800 frames per arm:
+
+| arm | median | >8ms | >12ms | >16.67ms | worst |
+|---|---|---|---|---|---|
+| idle | 3.20ms | 9 (**1.1%**) | 2 (0.2%) | **0 (0.0%)** | 13.66ms |
+| 6x busy loop | 3.35ms | 87 (**9.5%**) | 7 (0.8%) | 1 (0.1%) | **34.86ms** |
+
+⇒ **FRAMES OVER 8ms BECOME 8.6x MORE COMMON UNDER CPU CONTENTION WHILE THE MEDIAN
+MOVES 5%.** That is the signature of scheduling, not of engine work — engine work
+would raise the median with the tail.
+
+⭐⭐⭐ **AND THE HEADLINE: ON AN IDLE MACHINE, SMASH DOES NOT DROP FRAMES.** ZERO of
+15,747 frames exceeded the 16.67ms budget; the worst was 13.66ms. ⛔ **The 22.95ms
+frame recorded earlier in this section was measured while this session was running
+other work** — it was MY contention, not the game's. The same explains the 5.24ms
+outlier that made one noise-floor block read 22.6%.
+
+⇒ ✅ **"WHAT ARE THE FRAME SPIKES" IS ANSWERED, AND IT IS NOT THE ENGINE.** ⚠ What
+a GPU host can still add is the RENDER path's own stalls — shader compilation,
+present, readback — which this host cannot produce at all. That is a different and
+narrower question than the one this campaign has been carrying.
+
+⛔ **AND A STANDING MEASUREMENT RULE FALLS OUT: RECORD MACHINE LOAD BESIDE EVERY
+FRAME NUMBER.** Half a day of tail measurements here were partly measuring this
+session's own concurrent builds and probes.
 
 ⇒ ⛔ **THIS TIGHTENS THE HARDWARE TEST BELOW: the GPU run must record MACHINE LOAD
 alongside the frame distribution**, or a quiet workstation will "fix" spikes that

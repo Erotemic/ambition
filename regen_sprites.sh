@@ -376,11 +376,14 @@ tackon_targets=(
     author
     officer
     # ⛔ AND THE NEXT PAIR REPEATED IT, four lines under the comment explaining
-    # it. `actor` and `medic` arrived with catalog rows and no roster entry, so
-    # the same test failed the same way on 2026-08-27. A hand-kept roster beside
-    # a hand-kept catalog is two lists that agree only when somebody remembers
-    # both — which is exactly what this check exists to notice, and it did.
-    actor
+    # it. `performer` (then `actor`) and `medic` arrived with catalog rows and no
+    # roster entry, so the same test failed the same way on 2026-08-27. A
+    # hand-kept roster beside a hand-kept catalog is two lists that agree only
+    # when somebody remembers both — which is exactly what this check exists to
+    # notice, and it did. ⚠ AND IT IS A THIRD PLACE A RENAME HAS TO REACH: this
+    # list is keyed by TARGET NAME, so `actor` -> `performer` had to land here
+    # too or a fresh clone regenerates a sheet the catalog no longer names.
+    performer
     medic
     # NAMED HERE, not only reachable by `--target`. The game loads
     # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone

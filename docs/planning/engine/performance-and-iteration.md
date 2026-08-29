@@ -43,7 +43,10 @@ mean rose 7.77 → 9.18ms while Tracy went 13.5% → 18.7% of cycles: not compar
 5. **`enforce_session_contract` rebuilt a ~40KB schema dump and blake3'd it every
    frame.** Memoised.
 6. **The select screen's portraits were the last 15 of 15 settled-play decodes** —
-   the HUD held the only handle, so leaving dropped them. `RetainedHudImages`.
+   the HUD held the only handle, so leaving dropped them. `RetainedHudImages`,
+   which now also reports `hud_image_hits=` / `hud_image_loads=` on the
+   `[census] assets` row: **loads climbing while hits stays flat is this defect
+   returning**, and it is the one thing a decode count cannot say.
 
 ⛔⛔ **THE THREE THINGS THAT ARE NOT WHAT THEY LOOK LIKE:**
 - **The 516ms was the CHARACTER GALLERY**, not a match. Match entry was 162ms.

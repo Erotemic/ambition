@@ -486,6 +486,10 @@ pub fn report_asset_census(
     census: Res<RuntimeCensus>,
     images: Option<Res<crate::asset_census::ImageCensus>>,
     image_assets: Res<Assets<Image>>,
+    // The HUD's retained images. `loads` climbing while `hits` stays flat means a
+    // screen is being reopened and re-decoding what it already had — the defect
+    // the cache exists to prevent, reported rather than inferred from decodes.
+    hud_images: Option<Res<crate::hud::declared::RetainedHudImages>>,
 ) {
     let Some(at) = census.due() else {
         return;
@@ -493,7 +497,8 @@ pub fn report_asset_census(
     match images {
         Some(images) => eprintln!(
             "[census] assets t={at:.3} decoded_images={} decoded_megapixels={:.1} \
-             decoded_bytes={} derived_byte_images={} images_resident={}",
+             decoded_bytes={} derived_byte_images={} images_resident={} \
+             hud_image_hits={} hud_image_loads={}",
             images.total_images(),
             images.total_megapixels(),
             images.total_bytes(),
@@ -502,6 +507,8 @@ pub fn report_asset_census(
             // total; it says the total is no longer purely measured.
             images.derived_byte_images(),
             image_assets.len(),
+            hud_images.as_ref().map_or(0, |c| c.hits_and_loads().0),
+            hud_images.as_ref().map_or(0, |c| c.hits_and_loads().1),
         ),
         None => eprintln!(
             "[census] assets t={at:.3} decoded_images=unavailable images_resident={}",

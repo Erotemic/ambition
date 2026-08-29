@@ -655,11 +655,30 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
 #[derive(Resource, Default)]
 pub struct RetainedHudImages {
     by_path: std::collections::HashMap<String, Handle<Image>>,
+    /// Requests answered from the cache, and requests that had to load.
+    ///
+    /// ⭐ THE CAMPAIGN ROW ASKED FOR CACHE HITS, AND THIS IS THE ONLY PLACE THEY
+    /// MEAN ANYTHING HERE. A decode count says an image arrived; it cannot say
+    /// whether a screen was reopened and served without one. `loads` climbing
+    /// while `hits` stays flat is the bug this cache exists to prevent, coming
+    /// back.
+    served: u64,
+    loaded: u64,
 }
 
 impl RetainedHudImages {
+    /// How many requests were answered without loading, and how many loaded.
+    pub fn hits_and_loads(&self) -> (u64, u64) {
+        (self.served, self.loaded)
+    }
+
     /// The handle for `path`, loading it once and keeping it thereafter.
     fn handle(&mut self, asset_server: &AssetServer, path: String) -> Handle<Image> {
+        if self.by_path.contains_key(&path) {
+            self.served += 1;
+        } else {
+            self.loaded += 1;
+        }
         self.by_path
             .entry(path)
             .or_insert_with_key(|path| asset_server.load(path.clone()))

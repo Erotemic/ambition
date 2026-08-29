@@ -155,7 +155,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
 [census] ecs            t=12.000 entities=8123 archetypes=412 components=1904 bodies=7 players=1
-[census] schedules      t=12.000 schedules=14 systems=1183
+[census] schedules      t=12.000 schedules=14 systems=1183 Update=822 PostUpdate=15 PreUpdate=9 StateTransition=8 First=4
 [census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
 [census] camera         t=12.000 entity=64v1 role=main_gameplay active=true target=primary_window size=1920x1080 viewport=full order=0 layers=0 presents_view= name="Main Camera"
 [census] draws          t=12.000 sprites=2140 sprites_visible=311 text2d=18 per_view_projections=0
@@ -181,6 +181,13 @@ in a windowed run, the runner loop when headless. Attribution is by
 TRANSITION — one system at the head of each phase closes the previous one — so
 a schedule with no mark of its own is charged to the phase before it. That
 makes the row a breakdown of the FRAME, and the parts sum to the frame time.
+
+`[census] schedules` names the POPULATION behind each of those times, biggest
+first. Read the two together: a phase that is expensive with eight systems in
+it is a different bug from one that is expensive with eight hundred. In the
+measured sandbox, `Update` holds 822 of 886 systems while `StateTransition`
+holds 8 and still costs ~0.15ms — so the first is a population problem and the
+second is a per-system-overhead problem, and they want different fixes.
 
 The marks are not registered at all when `AMBITION_PROFILE_CENSUS` is unset:
 eight systems in seven schedules would otherwise join the population they

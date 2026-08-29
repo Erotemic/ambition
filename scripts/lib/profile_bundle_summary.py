@@ -805,6 +805,15 @@ def build_summary(bundle: Bundle) -> str:
         # does not know about rosters or transitions), but the BUNDLE can: the
         # game's own log carries `room-loaded` with a timestamp. A big decode
         # seconds after the room settled is the thing worth naming.
+        # ⭐ 3s IS A MEASURED PLATEAU, NOT A GUESS. Sweeping it over the second
+        # hardware run: 1s, 2s, 3s and 5s all give the SAME split (31 boot / 7
+        # streaming / 15 settled). It only moves at 10s (→ 7 settled) and empties
+        # at 20s, because the two offending bursts sit 7.3s and 11.0s after a room
+        # load and straddle that mark.
+        # ⇒ any threshold up to ~7s answers identically, and 7 seconds after a
+        # room finished loading is not "still arriving". A number this section
+        # reports has to survive its own threshold moving, or it is an artifact of
+        # the threshold.
         settle_s = 3.0
         # ⭐ FROM THE CSV, NOT A RE-REGEX OF THE LOG. The first version scraped
         # `room-loaded` out of the raw text because world events were not parsed;

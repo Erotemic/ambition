@@ -2428,7 +2428,12 @@ instead of by "was the player playing":
 | within 3s of a `room-loaded` — **a room still arriving** | 7 — ⚠ expected |
 | more than 3s after — **SETTLED PLAY** | **15, 20.9 MP** — ⛔ the contract violation |
 
-⇒ **53 of 53 becomes 15 of 53**, and 20.9MP instead of 150.8MP. The engine keeps
+⇒ **53 of 53 becomes 15 of 53**, and 20.9MP instead of 150.8MP. ⭐ **AND THE 3s IS A
+MEASURED PLATEAU, NOT A GUESS** — swept over the run, 1s/2s/3s/5s all give the
+identical split (31/7/15); it only moves at 10s (7 settled) and empties at 20s,
+because the two offending bursts sit **7.3s and 11.0s** after a room load and
+straddle that mark. ⇒ any threshold up to ~7s answers the same, and seven seconds
+after a room finished loading is not "still arriving". The engine keeps
 emitting a fact (`live=`); the correlation lives where the room events already
 are. ⭐ No new cross-crate dependency was needed to make the instrument mean
 something.

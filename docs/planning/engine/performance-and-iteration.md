@@ -1166,12 +1166,39 @@ would chug.** Combined with the population table above — no shipped room excee
 46–87 visible sprites — the *"hundreds of sprites"* framing does not describe
 this engine's content, and sprite count does not describe its cost either.
 
-⚠ WHAT THE ~14ms ACTUALLY IS: a FLOOR, and on this GPU-less host it is software
-rasterization of the framebuffer, which swamps content differences at these
-populations. ⛔ It is not a claim about a player's machine. On real hardware the
-floor drops and content may matter more — which is precisely what
-`./scripts/profile_desktop.sh --smash` and `capture_scene --warmup` exist to
-find out, and the honest next measurement.
+⛔⛔⛔ **AND THE ~14ms IS *NOT* SOFTWARE RASTERIZATION. I WROTE THAT AND IT WAS
+WRONG.** The phase split settles it:
+
+```text
+[census] phases frames=71 First=0.089 PreUpdate=4.871 StateTransition=2.056
+    RunFixedMainLoop=2.419 Update=2.931 SpawnScene=0.120 PostUpdate=1.171
+    Last=0.111 outside=0.458
+[census] render_pass main_opaque_pass_2d/fragment_shader_invocations = 0
+```
+
+Those phases sum to **14.226ms — the whole frame** — and the renderer reports
+**ZERO fragment shader invocations**. ⇒ **the floor is CPU work in the app
+schedules**, and rasterization is not in it at all. A plausible story that fitted
+the facts, believed for an hour because nothing had contradicted it yet.
+
+⭐⭐ **AND THE PHASES INFLATE UNEVENLY AGAINST A SMASH MATCH, which is the lead:**
+
+| phase | Smash | real room | ratio |
+|---|---|---|---|
+| **StateTransition** | 0.14ms | **2.056ms** | **15x** |
+| RunFixedMainLoop | 0.40 | 2.419 | 6x |
+| PreUpdate | 2.14 | 4.871 | 2.3x |
+| Update | 1.42 | 2.931 | 2x |
+| PostUpdate | 0.65 | 1.171 | 1.8x |
+
+⭐⭐⭐ **`StateTransition` IS 2.06ms — 14% OF A REAL ROOM'S FRAME.** The 2026-08-28
+baseline measured it at 0.15ms in an empty sandbox, correctly identified it as
+Bevy's per-state machinery rather than our code, and concluded it was NOT where
+to start. On real content it is fifteen times larger and the second-worst
+per-phase inflation in the engine. ⇒ ▢ **the brief's direction 8 deserves
+reopening on THIS evidence** — investigate what state machinery a real room runs
+that a Smash stage does not, and ⛔ still do not replace Bevy's states before
+knowing.
 
 ⛔⛔ **THE FRAME TIMES IN THE PRECEDING TABLE ARE NOT USABLE AND ARE OMITTED ON PURPOSE.**
 `capture_scene` is a SCREENSHOT tool: the whole run is ~1.3s and the census

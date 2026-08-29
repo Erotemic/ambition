@@ -375,8 +375,21 @@ THERE ARE NO PER-SYSTEM EXECUTION SPANS.** The export holds 1452
 the only named per-system cost: its spans come from egui's instrumentation, not
 Bevy's. ⇒ **`Update`'s 1.42ms cannot be attributed per system from this bundle**,
 and anyone expecting Tracy to rank Ambition's systems will find only their
-condition checks. Getting execution spans needs a different Bevy tracing feature
-or a hand-rolled bracket.
+condition checks. ⛔⛔ **AND IT IS NOT A CONFIGURATION MISTAKE — BEVY 0.18 EMITS NO PER-SYSTEM
+EXECUTION SPAN IN EITHER EXECUTOR.** Read from the source, not inferred:
+`bevy_ecs/schedule/executor/single_threaded.rs` has exactly ONE `info_span!`,
+`check_conditions`; `multi_threaded.rs` has only `calculate conflicting systems`
+and an executor-wide span. `profile` already enables BOTH `bevy/trace` and
+`bevy/trace_tracy`, so nothing is switched off. And Ambition serializes `First`,
+`PreUpdate`, `Update`, `PostUpdate` and `GgrsSchedule` to `SingleThreaded`
+anyway.
+
+⇒ **"use Tracy to find the expensive system" IS NOT ACHIEVABLE IN THIS ENGINE AS
+IT STANDS.** The three real routes, in ascending cost: (a) the `check_conditions`
+proxy, which measures a system's CONDITION rather than its body; (b) hand-rolled
+brackets like this campaign's `sim_phases` boundaries, around a set you already
+suspect; (c) a patched Bevy that spans system execution. ⛔ Nobody should plan a
+session around (c) without pricing it first.
 
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
@@ -384,7 +397,9 @@ or a hand-rolled bracket.
 2. ▢ name the room that actually chugs. Four sampled rooms do not, and the
    premise may be about content nobody has measured;
 3. ▢ `Update` is 1.42ms over 494 systems with `ambition_render` owning 99 and NOT
-   dormant — the last phase both ours and unattributed;
+   dormant — the last phase both ours and unattributed. ⛔ AND TRACY CANNOT
+   SPLIT IT: Bevy 0.18 emits no per-system execution span. Attributing it means
+   hand-rolled brackets around suspected SETS, the way `sim_phases` was done;
 4. ⛔ do NOT fund capability composition as a performance migration. It is
    architecture and startup work; both were measured and neither moved.
 

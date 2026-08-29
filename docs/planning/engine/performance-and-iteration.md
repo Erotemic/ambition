@@ -269,8 +269,14 @@ census is trustworthy — see the render caveat below):
 - **there is no hot system.** ~630 systems at 2.9–15.6us each.
 
 **WHAT IS TRUE ABOUT THE PREMISES WE STARTED FROM** — most did not survive:
-- ⛔ *"a room with hundreds of sprites chugs"* — no shipped room sampled exceeds
-  **46–87 visible sprites**, and +36 visible sprites cost **0.14ms**;
+- ⭐ *"a room with hundreds of sprites chugs"* — **HALF TRUE, corrected 2026-08-29
+  after sweeping ALL 72 ROOMS.** The room exists: `mockingbird_arena` bursts to
+  **295 visible sprites** for about one second. But it costs **+0.36ms of mean
+  (4.9%)**, at 1.40us per visible sprite. ⇒ the sprites are REAL and CHEAP; the
+  cost lands in the TAIL (worst frame 11.66 → **17.30ms**, past the 60Hz budget),
+  not in throughput. ⛔ The earlier "no room exceeds 46–87 visible sprites" was a
+  FOUR-ROOM SAMPLE and is retired — every sample photographed rooms AT REST, and
+  the peak is an EVENT;
 - ⛔ *"inactive experiences participate in the frame"* — removing FOUR whole
   experiences moved neither frame time nor startup registration;
 - ⛔ *"the presentation projection rewrites unchanged state"* — on real content,
@@ -800,6 +806,113 @@ scaling work: either the headless host deliberately loads a minimal scene and
 never populates the room, or room content fails to load headlessly and nothing
 reports it. ⛔ Do not build a scaling benchmark on this path until that is
 answered — a curve measured on an empty world is worse than no curve.
+
+### ⭐⭐ ANSWERED 2026-08-29 — HEADLESS OMITS `LdtkPlugin` BY DESIGN, SO NO ROOM CONTENT EVER SPAWNS
+
+The section above left two possibilities open — "either the headless host
+deliberately loads a minimal scene and never populates the room, or room content
+fails to load headlessly and nothing reports it." **It is the first, and it is
+documented in the code:**
+
+- `crates/ambition_platformer2d_actor_monolith/src/session/setup.rs:128` —
+  *"Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp)"*
+- `game/ambition_app/src/app/plugins.rs:257` — *"`LdtkPlugin` panics in headless
+  because its tile pipeline expects a RenderApp"*
+
+⇒ Room GEOMETRY loads through the repo's own runtime spine (spine and solid
+revisions both reach 1), but room CONTENT is spawned by `bevy_ecs_ldtk`, which
+is not present. Hence `ldtk entities : 0` and 64 entities in every room. Not a
+silent failure — an architectural constraint, correctly commented.
+
+⛔ **AND `NoWindow` CANNOT SUBSTITUTE.** It sets `backends: None` and has no
+render app at all, so it cannot host `LdtkPlugin` either. The smash profile's
+2048 entities come from its own roster composition, not from LDtk, so they do
+NOT show that NoWindow populates a room. ⇒ **the only composition that populates
+a ROOM is `OffscreenGpu`**, which is what `capture_scene` already builds.
+
+**A sweep of `headless --start-room` over 66 rooms was run and DISCARDED.**
+Differencing 100 vs 1100 ticks gave 0.55–0.71 ms/tick and room load 0.63–0.86s,
+with no outlier — a narrow spread that is exactly what an unpopulated world
+produces. ⛔ Those numbers describe fixed overhead in 66 rooms and are recorded
+here only so nobody re-runs them.
+
+⭐ **THE INSTRUMENT THAT WORKS, AND WHY IT IS VALID ON THIS HOST.** `capture_scene
+<room> player <out> 320x240 --warmup 180` with `AMBITION_PROFILE_CENSUS=1` boots
+the room populated — `goblin_encounter` reports entities=2048, archetypes=293,
+616 tile components, sprites=53, sprites_visible=33. Its timings are
+software-rasterized and untrustworthy per the phase-census rule, **but a COUNT
+cannot be contaminated by rasterization**, so the population census is valid here
+even though the frame time is not. That is what makes the brief's headline
+question — *is there a sprite-heavy room at all?* — answerable without a GPU.
+
+### ⭐⭐⭐ ALL 72 ROOMS MEASURED, 2026-08-29 — THE SPRITE-HEAVY ROOM IS REAL, AND IT IS A ONE-SECOND BURST
+
+Every shipped room booted through `capture_scene <room> player <out> 320x240`
+with the census on. 72 of 72 succeeded. ⛔ **This retires the recorded claim that
+"no shipped room exceeds 46–87 visible sprites" — that was a four-room sample,
+and it was wrong.**
+
+| room | visible sprites | total sprites | bodies | archetypes |
+|---|---|---|---|---|
+| **`mockingbird_arena`** | **277** | **283** | 2 | 339 |
+| `sanic_sandbox` | 91 | 156 | 2 | 330 |
+| `duel_arena` | 90 | 102 | 5 | 363 |
+| `gnu_ton_arena` | 81 | 145 | 5 | 392 |
+| `hall_of_characters` | 52 | 237 | **130** | 452 |
+
+⭐⭐ **AND THE PEAK IS AN EVENT, NOT A ROOM.** Sampling `mockingbird_arena` at
+20Hz shows the population is a BURST: steady at 34–35 visible from t=0.75 to
+t=2.01, ramping 125 → 228 → 278, peaking at **295 visible**, then collapsing back
+to 35 by t=3.03. ⇒ **the whole campaign's sprite sampling missed it because every
+sample photographed rooms AT REST.** A steady-state census cannot see a
+one-second barrage.
+
+**What the burst costs** — same run, same resolution, arms straddling the event,
+rows with `frames>=5` only:
+
+| | visible | mean | p95 | worst frame |
+|---|---|---|---|---|
+| baseline | 35 | 7.42ms | 8.46ms | 11.66ms |
+| burst | 277–295 | 7.78ms | 9.50ms | **17.30ms** |
+
+⇒ **8x the sprites costs +0.36ms of mean — 4.9%.** That is **1.40us per visible
+sprite**, the same order as the campaign's independent +36-sprite probe
+(3.89us/sprite), so two unrelated measurements agree on the slope.
+
+⭐ **THE COST IS IN THE TAIL, NOT THE MEAN.** The worst frame goes 11.66 → 17.30ms,
+past the 16.67ms budget at 60Hz. The sprite-heavy moment is real and can drop a
+frame, but as a HITCH, not as throughput. ⚠ On a software-rasterizing host; real
+GPU hardware should shrink the raster share and leave the CPU-side extraction.
+
+### ⭐⭐⭐ THE ROOM THAT CHUGS IS `hall_of_characters`, AND THE COST IS SIM, NOT RENDER
+
+Measured on `[census] sim_phases`, which is inside the sim tick and therefore the
+one timing the GPU-contamination rule does NOT invalidate. 46–71 ticks each.
+
+| room | bodies | live entities | WorldPrep | frame mean |
+|---|---|---|---|---|
+| `goblin_encounter` | 1 | 1919 | 0.269ms | 7.08ms |
+| `basement_npcs` | 4 | 2238 | 0.353ms | — |
+| `duel_arena` | 4 | **1732** | 0.354ms | — |
+| `basement_enemies` | 9 | 2524 | 0.431ms | — |
+| **`hall_of_characters`** | **130** | 3858 | **2.373ms** | **10.55ms** |
+
+⭐⭐ **`WorldPrep` SCALES WITH BODIES, NOT WITH ENTITIES, AND THE PAIR PROVES IT:**
+`duel_arena` and `basement_npcs` both have 4 bodies, differ by 30% in live
+entities (1732 vs 2238), and their `WorldPrep` agrees to **1 microsecond**. That
+is the FOURTH independent probe in this campaign in which entity population
+failed to predict cost, and the first one with a matched control.
+
+⇒ **The engine's per-body simulation price is ~16us** ((2.373-0.269)/129). At 130
+bodies `WorldPrep` alone is 2.3ms — more than double the ENTIRE gameplay sim of
+an ordinary room (0.93–1.37ms).
+
+⛔ **BUT THIS DOES NOT FUND OPTIMISATION WORK, AND SHOULD NOT.** `hall_of_characters`
+is a GALLERY that displays every character at once. At 16us/body a Smash match's
+8 bodies costs ~0.13ms. No gameplay room in the game comes near 130 bodies — the
+next highest is 9. ⇒ the item "name the room that chugs" is CLOSED: the room
+exists, it is not a gameplay room, and its cost is explained and proportional.
+The useful residue is the CONSTANT: **budget ~16us of sim per body.**
 
 ### An instrument gotcha this cost a run to find
 
@@ -1377,6 +1490,11 @@ Four real rooms through `capture_scene`:
 | `goblin_encounter` | 53 | **29** | 7 | 7 | 2048 |
 | `sanic_sandbox` | 95 | **27** | 5 | 5 | 2048 |
 
+⛔ **THIS FOUR-ROOM TABLE IS SUPERSEDED — all 72 rooms were later swept and
+`mockingbird_arena` bursts to 295 visible. See "ALL 72 ROOMS MEASURED".** The
+`entities` column is also wrong here: it reports ALLOCATED slots, not live
+entities, and the census now prints `live=` beside it.
+
 ⭐⭐ **THE MOST VISIBLE SPRITES IN ANY OF THEM IS 46.** The campaign was opened on
 *"a room with hundreds of sprites can visibly chug"* — and on this evidence no
 shipped room HAS hundreds of visible sprites. ⇒ either the chugging room is one
@@ -1407,6 +1525,11 @@ projections. NEITHER dimension predicts cost.
 VISIBLE SPRITES between two consecutive samples while its frame moved 13.75 →
 13.89ms. THIRTY-SIX ADDITIONAL VISIBLE SPRITES COST 0.14ms.** Same process, same
 room, seconds apart — no cross-run noise to explain it away.
+
+⚠ **THE SLOPE HELD, THE POPULATION CLAIM DID NOT.** The 0.14ms/36-sprite slope
+here (3.89us/sprite) was later confirmed at 8x the scale on `mockingbird_arena`'s
+295-sprite burst (1.40us/sprite). What was wrong was the assumption that no room
+goes higher — four rooms at rest are not the population.
 
 ⇒ **THE CAMPAIGN'S FOUNDING PREMISE IS ANSWERED: sprite count is not why a room
 would chug.** Combined with the population table above — no shipped room exceeds

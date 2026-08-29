@@ -153,13 +153,25 @@ pub fn report_ecs_census(
     components: &Components,
     bodies: Query<(), With<BodyKinematics>>,
     players: Query<(), With<PlayerEntity>>,
+    live: Query<()>,
 ) {
     let Some(at) = census.due() else {
         return;
     };
+    // ⛔⛔ `entities` AND `live` ARE DIFFERENT QUESTIONS, AND THE FIRST ONE
+    // MISLEADS. `Entities::len()` counts ALLOCATED entity slots, which land on
+    // round powers of two — measured 2026-08-29, four structurally different
+    // rooms all reported exactly 2048 or exactly 4096 while their real content
+    // (`Transform` 703 vs 1379) was nothing like a power of two. Three separate
+    // entries in the performance notebook quote a "2048-entity" scene that does
+    // not exist. `live` iterates, so it is the number of entities that are
+    // actually there. ⇒ READ `live`; `entities` is kept only because their
+    // DIFFERENCE is the reservation slack, and a large gap is itself a finding.
     eprintln!(
-        "[census] ecs t={at:.3} entities={} archetypes={} components={} bodies={} players={}",
+        "[census] ecs t={at:.3} entities={} live={} archetypes={} components={} bodies={} \
+         players={}",
         entities.len(),
+        live.iter().count(),
         archetypes.len(),
         components.len(),
         bodies.iter().count(),

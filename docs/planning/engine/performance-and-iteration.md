@@ -509,6 +509,15 @@ frame.** The gameplay simulation is FLAT during a fight. The cost is
 split above; different run, different quartile boundaries. ⇒ **read the SHARES**:
 ~58% `RunFixedMainLoop`, ~18% `PostUpdate`, ~17% `Update`, ~2% the sim.
 
+⛔ **AND SIZE THE PHYSICS LEVER BEFORE CHASING IT — IT IS NOT FUNDABLE.**
+`RunFixedMainLoop` totals **0.32–0.41ms of a 4.4ms frame (7–9%)**, and combat's
+share of that is **+0.088ms**. ⇒ eliminating the entire combat-physics delta would
+save **~2% of the frame — below the ~0.3ms defensible bar** established by the
+noise floor. And physics is `avian`, third-party, which puts it in the same
+category as `PostUpdate`: work this repo does not author. ⭐ The finding is
+valuable as ATTRIBUTION — it says where a fight's cost lives and, more usefully,
+where it does NOT — not as a work item.
+
 ⭐ This is the THIRD independent route to the campaign's central conclusion, and
 the most direct: the spikes are not in the sim, the fighter delta is only a third
 sim, and now a fight itself moves the sim by 0.4%. ⇒ **optimising gameplay systems

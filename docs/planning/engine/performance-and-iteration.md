@@ -460,6 +460,40 @@ shares were stable while its magnitude was not.
 ⚠ I published the 4.4% figure and its "~30 systems" consequence before re-running
 it. The rule this document keeps re-learning caught its own author one more time.
 
+### ⭐⭐⭐ THE SPIKE BASELINE — and the exact discriminator the hardware run should apply
+
+The spikes are the campaign's one live question and they need a GPU host. This
+characterises them HERE so that run has something to compare against. 8000 ticks,
+2 fighters, windowless, 7742 frames over 543 intervals:
+
+| quantity | value |
+|---|---|
+| median frame | **3.93ms** — 4x headroom at 60Hz |
+| intervals containing a frame >1.5x median | **14.2%** |
+| >2x median | **2.9%** |
+| >3x median | **0.6%** |
+| worst single frame | **22.95ms = 5.8x median** |
+
+⭐⭐ **THE MEDIAN IS COMFORTABLE AND THE TAIL IS NOT.** A plain 2-fighter match, no
+sprite burst, no gallery room, produces a **22.95ms frame — past the 16.67ms 60Hz
+budget.** ⇒ Smash on this host DROPS FRAMES, rarely, while averaging four times
+under budget. That is the responsiveness story in one line, and it is why a MEAN
+frame time was the wrong instrument for the question the brief asked.
+
+⭐⭐⭐ **THE DISCRIMINATOR, so the hardware run answers something:** every spike
+candidate left — renderer, allocator, OS scheduling on a loaded VM — is
+distinguishable by whether this DISTRIBUTION survives on real hardware.
+
+- if a GPU host shows a **similar rate** (~0.6% of intervals >3x median, worst
+  ~5-6x), the spikes are the ENGINE and worth chasing;
+- if the rate **collapses**, they were this VM's scheduling and there is nothing
+  to fix — and every "the spikes need a GPU host" note in this document can be
+  closed.
+
+⇒ ⛔ **run the comparison at the same tick count and the same fighter count**, and
+compare the RATE and the ratio-to-median, NOT the milliseconds — absolute frame
+times will differ on faster hardware and would hide the answer.
+
 ### ⭐⭐ WHAT COMBAT COSTS OVER IDLE — an interleaved within-run A/B, 2026-08-29
 
 The one quantity in a Smash match that genuinely ALTERNATES: live entity count

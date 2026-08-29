@@ -11,7 +11,63 @@ A Unity/Godot competitor must be pleasant to build with as well as capable at
 runtime. Ambition is the primary measurement customer; acceptance games and
 minimal external consumers reveal different dependency/capability footprints.
 
-## ⭐⭐⭐ ONE SCREEN — ASSET-PREPARATION CAMPAIGN, 2026-08-29 (READ THIS FIRST)
+## ⭐⭐⭐ ONE SCREEN — THE LAPTOP FRAME, 2026-08-29 (READ THIS FIRST)
+
+**Question:** Jon — *"I want to make sure the game runs smoothly without a GPU if
+we don't have one. It should not be required."* Host `calculex`: i7-7700HQ,
+**Intel HD 630**, no working discrete GPU.
+
+⛔ **THIS IS A DIFFERENT QUESTION FROM THE CAMPAIGN BELOW, ON DIFFERENT SILICON.**
+That one asked why a 3090 desktop hitched and answered "asset preparation". Both
+answers are true; neither transfers. The section below is kept for the desktop
+question, and every millisecond in it is an RTX 3090 millisecond.
+
+| | baseline (median of 3) | after | speedup |
+|---|---|---|---|
+| p50 | 51.045ms | **18.467ms** | **2.76x** |
+| p95 | 82.65ms | 30.31ms | 2.73x |
+| mean | 53.33ms | 20.08ms | 2.66x |
+
+**~19.6 FPS to ~54**, with the first 100s of per-second windows at
+**16.6–17.0ms — vsync-capped 60.** All four runs share one comparability key, so
+the ledger holds them as one series. Measured floor on this host ~7%; the effect
+is 176%.
+
+⭐ **WHAT WAS WRONG, AND THE COUNTS THAT PROVED IT BEFORE ANY TIMING WAS TRUSTED:**
+
+1. **The game rasterised four pixels for every one it displayed.** A 1600x900
+   window on a 2x Wayland session gets a 3200x1800 framebuffer and nothing
+   capped it. `render/upscaling/fragment_shader_invocations`: **5,760,000 →
+   1,440,000**.
+2. **MSAA 4x on a game with no geometry edges.** Bevy's default, antialiasing
+   axis-aligned textured quads, and adding a whole `msaa_writeback` pass across
+   all those pixels. `render/msaa_writeback/*` rows: **present → 0**.
+
+Those are exact integers, not measurements. ⭐ On a host with no established
+noise floor and Tracy crashing the game, the counts were the only thing safe to
+reason from — and they were enough.
+
+⛔⛔ **THE THREE THINGS THIS DOES NOT SAY:**
+- **Nothing splits the 2.76x between the two knobs.** They moved together. Both
+  are individually settable precisely so that experiment can be run; it has not.
+- **n=1 treated against n=3 baseline**, arms not interleaved.
+- **No claim whatsoever about hardware with a real GPU.** ⛔ And the desktop
+  campaign's *"the GPU is not the problem — the transparent 2D pass is
+  ~0.047ms"* is **retired as a general statement**: it was a 3090 fact. Here the
+  same pass ran 4.70ms mean.
+
+▢ **OPEN, IN LEVERAGE ORDER:** transparent overdraw is still **~5.3x** with
+`main_opaque_pass_2d` reporting **zero** fragments (D-RASTER-2, the largest
+remaining lever and the first that is engine work rather than a setting) · which
+knob earned the 2.76x (D-RASTER-3) · nothing picks a tier from the adapter
+(D-RASTER-4) · the scaled asset variants were ~11 days stale and the parallax
+tiers did not exist at all, because no bootstrap step generates them
+(D-RASTER-5).
+
+Full campaign, with what it does not establish:
+`dev/ambition_dev_measurements/journal/2026-08-29-the-laptop-frame.md`.
+
+## ⭐⭐ ONE SCREEN — THE DESKTOP HITCH, 2026-08-29 (an RTX 3090; read the laptop section first)
 
 **The mean frame was never the problem; asset preparation landing on gameplay
 frames was.** Two windowed RTX 3090 runs bracket the work.
@@ -94,6 +150,26 @@ Quality profiles should cover all expensive presentation features coherently,
 including texture/sprite resolution, portals, lighting/VFX and multi-view
 rendering. Desktop and Android defaults may differ while the authored content
 identity remains the same.
+
+⭐ **THE BUDGET NOW COVERS SCREEN AREA AS WELL AS SCENE DETAIL.** Every knob in
+`VisualQualityBudget` used to trade away scene DETAIL — texture resolution,
+portal recursion, parallax layers, particles. None of them touched the two costs
+that scale with the SCREEN, and on hardware without a discrete GPU those two
+were the frame (2.76x, see the laptop campaign above). `RasterBudget` adds
+`max_scale_factor` and `msaa_samples`.
+
+⛔ **`max_scale_factor` IS A CAP, NOT A RESOLUTION.** It never raises a scale
+factor and does nothing at all on a 1x display, so a tier that sets it is
+declining to draw four pixels where one is displayed — not hardcoding a
+downgrade. High and Ultra are byte-for-byte unchanged (`None` + 4 samples, which
+is Bevy's own default), guarded by
+`high_and_ultra_raster_budgets_are_todays_behaviour`.
+
+⭐ **AND THE TWO KNOBS ARE REACHABLE WITHOUT THE TIER.** `AMBITION_MAX_SCALE_FACTOR`
+and `AMBITION_MSAA` apply on top of whatever tier is active. This is not a
+convenience: changing tier to reach them also moves texture resolution, parallax
+layers, portal budget and particle counts, and an A/B that moves five things can
+attribute its result to none of them.
 
 ### Asset residency
 
@@ -1178,6 +1254,66 @@ opportunistically but do not outrank the frame.
 
 Each row is a lever already MEASURED in the baseline above. Do not re-derive the
 baseline; extend it.
+
+✔ **D-RASTER-1 — the quality budget had no knob for anything that scales with
+SCREEN AREA, so a 1600x900 window rasterised at 3200x1800 with 4x MSAA.** Fixed
+by `d99152290` / `7e4ec65c4`: `RasterBudget` (`max_scale_factor`, `msaa_samples`)
+resolved per tier, settable independently of the tier, plus `ambition.local.toml`
+so a machine declares its own answer without changing anyone else's checkout.
+Measured 51.0 → 18.5ms p50 on `calculex`. Guarded by
+`high_and_ultra_raster_budgets_are_todays_behaviour` (fails if capable hardware
+is ever quietly downgraded) and `capping_the_scale_factor_never_raises_it`.
+⛔ `max_scale_factor` is a CAP: it must never raise a scale factor, or a 1x
+laptop gets told to rasterise at 2x by a tier meant to make things cheaper.
+
+- ▢ **D-RASTER-2 — every 2D draw goes through the TRANSPARENT pass, so nothing
+  can be depth-rejected.** The largest remaining lever on weak hardware, and the
+  first that is engine work rather than a setting.
+  **Measured (`desktop-timeline-run-20260829T223455Z`, `calculex`):**
+  `main_transparent_pass_2d/fragment_shader_invocations` = **41,482,624** against
+  a 7,818,240-pixel framebuffer — **~5.3x overdraw** — from **21–37 visible
+  sprites**. `main_opaque_pass_2d/fragment_shader_invocations` = **0**.
+  ⭐ THAT RATIO IS THE WHOLE FINDING: a handful of sprites cannot cover the
+  screen five times unless several are full-screen stacked layers. Parallax
+  backplates are the obvious candidates and the census can name them.
+  **Direction:** a full-screen backplate that is actually opaque should say so
+  and render in `main_opaque_pass_2d`, which sorts front-to-back with depth, so
+  the layers behind it are rejected before they shade. Alpha-blended 2D has no
+  early-Z; that is why the count is 5.3x and not 1.1x.
+  ⛔ VERIFY THE PREMISE BEFORE BUILDING ANYTHING: confirm from `draw_census.csv`
+  which entities produce the fragments. "A few big layers" is an inference from
+  the sprite count, not a measurement of which sprites.
+
+- ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
+  MSAA.** Both moved in the same config. One interleaved A/B (`AMBITION_MSAA=1`
+  alone, `AMBITION_MAX_SCALE_FACTOR=1.0` alone, baseline), three reps each,
+  arms alternating — the block mean drifts ~7% on this host, which is as large
+  as one of the two effects might be. Cheap: the knobs are already independent
+  and no rebuild is needed between arms.
+
+- ▢ **D-RASTER-4 — nothing picks a tier from the hardware.**
+  `default_visual_quality_profile()` returns High on every desktop and Medium on
+  Android, deciding by TARGET OS. `calculex` is a desktop with an Intel HD 630
+  and booted High. The adapter is already known and already recorded —
+  `AdapterInfo { device_type: IntegratedGpu, .. }` is in every bundle's summary.
+  **Direction:** choose the first-boot default from `device_type`
+  (`DiscreteGpu` → High, `IntegratedGpu` → Medium, `Cpu` → Low/Potato), write it
+  to settings ONCE, and leave the user's later choice alone.
+  ⛔ A DETECTED DEFAULT MUST NOT BECOME A PER-BOOT OVERRIDE. It is a first-run
+  seed; re-deciding every launch would silently undo the settings menu, which is
+  the same defect `AMBITION_QUALITY_PROFILE` warns about out loud.
+
+- ▢ **D-RASTER-5 — the scaled asset variants are generated by nothing the
+  bootstrap runs.** Measured on `calculex` 2026-08-29: **998 sheets ~11 days
+  stale**, and `backgrounds/parallax_layers_0_5x` / `_0_25x` / `_potato` did not
+  exist at all. So Low/Medium drew OLD art where they had any and NO parallax
+  art where they did not — the tiers meant for weak hardware were the tiers most
+  likely to be broken, on the machines least able to tell.
+  ⭐ THE CHECKER ALREADY EXISTS AND ALREADY SAID SO:
+  `scripts/check_quality_variants_are_fresh.py` reported all 998 in one run.
+  Nothing calls it. **Direction:** `run_developer_setup.sh` should run the check
+  and regenerate (backgrounds are 3.5s; sprites are long, so at minimum WARN),
+  and the same check belongs wherever assets are published.
 
 - ▢ **D-PERF-1 — hoist `gameplay_allowed` off 83 systems onto a set.** (⚠ "89"
   appears below as the pre-work ESTIMATE; the measured count is **83** — 78

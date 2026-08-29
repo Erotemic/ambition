@@ -139,6 +139,52 @@ migration prose names it.
 
 ## Current execution order
 
+### ⭐⭐ WEAK-HARDWARE FRAME, 2026-08-29. Jon: *"It should not be required."*
+
+*"I want to make sure the game runs smoothly without a GPU if we don't have one.
+It should not be required."* Measured on `calculex` (Intel HD 630, no discrete
+GPU): **p50 51.0ms → 18.5ms, ~19.6 FPS → ~54**, with the first 100s
+vsync-capped at 60. Full reasoning in
+[`engine/performance-and-iteration.md`](engine/performance-and-iteration.md) —
+the LAPTOP section, which is a different question from the desktop-hitch section
+below it and on different silicon.
+
+- ✔ **D-RASTER-1 — the quality budget traded away scene detail and had no knob
+  for anything that scales with SCREEN AREA**, so a 1600x900 window rasterised
+  at 3200x1800 with 4x MSAA. Fixed by `d99152290` / `7e4ec65c4`: `RasterBudget`
+  (`max_scale_factor`, `msaa_samples`) per tier, settable independently of the
+  tier, plus `ambition.local.toml` for per-machine declaration. Guarded by
+  `high_and_ultra_raster_budgets_are_todays_behaviour`. ⛔ `max_scale_factor` is
+  a CAP and must never RAISE a scale factor, or a tier meant to make things
+  cheaper tells a 1x laptop to rasterise at 2x.
+
+- ▢ **D-RASTER-2 — every 2D draw goes through the TRANSPARENT pass, so nothing
+  can be depth-rejected.** ~5.3x overdraw (41,482,624 fragments against a
+  7,818,240-pixel framebuffer) from 21–37 visible sprites, with
+  `main_opaque_pass_2d` at **zero**. The largest remaining lever on weak
+  hardware and the first that is engine work rather than a setting. ⛔ Confirm
+  from `draw_census.csv` WHICH entities produce the fragments before building
+  anything — "a few full-screen layers" is an inference from the sprite count.
+
+- ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
+  MSAA.** Both moved together. One interleaved A/B, three reps per arm; the
+  knobs are already independent and no rebuild is needed between arms.
+
+- ▢ **D-RASTER-4 — nothing picks a quality tier from the hardware.**
+  `default_visual_quality_profile()` decides by target OS, so a desktop with an
+  Intel HD 630 boots High. The adapter's `device_type` is already known and
+  already recorded in every bundle. ⛔ A detected default is a FIRST-RUN SEED,
+  never a per-boot override — re-deciding each launch would silently undo the
+  settings menu.
+
+- ▢ **D-RASTER-5 — no bootstrap step generates the scaled asset variants.**
+  998 sheets ~11 days stale on `calculex`, and the parallax tiers did not exist
+  at all, so Low/Medium drew old art or none — the tiers for weak hardware were
+  the most likely to be broken, on the machines least able to notice.
+  `scripts/check_quality_variants_are_fresh.py` already detects this and nothing
+  calls it.
+
+
 ### ⭐⭐⭐ TOP OF THE LEDGER — W8 PLAYTEST, 2026-08-24. Jon played it.
 
 Full message, verbatim, in

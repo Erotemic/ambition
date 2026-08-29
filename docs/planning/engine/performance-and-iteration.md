@@ -460,6 +460,38 @@ shares were stable while its magnitude was not.
 ⚠ I published the 4.4% figure and its "~30 systems" consequence before re-running
 it. The rule this document keeps re-learning caught its own author one more time.
 
+### ⭐⭐ WHAT COMBAT COSTS OVER IDLE — an interleaved within-run A/B, 2026-08-29
+
+The one quantity in a Smash match that genuinely ALTERNATES: live entity count
+swings ±95 as combat VFX spawn and despawn — **137 rises and 166 falls** across 433
+samples, so unlike the knockout sequence it qualifies as interleaved. 5000 ticks,
+20Hz census, quartile-split by live population, `frames>=5`, n=407 intervals:
+
+| | live entities | frame mean | median t |
+|---|---|---|---|
+| low quartile | 1297 | **4.338ms** | 12.9s |
+| high quartile | 1321 | **4.590ms** | 14.5s |
+
+The bucket medians sit 1.6s apart in a 15s window, so the two states really are
+interleaved in TIME as well as in value — not a drift artifact.
+
+⇒ **frames with combat active cost ~250us more than quiet frames — +5.8%.** That
+is the price of a fight actually happening, measured inside one process, immune to
+both block drift and the ±20% single-run outliers.
+
+⛔⛔ **AND DO NOT DIVIDE IT BY THE ENTITY COUNT.** +251us over +24 entities gives
+"10.3us per VFX entity", which is **3x the whole-frame average of 3.4us/entity** —
+and the number is the tell. The entities are a SYMPTOM of combat, not the cause of
+the cost: a high-population interval is an interval where hits are resolving,
+damage is applying and effects are being authored, and all of that is billed to the
+same window. ⇒ **entity count here is a PROXY for combat activity**, and a
+per-entity price derived from a proxy is meaningless. (This is the fourth time in
+this campaign that dividing by an entity count produced a wrong answer.)
+
+⭐ Consistent with the spikes result: combat costs a broad ~250us more, and the
+frame SPIKES are still not in the simulation — the two findings measure different
+things and neither explains the other.
+
 ### ⛔ A WITHIN-RUN FIGHTER A/B THAT LOOKED PERFECT AND IS NOT — rejected 2026-08-29
 
 A 4-fighter match loses fighters to knockouts, so the body count changes INSIDE one

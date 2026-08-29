@@ -90,6 +90,40 @@ fn install_egui_inspectors(app: &mut App) {
     use bevy_inspector_egui::bevy_egui::EguiPlugin;
     use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
 
+    // ⭐⭐ THE EGUI PASS ITSELF IS GATED, NOT JUST THE INSPECTORS INSIDE IT.
+    // Tracy attribution on a headless Smash match, 2026-08-29: egui was the
+    // ONLY named per-system cost in the whole frame —
+    // `egui::Context::run` 87.6us/frame, plus begin_pass 40.8, end_pass 31.1
+    // and the plugin hooks, all Tracy-inflated ~2.4x so roughly 36us real, ~1.2%
+    // of a `profiling` frame. It ran EVERY FRAME with no window open and no
+    // inspector on screen, because the `run_if(inspector_visible)` below gates
+    // the inspector WIDGETS while `EguiPlugin` runs its context pass
+    // unconditionally.
+    //
+    // ⛔ BOTH ENDS OR NEITHER. `EguiPreUpdateSet::BeginPass` opens a pass and
+    // `EguiPostUpdateSet::EndPass` closes it; gating only one leaves egui with a
+    // pass that is never closed. Gated together, no pass is begun at all while
+    // every inspector is hidden, and the frame it is un-hidden begins and ends
+    // normally.
+    //
+    // ⭐ Jon, 2026-08-29: *"developer tooling should be optimized too"* — the
+    // inspector still works the instant it is shown; it simply stops running a
+    // full egui pass to draw nothing.
+    {
+        use bevy_inspector_egui::bevy_egui::{EguiPostUpdateSet, EguiPreUpdateSet};
+        let wanted = |tools: Option<Res<DeveloperTools>>| {
+            tools.is_some_and(|tools| tools.inspector_visible || tools.world_inspector_visible)
+        };
+        app.configure_sets(
+            bevy::app::PreUpdate,
+            EguiPreUpdateSet::BeginPass.run_if(wanted),
+        );
+        app.configure_sets(
+            bevy::app::PostUpdate,
+            EguiPostUpdateSet::EndPass.run_if(wanted),
+        );
+    }
+
     app.add_plugins(EguiPlugin::default())
         .add_plugins(ResourceInspectorPlugin::<DeveloperTools>::default().run_if(inspector_visible))
         .add_plugins(
@@ -102,7 +136,8 @@ fn install_egui_inspectors(app: &mut App) {
             ResourceInspectorPlugin::<EditablePlayerStats>::default().run_if(inspector_visible),
         )
         .add_plugins(
-            ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default().run_if(inspector_visible),
+            ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()
+                .run_if(inspector_visible),
         )
         .add_plugins(portal_inspector::PortalInspectorPlugin);
 

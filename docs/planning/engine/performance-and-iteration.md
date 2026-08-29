@@ -317,6 +317,38 @@ fixed cost.* Here a cosmetic effect costs a physics engine's schedules whether
 or not one debris body exists. ▢ A gate on `any_with_component::<RigidBody>` (or
 avian's own `Physics::pause`) is the obvious shape, sized at ~1%.
 
+**⭐⭐ THE ONLY NAMED PER-SYSTEM COST TRACY FOUND WAS egui — AND IT IS NOW GATED.**
+Per-system attribution on the trustworthy `NoWindow` path ranked everything, and
+every other entry was a schedule wrapper. The exception:
+
+```text
+egui::Context::run   87.6us x 1853 frames    pass{tag="0"}  85.9us
+begin_pass 40.8   end_pass 31.1   plugin hooks ~36   tessellate ~11
+```
+
+egui ran a FULL CONTEXT PASS every frame with no window open and no inspector on
+screen: `run_if(inspector_visible)` gates the inspector WIDGETS, while
+`EguiPlugin` runs its pass unconditionally. Gating
+`EguiPreUpdateSet::BeginPass` + `EguiPostUpdateSet::EndPass` on
+`inspector_visible || world_inspector_visible` removes it.
+
+⛔ BOTH ENDS OR NEITHER: begin opens a pass and end closes it, so gating only the
+expensive half leaves egui with a pass that never closes.
+
+⭐ VERIFIED STRUCTURALLY, which beats a wall-clock claim — zones exist or they do
+not, with no noise floor to argue about:
+
+| Tracy zones | before | after |
+|---|---|---|
+| `Context::run` / `pass{}` | present, 87.6us/frame | **0** |
+| other egui work zones | present | **0** |
+| egui `check_conditions` | — | 24 (the gate itself) |
+
+⚠ Sized honestly: ~36us real after the 2.4x Tracy inflation, ~1.2% of a
+`profiling` frame — BELOW the noise floor, so no frame-time claim. ⭐ And it is
+Jon's steer done literally: the inspector still works the instant it is shown, it
+just stops running a full egui pass to draw nothing.
+
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
    on a GPU machine — every number here is from a GPU-less host;

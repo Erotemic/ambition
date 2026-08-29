@@ -175,6 +175,27 @@ pub enum BodyMode {
 }
 
 impl BodyMode {
+    /// Is a body in this mode ABSENT FROM THE STAGE — nothing draws it?
+    ///
+    /// ⛔⛔ ONE SENTENCE, TWO ROADS, AND THAT IS THE WHOLE POINT OF PUTTING IT
+    /// HERE. Visibility is decided in two different places by two different
+    /// read-models — `BodyPoseView.submerged` for the session player's own body
+    /// and `FeatureView.visible` for every ACTOR, which is what a Smash match
+    /// fighter is. When the rule lived only in the player road,
+    /// `sync_submerged_visibility` was `With<PlayerVisual>`, a marker inserted
+    /// in exactly one place in the engine (`session/setup.rs`), so the
+    /// Performer's trapdoor hid her in an Ambition room and drew her standing on
+    /// the boards, blinking, in every versus match. It was verified green on the
+    /// only road where the gate passes.
+    ///
+    /// ⇒ so the predicate is stated ONCE and both roads ask it, rather than each
+    /// spelling out a `== Submerged` that only one of them remembers to add.
+    pub fn hides_the_body(self) -> bool {
+        matches!(self, BodyMode::Submerged)
+    }
+}
+
+impl BodyMode {
     pub fn label(self) -> &'static str {
         match self {
             BodyMode::Standing => "Standing",

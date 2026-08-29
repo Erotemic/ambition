@@ -415,8 +415,9 @@ pub fn rebuild_body_pose_views(
             hp_max: health.map_or(0, |h| h.max()),
             morph_ball: body_mode
                 .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
-            submerged: body_mode
-                .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::Submerged),
+            // The SAME predicate the actor road asks — see
+            // `BodyMode::hides_the_body`. Two read-models, one sentence.
+            submerged: body_mode.is_some_and(|m| m.body_mode.hides_the_body()),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
             smash_charge: charge,

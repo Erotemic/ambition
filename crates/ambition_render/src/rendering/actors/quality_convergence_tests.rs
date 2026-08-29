@@ -89,6 +89,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         size: ambition_platformer2d_core::Vec2::new(96.0, 128.0),
         kind: FeatureVisualKind::Actor,
         visible: true,
+        submerged: false,
         flash: false,
         breakable_state: None,
         chest_opened: false,

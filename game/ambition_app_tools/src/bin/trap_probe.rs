@@ -378,22 +378,57 @@ fn main() {
 /// being overwritten; a body submerged in the sim whose VIEW says otherwise is
 /// the projection.
 fn visibility_chain(app: &mut App) -> String {
-    let world = app.world_mut();
-    let mut q = world.query::<(
-        &ambition_platformer2d::sim_view::BodyPoseView,
-        &bevy::prelude::Visibility,
-    )>();
-    let (mut views, mut sub, mut sub_hidden) = (0usize, 0usize, 0usize);
-    for (pose, vis) in q.iter(world) {
-        views += 1;
-        if pose.submerged {
-            sub += 1;
-            if matches!(vis, bevy::prelude::Visibility::Hidden) {
-                sub_hidden += 1;
+    // The PLAYER road: one body, `PlayerVisual` + `BodyPoseView`.
+    let (mut pviews, mut psub, mut psub_hidden) = (0usize, 0usize, 0usize);
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::sim_view::BodyPoseView,
+            &bevy::prelude::Visibility,
+        )>();
+        for (pose, vis) in q.iter(world) {
+            pviews += 1;
+            if pose.submerged {
+                psub += 1;
+                if matches!(vis, bevy::prelude::Visibility::Hidden) {
+                    psub_hidden += 1;
+                }
             }
         }
     }
-    format!("views={views} view_sub={sub} sub_hidden={sub_hidden}")
+    // ⛔⛔ THE ACTOR ROAD, WHICH IS THE ONE A MATCH FIGHTER TAKES and the one
+    // this probe could not see. `BodyPoseView` is player-bodied only —
+    // `debug_viz.rs` says so in as many words — so a probe that only counted
+    // those reported `views=0` in a live match and learned nothing. Every
+    // fighter is a `FeatureVisual` whose visibility comes from
+    // `FeatureViewIndex`.
+    let index = app
+        .world()
+        .get_resource::<ambition_platformer2d::sim_view::FeatureViewIndex>()
+        .cloned();
+    let (mut aviews, mut asub, mut asub_hidden) = (0usize, 0usize, 0usize);
+    if let Some(index) = index {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::render::rendering::FeatureVisual,
+            &bevy::prelude::Visibility,
+        )>();
+        for (visual, vis) in q.iter(world) {
+            let Some(view) = index.get(&visual.id) else {
+                continue;
+            };
+            aviews += 1;
+            if view.submerged {
+                asub += 1;
+                if matches!(vis, bevy::prelude::Visibility::Hidden) {
+                    asub_hidden += 1;
+                }
+            }
+        }
+    }
+    format!(
+        "player[{pviews}/{psub}/{psub_hidden}] actor[{aviews}/{asub}/{asub_hidden}]"
+    )
 }
 
 /// ⛔⛔ THE RELEASE CONDITION, READ OUT LOUD. `ChargeSustain::UntilPressedAgain`

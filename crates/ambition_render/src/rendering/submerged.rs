@@ -181,21 +181,58 @@ pub fn sync_trapdoor_visuals(
         ),
         With<PlayerVisual>,
     >,
+    // ⛔⛔ THE OTHER ROAD, AND IT IS THE ONE A MATCH FIGHTER TAKES. `PlayerVisual`
+    // is inserted in exactly one place in the engine — the session's single
+    // exploration player — so a door gated on it alone opened in an Ambition room
+    // and never once in a versus match. Every actor is a `FeatureVisual` reading
+    // `FeatureViewIndex`, and that read-model now carries `submerged`.
+    actors: Query<
+        (Entity, &crate::rendering::FeatureVisual),
+        Without<PlayerVisual>,
+    >,
+    // ⛔⛔ `Option`, AND IT IS NOT DEFENSIVE. A plain `Res` here is a HARD STOP
+    // for any composition that does not build the index — it took out this
+    // module's own three player-road tests the moment it was added, with the
+    // undebuggable *"Parameter ... failed validation: Resource does not exist"*.
+    // `declare_the_match_cast_as_the_view` records the same lesson at a cost of
+    // 53 tests. A projection nobody has published yet has nothing to say.
+    feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
     mut doors: Query<(Entity, &TrapdoorVisual, &mut Transform, &mut Sprite)>,
 ) {
+    // Both roads reduced to the only two facts a door needs: where the body is,
+    // and how big it is. Retirement and spawning below read this and nothing else,
+    // so neither has to learn that there are two kinds of body visual.
+    let mut under: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
+    for (body, pose, presented) in &bodies {
+        if pose.submerged {
+            under.push((
+                body,
+                ambition_sim_view::presented_pose::draw_pos(pose, presented),
+                bevy::math::Vec2::new(pose.size.x, pose.size.y),
+            ));
+        }
+    }
+    for (body, visual) in &actors {
+        let Some(view) = feature_views.as_ref().and_then(|i| i.get(&visual.id)) else {
+            continue;
+        };
+        if view.submerged {
+            under.push((
+                body,
+                bevy::math::Vec2::new(view.pos.x, view.pos.y),
+                bevy::math::Vec2::new(view.size.x, view.size.y),
+            ));
+        }
+    }
     // Retire the doors whose body surfaced or went away, and move the rest.
     let mut standing = bevy::platform::collections::HashSet::new();
     for (door, owner, mut transform, mut art) in &mut doors {
-        let Ok((_, pose, presented)) = bodies.get(owner.body) else {
+        let Some((_, at, size)) = under.iter().copied().find(|(b, _, _)| *b == owner.body) else {
             commands.entity(door).despawn();
             continue;
         };
-        if !pose.submerged {
-            commands.entity(door).despawn();
-            continue;
-        }
         standing.insert(owner.body);
-        place_door(&world.0, &mut transform, &mut art, pose, presented);
+        place_door(&world.0, &mut transform, &mut art, at, size);
     }
     let Some(sprite) = sprite else {
         return;
@@ -208,8 +245,8 @@ pub fn sync_trapdoor_visuals(
     else {
         return;
     };
-    for (body, pose, presented) in &bodies {
-        if !pose.submerged || standing.contains(&body) {
+    for (body, at, size) in under {
+        if standing.contains(&body) {
             continue;
         }
         let mut transform = Transform::default();
@@ -217,7 +254,7 @@ pub fn sync_trapdoor_visuals(
             image: sprite.handle.clone(),
             ..default()
         };
-        place_door(&world.0, &mut transform, &mut art, pose, presented);
+        place_door(&world.0, &mut transform, &mut art, at, size);
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -235,18 +272,14 @@ fn place_door(
     room: &ambition_platformer2d_core::World,
     transform: &mut Transform,
     art: &mut Sprite,
-    pose: &ambition_sim_view::BodyPoseView,
-    presented: Option<&ambition_sim_view::PresentedPose>,
+    at: bevy::math::Vec2,
+    size: bevy::math::Vec2,
 ) {
-    let at = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-    let feet = at + bevy::math::Vec2::new(0.0, pose.size.y * 0.5);
+    let feet = at + bevy::math::Vec2::new(0.0, size.y * 0.5);
     transform.translation = ambition_platformer2d_core::config::world_to_bevy(
         room,
         feet,
         ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
     );
-    art.custom_size = Some(bevy::math::Vec2::new(
-        pose.size.x * DOOR_WIDTH_FACTOR,
-        DOOR_HEIGHT,
-    ));
+    art.custom_size = Some(bevy::math::Vec2::new(size.x * DOOR_WIDTH_FACTOR, DOOR_HEIGHT));
 }

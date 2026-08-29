@@ -154,3 +154,93 @@ fn two_submerged_fighters_get_two_doors() {
     let owners: Vec<Entity> = found.iter().map(|(_, owner, _)| *owner).collect();
     assert!(owners.contains(&a) && owners.contains(&b));
 }
+
+// ---------------------------------------------------------------------------
+// The ACTOR road
+// ---------------------------------------------------------------------------
+
+/// ⛔⛔ EVERY TEST ABOVE THIS LINE SPAWNS A `PlayerVisual`, AND THAT IS WHY THE
+/// DEFECT SURVIVED THEM ALL. `PlayerVisual` is inserted in exactly ONE place in
+/// the engine — `session/setup.rs`, the session's single exploration player — so
+/// a suite that only ever spawns one is a suite that only ever exercises the
+/// road which already worked. A Smash match fighter is an ACTOR: a
+/// `FeatureVisual` whose facts come from `FeatureViewIndex`.
+///
+/// Jon, from a build, on the Performer's down-B: *"she can move around while in
+/// the submerged state, but her sprite still draws on the stage and with
+/// blinking invincibility."* The sim was right; the door was gated on a marker
+/// she does not carry, and so was the hide.
+fn actor_view(submerged: bool) -> ambition_sim_view::FeatureView {
+    ambition_sim_view::FeatureView {
+        pos: ambition_platformer2d_core::Vec2::new(300.0, 500.0),
+        size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+        kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
+        // ⛔ THE TWO ARE NOT ONE FACT. A dead hostile is invisible too, and a
+        // trapdoor must not open over a corpse.
+        visible: !submerged,
+        submerged,
+        flash: false,
+        breakable_state: None,
+        chest_opened: false,
+        fighting: true,
+        switch_on: false,
+        rotation_rad: 0.0,
+        alive: true,
+        hit_flash_secs: 0.0,
+        parry_flash_secs: 0.0,
+        hp_current: 40,
+        hp_max: 40,
+        training_dummy: false,
+        hit_strength: 0.0,
+        unhittable: false,
+        defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
+        sprite_offset: None,
+    }
+}
+
+fn a_fighter(app: &mut App, submerged: bool) -> Entity {
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        "fighter".to_string(),
+        actor_view(submerged),
+    )]));
+    app.world_mut()
+        .spawn(crate::rendering::FeatureVisual {
+            id: "fighter".to_string(),
+        })
+        .id()
+}
+
+#[test]
+fn a_submerged_match_fighter_gets_a_door_though_it_carries_no_player_visual() {
+    let mut app = door_app();
+    let body = a_fighter(&mut app, true);
+    app.update();
+    let found = doors(&mut app);
+    assert_eq!(
+        found.len(),
+        1,
+        "an actor under the stage got no door, so nothing on stage says where \
+         she is — the gate is back on `PlayerVisual`"
+    );
+    assert_eq!(found[0].1, body, "the door names the fighter it belongs to");
+}
+
+/// ⛔ AND IT COMES BACK UP. The arm whose absence leaves a door standing over an
+/// empty stage for the rest of the match.
+#[test]
+fn the_match_fighters_door_goes_when_she_surfaces() {
+    let mut app = door_app();
+    a_fighter(&mut app, true);
+    app.update();
+    assert_eq!(doors(&mut app).len(), 1, "she is under, so a door stands");
+
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        "fighter".to_string(),
+        actor_view(false),
+    )]));
+    app.update();
+    assert!(
+        doors(&mut app).is_empty(),
+        "she surfaced and the boards stayed open"
+    );
+}

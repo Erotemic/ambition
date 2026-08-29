@@ -295,6 +295,7 @@ mod tests {
             size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
             kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             visible: true,
+            submerged: false,
             flash: false,
             breakable_state: None,
             chest_opened: false,

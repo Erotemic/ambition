@@ -34,6 +34,12 @@ pub struct FeatureView {
     pub size: ae::Vec2,
     pub kind: FeatureVisualKind,
     pub visible: bool,
+    /// This body is UNDER THE STAGE — absent rather than merely undrawn.
+    ///
+    /// ⛔ NOT THE SAME FACT AS `!visible`, and conflating them is why this field
+    /// exists. A dead hostile is invisible too, and a trapdoor must not open over
+    /// a corpse; the door is drawn for a body that is COMING BACK.
+    pub submerged: bool,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -248,6 +254,10 @@ pub fn rebuild_feature_view_index(
             // centred in its frame. Absent for every ordinary actor.
             Option<&ambition_combat::components::ActorSpriteOffset>,
             bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
+            // WHETHER THIS BODY IS ON THE STAGE AT ALL. A submerged fighter is
+            // absent, and this row is the ONE authority for whether an actor is
+            // drawn — the same field that already hides a dead one.
+            Option<&ambition_platformer2d_core::BodyModeState>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
         // `sync_boss_actor_components`) but are their OWN feature family below. Without this
@@ -286,6 +296,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Pickup,
                 visible: collected.is_none(),
+                submerged: false,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -313,6 +324,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Chest,
                 visible: true,
+                submerged: false,
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -340,6 +352,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Breakable,
                 visible: !breakable.broken(),
+                submerged: false,
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -367,6 +380,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Switch,
                 visible: true,
+                submerged: false,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -400,6 +414,7 @@ pub fn rebuild_feature_view_index(
         roll,
         sprite_offset,
         respawn_grace,
+        body_mode,
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -413,7 +428,14 @@ pub fn rebuild_feature_view_index(
         let alive = health.is_some_and(|h| h.alive());
         // Peaceful actors are always visible (they don't die); hostile actors are
         // visible while alive.
-        let visible = !hostile || alive;
+        // ⛔⛔ AND A SUBMERGED BODY IS NOT DRAWN, whoever is driving it. This
+        // line is the actor road's ONLY visibility authority, and the submerged
+        // rule was missing from it — stated only in `sync_submerged_visibility`,
+        // which is `With<PlayerVisual>` and therefore never matches a match
+        // fighter. `BodyMode::hides_the_body` is where the sentence lives now so
+        // the two roads cannot drift apart again.
+        let submerged = body_mode.is_some_and(|m| m.body_mode.hides_the_body());
+        let visible = (!hostile || alive) && !submerged;
         let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
             || (hostile && attack.is_some_and(|a| a.is_winding_up() || a.is_active()));
         // Sprite rotation. A *surface-walker* (PuppySlug) orients to the surface it
@@ -447,6 +469,7 @@ pub fn rebuild_feature_view_index(
                 size: render_size,
                 kind: FeatureVisualKind::Actor,
                 visible,
+                submerged,
                 flash,
                 breakable_state: None,
                 chest_opened: false,
@@ -497,6 +520,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Hazard,
                 visible: hazard.hazard.active(),
+                submerged: false,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -532,6 +556,8 @@ pub fn rebuild_feature_view_index(
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Actor,
                 visible,
+                // A boss has no trapdoor: nothing puts one under the stage.
+                submerged: false,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -973,6 +999,7 @@ mod view_index_tests {
             size: ae::Vec2::new(1.0, 1.0),
             kind: FeatureVisualKind::Switch,
             visible,
+            submerged: false,
             flash: false,
             breakable_state: None,
             chest_opened: false,

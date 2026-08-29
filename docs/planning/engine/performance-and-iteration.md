@@ -2232,6 +2232,44 @@ to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced 
 `MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
 debugging test plumbing, not the engine.
 
+#### ⛔⛔ THE 516ms FRAME IS *EXTRACT*, NOT DECODE — AND THAT REDIRECTS THE FIX
+
+**I was about to make decode asynchronous. It already is.** Asking `tracy_zones.csv`
+instead of assuming:
+
+```text
+454.9ms max   0.1ms mean  n=28353  system{extract_render_asset<GpuImage>}
+455.7ms max                        schedule{name=ExtractSchedule}
+455.8ms max   0.6ms mean  n=28353  sub app{name=RenderExtractApp}
+617.7ms max 123.7ms mean  n=5      asset loading{ImageLoader "perfect_cellular_automaton_spritesheet.png"}
+486.7ms max 121.7ms mean  n=4      asset loading{ImageLoader "..._spritesheet.3.png"}
+```
+
+⇒ the `asset loading` zones are **async loader tasks on the IO pool** — long, but
+NOT on the frame. What is on the frame is
+`extract_render_asset<GpuImage>` at **454.9ms against a 0.1ms mean over 28,353
+frames**: the main-world → render-world copy of the decoded images.
+
+⭐⭐ **THE MECHANISM, STATED PROPERLY:** several ~16.8MP (4096x4096, ~67MB RGBA)
+sheets finish decoding at about the same time, and every one of them is extracted
+in the SAME frame. The hitch is not how long a decode takes; it is **how many
+finished decodes land together**.
+
+⇒ **THE LEVERS ARE THEREFORE DIFFERENT FROM THE ONES THE ROW ASSUMED:**
+1. **PACE WHAT BECOMES READY.** Nothing bounds how many big images complete in one
+   frame. ⭐ This is also why demanding at match PREP helps: it spreads completion
+   across preparation frames instead of piling it on the opening bell.
+2. **`RenderAssetUsages`** — an image kept in both worlds pays the copy; one that
+   only the render world needs can drop the CPU side.
+3. **Fewer bytes** (a GPU-compressed format) shrinks the copy itself, but that is a
+   content-pipeline change.
+⛔ **"Make decode async" is NOT on that list, because it already is.** Do not
+re-derive it from the megapixel correlation: the correlation is real and the
+mechanism it implies is wrong.
+
+⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
+startup/shutdown, not gameplay — do not read them as spikes.
+
 #### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
 
 ⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY

@@ -867,8 +867,29 @@ multi-render, falling sand — all null. The one change that DID move a number
 (`gameplay_allowed`, 83 evaluations to 1) worked because it retired a whole
 class at once.
 
-⚠ HONEST LIMIT: "broad and mostly dormant" is measured; "gating the groups would
-reclaim it" is NOT. Bevy skips a set whose condition is false cheaply, so the
+⭐⭐ **THE LIMIT IS NOW TESTED, AND THE MECHANISM HOLDS.** Gating
+`GameplaySimulationRoot` to `run_if(|| false)` — 17 phases measured at 0.93ms —
+took `[census] sim_phases` to 0.06ms and `[census] ggrs_driver` from 1.19ms to
+**0.240ms**. The driver shed 0.95ms against the 0.93ms the phases were
+independently measured at. ⇒ **a false set condition reclaims the systems' own
+work**, so capability gating buys what the systems cost, not merely their
+scheduling.
+
+⭐ AND TWO INSTRUMENTS AGREED FOR THE FIRST TIME: the residual driver cost with
+the sim gated off, 0.240ms, matches the 0.26ms computed as "driver overhead in no
+sim phase" from the entirely separate `PreUpdate − driver − sim_phases`
+arithmetic. That is `ReadInputs` plus ggrs bookkeeping, measured twice by
+different means.
+
+⛔ THE FRAME NUMBER FROM THAT PROBE IS CONFOUNDED AND IS NOT USED. Gating the sim
+means no match ever starts — the scenario aborted with *"the opening ceremony
+never released the cast"*, which is the premise check doing its job — so its
+3.17ms is "no match at all", not "this match minus the sim". Only the driver and
+phase numbers are clean, because those measure the gated region itself.
+
+⚠ REMAINING LIMIT: this calibrates the MECHANISM on one large set. It does not
+say what any particular dormant capability costs — the systems in the groups
+named above still have to be measured before anyone gates them. Bevy skips a set whose condition is false cheaply, so the
 saving is the systems' own work, not their scheduling — and this campaign has
 been wrong three times about what a population costs. ⇒ the first capability
 gate should be measured on ONE group before the pattern is generalized.

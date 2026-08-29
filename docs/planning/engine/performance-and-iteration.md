@@ -2066,6 +2066,30 @@ claimed "immutable at runtime" — the projection and the correction land togeth
 two taken were exactly the two with a single sim writer and a trivially
 deterministic value.
 
+⭐⭐ **AND THE SIX THAT REMAIN ARE NOT ONE-LINERS — EACH IS BLOCKED FOR ITS OWN
+REASON, WHICH IS THE PART A TODO LIST USUALLY LOSES:**
+
+| resource | why it is still presence-only |
+|---|---|
+| `EncounterRegistry` | holds **`Entity`** (`ids: BTreeMap<String, Entity>`) and implements `MapEntities` — **an entity index is not stable across a rewind**, so hashing it raw manufactures FALSE mismatches |
+| `PossessionState` | same: `possessed`/`home` are `Option<Entity>` |
+| `PortalFrameHistory` | a **`HashMap`** — iteration order is not deterministic, so it needs a sorted-by-key projection (its waiver's *"holds no entity handle"* is true) |
+| `ActiveConversation` | written from `Update`; the `SaveRestored` precedent applies |
+| `OwnedItems` | written from `Update`; already filed as *"wants a canonical projection (G2b)"* |
+| `InputStreamRecorder` | dev instrument, one writer, likely append-only |
+
+⇒ the first three want the registrar's **entity-aware** kinds
+(`rollback_resource_clone_entity_set_probed`, *"probed through the targets' stable
+sim identities"*) rather than a value hash — that is a design step, not a
+one-line change, and it is exactly why they were left presence-only.
+
+⭐ **A NICE CORROBORATION FOUND ON THE WAY:** `PossessionState`'s own doc says its
+hold timer *"lives HERE rather than in a `Local<f32>` on the trigger system because
+this resource is registered rollback state and a `Local` is not."* Somebody already
+learned the lesson of the six-`Local` table above and wrote the fix down at the
+type. ⇒ the pattern is known in this codebase; what was missing was the
+INSTRUMENT that can see when it is violated.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

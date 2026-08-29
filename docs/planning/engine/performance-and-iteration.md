@@ -253,6 +253,60 @@ the frame together. This is the number a player feels on a phone.
 
 ## Campaign 2026-08-29 — runtime efficiency, 24h
 
+### ⭐ READ THIS FIRST — the campaign in one screen
+
+Everything below is the working record, including retractions. This is what
+survived.
+
+**WHAT IS TRUE ABOUT THE FRAME** (all from `NoWindow` runs, where the phase
+census is trustworthy — see the render caveat below):
+- a 2-fighter Smash match is **4.5–5.0ms** (`dev`) / **2.8–3.2ms** (`profiling`);
+- the whole gameplay simulation is **0.93ms across 17 phases**, largest
+  `WorldPrep` at 0.22ms;
+- **~0.95ms of `PreUpdate` is not the sim at all** — it is the `DefaultPlugins`
+  population, and it is DIFFUSE: gating its two largest groups (ui focus +
+  picking, 31 asset trackers) recovered nothing;
+- **there is no hot system.** ~630 systems at 2.9–15.6us each.
+
+**WHAT IS TRUE ABOUT THE PREMISES WE STARTED FROM** — most did not survive:
+- ⛔ *"a room with hundreds of sprites chugs"* — no shipped room sampled exceeds
+  **46–87 visible sprites**, and +36 visible sprites cost **0.14ms**;
+- ⛔ *"inactive experiences participate in the frame"* — removing FOUR whole
+  experiences moved neither frame time nor startup registration;
+- ⛔ *"the presentation projection rewrites unchanged state"* — on real content,
+  **55 of 2515 transforms** and **32 of 151 sprites** changed;
+- ⛔ *"Smash renders the world more than once"* — `world_rendering=1`;
+- ⛔ *"rollback snapshots cost"* — `check_distance: 0`, ggrs skips saving entirely;
+- ⛔ entity population predicts cost — **three separate probes**, all null.
+
+**THE ONE THING THAT WORKED**, and why: `gameplay_allowed` hoisted from 83
+per-run evaluations to 1. It worked because it retired a WHOLE CLASS at once,
+which is the only lever shape this frame responds to. Gating a set off DOES
+reclaim its systems' work (measured: 0.95ms shed against 0.93ms).
+
+**⛔⛔ THE INSTRUMENT RULE THAT COST THE MOST:** `[census] phases` attributes
+WALL TIME between markers, so **GPU blocking lands in whichever phase brackets
+it**. Raising a render target 320x240 → 1280x960 took `StateTransition` from
+0.169 to 1.822ms — a state phase scaling with PIXELS. Phase splits are valid ONLY
+from non-rendering runs. `fragment_shader_invocations=0` does NOT make them safe.
+
+**WHERE TO GO NEXT**, in order:
+1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
+   on a GPU machine — every number here is from a GPU-less host;
+2. ▢ name the room that actually chugs. Four sampled rooms do not, and the
+   premise may be about content nobody has measured;
+3. ▢ `Update` is 1.42ms over 494 systems with `ambition_render` owning 99 and NOT
+   dormant — the last phase both ours and unattributed;
+4. ⛔ do NOT fund capability composition as a performance migration. It is
+   architecture and startup work; both were measured and neither moved.
+
+**METHOD, dearly bought — five instruments lied and each was caught by a
+SECONDARY number, never by the primary one:** a census must report POPULATION
+beside TIMING; check the thing you removed actually left; check the sample window
+is steady state; and an instrument that can mislead must SAY SO in its own output.
+
+
+
 Jon armed a 24-hour goal: *"make this game run faster, more efficiently, and
 elegantly"*, on evidence, with BOTH deliverables required — measurements
 preserved as history, and landed work with before/after numbers. His constraint

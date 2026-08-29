@@ -894,6 +894,43 @@ saving is the systems' own work, not their scheduling — and this campaign has
 been wrong three times about what a population costs. ⇒ the first capability
 gate should be measured on ONE group before the pattern is generalized.
 
+### ⛔⛔ WHERE THE LEVERAGE IS NOT — read this before opening a perf campaign here
+
+Eleven hypotheses tested this campaign, ten rejected. Grouped by what they rule
+out, because the negatives are the durable part:
+
+**Not entity populations** (three separate probes): 1297 spurious
+`AttackVfxView`, 64 archetypes, 1536 falling-sand chunks — none bought a
+millisecond. ⛔ Entity count is not a proxy for frame cost in this engine.
+
+**Not a dormant capability's presence**: falling sand's whole plugin — 21
+`PreUpdate` systems AND its 1024 chunks — costs nothing measurable.
+
+**Not the rendering path**: `world_rendering=1`, `offscreen=0`, portal
+`rigs=0`. Smash draws the world exactly once.
+
+**Not rollback snapshots**: the shipped session is `check_distance: 0` and ggrs
+skips saving entirely at zero, so `SaveWorld`/`LoadWorld` never run and ~19
+rollback registrations cost zero per frame.
+
+**Not the DefaultPlugins block** (two runtime gates): UI focus + picking 0.00ms;
+31 asset trackers ≤0.145ms. The 0.95ms outside the driver is DIFFUSE.
+
+**Not the gameplay simulation**: 17 phases, 0.93ms total, largest `WorldPrep` at
+0.22ms. Optimizing any single one chases a tenth of the frame.
+
+⭐ **WHAT DID WORK, and it is the only thing that did:** retiring a whole class
+at once — `gameplay_allowed` from 83 evaluations per run to 1. And the mechanism
+is calibrated: gating a set off reclaims its systems' actual work (0.95ms shed
+against 0.93ms measured).
+
+⇒ **THE SHAPE OF THE ANSWER IS ARCHITECTURAL, NOT LOCAL.** A 4.7ms frame spread
+over ~630 systems at 2.9–15.6us each has no hot spot to find. Anyone opening a
+performance campaign here should start from composition — what is installed, and
+what a title actually needs — and should NOT start by profiling for an expensive
+system. There isn't one, and this campaign spent eleven probes proving it so the
+next one does not have to.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and
@@ -910,6 +947,7 @@ problem into a startup one.
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
 | I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I14 | The 0.95ms outside the GGRS driver has a GROUP in it worth gating | ⛔ **REJECTED — IT IS DIFFUSE.** Two runtime gates, both clean (`seats_at_end=2`, driver unmoved): UI focus + picking cost **0.00ms**; all 31 `Assets::track_assets` cost at most **0.145ms**, ~7% and below the noise floor | ⇒ **the DefaultPlugins block is NOT A LEVER.** The two largest groups in it are worth nothing between them, and what remains (~15 raw input, 7 leafwing, 7 `release_confirmed_effects`, 4 egui) is smaller still. The 0.95ms is tens of microseconds each across a hundred systems. ⭐ **THIS IS THE MOST USEFUL NEGATIVE OF THE CAMPAIGN**: it says the remaining leverage is in AMBITION'S OWN composition, not in what Bevy installs — and it says so before anyone spent a migration finding out. |
 | I13 | UI focus and picking are a meaningful share of the 0.95ms outside the driver | ⛔ **REJECTED, and cleanly this time.** `UiSystems::Focus` + `PickingSystems::{ProcessInput,Backend,Hover}` gated to `run_if(\|\| false)` at RUNTIME inside one build: `PreUpdate` 2.14 -> 2.19ms, `ggrs_driver` 1.19 -> 1.196ms, `seats_at_end=2` so the match really ran | ⭐ The source read predicted this: `PickingSettings::{input,hover}_should_run` already gates picking, and a windowless host has no pointers — so most of that population was ALREADY skipping. ⇒ **the 0.95ms is elsewhere**: 31 `track_assets`, ~15 raw input, 7 leafwing, 7 `release_confirmed_effects`, 4 egui. ⭐ This is the first probe run the RIGHT way per I12 — runtime gate, one build — and the driver figure matching to three decimals is evidence it touched only what it meant to. |
 | I12 | A runtime measured WITHOUT `dev_tools` prices what a shipped game would pay | ⛔ **THE PROBE IS VOID, and it failed in the most tempting direction.** With `dev_tools` off the frame got 2-3x SLOWER — 9.2-13.7ms against a 4.5-5.0ms baseline, `ggrs_driver` 3.44ms against 1.19-1.83ms | ⛔ Do NOT read this as "developer tooling makes the game faster". Turning one feature off `ambition_app` changes FEATURE UNIFICATION across the whole dependency graph, so the two builds differ in more than the thing being varied — the same trap that flips `cargo test -p` results in this repo. ⇒ **a cargo feature is not a clean A/B for runtime cost.** Pricing dev tooling honestly needs the systems disabled AT RUNTIME inside one build, not a second build. ⚠ Jon's steer, same day: **developer tooling should be OPTIMIZED, not removed** — so the useful question was never "what would a shipped game pay" but "what do these systems cost, and can they cost less while staying available". |
 | I11 | Falling sand's ~20 `PreUpdate` SYSTEMS cost the Smash frame something (I10 tested only the chunks) | ⛔ **REJECTED, and this time the experiment was the right one.** Removing `FallingSandRoomPlugin` took `PreUpdate` from 137 to 116 systems — `msgr_spawn_particle` and the rest confirmed gone from `[census] membership` — and the frame did not move: 4.50–4.76ms over six steady-state samples against a 4.41–4.99ms baseline, `seats_at_end=2` | ⇒ **falling sand costs nothing measurable in a Smash frame — plugin, systems AND chunks.** It still deserves dormancy on DESIGN grounds (a fighting game should not install a sand grid) but it is not a performance lever and never was. ⚠ two failed attempts preceded this: one where `--no-default-features` silently did not disable the feature (I9), and one where the removal worked but the window was 0.72s of startup-contaminated samples with `max=40.66ms`. ⛔ A probe needs BOTH a check that the thing left AND a steady-state window. |

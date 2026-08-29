@@ -460,6 +460,40 @@ shares were stable while its magnitude was not.
 ⚠ I published the 4.4% figure and its "~30 systems" consequence before re-running
 it. The rule this document keeps re-learning caught its own author one more time.
 
+### ⛔ A WITHIN-RUN FIGHTER A/B THAT LOOKED PERFECT AND IS NOT — rejected 2026-08-29
+
+A 4-fighter match loses fighters to knockouts, so the body count changes INSIDE one
+process. That looks like the ideal design — the same immunity to block drift that
+makes the sprite-burst and spike-quartile findings the most solid numbers here.
+6000 ticks at 20Hz census, bucketing frame means by `bodies`:
+
+| bodies | intervals | frame mean |
+|---|---|---|
+| 4 | 198 | 4.772ms |
+| 3 | 138 | 4.668ms |
+| 2 | 5 | **4.722ms** |
+| 1 | 23 | 4.525ms |
+
+It yields a tidy **104.4us per fighter**, close to the low end of the interleaved
+cross-arm figure. ⛔ **Do not use it.**
+
+**Why it fails: the sequence is MONOTONIC.** `bodies` runs `0 → 4 → 3 → 2 → 1 → 0`,
+each value one contiguous block, never alternating. So every `bodies=4` interval
+PRECEDES every `bodies=3` interval, and the comparison is TIME-ORDERED, not
+interleaved — any drift across the run (thermal, allocator, VFX accumulation) is
+confounded with the fighter count. It has the same structural weakness as a
+cross-block comparison, just at finer grain and better disguised.
+
+⭐ **AND THE DATA CONVICTS ITSELF: `bodies=2` costs MORE than `bodies=3`** (4.722
+vs 4.668). Fewer bodies cannot cost more, so the noise here is at least as large as
+the effect being claimed.
+
+⇒ **a within-run A/B is only strong when the two states INTERLEAVE.** The sprite
+burst qualifies (population rises AND falls, repeatedly, with baseline on both
+sides); a knockout sequence does not, because it only ever goes one way. ⭐ The
+per-fighter cost therefore rests on the INTERLEAVED cross-arm measurement and its
+honest ~125–240us spread.
+
 ⭐⭐ **EVERY COMPARISON IN THIS CAMPAIGN AUDITED AGAINST THE INTERLEAVING RULE**,
 because a rule that invalidates your own past work is worth applying to it:
 

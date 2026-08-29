@@ -2567,10 +2567,24 @@ caught both breakages is named as something you probably do not need, and it
 turned out you did.**
 
 ⇒ `match_shots` stayed broken through an entire refactor because nobody ran
-exhaustive mode in that window. ▢ **These are `cargo check` jobs, not test runs** —
-cheap by construction. Promoting them out of `everything` into the default run is
-the proportionate fix, and it is a scheduling decision (everyone's test time)
-rather than a new guardrail: the guardrail is already written.
+exhaustive mode in that window.
+
+⭐⭐ **AND RUNNING A SAMPLE OF THOSE JOBS BY HAND FOUND A THIRD BREAKAGE
+IMMEDIATELY — NOT A BINARY THIS TIME, A LIBRARY FEATURE.**
+`cargo check -p ambition_damage --features causal` failed:
+`BodyReaction` is `#[cfg(feature = "causal")]` in `ambition_combat`, and
+`ambition_damage` declared `causal = []` — **it never forwarded the feature it
+re-exports through.** In the app something else turns combat's `causal` on, so the
+gap is invisible; enable it alone and the type is "configured out".
+✔ Fixed: `causal = ["ambition_combat/causal"]`. ⇒ **a feature that is DECLARED but
+not FORWARDED compiles everywhere except on its own.**
+
+▢ **THE COST OF PROMOTING THESE, MEASURED:** **32 crates** qualify (non-default
+features + tests), and three sampled jobs took **7.34s / 6.67s / 20.12s** — call it
+~11s each, **~6 minutes** added sequentially and less in parallel. They are
+`cargo check`, not test runs. ⇒ against that: **three real breakages found the
+first time anybody ran them this month.** The scheduling call is Jon's; the
+guardrail is already written and merely disarmed.
 
 ##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT
 

@@ -2288,6 +2288,23 @@ tell was uniform: *a big compile-time table indexed lazily, first asked for by
 something that runs during play.* ⭐ Size of the table, not count of the
 `OnceLock`s, is what separated the three from the fifteen.
 
+⚠⚠ **AND WARMING THEM MOVED WORK INTO STARTUP — A COST I SHOULD STATE, NOT LEAVE
+FOR SOMEBODY TO FIND.** Between the two hardware runs, `[startup] total before
+first frame` went **2382.8ms → 2482.7ms (+~100ms)**. Three index builds at boot is
+the obvious suspect.
+
+⛔ **BUT I CANNOT ATTRIBUTE IT, AND SAY SO RATHER THAN CLAIM IT.** The marks move
+in BOTH directions and do not sum to the delta — `after_load_data_handle`
++48.4ms, `before_audio_init` **-68.9ms**, `startup_begin` -15.4ms — across ONE run
+each, with other people's commits in between. That spread is startup's own
+variance, not an attribution.
+
+⭐ **THE TRADE HOLDS EVEN AT THE PESSIMISTIC END**, which is why this is a footnote
+and not a retraction: moving up to ~100ms into a loading screen to remove a 189ms
+hitch from the first punch of a match is the right direction, and boot is the one
+moment where the player is already waiting. ▢ If startup ever becomes the subject,
+measure `warm_baked_indexes` directly rather than inferring it from two runs.
+
 
 #### ✔ SECOND FIX: THE ROSTER NOW ASKS FOR ITS CAST, INSTEAD OF THE OPENING BELL
 

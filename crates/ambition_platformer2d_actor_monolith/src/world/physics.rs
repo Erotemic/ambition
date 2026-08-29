@@ -6,7 +6,6 @@
 //! juice without surrendering platforming feel. A future physics-player mode can
 //! be added behind the same boundary.
 
-use ambition_platformer2d_shared_tangle::physics::{PhysicsSandboxSettings};
 use ambition_platformer2d_core as ae;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_core::AabbExt;
@@ -14,6 +13,7 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 #[cfg(feature = "physics_debris")]
 use avian2d::prelude::*;
 #[cfg(feature = "physics_debris")]
@@ -21,9 +21,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 #[cfg(feature = "physics_debris")]
-use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
-#[cfg(feature = "physics_debris")]
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
+#[cfg(feature = "physics_debris")]
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 
 #[cfg(feature = "physics_debris")]
 const SANDBOX_GRAVITY: f32 = 1250.0;
@@ -33,7 +33,6 @@ const STATIC_COLLIDER_Z: f32 = WORLD_Z_BLOCK - 1.0;
 const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
 #[cfg(feature = "physics_debris")]
 const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
-
 
 /// Marker for room-owned Avian entities so room transitions can retire them
 /// through the physics-safe path instead of despawning active bodies immediately.
@@ -90,6 +89,31 @@ pub fn physics_spawn_debris_messages(
     }
 }
 
+/// Pause avian while nothing it owns exists, and unpause the moment something does.
+///
+/// The predicate is `RigidBody` presence: debris IS avian's population here, so
+/// "no rigid bodies" means "nothing for the solver to solve". Ambition's own
+/// bodies are not avian bodies — they live in `GgrsSchedule` and never appear in
+/// this query.
+#[cfg(feature = "physics_debris")]
+fn pause_physics_when_no_debris_exists(
+    debris: Query<(), With<RigidBody>>,
+    mut physics_time: ResMut<Time<avian2d::schedule::Physics>>,
+) {
+    use avian2d::schedule::PhysicsTime as _;
+    let wanted = debris.iter().next().is_some();
+    if wanted == physics_time.is_paused() {
+        // ⛔ Only on a CHANGE. `ResMut` marks its resource changed on DEREF, so
+        // touching it every frame would announce a change that did not happen to
+        // every reader — the exact defect fixed in the hot-reload watcher.
+        if wanted {
+            physics_time.unpause();
+        } else {
+            physics_time.pause();
+        }
+    }
+}
+
 #[cfg(feature = "physics_debris")]
 pub struct AmbitionPhysicsPlugin;
 
@@ -111,6 +135,30 @@ impl Plugin for AmbitionPhysicsPlugin {
                 (
                     update_physics_debris_lifetimes,
                     complete_pending_physics_despawns,
+                    // ⭐⭐ PAUSE AVIAN WHILE THERE IS NO DEBRIS. This plugin is
+                    // gated on a feature literally called `physics_debris`, and
+                    // it installs `PhysicsPlugins::default()` — the WHOLE of
+                    // avian2d. Tracy on a Smash match, 2026-08-29, found its
+                    // schedules running every fixed step with no debris in the
+                    // world at all: `PhysicsSchedule` plus ~6.4 `SubstepSchedule`
+                    // steps per frame, while Ambition's own collision runs
+                    // separately in `GgrsSchedule`.
+                    //
+                    // ⚠ SIZED BEFORE IT WAS WRITTEN: ~40–60us/frame after the
+                    // measured 2.4x Tracy inflation, about 1% and BELOW this
+                    // machine's noise floor. ⛔ NO frame-time claim is made. It
+                    // is here because it is the brief's invariant stated
+                    // exactly — *a capability installed but dormant should cost
+                    // very little* — and a cosmetic effect paying for a physics
+                    // engine is that invariant broken.
+                    //
+                    // ⭐ PAUSE, NOT A SCHEDULE GATE, on purpose: pausing is
+                    // avian's own supported API (`PhysicsTime::pause`), so its
+                    // schedules still run their bookkeeping and a body spawned
+                    // this frame is initialised normally — it simply does not
+                    // step. Skipping the schedules outright would be reaching
+                    // past the library's contract to save the same microseconds.
+                    pause_physics_when_no_debris_exists,
                 )
                     .chain(),
             );

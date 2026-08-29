@@ -314,8 +314,20 @@ BELOW the noise floor. ⇒ ⛔ not a performance fix, and consistent with everyt
 else this campaign measured. **It is recorded because it is the invariant the
 brief states, violated exactly:** *capability installed but dormant ⇒ very small
 fixed cost.* Here a cosmetic effect costs a physics engine's schedules whether
-or not one debris body exists. ▢ A gate on `any_with_component::<RigidBody>` (or
-avian's own `Physics::pause`) is the obvious shape, sized at ~1%.
+or not one debris body exists. ⭐ **DONE:** `pause_physics_when_no_debris_exists` pauses avian while no
+`RigidBody` exists and unpauses the frame one appears.
+
+⛔ PAUSE, NOT A SCHEDULE GATE, deliberately — `PhysicsTime::pause` is avian's own
+supported API, so its schedules still run their bookkeeping and a body spawned
+this frame initialises normally; it simply does not step. Skipping the schedules
+would reach past the library's contract for the same microseconds, and that is
+how a debris body ends up never waking.
+⛔ AND IT WRITES ONLY ON A CHANGE: `ResMut` marks its resource changed on DEREF,
+so touching `Time<Physics>` every frame would announce a change that did not
+happen to every reader — the defect fixed in the hot-reload watcher that same
+morning.
+⚠ NO frame-time claim: ~1%, below the noise floor, and sized before it was
+written.
 
 **⭐⭐ THE ONLY NAMED PER-SYSTEM COST TRACY FOUND WAS egui — AND IT IS NOW GATED.**
 Per-system attribution on the trustworthy `NoWindow` path ranked everything, and

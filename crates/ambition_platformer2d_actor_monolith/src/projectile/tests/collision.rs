@@ -449,16 +449,18 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
          NO damage (was {max}, now {health})"
     );
 
-    // ⚠ AND WHAT THE SHOT ITSELF DID IS A SEPARATE QUESTION — D199's SWEPT half.
-    // The damage answer above is settled by a raycast over the whole leg, so it
-    // holds at any speed. Whether the shot STOPPED at the wall is decided by
-    // `resolve_world_collision`, which is an ENDPOINT test: at 4000 px/s the
-    // endpoint is already past a thin wall, so the shot can pass through it while
-    // correctly failing to damage anyone behind it. This records which half is
-    // which rather than asserting the unfixed one.
+    // ⭐ AND THE SHOT ITSELF MUST STOP THERE — D199's SWEPT half, a separate
+    // question from the damage one above. `resolve_world_collision` is an
+    // ENDPOINT test, so at 4000 px/s the endpoint is already past an 8px wall and
+    // the shot sailed through it (measured: one body still in flight) while
+    // correctly damaging nobody. The caller now pulls a tunnelled shot back to
+    // its crossing before resolving, which restores the precondition that test
+    // was written for.
     let survivors = crate::projectile::tests::projectile_bodies(&mut app);
-    eprintln!(
-        "[D199] after one 4000px/s tick through an 8px wall: {} projectile body/bodies remain",
+    assert!(
+        survivors.is_empty(),
+        "a shot fast enough to end the tick past a thin wall must still be stopped \
+         BY that wall, not tunnel it — {} body/bodies still in flight",
         survivors.len()
     );
 }

@@ -809,6 +809,47 @@ pub fn step_projectiles(
         // bouncing fireball arcs whoever throws it; a lasersword detonates on
         // the wall. (B2: retires the faction→policy fork.)
         let world_hit = game.world_hit;
+        // ⛔⛔ D199, SWEPT HALF: PULL A TUNNELLED SHOT BACK TO ITS IMPACT POINT.
+        // `resolve_world_collision` is an ENDPOINT test — it asks whether the
+        // shot's AABB overlaps a block RIGHT NOW — so a shot fast enough to end
+        // the tick past a thin wall never touches it and sails through. Measured
+        // 2026-08-29: one tick at 4000 px/s through an 8px wall left the body in
+        // flight.
+        //
+        // ⭐ Rather than change that function's signature (its eight test call
+        // sites all pass an endpoint, and they are testing endpoint semantics
+        // correctly), this restores the PRECONDITION it was written for: if the
+        // leg crossed a solid the endpoint has already left behind, put the shot
+        // back at the crossing. The endpoint test then sees exactly what it would
+        // have seen at a slower speed, and every policy below it — bounce,
+        // expire, one-way passthrough — behaves unchanged.
+        //
+        // ⚠ SOLIDS ONLY, matching the damage check above: a one-way is passable
+        // from below by design, and pulling a shot back onto one would convert a
+        // legal passthrough into a bounce.
+        // ⚠ Only when the endpoint is NOT already touching something — otherwise
+        // this would move a shot that the existing test can already resolve.
+        {
+            // The same leg the victim ordering above reasons about, recomputed
+            // here because that one is scoped to the victim block.
+            let leg_start = kin.pos - kin.vel * dt;
+            let leg = kin.pos - leg_start;
+            let leg_len = leg.length();
+            let endpoint_box = kin.aabb();
+            let already_touching = collision_world.blocks.iter().any(|block| {
+                matches!(
+                    block.kind,
+                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+                ) && block.aabb.strict_intersects(endpoint_box)
+            });
+            if !already_touching && leg_len > f32::EPSILON {
+                if let Some((hit, _normal)) =
+                    ae::cast::raycast_solids(&*collision_world, leg_start, leg, leg_len, false)
+                {
+                    kin.pos = hit;
+                }
+            }
+        }
         match resolve_world_collision(
             &mut kin,
             &mut game,

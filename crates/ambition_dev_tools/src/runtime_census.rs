@@ -281,6 +281,119 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     eprintln!("{row}");
 }
 
+/// Where the SIM TICK's time goes, phase by phase.
+///
+/// ⭐⭐ THE INSTRUMENT THE CAMPAIGN ACTUALLY NEEDED. `[census] phases` splits the
+/// MAIN schedule and reports `PreUpdate=1.98ms` for a Smash match — but in this
+/// app `PreUpdate` holds one exclusive system, `bevy_ggrs`'s
+/// `run_ggrs_schedules`, which runs the whole sim as `GgrsSchedule`. So the main
+/// split bottoms out at "the simulation costs 2ms" and cannot say which part.
+/// This splits THAT.
+///
+/// ⛔ IT CANNOT USE THE `FramePhaseMark` TRICK. That one interleaves marker
+/// SCHEDULES into `MainScheduleOrder`; these are SETS inside one schedule, so
+/// the boundary has to be a system ordered between them. The phases are already
+/// `.chain()`ed, which is what makes "after this set, before the next" a
+/// well-defined place to stand.
+///
+/// ⚠ THE TOTALS ARE NOT ROLLBACK STATE, deliberately. This resource is mutated
+/// inside the sim schedule and never registered for rollback, so a rewind leaves
+/// last-branch timings in it. That is correct for an instrument — it measures
+/// what the CPU actually did, including work that was later discarded — but it
+/// means these numbers are not reproducible across a rewind and must never gate
+/// behaviour. The shipped local session runs `check_distance: 0` and never
+/// rewinds at all.
+#[derive(Resource, Default)]
+pub struct SimPhaseCensus {
+    /// When the previous boundary fired, or `None` before the first.
+    last: Option<Instant>,
+    /// Accumulated time attributed to each phase, parallel to `names`.
+    totals: Vec<f64>,
+    names: Vec<&'static str>,
+    ticks: u32,
+}
+
+impl SimPhaseCensus {
+    fn with_names(names: Vec<&'static str>) -> Self {
+        Self {
+            last: None,
+            totals: vec![0.0; names.len()],
+            names,
+            ticks: 0,
+        }
+    }
+
+    /// Start the tick's window. Time before this point belongs to the frame,
+    /// not to any sim phase, and is deliberately attributed to neither.
+    fn open(&mut self) {
+        self.last = Some(Instant::now());
+        self.ticks = self.ticks.saturating_add(1);
+    }
+
+    /// Close the phase that just ended and open the next.
+    fn close(&mut self, index: usize) {
+        let now = Instant::now();
+        if let Some(last) = self.last {
+            if let Some(total) = self.totals.get_mut(index) {
+                *total += now.duration_since(last).as_secs_f64() * 1000.0;
+            }
+        }
+        self.last = Some(now);
+    }
+}
+
+/// The boundary system for one sim phase.
+fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
+    move |mut census: ResMut<SimPhaseCensus>| census.close(index)
+}
+
+/// OPEN the window, attributing nothing.
+///
+/// ⛔⛔ WITHOUT THIS THE FIRST BUCKET IS A LIE, and it lied convincingly. A
+/// closing boundary attributes "now minus the previous boundary", so with no
+/// opening mark the first phase absorbs everything between the PREVIOUS tick's
+/// last phase and this one's first — the entire rest of the frame, main
+/// schedule and render included. Measured 2026-08-29: it reported
+/// `PlayerInput=3.96ms` inside a sim tick that the main-phase census put at
+/// 1.98ms TOTAL. A bucket larger than the thing containing it is the tell.
+fn open_sim_phase_window(mut census: ResMut<SimPhaseCensus>) {
+    census.open();
+}
+
+/// Report the sim-phase split on the census interval, then reset.
+///
+/// ⭐ REPORTED AS A PER-TICK AVERAGE over the interval, because a single sim
+/// tick is microseconds and the interesting quantity is what the tick costs on
+/// average, not what one of them did.
+pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<SimPhaseCensus>) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    if phases.ticks == 0 {
+        return;
+    }
+    let ticks = phases.ticks as f64;
+    let mut row = format!("[census] sim_phases t={at:.3} ticks={}", phases.ticks);
+    let mut ranked: Vec<(&'static str, f64)> = phases
+        .names
+        .iter()
+        .copied()
+        .zip(phases.totals.iter().map(|total| total / ticks))
+        .collect();
+    ranked.sort_by(|left, right| {
+        right
+            .1
+            .partial_cmp(&left.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for (name, per_tick) in ranked {
+        row.push_str(&format!(" {name}={per_tick:.3}"));
+    }
+    eprintln!("{row}");
+    phases.totals.iter_mut().for_each(|total| *total = 0.0);
+    phases.ticks = 0;
+}
+
 /// WHAT the entities ARE — the biggest populations, by the component that names
 /// them.
 ///
@@ -593,6 +706,66 @@ pub fn report_schedule_phase_census(
 /// adds a schedule per boundary, and a schedule that runs every frame is not
 /// free. The census is a measuring instrument, and it must not join the
 /// population it measures when nobody asked it to.
+/// Stand a boundary system after each top-level sim phase, and after each
+/// sub-phase of `CoreSimulation`.
+///
+/// ⭐ THE ORDER IS THE CHAIN'S, NOT A LIST I KEEP. `configure_platformer2d_simulation_phases`
+/// already `.chain()`s these, so ordering a marker `.after(phase)` puts it
+/// exactly at that phase's trailing edge. ⛔ The names below still duplicate the
+/// chain's membership, and a phase added there without a line here is simply
+/// unattributed — its time lands in whichever neighbour closes next, which is
+/// the honest failure mode for a boundary instrument but is a failure mode.
+fn install_sim_phase_boundaries(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::schedule::{
+        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _,
+    };
+
+    let sim = app.sim_schedule();
+    // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first
+    // because the umbrella closes only once they all have.
+    let names = vec![
+        "PlayerInput",
+        "WorldPrep",
+        "PlayerSimulation",
+        "RoomTransition",
+        "Combat",
+        "PresentationSync",
+        "FeatureCollection",
+        "FeatureInteraction",
+        "LdtkRuntimeSpine",
+        "EncounterSimulation",
+        "Cutscene",
+        "GameplayEffects",
+        "Progression",
+        "ResetProcessing",
+        "FeatureViewSync",
+        "PresentationVisualSync",
+        "Trace",
+    ];
+    app.insert_resource(SimPhaseCensus::with_names(names));
+
+    // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
+    // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
+    app.add_systems(sim, open_sim_phase_window.before(Phase::PlayerInput));
+    app.add_systems(sim, mark_sim_phase(0).after(Phase::PlayerInput));
+    app.add_systems(sim, mark_sim_phase(1).after(Phase::WorldPrep));
+    app.add_systems(sim, mark_sim_phase(2).after(Phase::PlayerSimulation));
+    app.add_systems(sim, mark_sim_phase(3).after(Phase::RoomTransition));
+    app.add_systems(sim, mark_sim_phase(4).after(Phase::Combat));
+    app.add_systems(sim, mark_sim_phase(5).after(Phase::PresentationSync));
+    app.add_systems(sim, mark_sim_phase(6).after(Phase::FeatureCollection));
+    app.add_systems(sim, mark_sim_phase(7).after(Phase::FeatureInteraction));
+    app.add_systems(sim, mark_sim_phase(8).after(Phase::LdtkRuntimeSpine));
+    app.add_systems(sim, mark_sim_phase(9).after(Phase::EncounterSimulation));
+    app.add_systems(sim, mark_sim_phase(10).after(Phase::Cutscene));
+    app.add_systems(sim, mark_sim_phase(11).after(Phase::GameplayEffects));
+    app.add_systems(sim, mark_sim_phase(12).after(Phase::Progression));
+    app.add_systems(sim, mark_sim_phase(13).after(Phase::ResetProcessing));
+    app.add_systems(sim, mark_sim_phase(14).after(Phase::FeatureViewSync));
+    app.add_systems(sim, mark_sim_phase(15).after(Phase::PresentationVisualSync));
+    app.add_systems(sim, mark_sim_phase(16).after(Phase::Trace));
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
     use bevy::app::MainScheduleOrder;
@@ -664,9 +837,17 @@ impl Plugin for RuntimeCensusPlugin {
                 report_ecs_census,
                 report_schedule_load_census,
                 report_entity_populations,
+                report_sim_phase_census,
             ),
         );
         let enabled = app.world().resource::<RuntimeCensus>().enabled();
+
+        // ⛔ THE BOUNDARIES ARE NOT REGISTERED WHEN THE CENSUS IS OFF. They run
+        // inside the SIM schedule — the hottest schedule in the app — and an
+        // instrument must not join the population it measures when nobody asked.
+        if enabled {
+            install_sim_phase_boundaries(app);
+        }
 
         // ⛔ THE PHASE MARKS ARE NOT REGISTERED WHEN THE CENSUS IS OFF. Every
         // other census here costs one bool test on a frame it does not sample.

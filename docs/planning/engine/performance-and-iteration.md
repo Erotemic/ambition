@@ -635,6 +635,58 @@ time, not executor overhead.
 for ranking, and a `profiling`-profile run is owed before any of them is quoted
 as a budget.
 
+### ⭐⭐ THE SIM TICK, SPLIT — and the gameplay phases are not the problem
+
+`[census] sim_phases` (new) stands a boundary after each phase of the sim chain,
+which `[census] phases` cannot do because in this app the whole sim is ONE
+exclusive system inside `PreUpdate`. Smash match, 2 fighters, this host, `dev`:
+
+```text
+[census] sim_phases ticks=41 WorldPrep=0.222 Combat=0.204 PlayerInput=0.140
+    PlayerSimulation=0.118 Trace=0.090 Progression=0.060 RoomTransition=0.031
+    GameplayEffects=0.018 FeatureInteraction=0.013 PresentationSync=0.008
+    ResetProcessing=0.007 FeatureCollection=0.005 EncounterSimulation=0.005
+    PresentationVisualSync=0.003 Cutscene=0.002 LdtkRuntimeSpine=0.001
+    FeatureViewSync=0.000
+[census] phases     PreUpdate=2.119 Update=1.399 PostUpdate=0.649
+                    RunFixedMainLoop=0.427 StateTransition=0.202
+```
+
+⭐⭐⭐ **THE SEVENTEEN GAMEPLAY PHASES SUM TO ~0.93ms OF A 2.12ms `PreUpdate`.
+ROUGHLY 1.2ms — MORE THAN HALF — IS IN NO SIM PHASE AT ALL.**
+
+⇒ **the gameplay simulation is not what makes a Smash frame expensive.** The
+biggest gameplay phase, `WorldPrep`, is 0.22ms; `Combat` is 0.20ms. Optimizing
+any of them chases a tenth of the frame at best.
+
+⚠ WHAT THE MISSING 1.2ms COULD BE, none of it yet measured — do not pick one and
+believe it:
+- the `ReadInputs` schedule, which `run_ggrs_schedules` runs BEFORE the advance;
+- ggrs's own `advance_frame` bookkeeping and request dispatch;
+- systems registered into the sim schedule OUTSIDE the phase chain, which no
+  boundary brackets and whose time therefore lands nowhere;
+- the DefaultPlugins `PreUpdate` population — `bevy_ui::ui_focus_system`,
+  leafwing input, picking, asset events — which sits in `PreUpdate` but OUTSIDE
+  `run_ggrs_schedules` entirely.
+
+⭐ The next instrument is a boundary immediately inside and immediately outside
+`run_ggrs_schedules`, which splits that 1.2ms between "the GGRS driver" and "the
+rest of PreUpdate" in one measurement. That is the question worth answering next.
+
+⛔ TWO INSTRUMENT FAILURES ON THE WAY TO THIS NUMBER, both caught by
+implausibility rather than by a test:
+1. the first `sim_phases` reading said `PlayerInput=3.96ms` inside a sim tick the
+   main census put at 1.98ms TOTAL. A closing boundary attributes "now minus the
+   previous boundary", and with no OPENING mark the first bucket absorbed
+   everything between the previous tick's last phase and this tick's first — the
+   whole rest of the frame. ⇒ `open_sim_phase_window` runs `.before(PlayerInput)`
+   and attributes nothing.
+2. the condition census first reported `system_conditions=0` beside
+   `systems=886` (see I3).
+⇒ **a boundary instrument's first output must be checked arithmetically against
+a coarser measurement that already exists.** Both lies were caught only because
+one did.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and
@@ -651,6 +703,9 @@ problem into a startup one.
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
 | I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I10 | The 1024 `bevy_falling_sand` chunk entities cost the Smash frame something | ⛔ **REJECTED.** Shrinking `with_map_size(32)` to `2` took the world from 2048 entities to 512 — every chunk gone — and the frame got **SLOWER**: 5.24ms against the 4.33–4.93ms band | ⇒ **entity population is NOT a proxy for frame cost in this engine, and that is now three-for-three** (1297 `AttackVfxView`, 64 archetypes, 1536 chunk entities — none of them bought a millisecond). ⛔ Stop reaching for the biggest number in `[census] populations`; it has never once been the answer. Falling sand still deserves dormancy on DESIGN grounds — a fighting game should not install a sand grid — but it is not a performance lever and must not be sold as one. |
+| I9 | `--no-default-features` on `ambition_app_tools` disables the `falling_sand` feature | ⛔ REJECTED, AND THE EXPERIMENT SILENTLY DID NOT RUN — the census still reported `ChunkRegion=1024` and an identical archetype count | A dependency's own `default = ["desktop_dev"]` is not disabled by `--no-default-features` on the DEPENDENT; that needs `default-features = false` on the dependency declaration. ⛔ The run LOOKED like a clean negative result. Always check that the thing you removed actually left — `[census] populations` was the only reason this was caught rather than published as "falling sand costs nothing". |
+| I8 | Smash renders the world more than once (the brief's "fix that immediately") | ⛔ REJECTED — `[census] views` reports `cameras=4 active=3 world_rendering=1 offscreen=0`, and `[census] portal` reports `rigs=0 active=0` | Smash draws the world EXACTLY ONCE. The whole render-view direction closes with no work. ⚠ one loose end worth its own row: the `Cube scrim display camera` (menu kaleidoscope) sits ACTIVE at `order=7` with `layers=none` throughout a match — it draws nothing but still occupies an active camera slot. Same class as the rest: a dormant capability that never quite went dormant. |
 | I7 | Archetype fragmentation from spurious components is what makes `PreUpdate` cost 2ms in a match | ⛔ **REJECTED BY THE AFTER-MEASUREMENT.** Removing 1297 spurious `AttackVfxView` components (64 archetypes, 376 -> 312) moved the frame NOT AT ALL: mean 4.41-4.82ms before, 4.84ms after; PreUpdate 1.98 -> 2.11ms | The defect was real and the fix is kept ON CORRECTNESS GROUNDS — a presentation fact was being stamped onto falling-sand chunks and UI nodes — but it buys no measurable time and must not be reported as if it did. ⇒ **PreUpdate's 2ms remains unexplained**, and whatever causes it does not scale with archetype count. |
 | I6 | Frame deltas of a few percent can be read off single runs | ⛔ REJECTED — the same binary and scenario produced means of 4.41, 4.51, 4.82 and 4.84ms across runs | Run-to-run spread here is ~10%, so ⛔ no single-run comparison below about 15% means anything. Repeated runs and a stated range are the minimum for any claim smaller than that, and the ledger's job is to make that discipline automatic. |
 | I5 | The D-PERF rows name work that still needs doing | ⛔ REJECTED, THREE FOR THREE — every row checked so far was already addressed | D-PERF-1's set-gating mechanism already existed and was already used (`simulation_authorized` on `GameplaySimulationRoot`); D-PERF-2's "1802 ticks each" premise is wrong (the demos are tuple-gated, which Bevy makes collective); D-PERF-3's headline candidate `rebuild_control_prompt` has been change-driven since 2026-07-23, a MONTH before the measurement that named it, and `rebuild_feature_view_index`'s `insert_if_absent` already avoids the per-frame `String` allocation it looked like it made. ⇒ **the written rows are not a reliable work list.** The engine is in better shape than they say, and the next D-PERF decision needs FRESH per-system attribution rather than another row. |

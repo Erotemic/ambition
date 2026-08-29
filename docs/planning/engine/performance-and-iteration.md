@@ -2425,6 +2425,23 @@ but was depended on; anything that assumes it must now step. 1152 monolith tests
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 
+##### ▢ THE PORTRAIT RE-DECODES ARE A DROPPED HANDLE, AND THEY ARE MINOR
+
+Diagnosed 2026-08-29. The HUD (`hud/declared.rs`) calls `asset_server.load(path)`
+**every frame** per portrait — it does guard the assignment (`if image.image !=
+handle`), so it costs a path->handle resolution, not change-detection churn. That
+is NOT what re-decodes: `load()` returns the same handle while the asset lives.
+
+⇒ the re-decodes are a **dropped handle**: when the HUD entity despawns on leaving
+a screen, the last handle goes and the image unloads; returning reloads it. That
+matches the observed times exactly (18.3s, 22.9s, 41.2s, 80.4s — visits, not a
+flap). ⛔ It is NOT quality-tier flapping: `grep "quality transition"` over the run
+returns **zero**, so that hypothesis is dead.
+
+⚠ **PRICED BEFORE FIXING: ~40MP of the run's 656MP.** Ten portrait sheets at 1.3MP
+re-decoded 3–4x each. Real, and small. ⇒ it wants the same retained-residency
+answer as everything else in this section, not its own special cache.
+
 ##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
 
 The `<runtime-generated>` decodes the summary flagged are **portal capture

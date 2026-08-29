@@ -678,7 +678,12 @@ mod the_decision_log {
                     ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
                 ),
             ));
-        let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+        // The roster's loose rule fields were folded into one `rules`; this is
+        // the second site that missed it, and like the first it is invisible to
+        // the default test run because the block is feature-gated.
+        let countdown = ambition_demo_smash::smash_roster(characters)
+            .rules
+            .opening_countdown_ticks;
         for _ in 0..(countdown as usize + 30 + WINDOW) {
             app.update();
         }

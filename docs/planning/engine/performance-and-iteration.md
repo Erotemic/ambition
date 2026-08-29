@@ -390,6 +390,15 @@ individual conditions, per frame:
  2.10us  avian2d ...forces::apply_local_acceleration
 ```
 
+⛔ **AND THE REST OF THAT RANKING WAS CHASED AND IS NOT ACTIONABLE.**
+`forget_unclaimed_feature_views_while_dormant` (2.56us) looked promising — its
+NAME says it runs while dormant — but its body is `if !ids.is_empty() { clear() }`,
+which already avoids the `DerefMut` on a quiet frame, and its cost is the
+CONDITION `not(session_presentation_is_ready)`: one `roots.single()` query, ~1us
+real after inflation. The dearest entry, `bevy_ecs::apply_deferred` at 14.78us
+(~6us real), is Bevy's own sync-point machinery, not ours. ⇒ **Tracy's leads are
+exhausted: egui and avian were the two real ones**, and both are fixed.
+
 ⚠⚠ **THE INSTRUMENT IS THE FOURTH MOST EXPENSIVE CONDITION IN THE FRAME.** It is
 registered only when the census is switched on, so a normal run does not pay it —
 but it is a reminder in the campaign's own data that measuring is not free, and

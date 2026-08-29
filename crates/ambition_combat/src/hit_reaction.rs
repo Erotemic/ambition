@@ -132,6 +132,17 @@ pub fn apply_body_hit_reaction(
     // one is a thing that happens to a body that is PUSHED.
     if let Some((model, ledge)) = ledge {
         ae::movement::knock_off_ledge(model, ledge);
+        // ⛔⛔ AND THE WIRE GOES WITH THE HANG, for the reason the hang does: a
+        // constraint that survived the hit would eat the launch the hit just
+        // handed out. A body on a flyline has its position written from
+        // `(anchor, length, angle)` every tick, so a knockback velocity applied
+        // underneath it is overwritten on the very next frame and the fighter
+        // rides serenely on up — the trapdoor's deleted leap, in a mode that
+        // lasts long enough to see.
+        //
+        // ⭐ THE CUT WRITES NO VELOCITY. Whatever hit her owns her motion now;
+        // see `cut_the_wire`, which is deliberately not the wire's own release.
+        ae::movement::cut_the_wire(model);
     }
     // The air dodge is spent per airtime, and a hit is a new airtime's worth of
     // trouble — a launched fighter that could not dodge would have no answer to

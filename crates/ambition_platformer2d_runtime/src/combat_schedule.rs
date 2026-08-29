@@ -239,6 +239,15 @@ impl Plugin for CombatSchedulePlugin {
                 // constraint stating a relationship that does not exist.
                 ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
                     .in_set(GameplayGated),
+                // EFFECTS-stage consumer, beside the trapdoor and for the same
+                // reason. ⛔ AND IT IS NOT ORDERED AGAINST EITHER OF THEM: a
+                // move authors one technique, so a `.chain()` here would state a
+                // relationship that does not exist. ⭐ It writes no position at
+                // all — it hangs the body off a wire and the movement kernel
+                // integrates it — so unlike its two neighbours it has nothing to
+                // race the sweep for.
+                ambition_platformer2d_actor_monolith::abilities::traversal::flyline::apply_authored_flylines
+                    .in_set(GameplayGated),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)

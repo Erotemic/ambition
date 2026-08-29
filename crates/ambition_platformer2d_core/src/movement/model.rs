@@ -82,6 +82,75 @@ impl PhasedJumpState {
     }
 }
 
+/// A BODY ON A WIRE — the flyline's persistent state, and the one maneuver whose
+/// position is not a velocity.
+///
+/// ⭐⭐ ITS POSITION IS `(anchor, length, angle)`, WHICH IS WHY IT IS A STATE AND
+/// NOT AN IMPULSE. A pendulum on a winch is not a body that was pushed: the wire
+/// decides where she is, the winch decides how far up, and the stick decides
+/// only which way she is swinging. Jon, 2026-08-29: *"she gets lifted up by the
+/// wire… while she is being lifted by the wire her motion controls should let
+/// her swing like a pendulum so she has a bit of horizontal recovery with it
+/// too."*
+///
+/// ⛔ THE ANGLE IS BODY-LOCAL, measured from the frame's own DOWN axis toward
+/// local `+x`, so a gravity-flipped stage swings the same way round without this
+/// struct knowing the stage exists. `anchor` is the one world-space fact,
+/// because a wire hangs from a fixed point in the room rather than from the
+/// body.
+///
+/// ⛔⛔ THE AUTHORED KNOBS RIDE HERE TOO — `winch_speed`, `max_angle`,
+/// `swing_accel`, `release_rise`. They are parameters, not state, and they are
+/// still in the snapshot: the kernel cannot see the MOVE that authored them, so
+/// a restore that dropped them would resume the lift with a different wire. The
+/// same reason [`crate::LedgeGrabState`] carries its anchor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WireState {
+    /// Where the wire comes down FROM, in world space. Fixed for the whole lift.
+    pub anchor: Vec2,
+    /// Rope length in world px, from `anchor` to the body's centre. The winch
+    /// shortens this, and shortening it is the whole of the rise.
+    pub length: f32,
+    /// Radians from the frame's down axis, positive toward local `+x`.
+    pub angle: f32,
+    /// Radians per second.
+    pub ang_vel: f32,
+    /// How fast the winch reels in AT THE CATCH, in px/s.
+    ///
+    /// ⭐⭐ THE WINCH DECELERATES, and that is why this is the *initial* rate
+    /// rather than the rate. It ramps linearly to [`Self::release_rise`] across
+    /// the lift, so the speed the rope is pulling her at when it lets go is
+    /// exactly the speed she leaves with — the release adds no step at all.
+    ///
+    /// ⛔⛔ IT WAS A CONSTANT RATE, AND THE DUMP IS WHY IT IS NOT. She rose at
+    /// 764 px/s for the whole beat and was cut to 90: a hard stop at the apex,
+    /// which is the teleport's own feel arriving through a different mechanic.
+    /// A recovery has to hand the body back still moving the way it was moving.
+    pub winch_speed: f32,
+    /// Seconds of lift left. At zero the wire lets go, and that release is the
+    /// ONE writer of the exit velocity.
+    pub lift_remaining_s: f32,
+    /// The lift's whole duration, kept so the ramp above knows where in it she
+    /// is. ⛔ Not derivable from [`Self::lift_remaining_s`] alone, which is the
+    /// only reason a second clock is here.
+    pub lift_total_s: f32,
+    /// How far the swing may reach, in radians. ⛔ A CAP, not a suggestion: an
+    /// uncapped pendulum on a shortening rope gains angle every tick
+    /// (the skater's spin), and Jon asked for *"a bit"* of horizontal recovery.
+    pub max_angle: f32,
+    /// Angular acceleration the stick contributes, in rad/s².
+    pub swing_accel: f32,
+    /// Upward speed the body keeps when the wire lets go, in px/s.
+    ///
+    /// ⭐ IT IS ALSO THE WINCH'S FINAL RATE — see [`Self::winch_speed`]. The two
+    /// are one number seen from either side of the release, which is what makes
+    /// the handover seamless instead of a stop.
+    ///
+    /// ⛔ Part of the ONE release write; nothing else may add to the exit
+    /// velocity.
+    pub release_rise: f32,
+}
+
 /// The axis-swept policy's PRIVATE persistent maneuver state. Lives INSIDE the
 /// model variant (ADR 0024): no other policy can read it, leaving axis movement
 /// cannot leak stale maneuver facts, and a same-variant parameter refresh
@@ -299,6 +368,12 @@ pub struct AxisManeuverState {
     /// Invulnerability from a tech or a getup.
     pub getup_invuln_timer: f32,
     pub ledge_grab: Option<crate::LedgeGrabState>,
+    /// THE WIRE SHE IS HANGING FROM, or `None` for a body that is not on one.
+    ///
+    /// ⭐ `Option`, LIKE [`Self::ledge_grab`] BESIDE IT, and for the same reason:
+    /// "on a wire" is not a flag beside eight fields that mean nothing without
+    /// it. One `is_some()` is the whole of the mode test.
+    pub wire: Option<WireState>,
     pub gliding: bool,
     pub fast_falling: bool,
     /// This body is in a RUN — grounded, steering the way it is travelling,
@@ -368,6 +443,7 @@ impl Default for AxisManeuverState {
             knockdown_timer: 0.0,
             getup_invuln_timer: 0.0,
             ledge_grab: None,
+            wire: None,
             gliding: false,
             fast_falling: false,
             running: false,
@@ -695,6 +771,80 @@ pub fn footstool_victim(
         // A body that does not tumble still owes the shove a beat.
         rules.flinch_time
     }
+}
+
+/// PUT A BODY ON A WIRE — the typed content→movement op the flyline enters
+/// through, and the only way [`AxisManeuverState::wire`] is ever set.
+///
+/// The caller supplies the ROPE and the anchor is derived from it: a wire comes
+/// down out of the sky directly above her, so the swing starts at rest
+/// (`angle == 0`) and every pixel of horizontal travel is one the player asked
+/// for.
+///
+/// ⛔ NON-AXIS POLICIES HAVE NO WIRE and refuse, exactly as
+/// [`knock_off_ledge`] does. A crawler on a rope is a different mechanic and
+/// pretending otherwise would silently do nothing.
+///
+/// Returns false if the body runs another policy, or if the rope is degenerate
+/// (a zero-length wire has no angle and its pendulum is undefined).
+#[allow(clippy::too_many_arguments)]
+pub fn catch_the_wire(
+    model: &mut MotionModel,
+    pos: Vec2,
+    frame: crate::MotionFrame,
+    rope_length: f32,
+    lift_s: f32,
+    winch_speed: f32,
+    max_angle: f32,
+    swing_accel: f32,
+    release_rise: f32,
+) -> bool {
+    let MotionModel::AxisSwept(axis) = model else {
+        return false;
+    };
+    if !(rope_length > f32::EPSILON) || !(lift_s > 0.0) {
+        return false;
+    }
+    axis.state.wire = Some(WireState {
+        // Straight up from her, in the frame's own up: `down()` is toward the
+        // feet, so the sky is the other way.
+        anchor: pos - frame.down() * rope_length,
+        length: rope_length,
+        angle: 0.0,
+        ang_vel: 0.0,
+        winch_speed,
+        lift_remaining_s: lift_s,
+        lift_total_s: lift_s,
+        max_angle,
+        swing_accel,
+        release_rise,
+    });
+    // ⛔⛔ AND THE MANEUVERS SHE WAS MID-WAY THROUGH ARE OVER. A dash timer that
+    // survived the catch resumes on the frame the wire lets go and fires her
+    // sideways out of her own recovery; the same is true of a jump squat owed a
+    // leap. Being lifted out of the scene outranks being busy — the rule
+    // `integrate_submerged_clusters` states for the trapdoor.
+    axis.state.dash_timer = 0.0;
+    axis.state.jump_squat_timer = 0.0;
+    true
+}
+
+/// CUT THE WIRE — she is off it, and whatever velocity she has now is hers.
+///
+/// ⛔⛔ THIS IS NOT THE RELEASE. The release at the end of the lift is the
+/// kernel's, and it WRITES an exit velocity ([`WireState::release_rise`] plus
+/// the swing's own tangential speed). This is the interruption: a hit, a death,
+/// a body that left the world. It writes NO velocity, because the thing that
+/// interrupted the wire is the thing that owns the body's motion now — a cut
+/// that also launched her would be the second authority that deleted the
+/// trapdoor's leap for a month.
+///
+/// Returns true if she was actually on one.
+pub fn cut_the_wire(model: &mut MotionModel) -> bool {
+    let MotionModel::AxisSwept(axis) = model else {
+        return false;
+    };
+    axis.state.wire.take().is_some()
 }
 
 /// Drop any active ledge grab because the body was hit, arming a brief

@@ -160,6 +160,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.knockdown_timer);
     put_f32(out, state.getup_invuln_timer);
     put_ledge_grab(out, &state.ledge_grab);
+    put_wire(out, &state.wire);
     put_bool(out, state.gliding);
     put_bool(out, state.fast_falling);
     put_bool(out, state.running);
@@ -214,6 +215,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         knockdown_timer: r.f32()?,
         getup_invuln_timer: r.f32()?,
         ledge_grab: ledge_grab(r)?,
+        wire: wire(r)?,
         gliding: r.bool()?,
         fast_falling: r.bool()?,
         running: r.bool()?,
@@ -228,6 +230,52 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
 
 /// The hang state machine: a rollback into a hang must land on the same
 /// anchor, with the same carried momentum, or the getup goes somewhere else.
+/// THE WIRE, and every knob it was authored with.
+///
+/// ⛔⛔ THE PARAMS RIDE IN THE SNAPSHOT BESIDE THE STATE, which is not what a
+/// codec usually does. The kernel cannot see the MOVE that put her on the rope,
+/// so a restore that carried the angle but not `winch_speed` would resume the
+/// same lift on a different wire — a desync that reads as a tuning difference.
+/// The anchor is the same argument the ledge grab's is: a rollback into a hang
+/// must land on the same anchor or the getup goes somewhere else.
+fn put_wire(out: &mut Vec<u8>, wire: &Option<crate::WireState>) {
+    match wire {
+        None => put_bool(out, false),
+        Some(w) => {
+            put_bool(out, true);
+            put_vec2(out, w.anchor);
+            put_f32(out, w.length);
+            put_f32(out, w.angle);
+            put_f32(out, w.ang_vel);
+            put_f32(out, w.winch_speed);
+            put_f32(out, w.lift_remaining_s);
+            put_f32(out, w.lift_total_s);
+            put_f32(out, w.max_angle);
+            put_f32(out, w.swing_accel);
+            put_f32(out, w.release_rise);
+        }
+    }
+}
+
+fn wire(r: &mut Reader<'_>) -> Option<Option<crate::WireState>> {
+    Some(if r.bool()? {
+        Some(crate::WireState {
+            anchor: r.vec2()?,
+            length: r.f32()?,
+            angle: r.f32()?,
+            ang_vel: r.f32()?,
+            winch_speed: r.f32()?,
+            lift_remaining_s: r.f32()?,
+            lift_total_s: r.f32()?,
+            max_angle: r.f32()?,
+            swing_accel: r.f32()?,
+            release_rise: r.f32()?,
+        })
+    } else {
+        None
+    })
+}
+
 fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<crate::LedgeGrabState>) {
     match grab {
         None => put_bool(out, false),

@@ -66,4 +66,5 @@ mod ledge_grab;
 mod submerged;
 mod sweep_sample;
 mod wall_collision;
+mod wire;
 mod world_edges;

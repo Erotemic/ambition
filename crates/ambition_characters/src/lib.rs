@@ -34,6 +34,7 @@ pub mod prepared;
 pub mod prepared_fixtures;
 pub mod smash_capture;
 pub mod smash_bomb;
+pub mod smash_flyline;
 pub mod smash_ride;
 pub mod smash_teleport;
 pub mod smash_trapdoor;

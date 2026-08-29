@@ -144,6 +144,18 @@ pub(super) fn integrate_velocity_clusters(
     // velocity. Being absent outranks being busy.
     if clusters.body_mode.body_mode == BodyMode::Submerged {
         integrate_submerged_clusters(world, clusters.kinematics, state, input, dt, frame, tuning);
+    } else if state.wire.is_some() {
+        // ⭐⭐ AND A BODY ON A WIRE OUTRANKS EVERY MODE BELOW IT, for the reason
+        // the submerged branch above outranks them: the wire decides where she
+        // is. A dash timer, a climb or flight running underneath would each
+        // write the same velocity the rope just wrote, and the last writer would
+        // decide the move.
+        //
+        // ⛔ BENEATH THE TRAPDOOR, THOUGH, AND THE ORDER IS DELIBERATE. The two
+        // are mutually exclusive by authoring — one move opens a door, the other
+        // drops a rope — but a body that ended up in both is a body under the
+        // stage, and being absent from the world outranks being on a wire.
+        integrate_wire_clusters(clusters.kinematics, state, input, dt, frame);
     } else if state.dash_timer > 0.0 {
         state.dash_timer = dec(state.dash_timer, dt);
     } else if climbing {
@@ -1153,6 +1165,146 @@ const SUBMERGED_GROUND_PROBE: f32 = 8.0;
 /// being judged, and it is the first knob to turn when it turns out to be too
 /// good. The earlier 0.82 was the opposite instinct and was mine, not authored.
 const SUBMERGED_SPEED_FRAC: f32 = 1.2;
+
+/// How hard the swing is damped, per second of angular velocity.
+///
+/// ⛔ A PENDULUM WITHOUT IT NEVER SETTLES, and the player's stick is an
+/// acceleration: holding one direction for the whole lift would wind the swing
+/// up past the cap and slam it against the stop every tick. Damping makes a
+/// held direction converge on an ANGLE instead of oscillating at one.
+const WIRE_SWING_DAMPING: f32 = 2.2;
+
+/// The shortest the winch may pull the rope, in world px.
+///
+/// ⛔ NOT ZERO. At zero length the pendulum has no angle — every direction is
+/// the same point — and the tangent it releases along is undefined. Stopping
+/// the reel short of the pulley keeps the swing meaningful right up to the cut.
+const WIRE_MIN_LENGTH: f32 = 40.0;
+
+/// Ceiling on the speed the wire may drag the body at, in px/s.
+///
+/// ⛔⛔ THE WIRE STEERS BY CORRECTION, so a body the sweep has STOPPED — under a
+/// platform, against a wall — falls further behind its rope target every tick
+/// while the winch keeps reeling. Uncapped, that correction grows without bound
+/// and fires her across the stage on the frame the obstruction clears. The cap
+/// is what makes "the wire wins" a bounded claim.
+const WIRE_MAX_TRACK_SPEED: f32 = 1600.0;
+
+/// ONE TICK OF A BODY ON A WIRE: swing the pendulum, reel the winch in, and
+/// steer her toward where the rope now says she is.
+///
+/// ⭐⭐ HER POSITION IS `(anchor, length, angle)` AND NOTHING ELSE. That is what
+/// makes this a different integration rather than a shove with a nice comment:
+/// gravity does not act on her, her velocity is not integrated, and the stick
+/// buys ANGULAR acceleration instead of horizontal speed. Jon, 2026-08-29:
+/// *"she doesn't teleport up, she gets lifted up by the wire… while she is being
+/// lifted by the wire her motion controls should let her swing like a pendulum
+/// so she has a bit of horizontal recovery with it too."*
+///
+/// ⛔⛔ AND IT PUBLISHES A VELOCITY RATHER THAN WRITING THE POSITION. The
+/// trapdoor's submerged step sets `pos` directly because a submerged body is
+/// passable and the sweep has nothing to stop it with. A body on a wire is a
+/// NORMAL body — drawn, hittable, and solid against the stage — so the sweep
+/// stays the one authority for where she ends up, and the rope only says where
+/// she is being pulled. That is also what makes the underside of a platform
+/// stop her: a recovery has to get around the lip, and swinging is how.
+///
+/// ⛔ THE RELEASE IS HERE TOO, and it is the ONE write of her exit velocity —
+/// the swing's tangential speed plus the authored carry. `LEAP_OUT_SPEED` was
+/// dead content for a month because the trapdoor had two writers for that fact;
+/// the wire has one, and it is this branch.
+pub(super) fn integrate_wire_clusters(
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    state: &mut AxisManeuverState,
+    input: InputState,
+    dt: f32,
+    frame: MotionFrame,
+) {
+    let Some(mut wire) = state.wire else {
+        return;
+    };
+    if dt <= 0.0 {
+        return;
+    }
+    // THE CLOCK FIRST, so the release tick is unambiguous: the wire either has
+    // time left and lifts, or it is out of time and lets go. A tick that did
+    // both would write two velocities.
+    wire.lift_remaining_s -= dt;
+    if wire.lift_remaining_s <= 0.0 {
+        // ⭐⭐ THE RELEASE. The tangent at `angle` is the direction a body on a
+        // rope is actually travelling — `d/dθ (sin θ, cos θ)` in the frame's own
+        // basis — and `ang_vel * length` is how fast along it. That product IS
+        // the horizontal recovery the swing bought; nothing else adds to it.
+        let tangent = frame.to_world(Vec2::new(wire.angle.cos(), -wire.angle.sin()));
+        let swing = tangent * (wire.ang_vel * wire.length);
+        kinematics.vel = swing - frame.down() * wire.release_rise;
+        state.wire = None;
+        return;
+    }
+
+    // ── THE SWING ────────────────────────────────────────────────────────────
+    // A real pendulum's restoring term, so the period comes from the stage's own
+    // gravity and the rope's length rather than from a number somebody picked.
+    // A shortening rope therefore swings FASTER as she rises, which is the thing
+    // a winch actually does to a body on a wire.
+    let gravity = frame.gravity_acceleration().length();
+    let restoring = -(gravity / wire.length.max(WIRE_MIN_LENGTH)) * wire.angle.sin();
+    // ⛔ THE DAMPED AXIS, the same one `integrate_submerged_clusters` reads. A
+    // move that ROOTS her scales this to zero, which is why the flyline authors
+    // a GAP in its windows over the lift — see `the_flyline`. Reading the
+    // undamped stick here instead would make the wire the one maneuver a root
+    // cannot hold, and hide the authoring bug rather than state it.
+    let stick = input.local_axis().x;
+    let drive = stick * wire.swing_accel;
+    let damping = -WIRE_SWING_DAMPING * wire.ang_vel;
+    wire.ang_vel += (restoring + drive + damping) * dt;
+    wire.angle += wire.ang_vel * dt;
+    // The rope's stop. ⛔ The velocity is clamped toward the stop only — a swing
+    // arriving at the cap stops, a swing leaving it is free — because zeroing it
+    // outright would make the wire eat a reversal the player already asked for.
+    if wire.angle > wire.max_angle {
+        wire.angle = wire.max_angle;
+        wire.ang_vel = wire.ang_vel.min(0.0);
+    } else if wire.angle < -wire.max_angle {
+        wire.angle = -wire.max_angle;
+        wire.ang_vel = wire.ang_vel.max(0.0);
+    }
+
+    // ── THE WINCH ────────────────────────────────────────────────────────────
+    // Shortening the rope IS the rise. Every pixel of lift in this move is a
+    // pixel taken off `length`.
+    //
+    // ⭐⭐ AND IT SLOWS INTO THE RELEASE. The rate ramps linearly from
+    // `winch_speed` at the catch to `release_rise` at the cut, so the speed the
+    // rope is pulling her at on the last tick IS the speed she leaves with and
+    // the handover has no step in it. A constant rate rose her at 764 px/s and
+    // then handed her back doing 90 — a hard stop at the apex, which is the
+    // teleport's own feel arriving through a different mechanic.
+    //
+    // ⛔ THE AUTHORED `rise` IS STILL EXACT: the area under a linear ramp from
+    // `v0` to `v1` over `T` is `T·(v0+v1)/2`, and `catch_the_wire`'s caller
+    // solves that for `v0`. Slowing down does not cost her any of the climb.
+    let through = if wire.lift_total_s > 0.0 {
+        (wire.lift_remaining_s / wire.lift_total_s).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * through;
+    wire.length = (wire.length - reel * dt).max(WIRE_MIN_LENGTH);
+
+    // ── WHERE THE ROPE SAYS SHE IS ───────────────────────────────────────────
+    // Local `+y` is toward the feet, so `(sin θ, cos θ)` hangs DOWN from the
+    // anchor at rest and swings toward local `+x` for a positive angle.
+    let hang = Vec2::new(wire.angle.sin(), wire.angle.cos()) * wire.length;
+    let target = wire.anchor + frame.to_world(hang);
+    let correction = (target - kinematics.pos) / dt;
+    kinematics.vel = if correction.length() > WIRE_MAX_TRACK_SPEED {
+        correction.normalize_or_zero() * WIRE_MAX_TRACK_SPEED
+    } else {
+        correction
+    };
+    state.wire = Some(wire);
+}
 
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,

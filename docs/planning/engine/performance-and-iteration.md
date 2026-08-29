@@ -417,6 +417,35 @@ Both are recorded below.
 
 ## Campaign 2026-08-29 — runtime efficiency, 24h
 
+### ⭐⭐ THE NOISE FLOOR, MEASURED — 4.4%, NOT THE ~13–15% THIS DOCUMENT ASSERTS
+
+Stated three inconsistent ways elsewhere here (~15%, 13%, ~10–15%), and several
+conclusions lean on it. Measured directly 2026-08-29: **five back-to-back
+2000-tick 2-fighter runs, same binary, same host.**
+
+| rep | frame mean |
+|---|---|
+| 1 | 4.42ms |
+| 2 | 4.52ms |
+| 3 | 4.55ms |
+| 4 | 4.62ms |
+| 5 | 4.43ms |
+
+**mean 4.508ms, range 4.42–4.62 = 4.4% of the mean.**
+
+⛔⛔ **AND THAT REOPENS A CONCLUSION RECORDED EARLIER TODAY.** This document says
+*"on a frame this diffuse, no group of fewer than ~500 systems can produce a
+measurable win"* — an arithmetic derived from the LOOSER floor. At a 4.4% floor
+the threshold is **~0.2ms**, which at the measured **6.9us/system** is about
+**30 systems**, not 500. ⇒ **the "~500 systems" rule is too pessimistic by more
+than an order of magnitude and should not be used to dismiss a gate.**
+
+⚠ Two honest caveats before anyone acts on the tighter number: these five reps
+were back-to-back on an otherwise quiet machine, and a two-arm A/B carries roughly
+DOUBLE a single arm's uncertainty (the delta-amplification rule recorded elsewhere
+in this file). ⇒ **budget ~0.2ms as the smallest defensible win, and rep both arms
+at least three times** — do not treat 30 systems as a licence to gate anything.
+
 ### ⛔ A NOTE ON "THE BRIEF" AND ON DIRECTION NUMBERS — read before following any pointer
 
 **"The brief"** in this document means the two GPT-authored prompts Jon supplied

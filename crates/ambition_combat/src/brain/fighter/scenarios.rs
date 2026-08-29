@@ -425,6 +425,57 @@ mod tests {
     /// and `advantage_is_the_opponents_commitment_and_never_its_active_frames`
     /// already pins the classification. Recorded here so the omission is a choice.
     #[test]
+    /// ⭐ THE SAME SITUATION OFF EITHER LEDGE.
+    ///
+    /// D184: `recovery_left` engages in real bouts while `recovery_right` dies at
+    /// 0%, from placements symmetric in every measured input. The DI path was
+    /// cleared, so this asks the layer below the movement choice — does the brain
+    /// even NAME the two sides the same way?
+    ///
+    /// A stage is symmetric; a body the same distance past either ledge is in the
+    /// same situation, and if classification disagrees nothing downstream can
+    /// recover from it.
+    #[test]
+    fn a_body_past_either_ledge_is_classified_the_same() {
+        let width = super::STAGE_SIZE.x;
+        for out_by in [40.0_f32, 120.0] {
+            let left = super::Scenario {
+                name: "probe_left",
+                premise: "past the left edge",
+                view: WorldView {
+                    self_view: SelfView {
+                        on_ground: false,
+                        ..super::body(ae::Vec2::new(-out_by, 300.0))
+                    },
+                    stage: super::stage(),
+                    actors: vec![super::foe(ae::Vec2::new(400.0, 300.0))],
+                    ..Default::default()
+                },
+                expect: Situation::Recovery,
+            };
+            let right = super::Scenario {
+                name: "probe_right",
+                premise: "past the right edge",
+                view: WorldView {
+                    self_view: SelfView {
+                        on_ground: false,
+                        ..super::body(ae::Vec2::new(width + out_by, 300.0))
+                    },
+                    stage: super::stage(),
+                    actors: vec![super::foe(ae::Vec2::new(400.0, 300.0))],
+                    ..Default::default()
+                },
+                expect: Situation::Recovery,
+            };
+            assert_eq!(
+                classify(Perceived::cheating(&left.view)),
+                classify(Perceived::cheating(&right.view)),
+                "a body {out_by}px past the LEFT ledge and one {out_by}px past the RIGHT \
+                 must be in the same situation"
+            );
+        }
+    }
+
     fn the_suite_covers_four_of_the_five_situations() {
         let mut seen: Vec<Situation> = suite().iter().map(|s| s.expect).collect();
         seen.sort();

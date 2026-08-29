@@ -480,6 +480,31 @@ budget.** ⇒ Smash on this host DROPS FRAMES, rarely, while averaging four time
 under budget. That is the responsiveness story in one line, and it is why a MEAN
 frame time was the wrong instrument for the question the brief asked.
 
+⭐⭐ **AND PART OF THE ANSWER WAS OBTAINABLE WITHOUT HARDWARE — the tail is
+LOAD-SENSITIVE.** The "it is just this VM's scheduling" hypothesis is testable
+here by ADDING load. Same binary, same scenario, with six busy-loop processes
+pinning the machine (load average 0.34 → 5.86):
+
+| | median | >1.5x | >2x | >3x | worst | intervals |
+|---|---|---|---|---|---|---|
+| idle | 3.93ms | 14.2% | 2.9% | **0.6%** | 22.95ms | 543 |
+| 6x busy loop | 4.50ms | **23.1%** | **4.8%** | **0.0%** | 12.87ms | 334 |
+
+⇒ **THE MODERATE TAIL IS THE MACHINE.** Frames beyond 1.5x median went 14.2% →
+23.1% and beyond 2x went 2.9% → 4.8% — roughly DOUBLE — for a median that only
+rose 1.15x. Contention produces exactly this shape, and it means **a meaningful
+part of Smash's tail on this host is OS scheduling, not the engine.**
+
+⛔ **THE EXTREME TAIL IS UNRESOLVED, AND THE EXPERIMENT WAS UNDERPOWERED FOR IT.**
+The loaded arm saw ZERO frames beyond 3x median and a worst of 12.87ms — but at
+the idle rate of 0.6%, 334 intervals expect only ~2 such events, so observing none
+is unsurprising and proves nothing. ⚠ The single 22.95ms frame remains
+unexplained.
+
+⇒ ⛔ **THIS TIGHTENS THE HARDWARE TEST BELOW: the GPU run must record MACHINE LOAD
+alongside the frame distribution**, or a quiet workstation will "fix" spikes that
+were only ever contention, and a busy one will manufacture them.
+
 ⭐⭐⭐ **THE DISCRIMINATOR, so the hardware run answers something:** every spike
 candidate left — renderer, allocator, OS scheduling on a loaded VM — is
 distinguishable by whether this DISTRIBUTION survives on real hardware.

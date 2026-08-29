@@ -34,7 +34,13 @@ WINDOW = re.compile(
     r"^\[frame-census\]\s+([0-9.]+)s-([0-9.]+)s\s+frames=(\d+)\s+"
     r"p50=([0-9.]+)ms\s+p95=([0-9.]+)ms\s+p99=([0-9.]+)ms\s+max=([0-9.]+)ms"
 )
-IMAGE = re.compile(r"^\[image\]\s+([0-9.]+)s\s+(\d+)x(\d+)\s+([0-9.]+)MP\s+(.*)$")
+# `live=` says whether gameplay was running when the decode landed, and it is
+# emitted on BOTH branches so its ABSENCE means "this log predates the marker",
+# not "nothing was late". Optional here for exactly that reason.
+IMAGE = re.compile(
+    r"^\[image\]\s+(?P<t>[0-9.]+)s\s+(?P<w>\d+)x(?P<h>\d+)\s+(?P<mp>[0-9.]+)MP"
+    r"\s+(?:live=(?P<live>[01])\s+)?(?P<path>.*)$"
+)
 
 # One output file per census kind. Kinds not listed here still get a CSV named
 # after themselves; this table only fixes the names the summary and the docs
@@ -129,11 +135,16 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
             images.append(
                 {
                     "wall_s": f"{wall:.3f}",
-                    "game_s": match.group(1),
-                    "width": match.group(2),
-                    "height": match.group(3),
-                    "megapixels": match.group(4),
-                    "path": match.group(5),
+                    "game_s": match.group("t"),
+                    "width": match.group("w"),
+                    "height": match.group("h"),
+                    "megapixels": match.group("mp"),
+                    # The engine appends its own explanation after the path; keep
+                    # the path alone so the column stays joinable.
+                    "path": match.group("path").split(" — DECODED DURING")[0].strip(),
+                    # "" (not "0") when the log predates the marker: unknown is
+                    # not the same answer as no.
+                    "during_gameplay": match.group("live") or "",
                 }
             )
     write_csv(
@@ -148,7 +159,7 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
     )
     write_csv(
         os.path.join(out_dir, "image_decodes.csv"),
-        ["wall_s", "game_s", "width", "height", "megapixels", "path"],
+        ["wall_s", "game_s", "width", "height", "megapixels", "path", "during_gameplay"],
         images,
     )
     return {

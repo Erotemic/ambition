@@ -2232,6 +2232,33 @@ to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced 
 `MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
 debugging test plumbing, not the engine.
 
+#### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
+
+⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY
+FIXED.** `report_image_census` reads `State<GameMode>` and stamps every notable
+decode with `live=0`/`live=1`; `live=1` means it landed while gameplay was running
+— a frame the player felt. `image_decodes.csv` gains a `during_gameplay` column,
+and `summary.md` leads the assets section with **"N of M notable decodes happened
+DURING GAMEPLAY"** and the worst offenders by megapixels.
+
+⛔⛔ **`live=` IS EMITTED ON BOTH BRANCHES, AND THAT IS THE WHOLE DESIGN.** The
+first version marked only the late ones — so re-parsing an OLDER log, recorded
+before the marker existed, would have set every row to "not late" and printed a
+reassuring **✔ no notable texture decoded while gameplay was live**. That is a
+count of zero from an instrument that never reported the category. With `live=`
+on both branches its ABSENCE is distinguishable, the column is written EMPTY, and
+the summary says *"this bundle predates late-decode marking, so whether any decode
+landed during gameplay is UNKNOWN here, not zero."*
+✔ Verified by re-parsing the 2026-08-29 bundle's own log: 155 rows, `known=False`,
+branch = UNKNOWN.
+
+⚠ A warning, not an error — a legitimately late asset exists (an unpredictable
+summon, a dev spawn). What is never legitimate is not knowing.
+
+⚠ **NAMED GROUPS AFTER A NEAR-MISS:** adding one optional group to the parser
+silently renumbered `path`, which the round-trip test caught. Every field is
+named now.
+
 ⭐ **WHAT DOES SUPPORT THE HEAD START IS THE RIG'S OWN CODE:** `place_at` is
 documented to return *"false until both seats are present, so the caller keeps
 trying"*, and `run_bout_at` inserts the roster and THEN loops `app.update()`

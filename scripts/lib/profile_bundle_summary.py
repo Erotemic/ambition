@@ -744,6 +744,42 @@ def build_summary(bundle: Bundle) -> str:
             "",
         ]
     if decodes:
+        # ⭐⭐ THE CONTRACT LINE, AND IT GOES FIRST. A decode that lands while
+        # gameplay is LIVE is a frame the player felt — every one of the five
+        # frame-spike clusters in the 2026-08-29 hardware run was a decode burst,
+        # monotone in megapixels, up to 516ms. An asset a match needs should be
+        # resident before the opening bell, so this count is the one number that
+        # says whether that contract held.
+        late = [row for row in decodes if row.get("during_gameplay") == "1"]
+        if late:
+            late_mp = sum(number(row, "megapixels") for row in late)
+            lines += [
+                f"⛔ **{len(late)} of {len(decodes)} notable decodes happened DURING "
+                f"GAMEPLAY** ({late_mp:.1f} MP). Each one cost a frame.",
+                "",
+                "Worst offenders by megapixels:",
+                "",
+                "```text",
+            ]
+            for row in sorted(late, key=lambda r: -number(r, "megapixels"))[:10]:
+                lines.append(
+                    f"{number(row, 'megapixels'):6.1f}MP  at {row.get('game_s', '?')}s  "
+                    f"{row.get('path', '?')}"
+                )
+            lines += ["```", ""]
+        elif any(row.get("during_gameplay") in ("0", "1") for row in decodes):
+            lines += [
+                "✔ No notable texture decoded while gameplay was live.",
+                "",
+            ]
+        else:
+            # An older bundle, recorded before the engine marked late decodes.
+            # Saying so beats printing a reassuring absence.
+            lines += [
+                "⚠ This bundle predates late-decode marking, so whether any decode "
+                "landed during gameplay is UNKNOWN here, not zero.",
+                "",
+            ]
         seen: dict[str, int] = {}
         for row in decodes:
             seen[row.get("path", "?")] = seen.get(row.get("path", "?"), 0) + 1

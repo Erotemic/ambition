@@ -93,7 +93,14 @@ pub fn report_image_census(
     images: Res<Assets<Image>>,
     asset_server: Res<AssetServer>,
     mut census: ResMut<ImageCensus>,
+    // ⭐ OPTIONAL, because a composition may have no game mode at all (a capture
+    // tool, a headless probe). Absent means "cannot tell", which must read as
+    // "do not accuse", not as "not during gameplay".
+    mode: Option<Res<bevy::state::state::State<
+        ambition_platformer2d_shared_tangle::schedule::GameMode,
+    >>>,
 ) {
+    let during_gameplay = mode.is_some_and(|mode| mode.get().allows_gameplay());
     for event in events.read() {
         let AssetEvent::Added { id } = event else {
             continue;
@@ -119,7 +126,33 @@ pub fn report_image_census(
                 .get_path(*id)
                 .map(|path| path.to_string())
                 .unwrap_or_else(|| "<runtime-generated>".to_string());
-            eprintln!("[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP {path}");
+            // ⭐⭐ `live=` IS EMITTED ON BOTH BRANCHES, DELIBERATELY. A reader
+            // that sees no marker at all is reading a log from before this
+            // existed, and must say "unknown" rather than "none" — an absent
+            // marker is not evidence of a clean run. That is the same trap as a
+            // count of zero from an instrument that never reports the category.
+            //
+            // ⛔ `live=1` is a CONTRACT VIOLATION: a big image decoded while
+            // gameplay is running is a frame the player felt. The 2026-08-29
+            // hardware run tied every one of five frame-spike clusters to a
+            // decode burst, monotone in megapixels, up to a 516ms frame for
+            // +307MP of 4096x4096 character sheets.
+            //
+            // ⚠ A warning, not an error: a legitimately late asset exists (an
+            // unpredictable summon, a dev spawn). What is never legitimate is
+            // not KNOWING.
+            let live = u8::from(during_gameplay);
+            if during_gameplay {
+                eprintln!(
+                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
+                     — DECODED DURING GAMEPLAY, so it cost a frame. If a match needs \
+                     it, demand it at match preparation."
+                );
+            } else {
+                eprintln!(
+                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path}"
+                );
+            }
         }
     }
 

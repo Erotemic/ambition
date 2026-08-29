@@ -335,9 +335,32 @@ carried into a Smash budget.
 `goblin_encounter` has ONE body and costs 0.149ms; a 2-fighter Smash match has
 TWO and costs 0.015ms — ten times less with more bodies. So the driver is
 something else (actor/NPC population is the obvious candidate) and is **not
-identified here**. ⇒ the "make it scale with bodies" instruction cannot be acted
-on until somebody names what it actually scales with; the room numbers say it is
-already scaling with SOMETHING.
+identified here**. ⭐⭐ **THE DRIVER IS `players`, NOT `bodies` — IDENTIFIED SAME DAY, FROM A COLUMN
+ALREADY IN THE CENSUS.** `record_frame_system` is **slot-0 by design**: it walks
+the PRIMARY PLAYER's body cluster and records one body, so it is O(1) in actors.
+`record_actor_oob_frame_system` is the one that iterates every `BodyKinematics`.
+And `[census] ecs` reports **`players=0` in a Smash match** against `players=1` in
+every room — which is why the phase nearly vanishes there.
+
+| workload | players | bodies | `Trace` | model |
+|---|---|---|---|---|
+| Smash, 2 fighters | **0** | 2 | 0.015ms | ~0.00 |
+| `mockingbird_arena` | 1 | 2 | 0.130ms | 0.132 |
+| `goblin_encounter` | 1 | 1 | 0.149ms | 0.131 |
+| `hall_of_characters` | 1 | **130** | 0.281ms | 0.281 |
+
+⇒ **`Trace` ≈ 0.13ms whenever a PRIMARY PLAYER exists, plus ~1.16us per body.**
+The constant is the player cluster walk; the slope is the OOB pass. The model
+reproduces all four measurements, including the 130-body outlier it was not
+fitted to.
+
+⇒ so direction 5's instruction is now answerable: **the part that is per-FRAME
+rather than per-body is the 0.13ms player cluster walk**, and that is the piece to
+make event-driven if it ever needs paying down. ⛔ Not funded now — it is ~2% of a
+room frame, zero in a Smash match, and the forensic value is deliberate.
+
+⭐ The lesson repeats: the answer was in a column of a row I had already printed
+dozens of times. `players` sat beside `bodies` in every `[census] ecs` line.
 
 ### 6. Startup is dominated by App construction, which nothing measured
 

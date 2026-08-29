@@ -97,6 +97,14 @@ fn main() {
     let mut app = ambition_demo_twintrack_app::build_windowed_demo_app_with(
         ambition_demo_twintrack_app::RenderMode::OffscreenGpu,
     );
+    // ⛔⛔ THE RUNNER, AND THIS BINARY IS WHY IT EXISTS. `Display::Offscreen`
+    // disables `winit`, which is also Bevy's app RUNNER — without this the
+    // `run()` below performs ONE update and returns and no file is written. The
+    // engine's offscreen face is deliberately caller-stepped, so the consumer
+    // that calls `run()` asks for the runner.
+    app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+        std::time::Duration::from_millis(0),
+    ));
     app.insert_resource(CaptureSettings {
         output,
         size,

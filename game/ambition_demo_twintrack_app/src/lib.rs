@@ -35,6 +35,17 @@ pub enum RenderMode {
     /// No window, real backend — pixels without a display, for `capture_twintrack`.
     OffscreenGpu,
 }
+// Gated exactly as `RenderMode` is. TwinTrack has no no-GPU face — its two modes
+// are the engine's `Window` and `Offscreen`.
+#[cfg(feature = "visible")]
+impl From<RenderMode> for ambition_platformer2d::app::Display {
+    fn from(mode: RenderMode) -> Self {
+        match mode {
+            RenderMode::Windowed => Self::Window,
+            RenderMode::OffscreenGpu => Self::Offscreen,
+        }
+    }
+}
 
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app() -> App {
@@ -43,41 +54,25 @@ pub fn build_windowed_demo_app() -> App {
 
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app_with(render: RenderMode) -> App {
-    use bevy::window::{ExitCondition, WindowPlugin};
-
     let mut app = App::new();
-    let plugins = DefaultPlugins
-        .set(bevy::asset::AssetPlugin {
-            file_path: ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
-            ..default()
-        })
-        .set(WindowPlugin {
-            primary_window: match render {
-                RenderMode::Windowed => Some(Window {
-                    title: "TwinTrack — Special Relativity Festival".into(),
-                    resolution: (1280, 720).into(),
-                    ..default()
-                }),
-                RenderMode::OffscreenGpu => None,
-            },
-            exit_condition: match render {
-                RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::OffscreenGpu => ExitCondition::DontExit,
-            },
-            close_when_requested: matches!(render, RenderMode::Windowed),
-            ..default()
-        });
-    match render {
-        RenderMode::Windowed => app.add_plugins(plugins),
-        // `winit` is also the RUNNER. Without it Bevy's default runner
-        // performs ONE update and returns, so a capture exits 0 having rendered
-        // nothing.
-        RenderMode::OffscreenGpu => app
-            .add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
-            .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
-                std::time::Duration::from_millis(0),
-            )),
-    };
+    // ⭐ THE ENGINE'S FACE, NOT A FOURTH COPY OF IT — see D183. The asset root,
+    // the window/exit/close matrix and the winit disable were a duplicate of
+    // `install_windowed_foundation`. `init_engine_states` is called by the
+    // foundation and is no longer called again below.
+    //
+    // ⚠ The hand-rolled window also set `resolution: (1280, 720)`, which is
+    // exactly `WindowResolution::default()` — a restatement of the default, so
+    // nothing is lost by letting the foundation build the window.
+    //
+    // ⛔ The offscreen arm also installed `ScheduleRunnerPlugin`, because
+    // disabling `winit` removes the app RUNNER and `run()` would otherwise do ONE
+    // update and return. The engine's `Display::Offscreen` is deliberately
+    // CALLER-STEPPED, so that runner moved to `bin/capture_twintrack.rs`.
+    ambition_platformer2d::app::install_windowed_foundation(
+        &mut app,
+        "TwinTrack — Special Relativity Festival",
+        render.into(),
+    );
     ambition_platformer2d::engine::init_engine_states(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);

@@ -82,6 +82,36 @@ Use #1 to answer "where did startup go" without any tooling. Use #2
 when a regression slips in or a frame spends time in places #1 can't
 see.
 
+## 0. MEASURE THE NOISE FLOOR FIRST — before designing any probe
+
+⛔⛔ **DO THIS BEFORE YOU MEASURE ANYTHING YOU INTEND TO ACT ON.** The single
+costliest methodological error of the 2026-08-29 efficiency campaign was ASSUMING
+a noise floor. A "~15%" floor was assumed, used to derive a rule that no group of
+fewer than ~500 systems could produce a measurable win, and that rule was then
+used to dismiss work. **Measured, the floor was 4.4%** — and the real threshold
+was ~30 systems, off by more than an order of magnitude.
+
+```bash
+cargo build -q -p ambition_app_tools --bin smash_match_profile
+for i in 1 2 3 4 5; do
+  AMBITION_PROFILE_CENSUS=1 AMBITION_PROFILE_CENSUS_HZ=2 \
+    target/debug/smash_match_profile --ticks 2000 2>&1 \
+    | grep '\[census\] frame' | tail -1 | grep -oE 'mean=[0-9.]+'
+done
+```
+
+Five back-to-back runs of the SAME binary. The spread between them is your floor:
+on the campaign host, `4.42 / 4.52 / 4.55 / 4.62 / 4.43ms` — **4.4% of the mean**,
+so **~0.2ms is the smallest defensible single-arm win**.
+
+⭐ **Then double it for an A/B.** Subtracting two noisy quantities amplifies
+relative error: a ±0.04ms wobble on a 0.53ms phase is 8%; on the 0.08ms DIFFERENCE
+of two such phases it is 50%. ⇒ **an absolute measurement needs one careful run; a
+DELTA needs at least three per arm.** A per-fighter cost measured once read 125us
+and read 240us on its second rep.
+
+⚠ The floor is a property of the HOST, not of the repo — re-measure it on yours.
+
 ## 1. Startup phase logger
 
 The `StartupProfiler` resource records `Instant` snapshots at named

@@ -284,6 +284,13 @@ per-run evaluations to 1. It worked because it retired a WHOLE CLASS at once,
 which is the only lever shape this frame responds to. Gating a set off DOES
 reclaim its systems' work (measured: 0.95ms shed against 0.93ms).
 
+**⚠ THE TRACY OBSERVER EFFECT IS ~2.4x ON THIS SCENARIO, NOT THE ~9x IN THE
+2026-08-28 ROW.** Measured 2026-08-29: 7.04ms traced against 2.82–3.19ms clean,
+with the ingest reporting a 6.7% profiler share. Two different scenarios, two
+different ratios — ⛔ do not carry the sandbox's 9x onto smash work. ⚠ And this
+CPU advertises no invariant TSC (`tracy.caveat` in every bundle says so), so
+Tracy RATIOS are sound and its absolute microseconds are approximate.
+
 **⛔⛔ THE INSTRUMENT RULE THAT COST THE MOST:** `[census] phases` attributes
 WALL TIME between markers, so **GPU blocking lands in whichever phase brackets
 it**. Raising a render target 320x240 → 1280x960 took `StateTransition` from

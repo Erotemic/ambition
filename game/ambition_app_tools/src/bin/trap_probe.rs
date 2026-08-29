@@ -22,7 +22,9 @@
 //! edge, and *nobody holds B while steering* — the beat is a DURATION. Holding
 //! it would measure a different move from the one a player performs.
 
-use ambition_platformer2d::actor::MatchSeat;
+#[path = "../probe_stage.rs"]
+mod probe_stage;
+
 use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::engine_core::{BodyKinematics, BodyMode, BodyModeState, ControlFrame};
 use bevy::prelude::*;
@@ -65,96 +67,28 @@ fn main() {
     // says did not exist: the suite could reach the behaviour and not see it,
     // the capture could see it and not reach it.
     let rendered = std::env::args().any(|a| a == "render");
-    let mut app = if demo_host {
-        ambition_demo_smash_app::build_demo_app()
-    } else if rendered {
-        // ⛔ MIRRORING `capture_scene` EXACTLY, because a bare
-        // `build_visible_app(OffscreenGpu, ..)` panics here in
-        // `no_automatic_skin_batching` with *"Res<RenderDevice> ... Resource does
-        // not exist"*. The working recipe is `build_visible_app_with` plus a
-        // declared `HeadlessDisplaySurface` — the surface this run draws to.
-        let mut app = ambition_app::app::build_visible_app_with(
-            ambition_app::app::VisibleRenderMode::OffscreenGpu,
-            true,
-            |_| {},
-        );
-        app.insert_resource(
-            ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
-                ambition_platformer2d::engine_core::Vec2::new(960.0, 540.0),
-            ),
-        );
-        app
-    } else {
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true)
-    };
-    // ⛔⛔ WAIT FOR THE PLUGINS, WHICH `app.run()` DOES FOR YOU AND
-    // `app.update()` DOES NOT. `OffscreenGpu` initialises its wgpu device
-    // ASYNCHRONOUSLY during plugin finish; stepping the app by hand before that
-    // completes runs the render app with no `RenderDevice` and panics inside
-    // `bevy_pbr::render::skin::no_automatic_skin_batching`. `capture_scene` never
-    // hits this because it calls `app.run()`. A hand-stepped probe has to say so
-    // itself — this is the whole reason the render-capable and press-capable
-    // instruments had never been the same binary.
-    if rendered {
-        while app.plugins_state() != bevy::app::PluginsState::Ready {
-            bevy::tasks::tick_global_task_pools_on_main_thread();
-        }
-        app.finish();
-        app.cleanup();
-    }
+    // ⛔⛔ THE HOST, THE PLUGIN PUMP, THE TWO HOSTS' DIFFERENT ROUND
+    // ANNOUNCEMENTS AND TAKING THE BRAIN OFF ARE ALL `probe_stage`'S NOW. Four
+    // findings live in that file and every one of them was a run that measured
+    // nothing; `wire_probe` needed the same four, and two copies of them would
+    // have drifted the first time either was corrected.
+    let probe_stage::Staged {
+        mut app,
+        seat0,
+        seat1,
+    } = probe_stage::stage(probe_stage::StageRequest {
+        cast: ["performer", "performer"],
+        demo_host,
+        rendered,
+    });
     println!(
         "[trap_probe] host = {}",
-        if demo_host { "ambition_demo_smash_app (the one run_game.sh smash launches)" }
-        else { "ambition_app::build_visible_app" }
+        if demo_host {
+            "ambition_demo_smash_app (the one run_game.sh smash launches)"
+        } else {
+            "ambition_app::build_visible_app"
+        }
     );
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["performer", "performer"]));
-    app.world_mut()
-        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(
-                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-            ),
-        ));
-
-    // ⛔⛔ THE TWO HOSTS DO NOT ANNOUNCE THE ROUND THE SAME WAY. The app host
-    // holds its cast under `ScriptedControl` through the ceremony and releasing
-    // it is observable; the demo shell boots straight into `smash_stage` and
-    // never satisfies that condition, so waiting on it panics with *"the opening
-    // ceremony never released the cast"* against a match that is perfectly live.
-    // Wait on the ROSTER'S OWN countdown there, which is what `roll_probe` does.
-    if demo_host {
-        let countdown = ambition_demo_smash::smash_roster(["performer", "performer"])
-            .rules
-            .opening_countdown_ticks;
-        for _ in 0..(countdown as usize + 60) {
-            app.update();
-        }
-    } else {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(live, "the opening ceremony never released the cast");
-    }
-
-    let (seat0, seat1) = seats(&mut app);
 
     // ⛔⛔ THE INSTRUMENT PROVES ITSELF FIRST. `door_count` below queries a
     // PRESENTATION component, and a presentation layer that was never installed
@@ -164,14 +98,12 @@ fn main() {
     println!(
         "[trap_probe] presentation: {} body visuals live (0 means the door \
          numbers below say NOTHING about the door)",
-        player_visuals(&mut app)
+        probe_stage::player_visuals(&mut app)
     );
 
-    // ⛔⛔ WHO IS DRIVING THIS BODY. A seated fighter carries a `Brain` that
-    // writes its own `ControlFrame` every tick, and a frame delivered from
-    // outside is overwritten before the kernel reads it — `roll_probe` records
-    // two runs that measured nothing for exactly this. Say the binding out loud,
-    // then take the brain off.
+    // ⛔ WHO IS DRIVING THIS BODY, said out loud. `probe_stage` has already
+    // taken the brain off; this is the confirmation, and `brain=false` is what
+    // makes every delivered `ControlFrame` below mean anything.
     println!(
         "[trap_probe] seat 0: participant={} brain={}",
         app.world().get::<DrivingParticipant>(seat0).is_some(),
@@ -179,10 +111,6 @@ fn main() {
             .get::<ambition_platformer2d::characters::brain::Brain>(seat0)
             .is_some(),
     );
-    app.world_mut()
-        .entity_mut(seat0)
-        .remove::<ambition_platformer2d::characters::brain::Brain>();
-    app.update();
 
     // She must be STANDING when the press lands: down-Special in the air is
     // `special_air_down`, a different verb on the same table.
@@ -194,7 +122,7 @@ fn main() {
         app.update();
     }
 
-    let start = kin(&app, seat0).0;
+    let start = probe_stage::kin(&app, seat0).0;
     println!(
         "[trap_probe] standing at ({:.1}, {:.1}), steering {}, B held {hold_frames} frames, down {}",
         start.x,
@@ -257,11 +185,11 @@ fn main() {
         );
         app.update();
 
-        let (pos, vel) = kin(&app, seat0);
+        let (pos, vel) = probe_stage::kin(&app, seat0);
         let under = matches!(mode(&app, seat0), Some(BodyMode::Submerged));
         let doors = door_count(&mut app);
-        let boxes = hitbox_count(&mut app, seat0);
-        let playing = playing_move(&app, seat0);
+        let boxes = probe_stage::hitbox_count(&mut app, seat0);
+        let playing = probe_stage::playing_move(&app, seat0);
         let gest = gesture(&app, seat0);
         let vis = visibility_chain(&mut app);
 
@@ -274,7 +202,7 @@ fn main() {
         // ⛔ PROBE-SIDE PLACEMENT, and it is honest for an instrument: it moves
         // WHO is standing there, not what the move does to them.
         if under_ticks_seen > 150 {
-            let hers = kin(&app, seat0).0;
+            let hers = probe_stage::kin(&app, seat0).0;
             if let Some(mut k) = app.world_mut().get_mut::<BodyKinematics>(seat1) {
                 k.pos.x = hers.x;
                 k.pos.y = hers.y - 24.0;
@@ -323,7 +251,7 @@ fn main() {
     }
 
     let rival_hp_after = health(&app, seat1);
-    let end = kin(&app, seat0).0;
+    let end = probe_stage::kin(&app, seat0).0;
 
     println!("[trap_probe] ── the five stages, measured ──");
     println!(
@@ -460,62 +388,17 @@ fn gesture(app: &App, body: Entity) -> String {
     }
 }
 
-/// How many bodies the presentation layer has built. The self-check for
-/// `door_count`.
-fn player_visuals(app: &mut App) -> usize {
-    let world = app.world_mut();
-    let mut q = world
-        .query::<&ambition_platformer2d::platformer::lifecycle::PlayerVisual>();
-    q.iter(world).count()
-}
-
-fn seats(app: &mut App) -> (Entity, Entity) {
-    let world = app.world_mut();
-    let mut q = world.query::<(Entity, &MatchSeat)>();
-    let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
-    rows.sort_by_key(|(seat, _)| *seat);
-    (
-        rows.first().expect("the match seats a first fighter").1,
-        rows.get(1).expect("the match seats a second fighter").1,
-    )
-}
-
-fn kin(app: &App, body: Entity) -> (Vec2, Vec2) {
-    let k = app
-        .world()
-        .get::<BodyKinematics>(body)
-        .expect("the fighter still has a body");
-    (
-        Vec2::new(k.pos.x, k.pos.y),
-        Vec2::new(k.vel.x, k.vel.y),
-    )
-}
-
 fn mode(app: &App, body: Entity) -> Option<BodyMode> {
     app.world()
         .get::<BodyModeState>(body)
         .map(|state| state.body_mode)
 }
-
-fn playing_move(app: &App, body: Entity) -> Option<String> {
-    app.world()
-        .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)
-        .map(|p| format!("{}@{:.2}", p.spec.id, p.t))
-}
-
 /// Live trapdoor visuals in the world — the thing that tells an opponent where
 /// she is, and the half of Jon's ask that hiding her body does not answer.
 fn door_count(app: &mut App) -> usize {
     let world = app.world_mut();
     let mut q = world.query::<&ambition_platformer2d::render::rendering::submerged::TrapdoorVisual>();
     q.iter(world).count()
-}
-
-/// Live hitboxes SHE owns. The emergence is the only one this move authors.
-fn hitbox_count(app: &mut App, owner: Entity) -> usize {
-    let world = app.world_mut();
-    let mut q = world.query::<&ambition_platformer2d::combat::strike::Hitbox>();
-    q.iter(world).filter(|hb| hb.owner == owner).count()
 }
 
 /// ⛔ `damage_taken()`, NOT `current()`. Under smash rules a fighter's health

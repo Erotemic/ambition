@@ -1090,10 +1090,16 @@ wire her motion controls should let her swing like a pendulum so she has a bit o
 horizontal recovery with it too. So, this might need a bit of engine work to make
 the motion work and be expressable elegantly."*
 
-* ▢ **NOT STARTED — handed off 2026-08-29 to a different machine.** Full brief,
-  the six clauses as falsifiable claims, the engine seams, and the proof bar
-  in [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md).
-  ⛔ `Curtain Call` is currently the Author's teleport with a different comment,
-  and the blink cue comes from the EXECUTOR — muting the timeline will not
-  silence it, because a move that runs the teleport executor is a teleport.
+* ✔ **BUILT 2026-08-29, and all six clauses are MEASURED on the smash stage with
+  presentation live** — `wire_probe`: 32 ticks on the wire, largest tick 16.6px
+  against 215px in one frame; 0 `player.blink`; rope drawn on 32 of 32 ticks;
+  431.9px of rise (0.90 platform widths, 2.01× the teleport); ±90.6px of swing at
+  the cut leaving at ±169 px/s, an exact mirror; `gates.recovery` still spent.
+  ⭐ From below and off the side, swinging toward the stage lands her and swinging
+  away kills her — the recovery is a DECISION.
+  Full numbers and the three things that measured wrong in
+  [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md).
+* ▢ **OPEN: FEEL.** Nobody has played it. The knobs are `RISE_PX` (420),
+  `LIFT_S` (0.55), `MAX_SWING_DEG` (18) and `SWING_ACCEL` in
+  `performer_moveset.rs`, and the bias is Jon's own: too powerful to start.
 

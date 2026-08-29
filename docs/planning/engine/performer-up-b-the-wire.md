@@ -1,7 +1,13 @@
 ---
-status: open
-owner: unassigned — handoff written 2026-08-29
+status: built — measured on the smash stage 2026-08-29; open for feel
+owner: handoff written 2026-08-29, picked up and built the same day
 ---
+
+> **BUILT.** `fcaa40fae` (the kernel's wire), `28342724d` (the move and the
+> rope), `49337a8fb` (`wire_probe`, and three things it caught). All six clauses
+> are measured below. What is still OPEN is FEEL: nobody has played it. The
+> numbers say the mechanic is there; they cannot say it is fun, and the knobs to
+> turn are named in `performer_moveset.rs`.
 
 # The Performer's up-B is a WIRE, not a teleport
 
@@ -10,6 +16,47 @@ Handoff for a machine picking this up cold. Read this, then
 2026-08-29 and is the worked example for how this one has to be proven —
 [the proof bar](#the-proof-bar) is not optional and is most of why the Trap took
 three attempts.
+
+## What it measures, on the stage, with presentation live
+
+`cargo run -p ambition_app_tools --bin wire_probe -- right render`
+
+| Clause | Measured |
+|---|---|
+| 1. Not a teleport | 32 ticks on the wire; largest single tick **16.6px**, against 215px in ONE frame |
+| 2. No teleport sound | `player.blink` emitted **0** times across the whole move |
+| 3. A wire from the sky | rope drawn on **32 of 32** on-wire ticks, on the ACTOR road |
+| 4. She is lifted | rose **431.9px**, monotonically |
+| 5. A fairly large distance | **0.90 platform widths**, 1.80× the fall blast depth, 2.01× the teleport |
+| 6. She swings | **±90.6px** across at the cut, leaving at **±169 px/s**, an exact mirror |
+| Still a recovery | `gates.recovery` spent at t0 |
+
+⭐⭐ **AND THE MIRROR IS THE INTERESTING ONE.** Run `offstage`, which starts her
+below the lip and off the side: swinging TOWARD the stage lands her on the boards
+by t90, and swinging AWAY drops her past the blast line at 760 px/s. The recovery
+is real and it is a DECISION — which is the whole point of clause six.
+
+## ⛔ Three things that measured wrong, and what they cost
+
+Recorded because each is a shape, not an incident:
+
+1. **The handover was a COIN FLIP.** A hard stop at the swing cap (clamp the
+   angle, zero `ang_vel`) made a held stick leave at either full tangential speed
+   or nothing, depending on which side of a tick she clipped the stop: the kernel
+   measured +229 px/s and the probe measured 0 for the SAME wire. The kernel's
+   test was asserting the lucky side with a one-sided `> 150`. The stop is soft
+   now and both instruments land in one band.
+2. **ONE FORMULA, THREE HOMES.** The winch rate that travels the authored rise
+   was solved in the executor while the profile was integrated in the kernel, so
+   they were free to disagree — and the moment the profile gained an ease-out
+   tail they did, silently, undershooting. `winch_rate_for` lives beside the
+   profile it inverts; the executor and both suites ask it.
+3. **FOUR MEASUREMENTS SAMPLED THE WRONG MOMENT.** Every one was a loop bounded
+   by a TICK COUNT rather than by the state it was about, so it read ordinary air
+   control twenty-seven ticks after the wire let go and credited it to the swing.
+   One of them would have passed for a release that wrote no velocity at all.
+   ⭐ **the tell is always the same**: a loop that runs `for _ in 0..N` and reads
+   a value at the end.
 
 ## What Jon asked for, in his words (2026-08-29)
 

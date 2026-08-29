@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{gameplay_allowed, gameplay_suspended};
+use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameplayGated};
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, PlayerInputSet, PlayerSimulationSet,
 };
@@ -59,13 +59,13 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             (
                 ambition_platformer2d_actor_monolith::time::time_control::emit_player_time_intent_system
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_scale_requests
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 ambition_platformer2d_actor_monolith::time::time_control::smooth_sim_clock_toward_target_system
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_reset_requests
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
@@ -104,12 +104,12 @@ impl Plugin for PlayerSchedulePlugin {
                     ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures,
                 )
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
-                    .run_if(gameplay_allowed)
+                    .in_set(GameplayGated)
                     .after(ambition_time::refresh_world_time)
                     .in_set(ambition_input::InputSet::Route),
                 ambition_platformer2d_actor_monolith::control::interaction_input_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
-                    .run_if(gameplay_allowed)
+                    .in_set(GameplayGated)
                     .after(ambition_time::refresh_world_time),
                 // Portal input stays owned by `PortalPlugin`. Resolve the body driven by each
                 // `DrivingParticipant`; the host has already committed `SlotControls` for all
@@ -261,7 +261,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             (
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::possession_trigger_system
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::release_possession_if_target_lost,
                 // Reproject body custody after possession settles. It remains ungated so room
                 // transitions can read settled residency while gameplay is suspended.
@@ -285,7 +285,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(
                         ambition_damage::PlayerHitResolutionSet,
                     )
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // Kernel deaths bypass hit resolution, so publish their death fact here after
                 // movement has flagged the reset. This remains ungated so suspended dialogue
                 // cannot swallow a pit/drown/tile-hazard death.

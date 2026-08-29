@@ -11,9 +11,10 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
-    gameplay_allowed, CombatSet, Platformer2dSimulationPhaseMonolith,
+    CombatSet, Platformer2dSimulationPhaseMonolith,
 };
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
@@ -90,7 +91,7 @@ impl Plugin for CombatSchedulePlugin {
                 // frame for every body (a ranged body freezes after one shot without
                 // it). The strike-spawning `advance_body_melee` / `start_body_melee`
                 // are deleted; this is only their surviving cooldown tick.
-                ambition_combat::attack_support::tick_body_melee_cooldowns.run_if(gameplay_allowed),
+                ambition_combat::attack_support::tick_body_melee_cooldowns.in_set(GameplayGated),
                 // ── Moveset runtime FIRST: produce this frame's action messages ──
                 //
                 // The move runtime (trigger → advance → dispatch) runs BEFORE the
@@ -125,7 +126,7 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_combat::moveset::trigger_moveset_moves,
                 )
                     .chain()
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // Boss STRIKES trigger the SAME way: when a boss's `active_profile`
                 // (mirrored from its pattern this frame) is set, start the boss's
                 // move for that profile — a geometry strike's Active-window hit volume
@@ -133,7 +134,7 @@ impl Plugin for CombatSchedulePlugin {
                 // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
                 // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
                 ambition_platformer2d_actor_monolith::features::trigger_boss_attack_moves
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
             )
                 .chain()
                 .in_set(CombatSet::Trigger),
@@ -171,7 +172,7 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_combat::moveset::project_move_defense_windows,
                 )
                     .chain()
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // Data-driven move EFFECT dispatch: resolve `MoveEventMessage`s —
                 // `Sfx{cue}` → play at the owner; `Effect{key}` → bridge to the SAME
                 // `ActorActionMessage::Special` the brain special path emits, so a
@@ -182,18 +183,18 @@ impl Plugin for CombatSchedulePlugin {
                 // ⭐ THE OTHER HALF OF THE SPECIAL TURN, after the trigger that
                 // opens its window — a flick on the same tick as the press is
                 // the press, not a B-reverse.
-                ambition_combat::moveset::apply_special_turn_flicks.run_if(gameplay_allowed),
+                ambition_combat::moveset::apply_special_turn_flicks.in_set(GameplayGated),
                 // ⛔ BEFORE `dispatch_move_events`, and that ordering is the
                 // whole mechanic: the move's `Ranged` event is dispatched there
                 // and `spawn_projectiles_from_brain_actions` routes the shot by
                 // WHAT IS IN THE HAND. A brandish that landed after would fire
                 // the fighter's bare-handed shot on the frame it drew the gun.
                 ambition_combat::held_items::brandish_the_playing_move_s_weapon
-                    .run_if(gameplay_allowed),
-                ambition_combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
+                ambition_combat::moveset::dispatch_move_events.in_set(GameplayGated),
                 // Writes no gameplay — the real strike is the move's own hitbox.
                 ambition_combat::moveset::project_moveset_melee_to_body_melee
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
                 // is inside its Active window, `BossAttackState`'s active_* fields are
                 // DERIVED from the live `MovePlayback` (the move is the authority),
@@ -201,7 +202,7 @@ impl Plugin for CombatSchedulePlugin {
                 // so `t` is current; provably equal to the brain's mirror today, it
                 // flips WHO owns the strike timing to the shared move runtime.
                 ambition_platformer2d_actor_monolith::features::project_boss_attack_state_from_move
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
             )
                 .chain()
                 .in_set(CombatSet::Playback),
@@ -216,13 +217,13 @@ impl Plugin for CombatSchedulePlugin {
                 // by `dispatch_move_events` ABOVE for moveset-ranged bodies — and emits open
                 // projectile requests.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // EFFECTS-stage consumer, beside the shot spawner and for the same
                 // reason: a move's timed technique is dispatched as an
                 // `ActorActionMessage` above, and a teleport that ran a phase
                 // later would move the body after the frame it was authored for.
                 ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // EFFECTS-stage consumer, beside the teleport and for the same
                 // reason: a health change authored on a move's timeline must
                 // land on the frame the move named. It sits AHEAD of
@@ -230,19 +231,19 @@ impl Plugin for CombatSchedulePlugin {
                 // poorer when this frame's hits resolve — a price that settled
                 // afterwards would let her be launched at the percent she had
                 // before she bought the tempo.
-                ambition_combat::vitality::apply_authored_vitality.run_if(gameplay_allowed),
+                ambition_combat::vitality::apply_authored_vitality.in_set(GameplayGated),
                 // EFFECTS-stage consumer, beside the teleport and for the same
                 // reason. ⛔ AND IT MUST NOT BE ORDERED AGAINST THE TELEPORT:
                 // the two never act on one body on one frame (a move authors
                 // one technique or the other), so a `.chain()` here would be a
                 // constraint stating a relationship that does not exist.
                 ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)
-                        .run_if(gameplay_allowed),
-                    ambition_platformer2d_actor_monolith::features::apply_summon_effects.run_if(gameplay_allowed),
+                        .in_set(GameplayGated),
+                    ambition_platformer2d_actor_monolith::features::apply_summon_effects.in_set(GameplayGated),
                 )
                     .chain(),
                 // Immediate projectile materializer: actor/item/boss fire above
@@ -251,7 +252,7 @@ impl Plugin for CombatSchedulePlugin {
                 // historical first-tick timing remains unchanged without routing
                 // authoritative spawning through the VFX effect enum.
                 crate::projectile_schedule::materialize_projectiles_for_this_tick
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // TWICE, and the second one is not redundant. The first
                 // draft put this here alone, reasoning that a player bolt
                 // materializes after the step below and so first ticks next frame,
@@ -270,7 +271,7 @@ impl Plugin for CombatSchedulePlugin {
                 // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles
                     .in_set(crate::projectile_schedule::ProjectileStepSet)
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // Named body-fire INPUT: charge / Hadouken / fire → ProjectileSpawnRequest.
                 crate::projectile_schedule::charge_projectile_input,
                 // Delayed projectile materializer: the charged/named body-fire
@@ -314,14 +315,14 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_combat::moveset::mark_move_playback_landed_hits,
                 )
                     .chain()
-                    .run_if(gameplay_allowed),
-                ambition_combat::on_hit::dispatch_landed_hit_effects.run_if(gameplay_allowed),
-                ambition_combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
+                ambition_combat::on_hit::dispatch_landed_hit_effects.in_set(GameplayGated),
+                ambition_combat::on_hit::apply_pogo_bounce.in_set(GameplayGated),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
                 // into this world-surface representation.
                 ambition_combat::attack_support::pogo_moveset_off_world_orbs
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the
                 // victim-side `apply_player_hit_events` is already gated this way, so
@@ -330,7 +331,7 @@ impl Plugin for CombatSchedulePlugin {
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
                 ambition_platformer2d_actor_monolith::features::apply_feature_hit_events
-                    .run_if(gameplay_allowed),
+                    .in_set(GameplayGated),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
                 // to slot in at exactly this point — AFTER the feature-hit resolution so it
                 // observes this frame's alive-flag transitions, BEFORE the mount/rider bookkeeping.
@@ -413,7 +414,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::hit_camera_shake::shake_camera_on_landed_hits
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(CombatSet::Settle),
         );
 
@@ -428,7 +429,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::impact_hitstop::request_impact_hitstop_on_resolved_hits
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(CombatSet::Settle),
         );
 
@@ -442,7 +443,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_damage::stage_player_victim_hit_events
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(CombatSet::Settle)
                 .before(ambition_mount::MountRiderLinkEnforced),
         );

@@ -200,6 +200,97 @@ pub fn report_schedule_load_census(census: Res<RuntimeCensus>, schedules: Res<Sc
     eprintln!("{row}");
 }
 
+/// Where the RUN CONDITIONS sit, and how many there are.
+///
+/// ⛔⛔ ONE-SHOT, AND IT MUST RUN BEFORE THE SCHEDULES DO. `Schedule::initialize`
+/// MOVES every condition out of the `ScheduleGraph` into the private executable
+/// (`update_schedule` drains them, and hands them back to the graph only to
+/// rebuild). There is no public accessor for the built conditions, so a sampled
+/// census in `Last` reads a drained graph and reports a confident ZERO —
+/// measured, 886 systems and `system_conditions=0`, which is how this ended up
+/// registered at startup instead.
+///
+/// ⚠ IT COUNTS WHAT PLUGIN BUILD REGISTERED. Schedules gain systems later when a
+/// session activates, and those are not in this number.
+///
+/// ⭐⭐ THE STRUCTURAL METRIC, DELIBERATELY NOT A PROFILER ONE. Bevy evaluates a
+/// system's conditions once per system per schedule run and a SET's conditions
+/// once per run regardless of how many systems the set holds, so "how many
+/// conditions are attached, and to what" is a count the schedule graph already
+/// knows — no Tracy, no sampling, no observer effect. That matters twice over:
+/// Tracy inflates this app's frame roughly 9x, and a deterministic count is a
+/// far better regression gate than a wall-clock millisecond.
+///
+/// ⛔ IT COUNTS ATTACHMENTS, NOT EVALUATIONS, and the gap between them is the
+/// whole point. `system_conditions` is what a frame pays per run; `set_conditions`
+/// is what the same semantic gate costs once it has been hoisted onto a set.
+/// Moving N systems' shared condition onto one set moves N out of the first
+/// number and 1 into the second, which is exactly the shape of the improvement
+/// and is invisible to any timing measurement small enough to trust.
+///
+/// The per-condition breakdown names the offenders: one condition attached 87
+/// times is a line saying so, rather than a number somebody has to explain.
+pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
+    let mut system_conditions = 0usize;
+    let mut set_conditions = 0usize;
+    let mut sets_with_conditions = 0usize;
+    // Condition name -> how many systems carry it. A `BTreeMap` because the row
+    // is diffed between runs, and a hash order would make every sample differ.
+    let mut by_name: std::collections::BTreeMap<String, usize> = Default::default();
+    for (_label, schedule) in schedules.iter() {
+        let graph = schedule.graph();
+        for (_key, _system, conditions) in graph.systems.iter() {
+            system_conditions += conditions.len();
+            for condition in conditions {
+                *by_name
+                    .entry(condition_label(condition.condition.name().as_ref()))
+                    .or_default() += 1;
+            }
+        }
+        for (_key, _set, conditions) in graph.system_sets.iter() {
+            if conditions.is_empty() {
+                continue;
+            }
+            sets_with_conditions += 1;
+            set_conditions += conditions.len();
+        }
+    }
+    // ⛔ A ZERO HERE IS THE INSTRUMENT FAILING, NOT THE ENGINE BEING CLEAN.
+    // Every schedule in this app carries conditions; reading none means this ran
+    // after the graphs were drained. Say so, so nobody records a 0 as a fact.
+    if system_conditions == 0 && set_conditions == 0 {
+        eprintln!(
+            "[census] conditions t=0.000 unavailable=graph_already_initialized \
+             (this must run before the schedules do)"
+        );
+        return;
+    }
+    let mut row = format!(
+        "[census] conditions t=0.000 system_conditions={system_conditions} \
+         set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
+    );
+    // Only the ones worth a name. A condition attached once is not the story;
+    // the tail would bury the ones that are.
+    let mut ranked: Vec<(&String, &usize)> =
+        by_name.iter().filter(|(_, count)| **count >= 4).collect();
+    ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
+    for (name, count) in ranked.iter().take(16) {
+        row.push_str(&format!(" {name}={count}"));
+    }
+    eprintln!("{row}");
+}
+
+/// The last path segment of a condition's type name, with generics dropped.
+///
+/// Condition names arrive as full paths with turbofish payloads
+/// (`bevy_ecs::...::resource_changed<ambition_foo::Bar>`), which are unreadable
+/// in a census row and would make the row width depend on crate paths. The tail
+/// is what identifies the condition to a human reading the census.
+fn condition_label(name: &str) -> String {
+    let head = name.split('<').next().unwrap_or(name);
+    head.rsplit("::").next().unwrap_or(head).to_string()
+}
+
 /// Frame times on the census interval.
 ///
 /// The always-on `[frame-census]` line summarizes a five-second window, which
@@ -408,10 +499,7 @@ fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
         .collect();
     // `{:?}` on a schedule label is its type name, which is exactly the phase
     // name a reader wants: `First`, `Update`, `StateTransition`.
-    let mut names: Vec<String> = phases
-        .iter()
-        .map(|label| format!("{label:?}"))
-        .collect();
+    let mut names: Vec<String> = phases.iter().map(|label| format!("{label:?}")).collect();
     names.push(SchedulePhaseCensus::OUTSIDE.to_string());
 
     for (index, _) in phases.iter().enumerate() {
@@ -457,6 +545,10 @@ impl Plugin for RuntimeCensusPlugin {
         app.init_resource::<RuntimeCensus>();
         app.init_resource::<FrameIntervalCensus>();
         app.add_systems(First, advance_runtime_census);
+        // ⛔ PreStartup, and the phase is load-bearing: `Update` and the sim
+        // schedule have not initialized yet, so their graphs still hold the
+        // conditions this counts. One frame later they are gone.
+        app.add_systems(PreStartup, report_schedule_conditions_census);
         app.add_systems(
             Last,
             (
@@ -535,8 +627,15 @@ mod tests {
             before.len() + 1,
             "one name per phase, plus `outside` for the gap after the last"
         );
-        assert_eq!(&names[..before.len()], &before[..], "phase names come from the app's own order");
-        assert_eq!(names.last().map(String::as_str), Some(SchedulePhaseCensus::OUTSIDE));
+        assert_eq!(
+            &names[..before.len()],
+            &before[..],
+            "phase names come from the app's own order"
+        );
+        assert_eq!(
+            names.last().map(String::as_str),
+            Some(SchedulePhaseCensus::OUTSIDE)
+        );
 
         let after = app.world().resource::<MainScheduleOrder>().labels.clone();
         assert_eq!(
@@ -570,7 +669,11 @@ mod tests {
         assert_eq!(census.totals_ms[1].round(), 3.0);
         assert_eq!(census.totals_ms[2].round(), 4.0);
         let summed: f64 = census.totals_ms.iter().sum();
-        assert_eq!(summed.round(), 9.0, "the phases must account for the whole span");
+        assert_eq!(
+            summed.round(),
+            9.0,
+            "the phases must account for the whole span"
+        );
     }
 
     #[test]

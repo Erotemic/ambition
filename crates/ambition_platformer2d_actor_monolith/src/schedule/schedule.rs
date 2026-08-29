@@ -17,8 +17,9 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized;
 use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet, GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, PlayerInputSet,
-    PlayerSimulationSet, RoomTransitionSet, SimScheduleExt, WorldPrepSet,
+    gameplay_allowed, CombatSet, GameplayGated, GameplaySimulationRoot,
+    Platformer2dSimulationPhaseMonolith, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
+    SimScheduleExt, WorldPrepSet,
 };
 
 /// Configure the chained ordering between [`Platformer2dSimulationPhaseMonolith`] variants.
@@ -50,6 +51,14 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // in session-gated hosts, and is inert everywhere else
     // (see `simulation_authorized`).
     app.configure_sets(sim, GameplaySimulationRoot.run_if(simulation_authorized));
+
+    // THE MODE gate, and it is a DIFFERENT question from the session gate above:
+    // `simulation_authorized` asks whose simulation this is, `gameplay_allowed`
+    // asks whether the mode is one that simulates at all. It was attached to 84
+    // systems one at a time, which is 84 evaluations of one answer per run;
+    // here it is evaluated once. `portal_schedule.rs` already did this for its
+    // own four sets — this is that pattern applied to the rest.
+    app.configure_sets(sim, GameplayGated.run_if(gameplay_allowed));
     app.configure_sets(
         sim,
         (

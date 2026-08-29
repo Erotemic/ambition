@@ -131,6 +131,7 @@ mod smash_in_the_host;
 mod one_update_one_tick;
 mod zero_duration_pump;
 mod a_knockout_takes_you_home;
+mod the_gameplay_gate_is_carried_by_the_set;
 mod smash_ride;
 mod the_trap_holds_her_under;
 mod smash_roster_movesets;

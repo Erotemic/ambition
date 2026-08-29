@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, PortalSet,
@@ -134,7 +134,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             portal_projectile_step
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .after(portal_fire_system),
         );
@@ -155,7 +155,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             portal_input_adapter_system
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
@@ -166,7 +166,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             resolve_portal_fire_intent
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
                 .after(portal_input_adapter_system),
@@ -181,7 +181,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             pickup_portal_gun_system
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems)
                 .after(ambition_portal2d::PortalPickupArming),
         );
@@ -192,7 +192,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             drop_portal_gun_system
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 // `PortalSet::WeaponAndProjectiles` is wired
                 // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the
                 // parent placement is already implied — a direct
@@ -207,7 +207,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             ensure_portal_bodies
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -235,7 +235,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             ensure_projectile_portal_bodies
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -249,14 +249,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             reconcile_kernel_bodies_after_portal_transit
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
         app.add_systems(
             sim,
             portal_player_input_adapter
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -265,7 +265,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             rotate_projectile_acceleration_after_portal_transit
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -276,7 +276,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             apply_portal_carried_momentum
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -288,14 +288,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             sync_ground_items_to_transitable
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .before(portal_teleport_ground_items),
         );
         app.add_systems(
             sim,
             sync_transitable_to_ground_items
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(portal_teleport_ground_items),
         );

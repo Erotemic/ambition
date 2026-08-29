@@ -42,7 +42,7 @@ pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowSta
 pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
 use ambition_boss_encounter::BossConfig;
-use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::CombatSet;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -122,7 +122,7 @@ impl Plugin for BossSpecialContentPlugin {
                 spawn_saddle_point_from_special_messages,
                 spawn_gradient_cascade_minions_from_special_messages,
             )
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(CombatSet::ContentSpecials),
         );
     }

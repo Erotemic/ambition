@@ -23,7 +23,7 @@ use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::schedule::{
-    gameplay_allowed, Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
+    Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
 // The rest of `fx` moved to `HostVfxPresentationPlugin` (see
 // `install_projectile_and_vfx_systems`); the blink preview ring is the one
@@ -50,6 +50,7 @@ use super::setup_systems::{
     setup_simulation_system,
 };
 use super::sim_systems::apply_player_reset_input_system;
+use ambition_platformer2d::platformer::schedule::GameplayGated;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -162,7 +163,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     app.add_systems(
         sim,
         apply_player_reset_input_system
-            .run_if(gameplay_allowed)
+            .in_set(GameplayGated)
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::dev_tools::DevEditApplySet)
             .before(ambition_platformer2d::actors::control::InputTimersAdvanced)
@@ -202,7 +203,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         .add_systems(
             sim,
             crate::app::player_clone::tick_player_clone_brains
-                .run_if(gameplay_allowed)
+                .in_set(GameplayGated)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         )
         .add_systems(
@@ -228,7 +229,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         (
             // HOME PRESENTATION — screen shake + landing SFX + the per-op
             // anim/SFX/VFX — reads the movement phase's hand-off. Moves no body.
-            sync_player_presentation.run_if(gameplay_allowed),
+            sync_player_presentation.in_set(GameplayGated),
         )
             .chain()
             .in_set(

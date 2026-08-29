@@ -205,6 +205,30 @@ pub enum CombatSet {
     ContentFlavor,
 }
 
+/// Systems that may run only while the mode allows gameplay.
+///
+/// ⭐⭐ ONE CONDITION, NOT EIGHTY-FOUR. Bevy evaluates a system's run condition
+/// once PER SYSTEM per schedule run, and a SET's once per run however many
+/// systems the set holds. `gameplay_allowed` was attached to 84 systems
+/// individually, so a frame that simulated two bodies asked the same question
+/// about `GameMode` 84 times and got the same answer every time.
+///
+/// ⛔ MEMBERSHIP IS THE GATE — do not also write `.run_if(gameplay_allowed)` on
+/// a system in this set. The condition would be evaluated twice and mean
+/// nothing more the second time.
+///
+/// ⚠ THIS SET CARRIES ITS CONDITION FROM `configure_platformer2d_simulation_phases`.
+/// A composition that registers these systems without calling that function
+/// leaves the set unconditioned, which does not fail to compile and does not
+/// fail loudly — it silently runs gameplay systems at a menu. That is what
+/// `the_gameplay_gate_is_carried_by_the_set` guards.
+///
+/// It is deliberately NOT nested in [`GameplaySimulationRoot`]: that set answers
+/// a different question (which SESSION owns the simulation), the two gates are
+/// independent, and a system may need one without the other.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct GameplayGated;
+
 /// Umbrella for every gameplay-simulation phase in the sim schedule.
 /// Hosts with `SessionGatedSimulation` gate this whole set; direct/headless
 /// compositions without that marker remain always-on.

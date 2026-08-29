@@ -178,7 +178,7 @@ pub struct GameplayEffectsSchedulePlugin;
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+        use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
         use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
             sim,
@@ -195,7 +195,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges.run_if(gameplay_allowed),
+                ecs::tick_pending_challenges.in_set(GameplayGated),
                 ecs::apply_actor_stimuli,
                 ecs::effect_bus::apply_gameplay_sfx_effects,
             )

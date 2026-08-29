@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{RoomTransitionSet, Platformer2dSimulationPhaseMonolith};
 
@@ -19,7 +19,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
             sim,
             (
                 ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system
-                    .run_if(gameplay_allowed)
+                    .in_set(GameplayGated)
                     .in_set(RoomTransitionSet::Detect),
                 ambition_platformer2d_actor_monolith::features::reset_ecs_room_features.in_set(RoomTransitionSet::Reset),
             ),

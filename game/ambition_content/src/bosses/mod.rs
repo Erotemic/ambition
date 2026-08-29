@@ -6,7 +6,7 @@
 //! lives in `ambition_boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 
-use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
@@ -326,8 +326,8 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             sim,
             (
-                detect_cut_rope_rope_cut.run_if(gameplay_allowed),
-                tick_cut_rope_flavor.run_if(gameplay_allowed),
+                detect_cut_rope_rope_cut.in_set(GameplayGated),
+                tick_cut_rope_flavor.in_set(GameplayGated),
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()

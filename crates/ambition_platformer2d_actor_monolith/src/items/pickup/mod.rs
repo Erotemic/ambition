@@ -92,7 +92,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // Held-items, the portal gun, the heal/save shrine, and localized
                 // gravity zones are LDtk-authored room entities.
                 crate::shrine::heal_save_shrine_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // The other half of the shrine: resume at the checkpoint it
                 // recorded. Not gated on `gameplay_allowed` — it must land on the
                 // FIRST tick a constructed session has a body, and that tick can
@@ -104,39 +104,39 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // settled, so it can never mistake an item the pickup below took
                 // this very tick for one nobody is holding.
                 return_released_items
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 pickup_held_item_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // Pickups that MOVE, stepped before the collect below so a
                 // pickup is collected where it IS this tick — a fast one would
                 // otherwise stay collectable from a box it has already left.
                 crate::items::item_motion::step_item_motion
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // Touch-to-collect equipment pickups (mushroom / flower). A
                 // sibling collect trigger to the pressed held-item pickup above.
                 crate::items::world_item::collect_world_items
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 fire_held_ranged_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 held_projectile_step
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 throw_held_item_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // WHAT THE MATCH DROPS, before the physics that settles it —
                 // so an item spawned this tick falls this tick rather than
                 // hanging at its point for one frame.
                 crate::items::match_spawn::spawn_match_items
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // ⭐ SUPPORT IS RE-VALIDATED BEFORE THE STEP, so an item whose
                 // platform left falls THIS tick rather than hanging for one —
                 // the same reason the spawn above runs before the physics — and
                 // an item whose platform MOVED goes with it.
                 carry_or_wake_settled_items
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 ground_item_physics
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 // RESIDENCY FOLLOWS CUSTODY. Last in the chain, so it sees
                 // the custody this tick actually settled on — the release derive
                 // above ran first, the pickup and the throw wrote directly. And
@@ -193,15 +193,15 @@ impl Plugin for ItemPickupSimulationPlugin {
             sim,
             (
                 crate::abilities::ranged::bomb::arm_thrown_bombs
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::bomb::tick_bomb_fuses
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::thrown::gravity_grenade::arm_thrown_gravity_grenades
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 ambition_platformer2d_shared_tangle::gravity::tick_temporary_zones
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
             )
                 .chain()
                 // Parent `PlayerSimulation` already implied via
@@ -215,29 +215,29 @@ impl Plugin for ItemPickupSimulationPlugin {
             sim,
             (
                 crate::abilities::traversal::mark_recall::mark_recall_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::traversal::blink::blink_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::traversal::grapple::grapple_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::shockwave::fire_shockwave_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::volley::fire_volley_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::beam::fire_beam_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::vortex::fire_vortex_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::vortex::update_vortex_wells
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::sentry::fire_sentry_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::sentry::update_sentries
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::traversal::dive::fire_dive_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::ranged::meteor::fire_meteor_system
-                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::ability_cooldown::tick_ability_cooldown,
             )
                 .chain()

@@ -61,6 +61,13 @@ LEDGER = measurement_paths.RUNTIME_LEDGER
 # forgotten bump is a silent invalid comparison.
 SCENARIO_VERSIONS = {
     "sandbox": 1,
+    # The Smash match family, one id per ROSTER SIZE. A four-fighter round is
+    # not a two-fighter round with noise on it, so they are different workloads
+    # and `scripts/profile_desktop.sh` gives them different ids; bump one of
+    # these when that roster's authored content moves.
+    "smash-match-2p": 1,
+    "smash-match-3p": 1,
+    "smash-match-4p": 1,
 }
 DEFAULT_SCENARIO_VERSION = 1
 
@@ -495,21 +502,70 @@ def gpu_facts(bundle: Bundle, meta: dict) -> dict:
 
 
 def display_facts(bundle: Bundle, meta: dict) -> dict:
+    """The camera facts the census already writes, lifted so they outlive the bundle.
+
+    ⭐ `world_rendering_peak` is the one the "does Smash draw the world more than
+    once" question turns on. The census counts only ACTIVE cameras whose role
+    draws the simulated world (main gameplay, a split-screen local view, a
+    portal capture rig) — a HUD overlay is not another draw of it — so 2 here
+    means the world was drawn twice in one frame.
+
+    ⚠ None of these are in the comparability key. They describe what a run did,
+    not which runs may be subtracted; a scene that grows a portal is a finding,
+    not a different experiment.
+    """
     if meta.get("headless") == "yes":
-        return {"resolution": "headless", "cameras": None, "world_rendering_peak": None}
+        # ⛔ NOT "unknown". `--headless` selects `backends: None`, so there is no
+        # render app and no view to count; the absence is a positive fact.
+        return {
+            "resolution": "headless",
+            "cameras": None,
+            "world_rendering_peak": None,
+            "offscreen_peak": None,
+            "active_peak": None,
+            "local_views_peak": None,
+            "camera_roles": None,
+            "target_resolutions": None,
+        }
     sizes: dict[str, int] = {}
+    # Every distinct target resolution seen, by kind, because a portal capture
+    # at 512x512 and a window at 2560x1440 are two different costs and the
+    # single `resolution` field can only carry one of them.
+    targets: dict[str, int] = {}
+    roles: dict[str, int] = {}
     for row in bundle.rows("camera_views.csv"):
-        if row.get("target") == "window" and row.get("size"):
+        # ⛔ `primary_window` IS THE COMMON CASE AND IT WAS NOT MATCHED HERE.
+        # `RenderTarget` is a component, not a camera field: a camera without
+        # one draws to the primary window, and the census reports that as
+        # `primary_window`. `window` appears only when a camera names a window
+        # EXPLICITLY, which nothing in the game does — so this filter matched
+        # nothing and `display.resolution` was null on every windowed run, in a
+        # field that is IN the comparability key precisely so a 1080p run and a
+        # 4K run cannot be subtracted. (Both rows in the ledger when this was
+        # fixed were headless, so nothing was orphaned.)
+        if row.get("target") in ("window", "primary_window") and row.get("size"):
             sizes[row["size"]] = sizes.get(row["size"], 0) + 1
+        if row.get("size"):
+            token = f"{row.get('target', '?')}:{row['size']}"
+            targets[token] = targets.get(token, 0) + 1
+        if row.get("role"):
+            roles[row["role"]] = roles.get(row["role"], 0) + 1
     views = bundle.rows("view_totals.csv")
+
+    def peak(column: str) -> float | None:
+        if not views:
+            return None
+        return max((number(row.get(column), 0.0) or 0.0 for row in views), default=None)
+
     return {
         "resolution": max(sizes, key=sizes.get) if sizes else None,
         "cameras": number(views[-1].get("cameras")) if views else None,
-        "world_rendering_peak": max(
-            (number(row.get("world_rendering"), 0.0) or 0.0 for row in views), default=None
-        )
-        if views
-        else None,
+        "world_rendering_peak": peak("world_rendering"),
+        "offscreen_peak": peak("offscreen"),
+        "active_peak": peak("active"),
+        "local_views_peak": peak("local_views"),
+        "camera_roles": roles or None,
+        "target_resolutions": targets or None,
     }
 
 
@@ -598,12 +654,25 @@ def comparable_label(fields: dict) -> str:
 
 def scenario_facts(meta: dict, version_override: int | None) -> dict:
     headless = meta.get("headless") == "yes"
+    # ⭐ THE FRONT DOOR'S OWN CLAIM WINS. `scenario_id` is written by the thing
+    # that chose the launch, so it knows what ran; everything below it is
+    # inference from a command line. It is absent (and empty) on every bundle
+    # taken before the front door grew named workloads, which is why the
+    # derivations stay here rather than being replaced by it.
+    declared = (meta.get("scenario_id") or "").strip()
+    if declared:
+        scenario_id = declared
     # A windowed run has no `headless_scenario`, so its workload is whatever the
     # operator passed through `--`: a launch target, a start room, or nothing.
     # ⛔ NOT `run_command` — that carries the cargo profile and features, which
     # are build dimensions and already have their own columns. Folding them into
     # the scenario id would split one workload into a group per build.
-    if headless:
+    #
+    # ⚠ AND IT IS BLIND TO A FLAG THE FRONT DOOR OWNS. `--smash` names a
+    # workload without passing anything through `--`, so this derivation alone
+    # would file a Smash match under `windowed:default` beside a title-screen
+    # session. That is what `scenario_id` above exists to prevent.
+    elif headless:
         scenario_id = meta.get("headless_scenario") or "unknown"
     else:
         typed = (meta.get("script_command") or "").split()
@@ -616,6 +685,10 @@ def scenario_facts(meta: dict, version_override: int | None) -> dict:
         "id": scenario_id,
         "version": version,
         "headless": headless,
+        # What the id is a NAME for, kept beside it so a reader does not have to
+        # parse the id to learn the roster size.
+        "workload": meta.get("workload") or None,
+        "fighters": number(meta.get("smash_fighters")) if meta.get("workload") == "smash-match" else None,
         "ticks": number(meta.get("headless_ticks")) if headless else None,
         "mode": meta.get("mode"),
         "duration_seconds": meta.get("duration_seconds"),

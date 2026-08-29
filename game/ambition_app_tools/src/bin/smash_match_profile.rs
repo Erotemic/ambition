@@ -1,4 +1,5 @@
-//! Profile an ACTUAL Smash match, headlessly, in the shipped composition.
+//! Profile an ACTUAL Smash match — windowless on a machine with no GPU, or in a
+//! REAL WINDOW on a machine that has one.
 //!
 //! ⛔⛔ THIS EXISTS BECAUSE NOTHING ELSE PROFILES A MATCH. Measured 2026-08-29:
 //! `run_game.sh smash` builds the standalone demo, passes `--window` AND
@@ -8,28 +9,105 @@
 //! `entities=64, bodies=1-2`. Every frame baseline taken before this therefore
 //! describes the engine's FIXED OVERHEAD, not gameplay.
 //!
-//! ⭐ The road is the one `app_it` already proves works — build the visible app
-//! with no window, install a roster, and route to the gameplay screen. That is
-//! the SHIPPED composition (rollback host and all), not the demo shell, so what
-//! it measures is what Jon plays.
+//! ⭐ The road is the one `app_it` already proves works — build the visible app,
+//! install a roster, and route to the gameplay screen. That is the SHIPPED
+//! composition (rollback host and all), not the demo shell, so what it measures
+//! is what Jon plays. The two render modes differ in ONE argument and in who
+//! drives the loop; everything about reaching a live round is shared.
 //!
 //! ```bash
+//! # No GPU: step the match by hand, as fast as the machine will go.
 //! AMBITION_PROFILE_CENSUS=1 AMBITION_PROFILE_CENSUS_HZ=20 \
 //!   cargo run -p ambition_app_tools --bin smash_match_profile -- --ticks 3000
+//!
+//! # A GPU desktop: a real window, winit's loop, hardware rendering.
+//! AMBITION_PROFILE_CENSUS=1 \
+//!   cargo run -p ambition_app_tools --bin smash_match_profile -- --window
 //! ```
 //!
-//! ⚠ Census rows are sampled on WALL time. A headless match runs far faster than
-//! real time, so leave `AMBITION_PROFILE_CENSUS_HZ` high enough that the run
+//! ⚠ Census rows are sampled on WALL time. A windowless match runs far faster
+//! than real time, so leave `AMBITION_PROFILE_CENSUS_HZ` high enough that the run
 //! outlives the first interval — otherwise the only row you get is startup, and
-//! a `frames=1` row reporting `Update=127ms` is PLUGIN BUILD, not a frame.
+//! a `frames=1` row reporting `Update=127ms` is PLUGIN BUILD, not a frame. A
+//! WINDOWED run is paced by the display, so its default 1 Hz is right.
+//!
+//! ⛔ THE TWO MODES ARE NOT COMPARABLE AND MUST NEVER BE SUBTRACTED. `NoWindow`
+//! selects `backends: None`: no adapter, no render app, no drawing at all. The
+//! bundle's `gpu.rendering` field carries `headless` vs `hardware` into the
+//! history's comparability key for exactly this reason.
 
 use bevy::prelude::*;
+
+use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::characters::control::{ScriptedControl, SlotControls};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
+
+/// Frames to let the shell settle before the roster lands. A roster inserted
+/// into an unbuilt shell is dropped; the integration tests wait the same 30.
+const SETTLE_FRAMES: u32 = 30;
+
+/// Frames to wait for the opening ceremony to release the cast before giving
+/// up. Ten seconds at 60 Hz — the ceremony is ~3s and dev mode runs it 10x
+/// fast, so this bounds a HANG, it does not encode the ceremony's length.
+const LIVE_DEADLINE_FRAMES: u32 = 600;
+
+/// How often the windowed run re-checks that a match is still happening.
+///
+/// ⚠ NOT EVERY FRAME, AND THE INSTRUMENT IS THE REASON. `World::query` builds a
+/// fresh `QueryState` on each call, which walks the archetype set — and a live
+/// match takes this app past two thousand entities. Twice a frame, forever, in
+/// the harness's OWN system, is the profiler perturbing the thing it measures.
+/// Twice every two seconds is not.
+const PREMISE_CHECK_EVERY: u32 = 120;
 
 fn arg_value(args: &[String], name: &str) -> Option<String> {
     args.iter()
         .position(|a| a == name)
         .and_then(|i| args.get(i + 1))
         .cloned()
+}
+
+fn arg_flag(args: &[String], name: &str) -> bool {
+    args.iter().any(|a| a == name)
+}
+
+/// The cast, as the round's own state: how many seats exist, and how many are
+/// still held by the opening ceremony's scripted control.
+///
+/// ⛔⛔ WAIT FOR THE ROUND, NOT FOR A NUMBER. A fixed frame count silently
+/// encodes the ceremony's LENGTH, and dev mode runs that ceremony 10x fast —
+/// the same mistake has broken four fixture families. The condition is
+/// observable: a cast exists, and nothing in it is still held.
+fn cast_state(world: &mut World) -> (usize, usize) {
+    let seated = world.query::<&MatchSeat>().iter(world).count();
+    let held = world
+        .query_filtered::<&MatchSeat, With<ScriptedControl>>()
+        .iter(world)
+        .count();
+    (seated, held)
+}
+
+/// Install the roster and ask the shell for the gameplay route. Both in one
+/// tick, in this order: the route activation reads the roster.
+fn seat_the_match(world: &mut World, fighters: usize) {
+    world.insert_resource(ambition_demo_smash::smash_roster(vec!["actor"; fighters]));
+    world.write_message(ShellCommand::GoTo(ShellRouteId::new(
+        ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+    )));
+}
+
+/// ⛔ THE PREMISE, CHECKED RATHER THAN ASSUMED. A profile of a match that
+/// quietly ended is a profile of a results screen, and it looks exactly like a
+/// cheap frame.
+fn report_end_of_run(world: &mut World) {
+    let (seats, _) = cast_state(world);
+    if seats == 0 {
+        eprintln!(
+            "[smash-profile] WARNING: no seats remain — the match ended during the measured \
+             window, so the census rows above mix a match with whatever followed it"
+        );
+    }
+    eprintln!("[smash-profile] done seats_at_end={seats}");
 }
 
 fn main() {
@@ -42,44 +120,47 @@ fn main() {
     let fighters: usize = arg_value(&args, "--fighters")
         .and_then(|v| v.parse().ok())
         .unwrap_or(2)
-        .clamp(2, ambition_platformer2d::characters::control::SlotControls::MAX_SLOTS);
+        .clamp(2, SlotControls::MAX_SLOTS);
+    // Wall seconds of LIVE match to measure before quitting, windowed only.
+    // ⭐ It starts when the ROUND goes live, not when the process starts: a cold
+    // launch spends ten-plus seconds on cargo, assets and the shell, and a
+    // budget that counted those would measure a different window on every
+    // machine. Zero (the default) means "play until you close the window".
+    let seconds: f32 = arg_value(&args, "--seconds")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.0);
 
+    if arg_flag(&args, "--window") {
+        run_windowed(fighters, seconds);
+    } else {
+        run_windowless(fighters, ticks);
+    }
+}
+
+/// The no-GPU arm: build the app with no window, step it by hand, measure a
+/// fixed number of ticks after the round goes live.
+fn run_windowless(fighters: usize, ticks: u32) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
 
-    // Let the shell settle before the roster lands, exactly as the integration
-    // tests do; a roster inserted into an unbuilt shell is dropped.
-    for _ in 0..30 {
+    // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
+    // subscriber safe here and unsafe in the test binary — which is why
+    // `build_visible_app` drops `LogPlugin` from every windowless mode. Tracy's
+    // recorder is a LAYER ON THAT SUBSCRIBER, so without this a
+    // `--features profile` capture of this binary records ZERO zones, and
+    // per-system timing is the one measurement a machine with no GPU still has.
+    #[cfg(feature = "profile")]
+    app.add_plugins(bevy::log::LogPlugin::default());
+
+    for _ in 0..SETTLE_FRAMES {
         app.update();
     }
+    seat_the_match(app.world_mut(), fighters);
 
-    let roster = ambition_demo_smash::smash_roster(vec!["actor"; fighters]);
-    app.world_mut().insert_resource(roster);
-    app.world_mut()
-        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(
-                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-            ),
-        ));
-
-    // ⭐ THE ROUND GOING LIVE IS OBSERVABLE, and waiting a fixed frame count
-    // would encode the opening ceremony's length instead. The cast is live when
-    // seats exist and none is still held by the ceremony's scripted control.
     let mut live_at = None;
-    for tick in 0..600u32 {
+    for tick in 0..LIVE_DEADLINE_FRAMES {
         app.update();
-        let world = app.world_mut();
-        let seated = world
-            .query::<&ambition_platformer2d::actor::MatchSeat>()
-            .iter(world)
-            .count();
-        let held = world
-            .query_filtered::<
-                &ambition_platformer2d::actor::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
-            >()
-            .iter(world)
-            .count();
+        let (seated, held) = cast_state(app.world_mut());
         if seated > 0 && held == 0 {
             live_at = Some(tick);
             break;
@@ -98,20 +179,139 @@ fn main() {
         app.update();
     }
 
-    // ⛔ THE PREMISE, CHECKED RATHER THAN ASSUMED. A profile of a match that
-    // quietly ended is a profile of a results screen.
-    let seats = {
-        let world = app.world_mut();
-        world
-            .query::<&ambition_platformer2d::actor::MatchSeat>()
-            .iter(world)
-            .count()
+    report_end_of_run(app.world_mut());
+}
+
+/// The GPU arm: a real window, winit's event loop, hardware rendering.
+///
+/// ⛔ THE LOOP IS NOT OURS HERE. `app.run()` never returns until the window
+/// closes, so the settle / seat / wait-for-live sequence the windowless arm
+/// writes as straight-line code has to become a system that reaches the same
+/// states one frame at a time. [`MatchDriver`] is that sequence, not a second
+/// policy — the conditions it tests are the ones above.
+fn run_windowed(fighters: usize, seconds: f32) {
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::Windowed,
+        true,
+        |app| {
+            // ⛔ A PROFILING RUN MUST NOT WRITE THE DEVELOPER'S SAVE. The
+            // windowless modes get this from `build_visible_app` because a
+            // non-session App must not have the side effect; a windowed one
+            // normally SHOULD have it, and this process is the exception —
+            // it is an instrument wearing the game's composition.
+            app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
+        },
+    );
+    // ⭐ NO STARTUP CEREMONY. `run_visible` composes the "Powered by Ambition"
+    // run-in for the shipped binary; this run is about the match, and the cards
+    // are ten seconds of measured logo.
+    app.insert_resource(MatchDriver {
+        fighters,
+        measure_for: (seconds > 0.0).then_some(seconds),
+        live_frames: 0,
+        warned_empty: false,
+        stage: Stage::Settling(SETTLE_FRAMES),
+    });
+    app.add_systems(Update, drive_match);
+    eprintln!(
+        "[smash-profile] windowed: fighters={fighters} measure_for={}",
+        if seconds > 0.0 {
+            format!("{seconds}s of live match")
+        } else {
+            "until the window closes".to_string()
+        }
+    );
+    app.run();
+}
+
+/// Where the windowed run is in the sequence that reaches a live round.
+///
+/// `Copy` so [`drive_match`] can read the stage out of the driver and assign a
+/// new one in the same arm; every variant holds a `Copy` payload already.
+#[derive(Clone, Copy)]
+enum Stage {
+    /// Frames left to let the shell finish building before the roster lands.
+    Settling(u32),
+    /// Frames spent waiting for the ceremony to release the cast.
+    WaitingForLive(u32),
+    /// The round is live; the instant it became so.
+    Live(std::time::Instant),
+    /// Measured, reported, exit written. Nothing further to do.
+    Done,
+}
+
+#[derive(Resource)]
+struct MatchDriver {
+    fighters: usize,
+    /// `None` means "until the window closes".
+    measure_for: Option<f32>,
+    /// Frames since the round went live, for [`PREMISE_CHECK_EVERY`].
+    live_frames: u32,
+    warned_empty: bool,
+    stage: Stage,
+}
+
+/// An EXCLUSIVE system on purpose: seating a match inserts a resource, writes a
+/// shell command, and queries two populations, which is `&mut World` work in any
+/// case — and writing it that way lets this arm call the SAME helpers the
+/// windowless arm calls instead of restating their conditions in system params.
+fn drive_match(world: &mut World) {
+    // Taken out and put back so the body can mutate the world freely; the
+    // alternative is threading a resource borrow through every helper.
+    let Some(mut driver) = world.remove_resource::<MatchDriver>() else {
+        return;
     };
-    if seats == 0 {
-        eprintln!(
-            "[smash-profile] WARNING: no seats remain — the match ended during the measured \
-             window, so the census rows above mix a match with whatever followed it"
-        );
+    match driver.stage {
+        Stage::Settling(0) => {
+            seat_the_match(world, driver.fighters);
+            driver.stage = Stage::WaitingForLive(0);
+        }
+        Stage::Settling(left) => driver.stage = Stage::Settling(left - 1),
+        Stage::WaitingForLive(waited) => {
+            let (seated, held) = cast_state(world);
+            if seated > 0 && held == 0 {
+                eprintln!(
+                    "[smash-profile] live after {waited} frames; fighters={}",
+                    driver.fighters
+                );
+                driver.stage = Stage::Live(std::time::Instant::now());
+            } else if waited >= LIVE_DEADLINE_FRAMES {
+                eprintln!(
+                    "[smash-profile] ABORT: the opening ceremony never released the cast, so \
+                     this bundle would have measured a menu"
+                );
+                world.write_message(bevy::app::AppExit::from_code(3));
+                driver.stage = Stage::Done;
+            } else {
+                driver.stage = Stage::WaitingForLive(waited + 1);
+            }
+        }
+        Stage::Live(since) => {
+            // ⛔ THE PREMISE, WHILE IT IS STILL CHECKABLE. An unattended run
+            // that outlives its own match records a results screen; say so at
+            // the moment it happens rather than only at the end, because a
+            // developer who closes the window never reaches the end.
+            driver.live_frames += 1;
+            if !driver.warned_empty
+                && driver.live_frames % PREMISE_CHECK_EVERY == 0
+                && cast_state(world).0 == 0
+            {
+                driver.warned_empty = true;
+                eprintln!(
+                    "[smash-profile] WARNING: the match ended — census rows from here on are \
+                     whatever followed it, not a match"
+                );
+            }
+            if driver
+                .measure_for
+                .is_some_and(|budget| since.elapsed().as_secs_f32() >= budget)
+            {
+                report_end_of_run(world);
+                world.write_message(bevy::app::AppExit::Success);
+                driver.stage = Stage::Done;
+            }
+        }
+        Stage::Done => {}
     }
-    eprintln!("[smash-profile] done seats_at_end={seats}");
+    world.insert_resource(driver);
 }

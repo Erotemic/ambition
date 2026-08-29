@@ -58,6 +58,20 @@ headless_ticks="1800"
 # special save file and no special room.
 default_headless_scenario="sandbox"
 headless_scenario="n/a"
+# ── Which WORKLOAD this bundle is about ───────────────────────────────────
+# `default` means "whatever the caller launched", which is what every bundle
+# before D-smash measured. A named workload is a claim the bundle makes about
+# WHAT RAN, and it becomes the history's `scenario.id` -- so a Smash match can
+# never be subtracted from a sandbox run, whatever else the two have in common.
+workload="default"
+scenario_id=""
+# The run_game.sh launch target that reaches a LIVE ROUND. ⛔ NOT `smash`: that
+# alias opens the standalone demo on character select, so it profiles a menu.
+smash_launch_target="smash-match"
+smash_fighters="2"
+# Wall seconds of LIVE match before the game quits itself, or 0 for "play until
+# you quit", which is timeline-run's own default shape.
+smash_seconds="0"
 # Passed straight through to run_game.sh, so the warm build and the launch it
 # wraps both honour it. Empty means "cargo's default", which on an agent
 # worktree is the WHOLE machine -- see scripts/agent_worktree.sh jobs.
@@ -110,6 +124,19 @@ Build selection:
   --no-tracy              Do not add --features profile. Drops per-Bevy-system
                            zones and Bevy's render-pass diagnostics.
 
+Smash match (a real round, not the character-select menu):
+  --smash                 Profile a LIVE Smash match instead of whatever
+                           run_game.sh would otherwise launch. Windowed and
+                           hardware-rendered by default -- this is the GPU
+                           machine's command. Add --headless for the windowless
+                           arm; the two are recorded as different experiments
+                           and the history refuses to compare them.
+  --smash-fighters N      Fighters on the roster, 2-4. Default: 2.
+  --smash-seconds N       Quit after N seconds of LIVE match (the clock starts
+                           at the opening bell, not at process start), so an
+                           unattended run bounds itself. Default: 0, meaning
+                           play until you quit the game.
+
 Headless / no-GPU:
   --headless              Run the game's headless path (--headless) instead of
                            opening a window. Launches the `sandbox` scenario
@@ -153,6 +180,9 @@ Options:
 
 Examples:
   scripts/profile_desktop.sh
+  scripts/profile_desktop.sh --smash
+  scripts/profile_desktop.sh --smash --smash-seconds 90 --smash-fighters 4
+  scripts/profile_desktop.sh --smash --headless
   scripts/profile_desktop.sh --headless
   scripts/profile_desktop.sh --dev-build
   scripts/profile_desktop.sh -- sandbox
@@ -216,6 +246,11 @@ while [[ $# -gt 0 ]]; do
         --dev-build|--dev-profile) build_profile="dev" ;;
         --no-tracy) want_tracy="no" ;;
         --headless) headless="yes" ;;
+        --smash|--smash-match) workload="smash-match" ;;
+        --smash-fighters) shift; [[ $# -gt 0 ]] || fail "--smash-fighters requires a value"; is_positive_int "$1" || fail "--smash-fighters must be positive"; workload="smash-match"; smash_fighters="$1" ;;
+        --smash-fighters=*) smash_fighters="${1#--smash-fighters=}"; is_positive_int "$smash_fighters" || fail "--smash-fighters must be positive"; workload="smash-match" ;;
+        --smash-seconds) shift; [[ $# -gt 0 ]] || fail "--smash-seconds requires a value"; [[ "$1" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match"; smash_seconds="$1" ;;
+        --smash-seconds=*) smash_seconds="${1#--smash-seconds=}"; [[ "$smash_seconds" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match" ;;
         --headless-ticks) shift; [[ $# -gt 0 ]] || fail "--headless-ticks requires a value"; is_positive_int "$1" || fail "--headless-ticks must be positive"; headless="yes"; headless_ticks="$1" ;;
         --headless-ticks=*) headless_ticks="${1#--headless-ticks=}"; is_positive_int "$headless_ticks" || fail "--headless-ticks must be positive"; headless="yes" ;;
         -j|--jobs) shift; [[ $# -gt 0 ]] || fail "--jobs requires a job count"; is_positive_int "$1" || fail "--jobs must be a positive integer"; cargo_jobs="$1" ;;
@@ -239,6 +274,27 @@ done
 case "$report_preset" in none|fast|full) ;; *) fail "--report-preset must be none, fast, or full" ;; esac
 case "$build_profile" in dev|release|profiling|ship) ;; *) fail "--build-profile must be dev, release, profiling, or ship" ;; esac
 [[ "$census_hz" =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "--census-hz must be a number"
+
+# ⛔ A WINDOWED RUN NEEDS A DISPLAY, AND FAILING HERE IS THE POINT. Without one
+# the game's own fallback quietly reroutes to the windowless shared host, which
+# does not seat a match at all -- so the bundle would carry a Smash label over a
+# measurement of the launcher. Say which command to run instead rather than
+# producing a mislabelled bundle.
+if [[ "$workload" == "smash-match" && "$headless" == "no" ]]; then
+    if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+        fail "--smash opens a real window and this session has no DISPLAY or WAYLAND_DISPLAY.
+  On a GPU desktop, run it from the desktop session.
+  On this VM, either wrap it (xvfb-run -a -s '-screen 0 1280x720x24' ...), which
+  measures a CPU emulating a GPU, or take the windowless arm instead:
+      scripts/profile_desktop.sh --smash --headless
+  ⛔ The two are NOT comparable and the history keys them apart."
+    fi
+    if [[ ! -d /dev/dri ]]; then
+        log "WARNING: no /dev/dri render node on this host, so this windowed run will almost"
+        log "         certainly fall back to a software rasterizer. summary.md will say"
+        log "         SOFTWARE RENDERING, and that is NOT a GPU measurement."
+    fi
+fi
 
 # ── The launch this run is about ──────────────────────────────────────────
 # The script contributes the build profile, the tracing feature, and (headless)
@@ -272,6 +328,7 @@ caller_chose_a_scenario() {
             sanic|sanic-demo) return 0 ;;
             mary-o|mary_o|maryo|mary-o-demo) return 0 ;;
             smash|smash-demo) return 0 ;;
+            smash-match|smash-match-profile) return 0 ;;
             twintrack|twin-track|twintrack-demo) return 0 ;;
             --direct|--start-room|--start-room=*) return 0 ;;
         esac
@@ -284,6 +341,42 @@ build_effective_run_args() {
     effective_run_args=("$build_profile")
     if [[ "$want_tracy" == "yes" ]]; then effective_run_args+=(--features profile); fi
     if [[ -n "$cargo_jobs" ]]; then effective_run_args+=(--jobs "$cargo_jobs"); fi
+    local extra_game_args=()
+    if [[ "$workload" == "smash-match" ]]; then
+        # ⛔⛔ THE MATCH IS A DIFFERENT LAUNCH TARGET, NOT A FLAG ON THE OLD ONE.
+        # `run_game.sh smash` builds the standalone demo and opens it on
+        # CHARACTER SELECT; profiling that profiles a menu. `smash-match` is the
+        # instrument that installs a roster, enters the gameplay route, and
+        # waits for the opening ceremony to release the cast before it reports
+        # that it is measuring anything.
+        effective_run_args+=("$smash_launch_target")
+        # ⭐ THE ROSTER SIZE IS PART OF THE WORKLOAD, so it is part of the id. A
+        # four-fighter round is not a two-fighter round with noise on it, and
+        # one shared id would let a roster change read as a regression.
+        scenario_id="smash-match-${smash_fighters}p"
+        if [[ "$headless" == "yes" ]]; then
+            effective_run_args+=(--headless)
+            headless_scenario="$scenario_id"
+        fi
+        effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
+        extra_game_args+=(--fighters "$smash_fighters")
+        if [[ "$headless" == "yes" ]]; then
+            extra_game_args+=(--ticks "$headless_ticks")
+        elif [[ "$smash_seconds" != "0" ]]; then
+            # ⭐ THE BINARY'S OWN BUDGET, NOT `timeout`. `--duration` would start
+            # its clock at process start, and a cold launch spends ten-plus
+            # seconds on cargo, assets and the shell before a round exists -- so
+            # the same number would measure a different window on every machine.
+            # `--seconds` starts at the opening bell.
+            extra_game_args+=(--seconds "$smash_seconds")
+        fi
+        if [[ "${#game_args[@]}" -gt 0 || "${#extra_game_args[@]}" -gt 0 ]]; then
+            effective_run_args+=(--)
+            effective_run_args+=("${game_args[@]+"${game_args[@]}"}")
+            effective_run_args+=("${extra_game_args[@]+"${extra_game_args[@]}"}")
+        fi
+        return 0
+    fi
     # ⛔ A HEADLESS RUN WITH NO SCENARIO PROFILES NOTHING WORTH PROFILING.
     # Bare `--headless` steps the production shared host, which sits on the
     # startup/launcher route: zero bodies, no movement, no collision. It
@@ -302,7 +395,6 @@ build_effective_run_args() {
         fi
     fi
     effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
-    local extra_game_args=()
     if [[ "$headless" == "yes" ]]; then
         extra_game_args+=(--headless --headless-ticks "$headless_ticks")
     fi
@@ -534,6 +626,7 @@ record_attach_target() {
     log "attach target PID $target_pid: ${cmdline:-<process not found>}"
     case "$cmdline" in
         *ambition_game_bin*|*mary_o_demo*|*sanic_demo*|*smash_demo*|*twintrack_demo*) ;;
+        *smash_match_profile*) ;;
         *) log "WARNING: attach target does not look like a game binary; pass --pid to override" ;;
     esac
 }
@@ -647,6 +740,16 @@ write_metadata() {
         echo "headless=$headless"
         echo "headless_ticks=$headless_ticks"
         echo "headless_scenario=$headless_scenario"
+        # ⭐ WHAT RAN, SAID BY THE THING THAT LAUNCHED IT. The history used to
+        # reverse-engineer a windowed run's workload from the command line,
+        # which lands every windowed bundle in one `windowed:default` group --
+        # so a Smash match and a title-screen session would be subtracted from
+        # each other. Empty means "no claim", and the ingest falls back to the
+        # old derivation for every bundle taken before this line existed.
+        echo "workload=$workload"
+        echo "scenario_id=$scenario_id"
+        echo "smash_fighters=$smash_fighters"
+        echo "smash_seconds=$smash_seconds"
         echo "tracy_requested=$want_tracy"
         echo "census_enabled=$census"
         echo "census_hz=$census_hz"
@@ -1087,6 +1190,16 @@ main() {
     resolve_launch_plan
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
+    if [[ "$workload" == "smash-match" ]]; then
+        log "workload: a LIVE Smash match ($smash_fighters fighters), not the character-select menu"
+        if [[ "$headless" == "no" ]]; then
+            if [[ "$smash_seconds" == "0" ]]; then
+                log "  windowed: play the match, then quit the game to end the capture"
+            else
+                log "  windowed: quits itself after ${smash_seconds}s of LIVE match"
+            fi
+        fi
+    fi
     if [[ "$headless" == "yes" ]]; then
         log "headless run: scenario $headless_scenario, $headless_ticks ticks"
         log "  GPU and render-pass measurements are not applicable to a headless run"

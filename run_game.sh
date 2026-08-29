@@ -85,6 +85,13 @@ Common commands:
   ./run_game.sh sanic --headless -- --ticks 600
       Run a demo's sim-only shell headlessly and pass game args through.
 
+  ./run_game.sh smash-match
+  ./run_game.sh profiling --features profile smash-match -- --seconds 90
+      Play a real Smash match in a window. The second form is what
+      scripts/profile_desktop.sh --smash launches, and quits itself after 90
+      seconds of LIVE match (the clock starts at the opening bell, not at
+      process start).
+
   ./run_game.sh validate
   ./run_game.sh ldtk
       Validate the sandbox LDtk world and exit.
@@ -107,6 +114,11 @@ Launch targets (mode aliases):
   smash, smash-demo       The stocks demo's standalone shell — opens on
                           CHARACTER SELECT (ambition_demo_smash_app). The same
                           experience is also listed on the host's title screen.
+  smash-match             A LIVE ROUND of the shipped Smash composition, for
+                          profiling: roster installed, gameplay route entered,
+                          measured only once the cast is released
+                          (ambition_app_tools/smash_match_profile). Windowed by
+                          default; --headless steps it with no window at all.
   twintrack, twin-track,
   twintrack-demo          TwinTrack's standalone shell — the two-seat
                           split-screen round trip (ambition_demo_twintrack_app).
@@ -287,6 +299,18 @@ while [[ $# -gt 0 ]]; do
             target_bin="smash_demo"
             target_kind="demo"
             ;;
+        smash-match|smash-match-profile)
+            # ⛔⛔ NOT `smash`. That alias opens the standalone demo on CHARACTER
+            # SELECT, so profiling it profiles a MENU. This target is the
+            # instrument that reaches a LIVE ROUND of the shipped composition:
+            # the same app the game binary builds, plus a roster, the smash
+            # gameplay route, and a wait for the opening ceremony to release the
+            # cast before it claims to be measuring a match. See
+            # `game/ambition_app_tools/src/bin/smash_match_profile.rs`.
+            target_pkg="ambition_app_tools"
+            target_bin="smash_match_profile"
+            target_kind="match_profile"
+            ;;
         twintrack|twin-track|twintrack-demo)
             target_pkg="ambition_demo_twintrack_app"
             target_bin="twintrack_demo"
@@ -400,6 +424,15 @@ if [[ "$target_kind" == "demo" ]]; then
         # `std::env::args().any(|a| a == "--window")` to pick its drawn path,
         # so prepend it — it survives even with no other game args.
         features+=(visible)
+        game_args=(--window "${game_args[@]}")
+    fi
+elif [[ "$target_kind" == "match_profile" ]]; then
+    # The match profiler carries no `visible` feature of its own: it reaches the
+    # renderer through `ambition_app`, whose DEFAULT features already include
+    # it. What the launcher owes it is the same `--window` word the demo shells
+    # read, because that is what selects a real window over the windowless
+    # stepping loop.
+    if [[ "$demo_headless" -eq 0 ]]; then
         game_args=(--window "${game_args[@]}")
     fi
 elif [[ "$hot_reload" -eq 1 ]]; then

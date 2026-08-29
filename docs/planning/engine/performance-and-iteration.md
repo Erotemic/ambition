@@ -585,18 +585,51 @@ This host, `dev` profile, headless, 2 fighters, 3000 ticks, no Tracy:
 | **frame mean** | **0.87ms** | **4.41–4.82ms** | **5x** | |
 | entities / archetypes | 64 / 85 | **2048 / 376** | 32x / 4.4x | |
 
-⛔⛔ **"UPDATE IS 78% OF THE FRAME" WAS AN ARTIFACT OF MEASURING AN EMPTY WORLD.**
-In a real match `PreUpdate` is the largest phase by a wide margin, and it is the
-one nobody was looking at — the 2026-08-28 baseline put it at 3% of the frame.
-Every ranked direction derived from that baseline inherits the same defect.
+⛔⛔⛔ **THE TABLE ABOVE COMPARES TWO DIFFERENT APP COMPOSITIONS, AND MY FIRST
+READING OF IT WAS WRONG. Corrected same day.**
 
-⭐ **AND IT IS A TIGHT TARGET.** `[census] schedules` reports PreUpdate holding
-about NINE systems, so 1.98ms is roughly 220us each. Compare `Update`, which
-carries 822 systems for 1.31ms.
+`PreUpdate = 45%` does NOT mean a mysterious phase got expensive. It means
+**THE SIMULATION TICK IS 45% OF THE FRAME**, and the sim runs there:
 
-⚠ `bodies` stayed at 2 while entities went 64 → 2048. Whatever a match spawns
-two thousand of, it is not bodies, and a per-entity cost in PreUpdate over that
-population is the leading hypothesis.
+- `bevy_ggrs::GgrsPlugin` registers exactly ONE system into `PreUpdate` —
+  `run_ggrs_schedules`, an EXCLUSIVE system — which runs `ReadInputs`, calls
+  `advance_frame()`, and dispatches `AdvanceWorld` → `world.run_schedule(GgrsSchedule)`;
+- `AmbitionRollbackPlugin` calls `set_sim_schedule(GgrsSchedule)`, so
+  **`SimSchedule` IS `GgrsSchedule`** — 236 `add_systems(sim, …)` call sites land
+  inside that one `PreUpdate` system.
+
+⇒ ⛔ **MY "NINE SYSTEMS, THEREFORE ~220us EACH" ARITHMETIC WAS NONSENSE.** One of
+those nine contains several hundred more. The repo's own D-PERF-1 poison message
+had already said `GameplayGated exists in ["GgrsSchedule"]`, and I did not
+connect it.
+
+⛔⛔ **AND THE 116x IS A COMPOSITION DIFFERENCE, NOT A SCALING ONE.** The sandbox
+baseline goes through `run_headless` (`--direct` ⇒ `cli_direct_entry`), which
+builds `MinimalPlugins` + a few plugins and NEVER calls `set_simulation_host` —
+so `SimulationHost` falls to its default `RenderFrame`, the sim runs in `Update`,
+and `GgrsSchedule` does not exist. That is why that row reads `Update=822,
+PreUpdate=9`. The smash profile uses `build_visible_app` → `SimulationHost::Rollback`
++ `DefaultPlugins`. Between the two runs `PreUpdate` gained the ENTIRE SIMULATION
+and the whole DefaultPlugins input/UI/picking front end. Most of the 116x is
+that.
+
+⇒ **the honest statement is "the sim tick costs 1.98ms over a 2048-entity
+world"**, and the two rows are not a scaling pair. Making them one needs
+`build_visible_app(NoWindow)` measured idle at the launcher AND on the smash
+stage.
+
+⭐ RULED OUT FROM SOURCE, and it removes the obvious suspect: the shipped local
+session is a SyncTest with `check_distance: 0`, and ggrs SKIPS the save request
+entirely at zero (`sync_test_session.rs`: *"we can skip all the saving if the
+check_distance is 0"*). `SaveWorld` and `LoadWorld` never run, so every snapshot
+plugin and all ~19 rollback registrations cost ZERO per frame in this build.
+Rollback re-simulation is not what is happening. ⚠ unless the observatory's F9
+proof pulse raised `check_distance` mid-run — settle that by printing
+`RollbackExecutionStats`, where a nonzero load count proves rollback ran.
+
+⚠ `PreUpdate` is forced `ExecutorKind::SingleThreaded` by
+`serialize_frame_schedules`, as is `GgrsSchedule`. So this is honest serial CPU
+time, not executor overhead.
 
 ⚠ Absolute numbers here are a `dev` build on this host; they are for RATIOS and
 for ranking, and a `profiling`-profile run is owed before any of them is quoted
@@ -618,6 +651,8 @@ problem into a startup one.
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
 | I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I7 | Archetype fragmentation from spurious components is what makes `PreUpdate` cost 2ms in a match | ⛔ **REJECTED BY THE AFTER-MEASUREMENT.** Removing 1297 spurious `AttackVfxView` components (64 archetypes, 376 -> 312) moved the frame NOT AT ALL: mean 4.41-4.82ms before, 4.84ms after; PreUpdate 1.98 -> 2.11ms | The defect was real and the fix is kept ON CORRECTNESS GROUNDS — a presentation fact was being stamped onto falling-sand chunks and UI nodes — but it buys no measurable time and must not be reported as if it did. ⇒ **PreUpdate's 2ms remains unexplained**, and whatever causes it does not scale with archetype count. |
+| I6 | Frame deltas of a few percent can be read off single runs | ⛔ REJECTED — the same binary and scenario produced means of 4.41, 4.51, 4.82 and 4.84ms across runs | Run-to-run spread here is ~10%, so ⛔ no single-run comparison below about 15% means anything. Repeated runs and a stated range are the minimum for any claim smaller than that, and the ledger's job is to make that discipline automatic. |
 | I5 | The D-PERF rows name work that still needs doing | ⛔ REJECTED, THREE FOR THREE — every row checked so far was already addressed | D-PERF-1's set-gating mechanism already existed and was already used (`simulation_authorized` on `GameplaySimulationRoot`); D-PERF-2's "1802 ticks each" premise is wrong (the demos are tuple-gated, which Bevy makes collective); D-PERF-3's headline candidate `rebuild_control_prompt` has been change-driven since 2026-07-23, a MONTH before the measurement that named it, and `rebuild_feature_view_index`'s `insert_if_absent` already avoids the per-frame `String` allocation it looked like it made. ⇒ **the written rows are not a reliable work list.** The engine is in better shape than they say, and the next D-PERF decision needs FRESH per-system attribution rather than another row. |
 | I4 | `CARGO_INCREMENTAL=0` fixes the stale-object link failure | ◐ PARTLY — it BUILDS past it but does not CLEAR it; the next ordinary build resurrected the same undefined symbol | The poisoned state lives in the package's incremental dir and survives any number of `CARGO_INCREMENTAL=0` runs. `cargo clean -p <pkg>` is the durable fix, and it is cargo's own operation rather than a delete under `target/`. ⛔ do not reach for `rm -rf`. |
 | I2 | The `smash_it` link failure after the knockout fix was caused by that fix | ⛔ REJECTED — clean tree, `HEAD` lacks the symbol, `grep` finds no reference anywhere in the crate | A draft test compiled and then `git checkout --`'d hours earlier left an incremental `.rcgu.o` referencing the dead symbol. A build-cache lie, not a source defect. `CARGO_INCREMENTAL=0` rebuilds past it. ⛔ do not delete under `target/`. |

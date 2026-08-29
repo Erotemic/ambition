@@ -22,6 +22,8 @@ that summary points somewhere specific.
 | Did the profiler cost more than the game? | same bundle, "Observer effect" | text, agent-readable |
 | Which *render pass* is hot, on CPU and GPU? | same bundle, `render_diagnostics.csv` | CSV, agent-readable |
 | How many cameras/views/portal captures were live? | same bundle, `camera_views.csv` / `portal_activity.csv` | CSV, agent-readable |
+| Is the world being drawn more than once per frame? | same bundle, `summary.md` “Cameras and views” → peak world-rendering cameras | text, agent-readable |
+| What does a real Smash MATCH cost (not the character-select menu)? | `profile_desktop.sh --smash` on a GPU desktop | text, agent-readable |
 | How big did the scene get? | same bundle, `runtime_census.csv` / `draw_census.csv` | CSV, agent-readable |
 | Which frames stuttered, and when? | `[frame-spike]` / `[frame-census]` (always on) → `frame_spikes.csv` | text, agent-readable |
 | Which textures decoded, how big, and when? | `[image]` / `[image-census]` (always on) → `image_decodes.csv` | text, agent-readable |
@@ -362,6 +364,80 @@ Every optional profiler is optional. A missing `perf`, a missing Tracy, an
 adapter with no timestamp queries, a missing `strace` — each costs its own
 artifact, records why, and the rest of the run is still collected.
 
+### Profiling a real Smash MATCH (the GPU machine)
+
+```bash
+./scripts/profile_desktop.sh --smash
+```
+
+Play the match. Quit the game when you are done. Read the `summary.md` whose
+path the script prints, then hand the bundle to the history:
+
+```bash
+python3 scripts/lib/profile_bundle_to_history.py target/profiles/desktop-timeline-run-<stamp> \
+    --label "smash match, RTX 4070"
+```
+
+Unattended variants:
+
+```bash
+./scripts/profile_desktop.sh --smash --smash-seconds 90     # quits itself
+./scripts/profile_desktop.sh --smash --smash-fighters 4     # a full roster
+```
+
+⛔ **`--smash` is not `-- smash`.** `run_game.sh smash` builds the standalone
+demo and opens it on CHARACTER SELECT, so profiling it profiles a menu — which
+is what every Smash "baseline" taken before 2026-08-29 actually measured.
+`--smash` launches `run_game.sh smash-match`, which builds the SHIPPED
+composition (rollback host and all), installs a roster, routes to the smash
+gameplay screen, and waits for the opening ceremony to release the cast before
+it reports that it is measuring anything. If the ceremony never releases it, the
+run aborts with exit code 3 rather than filing a menu under a match's name.
+
+`--smash-seconds` counts from the OPENING BELL, not from process start: a cold
+launch spends ten-plus seconds on cargo, assets and the shell, and `--duration`
+would spend a different share of its budget on those on every machine.
+
+What the bundle carries beyond an ordinary one:
+
+* `scenario_id=smash-match-2p` (or `-4p`) in `metadata.txt`, which becomes the
+  history's `scenario.id`. ⛔ The roster size is part of the id because a
+  four-fighter round is not a two-fighter round with noise on it, and the
+  comparability key refuses to subtract a Smash match from a sandbox run —
+  before this existed, every windowed bundle landed in one `windowed:default`
+  group;
+* `camera_views.csv` / `view_totals.csv` — the camera census, which is where the
+  question **"does Smash render the world more than once?"** is answered.
+  `summary.md`'s *Cameras and views* section states the answer in a sentence:
+  peak world-rendering cameras, counting only roles that draw the simulated
+  world (main gameplay, a split-screen local view, a portal capture rig — the
+  HUD is not one), with each camera's target kind, resolution, viewport, order
+  and render layers on its own row;
+* `display.world_rendering_peak`, `offscreen_peak`, `active_peak`,
+  `local_views_peak`, `camera_roles` and `target_resolutions` in the history
+  row, so those facts outlive the bundle that gets deleted.
+
+⛔ **A hardware run and a headless one are different experiments.**
+`gpu.rendering` is in the comparability key and takes `hardware`, `software` or
+`headless`, so `scripts/perf_history.py` refuses across them and names the field.
+That is the guard; do not work around it by quoting the numbers side by side.
+
+The windowless arm of the same match exists for this VM:
+
+```bash
+./scripts/profile_desktop.sh --smash --headless
+```
+
+It composes no renderer (`backends: None`: no adapter, no render app), so it
+measures the SIMULATION of a live round — bodies, systems, schedules — and every
+GPU and render-pass measurement in its report is marked not applicable. Use it
+for sim-side regressions; never as a stand-in for the GPU number.
+
+⚠ `--smash` refuses to start when the session has no `DISPLAY` or
+`WAYLAND_DISPLAY`. Without one the game's own fallback quietly reroutes to the
+windowless shared host, which seats no match at all — so the bundle would carry
+a Smash label over a measurement of the launcher.
+
 ### The no-GPU / VM workflow
 
 ```bash
@@ -470,7 +546,7 @@ present/absent column. The rest:
 
 | file | contents |
 |---|---|
-| `metadata.txt`, `metadata.json` | commit, branch, dirty files, cargo profile, features, executable, rustc, target, host, capture settings |
+| `metadata.txt`, `metadata.json` | commit, branch, dirty files, cargo profile, features, executable, rustc, target, host, `machine_id`, capture settings, and `workload` / `scenario_id` — the front door's own claim about WHAT RAN, which becomes the history's `scenario.id` |
 | `host-environment.txt` | CPU, memory, session type, DRM render nodes, Vulkan ICDs, `VK_*`/`WGPU_*`/`MESA_*` overrides, adapters |
 | `timeline.md` | per-window perf symbols labelled with the game's own log markers |
 | `frame_times.csv` | per-census-window frame percentiles (mean/p50/p95/p99/min/max) |

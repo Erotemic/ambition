@@ -39,6 +39,13 @@ description = "Ambition's non-game binaries: headless/RL drivers, trace replay, 
 # there is one switch and it is the app's.
 default = []
 causal = ["ambition_app/causal"]
+# Tracy zones and Bevy's render diagnostics, forwarded for the SAME reason
+# `causal` is: a feature this package does not declare is not an error here, it
+# is permanently FALSE. `scripts/profile_desktop.sh` passes `--features profile`
+# to whatever `run_game.sh` resolves to, and without this line the one command
+# that profiles a live Smash match would fail at cargo with "package
+# `ambition_app_tools` does not have feature `profile`".
+profile = ["ambition_app/profile"]
 
 [dependencies]
 ambition_app = { path = "../ambition_app" }

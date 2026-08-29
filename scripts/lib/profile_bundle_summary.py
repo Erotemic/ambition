@@ -145,7 +145,11 @@ def build_summary(bundle: Bundle) -> str:
         f"| kernel | `{meta.get('uname', '?')}` |",
         f"| workload census | {'on at ' + meta.get('census_hz', '?') + ' Hz' if meta.get('census_enabled') == 'yes' else 'OFF (--no-census)'} |",
         f"| headless | {'yes, ' + meta.get('headless_ticks', '?') + ' ticks' if headless else 'no'} |",
-        f"| scenario | `{meta.get('headless_scenario', 'n/a')}` |",
+        # ⭐ The front door's own claim first: `--smash` names a workload
+        # without passing anything through `--`, and `headless_scenario` is
+        # `n/a` for every windowed run, so the old row said nothing about the
+        # one thing the reader most needs to know -- WHAT RAN.
+        f"| scenario | `{meta.get('scenario_id') or meta.get('headless_scenario', 'n/a')}` |",
         "",
     ]
     if meta.get("cargo_profile") == "dev":
@@ -280,11 +284,39 @@ def build_summary(bundle: Bundle) -> str:
                 f"{number(row, 'local_views'):6.0f}"
             )
         lines += ["```", ""]
+        world_peak = number(peak, "world_rendering")
+        # ⭐ THE SENTENCE AFTER THE MEASUREMENT. The count above is the answer to
+        # "is this world being drawn more than once per frame", and a reader who
+        # has to know that a HUD camera is excluded before the number means
+        # anything will not reach the answer. Say it.
         lines += [
-            f"Peak world-rendering cameras: **{number(peak, 'world_rendering'):.0f}** at "
-            f"t={number(peak, 't'):.1f}s. Each one draws the world again.",
+            f"Peak world-rendering cameras: **{world_peak:.0f}** at "
+            f"t={number(peak, 't'):.1f}s.",
             "",
         ]
+        if world_peak >= 2:
+            lines += [
+                f"⭐ **The world was drawn {world_peak:.0f} times in one frame at peak.** Only",
+                "cameras that draw the SIMULATED WORLD are counted — main gameplay, a",
+                "split-screen local view, a portal capture rig — so the HUD is not one of",
+                "these. Each is a full pass over the visible population. Check",
+                "`camera_views.csv` for which roles were live together and at what",
+                "resolution each drew.",
+                "",
+            ]
+        elif world_peak == 1:
+            lines += [
+                "The world was drawn **once** per frame throughout: one active",
+                "world-rendering camera, no portal capture and no second view. Repeated",
+                "world rendering is not what this run's frame cost is.",
+                "",
+            ]
+        else:
+            lines += [
+                "No active world-rendering camera was sampled. Either nothing was on",
+                "screen at the sampled instants, or this run never reached gameplay.",
+                "",
+            ]
         if cameras:
             roles: dict[str, set[str]] = {}
             for row in cameras:
@@ -336,7 +368,9 @@ def build_summary(bundle: Bundle) -> str:
             f"Peak offscreen image render targets: **{number(peak, 'image_targets'):.0f}** "
             f"(largest dimension {number(peak, 'largest_dim'):.0f}px) at t={number(peak, 't'):.1f}s.",
             "",
-            "Full series: `render_target_census.csv`.",
+            "Full series: `render_target_census.csv`. ⚠ `cpu_bytes` there is the CPU-side"
+            " copy an image still holds; a target uploaded and dropped reports 0 and is"
+            " still costing VRAM.",
             "",
         ]
 

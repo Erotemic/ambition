@@ -1019,6 +1019,47 @@ render. If our presentation projection rewrites semantically unchanged state
 (the brief's direction 4), those 99 are where it lives, and that is a different
 investigation from gating.
 
+### ▢ THE SPRITE SCALING CURVE — the knob exists, the CULLED path is free, the VISIBLE one is still unmeasured
+
+`smash_match_profile --sprites N` spawns N plain sprites into a live match on the
+real stack: same app, same schedules, same render path, one dimension varied.
+Deliberately plain (`Sprite` + `Transform` + `Visibility`, no gameplay
+components), spawned AFTER the round goes live (earlier and the session teardown
+between lobby and stage sweeps them), on a deterministic grid, one shared colour
+and no texture — so it measures the per-sprite path and explicitly NOT batch
+breaking, which needs its own knob.
+
+```text
+sprites=0     mean 4.52ms   total 32     visible 5
+sprites=250   mean 4.58ms   total 281    visible 7
+sprites=1000  mean 4.70ms   total 1025   visible 7
+```
+
+⭐ **A THOUSAND CULLED SPRITES COST NOTHING MEASURABLE** — 4.52 → 4.70ms across a
+32× population increase, inside the 13% noise band. Bevy's culling is doing its
+job and non-visible sprites are not a cost in this engine.
+
+⛔⛔ **BUT `sprites_visible` NEVER LEAVES 5–7, SO THE QUESTION THE CAMPAIGN WAS
+OPENED ABOUT IS STILL UNANSWERED.** The first version grid-placed around the
+world origin and culled all thousand; the second anchored on a sprite the camera
+already draws and STILL culled them — the camera census reports `Main Camera
+layers=0+2+5` beside a `Front HUD Camera layers=1`, so the anchor almost
+certainly landed on a HUD sprite in screen space rather than a world one.
+
+⇒ ▢ **OPEN WORK, and it is a placement problem, not a measurement one:** the
+population has to land inside the world camera's frustum on a layer it draws.
+Someone with a GPU machine and a window can see where the sprites went in one
+glance; on a headless host it is guesswork. The knob and its abort guard are in
+place for exactly that.
+
+⭐⭐ **THE METHOD LESSON, THIRD INSTANCE TODAY.** Every one of these was caught by
+a SECONDARY number in the same census row while the primary looked fine:
+`--no-default-features` silently not disabling falling sand (caught by
+`ChunkRegion=1024` still present); a probe sampling 0.72s of startup (caught by
+`max=40.66ms` and a missing driver row); a thousand sprites spawned and culled
+(caught by `sprites_visible`). ⇒ **a census must report POPULATION beside
+TIMING.** Timing alone is exactly as convincing when it is wrong.
+
 ### THE CAMPAIGN'S BEFORE/AFTER — and why it is NOT a 10% win
 
 Two measured Smash-match rows now sit in `runtime_frame_cost.jsonl`, same

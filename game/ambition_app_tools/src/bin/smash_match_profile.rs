@@ -78,6 +78,73 @@ fn arg_flag(args: &[String], name: &str) -> bool {
 /// encodes the ceremony's LENGTH, and dev mode runs that ceremony 10x fast —
 /// the same mistake has broken four fixture families. The condition is
 /// observable: a cast exists, and nothing in it is still held.
+/// Spawn `count` plain sprites into the live match, spread over the stage.
+///
+/// ⭐⭐ THE SCALING KNOB THE CAMPAIGN LACKED. Every measurement so far has been a
+/// two-body match with about forty sprites, and the question the whole campaign
+/// was opened about — *a room with hundreds of sprites can visibly chug* — could
+/// not be ASKED at that size. This varies ONE dimension on the REAL stack: same
+/// app, same schedules, same render path, more sprites.
+///
+/// ⛔ THEY ARE DELIBERATELY PLAIN. No gameplay components, no bodies, no
+/// collision — a `Sprite` with a `Transform` and a `Visibility`, which is what
+/// Bevy's extraction and batching see. Adding gameplay would measure the
+/// gameplay instead and confound the dimension being varied.
+///
+/// ⚠ ONE SHARED COLOUR AND NO TEXTURE, so this measures the per-sprite path and
+/// NOT batch breaking. Varying texture/material to find batch breaks is a
+/// separate curve and needs its own knob — say so rather than letting a reader
+/// assume this one covers it.
+fn spawn_scaling_sprites(world: &mut World, count: usize) {
+    // ⛔⛔ ANCHOR ON A SPRITE THE CAMERA ALREADY DRAWS. The first version placed
+    // a grid around the world origin and every single one was CULLED: the census
+    // reported `sprites=1025` beside `sprites_visible=6`, so the curve measured
+    // a thousand invisible sprites and came out flat. A scaling curve whose
+    // population is culled is worse than no curve, and only having
+    // `sprites_visible` in the same census row caught it.
+    let anchor = {
+        let mut visible = world.query::<(&ViewVisibility, &GlobalTransform)>();
+        visible
+            .iter(world)
+            .find(|(visibility, _)| visibility.get())
+            .map(|(_, transform)| transform.translation().truncate())
+    };
+    let Some(anchor) = anchor else {
+        eprintln!(
+            "[smash-profile] ABORT: no sprite is visible to anchor on, so the scaling \
+             population would be culled and the curve would be meaningless"
+        );
+        std::process::exit(3);
+    };
+
+    // A tight deterministic grid around that anchor: same placement every run at
+    // the same count, so a comparison is not a lottery over what the camera
+    // happens to frame.
+    let columns = (count as f32).sqrt().ceil().max(1.0) as usize;
+    let pitch = 6.0;
+    let half = (columns as f32 * pitch) * 0.5;
+    for index in 0..count {
+        let column = (index % columns) as f32;
+        let row = (index / columns) as f32;
+        world.spawn((
+            Sprite {
+                color: Color::srgb(0.6, 0.6, 0.9),
+                custom_size: Some(Vec2::splat(8.0)),
+                ..Default::default()
+            },
+            Transform::from_xyz(
+                anchor.x + column * pitch - half,
+                anchor.y + row * pitch - half,
+                0.0,
+            ),
+            Visibility::Visible,
+        ));
+    }
+    eprintln!(
+        "[smash-profile] scaling_sprites_spawned={count} columns={columns} anchor={anchor:?}"
+    );
+}
+
 fn cast_state(world: &mut World) -> (usize, usize) {
     let seated = world.query::<&MatchSeat>().iter(world).count();
     let held = world
@@ -137,16 +204,22 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(0.0);
 
+    // ⭐ The scaling dimension. Zero (the default) leaves every prior measurement
+    // in this binary exactly comparable — the knob adds nothing when unused.
+    let scaling_sprites: usize = arg_value(&args, "--sprites")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+
     if arg_flag(&args, "--window") {
         run_windowed(fighters, seconds);
     } else {
-        run_windowless(fighters, ticks);
+        run_windowless(fighters, ticks, scaling_sprites);
     }
 }
 
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
-fn run_windowless(fighters: usize, ticks: u32) {
+fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
 
@@ -181,6 +254,13 @@ fn run_windowless(fighters: usize, ticks: u32) {
         std::process::exit(3);
     };
     eprintln!("[smash-profile] fighters={fighters} live_after_ticks={live_at} measuring={ticks}");
+
+    // ⛔ AFTER the round goes live, not before: sprites spawned into the opening
+    // ceremony would be swept by the session teardown that runs between the
+    // lobby and the stage, and the run would silently measure zero of them.
+    if scaling_sprites > 0 {
+        spawn_scaling_sprites(app.world_mut(), scaling_sprites);
+    }
 
     for _ in 0..ticks {
         app.update();

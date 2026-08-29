@@ -206,7 +206,27 @@ impl CharacterLoadDemand {
 /// ⚠ **1 AND 2 ARE NOT SEPARATED BY THIS DATA** — same simultaneous count, and one
 /// run each cannot tell 222ms from 393ms under a software rasteriser. 1 is the
 /// conservative end and nothing here argues for 2; raising it would want reps.
-const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
+/// ⛔⛔ SET TO 0 (UNBOUNDED) 2026-08-29, BECAUSE PACING BROKE A DESIGN RULE A TEST
+/// EXISTS TO KEEP CLOSED. `hall_transition_cover::the_halls_transition_bills_its_
+/// whole_cast_and_covers_the_wait` asserts the Hall stages its ENTIRE cast on the
+/// transition's FIRST frame — *"the room authors 144 NPCs, so the rest are being
+/// demanded later — after their actors spawn, in frame, uncovered, which is the
+/// defect this file exists to keep closed"*. Bounding the take dribbles the cast
+/// in at one per frame and is exactly that defect.
+///
+/// ⭐ AND THE TEST IS RIGHT, WHICH IS THE PART WORTH KEEPING: a room transition is
+/// COVERED — there is a loading screen over it — so a burst there is intended.
+/// Pacing exists to protect UNCOVERED frames, and applying it behind a cover
+/// trades a hidden burst for a visible dribble.
+///
+/// ▢ THE FIX THAT KEEPS BOTH: stage/declare every demanded token immediately (it
+/// is a set of ids and costs nothing) while starting at most N LOADS per frame —
+/// the materializer currently does both in one loop, which is why one bound
+/// governs both. Until that split exists this stays 0.
+/// ⚠ The sweep that justified `1` (0 → 31 simultaneous/1049ms, 1 → 14/222ms) was
+/// measured on the GALLERY, which is covered; it never showed a win on an
+/// uncovered frame.
+const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 0;
 
 /// Why a demanded character has no art.
 ///

@@ -2626,7 +2626,35 @@ a refactor's should be. ⭐ **A signal something already depends on belongs in a
 CSV** — otherwise the one consumer is also the only thing that knows how to
 extract it.
 
-✔✔ **LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.**
+⛔⛔⛔ **RETRACTED THE SAME DAY — THE BOUND BROKE A DESIGN RULE A TEST EXISTS TO
+KEEP CLOSED, AND THE TEST IS RIGHT.**
+`hall_transition_cover::the_halls_transition_bills_its_whole_cast_and_covers_the_wait`
+asserts the Hall stages its ENTIRE cast on the transition's FIRST frame, because
+*"the room authors 144 NPCs, so the rest are being demanded later — after their
+actors spawn, in frame, uncovered, which is the defect this file exists to keep
+closed"*. My bound dribbles the cast in at one per frame: exactly that defect.
+
+⭐ **AND THE REASON IS THE PART WORTH KEEPING: A ROOM TRANSITION IS COVERED.**
+There is a loading screen over it, so a burst there is INTENDED. Pacing protects
+UNCOVERED frames; applying it behind a cover trades a hidden burst for a visible
+dribble. ⚠⚠ **WHICH MEANS THE SWEEP THAT JUSTIFIED `1` MEASURED THE WRONG THING** —
+it ran on `hall_of_characters`, which is covered, so 0 → 31 simultaneous/1049ms
+and 1 → 14/222ms are numbers from behind a curtain. **A frame nobody sees is not
+the frame the campaign is about.**
+
+▢ **THE FIX THAT KEEPS BOTH, NOT TAKEN HERE:** stage/declare every demanded token
+immediately (a set of ids, costing nothing) while starting at most N LOADS per
+frame. The materializer does both in ONE loop, which is why a single bound governs
+both. `MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 0` (unbounded) until that split
+exists; `take_bounded` and its tests stay, since the mechanism is sound and only
+its application was wrong.
+
+⭐ **HOW IT WAS CAUGHT:** a full `cargo nextest run --workspace`, which the default
+lane's chronic red had been hiding. ⇒ **the value of an always-green lane is
+exactly this: a rule somebody wrote down in a test, defended while nobody was
+looking.**
+
+~~✔✔ LEVER 1 TAKEN 2026-08-29: ONE CHARACTER MAY BEGIN MATERIALISING PER FRAME.~~
 `CharacterLoadDemand::take()` was `std::mem::take` — it drained the WHOLE demand
 set in one frame, so every fighter's sheets started loading together, finished
 together, and extracted together. `take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME

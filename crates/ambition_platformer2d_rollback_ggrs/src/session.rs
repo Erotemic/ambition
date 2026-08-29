@@ -776,6 +776,81 @@ fn count_advance_run(
     }
 }
 
+/// What the GGRS DRIVER itself costs, bracketed from outside it.
+///
+/// ⭐⭐ THE MEASUREMENT THAT SPLITS AN UNATTRIBUTED MILLISECOND. Measured
+/// 2026-08-29 on a Smash match: the seventeen sim phases sum to ~0.93ms of a
+/// 2.12ms `PreUpdate`, and the remaining ~1.2ms is in no sim phase at all. Two
+/// families of explanation fit, and one measurement separates them:
+///
+/// - `driver - sum(sim_phases)` is time INSIDE this exclusive system but outside
+///   the phase chain — the `ReadInputs` schedule, ggrs's own advance
+///   bookkeeping, and any sim system registered outside the chain;
+/// - `PreUpdate - driver` is time in `PreUpdate` but outside the driver
+///   entirely — the `DefaultPlugins` population (ui focus, leafwing input,
+///   picking, asset events).
+///
+/// ⛔ IT LIVES HERE, NOT IN THE CENSUS CRATE. `ambition_dev_tools` does not
+/// depend on `bevy_ggrs` and must not start: bracketing `RunGgrsSystems` needs
+/// that dependency, and this crate already has it. The cost is that the row is
+/// emitted on a frame COUNT rather than the census's wall-clock interval, which
+/// is the honest trade rather than a new dependency edge.
+///
+/// ⚠ NOT ROLLBACK STATE, deliberately — a rewind leaves last-branch timings in
+/// it. Correct for an instrument, and it must never gate behaviour.
+#[derive(Resource, Default)]
+pub struct GgrsDriverCensus {
+    entered: Option<std::time::Instant>,
+    inside_ms: f64,
+    frames: u32,
+}
+
+/// How many frames a driver row covers. Wall-clock intervals belong to the
+/// census crate; this one counts frames because it cannot see that clock.
+const GGRS_DRIVER_REPORT_EVERY: u32 = 300;
+
+fn enter_ggrs_driver(mut census: ResMut<GgrsDriverCensus>) {
+    census.entered = Some(std::time::Instant::now());
+}
+
+fn leave_ggrs_driver(mut census: ResMut<GgrsDriverCensus>) {
+    let Some(entered) = census.entered.take() else {
+        return;
+    };
+    census.inside_ms += entered.elapsed().as_secs_f64() * 1000.0;
+    census.frames = census.frames.saturating_add(1);
+    if census.frames < GGRS_DRIVER_REPORT_EVERY {
+        return;
+    }
+    let per_frame = census.inside_ms / census.frames as f64;
+    eprintln!(
+        "[census] ggrs_driver frames={} inside_ms_per_frame={per_frame:.3}",
+        census.frames
+    );
+    census.inside_ms = 0.0;
+    census.frames = 0;
+}
+
+/// Install the driver bracket when the workload census is switched on.
+///
+/// ⛔ Registered only when asked, for the same reason the census's own phase
+/// marks are: an instrument must not join the population it measures.
+pub fn install_ggrs_driver_census(app: &mut App) {
+    if std::env::var("AMBITION_PROFILE_CENSUS").is_err() {
+        return;
+    }
+    eprintln!("[census] config ggrs_driver=installed");
+    app.init_resource::<GgrsDriverCensus>();
+    app.add_systems(
+        bevy::app::PreUpdate,
+        enter_ggrs_driver.before(RunGgrsSystems),
+    );
+    app.add_systems(
+        bevy::app::PreUpdate,
+        leave_ggrs_driver.after(RunGgrsSystems),
+    );
+}
+
 /// Where the confirmed line sits DURING the advance of `frame`.
 ///
 /// ⛔⛔ NOT `ConfirmedFrameCount`, and that resource is why this function

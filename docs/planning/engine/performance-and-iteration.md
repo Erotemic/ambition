@@ -687,6 +687,40 @@ implausibility rather than by a test:
 a coarser measurement that already exists.** Both lies were caught only because
 one did.
 
+### ⭐⭐⭐ THE FRAME, FULLY ATTRIBUTED — and the answer is HOST SERVICES
+
+`[census] ggrs_driver` brackets `RunGgrsSystems` from outside, which closes the
+last gap. Smash match, 2 fighters, this host, `dev`, steady state:
+
+```text
+PreUpdate                2.14 ms
+  ggrs driver            1.19 ms
+    sim phases (17)      0.93 ms
+    driver overhead      0.26 ms   ReadInputs + ggrs bookkeeping + out-of-chain sim systems
+  OUTSIDE the driver     0.95 ms   DefaultPlugins: ui focus, leafwing input, picking, asset events
+```
+
+⭐⭐ **ABOUT 0.95ms OF A 2.14ms `PreUpdate` — ROUGHLY 20% OF THE WHOLE 4.7ms
+FRAME — IS NOT THE SIMULATION.** It is the `DefaultPlugins` `PreUpdate`
+population running every frame of a HEADLESS match with no window, no pointer
+and no gamepad.
+
+⇒ **this is the brief's direction 5 (host services vs game runtime), and it is
+the largest attributable cost the campaign has found.** It is also the shape the
+brief predicted: machinery that is installed rather than active.
+
+⚠ CAVEATS, because this number will be quoted: the first 300-frame bucket reads
+1.92ms because it includes startup and the opening ceremony — 1.19ms is the
+steady-state figure. `dev` profile on this host. And a HEADLESS run is exactly
+where this population should cost LEAST; a windowed run has real pointers and
+real focus work, so the desktop figure could be larger, not smaller.
+
+⛔ WHAT THIS DOES NOT SAY: which of ui focus / leafwing / picking / asset events
+owns the 0.95ms. That needs one more bracket, or Tracy for attribution only.
+⛔ And it does NOT say the work is removable — `bevy_ui` focus and input are load
+bearing when a window exists. The question direction 5 asks is whether a
+composition that has no window should be installing them at all.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and

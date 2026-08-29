@@ -15,11 +15,11 @@ use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
-pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaFingerprint};
 pub use ambition_platformer2d_runtime::rollback::{
     RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistrationError,
     RollbackRegistrationOutcome, RollbackRegistry, GGRS_ROLLBACK_SCHEMA_VERSION,
 };
+pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaFingerprint};
 
 pub use bevy_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
@@ -87,6 +87,11 @@ impl Plugin for AmbitionRollbackPlugin {
             .init_resource::<ambition_platformer2d_runtime::RollbackConfirmationState>()
             .init_resource::<ambition_sim_view::PresentationPhase>()
             .insert_resource(ambition_platformer2d_runtime::RollbackHostReady);
+
+        // The driver bracket, installed only when the workload census is on.
+        // See `session::install_ggrs_driver_census` for why it lives in this
+        // crate rather than beside the other censuses.
+        crate::session::install_ggrs_driver_census(app);
 
         app.add_systems(
             Update,

@@ -1975,6 +1975,38 @@ idempotency question for #1/#2) is untouched and still wants Jon's call.
   room under a rewinding session and stays healthy, so these `Local`s do not bite
   in that window today. What changed is that if they ever do, **something says so.**
 
+#### ⭐⭐⭐ AND ASKING THE SAME QUESTION OF THE OTHER FOUR COLLAPSES THE TABLE OF SIX TO TWO
+
+The table lists SYSTEMS. The hazard is a property of the **target**: a
+non-rewinding `Local` only matters if what it writes is rollback state a
+checksum can disagree about. Asked that way, four of the six are not open:
+
+| # | target | verdict |
+|---|---|---|
+| 1 | `AmbitionGameSave` | was BLIND — now `resource-clone-custom-checksum` ✔ |
+| 2 | `QuestRegistry` | was BLIND — now `resource-clone-custom-checksum` ✔ |
+| 3 | `Particle` | **not rollback-registered at all** — cosmetic, exactly as the row said |
+| 4 | `RoomTransitionContentEpoch` | **deliberately NOT rollback state.** `rollback_coverage.rs` waives it as *"content identity, not simulation state"*: content is immutable within a session and a change INVALIDATES the session, so a resimulation cannot move it |
+| 5 | `BodyKinematics` + `BodyBaseSize` | **`component-canonical` — already checksummed**, so a rewind that lost a dev inspector edit is already reported |
+| 6 | `Instant::now()` on the tick | already guarded by an `is_rollback()` early return |
+
+⇒ **the open surface was never six systems. It was two resources with no checksum
+projection, and they now have one.** ⛔ What REMAINS is the behavioural question
+for #1 and #2 only — whether the guard should move into the rollback-registered
+resource or the write should be made idempotent — and that is still Jon's call,
+because it touches save and quest logic. ⭐ The difference is that it is no longer
+a call made blind: if the hazard fires, the sync test now says so.
+
+⚠ **#4's waiver is well-argued and carries its own trip-wire** — *"if a transition
+ever starts on a predicted frame, this waiver is wrong and the resource has to be
+registered, not re-justified"* — which is what a waiver should look like, and the
+opposite of the six that were falsified above.
+
+⭐ **THE PATTERN, AGAIN: RE-READING AN OPEN ROW BEAT BUILDING.** Four of six closed
+by reading a baseline file and a waiver list; the two that were real were closed
+by a one-line registration change each. No part of this needed the fix the row
+was holding out for.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

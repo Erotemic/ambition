@@ -2090,6 +2090,57 @@ learned the lesson of the six-`Local` table above and wrote the fix down at the
 type. ⇒ the pattern is known in this codebase; what was missing was the
 INSTRUMENT that can see when it is violated.
 
+### ⭐⭐⭐ THE DESKTOP HITCH IS SYNCHRONOUS 4K SPRITE-SHEET DECODE — FOUND 2026-08-29 IN THE FIRST HARDWARE RUN
+
+⛔ **AND IT IS THE THING THE WHOLE HEADLESS CAMPAIGN COULD NOT SEE.** A windowed
+RTX 3090 run (`desktop-timeline-run-20260829T143608Z`, 28,291 frames, 224.9s of
+real play) has a fine mean — 7.77ms, p50 7.54, p95 9.89, p99 12.50 — and **24
+frames over 33.4ms, worst 516ms.**
+
+⭐ **THE SPIKES ARE NOT SCATTERED. THEY COME IN FIVE CLUSTERS**, each 1–2s wide,
+and every cluster lands exactly on a burst of image decoding. `asset_activity.csv`
+against `frame_spikes.csv`:
+
+| burst (wall) | megapixels decoded | worst frame in it |
+|---|---|---|
+| 3.9 → 4.4s | +72 MP | 295.9ms |
+| 22.4 → 23.4s | +11 MP | 198.3ms |
+| 50.5 → 51.6s | +128 MP | 162.4ms |
+| 114.8 → 117.3s | **+307 MP** | **516.3ms** (and 467.0, 393.2 beside it) |
+
+⇒ **monotone in megapixels: the bigger the decode, the bigger the hitch.**
+
+⭐⭐ **AND `image_decodes.csv` NAMES THE FILES. THEY ARE 4096x4096 SHEETS, ~7 PER
+CHARACTER.** `noether_spritesheet.png` plus `.1`–`.6` — seven sheets at ~16.8 MP
+each, **~117 MP ≈ 470 MB of decoded RGBA for ONE character** — all decoded between
+wall 51.35 and 51.61s, which IS the 51s cluster.
+`perfect_cellular_automaton_spritesheet.1`–`.5` likewise inside the 516ms cluster.
+Whole run: **155 notable decodes, 578.2 MP, ~2.31 GB.**
+
+⛔⛔ **THE WORKING SET ONLY GROWS.** 77 images at start → **424 decoded, 655.9 MP,
+2623.7 MB of decode work, 326 still resident** after 3.7 minutes. The bundle's own
+summary names the other half: **30 re-decodes of `<runtime-generated>`** and 3–4x
+repeats of ten `*_portraits.png`. ⇒ *"a rise with no new room is the same asset
+being decoded again."*
+
+⇒ **DIRECTIONS, IN THE ORDER THEY ARE WORTH TAKING:**
+1. **Decode off the frame.** The hitch is the synchronous decode, not the drawing.
+   Nothing about the content has to change for the 516ms to go away.
+2. **Do not decode at full tier for a character nobody is looking at.** The
+   residency machinery already exists (`converge_character_residency_to_active_quality`,
+   `materialize_demanded_character_sheets` are both live in `Update`); the question
+   is why it materialises 4K sheets on demand mid-play.
+3. **Evict.** Resident climbs 128 → 339 and never comes back.
+4. **Stop re-decoding the same asset** — the 30x runtime-generated repeat is free to fix.
+⚠ A GPU-compressed format (BCn) would cut the 67MB-per-4096²-sheet resident cost
+4–6x, but that is a content-pipeline change and it does NOT fix the hitch, which is
+CPU decode.
+
+⭐ **WHY THE CAMPAIGN MISSED IT, STATED PLAINLY:** every earlier measurement was a
+HEADLESS single-room Smash match whose cast is loaded once, before the measured
+window. This needs *play across rooms*. ⇒ the headless conclusion ("the sim is not
+slow") stands and was never the answer to *"the desktop feels slow."*
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

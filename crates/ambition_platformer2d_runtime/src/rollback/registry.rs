@@ -17,6 +17,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Bump when the registered state set, wire type identity, encoded payload, or
 /// checksum projection changes incompatibly. Peers with different versions must
 /// not treat their snapshots as compatible.
+/// ⛔ v131: `actor.move_playback` gained its AIM LATCH — the direction the
+/// player asked for while the move was coming out. An aimed teleport resolves
+/// its destination from it, so two peers that disagree about it put the same
+/// fighter in two places: one on the ledge, one under it.
+/// ⛔ v130: the same projection gained `ChargeSustain` — whether the freeze is
+/// held by the button or by the move. Two peers agreeing on the elapsed hold and
+/// disagreeing about what ends it resume the move on different ticks.
 /// ⛔ v129: `actor.move_playback`'s charge projection gained the policy's two
 /// BOOLEANS. `stores` was never encoded and `roots` is new; both decide what a
 /// hold buys — whether reaching maximum fires, and whether the body may steer
@@ -27,7 +34,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// variant went on the end — but a peer on 126 cannot decode a `6`, and a
 /// fighter under the stage is exactly the state a desync would hide: invisible
 /// and intangible on one machine, standing in the open on the other.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 129;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 131;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

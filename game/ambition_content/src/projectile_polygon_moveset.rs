@@ -189,6 +189,7 @@ fn charge_shot() -> MoveSpec {
             // WAITS, and getting hit banks it instead of wasting it.
             stores: true,
             roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
         }),
         charge_gesture: ChargeGesture::Special,
         repeat: None,

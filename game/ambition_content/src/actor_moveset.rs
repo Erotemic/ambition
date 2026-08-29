@@ -26,43 +26,70 @@ use ambition_characters::smash_teleport::{author_teleport, TeleportParams};
 use ambition_characters::smash_trapdoor::{author_trapdoor, TrapdoorParams};
 use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 
-/// THE TRAP'S FOUR BEATS, and they are four because Jon asked for four:
-/// *"press down-b, a trap door opens, the actor jumps into it, small pause, the
-/// exit trapdoor opens, and she jumps / pops out of it."*
+/// THE TRAP, AS JON SPECIFIED IT — the whole lifecycle, in his words,
+/// 2026-08-28:
+///
+/// > *"When down-b is resolved to the trapdoor move, a trapdoor opens and the
+/// > character descends underground. In this subterranean state they can move
+/// > for up to the timelimit of the move (3 seconds) where they move is shown
+/// > by a unopened trap door sprite on the ground. When the move ends or the
+/// > character ends the move by pressing a non-move action, the final stage of
+/// > the move happens, where the trapdoor opens and then they leap out with an
+/// > explosion and hurtbox in the area."*
+///
+/// FIVE STAGES, and each one is a constant below:
+///
+/// 1. `DOOR_OPENS_S` — the boards give. She is still in the world.
+/// 2. `SINK_AT_S` — she descends. `BodyMode::Submerged`: not drawn, not
+///    hittable, no gravity, no geometry, and the door closes over her.
+/// 3. `HOLD_UNDER_AT_S`..`MAX_UNDER_S` — the SUBTERRANEAN state. She steers,
+///    surface-locked to the boards she went through, and what the stage shows is
+///    an UNOPENED trapdoor sliding along the floor. This is the beat the move
+///    exists for, and it is the one the clock freezes on.
+/// 4. `EXIT_DOOR_OPENS_S` — the ask ends the freeze (or the ceiling does) and
+///    the exit trapdoor bangs open. She is still under it.
+/// 5. `SURFACE_AT_S` — she LEAPS OUT: an upward impulse, the firework, and a
+///    hitbox over the door.
+///
+/// ⭐⭐ THE SUBTERRANEAN BEAT IS A DURATION, NOT A HOLD. Jon caught the other
+/// reading in a day: *"The latest main the actor doesn't spend any time under
+/// the stage… It looks like the pop up happens immediately."* Nobody holds B
+/// while steering. She gets the whole three seconds for free and an ACTION
+/// press takes them back — see [`ChargeSustain::UntilPressedAgain`].
 ///
 /// `blink_out` runs at 52ms a frame. The boards give on frame 2 and she is
 /// through them by frame 3, which is when she stops being in the world.
-///
-/// ⭐⭐ THE PAUSE IS NOT A PAUSE. It is `SURFACE_AT_S - SINK_AT_S` of
-/// `BodyMode::Submerged`, and she is STEERING for all of it — Jon: *"I do want
-/// the player to be able to control where they move."*
-///
-/// ⭐ A FULL SECOND, WHICH IS A LOT, AND DELIBERATELY. Jon, 2026-08-27: *"Give
-/// them 1 second under the stage at 1.2x run speed. I'm biasing towards making
-/// moves too powerful to start."* At 1.2× her 204 run speed that is roughly 245
-/// world px of travel — most of a smash stage.
-///
-/// ⭐⭐ AND THE SECOND IS A CEILING NOW, NOT A DURATION. Jon, 2026-08-28: *"she
-/// should be able to pop up at any time from it."* The beat under the stage is
-/// a HELD one — `MAX_UNDER_S` is how long she may stay, and letting go of
-/// Special before then brings her up early, which is what makes the trip a
-/// decision instead of a fixed animation.
 const DOOR_OPENS_S: f32 = 0.10;
 const SINK_AT_S: f32 = 0.16;
-/// Where the timeline FREEZES while Special is held — a hair after she is under.
+/// Where the timeline FREEZES — a hair after she is under.
 ///
 /// ⛔ AFTER `SINK_AT_S`, AND THAT ORDER IS THE MECHANIC. The submerge beat is a
 /// timed event on this timeline; freezing the clock ON it or before it would
 /// hold her at the mouth of the hole forever, above ground and hittable.
 const HOLD_UNDER_AT_S: f32 = 0.17;
-/// The longest she may stay under. Reaching it surfaces her whether or not the
-/// button is still down — a submerged fighter is untouchable, so an indefinite
-/// hold would be a stall.
-const MAX_UNDER_S: f32 = 1.0;
-const SURFACE_AT_S: f32 = 0.20;
+/// THE TIME LIMIT OF THE MOVE. Jon, 2026-08-28: *"they can move for up to the
+/// timelimit of the move (3 seconds)."*
+///
+/// ⭐ IT WAS ONE SECOND THE DAY BEFORE (*"Give them 1 second under the stage at
+/// 1.2x run speed. I'm biasing towards making moves too powerful to start"*) and
+/// is three now. At 1.2× her 204 run speed three seconds is roughly 735 world px
+/// — several stage widths — which is exactly the bias he named, and this is the
+/// first knob to turn when it turns out to be too good.
+const MAX_UNDER_S: f32 = 3.0;
+/// The exit trapdoor bangs open. She is still under it for `SURFACE_AT_S -
+/// EXIT_DOOR_OPENS_S` — the door opens, THEN she comes out, which is the order
+/// Jon's sentence puts them in.
+const EXIT_DOOR_OPENS_S: f32 = 0.18;
+const SURFACE_AT_S: f32 = 0.30;
 /// How long the emergence hits for.
 const FIREWORK_S: f32 = 0.12;
-const TRAP_ENDS_S: f32 = 0.44;
+const TRAP_ENDS_S: f32 = 0.54;
+/// How hard she LEAPS out of the boards, body-local and against gravity.
+///
+/// ⛔ A LEAP, NOT A STEP UP. She is coming out of a hole in the stage under her
+/// own power and the move's payoff is the space it buys; a body that surfaced
+/// standing still would be handing the position straight back.
+const LEAP_OUT_SPEED: f32 = 430.0;
 
 /// How far above her the engine looks for a floor to come up through.
 ///
@@ -303,11 +330,18 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
         motion_scale: 0.0,
         sustain_effect: None,
     });
-    // ⭐⭐ THE HOLD IS THE MOVE'S SECOND, and it is the shipped charge mechanic
-    // rather than a new one. `MoveCharge` freezes a timeline at an authored
-    // point while a button is down, accrues the hold in the owner's proper
-    // time, and resumes on release or at the maximum — which is exactly *"she
-    // should be able to pop up at any time"* with a ceiling on it.
+    // ⭐⭐ STAGE THREE: THE SUBTERRANEAN BEAT, and it is the shipped timeline
+    // hold rather than a new mechanic. `MoveCharge` freezes a timeline at an
+    // authored point, accrues the freeze in the owner's proper time, and resumes
+    // when something asks or at the maximum — which is Jon's *"they can move for
+    // up to the timelimit of the move (3 seconds)… or the character ends the
+    // move by pressing a non-move action"* exactly.
+    //
+    // ⚠ AND THE PRIMITIVE IS MISNAMED FOR THIS USE. It is spelled
+    // `smash_charge` / `SmashChargeSpec` because a smash was its first customer,
+    // and this move charges nothing — what it holds is a beat. The mechanic is
+    // right and the noun is not; renaming it to a timeline HOLD, with charging
+    // as one policy on it, is the elegant version and is a separate change.
     //
     // ⛔ AND IT MUST NOT ROOT HER. A smash's freeze roots because a windup is a
     // commitment; this one holds TRAVEL. `SmashChargeSpec::roots` is where the
@@ -319,15 +353,17 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
         // out of the hole either way.
         stores: false,
         roots: false,
+        // ⛔⛔ AND NOBODY HAS TO HOLD ANYTHING. Jon, 2026-08-28, on the first
+        // version of this: *"The latest main the actor doesn't spend any time
+        // under the stage… It looks like the pop up happens immediately."* He
+        // was not holding B, and nobody would while steering — the three seconds
+        // under the stage are a DURATION he asked for outright, and ending them
+        // early is a thing he asked to be able to DO, not a thing he has to stop
+        // doing.
+        sustain: ambition_entity_catalog::ChargeSustain::UntilPressedAgain,
     });
     // The press that STARTED this move is the one that holds it — down-Special.
     spec.charge_gesture = ambition_entity_catalog::ChargeGesture::Special;
-    // ⭐ THE DISPLAY, at the door and on the frame she comes through it.
-    //
-    // ⛔ AND IT ASKS FOR NO CUE. `FxRequest` fans one request into the effect
-    // AND the `vfx.<family>.<row>` sound its own name addresses, so naming a
-    // second cue here would be the same bang down two roads on one frame.
-    let spec = ambition_characters::moveset_authoring::vfx(spec, SURFACE_AT_S, FIREWORK_VFX);
     // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
     // the second one is the half whose absence is a fighter gone for the match.
     let spec = author_trapdoor(
@@ -340,13 +376,38 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
             sfx: "world.door.heavy_open".to_string(),
         },
     );
+    // ⭐⭐ STAGE FOUR: THE EXIT TRAPDOOR OPENS, AND SHE IS STILL UNDER IT. Jon's
+    // order, in his words: *"the trapdoor opens and then they leap out."* The
+    // boards are a `trapdoor_boards` effect on their own beat rather than part of
+    // the surfacing, so the twelve hundredths between them are frames of an open
+    // hole with nobody out of it yet — which is the tell that something is
+    // coming.
+    let spec = ambition_characters::moveset_authoring::vfx(spec, EXIT_DOOR_OPENS_S, TRAPDOOR_VFX);
+    let spec = ambition_characters::moveset_authoring::sfx(
+        spec,
+        EXIT_DOOR_OPENS_S,
+        "world.door.heavy_open",
+    );
+    // ⭐⭐ STAGE FIVE: SHE LEAPS OUT. The impulse is what makes it a leap rather
+    // than a body appearing on the boards, and it lands on the same instant as
+    // the surfacing so the placement and the launch cannot disagree about where
+    // she left from. Body-local, against gravity.
+    let spec = ambition_characters::moveset_authoring::impulse(
+        spec,
+        SURFACE_AT_S,
+        (0.0, -LEAP_OUT_SPEED),
+        ambition_entity_catalog::ImpulseMode::Set,
+    );
     let spec = author_trapdoor(
         spec,
         SURFACE_AT_S,
         TrapdoorParams {
             submerge: false,
             surface_reach: SURFACE_REACH,
-            vfx: TRAPDOOR_VFX.to_string(),
+            // ⛔ THE BOARDS ALREADY OPENED, one beat ago and on their own event.
+            // Asking for them again here would draw a second set over the first
+            // on the frame she comes through.
+            vfx: FIREWORK_VFX.to_string(),
             sfx: "world.door.heavy_open".to_string(),
         },
     );
@@ -416,9 +477,10 @@ mod tests {
     /// player's steering multiplied by zero while the module doc said *"no
     /// gravity, no geometry — and still steering"*.
     ///
-    /// ⛔⛔ SHE COMES UP WHEN SHE LETS GO, and the beat under the stage is the
-    /// shipped CHARGE mechanic rather than a second one. Jon, 2026-08-28: *"she
-    /// should be able to pop up at any time from it."*
+    /// ⛔⛔ THE SUBTERRANEAN BEAT IS THE SHIPPED TIMELINE HOLD rather than a
+    /// second mechanic. Jon, 2026-08-28: *"they can move for up to the timelimit
+    /// of the move (3 seconds)… or the character ends the move by pressing a
+    /// non-move action."*
     ///
     /// Three facts, and each of them is a way the move breaks if it is missing.
     /// The gesture must be `Special`, because `charged_by_gesture` enters charge
@@ -430,7 +492,7 @@ mod tests {
     /// is not the only thing that can take her steering away, and the other one
     /// is the freeze itself.
     #[test]
-    fn the_second_under_the_stage_is_a_held_beat_that_does_not_root_her() {
+    fn the_subterranean_beat_is_a_duration_an_action_press_can_cut_short() {
         let set = actor_moveset();
         for id in ["actor_trapdoor", "actor_trapdoor_air"] {
             let trap = set
@@ -455,6 +517,13 @@ mod tests {
                 policy.hold_at_s < SURFACE_AT_S,
                 "{id} freezes at {}s, which is not before she surfaces at {SURFACE_AT_S}s",
                 policy.hold_at_s,
+            );
+            assert_eq!(
+                policy.sustain,
+                ambition_entity_catalog::ChargeSustain::UntilPressedAgain,
+                "{id} freezes only while a button is DOWN, so a player steering \
+                 with the stick spends three ticks under the boards instead of \
+                 three seconds — the exact shape Jon reported",
             );
             assert!(
                 !policy.roots,

@@ -1267,6 +1267,34 @@ pub struct SmashChargeSpec {
     /// this field existed.
     #[serde(default = "charge_roots_by_default")]
     pub roots: bool,
+    /// WHAT KEEPS THE FREEZE — the button, or the move.
+    #[serde(default)]
+    pub sustain: ChargeSustain,
+}
+
+/// What holds a frozen timeline frozen.
+///
+/// ⭐⭐ ONE MECHANIC, TWO SHAPES, and the second one is not a smash. A charge is
+/// *freeze the timeline, resume it later*; what differs is what decides
+/// "later". A smash is paid for by KEEPING THE BUTTON DOWN — let go and it
+/// swings — because the hold is the commitment you are being charged for.
+///
+/// ⛔ THE ACTOR'S TRAPDOOR IS THE OTHER ONE, and authoring it as a held charge
+/// shipped a regression Jon caught in a day: *"The latest main the actor doesn't
+/// spend any time under the stage."* He is not holding B while he steers, and
+/// nobody would — the beat being held is a SECOND OF TRAVEL, which he asked for
+/// as a duration (*"Give them 1 second under the stage"*) and then asked to be
+/// able to cut short (*"she should be able to pop up at any time from it"*). A
+/// hold-to-sustain reading of that gives a fighter three ticks under the boards
+/// unless she keeps a finger down, which is the opposite of both sentences.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ChargeSustain {
+    /// The button stays DOWN, and releasing it resumes the move. Every smash in
+    /// the game, and the default for a policy that says nothing.
+    #[default]
+    WhileHeld,
+    /// The freeze holds ITSELF, up to the maximum, and a NEW press ends it.
+    UntilPressedAgain,
 }
 
 /// Which press holds a move's charge.
@@ -1517,6 +1545,7 @@ impl MoveSpec {
                 // and would arrive here by accident rather than by authoring.
                 stores: false,
                 roots: true,
+                sustain: ChargeSustain::WhileHeld,
             })
         }) else {
             return None;

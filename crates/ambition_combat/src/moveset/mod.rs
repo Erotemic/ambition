@@ -300,6 +300,28 @@ pub struct MovePlayback {
     /// vector alone would re-introduce the frame confusion `dir_to_world` exists
     /// to prevent.
     pub aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    /// The last DIRECTION THE PLAYER ASKED FOR since this move began, in the
+    /// owner's LOCAL frame — `None` while the stick has not left neutral once.
+    ///
+    /// ⭐⭐ THE AIM WINDOW OF AN AIMED SPECIAL, and it is a LATCH rather than a
+    /// live read for the same reason [`Self::aim`] beside it is: the input that
+    /// aims a move is gone by the frame the move acts on. A teleport recovery
+    /// commits eleven frames after the press; a player who flicked a direction
+    /// and let go has stated an aim that a read at the transit cannot see.
+    /// Latching says "any direction given while this move was coming out aimed
+    /// it", which is what the genre's aimed teleports do.
+    ///
+    /// ⛔⛔ AND IT IS THE UNDAMPED STICK. `ActorControlFrame::locomotion` is
+    /// republished DAMPED after integration, so a rooted move — `motion_scale:
+    /// 0.0`, which is how this repository authors a commitment — reads neutral
+    /// for its whole duration, and every aimed special is rooted. See
+    /// [`ambition_characters::actor::attack_gesture::aimed_stick_direction`].
+    ///
+    /// ⛔ THE WINDOW IS THE MOVE'S OWN STARTUP, and nothing here bounds it: a
+    /// technique reads this at the instant it acts, so the samples that can
+    /// reach it are exactly the ones taken before that instant. The author's
+    /// knob is therefore WHEN THE MOVE ACTS — a number they already write.
+    pub aimed_stick: Option<ae::Vec2>,
     /// The CHARGE this use is playing, or `None` for a use that never entered
     /// charge mode.
     ///
@@ -605,6 +627,10 @@ impl MovePlayback {
             // Nobody aimed unless a caller says so — `with_aim` is the seam, and
             // the facing fallback at the fire frame is what an unaimed move gets.
             aim: None,
+            // The stick at the PRESS, when the press had one —
+            // `with_aimed_stick` is that seam, and every tick of the move can
+            // still overwrite it. See [`Self::aimed_stick`].
+            aimed_stick: None,
             // A use charges only when the press that started it asked to —
             // `charged_by_gesture` is that seam.
             charge: None,
@@ -615,6 +641,19 @@ impl MovePlayback {
     /// Remember the ranged intent that started this move. See [`Self::aim`].
     pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
         self.aim = aim;
+        self
+    }
+
+    /// Seed the aim latch with the stick the PRESS was holding. See
+    /// [`Self::aimed_stick`].
+    ///
+    /// ⭐ SEEDED AND NOT ONLY SAMPLED, because the press is the one directional
+    /// input an aimed move is guaranteed to have had: an up-special exists
+    /// because the player pushed up. The component is inserted through
+    /// `Commands`, so the first tick that could sample the stick is already a
+    /// tick late.
+    pub fn with_aimed_stick(mut self, aimed_stick: Option<ae::Vec2>) -> Self {
+        self.aimed_stick = aimed_stick;
         self
     }
 
@@ -962,6 +1001,18 @@ pub fn advance_move_playback(
     // that started the move is sustained, so a tap resolves as released the
     // moment the hold point is reached.
     held_attack: Query<&ResolvedAttackGesture>,
+    // WHAT DIRECTION IS THE PLAYER ASKING FOR — the aim latch's per-tick
+    // sample, and the reason it is a query rather than a field of the gesture
+    // above: the gesture resolves a press into a four-way `AttackDir`, and an
+    // aimed teleport is aimed at an ANGLE. The tuning rides along because the
+    // body's own deadzone decides what counts as a direction.
+    //
+    // ⛔ READ-ONLY AND BY ENTITY. This system already holds `BodyKinematics`
+    // mutably; `ActorControl` is a different column, so the two do not alias.
+    aim_sticks: Query<(
+        &ambition_characters::control::ActorControl,
+        Option<&AttackGestureTuning>,
+    )>,
     // Liveness oracle for the `live_boxes` cache. The cache is NOT the
     // authority — `(t, window)` is — so every cached slot is validated against
     // the world before it is believed. See the `(inside, Some(slot))` arm.
@@ -971,6 +1022,9 @@ pub fn advance_move_playback(
     // see the handoff carry below.
     live_strike_volumes: Query<&HitboxHits, With<StrikeVolume>>,
 ) {
+    // The tuning a body that carries none is read under — one value, borrowed by
+    // every owner below, rather than a second spelling of the defaults.
+    let default_gesture_tuning = AttackGestureTuning::default();
     for (
         owner,
         mut playback,
@@ -984,6 +1038,25 @@ pub fn advance_move_playback(
         owner_sim_id,
     ) in &mut players
     {
+        // ⭐⭐ THE AIM LATCH, SAMPLED BEFORE THIS TICK'S EVENTS FIRE. A
+        // technique that acts on this tick — a teleport's transit — must see the
+        // stick the player is holding NOW as well as everything they asked for
+        // on the way here; sampling after the event loop would hand every aimed
+        // move an aim one tick stale.
+        //
+        // ⛔ A NEUTRAL STICK NEVER CLEARS IT. The latch is what the player has
+        // ASKED FOR during this move, and letting go is not a retraction — it is
+        // how a flick ends. Clearing here would make a flick-and-release
+        // indistinguishable from never having touched the stick, which is the
+        // whole input this exists to catch. See `MovePlayback::aimed_stick`.
+        if let Some(asked) = aim_sticks.get(owner).ok().and_then(|(control, tuning)| {
+            ambition_characters::actor::attack_gesture::aimed_stick_direction(
+                control,
+                tuning.unwrap_or(&default_gesture_tuning),
+            )
+        }) {
+            playback.aimed_stick = Some(asked);
+        }
         let strike_faction = crate::targeting::effective_faction(*faction, driver);
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
@@ -1036,13 +1109,41 @@ pub fn advance_move_playback(
                     // Reading the attack hold for both is what made the second
                     // one impossible: the finger on Special was on the wrong
                     // field, so the charge released on the tick it latched.
-                    let still_held =
-                        held_attack
-                            .get(owner)
-                            .is_ok_and(|g| match playback.spec.charge_gesture {
-                                ambition_entity_catalog::ChargeGesture::Smash => g.held.is_some(),
-                                ambition_entity_catalog::ChargeGesture::Special => g.special_held,
-                            });
+                    let gesture = held_attack.get(owner).ok();
+                    let button_down = gesture.is_some_and(|g| match playback.spec.charge_gesture {
+                        ambition_entity_catalog::ChargeGesture::Smash => g.held.is_some(),
+                        ambition_entity_catalog::ChargeGesture::Special => g.special_held,
+                    });
+                    // ⛔⛔ AND FOR ONE MOVE THE BUTTON IS NOT WHAT KEEPS IT. A
+                    // smash freezes while you hold, because the hold is the
+                    // commitment. The Actor's trapdoor freezes a SECOND OF
+                    // TRAVEL — a duration Jon asked for outright, and then asked
+                    // to be able to cut short — so its freeze holds itself and a
+                    // NEW press is what ends it. Authoring that as a held charge
+                    // shipped a fighter who spent three ticks under the boards
+                    // unless somebody kept a finger down.
+                    let still_held = match charge.policy.sustain {
+                        ambition_entity_catalog::ChargeSustain::WhileHeld => button_down,
+                        ambition_entity_catalog::ChargeSustain::UntilPressedAgain => {
+                            // ⛔⛔ ANY ACTION PRESS, NOT THE MOVE'S OWN BUTTON.
+                            // Jon, on the trapdoor: *"the character ends the
+                            // move by pressing a non-move action."* A player
+                            // under the stage is steering with the stick and
+                            // will end the beat with whatever is under a thumb;
+                            // asking specifically for the button that started it
+                            // makes the exit a trivia question. Movement — the
+                            // stick, the jump, the dash — is what she is DOING
+                            // down there, so none of it ends anything.
+                            let asked_again =
+                                gesture.is_some_and(|g| g.pressed.is_some() || g.special.is_some());
+                            // ⛔ NOT ON THE TICK IT LATCHED. The press that
+                            // STARTED the move is buffered — `action_buffer_s`
+                            // keeps a combat press spendable past its edge on
+                            // purpose — so a freeze that could be ended by any
+                            // visible press would be ended by its own.
+                            !(asked_again && charge.held_s > 0.0)
+                        }
+                    };
                     let charge = playback.charge.as_mut().expect("matched above");
                     if still_held {
                         let accrued = spare.min(charge.policy.max_hold_s - charge.held_s);
@@ -2074,6 +2175,9 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// Captured at START, because it is gone by the fire frame. See
     /// [`MovePlayback::aim`].
     aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    /// The STICK the press was holding, for the same reason and read at the same
+    /// instant. See [`MovePlayback::aimed_stick`].
+    aimed_stick: Option<ae::Vec2>,
     /// Which gesture the press RESOLVED to, when it is one that charges.
     started_by: Option<ambition_entity_catalog::ChargeGesture>,
     /// The DIRECTION the gesture asked for — see [`MovePlayback::attack_intent`].
@@ -2130,6 +2234,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         spec,
         facing,
         aim,
+        aimed_stick,
         started_by,
         attack_intent,
         started_grounded,
@@ -2186,6 +2291,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
             .with_aim(aim)
+            .with_aimed_stick(aimed_stick)
             .with_attack_intent(attack_intent)
             .started_in_stance(started_grounded)
             .charged_by_gesture_resuming(started_by, banked_charge),
@@ -2483,6 +2589,13 @@ pub fn trigger_moveset_moves(
                 ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning)
             })
             .unwrap_or(0.0);
+        // ⭐ AND THE DIRECTION THE PRESS ITSELF ASKED FOR, read here for the same
+        // reason the sign above is: this is the instant the player's hands are
+        // still on the input that bought the move. An accepted move carries it
+        // into its aim latch — see `MovePlayback::aimed_stick`.
+        let press_aimed_stick = gesture_tuning.and_then(|tuning| {
+            ambition_characters::actor::attack_gesture::aimed_stick_direction(control, tuning)
+        });
         // ⛔⛔ A HELPLESS FIGHTER STARTS NOTHING, and this is the authority that
         // decides it — not the movement kernel's `InputState`, which this system
         // never reads. The gate lived only there, so a fighter that had spent its
@@ -3110,6 +3223,7 @@ pub fn trigger_moveset_moves(
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                aimed_stick: press_aimed_stick,
                 started_by,
                 attack_intent,
                 // The SAME stance the selector used — see
@@ -3212,6 +3326,7 @@ pub fn trigger_moveset_moves(
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                aimed_stick: press_aimed_stick,
                 started_by,
                 attack_intent,
                 // The SAME stance the selector used — see

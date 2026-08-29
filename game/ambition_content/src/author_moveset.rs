@@ -65,7 +65,11 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
         spec,
         TELEPORT_AT_S,
         ambition_characters::smash_teleport::TeleportParams {
-            // Aimed, like every recovery: the stick, then straight up.
+            // Aimed, like every recovery: any direction given between the
+            // press and the transit at `TELEPORT_AT_S`, and straight up from a
+            // player who gave none. That startup IS the aim window, which is
+            // why the number above is the knob and there is not a second one.
+            // See `TeleportParams::behind_nearest_foe`.
             behind_nearest_foe: false,
             behind_gap: 0.0,
             // Further than the robot's, and slower to come out: he pays for the

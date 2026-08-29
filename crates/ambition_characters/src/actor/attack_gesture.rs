@@ -228,6 +228,34 @@ pub fn special_turn_stick_sign(
     }
 }
 
+/// The direction the player is ASKING FOR this tick, or `None` for a stick at
+/// rest.
+///
+/// ⭐⭐ THE TWIN OF [`special_turn_stick_sign`], reading the same axis for the
+/// same reason: `update.rs` publishes the DAMPED frame back onto the component
+/// after integration, so a body inside a move authored with `motion_scale: 0.0`
+/// — which is how this repository writes a COMMITMENT — reports a neutral
+/// `locomotion` for the move's whole duration. A technique that aimed itself by
+/// `locomotion` therefore could not be aimed at all on exactly the moves that
+/// most want it, which is every special worth aiming.
+///
+/// ⛔⛔ AND `None` MEANS NEUTRAL, NOT "USE FACING". A caller states its own
+/// fallback, because the honest one differs: a teleport recovery's is straight
+/// UP, and the facing fallback the held-item aim helper takes had every unaimed
+/// recovery leaving sideways off the stage.
+///
+/// ⛔ THE BODY'S OWN DEADZONE decides, not a constant of this function's own.
+/// "Has the stick been pushed far enough to mean a direction" is the question
+/// [`AttackGestureTuning::directional_deadzone`] already answers for the attack
+/// family, and a second number beside it would be two knobs for one feel.
+pub fn aimed_stick_direction(
+    control: &crate::control::ActorControl,
+    tuning: &AttackGestureTuning,
+) -> Option<ae::Vec2> {
+    let stick = control.0.steer_axis().vec();
+    (stick.length() > tuning.directional_deadzone).then_some(stick)
+}
+
 /// A recently detected directional flick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RecentAttackFlick {

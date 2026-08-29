@@ -5,7 +5,7 @@ use crate::events::HitEvent;
 use crate::hitbox::apply_hitbox_damage;
 use ambition_characters::brain::action_set::MeleeActionSpec;
 use ambition_entity_catalog::{
-    CancelCondition, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveWindow,
+    CancelCondition, ChargeSustain, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveWindow,
 };
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -3964,6 +3964,7 @@ fn charging_smash() -> MoveSpec {
             max_hold_s: CHARGE_MAX_HOLD_S,
             stores: false,
             roots: true,
+            sustain: ChargeSustain::WhileHeld,
         }),
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -7567,6 +7568,7 @@ fn storing_smash() -> MoveSpec {
         max_hold_s: CHARGE_MAX_HOLD_S,
         stores: true,
         roots: true,
+        sustain: ChargeSustain::WhileHeld,
     });
     spec
 }
@@ -7909,5 +7911,299 @@ fn the_guard_banks_nothing_from_a_charge_that_does_not_store() {
         None,
         "an ordinary smash was banked by a guard press; only a policy that says \
          `stores` has a bank to put a shot in"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// THE AIM LATCH — what an AIMED SPECIAL is aimed by.
+//
+// ⭐⭐ THE MECHANIC THESE ARMS DEFEND is the genre's aimed teleport: a small
+// window in which any direction the player gives aims the move, and straight UP
+// when they give none. Two halves have to hold for that to be true, and each
+// one failed on its own before this existed — the stick has to be READABLE
+// during a committed move, and a direction given inside the window has to
+// SURVIVE being released.
+//
+// ⛔⛔ EVERY ARM RUNS THE REAL `advance_move_playback`. The latch is one
+// assignment; what was wrong was never the assignment but WHICH FIELD it read,
+// and only the real system reads the real field.
+// ---------------------------------------------------------------------------
+
+/// A rooted special — the shape EVERY aimed special has. `hitless_special`
+/// authors `motion_scale: 0.0` across the whole timeline, which is how this
+/// repository writes a commitment, and it is exactly the authoring that makes
+/// the damped stick unreadable.
+fn rooted_special() -> MoveSpec {
+    ambition_characters::moveset_authoring::hitless_special("committed", "special_up", 0.18, 0.48)
+}
+
+/// The stick as a body actually carries it INSIDE a rooted move: the intent the
+/// player is holding, damped to nothing by the move's own motion lock.
+///
+/// ⛔ THROUGH `damped_by_move_motion`, not by hand-zeroing `locomotion`. That
+/// function is what the integrator really calls, and it is the one place that
+/// records the undamped value — a fixture that zeroed the field itself would
+/// have handed the latch a stick production never gives it.
+fn rooted_stick(local: ae::Vec2) -> ambition_characters::actor::control::ActorControlFrame {
+    ambition_characters::actor::control::ActorControlFrame {
+        locomotion: ae::LocalAxes::from_vec(local),
+        ..ambition_characters::actor::control::ActorControlFrame::neutral()
+    }
+    .damped_by_move_motion(0.0)
+}
+
+/// Play a rooted special for one tick per frame in `sticks` and report the aim
+/// latch it left behind.
+fn latch_after(
+    sticks: &[ambition_characters::actor::control::ActorControlFrame],
+) -> Option<ae::Vec2> {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(Update, advance_move_playback);
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                size: ae::Vec2::new(16.0, 32.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Player,
+            // ⛔ NO SEED. `with_aimed_stick` is the press's own half; these arms
+            // are about what the WINDOW collects, so the latch starts empty and
+            // every value in it got there through the system under test.
+            MovePlayback::new(rooted_special(), 1.0),
+            ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+        ))
+        .id();
+    for frame in sticks {
+        app.world_mut().get_mut::<ActorControl>(body).unwrap().0 = *frame;
+        app.update();
+    }
+    app.world()
+        .get::<MovePlayback>(body)
+        .expect("the special is still playing")
+        .aimed_stick
+}
+
+/// ⛔⛔ THE DEFECT, NAMED. A committed move damps `locomotion` to zero for its
+/// whole duration, so the latch has to read the UNDAMPED axis or an aimed
+/// special cannot be aimed at all — which is what shipped: the Author's
+/// teleport read `locomotion`, found nothing, fell back to FACING and fired him
+/// sideways off the stage every time.
+#[test]
+fn a_rooted_move_latches_the_stick_the_player_is_holding_not_the_one_it_may_move_by() {
+    let up = ae::Vec2::new(0.0, -1.0);
+    let frame = rooted_stick(up);
+    // The premise this arm rests on: the field a naive read would use IS zero
+    // here. Without this the assertion below passes against an implementation
+    // that reads `locomotion` on a body that was never damped.
+    assert_eq!(
+        frame.locomotion.vec(),
+        ae::Vec2::ZERO,
+        "poison: the fixture is not damped, so this arm cannot tell the two \
+         axes apart"
+    );
+    assert_eq!(
+        latch_after(&[frame, frame, frame]),
+        Some(up),
+        "a player holding UP through a committed move latched nothing — the \
+         latch is reading the axis the move already zeroed"
+    );
+}
+
+/// ⭐⭐ THE WINDOW. A direction given and RELEASED inside the move still aimed
+/// it. This is the whole of what Jon asked for — *"a small window to input any
+/// direction and the user can aim the teleport like that"* — and it is the half
+/// a live read at the acting frame cannot do: eleven frames after the press,
+/// the flick is long over.
+#[test]
+fn a_direction_released_inside_the_window_still_aimed_the_move() {
+    let left = ae::Vec2::new(-1.0, 0.0);
+    let neutral = rooted_stick(ae::Vec2::ZERO);
+    assert_eq!(
+        latch_after(&[rooted_stick(left), neutral, neutral, neutral]),
+        Some(left),
+        "letting go of the stick retracted an aim the player had already given"
+    );
+}
+
+/// ⛔ THE PAIRED ARM, and it is what makes the default reachable: a stick that
+/// never left neutral latches NOTHING, so the technique reading this is free to
+/// state its own fallback. A latch that quietly seeded itself with facing would
+/// make every "no aim" arm downstream untestable.
+#[test]
+fn a_stick_that_never_left_neutral_latches_nothing() {
+    let neutral = rooted_stick(ae::Vec2::ZERO);
+    assert_eq!(
+        latch_after(&[neutral, neutral, neutral]),
+        None,
+        "a player who asked for nothing was recorded as asking for something"
+    );
+}
+
+/// ⛔⛔ THE LAST DIRECTION WINS, which is what makes the window an AIM rather
+/// than a record of the press. A player who pushes up to buy the up-special and
+/// then steers left inside the window has asked for left.
+#[test]
+fn a_later_direction_in_the_window_replaces_an_earlier_one() {
+    let up = ae::Vec2::new(0.0, -1.0);
+    let left = ae::Vec2::new(-1.0, 0.0);
+    assert_eq!(
+        latch_after(&[rooted_stick(up), rooted_stick(left)]),
+        Some(left),
+        "the first direction of the window stuck, so the window cannot be aimed"
+    );
+}
+
+/// ⛔⛔ THE DEADZONE IS A MAGNITUDE, so it gets an arm on each side of it. A
+/// stick resting a little off centre must not aim a recovery — that is the
+/// failure mode a deadzone exists for, and it is invisible to an arm that only
+/// ever pushes the stick fully.
+#[test]
+fn a_stick_under_the_bodys_deadzone_is_not_a_direction() {
+    let tuning = ambition_characters::actor::attack_gesture::AttackGestureTuning::default();
+    let under = tuning.directional_deadzone - 0.1;
+    let over = tuning.directional_deadzone + 0.1;
+    assert_eq!(
+        latch_after(&[rooted_stick(ae::Vec2::new(under, 0.0))]),
+        None,
+        "a stick resting inside the deadzone aimed the move"
+    );
+    assert_eq!(
+        latch_after(&[rooted_stick(ae::Vec2::new(over, 0.0))]),
+        Some(ae::Vec2::new(over, 0.0)),
+        "a stick past the deadzone did not aim the move"
+    );
+}
+
+/// ⭐⭐ THE PRESS IS THE FIRST SAMPLE IN THE WINDOW. An up-special exists
+/// because the player pushed up, and the component that collects the window is
+/// inserted through `Commands` — so the first tick that could sample the stick
+/// is already a tick late, and a fighter who pressed and released inside that
+/// tick would have aimed nothing.
+///
+/// ⛔ THE REAL PRESS CHAIN, gesture → buffer → trigger, because what is being
+/// asserted is that the ACCEPTANCE carries the aim, not that a constructor can.
+///
+/// ⛔ AND THE FIXTURE PUSHES ONE STICK, not two. `brain/player.rs` assigns the
+/// same local axis to `attack_axis` and `locomotion`; a fixture that aimed the
+/// press with one and the window with the other would be inventing a body no
+/// controller produces.
+#[test]
+fn the_press_that_bought_an_up_special_is_the_first_thing_in_its_aim_window() {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
+    );
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            "special_up".to_string(),
+            "committed".to_string(),
+        )]),
+        moves: vec![rooted_special()],
+    };
+    // UP is toward the head, which is local `-y`.
+    let up = ae::Vec2::new(0.0, -1.0);
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    frame.attack_axis = ae::LocalAxes::from_vec(up);
+    frame.locomotion = ae::LocalAxes::from_vec(up);
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(moveset),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+    let playback = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the up-special was accepted");
+    assert_eq!(playback.spec.id, "committed", "poison: the wrong move started");
+    assert_eq!(
+        playback.aimed_stick,
+        Some(up),
+        "the press that bought the up-special did not seed its aim window, so a \
+         fighter who taps and lets go inside one tick has aimed nothing"
+    );
+}
+
+/// ⛔ THE PAIRED ARM. A special pressed with the stick at rest starts its window
+/// EMPTY, which is what leaves the technique free to state its own default —
+/// straight up, for a teleport recovery.
+#[test]
+fn a_special_pressed_with_a_resting_stick_opens_an_empty_aim_window() {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
+    );
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            SPECIAL_VERB.to_string(),
+            "committed".to_string(),
+        )]),
+        moves: vec![rooted_special()],
+    };
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(moveset),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .expect("the neutral special was accepted")
+            .aimed_stick,
+        None,
+        "a resting stick seeded an aim, which would make the technique's own \
+         default unreachable"
     );
 }

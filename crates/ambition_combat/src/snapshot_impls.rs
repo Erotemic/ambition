@@ -160,6 +160,18 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
             }
             None => put_bool(out, false),
         }
+        // AND THE AIM LATCH IS STATE. It is what the move will fire, teleport or
+        // shoot, IN: two peers whose in-flight recovery disagrees about the
+        // direction the player asked for send the same fighter to two different
+        // places on the stage. The value is body-LOCAL, which is the frame the
+        // technique resolves it in.
+        match self.aimed_stick {
+            Some(dir) => {
+                put_bool(out, true);
+                put_vec2(out, dir);
+            }
+            None => put_bool(out, false),
+        }
         // THE CHARGE IS STATE. Two peers whose held smash disagrees about how
         // long it has been held will land different damage and different
         // knockback from the same move, so the hold and the frozen release
@@ -185,6 +197,16 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
                 // two numbers that were here.
                 put_bool(out, charge.policy.stores);
                 put_bool(out, charge.policy.roots);
+                // ...and WHAT KEEPS THE FREEZE. Two peers agreeing on the
+                // elapsed hold and disagreeing about whether the button still
+                // matters resume the move on different ticks.
+                put_u8(
+                    out,
+                    match charge.policy.sustain {
+                        ambition_entity_catalog::ChargeSustain::WhileHeld => 0,
+                        ambition_entity_catalog::ChargeSustain::UntilPressedAgain => 1,
+                    },
+                );
                 put_f32(out, charge.held_s);
                 match charge.released_fraction {
                     Some(f) => {

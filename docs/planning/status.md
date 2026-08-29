@@ -72,7 +72,10 @@ all are up-smashes and aerials; that is what an exception looks like, not a bug.
 
 ⭐ **D246 is UNBLOCKED** — its recorded blocker (the `ambition_damage` carve
 reaching main) landed 2026-08-26. **D205 was already built** when it was marked
-unstaffed. Both are table rows, which is the next section's point.
+unstaffed — ⛔ and built was not the same as right: the aimed teleport read the
+DAMPED stick, fell back to FACING and sampled at the transit rather than over a
+window, so the Author's up-B fired him sideways off the stage. Fixed 2026-08-28
+with an aim latch on `MovePlayback` (rollback schema v131). Both are table rows, which is the next section's point.
 
 ## 2026-08-28 — the ledger has TWO shapes and the standard grep sees one
 

@@ -538,3 +538,178 @@ fn the_ledge_assist_follows_gravity_into_every_frame() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// WHERE AN AIMED TELEPORT GOES.
+//
+// ⭐⭐ THE STYLE THESE ARMS PIN is the genre's aimed teleport — Mewtwo's, and
+// what Jon asked the Author's up-B to be: *"a small window to input any
+// direction and the user can aim the teleport like that but it defaults to
+// up."* They are written against the TECHNIQUE and not against a fighter: every
+// authored `smash.teleport` gets this, so a second fighter authoring one cannot
+// end up with a different recovery than the first.
+//
+// ⛔⛔ AND THE DEFAULT IS THE ARM THAT MATTERS. The shipped bug was not a wrong
+// angle, it was a wrong FALLBACK: the aim came back through a helper whose
+// neutral answer is the body's FACING, so a fighter who asked for nothing was
+// fired horizontally off the side of the stage — and, on stage, dragged onto
+// the nearest ledge by the assist. Every arm below that asserts "up" is paired
+// with one that asserts the aim still works, because a technique that ignored
+// its aim entirely would pass the first alone.
+// ---------------------------------------------------------------------------
+
+/// A move whose timeline is the shape every aimed special has, carrying the aim
+/// latch the technique reads. `None` is a player who asked for nothing.
+fn playback_aimed(local: Option<ae::Vec2>) -> ambition_combat::moveset::MovePlayback {
+    ambition_combat::moveset::MovePlayback::new(
+        ambition_characters::moveset_authoring::hitless_special(
+            "committed",
+            "special_up",
+            0.18,
+            0.48,
+        ),
+        1.0,
+    )
+    .with_aimed_stick(local)
+}
+
+/// How far every arm below teleports. Large enough that an arrival on the wrong
+/// axis is unmistakable, and the world these arms run in is EMPTY so nothing
+/// clamps it.
+const REACH_PX: f32 = 250.0;
+
+/// Fire one authored teleport at `from` and report where the body ended up.
+///
+/// ⛔ THROUGH THE REAL SYSTEM AND THE REAL MESSAGE. The aim resolution is three
+/// lines; what was wrong was which authority those lines asked, and only the
+/// wired system asks the real one.
+fn teleport_from(
+    from: ae::Vec2,
+    facing: f32,
+    gravity_dir: ae::Vec2,
+    aimed: Option<ae::Vec2>,
+) -> ae::Vec2 {
+    let mut app = bevy::prelude::App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
+    );
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_systems(bevy::prelude::Update, apply_authored_teleports);
+
+    let body = spawn_teleporting_body(&mut app, from);
+    {
+        let mut entity = app.world_mut().entity_mut(body);
+        entity.get_mut::<ae::BodyKinematics>().unwrap().facing = facing;
+        let mut frame = entity
+            .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>()
+            .unwrap();
+        frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
+            gravity_dir,
+            0.0,
+        ));
+    }
+    app.world_mut()
+        .entity_mut(body)
+        .insert(playback_aimed(aimed));
+
+    app.world_mut().write_message(ActorActionMessage {
+        actor: body,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(TELEPORT.to_string()),
+            params: ambition_entity_catalog::ParamValue::from_typed(&TeleportParams {
+                behind_nearest_foe: false,
+                behind_gap: 0.0,
+                distance: REACH_PX,
+                // No assist and no i-frames: these arms are about the DIRECTION,
+                // and a ledge catch would move the arrival for a second reason.
+                ledge_assist: 0.0,
+                intangible_s: 0.0,
+                depart_vfx: "four_point_glint".to_string(),
+                arrive_vfx: "four_point_glint".to_string(),
+            })
+            .expect("teleport params serialize"),
+        },
+    });
+    app.update();
+    app.world()
+        .get::<ae::BodyKinematics>(body)
+        .expect("the body survived its own teleport")
+        .pos
+}
+
+/// The world's own down, for the arms that are not about the frame.
+const GRAVITY: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
+/// ⛔⛔ THE BUG, AND THE ARMS STRADDLE THE THING THAT CAUSED IT. A teleport
+/// nobody aimed goes UP — and it goes the SAME way whichever direction the
+/// fighter happens to be facing, which is the half that catches a facing
+/// fallback. Reported from play: *"it seems to just blink me to the side or to
+/// the ledge when I'm on the stage."*
+#[test]
+fn an_unaimed_teleport_rises_whichever_way_the_fighter_faces() {
+    let from = ae::Vec2::new(40.0, 300.0);
+    let right = teleport_from(from, 1.0, GRAVITY, None);
+    let left = teleport_from(from, -1.0, GRAVITY, None);
+    assert_eq!(
+        right, left,
+        "the fighter's FACING decided where an unaimed teleport went — which is \
+         a recovery that fires you off whichever side of the stage you happen \
+         to be looking at"
+    );
+    assert_eq!(
+        right,
+        from - GRAVITY * REACH_PX,
+        "an unaimed teleport must rise its full distance straight up"
+    );
+}
+
+/// ⛔ THE PAIRED ARM: it is a DEFAULT, not a constant. A direction given inside
+/// the window is where the teleport goes, or the assertion above is satisfied by
+/// a technique that has forgotten how to aim.
+#[test]
+fn a_teleport_goes_where_the_window_aimed_it() {
+    let from = ae::Vec2::new(40.0, 300.0);
+    // Local `+x` is the body's side axis; under world gravity it is world `+x`.
+    let sideways = teleport_from(from, -1.0, GRAVITY, Some(ae::Vec2::new(1.0, 0.0)));
+    assert_eq!(
+        sideways,
+        from + ae::Vec2::new(REACH_PX, 0.0),
+        "a teleport aimed along the stick went somewhere else"
+    );
+    // ⛔ AND DOWN IS REACHABLE TOO. An implementation that clamped its aim to
+    // the upward half — a plausible reading of "it is a recovery" — would pass
+    // every arm above.
+    let down = teleport_from(from, 1.0, GRAVITY, Some(ae::Vec2::new(0.0, 1.0)));
+    assert_eq!(
+        down,
+        from + GRAVITY * REACH_PX,
+        "a teleport aimed DOWN refused to go down"
+    );
+}
+
+/// ⛔⛔ THE UP IT DEFAULTS TO IS THE BODY'S OWN, not the world's. Under rotated
+/// gravity a fighter's up is a world lateral, and a default written as `-y`
+/// would fire her into the floor she is standing on — the same class of defect
+/// the ledge assist had before it learned to search the resolved frame.
+#[test]
+fn the_default_rise_and_the_aim_are_both_in_the_bodys_own_frame() {
+    // Gravity pulls toward world `+x`: the fighter's up is world `-x`, and her
+    // side axis is world `-y` (`side = (down.y, -down.x)`).
+    let down = ae::Vec2::new(1.0, 0.0);
+    let from = ae::Vec2::new(300.0, 300.0);
+    assert_eq!(
+        teleport_from(from, 1.0, down, None),
+        from - down * REACH_PX,
+        "the unaimed rise was taken against the world's gravity rather than \
+         against the one this body is actually standing in"
+    );
+    assert_eq!(
+        teleport_from(from, 1.0, down, Some(ae::Vec2::new(1.0, 0.0))),
+        from + ae::Vec2::new(0.0, -REACH_PX),
+        "the aim was read as a world vector; a stick pushed along the body's \
+         side axis must travel along THAT axis"
+    );
+}

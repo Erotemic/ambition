@@ -251,3 +251,116 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
          window that does not close is a recovery with no commitment"
     );
 }
+
+/// A RELEASED STICK IS A RECOVERY THAT GOES UP.
+///
+/// ⭐⭐ THE STYLE, END TO END. Jon, on what the Author's up-B should be:
+/// *"there is a small window to input any direction and the user can aim the
+/// teleport like that but it defaults to up."* Every other arm in this file
+/// HOLDS up for the whole move, which is not what a player does — the stick
+/// centres the moment the input is made, and the transit is eleven frames
+/// later.
+///
+/// ⛔⛔ AND THAT IS EXACTLY THE BUG THIS ARM WAS WRITTEN FOR, reported from
+/// play: *"it seems to just blink me to the side or to the ledge when I'm on
+/// the stage."* The aim came back through the held-item helper, whose neutral
+/// answer is the body's FACING — so a released stick teleported him
+/// horizontally, and the ledge assist then caught the arrival and put him on
+/// the lip. Held-stick arms cannot see it: they never let the fallback run.
+///
+/// ⛔ THE RISE AND THE DRIFT ARE BOTH ASSERTED. "He went up" alone is satisfied
+/// by a diagonal that also carries him 250px off the side of the stage, which is
+/// the failure being fixed.
+#[test]
+fn the_authors_revision_rises_when_the_stick_is_released_after_the_press() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster(["author", "author"]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..900 {
+        app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        if seated > 0 && held == 0 {
+            break;
+        }
+    }
+    let author = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    let position = |app: &App| -> ambition_platformer2d::engine_core::Vec2 {
+        app.world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+            .map(|kin| kin.pos)
+            .expect("the author has kinematics")
+    };
+
+    let before = position(&app);
+    ambition_platformer2d::sim::drive_control_frame(
+        app.world_mut(),
+        ambition_platformer2d::engine_core::ControlFrame {
+            axis_y: -1.0,
+            special_pressed: true,
+            special_held: true,
+            ..Default::default()
+        },
+    );
+    app.update();
+
+    // ⛔ AND THEN NOTHING AT ALL — no stick, no buttons. The window closes on a
+    // player who has already let go, which is the input this arm is about.
+    let mut highest = before.y;
+    let mut widest = 0.0_f32;
+    for _ in 0..60 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+        let now = position(&app);
+        // `+y` is gravity-down, so the highest point is the smallest `y`. The
+        // two extremes are tracked apart on purpose: a teleport fired sideways
+        // never rises at all, so a drift read AT the highest point would report
+        // the start and say nothing.
+        highest = highest.min(now.y);
+        widest = widest.max((now.x - before.x).abs());
+    }
+
+    let rise = before.y - highest;
+    let drift = widest;
+    assert!(
+        rise > 120.0,
+        "the author rose {rise:.0}px from a teleport that carries 250 — a \
+         recovery nobody aimed must go UP, and this one went {drift:.0}px \
+         sideways instead"
+    );
+    assert!(
+        drift < 60.0,
+        "the author drifted {drift:.0}px sideways on a teleport nobody aimed. \
+         The default is UP; a fighter who asked for nothing has not asked to be \
+         fired off whichever side of the stage he happens to be facing"
+    );
+}

@@ -1431,6 +1431,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         max_hold_s: 0.8,
         stores: false,
         roots: true,
+        sustain: ChargeSustain::WhileHeld,
     });
     assert_eq!(spec.charge_policy().unwrap().hold_at_s, 0.12);
 
@@ -1440,6 +1441,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         max_hold_s: 0.0,
         stores: false,
         roots: true,
+        sustain: ChargeSustain::WhileHeld,
     });
     assert!(
         spec.charge_policy().is_none(),
@@ -1503,6 +1505,7 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
             max_hold_s: 0.8,
             stores: false,
             roots: true,
+            sustain: ChargeSustain::WhileHeld,
         });
         m
     };

@@ -39,9 +39,25 @@ pub const TELEPORT: &str = "smash.teleport";
 #[serde(deny_unknown_fields)]
 pub struct TeleportParams {
     /// WHERE this teleport goes: `false` (the default, and what every teleport
-    /// authored before this field meant) is AIMED — the stick, then straight up,
-    /// which is the recovery. `true` puts the fighter on the far side of the
-    /// nearest foe, an ambush rather than an escape.
+    /// authored before this field meant) is AIMED, which is the recovery.
+    /// `true` puts the fighter on the far side of the nearest foe, an ambush
+    /// rather than an escape.
+    ///
+    /// ⭐⭐ AIMED MEANS THE WINDOW, AND THE WINDOW IS THE MOVE'S OWN STARTUP.
+    /// Jon, on the style: *"a small window to input any direction and the user
+    /// can aim the teleport like that but it defaults to up."* Any direction
+    /// the player gives between the press and the transit aims it — a flick
+    /// they have already let go of counts, which is the whole reason the move
+    /// carries a latch (`MovePlayback::aimed_stick`) instead of reading the
+    /// stick at the transit. A player who gives NONE goes straight up.
+    ///
+    /// ⛔⛔ AND NEVER FORWARD. The aim used to come back through the held-item
+    /// helper, whose neutral answer is the body's FACING — so an unaimed
+    /// recovery fired horizontally off whichever side of the stage the fighter
+    /// happened to be looking at, and on stage the ledge assist then caught it
+    /// and read as *"it just blinks me to the ledge"*. A recovery's honest
+    /// default is up; there is no reading of "asked for nothing" that means
+    /// "throw me sideways".
     ///
     /// ⛔⛔ A BOOL AND AN f32, NOT THE ENUM THIS OBVIOUSLY WANTS TO BE. Params
     /// travel as [`ParamValue`], which is a `ron::Value`, and a `ron::Value`

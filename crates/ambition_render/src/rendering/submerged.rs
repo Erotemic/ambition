@@ -83,11 +83,15 @@ pub struct TrapdoorSprite {
 const DOOR_TEXTURE_W: u32 = 64;
 const DOOR_TEXTURE_H: u32 = 16;
 
-/// The door: two boards, a dark seam between them, and a frame around the hole.
+/// The door, CLOSED: boards set flush into the floor, a seam down the middle, a
+/// ring pull, and a lip of frame around them.
 ///
-/// Drawn as a texture rather than as a coloured rect so the seam reads at the
-/// sizes a fighter is drawn at — a flat rectangle on the floor looks like a
-/// missing tile.
+/// ⛔⛔ UNOPENED, AND JON SAID SO IN AS MANY WORDS: *"where they move is shown by
+/// a unopened trap door sprite on the ground."* The first version drew an OPEN
+/// hatch — a dark hole with the two boards folded back — which reads as *"she is
+/// down there, look"* and gives the whole beat away. A closed door is a thing on
+/// the floor that has to be watched, and the OPENING is the next stage's own
+/// effect.
 pub fn build_trapdoor_image() -> Image {
     let (w, h) = (DOOR_TEXTURE_W, DOOR_TEXTURE_H);
     let mut data = vec![0u8; (w * h * 4) as usize];
@@ -95,27 +99,30 @@ pub fn build_trapdoor_image() -> Image {
         for x in 0..w {
             let u = x as f32 / (w - 1) as f32;
             let v = y as f32 / (h - 1) as f32;
-            // The hole: dark, and it is what the boards are set into.
-            let mut rgb = [0.06_f32, 0.05, 0.05];
+            // The boards, with a grain along their length and a little more
+            // light near the top edge where the floor catches it.
+            let grain = ((x as f32 * 0.9).sin() * 0.5 + 0.5) * 0.08;
+            let lift = (1.0 - v).powf(1.6) * 0.22;
+            let base = 0.30 + grain + lift;
+            let mut rgb = [base * 1.00, base * 0.70, base * 0.42];
             let mut a = 1.0_f32;
-            // Two boards, hinged at the outer edges and open toward the middle.
-            let seam = (u - 0.5).abs();
-            if seam > 0.06 {
-                // Wood, with a grain that runs along the board.
-                let grain = ((x as f32 * 0.9).sin() * 0.5 + 0.5) * 0.10;
-                // Lit at the top edge, shadowed toward the hole.
-                let lift = (1.0 - v).powf(1.4) * 0.35;
-                let base = 0.34 + grain + lift;
-                rgb = [base * 1.00, base * 0.72, base * 0.42];
+            // The seam down the middle: two boards, not one plank.
+            if (u - 0.5).abs() < 0.014 {
+                rgb = [0.10, 0.07, 0.05];
             }
-            // The frame: a bright lip along the top of the opening, which is
-            // what makes the door read as set INTO the floor.
-            if v < 0.12 {
-                rgb = [0.55, 0.42, 0.26];
+            // The frame it is set into — a dark line all the way round, which is
+            // what makes it read as a door in the floor rather than a rug on it.
+            if v < 0.10 || v > 0.90 || u < 0.03 || u > 0.97 {
+                rgb = [0.13, 0.09, 0.06];
+            }
+            // The ring pull, off to one side of the seam.
+            let ring = ((u - 0.31).powi(2) * 9.0 + (v - 0.5).powi(2)).sqrt();
+            if (ring - 0.20).abs() < 0.075 {
+                rgb = [0.62, 0.52, 0.24];
             }
             // Rounded ends, so a door on a narrow platform does not read as a
             // full-width plank.
-            if u < 0.02 || u > 0.98 {
+            if u < 0.015 || u > 0.985 {
                 a = 0.0;
             }
             let i = ((y * w + x) * 4) as usize;

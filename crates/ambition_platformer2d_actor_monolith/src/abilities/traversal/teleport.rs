@@ -284,7 +284,6 @@ pub fn apply_authored_teleports(
         Query<(
             ae::BodyClusterQueryData,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-            &ambition_characters::control::ActorControl,
             &mut ae::movement::MotionModel,
         )>,
         Query<(
@@ -296,6 +295,18 @@ pub fn apply_authored_teleports(
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         )>,
     )>,
+    // WHERE THE AIM CAME FROM. An aimed teleport fires ten-odd frames after the
+    // press that bought it, and the stick that aimed it is long gone by then —
+    // so the direction is read off the MOVE, which latched every direction the
+    // player asked for on the way here. See `MovePlayback::aimed_stick`.
+    //
+    // ⛔ NOT `ActorControl` AT THIS INSTANT, which is what this system used to
+    // read through `ability_aim_world`. That helper reads `locomotion`, which
+    // is republished DAMPED — zero for the whole of a rooted move, and every
+    // teleport special is rooted — and then falls back to FACING, which is
+    // never zero. So the documented "no aim goes UP" branch below was
+    // unreachable and every teleport left sideways.
+    playbacks: Query<&ambition_combat::moveset::MovePlayback>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
     // THE CLASS-B LEDGER. `Option` for the same reason blink's is: a bare
@@ -335,26 +346,35 @@ pub fn apply_authored_teleports(
                 continue;
             }
         };
-        let Ok((mut cluster_item, resolved_frame, control, mut motion_model)) =
+        let Ok((mut cluster_item, resolved_frame, mut motion_model)) =
             bodies.get_mut(message.actor)
         else {
             continue;
         };
         let gravity_dir = resolved_frame.down();
         let facing = cluster_item.kinematics.facing;
-        // ⭐ THE SAME AIM EVERY TRAVERSAL ABILITY READS — aim stick, then
-        // movement stick, then facing — so a teleport is aimed the way a blink
-        // is and a player who knows one knows the other.
-        let dir = crate::items::pickup::ability_aim_world(&control.0, facing, gravity_dir)
-            .normalize_or_zero();
-        let dir = if dir == ae::Vec2::ZERO {
-            // ⛔ A TELEPORT WITH NO AIM STILL GOES SOMEWHERE, and it goes UP.
-            // This is a recovery: a fighter who lets go of the stick mid-move
-            // has not asked to teleport into the floor.
-            -gravity_dir
-        } else {
-            dir
-        };
+        // ⭐⭐ AIMED BY THE WINDOW, DEFAULTING TO UP — the genre's teleport, and
+        // what Jon asked for: *"a small window to input any direction and the
+        // user can aim the teleport like that but it defaults to up."* The
+        // window is the move's own startup, and the latch is what any direction
+        // given inside it left behind, so a flick that was released before the
+        // transit still aims this.
+        //
+        // ⛔⛔ AND A NEUTRAL STICK GOES UP, NEVER FORWARD. This is a RECOVERY: a
+        // fighter who asked for nothing has not asked to be fired horizontally
+        // off the side of the stage, which is what a facing fallback does — and
+        // did, for every unaimed teleport in the game.
+        let dir = playbacks
+            .get(message.actor)
+            .ok()
+            .and_then(|playback| playback.aimed_stick)
+            .map(|local| {
+                ae::AccelerationFrame::new(gravity_dir)
+                    .to_world(local)
+                    .normalize_or_zero()
+            })
+            .filter(|aimed| *aimed != ae::Vec2::ZERO)
+            .unwrap_or(-gravity_dir);
 
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;

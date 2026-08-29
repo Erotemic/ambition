@@ -127,6 +127,40 @@ which is deliberate: **every census here prints a reason rather than a plausible
 zero**, because a zero from an instrument that never reports that category is not
 a measurement.
 
+## 0b. READING AN ASSET HITCH FROM A BUNDLE — the four rows that answer it
+
+⭐ **"A frame spiked" and "an asset arrived" are the same event most of the time**,
+and the bundle now says so without Tracy. In order of what to look at:
+
+| file / row | the question it answers |
+|---|---|
+| `frame_spikes.csv` | WHEN, and how bad. ⚠ read COUNT and MAGNITUDE together — spreading work makes more frames cross a fixed threshold while shrinking the tail, so a count alone can report an improvement as a 2.75x regression |
+| `image_arrivals.csv` | **how many images landed in one census window.** Each one is extracted into the render world exactly once, and that extract is what costs the frame — so the busiest window is what a spike is made of |
+| `image_decodes.csv` | WHICH asset, with its path and a `during_gameplay` flag |
+| `world_events.csv` | what the player was doing — `room-loaded`, `session-start` — with a game clock |
+
+⛔ **"DURING GAMEPLAY" IS NOT THE CONTRACT, AND ON ITS OWN IT FIRES ON EVERYTHING.**
+In a play-through gameplay is live almost always; the first version of that flag
+reported **53 of 53** decodes. `summary.md` classifies by PHASE instead, against
+`world_events.csv`:
+
+- **before the first `room-loaded`** — boot. Not a hitch.
+- **within ~3s of one** — a room still arriving. Expected.
+- **later than that** — SETTLED PLAY. **This is the violation**, and on the run
+  that found it, all 15 were the select screen's portraits reloading.
+
+⚠ The 3s window is a measured plateau (1s/2s/3s/5s give the same split), not a
+guess — but check it if the answer looks marginal.
+
+⭐ `[census] assets` also carries `hud_image_hits=` / `hud_image_loads=`: **loads
+climbing while hits stays flat** means a screen is being reopened and re-decoding
+what it already had. `unavailable` there means no declared HUD in this
+composition — not zero.
+
+⛔⛔ **NEVER QUOTE A TIMING FROM A TRACY-ON RUN.** Measured 13.5% and 18.7% of
+cycles in two runs of the same game. Tracy is for ATTRIBUTION (which zone, what
+share); the frame numbers come from a run without it.
+
 ## 0. MEASURE THE NOISE FLOOR FIRST — before designing any probe
 
 ⛔⛔ **DO THIS BEFORE YOU MEASURE ANYTHING YOU INTEND TO ACT ON.** The single

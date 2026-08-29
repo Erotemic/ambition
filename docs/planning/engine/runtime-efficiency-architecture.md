@@ -149,15 +149,34 @@ starts paying before anything is built.
 
 ### 7. The schedule should converge on few barriers and many parallel jobs
 
-⭐ **THE RAW SYSTEM COUNT IS NOT THE PROBLEM.** 876 systems is fine if Bevy can
-parallelize them. The concerning signals are repeated run-condition evaluations,
-excessive command flushes, unnecessary exclusivity, and cross-domain scheduling
-constraints. Capability activation belongs at coarse boundaries, not in hundreds
-of independent predicates.
+⛔⛔ **THE PREMISE OF THIS DIRECTION WAS MEASURED FALSE FOR THIS WORKLOAD, AND THE
+ENGINE ALREADY WENT THE OTHER WAY ON PURPOSE.** "876 systems is fine if Bevy can
+parallelize them" — Bevy CAN, and it was worse. `serialize_frame_schedules`
+(`ambition_platformer2d_runtime/src/lib.rs`) forces `ExecutorKind::SingleThreaded`
+on every main-world frame schedule, and records why: a headless boss room over
+3600 ticks measured **~1.5 MILLION voluntary context switches per run** — hundreds
+per tick — with **gameplay systems at <2% of CPU while executor bookkeeping and
+thread parking took ~40%+**. ⇒ **with system bodies this small, cross-thread
+dispatch costs far more than it buys.**
 
-⚠ One measured caveat on the current shape: **822 of 887 systems sit in
-`Update`**, so whatever per-system overhead exists is paid 822 times in one
-schedule.
+⇒ ⛔ **do NOT propose converging on "many parallel jobs" without first re-measuring
+that**, and note it is corroborated from the other side: the frame is BROAD, NOT
+DEEP — ~630 systems at **2.9–15.6us each**, no hot one. A system whose body is 5us
+cannot repay a cross-thread dispatch.
+
+⛔ **AND THE SYSTEM COUNTS HERE ARE STALE.** Measured 2026-08-29 in a live Smash
+match: `Update` **497** · `PostUpdate` **169** · `PreUpdate` **137** ·
+`GgrsSchedule` (the sim) **545** · `StateTransition` 21 · `RunFixedMainLoop` 12.
+So "822 of 887 in `Update`" is wrong twice over — `Update` holds well under half,
+and the SIM is a comparably large population that this figure omitted entirely.
+
+⭐ What survives of this direction: **repeated run-condition evaluations and
+coarse capability activation** — and even that is now priced. A Smash match
+evaluates **1719.9 run conditions per frame** with **196 conditions on individual
+SYSTEMS** against 70 on 67 SETS, but at tens of nanoseconds each that is ~1–2% of
+the frame. ⇒ hoist for CLARITY and for the ability to retire a whole class in one
+place; the measured win of `gameplay_allowed` came from retiring its systems'
+WORK, not from saving evaluations.
 
 ### 8. Resource residency and rendering state need an engine-level policy
 

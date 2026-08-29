@@ -285,13 +285,28 @@ baseline; extend it.
   onto each system. So even a tuple-level hoist helps, and a named set shared
   across files collapses the whole population to one evaluation.
 
-- ▢ **D-PERF-2 — a shipped title should not schedule experiences it does not
-  contain.** Baseline: a sandbox run that never entered Sanic, Smash or Mary-O
-  still ticked `tick_rolling`, `offer_to_exit_the_match` and
-  `refuse_a_weaker_form_pickup` 1802 times each. ⛔ The broad launcher host MUST
-  keep working — this is per-experience `SystemSet` gating plus a documented
-  single-experience composition, not deletion. `ambition_demo_mary_o_app`
-  already demonstrates the composition half.
+- ◐ **D-PERF-2 — a shipped title should not schedule experiences it does not
+  contain.** ⛔⛔ **ITS STATED EVIDENCE DID NOT SURVIVE RE-MEASUREMENT, 2026-08-29.**
+  The row said a sandbox run "still ticked `tick_rolling`,
+  `offer_to_exit_the_match` and `refuse_a_weaker_form_pickup` 1802 times each".
+  The demos are in fact gated, and gated the RIGHT way:
+  `SanicRulesPlugin::hosted()` puts `run_if(in_mode(SANIC_MODE))` on whole
+  TUPLES (`rules`, `milestone_sfx`, `badniks`, `ring_loss`), and a tuple-level
+  `run_if` in Bevy 0.18 is COLLECTIVE — one anonymous set, evaluated at most once
+  per schedule run. Sanic's 28 systems cost ~4 evaluations, not 28, and none of
+  them execute while the mode is inactive. The whole app now carries 61
+  per-system and 29 set conditions in total.
+  ⭐ **WHAT IS REAL, measured with `[census] owners`: 154 of 780 registered
+  systems — 19.7% — belong to four experiences the sandbox never enters**
+  (`mary_o=44`, `twintrack=44`, `smash=38`, `sanic=28`). ⇒ the cost is
+  REGISTRATION — plugin build time, graph size, memory — NOT per-frame
+  execution. Still worth doing, as a startup and composition win; it is not the
+  frame emergency the old row implied.
+  ⛔ The broad launcher host MUST keep working — per-experience `SystemSet`
+  gating plus a documented single-experience composition, not deletion.
+  `ambition_demo_mary_o_app` already demonstrates the composition half.
+  ⚠ To settle it properly someone needs an EXECUTED-systems-per-frame
+  instrument; the census counts registrations and conditions, not executions.
 
 - ▢ **D-PERF-3 — per-frame rebuilds whose inputs change on events.**
   `rebuild_control_prompt` (31.8us/frame), `rebuild_feature_view_index`,
@@ -467,6 +482,16 @@ would have said so
 ⚠ And the poison named the schedule: in the shipped app the sim schedule IS
 `GgrsSchedule`, so this gate lives inside the rollback schedule rather than
 `Update`.
+
+### The architecture this campaign feeds
+
+A GPT architecture review of 2026-08-29 is synthesised, ranked and
+measurement-annotated in
+[`runtime-efficiency-architecture.md`](runtime-efficiency-architecture.md) —
+ten directions, the target shape, an explicit do-NOT list, and the three
+campaigns worth executing first. ⚠ Its top-ranked item rests on the D-PERF-2
+evidence corrected above, and the correction changes that item from a frame-time
+problem into a startup one.
 
 ### Investigations
 

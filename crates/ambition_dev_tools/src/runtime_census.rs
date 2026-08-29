@@ -265,6 +265,7 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
         );
         return;
     }
+    report_schedule_owners(&schedules);
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
@@ -278,6 +279,54 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
         row.push_str(&format!(" {name}={count}"));
     }
     eprintln!("{row}");
+}
+
+/// WHO OWNS the registered systems — the population behind "this app installs
+/// every experience it can launch".
+///
+/// ⭐⭐ THE COST-OWNERSHIP QUESTION, and it is the one a profiler answers worst.
+/// A trace says `tick_rolling` was called 1802 times; it does not say that
+/// `tick_rolling` belongs to an experience this run never entered. System names
+/// carry their crate, so the schedule graph can say which crate is asking the
+/// frame for work — before any of it runs, and without attributing a cost to it.
+///
+/// ⛔ A COUNT IS NOT A COST. A crate with 200 registered systems whose set is
+/// gated costs one condition; a crate with 3 ungated ones costs 3 per frame.
+/// This row says who is REGISTERED, which is the question "should a shipped
+/// title carry this at all" needs, and it does not claim to answer "what did
+/// the frame spend".
+fn report_schedule_owners(schedules: &Schedules) {
+    let mut by_owner: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut total = 0usize;
+    for (_label, schedule) in schedules.iter() {
+        for (_key, system, _conditions) in schedule.graph().systems.iter() {
+            total += 1;
+            *by_owner
+                .entry(owning_crate(system.name().as_ref()))
+                .or_default() += 1;
+        }
+    }
+    let mut ranked: Vec<(&String, &usize)> = by_owner.iter().collect();
+    ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
+    let mut row = format!(
+        "[census] owners t=0.000 systems={total} crates={}",
+        by_owner.len()
+    );
+    for (name, count) in ranked.iter().take(20) {
+        row.push_str(&format!(" {name}={count}"));
+    }
+    eprintln!("{row}");
+}
+
+/// The crate a system's path names, which is the closest thing the graph has to
+/// an owner. `<unnamed>` for a closure with no path — those are anonymous by
+/// construction and lumping them together is honest.
+fn owning_crate(name: &str) -> String {
+    let head = name.split('<').next().unwrap_or(name);
+    match head.split("::").next() {
+        Some(first) if !first.is_empty() => first.to_string(),
+        _ => "<unnamed>".to_string(),
+    }
 }
 
 /// The last path segment of a condition's type name, with generics dropped.

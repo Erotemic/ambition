@@ -23,7 +23,7 @@ use ambition_demo_mary_o::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
 use ambition_demo_mary_o::level_1_2::{level_1_2, LEVEL_1_2_ROOM_ID};
 use ambition_demo_mary_o::powerups::SpentPowerBlocks;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
-use ambition_platformer2d::content::EntitySprite;
+use ambition_platformer2d::view::EntitySprite;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::input::ControlFrame;

@@ -2536,6 +2536,31 @@ verdict here.
 `capture_scene` adds its own warmup. **Both arms share both**, so the ratio holds
 and the milliseconds do not transfer to hardware.
 
+##### ⛔⛔ FEATURE-GATED TARGETS NEVER REACH THE GATE — TWO WERE BROKEN
+
+`cargo check -p ambition_app --all-targets` does not build a target with
+`required-features`, and neither does any test run. There are **four** such
+targets in the tree, and sweeping them found **two** problems:
+
+| target | state |
+|---|---|
+| `match_shots` (smash, `visible`+`capture`) | ⛔ **HAD NOT COMPILED SINCE** the roster folded its eight loose rule fields into one `rules: MatchRules`. Fixed |
+| `ambition_demo_mary_o_app` under `--features capture` | ⛔ `unresolved import ambition_platformer2d::content`. Fixed |
+| `capture_sanic`, `capture_twintrack` | ✔ clean |
+
+⭐ **THE MARY-O ONE IS NOT ROT, AND CHECKING SAVED A WRONG BUG REPORT.** Default
+features compile fine; only `--features capture` fails, because `capture` does not
+imply `content_pack` and `content` is gated on it. ⇒ **a feature combination
+nobody had built, not a decayed file** — the same trap as
+`cargo test -p` hiding a feature-gated module.
+⭐ Fixed at the right end: `EntitySprite` is now ALSO re-exported from `view`,
+which is ungated, because a consumer that wants to know what an entity draws as
+should not have to enable a content COMPILER. The test imports it from there.
+
+⇒ **anything behind `required-features` needs its own check, or it rots
+invisibly** — `match_shots` had been broken long enough for a whole refactor to
+land on top of it.
+
 ##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT
 
 Chased so nobody chases it twice:

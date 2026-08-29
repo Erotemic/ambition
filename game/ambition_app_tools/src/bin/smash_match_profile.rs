@@ -209,8 +209,19 @@ fn seat_the_match(world: &mut World, fighters: usize) {
 /// ⛔ THE PREMISE, CHECKED RATHER THAN ASSUMED. A profile of a match that
 /// quietly ended is a profile of a results screen, and it looks exactly like a
 /// cheap frame.
-fn report_end_of_run(world: &mut World) {
+fn report_end_of_run(world: &mut World, seats_at_start: usize) {
     let (seats, _) = cast_state(world);
+    // ⛔⛔ A KO DURING THE MEASURED WINDOW CHANGES THE POPULATION UNDER THE
+    // MEASUREMENT. The frame mean then averages two different matches, and two
+    // arms that each lost a different number of fighters are not comparable at
+    // all. `seats == 0` is only the extreme case of this.
+    if seats != seats_at_start && seats > 0 {
+        eprintln!(
+            "[smash-profile] ⚠ POPULATION CHANGED DURING MEASUREMENT: {seats_at_start} seats at \
+             the start, {seats} at the end. The rows above average a match whose cast changed; \
+             do not compare this arm against one that kept its cast."
+        );
+    }
     if seats == 0 {
         eprintln!(
             "[smash-profile] WARNING: no seats remain — the match ended during the measured \
@@ -296,7 +307,23 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
         );
         std::process::exit(3);
     };
-    eprintln!("[smash-profile] fighters={fighters} live_after_ticks={live_at} measuring={ticks}");
+    // ⛔⛔ THE ROSTER YOU ASKED FOR IS NOT NECESSARILY THE ROSTER THAT SEATED, and
+    // a run that quietly seats fewer answers a DIFFERENT question than the one
+    // on the command line. Measured 2026-08-29: `--fighters 4` reported 3
+    // bodies, which invalidated a fighter-count scaling comparison that
+    // otherwise looked like three clean arms.
+    let (seated_now, _) = cast_state(app.world_mut());
+    if seated_now != fighters {
+        eprintln!(
+            "[smash-profile] ⛔ ROSTER MISMATCH: asked for {fighters} fighters, {seated_now} are \
+             seated. This run does NOT measure a {fighters}-fighter match, and comparing it \
+             against another arm compares different rosters."
+        );
+    }
+    eprintln!(
+        "[smash-profile] fighters={fighters} seated={seated_now} live_after_ticks={live_at} \
+         measuring={ticks}"
+    );
 
     // ⛔ AFTER the round goes live, not before: sprites spawned into the opening
     // ceremony would be swept by the session teardown that runs between the
@@ -312,7 +339,7 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
         app.update();
     }
 
-    report_end_of_run(app.world_mut());
+    report_end_of_run(app.world_mut(), seated_now);
 }
 
 /// The GPU arm: a real window, winit's event loop, hardware rendering.
@@ -343,6 +370,7 @@ fn run_windowed(fighters: usize, seconds: f32) {
         measure_for: (seconds > 0.0).then_some(seconds),
         live_frames: 0,
         warned_empty: false,
+        seats_at_live: 0,
         stage: Stage::Settling(SETTLE_FRAMES),
     });
     app.add_systems(Update, drive_match);
@@ -381,6 +409,9 @@ struct MatchDriver {
     /// Frames since the round went live, for [`PREMISE_CHECK_EVERY`].
     live_frames: u32,
     warned_empty: bool,
+    /// Seats at the moment the round went LIVE — the baseline a KO is measured
+    /// against, so `report_end_of_run` can say the cast changed underneath.
+    seats_at_live: usize,
     stage: Stage,
 }
 
@@ -407,6 +438,13 @@ fn drive_match(world: &mut World) {
                     "[smash-profile] live after {waited} frames; fighters={}",
                     driver.fighters
                 );
+                driver.seats_at_live = cast_state(world).0;
+                if driver.seats_at_live != driver.fighters {
+                    eprintln!(
+                        "[smash-profile] ⛔ ROSTER MISMATCH: asked for {} fighters, {} are seated.",
+                        driver.fighters, driver.seats_at_live
+                    );
+                }
                 driver.stage = Stage::Live(std::time::Instant::now());
             } else if waited >= LIVE_DEADLINE_FRAMES {
                 eprintln!(
@@ -439,7 +477,7 @@ fn drive_match(world: &mut World) {
                 .measure_for
                 .is_some_and(|budget| since.elapsed().as_secs_f32() >= budget)
             {
-                report_end_of_run(world);
+                report_end_of_run(world, driver.seats_at_live);
                 world.write_message(bevy::app::AppExit::Success);
                 driver.stage = Stage::Done;
             }

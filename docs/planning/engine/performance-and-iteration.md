@@ -1085,6 +1085,36 @@ is for slow mounts, Android storage and network shares — and for keeping block
 IO off the deterministic tick. ⭐ This change is justified by ARCHITECTURE, not by
 a measurement, and saying so is the point.
 
+### ⭐⭐ FIGHTER COUNT IS A REAL COST DRIVER — the first product dimension that moves the frame
+
+Every Smash number in this campaign until now used TWO fighters. Smash is a party
+game; four is the real case. Measured 2026-08-29, 2500 ticks, interleaved reps:
+
+| fighters | mean | p99 | cast held? |
+|---|---|---|---|
+| 2 | **4.51 / 4.50ms** | 5.72 / 5.74 | yes — reproducible to 0.01ms |
+| 4 | **4.79 / 5.01ms** | 6.11 / 6.40 | ⚠ NO — 4 seats at start, 3 at end |
+
+⇒ **+2 fighters costs AT LEAST +0.3ms (~7%)**, and it is a LOWER BOUND: the
+4-fighter arm lost a fighter to a knockout partway through, so its mean averages
+a cast that shrank. ⭐ This is the first thing in the whole campaign that scales
+with something a PLAYER chooses.
+
+⚠ **and a fighter is not "a body".** The room sweep priced `WorldPrep` at ~16us
+per body; two extra fighters costing 0.3ms is roughly 10x that, because a fighter
+carries a brain, a sprite rig and combat state, not just kinematics. ⛔ Do not
+price a fighter with the per-body constant.
+
+⭐⭐ **THE GUARD THAT CAUGHT THIS DID NOT EXIST AN HOUR EARLIER.**
+`smash_match_profile` verified that seats EXISTED at the end, never that the
+roster it was ASKED for actually seated, nor that the cast survived the measured
+window. It now checks both, and the very next measurement tripped
+`POPULATION CHANGED DURING MEASUREMENT: 4 seats at the start, 3 at the end`. ⇒ a
+four-arm scaling table would otherwise have been published with one arm quietly
+averaging two different matches. (An earlier reading of `bodies=3` for
+`--fighters 4` is the same knockout seen through a different column — ⛔ `bodies`
+counts `BodyKinematics`, and is NOT the fighter count.)
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

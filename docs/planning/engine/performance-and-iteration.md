@@ -950,6 +950,49 @@ are contaminated there exactly as the retracted `StateTransition` finding was.
 the mistake it was written for. `sim_phases` is inside the gameplay tick and is
 the instrument that survives.
 
+### ⭐⭐⭐ THE SMASH FRAME, FULLY ATTRIBUTED AT LAST — 2026-08-29
+
+Unblocked by fixing the guard (below): `NoWindow` sets `backends: None` and omits
+the RenderApp, so a windowless smash run draws NOTHING and its phase splits ARE
+valid. The old guard warned on the CAMERA COUNT and condemned exactly the runs
+that were sound.
+
+3000 ticks, `dev`, 2 fighters, windowless. Frame mean **4.45ms**:
+
+| block | ms | share | how it was measured |
+|---|---|---|---|
+| marked gameplay sim | 0.83 | 19% | `[census] sim_phases`, 17 phases |
+| GGRS driver overhead | **0.21** | 5% | `ggrs_driver inside=1.047` minus the sim it contains |
+| **`PreUpdate` outside the driver** | **0.93** | **21%** | `PreUpdate` 1.98 minus `ggrs_driver` 1.047 |
+| `Update` | 1.23 | 28% | phases |
+| `PostUpdate` | 0.51 | 11% | phases |
+| `RunFixedMainLoop` | 0.31 | 7% | phases |
+| First / StateTransition / SpawnScene / Last / outside | 0.31 | 7% | phases |
+
+⭐ **THE ROLLBACK DRIVER IS CHEAP: 0.21ms**, which is what `check_distance: 0`
+predicted — it skips saving entirely. ⛔ Do not go looking for rollback cost here.
+
+⭐⭐ **AND `PreUpdate` IS NOT "THE SIMULATION TICK", which an earlier correction in
+this document implies.** The sim is 0.83ms of a 1.98ms `PreUpdate`. **0.93ms — a
+FIFTH of the whole frame — is PreUpdate work that is neither the gameplay sim nor
+the rollback driver**, and prior probes accounted for only ~0.145ms of it.
+
+**The named candidates**, from `[census] membership schedule=PreUpdate` (137
+systems): **31 `Assets` trackers**; ~15 PARTICLE systems (`msgr_spawn_particle`,
+`msgr_sync_particle`, `msgr_despawn_*`, `despawn_orphaned_particles`,
+`register_transform_particles`, `sync_particle_type_registry`); ~12 PICKING
+systems (`ui_picking`, `lunex_2d_picking`, `cube_3d_picking`, `generate_hovermap`,
+`update_window_hits`, `update_pointer_map`); the egui pass; and the input writers.
+⚠ Also visible: `release_confirmed_effects` registered **7 times** and
+`tick_action_state` / `update_action_state` **twice each** — an architecture smell
+worth a look, not a measured cost.
+
+⛔⛔ **STOPPED HERE DELIBERATELY, AND THE STAGE IS THE REASON.** At 4.45ms the
+frame is a QUARTER of the 60Hz budget; the spikes are proven NOT to be sim; and
+splitting the remaining 0.93ms needs hand-placed brackets (Bevy 0.18 emits no
+per-system span) on a host whose timings are the weakest link in every finding
+here. ⇒ that work is gated behind the real-hardware profile, not ahead of it.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

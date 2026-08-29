@@ -161,6 +161,7 @@ pub fn report_view_census(
         With<ambition_portal2d_presentation::PortalViewRig>,
     >,
     views: Query<&LocalViewId, With<LocalView>>,
+    device: Option<Res<bevy::render::renderer::RenderDevice>>,
 ) {
     let Some(at) = census.due() else {
         return;
@@ -248,12 +249,34 @@ pub fn report_view_census(
     //
     // ⚠ `fragment_shader_invocations = 0` DOES NOT MAKE IT SAFE: submission and
     // upscaling cost real time even when the opaque pass shades nothing.
-    if world_rendering > 0 || offscreen > 0 {
+    //
+    // ⭐⭐ AND THE CAMERA COUNT IS THE WRONG QUESTION ON ITS OWN. A camera that
+    // TARGETS the world is not the same as a render path that RUNS: the
+    // `NoWindow` mode sets `backends: None`, which omits the RenderApp entirely
+    // and draws nothing, yet still reports `world_rendering=1`. Warning on the
+    // camera count alone therefore condemned windowless runs whose phase splits
+    // are perfectly sound — measured 2026-08-29, when it talked its own author
+    // out of a valid attribution of a Smash match.
+    //
+    // `RenderDevice` reaches the MAIN world only when the renderer actually
+    // initialized, so it is the honest test for "is there a GPU behind this".
+    let gpu = device.is_some();
+    if gpu && (world_rendering > 0 || offscreen > 0) {
         eprintln!(
             "[census] phases_warning t={at:.3} untrustworthy=render_blocking \
              world_rendering={world_rendering} offscreen={offscreen} — `[census] phases` \
              attributes wall time between markers, so GPU blocking lands in whichever \
              phase brackets it. Trust phase splits only from a run with no rendering."
+        );
+    } else if !gpu {
+        // ⭐ Say the POSITIVE case too. "No warning" is indistinguishable from
+        // "the check never ran", and a reader deciding whether to trust a phase
+        // split needs to see that the question was asked and answered.
+        eprintln!(
+            "[census] phases_trust t={at:.3} trustworthy=no_render_backend \
+             world_rendering={world_rendering} offscreen={offscreen} — no `RenderDevice` in \
+             the main world, so nothing is drawn and `[census] phases` is not absorbing \
+             GPU time. Phase splits from this run are usable."
         );
     }
 }

@@ -78,7 +78,11 @@ fn main() {
         println!("[ladder_rig] weights: v1 (profile default)");
     }
     println!(
-        "[ladder_rig] higher vs lower   eliminated(hi:lo)     stocks    peak%(hi:lo)   verdict   \
+        // ⛔ "stocks" ALONE IS AMBIGUOUS AND WAS MISREAD. The column is stocks
+        // REMAINING, so `0 : 0` means BOTH fighters were fully eliminated — the
+        // opposite of the "nobody lost a stock" it reads as at a glance. Say
+        // LEFT in the header, where the reader is.
+        "[ladder_rig] higher vs lower   eliminated(hi:lo)   stocks LEFT(hi:lo)   peak%(hi:lo)   verdict   \
          (median of {seeds} seeds, {}s each)",
         TICKS / 60
     );
@@ -200,6 +204,13 @@ fn run_scenarios(seeds: usize) {
         playable.len(),
         suite.len(),
         TICKS / 60
+    );
+    // ⛔ THE SCENARIO TABLE PRINTED NO COLUMN HEADER AT ALL, so every reader had
+    // to infer five columns from the numbers — and `stocks` was read as "stocks
+    // lost" in a planning row, inverting what the rows meant.
+    println!(
+        "[ladder_rig] fixture            rungs     eliminated(hi:lo)              stocks LEFT   \
+         peak%(hi:lo)     verdict"
     );
     for scenario in &suite {
         if scenario.starting_positions().is_none() {

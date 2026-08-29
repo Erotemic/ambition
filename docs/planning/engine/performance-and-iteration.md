@@ -242,7 +242,8 @@ frames and `QueryState::iter` still updates archetypes, so nothing is missed.
 Fixed in `world::gated_lock_walls::sync_authored_gated_lock_walls`
 (33.1us/frame before, in the top ten systems, for a room with no gated walls).
 There are ~73 `world.query*` sites outside tests; most are setup or spawn paths
-where the cost is paid once and the pattern is fine.
+where the cost is paid once and the pattern is fine. (⚠ A later sweep counts
+**147** including tests — same population, different filter.)
 
 ⭐⭐ **CLOSED 2026-08-29 BY COUNTING, AND THE PROPOSED CHECKER IS NOT NEEDED.** With
 the sim schedule finally enumerable, all 147 `world.query*` sites were

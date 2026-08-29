@@ -954,10 +954,31 @@ machine's ~15% noise floor. ⇒ **on a frame this diffuse, no group of fewer tha
 ~500 systems can produce a measurable win.** Size the group against the noise
 floor BEFORE building the gate, every time.
 
-⚠ WHAT THIS DOES NOT SAY: it does not price STARTUP. Plugin build scales with
-registered systems, and startup is the number a phone player feels — four
-experiences' worth of registration may well matter there. That is a different
-measurement and it has not been taken.
+⭐⭐ **AND STARTUP HAS NOW BEEN PRICED TOO — IT DOES NOT MOVE EITHER.** The same
+removal, measured against a startup baseline (the profile binary now calls
+`note_process_start()`, which it never did, so its report used to begin
+mid-plugin-build and SAID SO):
+
+| | baseline | four experiences removed |
+|---|---|---|
+| plugin registration | 372.3ms | **380.8ms** |
+| asset load | 184.4ms | 178.8ms |
+| `Update` systems | 494 | **433** (−61, crates 46 → 38) |
+
+The removal certainly took — 61 systems and 8 crates gone, twintrack and mary_o
+absent from `[census] owners_in`. Plugin registration did not drop.
+
+⇒ ⛔⛔ **THE DIRECTION IS CLOSED ON BOTH QUANTITIES.** Capability composition
+buys nothing for frame time and nothing for startup registration. It remains
+worth doing for composition clarity, cost ownership and dependency hygiene —
+which are real goods — but it must be argued on those grounds, with NO
+performance claim attached.
+
+⚠ The startup shape is still worth knowing: registration is **372ms, 60% of a
+~619ms startup**, against per-frame costs in microseconds. Installing ~630
+systems is genuinely expensive ONCE. But it is dominated by the engine core and
+the content plugins every composition needs — not by the experiences, which is
+what removing four of them just demonstrated.
 
 ### WHO OWNS `Update` — the target list for capability gating
 

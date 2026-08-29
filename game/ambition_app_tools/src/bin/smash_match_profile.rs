@@ -111,6 +111,13 @@ fn report_end_of_run(world: &mut World) {
 }
 
 fn main() {
+    // ⭐ THE STARTUP ANCHOR, FIRST LINE. `StartupProfiler` measures from here;
+    // without it the report begins mid-plugin-build and says so
+    // ("app construction NOT MEASURED"), which is what this binary printed
+    // until now. Startup is the number a phone player feels, and plugin build
+    // scales with registered systems — so this is what prices a composition
+    // change that the FRAME cannot see.
+    ambition_platformer2d::dev_tools::profiling::note_process_start();
     let args: Vec<String> = std::env::args().collect();
     let ticks: u32 = arg_value(&args, "--ticks")
         .and_then(|v| v.parse().ok())

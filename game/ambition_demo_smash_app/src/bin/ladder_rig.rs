@@ -350,8 +350,24 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // Damage percent is represented as a ratio, so 0.01 means one percent.
     // Rows below that threshold for both fighters are reported as unfought.
     const FOUGHT_AT_ALL: f32 = 0.01;
+    // ⛔ THE LABEL BELOW IS COMPUTED ON MEDIANS, AND THE OUTCOME IT DESCRIBES IS
+    // BIMODAL — a bout either ends untouched or turns into a real fight. A stable
+    // 50/50 split produces a stable median too, so "NEITHER LANDED A HIT" on its
+    // own cannot distinguish "every bout was unfought" from "just over half were".
+    // ⇒ report the COUNT beside the label, so the reader can tell which.
+    let unfought = bouts
+        .iter()
+        .filter(|b| b.peak_percent[0] < FOUGHT_AT_ALL && b.peak_percent[1] < FOUGHT_AT_ALL)
+        .count();
     let verdict = if hi_peak < FOUGHT_AT_ALL && lo_peak < FOUGHT_AT_ALL {
-        format!("{verdict} — BUT NEITHER LANDED A HIT")
+        format!(
+            "{verdict} — BUT NEITHER LANDED A HIT (unfought {unfought}/{})",
+            bouts.len()
+        )
+    } else if unfought > 0 {
+        // The other half of the same point: a row that reads as a normal fight can
+        // still be hiding bouts that ended untouched.
+        format!("{verdict} [unfought {unfought}/{}]", bouts.len())
     } else {
         verdict
     };

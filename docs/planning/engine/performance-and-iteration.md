@@ -508,6 +508,13 @@ cost **1.84ms** against the match's 4.31ms. ⛔ The tool printed
 out and I read past the number.** ⇒ filtered to MATCH intervals only
 (`bodies>=2`), ~5,200 match frames per arm:
 
+⭐ **THE TOOL NOW PRINTS THE COVERAGE IN ITS SUMMARY LINE** —
+`measured_window_live_cast=NN%` — and warns below 95%, because the end-of-run
+warning existed, fired, and was grepped away. Verified: `--ticks 2000` reports
+**100%**, `--ticks 16000` reports **36%** and warns. ⇒ **a 2-fighter match lasts
+roughly 5,800 ticks, so keep `--ticks` at or under ~5000**, or filter on
+`bodies>=2`.
+
 | arm (MATCH frames only) | mean | >8ms | >12ms | >16.67ms | worst |
 |---|---|---|---|---|---|
 | idle | **4.312ms** | **0.9%** | 0.0% | **0** | 10.56ms |

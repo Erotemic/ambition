@@ -355,9 +355,45 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
         warn_if_scaling_sprites_were_culled(app.world_mut(), scaling_sprites);
     }
 
-    for _ in 0..ticks {
+    // ⛔⛆ COUNT HOW MUCH OF THE MEASURED WINDOW ACTUALLY HAD A MATCH IN IT.
+    // A long run OUTLIVES the match, and post-match frames are less than half the
+    // cost of match frames (1.84ms against 4.31ms measured 2026-08-29). A 16000
+    // tick run spent 44% of itself on a results screen, which dragged the mean
+    // down 27% and diluted a spike-rate comparison until it understated the
+    // effect by a third.
+    //
+    // ⭐ THE WARNING AT THE END WAS NOT ENOUGH — it existed, it fired, and it was
+    // grepped away by an analyst filtering for the numbers. So the coverage goes
+    // in the SUMMARY LINE, beside the numbers it qualifies.
+    //
+    // Sampled every 50 ticks rather than every tick: the query is cheap but this
+    // is an instrument, and an instrument must not join the population it
+    // measures.
+    let mut live_samples = 0usize;
+    let mut total_samples = 0usize;
+    for tick in 0..ticks {
         app.update();
+        if tick % 50 == 0 {
+            total_samples += 1;
+            if cast_state(app.world_mut()).0 > 0 {
+                live_samples += 1;
+            }
+        }
     }
+    let coverage = if total_samples == 0 {
+        100.0
+    } else {
+        100.0 * live_samples as f64 / total_samples as f64
+    };
+    if coverage < 95.0 {
+        eprintln!(
+            "[smash-profile] ⛔ ONLY {coverage:.0}% OF THE MEASURED WINDOW HAD A LIVE CAST \
+             ({live_samples}/{total_samples} samples). The rest is a results screen at roughly \
+             HALF the frame cost, so every mean below is dragged down and every rate is \
+             diluted. Re-run with fewer --ticks, or filter to intervals with bodies>=2."
+        );
+    }
+    eprintln!("[smash-profile] measured_window_live_cast={coverage:.0}%");
 
     report_end_of_run(app.world_mut(), seated_now);
 }

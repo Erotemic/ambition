@@ -69,10 +69,17 @@ pub fn build_demo_app() -> App {
 /// window, which also means no app runner, so an offscreen caller steps the app
 /// itself.
 ///
-/// ⛔ mary-o, sanic and twintrack still hand-roll their own `DefaultPlugins`
-/// and declare their own `RenderMode` — three copies of this, in
-/// `game/ambition_demo_{mary_o,sanic,twintrack}_app/src/lib.rs`. Migrating them
-/// is a separate slice with a much wider blast radius than this one.
+/// ✅ mary-o, sanic and twintrack were migrated to this same foundation on
+/// 2026-08-29, so there is no longer a hand-rolled `DefaultPlugins` among the
+/// demos. Each keeps its own `RenderMode` enum as its public vocabulary and maps
+/// it to `Display` in one `From` impl.
+///
+/// ⛔ THE ONE THING THAT DID NOT TRANSFER, and it is worth knowing before adding
+/// a fourth demo: those builders also installed `ScheduleRunnerPlugin` on their
+/// offscreen arm. This foundation deliberately does NOT — `Display::Offscreen`
+/// is CALLER-STEPPED, which is what a capture wants — so each demo's `capture_*`
+/// binary now asks for the runner itself, because it is the only consumer that
+/// calls `run()`.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> App {
     let mut app = App::new();

@@ -2232,6 +2232,34 @@ to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced 
 `MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
 debugging test plumbing, not the engine.
 
+#### ⛔ THE LARGEST RECURRING COST IN THE TRACE IS AN INVISIBLE EFFECT RE-UPLOADING ITSELF
+
+`prepare_assets<PreparedMaterial2d<HitFlashMaterial>>`: **312.8us mean over 28,353
+frames = 8.87s of the session** — the biggest recurring zone in the hardware
+trace, for an effect that is invisible most of the time.
+
+⭐ **CAUSE, IN ONE LINE:** `sync_hit_flash_overlays` called
+`materials.get_mut(&handle)` unconditionally every frame. **`Assets::get_mut`
+MARKS THE ASSET MODIFIED**, and a modified material is re-uploaded to the GPU that
+frame. These overlays are deliberately kept alive forever — the shader's `discard`
+arm makes an idle one free to DRAW — so every idle overlay was re-uploaded every
+frame anyway.
+
+⭐⭐ **AND THE RULE WAS ALREADY WRITTEN DOWN IN THIS REPO, ON A DIFFERENT ASSET.**
+`converge_character_residency_to_active_quality` says: *"NOT `Res`: this writes.
+But it is READ first, because a `ResMut` deref-mut marks `GameAssets` changed for
+every reader downstream, every frame, forever."* Same defect, same fix, one crate
+apart. ⇒ read, compare, write only a real change.
+
+⚠⚠ **NOT GATED YET — THE DISK IS 100% FULL AND A BUILD ON A FULL DISK LEAVES A
+TRUNCATED ARTIFACT.** The change is mechanical and the comparison is field-wise
+(`Vec4` and `Handle<Image>` are both `PartialEq`, so the material needs no new
+derive), but it has NOT been compiled. ⇒ `cargo check -p ambition_render` is owed
+the moment there is space, before this is believed.
+
+⚠ Tracy inflates ~2.4x, so the real figure is ~130us/frame — **~1.7% of a 7.77ms
+frame**. Worth taking because it is constant and free, not because it is large.
+
 #### ⭐⭐⭐ THE DEV BUILD IS 42% SLOWER THAN IT NEEDS TO BE, AND THAT IS THE BUILD JON PLAYS
 
 **MEASURED 2026-08-29, three reps per arm, headless `smash_match_profile --ticks

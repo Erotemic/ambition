@@ -57,6 +57,7 @@ ambition_content = { path = "../ambition_content" }
 # `shark_ride_probe` seats a real smash match and drives a real press, which is
 # the demo's own vocabulary (its roster builder, its route id).
 ambition_demo_smash = { path = "../ambition_demo_smash" }
+ambition_demo_smash_app = { path = "../ambition_demo_smash_app" }
 serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 

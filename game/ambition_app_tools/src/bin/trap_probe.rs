@@ -23,6 +23,7 @@
 //! it would measure a different move from the one a player performs.
 
 use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::engine_core::{BodyKinematics, BodyMode, BodyModeState, ControlFrame};
 use bevy::prelude::*;
 
@@ -36,8 +37,36 @@ fn main() {
         Some("left") => -1.0,
         _ => 1.0,
     };
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // ⭐⭐ HOW LONG THE FINGER STAYS ON B. The first version of this probe
+    // released the button after ONE frame and measured a healthy three-second
+    // beat; Jon, playing, reported *"she just pops right back up"*. A person
+    // does not tap a special for one frame, and `ChargeSustain::UntilPressedAgain`
+    // guards its own starting press with `charge.held_s > 0.0` — a guard worth
+    // exactly one tick. So the hold is the variable.
+    // ⭐⭐ IS THE STICK STILL DOWN? You input down-B by HOLDING DOWN and pressing
+    // B, and a thumb does not snap back to neutral the instant the move starts.
+    // The probe's first runs steered with `axis_y = 0`, which is the one posture
+    // a player is NOT in when this move begins.
+    let down_held = std::env::args().any(|a| a == "downheld");
+    let hold_frames: usize = std::env::args()
+        .find_map(|a| a.strip_prefix("hold=").and_then(|n| n.parse().ok()))
+        .unwrap_or(0);
+    // ⭐⭐ WHICH HOST. `run_game.sh smash` launches `ambition_demo_smash_app`,
+    // NOT `ambition_app` — a different shell composing its own catalogs. A probe
+    // that only ever measures the app host cannot see a defect that lives in the
+    // shell somebody plays, and this move has been reported broken in play while
+    // measuring healthy here.
+    let demo_host = std::env::args().any(|a| a == "host=demo");
+    let mut app = if demo_host {
+        ambition_demo_smash_app::build_demo_app()
+    } else {
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true)
+    };
+    println!(
+        "[trap_probe] host = {}",
+        if demo_host { "ambition_demo_smash_app (the one run_game.sh smash launches)" }
+        else { "ambition_app::build_visible_app" }
+    );
     for _ in 0..30 {
         app.update();
     }
@@ -50,27 +79,40 @@ fn main() {
             ),
         ));
 
-    // ⛔⛔ WAIT FOR THE ROUND, NOT FOR A NUMBER — the opening ceremony's length
-    // is a moving target and four fixture families have broken on encoding it.
-    let mut live = false;
-    for _ in 0..900 {
-        app.update();
-        let (seated, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&MatchSeat>();
-            let seated = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
-            >();
-            (seated, q.iter(world).count())
-        };
-        if seated > 0 && held == 0 {
-            live = true;
-            break;
+    // ⛔⛔ THE TWO HOSTS DO NOT ANNOUNCE THE ROUND THE SAME WAY. The app host
+    // holds its cast under `ScriptedControl` through the ceremony and releasing
+    // it is observable; the demo shell boots straight into `smash_stage` and
+    // never satisfies that condition, so waiting on it panics with *"the opening
+    // ceremony never released the cast"* against a match that is perfectly live.
+    // Wait on the ROSTER'S OWN countdown there, which is what `roll_probe` does.
+    if demo_host {
+        let countdown = ambition_demo_smash::smash_roster(["performer", "performer"])
+            .rules
+            .opening_countdown_ticks;
+        for _ in 0..(countdown as usize + 60) {
+            app.update();
         }
+    } else {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(live, "the opening ceremony never released the cast");
     }
-    assert!(live, "the opening ceremony never released the cast");
 
     let (seat0, seat1) = seats(&mut app);
 
@@ -85,6 +127,23 @@ fn main() {
         player_visuals(&mut app)
     );
 
+    // ⛔⛔ WHO IS DRIVING THIS BODY. A seated fighter carries a `Brain` that
+    // writes its own `ControlFrame` every tick, and a frame delivered from
+    // outside is overwritten before the kernel reads it — `roll_probe` records
+    // two runs that measured nothing for exactly this. Say the binding out loud,
+    // then take the brain off.
+    println!(
+        "[trap_probe] seat 0: participant={} brain={}",
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        app.world()
+            .get::<ambition_platformer2d::characters::brain::Brain>(seat0)
+            .is_some(),
+    );
+    app.world_mut()
+        .entity_mut(seat0)
+        .remove::<ambition_platformer2d::characters::brain::Brain>();
+    app.update();
+
     // She must be STANDING when the press lands: down-Special in the air is
     // `special_air_down`, a different verb on the same table.
     for _ in 0..120 {
@@ -97,10 +156,11 @@ fn main() {
 
     let start = kin(&app, seat0).0;
     println!(
-        "[trap_probe] standing at ({:.1}, {:.1}), steering {}",
+        "[trap_probe] standing at ({:.1}, {:.1}), steering {}, B held {hold_frames} frames, down {}",
         start.x,
         start.y,
-        if steer > 0.0 { "RIGHT" } else { "LEFT" }
+        if steer > 0.0 { "RIGHT" } else { "LEFT" },
+        if down_held { "HELD" } else { "released" }
     );
 
     ambition_platformer2d::sim::drive_control_frame(
@@ -114,6 +174,19 @@ fn main() {
         },
     );
     app.update();
+    // The button STAYS DOWN for `hold_frames` after the press edge, which is
+    // what a thumb does.
+    for _ in 0..hold_frames {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ControlFrame {
+                axis_y: 1.0,
+                special_held: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
 
     // ── the watch ────────────────────────────────────────────────────────────
     //
@@ -138,6 +211,7 @@ fn main() {
             app.world_mut(),
             ControlFrame {
                 axis_x: steer,
+                axis_y: if down_held { 1.0 } else { 0.0 },
                 ..Default::default()
             },
         );

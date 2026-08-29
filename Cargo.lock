@@ -179,6 +179,7 @@ dependencies = [
  "ambition_app",
  "ambition_content",
  "ambition_demo_smash",
+ "ambition_demo_smash_app",
  "ambition_platformer2d",
  "bevy",
  "image",

@@ -2775,6 +2775,27 @@ features + tests), and three sampled jobs took **7.34s / 6.67s / 20.12s** — ca
 ~11s each, **~6 minutes** added sequentially and less in parallel. They are
 `cargo check`, not test runs.
 
+⛔⛔ **AND THE REASON NOBODY NOTICED: THE DEFAULT LANE HAS BEEN RED FOR WEEKS, SO
+ITS EXIT CODE CARRIES NO INFORMATION.** `run_tests_cost.jsonl` records every job's
+`ok` flag across 79 runs:
+
+| job | failures / runs |
+|---|---|
+| `workspace (default features)` | **29 / 79** — and the last **8 consecutive**, 2026-08-08 → 2026-08-29, across many commits |
+| `repo tooling (scripts/tests)` | 11 / 73 |
+| `workspace [every headless-safe feature]` — **the gated-test job** | **2 / 3** |
+
+⇒ **a lane that is always red cannot report a new breakage**, which is the
+mechanism behind six rotted targets nobody saw. ⚠ And it bears on the
+recommendation: arming the feature checks surfaces a job that is ALREADY failing
+2 of 3, so "arm it" and "make it green" are one task, not two.
+
+⭐ **THE TRAP THAT ALMOST MADE ME REPORT GREEN:** I ran the suite through
+`| tail -25`, so the harness reported the PIPELINE's status — `tail`'s 0 — and the
+footer lists the jobs that PASSED. The runner's own
+`target/run_tests_status.json` said `passed: 3` of `finished_jobs: 4`,
+`exit_code: 1`. ⇒ **read the status file, never the stream.**
+
 ✔ **THE SWEEP IS NOW COMPLETE — 32 OF 32 — AND IT FOUND SIX BREAKAGES:**
 
 | broken | cause |

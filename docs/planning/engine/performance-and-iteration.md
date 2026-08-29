@@ -1019,6 +1019,41 @@ render. If our presentation projection rewrites semantically unchanged state
 (the brief's direction 4), those 99 are where it lives, and that is a different
 investigation from gating.
 
+### WHAT LANDED, 2026-08-29 — and what each is honestly worth
+
+⛔ ONLY THE FIRST ROW HAS A MEASURED SPEED CLAIM. Everything else is correctness
+or composition, and is recorded that way ON PURPOSE: this campaign spent eleven
+probes learning that a plausible improvement here is usually worth nothing, and
+a landed change with an invented justification is worse than no change.
+
+| change | what it fixes | measured? |
+|---|---|---|
+| `gameplay_allowed` hoisted onto `GameplayGated` | 83 evaluations per schedule run → **1** | ⭐ YES, structurally: `system_conditions` 139 → 61 |
+| `AttackVfxView` query filtered | a presentation fact stamped on **1297 of 2048 entities** — sand chunks and UI nodes | ⛔ no frame change; kept on correctness |
+| confirmed-frame boundary published from the session | `fully_confirmed()` was false forever, silently vetoing the winner card, the return to select, AND the autosave | ⭐ fixes a SOFTLOCK Jon reported |
+| twintrack `spacetime_3d` / `observatory` / `split_screen` gated | 30 of 33 systems dormant outside twintrack | ⛔ microseconds; architectural |
+| 9 census reporters gated at build time | the instrument was the sharpest instance of the antipattern it was built to find | ⛔ architectural |
+| Yarn mirror + cut-rope mirror gated on conversation liveness | `RwLock` write + 3 collections rebuilt per frame, one **growing with playtime** | ⚠ tracks save size, not measurable here |
+| `puppy_slug_seed` de-allocated | a `String` per candidate actor per frame, BEFORE the short circuit that made it pointless | ⚠ under the noise floor |
+| `cut_rope/victory` buffer → `Local` | a `Vec` per frame in every room for one `contains` | ⚠ under the noise floor |
+| `emit_intro_flag_chains` → change-driven | re-derived a save table every frame forever; `flag()` is a linear scan that **lengthens with progress** | ⚠ grows with save |
+
+⭐ **THE RECURRING DEFECT, three times in one day:** *"cheap because the data is
+small"* written down as a comment, over a collection that grows with playtime —
+`dialog_visits`, the save's flag vector, and the mirror's extras. A claim about
+size is not a claim that survives a save file ageing.
+
+⭐ **THE RECURRING TELL:** a predicate hand-copied instead of gated —
+`twintrack_is_active` in THREE files consulted by 4 of 33 systems,
+`portals.is_empty()` in FIVE system bodies, `FallingSandRoomState::active_room`
+in NINE. Every one of them is the gate somebody wanted and nobody wrote.
+
+⛔ **DELIBERATELY NOT DONE:** `setup_cut_rope_encounter`'s boss scan — its
+queries are EMPTY in a Smash match (`Without<ReleaseOnDeath>` drains the tagged
+boss, and a Smash stage has no `BossConfig`), so its cost is in boss rooms, and
+a room gate risks moving where the boss gets tagged. No measured cost, real
+risk, left alone.
+
 ### ⛔⛔ WHERE THE LEVERAGE IS NOT — read this before opening a perf campaign here
 
 Eleven hypotheses tested this campaign, ten rejected. Grouped by what they rule

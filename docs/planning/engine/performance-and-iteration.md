@@ -434,6 +434,32 @@ conclusions lean on it. Measured directly 2026-08-29: **five back-to-back
 
 **mean 4.508ms, range 4.42–4.62 = 4.4% of the mean.**
 
+⛔⛔ **AND THEN I RE-RAN IT AND GOT 22.6%, WHICH IS THE WHOLE LESSON AGAIN.** Two
+further blocks the same hour, same binary, same host:
+
+| block | reps | range | block mean |
+|---|---|---|---|
+| A | 5 | **4.4%** | 4.508ms |
+| B | 3 | **22.6%** — one run at 5.24 | 4.60ms |
+| C | 8 | **7.4%** (6.5% dropping the worst) | 4.305ms |
+
+⇒ **THE FLOOR IS NOT A CONSTANT, AND ONE 5-REP BLOCK DOES NOT ESTABLISH IT.**
+Typical within-block spread is **4–7%**, but individual runs occasionally land
+**~20% above the median**, and a small block that catches one reports a floor four
+times too loose. ⭐ **Use the MEDIAN of >=5 reps and quote ~7% (≈0.3ms) as the
+defensible bar** — which puts the gate threshold near **45 systems** at 6.9us
+each, not the 30 the single block suggested (and still nothing like 500).
+
+⛔⛔ **THE SHARPER HAZARD: THE BLOCK MEAN ITSELF DRIFTS.** Block A's mean is
+4.508ms and block C's is 4.305 — **4.7% apart, minutes apart, nothing changed.**
+⇒ **NEVER COMPARE TWO ARMS MEASURED IN DIFFERENT BLOCKS, even with reps each** —
+the drift between blocks is as large as most effects worth finding. **INTERLEAVE
+the arms** (A,B,A,B), which is what the fighter-count comparison did and why its
+shares were stable while its magnitude was not.
+
+⚠ I published the 4.4% figure and its "~30 systems" consequence before re-running
+it. The rule this document keeps re-learning caught its own author one more time.
+
 ⛔⛔ **AND THAT REOPENS A CONCLUSION RECORDED EARLIER TODAY.** This document says
 *"on a frame this diffuse, no group of fewer than ~500 systems can produce a
 measurable win"* — an arithmetic derived from the LOOSER floor. At a 4.4% floor

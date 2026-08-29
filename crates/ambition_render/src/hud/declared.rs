@@ -637,11 +637,42 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
 ///
 ///  after the placer, like the gauges: a panel tracks a position that
 /// frame settled on.
+/// Portrait handles this process has already loaded, kept alive on purpose.
+///
+/// ⛔⛔ WITHOUT THIS, EVERY SELECT-SCREEN VISIT RE-DECODES THE SAME PORTRAITS.
+/// The HUD holds the only handle to a portrait; when its entity despawns the last
+/// reference goes, Bevy drops the image, and the next visit decodes it again.
+/// Measured on hardware 2026-08-29: the select screen's set decoded TWICE in one
+/// session (56.2s and 71.9s, the same eight names), and after the phase-scoped
+/// analysis those were **15 of the 15 decodes that landed in settled play** —
+/// every other decode in the run was boot or a room still arriving.
+///
+/// ⭐ BOUNDED BY CONSTRUCTION, which is why this is a cache and not the residency
+/// service the sheet store forbids: it holds one entry per portrait ACTUALLY
+/// SHOWN (~1.3–2.0MP each), not the 163 baked portrait manifests. A cast-sized
+/// set of small images is a different object from a 470MB-per-character sheet
+/// table, and it needs no eviction policy to stay bounded.
+#[derive(Resource, Default)]
+pub struct RetainedPortraits {
+    by_path: std::collections::HashMap<String, Handle<Image>>,
+}
+
+impl RetainedPortraits {
+    /// The handle for `path`, loading it once and keeping it thereafter.
+    fn handle(&mut self, asset_server: &AssetServer, path: String) -> Handle<Image> {
+        self.by_path
+            .entry(path)
+            .or_insert_with_key(|path| asset_server.load(path.clone()))
+            .clone()
+    }
+}
+
 pub fn update_declared_hud_panels(
     readouts: Res<HudReadouts>,
     active: Res<ActiveHudDeclaration>,
     presentation: Res<ResolvedGameplayPresentation>,
     asset_server: Res<AssetServer>,
+    mut retained_portraits: ResMut<RetainedPortraits>,
     mut slots: Query<
         (&DeclaredHudSlot, &DeclaredHudSpec, &mut Node),
         (
@@ -720,7 +751,8 @@ pub fn update_declared_hud_panels(
             None => set_hidden(&mut visibility),
             Some(path) => {
                 set_shown(&mut visibility);
-                let handle: Handle<Image> = asset_server.load(path);
+                // Through the retained cache: a second visit must not re-decode.
+                let handle = retained_portraits.handle(&asset_server, path);
                 if image.image != handle {
                     image.image = handle;
                 }
@@ -848,6 +880,9 @@ impl Plugin for DeclaredHudPlugin {
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
+        // Outlives any one session on purpose: the point is that leaving the
+        // select screen and coming back does not decode the portraits again.
+        app.init_resource::<RetainedPortraits>();
     }
 }
 

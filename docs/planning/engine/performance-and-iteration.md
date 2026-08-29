@@ -2756,6 +2756,20 @@ with **nothing but portraits**, in two bursts:
 opens, loads them, closes, drops the last handle, and the next visit reloads.
 ⇒ **every other decode in the run is boot (31) or a room still arriving (7).**
 
+✔✔ **FIXED 2026-08-29: `RetainedPortraits`.** The HUD held the ONLY handle to a
+portrait, so despawning its entity dropped the image and the next visit decoded it
+again. A process-lifetime `HashMap<String, Handle<Image>>` now hands out the
+handle and keeps it.
+
+⭐ **BOUNDED BY CONSTRUCTION, WHICH IS WHY IT IS A CACHE AND NOT THE RESIDENCY
+SERVICE THE SHEET STORE FORBIDS.** It holds one entry per portrait ACTUALLY SHOWN
+(1.3–2.0MP each), not the 163 baked portrait manifests. A cast-sized set of small
+images is a different object from a 470MB-per-character sheet table and needs no
+eviction policy to stay bounded. ⇒ the "there must not be an evictor" rule is not
+in play here, and the residency DECISION is not blocked on this.
+209 render tests, gate clean. ▢ Verified on the next windowed run: the two
+portrait bursts should become one.
+
 ⭐ **So the remaining "asset work on a gameplay frame" problem in this build is
 ENTIRELY the select screen's portrait set.** 20.9MP, ~8 images of 1.3–2.0MP. It is
 small in bytes and it is the whole of what is left, which is exactly the kind of

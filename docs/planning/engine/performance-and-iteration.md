@@ -305,7 +305,39 @@ scale with bodies rather than with frames where it can.
 
 `poll_world_source_changes` also does a **blocking `fs::metadata` on the main
 thread** (max 3.9ms in this run, on virtiofs). On a network mount, Android
-storage, or a slow SD card that is a frame hitch. Worth moving off-thread.
+storage, or a slow SD card that is a frame hitch.
+
+⭐⭐ **UPDATED 2026-08-29 — THE WATCHER IS OUT OF THE SIM, AND THE RECORDER IS NOT
+A SMASH COST.**
+
+`poll_world_source_changes` no longer runs on the deterministic tick at all: it
+was in `WorldPrep` and now runs in `Update`, beside its readers (see the section
+on it above). The blocking stat remains, debounced to ~3Hz; move it off-thread
+only if it ever shows up in a frame.
+
+**And the trace recorder's headline numbers do not describe a Smash match.**
+Measured on the `Trace` sim phase, same host, same day:
+
+| workload | bodies | `Trace` phase |
+|---|---|---|
+| Smash match, 2 fighters | 2 | **0.015ms** |
+| Smash match, 4 fighters | 3–4 | **0.016ms** |
+| `mockingbird_arena` | 2 | 0.130ms |
+| `goblin_encounter` | 1 | 0.149ms |
+| `hall_of_characters` | 130 | 0.281ms |
+
+⇒ **in a Smash match the whole `Trace` phase is 15-16us — 0.35% of the frame**,
+an order of magnitude under the 78us/frame this section quotes for its two
+recorders. ⛔ Those figures came from a different workload and should not be
+carried into a Smash budget.
+
+⚠ **AND IT DOES NOT SCALE WITH `bodies`, WHICH IS WHAT THIS SECTION ASKED FOR.**
+`goblin_encounter` has ONE body and costs 0.149ms; a 2-fighter Smash match has
+TWO and costs 0.015ms — ten times less with more bodies. So the driver is
+something else (actor/NPC population is the obvious candidate) and is **not
+identified here**. ⇒ the "make it scale with bodies" instruction cannot be acted
+on until somebody names what it actually scales with; the room numbers say it is
+already scaling with SOMETHING.
 
 ### 6. Startup is dominated by App construction, which nothing measured
 

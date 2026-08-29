@@ -1078,6 +1078,47 @@ a SECONDARY number in the same census row while the primary looked fine:
 (caught by `sprites_visible`). ⇒ **a census must report POPULATION beside
 TIMING.** Timing alone is exactly as convincing when it is wrong.
 
+### ⭐⭐ A REAL ROOM IS REACHABLE AFTER ALL — via `capture_scene`, not the headless path
+
+The "every headless room is a two-body world" finding was about ONE CODE PATH.
+`run_game.sh sandbox --headless` goes through `cli_direct_entry` → `run_headless`,
+which builds `MinimalPlugins` with the sim in `Update`. `capture_scene` uses the
+PRODUCTION composition and camera policy — and it loads real content:
+
+```text
+capture_scene central_hub_complex player
+  draws   sprites=151  sprites_visible=46  text2d=46  per_view_projections=18
+  churn   transforms=2515  transforms_changed=55  sprites=151  sprites_changed=32
+  ecs     entities=4096  archetypes=350  bodies=2  players=1
+  frame   mean=19.88ms  p50=16.80  p95=31.89
+```
+
+Against a Smash match: `sprites_visible=5`, `transforms=59`,
+`per_view_projections=6`, `entities=2048`. ⇒ **a real room is 42x the transforms
+and 3x the per-view projections**, and it is the first populated, actually-drawing
+scene this campaign has measured.
+
+⭐⭐ **AND THE CHURN QUESTION IS ANSWERED ON REAL CONTENT: 55 of 2515 transforms
+changed, 32 of 151 sprites.** The presentation projection is NOT rewriting
+semantically unchanged state. The brief's direction 4 is acquitted on a workload
+that can actually test it — ⚠ noting `Changed<T>` is set by any `DerefMut`, so a
+LOW number is a real acquittal (a projection writing identical values would show
+as changed).
+
+⛔⛔ **DO NOT COMPARE THE 19.88ms TO THE SMASH FRAME.** This host has NO GPU, so
+`capture_scene` rasterizes in SOFTWARE, while the Smash runs are `NoWindow`.
+Different rendering modes are not comparable — that is the campaign's own rule
+and the reason the history's comparability key separates them. The 19.88ms says
+what software rasterization of this room costs; it says nothing about what a
+player's machine does.
+
+⇒ ▢ **THE VEHICLE FOR THE SPRITE QUESTION IS `capture_scene`, NOT A SYNTHETIC
+KNOB.** It already produces a populated visible scene through the real
+projection, which four attempts at spawning raw sprites could not. Whoever picks
+this up should vary ROOMS (or content within one) under `capture_scene` on a GPU
+machine and read `sprites_visible` beside the frame — the population is real, the
+projection is real, and the census rows already exist.
+
 ### THE CAMPAIGN'S BEFORE/AFTER — and why it is NOT a 10% win
 
 Two measured Smash-match rows now sit in `runtime_frame_cost.jsonl`, same

@@ -102,6 +102,31 @@ is a slow MACHINE, not a slow game** — several "dropped frame" readings record
 during the efficiency campaign turned out to be that campaign's own builds. Rule
 out load first; it costs one command and it was the answer.
 
+## 0a. WHAT A HEALTHY CENSUS RUN LOOKS LIKE — so you can spot a degraded one
+
+`AMBITION_PROFILE_CENSUS=1 target/debug/smash_match_profile --ticks 3000` emits
+**22 row kinds**. Verified 2026-08-29:
+
+```
+assets camera churn conditions config draws ecs frame ggrs_driver membership
+owners owners_in phases phases_trust populations portal render_pass_summary
+render_targets schedules sim_phases views
+```
+
+⭐ **AND FOUR QUALIFIERS THAT MUST READ CORRECTLY BEFORE YOU BELIEVE ANYTHING:**
+
+| token | healthy value here | what a wrong value means |
+|---|---|---|
+| `phases_trust` / `phases_warning` | **`phases_trust`** on a windowless run | `phases_warning` ⇒ a render backend exists and PHASE SPLITS ARE INVALID |
+| `measured_window_live_cast=` | **100%** at `--ticks 3000` | below 95% ⇒ the run outlived the match; means are dragged down and rates diluted |
+| `live=` beside `entities=` | tracks real population (~1300 in a match) | ⛔ `entities=` alone is ALLOCATED SLOTS and lands on powers of two — READ `live` |
+| `ROSTER MISMATCH` / `POPULATION CHANGED` | **absent** | present ⇒ the roster is not what you asked for, or the cast changed mid-measurement; arms are not comparable |
+
+⛔ `unavailable=<reason>` on any row means that instrument could not answer —
+which is deliberate: **every census here prints a reason rather than a plausible
+zero**, because a zero from an instrument that never reports that category is not
+a measurement.
+
 ## 0. MEASURE THE NOISE FLOOR FIRST — before designing any probe
 
 ⛔⛔ **DO THIS BEFORE YOU MEASURE ANYTHING YOU INTEND TO ACT ON.** The single

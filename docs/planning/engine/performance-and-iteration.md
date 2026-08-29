@@ -1019,6 +1019,40 @@ render. If our presentation projection rewrites semantically unchanged state
 (the brief's direction 4), those 99 are where it lives, and that is a different
 investigation from gating.
 
+### THE CAMPAIGN'S BEFORE/AFTER — and why it is NOT a 10% win
+
+Two measured Smash-match rows now sit in `runtime_frame_cost.jsonl`, same
+comparability group, with the campaign's changes between them:
+
+| metric | before | after | Δ% |
+|---|---|---|---|
+| frame mean | 3.185ms | 2.866ms | −10.0% |
+| frame p50 | 2.777ms | 2.561ms | −7.8% |
+| frame p95 | 4.219ms | 3.608ms | −14.5% |
+| **frame p99** | **6.100ms** | **12.417ms** | **+103.6%** |
+| frame max | 213.06ms | 164.61ms | −22.7% |
+
+⛔⛔ **DO NOT QUOTE THE −10%.** Three independent reasons it is not a result:
+
+1. it sits AT the noise floor this campaign measured — the same binary and
+   scenario produced means of 4.41, 4.51, 4.82 and 4.84ms, a ~10% spread, and
+   the recorded rule (I6) is that nothing under ~15% is signal here;
+2. **p99 DOUBLED while max improved.** A real speedup shifts a distribution; it
+   does not halve the mean and double the 99th percentile. That is outlier
+   behaviour;
+3. the ingest flagged the before-row as taken on a DIRTY TREE — *"its binary is
+   not that commit alone"* — so the two rows are not cleanly attributable to the
+   commits between them.
+
+⭐ The tool caught all three by itself, including the metrics only one side
+recorded. That is the provenance machinery earning its place: the easiest thing
+in the world here would have been to report a 10% improvement and be wrong.
+
+⇒ The expected result was no material change and that is what this is. The value
+is the RECORD — two comparable rows spanning the campaign, showing honestly that
+the frame is where it was, which is what makes "the frame is broad, not deep"
+checkable by somebody who was not here.
+
 ### WHAT LANDED, 2026-08-29 — and what each is honestly worth
 
 ⛔ ONLY THE FIRST ROW HAS A MEASURED SPEED CLAIM. Everything else is correctness

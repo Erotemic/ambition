@@ -281,6 +281,65 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     eprintln!("{row}");
 }
 
+/// WHAT the entities ARE — the biggest populations, by the component that names
+/// them.
+///
+/// ⭐⭐ THE QUESTION `entities=2048` CANNOT ANSWER. A Smash match takes this app
+/// from 64 entities to 2048 while `bodies` stays at 2, so the population that
+/// grew is not the one the other rows name. A phase cost that scales with
+/// entities is unattributable until somebody can say WHICH entities.
+///
+/// ⛔ IT RANKS BY COMPONENT, NOT BY ARCHETYPE, and the difference matters: an
+/// archetype is a SET of components and its name is a list nobody can read,
+/// while "2000 entities carry `Sprite`" is a sentence. An entity is counted once
+/// per component it holds, so the numbers do not sum to the entity count and are
+/// not meant to.
+pub fn report_entity_populations(
+    census: Res<RuntimeCensus>,
+    entities: &Entities,
+    archetypes: &Archetypes,
+    components: &Components,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    let mut by_component: Vec<(String, usize)> = Vec::new();
+    for archetype in archetypes.iter() {
+        let count = archetype.len() as usize;
+        if count == 0 {
+            continue;
+        }
+        for component_id in archetype.components() {
+            let Some(info) = components.get_info(*component_id) else {
+                continue;
+            };
+            let name = short_type_name(info.name().as_ref());
+            match by_component.iter_mut().find(|(known, _)| *known == name) {
+                Some((_, total)) => *total += count,
+                None => by_component.push((name, count)),
+            }
+        }
+    }
+    by_component.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    let mut row = format!(
+        "[census] populations t={at:.3} entities={} archetypes={}",
+        entities.len(),
+        archetypes.len()
+    );
+    for (name, count) in by_component.iter().take(18) {
+        row.push_str(&format!(" {name}={count}"));
+    }
+    eprintln!("{row}");
+}
+
+/// A component's type name without its path or generics — `Sprite`, not
+/// `bevy_sprite::sprite::Sprite`. The tail is what identifies it to a reader,
+/// and the path would make the row's width depend on crate layout.
+fn short_type_name(name: &str) -> String {
+    let head = name.split('<').next().unwrap_or(name);
+    head.rsplit("::").next().unwrap_or(head).to_string()
+}
+
 /// WHO OWNS the registered systems — the population behind "this app installs
 /// every experience it can launch".
 ///
@@ -604,6 +663,7 @@ impl Plugin for RuntimeCensusPlugin {
                 report_frame_interval_census,
                 report_ecs_census,
                 report_schedule_load_census,
+                report_entity_populations,
             ),
         );
         let enabled = app.world().resource::<RuntimeCensus>().enabled();

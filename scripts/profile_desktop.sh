@@ -25,7 +25,18 @@ default_bounded_duration="30"
 freq="99"
 interval_ms="1000"
 pid=""
-out_base="${AMBITION_PROFILE_BASE:-$repo_root/target/profiles}"
+# ⭐ BUNDLES LAND OUTSIDE `target/`, IN `<repo>/profiles/`, SINCE 2026-08-29.
+# `profiles/` is already in the root `.gitignore`, so this is untracked either
+# way -- what changes is that a bundle now (a) survives `cargo clean`, (b) is not
+# inside the target bindmount, and (c) is readable by an agent working in this
+# checkout without anyone moving it out of `target/` by hand first.
+# ⚠ It also means bundles ACCUMULATE rather than being swept with the build dir;
+# `perf.data` dominates and a long run is gigabytes, so prune this directory.
+# Override with `--out DIR` or `AMBITION_PROFILE_BASE`.
+# ⇒ To adopt a bundle recorded elsewhere: move the directory here and re-run
+#   `python3 scripts/lib/profile_bundle_to_history.py <dir>`, which appends the
+#   ledger row with the new path.
+out_base="${AMBITION_PROFILE_BASE:-$repo_root/profiles}"
 profile_name=""
 # Empty means "pick per mode": timeline-run records without call graphs so an
 # open-ended session stays small on disk; bounded modes keep DWARF stacks.
@@ -174,7 +185,8 @@ Options:
   -j, --jobs N            Cargo parallel job count, passed to ./run_game.sh for
                            both the warm build and the launch. On an agent
                            worktree use `scripts/agent_worktree.sh jobs N`.
-  -o, --out DIR           Output base directory. Default: target/profiles.
+  -o, --out DIR           Output base directory. Default: profiles/ (untracked,
+                          outside target/ so it survives `cargo clean`).
   --name NAME             Output directory name suffix. Default: MODE-TIMESTAMP.
   --events LIST           perf stat events.
   --call-graph SPEC       perf call graph spec, or 'none'.

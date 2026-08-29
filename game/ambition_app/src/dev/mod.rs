@@ -118,9 +118,23 @@ fn install_egui_inspectors(app: &mut App) {
             bevy::app::PreUpdate,
             EguiPreUpdateSet::BeginPass.run_if(wanted),
         );
+        // ⛔⛔ THREE SETS, NOT TWO — AND THE THIRD COST 28,353 ERRORS A RUN.
+        // The first version of this gated `BeginPass` and `EndPass` only, having
+        // reasoned that a pass must be begun and ended together. It must, but
+        // `process_output_system` lives in a THIRD set, `ProcessOutput`, and it
+        // CONSUMES what the pass produced: with the pass never begun it took the
+        // `None` branch and logged `"bevy_egui pass output has not been prepared"`
+        // once per frame. Headless there is no render app and nothing complained,
+        // so the gate looked clean on the only path it was measured on; the first
+        // windowed run produced one error per rendered frame.
         app.configure_sets(
             bevy::app::PostUpdate,
-            EguiPostUpdateSet::EndPass.run_if(wanted),
+            (
+                EguiPostUpdateSet::EndPass,
+                EguiPostUpdateSet::ProcessOutput,
+                EguiPostUpdateSet::PostProcessOutput,
+            )
+                .run_if(wanted),
         );
     }
 

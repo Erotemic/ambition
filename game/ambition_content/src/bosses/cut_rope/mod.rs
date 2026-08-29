@@ -129,6 +129,21 @@ impl Default for CutRopeHeavyObjectCycle {
 }
 
 impl CutRopeHeavyObjectCycle {
+    /// Canonical projection for the session checksum.
+    ///
+    /// ⭐ Registered with `rollback_resource_clone`, this contributed only its
+    /// PRESENCE — and a cycle index is a single number that decides which prop
+    /// the arena rebuilds, so a rewind that advanced it differently was
+    /// invisible. Its presence-only waiver claimed "immutable at runtime", which
+    /// `reset_cut_rope_boss_arena_on_room_reset` calling `advance()` refutes.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
+        let Self { index } = self;
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, *index as u64);
+        checksum_bytes(&bytes)
+    }
+
     fn current(&self) -> CutRopeHeavyObjectKind {
         CUT_ROPE_HEAVY_OBJECT_CYCLE[self.index % CUT_ROPE_HEAVY_OBJECT_CYCLE.len()]
     }

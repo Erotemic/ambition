@@ -2057,6 +2057,15 @@ projection is exact and order-sensitive: **order is part of a queue's value.**
 Schema **v132 → v133**; its stale waiver entry is gone; 42 encounter tests and
 56/56 rollback tests green.
 
+✔ **AND A SECOND, `CutRopeHeavyObjectCycle` (v133 → v134).** One `usize` deciding
+which prop the arena rebuilds: a presence-only probe can see THAT it exists and
+never WHICH it chose, and `reset_cut_rope_boss_arena_on_room_reset` advances it on
+the **sim** schedule, so a resimulation can move it. This is the row whose waiver
+claimed "immutable at runtime" — the projection and the correction land together.
+288 content tests and 56/56 rollback green. ⇒ **six of the eight remain**, and the
+two taken were exactly the two with a single sim writer and a trivially
+deterministic value.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

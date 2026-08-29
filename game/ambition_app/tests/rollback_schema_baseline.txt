@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v133
+ggrs-rollback-schema-v134
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -111,7 +111,7 @@ component.boss_anim_frame	component-clone-cursor	BossAnimFrame	bevy_ggrs clone s
 component.construction_transaction_id	component-canonical	TransactionId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.cut_rope_heavy_object_cycle	resource-clone	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
 content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

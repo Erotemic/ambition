@@ -242,9 +242,14 @@ pub fn register_rollback_state(
     registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
 ) {
     registrar
-        .rollback_resource_clone::<CutRopeHeavyObjectCycle>(
+        // ⭐ CHECKSUMMED 2026-08-29: a presence-only probe cannot see WHICH prop
+        // the cycle chose, and `reset_cut_rope_boss_arena_on_room_reset`
+        // advances it on the sim schedule.
+        .rollback_resource_clone_checksum::<CutRopeHeavyObjectCycle>(
             "ambition_content::bosses",
             "content.cut_rope_heavy_object_cycle",
+            "heavy-object cycle index",
+            CutRopeHeavyObjectCycle::checksum,
         )
         .rollback_resource_clone_checksum_with_schema_detail::<PendingCutRopeRoomReplay>(
             "ambition_content::bosses",

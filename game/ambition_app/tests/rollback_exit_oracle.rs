@@ -617,12 +617,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored policy; immutable at runtime",
         ),
         (
-            "ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle",
-            "MUTATED AT RUNTIME (checked 2026-08-29):\
-             `reset_cut_rope_boss_arena_on_room_reset` calls `advance()` — wants a\
-             value projection",
-        ),
-        (
             "ambition_encounter::entity::Encounter",
             "an encounter id STRING; already a stable identity",
         ),

@@ -266,8 +266,11 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
         return;
     }
     report_schedule_owners(&schedules);
-    // The phase the campaign cannot yet attribute: 0.95ms of it is not the sim.
+    // The two phases the campaign cannot yet attribute. `PreUpdate` because
+    // 0.95ms of it is not the sim; `Update` because in the SHIPPED app the sim
+    // lives in `GgrsSchedule`, so nobody knows what its 1.4ms is made of.
     report_schedule_membership(&schedules, "PreUpdate");
+    report_schedule_membership(&schedules, "Update");
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"

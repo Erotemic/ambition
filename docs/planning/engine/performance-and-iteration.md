@@ -823,6 +823,56 @@ frame-time A/B, and the case for doing it is allocation pressure and elegance,
 not a millisecond. ⭐ Jon's standard applies: the recorder stays fully
 available, it just stops paying per frame for something that changes per room.
 
+### ⭐⭐⭐ THE CAMPAIGN'S CONCLUSION: THE FRAME IS BROAD, NOT DEEP
+
+The shipped app's schedule shape, measured 2026-08-29 — ⛔ note `Update` is
+**494**, not the 822 every planning doc quotes. That figure came from the SANDBOX
+composition, where `SimulationHost` defaults to `RenderFrame` and the sim itself
+runs in `Update`. In the shipped app the sim is `GgrsSchedule`.
+
+| schedule | systems | cost | per system |
+|---|---|---|---|
+| `PreUpdate` | 137 | 2.14ms | ~15.6us |
+| `Update` | **494** | 1.42ms | ~2.9us |
+| `GgrsSchedule` (the sim) | 236 registration sites | 0.93ms over 17 phases | — |
+
+**What each holds:**
+
+- `PreUpdate` — the GGRS driver (containing the WHOLE sim), plus 31
+  `track_assets`, ~20 falling-sand, ~14 picking across THREE backends, ~15 raw
+  input, 7 leafwing, 4 egui, 3 bevy_ui;
+- `Update` — a long FLAT tail of presentation, almost all one instance each:
+  `update_player_hud`, `update_quest_panel`, `update_speech_bubbles`,
+  `update_worldlines`, `update_spacetime_camera`, `upgrade_actor_sprites`,
+  `update_rollback_proof_hud`, `update_split_observer_panes`. Only four names
+  repeat at all (`prune_narrative_inputs` x9, `install` x7,
+  `system_state_pipe_into_manager` x5, `publish_bevy_ui_menu_previews` x4).
+
+⭐⭐ **THERE IS NO HOT SYSTEM. THERE IS A BROAD POPULATION.** ~630 systems across
+two schedules, at 2.9-15.6us each, most of them belonging to capabilities a Smash
+match is not using — quest panels, speech bubbles, worldlines, spacetime
+cameras, split observer panes, three picking backends, egui, a sand grid.
+
+⇒ **THIS IS WHY CAPABILITY ACTIVATION IS THE RIGHT ARCHITECTURAL ANSWER, and the
+reason is not the one the briefs gave.** Not because any system is slow — none
+is. Because the population is broad and mostly dormant-but-running, so the only
+lever with leverage is one that removes WHOLE GROUPS from the frame rather than
+making any member faster.
+
+⛔ AND IT IS WHY THE MICRO-OPTIMIZATION DIRECTIONS ALL FAILED HERE. Nine
+hypotheses rejected this campaign, and the pattern behind every one is the same:
+each targeted a single expensive thing, and there is no single expensive thing.
+Entity populations (three times), archetype fragmentation, rollback snapshots,
+multi-render, falling sand — all null. The one change that DID move a number
+(`gameplay_allowed`, 83 evaluations to 1) worked because it retired a whole
+class at once.
+
+⚠ HONEST LIMIT: "broad and mostly dormant" is measured; "gating the groups would
+reclaim it" is NOT. Bevy skips a set whose condition is false cheaply, so the
+saving is the systems' own work, not their scheduling — and this campaign has
+been wrong three times about what a population costs. ⇒ the first capability
+gate should be measured on ONE group before the pattern is generalized.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and

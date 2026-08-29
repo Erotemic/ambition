@@ -1181,6 +1181,45 @@ const WIRE_SWING_DAMPING: f32 = 2.2;
 /// the reel short of the pulley keeps the swing meaningful right up to the cut.
 const WIRE_MIN_LENGTH: f32 = 40.0;
 
+/// How much of the lift the winch reels at its full rate before easing off.
+///
+/// ⛔ THE EASE IS A TAIL, NOT THE WHOLE CLIMB. Ramping across the entire lift
+/// forces the opening rate up to `2·rise/T − release_rise` to still cover the
+/// authored distance, and `wire_probe` measured what that looks like: 1437 px/s
+/// and a 23px first tick. Easing over the last third instead needs only 882 px/s
+/// of cruise for the same 420px, and still arrives at `release_rise` exactly.
+pub const WIRE_CRUISE_FRAC: f32 = 0.66;
+
+/// THE WINCH RATE THAT TRAVELS `rise` IN `lift_s` AND ARRIVES AT `release_rise`.
+///
+/// ⛔⛔ IT LIVES BESIDE THE PROFILE IT INVERTS, and that is the whole point of
+/// it being a function. The rate was solved in the AUTHORING executor while the
+/// profile was integrated here, so the two were free to disagree — and the
+/// moment `WIRE_CRUISE_FRAC` was introduced they did, silently, in the direction
+/// that undershoots the authored rise. Two authorities for one fact means one of
+/// them is deleted; this is the fact, and there is one of it.
+///
+/// The winch holds `v0` for `WIRE_CRUISE_FRAC` of the lift and eases QUADRATICALLY
+/// to `release_rise` over the rest. The mean of `e²` over the tail is `1/3`, so
+/// the distance covered is `v0·c·T + [v1 + (v0−v1)/3]·(1−c)·T`. Solved for `v0`.
+///
+/// ⛔ THE `1/3` IS THE QUADRATIC'S, NOT A LINEAR RAMP'S `1/2`, and getting it
+/// wrong does not fail loudly — it just undershoots the authored rise by a few
+/// per cent, which reads as "the up-B feels a bit short".
+///
+/// ⚠ CLAMPED AT `release_rise`, WHICH IS THE DEGENERATE AUTHORING: a move asking
+/// to leave the wire faster than its own average climb would need the winch to
+/// ACCELERATE into the cut. A flat rope is better than a rope that speeds up at
+/// the top, and the content test names the condition.
+pub fn winch_rate_for(rise: f32, lift_s: f32, release_rise: f32) -> f32 {
+    if lift_s <= 0.0 {
+        return 0.0;
+    }
+    let tail = 1.0 - WIRE_CRUISE_FRAC;
+    let numerator = rise / lift_s - release_rise * tail * (2.0 / 3.0);
+    (numerator / (WIRE_CRUISE_FRAC + tail / 3.0)).max(release_rise)
+}
+
 /// Ceiling on the speed the wire may drag the body at, in px/s.
 ///
 /// ⛔⛔ THE WIRE STEERS BY CORRECTION, so a body the sweep has STOPPED — under a
@@ -1255,13 +1294,38 @@ pub(super) fn integrate_wire_clusters(
     // undamped stick here instead would make the wire the one maneuver a root
     // cannot hold, and hide the authoring bug rather than state it.
     let stick = input.local_axis().x;
+    // ⛔⛔ THE STOP IS SOFT, AND A HARD ONE MADE THE HANDOVER A COIN FLIP. Clamping
+    // the angle and zeroing `ang_vel` at the cap means a held stick leaves the
+    // wire at either its full tangential speed or at nothing, depending on
+    // whether she happened to clip the stop in the last tick or two: the kernel
+    // measured +229 px/s and `wire_probe` measured 0 for the SAME authored
+    // numbers. That is not a tunable feel, it is a cliff, and a test that
+    // asserted the lucky side of it was asserting a coin flip.
+    //
+    // ⇒ the stick's authority FADES toward the stop instead. She asymptotes to
+    // the angle where the drive balances gravity's restoring pull, arrives with
+    // `ang_vel` already near zero, and a HELD stick therefore hands over almost
+    // nothing — predictably. The expressive half is unharmed: a REVERSAL is
+    // driving inward, is not faded at all, and still crosses the arc under real
+    // angular speed.
+    let reach = (wire.angle / wire.max_angle.max(f32::EPSILON)).clamp(-1.0, 1.0);
     let drive = stick * wire.swing_accel;
+    let drive = if drive * reach > 0.0 {
+        drive * (1.0 - reach * reach)
+    } else {
+        drive
+    };
     let damping = -WIRE_SWING_DAMPING * wire.ang_vel;
     wire.ang_vel += (restoring + drive + damping) * dt;
     wire.angle += wire.ang_vel * dt;
-    // The rope's stop. ⛔ The velocity is clamped toward the stop only — a swing
-    // arriving at the cap stops, a swing leaving it is free — because zeroing it
-    // outright would make the wire eat a reversal the player already asked for.
+    // The rope's hard stop — a BACKSTOP now rather than the mechanism. The fading
+    // drive above is what actually holds the swing inside its cap; this catches a
+    // body that arrived with enough angular speed to overshoot anyway (a
+    // reversal at full tilt), and it should almost never fire.
+    //
+    // ⛔ The velocity is clamped toward the stop only — a swing arriving at the
+    // cap stops, a swing leaving it is free — because zeroing it outright would
+    // make the wire eat a reversal the player already asked for.
     if wire.angle > wire.max_angle {
         wire.angle = wire.max_angle;
         wire.ang_vel = wire.ang_vel.min(0.0);
@@ -1284,12 +1348,28 @@ pub(super) fn integrate_wire_clusters(
     // ⛔ THE AUTHORED `rise` IS STILL EXACT: the area under a linear ramp from
     // `v0` to `v1` over `T` is `T·(v0+v1)/2`, and `catch_the_wire`'s caller
     // solves that for `v0`. Slowing down does not cost her any of the climb.
+    //
+    // ⛔⛔ AND IT EASES OUT AT THE TOP RATHER THAN RAMPING THE WHOLE WAY. A ramp
+    // across the whole lift has to START at `2·rise/T − v1` to still travel the
+    // authored distance — 1437 px/s here, which the probe caught as a 23px first
+    // tick: a YANK, not a lift, and clause one is about how she travels. Holding
+    // the rate flat for `WIRE_CRUISE_FRAC` and easing only over the tail buys the
+    // smooth handover for a cruise of 882 px/s and a 15px tick.
     let through = if wire.lift_total_s > 0.0 {
         (wire.lift_remaining_s / wire.lift_total_s).clamp(0.0, 1.0)
     } else {
         0.0
     };
-    let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * through;
+    // `through` counts DOWN from 1 at the catch to 0 at the cut, so the ease is
+    // the last `1 - WIRE_CRUISE_FRAC` of it.
+    let eased = (through / (1.0 - WIRE_CRUISE_FRAC)).min(1.0);
+    // ⛔⛔ SQUARED, SO THE APPROACH FLATTENS. A LINEAR ease still lands with a
+    // slope: the last integrated tick sits one `dt` short of the cut, so it was
+    // reeling at 162 px/s when the rope let go at 90 — a 45% step, which is what
+    // `the_lift_decelerates_into_the_release_instead_of_stopping_dead` measured.
+    // A quadratic has zero derivative at the bottom, so the final ticks are
+    // already travelling at `release_rise` and the handover is invisible.
+    let reel = wire.release_rise + (wire.winch_speed - wire.release_rise) * eased * eased;
     wire.length = (wire.length - reel * dt).max(WIRE_MIN_LENGTH);
 
     // ── WHERE THE ROPE SAYS SHE IS ───────────────────────────────────────────

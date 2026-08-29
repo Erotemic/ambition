@@ -71,6 +71,15 @@ name = "trap_probe"
 path = "src/bin/trap_probe.rs"
 test = false
 
+# The up-B's twin. ⛔ NOT a mode on `trap_probe`: the two moves share a stage
+# and a driver (`src/probe_stage.rs`, included by both) and share nothing about
+# what is worth printing — one is five stages under the boards, the other is six
+# clauses on a rope.
+[[bin]]
+name = "wire_probe"
+path = "src/bin/wire_probe.rs"
+test = false
+
 [[bin]]
 name = "capture_scene"
 path = "src/bin/capture_scene.rs"

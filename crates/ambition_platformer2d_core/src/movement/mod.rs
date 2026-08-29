@@ -79,6 +79,10 @@ pub use integration::set_jump_velocity;
 /// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
 /// every actor falls + runs through the SAME core (the non-player-centric seam).
 pub use integration::{integrate_normal_spine, NormalSpineCtx};
+/// How much of a flyline's lift the winch reels at full rate before easing off.
+/// Published so the technique that AUTHORS a lift can solve for the rate that
+/// still travels the authored distance — one profile, one place.
+pub use integration::{winch_rate_for, WIRE_CRUISE_FRAC};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,

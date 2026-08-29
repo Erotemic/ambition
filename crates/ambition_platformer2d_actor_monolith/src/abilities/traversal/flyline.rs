@@ -69,22 +69,18 @@ pub fn apply_authored_flylines(
         // and a third authored number would be free to disagree with them. The
         // kernel reels at whatever rate makes those two true.
         //
-        // ⭐⭐ AND THE RATE IT WANTS IS THE RAMP'S START, not the average. The
-        // winch decelerates from this to `release_rise` so the release has no
-        // step in it (see `integrate_wire_clusters`), and the area under a
-        // linear ramp from `v0` to `v1` over `T` is `T·(v0+v1)/2` — so the `v0`
-        // that still travels the authored `rise` is `2·rise/T − v1`.
+        // ⭐⭐ AND THE SOLVE IS THE KERNEL'S, beside the profile it inverts.
+        // Doing it here would be a second authority for one fact, and the moment
+        // the profile gained an ease-out tail the two would have disagreed
+        // silently, in the direction that undershoots the authored rise.
         //
         // ⚠ CLAMPED AT `release_rise`, WHICH IS THE DEGENERATE AUTHORING. A move
         // asking to leave the wire faster than the average climb would need the
         // winch to ACCELERATE into the cut; the honest reading is that it has
         // over-authored the carry, and a flat rope is better than a rope that
         // speeds up at the top. The content test names the condition.
-        let winch_speed = if params.lift_s > 0.0 {
-            (2.0 * params.rise / params.lift_s - params.release_rise).max(params.release_rise)
-        } else {
-            0.0
-        };
+        let winch_speed =
+            ae::movement::winch_rate_for(params.rise, params.lift_s, params.release_rise);
         let caught = ae::catch_the_wire(
             &mut motion_model,
             at,

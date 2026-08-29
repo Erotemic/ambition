@@ -102,9 +102,15 @@ fn the_winch_reels_at_the_rate_the_authored_rise_and_time_imply() {
     let (mut app, body) = app_with_body(ae::Vec2::new(0.0, 0.0));
     fire(&mut app, body, params());
     let wire = wire(&app, body).expect("she is on the wire");
+    // ⛔⛔ ASKED OF THE KERNEL, NOT RESTATED. This assertion carried
+    // `rise / lift_s` as a literal and went stale the moment the winch profile
+    // gained an ease-out tail: the rate is what `winch_rate_for` solves for, and
+    // a test that hard-codes the number its subject derives is measuring a
+    // different subject. It is the THIRD place that formula tried to live.
     assert!(
-        (wire.winch_speed - 420.0 / 0.55).abs() < 0.01,
-        "winch reels at rise/lift_s, got {}",
+        (wire.winch_speed - ae::movement::winch_rate_for(420.0, 0.55, 90.0)).abs() < 0.01,
+        "the winch rate is not the one the kernel's own profile solves for, \
+         got {}",
         wire.winch_speed
     );
     assert!((wire.lift_remaining_s - 0.55).abs() < 1e-6);

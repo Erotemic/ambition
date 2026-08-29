@@ -28,12 +28,15 @@ const MAX_SWING_DEG: f32 = 18.0;
 const SWING_ACCEL: f32 = 3.4;
 const RELEASE_RISE: f32 = 90.0;
 
-/// The ramp's STARTING rate — the winch decelerates to `release_rise`, and the
-/// `v0` that still travels the authored rise is `2·rise/T − v1`. Stated here in
-/// the same form the executor derives it, because a test that hard-coded a flat
-/// `rise / lift_s` would be measuring a wire the game does not build.
+/// The winch's cruise rate, ASKED OF THE KERNEL rather than restated.
+///
+/// ⛔⛔ THIS FUNCTION USED TO CARRY THE FORMULA, and it went stale the first time
+/// the profile changed: the ease-out gained a cruise phase, the executor's solve
+/// moved with it, and this copy did not — so five arms failed against a wire the
+/// game no longer builds. A test that hard-codes the number its subject derives
+/// is measuring a different subject.
 fn winch_v0() -> f32 {
-    2.0 * RISE / LIFT_S - RELEASE_RISE
+    crate::movement::winch_rate_for(RISE, LIFT_S, RELEASE_RISE)
 }
 
 fn stick(x: f32) -> InputState {
@@ -351,9 +354,18 @@ fn the_release_carries_the_swings_own_tangential_speed() {
         "an unswung release fired her sideways at {}",
         neutral.x
     );
+    // ⛔⛔ A BAND, NOT A FLOOR, AND THE BAND IS THE FINDING. With a HARD stop at
+    // the cap this number was a coin flip: the kernel measured +229 px/s and
+    // `wire_probe` measured 0 for the same authored wire, because zeroing
+    // `ang_vel` at the stop makes the handover depend on whether she clipped it
+    // in the last tick or two. A one-sided `> 150` was asserting the lucky side.
+    // The stop is soft now, `ang_vel` decays into the release, and both
+    // instruments land in this band.
     assert!(
-        right.x > 150.0,
-        "leaning right handed over only {} px/s",
+        (100.0..220.0).contains(&right.x),
+        "leaning right handed over {} px/s, outside the band both the kernel and \
+         the probe should land in — if these two disagree again, the stop has \
+         gone hard",
         right.x
     );
     assert!(

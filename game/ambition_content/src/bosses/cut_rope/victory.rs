@@ -18,12 +18,22 @@ pub fn spawn_cut_rope_victory_npc(
     mut released: MessageReader<ambition_boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
+    // Reused across frames; see the drain below for why it is a `Local` and not
+    // a fresh `Vec`.
+    mut released_hosts: bevy::prelude::Local<Vec<Entity>>,
 ) {
     // Drain the release signal every frame (host = the dying behemoth). R5: the
     // swallowed victory NPC is freed via the generic `ReleaseOnDeath` capability
     // the instant the behemoth dies; the save-cleared poll below re-spawns it on
     // a later room re-entry. Both paths are guarded by "NPC not already present".
-    let released_hosts: Vec<Entity> = released.read().map(|m| m.host).collect();
+    // ⛔ THE DRAIN IS DELIBERATE AND STAYS ABOVE THE ROOM CHECK — a reader that
+    // keeps its cursor would hand this system a backlog on the frame the player
+    // walks in. ⭐ But the BUFFER need not be fresh: collecting into a new `Vec`
+    // here allocated every frame in every room in the game to answer one
+    // `contains` that only matters inside the cut-rope room. A `Local` clears
+    // and refills, so the allocation happens once and its capacity is reused.
+    released_hosts.clear();
+    released_hosts.extend(released.read().map(|m| m.host));
     if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
         return;
     }

@@ -332,6 +332,22 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
     }
 }
 
+/// `haystack.to_lowercase().contains(needle)` without the allocation.
+///
+/// `needle` must already be lowercase ASCII — it is a literal at both call
+/// sites, so this is a compile-time-checkable precondition rather than a
+/// runtime one, and asserting it would cost more than the comparison.
+fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    let needle = needle.as_bytes();
+    let haystack = haystack.as_bytes();
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return needle.is_empty();
+    }
+    haystack
+        .windows(needle.len())
+        .any(|window| window.eq_ignore_ascii_case(needle))
+}
+
 fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex) -> Option<f32> {
     let actor = actor_render.get(id)?;
     // Name + dream participation both come from the identity read-model.
@@ -339,10 +355,19 @@ fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex)
     // so reading it directly already excludes them from the dream pass.
     let name = actor.name.as_str();
     let dream_seed = actor.dream_seed;
-    let name_lc = name.to_ascii_lowercase();
     // Dream participation is authored data (the archetype's dream_seed) with
     // the name heuristics kept as fallback.
-    let is_slug = dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
+    //
+    // ⛔ NOT `name.to_ascii_lowercase()`. This runs for every candidate actor
+    // EVERY FRAME — the caller's query is "every `FeatureVisual` that is not a
+    // player, not a prop, and not already a dream source" — so lowercasing
+    // allocated a fresh `String` per actor per frame purely to discover that
+    // the actor is not a puppy slug. ⭐ And it allocated even when
+    // `dream_seed.is_some()` already settled the question, because the
+    // lowercase ran before the short circuit could.
+    let is_slug = dream_seed.is_some()
+        || contains_ignore_ascii_case(name, "puppy")
+        || contains_ignore_ascii_case(name, "slug");
     if is_slug {
         Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
     } else {

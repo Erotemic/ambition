@@ -448,4 +448,17 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
         "a wall stands between the muzzle and the victim, so the victim must take \
          NO damage (was {max}, now {health})"
     );
+
+    // ⚠ AND WHAT THE SHOT ITSELF DID IS A SEPARATE QUESTION — D199's SWEPT half.
+    // The damage answer above is settled by a raycast over the whole leg, so it
+    // holds at any speed. Whether the shot STOPPED at the wall is decided by
+    // `resolve_world_collision`, which is an ENDPOINT test: at 4000 px/s the
+    // endpoint is already past a thin wall, so the shot can pass through it while
+    // correctly failing to damage anyone behind it. This records which half is
+    // which rather than asserting the unfixed one.
+    let survivors = crate::projectile::tests::projectile_bodies(&mut app);
+    eprintln!(
+        "[D199] after one 4000px/s tick through an 8px wall: {} projectile body/bodies remain",
+        survivors.len()
+    );
 }

@@ -2807,6 +2807,17 @@ footer lists the jobs that PASSED. The runner's own
 | monolith `causal` | does not forward `ambition_damage/causal` — the same shape one level up |
 | monolith `causal.rs` | imports from `avatar::movement_components`, **a 0-byte file** |
 
+⚠⚠ **CORRECTION TO MY OWN SWEEP: IT WAS MORE AGGRESSIVE THAN THE REPO'S, AND ONE
+ARM WAS AN INVALID CONFIGURATION.** `run_tests.py` keeps a DENY LIST — `android*`,
+`web*`, `static_*`, `headless` — because those are mutually exclusive. My sweep
+enabled every non-default feature with no such filter, so the monolith arm turned
+on android + web + desktop **together**, which nobody ships.
+✔ **The DEFECT it exposed was real and confirmed through a VALID combination
+anyway** — `ambition_platformer2d_runtime [causal,ldtk,portal]`, none of them
+denied, fails identically. Both fixes stand. ⇒ but the honest count of arms that
+represent a shippable configuration is FIVE, not six, and a sweep that ignores a
+deny list will manufacture a sixth.
+
 ⇒ **six, and every one of them invisible to `cargo check --all-targets` and to
 every test run.** ⭐ Two shapes account for all six: **a feature declared but not
 FORWARDED**, and **code behind a non-default `cfg` that a refactor walked past**.

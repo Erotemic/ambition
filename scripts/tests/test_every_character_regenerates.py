@@ -3,7 +3,7 @@
 Generated sprite assets are gitignored, so a target omitted from the regen roster
 can exist on one developer machine and disappear on a fresh checkout. The test
 derives the expected population from the assembled cast and checks that
-`regen_sprites.sh` names each required target."""
+`scripts/regen/sprites.sh` names each required target."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-REGEN = REPO / "regen_sprites.sh"
+REGEN = REPO / "scripts/regen/sprites.sh"
 
 # Sheet stems this check deliberately does not require, with the reason.
 WAIVED: dict[str, str] = {
@@ -64,7 +64,7 @@ MAIN_CONFIGS = (
 )
 
 # THE SECOND DIRECTORY SURFACE, and this census could not see it.
-# `regen_sprites.sh` builds `rig_targets` by globbing exactly this:
+# `scripts/regen/sprites.sh` builds `rig_targets` by globbing exactly this:
 #
 #     for rig in "$renderer_dir"/…/targets/characters/rigged/*.rig.json
 #
@@ -86,7 +86,7 @@ RIGGED_TARGETS = (
 
 
 def _published_by_regen() -> str:
-    """`regen_sprites.sh` with comments stripped, plus what `draw-all` covers.
+    """`scripts/regen/sprites.sh` with comments stripped, plus what `draw-all` covers.
 
      comments matter: the first run of this census counted a stem mentioned
     only in a comment as covered, and reported `player_robot_v3` as fine when
@@ -144,7 +144,7 @@ def test_every_catalog_character_names_a_sheet_regen_publishes():
     }
     assert not orphans, (
         f"{len(orphans)} character sheet(s) are named by a catalog and published "
-        "by no `regen_sprites.sh` batch:\n"
+        "by no `scripts/regen/sprites.sh` batch:\n"
         + "\n".join(f"  {stem:32s} used by {', '.join(ids)}" for stem, ids in orphans.items())
         + "\n\nGenerated art is gitignored, so these exist only on machines that "
         "once rendered them and are ABSENT from a fresh clone. Add the target to "

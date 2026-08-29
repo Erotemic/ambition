@@ -17,7 +17,7 @@ edge-framing silhouettes remain visible in large rooms.
 From the repo root, prefer:
 
 ```bash
-./regen_backgrounds.sh
+./scripts/regen/backgrounds.sh
 ```
 
 Direct renderer call:

@@ -71,7 +71,7 @@ other lane landed.
 
 Both worktrees are prepared and must stay that way:
 
-- each `target/` is bind-mounted to its own store (`scripts/setup_target_bindmount.sh`)
+- each `target/` is bind-mounted to its own store (`scripts/setup/target_bindmount.sh`)
   — re-run after a reboot; a shared target dir surfaces stale rlibs as
   `undefined symbol: anon.*.llvm.*`, which reads like a code error and is not;
 - assets are mirrored (`python3 scripts/mirror_assets_for_worktree.py`);

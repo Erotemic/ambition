@@ -14,16 +14,48 @@
 # twenty-minute build, or after a play session, when re-running is expensive.
 #
 # Usage:
-#   scripts/setup_profile_deps.sh            # check, and fix what apt can fix
-#   scripts/setup_profile_deps.sh --check    # report only, change nothing
+#   scripts/setup/profile_deps.sh            # check, and fix what apt can fix
+#   scripts/setup/profile_deps.sh --check    # report only, change nothing
 #
 # Exit status is 0 when everything a profiling run needs is present, 1 when
 # something still is not, so CI or another script can gate on it.
 set -uo pipefail
 
-repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+usage() {
+    cat <<'USAGE'
+Usage: scripts/setup/profile_deps.sh [--check]
+
+Preflight for `scripts/profile_desktop.sh` on a machine that has never profiled
+Ambition. Asks whether the profiling toolchain WORKS, which is a different
+question from whether it is installed — and the one that has cost real time.
+
+Checks, each chosen because it otherwise fails LATE:
+  * clang can resolve libstdc++.so, and if not, which gcc it selected and
+    therefore which libstdc++-N-dev to install
+  * perf runs, and perf_event_paranoid / kptr_restrict allow recording with
+    resolvable kernel symbols
+  * both Tracy halves exist and agree on a version
+  * ~/.local/bin is on PATH (Tracy installs there)
+  * python3 has tomllib, without which ambition.local.toml is silently ignored
+  * there is disk where the profile bundles land
+
+Options:
+  --check     report only; change nothing, and print the commands it would run
+  -h, --help  this text
+
+Exit status is 0 when a profiling run has everything it needs, 1 otherwise, so
+another script can gate on it.
+USAGE
+}
+
 apply=1
-[[ "${1:-}" == "--check" ]] && apply=0
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+    --check) apply=0 ;;
+    "") ;;
+    *) usage >&2; echo >&2; echo "unknown option: $1" >&2; exit 2 ;;
+esac
 
 pass=0
 fail=0

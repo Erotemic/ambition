@@ -24,7 +24,7 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 # Embed GENERATED content RON into the binary, the same way `static_map` embeds
 # the world JSON. OFF by default so desktop development reads it off disk: an
 # `include_str!` is a compilation input, so embedding the tool-generated music
-# registry made every `regen_music.sh` rebuild this crate and everything
+# registry made every `scripts/regen/music.sh` rebuild this crate and everything
 # downstream of it. Turn this ON wherever there is no filesystem to read from
 # (web, Android) or the binary ships without the source tree (Steam Deck).
 static_content = []

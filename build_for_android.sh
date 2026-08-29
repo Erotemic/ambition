@@ -232,7 +232,7 @@ print_apk_size_report() {
 avd_exists() {
     local name=$1
     local emulator_tool
-    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup/android_prereqs.sh --with-emulator")
     "$emulator_tool" -list-avds | grep -Fxq "$name"
 }
 
@@ -256,7 +256,7 @@ create_android_avd() {
 start_android_emulator() {
     local name=$1
     local emulator_tool
-    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup/android_prereqs.sh --with-emulator")
     avd_exists "$name" || fatal "AVD not found: $name. Create it with: ./build_for_android.sh --create-emulator $name --doctor"
     log "starting Android emulator: $name"
     "$emulator_tool" -avd "$name" -netdelay none -netspeed full >/tmp/ambition-emulator-$name.log 2>&1 &
@@ -458,13 +458,13 @@ SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}
 if [[ -z "$SDK_ROOT" && -d "$HOME/Android/Sdk" ]]; then
     SDK_ROOT="$HOME/Android/Sdk"
 fi
-[[ -n "$SDK_ROOT" ]] || fatal "ANDROID_SDK_ROOT is not set and ~/Android/Sdk was not found. Run: ./scripts/setup_android_prereqs.sh"
+[[ -n "$SDK_ROOT" ]] || fatal "ANDROID_SDK_ROOT is not set and ~/Android/Sdk was not found. Run: ./scripts/setup/android_prereqs.sh"
 [[ -d "$SDK_ROOT" ]] || fatal "ANDROID_SDK_ROOT does not exist: $SDK_ROOT"
 export ANDROID_SDK_ROOT="$SDK_ROOT"
 export ANDROID_HOME="$SDK_ROOT"
 
 if [[ "$LIST_EMULATORS" == true ]]; then
-    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup/android_prereqs.sh --with-emulator")
     "$emulator_tool" -list-avds
     exit 0
 fi
@@ -473,7 +473,7 @@ NDK_ROOT=${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}
 if [[ -z "$NDK_ROOT" ]]; then
     NDK_ROOT=$(newest_ndk_root "$SDK_ROOT")
 fi
-[[ -n "$NDK_ROOT" ]] || fatal "Android NDK not found. Run: ./scripts/setup_android_prereqs.sh, or set ANDROID_NDK_ROOT."
+[[ -n "$NDK_ROOT" ]] || fatal "Android NDK not found. Run: ./scripts/setup/android_prereqs.sh, or set ANDROID_NDK_ROOT."
 [[ -d "$NDK_ROOT" ]] || fatal "ANDROID_NDK_ROOT does not exist: $NDK_ROOT"
 export ANDROID_NDK_ROOT="$NDK_ROOT"
 export ANDROID_NDK_HOME="$NDK_ROOT"
@@ -501,18 +501,18 @@ fi
 
 need_cmd rustup "Install Rust via rustup."
 need_cmd cargo "Install Rust/Cargo via rustup."
-need_cmd cargo-ndk "Run: ./scripts/setup_android_prereqs.sh"
+need_cmd cargo-ndk "Run: ./scripts/setup/android_prereqs.sh"
 need_cmd python3 "Install Python 3; packaged asset verification is mandatory."
 if ! command -v "$GRADLE_CMD" >/dev/null 2>&1; then
     fallback_gradle="$HOME/.local/share/gradle/gradle-8.9/bin/gradle"
     if [[ -x "$fallback_gradle" ]]; then
         GRADLE_CMD="$fallback_gradle"
     else
-        fatal "missing 'gradle'. Run: ./scripts/setup_android_prereqs.sh"
+        fatal "missing 'gradle'. Run: ./scripts/setup/android_prereqs.sh"
     fi
 fi
 if [[ "$INSTALL" == true || -n "$EMULATOR_NAME" ]]; then
-    need_cmd adb "Run: ./scripts/setup_android_prereqs.sh"
+    need_cmd adb "Run: ./scripts/setup/android_prereqs.sh"
 fi
 if [[ -n "$CREATE_EMULATOR_NAME" ]]; then
     create_android_avd "$CREATE_EMULATOR_NAME" "$EMULATOR_API"

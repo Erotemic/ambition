@@ -35,7 +35,7 @@ Landed:
   bound `sprites/props/super_mary_o_spark_blossom.png` through `WorldItemArt`,
   but no generator target ever produced that file, so the item was collectible
   and undrawable. The target now exists in `super_mary_o_props.py` and publishes
-  through `regen_sprites.sh`. Lesson: a `WorldItemArt` id that names a missing
+  through `scripts/regen/sprites.sh`. Lesson: a `WorldItemArt` id that names a missing
   texture fails SILENTLY — nothing errors, the item is simply never drawn;
 - breakable bricks through durable block-contact identity;
 - crony enemies and shared stomp behavior;

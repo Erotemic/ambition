@@ -46,7 +46,7 @@ can stop at any checkpoint if budget runs out.
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | 0.24 h | ✅ done | Three sub-commits: 6A drop YAML support + archive one-shots (def5b2f); 6B delete NPC_SPRITE_REGISTRY + npc_sprite_label, sprite loader iterates catalog via sheet_for_character_id (26000cd, -298+151 lines); 6C renderer review_npcs → characters merge (9ed4a39). |
 | 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
 | **Total (planned 1–7)** | **8.5 h** | **0.94 h** | | All 7 phases landed in roughly one ninth of the estimate. Every phase shaped largely by foundational design work already in place: brain/action-set vocabulary from the universal-brain run, LDtk runtime spine, and the renderer's existing target enumeration. Estimates were padded for the worst case (unexpected coupling, EMFILE retries); none of those materialized. |
-| 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | regen_sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
+| 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | scripts/regen/sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
 | **Grand total (1–8)** | **9.25 h** | **1.10 h** | | ~12% of budgeted time used. Remaining time being spent on deferred follow-ups (see below). |
 | 9.A Bonus: SheetRegistry-driven sprite specs | — | 0.50 h | ✅ done | `try_load_spec_for_character_id` manifest-driven fallback so catalog entries without a hardcoded `*_SHEET` const still get a real sprite. Bumped Hall coverage 24/99 → 96/99 entries. Subdir scan added to `record_index` so gnu_ton_boss / mockingbird_boss manifests reach the loader. |
 | 9.B Bonus: hall rendering crash fix | — | 0.20 h | ✅ done | Jon hit `character sprite sheet must define an Idle row` panic walking into the hall. Fix: `try_load_spec` validates Idle row presence before returning Some. +new test `every_catalog_sprite_spec_has_idle_row_if_loaded`. Idle aliases added (`rest`, `front_idle`, `side_idle`, `side_walk`). |
@@ -58,7 +58,7 @@ can stop at any checkpoint if budget runs out.
 | 9.H Bonus: journal entry + validator IntGrid acceptance | — | 0.30 h | ✅ done | Documented the sprint in `dev/journals/character-catalog-hall-of-characters-2026-05-24.md`. Validator now accepts IntGrid Collision cells (=1 Solid, =2 OneWay) for both wall-edge and door-floor checks; total LDtk warnings dropped from 211 (185 sandbox + 26 intro) to 6. |
 | 9.I Bonus: weird_hermit publisher cleanup | — | 0.15 h | ✅ done | Fixed weird_hermit's tackon publisher to emit canonical `<target>_spritesheet.{png,ron,yaml}` filenames AND the runtime's `SheetRow` schema (was `name`/`frames`/`frame_ms` — now `animation`/`row_index`/`frame_count`/`duration_ms`/etc.). Hall coverage now 96/97 (only `npc_galwah` remains a placeholder; renderer-side row-layout change needed). |
 | 9.J Bonus: clippy cleanup + recipe + memory refresh | — | 0.20 h | ✅ done | `cargo clippy character_catalog` warnings cleared (intentionally-public-API surface annotated with `#[allow(dead_code, reason = ...)]`). Recipe `docs/recipes/adding-a-character.md` updated for manifest-driven path. Two new memories saved: `feedback-pyron-unit-variants`, `feedback-character-sprite-invariants`. |
-| 9.K Bonus: hall regen census + Python tests for tools | — | 0.20 h | ✅ done | `regen_sprites.sh` now prints a hall-sprite census after postcondition + before fingerprint cache (catches "regen succeeded but Hall still placeholders" silently). Smoke tests for `inspect_hall_sprites`, `space_debug_labels`, spawn-overlap validator (3 tests each). |
+| 9.K Bonus: hall regen census + Python tests for tools | — | 0.20 h | ✅ done | `scripts/regen/sprites.sh` now prints a hall-sprite census after postcondition + before fingerprint cache (catches "regen succeeded but Hall still placeholders" silently). Smoke tests for `inspect_hall_sprites`, `space_debug_labels`, spawn-overlap validator (3 tests each). |
 | 9.L Bonus: doc-link fixes + LDtk DebugLabel auto-spacer | — | 0.20 h | ✅ done | `scripts/check_doc_links.py` now passes (2 broken refs fixed). New `space_debug_labels` ldtk-tool subcommand shifts overlapping DebugLabels in place; applied to intro.ldtk to clear the last 2 overlap warnings. Intro `validate` now produces only 3 genuine spatial warnings. |
 | 9.M Bonus: `intgrid paint` tool + zero-warning sandbox.ldtk | — | 0.15 h | ✅ done | Implemented the previously-reserved `intgrid paint` subcommand (symmetric to `intgrid erase`). Used it to fill `goblin_encounter`'s empty bottom row with a Solid floor. Sandbox.ldtk validator warning count now ZERO. Intro.ldtk has 3 genuine spatial issues left (pirate_sky_arena top, 2 mid-air doors) that need visual judgment. |
 | 9.N Bonus: galwah "turn" → "rest" row rename | — | 0.05 h | ✅ done | Last Hall placeholder fixed. galwah's first row was poses for orientation variants (front/quarter/side), named "turn" — runtime didn't recognize that as Idle. Renamed to "rest" (Idle alias) since the poses ARE stationary. Hall now reports **97/97 ok** — 100% catalog coverage. |
@@ -130,22 +130,22 @@ piece of state should live answers to it.
 
 ## Hard invariants (must hold across the refactor)
 
-1. **`regen_sprites.sh` must work on a fresh clone.** Jon recently stabilized
+1. **`scripts/regen/sprites.sh` must work on a fresh clone.** Jon recently stabilized
    it (commits `4b66bc3`, `29205ee`); the script regenerates every sprite the
    game needs from a clean tree. Any refactor that touches sprite authoring,
    target discovery, manifests, or `NPC_SPRITE_REGISTRY` MUST preserve this:
-   after the run, `./regen_sprites.sh` on a clean checkout still produces the
+   after the run, `./scripts/regen/sprites.sh` on a clean checkout still produces the
    full sprite set. Details of *how* it generates them can change — the
    invariant is the end state.
-2. **`regen_assets.sh` must still drive the full asset refresh.** Same shape
+2. **`scripts/regen/assets.sh` must still drive the full asset refresh.** Same shape
    as (1) but for the broader asset pipeline.
 3. **Validation gate added to every phase that touches sprite plumbing**
    (Phase 3 mandatory; Phases 5, 6 if they touch renderer code): run
-   `./regen_sprites.sh --dry-run` (or a no-op subset) before commit; if the
+   `./scripts/regen/sprites.sh --dry-run` (or a no-op subset) before commit; if the
    script changed shape, run a full regen against `/tmp/regen-smoke/` to
    verify exit code 0 and non-zero output.
 4. **No new binary blobs committed.** Generated sprites stay gitignored
-   per [[feedback-no-binary-data]]; `regen_sprites.sh` reproduces them.
+   per [[feedback-no-binary-data]]; `scripts/regen/sprites.sh` reproduces them.
 
 ### Stretch goal — sprite-regen caching (if time permits, post-Phase 7)
 
@@ -157,7 +157,7 @@ attempted:
   any RON timing config it consults) into `tools/ambition_sprite2d_renderer/.cache/<target>.hash`.
 - Skip re-rendering if the hash matches and the generated PNG/manifest still
   exists.
-- `regen_sprites.sh --force` bypasses cache.
+- `scripts/regen/sprites.sh --force` bypasses cache.
 - Only attempt this if Phases 1–7 finish with >45 min remaining in the budget.
 - Out of scope: cross-machine cache (host file hashes are enough).
 

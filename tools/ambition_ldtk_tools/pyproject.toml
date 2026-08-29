@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
   # `edit/editor_art.py` and `edit/editor_art_preview.py` import PIL, and
   # nothing declared it — so a fresh clone built a venv without Pillow and
-  # regen_sprites.sh's "LDtk editor art" stage died on the import.
+  # scripts/regen/sprites.sh's "LDtk editor art" stage died on the import.
   "Pillow>=9",
   "PyYAML",
   "jsonschema",

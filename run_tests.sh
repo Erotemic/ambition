@@ -22,6 +22,6 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 #
 # ⛔ Refuse rather than warn. A warning at the top of a job that prints for
 # several minutes is a warning nobody reads, and the fix is one command.
-"$repo_root/scripts/setup_target_bindmount.sh" --check
+"$repo_root/scripts/setup/target_bindmount.sh" --check
 
 exec python3 "$repo_root/scripts/run_tests.py" "$@"

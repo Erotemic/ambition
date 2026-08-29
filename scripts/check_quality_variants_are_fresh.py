@@ -180,7 +180,7 @@ def main() -> int:
         if len(stale) > 20:
             print(f"    ... and {len(stale) - 20} more", file=sys.stderr)
         print(
-            "\n  fix: ./regen_visual_quality_variants.sh   (incremental; "
+            "\n  fix: ./scripts/regen/quality_variants.sh   (incremental; "
             "rebuilds only what is stale)",
             file=sys.stderr,
         )

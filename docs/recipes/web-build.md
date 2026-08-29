@@ -12,8 +12,8 @@ asset persona.
 ## Prerequisites
 
 ```bash
-./scripts/setup_web_prereq.sh --doctor
-./scripts/setup_web_prereq.sh --with-server
+./scripts/setup/web_prereq.sh --doctor
+./scripts/setup/web_prereq.sh --with-server
 ./build_for_web.sh --doctor
 ```
 

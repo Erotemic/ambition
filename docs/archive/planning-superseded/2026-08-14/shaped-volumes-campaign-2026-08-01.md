@@ -391,7 +391,7 @@ Fronts A, B, C, D, F. Shaped volumes read by every consumer; the cue carries a
 matches the polygon's curve, is trimmed to the damage window, and travels with
 the body swinging it. Plus `docs/recipes/headless-room-verification.md`'s
 picture-making section, `scripts/mirror_assets_for_worktree.py`, and
-`regen_sprites.sh` taking repeated `--target` (it used to silently render only
+`scripts/regen/sprites.sh` taking repeated `--target` (it used to silently render only
 the last one).
 
 ## Landed on branch `vfx-ownership`, NOT merged

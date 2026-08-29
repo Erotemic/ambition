@@ -2004,7 +2004,7 @@ backpack, pile driver), **Volt Crusher** (blue, electrical). Each is a complete
 `VariantSpec`: its own palette, silhouette scales, head, weapon and backpack.
 They are drawn as three different robots, not three tints of one.
 
-**What is true today.** None of the four is in the catalog. `regen_sprites.sh`
+**What is true today.** None of the four is in the catalog. `scripts/regen/sprites.sh`
 skips the target entirely with the note *"multi-variant rig whose publisher
 doesn't install (renders only to `generated/`) … Catalog entry was dropped along
 with the publisher work"*, so no sheet ships either. This is the only rendered

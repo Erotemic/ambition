@@ -8,7 +8,7 @@
 #
 # The path is config-relative (cargo resolves it against the directory holding
 # this `.cargo`), so it lands in the workspace's own `target/` — which
-# `scripts/setup_target_bindmount.sh` may have bound to fast local storage.
+# `scripts/setup/target_bindmount.sh` may have bound to fast local storage.
 # ⛔ It must NOT be an absolute machine path: this file used to name one, and it
 # stopped resolving the day the parent config dropped its own.
 [build]

@@ -231,7 +231,7 @@ one layer is what let the leap ship deleted.
 ## Also open, unrelated to the wire
 
 * ⚠ **Her art may still be `actor_*` on your machine.** The generated sheets are
-  git-ignored, so the rename travelled in the catalog, `regen_sprites.sh` and the
+  git-ignored, so the rename travelled in the catalog, `scripts/regen/sprites.sh` and the
   build script but **not on disk**. `character_catalog.ron` names
   `sprites/performer_spritesheet.{png,ron}`. Rename the six files in
   `crates/ambition_platformer2d_actor_monolith/assets/sprites/`

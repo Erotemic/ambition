@@ -3,16 +3,16 @@ set -euo pipefail
 
 # Install/check the Linux prerequisites for Ambition web (wasm32) builds.
 #
-# Mirror of `scripts/setup_android_prereqs.sh` for the browser build path.
+# Mirror of `scripts/setup/android_prereqs.sh` for the browser build path.
 # Installs the `wasm32-unknown-unknown` rustup target and a
 # `wasm-bindgen-cli` whose version matches the `wasm-bindgen` crate
 # already locked into `Cargo.lock` — a mismatched CLI is the most
 # common cause of a "version mismatch" runtime error in the browser.
 #
 # Usage:
-# ./scripts/setup_web_prereq.sh
-# ./scripts/setup_web_prereq.sh --doctor
-# ./scripts/setup_web_prereq.sh --with-server   # also install basic-http-server
+# ./scripts/setup/web_prereq.sh
+# ./scripts/setup/web_prereq.sh --doctor
+# ./scripts/setup/web_prereq.sh --with-server   # also install basic-http-server
 #
 # Environment overrides:
 #   WASM_BINDGEN_VERSION=0.2.x   Pin a specific wasm-bindgen-cli version
@@ -20,7 +20,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/setup_web_prereq.sh [options]
+Usage: ./scripts/setup/web_prereq.sh [options]
 
 Options:
   --doctor          Check the environment and print missing pieces; do not install.
@@ -42,8 +42,10 @@ warn() { printf '[web-prereq] warning: %s\n' "$*" >&2; }
 fatal() { printf '[web-prereq] error: %s\n' "$*" >&2; exit 1; }
 
 APT_ENSURE_LOG_PREFIX='[web-prereq]'
-# shellcheck source=lib/apt_ensure.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/apt_ensure.sh"
+# ⚠ ONE LEVEL UP: this script lives in `scripts/setup/`, the shared lib in
+# `scripts/lib/`.
+# shellcheck source=../lib/apt_ensure.sh
+. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/lib/apt_ensure.sh"
 
 DOCTOR=false
 WITH_SERVER=false
@@ -251,6 +253,6 @@ fi
 echo
 log "done"
 echo "Next:"
-echo "  ./scripts/setup_web_prereq.sh --doctor   # re-check"
+echo "  ./scripts/setup/web_prereq.sh --doctor   # re-check"
 echo "  ./build_for_web.sh --doctor              # check the build pipeline"
 echo "  ./build_for_web.sh --serve               # build + serve at http://localhost:8000/"

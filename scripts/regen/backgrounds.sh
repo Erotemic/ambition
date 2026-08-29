@@ -2,15 +2,16 @@
 # Regenerate every procedural background family used by the desktop game.
 #
 # Usage:
-# ./regen_backgrounds.sh
-#   AMBITION_BACKGROUND_PYTHON=/path/to/python ./regen_backgrounds.sh
-#   AMBITION_PARALLAX_PYTHON=/path/to/python ./regen_backgrounds.sh
+# ./scripts/regen/backgrounds.sh
+#   AMBITION_BACKGROUND_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
+#   AMBITION_PARALLAX_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #
 # The default interpreters are the two tool-local virtualenvs created by
 # run_developer_setup.sh. PYTHON remains a legacy override for both tools.
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 # shellcheck disable=SC1091

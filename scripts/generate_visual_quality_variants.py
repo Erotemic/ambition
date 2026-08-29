@@ -1196,7 +1196,7 @@ def verify_published_sheets(
     """Postcondition, DERIVED from the plan this run just executed.
 
     ⛔ the shape matters more than the check. Both this script's wrapper and
-    `regen_sprites.sh` used to assert a hand-written list of filenames; both
+    `scripts/regen/sprites.sh` used to assert a hand-written list of filenames; both
     lists drifted off the target list (`player_robot_spritesheet.*` has had no
     producer for months, and the wrapper spent weeks asserting the same dead
     stem), and a list that names a file nothing publishes can only ever fail —

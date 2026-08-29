@@ -133,7 +133,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         not(has_baked_packs),
-        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
     )]
     fn baked_pack_tiers_parse_and_agree_on_coverage() {
         // Every baked tier survived parse+validate into the index.
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         not(has_baked_packs),
-        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
     )]
     fn intro_cart_pack_spec_resolves_at_two_tiers() {
         use crate::character::sheets::{try_load_pack_spec_for_target, SheetTuning};

@@ -141,7 +141,7 @@ impl Plugin for MaryOExperiencePlugin {
         // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand
         // instead of the cream placeholder quad in BOTH the standalone app and the
         // multi-game host — this provider is the one seam both share. The flat prop
-        // image is published by regen_sprites.sh; until then the render falls back
+        // image is published by scripts/regen/sprites.sh; until then the render falls back
         // to the quad.
         {
             use ambition_platformer2d::platformer::world_item_art::{

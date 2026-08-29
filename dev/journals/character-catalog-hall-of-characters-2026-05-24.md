@@ -175,7 +175,7 @@ After the initial 9.A-9.N batch, the run continued through the
 
 - **9.R** closed follow-up #4 of `sprite-rendering-surface.md` with
   a publish-time Idle-row warning. `tackon_sheet.diagnose_idle_coverage`
-  emits a stderr warning during `regen_sprites.sh` when a sheet
+  emits a stderr warning during `scripts/regen/sprites.sh` when a sheet
   has ≥1 `CharacterAnim` row but no Idle alias (the placeholder-
   fallback case the runtime would silently exhibit). 7 unit tests
   including a galwah-pre-rename regression marker.

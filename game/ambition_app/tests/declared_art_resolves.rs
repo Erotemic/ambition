@@ -85,7 +85,7 @@ fn every_declared_world_item_art_path_names_a_file_that_exists() {
          path cannot distinguish from an art-free build — so the pickup spawns, \
          magnetizes, credits, and is INVISIBLE. That is a fire-flower you collect \
          and never see, and the only thing that found the last one was a player.\n\
-         Either generate the target (regen_sprites.sh) or stop declaring the id.",
+         Either generate the target (scripts/regen/sprites.sh) or stop declaring the id.",
         missing.len(),
         missing.join("\n"),
     );
@@ -304,7 +304,7 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
     assert_eq!(
         missing, known,
         "the set of characters with no spritesheet has CHANGED. A character \
-         whose sheet no `regen_sprites.sh` batch publishes exists only on a \
+         whose sheet no `scripts/regen/sprites.sh` batch publishes exists only on a \
          machine that once rendered it by hand — generated art is gitignored, \
          so a fresh clone gets a character with no body."
     );

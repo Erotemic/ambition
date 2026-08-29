@@ -11,8 +11,8 @@ The supported interface is the repository-root build script. Its `--help` and
 ## Prerequisites
 
 ```bash
-./scripts/setup_android_prereqs.sh --doctor
-./scripts/setup_android_prereqs.sh
+./scripts/setup/android_prereqs.sh --doctor
+./scripts/setup/android_prereqs.sh
 ./build_for_android.sh --doctor
 python3 -m unittest scripts.tests.test_package_asset_guard
 ```

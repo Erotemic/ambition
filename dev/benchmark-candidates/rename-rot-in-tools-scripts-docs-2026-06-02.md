@@ -15,7 +15,7 @@ Rust source (which would have failed `cargo build`):
 1. `audit_cue_balance.py` defaulted its `root` arg to the deleted
    `tools/audio/music_renderer/output/first_goblin_tune_v2`, so a no-arg
    run (exactly as the recipe documents) died with `missing root`.
-2. `regen_sprites.sh`'s header pointed adapter configs at
+2. `scripts/regen/sprites.sh`'s header pointed adapter configs at
    `tools/ambition_sprite2d_renderer/configs/` — a path that doesn't
    exist (the YAML lives in the *inner* package dir
    `…/ambition_sprite2d_renderer/configs/`), sending any agent that

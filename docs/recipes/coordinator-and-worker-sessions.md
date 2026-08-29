@@ -19,7 +19,7 @@ verifies.** Everything below is a measured consequence of that split, not taste.
 ⛔⛔ **the old reason is gone; re-measure before repeating it.** This section
 said per-worktree target dirs were unavailable because one shared dir was
 ~143 GB against ~143 GB free. Both halves are now false: the stale dirs are
-deleted (**379 GB free**), and `scripts/setup_target_bindmount.sh` gives **each
+deleted (**379 GB free**), and `scripts/setup/target_bindmount.sh` gives **each
 worktree its own backing store on ext4**, keyed by path, so two agents no longer
 share a lock or thrash each other's fingerprints.
 
@@ -63,8 +63,8 @@ python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would do
 
 # 2. put THIS worktree's target/ on ext4 instead of the shared virtiofs mount.
 #    Idempotent, and a no-op on a machine whose checkout is already local.
-scripts/setup_target_bindmount.sh
-scripts/setup_target_bindmount.sh --status                # which dir am I building into?
+scripts/setup/target_bindmount.sh
+scripts/setup/target_bindmount.sh --status                # which dir am I building into?
 ```
 
 ⚠ **the bind mount is opt-in and safe to skip** — you just get a slower target

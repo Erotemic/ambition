@@ -394,7 +394,7 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-
   from the sheet's sidecar — ⛔ never computed from `frame_width`, which is the
   design size and not the packing pitch of a packed sheet.
 - The atlas PNG is generated and gitignored with the sprites it is made of;
-  `regen_sprites.sh` rebuilds it. The WIRING is committed in the `.ldtk`.
+  `scripts/regen/sprites.sh` rebuilds it. The WIRING is committed in the `.ldtk`.
 - `--preview` renders the level as the rules will draw it. It proves the art,
   the rects and the tile ids; it cannot prove LDtk agrees about the rule fields,
   which only opening the editor can.

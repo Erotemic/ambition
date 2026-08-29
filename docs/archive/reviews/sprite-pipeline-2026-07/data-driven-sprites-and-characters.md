@@ -19,12 +19,12 @@ detailed and triaged in the **Work program** section that follows.
 
 - **Publish-boundary hygiene.** `ambition_asset_manager::asset_publish`
   (classify / manifest / publish / hygiene, typed + tested) and
-  `scripts/sweep_runtime_diagnostics.py` wired into `regen_sprites.sh`.
+  `scripts/sweep_runtime_diagnostics.py` wired into `scripts/regen/sprites.sh`.
   *Audit:* `cargo test -p ambition_asset_manager asset_publish` → 10/10 after
   sweeping one new leak (see findings); the real-data test
   `shipped_runtime_roots_have_no_leaked_diagnostics` has teeth — it is what
   caught the leak.
-- **Ultrapacking wired into `regen_sprites.sh` at four quality tiers.** Pools
+- **Ultrapacking wired into `scripts/regen/sprites.sh` at four quality tiers.** Pools
   every published `*_spritesheet.yaml` into shared uniform pages + catalog per
   tier — base(1.0, 2048²) / half(0.5, 1024²) / quarter(0.25, 512²) /
   potato(1/16, 256², 8px floor) — into staging
@@ -138,7 +138,7 @@ a `frame_source()` the packer can consume. Mechanical once the pattern is
 set by the first one; keep their bespoke install paths working.
 *Acceptance:* pack report's targets count == registered packable targets;
 regen postcondition list still green. *Validate:* renderer pytest +
-`./regen_sprites.sh --force` (or targeted).
+`./scripts/regen/sprites.sh --force` (or targeted).
 
 ### W4 [opus] Manifest-driven install (regen emits a real PublishManifest)
 
@@ -1228,7 +1228,7 @@ Landed in `crates/ambition_asset_manager/src/asset_publish/`:
   sprite root.
 
 The boundary was given teeth immediately: `scripts/sweep_runtime_diagnostics.py`
-(the publisher sweep, wired into `regen_sprites.sh`) relocated 156 leaked
+(the publisher sweep, wired into `scripts/regen/sprites.sh`) relocated 156 leaked
 diagnostics out of the runtime roots, and the quality-variant generator now
 skips diagnostics in its loose-png pass so they stop leaking into the variant
 roots. Runtime loaders were untouched.

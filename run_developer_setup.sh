@@ -636,7 +636,7 @@ install_scripts_env() {
 # can. What the libraries buy is quality, at the cost of gigabytes, which is why
 # they are opt-in rather than part of the fast path.
 #
-# The downloader writes `$root/env.sh`, which is what `regen_music.sh` and
+# The downloader writes `$root/env.sh`, which is what `scripts/regen/music.sh` and
 # `render_music.sh` source to expose the SFZ/LV2/VST3/CLAP search paths.
 ensure_audio_libraries() {
     local root renderer
@@ -701,7 +701,34 @@ regenerate_assets() {
     fi
 
     log "regenerating all runtime assets"
-    "$repo_root/regen_assets.sh"
+    "$repo_root/scripts/regen/assets.sh"
+    verify_generated_content_is_current
+}
+
+# ⛔ "THE SETUP RAN" IS NOT "THE CONTENT IS CURRENT", and the gap is invisible
+# from inside the game. Measured on `calculex` 2026-08-29: 998 sprite sheets
+# ~11 days stale and the parallax quality tiers absent entirely, so the game drew
+# OLD art at Low/Medium and NO parallax art at all. The tiers meant for weak
+# hardware were the ones most likely to be broken, on the machines least able to
+# notice — nothing in the game says "this sheet is eleven days behind its source".
+#
+# ⭐ THE CHECKER ALREADY EXISTED AND NOTHING CALLED IT. That is the whole defect;
+# the regeneration itself was already composed correctly by `regen/assets.sh`.
+#
+# Reports rather than fails: a stale variant is a degraded picture, not a broken
+# checkout, and a setup script that exits non-zero over it would block work that
+# does not care.
+verify_generated_content_is_current() {
+    have python3 || return 0
+    [ -f "$repo_root/scripts/check_quality_variants_are_fresh.py" ] || return 0
+    if python3 "$repo_root/scripts/check_quality_variants_are_fresh.py" >/dev/null 2>&1; then
+        log "generated quality variants are current"
+        return 0
+    fi
+    warn "generated quality variants are STALE or MISSING after regeneration"
+    log "   the game draws old art at Low/Medium and may draw none at all:"
+    log "     python3 scripts/check_quality_variants_are_fresh.py   # what is stale"
+    log "     ./scripts/regen/quality_variants.sh                   # rebuild it"
 }
 
 # **`-lstdc++` fails at the END of a cold profiling build, and having `g++`
@@ -815,7 +842,7 @@ check_profiling_cxx_stdlib
 ensure_resource_tally
 ensure_submodules
 ensure_python_tools
-# Before the assets: regen_music.sh sources this phase's env.sh to find the
+# Before the assets: scripts/regen/music.sh sources this phase's env.sh to find the
 # instruments, so installing them afterwards would render the fallback anyway.
 ensure_audio_libraries
 regenerate_assets

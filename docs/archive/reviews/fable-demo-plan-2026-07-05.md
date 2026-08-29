@@ -1196,7 +1196,7 @@ scheduled with fable) + the deferred fused-gnuton/split-overlay teardown (cleanu
 
 ### G1 READINESS (scouted, opus 2026-07-05 — headlessly TRACTABLE, next dedicated pass)
 Env confirmed: PIL 12.2.0 + rectpack present; `PYTHONPATH=tools/ambition_sprite2d_renderer
-python3` imports the renderer; `./regen_sprites.sh --target gnu_ton_boss` is the
+python3` imports the renderer; `./scripts/regen/sprites.sh --target gnu_ton_boss` is the
 wired invocation (no GPU/display). Sheets/RON are gitignored (generated) — parity
 is against freshly-regenerated artifacts; the byte-identical-to-builtin invariant
 already exists (`boss_sheets_ron_matches_builtin_defaults`). Precise entry points:

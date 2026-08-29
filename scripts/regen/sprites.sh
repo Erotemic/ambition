@@ -4,10 +4,10 @@
 # sheets are published into the actor-monolith sprite assets.
 #
 # Usage:
-#   ./regen_sprites.sh
-#   ./regen_sprites.sh --force
-#   ./regen_sprites.sh --list
-#   ./regen_sprites.sh --target <name>   # repeatable
+#   ./scripts/regen/sprites.sh
+#   ./scripts/regen/sprites.sh --force
+#   ./scripts/regen/sprites.sh --list
+#   ./scripts/regen/sprites.sh --target <name>   # repeatable
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python
@@ -23,7 +23,8 @@
 # incremental cache. --force bypasses it.
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
@@ -250,7 +251,7 @@ fi
 
 list_sprite_targets() {
     echo "==> registered sprite targets"
-    echo "    Use: ./regen_sprites.sh --target <target>"
+    echo "    Use: ./scripts/regen/sprites.sh --target <target>"
     echo
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer list)
 }
@@ -280,7 +281,7 @@ for name in unknown:
     if matches:
         print(f"Did you mean '{matches[0]}'?", file=sys.stderr)
     else:
-        print("Run ./regen_sprites.sh --list to see registered targets.", file=sys.stderr)
+        print("Run ./scripts/regen/sprites.sh --list to see registered targets.", file=sys.stderr)
 
 raise SystemExit(2)
 PY
@@ -360,7 +361,7 @@ tackon_targets=(
     oiler
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
-    # a time (`regen_sprites.sh --target <name>`), which works and is the right
+    # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right
     # surgical tool — but generated art is gitignored, so a target that no batch
     # names exists only on the machine that once rendered it and is ABSENT from a
     # fresh clone. `character_catalog.ron` names both sheets, so a clone would
@@ -693,7 +694,7 @@ unknown = sorted({n for n in names if n not in report.targets})
 if unknown:
     for name in unknown:
         print(f"publish roster names an unregistered target: {name}", file=sys.stderr)
-    print("Run ./regen_sprites.sh --list to see registered targets.", file=sys.stderr)
+    print("Run ./scripts/regen/sprites.sh --list to see registered targets.", file=sys.stderr)
     raise SystemExit(2)
 
 emitted = []
@@ -758,7 +759,7 @@ compute_fingerprint() {
             # loops, expected-files list, or the cache logic must
             # invalidate the cache too. Hash relative to repo root
             # to keep stability across filesystem locations.
-            sha256sum "$repo_root/regen_sprites.sh" \
+            sha256sum "$repo_root/scripts/regen/sprites.sh" \
                 | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
         }
     ) | sha256sum | awk '{print $1}'
@@ -815,7 +816,7 @@ compute_core_shared() {
         # Renderer-dir top-level scripts (e.g. the mockingbird generator).
         find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
             | sort -z | xargs -0 sha256sum
-        # NB: this orchestrator (`regen_sprites.sh`) is deliberately NOT
+        # NB: this orchestrator (`scripts/regen/sprites.sh`) is deliberately NOT
         # hashed into CORE_SHARED. It only chooses *which* targets to
         # publish and *how* to loop — it never affects a sheet's pixels.
         # Folding it in here meant that wiring a new sprite (adding its
@@ -957,8 +958,8 @@ publish_cached_batch() {
 # a sprite regen that does not run this leaves the phone on full-res art.
 # The half / quarter / potato roots are what the runtime loads under the Low /
 # Medium / Potato quality profiles, and a sheet with no variant silently falls
-# back to full resolution. `regen_assets.sh` chained backgrounds → sprites →
-# variants and this script did not, so every standalone `./regen_sprites.sh`
+# back to full resolution. `scripts/regen/assets.sh` chained backgrounds → sprites →
+# variants and this script did not, so every standalone `./scripts/regen/sprites.sh`
 # re-opened that drift; 25 sheets — Mary-O's and the player's among them — had
 # no half-res sibling when it was measured.
 #

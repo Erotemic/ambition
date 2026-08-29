@@ -76,7 +76,7 @@ fn print_how_tall_every_character_stands() {
 fn the_hall_scale_report_is_actually_measuring_something() {
     let rows = measured_bodies();
     if rows.is_empty() {
-        eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;
     }
     assert!(

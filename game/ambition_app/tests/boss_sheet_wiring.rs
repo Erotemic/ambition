@@ -50,7 +50,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
         missing.is_empty(),
         "these boss sheets resolve no asset path, so `GameAssets::boss_sprites` \
          will not carry them and their bosses will draw the GENERIC body: {missing:?}. \
-         Run `./regen_sprites.sh`, or fix the provider boss-catalog filename row."
+         Run `./scripts/regen/sprites.sh`, or fix the provider boss-catalog filename row."
     );
 }
 

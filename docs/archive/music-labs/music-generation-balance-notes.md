@@ -45,7 +45,7 @@ For the current `first_goblin_tune_v2` full-mix approach:
 This pass changes generation inputs. Re-render and reinstall the OGG assets:
 
 ```bash
-./regen_music.sh --force
+./scripts/regen/music.sh --force
 ```
 
 Then run the encounter room:

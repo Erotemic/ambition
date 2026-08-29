@@ -6,7 +6,7 @@ Reads the character catalog
 (`game/ambition_content/assets/data/character_catalog.ron`) and,
 for each entry, asks the renderer to publish the matching target.
 This replaces the hand-maintained `tackon_targets` + `review_cues`
-+ standalone publisher loops in `regen_sprites.sh` with a single
++ standalone publisher loops in `scripts/regen/sprites.sh` with a single
 catalog-driven iteration.
 
 ## Why
@@ -21,7 +21,7 @@ Today the renderer has three publish patterns:
     `<name>_spritesheet.{png,yaml,ron}` to `dest-root`.
   - YAML-adapter targets (`configs/*.yaml` and `configs/review/*.yaml`)
     that `draw-review` + `draw-all` render to a scratch dir, then a
-    hand-maintained `review_cues` list in `regen_sprites.sh` copies
+    hand-maintained `review_cues` list in `scripts/regen/sprites.sh` copies
     them into place.
   - Bespoke one-offs (gnu_ton_boss subdir publisher,
     mockingbird_boss_sprite_generator.py) with their own paths.

@@ -74,7 +74,7 @@ MIRRORED_TREES = (
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato",
     # Content-side generated art lives outside the monolith and must be mirrored
     # with the rest of the generated asset tree.
-    # The vanity card's part sheet, produced by regen_sprites.sh. The old
+    # The vanity card's part sheet, produced by scripts/regen/sprites.sh. The old
     # `vanity_card` tree was the superseded full-frame card and no longer
     # exists; mirroring that name copied nothing while the sheet the shipped
     # manifest actually names was left behind.

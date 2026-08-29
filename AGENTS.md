@@ -82,10 +82,10 @@ Full rules: `docs/recipes/adding-an-asset.md`.
 For a fresh clone/worktree, run:
 
 ```bash
-scripts/setup_target_bindmount.sh
+scripts/setup/target_bindmount.sh
 ```
 
-⛔⛔ **RUN `scripts/setup_target_bindmount.sh --status` BEFORE YOUR FIRST BUILD,
+⛔⛔ **RUN `scripts/setup/target_bindmount.sh --status` BEFORE YOUR FIRST BUILD,
 EVERY SESSION, AND ACT ON WHAT IT SAYS.** The repo is on virtiofs; the script
 SHADOWS `target/` with a directory on local ext4. The bind does not survive a
 reboot and nothing re-establishes it, so an unbound session silently builds
@@ -222,7 +222,7 @@ Use the narrowest command that actually covers the change. Full matrix:
 * ⛔ **A compiling game can still draw stale quality-variant art.** Publishing art means:
 
   ```bash
-  ./regen_visual_quality_variants.sh
+  ./scripts/regen/quality_variants.sh
   python3 scripts/check_quality_variants_are_fresh.py
   ```
 

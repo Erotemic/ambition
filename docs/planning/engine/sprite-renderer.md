@@ -126,7 +126,7 @@ Stage 2 default dialog-portrait coverage has landed:
   install subdirectories explicitly;
 - catalog portrait paths conventionally derive from gameplay-sheet paths, with
   explicit metadata retained only for true exceptions;
-- `regen_sprites.sh` validates every Hall portrait and emits
+- `scripts/regen/sprites.sh` validates every Hall portrait and emits
   `generated/portrait_gallery.png` for visual review.
 
 Stage 3 named portrait presentation has landed:

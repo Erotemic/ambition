@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 skip_ecs=0
 
 usage() {
     cat <<'EOF'
-Usage: ./regen_source_navigation.sh [OPTIONS]
+Usage: ./scripts/regen/source_navigation.sh [OPTIONS]
 
 Regenerate source-navigation artifacts.
 
@@ -155,7 +156,7 @@ Install uv, or provide a Python environment containing:
   tree-sitter-rust>=0.24,<0.25
 
 To regenerate everything else:
-  ./regen_source_navigation.sh --skip-ecs
+  ./scripts/regen/source_navigation.sh --skip-ecs
 EOF
         return 2
     fi

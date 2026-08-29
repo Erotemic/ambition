@@ -138,9 +138,9 @@ cmd_setup() {
         fi
     done
 
-    # Fast storage, and its own store: setup_target_bindmount.sh keys the store
+    # Fast storage, and its own store: scripts/setup/target_bindmount.sh keys the store
     # by worktree path, so slots never share one.
-    ( cd "$path" && "$path/scripts/setup_target_bindmount.sh" ) \
+    ( cd "$path" && "$path/scripts/setup/target_bindmount.sh" ) \
         || printf '⚠ bind mount failed in %s\n' "$path"
 
     printf 'slot %s ready. Build with -j %s.\n' "$n" "$(slot_jobs "$n")"

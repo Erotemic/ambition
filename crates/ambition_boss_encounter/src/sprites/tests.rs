@@ -195,7 +195,7 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
     // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
     // (a multi-page sibling would resolve the wrong page's filename).
     let record = record_for_sheet_key("giant_gnu")
-        .expect("baked giant_gnu record present (run regen_sprites.sh)");
+        .expect("baked giant_gnu record present (run scripts/regen/sprites.sh)");
     assert!(
         record_aligns_with_const(record, &GIANT_GNU_SHEET),
         "the packed giant_gnu record lines up with the const → it drives the pixels"

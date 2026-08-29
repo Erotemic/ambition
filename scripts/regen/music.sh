@@ -10,9 +10,9 @@
 #     into crates/ambition_platformer2d_actor_monolith/assets/audio/music/generated/. No dedicated installer.
 #
 # Usage:
-# ./regen_music.sh                    # render + install everything (default)
-# ./regen_music.sh --skip-render      # only republish from existing renders
-# ./regen_music.sh --force            # force re-render where supported
+# ./scripts/regen/music.sh                    # render + install everything (default)
+# ./scripts/regen/music.sh --skip-render      # only republish from existing renders
+# ./scripts/regen/music.sh --force            # force re-render where supported
 #
 # Useful environment overrides:
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
@@ -21,7 +21,8 @@
 #                                   # overrides the tool-local .venv
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_music_renderer"

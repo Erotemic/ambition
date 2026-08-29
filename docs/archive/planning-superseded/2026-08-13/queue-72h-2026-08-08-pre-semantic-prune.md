@@ -4900,7 +4900,7 @@ reasoning before working it.** Do not invent work outside `docs/planning`.
     `manifest_ron.py:113` only ever writes `true`. Absence means *"measured alpha
     bbox"*. **13 files declare `body_inset`.** ⇒ **the work is a rig-config +
     regen pass, not a data pass over 156 `.ron` files**, and editing the sheets
-    directly would be overwritten by the next `./regen_sprites.sh`.
+    directly would be overwritten by the next `./scripts/regen/sprites.sh`.
   * ⛔⛔ **a sheet can set the flag and still be wrong.**
     `imperfect_cellular_automaton` **already sets `authored_body`** and still
     publishes a **199×232 body in a 256×256 frame**, because its inset does not
@@ -4972,7 +4972,7 @@ reasoning before working it.** Do not invent work outside `docs/planning`.
     TUNED movement body, not sheet-derived, which is a third authority again and
     wants naming before anyone "unifies" the two.
   * ⚠ **⛔ 13 rig files and a regen means this row touches the art pipeline**, so
-    it inherits every trap there: `regen_sprites.sh` also owns the ultrapack
+    it inherits every trap there: `scripts/regen/sprites.sh` also owns the ultrapack
     atlases and the quality variants, and a partial regen leaves the tiers
     disagreeing with the base sheets.
 
@@ -6599,7 +6599,7 @@ reasoning before working it.** Do not invent work outside `docs/planning`.
   queued behind the first. ⭐ **not cosmetic** — the stray slab was covering the
   far arm's sleeve and cuff. The check was NOT relaxed; the data was made to
   satisfy it. Diff audited on integration: the moved path lines are md5-identical.
-- ~~**D6 `regen_sprites.sh --target patent_clerk` cannot re-render Jon's art**
+- ~~**D6 `scripts/regen/sprites.sh --target patent_clerk` cannot re-render Jon's art**
   (obs:47) — ⭐ **UNBLOCKED 2026-08-08** by Jon's *"you can commit any sprite or
   music work"*, and the failure is precise rather than vague:
   `SVG view 'Patent Clerk - Side Left' does not have one-to-one drawable
@@ -8817,7 +8817,7 @@ reasoning before working it.** Do not invent work outside `docs/planning`.
   a truncated listing. ⭐ [[reference_grep_r_skips_symlinked_assets]] names this
   exact trap and I still made it.
   ⇒ ✔ **the drift is closed and so is the hole it came through.**
-  `regen_sprites.sh` chained the variant generator at the BOTTOM and `exit 0`ed
+  `scripts/regen/sprites.sh` chained the variant generator at the BOTTOM and `exit 0`ed
   on a fingerprint cache hit at the TOP — and the fingerprint covers renderer
   sources plus the presence of full-res outputs, which says nothing about whether
   the reduced tiers match them. The stage is now a function both paths call.

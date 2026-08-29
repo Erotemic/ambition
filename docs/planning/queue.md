@@ -580,7 +580,7 @@ thrown WITHIN its reach    2 fighters
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
 rule — *workers never run `cargo`* — rested on one shared target dir against a
-nearly full disk. Both halves are now false: `scripts/setup_target_bindmount.sh`
+nearly full disk. Both halves are now false: `scripts/setup/target_bindmount.sh`
 gives each worktree its own ext4 backing store keyed by path, and the stale dirs
 are deleted. ⇒ a worker whose job **is** measurement (the Smash lane cannot
 observe a match without running it) gets a worktree and builds in it. The
@@ -1803,7 +1803,7 @@ is the INTEGRATOR's reach into the world: if it ever stops going through
   `catalog_for_scale` answers `None` at every tier. Fixed by `<this commit>`:
   `build.rs` emits `has_baked_packs` — a cfg over the same table the tests read —
   and the three pack-dependent tests carry
-  `#[cfg_attr(not(has_baked_packs), ignore = "…run ./regen_sprites.sh")]`, so a
+  `#[cfg_attr(not(has_baked_packs), ignore = "…run ./scripts/regen/sprites.sh")]`, so a
   packless tree REPORTS them rather than failing or quietly passing.
 
   ⭐ **the row asked only how to report it, and the answer turned up two more
@@ -5370,7 +5370,7 @@ the reader, not the code.
   sheet installed, `ultrapack.json` still carried Oiler at the TOON frame
   size, since tier atlases bake from whatever was in `$sprites_dir` when
   last packed. Run `--target <t>`, then
-  `regen_visual_quality_variants.sh --target <t>`, then the four ultrapack
+  `scripts/regen/quality_variants.sh --target <t>`, then the four ultrapack
   tiers.
   ⛔ author arm poses as ANGLES on the reachable circle, never as (x, y)
   guesses — Oiler's arms are 26.5px from a shoulder 25.6px above the hanging
@@ -5389,7 +5389,7 @@ the reader, not the code.
   again unprompted.
   ⚠ a BALANCE pass with real eyes: Oiler lost the observed match 36% to
   5%, the design's direction but a bigger margin than intended.
-  ⚠ **why this row was stale for a day**: `regen_sprites.sh` still listed
+  ⚠ **why this row was stale for a day**: `scripts/regen/sprites.sh` still listed
   `oiler` in `review_cues`, which would have overwritten the rig's sheet on
   every full run. That entry is now an explicit ⛔ refusal pointing at
   `tackon_targets`.
@@ -11781,8 +11781,8 @@ bakes every `*_spritesheet.ron`, so `ambition_sprite_sheet::fx::is_authored_effe
 is a pure, world-free oracle, and `expand` takes it as a parameter rather
 than naming the crate. **189 authored rows ↔ 189 cues, one for one, across
 all twelve FX sheets, no sheet off by one.** ⚠ none of the underlying art is
-in git (gitignored) — a fresh clone needs `./regen_sfx.sh` and
-`./regen_sprites.sh` to get it; the roster commit is the durable half.
+in git (gitignored) — a fresh clone needs `./scripts/regen/sfx.sh` and
+`./scripts/regen/sprites.sh` to get it; the roster commit is the durable half.
 ⛔⛔ this is what exposed the standalone-Smash-app asset-install gap above —
 same defect shape one level up.
 
@@ -14228,10 +14228,10 @@ set to `/home/agent/Android/Sdk/ndk/27.2.12479018` and **that directory does not
 exist** (`ls` on it is empty). A set variable pointing at nothing reads as
 configured. ⇒ `wasm32` needs nothing beyond the rustup target because it is pure
 Rust; `aarch64-linux-android` needs the NDK's clang, and
-`scripts/setup_android_prereqs.sh` is what installs it (a large download).
+`scripts/setup/android_prereqs.sh` is what installs it (a large download).
 ▢ **so the android persona stays unaudited, and the blocker is a PREREQ RUN
 rather than a code question** — say that rather than reporting our own code as
-broken on Android. ⇒ `scripts/setup_android_prereqs.sh` is the repo's own path
+broken on Android. ⇒ `scripts/setup/android_prereqs.sh` is the repo's own path
 and it installs the NDK; ⚠ it is a large download, so it is a deliberate spend
 rather than something to do in passing.
 

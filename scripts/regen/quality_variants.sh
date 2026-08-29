@@ -4,7 +4,7 @@
 # published output; --force bypasses this freshness check.
 #
 # Usage:
-#   ./regen_visual_quality_variants.sh [--sprites-only|--backgrounds-only]
+#   ./scripts/regen/quality_variants.sh [--sprites-only|--backgrounds-only]
 #       [--target <fnmatch>]... [--tier <0_5x|0_25x|potato>]...
 #       [--force] [--clean]
 #
@@ -13,7 +13,8 @@
 #   AMBITION_QUALITY_VARIANTS=0
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"

@@ -244,19 +244,19 @@ fi
 
 need_cmd "$CARGO_CMD" "Install Rust via rustup."
 if [[ "$SKIP_BINDGEN" != true ]]; then
-    need_cmd "$WASM_BINDGEN_CMD" "Run: ./scripts/setup_web_prereq.sh"
+    need_cmd "$WASM_BINDGEN_CMD" "Run: ./scripts/setup/web_prereq.sh"
     if [[ -n "$WANT_BINDGEN_VERSION" ]]; then
         have=$("$WASM_BINDGEN_CMD" --version 2>/dev/null | awk '{print $2}')
         if [[ -n "$have" && "$have" != "$WANT_BINDGEN_VERSION" ]]; then
             warn "wasm-bindgen-cli is $have but Cargo.lock pins $WANT_BINDGEN_VERSION; the browser will refuse to load the module on mismatch"
-            warn "fix with: ./scripts/setup_web_prereq.sh --force-bindgen"
+            warn "fix with: ./scripts/setup/web_prereq.sh --force-bindgen"
         fi
     fi
 fi
 if ! command -v rustup >/dev/null 2>&1; then
     warn "rustup not on PATH; assuming wasm32-unknown-unknown is already installed"
 elif ! rustup target list --installed | grep -qx 'wasm32-unknown-unknown'; then
-    fatal "missing rust target wasm32-unknown-unknown. Run: ./scripts/setup_web_prereq.sh"
+    fatal "missing rust target wasm32-unknown-unknown. Run: ./scripts/setup/web_prereq.sh"
 fi
 
 if [[ "$DOCTOR" == true ]]; then
@@ -391,5 +391,5 @@ elif command -v basic-http-server >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL via basic-http-server (Ctrl-C to stop)"
     exec basic-http-server "$WEB_DIR" -a "127.0.0.1:$SERVE_PORT"
 else
-    fatal "no static file server found. Install python3, or run: ./scripts/setup_web_prereq.sh --with-server"
+    fatal "no static file server found. Install python3, or run: ./scripts/setup/web_prereq.sh --with-server"
 fi

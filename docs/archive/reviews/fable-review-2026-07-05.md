@@ -492,7 +492,7 @@ here blocks R4c–R4g, R5, or R6.
 - **R10.2 [opus]** Sprite split in the Python generator: `giant_gnu`
   (body+head) sheets, `gnu_hands` sheets, `gnu_ton` scholar-rider sheet (the
   existing `scholar` per-frame anchor IS the rider figure and becomes
-  `rider_offset`); actor RONs; regen_sprites.sh path; parity baselines
+  `rider_offset`); actor RONs; scripts/regen/sprites.sh path; parity baselines
   re-pinned. Delete the per-frame hand hit-geometry from the sheet RON.
 - **R10.3 [opus]** Archetype split + encounter re-key: `giant_gnu` mount row
   (`mount_class: "gnu"`, big HP, real mover — retire `StationaryGiant`,

@@ -2,18 +2,19 @@
 # Regenerate all generated runtime assets for the sandbox crate.
 #
 # Usage:
-# ./regen_assets.sh                    # backgrounds, sprites, quality variants, music, sfx
-# ./regen_assets.sh sprites music      # selected categories, in the given order
+# ./scripts/regen/assets.sh                    # backgrounds, sprites, quality variants, music, sfx
+# ./scripts/regen/assets.sh sprites music      # selected categories, in the given order
 #
 # Category-specific options live on the category scripts:
-# ./regen_backgrounds.sh --help
-# ./regen_sprites.sh --help
-# ./regen_visual_quality_variants.sh --help
-# ./regen_music.sh --help
-# ./regen_sfx.sh --help
+# ./scripts/regen/backgrounds.sh --help
+# ./scripts/regen/sprites.sh --help
+# ./scripts/regen/quality_variants.sh --help
+# ./scripts/regen/music.sh --help
+# ./scripts/regen/sfx.sh --help
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 print_help() {
@@ -40,19 +41,19 @@ run_category() {
     local category="$1"
     case "$category" in
         backgrounds|background)
-            bash "$repo_root/regen_backgrounds.sh"
+            bash "$repo_root/scripts/regen/backgrounds.sh"
             ;;
         sprites|sprite)
-            bash "$repo_root/regen_sprites.sh"
+            bash "$repo_root/scripts/regen/sprites.sh"
             ;;
         variants|quality-variants|visual-quality)
-            bash "$repo_root/regen_visual_quality_variants.sh"
+            bash "$repo_root/scripts/regen/quality_variants.sh"
             ;;
         music)
-            bash "$repo_root/regen_music.sh"
+            bash "$repo_root/scripts/regen/music.sh"
             ;;
         sfx|effects)
-            bash "$repo_root/regen_sfx.sh"
+            bash "$repo_root/scripts/regen/sfx.sh"
             ;;
         *)
             echo "unknown asset category: $category" >&2

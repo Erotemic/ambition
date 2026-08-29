@@ -396,7 +396,7 @@ variant folders when present and deserializes them via the real `ron` crate.
 loadable; the effective factor is therefore per-sheet and is baked into the
 variant RON, so the runtime never needs to know it.
 
-Both `regen_sprites.sh` / `regen_backgrounds.sh` keep working on a fresh clone;
+Both `scripts/regen/sprites.sh` / `scripts/regen/backgrounds.sh` keep working on a fresh clone;
 variant PNGs/RONs are **generated, never committed** (gitignored) — re-run
 `python3 scripts/generate_visual_quality_variants.py` to reproduce them. The
 sprite2d / parallax renderers still own full-res output; this script is the

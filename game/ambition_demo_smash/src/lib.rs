@@ -974,7 +974,7 @@ pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
 /// What one remaining stock is drawn as, under the sprites asset root.
 ///
-/// generated, not committed — `regen_sprites.sh` names it in its publish roster, which is what
+/// generated, not committed — `scripts/regen/sprites.sh` names it in its publish roster, which is what
 /// lets a fresh clone produce it.
 pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
 

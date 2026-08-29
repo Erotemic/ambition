@@ -354,7 +354,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 #[test]
 #[cfg_attr(
     not(has_baked_packs),
-    ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+    ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
 )]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     for target in ["patent_clerk", "carl_stargan"] {
@@ -458,7 +458,7 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
         disagreements.is_empty(),
         "a character's gameplay body depends on the graphics setting — one road \
          was regenerated and the other was not. Re-render the full-resolution \
-         sheets (`./regen_sprites.sh --target <name>`), then the tiers:\n{}",
+         sheets (`./scripts/regen/sprites.sh --target <name>`), then the tiers:\n{}",
         disagreements.join("\n")
     );
 }

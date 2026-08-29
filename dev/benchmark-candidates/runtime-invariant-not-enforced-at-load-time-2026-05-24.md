@@ -158,7 +158,7 @@ in 9.R with a third defensive layer:
 
 1. **Publish-time (9.R, 2026-05-24).**
    `tackon_sheet.diagnose_idle_coverage` prints a stderr warning during
-   `regen_sprites.sh` when a sheet has ≥1 `CharacterAnim` row but no
+   `scripts/regen/sprites.sh` when a sheet has ≥1 `CharacterAnim` row but no
    Idle alias. The renderer author sees the issue at sheet-emit time,
    before the catalog even loads the manifest.
 2. **Load-time (9.A/9.B, 2026-05-24).**

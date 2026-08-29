@@ -6,10 +6,10 @@
 #
 # This is optional and does not edit the repository.
 # Usage:
-#   scripts/setup_target_bindmount.sh
-#   scripts/setup_target_bindmount.sh --status
-#   scripts/setup_target_bindmount.sh --check     # exit 2 if unbound on virtiofs
-#   scripts/setup_target_bindmount.sh --unmount
+#   scripts/setup/target_bindmount.sh
+#   scripts/setup/target_bindmount.sh --status
+#   scripts/setup/target_bindmount.sh --check     # exit 2 if unbound on virtiofs
+#   scripts/setup/target_bindmount.sh --unmount
 set -euo pipefail
 
 STORE_ROOT="${AMBITION_TARGET_STORE:-$HOME/.cache/ambition-targets}"
@@ -48,7 +48,7 @@ cmd_status() {
     elif [ "$fs" = virtiofs ]; then
         printf 'state        ⚠ NOT BOUND, and this worktree is on virtiofs — builds are\n'
         printf '             paying shared-mount overhead and are visible to the host.\n'
-        printf '             Run: scripts/setup_target_bindmount.sh\n'
+        printf '             Run: scripts/setup/target_bindmount.sh\n'
     else
         printf 'state        not bound (and not needed: %s is already local)\n' "$fs"
     fi
@@ -85,7 +85,7 @@ cmd_check() {
     printf '\n' >&2
     printf '  FIX IT — one command, and it is not optional:\n' >&2
     printf '\n' >&2
-    printf '      scripts/setup_target_bindmount.sh\n' >&2
+    printf '      scripts/setup/target_bindmount.sh\n' >&2
     printf '\n' >&2
     printf '  ⛔ DO NOT delete anything under target/ to reclaim the space. The\n' >&2
     printf '     duplicate is the SYMPTOM of this missing mount; binding it puts\n' >&2

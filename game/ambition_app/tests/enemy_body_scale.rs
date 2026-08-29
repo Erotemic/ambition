@@ -39,7 +39,7 @@ fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
 #[ignore]
 fn print_enemy_bodies_against_the_player() {
     let Some((ref_w, ref_h, _, _)) = measured(REFERENCE) else {
-        println!("[skip] no baked sheet for {REFERENCE} — run ./regen_sprites.sh");
+        println!("[skip] no baked sheet for {REFERENCE} — run ./scripts/regen/sprites.sh");
         return;
     };
     println!(
@@ -69,7 +69,7 @@ fn the_enemy_body_report_is_actually_measuring_something() {
     // gitignored, so a clean checkout has none, and a source test that goes red
     // because a working tree was not rendered teaches people to ignore it.
     let Some((ref_w, ref_h, _, _)) = measured(REFERENCE) else {
-        eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;
     };
     assert!(
@@ -179,7 +179,7 @@ fn print_the_two_render_size_publishers() {
         }
     }
     if rows.is_empty() {
-        println!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        println!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;
     }
     rows.sort_by(|a, b| {
@@ -287,7 +287,7 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
     // SKIP, not fail, with no baked art: sheets are generated and gitignored,
     // so a clean checkout has none.
     if measured == 0 {
-        eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;
     }
     assert!(

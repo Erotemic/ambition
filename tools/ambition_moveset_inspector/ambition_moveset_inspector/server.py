@@ -63,7 +63,7 @@ def renderer_candidates() -> list[Path]:
     """Every place `moveset_render` might be, in the order worth trying.
 
     ⛔⛔ NOT JUST `target/debug`. `CARGO_TARGET_DIR` relocates the whole directory
-    (this repo ships `scripts/setup_target_bindmount.sh` for exactly that) and a
+    (this repo ships `scripts/setup/target_bindmount.sh` for exactly that) and a
     release build lands in `target/release`. Either produced "not built" against
     a tree where it plainly was. Same convention `scripts/profile_desktop.sh`
     uses.

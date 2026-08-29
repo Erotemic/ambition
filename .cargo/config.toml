@@ -1,5 +1,5 @@
 [build]
-# Keep Cargo's default `<worktree>/target`; `scripts/setup_target_bindmount.sh` can bind it to fast
+# Keep Cargo's default `<worktree>/target`; `scripts/setup/target_bindmount.sh` can bind it to fast
 # storage without hard-coding a machine path or sharing one target directory across worktrees.
 #
 # Incremental compilation is for the edit loop. `run_tests.sh` disables it because feature jobs

@@ -192,7 +192,13 @@ sit: **196 conditions on individual SYSTEMS** against 70 on 67 SETS, led by
 `gameplay_allowed` paid because gating the SET OFF retired its systems' WORK
 (0.95ms shed against 0.93ms measured) — **not because 83 condition evaluations
 were expensive.** A hoist that changes nothing about what RUNS saves only the
-evaluations: 1720 of them at tens of nanoseconds is **~1-2% of a 4.45ms frame**,
+evaluations — ⚠ **and my back-of-envelope "tens of nanoseconds each" UNDERSTATED
+that.** The measured figure elsewhere in this document is **339.5us/frame of
+condition evaluation, ~141us real after the 2.4x Tracy inflation**, i.e. **~3% of
+a 4.45ms `dev` frame and ~5% of a `profiling` one** — a genuinely metered cost
+class, not a rounding error. ⇒ a hoist pays roughly in proportion to the
+evaluations it removes, so retiring most of the 196 per-system conditions is worth
+perhaps **1–2%**;
 and the 12 systems carrying `session_world_exists` already skip individually. ⇒
 hoist for CLARITY and for the ability to retire a class in one place; expect the
 frame not to move.
@@ -701,7 +707,10 @@ opportunistically but do not outrank the frame.
 Each row is a lever already MEASURED in the baseline above. Do not re-derive the
 baseline; extend it.
 
-- ▢ **D-PERF-1 — hoist `gameplay_allowed` off 89 systems onto a set.** The
+- ▢ **D-PERF-1 — hoist `gameplay_allowed` off 83 systems onto a set.** (⚠ "89"
+  appears below as the pre-work ESTIMATE; the measured count is **83** — 78
+  per-system plus 5 tuple-level — and the arithmetic closes twice later in this
+  document.) The
   baseline measured 87 evaluations per frame of this one condition. ⭐ THE
   MECHANISM ALREADY EXISTS AND IS ALREADY USED: `configure_platformer2d_simulation_phases`
   puts `simulation_authorized` on `GameplaySimulationRoot` with ONE
@@ -730,7 +739,10 @@ baseline; extend it.
   TUPLES (`rules`, `milestone_sfx`, `badniks`, `ring_loss`), and a tuple-level
   `run_if` in Bevy 0.18 is COLLECTIVE — one anonymous set, evaluated at most once
   per schedule run. Sanic's 28 systems cost ~4 evaluations, not 28, and none of
-  them execute while the mode is inactive. The whole app now carries 61
+  them execute while the mode is inactive. ⚠ **THIS COUNT IS THE SANDBOX COMPOSITION, NOT "the whole app"** — a live Smash
+  match measures **196 per-system and 70 set conditions** across 67 sets. Two
+  compositions, two populations; say which one a condition count describes. The
+  sandbox composition carries 61
   per-system and 29 set conditions in total.
   ⭐ **WHAT IS REAL, measured with `[census] owners`: 154 of 780 registered
   systems — 19.7% — belong to four experiences the sandbox never enters**
@@ -2045,7 +2057,17 @@ systems is genuinely expensive ONCE. But it is dominated by the engine core and
 the content plugins every composition needs — not by the experiences, which is
 what removing four of them just demonstrated.
 
-### WHO OWNS `Update` — the target list for capability gating
+### WHO OWNS `Update` — ⛔ NOT a target list; see the sizing rule below
+
+⛔⛔ **THIS SECTION WAS WRITTEN AS "the target list for capability gating" AND THAT
+CONTRADICTS THIS DOCUMENT'S OWN ARITHMETIC.** The groups it names are 27, 25, 10,
+8 and 7 systems, while the measured rule is that **on a frame this diffuse no
+group of fewer than ~500 systems can produce a measurable win** — the noise floor
+is ~10–15%. ⇒ read the list as OWNERSHIP (who is asking the frame for work), not
+as a work queue. ⭐ If one is gated anyway, size it against the noise floor FIRST
+and expect a null.
+
+#### The ownership breakdown
 
 `[census] owners_in` breaks one schedule down by the crate owning each system.
 Smash match, shipped composition:
@@ -2365,7 +2387,10 @@ shades nothing.
 projections, entities) and the CHURN ratios, none of which are wall-clock. The
 phase splits from those runs should be treated as void.
 
-⭐ **`RunFixedMainLoop` IS EXPLAINED AND IS NOT A DEFECT.** Its 17 systems are
+⛔⛔ **SUPERSEDED — this rests on the same voided runs.** The resolution A/B showed
+`StateTransition` and *every other phase* scale with pixels, which voids the 6x
+inflation this paragraph explains. It is left as a record. ~~`RunFixedMainLoop` IS
+EXPLAINED AND IS NOT A DEFECT.~~ Its 17 systems are
 `run_fixed_main_schedule` — which runs the WHOLE fixed-timestep sim — plus
 `swap_to_fixed_update`/`swap_to_update`, transform easing, three gizmo context
 pairs and `update_action_state`. Its 6x inflation is the sim taking more fixed

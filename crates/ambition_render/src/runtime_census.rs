@@ -507,8 +507,18 @@ pub fn report_asset_census(
             // total; it says the total is no longer purely measured.
             images.derived_byte_images(),
             image_assets.len(),
-            hud_images.as_ref().map_or(0, |c| c.hits_and_loads().0),
-            hud_images.as_ref().map_or(0, |c| c.hits_and_loads().1),
+            // ⛔ `unavailable`, NOT `0`, WHEN THE CACHE IS NOT INSTALLED. A
+            // composition without the declared HUD would otherwise print
+            // `hits=0 loads=0` — indistinguishable from a cache that is present
+            // and never used, which is the reading that matters. Caught by
+            // running it: a `capture_scene` of an ordinary room shows no HUD and
+            // reported 0/0, the instrument's silence wearing a number.
+            hud_images
+                .as_ref()
+                .map_or_else(|| "unavailable".to_string(), |c| c.hits_and_loads().0.to_string()),
+            hud_images
+                .as_ref()
+                .map_or_else(|| "unavailable".to_string(), |c| c.hits_and_loads().1.to_string()),
         ),
         None => eprintln!(
             "[census] assets t={at:.3} decoded_images=unavailable images_resident={}",

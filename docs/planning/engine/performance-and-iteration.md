@@ -2232,6 +2232,38 @@ to `SMASH_GAMEPLAY_ROUTE` the way `ladder_rig::run_bout_at` does still produced 
 `MatchSeat`, no `WornCharacter` and no `ActorConfig` in 600 frames. ⇒ I was
 debugging test plumbing, not the engine.
 
+#### ⭐⭐⭐ THE DEV BUILD IS 42% SLOWER THAN IT NEEDS TO BE, AND THAT IS THE BUILD JON PLAYS
+
+**MEASURED 2026-08-29, three reps per arm, headless `smash_match_profile --ticks
+4000`, medians of per-second census windows after warmup:**
+
+| arm | reps (ms) | median |
+|---|---|---|
+| A — `ambition_render` / `..._runtime` / `ambition_app` pinned at `opt-level = 0` (SHIPPED) | 5.07, 5.12, 5.20 | **5.12** |
+| B — the same three raised to `opt-level = 1` | 3.02, 2.96, 2.89 | **2.96** |
+
+⇒ **-42%, and the two ranges DO NOT OVERLAP** (5.07–5.20 against 2.89–3.02), so
+this is far outside the 4–7% noise floor and needed no interleaving to see.
+
+⛔⛔ **AND THE REASON THE PINS EXIST IS THE REASON THEY ARE WRONG.** The comment
+justifying `ambition_render` at zero says render never runs in the HEADLESS
+benchmark — true, and exactly the wrong test for the build somebody PLAYS. Worse,
+the measurement above is headless too, so `ambition_render` contributes almost
+nothing to that 42%: it is `ambition_platformer2d_runtime` and `ambition_app`
+alone. **A windowed run should show MORE, not less.**
+
+⭐⭐ **THIS RECONCILES THE WHOLE CAMPAIGN WITH JON'S EXPERIENCE.** Every profile
+bundle is built `--profile profiling` (release-optimised), and every headless
+number was `dev`. "The engine is fast" and "the game feels slow" were measurements
+of two different binaries. ⇒ the four-times-under-budget headroom is real for the
+SHIPPED build and substantially smaller for the DEVELOPMENT one.
+
+▢ **NOT CHANGED — THE ROW SAID MEASURE FIRST, AND THE OTHER HALF OF THE TRADE IS
+STILL UNMEASURED.** The pins buy compile time, which is why they were added.
+⇒ owed: rebuild cost for those three crates at `opt-level` 0 vs 1 (the repo
+already tracks `compile_cost.jsonl`), then a proposal that states both numbers.
+⛔ Do not raise them on the strength of the runtime number alone.
+
 #### ⛔⛔ THE 516ms FRAME IS *EXTRACT*, NOT DECODE — AND THAT REDIRECTS THE FIX
 
 **I was about to make decode asynchronous. It already is.** Asking `tracy_zones.csv`

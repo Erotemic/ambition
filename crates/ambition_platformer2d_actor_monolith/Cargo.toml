@@ -26,7 +26,12 @@ crate-type = ["rlib"]
 [features]
 # The stderr trace still printed, which is what hid it: the line appeared and the fact did not, and
 # nothing distinguishes "the brain published nothing" from "the brain cannot".
-causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_characters/causal"]
+# ⛔ EVERY CRATE WHOSE CAUSAL TYPES `causal.rs` IMPORTS MUST BE FORWARDED HERE.
+# `ambition_damage/causal` was missing, so `BodyReactionApplied` and
+# `BodyHitResolved` were configured out and this crate failed to build with its
+# OWN feature on. Same shape as the gap in `ambition_damage` itself: a feature
+# declared and not forwarded compiles everywhere except on its own.
+causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_characters/causal", "ambition_damage/causal"]
 # Default preserves the full desktop sandbox / development posture. Android
 # builds use the `android` composite below with `--no-default-features` so the
 # phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only

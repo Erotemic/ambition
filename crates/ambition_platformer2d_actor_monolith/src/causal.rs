@@ -26,7 +26,11 @@
 use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectKey};
 use bevy::prelude::*;
 
-use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
+// ⛔ `crate::avatar::movement_components` IS AN EMPTY FILE — the types moved to
+// `ambition_platformer2d_core` and the module was left behind holding nothing.
+// This import survived because it is inside `#[cfg(feature = "causal")]` code and
+// the feature is not in the default set, so no ordinary build ever resolved it.
+use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::DrivingParticipant;
 use ambition_damage::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};

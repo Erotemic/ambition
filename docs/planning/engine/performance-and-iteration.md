@@ -467,6 +467,22 @@ expensive condition in the frame.
 4. ⛔ do NOT fund capability composition as a performance migration. It is
    architecture and startup work; both were measured and neither moved.
 
+**⭐ A NAMED DEFECT CLASS WORTH GREPPING FOR: *work done before the check that
+would have avoided it.*** Three fixed this campaign, all found by READING rather
+than profiling, none individually measurable:
+- `puppy_slug_seed` lowercased a name per candidate actor per frame — BEFORE the
+  `dream_seed.is_some()` short circuit that already settled it;
+- `cut_rope/victory` collected a `Vec` every frame in every room for one
+  `contains` that only matters in one room;
+- `publish_bevy_ui_menu_actions` scanned every `PointerLocation` above its rows
+  loop, for a question only the pressed-arm ever asks.
+
+⛔ AND THE TEMPTING FIX IS USUALLY THE WRONG ONE. In all three the obvious move
+is an early return, and in all three the path that looks like a no-op is doing
+teardown — the menu's `None` arm releases the arm, `victory`'s drain is cursor
+hygiene, `deep_dream`'s attach is spawn-when-live. ⇒ **defer or amortise the
+WORK, do not skip the SYSTEM.**
+
 **METHOD, dearly bought — five instruments lied and each was caught by a
 SECONDARY number, never by the primary one:** a census must report POPULATION
 beside TIMING; check the thing you removed actually left; check the sample window

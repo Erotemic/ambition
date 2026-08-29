@@ -566,10 +566,18 @@ fn publish_bevy_ui_menu_actions<Action>(
     // evidence of a drag" and still activates, which is the safe direction —
     // an unreported drag costs a stray activation, a phantom drag costs every
     // tap on a device that reports no position at all.
-    let at = pointers
-        .iter()
-        .find_map(|p| p.location())
-        .map(|l| l.position);
+    // ⛔ SCANNED ONLY WHEN SOMETHING IS PRESSED. This ran above the rows loop,
+    // so every frame of every match paid a `PointerLocation` scan to answer a
+    // question only the `Some(pressed)` arm below ever asks — and during
+    // gameplay there are no menu rows and nothing is ever pressed. `at` is read
+    // in exactly two places, both inside that arm, so deferring it changes
+    // nothing except when the scan happens.
+    let locate = || {
+        pointers
+            .iter()
+            .find_map(|p| p.location())
+            .map(|l| l.position)
+    };
 
     let mut pressed: Option<(MenuFocusKey, Action, Entity)> = None;
     let mut armed_now: Option<(Entity, Interaction)> = None;
@@ -591,7 +599,7 @@ fn publish_bevy_ui_menu_actions<Action>(
         // concerned, and the later one is the live one.
         Some((focus, action, entity)) => {
             if arm.armed() == Some(&focus) {
-                arm.moved(at);
+                arm.moved(locate());
                 // Re-anchor: a rebuild WHILE held moves the control, and the
                 // leave test below compares against where it is now.
                 *armed = Some((action, entity));
@@ -604,7 +612,7 @@ fn publish_bevy_ui_menu_actions<Action>(
                 if confirm_armed.as_ref() != Some(&focus) {
                     *confirm_armed = None;
                 }
-                arm.press(focus, at);
+                arm.press(focus, locate());
                 *armed = Some((action, entity));
             }
         }

@@ -162,6 +162,7 @@ fn main() {
 
     #[cfg(feature = "causal")]
     let mut decisions = DecisionTally::new();
+    let mut carried: Vec<String> = Vec::new();
     let all: Vec<Vec<Tally>> = (0..runs)
         .map(|i| {
             run_one(
@@ -170,6 +171,7 @@ fn main() {
                 0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
                 #[cfg(feature = "causal")]
                 &mut decisions,
+                &mut carried,
             )
         })
         .collect();
@@ -186,19 +188,25 @@ fn main() {
     }) {
         eprintln!(
             "match_report: nothing was seated for '{character}'. This binary composes the \
-             SMASH DEMO shell, whose catalog is smaller than the full app's — \
-             `{}`, `{}` and `{}` are the ids it carries. A character the composition \
-             does not have seats no fighter brain, so every column would be zero.",
-            ambition_demo_smash::SMASH_GEORGE_BOOUL,
-            ambition_demo_smash::SMASH_CHARACTER_ID,
-            ambition_demo_smash::SMASH_OPPONENT_ID,
+             SMASH DEMO shell, and the ids its catalog ACTUALLY carries are: {}. A character \
+             the composition does not have seats no fighter brain, so every column would be \
+             zero.",
+            if carried.is_empty() {
+                "NONE — the roster resource resolved empty".to_string()
+            } else {
+                carried
+                    .iter()
+                    .map(|id| format!("`{id}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
         );
         std::process::exit(2);
     }
     if runs == 1 {
-        report_one(&character, seconds, &all[0]);
+        report_one(&character, seconds, &all[0], &carried);
     } else {
-        report_spread(&character, seconds, &all);
+        report_spread(&character, seconds, &all, &carried);
     }
     #[cfg(feature = "causal")]
     report_decisions(&decisions);
@@ -291,6 +299,10 @@ fn run_one(
     seconds: usize,
     noise_seed: u64,
     #[cfg(feature = "causal")] decisions: &mut DecisionTally,
+    // ⭐ OUT-PARAM, because the header must MEASURE the composition rather than
+    // assert it, and this is the only place a built app is in hand. Filled on
+    // every run; they agree, and reading it here costs nothing.
+    carried: &mut Vec<String>,
 ) -> Vec<Tally> {
     let mut app = build_demo_app();
     #[cfg(feature = "causal")]
@@ -306,6 +318,14 @@ fn run_one(
     for _ in 0..30 {
         app.update();
     }
+    // Resolved at `Startup` from the ids the assembled catalog actually carries.
+    // Absent only if the demo's own plugin did not run, in which case the header
+    // says so rather than naming a list nobody verified.
+    *carried = app
+        .world()
+        .get_resource::<ambition_demo_smash::select::SmashRoster>()
+        .map(|roster| roster.0.clone())
+        .unwrap_or_default();
     // BOTH SEATS CPU. `SmashSelect::roster` makes every locked seat a HUMAN,
     // which is right for a couch game and wrong here: a report driven through it
     // measures two fighters standing still while nobody presses anything.
@@ -366,9 +386,9 @@ fn run_one(
     totals
 }
 
-fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
+fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[String]) {
     println!("match_report: {character} vs {character}, {seconds}s of CPU-versus-CPU");
-    println!("{}\n", composition_scope());
+    println!("{}\n", composition_scope(carried));
     println!(
         "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
         "seat",
@@ -706,23 +726,36 @@ fn sample(
 ///
 /// So the header says which game was measured. A reader who then quotes the
 /// number at the shipped roster is making a claim this line already refused.
-fn composition_scope() -> String {
+/// ⛔⛔ THIS USED TO ASSERT THREE HARD-CODED IDS, AND A HAND-KEPT LIST DESCRIBING A
+/// COMPOSED ONE GOES STALE — which is the exact failure this header exists to
+/// prevent. `SmashRoster` is RESOLVED AT `Startup` from the ids the assembled
+/// catalog actually carries, so the honest header reads that resource instead of
+/// naming constants beside it. ⇒ if the demo shell's catalog grows, this line
+/// grows with it and nobody has to notice.
+fn composition_scope(carried: &[String]) -> String {
+    let names = if carried.is_empty() {
+        "NOTHING — the catalog resolved empty".to_string()
+    } else {
+        carried
+            .iter()
+            .map(|id| format!("`{id}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     format!(
-        "⚠ composition: the SMASH DEMO SHELL, which carries `{}`, `{}` and `{}`. The shipped \
-         app's grid is larger, and a number taken here is a claim about THIS composition \
+        "⚠ composition: the SMASH DEMO SHELL, which carries {} id(s) — {names}. The shipped \
+         app's grid may be larger, and a number taken here is a claim about THIS composition \
          only - `app_it` is where the full roster lives.",
-        ambition_demo_smash::SMASH_GEORGE_BOOUL,
-        ambition_demo_smash::SMASH_CHARACTER_ID,
-        ambition_demo_smash::SMASH_OPPONENT_ID,
+        carried.len(),
     )
 }
 
 /// exists because a change judged on one made the suite worse.
-fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
+fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &[String]) {
     println!(
         "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
         all.len(),
-        composition_scope()
+        composition_scope(carried)
     );
     let spread = |pick: fn(&Tally) -> f32| -> String {
         let mut values: Vec<f32> = all

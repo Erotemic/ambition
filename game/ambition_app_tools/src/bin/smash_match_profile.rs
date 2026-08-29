@@ -326,6 +326,27 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
     // the whole fighter delta. Right here the round has just gone live and no
     // combat has happened, so two arms differ by their ROSTER and little else —
     // which is what makes "how many entities is a fighter" askable at all.
+    // ⭐ WHICH CAST THIS COMPOSITION CAN ACTUALLY SEAT. `SmashRoster` is
+    // `SMASH_ROSTER` filtered at `Startup` to the ids the ASSEMBLED CATALOG
+    // carries, so it is a fact about the composition rather than about the grid.
+    // Printed because a profile that does not name its cast invites a number
+    // being quoted at a roster it never measured — and because D189 asks
+    // precisely this: what a rig gains by composing the FULL app instead of the
+    // demo shell (which carries three).
+    let seatable = app
+        .world()
+        .get_resource::<ambition_demo_smash::select::SmashRoster>()
+        .map(|roster| roster.0.clone())
+        .unwrap_or_default();
+    eprintln!(
+        "[smash-profile] composition_can_seat={} ids{}",
+        seatable.len(),
+        if seatable.is_empty() {
+            String::new()
+        } else {
+            format!(" — {}", seatable.join(", "))
+        }
+    );
     let live_entities = app
         .world_mut()
         .query::<bevy::prelude::Entity>()

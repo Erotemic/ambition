@@ -20,11 +20,16 @@ every time, whether or not anything is missing:
 
 ```text
 [inspector] this tool never builds; refresh a binary yourself with:
-[inspector]   cargo build -p ambition_app_tools --bin {moveset_export,moveset_takes,capture_scene}
+[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin capture_scene
 [inspector] moveset_export  <target>/debug/moveset_export  (built 2026-08-27 17:04, 2h old)
 [inspector] moveset_takes   NOT BUILT — there will be no recorded takes to look at
 [inspector]                   cargo build -p ambition_app_tools --bin moveset_takes
 ```
+
+⛔ AND THE COMMAND IS COPY-PASTEABLE, which it was not: it printed a brace
+expansion, and `--bin {a,b,c}` expands to `--bin a b c` while cargo takes ONE
+value per `--bin` — *"error: unexpected argument 'moveset_takes' found"*. A
+suggested command that does not run costs the reader a round trip to discover.
 
 ⭐ THE BUILD COMMAND IS NOT ONLY A FAILURE MESSAGE. Somebody refreshing a binary
 that already exists needs the same line as somebody who has none, and the age is

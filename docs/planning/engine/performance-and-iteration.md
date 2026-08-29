@@ -11,6 +11,54 @@ A Unity/Godot competitor must be pleasant to build with as well as capable at
 runtime. Ambition is the primary measurement customer; acceptance games and
 minimal external consumers reveal different dependency/capability footprints.
 
+## ⭐⭐⭐ ONE SCREEN — ASSET-PREPARATION CAMPAIGN, 2026-08-29 (READ THIS FIRST)
+
+**The mean frame was never the problem; asset preparation landing on gameplay
+frames was.** Two windowed RTX 3090 runs bracket the work.
+
+| | before | after |
+|---|---|---|
+| worst IN-PLAY frame | **516.3ms** | **78.4ms** |
+| `bevy_egui pass output has not been prepared` | 28,353 | **0** |
+| `SheetRegistry: loaded 870 sheets` | startup **+ a punch at 23.9s** | both at startup |
+| `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` | 312.8us / 8.87s | **80.1us / 0.94s** |
+| `enforce_session_contract` | 292.3us | 226.9us |
+| profile bundle size | 28G | **642M** |
+
+⛔ **READ THESE CAVEATS OR MISREAD THE TABLE.** The spike RATE is UNCHANGED
+(0.855 vs 0.848 per 1000 frames) — magnitude improved, frequency did not. The
+second run skipped `hall_of_characters`, so the 516ms case was not revisited. The
+mean rose 7.77 → 9.18ms while Tracy went 13.5% → 18.7% of cycles: not comparable.
+
+⭐ **WHAT WAS ACTUALLY WRONG, IN ONE LINE EACH:**
+1. **Three lazy indexes over one 870-entry baked table**, one first built by a
+   PUNCH (189ms). Warmed at startup; the sweep found the other two.
+2. **Demand was raised when a BODY SPAWNED**, i.e. at the opening bell. Now raised
+   from the roster at match preparation.
+3. **`take()` drained the whole demand set in one frame**, so every fighter's ~7
+   sheets (~470MB) finished together. Bounded to one character per frame — swept:
+   unbounded 31 simultaneous / 1049ms, bounded 14 / 222ms.
+4. **The hit-flash material was `get_mut`'d unconditionally**, re-uploading an
+   invisible effect to the GPU every frame.
+5. **`enforce_session_contract` rebuilt a ~40KB schema dump and blake3'd it every
+   frame.** Memoised.
+6. **The select screen's portraits were the last 15 of 15 settled-play decodes** —
+   the HUD held the only handle, so leaving dropped them. `RetainedHudImages`.
+
+⛔⛔ **THE THREE THINGS THAT ARE NOT WHAT THEY LOOK LIKE:**
+- **The 516ms was the CHARACTER GALLERY**, not a match. Match entry was 162ms.
+- **The hitch is EXTRACT, not decode.** Decode is already async on the IO pool;
+  `extract_render_asset<GpuImage>` is 454.9ms max against a 0.1ms mean. The
+  mechanism is how many finished decodes land on ONE frame.
+- **The dev build is 42% slower than it needs to be** (5.12 → 2.96ms with three
+  `opt-level = 0` pins raised to 1) and the pins buy **1–2% of an edit-rebuild**.
+  Every profile bundle is `profiling`; every headless number was `dev`.
+
+▢ **OPEN, AND EACH IS A DECISION WITH A NUMBER ATTACHED:** raise the `opt-level`
+pins · the residency/eviction call (`CharacterSpriteAssets.sheets` has one removal
+site and the doc beside it forbids an evictor) · arm the feature-combination
+checks (~6 min, **six** breakages found).
+
 ## Measurement families
 
 ### Compile and dependency topology

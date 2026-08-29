@@ -133,6 +133,19 @@ fn main() {
         ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
         &room,
     );
+    // ⛔⛔ THE RUNNER, AND THIS BINARY IS WHY IT EXISTS. `Display::Offscreen`
+    // disables `winit`, which is also Bevy's app RUNNER — so without this
+    // `run()` below performs exactly ONE update and returns, the process exits
+    // 0, and NO FILE IS WRITTEN. A capture that reports success having drawn
+    // nothing is the worst failure this tool has, and it was found by trying it.
+    //
+    // It lives here rather than in the builder because the ENGINE's offscreen
+    // face is deliberately caller-stepped: every other offscreen consumer drives
+    // `update()` itself and must not inherit a run loop. ⇒ the one consumer that
+    // calls `run()` asks for the runner, and says why.
+    app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+        std::time::Duration::from_millis(0),
+    ));
     app.insert_resource(CaptureSettings {
         output,
         size,

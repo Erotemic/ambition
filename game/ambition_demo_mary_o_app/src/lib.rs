@@ -89,76 +89,27 @@ pub fn build_windowed_demo_app_entering(
     home_route: &str,
     entry_room: &str,
 ) -> App {
-    use bevy::render::settings::{RenderCreation, WgpuSettings};
-    use bevy::render::RenderPlugin;
-    use bevy::window::{ExitCondition, WindowPlugin};
-
     let mut app = App::new();
-    let plugins = DefaultPlugins
-        // Point the AssetServer file root at the engine's on-disk asset tree
-        // (`crates/ambition_platformer2d_actor_monolith/assets`, where the generated sprite sheets
-        // live), exactly as the hosted app does — via the SHARED umbrella helper,
-        // so the two apps cannot diverge. Without this the default cwd-relative
-        // `"assets"` root has no `sprites/` tree and every character renders as a
-        // bare box. Set on the builder BEFORE `add_plugins`, since `AssetPlugin`
-        // reads its `file_path` when it builds and a later host plugin is too
-        // late to change it.
-        .set(bevy::asset::AssetPlugin {
-            file_path: ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
-            ..default()
-        })
-        .set(WindowPlugin {
-            primary_window: match render {
-                RenderMode::Windowed => Some(Window {
-                    title: "Super Mary-O — 1-1".into(),
-                    ..default()
-                }),
-                RenderMode::Headless | RenderMode::OffscreenGpu => None,
-            },
-            exit_condition: match render {
-                RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::Headless | RenderMode::OffscreenGpu => ExitCondition::DontExit,
-            },
-            close_when_requested: matches!(render, RenderMode::Windowed),
-            ..default()
-        });
-    match render {
-        RenderMode::Windowed => app.add_plugins(plugins),
-        // A real renderer with nothing to present to. `winit` is the only thing
-        // dropped, because a window is the only thing missing.
-        RenderMode::OffscreenGpu => {
-            // `winit` is also the RUNNER. Disabling it leaves Bevy's
-            // default single-pass runner, so `app.run()` performs exactly ONE
-            // update and returns — the app exits 0 having rendered nothing, and
-            // a capture reports success with no file written. Found by trying
-            // it.
-            app.add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
-                .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
-                    std::time::Duration::from_millis(0),
-                ))
-        }
-        RenderMode::Headless => app.add_plugins(
-            plugins
-                // These tests construct several Apps in one process. Logging
-                // and Ctrl+C handlers are process-global and belong to a real
-                // executable host, not a manually stepped no-window fixture.
-                .disable::<bevy::log::LogPlugin>()
-                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
-                // A `backends: None` renderer has no RenderApp. Do not install
-                // extract/render-only plugins that would report that expected
-                // absence as an error or warning.
-                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-                .set(RenderPlugin {
-                    render_creation: RenderCreation::Automatic(WgpuSettings {
-                        backends: None,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .disable::<bevy::winit::WinitPlugin>(),
-        ),
-    };
+    // ⭐ THE ENGINE'S FACE, NOT A FOURTH COPY OF IT. This block used to hand-roll
+    // `DefaultPlugins` — the asset root, the window/exit/close matrix and the
+    // per-mode plugin disables — which is exactly what
+    // `install_windowed_foundation` already does, and what D183 named as the
+    // leak: "a consumer re-deriving the disables". `init_engine_states` is
+    // called by the foundation, so it is no longer called again below.
+    //
+    // ⛔ ONE BEHAVIOURAL DIFFERENCE, AND IT IS THE WHOLE BLAST RADIUS OF THIS
+    // MIGRATION: the hand-rolled `OffscreenGpu` arm also installed
+    // `ScheduleRunnerPlugin`, because disabling `winit` removes the app RUNNER
+    // and `run()` would otherwise perform ONE update and return. The engine's
+    // `Display::Offscreen` deliberately does NOT install a runner — an offscreen
+    // app is stepped by its CALLER, which is what a capture wants. ⇒ the runner
+    // moved to `bin/capture_mary_o.rs`, the only consumer that calls `run()`;
+    // the tests here drive `update()` themselves and never needed it.
+    ambition_platformer2d::app::install_windowed_foundation(
+        &mut app,
+        "Super Mary-O — 1-1",
+        render.into(),
+    );
     ambition_platformer2d::engine::init_engine_states(&mut app);
     // WHICH ROOM, said once. The provider installs its world source as a SYSTEM,
     // so this resource is read on the update that prepares the session and
@@ -272,4 +223,18 @@ pub enum RenderMode {
     /// Everything a window would have given us stays: `CorePipelinePlugin`, the
     /// gizmo pass, the real wgpu backend. Only `winit` and the window itself go.
     OffscreenGpu,
+}
+// Gated exactly as `RenderMode` is: the enum lives behind `visible`, so an impl
+// mentioning it outside the gate is a compile error in the no-warnings job.
+#[cfg(feature = "visible")]
+impl From<RenderMode> for ambition_platformer2d::app::Display {
+    /// The demo's three modes ARE the engine's three faces; this states the
+    /// mapping once instead of letting each arm re-derive it.
+    fn from(mode: RenderMode) -> Self {
+        match mode {
+            RenderMode::Windowed => Self::Window,
+            RenderMode::Headless => Self::NoGpu,
+            RenderMode::OffscreenGpu => Self::Offscreen,
+        }
+    }
 }

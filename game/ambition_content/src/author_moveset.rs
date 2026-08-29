@@ -98,7 +98,7 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     // is for every other teleport in the game.
     //
     // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is
-    // whether the move RUNS THE EXECUTOR — not whose move it is. The Actor's
+    // whether the move RUNS THE EXECUTOR — not whose move it is. The Performer's
     // trap (`author_trapdoor`) and Alice's side-B (an `impulse`) never do, so
     // their cue is chosen rather than duplicated. ⛔ any move authored through
     // `author_teleport` is on the other side of that line and must not carry

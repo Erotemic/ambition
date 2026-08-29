@@ -62,12 +62,12 @@ pub const SMASH_ROSTER: &[&str] = &[
     // nothing in the game depends on any of them being picked.
     //
     // ⚠ The two faceted ones came first; the two HAND-DRAWN ones follow them,
-    // paired with the archetype each borrows — the Actor after the Author on the
+    // paired with the archetype each borrows — the Performer after the Author on the
     // sword side, the Medic after the Officer on the brawler side. Neither of
     // the two has gameplay rules for her own specials yet: those exist as clips
     // and hit volumes in the sprite repository and as nothing here.
     "author",
-    "actor",
+    "performer",
     "officer",
     "medic",
     // THE STAND-INS, and they are LAST for a reason. See [`STAND_INS`].

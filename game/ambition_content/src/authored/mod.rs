@@ -13,7 +13,6 @@
 
 use ambition_platformer2d::character::CharacterDefinition;
 
-mod actor;
 mod author;
 mod goblin;
 mod hall_humanoids;
@@ -40,6 +39,7 @@ mod npc_puppy_slug;
 mod npc_salvage_guard;
 mod officer;
 mod perfect_cellular_automaton;
+mod performer;
 mod pointed_polygon;
 mod projectile_polygon;
 mod pugnacious_polygon;
@@ -125,12 +125,12 @@ pub(crate) const AUTHORED_CAST: &[(
     //
     // ⚠ Two of the four are hand-drawn rather than faceted, and neither has
     // gameplay rules for her own specials yet: the Medic's ADRENALINE / FIELD
-    // DRESSING pair and the Actor's trap door and flyline exist as CLIPS and
+    // DRESSING pair and the Performer's trap door and flyline exist as CLIPS and
     // hit volumes in the sprite repository and as nothing here. They borrow the
     // archetype's specials until someone writes what they cost.
     (&["author"], author::author),
     (&["officer"], officer::author),
-    (&["actor"], actor::author),
+    (&["performer"], performer::author),
     (&["medic"], medic::author),
     (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];

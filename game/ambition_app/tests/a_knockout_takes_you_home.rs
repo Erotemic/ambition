@@ -50,7 +50,7 @@ fn an_ordinary_knockout_returns_to_the_select_screen_on_its_own() {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster(["actor", "actor"]);
+    let mut roster = ambition_demo_smash::smash_roster(["performer", "performer"]);
     // One stock, so a single ring-out is the whole match.
     roster.rules.stocks = Some(1);
     app.world_mut().insert_resource(roster);

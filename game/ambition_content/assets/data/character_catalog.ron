@@ -2986,10 +2986,10 @@
             ),
             hall_dialogue_id: None,
         ),
-        "actor": (
-            display_name: "The Actor",
-            spritesheet: "sprites/actor_spritesheet.png",
-            manifest: "sprites/actor_spritesheet.ron",
+        "performer": (
+            display_name: "The Performer",
+            spritesheet: "sprites/performer_spritesheet.png",
+            manifest: "sprites/performer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,

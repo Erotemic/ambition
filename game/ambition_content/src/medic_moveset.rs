@@ -244,7 +244,7 @@ mod tests {
     /// ⛔⛔ ALL FIVE SPECIAL VERBS ARE HERS. `special_air_down` sits AHEAD of
     /// `special_down` in the brawler's chain, so replacing only the grounded
     /// half would leave an airborne press falling through to the archetype's
-    /// falling edge — the exact half-replacement the Actor's trap had to learn.
+    /// falling edge — the exact half-replacement the Performer's trap had to learn.
     #[test]
     fn every_special_slot_answers_to_a_move_of_her_own() {
         let set = medic_moveset();

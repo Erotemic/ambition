@@ -1,4 +1,4 @@
-//! The Actor — easter-egg sword humanoid, carrying no sword.
+//! The Performer — easter-egg sword humanoid, carrying no sword.
 //!
 //! A performer who commits to the role completely: long lines, weight on the
 //! back foot, every gesture held a beat too long because a gesture that is not
@@ -32,7 +32,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         })
-        .with_moveset(crate::actor_moveset::actor_moveset());
+        .with_moveset(crate::performer_moveset::performer_moveset());
     // Medium, and one point over the Author's: the reach she conjures is worth
     // less than his pen because it is only there while she commits to it, and
     // she eats the recovery either way.

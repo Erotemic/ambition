@@ -1,4 +1,4 @@
-//! The Actor's down-B, in the SHIPPED SMASH COMPOSITION and under smash rules.
+//! The Performer's down-B, in the SHIPPED SMASH COMPOSITION and under smash rules.
 //!
 //! ⛔⛔ ON THE SMASH STAGE, NOT AN AMBITION ROOM. Jon, 2026-08-28: *"when we are
 //! doing smash moves we probably should be using the smash stage and not any
@@ -22,7 +22,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// It looks like the pop up happens immediately."* It was authored as a HELD
 /// charge — freeze while the button is down — so a player steering with the
 /// stick and no finger on B got three ticks under the boards. The authoring test
-/// in `actor_moveset` was green throughout, because the policy WAS on the spec;
+/// in `performer_moveset` was green throughout, because the policy WAS on the spec;
 /// what was wrong was what the policy meant.
 ///
 /// ⛔ SO THE ARMS STRADDLE THE PRESS, and neither one holds anything. Idle
@@ -50,7 +50,7 @@ fn the_trap_keeps_her_under_the_stage_until_an_action_press_ends_it() {
         // talking to a slot nobody owns. `smash_ride.rs` records the day that
         // cost.
         app.world_mut()
-            .insert_resource(ambition_demo_smash::smash_roster(["actor", "actor"]));
+            .insert_resource(ambition_demo_smash::smash_roster(["performer", "performer"]));
         app.world_mut()
             .write_message(ShellCommand::GoTo(ShellRouteId::new(
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

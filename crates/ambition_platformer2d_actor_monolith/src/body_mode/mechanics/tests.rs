@@ -531,7 +531,7 @@ fn flying_suppresses_ladder_auto_climb() {
 
 /// ⛔⛔ A MODE THIS DRIVER DOES NOT OWN SURVIVES IT, and `Submerged` did not.
 ///
-/// The Actor's trapdoor drops her under the stage by setting
+/// The Performer's trapdoor drops her under the stage by setting
 /// `BodyMode::Submerged` and schedules a surfacing beat a second later. This
 /// driver's tail resolves Standing-or-Crouching from the stick and writes it
 /// unconditionally, so she was stood back up on the NEXT tick: drawn, hittable,

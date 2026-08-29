@@ -6,7 +6,6 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`actor_moveset`](src/actor_moveset.rs) | The Actor — the sword archetype's table, with four specials of her own. |
 | [`alice_moveset`](src/alice_moveset.rs) | Alice's repertoire — the cryptographer, and the one who SENDS. |
 | [`archetype_moveset`](src/archetype_moveset.rs) | One fighter borrowing another's TIMINGS, under its own name. |
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
@@ -38,6 +37,7 @@
 | [`oiler_moveset`](src/oiler_moveset.rs) | Oiler's authored Smash repertoire. |
 | [`pack`](src/pack.rs) | Ambition's own content pack — the compile that IS the load path. |
 | [`patent_clerk_moveset`](src/patent_clerk_moveset.rs) | Patent Clerk's authored Smash repertoire. |
+| [`performer_moveset`](src/performer_moveset.rs) | The Performer — the sword archetype's table, with four specials of her own. |
 | [`pirate_admiral_moveset`](src/pirate_admiral_moveset.rs) | Pirate Admiral's authored Smash repertoire. |
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | Player Robot incarnations generated from shared source. |
 | [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's canonical move repertoire — the moves that ARE the protagonist, wherever it is seated. |

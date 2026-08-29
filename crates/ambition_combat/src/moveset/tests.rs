@@ -4206,7 +4206,7 @@ fn the_released_fraction_is_frozen_for_the_rest_of_the_move() {
 }
 
 /// ⛔⛔ ...AND A CHARGING TRAPDOOR TRAVELS. The freeze is one mechanic and it
-/// serves two moves: a smash holds a WINDUP, and the Actor's trapdoor holds a
+/// serves two moves: a smash holds a WINDUP, and the Performer's trapdoor holds a
 /// second of travel under the stage. Jon asked for both in his own words — *"they
 /// should not be able to walk or move"* for the first, *"I do want the player to
 /// be able to control where they move"* for the second — so the policy says

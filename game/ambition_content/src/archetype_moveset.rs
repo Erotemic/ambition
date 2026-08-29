@@ -141,9 +141,9 @@ mod tests {
                 1,
             ),
             (
-                crate::actor_moveset::actor_moveset(),
+                crate::performer_moveset::performer_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
-                "actor",
+                "performer",
                 &["polygon", "pointed_polygon"][..],
                 // All four specials are hers, and the down slot is a posture
                 // pair: five verbs she authored rather than borrowed.
@@ -240,7 +240,7 @@ mod tests {
             }
             // ⛔⛔ EXACT, NOT A TOLERANCE. This used to allow a slack of two,
             // which was sized when one fighter owned one slot — and the moment
-            // the Actor owned three it could not tell "she authored her own down
+            // the Performer owned three it could not tell "she authored her own down
             // and up specials" from "the rename quietly stopped lining up",
             // which is the only thing this assertion exists to catch. A fighter
             // states how many slots are HERS and the rest must match.

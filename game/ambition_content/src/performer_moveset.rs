@@ -1,4 +1,4 @@
-//! The Actor — the sword archetype's table, with four specials of her own.
+//! The Performer — the sword archetype's table, with four specials of her own.
 //!
 //! ⭐ AND SHE CARRIES NO SWORD. The Pointed Polygon's frame data retargets onto
 //! her for the reason the Author's does: his pen occupies the arming sword's
@@ -113,13 +113,13 @@ const FIREWORK_VFX: &str = "starstuff_burst";
 const WIRE_AT_S: f32 = 0.12;
 const WIRE_ENDS_S: f32 = 0.46;
 
-/// Complete sword-fundamentals repertoire, attributed to the Actor, with her
+/// Complete sword-fundamentals repertoire, attributed to the Performer, with her
 /// own down and up specials in place of the archetype's.
-pub fn actor_moveset() -> MovesetContract {
+pub fn performer_moveset() -> MovesetContract {
     let mut set = crate::archetype_moveset::under_own_name(
         crate::pointed_polygon_moveset::pointed_polygon_moveset(),
         &["polygon", "pointed_polygon"],
-        "actor",
+        "performer",
     );
     crate::special_slots::replace_special(&mut set, "special_down", the_trap());
     crate::special_slots::replace_special(&mut set, "special_air_down", the_trap_airborne());
@@ -151,7 +151,7 @@ pub fn actor_moveset() -> MovesetContract {
 /// bolted to a single move.
 fn the_monologue() -> MoveSpec {
     let mut spec = strike(Strike {
-        id: "actor_monologue",
+        id: "performer_monologue",
         clip: "special",
         // Frames 3, 4 and 5 of 8 at 75ms — the window the art marks live.
         startup_s: 0.225,
@@ -204,7 +204,7 @@ fn the_monologue() -> MoveSpec {
 /// nothing in her hand.
 fn the_line() -> MoveSpec {
     let mut spec = strike(Strike {
-        id: "actor_the_line",
+        id: "performer_the_line",
         clip: "shoot",
         // Frames 3 and 4 of 8 at 60ms.
         startup_s: 0.18,
@@ -234,11 +234,11 @@ fn the_line() -> MoveSpec {
 /// postures — the boards are wherever she is — so both forms are the same
 /// authoring with different ids.
 fn the_trap() -> MoveSpec {
-    trapdoor("actor_trapdoor", "blink_out")
+    trapdoor("performer_trapdoor", "blink_out")
 }
 
 fn the_trap_airborne() -> MoveSpec {
-    trapdoor("actor_trapdoor_air", "blink_out")
+    trapdoor("performer_trapdoor_air", "blink_out")
 }
 
 /// Down special: the boards give, she drops through, and she comes up somewhere
@@ -424,7 +424,7 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
 /// Up special: a wire catches her at the waist and takes her out of the scene.
 fn the_flyline() -> MoveSpec {
     let mut spec = ambition_characters::moveset_authoring::hitless_special(
-        "actor_curtain_call",
+        "performer_curtain_call",
         "fly",
         WIRE_AT_S,
         WIRE_ENDS_S,
@@ -493,8 +493,8 @@ mod tests {
     /// is the freeze itself.
     #[test]
     fn the_subterranean_beat_is_a_duration_an_action_press_can_cut_short() {
-        let set = actor_moveset();
-        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
+        let set = performer_moveset();
+        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
             let trap = set
                 .moves
                 .iter()
@@ -548,11 +548,11 @@ mod tests {
     /// standing a stage-width away is not, or the move would be a screen wipe.
     #[test]
     fn coming_up_through_the_boards_is_a_strike_over_the_door() {
-        let set = actor_moveset();
+        let set = performer_moveset();
         let trap = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_trapdoor")
+            .find(|m| m.id == "performer_trapdoor")
             .expect("the trap is in the table");
         let firework = trap
             .windows
@@ -595,11 +595,11 @@ mod tests {
     /// committed, and that is half of what makes the middle a decision.
     #[test]
     fn the_trap_roots_her_at_both_ends_and_lets_her_steer_between_them() {
-        let set = actor_moveset();
+        let set = performer_moveset();
         let trap = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_trapdoor")
+            .find(|m| m.id == "performer_trapdoor")
             .expect("the trap is in the table");
         for (t, want, what) in [
             (SINK_AT_S * 0.5, 0.0, "dropping through the boards"),
@@ -624,11 +624,11 @@ mod tests {
     /// pinned by the fixed knockback and she could walk away mid-sentence.
     #[test]
     fn the_monologue_holds_the_speaker_as_well_as_the_room() {
-        let set = actor_moveset();
+        let set = performer_moveset();
         let speech = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_monologue")
+            .find(|m| m.id == "performer_monologue")
             .expect("her neutral special");
         for t in [0.05, 0.3, 0.5] {
             assert_eq!(
@@ -656,11 +656,11 @@ mod tests {
         use ambition_characters::smash_teleport::TELEPORT;
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
-        let set = actor_moveset();
+        let set = performer_moveset();
         let wire = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_curtain_call")
+            .find(|m| m.id == "performer_curtain_call")
             .expect("her up special");
         assert!(
             wire.events.iter().any(|e| matches!(
@@ -685,11 +685,11 @@ mod tests {
     /// falling edge instead of the trap.
     #[test]
     fn both_postures_of_her_down_special_are_the_trap() {
-        let set = actor_moveset();
+        let set = performer_moveset();
         for verb in ["special_down", "special_air_down"] {
             let bound = set.verbs.get(verb).map(String::as_str);
             assert!(
-                matches!(bound, Some(id) if id.starts_with("actor_trapdoor")),
+                matches!(bound, Some(id) if id.starts_with("performer_trapdoor")),
                 "{verb} must be the trap, saw {bound:?}"
             );
             let id = bound.unwrap();
@@ -704,8 +704,8 @@ mod tests {
     /// where every census that walks `moves` reports it as part of her kit.
     #[test]
     fn the_archetypes_down_special_does_not_linger() {
-        let set = actor_moveset();
-        for stale in ["actor_low_arc", "actor_falling_edge"] {
+        let set = performer_moveset();
+        for stale in ["performer_low_arc", "performer_falling_edge"] {
             assert!(
                 !set.moves.iter().any(|m| m.id == stale),
                 "`{stale}` is the archetype's down special and must not survive \
@@ -724,8 +724,8 @@ mod tests {
         use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
-        let set = actor_moveset();
-        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
+        let set = performer_moveset();
+        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
             let mv = set
                 .moves
                 .iter()
@@ -773,8 +773,8 @@ mod tests {
         use ambition_characters::smash_teleport::TELEPORT;
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
-        let set = actor_moveset();
-        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
+        let set = performer_moveset();
+        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
             let mv = set.moves.iter().find(|m| m.id == id).expect("her trap");
             for event in &mv.events {
                 match &event.kind {
@@ -806,11 +806,11 @@ mod tests {
         use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_platformer2d::entity_catalog::{MoveEventKind, WindowTag};
 
-        let set = actor_moveset();
+        let set = performer_moveset();
         let mv = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_trapdoor")
+            .find(|m| m.id == "performer_trapdoor")
             .expect("her trap");
         let beat = |submerge: bool| -> f32 {
             mv.events
@@ -839,11 +839,11 @@ mod tests {
     /// lowering carries the cost itself or she gets unlimited flight.
     #[test]
     fn the_flyline_spends_the_airtimes_recovery() {
-        let set = actor_moveset();
+        let set = performer_moveset();
         let up = set
             .moves
             .iter()
-            .find(|m| m.id == "actor_curtain_call")
+            .find(|m| m.id == "performer_curtain_call")
             .expect("her up-B is in the table");
         assert_ne!(
             up.gates.recovery,

@@ -16,7 +16,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// cannot see, and it is the only failure this arm exists for.
 ///
 /// ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is whether
-/// the move RUNS THE EXECUTOR. The Actor's trap (`author_trapdoor`) and Alice's
+/// the move RUNS THE EXECUTOR. The Performer's trap (`author_trapdoor`) and Alice's
 /// side-B (an `impulse`) never do, so their cue is chosen rather than
 /// duplicated. ⛔ naming a move here without checking that is how a second
 /// duplicate hid inside this exemption once already — her wire IS an

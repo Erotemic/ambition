@@ -3,7 +3,7 @@
 //! ⛔⛔ NOT THE SELECTABLE CAST, and the distinction cost a real proof. The
 //! shark's one-hit survivability census scanned this list and read as a
 //! statement about the game; the Smash roster also seats Pointed, Projectile and
-//! Pugnacious Polygon, the Author, the Actor, the Officer, the Medic, Mary-O and
+//! Pugnacious Polygon, the Author, the Performer, the Officer, the Medic, Mary-O and
 //! Sanic, and none of them are here. Twenty-one fighters are selectable; this
 //! list holds a subset, and a hand-kept subset narrows in silence because the
 //! crate that owns the list cannot know a fighter was added somewhere else.

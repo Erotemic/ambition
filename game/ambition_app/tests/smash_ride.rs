@@ -1744,7 +1744,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
     // ⛔⛔ THE ROSTER THE HOST ASSEMBLES, NOT A TABLE SOMEBODY MAINTAINS. This
     // census read `ambition_content::authored_movesets::tables()` plus George
     // Booul by hand and CALLED that the selectable cast. It is not: Pointed,
-    // Projectile and Pugnacious Polygon, the Author, the Actor, the Officer, the
+    // Projectile and Pugnacious Polygon, the Author, the Performer, the Officer, the
     // Medic, Mary-O and Sanic are all pickable and none of them were in it
     //. A hand-kept list narrows in silence — the crate
     // that owns the list has no way to know a fighter was added somewhere else.

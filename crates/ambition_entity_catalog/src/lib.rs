@@ -1254,7 +1254,7 @@ pub struct SmashChargeSpec {
     /// the character is charging their smash attack, they should not be able to
     /// walk or move."* A windup you can stroll out of is not a commitment.
     ///
-    /// ⛔⛔ AND IT IS A PROPERTY OF THE POLICY, NOT OF CHARGING. The Actor's
+    /// ⛔⛔ AND IT IS A PROPERTY OF THE POLICY, NOT OF CHARGING. The Performer's
     /// trapdoor freezes its timeline through this exact mechanic — hold the
     /// button, hold the beat — and the beat it holds is TRAVEL: she is under
     /// the stage steering, and Jon asked for that in the same breath as the

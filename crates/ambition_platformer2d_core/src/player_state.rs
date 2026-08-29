@@ -155,7 +155,7 @@ pub enum BodyMode {
     /// nothing can hit it, gravity does not reach it, and geometry does not
     /// stop it. It still STEERS — this is a way of travelling, not a pause.
     ///
-    /// ⭐⭐ JON, 2026-08-27, on the Actor's trapdoor: *"a trap door opens, the
+    /// ⭐⭐ JON, 2026-08-27, on the Performer's trapdoor: *"a trap door opens, the
     /// actor jumps into it, small pause, the exit trapdoor opens, and she jumps
     /// / pops out of it… I do want the player to be able to control where they
     /// move."* Every one of those clauses is a property of a BODY MODE and not

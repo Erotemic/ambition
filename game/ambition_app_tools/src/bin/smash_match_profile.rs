@@ -264,7 +264,7 @@ fn main() {
     // every existing invocation measures exactly what it measured before. The
     // full app carries 21 ids (`composition_can_seat=`), which is the point:
     // D189's rigs can reach three.
-    let character: String = arg_value(&args, "--character").unwrap_or_else(|| "actor".to_string());
+    let character: String = arg_value(&args, "--character").unwrap_or_else(|| "performer".to_string());
     // Wall seconds of LIVE match to measure before quitting, windowed only.
     // ⭐ It starts when the ROUND goes live, not when the process starts: a cold
     // launch spends ten-plus seconds on cargo, assets and the shell, and a

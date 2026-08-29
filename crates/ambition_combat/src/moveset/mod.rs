@@ -1116,7 +1116,7 @@ pub fn advance_move_playback(
                     });
                     // ⛔⛔ AND FOR ONE MOVE THE BUTTON IS NOT WHAT KEEPS IT. A
                     // smash freezes while you hold, because the hold is the
-                    // commitment. The Actor's trapdoor freezes a SECOND OF
+                    // commitment. The Performer's trapdoor freezes a SECOND OF
                     // TRAVEL — a duration Jon asked for outright, and then asked
                     // to be able to cut short — so its freeze holds itself and a
                     // NEW press is what ends it. Authoring that as a held charge

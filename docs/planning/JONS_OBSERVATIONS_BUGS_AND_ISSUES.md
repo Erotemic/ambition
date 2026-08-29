@@ -947,7 +947,7 @@ different pass."*
   second while she stood on the boards she had just dropped through. The blink
   itself is innocent — `overlay_look` already returns zero intensity for a hidden
   source, so a body that is properly absent does not flash. Photographed either
-  side with `capture_scene pirate_cove player --character actor --press
+  side with `capture_scene pirate_cove player --character performer --press
   hold:down,g,release:down --frames 30 --stride 3`.
 * ✔ **A TRAPDOOR SPRITE SHE IS REPLACED WITH — 2026-08-28.**
   `rendering/submerged.rs` grew a door: one per submerged body (not a singleton
@@ -986,5 +986,8 @@ different pass."*
     silently stood down the winner card, the return to select, AND the
     persistence save. The publisher now asks the session, not `ConfirmedFrameCount`.
 
-* ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
-  actor concept. Explicitly deferred to its own pass.
+* ✔ **RENAME "the actor"** — she is **the Performer** now, id `performer`,
+  across the engine, the content crate, the catalog, the generated sheets and
+  the sprite renderer (target, rig, art source and the `performer_stage_v1`
+  motion library). ⛔ Every GENERIC use of "actor" is untouched, including the
+  `*_actor.ron` sidecar suffix that made `actor_actor.ron`.

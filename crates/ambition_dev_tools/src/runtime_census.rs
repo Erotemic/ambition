@@ -288,6 +288,12 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     report_schedule_membership(&schedules, "PostUpdate", 0.0);
     // Who owns `Update` — the campaign's last unexplained phase that is ours.
     report_schedule_owners_in(&schedules, "Update");
+    // ⭐ AND THE OTHER TWO PHASES THAT CARRY REAL COST. `PostUpdate` is 31% of
+    // what an added FIGHTER costs (presentation and render extraction live
+    // there) and nobody had looked at who owns it; `PreUpdate` holds the 0.93ms
+    // that is neither the sim nor the rollback driver.
+    report_schedule_owners_in(&schedules, "PreUpdate");
+    report_schedule_owners_in(&schedules, "PostUpdate");
     // ⭐ The two phases that inflate WORST between a Smash stage and a real room:
     // `StateTransition` 0.14ms -> 2.06ms (15x) and `RunFixedMainLoop` 0.40 ->
     // 2.42ms (6x). Naming their populations is the first question about either.

@@ -1430,6 +1430,37 @@ response and NOT device-to-sim latency. ⇒ **true input latency needs a real de
 on real hardware**, and it joins the real-hardware item rather than standing as
 its own lead.
 
+### ⭐⭐⭐ WHO OWNS THE FRAME — the whole map, and it says where optimisation CAN'T help
+
+`[census] owners_in` now runs for `PreUpdate`, `Update`, `PostUpdate` and the sim.
+
+**`PreUpdate` — 137 systems, 23 crates** (this is the 0.93ms that is neither the
+sim nor the rollback driver): `bevy_asset` 33 · `bevy_falling_sand` 19 ·
+`bevy_egui` 17 · `<unnamed>` (closures) 9 · `bevy_picking` 9 ·
+`ambition_platformer2d_runtime` 7 · `bevy_input` 7 · `leafwing_input_manager` 6 ·
+`ambition_platformer2d_rollback_ggrs` 5. ⇒ **our own crates own roughly 20 of
+137.** The 0.93ms is overwhelmingly THIRD-PARTY, which is consistent with the
+earlier probe finding its two largest groups (asset trackers, ui-focus+picking)
+worth 0.00 and <=0.145ms.
+
+**`PostUpdate` — 169 systems, 29 crates**: `bevy_asset` 31 · `bevy_lunex` 24 ·
+`bevy_ui` 12 · `bevy_falling_sand` 11 · `bevy_light` 10 · `bevy_app` 8 ·
+`bevy_sprite_render` 8 · `bevy_camera` 7 · … and
+**`ambition_platformer2d_actor_monolith` 3**. ⇒ **our code owns about FIVE of
+169.**
+
+⭐⭐ **AND THAT IS THE LOAD-BEARING FACT: `PostUpdate` IS 31% OF WHAT AN ADDED
+FIGHTER COSTS, AND IT IS ALMOST ENTIRELY BEVY'S.** Transform propagation,
+visibility, sprite extraction, UI layout — a fighter's presentation cost is paid
+inside the engine's pipeline, doing work proportional to the entities we hand it.
+⇒ **that third of a fighter cannot be optimised by editing our own code.** It can
+only be reduced by handing the pipeline FEWER OR SIMPLER ENTITIES, which is a
+content and rig decision, not an engine one.
+
+⇒ combined with the sim table below, the frame's ownership is now fully mapped:
+**the SIM is ours (545 systems, monolith 30%); `PreUpdate` and `PostUpdate` are
+mostly the engine's.** Optimisation effort should go where authorship is.
+
 ### ⭐⭐ WHO OWNS THE SIMULATION — 545 systems, 29 crates, first measured 2026-08-29
 
 Possible only once the sim schedule became enumerable. `[census] owners_in

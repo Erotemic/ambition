@@ -276,6 +276,11 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     report_schedule_membership(&schedules, "PostUpdate");
     // Who owns `Update` — the campaign's last unexplained phase that is ours.
     report_schedule_owners_in(&schedules, "Update");
+    // ⭐ The two phases that inflate WORST between a Smash stage and a real room:
+    // `StateTransition` 0.14ms -> 2.06ms (15x) and `RunFixedMainLoop` 0.40 ->
+    // 2.42ms (6x). Naming their populations is the first question about either.
+    report_schedule_membership(&schedules, "StateTransition");
+    report_schedule_membership(&schedules, "RunFixedMainLoop");
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
@@ -526,6 +531,21 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
             .map(|(_key, system, _conditions)| condition_label(system.name().as_ref()))
             .collect();
         names.sort();
+        // ⛔⛔ A ZERO HERE IS A DRAINED GRAPH, NOT AN EMPTY SCHEDULE. Any schedule
+        // that has already run by `PreStartup` — `StateTransition` and `Startup`
+        // among them — has had its systems MOVED into the private executable, so
+        // this read finds nothing. Measured: this reported `StateTransition
+        // systems=0` while `[census] schedules`, which falls back to
+        // `systems_len()`'s executable count, reported EIGHT. Say which it is,
+        // because "zero systems costing 2ms" is a conclusion somebody will draw.
+        if names.is_empty() {
+            eprintln!(
+                "[census] membership t=0.000 schedule={wanted} \
+                 unavailable=graph_already_initialized (it ran before PreStartup; \
+                 see `[census] schedules` for its executable count)"
+            );
+            return;
+        }
         eprintln!(
             "[census] membership t=0.000 schedule={wanted} systems={} {}",
             names.len(),

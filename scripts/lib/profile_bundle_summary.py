@@ -779,11 +779,61 @@ def build_summary(bundle: Bundle) -> str:
                 "content. Real cost, but nothing to demand earlier.",
                 "",
             ]
+        # ⛔⛔ "DURING GAMEPLAY" ALONE IS NEARLY USELESS AND THE FIRST VERSION OF
+        # THIS SECTION PROVED IT: in a play-through gameplay is live almost
+        # always, so the flag fired on 53 of 53 decodes. What distinguishes an
+        # EXPECTED decode from a contract violation is not whether the player was
+        # playing — it is whether a room was still arriving.
+        #
+        # ⭐ The engine cannot answer that without new coupling (the render census
+        # does not know about rosters or transitions), but the BUNDLE can: the
+        # game's own log carries `room-loaded` with a timestamp. A big decode
+        # seconds after the room settled is the thing worth naming.
+        settle_s = 3.0
+        room_times = sorted(
+            float(m.group(1))
+            for m in re.finditer(r"^\[\s*([0-9.]+)s\]\s+\[world-event\].*room-loaded",
+                                 log, re.MULTILINE)
+        )
+
+        # ⛔ THREE CATEGORIES, NOT TWO. Anything before the FIRST `room-loaded` is
+        # BOOT — there is no room to be settled after. Treating "no prior room
+        # load" as "settled play" counted every boot decode as a violation and
+        # inflated the number; caught because the first room load in this bundle
+        # is at 48.9s while decoding starts at 2.2s.
+        first_room = room_times[0] if room_times else None
+
+        def phase(row: dict) -> str:
+            at = number(row, "wall_s")
+            if first_room is None or at < first_room:
+                return "boot"
+            prior = [t for t in room_times if t <= at]
+            return "streaming" if at - prior[-1] <= settle_s else "settled"
+
+        boot = [row for row in late if phase(row) == "boot"]
+        streaming = [row for row in late if phase(row) == "streaming"]
+        settled = [row for row in late if phase(row) == "settled"]
+        if boot:
+            boot_mp = sum(number(row, "megapixels") for row in boot)
+            lines += [
+                f"✔ {len(boot)} decode(s) landed before the first `room-loaded` "
+                f"({boot_mp:.1f} MP) — boot. Not a gameplay hitch.",
+                "",
+            ]
+        if streaming:
+            lines += [
+                f"⚠ {len(streaming)} decode(s) landed WITHIN {settle_s:.0f}s of a "
+                "`room-loaded` — a room still arriving. Expected, and the reason "
+                "\"during gameplay\" alone is not the contract.",
+                "",
+            ]
+        late = settled
         if late:
             late_mp = sum(number(row, "megapixels") for row in late)
             lines += [
-                f"⛔ **{len(late)} of {len(decodes)} notable decodes happened DURING "
-                f"GAMEPLAY** ({late_mp:.1f} MP). Each one cost a frame.",
+                f"⛔ **{len(late)} of {len(decodes)} notable decodes landed during "
+                f"SETTLED play** ({late_mp:.1f} MP) — more than {settle_s:.0f}s after "
+                "the last room finished loading. Each one cost a frame.",
                 "",
                 "Worst offenders by megapixels:",
                 "",

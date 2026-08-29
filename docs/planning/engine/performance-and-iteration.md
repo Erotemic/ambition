@@ -2415,8 +2415,30 @@ everything. ⚠ **I ALSO MISREAD IT FIRST**, reporting "0 late decodes" from a b
 shell quote — the opposite of the truth.
 ⇒ what the row actually asked for was a late **MATCH-CRITICAL** asset — one the
 CURRENT match's roster needs, arriving after the bell — and I simplified that to
-"any decode while playing". ▢ The fix is to scope it to the cast the match
-declared, which is exactly what makes it a CONTRACT rather than a log line.
+"any decode while playing".
+
+✔✔ **FIXED BY SCOPING IN THE ANALYSIS, NOT THE ENGINE.** `ambition_render` cannot
+see rosters or transitions without new coupling, but **the bundle already carries
+`room-loaded` with a timestamp**, so the summary classifies each decode by PHASE
+instead of by "was the player playing":
+
+| phase | this run |
+|---|---|
+| before the first `room-loaded` — **boot** | 31 decodes, 93.8 MP — ✔ not a hitch |
+| within 3s of a `room-loaded` — **a room still arriving** | 7 — ⚠ expected |
+| more than 3s after — **SETTLED PLAY** | **15, 20.9 MP** — ⛔ the contract violation |
+
+⇒ **53 of 53 becomes 15 of 53**, and 20.9MP instead of 150.8MP. The engine keeps
+emitting a fact (`live=`); the correlation lives where the room events already
+are. ⭐ No new cross-crate dependency was needed to make the instrument mean
+something.
+
+⛔⛔ **AND THE FIRST CUT OF THAT CLASSIFIER WAS WRONG TOO — CAUGHT BY CHECKING ITS
+EDGE.** "No prior room load" was treated as settled play, so every BOOT decode
+counted as a violation and it reported **46**. The first `room-loaded` in this
+bundle is at 48.9s while decoding starts at 2.2s. ⇒ **a classifier needs a
+category for "before anything happened"**, and the way to find that is to print
+the boundary rather than trust the branch.
 
 ⭐ So the mechanism claim stands and is now visible on hardware: **decodes still
 happen during play (31 after boot), they simply no longer pile into one frame.**

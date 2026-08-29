@@ -2374,6 +2374,54 @@ which is why it was labelled rather than assumed correct.
 ⚠ Tracy inflates ~2.4x, so the real figure is ~130us/frame — **~1.7% of a 7.77ms
 frame**. Worth taking because it is constant and free, not because it is large.
 
+#### ✔✔✔ SECOND HARDWARE RUN: THE WORST IN-PLAY FRAME IS 78ms, DOWN FROM 516ms
+
+`profiles/desktop-timeline-run-20260829T171902Z`, same host, Tracy on. **Every
+count-based check passes, and those are the robust ones — a line is present or it
+is not:**
+
+| check | before | after |
+|---|---|---|
+| `bevy_egui pass output has not been prepared` | **28,353** | **0** |
+| `SheetRegistry: loaded 870 sheets` | 2 — startup **and a punch at 23.9s** | 2 — **both at startup** (3.771s warm, 3.774s init) |
+| `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` | 312.8us mean / 8.87s | **80.1us / 0.94s** |
+| `enforce_session_contract` | 292.3us mean | **226.9us** |
+| bundle size | 28G | **642M** (pruner removed 10.8GB) |
+
+⭐⭐⭐ **AND THE SPIKES DURING PLAY, WHICH IS THE POINT.** Excluding boot (>10s), the
+two runs list:
+
+```text
+BEFORE  69.8  198.3  34.2  66.2  131.6  130.5  162.4  43.6  34.3  34.3  63.3  99.6  197.8  516.3  393.2  467.0 ...
+AFTER   64.9   41.3  74.2  57.0   78.4   46.5
+```
+
+⇒ **worst in-play frame 516.3ms → 78.4ms, and NOTHING over 80ms.** The run entered
+a match TWICE.
+
+⛔⛔ **BUT READ THE REST HONESTLY, BECAUSE THREE NUMBERS DO NOT SUPPORT A VICTORY:**
+- **The spike RATE is unchanged: 0.855 per 1000 frames against 0.848.** The count
+  fell 24 → 10 only because the run was 11,761 frames instead of 28,291. **What
+  improved is the MAGNITUDE, not the frequency.**
+- The route differed — **no `hall_of_characters`**, so the 516ms case was never
+  revisited. The comparison above is in-play spikes generally, not that room.
+- The mean rose 7.77 → 9.18ms, and Tracy went **13.5% → 18.7% of cycles**. Not
+  comparable; do not read it either way.
+
+⛔⛔ **AND MY OWN NEW INSTRUMENT IS TOO COARSE — IT FLAGGED 53 OF 53 DECODES.** All
+150.8MP decoded "during gameplay", 31 of them after boot. That is *true* and nearly
+useless: in a play-through gameplay is live almost always, so `live=1` fires on
+everything. ⚠ **I ALSO MISREAD IT FIRST**, reporting "0 late decodes" from a bad
+shell quote — the opposite of the truth.
+⇒ what the row actually asked for was a late **MATCH-CRITICAL** asset — one the
+CURRENT match's roster needs, arriving after the bell — and I simplified that to
+"any decode while playing". ▢ The fix is to scope it to the cast the match
+declared, which is exactly what makes it a CONTRACT rather than a log line.
+
+⭐ So the mechanism claim stands and is now visible on hardware: **decodes still
+happen during play (31 after boot), they simply no longer pile into one frame.**
+That is what pacing was supposed to buy.
+
 #### ⭐⭐⭐ THE DEV BUILD IS 42% SLOWER THAN IT NEEDS TO BE, AND THAT IS THE BUILD JON PLAYS
 
 **MEASURED 2026-08-29, three reps per arm, headless `smash_match_profile --ticks

@@ -402,6 +402,22 @@ Both are recorded below.
 
 ## Campaign 2026-08-29 — runtime efficiency, 24h
 
+### ⛔ A NOTE ON "THE BRIEF" AND ON DIRECTION NUMBERS — read before following any pointer
+
+**"The brief"** in this document means the two GPT-authored prompts Jon supplied
+when the campaign started. They are NOT in this repository and are not linked
+anywhere, so ⛔ **a reference to "the brief's direction N" cannot be followed** —
+including one to a "direction 8", which does not exist under any numbering here.
+
+⚠ **AND "direction N" IS AMBIGUOUS IN THIS FILE.** It means two different things:
+the SIX directions defined in this document (§1 run conditions on sets … §6
+startup), and the TEN in
+[`runtime-efficiency-architecture.md`](runtime-efficiency-architecture.md). They
+do NOT correspond — this document's §5 is dev instrumentation, while the
+architecture synthesis' §5 is world residency. ⇒ **when a pointer says "direction
+N", check which document it means before acting on it**; several passages below
+use the token both ways.
+
 ### ⭐ READ THIS FIRST — the campaign in one screen
 
 Everything below is the working record, including retractions. This is what

@@ -1924,6 +1924,27 @@ false."* **These are the tenth and eleventh.** ⭐ A waiver naming a PROPERTY
 ("immutable", "never edited in place") is a claim about code that drifts; the
 checker can only see that a sentence is present.
 
+⛔⛔ **AND SWEEPING THE REST OF THE LIST THE SAME WAY FOUND FOUR MORE — SO SIX
+TODAY, AND THE LIST IS NOW KNOWN-UNRELIABLE RATHER THAN SUSPECTED.** 72 entries,
+40 of which claim immutability; grepping each for `ResMut<T>` / `Mut<T>` outside
+tests leaves six candidates, and reading them convicts four:
+
+| type | recorded claim | the write |
+|---|---|---|
+| `ActorConfig` | *"nothing writes it after spawn"* | `apply_catalog_mode` writes `brain_profile`, `brain`, `sprite_override_npc_name` on a controller change |
+| `CombatCapabilities` | *"immutable at runtime"* | `*caps = peaceful.capabilities` — whole-value overwrite |
+| `ActionSet` | *"immutable at runtime"* | `*action_set = peaceful.action_set` — whole-value overwrite |
+| `CutRopeHeavyObjectCycle` | *"immutable at runtime"* | `reset_cut_rope_boss_arena_on_room_reset` calls `advance()` |
+
+⇒ their sentences now say what is true and that each **wants a value
+projection**; ⛔ the projections themselves are NOT built here — that is content
+for a funded pass, and an exemption list saying "wants a projection" is a TODO
+list, which is the honest state. ⭐ **The cheap general lesson: a waiver that
+names a PROPERTY of code ("immutable", "nothing writes it") is falsifiable by
+grep in seconds, and this one was wrong 6 times in 40.** Prefer a waiver that
+names the OWNER or the MECHANISM ("the mutable half is `SwitchOn`, value-probed")
+— those survived the sweep.
+
 ✔ **FIXED — THE OBSERVABILITY HALF ONLY, WHICH IS THE HALF THAT IS SAFE.** Both
 resources now register through `rollback_resource_clone_checksum`, so the sync
 test can finally see them. ⛔ **This changes NO quest or save behaviour** — it

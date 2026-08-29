@@ -438,7 +438,9 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_combat::actor_tuning::ActorConfig",
-            "authored actor definition; nothing writes it after spawn",
+            "MUTATED AT RUNTIME (checked 2026-08-29): `apply_catalog_mode` writes\
+             `brain_profile`, `brain` and `sprite_override_npc_name` on a controller\
+             change — wants a value projection",
         ),
         (
             "ambition_platformer2d_shared_tangle::body::SpawnBaseline",
@@ -518,7 +520,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_characters::brain::action_set::ActionSet",
-            "authored action set; immutable at runtime",
+            "MUTATED AT RUNTIME (checked 2026-08-29): `apply_catalog_mode` overwrites\
+             the whole value for a peaceful body — wants a value projection",
         ),
         (
             "ambition_characters::brain::action_set::IdentityKit",
@@ -534,7 +537,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_combat::components::CombatCapabilities",
-            "authored capability set; immutable at runtime",
+            "MUTATED AT RUNTIME (checked 2026-08-29): `apply_catalog_mode` overwrites\
+             the whole value for a peaceful body — wants a value projection",
         ),
         (
             "ambition_combat::components::CombatTuning",
@@ -618,7 +622,9 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle",
-            "authored boss cycle; immutable at runtime",
+            "MUTATED AT RUNTIME (checked 2026-08-29):\
+             `reset_cut_rope_boss_arena_on_room_reset` calls `advance()` — wants a\
+             value projection",
         ),
         (
             "ambition_encounter::entity::Encounter",

@@ -1115,6 +1115,40 @@ averaging two different matches. (An earlier reading of `bodies=3` for
 `--fighters 4` is the same knockout seen through a different column — ⛔ `bodies`
 counts `BodyKinematics`, and is NOT the fighter count.)
 
+### ⭐⭐⭐ WHERE A FIGHTER'S COST GOES — and the engine's cost model in four numbers
+
+1200-tick arms, both keeping their cast (`seats_at_end` 2 and 4, no population
+warning), so this comparison is clean. Frame **4.58 → 4.83ms**, +0.25ms for two
+fighters:
+
+| phase | 2 fighters | 4 fighters | delta | share of the delta |
+|---|---|---|---|---|
+| `PreUpdate` | 2.033 | 2.137 | +0.104 | 42% |
+| `PostUpdate` | 0.529 | 0.607 | **+0.078** | 31% |
+| `Update` | 1.307 | 1.373 | +0.066 | 26% |
+| `RunFixedMainLoop` | 0.348 | 0.363 | +0.015 | 6% |
+| `StateTransition` | 0.169 | 0.154 | −0.015 | — |
+
+The gameplay sim accounts for **+0.086ms** of it (`WorldPrep` +0.048, `Combat`
++0.015, `PlayerSimulation` +0.008). ⇒ **a fighter costs about a THIRD in
+simulation, a THIRD in presentation (`PostUpdate`), and a QUARTER in `Update`** —
+which is what a fighter IS: a multi-part sprite rig plus a brain plus combat
+state. ⛔ Optimising only the sim addresses a third of it.
+
+⭐⭐ **THE ENGINE'S COST MODEL, as measured by this campaign:**
+
+| quantity | price | where |
+|---|---|---|
+| baseline frame, 2-fighter match | **~4.5ms** | ~630 systems, 2.9–15.6us each, NO hot one |
+| **per FIGHTER** | **~125us** | ~1/3 sim, ~1/3 `PostUpdate`, ~1/4 `Update` |
+| per BODY | **~16us** | `WorldPrep` |
+| per VISIBLE SPRITE | **~1.4us** | render extraction; 295 sprites = +0.36ms |
+| a frame SPIKE | **+3.6ms** at the tail | ⛔ NOT the sim (+1.4% across quartiles) |
+
+⇒ this is the sheet to price a feature against, and the reason the campaign
+recommends retiring whole CLASSES rather than tuning systems: nothing on it is
+dominated by any single system.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

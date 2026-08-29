@@ -25,6 +25,7 @@ use ambition_platformer2d_core::{self as ae};
 /// authored on a move's timeline lands on the frame the move says.
 pub fn apply_authored_trapdoors(
     world: ambition_platformer2d_world::collision::CollisionWorld,
+    mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
@@ -35,6 +36,12 @@ pub fn apply_authored_trapdoors(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::movement::MotionModel,
     )>,
+    // ⛔⛔ THE MOVE THAT AUTHORED THE BEAT, so a refused submerge can END it.
+    // Without this the timeline runs on regardless — including the three-second
+    // `smash_charge` freeze, which knows nothing about whether she went under —
+    // and a fighter who pressed down-B a frame after walking off a ledge hangs
+    // motionless in mid-air for three seconds. See the refusal below.
+    mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
     // ⛔⛔ THE SURFACING IS A CLASS-B REMAP AND WENT UNRECORDED. It picks a
@@ -80,6 +87,40 @@ pub fn apply_authored_trapdoors(
         let mut door = clusters.kinematics.pos;
 
         if params.submerge {
+            // ⛔⛔ THERE IS NO FLOOR TO CUT A HATCH IN. Jon, 2026-08-29: *"if she
+            // isn't on the ground the trap door can't open and she can't go
+            // subterranian, so the move cancels."*
+            //
+            // ⭐⭐ ASKED OF THE BODY AT THE BEAT, NOT OF WHICH MOVE RAN. The
+            // posture chain already routes an airborne PRESS to the air form, so
+            // this is not that rule restated — it is the case the chain cannot
+            // see: a press made on the boards by a fighter who is off them by
+            // the time the door opens, one tenth of a second later. Walking off
+            // a ledge, a platform dropped through, a footstool taken. The
+            // authored variant answers where she pressed; only the live body
+            // answers where she IS.
+            //
+            // ⛔ AND THE MOVE ENDS RATHER THAN CONTINUING WITHOUT ITS MIDDLE.
+            // The rest of this timeline is written for a body under the stage —
+            // the freeze, the exit door, the emergence strike — and running it
+            // over a body standing in the air is three seconds of nothing
+            // followed by a firework out of empty space.
+            //
+            // ⭐ THE SMOKE HAS ALREADY GONE OFF, and that is the point of it
+            // being on the move's own timeline rather than emitted here: the
+            // misdirection is spent whether or not the trick worked, which is
+            // what makes the airborne press a feint instead of a dead button.
+            if !clusters.ground.on_ground {
+                if let Ok(mut playback) = playbacks.get_mut(message.actor) {
+                    ambition_combat::moveset::cancel_move_playback(
+                        &mut commands,
+                        message.actor,
+                        &mut playback,
+                        ambition_combat::moveset::MoveEnd::Interrupted,
+                    );
+                }
+                continue;
+            }
             clusters.body_mode.body_mode = ae::player_state::BodyMode::Submerged;
             // ⛔⛔ THE FALL IS ENDED, NOT INHERITED. She may have pressed this
             // out of a run or a drop, and a submerged body integrates its own

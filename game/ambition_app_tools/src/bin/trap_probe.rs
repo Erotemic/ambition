@@ -26,6 +26,7 @@
 mod probe_stage;
 
 use ambition_platformer2d::characters::control::DrivingParticipant;
+use ambition_platformer2d::engine_core as ae_vec;
 use ambition_platformer2d::engine_core::{BodyKinematics, BodyMode, BodyModeState, ControlFrame};
 use bevy::prelude::*;
 
@@ -59,6 +60,14 @@ fn main() {
     // shell somebody plays, and this move has been reported broken in play while
     // measuring healthy here.
     let demo_host = std::env::args().any(|a| a == "host=demo");
+    // ⭐⭐ THE OTHER POSTURE, AND IT IS A DIFFERENT MOVE. Jon, 2026-08-29: *"if
+    // she isn't on the ground the trap door can't open and she can't go
+    // subterranian, so the move cancels. So it doesn't do much in the air, just
+    // a poof of smoke."* An `air` run should show NO submerged tick, NO door,
+    // and a move that ends in a fraction of the grounded one's time — and the
+    // grounded run beside it is what stops "no door" reading as success when the
+    // move is simply broken.
+    let airborne = std::env::args().any(|a| a == "air");
     // ⭐⭐ `render` GIVES THIS PROBE A PRESENTATION LAYER. `NoWindow` omits the
     // render app entirely — 0 body visuals — so every presentation question this
     // probe asked was unanswerable. `OffscreenGpu` is a REAL wgpu backend with no
@@ -121,8 +130,27 @@ fn main() {
         );
         app.update();
     }
+    if airborne {
+        // ⛔ PROBE-SIDE PLACEMENT, honest for an instrument: it lifts her OFF the
+        // boards, it does not change what the move does from there. High enough
+        // that she is unambiguously airborne for the whole press, and moving, so
+        // the run cannot be read as a body resting on invisible ground.
+        if let Some(mut k) = app.world_mut().get_mut::<BodyKinematics>(seat0) {
+            k.pos.y -= 180.0;
+            k.vel.y = -60.0;
+        }
+        app.update();
+    }
 
     let start = probe_stage::kin(&app, seat0).0;
+    println!(
+        "[trap_probe] posture = {}",
+        if airborne {
+            "AIRBORNE — expect smoke and nothing else"
+        } else {
+            "grounded"
+        }
+    );
     println!(
         "[trap_probe] standing at ({:.1}, {:.1}), steering {}, B held {hold_frames} frames, down {}",
         start.x,
@@ -172,6 +200,15 @@ fn main() {
     let mut under_end_x = 0.0f32;
     let mut move_ended_at: Option<usize> = None;
     let mut under_ticks_seen = 0usize;
+    // ⛔⛔ THE SMOKE IS COUNTED, NOT ASSUMED. It is the one thing the airborne
+    // form produces, so "the move played" and "the player saw anything" are the
+    // same question here — and a moveset test can only prove the effect is
+    // AUTHORED. What matters is that it is EMITTED.
+    let mut smoke_bursts = 0usize;
+    let mut vfx_cursor = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>()
+        .get_cursor();
     let rival_hp_before = health(&app, seat1);
 
     for tick in 0..WATCH_TICKS {
@@ -185,6 +222,8 @@ fn main() {
         );
         app.update();
 
+        let hers = probe_stage::kin(&app, seat0).0;
+        smoke_bursts += drain_smoke(&mut app, &mut vfx_cursor, ae_vec::Vec2::new(hers.x, hers.y));
         let (pos, vel) = probe_stage::kin(&app, seat0);
         let under = matches!(mode(&app, seat0), Some(BodyMode::Submerged));
         let doors = door_count(&mut app);
@@ -255,6 +294,10 @@ fn main() {
 
     println!("[trap_probe] ── the five stages, measured ──");
     println!(
+        "[trap_probe] SMOKE emitted {smoke_bursts} time(s) — the misdirection \
+         the whole trick hides behind, and the ONLY thing the airborne form does"
+    );
+    println!(
         "[trap_probe] SUBMERGED for {submerged_ticks} ticks \
          (first t{}, last t{})",
         first_under.map(|t| t.to_string()).unwrap_or("never".into()),
@@ -285,11 +328,55 @@ fn main() {
             .map(|t| t.to_string())
             .unwrap_or_else(|| format!(">{WATCH_TICKS}"))
     );
+    if airborne {
+        println!(
+            "[trap_probe] ⇒ AIRBORNE VERDICT: {} submerged ticks (want 0), \
+             {doors_seen} doors (want 0), move ended at t{} (the grounded form \
+             runs past t200). A poof of smoke and nothing else is the design.",
+            submerged_ticks,
+            move_ended_at
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| format!(">{WATCH_TICKS}")),
+        );
+    }
     println!(
         "[trap_probe] ⇒ compare against the five stages in `performer_moveset.rs`: \
          door opens, she sinks, she STEERS under, the exit door opens, she leaps out \
          into a firework that hits above the door."
     );
+}
+
+/// How many `smoke_burst` effects were REQUESTED this tick.
+///
+/// ⛔ COUNTED OFF THE EMITTED MESSAGE, not off the timeline. A moveset test can
+/// prove the event is authored; only this can say the move reached the effect
+/// system, which is the half the Trap's presentation was missing for weeks.
+fn drain_smoke(
+    app: &mut App,
+    cursor: &mut bevy::ecs::message::MessageCursor<ambition_platformer2d::vfx::vfx::VfxMessage>,
+    near: ae_vec::Vec2,
+) -> usize {
+    // ⛔⛔ NEAR HER, BECAUSE SEAT 1 IS A PERFORMER TOO. It keeps its brain and
+    // presses its own down-B on its own schedule, so a stage-wide count reports
+    // TWO bursts for one press and measures the CPU. `VfxMessage` carries a
+    // position and no owner, so proximity is the join available — the same
+    // correction `wire_probe` had to make about counting ropes.
+    const NEARBY_PX: f32 = 120.0;
+    let smoke = ambition_platformer2d::vfx::fx::FxId::new("smoke_burst");
+    let messages = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+    cursor
+        .read(messages)
+        .filter(|m| match m {
+            ambition_platformer2d::vfx::vfx::VfxMessage::Effect { fx, pos, .. } => {
+                *fx == smoke
+                    && (pos.x - near.x).abs() < NEARBY_PX
+                    && (pos.y - near.y).abs() < NEARBY_PX
+            }
+            _ => false,
+        })
+        .count()
 }
 
 /// ⛔⛔ THE WHOLE VISIBILITY CHAIN, IN ONE STRING — because Jon's report is that

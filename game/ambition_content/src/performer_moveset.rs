@@ -110,6 +110,29 @@ const SURFACE_REACH: f32 = 140.0;
 /// and the whole complaint: a trapdoor is wood and hinges, not a star flash.
 const TRAPDOOR_VFX: &str = "trapdoor_boards";
 
+/// THE PUFF OF SMOKE THE WHOLE TRICK HIDES BEHIND.
+///
+/// ⭐⭐ JON, 2026-08-29: *"I would like the start of her down-b to cause a puff
+/// of smoke (like a real play would use to disguise going through a trap
+/// door)."* That is the stagecraft the move has been missing: a real
+/// disappearance is not the audience watching you leave, it is the audience
+/// losing sight of you for a moment and finding you gone.
+///
+/// ⛔ IT FIRES ON BOTH FORMS AND ON THE FIRST FRAME, before anything is known
+/// about whether the boards will give. The smoke is the MISDIRECTION, so it
+/// cannot wait to find out whether the trick worked — an effect that only
+/// appears when the move succeeds tells an opponent which one they are watching.
+const SMOKE_VFX: &str = "smoke_burst";
+
+/// How long the airborne form lasts — smoke, and a beat to be caught in.
+///
+/// ⭐⭐ SHORT ON PURPOSE. Jon: *"it doesn't do much in the air, just a poof of
+/// smoke, but that's better than no effect in the air."* It is a FEINT: it
+/// costs a little endlag, it looks exactly like the real thing for the first
+/// few frames, and it buys nothing. A move that did nothing at all would be a
+/// dead button; a move that did something useful would not be the trick failing.
+const AIR_PUFF_ENDS_S: f32 = 0.30;
+
 /// The emergence. ⛔ NOT the boards: those are the door opening, and this is
 /// what comes out of it.
 const FIREWORK_VFX: &str = "starstuff_burst";
@@ -298,17 +321,54 @@ fn the_line() -> MoveSpec {
     on_contact(spec, "player.hit")
 }
 
-/// ⛔ TWO IDS FOR ONE MOVE, because the archetype's down special is a
+/// ⛔ TWO IDS FOR ONE SLOT, because the archetype's down special is a
 /// `DownSpecial::ByPosture` pair and a slot left half-replaced is a press that
-/// falls through to the neutral special. The trap means the same thing in both
-/// postures — the boards are wherever she is — so both forms are the same
-/// authoring with different ids.
+/// falls through to the neutral special — the player pressed down-B and got the
+/// monologue.
+///
+/// ⛔⛔ AND THE TWO FORMS ARE NO LONGER THE SAME AUTHORING. They were, on the
+/// reasoning that *"the boards are wherever she is"* — which is false, and Jon
+/// said so: *"if she isn't on the ground the trap door can't open and she can't
+/// go subterranian, so the move cancels."* There is no floor to cut a hatch in
+/// mid-air. The grounded form is the move; the airborne one is the trick
+/// failing, which is [`the_puff`].
 fn the_trap() -> MoveSpec {
     trapdoor("performer_trapdoor", "blink_out")
 }
 
+/// The airborne form: the smoke goes off and nothing comes of it.
+///
+/// ⭐⭐ JON'S DESIGN, 2026-08-29, and the whole of it: *"So if you are in the
+/// air, the smoke effect still happens, but if she isn't on the ground the trap
+/// door can't open and she can't go subterranian, so the move cancels. So it
+/// doesn't do much in the air, just a poof of smoke, but that's better than no
+/// effect in the air."*
+///
+/// ⛔ IT AUTHORS NO TRAPDOOR BEAT AT ALL, rather than authoring one and relying
+/// on the engine to refuse it. A refused beat would leave the rest of this
+/// timeline running — including the three-second `smash_charge` freeze, which
+/// does not know or care whether she went under — and she would hang motionless
+/// in mid-air for three seconds with nothing on screen explaining why. The
+/// engine's refusal (`apply_authored_trapdoors`) is the SAFETY NET for a
+/// grounded press that leaves the boards before the sink; it is not the design.
+///
+/// ⛔ AND IT SPENDS NO RECOVERY AND GRANTS NO I-FRAMES. The failing trick is
+/// not a free escape option: the whole cost of pressing it in the air is the
+/// endlag, and the whole benefit is that an opponent has to read which one it
+/// was.
 fn the_trap_airborne() -> MoveSpec {
-    trapdoor("performer_trapdoor_air", "blink_out")
+    let mut spec = ambition_characters::moveset_authoring::hitless_special(
+        "performer_trapdoor_air",
+        "blink_out",
+        DOOR_OPENS_S,
+        AIR_PUFF_ENDS_S,
+    );
+    spec.display_name = Some("The Trap".to_string());
+    // The SAME first frames as the real thing — the same clip, the same smoke,
+    // the same wooden report of a door that is about to open. What differs is
+    // that no door does.
+    let spec = ambition_characters::moveset_authoring::vfx(spec, 0.0, SMOKE_VFX);
+    ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open")
 }
 
 /// Down special: the boards give, she drops through, and she comes up somewhere
@@ -494,6 +554,11 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     );
     // ⛔ NOT A BLINK CUE ANYWHERE ON IT. The trap is carpentry: the boards give,
     // they bang shut behind her, and they give again somewhere else.
+    // ⭐⭐ THE SMOKE FIRST, BEFORE THE BOARDS. It is the misdirection the trick
+    // is performed behind, so it goes off on frame ONE — ahead of the door's own
+    // report at `DOOR_OPENS_S` and well ahead of her going through it. See
+    // [`SMOKE_VFX`].
+    let spec = ambition_characters::moveset_authoring::vfx(spec, 0.0, SMOKE_VFX);
     let spec = ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
     let spec =
         ambition_characters::moveset_authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
@@ -615,7 +680,11 @@ mod tests {
     #[test]
     fn the_subterranean_beat_is_a_duration_an_action_press_can_cut_short() {
         let set = performer_moveset();
-        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
+        // ⛔ THE GROUNDED FORM ONLY. The airborne one authors no hold at all —
+        // it is a puff of smoke and an endlag, see `the_puff_in_the_air_...`
+        // below — and a loop that still expected a three-second freeze from it
+        // was asserting the design this move used to have.
+        for id in ["performer_trapdoor"] {
             let trap = set
                 .moves
                 .iter()
@@ -915,6 +984,104 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ IN THE AIR IT IS A PUFF OF SMOKE AND NOTHING ELSE.
+    ///
+    /// ⭐⭐ JON, 2026-08-29, the whole design: *"if you are in the air, the smoke
+    /// effect still happens, but if she isn't on the ground the trap door can't
+    /// open and she can't go subterranian, so the move cancels. So it doesn't do
+    /// much in the air, just a poof of smoke, but that's better than no effect in
+    /// the air."*
+    ///
+    /// ⛔ THE ABSENCES ARE THE ASSERTIONS. A trapdoor beat here would be refused
+    /// by the engine and leave the REST of this timeline running — the
+    /// three-second freeze most of all — with a fighter hanging motionless in
+    /// mid-air and nothing on screen to explain it. Authoring none is what makes
+    /// the cancel unnecessary rather than merely handled.
+    #[test]
+    fn the_airborne_form_is_a_puff_of_smoke_and_no_trapdoor_at_all() {
+        use ambition_characters::smash_trapdoor::TRAPDOOR;
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = performer_moveset();
+        let air = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_trapdoor_air")
+            .expect("her airborne down special");
+
+        assert!(
+            air.events.iter().any(|ev| matches!(
+                &ev.kind,
+                MoveEventKind::Vfx { effect, .. } if effect == SMOKE_VFX
+            )),
+            "the airborne press makes no smoke, which leaves it a dead button"
+        );
+        assert!(
+            !air.events.iter().any(|ev| matches!(
+                &ev.kind,
+                MoveEventKind::Effect(effect) if effect.key == TRAPDOOR
+            )),
+            "the airborne form authors a trapdoor beat; there is no floor to cut \
+             a hatch in, and the engine refusing it leaves the rest of this \
+             timeline running over a body standing in the air"
+        );
+        assert!(
+            air.smash_charge.is_none(),
+            "the airborne form authors a hold; a freeze whose beat never happens \
+             is three seconds of a fighter stuck in mid-air"
+        );
+        assert!(
+            air.duration_s <= 0.5,
+            "the failing trick lasts {}s — it buys nothing, so it may not cost \
+             the opponent a read that long",
+            air.duration_s
+        );
+    }
+
+    /// ⛔⛔ AND THE SMOKE IS ON BOTH FORMS, ON THE FIRST FRAME.
+    ///
+    /// ⭐⭐ IT IS THE MISDIRECTION, WHICH IS WHY IT CANNOT WAIT TO SEE WHETHER
+    /// THE TRICK WORKED. Jon asked for it *"like a real play would use to
+    /// disguise going through a trap door"* — so an effect that only appeared on
+    /// the grounded form would tell an opponent, in the first two frames, which
+    /// of the two they were watching, and delete the feint the airborne form
+    /// exists to be.
+    ///
+    /// ⛔ AHEAD OF THE BOARDS, TOO. The door's own report is at `DOOR_OPENS_S`;
+    /// smoke that arrived with it or after it would be smoke revealing a hole
+    /// rather than hiding one.
+    #[test]
+    fn the_smoke_goes_off_on_the_first_frame_of_both_forms() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = performer_moveset();
+        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
+            let mv = set
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("`{id}` is in her table"));
+            let smoke_at = mv
+                .events
+                .iter()
+                .find_map(|ev| match &ev.kind {
+                    MoveEventKind::Vfx { effect, .. } if effect == SMOKE_VFX => Some(ev.at_s),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("`{id}` makes no smoke"));
+            assert_eq!(
+                smoke_at, 0.0,
+                "`{id}` puffs at {smoke_at}s; the misdirection is the FIRST thing \
+                 that happens or it is not misdirection"
+            );
+            assert!(
+                smoke_at < DOOR_OPENS_S,
+                "`{id}` puffs at {smoke_at}s, at or after the boards give at \
+                 {DOOR_OPENS_S}s — that is smoke revealing a hole, not hiding one"
+            );
+        }
+    }
+
     /// ⛔ THE DOWN SLOT IS A PAIR, and half a swap is a press that falls through.
     /// The archetype's down special is a `DownSpecial::ByPosture`, so
     /// `special_air_down` sits AHEAD of `special_down` in the verb chain: replace
@@ -1021,7 +1188,9 @@ mod tests {
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
-        for id in ["performer_trapdoor", "performer_trapdoor_air"] {
+        // ⛔ THE GROUNDED FORM ONLY, for the reason above: the airborne one goes
+        // nowhere, so it has no return trip to owe.
+        for id in ["performer_trapdoor"] {
             let mv = set
                 .moves
                 .iter()

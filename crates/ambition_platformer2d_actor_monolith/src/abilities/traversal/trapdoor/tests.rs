@@ -24,7 +24,31 @@ fn stage() -> ae::World {
 
 const HALF: ae::Vec2 = ae::Vec2::new(16.0, 32.0);
 
+/// ⛔⛔ GROUNDED, BECAUSE THE MOVE IS. The fixture used to leave
+/// `BodyGroundState::default()` alone — `on_ground: false` — so every submerge
+/// arm here was cutting a hatch under a body that, by its own state, was
+/// standing in mid-air. Nothing noticed until the engine learned Jon's rule
+/// (*"if she isn't on the ground the trap door can't open"*) and two arms went
+/// red: the fixture was the unrealistic thing, not the new rule.
+///
+/// [`app_with_airborne_body`] is the other posture, and it is a real arm rather
+/// than a variant nobody uses.
 fn app_with_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
+    let (mut app, body) = app_with_body_in_posture(pos);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ae::BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        });
+    (app, body)
+}
+
+fn app_with_airborne_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
+    app_with_body_in_posture(pos)
+}
+
+fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
     let mut app = bevy::prelude::App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -116,6 +140,89 @@ fn kin(app: &bevy::prelude::App, body: bevy::prelude::Entity) -> ae::BodyKinemat
         .entity(body)
         .get::<ae::BodyKinematics>()
         .expect("kinematics")
+}
+
+/// ⛔⛤ AND AN AIRBORNE BODY IS REFUSED. Jon, 2026-08-29: *"if she isn't on the
+/// ground the trap door can't open and she can't go subterranian, so the move
+/// cancels."*
+///
+/// ⭐⭐ THE PAIRED ARM ABOVE IS WHAT MAKES THIS ONE MEAN SOMETHING: a rule that
+/// refused EVERY submerge would pass here and delete the move, and for two
+/// commits the fixture would have agreed with it, because nothing in it was
+/// grounded.
+///
+/// ⛔ THIS IS NOT THE POSTURE CHAIN RESTATED. An airborne PRESS reaches the air
+/// form, which authors no trapdoor beat at all; what this covers is the case the
+/// chain cannot see — a press made on the boards by a fighter who is off them a
+/// tenth of a second later, when the door would open.
+#[test]
+fn an_airborne_body_is_refused_the_hatch() {
+    let (mut app, body) = app_with_airborne_body(ae::Vec2::new(0.0, -32.0));
+    fire(&mut app, body, down(120.0));
+    assert_eq!(
+        mode(&app, body),
+        ae::player_state::BodyMode::Standing,
+        "she went under with no floor to go under"
+    );
+}
+
+/// ⛔⛤ AND THE MOVE ENDS RATHER THAN RUNNING ON WITHOUT ITS MIDDLE.
+///
+/// The rest of that timeline is written for a body under the stage — a
+/// three-second freeze, an exit door, a firework — and running it over a body
+/// standing in the air is three seconds of nothing followed by an explosion out
+/// of empty space. Refusing the beat and leaving the playback alone would be the
+/// silent half of a rule.
+#[test]
+fn a_refused_hatch_cancels_the_move_that_authored_it() {
+    let (mut app, body) = app_with_airborne_body(ae::Vec2::new(0.0, -32.0));
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_combat::moveset::MovePlayback::new(
+            trap_spec(),
+            1.0,
+        ));
+    fire(&mut app, body, down(120.0));
+    assert!(
+        app.world()
+            .entity(body)
+            .get::<ambition_combat::moveset::MovePlayback>()
+            .is_none(),
+        "the refused trapdoor left its move playing over a body in mid-air"
+    );
+}
+
+/// ⭐ AND A GROUNDED ONE KEEPS PLAYING. The straddle: a cancel that fired on
+/// every trapdoor would pass the arm above and end the real move on the frame it
+/// started.
+#[test]
+fn a_grounded_hatch_leaves_its_move_playing() {
+    let (mut app, body) = app_with_body(ae::Vec2::new(0.0, -32.0));
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_combat::moveset::MovePlayback::new(
+            trap_spec(),
+            1.0,
+        ));
+    fire(&mut app, body, down(120.0));
+    assert!(
+        app.world()
+            .entity(body)
+            .get::<ambition_combat::moveset::MovePlayback>()
+            .is_some(),
+        "the real trapdoor cancelled itself"
+    );
+}
+
+/// A minimal move for the playback the two arms above look at. Its CONTENT is
+/// irrelevant — what is being asked is whether the component survives.
+fn trap_spec() -> ambition_entity_catalog::MoveSpec {
+    ambition_characters::moveset_authoring::hitless_special(
+        "trapdoor_test_move",
+        "blink_out",
+        0.16,
+        0.54,
+    )
 }
 
 #[test]

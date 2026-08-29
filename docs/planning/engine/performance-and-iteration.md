@@ -1352,10 +1352,20 @@ IS THE PHASE-ATTRIBUTION TRAP AGAIN, in the STARTUP profiler this time.** The
 `Startup` chain between the two marks contains exactly ONE system,
 `data::load_data_asset_handle`, and it is **one line**: `asset_server.load(path)`,
 which returns a handle immediately, plus a `insert_resource`. It cannot cost
-169ms. ⇒ the interval is real; the ATTRIBUTION is not. The likely occupant is
-synchronous work on the FIRST `AssetServer::load` — asset-source resolution, IO
-task-pool spin-up — or unrelated main-thread time the mark happens to bracket.
-**Not identified, and deliberately not guessed.**
+169ms. ⇒ the interval is real; the ATTRIBUTION is not.
+
+⭐⭐ **AND THE MECHANISM IS STRUCTURAL, NOT MYSTERIOUS: THE MARKS ORDER THEMSELVES,
+NOT THE SCHEDULE.** `Startup` holds **43 systems** (`[census] schedules`), and the
+profiler chains only THREE of them — `startup_begin` → `load_data_asset_handle` →
+`after_load_data_handle`. The other ~40 carry no ordering constraint against those
+marks, so the single-threaded executor is free to run them BETWEEN the marks, and
+whatever it runs there is billed to the interval. ⇒ **a `[startup]` phase measures
+its unordered CO-RESIDENTS as much as the system it names.**
+
+⛔ This is the same defect as bracketing an unordered set in `PreUpdate` — noted
+earlier in this document as the reason NOT to bracket `PreUpdate` groups — and the
+startup profiler has had it all along. A mark chain gives a well-defined interval
+only where the schedule is `.chain()`ed end to end, which `Startup` is not.
 
 ⚠ These marks measure WALL TIME BETWEEN TWO POINTS, exactly like `[census] phases`.
 The same rule applies: a phase name is where the time was BILLED, not what spent

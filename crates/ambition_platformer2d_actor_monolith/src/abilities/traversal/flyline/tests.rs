@@ -39,7 +39,12 @@ fn params() -> FlylineParams {
         max_swing_deg: 18.0,
         swing_accel: 3.4,
         release_rise: 90.0,
-        vfx: "four_point_glint".to_string(),
+        // ⛔ `Some` HERE ON PURPOSE, though the Performer's own wire authors
+        // `None`. `a_body_on_another_policy_is_refused_quietly` asserts that a
+        // refused catch draws NOTHING — and with `None` in the fixture that arm
+        // would pass against an executor that drew unconditionally, because
+        // there would be nothing to draw either way.
+        vfx: Some("smoke_puff".to_string()),
         sfx: "world.door.heavy_open".to_string(),
     }
 }
@@ -168,4 +173,31 @@ fn a_body_on_another_policy_is_refused_quietly() {
         .iter_current_update_messages()
         .count();
     assert_eq!(effects, 0, "a refused wire draws nothing");
+}
+
+/// ⛔ AND A WIRE THAT ASKED FOR NO BURST GETS NONE. The Performer's own flyline
+/// authors `None`, because the rope is already on screen for the whole lift —
+/// so the path she actually takes needs its own arm, or the only thing under
+/// test is a shape no shipped move uses.
+#[test]
+fn a_flyline_that_authors_no_effect_draws_no_burst() {
+    let (mut app, body) = app_with_body(ae::Vec2::new(0.0, 0.0));
+    fire(
+        &mut app,
+        body,
+        FlylineParams {
+            vfx: None,
+            ..params()
+        },
+    );
+    assert!(
+        wire(&app, body).is_some(),
+        "premise: she is on the wire, so this is about the BURST and not the catch"
+    );
+    let effects = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxMessage>>()
+        .iter_current_update_messages()
+        .count();
+    assert_eq!(effects, 0, "a wire that asked for no burst drew one anyway");
 }

@@ -122,7 +122,17 @@ const TRAPDOOR_VFX: &str = "trapdoor_boards";
 /// about whether the boards will give. The smoke is the MISDIRECTION, so it
 /// cannot wait to find out whether the trick worked — an effect that only
 /// appears when the move succeeds tells an opponent which one they are watching.
-const SMOKE_VFX: &str = "smoke_burst";
+/// ⛔⛔ `smoke_puff`, AND IT WAS `smoke_burst`, WHICH IS AN EXPLOSION. Jon,
+/// 2026-08-29: *"you used an explosion effect, not a poof of smoke effect, which
+/// I think we have."* He is exactly right and the sheet says so: `smoke_burst`
+/// is a row of **`generic_explosions`**, while `smoke_puff` is a row of
+/// `generic_exotic_fx` whose frames GROW (58→64→…px), which is what a cloud of
+/// smoke does and what a detonation does not.
+///
+/// ⭐ THE NAME WAS THE TRAP. "smoke_burst" reads as smoke and is filed under
+/// explosions; nothing in the authoring layer would have said so, because an
+/// effect id is a string and every string is spelled correctly.
+const SMOKE_VFX: &str = "smoke_puff";
 
 /// How long the airborne form lasts — smoke, and a beat to be caught in.
 ///
@@ -200,11 +210,22 @@ const SWING_ACCEL: f32 = 3.4;
 /// as the teleport's own feel arriving through a different mechanic.
 const RELEASE_RISE: f32 = 90.0;
 
-/// The wire going taut. ⛔ NOT `four_point_glint`, which is the Author's blink
-/// and half of the complaint: a stagehand's wire is rope and pulley, not a star
-/// flash. The rope ITSELF is drawn from the read model for the length of the
-/// lift — an FX row plays once and ends, and this beat is the catch.
-const WIRE_VFX: &str = "trapdoor_boards";
+/// ⛔⛔ THE WIRE DRAWS NO BURST AT ALL, AND IT USED TO DRAW A TRAPDOOR. Jon,
+/// 2026-08-29: *"her up-b uses the trap door, and I don't think it should."*
+/// `trapdoor_boards` is real art and it is the DOWN special's furniture — so
+/// her recovery was opening a hatch in mid-air, on screen, and saying the two
+/// specials were the same trick.
+///
+/// ⭐⭐ AND THE HONEST REPLACEMENT IS NOTHING. The rope is a PERSISTENT visual,
+/// drawn from the read model for the whole lift (`rendering::flyline`) — so this
+/// move already has the one picture it needs, and Jon's own clause allows the
+/// wire to simply appear: *"it can instantly appear as if it went from visible
+/// to invisible."* A one-shot on top of it would be decoration chosen to fill a
+/// field, which is how the trapdoor got here.
+///
+/// ⛔ AND NOT `four_point_glint` EITHER, which is the Author's blink and the
+/// whole complaint this move was rewritten for.
+const WIRE_VFX: Option<&str> = None;
 
 /// Complete sword-fundamentals repertoire, attributed to the Performer, with her
 /// own down and up specials in place of the archetype's.
@@ -623,7 +644,7 @@ fn the_flyline() -> MoveSpec {
             max_swing_deg: MAX_SWING_DEG,
             swing_accel: SWING_ACCEL,
             release_rise: RELEASE_RISE,
-            vfx: WIRE_VFX.to_string(),
+            vfx: WIRE_VFX.map(str::to_string),
             // Rope and pulley — the same bank the Trap's carpentry came out of.
             // ⛔ NOT `player.blink`, and nothing on this move may reach it.
             sfx: "world.door.heavy_open".to_string(),
@@ -1079,6 +1100,64 @@ mod tests {
                 "`{id}` puffs at {smoke_at}s, at or after the boards give at \
                  {DOOR_OPENS_S}s — that is smoke revealing a hole, not hiding one"
             );
+        }
+    }
+
+    /// ⛔⛤ EVERY EFFECT SHE NAMES IS A ROW THAT SHIPS.
+    ///
+    /// ⛔⛔ SHE DID NOT HAVE THIS CHECK AND FOUR OTHER FIGHTERS DID — Emmy, the
+    /// Oiler, George Booul and the Pirate Admiral all run
+    /// `presentation_problems(is_authored_effect)` over their tables. A
+    /// capability four of five adopt is not a capability, it is a habit, and the
+    /// fifth is where a defect gets to live.
+    ///
+    /// ⚠ AND IT WOULD NOT HAVE CAUGHT EITHER OF THE TWO BUGS JON JUST REPORTED,
+    /// which is worth saying rather than letting the green tick imply otherwise.
+    /// `smoke_burst` and `trapdoor_boards` are both REAL rows that ship; one was
+    /// simply an explosion and the other belonged to a different move. This arm
+    /// answers *"does the art exist"*, and the question that failed was *"is it
+    /// the right art"* — which no oracle over the sheets can answer, and which
+    /// [`the_wire_names_nothing_belonging_to_the_trapdoor`] answers for exactly
+    /// one case because that is as far as a test can honestly reach.
+    ///
+    /// ⭐ THE ORACLE IS THE ART. `is_authored_effect` reads the rows out of the
+    /// baked manifests, so this asks exactly what the renderer will ask.
+    #[test]
+    fn every_effect_she_names_is_a_row_that_ships() {
+        let set = performer_moveset();
+        for m in &set.moves {
+            for problem in
+                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
+            {
+                panic!("{problem}");
+            }
+        }
+    }
+
+    /// ⛔⛔ AND HER UP-B NAMES NO PART OF HER DOWN-B. Jon, 2026-08-29: *"her up-b
+    /// uses the trap door, and I don't think it should."*
+    ///
+    /// ⭐ THE SHAPE OF THE MISTAKE IS WORTH THE ARM: `FlylineParams::vfx` was a
+    /// REQUIRED `String`, so authoring the wire meant putting SOMETHING there,
+    /// and the nearest thing to hand was the other special's furniture. A field
+    /// that cannot say "nothing" gets filled with something wrong.
+    #[test]
+    fn the_wire_names_nothing_belonging_to_the_trapdoor() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = performer_moveset();
+        let wire = set
+            .moves
+            .iter()
+            .find(|m| m.id == "performer_curtain_call")
+            .expect("her up special");
+        for event in &wire.events {
+            if let MoveEventKind::Vfx { effect, .. } = &event.kind {
+                assert!(
+                    !effect.contains("trapdoor") && !effect.contains("door"),
+                    "the wire draws `{effect}`, which belongs to the hatch"
+                );
+            }
         }
     }
 

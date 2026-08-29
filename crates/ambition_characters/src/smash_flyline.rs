@@ -84,14 +84,25 @@ pub struct FlylineParams {
     ///
     /// `0.0` cuts her loose at whatever the swing was doing and nothing more.
     pub release_rise: f32,
-    /// The effect drawn where the wire takes hold.
+    /// The effect drawn where the wire takes hold, or `None` for a flyline whose
+    /// rope is the whole of its look.
     ///
     /// ⛔ NOT THE WIRE ITSELF. The rope is a persistent object for the length of
     /// the lift and is drawn from the read model, the way the trapdoor is; this
     /// is the one-shot at the catch. The distinction cost `rendering/submerged.rs`
     /// its own paragraph: an FX-atlas row plays once and ends, and a thing that
     /// has to stay on screen while a state holds is not that.
-    pub vfx: String,
+    ///
+    /// ⛔⛔ `Option`, BECAUSE A REQUIRED FIELD GETS FILLED WITH SOMETHING WRONG.
+    /// This was a `String`, and the Performer's wire filled it with
+    /// `trapdoor_boards` — her DOWN special's furniture, on a move that has
+    /// nothing to do with a hatch, and not an authored row on any shipped sheet
+    /// either, so it drew the engine's generic particle fallback. Jon, 2026-08-29:
+    /// *"her up-b uses the trap door, and I don't think it should."* A move whose
+    /// rope is already on screen for the whole lift needs no burst, and the type
+    /// should let it say so.
+    #[serde(default)]
+    pub vfx: Option<String>,
     /// The cue played at the catch. ⛔ NOT `player.blink`.
     pub sfx: String,
 }

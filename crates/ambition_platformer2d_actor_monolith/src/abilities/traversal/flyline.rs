@@ -106,12 +106,18 @@ pub fn apply_authored_flylines(
         // object for the length of the lift and is drawn from the read model
         // (`rendering::flyline`); an FX-atlas row plays once and ends, which is
         // the distinction `rendering/submerged.rs` spells out for the trapdoor.
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-            pos: at,
-            fx: ambition_vfx::fx::FxId::new(&params.vfx),
-            scale: 1.0,
-            pose: ambition_vfx::FxPose::UPRIGHT,
-        });
+        // ⛔ ONLY IF THE MOVE ASKED FOR ONE. A flyline whose rope is already on
+        // screen for the whole lift has nothing to add here, and `None` is how it
+        // says so — see `FlylineParams::vfx` for what a REQUIRED field got filled
+        // with when it could not.
+        if let Some(effect) = params.vfx.as_deref() {
+            vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                pos: at,
+                fx: ambition_vfx::fx::FxId::new(effect),
+                scale: 1.0,
+                pose: ambition_vfx::FxPose::UPRIGHT,
+            });
+        }
         sfx.write_for(
             message.actor,
             ambition_sfx::SfxMessage::Play {

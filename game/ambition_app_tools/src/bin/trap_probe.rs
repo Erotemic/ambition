@@ -362,7 +362,7 @@ fn drain_smoke(
     // position and no owner, so proximity is the join available — the same
     // correction `wire_probe` had to make about counting ropes.
     const NEARBY_PX: f32 = 120.0;
-    let smoke = ambition_platformer2d::vfx::fx::FxId::new("smoke_burst");
+    let smoke = ambition_platformer2d::vfx::fx::FxId::new("smoke_puff");
     let messages = app
         .world()
         .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();

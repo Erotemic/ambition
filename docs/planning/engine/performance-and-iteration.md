@@ -789,6 +789,40 @@ Known dev-host costs, none yet priced this way:
 not with frames. A flight recorder for a two-body match should not cost what one
 for a two-hundred-body match does.
 
+### ▢ D-PERF-6 — the flight recorder should cost BODIES, not SOLIDS
+
+Designed 2026-08-29, deliberately NOT taken, with the blocker named so the next
+session starts from the analysis rather than the symptom.
+
+`record_actor_oob_frame_system` builds, EVERY FRAME, up to 64
+`CollisionTraceShape` from the room's solid geometry — each with a `name.clone()`
+and an aabb conversion — plus per-body string clones. Its own doc comment states
+the rule it violates: *"The same set every frame for a static room, so the
+markdown only renders the latest."* The code knows the set is identical and
+rebuilds it anyway, and the only reader takes `latest.solids`.
+
+⛔ **CACHING IT DOES NOT WORK, which is why this is deferred rather than done.**
+A `Local` cache rebuilt on room change still has to put a `Vec` on each frame,
+and `Vec<CollisionTraceShape>::clone()` allocates the same ~128 `String`s that
+building it did. The win requires SHARING, not caching.
+
+Two roads, both real work:
+- `Arc<Vec<CollisionTraceShape>>` on the frame — ⛔ blocked: serde is declared
+  workspace-wide as `features = ["derive"]` with no `"rc"`, so `Arc` will not
+  serialize, and adding it is a workspace-wide dependency change for a dev-tool
+  optimization;
+- move `solids` off the FRAME and onto the BUFFER, captured when the room
+  changes — the honest fix, since the geometry is a property of the room and not
+  of the frame, and it matches what the reader already does. ⚠ it changes the
+  dump format, so it needs the dump reader updated in the same slice.
+
+⚠ SIZE IT BEFORE BUILDING IT. The 08-28 trace put this recorder at 40.5us/frame
+and its sibling at 37.9us — together ~78us, about 2.4% of a 3.2ms `profiling`
+frame, and BELOW this host's ~15% run-to-run noise. ⇒ it will not show up in a
+frame-time A/B, and the case for doing it is allocation pressure and elegance,
+not a millisecond. ⭐ Jon's standard applies: the recorder stays fully
+available, it just stops paying per frame for something that changes per room.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and

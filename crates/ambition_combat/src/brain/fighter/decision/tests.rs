@@ -1225,3 +1225,67 @@ fn a_body_off_either_ledge_steers_back_toward_the_stage() {
         "a body past the LEFT ledge must steer back RIGHT, asked {past_left}"
     );
 }
+
+/// ⭐ D184: A BODY BELOW THE STAGE MUST ASK TO GO UP.
+///
+/// `recovery_below` is the worst fixture in the ladder — vacuous at TWO rung
+/// pairs (3v1 and 6v5) where both fighters die untouched at 0%, reproduced at 45
+/// seeds. `recovery_right` fails at one. Left and above never fail.
+///
+/// Steering LEFT/RIGHT is symmetric by test
+/// (`a_body_off_either_ledge_steers_back_toward_the_stage`), which leaves the
+/// VERTICAL half: a body under the stage recovers only by jumping, so if the
+/// decision never presses jump there is nothing to recover with.
+///
+/// ⚠ This asks only whether the brain EVER asks to rise while below and
+/// airborne. It deliberately does not assert a particular move: which recovery a
+/// character owns is a kit question, and pinning one here would be a test of the
+/// roster rather than of the decision.
+#[test]
+fn a_body_below_the_stage_asks_to_rise() {
+    let mut cfg = FighterCfg::new(immediate_profile());
+    cfg.decision_interval_ticks = 1;
+    let mut state = FighterState::new(&cfg, 0x5EED);
+    let snapshot = BrainSnapshot::idle();
+    // Under the stage, in the air, foe at centre. `stage()` spans 0..800 x 0..600.
+    let mut view = scene(400.0, 400.0);
+    view.self_view.pos = ae::Vec2::new(400.0, 640.0);
+    view.self_view.on_ground = false;
+    let mut out = ActorControlFrame::neutral();
+    let mut asked_to_rise = false;
+    for _ in 0..16 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        // `LocalAxes` +y is TOWARD THE FEET under `gravity_down = (0,1)`, so
+        // "up" is NEGATIVE y — and a jump press is the other way to ask.
+        if out.jump_pressed || out.jump_held || out.locomotion.y < 0.0 {
+            asked_to_rise = true;
+            break;
+        }
+    }
+    assert!(
+        asked_to_rise,
+        "a fighter below the stage never asked to rise in 16 decisions — with no \
+         upward request there is nothing for a recovery to execute, which is what \
+         `recovery_below` measures when both seats die at 0%"
+    );
+
+    // ⭐ THE CONTROL, WITHOUT WHICH THE ARM ABOVE CANNOT FAIL. `jump_held` is a
+    // broad signal and a fighter jumps around; if a body standing at centre also
+    // "asked to rise", the assertion would pass on any brain at all. Measured: it
+    // does not — neither grounded NOR airborne at centre asks to rise in 16
+    // decisions, while below-and-airborne presses jump on decision ZERO.
+    let mut cfg = FighterCfg::new(immediate_profile());
+    cfg.decision_interval_ticks = 1;
+    let mut state = FighterState::new(&cfg, 0x5EED);
+    let mut grounded = scene(400.0, 400.0);
+    grounded.self_view.pos = ae::Vec2::new(400.0, 300.0);
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..16 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&grounded), &mut out);
+        assert!(
+            !(out.jump_pressed || out.jump_held || out.locomotion.y < 0.0),
+            "a body standing at centre asked to RISE, so the arm above cannot \
+             distinguish a recovering fighter from an ordinary one"
+        );
+    }
+}

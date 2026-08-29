@@ -1142,7 +1142,38 @@ entities and **18 per-view projections** against 5–8 elsewhere. If a room is
 slow, per-view projection count is the dimension that actually varies between
 these rooms.
 
-⛔⛔ **THE FRAME TIMES IN THIS TABLE ARE NOT USABLE AND ARE OMITTED ON PURPOSE.**
+### ⭐⭐⭐ VISIBLE SPRITE COUNT DOES NOT DRIVE FRAME COST — measured on real rooms
+
+Re-run with `--warmup 900` so the sample is steady state (68–73 frames, not the
+2–12 the default gives):
+
+| room | sprites | **visible** | projections | mean |
+|---|---|---|---|---|
+| `central_hub_complex` | 139 | 34 | **18** | 14.27, 14.74ms |
+| `sanic_sandbox` | 119 → 155 | **51 → 87** | 5 | 13.75, 13.89ms |
+
+⭐⭐ **THE TWO ROOMS COST THE SAME ~14ms** despite `sanic_sandbox` carrying 2.5x
+the visible sprites and `central_hub_complex` carrying 3.6x the per-view
+projections. NEITHER dimension predicts cost.
+
+⭐⭐⭐ **AND THE WITHIN-RUN EVIDENCE IS SHARPER: `sanic_sandbox` went 51 → 87
+VISIBLE SPRITES between two consecutive samples while its frame moved 13.75 →
+13.89ms. THIRTY-SIX ADDITIONAL VISIBLE SPRITES COST 0.14ms.** Same process, same
+room, seconds apart — no cross-run noise to explain it away.
+
+⇒ **THE CAMPAIGN'S FOUNDING PREMISE IS ANSWERED: sprite count is not why a room
+would chug.** Combined with the population table above — no shipped room exceeds
+46–87 visible sprites — the *"hundreds of sprites"* framing does not describe
+this engine's content, and sprite count does not describe its cost either.
+
+⚠ WHAT THE ~14ms ACTUALLY IS: a FLOOR, and on this GPU-less host it is software
+rasterization of the framebuffer, which swamps content differences at these
+populations. ⛔ It is not a claim about a player's machine. On real hardware the
+floor drops and content may matter more — which is precisely what
+`./scripts/profile_desktop.sh --smash` and `capture_scene --warmup` exist to
+find out, and the honest next measurement.
+
+⛔⛔ **THE FRAME TIMES IN THE PRECEDING TABLE ARE NOT USABLE AND ARE OMITTED ON PURPOSE.**
 `capture_scene` is a SCREENSHOT tool: the whole run is ~1.3s and the census
 sampled `frames=2` to `frames=12`, so every mean is startup-contaminated.
 `goblin_encounter` reported 187.90ms over TWO frames — that is app construction,

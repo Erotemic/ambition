@@ -894,6 +894,34 @@ saving is the systems' own work, not their scheduling — and this campaign has
 been wrong three times about what a population costs. ⇒ the first capability
 gate should be measured on ONE group before the pattern is generalized.
 
+### THE WHOLE FRAME, ACCOUNTED — and only ONE phase is substantially OURS
+
+| phase | ms | share | whose, and what |
+|---|---|---|---|
+| `PreUpdate` | 2.14 | 45% | the GGRS driver 1.19 (**our sim** 0.93 + `ReadInputs`/ggrs bookkeeping 0.26) + **0.95 diffuse Bevy** (asset trackers, raw input, leafwing, egui — two gates proved no group in it is a lever) |
+| `Update` | 1.42 | 30% | **OURS** — 494 systems, a flat tail of presentation |
+| `PostUpdate` | 0.65 | 14% | **BEVY'S RENDER PIPELINE** — see below |
+| `RunFixedMainLoop` | 0.40 | 8% | not yet examined |
+| `StateTransition` | 0.14 | 3% | Bevy's per-state machinery, already ruled |
+
+⭐ `PostUpdate` NAMED: 31 `Assets` event systems, 8
+`check_entities_needing_specialization`, four `system_fetch_dimension_from_camera`
++ four `system_touch_camera_if_fetch_added`, then `visibility_propagate_system`,
+`update_ui`, `update_text2d_layout`,
+`mark_meshes_as_changed_if_their_materials_changed`, `detect_text_needs_rerender`
+— and `update_spot_light_frusta`, `update_point_light_frusta`,
+`validate_shadow_map_size`, which are 3D LIGHTING SYSTEMS IN A 2D FIGHTING GAME.
+
+⇒ ⛔ **`PostUpdate` IS NOT OUR LEVER EITHER.** It is Bevy's render/UI pipeline
+almost end to end, the same verdict the DefaultPlugins block got in `PreUpdate`.
+⚠ And it relocates the brief's direction 4: if our presentation projection
+rewrites unchanged state, it shows in **`Update`** where our `rebuild_*` systems
+live, NOT in `PostUpdate` where the render extraction runs.
+
+⭐⭐ **SO THE ONE PHASE THAT IS BOTH SUBSTANTIALLY OURS AND STILL UNATTRIBUTED IS
+`Update`: 1.42ms over 494 presentation systems.** That is the campaign's next
+measurement and the last place a lever can be hiding.
+
 ### ⛔⛔ WHERE THE LEVERAGE IS NOT — read this before opening a perf campaign here
 
 Eleven hypotheses tested this campaign, ten rejected. Grouped by what they rule

@@ -271,6 +271,9 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     // lives in `GgrsSchedule`, so nobody knows what its 1.4ms is made of.
     report_schedule_membership(&schedules, "PreUpdate");
     report_schedule_membership(&schedules, "Update");
+    // `PostUpdate` is 0.65ms of a Smash frame — 14% — and nothing has looked at
+    // it. Presentation and render extraction live here.
+    report_schedule_membership(&schedules, "PostUpdate");
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"

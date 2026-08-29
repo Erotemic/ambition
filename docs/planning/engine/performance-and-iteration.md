@@ -1457,6 +1457,20 @@ inside the engine's pipeline, doing work proportional to the entities we hand it
 only be reduced by handing the pipeline FEWER OR SIMPLER ENTITIES, which is a
 content and rig decision, not an engine one.
 
+⚠ **THE OBVIOUS NEXT QUESTION — "how many entities IS a fighter?" — DOES NOT
+SURVIVE ITS OWN NOISE FLOOR, and nearly got published anyway.** Total live
+entities read **1297 at 2 fighters and 1337 at 4**, both casts held: +40 for +2,
+a tidy "20 entities per fighter". ⛔ But `live` was earlier observed fluctuating
+**1297–1336 WITHIN A SINGLE 2-fighter run** as VFX spawn and despawn. **The
+between-arm delta is smaller than one arm's own variance**, so the number means
+nothing.
+
+⇒ answering it needs a query counting entities that carry a FIGHTER-SPECIFIC
+marker, not a difference of world totals. ⛔ And `[census] populations` cannot do
+it either: it ranks by count, and a 2–4 fighter rig is nowhere near the top 20 in
+a world holding 1024 sand chunks and 96 UI nodes. **A census ranked by population
+is blind to the few entities that matter most in a fighting game.**
+
 ⇒ combined with the sim table below, the frame's ownership is now fully mapped:
 **the SIM is ours (545 systems, monolith 30%); `PreUpdate` and `PostUpdate` are
 mostly the engine's.** Optimisation effort should go where authorship is.

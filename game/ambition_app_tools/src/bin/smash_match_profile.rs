@@ -331,9 +331,18 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
         .query::<bevy::prelude::Entity>()
         .iter(app.world())
         .count();
+    // ⭐ SPRITES TOO, at the same quiet moment. 8 entities per fighter cannot
+    // explain the ~39us of `PostUpdate` a fighter adds, so the next candidate is
+    // what the pipeline actually DRAWS rather than what was spawned.
+    let live_sprites = app
+        .world_mut()
+        .query::<&bevy::prelude::Sprite>()
+        .iter(app.world())
+        .count();
     eprintln!(
         "[smash-profile] fighters={fighters} seated={seated_now} live_after_ticks={live_at} \
-         entities_at_go_live={live_entities} measuring={ticks}"
+         entities_at_go_live={live_entities} sprites_at_go_live={live_sprites} \
+         measuring={ticks}"
     );
 
     // ⛔ AFTER the round goes live, not before: sprites spawned into the opening

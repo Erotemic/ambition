@@ -1483,14 +1483,30 @@ combat. `smash_match_profile` now reports `entities_at_go_live`:
 **Zero variance across reps**, against ±40 later in the same run. ⇒ +16 entities
 for +2 fighters = **8 entities per fighter**.
 
-⛔⛔ **AND THAT REFUTES THE HYPOTHESIS IT WAS BUILT TO TEST.** The ownership map
-concluded a fighter's presentation cost is Bevy doing per-entity work, so the
-lever looked like "hand the pipeline fewer entities". **At 8 entities per fighter
-there is no room in that lever.** 8 entities cannot account for the ~39us of
-`PostUpdate` a fighter adds unless the per-entity work is heavy, or the cost is
-proportional to something other than entity count — sprite PARTS DRAWN rather than
-entities spawned. ⇒ the rig-simplification direction is NOT supported; what a
-fighter costs in presentation is still unattributed below the entity level.
+**A fighter is also exactly ONE SPRITE** — `sprites_at_go_live` reads 25 at two
+fighters and 27 at four. So a fighter is **8 entities and 1 sprite**.
+
+⛔ **A CORRECTION TO MY OWN INFERENCE, MADE AN HOUR EARLIER IN THIS SECTION.** I
+wrote that 8 entities "cannot account for the ~39us of `PostUpdate` a fighter
+adds". **They can**: 39us over 8 entities is **~4.9us per fighter entity**, which
+is an ordinary per-entity cost for a pipeline of 169 systems. The refutation was
+too strong and is withdrawn.
+
+⭐ **THE CORRECT READING: FIGHTER ENTITIES ARE EXPENSIVE, NOT NUMEROUS.** Eight
+entities and one sprite is already a lean rig, so:
+- ⛔ "hand the pipeline fewer entities" has almost no room — 8 is small;
+- ⛔ "draw fewer sprites" has none at all — 1 is the floor;
+- ⇒ the only presentation lever left is making EACH fighter entity cheaper —
+  shallower transform hierarchy, fewer components, less change-detection churn —
+  and that is Bevy's per-entity pipeline cost, which the ownership map already
+  showed we do not author.
+
+⚠ **A comparison NOT worth making, and why:** the world averages 0.51ms of
+`PostUpdate` over ~1297 entities = 0.39us each, which would make a fighter entity
+look 12x average. ⛔ That ratio is junk — ~1024 of those entities are falling-sand
+chunks carrying no transform or visibility, so they dilute the denominator without
+ever entering the pipeline. Comparing against a world average is only valid when
+the population is homogeneous, and this one is not.
 
 ⭐ Method worth keeping: **when the noise is caused by an ACTIVITY, sample before
 the activity starts** — that beat both a bigger sample and a new query.

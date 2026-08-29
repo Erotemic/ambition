@@ -57,11 +57,51 @@ fn main() {
     // shell somebody plays, and this move has been reported broken in play while
     // measuring healthy here.
     let demo_host = std::env::args().any(|a| a == "host=demo");
+    // ⭐⭐ `render` GIVES THIS PROBE A PRESENTATION LAYER. `NoWindow` omits the
+    // render app entirely — 0 body visuals — so every presentation question this
+    // probe asked was unanswerable. `OffscreenGpu` is a REAL wgpu backend with no
+    // window, which is the mode that makes the visibility chain observable while
+    // the press road still works. This is the overlap `shark_ride_probe`'s doc
+    // says did not exist: the suite could reach the behaviour and not see it,
+    // the capture could see it and not reach it.
+    let rendered = std::env::args().any(|a| a == "render");
     let mut app = if demo_host {
         ambition_demo_smash_app::build_demo_app()
+    } else if rendered {
+        // ⛔ MIRRORING `capture_scene` EXACTLY, because a bare
+        // `build_visible_app(OffscreenGpu, ..)` panics here in
+        // `no_automatic_skin_batching` with *"Res<RenderDevice> ... Resource does
+        // not exist"*. The working recipe is `build_visible_app_with` plus a
+        // declared `HeadlessDisplaySurface` — the surface this run draws to.
+        let mut app = ambition_app::app::build_visible_app_with(
+            ambition_app::app::VisibleRenderMode::OffscreenGpu,
+            true,
+            |_| {},
+        );
+        app.insert_resource(
+            ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+                ambition_platformer2d::engine_core::Vec2::new(960.0, 540.0),
+            ),
+        );
+        app
     } else {
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true)
     };
+    // ⛔⛔ WAIT FOR THE PLUGINS, WHICH `app.run()` DOES FOR YOU AND
+    // `app.update()` DOES NOT. `OffscreenGpu` initialises its wgpu device
+    // ASYNCHRONOUSLY during plugin finish; stepping the app by hand before that
+    // completes runs the render app with no `RenderDevice` and panics inside
+    // `bevy_pbr::render::skin::no_automatic_skin_batching`. `capture_scene` never
+    // hits this because it calls `app.run()`. A hand-stepped probe has to say so
+    // itself — this is the whole reason the render-capable and press-capable
+    // instruments had never been the same binary.
+    if rendered {
+        while app.plugins_state() != bevy::app::PluginsState::Ready {
+            bevy::tasks::tick_global_task_pools_on_main_thread();
+        }
+        app.finish();
+        app.cleanup();
+    }
     println!(
         "[trap_probe] host = {}",
         if demo_host { "ambition_demo_smash_app (the one run_game.sh smash launches)" }
@@ -222,6 +262,8 @@ fn main() {
         let doors = door_count(&mut app);
         let boxes = hitbox_count(&mut app, seat0);
         let playing = playing_move(&app, seat0);
+        let gest = gesture(&app, seat0);
+        let vis = visibility_chain(&mut app);
 
         // ⭐⭐ STAGE THE ONE CASE THE MOVE IS ABOUT. Jon: *"damages whoever is
         // on top or above the trap door when she emerges."* A rival left where
@@ -270,7 +312,7 @@ fn main() {
         if interesting {
             println!(
                 "[trap_probe] t{tick:>3} pos=({:>7.1},{:>7.1}) vel=({:>7.1},{:>7.1}) \
-                 under={under:<5} doors={doors} boxes={boxes} move={}",
+                 under={under:<5} doors={doors} {vis} boxes={boxes} move={}",
                 pos.x,
                 pos.y,
                 vel.x,
@@ -320,6 +362,67 @@ fn main() {
          door opens, she sinks, she STEERS under, the exit door opens, she leaps out \
          into a firework that hits above the door."
     );
+}
+
+/// ⛔⛔ THE WHOLE VISIBILITY CHAIN, IN ONE STRING — because Jon's report is that
+/// the SIM half works and the sprite draws anyway: *"she can move around while in
+/// the submerged state, but her sprite still draws on the stage and with blinking
+/// invincibility."*
+///
+/// Three links, and naming which one is broken is the entire question:
+///   `BodyMode::Submerged` -> `BodyPoseView.submerged` -> `Visibility::Hidden`
+///
+/// So print, over every body the presentation layer built: how many views say
+/// submerged, and how many of those are actually hidden. A body that is
+/// submerged-in-view and NOT hidden is `sync_submerged_visibility` failing or
+/// being overwritten; a body submerged in the sim whose VIEW says otherwise is
+/// the projection.
+fn visibility_chain(app: &mut App) -> String {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::sim_view::BodyPoseView,
+        &bevy::prelude::Visibility,
+    )>();
+    let (mut views, mut sub, mut sub_hidden) = (0usize, 0usize, 0usize);
+    for (pose, vis) in q.iter(world) {
+        views += 1;
+        if pose.submerged {
+            sub += 1;
+            if matches!(vis, bevy::prelude::Visibility::Hidden) {
+                sub_hidden += 1;
+            }
+        }
+    }
+    format!("views={views} view_sub={sub} sub_hidden={sub_hidden}")
+}
+
+/// ⛔⛔ THE RELEASE CONDITION, READ OUT LOUD. `ChargeSustain::UntilPressedAgain`
+/// ends the freeze when `g.pressed.is_some() || g.special.is_some()` and
+/// `charge.held_s > 0.0` — and `special` is *"the SPECIAL press, live or
+/// REPLAYED FROM THE BUFFER"*. So the move's own starting press can end the
+/// freeze one tick later if the buffer is still replaying it, and the only
+/// guard is worth exactly one tick. Whether that fires is not a thing to reason
+/// about; it is a thing to print.
+fn gesture(app: &App, body: Entity) -> String {
+    let g = app
+        .world()
+        .get::<ambition_platformer2d::characters::actor::attack_gesture::ResolvedAttackGesture>(
+            body,
+        );
+    let charge = app
+        .world()
+        .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)
+        .and_then(|p| p.charge.as_ref().map(|c| c.held_s));
+    match g {
+        None => "gest=NONE".to_string(),
+        Some(g) => format!(
+            "press={} spec={} sheld={} held_s={}",
+            g.pressed.is_some() as u8,
+            g.special.is_some() as u8,
+            g.special_held as u8,
+            charge.map(|h| format!("{h:.2}")).unwrap_or("-".into()),
+        ),
+    }
 }
 
 /// How many bodies the presentation layer has built. The self-check for

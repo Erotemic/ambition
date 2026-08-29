@@ -477,6 +477,16 @@ than profiling, none individually measurable:
 - `publish_bevy_ui_menu_actions` scanned every `PointerLocation` above its rows
   loop, for a question only the pressed-arm ever asks.
 
+⛔⛔ **AND IT DOES NOT GREP.** A heuristic sweep for "an allocation or scan
+before a `return` in the same function" over the whole workspace returned **125
+candidates**, and the tightest of them —
+`ambition_conversation::break_dialogue_on_hit_or_separation` — is CORRECT code:
+its `if !conversation.is_live() { return; }` comes FIRST and the `collect()`
+after, which is precisely the shape the class prescribes. ⇒ **the class is real
+but needs a READING pass with judgment, not a regex.** All three instances were
+found by a human-quality survey reading system bodies; none would have been
+picked out of a 125-row list. ⛔ Do not build a lint for this.
+
 ⛔ AND THE TEMPTING FIX IS USUALLY THE WRONG ONE. In all three the obvious move
 is an early return, and in all three the path that looks like a no-op is doing
 teardown — the menu's `None` arm releases the arm, `victory`'s drain is cursor

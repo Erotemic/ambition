@@ -1113,17 +1113,40 @@ mod tests {
             "a finger resting on Quit has not quit",
         );
 
-        let released = row(&mut app);
-        app.world_mut()
-            .entity_mut(released)
-            .insert(Interaction::Hovered);
-        app.update();
+        // ⛔ THE FIRST FULL TAP ON QUIT DOES NOT QUIT, AND THAT IS THE POINT.
+        // `QuitToTitle` is registered in `MenuDestructiveActions` and the shipped
+        // `MenuTapMode::SingleTapWithDestructiveGuard` resolves a destructive row
+        // to `SelectOnly` until it is BOTH selected and armed — so tap one arms
+        // and tap two spends. A single tap dispatching `QuitToHome` would be the
+        // stray-finger bug the guard exists to stop.
+        let tap = |app: &mut App| {
+            let pressed = row(app);
+            app.world_mut()
+                .entity_mut(pressed)
+                .insert(Interaction::Pressed);
+            app.update();
+            let released = row(app);
+            app.world_mut()
+                .entity_mut(released)
+                .insert(Interaction::Hovered);
+            app.update();
+            app.world_mut()
+                .resource_mut::<Messages<ShellCommand>>()
+                .drain()
+                .collect::<Vec<ShellCommand>>()
+        };
 
-        let sent: Vec<ShellCommand> = app
-            .world_mut()
-            .resource_mut::<Messages<ShellCommand>>()
-            .drain()
-            .collect();
+        let arming = tap(&mut app);
+        assert!(
+            !arming.iter().any(|c| matches!(c, ShellCommand::QuitToHome)),
+            "the FIRST tap on a destructive row arms it; only the second spends it",
+        );
+        assert!(
+            app.world().resource::<ShellPauseMenu>().open,
+            "an armed Quit row leaves the menu open to be confirmed or abandoned",
+        );
+
+        let sent = tap(&mut app);
         assert!(sent.iter().any(|c| matches!(c, ShellCommand::QuitToHome)));
         assert!(
             !app.world().resource::<ShellPauseMenu>().open,

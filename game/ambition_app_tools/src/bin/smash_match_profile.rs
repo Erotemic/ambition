@@ -320,9 +320,20 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize) {
              against another arm compares different rosters."
         );
     }
+    // ⭐ THE ENTITY COUNT AT THE QUIET MOMENT. Differencing TOTAL live entities
+    // between a 2- and a 4-fighter run does not work later on: combat VFX spawn
+    // and despawn make `live` swing ~40 WITHIN a single run, which is as large as
+    // the whole fighter delta. Right here the round has just gone live and no
+    // combat has happened, so two arms differ by their ROSTER and little else —
+    // which is what makes "how many entities is a fighter" askable at all.
+    let live_entities = app
+        .world_mut()
+        .query::<bevy::prelude::Entity>()
+        .iter(app.world())
+        .count();
     eprintln!(
         "[smash-profile] fighters={fighters} seated={seated_now} live_after_ticks={live_at} \
-         measuring={ticks}"
+         entities_at_go_live={live_entities} measuring={ticks}"
     );
 
     // ⛔ AFTER the round goes live, not before: sprites spawned into the opening

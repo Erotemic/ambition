@@ -1465,11 +1465,35 @@ a tidy "20 entities per fighter". ⛔ But `live` was earlier observed fluctuatin
 between-arm delta is smaller than one arm's own variance**, so the number means
 nothing.
 
-⇒ answering it needs a query counting entities that carry a FIGHTER-SPECIFIC
-marker, not a difference of world totals. ⛔ And `[census] populations` cannot do
-it either: it ranks by count, and a 2–4 fighter rig is nowhere near the top 20 in
-a world holding 1024 sand chunks and 96 UI nodes. **A census ranked by population
-is blind to the few entities that matter most in a fighting game.**
+⛔ And `[census] populations` cannot rescue it: it ranks by count, and a 2–4
+fighter rig is nowhere near the top 20 in a world holding 1024 sand chunks and 96
+UI nodes. **A census ranked by population is blind to the few entities that matter
+most in a fighting game.**
+
+⭐⭐ **ANSWERED BY MOVING THE SAMPLE, NOT BY ADDING A QUERY: A FIGHTER IS 8
+ENTITIES.** The noise is COMBAT VFX, so the measurement was moved to the quiet
+moment the tool already detects — the instant the round goes live, before any
+combat. `smash_match_profile` now reports `entities_at_go_live`:
+
+| fighters | entities at go-live | reps |
+|---|---|---|
+| 2 | **1297** | 1297, 1297 |
+| 4 | **1313** | 1313, 1313 |
+
+**Zero variance across reps**, against ±40 later in the same run. ⇒ +16 entities
+for +2 fighters = **8 entities per fighter**.
+
+⛔⛔ **AND THAT REFUTES THE HYPOTHESIS IT WAS BUILT TO TEST.** The ownership map
+concluded a fighter's presentation cost is Bevy doing per-entity work, so the
+lever looked like "hand the pipeline fewer entities". **At 8 entities per fighter
+there is no room in that lever.** 8 entities cannot account for the ~39us of
+`PostUpdate` a fighter adds unless the per-entity work is heavy, or the cost is
+proportional to something other than entity count — sprite PARTS DRAWN rather than
+entities spawned. ⇒ the rig-simplification direction is NOT supported; what a
+fighter costs in presentation is still unattributed below the entity level.
+
+⭐ Method worth keeping: **when the noise is caused by an ACTIVITY, sample before
+the activity starts** — that beat both a bigger sample and a new query.
 
 ⇒ combined with the sim table below, the frame's ownership is now fully mapped:
 **the SIM is ours (545 systems, monolith 30%); `PreUpdate` and `PostUpdate` are

@@ -2493,6 +2493,27 @@ cast rename. **A tick count is not a fixed window; check the token every time.**
 frames costs frames; raising demand at match PREPARATION is what supplies them.
 The two changes are one design.
 
+✔✔ **AND IT IS VERIFIED END TO END, IN A COMPOSITION THAT ACTUALLY RENDERS.** The
+headless `smash_match_profile` cannot show this — it decodes 57 images totalling
+**21.0MP** (0.37MP average, **no 4096x4096 sheets at all**), so the sheet path is
+simply not exercised there. `capture_scene` boots a real composition WITH
+rendering, so it is. Worst case on purpose: `hall_of_characters`, the gallery
+behind the 516ms frames.
+
+| arm | total notable decodes | worst SIMULTANEOUS landing |
+|---|---|---|
+| unbounded (`MAX_… = 0`) | 93 | **34** |
+| bounded (`MAX_… = 1`, shipped) | 93 | **15** |
+
+⇒ **the worst simultaneous landing more than halves, 34 → 15, and the TOTAL IS
+IDENTICAL.** The equal totals are the important half: it defers, it does not drop
+— the same property the unit test asserts, now shown in a real composition rather
+than over a `BTreeSet`.
+
+⭐ **THE A/B WAS FREE BECAUSE THE CODE ALREADY HAD THE SWITCH:** `take_bounded(0)`
+means unbounded by its own definition, so the "before" arm is a one-character
+change rather than a revert.
+
 ⛔⛔ **AND IT CHANGED A CONTRACT THE TESTS WERE RELYING ON.**
 `resident_tiers_names_the_tier_of_the_pixels_not_the_request` demanded TWO
 characters and stepped ONE frame, expecting both resident. It now steps until the

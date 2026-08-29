@@ -136,10 +136,14 @@ fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
 /// ⛔⛔ **REGISTER THIS IN `Update`, NEVER IN THE SIMULATION SCHEDULE.** It ran in
 /// `WorldPrep` — the sim's largest phase — until 2026-08-29, which put a blocking
 /// stat on the deterministic tick. It is also unfit for that schedule on its own
-/// terms: `Res<Time>` is wall-clock and the debounce lives in a `Local`, so
-/// neither rewinds, and a session that actually rolled back would re-stat the
-/// file once per re-simulated tick. Every reader of `WorldSourceHotReload` is a
-/// menu system in `Update` anyway.
+/// terms: the debounce lives in a `Local`, which does NOT rewind, so a session
+/// that actually rolled back would re-stat the file once per re-simulated tick.
+/// Every reader of `WorldSourceHotReload` is a menu system in `Update` anyway.
+///
+/// ⛔ NOT a reason, though it reads like one: `Res<Time>` is FINE inside the sim.
+/// `bevy_ggrs` swaps `Time<()>` for the rolled-back `Time<GgrsTime>` for the
+/// duration of `GgrsSchedule`, and ADR 0023 rule 2 says so explicitly — the
+/// wall-clock rule is about `std::time`, not `Res<Time>`.
 ///
 /// ⇒ If the remaining ~3Hz stat ever shows up in a frame, move it off-thread —
 /// do NOT poll less often. See `docs/planning/engine/performance-and-iteration.md`.

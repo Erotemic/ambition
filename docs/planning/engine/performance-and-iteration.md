@@ -1058,11 +1058,18 @@ CPU archaeology here.
 sim schedule `.in_set(WorldPrep)` — **the sim's largest phase**. It does a
 blocking `fs::metadata`, measured at up to **3.9ms on virtiofs**.
 
-⛔ **AND IT WAS UNFIT FOR THAT SCHEDULE ON DETERMINISM GROUNDS TOO:** it reads
-wall-clock `Res<Time>` and keeps its debounce in a `Local<f32>`, neither of which
-rewinds, so a session that actually rolled back would re-stat the file once per
-RE-SIMULATED tick. `check_distance: 0` makes that latent rather than live —
-which is exactly when it is cheap to fix.
+⛔ **AND IT WAS UNFIT FOR THAT SCHEDULE ON DETERMINISM GROUNDS TOO:** it keeps its
+debounce in a `Local<f32>`, which does NOT rewind, so a session that actually
+rolled back would re-stat the file once per RE-SIMULATED tick. `check_distance: 0`
+makes that latent rather than live — which is exactly when it is cheap to fix.
+
+⛔⛔ **CORRECTION, same day: I ALSO BLAMED `Res<Time>`, AND THAT WAS WRONG.**
+`bevy_ggrs` swaps `Time<()>` for the rolled-back `Time<GgrsTime>` for the duration
+of `GgrsSchedule`, and ADR 0023 rule 2 states it outright — *"under fixed tick,
+`Res<Time>` inside the tick is Bevy's fixed clock and is therefore deterministic;
+this rule is about `std::time`"*. ⇒ **plain `Res<Time>` in a sim system is not a
+defect.** The defects here were the blocking syscall and the `Local`. Do not go
+hunting `Res<Time>` in the sim schedule on the strength of this entry.
 
 ⇒ Moved to `Update`. **Every reader of `WorldSourceHotReload` is a menu system in
 `Update` already**, so this puts the writer in its readers' schedule, and the

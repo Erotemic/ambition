@@ -2260,10 +2260,25 @@ changes, which after startup is **never**.
    registry that moved. ⚠ needs care with exclusive-system change ticks.
 3. Memoize the fingerprint on the registry, so every other caller stops paying too.
 
-⛔ **NOT ATTEMPTED — THE DISK IS FULL AND THIS ONE NEEDS A COMPILER.** Fix 1 is
-mechanical, but the valuable fix is 2 and change detection inside an exclusive
-system is exactly the kind of thing that must be compiled and tested, not
-reasoned about. ⚠ Recorded rather than half-done.
+✔✔ **FIXED 2026-08-29 BY MEMOISING THE FINGERPRINT — FIX 3, AND DELIBERATELY NOT
+FIX 2.** I first wrote fix 2 (skip the recompute unless
+`RollbackRegistry::is_changed()`) and **reverted it**: it compiled, but it puts new
+logic on the path that decides whether a live session is still valid, and there is
+NO test covering that invalidation — building one needs a real GGRS session. A
+change-detection subtlety there fails silently and is load-bearing.
+
+⭐ **THE MEMO IS BEHAVIOUR-IDENTICAL, WHICH IS WHY IT IS THE SAFE ONE.**
+`schema_fingerprint` caches into a `OnceLock` on the registry and returns the same
+value it always did, so every existing schema and baseline test still pins it.
+Soundness rests on `entries` having **exactly one mutation site** — the `insert` in
+`try_register` — which clears the memo; `entries` stays private so a second path
+cannot appear silently. `Clone` is hand-written to start with an EMPTY memo, so a
+clone that is then mutated cannot answer for entries it no longer has.
+
+⚠ **TWO GUARDS, AND THE FIRST ONE FAILS UNDER POISON:** removing the invalidation
+makes `registering_after_reading_the_fingerprint_changes_it` fail with *"the memo
+is stale"*; `a_clone_agrees_with_its_source_and_still_notices_its_own_changes`
+covers the clone. 56/56 rollback tests, 45 runtime tests, gate clean.
 
 ⭐ **ALSO SEEN IN THE SAME SWEEP, AND IT IS THE LARGEST RECURRING SYSTEM OF ALL:**
 `update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — more

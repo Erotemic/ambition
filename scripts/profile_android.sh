@@ -19,7 +19,12 @@ duration="30"
 freq="99"
 event="cpu-clock"
 stat_events="cpu-clock,context-switches,page-faults"
-out_base="${AMBITION_PROFILE_BASE:-$repo_root/target/profiles}"
+# ⭐ BESIDE THE LEDGER, NOT INSIDE `target/` — the same move the desktop profiler
+# made 2026-08-29. A bundle under `target/` sits in the build bindmount, where
+# `cargo clean` can take it and an agent working in this checkout cannot read it
+# without somebody moving it out by hand. `dev/ambition_dev_measurements/profiles/`
+# is untracked there and sits beside the rows that name it.
+out_base="${AMBITION_PROFILE_BASE:-$repo_root/dev/ambition_dev_measurements/profiles}"
 profile_name=""
 adb_bin="${ADB:-adb}"
 serial=""
@@ -84,7 +89,8 @@ Options:
   -F, --freq HZ           Sampling frequency for simpleperf record. Default: 99.
   -e, --event EVENT       simpleperf record event. Default: cpu-clock.
   --stat-events LIST      simpleperf stat events. Default: cpu-clock,context-switches,page-faults.
-  -o, --out DIR           Output base directory. Default: target/profiles.
+  -o, --out DIR           Output base directory. Default:
+                          dev/ambition_dev_measurements/profiles (untracked).
   --name NAME             Output directory name suffix. Default: MODE-UTC_TIMESTAMP.
   -s, --serial SERIAL     adb device serial.
   --launch                Always launch the app with monkey before capture.

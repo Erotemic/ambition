@@ -460,7 +460,8 @@ Play the match. Quit the game when you are done. Read the `summary.md` whose
 path the script prints, then hand the bundle to the history:
 
 ```bash
-python3 scripts/lib/profile_bundle_to_history.py target/profiles/desktop-timeline-run-<stamp> \
+python3 scripts/lib/profile_bundle_to_history.py \
+    dev/ambition_dev_measurements/profiles/desktop-timeline-run-<stamp> \
     --label "smash match, RTX 4070"
 ```
 

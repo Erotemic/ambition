@@ -349,6 +349,35 @@ not, with no noise floor to argue about:
 Jon's steer done literally: the inspector still works the instant it is shown, it
 just stops running a full egui pass to draw nothing.
 
+**⭐⭐ RUN-CONDITION EVALUATION IS ~5% OF THE FRAME, AND THAT IS WHY THE ONE
+LEVER WORKED.** The Tracy export carries 1452 `check_conditions` zones totalling
+**339.5us/frame** — ~141us real after the 2.4x inflation, about 5% of a
+`profiling` frame. ⇒ the `gameplay_allowed` hoist (83 evaluations → 1) was
+cutting into a genuinely metered cost class, not a theoretical one. Dearest
+individual conditions, per frame:
+
+```text
+14.78us  bevy_ecs::apply_deferred          2.98  XpbdSolverPlugin::build closure
+ 2.56us  forget_unclaimed_feature_views_while_dormant
+ 2.35us  ambition_dev_tools::runtime_census::mark_sim_phase   ← MY OWN INSTRUMENT
+ 2.10us  avian2d ...forces::apply_local_acceleration
+```
+
+⚠⚠ **THE INSTRUMENT IS THE FOURTH MOST EXPENSIVE CONDITION IN THE FRAME.** It is
+registered only when the census is switched on, so a normal run does not pay it —
+but it is a reminder in the campaign's own data that measuring is not free, and
+that this is precisely why every census row here is gated at build time.
+
+⛔⛔ **AND A TOOLING LIMIT WORTH KNOWING BEFORE SOMEBODY PLANS AROUND TRACY:
+THERE ARE NO PER-SYSTEM EXECUTION SPANS.** The export holds 1452
+`check_conditions`, 34 `schedule`, 15 `par_for_each` and egui's own
+`function_scope` zones — and NO `system{name=…}` entries. That is why egui was
+the only named per-system cost: its spans come from egui's instrumentation, not
+Bevy's. ⇒ **`Update`'s 1.42ms cannot be attributed per system from this bundle**,
+and anyone expecting Tracy to rank Ambition's systems will find only their
+condition checks. Getting execution spans needs a different Bevy tracing feature
+or a hand-rolled bracket.
+
 **WHERE TO GO NEXT**, in order:
 1. ▢ take a real-hardware Smash profile: `./scripts/profile_desktop.sh --smash`
    on a GPU machine — every number here is from a GPU-less host;

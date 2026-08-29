@@ -460,6 +460,25 @@ shares were stable while its magnitude was not.
 ⚠ I published the 4.4% figure and its "~30 systems" consequence before re-running
 it. The rule this document keeps re-learning caught its own author one more time.
 
+⭐⭐ **EVERY COMPARISON IN THIS CAMPAIGN AUDITED AGAINST THE INTERLEAVING RULE**,
+because a rule that invalidates your own past work is worth applying to it:
+
+| comparison | design | verdict |
+|---|---|---|
+| fighter count 2 vs 4 | INTERLEAVED across reps | ✅ valid |
+| fighter phase split | both arms inside one block | ✅ valid |
+| entities/sprites at go-live | both arms inside one block | ✅ valid |
+| per-body `WorldPrep` gradient (5 rooms) | one block | ✅ valid |
+| sprite burst baseline vs burst | **inside a single run** | ✅ strongest design here |
+| spikes: calm vs spiky quartiles | **inside a single run**, 340 intervals | ✅ valid |
+| hot-reload watcher before vs after | ⚠ **CROSS-BLOCK** — before, edit, after | ⚠ but the verdict was NULL, and block drift only widens a null; the conclusion "not separable from noise" is unaffected |
+
+⇒ **the campaign's load-bearing comparisons are within-run or interleaved**, and
+the one cross-block comparison produced the safe verdict. ⭐ That is not luck: a
+within-RUN A/B (the sprite burst, the spike quartiles) is immune to both
+within-block spread AND block drift, which is why those two findings are the most
+solid numbers in this document.
+
 ⛔⛔ **AND THAT REOPENS A CONCLUSION RECORDED EARLIER TODAY.** This document says
 *"on a frame this diffuse, no group of fewer than ~500 systems can produce a
 measurable win"* — an arithmetic derived from the LOOSER floor. At a 4.4% floor

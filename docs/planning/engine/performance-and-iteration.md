@@ -922,6 +922,43 @@ live, NOT in `PostUpdate` where the render extraction runs.
 `Update`: 1.42ms over 494 presentation systems.** That is the campaign's next
 measurement and the last place a lever can be hiding.
 
+### ⛔⛔⛔ CAPABILITY ACTIVATION WILL NOT MAKE SMASH FASTER — measured
+
+The decisive probe for the direction both briefs rank FIRST. Rather than gate
+seven capabilities one at a time and collect seven nulls, remove **every
+non-Smash experience at once** — Sanic, Mary-O, Pocket and Twintrack, their
+whole registration, far more than the ~77 `Update` systems they contribute:
+
+| | baseline | all four experiences removed |
+|---|---|---|
+| frame mean | 4.5–5.0ms | **4.40–4.67ms** |
+| `ggrs_driver` | 1.19ms | 1.085–1.104ms |
+| `seats_at_end` | 2 | **2** — a real match, not confounded |
+
+**Within noise.** ⇒ **RUNTIME CAPABILITY ACTIVATION IS ARCHITECTURE-ONLY.** It is
+worth doing for composition clarity, ownership and startup cost. It is worth
+approximately NOTHING for frame time, and nobody should fund it as a performance
+migration.
+
+⛔ THIS RETIRES THE BRIEFS' TOP-RANKED ITEM ON EVIDENCE. The GPT review called
+runtime capability composition *"the biggest one"*, and the second brief made it
+direction 1. Both rested on the reading that inactive Sanic/Smash/Mary-O
+machinery *participates in* a frame. It does not, twice over: their gameplay
+rules are TUPLE-GATED (collective in Bevy 0.18, ~4 evaluations each, corrected
+earlier), and their presentation systems — measured here, in aggregate, at the
+upper bound — cost nothing recoverable.
+
+⭐ THE ARITHMETIC SAID SO IN ADVANCE, and it is the general lesson: ~77 systems
+at `Update`'s measured ~2.9us each is ~0.22ms, about 5% of frame, BELOW this
+machine's ~15% noise floor. ⇒ **on a frame this diffuse, no group of fewer than
+~500 systems can produce a measurable win.** Size the group against the noise
+floor BEFORE building the gate, every time.
+
+⚠ WHAT THIS DOES NOT SAY: it does not price STARTUP. Plugin build scales with
+registered systems, and startup is the number a phone player feels — four
+experiences' worth of registration may well matter there. That is a different
+measurement and it has not been taken.
+
 ### WHO OWNS `Update` — the target list for capability gating
 
 `[census] owners_in` breaks one schedule down by the crate owning each system.

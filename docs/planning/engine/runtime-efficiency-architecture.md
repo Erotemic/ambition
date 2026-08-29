@@ -29,6 +29,15 @@ is designed around long before it matches Godot feature-for-feature.
 
 ### 1. Runtime capability composition has to become real
 
+⛔⛔⛔ **MEASURED 2026-08-29: THIS WILL NOT MAKE THE GAME FASTER.** Removing every
+non-Smash experience from a live Smash match — Sanic, Mary-O, Pocket, Twintrack,
+their entire registration — moved the frame from 4.5–5.0ms to 4.40–4.67ms, which
+is inside the noise floor, with `seats_at_end=2` so the match really ran. The
+review calls this *"the biggest one"* and it is the wrong size: **it is an
+architecture and startup item, not a frame-time one.** Do not fund it as a
+performance migration. Details and the arithmetic that predicted it in
+[`performance-and-iteration.md`](performance-and-iteration.md).
+
 **The claim:** the model is too close to *install the universe, then ask hundreds
 of conditions every frame whether each piece should do anything.* The wanted
 model is hierarchical — an executable installs experiences, the current
@@ -234,9 +243,11 @@ a campaign:
 
 ## The order to execute in
 
-1. **runtime capability activation and composition** — ⚠ re-scoped by the
-   measurement in §1: this is a STARTUP and composition win, not a frame-time
-   one, until something re-measures and shows otherwise;
+1. **runtime capability activation and composition** — ⛔ RE-SCOPED TWICE AND NOW
+   MEASURED: removing four whole experiences from a Smash match changed the frame
+   by nothing outside noise. Pursue it for composition clarity, cost ownership and
+   STARTUP (plugin build scales with registered systems, and startup is what a
+   phone player feels). ⛔ Do not pursue it for frame time;
 2. **change-driven projection architecture** — the one with measured per-frame
    cost behind it today;
 3. **render-view and residency ownership**.

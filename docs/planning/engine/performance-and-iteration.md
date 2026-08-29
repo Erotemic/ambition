@@ -2270,6 +2270,27 @@ mechanism it implies is wrong.
 ⚠ A whole-frame `bevy_app` zone of 222s and `plugin cleanup` at 881ms are
 startup/shutdown, not gameplay — do not read them as spikes.
 
+##### ▢ `RenderAssetUsages::RENDER_WORLD` IS AVAILABLE FOR LOADED SHEETS — AND IT WILL LIE TO THE INSTRUMENT
+
+**Checked, not assumed: nothing reads the pixels of a LOADED sprite sheet.** The
+only three CPU-side readers of `Image::data` in the tree are all on
+RUNTIME-CREATED images — `runtime_census.rs:380` (the census), `bubble_shield.rs`
+:320, and `falling_sand.rs:1263`. Sheets loaded from disk are drawn, never
+sampled. ⇒ dropping their main-world copy is open, and it is the lever for the
+**2.62GB resident**, not for the hitch.
+
+⛔⛔ **BUT THE CENSUS COMPUTES `decoded_bytes` FROM `image.data`, SO DROPPING THE
+CPU COPY MAKES THE INSTRUMENT REPORT LESS WHETHER OR NOT MEMORY IMPROVED.**
+`images_resident` would fall too. Some of that drop is real memory saved and some
+of it is the instrument going blind, and the readout cannot tell them apart.
+⇒ **before making that change, teach the census to report the bytes it can no
+longer see** (the loader knows width x height x format) or the next run will show
+a spectacular fake win. Same family as every other instrument trap in this file:
+the number moved because the measurement changed.
+
+⚠ And it does NOT fix the 516ms: `extract_render_asset` still copies once. It
+shrinks what stays resident afterwards.
+
 #### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
 
 ⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY

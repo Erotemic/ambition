@@ -863,6 +863,44 @@ in `741a1f59b`, which the exit oracle caught).
 made the tail come home to the hand instead of 79px past it; until the first hit
 stops ending the flight, most throws never reach the return leg at all.
 
+### Branch audit: all four unmerged branches are SUPERSEDED, none should merge (2026-08-29)
+
+Asked to make sure every branch's work was merged. **The answer is that it
+already is — by re-implementation, not by merge — and merging any of the four
+would resurrect superseded code.**
+
+| branch | ahead / behind `origin/main` | verdict |
+|---|---|---|
+| `respawn-interval-holding` | 3 / 1200 | ⛔ recorded verdict: do not merge |
+| `d194-and-respawn-verified` | 6 / 1197 | ⛔ same |
+| `attrib-beat-only` | 4 / 1200 | ⛔ same |
+| `specials-are-real-moves` | 2 / 542 | ⛔ superseded on main |
+
+⭐ **The three respawn branches already have a written verdict**, in
+`docs/planning/review-respawn-interval-hold.md` dated 2026-08-25: *"verdict 3:
+re-do on current main … Do not merge or rebase the branch. It was built on
+rollback schema 73; main is 104."* **Main's schema is now 134.** They are frozen
+as reference — salvage the behaviour, tests and measurements, not the
+registrations. All three are now pushed, which that doc asked for and which was
+still outstanding when it was written (two were local-only).
+
+⭐ **`specials-are-real-moves` is a different case with the same answer.** Its
+bulk merged long ago; the two commits left are `c67d2ceb5` and `88000c757`, and
+they conflict with main as **add/add** on
+`crates/ambition_render/src/rendering/submerged.rs` and
+`crates/ambition_platformer2d_core/src/movement/tests/submerged.rs`. An add/add
+means both sides created the same file independently — and main's versions came
+from `4a3a13a49` *"The trapdoor is a trapdoor, and she steers under the stage"*
+and `7564f22bc` *"A submerged body is not drawn, and the rule is stated once
+instead of twice"*. ⇒ the same two features, re-done on main and stated better.
+Merging would be reconciling two implementations of one feature, not integrating
+work.
+
+⚠ **`git cherry` says these commits are NOT in main (`+`), and that is weak
+evidence.** It compares patch ids, which almost never match across 1200 commits
+of drift even when the change did land. The add/add conflict and the commit
+subjects are what actually settled it.
+
 ### The actor → performer rename has a FOURTH place to reach: the art FILES (2026-08-29)
 
 ⛔ **`character_catalog.ron` NAMES `sprites/performer_spritesheet.{png,ron}`. THE

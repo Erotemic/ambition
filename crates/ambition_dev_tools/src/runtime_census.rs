@@ -439,6 +439,12 @@ pub fn report_sim_schedule_membership(
             .any(|(label, _)| format!("{label:?}") == *wanted)
         {
             report_schedule_membership(&schedules, wanted, at);
+            // ⭐ AND WHO OWNS IT. The membership row gives bare system NAMES
+            // (`condition_label` drops the path), so crate attribution is lost
+            // there. This is the "which crate is asking the SIM for work"
+            // question — the one an architecture decomposition actually needs,
+            // and it was previously answerable only for main schedules.
+            report_schedule_owners_in(&schedules, wanted);
         }
     }
 }

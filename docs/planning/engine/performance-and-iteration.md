@@ -1430,6 +1430,35 @@ response and NOT device-to-sim latency. ⇒ **true input latency needs a real de
 on real hardware**, and it joins the real-hardware item rather than standing as
 its own lead.
 
+### ⭐⭐ WHO OWNS THE SIMULATION — 545 systems, 29 crates, first measured 2026-08-29
+
+Possible only once the sim schedule became enumerable. `[census] owners_in
+schedule=GgrsSchedule`:
+
+| crate | systems | share |
+|---|---|---|
+| **`ambition_platformer2d_actor_monolith`** | **162** | **30%** |
+| `ambition_content` | 62 | 11% |
+| `ambition_combat` | 52 | 10% |
+| `ambition_demo_mary_o` | 33 | 6% |
+| `ambition_sim_view` | 30 | 6% |
+| `ambition_demo_sanic` | 25 | 5% |
+| `ambition_platformer2d_runtime` | 25 | 5% |
+| `ambition_dev_tools` | 22 | 4% |
+| `ambition_demo_smash` | 20 | 4% |
+| `ambition_boss_encounter` | 18 | 3% |
+
+⭐ **THE MONOLITH IS 30% OF THE SIMULATION**, which turns "it is big" into a
+number the decomposition can be planned against. (For contrast, `Update`'s 497
+systems spread over 46 crates, led by `ambition_render` at 99.)
+
+⚠ **63 sim systems — 12% — belong to experiences a Smash match is not**
+(`mary_o` 33, `sanic` 25, `twintrack` 5). ⛔ **This is NOT a performance finding
+and must not be sold as one:** removing four whole experiences was measured
+earlier in this campaign and moved neither frame time NOR startup registration.
+⇒ they already pay proportionally to what they do, which is what the architecture
+promises. It is an OWNERSHIP datum, not a cost one.
+
 ### An instrument gotcha this cost a run to find
 
 ⛔ A headless run finishes in well under a wall-clock SECOND, and the census

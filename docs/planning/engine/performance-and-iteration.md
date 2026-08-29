@@ -655,6 +655,14 @@ census is trustworthy — see the render caveat below):
   hidden expensive ones. Gating `Update`'s two largest groups recovered nothing;
 - **there is no hot system.** ~630 systems at 2.9–15.6us each.
 
+⭐⭐⭐ **A FIGHT COSTS PHYSICS, NOT COMBAT LOGIC.** Measured with the strongest
+design available here — an INTERLEAVED within-run A/B (combat VFX make the
+population rise and fall repeatedly, 137 rises / 166 falls, n=401): combat-active
+frames cost **~150–250us more** than quiet ones, and **58% of that is
+`RunFixedMainLoop`** (the fixed-timestep loop, where physics runs). ⛔ **The whole
+gameplay sim moves +0.003ms and the `Combat` phase itself +0.004ms** — four
+microseconds in the phase named after it, against 150 in the frame.
+
 ⭐⭐⭐ **AND RESPONSIVENESS IS A DIFFERENT QUESTION FROM THROUGHPUT: SMASH'S FRAME
 SPIKES ARE NOT IN THE SIMULATION.** 340 intervals quartile-split by worst frame:
 sim total 0.837 → 0.849ms (**+1.4%**) while the frame max goes **4.64 → 8.28ms**;

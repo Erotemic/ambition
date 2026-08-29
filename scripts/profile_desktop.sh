@@ -25,18 +25,23 @@ default_bounded_duration="30"
 freq="99"
 interval_ms="1000"
 pid=""
-# ⭐ BUNDLES LAND OUTSIDE `target/`, IN `<repo>/profiles/`, SINCE 2026-08-29.
-# `profiles/` is already in the root `.gitignore`, so this is untracked either
-# way -- what changes is that a bundle now (a) survives `cargo clean`, (b) is not
-# inside the target bindmount, and (c) is readable by an agent working in this
-# checkout without anyone moving it out of `target/` by hand first.
+# ⭐ BUNDLES LAND BESIDE THE LEDGER THEY FEED, IN
+# `dev/ambition_dev_measurements/profiles/` (untracked), SINCE 2026-08-29.
+# Previously `target/profiles`, which put every bundle inside the target
+# bindmount where `cargo clean` could take it and where an agent in this
+# checkout could not read it without somebody moving it out by hand.
+#
+# ⭐ WHY BESIDE THE LEDGER: the measurement REPO is what a reader consults, and a
+# row in `runtime_frame_cost.jsonl` that names a bundle nobody can find is half a
+# record. The raw bundle stays UNTRACKED (gigabytes); `summary.md` is copied into
+# the repo's tracked `summaries/` so the readable half travels with the row.
 # ⚠ It also means bundles ACCUMULATE rather than being swept with the build dir;
 # `perf.data` dominates and a long run is gigabytes, so prune this directory.
 # Override with `--out DIR` or `AMBITION_PROFILE_BASE`.
 # ⇒ To adopt a bundle recorded elsewhere: move the directory here and re-run
 #   `python3 scripts/lib/profile_bundle_to_history.py <dir>`, which appends the
 #   ledger row with the new path.
-out_base="${AMBITION_PROFILE_BASE:-$repo_root/profiles}"
+out_base="${AMBITION_PROFILE_BASE:-$repo_root/dev/ambition_dev_measurements/profiles}"
 profile_name=""
 # Empty means "pick per mode": timeline-run records without call graphs so an
 # open-ended session stays small on disk; bounded modes keep DWARF stacks.
@@ -1287,6 +1292,18 @@ main() {
         after="$(wc -l < "$ledger" 2>/dev/null || echo 0)"
         if [[ "$after" -gt "$before" ]]; then
             log "ledger:           appended to dev/ambition_dev_measurements/runtime_frame_cost.jsonl"
+            # ⭐ THE READABLE HALF TRAVELS WITH THE ROW. The bundle itself is
+            # gigabytes and stays untracked; `summary.md` is a few KB and is the
+            # thing a human or an agent actually reads, so it is copied into the
+            # measurement repo's TRACKED `summaries/` under the same record id
+            # the ledger row carries. ⇒ a row can always be read back, even on a
+            # machine that never had the bundle.
+            local summaries="$repo_root/dev/ambition_dev_measurements/summaries"
+            if [[ -f "$out_dir/summary.md" ]]; then
+                mkdir -p "$summaries"
+                cp "$out_dir/summary.md" "$summaries/$(basename "$out_dir").md"
+                log "summary:          dev/ambition_dev_measurements/summaries/$(basename "$out_dir").md (commit this)"
+            fi
         else
             log "WARNING: nothing was appended to the measurement ledger (see above)."
             log "         The bundle is intact; ingest it by hand with:"

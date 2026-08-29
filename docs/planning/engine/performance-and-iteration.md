@@ -2374,6 +2374,76 @@ which is why it was labelled rather than assumed correct.
 ⚠ Tracy inflates ~2.4x, so the real figure is ~130us/frame — **~1.7% of a 7.77ms
 frame**. Worth taking because it is constant and free, not because it is large.
 
+#### ✔✔✔ SECOND HARDWARE RUN: THE WORST IN-PLAY FRAME IS 78ms, DOWN FROM 516ms
+
+`profiles/desktop-timeline-run-20260829T171902Z`, same host, Tracy on. **Every
+count-based check passes, and those are the robust ones — a line is present or it
+is not:**
+
+| check | before | after |
+|---|---|---|
+| `bevy_egui pass output has not been prepared` | **28,353** | **0** |
+| `SheetRegistry: loaded 870 sheets` | 2 — startup **and a punch at 23.9s** | 2 — **both at startup** (3.771s warm, 3.774s init) |
+| `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` | 312.8us mean / 8.87s | **80.1us / 0.94s** |
+| `enforce_session_contract` | 292.3us mean | **226.9us** |
+| bundle size | 28G | **642M** (pruner removed 10.8GB) |
+
+⭐⭐⭐ **AND THE SPIKES DURING PLAY, WHICH IS THE POINT.** Excluding boot (>10s), the
+two runs list:
+
+```text
+BEFORE  69.8  198.3  34.2  66.2  131.6  130.5  162.4  43.6  34.3  34.3  63.3  99.6  197.8  516.3  393.2  467.0 ...
+AFTER   64.9   41.3  74.2  57.0   78.4   46.5
+```
+
+⇒ **worst in-play frame 516.3ms → 78.4ms, and NOTHING over 80ms.** The run entered
+a match TWICE.
+
+⛔⛔ **BUT READ THE REST HONESTLY, BECAUSE THREE NUMBERS DO NOT SUPPORT A VICTORY:**
+- **The spike RATE is unchanged: 0.855 per 1000 frames against 0.848.** The count
+  fell 24 → 10 only because the run was 11,761 frames instead of 28,291. **What
+  improved is the MAGNITUDE, not the frequency.**
+- The route differed — **no `hall_of_characters`**, so the 516ms case was never
+  revisited. The comparison above is in-play spikes generally, not that room.
+- The mean rose 7.77 → 9.18ms, and Tracy went **13.5% → 18.7% of cycles**. Not
+  comparable; do not read it either way.
+
+⛔⛔ **AND MY OWN NEW INSTRUMENT IS TOO COARSE — IT FLAGGED 53 OF 53 DECODES.** All
+150.8MP decoded "during gameplay", 31 of them after boot. That is *true* and nearly
+useless: in a play-through gameplay is live almost always, so `live=1` fires on
+everything. ⚠ **I ALSO MISREAD IT FIRST**, reporting "0 late decodes" from a bad
+shell quote — the opposite of the truth.
+⇒ what the row actually asked for was a late **MATCH-CRITICAL** asset — one the
+CURRENT match's roster needs, arriving after the bell — and I simplified that to
+"any decode while playing".
+
+✔✔ **FIXED BY SCOPING IN THE ANALYSIS, NOT THE ENGINE.** `ambition_render` cannot
+see rosters or transitions without new coupling, but **the bundle already carries
+`room-loaded` with a timestamp**, so the summary classifies each decode by PHASE
+instead of by "was the player playing":
+
+| phase | this run |
+|---|---|
+| before the first `room-loaded` — **boot** | 31 decodes, 93.8 MP — ✔ not a hitch |
+| within 3s of a `room-loaded` — **a room still arriving** | 7 — ⚠ expected |
+| more than 3s after — **SETTLED PLAY** | **15, 20.9 MP** — ⛔ the contract violation |
+
+⇒ **53 of 53 becomes 15 of 53**, and 20.9MP instead of 150.8MP. The engine keeps
+emitting a fact (`live=`); the correlation lives where the room events already
+are. ⭐ No new cross-crate dependency was needed to make the instrument mean
+something.
+
+⛔⛔ **AND THE FIRST CUT OF THAT CLASSIFIER WAS WRONG TOO — CAUGHT BY CHECKING ITS
+EDGE.** "No prior room load" was treated as settled play, so every BOOT decode
+counted as a violation and it reported **46**. The first `room-loaded` in this
+bundle is at 48.9s while decoding starts at 2.2s. ⇒ **a classifier needs a
+category for "before anything happened"**, and the way to find that is to print
+the boundary rather than trust the branch.
+
+⭐ So the mechanism claim stands and is now visible on hardware: **decodes still
+happen during play (31 after boot), they simply no longer pile into one frame.**
+That is what pacing was supposed to buy.
+
 #### ⭐⭐⭐ THE DEV BUILD IS 42% SLOWER THAN IT NEEDS TO BE, AND THAT IS THE BUILD JON PLAYS
 
 **MEASURED 2026-08-29, three reps per arm, headless `smash_match_profile --ticks
@@ -2667,8 +2737,56 @@ flap). ⛔ It is NOT quality-tier flapping: `grep "quality transition"` over the
 returns **zero**, so that hypothesis is dead.
 
 ⚠ **PRICED BEFORE FIXING: ~40MP of the run's 656MP.** Ten portrait sheets at 1.3MP
-re-decoded 3–4x each. Real, and small. ⇒ it wants the same retained-residency
-answer as everything else in this section, not its own special cache.
+re-decoded 3–4x each. Real, and small.
+
+⛔⛔ **RE-PRIORITISED 2026-08-29 BY THE PHASE-SCOPED INSTRUMENT — "SMALL" WAS THE
+WRONG AXIS. THIS IS 15 OF 15 OF WHAT REMAINS.** Asked which decodes land in
+SETTLED play (>3s after a room finished loading), the second hardware run answers
+with **nothing but portraits**, in two bursts:
+
+```text
+56.2s   7.3s after a room load   noether, patent_clerk, medic, carl_stargan,
+                                 player_robot_v3, perfect_cellular_automaton,
+                                 oiler, officer   (8 portraits)
+71.9s  11.0s after a room load   noether, patent_clerk, perfect_cellular_automaton,
+                                 oiler, officer, author, player_robot_v3  (7)
+```
+
+⇒ **the same portraits, twice** — once per match entry, because the select screen
+opens, loads them, closes, drops the last handle, and the next visit reloads.
+⇒ **every other decode in the run is boot (31) or a room still arriving (7).**
+
+✔✔ **FIXED 2026-08-29: `RetainedPortraits`.** The HUD held the ONLY handle to a
+portrait, so despawning its entity dropped the image and the next visit decoded it
+again. A process-lifetime `HashMap<String, Handle<Image>>` now hands out the
+handle and keeps it.
+
+⭐ **BOUNDED BY CONSTRUCTION, WHICH IS WHY IT IS A CACHE AND NOT THE RESIDENCY
+SERVICE THE SHEET STORE FORBIDS.** It holds one entry per portrait ACTUALLY SHOWN
+(1.3–2.0MP each), not the 163 baked portrait manifests. A cast-sized set of small
+images is a different object from a 470MB-per-character sheet table and needs no
+eviction policy to stay bounded. ⇒ the "there must not be an evictor" rule is not
+in play here, and the residency DECISION is not blocked on this.
+211 render tests, gate clean. ▢ Verified on the next windowed run: the two
+portrait bursts should become one.
+
+⛔⛔ **AND THE FIRST TEST I WROTE FOR IT COULD NOT FAIL — THE POISON SAID SO.** I
+asserted *"asking twice returns the same handle"*. `AssetServer::load` **dedupes
+by path and returns the same handle while the asset is alive**, so a cache
+poisoned to reload on every call still passed. ⇒ **handle identity is not the
+property; RETENTION is.** What fixes the bug is that the map holds a STRONG handle
+of its own, so the image survives the HUD entity despawning.
+✔ The test now drops the caller's handle and asserts the cache still holds one
+with the same id; poisoned (retain nothing under the real key) both arms fail.
+⭐ The lesson generalises past this fix: **when a library already deduplicates,
+a test of identity tests the LIBRARY, not your code.**
+
+⭐ **So the remaining "asset work on a gameplay frame" problem in this build is
+ENTIRELY the select screen's portrait set.** 20.9MP, ~8 images of 1.3–2.0MP. It is
+small in bytes and it is the whole of what is left, which is exactly the kind of
+thing a megapixel ranking hides. ⇒ **a bounded retained cache for portraits —
+loaded lazily, never dropped — closes it**, and it is bounded by construction
+(one per character actually SHOWN, not the 163 baked manifests).
 
 ##### ⛔ A THIRD HITCH SOURCE: 14 PORTAL RIGS ALLOCATED IN ONE FRAME TO USE TWO
 

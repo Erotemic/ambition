@@ -308,12 +308,22 @@ baseline; extend it.
   ⚠ To settle it properly someone needs an EXECUTED-systems-per-frame
   instrument; the census counts registrations and conditions, not executions.
 
-- ▢ **D-PERF-3 — per-frame rebuilds whose inputs change on events.**
-  `rebuild_control_prompt` (31.8us/frame), `rebuild_feature_view_index`,
-  `rebuild_attack_vfx_views`, `sync_ecs_actors_with_save`. Determine the
-  COMPLETE authoritative input set before converting any of them; a missed
-  invalidation path is a correctness bug, so each needs a regression test that
-  covers every path.
+- ◐ **D-PERF-3 — per-frame rebuilds whose inputs change on events.**
+  ⚠ **PARTLY STALE, re-checked 2026-08-29.** `rebuild_control_prompt` (the row's
+  headline, 31.8us/frame) has been fully change-driven since `2fe4ba42a`
+  (2026-07-23) — a `Local` cache key over `Ref<>` authorities plus resource
+  presence bits, careful enough to invalidate on a rebind AND on picking up a
+  different pad. Its residual cost is COMPUTING THE KEY, not rebuilding, which
+  is a different fix. `rebuild_feature_view_index` looked like it allocated a
+  `String` per feature per frame; `insert_if_absent` already does a `get_mut`
+  first, so only a genuinely new id allocates.
+  ⇒ **what is left and genuinely uncached:** `rebuild_feature_view_index` still
+  makes a linear pass over 7+ query families every frame,
+  `rebuild_attack_vfx_views` and `sync_ecs_actors_with_save` have NO change
+  detection at all (zero `is_changed`/`Ref`/`Local` in either file).
+  ⛔ Determine the COMPLETE authoritative input set before converting any of
+  them; a missed invalidation path is a correctness bug, so each owes a
+  regression test covering every path.
 
 - ◐ **D-PERF-4 — dev instrumentation is a top-five per-frame cost in an
   OPTIMIZED build.** ⚠ **PARTLY STALE ALREADY, re-checked 2026-08-29** — this is
@@ -483,6 +493,115 @@ would have said so
 `GgrsSchedule`, so this gate lives inside the rollback schedule rather than
 `Update`.
 
+### Fresh frame baseline on current main, 2026-08-29
+
+⛔ NOT COMPARABLE TO THE 2026-08-28 ROW ABOVE — different host (that one's
+machine is unidentified; see the warning at the top) and a `dev` build rather
+than `profiling`. Recorded as its own series start, not as a delta.
+
+This host (i9-11900K, 12 logical CPUs, `machine_id ec9af5ee`), `dev` profile,
+headless `sandbox`, 1800 ticks, NO Tracy, census only:
+
+```text
+[census] frame  frames=948 mean=0.93 p50=0.87 p95=1.18 p99=1.84 min=0.76 max=11.93
+[census] phases Update=0.724 StateTransition=0.058 PostUpdate=0.031 Last=0.025
+                SpawnScene=0.024 outside=0.018 PreUpdate=0.017 First=0.014
+                RunFixedMainLoop=0.014
+[census] ecs    entities=64 archetypes=85 components=994 bodies=2 players=1
+```
+
+⭐ **`Update` IS 78% OF THE FRAME** (0.724 of 0.93ms), consistent with it holding
+822 of 887 systems. `StateTransition` is 6% on 8 systems, which remains a high
+per-system cost and remains Bevy's machinery rather than ours.
+
+⚠⚠ **AND THE HONEST READING IS THAT THIS FRAME IS NOT IN TROUBLE.** 0.93ms mean
+for a scene with TWO BODIES in it. ⛔ Do not optimize this number — chasing
+microseconds in a 2-body scene is how a campaign spends itself on nothing. The
+open question is not "why is the frame slow", it is **how does cost GROW**, and
+that is a scaling question this repository still cannot answer.
+
+⚠ `max=11.93ms` against a `p99` of 1.84 is a real outlier worth a look before it
+is explained away; one frame in 948 costing 13x the median is the shape of a
+blocking call or an allocation spike, not of ordinary variance.
+
+### ⛔⛔ THE HEADLESS WORKLOAD IS NEARLY EMPTY, AND THAT UNDERMINES THE BASELINES
+
+Measured 2026-08-29, sweeping `--start-room` over the headless sandbox at 20Hz
+census, 3000 ticks each:
+
+| start room | entities | archetypes | bodies | mean | p95 | max |
+|---|---|---|---|---|---|---|
+| *(default)* | 64 | 85 | 2 | 0.87ms | 0.99 | 1.97 |
+| `goblin_encounter` | 64 | 57 | 1 | 0.84ms | 0.96 | 2.34 |
+| `central_hub_complex` | 64 | 85 | 2 | 0.84ms | 0.92 | 0.96 |
+
+⭐⭐ **EVERY ROOM GIVES 64 ENTITIES AND ONE OR TWO BODIES.** The room argument
+reaches the binary — `run_game.sh --print-plan` confirms `--start-room` is
+passed through as a game arg — and it moves the archetype count, so something
+loads. But no room produces a populated scene.
+
+⇒ ⛔ **EVERY HEADLESS MEASUREMENT IN THIS DOCUMENT, INCLUDING THE 2026-08-28
+BASELINE, DESCRIBES A TWO-BODY WORLD.** They are honest measurements of the
+engine's FIXED OVERHEAD and say nothing about gameplay cost, scaling, or the
+sprite-heavy room that motivated the campaign. That is not a small caveat: the
+phase split, the per-system rankings and the frame budget are all
+fixed-overhead numbers, and the brief's headline question — *why does a room
+with hundreds of sprites chug* — cannot be asked on this path at all.
+
+⚠ TWO POSSIBILITIES, NOT YET SEPARATED, and they need separating before any
+scaling work: either the headless host deliberately loads a minimal scene and
+never populates the room, or room content fails to load headlessly and nothing
+reports it. ⛔ Do not build a scaling benchmark on this path until that is
+answered — a curve measured on an empty world is worse than no curve.
+
+### An instrument gotcha this cost a run to find
+
+⛔ A headless run finishes in well under a wall-clock SECOND, and the census
+samples on WALL time. At the default 1Hz the only sample a short run produces is
+the startup frame — which reports `frames=1` and `Update=127ms`, because that is
+plugin build, not a frame. It is very easy to read that as a catastrophic frame
+time. Set `AMBITION_PROFILE_CENSUS_HZ` high enough that the run outlives the
+first interval, and ⛔ distrust any `[census] frame` row with a small `frames=`.
+
+### ⭐⭐ THE FIRST REAL SMASH MATCH PROFILE, 2026-08-29 — and it inverts the ranking
+
+`game/ambition_app_tools/src/bin/smash_match_profile.rs` exists because nothing
+else profiled a MATCH: `run_game.sh smash` opens on character select, and every
+headless room measures a two-body world. It drives the SHIPPED composition
+(`build_visible_app(NoWindow)` + `smash_roster` + `GoTo(SMASH_GAMEPLAY_ROUTE)`),
+waits for the round to actually go live rather than counting frames, and checks
+at the end that seats still exist — a profile of a match that quietly ended is a
+profile of a results screen.
+
+This host, `dev` profile, headless, 2 fighters, 3000 ticks, no Tracy:
+
+| phase | empty sandbox | SMASH MATCH | ratio | share of match frame |
+|---|---|---|---|---|
+| **PreUpdate** | 0.017ms | **1.98ms** | **116x** | **45%** |
+| Update | 0.724ms | 1.31ms | 1.8x | 30% |
+| PostUpdate | 0.031ms | 0.57ms | 18x | 13% |
+| RunFixedMainLoop | 0.014ms | 0.32ms | 23x | 7% |
+| StateTransition | 0.058ms | 0.10ms | 1.7x | 2% |
+| **frame mean** | **0.87ms** | **4.41–4.82ms** | **5x** | |
+| entities / archetypes | 64 / 85 | **2048 / 376** | 32x / 4.4x | |
+
+⛔⛔ **"UPDATE IS 78% OF THE FRAME" WAS AN ARTIFACT OF MEASURING AN EMPTY WORLD.**
+In a real match `PreUpdate` is the largest phase by a wide margin, and it is the
+one nobody was looking at — the 2026-08-28 baseline put it at 3% of the frame.
+Every ranked direction derived from that baseline inherits the same defect.
+
+⭐ **AND IT IS A TIGHT TARGET.** `[census] schedules` reports PreUpdate holding
+about NINE systems, so 1.98ms is roughly 220us each. Compare `Update`, which
+carries 822 systems for 1.31ms.
+
+⚠ `bodies` stayed at 2 while entities went 64 → 2048. Whatever a match spawns
+two thousand of, it is not bodies, and a per-entity cost in PreUpdate over that
+population is the leading hypothesis.
+
+⚠ Absolute numbers here are a `dev` build on this host; they are for RATIOS and
+for ranking, and a `profiling`-profile run is owed before any of them is quoted
+as a budget.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and
@@ -499,6 +618,7 @@ problem into a startup one.
 |---|---|---|---|
 | I1 | `gameplay_allowed`'s 87 evaluations/frame need a new set-gating mechanism built | ⛔ REJECTED — the mechanism already exists and is already in use: `configure_platformer2d_simulation_phases` puts `simulation_authorized` on `GameplaySimulationRoot` in ONE `configure_sets` call | The work is not "build set gating", it is "apply the existing pattern to the second condition". And Bevy 0.18.1's `.run_if` on a tuple is ALREADY collective (`collective_conditions`, evaluated at most once per schedule run) — only `.distributive_run_if` copies per system. Read from `bevy_ecs/src/schedule/config.rs`, not assumed. |
 | I3 | The condition census can sample the schedule graph on the census interval, like every other census row | ⛔ REJECTED BY ITS OWN FIRST MEASUREMENT — it reported `system_conditions=0` beside `systems=886` | `Schedule::initialize` MOVES conditions out of `ScheduleGraph` into the private executable, and there is no public accessor for them afterwards. Any read after the first run of a schedule sees an empty graph. ⇒ the census is a ONE-SHOT `PreStartup` topology dump, and it now prints `unavailable=graph_already_initialized` rather than a confident zero. ⚠ it therefore counts what PLUGIN BUILD registered; systems added later on session activation are not in it. |
+| I5 | The D-PERF rows name work that still needs doing | ⛔ REJECTED, THREE FOR THREE — every row checked so far was already addressed | D-PERF-1's set-gating mechanism already existed and was already used (`simulation_authorized` on `GameplaySimulationRoot`); D-PERF-2's "1802 ticks each" premise is wrong (the demos are tuple-gated, which Bevy makes collective); D-PERF-3's headline candidate `rebuild_control_prompt` has been change-driven since 2026-07-23, a MONTH before the measurement that named it, and `rebuild_feature_view_index`'s `insert_if_absent` already avoids the per-frame `String` allocation it looked like it made. ⇒ **the written rows are not a reliable work list.** The engine is in better shape than they say, and the next D-PERF decision needs FRESH per-system attribution rather than another row. |
 | I4 | `CARGO_INCREMENTAL=0` fixes the stale-object link failure | ◐ PARTLY — it BUILDS past it but does not CLEAR it; the next ordinary build resurrected the same undefined symbol | The poisoned state lives in the package's incremental dir and survives any number of `CARGO_INCREMENTAL=0` runs. `cargo clean -p <pkg>` is the durable fix, and it is cargo's own operation rather than a delete under `target/`. ⛔ do not reach for `rm -rf`. |
 | I2 | The `smash_it` link failure after the knockout fix was caused by that fix | ⛔ REJECTED — clean tree, `HEAD` lacks the symbol, `grep` finds no reference anywhere in the crate | A draft test compiled and then `git checkout --`'d hours earlier left an incremental `.rcgu.o` referencing the dead symbol. A build-cache lie, not a source defect. `CARGO_INCREMENTAL=0` rebuilds past it. ⛔ do not delete under `target/`. |
 

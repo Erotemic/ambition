@@ -65,6 +65,11 @@ test = false
 bench = false
 
 [[bin]]
+name = "smash_match_profile"
+path = "src/bin/smash_match_profile.rs"
+test = false
+
+[[bin]]
 name = "headless"
 path = "src/bin/headless.rs"
 test = false

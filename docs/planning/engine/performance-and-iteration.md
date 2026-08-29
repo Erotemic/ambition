@@ -500,17 +500,33 @@ CONTENTION.** The first attempt was underpowered AND mis-designed: a threshold
 expressed as "3x median" MOVES when load raises the median, which mechanically
 shrinks the count. Redone with ABSOLUTE thresholds and ~15,800 frames per arm:
 
-| arm | median | >8ms | >12ms | >16.67ms | worst |
+⛔⛔ **AND THE FIRST VERSION OF THIS TABLE WAS DILUTED — 44% OF EACH ARM WAS A
+RESULTS SCREEN.** A 16000-tick run OUTLIVES the match: the idle arm ran 425
+intervals with a live cast and then **371 with `bodies=0`**, and post-match frames
+cost **1.84ms** against the match's 4.31ms. ⛔ The tool printed
+`WARNING: no seats remain` and `seats_at_end=0`; **my grep filtered the warning
+out and I read past the number.** ⇒ filtered to MATCH intervals only
+(`bodies>=2`), ~5,200 match frames per arm:
+
+| arm (MATCH frames only) | mean | >8ms | >12ms | >16.67ms | worst |
 |---|---|---|---|---|---|
-| idle | 3.20ms | 9 (**1.1%**) | 2 (0.2%) | **0 (0.0%)** | 13.66ms |
-| 6x busy loop | 3.35ms | 87 (**9.5%**) | 7 (0.8%) | 1 (0.1%) | **34.86ms** |
+| idle | **4.312ms** | **0.9%** | 0.0% | **0** | 10.56ms |
+| 6x busy loop | **4.606ms** | **11.8%** | 1.5% | 1 | **20.24ms** |
+
+⭐ **The correction STRENGTHENS the result: 13x more frames over 8ms from load
+alone** (0.9% → 11.8%, up from the diluted 8.6x) while the mean moves only 6.8%.
+
+⭐⭐ **AND IT VINDICATES THE CAMPAIGN'S HEADLINE FRAME TIME.** The diluted median
+read 3.20ms and briefly looked like evidence that the recorded "4.5–5.0ms" was
+~27% too high. Filtered, the match mean is **4.312ms** — the headline was right,
+and the low number was a results screen.
 
 ⇒ **FRAMES OVER 8ms BECOME 8.6x MORE COMMON UNDER CPU CONTENTION WHILE THE MEDIAN
 MOVES 5%.** That is the signature of scheduling, not of engine work — engine work
 would raise the median with the tail.
 
 ⭐⭐⭐ **AND THE HEADLINE: ON AN IDLE MACHINE, SMASH DOES NOT DROP FRAMES.** ZERO of
-15,747 frames exceeded the 16.67ms budget; the worst was 13.66ms. ⛔ **The 22.95ms
+**5,164 MATCH frames** exceeded the 16.67ms budget; the worst was 10.56ms. ⛔ **The 22.95ms
 frame recorded earlier in this section was measured while this session was running
 other work** — it was MY contention, not the game's. The same explains the 5.24ms
 outlier that made one noise-floor block read 22.6%.
@@ -763,8 +779,8 @@ every gameplay phase moves ≤4 MICROseconds. ⇒ making the sim cheaper is wort
 ⭐⭐⭐ **AND WHAT THE SPIKES ARE IS NOW ANSWERED — THEY ARE CONTENTION, NOT THE
 ENGINE.** Frames over 8ms become **8.6x more common** under CPU load (1.1% →
 9.5%) while the median moves 5% — the signature of scheduling, since engine work
-would raise the median with the tail. ⭐ **ON AN IDLE MACHINE, ZERO of 15,747
-frames exceeded the 16.67ms budget** (worst 13.66ms). ⛔ Earlier "dropped frame"
+would raise the median with the tail. ⭐ **ON AN IDLE MACHINE, ZERO of 5,164 MATCH
+frames exceeded the 16.67ms budget** (worst 10.56ms). ⛔ Earlier "dropped frame"
 readings here were measured while this session ran its own builds and probes.
 ⇒ **record MACHINE LOAD beside every frame number.**
 

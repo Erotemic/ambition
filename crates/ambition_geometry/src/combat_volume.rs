@@ -85,8 +85,7 @@ impl CombatVolume {
         let frame = AccelerationFrame::new(frame_down);
         let face = if facing < 0.0 { -1.0 } else { 1.0 };
         let theta = frame.side.y.atan2(frame.side.x);
-        let to_world =
-            |local: Vec2| origin + frame.side * (local.x * face) + frame.down * local.y;
+        let to_world = |local: Vec2| origin + frame.side * (local.x * face) + frame.down * local.y;
         match self {
             CombatVolume::Aabb(a) => {
                 let (center, half) = (to_world(a.center()), a.half_size());
@@ -112,6 +111,33 @@ impl CombatVolume {
 
     /// Build a convex volume from world-space points. The points need not be
     /// pre-ordered — the Parry shape is built from their convex hull.
+    /// The region an axis-aligned box covers while travelling from `from` to
+    /// `to` — the exact swept shape, as a convex hull of the box at both ends.
+    ///
+    /// ⭐ EXACT, WHICH IS THE POINT. The cheap alternative is the UNION of the
+    /// two bounding boxes, and that is right only for axis-aligned travel: on a
+    /// diagonal it covers corners the box never passed through, so a swept test
+    /// built on it invents hits on bodies the mover visually missed. A hull of
+    /// the eight corners is the same cost to test and answers what actually
+    /// happened.
+    ///
+    /// ⚠ A STRAIGHT leg. Curved motion must be split into segments by the
+    /// caller; sweeping an arc as one hull would cover the inside of the curve.
+    pub fn swept_aabb(from: Vec2, to: Vec2, half: Vec2) -> Self {
+        let corners = |c: Vec2| {
+            [
+                Vec2::new(c.x - half.x, c.y - half.y),
+                Vec2::new(c.x + half.x, c.y - half.y),
+                Vec2::new(c.x + half.x, c.y + half.y),
+                Vec2::new(c.x - half.x, c.y + half.y),
+            ]
+        };
+        let mut points = Vec::with_capacity(8);
+        points.extend_from_slice(&corners(from));
+        points.extend_from_slice(&corners(to));
+        Self::convex(convex_hull(&points))
+    }
+
     pub fn convex(points: Vec<Vec2>) -> Self {
         CombatVolume::Convex {
             bounds: bounds_of_points(&points),
@@ -307,6 +333,43 @@ pub(crate) fn obb_corners(center: Vec2, half: Vec2, rotation: f32) -> Vec<Vec2> 
     .collect()
 }
 
+/// The convex hull of `points`, counter-clockwise, duplicates dropped.
+///
+/// Monotone chain. Exists because [`CombatVolume::convex`] stores the points it
+/// is GIVEN — it does not hull them — so a caller assembling a shape from raw
+/// corners owes the hull, and every overlap test downstream assumes convexity.
+///
+/// Degenerate input answers honestly: fewer than three distinct points cannot
+/// bound an area, so they come back as-is rather than as a polygon nothing can
+/// intersect.
+pub fn convex_hull(points: &[Vec2]) -> Vec<Vec2> {
+    let mut sorted: Vec<Vec2> = points.to_vec();
+    sorted.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
+    sorted.dedup_by(|a, b| a.x == b.x && a.y == b.y);
+    if sorted.len() < 3 {
+        return sorted;
+    }
+    // > 0 is a left turn; collinear points are dropped, which keeps the hull
+    // minimal and the downstream SAT loops shorter.
+    let cross = |o: Vec2, a: Vec2, b: Vec2| (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    let mut hull: Vec<Vec2> = Vec::with_capacity(sorted.len() * 2);
+    for &p in sorted.iter() {
+        while hull.len() >= 2 && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(p);
+    }
+    let lower = hull.len() + 1;
+    for &p in sorted.iter().rev() {
+        while hull.len() >= lower && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(p);
+    }
+    hull.pop();
+    hull
+}
+
 fn bounds_of_points(points: &[Vec2]) -> Aabb {
     if points.is_empty() {
         return Aabb::new(Vec2::ZERO, Vec2::ZERO);
@@ -400,5 +463,77 @@ mod tests {
         let obb = CombatVolume::obb(Vec2::new(0.0, 0.0), Vec2::new(5.0, 5.0), 0.6);
         let far = CombatVolume::from(aabb(1000.0, 1000.0, 5.0, 5.0));
         assert!(!obb.intersects(&far));
+    }
+
+    /// The hull of a square's own corners is the square — four points, no more.
+    #[test]
+    fn a_hull_of_a_square_is_the_square() {
+        let pts = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(0.0, 2.0),
+        ];
+        assert_eq!(super::convex_hull(&pts).len(), 4);
+    }
+
+    /// Interior and duplicate points are dropped: a hull is the boundary, and
+    /// carrying redundant vertices lengthens every SAT loop downstream.
+    #[test]
+    fn a_hull_drops_interior_duplicate_and_collinear_points() {
+        let pts = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2.0, 0.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(0.0, 2.0),
+            Vec2::new(1.0, 1.0), // interior
+            Vec2::new(2.0, 0.0), // duplicate
+            Vec2::new(1.0, 0.0), // collinear on the bottom edge
+        ];
+        assert_eq!(super::convex_hull(&pts).len(), 4);
+    }
+
+    /// ⭐ THE CLAIM `swept_aabb` EXISTS FOR: it is EXACT on a diagonal, where the
+    /// cheap union-of-boxes is not.
+    ///
+    /// A box travelling up-right never visits the bottom-right corner of the
+    /// union rectangle. A swept test built on that union would report a hit
+    /// against a body sitting there — a body the mover visually missed.
+    #[test]
+    fn a_diagonal_sweep_excludes_the_corner_the_union_would_include() {
+        let half = Vec2::new(1.0, 1.0);
+        let swept = CombatVolume::swept_aabb(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0), half);
+        // Well inside the union rectangle (x
+        let off_path = CombatVolume::from(aabb(9.0, 1.0, 0.4, 0.4));
+        assert!(
+            !swept.intersects(&off_path),
+            "a diagonal sweep must not cover the corner the union rectangle would"
+        );
+        // And it does cover the path itself.
+        let on_path = CombatVolume::from(aabb(5.0, 5.0, 0.4, 0.4));
+        assert!(
+            swept.intersects(&on_path),
+            "the sweep must cover its own path"
+        );
+    }
+
+    /// Both ends belong to the swept region, not just the middle.
+    #[test]
+    fn a_sweep_covers_both_of_its_endpoints() {
+        let half = Vec2::new(2.0, 2.0);
+        let swept = CombatVolume::swept_aabb(Vec2::new(0.0, 0.0), Vec2::new(50.0, 0.0), half);
+        assert!(swept.intersects(&CombatVolume::from(aabb(0.0, 0.0, 0.5, 0.5))));
+        assert!(swept.intersects(&CombatVolume::from(aabb(50.0, 0.0, 0.5, 0.5))));
+        assert!(!swept.intersects(&CombatVolume::from(aabb(60.0, 0.0, 0.5, 0.5))));
+    }
+
+    /// A zero-length sweep is just the box: the degenerate case a fast-path
+    /// caller hands in when nothing moved.
+    #[test]
+    fn a_zero_length_sweep_is_the_box_itself() {
+        let half = Vec2::new(3.0, 3.0);
+        let swept = CombatVolume::swept_aabb(Vec2::new(7.0, 7.0), Vec2::new(7.0, 7.0), half);
+        assert!(swept.intersects(&CombatVolume::from(aabb(7.0, 7.0, 0.5, 0.5))));
+        assert!(!swept.intersects(&CombatVolume::from(aabb(20.0, 7.0, 0.5, 0.5))));
     }
 }

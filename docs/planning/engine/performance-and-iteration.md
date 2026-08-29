@@ -488,6 +488,33 @@ same window. ⇒ **entity count here is a PROXY for combat activity**, and a
 per-entity price derived from a proxy is meaningless. (This is the fourth time in
 this campaign that dividing by an entity count produced a wrong answer.)
 
+⭐⭐⭐ **AND WHERE THAT COST LANDS IS THE POINT: NOT IN THE SIMULATION.** The same
+interleaved split, now bucketing PHASES (n=401):
+
+| phase | quiet | combat | delta |
+|---|---|---|---|
+| **`RunFixedMainLoop`** | 0.321 | 0.409 | **+0.088 — 58% of it** |
+| `PostUpdate` | 0.519 | 0.546 | +0.027 |
+| `Update` | 1.244 | 1.269 | +0.025 |
+| `PreUpdate` | 1.964 | 1.974 | +0.010 |
+| **the whole gameplay sim** | **0.837** | **0.840** | **+0.003** |
+| of which the `Combat` phase | 0.191 | 0.195 | **+0.004** |
+
+⇒ **COMBAT COSTS ~4 MICROSECONDS IN THE `Combat` PHASE while costing ~150us in the
+frame.** The gameplay simulation is FLAT during a fight. The cost is
+`RunFixedMainLoop` — the fixed-timestep loop, where the physics step lives — so
+**what a fight costs is COLLISION AND PHYSICS WORK, not combat logic.**
+
+⚠ The absolute total here (+151us) is smaller than the +251us of the frame-only
+split above; different run, different quartile boundaries. ⇒ **read the SHARES**:
+~58% `RunFixedMainLoop`, ~18% `PostUpdate`, ~17% `Update`, ~2% the sim.
+
+⭐ This is the THIRD independent route to the campaign's central conclusion, and
+the most direct: the spikes are not in the sim, the fighter delta is only a third
+sim, and now a fight itself moves the sim by 0.4%. ⇒ **optimising gameplay systems
+is not where this engine's frame lives — even when the gameplay is the busiest
+thing on screen.**
+
 ⭐ Consistent with the spikes result: combat costs a broad ~250us more, and the
 frame SPIKES are still not in the simulation — the two findings measure different
 things and neither explains the other.

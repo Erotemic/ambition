@@ -15,13 +15,13 @@
 
 use super::*;
 use ambition_combat::components::{ActorFaction, ActorIdentity};
-use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
-use ambition_gameplay_trace::BodyTraceSnapshot;
-use ambition_gameplay_trace::ActorTraceBuffer;
-use ambition_gameplay_trace::CollisionTraceShape;
-use ambition_gameplay_trace::ActorTraceFrame;
 use ambition_gameplay_trace::default_dump_dir;
 use ambition_gameplay_trace::write_actor_dump;
+use ambition_gameplay_trace::ActorTraceBuffer;
+use ambition_gameplay_trace::ActorTraceFrame;
+use ambition_gameplay_trace::BodyTraceSnapshot;
+use ambition_gameplay_trace::CollisionTraceShape;
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
     if is_player {
@@ -132,7 +132,11 @@ pub fn record_actor_oob_frame_system(
         .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
         .take(64)
         .map(|b| CollisionTraceShape {
-            kind: format!("{:?}", b.kind),
+            // ⛔ NOT `format!("{:?}", b.kind)`. The filter one line up admits
+            // ONLY `Solid`, so that formatted a compile-time constant into a
+            // fresh `String` up to 64 times per frame, forever, to write the
+            // same six characters. The filter is the spec; this follows it.
+            kind: "Solid".to_string(),
             name: b.name.clone(),
             aabb: b.aabb.into(),
             distance: 0.0,

@@ -2380,11 +2380,29 @@ number was `dev`. "The engine is fast" and "the game feels slow" were measuremen
 of two different binaries. ⇒ the four-times-under-budget headroom is real for the
 SHIPPED build and substantially smaller for the DEVELOPMENT one.
 
-▢ **NOT CHANGED — THE ROW SAID MEASURE FIRST, AND THE OTHER HALF OF THE TRADE IS
-STILL UNMEASURED.** The pins buy compile time, which is why they were added.
-⇒ owed: rebuild cost for those three crates at `opt-level` 0 vs 1 (the repo
-already tracks `compile_cost.jsonl`), then a proposal that states both numbers.
-⛔ Do not raise them on the strength of the runtime number alone.
+✔✔ **THE OTHER HALF IS NOW MEASURED, AND THE TRADE IS LOPSIDED.** Edit-one-file
+rebuild of the profiling binary, 3 reps per arm (first rep discarded where cold):
+
+| edit-rebuild | `opt-level = 0` (SHIPPED) | `opt-level = 1` | delta |
+|---|---|---|---|
+| touch `ambition_render` | 6.91 / 6.87 / 6.89 → **6.89s** | 9.14 / 6.97 / 7.01 → **7.01s** | **+0.12s (2%)** |
+| touch `ambition_platformer2d_runtime` | 8.11 / 7.97 / 8.25 → **8.11s** | 12.46 / 8.19 / 8.12 → **8.19s** | **+0.08s (1%)** |
+
+⇒ **THE PINS SAVE 1–2% OF AN EDIT-REBUILD AND COST 42% OF FRAME TIME.** One-off:
+switching the profile forces a full rebuild, measured at **93.5s**, paid once.
+
+⭐ **AND THE STATED REASON FOR THE PINS IS REFUTED, NOT MERELY OUTWEIGHED.** The
+comment justifies `ambition_render` at zero because render never runs in the
+HEADLESS benchmark. The 42% was measured headless too — so it is
+`ambition_platformer2d_runtime` and `ambition_app`, not render, and a WINDOWED
+build should be worse still.
+
+▢ **PROPOSAL, NOT TAKEN: raise all three to `opt-level = 1`** (the value
+`profile.dev` already uses for every other workspace member, so this removes an
+exception rather than inventing a policy). ⛔ Left to Jon because build policy is
+everyone's compile time, not one campaign's — but the row's condition
+(*"if dev is dramatically slower"*) is met, and the cost side is now a number
+instead of a fear.
 
 #### ⛔⛔ THE 516ms FRAME IS *EXTRACT*, NOT DECODE — AND THAT REDIRECTS THE FIX
 

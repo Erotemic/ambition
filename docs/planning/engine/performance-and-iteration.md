@@ -515,6 +515,22 @@ warning existed, fired, and was grepped away. Verified: `--ticks 2000` reports
 roughly 5,800 ticks, so keep `--ticks` at or under ~5000**, or filter on
 `bodies>=2`.
 
+⭐⭐ **EVERY TICK COUNT THIS CAMPAIGN USED WAS THEN RE-CHECKED FOR DILUTION**,
+because a measurement error is only closed once you know which results it touched:
+
+| `--ticks` | live cast | what was measured there | verdict |
+|---|---|---|---|
+| 1200–4000 | **100%** | frame attribution, fighter scaling, phase splits, per-room `WorldPrep` | ✅ clean |
+| 5000 | **100%** | "a fight costs physics", the combat/VFX interleaved A/B | ✅ clean |
+| 6000 | 95% | the knockout within-run A/B | ⚠ borderline — and that design was rejected on other grounds anyway |
+| 8000 | diluted | the first spike characterisation | ⛔ superseded above |
+| 16000 | **36%** | the idle-vs-loaded spike arms | ⛔ corrected above by filtering |
+
+⇒ **only the runs already corrected were affected; every load-bearing finding was
+measured inside a live match.** ⭐ That check is the point — the dilution was found
+late, and the first instinct is to assume it poisoned everything. It did not, and
+knowing WHICH results it touched is what let the rest stand.
+
 | arm (MATCH frames only) | mean | >8ms | >12ms | >16.67ms | worst |
 |---|---|---|---|---|---|
 | idle | **4.312ms** | **0.9%** | 0.0% | **0** | 10.56ms |

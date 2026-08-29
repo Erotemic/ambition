@@ -1636,6 +1636,21 @@ small"* written down as a comment, over a collection that grows with playtime �
 `dialog_visits`, the save's flag vector, and the mirror's extras. A claim about
 size is not a claim that survives a save file ageing.
 
+⭐ **AND THIS ONE *DOES* GREP — the search is written down and currently returns
+EMPTY.** Look for `fn name(...) -> bool` whose parameters mention `Query<` or
+`Res<`, then compare how often the name appears in `run_if(...)` against how
+often it is CALLED. ⛔ Two filters do all the work: exclude std method names
+(an unfiltered pass returns 1577 hits for `is_empty`), and exclude any predicate
+taking a non-system argument — `opposed(a: Entity, b: Entity, ...)` in
+`ambition_combat::clank` is a per-PAIR test and can never be a run condition,
+because a condition takes only system params.
+
+Filtered, the whole workspace yields THREE names: `twintrack_is_active`,
+`world_inspector_visible` and that false positive. ⇒ **both real ones are now
+gated, so this search is exhausted here** — but it is cheap, it independently
+rediscovered what a reading survey found, and it is worth re-running after any
+large content landing.
+
 ⭐ **THE RECURRING TELL:** a predicate hand-copied instead of gated —
 `twintrack_is_active` in THREE files consulted by 4 of 33 systems,
 `portals.is_empty()` in FIVE system bodies, `FallingSandRoomState::active_room`

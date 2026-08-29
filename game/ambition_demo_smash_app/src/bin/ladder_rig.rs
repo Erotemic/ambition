@@ -137,6 +137,32 @@ fn force_utility_weights(
     found
 }
 
+/// `--no-rollout`: zero `rollout_depth`/`rollout_k` on every live fighter.
+///
+/// ⭐ THE A/B FOR THE l6 REGRESSION. `--sweep-below` measures l1 and l6 failing to
+/// recover from below while l3/l5/l9 succeed, and l6 is exactly where
+/// `for_level` switches rollout on — but l9 has the same rollout and recovers, so
+/// the correlation needs a controlled test rather than a story. Re-run the sweep
+/// with this flag: if l6 then recovers, rollout is the cause; if it still fails,
+/// rollout is a coincidence and the suspect list moves on.
+///
+/// ⚠ It pokes the LIVE cfg, exactly as `force_utility_weights` does, because the
+/// published policy is what builds the profile and a rig must not fork it.
+fn force_no_rollout(app: &mut bevy::app::App) -> bool {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
+            cfg.profile.rollout_depth = 0;
+            cfg.profile.rollout_k = 0;
+            found = true;
+        }
+    }
+    found
+}
+
 /// The weights this run measures under: `v1` unless `--weight name=value` says
 /// otherwise, repeatable.
 ///
@@ -535,6 +561,9 @@ fn run_bout_at(
             seeded = force_noise_seed(&mut app, seed);
             if seeded {
                 force_utility_weights(&mut app, weights);
+                if std::env::args().any(|arg| arg == "--no-rollout") {
+                    force_no_rollout(&mut app);
+                }
             }
         }
         if !placed {

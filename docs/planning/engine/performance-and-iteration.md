@@ -2007,6 +2007,45 @@ by reading a baseline file and a waiver list; the two that were real were closed
 by a one-line registration change each. No part of this needed the fix the row
 was holding out for.
 
+#### ▢ AND THE SURFACE THIS OPENS, ENUMERATED AND COUNTED — 8 MORE BLIND RESOURCES
+
+The two fixed above were blind because `rollback_resource_clone` gives a
+presence-only probe. **That is a property of the CALL, not of those two types**, so
+every other row registered the same way is blind the same way. The schema baseline
+answers "which?" directly — after this change there are **11** `resource-clone`
+rows left (against 14 `resource-clone-custom-checksum` and 22 `resource-canonical`).
+
+Counting mutable sites (`ResMut<T>` / `resource_mut::<T>` outside tests):
+
+| resource | mutable sites | reading |
+|---|---|---|
+| `ActiveConversation` | 14 | ⛔ blind and heavily mutated |
+| `OwnedItems` | 14 | ⛔ blind — and ALREADY FILED: its waiver says *"wants a canonical projection (G2b)"* |
+| `PossessionState` | 9 | ⛔ blind and heavily mutated |
+| `EncounterRegistry` | 5 | ⛔ blind |
+| `SwitchActivationQueue` | 2 | ⛔ blind — a QUEUE, so a rewind that loses an entry is this exact class |
+| `CutRopeHeavyObjectCycle` | 1 | ⛔ blind; its waiver claimed "immutable at runtime" and is false (above) |
+| `PortalFrameHistory` | 1 | ⛔ blind |
+| `InputStreamRecorder` | 1 | ⚠ dev instrument, likely append-only |
+| `FactionRelations` | **0** | ✔ its "authored, immutable" waiver is TRUE |
+| `FriendlyFire` | **0** | ✔ ditto |
+| `SaveRestored` | — | ✔ documented as MUST NOT be checksummed, with the reason |
+
+⇒ **8 of the 11 are mutated, and therefore invisible to the sync test.**
+
+⛔ **NOT FIXED IN A BATCH, DELIBERATELY, AND THE PRECEDENT SAYS WHY.** `SaveRestored`
+is on that list because projecting its bool *"reddened
+`the_calibration_lab_is_checksum_stable_at_rest` and most of this file"* — state
+written in literal `Update` is out of step with the sim ticks a checksum covers.
+`ActiveConversation` and `OwnedItems` are both written from `Update`
+(`restore_inventory_from_save`, `persist_inventory_to_save`), so each of these
+needs its OWN determinism judgement before it gets a projection. A blind batch here
+buys eight chances to redden the suite for one real win.
+
+⇒ what the next pass needs is per-resource: **which schedule writes it**, and
+whether its value is stable at sim-tick boundaries. The two fixed above were safe
+precisely because the snapshot RESTORES them before a resimulation re-runs.
+
 ### ⭐ STARTUP, RE-MEASURED 2026-08-29 — 608ms, not 2.6s, for the windowless composition
 
 Direction 6's 2.6s is a WINDOWED figure and carries window creation, render

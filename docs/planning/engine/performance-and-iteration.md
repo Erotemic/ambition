@@ -2652,8 +2652,25 @@ not FORWARDED compiles everywhere except on its own.**
 ▢ **THE COST OF PROMOTING THESE, MEASURED:** **32 crates** qualify (non-default
 features + tests), and three sampled jobs took **7.34s / 6.67s / 20.12s** — call it
 ~11s each, **~6 minutes** added sequentially and less in parallel. They are
-`cargo check`, not test runs. ⇒ against that: **three real breakages found the
-first time anybody ran them this month.** The scheduling call is Jon's; the
+`cargo check`, not test runs.
+
+✔ **THE SWEEP IS NOW COMPLETE — 32 OF 32 — AND IT FOUND SIX BREAKAGES:**
+
+| broken | cause |
+|---|---|
+| `match_shots` | dead since the roster folded its rule fields, through a whole refactor |
+| `the_repertoire_gets_used.rs:681` | **the SAME stale field, a second site** — gated, so the default test run never compiled it |
+| `mary_o_app --features capture` | `capture` does not imply `content_pack` |
+| `ambition_damage --features causal` | feature declared, never forwarded |
+| monolith `causal` | does not forward `ambition_damage/causal` — the same shape one level up |
+| monolith `causal.rs` | imports from `avatar::movement_components`, **a 0-byte file** |
+
+⇒ **six, and every one of them invisible to `cargo check --all-targets` and to
+every test run.** ⭐ Two shapes account for all six: **a feature declared but not
+FORWARDED**, and **code behind a non-default `cfg` that a refactor walked past**.
+⚠ The `match_shots` fix did not cover its twin — *when you fix one of these, grep
+the whole tree for the symbol*, because the second site is gated too and will not
+announce itself. The scheduling call is Jon's; the
 guardrail is already written and merely disarmed.
 
 ##### ⛔ WHICH INSTRUMENT CAN SEE MATCH-ENTRY DECODE — AND WHY THE DEMO CANNOT

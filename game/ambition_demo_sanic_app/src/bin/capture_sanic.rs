@@ -50,6 +50,7 @@ fn main() {
     let mut warmup = 90u32;
     let mut include_ui = true;
     let mut walk = 0u32;
+    let mut center_subject = false;
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
@@ -67,6 +68,7 @@ fn main() {
                     .unwrap_or_else(|| fail("--walk needs a frame count"));
             }
             "--no-ui" => include_ui = false,
+            "--center-subject" => center_subject = true,
             other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
             other if !positional_seen => {
                 output = PathBuf::from(other);
@@ -116,7 +118,19 @@ fn main() {
         walk_right: walk,
         settle: 1,
     });
+    app.insert_resource(CenterSubject(center_subject));
     app.add_systems(Startup, setup_capture_target);
+    // ⭐ AFTER the gameplay camera resolver, not before it. The capture chain
+    // below runs `.before(InputSet::Collect)` in `Update`, which is upstream of
+    // the follow camera — an override written there is simply overwritten. This
+    // sits in `PostUpdate` ahead of propagation, so it wins and still reaches
+    // `GlobalTransform` before the frame renders.
+    app.add_systems(
+        bevy::app::PostUpdate,
+        center_the_camera_on_the_subject
+            .before(bevy::transform::TransformSystems::Propagate)
+            .run_if(|centered: Res<CenterSubject>| centered.0),
+    );
     // the synthetic input must be written BEFORE the frame collects it.
     // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
     // which is also in `Update` — so whether a press written here was seen by
@@ -271,6 +285,54 @@ fn hold_right_while_walking(
 
 fn fail(message: &str) -> ! {
     eprintln!("capture_sanic: {message}");
-    eprintln!("usage: capture_sanic OUT.png [WIDTHxHEIGHT] [--warmup N] [--no-ui]");
+    eprintln!(
+        "usage: capture_sanic OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--no-ui] \
+         [--center-subject]"
+    );
     std::process::exit(2);
+}
+
+/// Whether this capture frames the SUBJECT rather than the gameplay camera.
+#[derive(Resource)]
+struct CenterSubject(bool);
+
+/// `--center-subject`: put the runner in the middle of the picture.
+///
+/// ⭐ THIS IS THE FIX D257 ASKED FOR, AND IT DELIBERATELY DOES NOT TOUCH THE
+/// FRAMING ITSELF. Sanic declares `high_speed_full_bleed`, whose camera LEADS the
+/// runner — that lead is the whole feel of a speedway and must not be "fixed".
+/// But a lead is a fixed WORLD-SPACE offset, so shrinking the visible region
+/// walks the subject out of the picture: correct at 1280x720, at the extreme edge
+/// at the default 960x540, and nothing but sky at 320x240.
+///
+/// ⇒ a capture wanting a PORTRAIT asks for one, exactly as `capture_scene`
+/// answers the same problem with `--fit-room`. Gameplay framing is untouched and
+/// remains the default here; this flag is a capture-time override.
+///
+/// ⛔ NOT `--fit-room`, which is the wrong shape for these demos: sanic's speedway
+/// is 6400px wide, so fitting the whole room makes the subject a speck. The demo
+/// captures are portraits OF A SUBJECT — which is what
+/// `warn_if_the_subject_left_the_frame` already checks for.
+fn center_the_camera_on_the_subject(
+    mut cameras: Query<(&Camera, &mut Transform)>,
+    players: Query<
+        &GlobalTransform,
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+    >,
+) {
+    let Ok(player) = players.single() else {
+        return; // no subject to centre on; leave the gameplay framing alone
+    };
+    let subject = player.translation();
+    // Every ACTIVE camera, which is the same set `warn_if_the_subject_left_the_frame`
+    // asks — so the guard and the override cannot disagree about what "in frame"
+    // means. ⚠ Bevy UI lays out in SCREEN space and is unaffected; a sprite-based
+    // HUD on its own camera does move with this, which is what `--no-ui` is for.
+    for (camera, mut transform) in &mut cameras {
+        if !camera.is_active {
+            continue;
+        }
+        transform.translation.x = subject.x;
+        transform.translation.y = subject.y;
+    }
 }

@@ -2591,6 +2591,30 @@ warns that an uploaded-and-dropped target reports 0 while still costing VRAM.
 ⚠ And it does NOT fix the 516ms: `extract_render_asset` still copies once. It
 shrinks what stays resident afterwards.
 
+⛔⛔ **CORRECTION 2026-08-29 — THE LEVER IS NOT AVAILABLE, AND I HAD THE
+CONSEQUENCE BACKWARDS.** "Nothing reads the PIXELS" is true and was the wrong
+question. **This codebase reads PRESENCE**, and `RenderAssetUsages::RENDER_WORLD`
+removes an image from `Assets<Image>` after extraction — which is exactly the
+signal it reads:
+
+- the sheet load site says so in place: *"readiness guards test
+  `images.get(&asset.texture)`"*;
+- `rendering/actors/boss.rs` takes `Res<Assets<Image>>` under the comment
+  *"Readiness, not residency — see `super::texture_is_ready`"*;
+- and a shipped test defines RETIREMENT as presence: *"the Half image is gone from
+  `Assets<Image>`, not merely unreferenced by the table"*
+  (`an_actor_body_converges_to_the_new_tier_and_the_old_image_dies`).
+
+⇒ dropping the main-world copy would make every sheet read as **never loaded**
+and every realization read as **already retired**. ⛔ **DO NOT TAKE THIS LEVER
+WITHOUT FIRST GIVING READINESS ITS OWN SIGNAL** (an explicit loaded/ready flag on
+`CharacterSpriteAsset`, or `AssetServer::load_state`), which is a redesign of what
+"ready" means, not a loader setting.
+
+⭐ The census work done for this is still worth having — `derived_byte_images`
+means the accounting is honest the day someone does redesign readiness. But the
+memory win is gated behind that, not behind the eviction question.
+
 #### ✔ THIRD FIX: THE ENGINE NOW NAMES A DECODE THAT LANDS ON A GAMEPLAY FRAME
 
 ⭐⭐ **THE CONTRACT IS NOW SELF-POLICING, WHICH IS THE ONLY REASON IT WILL STAY

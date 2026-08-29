@@ -2596,6 +2596,22 @@ branch = UNKNOWN.
 ⚠ A warning, not an error — a legitimately late asset exists (an unpredictable
 summon, a dev spawn). What is never legitimate is not knowing.
 
+⛔⛔ **AND THE WARNING GAVE ADVICE NOBODY COULD TAKE — CAUGHT WITHIN THE HOUR, BY
+ITS OWN FIRST OUTPUT.** A headless Smash match flagged two `<runtime-generated>`
+**2048x2048 (4.2MP, ~16MB each)** images as *"DECODED DURING GAMEPLAY … demand it
+at match preparation."* They have **no asset path**: they are generated — an atlas
+allocated the first time text draws, or a render target — and there is no
+preparation step to move them to. ⇒ the instruction was unfollowable.
+
+✔ The engine now says so in its own sentence (*"allocated during gameplay … not
+content that could have been demanded earlier"*), and the summary counts them
+SEPARATELY so they cannot inflate the number whose whole point is "this could
+have been demanded earlier".
+
+⭐ **A NEW INSTRUMENT'S FIRST OUTPUT IS ITS FIRST TEST**, and this one failed it
+in the direction that matters: not a wrong number, a right number with wrong
+advice attached. ⚠ Still worth REPORTING — 16MB a match is real.
+
 ⚠ **NAMED GROUPS AFTER A NEAR-MISS:** adding one optional group to the parser
 silently renumbered `path`, which the round-trip test caught. Every field is
 named now.

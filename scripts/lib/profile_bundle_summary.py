@@ -764,7 +764,21 @@ def build_summary(bundle: Bundle) -> str:
         # monotone in megapixels, up to 516ms. An asset a match needs should be
         # resident before the opening bell, so this count is the one number that
         # says whether that contract held.
-        late = [row for row in decodes if row.get("during_gameplay") == "1"]
+        during = [row for row in decodes if row.get("during_gameplay") == "1"]
+        # ⛔ SPLIT THEM. A `<runtime-generated>` image has no asset path and no
+        # preparation step to move it to — an atlas or a render target allocated
+        # on demand. Counting it beside content decodes inflates a number whose
+        # whole point is "this could have been demanded earlier".
+        generated = [row for row in during if row.get("path") == "<runtime-generated>"]
+        late = [row for row in during if row.get("path") != "<runtime-generated>"]
+        if generated:
+            gen_mp = sum(number(row, "megapixels") for row in generated)
+            lines += [
+                f"⚠ {len(generated)} GENERATED image(s) were allocated during "
+                f"gameplay ({gen_mp:.1f} MP) — atlases or render targets, not "
+                "content. Real cost, but nothing to demand earlier.",
+                "",
+            ]
         if late:
             late_mp = sum(number(row, "megapixels") for row in late)
             lines += [

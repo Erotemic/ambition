@@ -18,6 +18,8 @@ that summary points somewhere specific.
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
 | Which native function is hot, and during which part of my session? | same bundle, `timeline.md` + `perf_windows/` | text, agent-readable |
 | Which *Bevy system* is hot? | same bundle, `tracy_summary.md` | text, agent-readable |
+| Which *phase of the frame* owns the time — with no profiler, on any platform? | `[census] phases` → `schedule_phases.csv` | CSV, agent-readable |
+| Did the profiler cost more than the game? | same bundle, "Observer effect" | text, agent-readable |
 | Which *render pass* is hot, on CPU and GPU? | same bundle, `render_diagnostics.csv` | CSV, agent-readable |
 | How many cameras/views/portal captures were live? | same bundle, `camera_views.csv` / `portal_activity.csv` | CSV, agent-readable |
 | How big did the scene get? | same bundle, `runtime_census.csv` / `draw_census.csv` | CSV, agent-readable |
@@ -161,7 +163,28 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 [census] portal         t=12.000 rigs=2 active=2 max_resolution=1024 recursion_depth=1 max_active_captures=2 max_updates_per_frame=2 min_refresh_interval_s=0.000 include_parallax=true
 [census] render_pass    t=12.000 path=render/main_opaque_pass_2d/elapsed_cpu value=1.204000 avg=1.180000 suffix=ms
 [census] assets         t=12.000 decoded_images=214 decoded_megapixels=612.4 decoded_bytes=2449600000 images_resident=214
+[census] phases         t=12.000 frames=60 outside=6.50 first=0.04 pre=0.31 state=0.09 fixed=0.88 update=8.10 post=1.20 last=0.40
 ```
+
+**`[census] phases` is the one frame breakdown that needs no profiler.** Tracy
+answers it too, but Tracy is a desktop build whose symbol worker can cost more
+than the game (see "Observer effect" in any bundle), and it does not exist on
+web, Android, or a Steam Deck in someone else's hands. Six `Instant::now()`
+calls per frame put "which phase owns the frame" in reach of any build that can
+write to stderr, and `profile_desktop.sh` turns the rows into
+`schedule_phases.csv`.
+
+Values are **milliseconds per frame**, averaged over the window, not totals —
+a total moves with the frame rate it is trying to explain. `outside` is
+everything between the end of `Last` and the next `First`: present/vsync wait
+in a windowed run, the runner loop when headless. Attribution is by
+TRANSITION — one system at the head of each phase closes the previous one — so
+a schedule with no mark of its own is charged to the phase before it. That
+makes the row a breakdown of the FRAME, and the parts sum to the frame time.
+
+The marks are not registered at all when `AMBITION_PROFILE_CENSUS` is unset:
+eight systems in seven schedules would otherwise join the population they
+exist to measure.
 
 Every row in a frame carries the same `t=` because one clock decides which
 frame is a sample frame — that is what makes a camera count and a render-pass

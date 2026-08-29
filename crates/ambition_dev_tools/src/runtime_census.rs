@@ -250,6 +250,188 @@ pub fn report_frame_interval_census(
 ) {
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Schedule-phase census
+// ─────────────────────────────────────────────────────────────────────
+
+/// One boundary in the main schedule order.
+///
+/// Each is a real schedule holding exactly one system, inserted into
+/// [`MainScheduleOrder`] immediately before the phase it opens (and one more
+/// after the last phase). That placement is what makes the breakdown EXACT:
+/// a marker system added to `Update` itself would run wherever the executor
+/// happened to order it, silently charging part of `Update` to whatever ran
+/// before it. A schedule's position in `MainScheduleOrder` is not ambiguous.
+///
+/// The index is the phase it opens, so `FramePhaseMark(0)` runs before the
+/// first phase and `FramePhaseMark(n)` after the last.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+struct FramePhaseMark(usize);
+
+/// Wall time attributed to each phase of the main schedule.
+///
+/// ⭐ **THIS IS THE ONE FRAME BREAKDOWN THAT NEEDS NO PROFILER.** Tracy answers
+/// it too, but Tracy is a desktop build whose symbol worker can cost more than
+/// the game — a measured headless run spent 55% of its cycles inside the
+/// profiler and 40% inside the game — and it does not exist at all on the
+/// platforms where the answer matters most: web, Android, a Steam Deck in
+/// someone else's hands. A handful of `Instant::now()` calls per frame put
+/// "which phase owns the frame" in reach of any build that can write to stderr.
+///
+/// ⭐ THE PHASES ARE READ FROM [`MainScheduleOrder`], NOT HARDCODED. A census
+/// that listed `First, PreUpdate, Update, PostUpdate, Last` would quietly
+/// mis-attribute `StateTransition` (inserted by `bevy_state`), `SpawnScene`, and
+/// any schedule a game inserts of its own. Taking the list from the app means
+/// the row describes the schedule the app actually composed.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource, Default)]
+pub struct SchedulePhaseCensus {
+    /// Phase names in schedule order, from `MainScheduleOrder`, plus a trailing
+    /// `outside` for the gap after the last phase.
+    names: Vec<String>,
+    /// Index of the phase currently open, or `None` before the first mark.
+    current: Option<usize>,
+    marked_at: Option<Instant>,
+    /// Accumulated milliseconds per phase since the last report.
+    totals_ms: Vec<f64>,
+    frames: u32,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl SchedulePhaseCensus {
+    /// The label used for time between the end of the last phase and the start
+    /// of the next frame: present/vsync wait when windowed, the runner loop when
+    /// headless.
+    pub const OUTSIDE: &'static str = "outside";
+
+    fn new(phase_names: Vec<String>) -> Self {
+        let width = phase_names.len();
+        Self {
+            names: phase_names,
+            current: None,
+            marked_at: None,
+            totals_ms: vec![0.0; width],
+            frames: 0,
+        }
+    }
+
+    /// Close the open phase and open `phase`.
+    fn advance_to(&mut self, phase: usize, now: Instant) {
+        if let (Some(previous), Some(open)) = (self.marked_at, self.current) {
+            if let Some(slot) = self.totals_ms.get_mut(open) {
+                *slot += now.duration_since(previous).as_secs_f64() * 1000.0;
+            }
+        }
+        self.current = Some(phase);
+        self.marked_at = Some(now);
+    }
+}
+
+/// Build the marker system for boundary `phase`.
+#[cfg(not(target_arch = "wasm32"))]
+fn mark_frame_phase(phase: usize) -> impl FnMut(ResMut<SchedulePhaseCensus>) {
+    move |mut phases: ResMut<SchedulePhaseCensus>| {
+        // No `enabled` test: these schedules are inserted only when the census
+        // is on, so reaching this system is already the answer.
+        let now = Instant::now();
+        let phases = phases.bypass_change_detection();
+        if phase == 0 {
+            phases.frames += 1;
+        }
+        phases.advance_to(phase, now);
+    }
+}
+
+/// Report the phase breakdown on a sample frame.
+///
+/// Runs in the LAST mark schedule, after its marker, so every phase of the
+/// frame it reports has already been closed.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn report_schedule_phase_census(
+    census: Res<RuntimeCensus>,
+    mut phases: ResMut<SchedulePhaseCensus>,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    let phases = phases.bypass_change_detection();
+    if phases.frames == 0 {
+        return;
+    }
+    // Per-frame means, because a window holds however many frames fit in it and
+    // a total would move with the frame rate it is trying to explain.
+    let frames = f64::from(phases.frames);
+    let mut row = format!("[census] phases t={at:.3} frames={}", phases.frames);
+    for (name, total_ms) in phases.names.iter().zip(&phases.totals_ms) {
+        row.push_str(&format!(" {name}={:.3}", total_ms / frames));
+    }
+    eprintln!("{row}");
+    for total in &mut phases.totals_ms {
+        *total = 0.0;
+    }
+    phases.frames = 0;
+}
+
+/// Install the phase marks, reading the phase list off the app's own
+/// [`MainScheduleOrder`].
+///
+/// Returns the phase names in order. Call ONLY when the census is enabled: this
+/// adds a schedule per boundary, and a schedule that runs every frame is not
+/// free. The census is a measuring instrument, and it must not join the
+/// population it measures when nobody asked it to.
+#[cfg(not(target_arch = "wasm32"))]
+fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
+    use bevy::app::MainScheduleOrder;
+    use bevy::ecs::schedule::ScheduleLabel;
+
+    let phases: Vec<_> = app
+        .world()
+        .resource::<MainScheduleOrder>()
+        .labels
+        .iter()
+        .map(|label| label.intern())
+        .collect();
+    // `{:?}` on a schedule label is its type name, which is exactly the phase
+    // name a reader wants: `First`, `Update`, `StateTransition`.
+    let mut names: Vec<String> = phases
+        .iter()
+        .map(|label| format!("{label:?}"))
+        .collect();
+    names.push(SchedulePhaseCensus::OUTSIDE.to_string());
+
+    for (index, _) in phases.iter().enumerate() {
+        app.add_systems(FramePhaseMark(index), mark_frame_phase(index));
+    }
+    // The trailing boundary closes the final phase and opens `outside`, which
+    // the next frame's boundary 0 closes in turn. The report rides here so
+    // every phase of the frame it prints has already been closed.
+    app.add_systems(
+        FramePhaseMark(phases.len()),
+        (mark_frame_phase(phases.len()), report_schedule_phase_census).chain(),
+    );
+
+    // ⛔ NOT `MainScheduleOrder::insert_before`. It locates the anchor with
+    // `(**current).eq(&before)`, which downcasts to the anchor's CONCRETE type;
+    // handing it the `InternedScheduleLabel` we just read back out of `labels`
+    // fails that downcast and panics with "Expected First to exist". The list
+    // is public, so interleave it directly -- which is also the whole order in
+    // one pass instead of N searches.
+    let mut interleaved = Vec::with_capacity(phases.len() * 2 + 1);
+    for (index, phase) in phases.iter().enumerate() {
+        interleaved.push(FramePhaseMark(index).intern());
+        interleaved.push(*phase);
+    }
+    interleaved.push(FramePhaseMark(phases.len()).intern());
+    app.world_mut().resource_mut::<MainScheduleOrder>().labels = interleaved;
+
+    names
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+pub struct SchedulePhaseCensus;
+
 /// Register the census clock and the sim-side censuses.
 ///
 /// Sim-side means headless too: a VM with no GPU still gets entity, body, and
@@ -269,8 +451,22 @@ impl Plugin for RuntimeCensusPlugin {
                 report_schedule_load_census,
             ),
         );
-        let census = app.world().resource::<RuntimeCensus>();
-        if census.enabled() {
+        let enabled = app.world().resource::<RuntimeCensus>().enabled();
+
+        // ⛔ THE PHASE MARKS ARE NOT REGISTERED WHEN THE CENSUS IS OFF. Every
+        // other census here costs one bool test on a frame it does not sample.
+        // These are SCHEDULES, one per boundary, and a schedule that runs every
+        // frame is not free. An instrument must not join the population it
+        // measures when nobody asked it to.
+        #[cfg(not(target_arch = "wasm32"))]
+        if enabled {
+            let names = install_frame_phase_marks(app);
+            eprintln!("[census] config t=0.000 phases={}", names.join(","));
+            app.insert_resource(SchedulePhaseCensus::new(names));
+        }
+
+        if enabled {
+            let census = app.world().resource::<RuntimeCensus>();
             eprintln!(
                 "[census] config t=0.000 interval_s={:.3} source={CENSUS_ENV}",
                 census.interval_s()
@@ -295,6 +491,72 @@ mod tests {
         };
         assert!(!census.enabled());
         assert!(census.due().is_none());
+    }
+
+    #[test]
+    fn every_phase_gets_a_mark_before_it_and_one_after_the_last() {
+        // ⛔ REGRESSION GUARD. The first version of this used
+        // `MainScheduleOrder::insert_before`, which finds its anchor by
+        // downcasting to the anchor's CONCRETE label type. Handing it an
+        // `InternedScheduleLabel` read back out of `labels` fails that
+        // downcast, and the app panicked at startup with "Expected First to
+        // exist" -- only reachable with the census enabled, so no test that
+        // left it off would have seen it.
+        use bevy::app::MainScheduleOrder;
+
+        let mut app = App::new();
+        app.init_resource::<MainScheduleOrder>();
+        let before: Vec<String> = app
+            .world()
+            .resource::<MainScheduleOrder>()
+            .labels
+            .iter()
+            .map(|label| format!("{label:?}"))
+            .collect();
+
+        let names = install_frame_phase_marks(&mut app);
+
+        assert_eq!(
+            names.len(),
+            before.len() + 1,
+            "one name per phase, plus `outside` for the gap after the last"
+        );
+        assert_eq!(&names[..before.len()], &before[..], "phase names come from the app's own order");
+        assert_eq!(names.last().map(String::as_str), Some(SchedulePhaseCensus::OUTSIDE));
+
+        let after = app.world().resource::<MainScheduleOrder>().labels.clone();
+        assert_eq!(
+            after.len(),
+            before.len() * 2 + 1,
+            "a mark before every phase and one trailing mark"
+        );
+        for (index, phase) in before.iter().enumerate() {
+            assert_eq!(
+                format!("{:?}", after[index * 2]),
+                format!("{:?}", FramePhaseMark(index)),
+                "phase {phase} must be preceded by its own mark, or the boundary \
+                 it reports is wherever the executor happened to run a system"
+            );
+            assert_eq!(format!("{:?}", after[index * 2 + 1]), *phase);
+        }
+    }
+
+    #[test]
+    fn a_phase_row_accounts_for_the_whole_frame() {
+        // The census earns trust by summing to the frame time it explains, so
+        // the transition bookkeeping must lose nothing between marks.
+        let mut census = SchedulePhaseCensus::new(vec!["a".into(), "b".into(), "outside".into()]);
+        let start = Instant::now();
+        census.advance_to(0, start);
+        census.advance_to(1, start + core::time::Duration::from_millis(2));
+        census.advance_to(2, start + core::time::Duration::from_millis(5));
+        census.advance_to(0, start + core::time::Duration::from_millis(9));
+
+        assert_eq!(census.totals_ms[0].round(), 2.0);
+        assert_eq!(census.totals_ms[1].round(), 3.0);
+        assert_eq!(census.totals_ms[2].round(), 4.0);
+        let summed: f64 = census.totals_ms.iter().sum();
+        assert_eq!(summed.round(), 9.0, "the phases must account for the whole span");
     }
 
     #[test]

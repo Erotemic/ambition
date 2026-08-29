@@ -88,25 +88,39 @@ pub struct GatedLockWallCache {
 /// leaves the wall STANDING, which is the safe direction. A gate that opened
 /// because nobody could answer its question would open in exactly the situations
 /// where the world is least well understood.
-pub fn sync_authored_gated_lock_walls(world: &mut World) {
+/// The room-set query, built once and reused.
+///
+/// ⭐ `World::query_filtered` BUILDS A FRESH `QueryState` on every call, which
+/// re-matches every archetype in the world. In an exclusive system that runs
+/// each frame, that is a per-frame archetype scan to read a single component
+/// off one entity. `Local` is an `ExclusiveSystemParam`, so the state can just
+/// live across frames; `QueryState::iter` updates archetypes itself, so a
+/// cached state still sees entities that appeared since the last run.
+type RoomSetQuery = bevy::ecs::query::QueryState<
+    bevy::prelude::Ref<'static, ambition_platformer2d_world::rooms::RoomSet>,
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+>;
+
+pub fn sync_authored_gated_lock_walls(
+    world: &mut World,
+    mut rooms: bevy::prelude::Local<Option<RoomSetQuery>>,
+) {
     // the room set is a COMPONENT on the session root, not a resource — the `SessionWorldRef` a
     // normal system takes is a `Single<Ref<T>, With<SessionRoot>>`. An exclusive system has to
-    // ask for it the long way. This function already held the room set to find the active room;
-    // it just also asked LDtk what was in it.
-    let (active_room_id, walls, rooms_changed) = {
-        let mut rooms = world.query_filtered::<
-            bevy::prelude::Ref<ambition_platformer2d_world::rooms::RoomSet>,
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
-        >();
+    // ask for it the long way.
+    let rooms = rooms.get_or_insert_with(|| RoomSetQuery::new(world));
+
+    // ⭐ THE ROOM'S WALLS ARE READ ONLY WHEN THE CACHE IS ACTUALLY BEING
+    // REFRESHED. `authored_gated_lock_walls` allocates a `Vec<GatedLockWall>`
+    // with a `String` and a condition id cloned per wall; computing it every
+    // frame and then discarding it unless `rooms_changed || stale` defeated the
+    // cache it feeds. Room identity and the change tick are cheap, so decide
+    // first and pay for the walls second.
+    let (active_room_id, rooms_changed) = {
         let Some(set) = rooms.iter(world).next() else {
             return;
         };
-        let spec = set.active_spec();
-        (
-            spec.id.clone(),
-            authored_gated_lock_walls(spec),
-            set.is_changed(),
-        )
+        (set.active_spec().id.clone(), set.is_changed())
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
         return;
@@ -127,6 +141,12 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
     };
     let flag_set = ConditionId::new("world", "flag_set");
     if rooms_changed || stale {
+        let walls = {
+            let Some(set) = rooms.iter(world).next() else {
+                return;
+            };
+            authored_gated_lock_walls(set.active_spec())
+        };
         let catalog = world.resource::<ConditionCatalog>().clone();
         let prepared: Vec<CachedWall> = walls
             .into_iter()
@@ -138,6 +158,16 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
         let mut cache = world.get_resource_or_insert_with(GatedLockWallCache::default);
         cache.walls = prepared;
         cache.room = Some(active_room_id.clone());
+    }
+
+    // ⛔ A ROOM WITH NO GATED WALLS IS THE COMMON CASE, and everything below it
+    // — two catalog clones, a cache clone, an overlay lookup — is work whose
+    // only possible result is an empty `standing`. Leave before paying for it.
+    if world
+        .get_resource::<GatedLockWallCache>()
+        .is_none_or(|cache| cache.walls.is_empty())
+    {
+        return;
     }
 
     // ── ask, then contribute ─────────────────────────────────────────────────

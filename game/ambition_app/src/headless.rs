@@ -89,6 +89,10 @@ impl fmt::Display for HeadlessReport {
 /// matching the production policy that an invalid LDtk file is a hard
 /// error rather than a `.expect()` panic.
 pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
+    // Idempotent, and `run_visible` normally gets here first. Repeated so a
+    // driver that calls the headless path directly still anchors `[startup]` at
+    // process start rather than mid-plugin-build.
+    ambition_platformer2d::dev_tools::profiling::note_process_start();
     // Validate the embedded LDtk file up front so we can return Err with a useful diagnostic.
     // `init_sandbox_resources` does this too but exits the process on failure; tests want a
     // structured error instead. Provider-owned character, hostile-archetype, boss, and audio

@@ -94,7 +94,7 @@ def aggregate_table(rows: list[dict], limit: int = 40) -> list[str]:
     ranked = sorted(rows, key=lambda row: number(row, TOTAL_COLUMNS), reverse=True)
     lines = [
         "```text",
-        f'{"total_ms":>10} {"count":>9} {"mean_us":>9} {"max_us":>9}  zone',
+        f'{"total_ms":>10} {"count":>9} {"mean_us":>9} {"max_us":>9} {"worst":>6}  zone',
     ]
     for row in ranked[:limit]:
         total_ns = number(row, TOTAL_COLUMNS)
@@ -102,8 +102,58 @@ def aggregate_table(rows: list[dict], limit: int = 40) -> list[str]:
         mean_ns = number(row, MEAN_COLUMNS) or (total_ns / count if count else 0.0)
         max_ns = number(row, MAX_COLUMNS)
         name = pick(row, NAME_COLUMNS) or "<unnamed>"
+        share = (max_ns / total_ns * 100.0) if total_ns > 0 else 0.0
         lines.append(
-            f"{total_ns / 1e6:10.1f} {count:9.0f} {mean_ns / 1e3:9.1f} {max_ns / 1e3:9.1f}  {name[:90]}"
+            f"{total_ns / 1e6:10.1f} {count:9.0f} {mean_ns / 1e3:9.1f} {max_ns / 1e3:9.1f} "
+            f"{share:5.0f}%  {name[:90]}"
+        )
+    lines.append("```")
+    lines += [
+        "",
+        "`worst` is the share of the zone's whole-session total spent in its single",
+        "slowest call. A zone at 90% is not a per-frame cost at all -- it is one",
+        "hitch that a total cannot distinguish from steady work. Rank those with the",
+        "steady-state table below, and find WHEN they hit in `frame_spikes.csv`.",
+    ]
+    return lines
+
+
+def steady_state_ns(row: dict) -> float:
+    """Whole-session cost with the single slowest call removed.
+
+    A total answers "how much time did this zone cost", which is the wrong
+    question for anything that compiles, loads, or builds once. One 236ms Yarn
+    compile on the first frame outranks a system that genuinely costs 100us
+    every frame for the whole session, and the reader optimizes the wrong one.
+    Dropping the worst call separates "expensive every frame" from "expensive
+    once"; the `worst` column above says which a zone is.
+
+    Deliberately NOT a percentile: `tracy-csvexport` aggregates give count,
+    total, min, max and stddev, and no distribution to take a median from.
+    """
+    total_ns = number(row, TOTAL_COLUMNS)
+    count = number(row, COUNT_COLUMNS)
+    if count <= 1:
+        return 0.0
+    return max(0.0, total_ns - number(row, MAX_COLUMNS))
+
+
+def steady_table(rows: list[dict], limit: int = 40) -> list[str]:
+    ranked = sorted(rows, key=steady_state_ns, reverse=True)
+    lines = [
+        "```text",
+        f'{"steady_ms":>10} {"per_call_us":>12} {"count":>9} {"min_us":>9}  zone',
+    ]
+    for row in ranked[:limit]:
+        steady_ns = steady_state_ns(row)
+        if steady_ns <= 0.0:
+            continue
+        count = number(row, COUNT_COLUMNS)
+        per_call = steady_ns / (count - 1) if count > 1 else 0.0
+        name = pick(row, NAME_COLUMNS) or "<unnamed>"
+        lines.append(
+            f"{steady_ns / 1e6:10.1f} {per_call / 1e3:12.1f} {count:9.0f} "
+            f"{number(row, MIN_COLUMNS) / 1e3:9.1f}  {name[:90]}"
         )
     lines.append("```")
     return lines
@@ -179,6 +229,17 @@ def main(argv: list[str]) -> int:
     if aggregate:
         lines += ["## Whole session, ranked by total time", ""]
         lines += aggregate_table(aggregate)
+        lines += [
+            "",
+            "## Steady state, ranked by recurring cost",
+            "",
+            "The same zones with each one's SLOWEST call removed, so a one-time",
+            "compile/load/build cannot outrank work that recurs. `per_call_us` is what",
+            "the zone costs on an ordinary frame; multiply it by the frame count to see",
+            "what removing it would actually buy.",
+            "",
+        ]
+        lines += steady_table(aggregate)
         lines.append("")
     else:
         lines += [

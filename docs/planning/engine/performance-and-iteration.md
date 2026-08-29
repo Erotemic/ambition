@@ -411,7 +411,7 @@ IS needs a host with a GPU.
 | quantity | price | where it lands |
 |---|---|---|
 | baseline frame, 2-fighter match | **~4.5ms** | ~630 systems, 2.9–15.6us each, NO hot one |
-| **per FIGHTER** | **~125us** | ~1/3 sim, ~1/3 `PostUpdate`, ~1/4 `Update` |
+| **per FIGHTER** | **~125–240us** ⚠ 2 reps | ~1/3 `PostUpdate`; shares stabler than the total |
 | per BODY | **~16us** | `WorldPrep` |
 | per VISIBLE SPRITE | **~1.4us** | render extraction |
 | a frame SPIKE | **+3.6ms** at the tail | ⛔ NOT the sim |
@@ -1291,6 +1291,23 @@ fighters:
 | `RunFixedMainLoop` | 0.348 | 0.363 | +0.015 | 6% |
 | `StateTransition` | 0.169 | 0.154 | −0.015 | — |
 
+⛔⛔ **A SECOND REP HALVED THE CONFIDENCE IN THE TOTAL, AND IT WAS PUBLISHED
+BEFORE THE REP.** Repeating both arms (casts held, `seats_at_end` 2 and 4) gave
+`PreUpdate` 1.963→2.095, `PostUpdate` 0.535→**0.693**, `Update` 1.246→1.375 — a
+total delta of **+0.485ms** against rep 1's +0.25ms.
+
+| | rep 1 | rep 2 |
+|---|---|---|
+| per-fighter cost | ~125us | **~240us** |
+| `PostUpdate` share of the delta | 31% | 33% |
+| `PreUpdate` share | 42% | 27% |
+
+⇒ **THE SHARES ARE STABLE; THE MAGNITUDE IS NOT.** A fighter costs **~125–240us**,
+not the precise 125us this section first claimed, and `PostUpdate` reliably takes
+about a THIRD of it. ⭐ The conclusion that survives is the SHAPE — a fighter is
+paid roughly a third in presentation, which we do not author — not the headline
+number.
+
 The gameplay sim accounts for **+0.086ms** of it (`WorldPrep` +0.048, `Combat`
 +0.015, `PlayerSimulation` +0.008). ⇒ **a fighter costs about a THIRD in
 simulation, a THIRD in presentation (`PostUpdate`), and a QUARTER in `Update`** —
@@ -1302,7 +1319,7 @@ state. ⛔ Optimising only the sim addresses a third of it.
 | quantity | price | where |
 |---|---|---|
 | baseline frame, 2-fighter match | **~4.5ms** | ~630 systems, 2.9–15.6us each, NO hot one |
-| **per FIGHTER** | **~125us** | ~1/3 sim, ~1/3 `PostUpdate`, ~1/4 `Update` |
+| **per FIGHTER** | **~125–240us** ⚠ 2 reps | ~1/3 `PostUpdate`; shares stabler than the total |
 | per BODY | **~16us** | `WorldPrep` |
 | per VISIBLE SPRITE | **~1.4us** | render extraction; 295 sprites = +0.36ms |
 | a frame SPIKE | **+3.6ms** at the tail | ⛔ NOT the sim (+1.4% across quartiles) |

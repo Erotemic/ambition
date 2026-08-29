@@ -10,21 +10,21 @@
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::world::rooms as world_rooms;
 
-use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics::physics_spawn_debris_messages;
+use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::ldtk_map as ldtk_world;
-use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
+use ambition_platformer2d::world::world_manifest;
 // The rest of `fx` moved to `HostVfxPresentationPlugin` (see
 // `install_projectile_and_vfx_systems`); the blink preview ring is the one
 // pass still registered here, and only under the `input` persona.
@@ -120,9 +120,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(
-        simulation_host,
-    ));
+    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
 
     // This is the composition statement that replaced it; it must come after the group, which is
     // what sets `SimulationHost` for the rollback registrar.
@@ -191,12 +189,23 @@ fn register_app_local_sim_systems(app: &mut App) {
     }
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
+        // ⛔⛔ THE KEY READ IS HOST INPUT AND BELONGS IN `Update`; ONLY THE SPAWN
+        // IS SIM. `ButtonInput` is winit frame state — it is not rollback
+        // registered and does not rewind — so reading `just_pressed` on the
+        // deterministic tick means one physical press is seen once per SIM RUN,
+        // not once per press: a frame that steps the sim twice spawns two clones.
+        //
+        // `SpawnPlayerCloneRequest` was already the seam between them (tests poke
+        // it directly), so this splits along a line that existed. Same shape as
+        // the LDtk hot-reload watcher: dev tooling wired into `WorldPrep`, where
+        // the sim-side half is the only half that needed to be there.
+        .add_systems(
+            bevy::app::Update,
+            crate::app::player_clone::request_player_clone_on_key,
+        )
         .add_systems(
             sim,
-            (
-                crate::app::player_clone::request_player_clone_on_key,
-                crate::app::player_clone::spawn_requested_player_clone,
-            )
+            (crate::app::player_clone::spawn_requested_player_clone,)
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
         )

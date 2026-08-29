@@ -1074,8 +1074,17 @@ hunting `Res<Time>` in the sim schedule on the strength of this entry.
 ⇒ Moved to `Update`. **Every reader of `WorldSourceHotReload` is a menu system in
 `Update` already**, so this puts the writer in its readers' schedule, and the
 watcher now also polls while the simulation is paused — which is what a
-hot-reload watcher should do. Verified by `[census] membership`: 0 occurrences in
-`GgrsSchedule`, 1 in `Update`.
+hot-reload watcher should do.
+
+⛔⛔ **AND A VERIFICATION CLAIM I MADE HERE WAS NOT EVIDENCE.** I wrote *"verified
+by `[census] membership`: 0 occurrences in `GgrsSchedule`, 1 in `Update`"*. The
+`1 in Update` is real. The **`0 in GgrsSchedule` is absence of the ROW, not of the
+system**: `report_schedule_membership` runs at `PreStartup` and filters to named
+main-schedule labels, so it emits no `GgrsSchedule` row at all — a grep for one
+can only ever return zero. ⇒ what actually establishes the move is that each
+system has exactly ONE registration site and it now names `Update`, plus positive
+presence in the `Update` row. Same family as the absence-grep trap: **a count of
+zero from an instrument that never reports that category is not a measurement.**
 
 ⛔⛔ **NO SPEED CLAIM, AND n=1 WOULD HAVE SUPPORTED A FALSE ONE.** `WorldPrep` in
 `goblin_encounter` read **0.248ms** after the move against **0.269ms** before —
@@ -1155,6 +1164,46 @@ state. ⛔ Optimising only the sim addresses a third of it.
 ⇒ this is the sheet to price a feature against, and the reason the campaign
 recommends retiring whole CLASSES rather than tuning systems: nothing on it is
 dominated by any single system.
+
+### ⭐⭐ SWEEPING THE SIM SCHEDULE FOR MORE OF THE SAME — 283 systems, 2026-08-29
+
+The hot-reload fix was found BY ACCIDENT, so the sim schedule was swept
+systematically (52 registration sites, 283 distinct systems) for blocking IO,
+wall-clock time, state-carrying `Local`s, dev tooling, and non-deterministic
+randomness.
+
+⭐ **THE REASSURING HALF: BLOCKING IO — ZERO OTHER HITS.** `fs::`, `File::`,
+`std::io`, `Command::`, sockets: none, directly or two calls deep.
+`poll_world_source_changes` was the only one in the whole simulation.
+**Non-deterministic randomness — ZERO hits** (`thread_rng`, `SystemTime::now`,
+unseeded `Rng`); `Instant::now` appears exactly once. The trace recorder's disk
+writes are already correctly parked in `PostUpdate`.
+
+⛔ **FIXED: `request_player_clone_on_key`** (`app/plugins.rs`) — the structural
+twin, a dev hotkey reading `ButtonInput<KeyCode>` in `WorldPrep` and chained into
+a spawn. `ButtonInput` is winit frame state that is neither rollback-registered
+nor rewound, so `just_pressed` reads true once per SIM RUN rather than once per
+press: a frame stepping the sim twice spawns two clones. The key read moved to
+`Update`; the SPAWN stayed in the sim, where it belongs.
+`SpawnPlayerCloneRequest` was already the seam (tests poke it directly).
+
+▢ **RECORDED, NOT FIXED — a latent class worth a decision.** Several systems pair
+a non-rewinding `Local` edge-detector with state that IS rollback-registered, so a
+rewind erases the effect while the stale `Local` prevents it being re-applied:
+`track_room_visits` (`menu/map/systems.rs:13`) writing save flags;
+`push_room_entered_quest_events` (`quest/mod.rs:13`) pushing `RoomEntered` into
+the rollback-registered `QuestRegistry`; `despawn_bfs_particles_when_the_room_changes`
+(`falling_sand.rs:265`); `advance_room_transition_content_epoch_system`
+(`room_transition/loading.rs:102`); `sync_developer_body_profile`
+(`dev_tools/editable.rs:555`) which mutates `BodyKinematics`. Also
+`commit_ready_room_transition_system` (`room_transition/commit.rs:562`), the one
+true `Instant::now()` on the tick — already guarded by an `is_rollback()` early
+return, but by a runtime check rather than a structural one.
+
+⚠ **ALL OF IT IS LATENT UNDER `check_distance: 0`**, which never rewinds. ⛔ These
+are CORRECTNESS items for the day rollback goes live, not performance items, and
+they touch quest and save logic — they want a deliberate decision, not a
+drive-by fix from a performance campaign.
 
 ### An instrument gotcha this cost a run to find
 

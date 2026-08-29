@@ -219,6 +219,10 @@ mod headless_arg_tests {
 /// number of ticks with `--headless-ticks N` (default 120).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_visible() {
+    // Wall-clock zero for `[startup]`, taken before any Bevy work. Anchoring it
+    // later -- as the profiler resource's own creation used to -- hides plugin
+    // construction, which is the larger half of startup.
+    ambition_platformer2d::dev_tools::profiling::note_process_start();
     if cli_force_headless()
         || cli_headless_acceptance_cycle()
         || cli_headless_ticks_requested()

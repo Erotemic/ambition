@@ -18,15 +18,56 @@ use bevy::prelude::*;
 // ─────────────────────────────────────────────────────────────────────
 
 #[cfg(not(target_arch = "wasm32"))]
+use std::sync::OnceLock;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
+
+/// Wall-clock zero for the whole startup report.
+///
+/// ⭐ **App CONSTRUCTION is the larger half of startup, and a resource created
+/// during plugin build cannot see it.** `StartupProfiler` is initialized by
+/// `DevToolsSimPlugin::build`, which runs partway through the simulation plugin
+/// tree; anchoring deltas to that moment silently excluded every plugin built
+/// before it. A measured headless run reported `total before first frame:
+/// 120.4ms` against 2.6s of real pre-frame wall clock -- the report was not
+/// wrong about its 120ms, it was answering a much smaller question than the one
+/// its own label asked.
+///
+/// [`note_process_start`] is called from the entry point, before any Bevy work,
+/// so the anchor precedes plugin construction. It is a `OnceLock` rather than a
+/// resource because the value has to exist before a `World` does.
+#[cfg(not(target_arch = "wasm32"))]
+static PROCESS_STARTED_AT: OnceLock<Instant> = OnceLock::new();
+
+/// Record the process's startup anchor. Call FIRST in `main()`, before building
+/// the `App`. Idempotent: later calls keep the earliest anchor.
+///
+/// Not calling it is not an error -- the report falls back to the moment the
+/// profiler resource was created and says so, rather than quietly attributing
+/// app construction to nothing.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn note_process_start() {
+    let _ = PROCESS_STARTED_AT.set(Instant::now());
+}
+
+/// No-op on wasm, where `Instant` is unavailable.
+#[cfg(target_arch = "wasm32")]
+pub fn note_process_start() {}
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct StartupProfiler {
-    /// When the App was constructed. All deltas are computed from
-    /// here so a "total" line at the end of Startup represents wall-
-    /// clock from App::new() to first PostStartup tick.
+    /// Wall-clock zero: process start when [`note_process_start`] ran, else the
+    /// moment this resource was created. `anchor_is_process_start` says which,
+    /// because the difference between them is exactly the app-construction time
+    /// that the report exists to expose.
     pub app_constructed_at: Instant,
+    /// Whether [`app_constructed_at`](Self::app_constructed_at) is a true
+    /// process-start anchor rather than a mid-plugin-build fallback.
+    pub anchor_is_process_start: bool,
+    /// When this resource was created, i.e. a point inside plugin construction.
+    /// The span from the anchor to here is app construction.
+    pub resource_created_at: Instant,
     /// Ordered list of `(name, instant)` marks. `phase_mark` systems
     /// append to this; the report system reads it.
     pub marks: Vec<(&'static str, Instant)>,
@@ -38,8 +79,12 @@ pub struct StartupProfiler {
 #[cfg(not(target_arch = "wasm32"))]
 impl Default for StartupProfiler {
     fn default() -> Self {
+        let now = Instant::now();
+        let anchor = PROCESS_STARTED_AT.get().copied();
         Self {
-            app_constructed_at: Instant::now(),
+            app_constructed_at: anchor.unwrap_or(now),
+            anchor_is_process_start: anchor.is_some(),
+            resource_created_at: now,
             marks: Vec::new(),
             reported: false,
         }
@@ -66,11 +111,32 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     }
     profiler.reported = true;
     let total_ms = profiler.app_constructed_at.elapsed().as_secs_f32() * 1000.0;
+
+    // App construction first, because it is usually the bigger half and the
+    // phase marks below cannot reach it -- they are Startup SYSTEMS, and every
+    // plugin has already been built by the time the first one runs.
+    if profiler.anchor_is_process_start {
+        let build_ms = profiler
+            .resource_created_at
+            .duration_since(profiler.app_constructed_at)
+            .as_secs_f32()
+            * 1000.0;
+        eprintln!(
+            "[startup] → app construction (to dev-tools plugin build): +{build_ms:.1}ms \
+             — plugin registration; use Tracy `plugin build` zones to attribute it"
+        );
+    } else {
+        eprintln!(
+            "[startup] app construction NOT MEASURED — `note_process_start()` was never \
+             called, so this report starts mid-plugin-build and undercounts the total"
+        );
+    }
+
     if profiler.marks.is_empty() {
         eprintln!("[startup] total before first frame: {total_ms:.1}ms (no phase marks)");
         return;
     }
-    let mut prev = profiler.app_constructed_at;
+    let mut prev = profiler.resource_created_at;
     for (name, at) in &profiler.marks {
         let delta = at.duration_since(prev).as_secs_f32() * 1000.0;
         eprintln!("[startup] → {name}: +{delta:.1}ms");

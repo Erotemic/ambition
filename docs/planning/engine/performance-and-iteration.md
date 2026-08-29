@@ -721,6 +721,43 @@ owns the 0.95ms. That needs one more bracket, or Tracy for attribution only.
 bearing when a window exists. The question direction 5 asks is whether a
 composition that has no window should be installing them at all.
 
+### `PreUpdate` HAS 137 SYSTEMS, AND MOST OF THEM ARE FOR THINGS A MATCH IS NOT DOING
+
+`[census] membership` names every system in a schedule. It prints names rather
+than timing them on purpose: timing would need this crate to depend on
+`bevy_ui`, `bevy_picking` and leafwing purely to name their sets, which is an
+instrument joining the population it measures.
+
+⛔ **AND IT CORRECTS THE "NINE SYSTEMS" FIGURE.** That came from the MinimalPlugins
+sandbox. The SHIPPED app's `PreUpdate` holds **137**:
+
+| group | count | examples |
+|---|---|---|
+| `Assets::<A>::track_assets` | **31** | one per registered asset type |
+| falling-sand particles | ~20 | `msgr_spawn_particle`, `advance_chunk_dirty_state`, `update_chunk_loading`, `sync_particle_type_registry` |
+| picking backends | ~14 | `cube_3d_picking`, `lunex_2d_picking`, `ui_picking`, `generate_hovermap`, `update_window_hits`, `system_cursor_*` |
+| raw input | ~15 | keyboard, mouse, gamepad, gilrs, touch, IME, file-drag-drop |
+| leafwing | 7 | `tick_action_state` x2, `update_action_state` x2, `update_input` |
+| `release_confirmed_effects` | 7 | one per message type |
+| egui | 4 | `setup_primary_egui_context_system`, `write_egui_input_system` |
+| bevy_ui | 3 | `ui_focus_system`, `update_ui_size_and_scale_system` |
+
+⭐⭐ **egui AND THREE PICKING BACKENDS RUN EVERY FRAME OF A HEADLESS MATCH** with
+no window and no pointer. That is directions 1 and 5 of the brief with names
+attached, and it is where the 0.95ms lives.
+
+⛔⛔ **AND IT CORRECTS I10, WHICH WAS MINE.** I recorded falling sand as "not a
+performance lever" because shrinking `with_map_size(32)` to `2` removed 1536
+chunk entities and changed nothing. But that removed the CHUNKS, not the ~20
+falling-sand systems in `PreUpdate` — which kept running over an empty particle
+set. ⇒ the chunk experiment tested the wrong half, and whether those systems cost
+anything is STILL OPEN. ⚠ this is the same error twice in one campaign: assuming
+the population is the cost when the SYSTEMS are the thing that runs.
+
+⚠ NOT YET MEASURED: which group owns the 0.95ms. The list makes a targeted
+bracket cheap, and the honest order is largest-group-first — but 31 `track_assets`
+systems doing nothing may cost less than 4 egui systems doing something.
+
 ### The architecture this campaign feeds
 
 A GPT architecture review of 2026-08-29 is synthesised, ranked and

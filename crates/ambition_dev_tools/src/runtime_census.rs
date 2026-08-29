@@ -266,6 +266,8 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
         return;
     }
     report_schedule_owners(&schedules);
+    // The phase the campaign cannot yet attribute: 0.95ms of it is not the sim.
+    report_schedule_membership(&schedules, "PreUpdate");
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
@@ -451,6 +453,41 @@ pub fn report_entity_populations(
 fn short_type_name(name: &str) -> String {
     let head = name.split('<').next().unwrap_or(name);
     head.rsplit("::").next().unwrap_or(head).to_string()
+}
+
+/// NAME every system in one schedule, so an unattributed cost stops being
+/// "DefaultPlugins" and becomes something a person can act on.
+///
+/// ⭐⭐ WHY IT PRINTS NAMES RATHER THAN TIMING THEM. `[census] ggrs_driver`
+/// measured ~0.95ms of `PreUpdate` sitting OUTSIDE the GGRS driver in a headless
+/// Smash match — the third-largest cost in the frame. Timing each system would
+/// need this crate to depend on `bevy_ui`, `bevy_picking` and leafwing purely to
+/// name their sets, which is an instrument joining the population it measures.
+/// The graph already knows the names; reading them costs nothing and turns
+/// "DefaultPlugins is 0.95ms" into a list somebody can bracket deliberately.
+///
+/// ⛔ ONE-SHOT AT `PreStartup`, for the reason in `report_schedule_conditions_census`:
+/// `Schedule::initialize` drains the graph, so this is readable exactly once.
+fn report_schedule_membership(schedules: &Schedules, wanted: &str) {
+    for (label, schedule) in schedules.iter() {
+        if format!("{label:?}") != wanted {
+            continue;
+        }
+        let mut names: Vec<String> = schedule
+            .graph()
+            .systems
+            .iter()
+            .map(|(_key, system, _conditions)| condition_label(system.name().as_ref()))
+            .collect();
+        names.sort();
+        eprintln!(
+            "[census] membership t=0.000 schedule={wanted} systems={} {}",
+            names.len(),
+            names.join(" ")
+        );
+        return;
+    }
+    eprintln!("[census] membership t=0.000 schedule={wanted} unavailable=not_found");
 }
 
 /// WHO OWNS the registered systems — the population behind "this app installs

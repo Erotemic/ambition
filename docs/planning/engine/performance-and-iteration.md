@@ -2767,8 +2767,19 @@ SERVICE THE SHEET STORE FORBIDS.** It holds one entry per portrait ACTUALLY SHOW
 images is a different object from a 470MB-per-character sheet table and needs no
 eviction policy to stay bounded. ⇒ the "there must not be an evictor" rule is not
 in play here, and the residency DECISION is not blocked on this.
-209 render tests, gate clean. ▢ Verified on the next windowed run: the two
+211 render tests, gate clean. ▢ Verified on the next windowed run: the two
 portrait bursts should become one.
+
+⛔⛔ **AND THE FIRST TEST I WROTE FOR IT COULD NOT FAIL — THE POISON SAID SO.** I
+asserted *"asking twice returns the same handle"*. `AssetServer::load` **dedupes
+by path and returns the same handle while the asset is alive**, so a cache
+poisoned to reload on every call still passed. ⇒ **handle identity is not the
+property; RETENTION is.** What fixes the bug is that the map holds a STRONG handle
+of its own, so the image survives the HUD entity despawning.
+✔ The test now drops the caller's handle and asserts the cache still holds one
+with the same id; poisoned (retain nothing under the real key) both arms fail.
+⭐ The lesson generalises past this fix: **when a library already deduplicates,
+a test of identity tests the LIBRARY, not your code.**
 
 ⭐ **So the remaining "asset work on a gameplay frame" problem in this build is
 ENTIRELY the select screen's portrait set.** 20.9MP, ~8 images of 1.3–2.0MP. It is

@@ -1210,3 +1210,67 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod retained_portrait_tests {
+    use super::RetainedPortraits;
+    use bevy::prelude::*;
+
+    fn asset_app() -> App {
+        let mut app = App::new();
+        // ⚠ `TaskPoolPlugin` FIRST: `AssetServer::load` dispatches onto the IO
+        // pool, so an `App::new()` with only `AssetPlugin` panics inside
+        // `bevy_tasks`. The neighbouring asset tests do not hit this because they
+        // insert images directly and never call `load`.
+        app.add_plugins((
+            bevy::app::TaskPoolPlugin::default(),
+            bevy::asset::AssetPlugin::default(),
+        ));
+        app.init_asset::<Image>();
+        app
+    }
+
+    /// ⭐ THE PROPERTY IS RETENTION, NOT HANDLE IDENTITY — and the first version of
+    /// this test got that wrong.
+    ///
+    /// I first asserted that asking twice returns the same handle. **That check
+    /// cannot fail**: `AssetServer::load` dedupes by path and hands back the same
+    /// handle while the asset is alive, so a poisoned cache that reloaded on every
+    /// call still passed. Proven by poisoning it.
+    ///
+    /// What actually fixes the bug is that this map holds a STRONG handle of its
+    /// own, so the image survives the HUD entity despawning — which is what made
+    /// the select screen re-decode its portraits on a second visit.
+    #[test]
+    fn the_cache_keeps_a_handle_after_the_caller_drops_theirs() {
+        let app = asset_app();
+        let server = app.world().resource::<AssetServer>().clone();
+        let mut retained = RetainedPortraits::default();
+
+        let handle = retained.handle(&server, "sprites/noether_portraits.png".to_string());
+        let id = handle.id();
+        drop(handle);
+
+        let held = retained
+            .by_path
+            .get("sprites/noether_portraits.png")
+            .expect("the cache must still hold the portrait after the caller drops it");
+        assert_eq!(
+            held.id(),
+            id,
+            "the cache holds a handle to a different asset than it handed out"
+        );
+    }
+
+    /// ⛔ The control: two different portraits must not collapse onto one entry.
+    #[test]
+    fn different_portraits_keep_separate_entries() {
+        let app = asset_app();
+        let server = app.world().resource::<AssetServer>().clone();
+        let mut retained = RetainedPortraits::default();
+
+        retained.handle(&server, "sprites/noether_portraits.png".to_string());
+        retained.handle(&server, "sprites/officer_portraits.png".to_string());
+        assert_eq!(retained.by_path.len(), 2, "two portraits shared one entry");
+    }
+}

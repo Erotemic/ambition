@@ -167,6 +167,10 @@ impl CharacterLoadDemand {
     /// terminal state. That is affordable precisely because demand is now raised at
     /// match PREPARATION rather than at the opening bell — there are frames to
     /// spread across.
+    ///
+    /// ⛔ It bounds LOADS, never STAGING. A caller that let this ration the cast
+    /// too would make characters arrive after their actors spawn, in frame and
+    /// uncovered — the exact defect `hall_transition_cover` exists to keep closed.
     fn take_bounded(&mut self, limit: usize) -> BTreeSet<String> {
         if limit == 0 || self.pending.len() <= limit {
             return self.take();
@@ -219,14 +223,17 @@ impl CharacterLoadDemand {
 /// Pacing exists to protect UNCOVERED frames, and applying it behind a cover
 /// trades a hidden burst for a visible dribble.
 ///
-/// ▢ THE FIX THAT KEEPS BOTH: stage/declare every demanded token immediately (it
-/// is a set of ids and costs nothing) while starting at most N LOADS per frame —
-/// the materializer currently does both in one loop, which is why one bound
-/// governs both. Until that split exists this stays 0.
-/// ⚠ The sweep that justified `1` (0 → 31 simultaneous/1049ms, 1 → 14/222ms) was
-/// measured on the GALLERY, which is covered; it never showed a win on an
-/// uncovered frame.
-const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 0;
+/// ⭐ THE SPLIT NOW EXISTS, so this bound governs LOADS ONLY. Staging and
+/// declaring happen for every pending token on the frame it is demanded (see
+/// `materialize_character_demand`), which is what keeps the cast whole and the
+/// room's bill honest while the decodes are rationed.
+///
+/// ⚠ The sweep that justified `1` (0 → 31 simultaneous decodes/1049ms, 1 → 14/
+/// 222ms) was measured on the GALLERY, which is covered by a loading foreground;
+/// it never showed a win on an uncovered frame. So this is a hedge against the
+/// burst, not a measured win on the frame that hitches — the honest measurement
+/// is still owed, and it needs a windowed capture rather than a headless one.
+const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
 
 /// Why a demanded character has no art.
 ///
@@ -496,9 +503,33 @@ pub fn materialize_character_demand(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
 ) {
-    // ⭐ ONE CHARACTER PER FRAME. See `take_bounded`: each is ~470MB of decoded
-    // RGBA, and landing two in one frame is what produced a 516ms frame on
-    // hardware. Anything not taken stays pending for the next frame.
+    // ── STAGE EVERY DEMAND NOW; LOAD AT MOST N OF THEM ──────────────────────
+    //
+    // ⭐ THE TWO HALVES COST DIFFERENT AMOUNTS AND ONLY ONE OF THEM HITCHES.
+    // Staging a character is resolving an id and putting a string in a set;
+    // loading one is ~470MB of decoded RGBA. Pacing is only ever wanted for the
+    // second, and until this split existed one bound governed both — so the only
+    // way to stop a burst of decodes was to also make the CAST arrive in a
+    // dribble, which is a different defect (`hall_transition_cover` names it:
+    // characters demanded after their actors spawn, in frame, uncovered).
+    //
+    // ⇒ every pending token is staged and declared on the frame it is demanded,
+    // so the cast is whole immediately and the room bills its full weight at
+    // once. Only `materialize_declared_character_sprite` below is rationed.
+    //
+    // ⚠ This does NOT release the reveal barrier early. `unsettled_staged_
+    // characters` blocks on a pending token having no OUTCOME, and an unstaged
+    // load records no outcome — so the curtain stays down for exactly as long as
+    // the loads take, which is the behaviour the cover test's second half wants.
+    for token in demand.pending().map(str::to_string).collect::<Vec<_>>() {
+        let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
+        declare_registered_character_into(sprites, registry, &token, &character_id);
+        states.cast_mut().stage(&character_id);
+    }
+
+    // ⭐ See `take_bounded`: each character is ~470MB of decoded RGBA, and landing
+    // several in one frame is what produced a 516ms frame on hardware. Anything
+    // not taken stays pending and is taken next frame.
     for token in demand.take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME) {
         // Whose cues this character will emit under, resolved BEFORE any decode:
         // the cast is a roster, not a report on the art, and it must be right for a

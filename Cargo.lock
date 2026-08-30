@@ -1039,6 +1039,7 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "image",
+ "wgpu",
 ]
 
 [[package]]

@@ -8,7 +8,8 @@ use bevy::camera::RenderTarget;
 use bevy::render::view::Msaa;
 
 use ambition_persistence::settings::{
-    profile_override_from_env, UserSettings, VisualQualityBudget, VisualQualityProfile,
+    profile_override_from_env, DetectedGpuClass, UserSettings, VisualQualityBudget,
+    VisualQualityProfile,
 };
 
 #[derive(Resource, Clone, Debug, PartialEq)]
@@ -81,6 +82,11 @@ impl Plugin for VisualQualityPlugin {
         app.insert_resource(VisualQualityInstalled);
         log_quality_profile_override();
         app.init_resource::<ResolvedVisualQuality>();
+        // ⭐ STARTUP, AND ONCE. The seed reads the adapter the renderer came up
+        // on and writes the tier only if the player has never had one; it must
+        // run BEFORE the Update pair below reads settings into the resolved
+        // budget, or the first frame renders at the un-seeded tier.
+        app.add_systems(PreStartup, seed_visual_quality_from_adapter);
         app.add_systems(Update, (sync_resolved_visual_quality, sync_raster_budget).chain());
         // This bridge reads visual quality and writes portal presentation
         // quality, so register it only when the destination resource exists.
@@ -91,6 +97,65 @@ impl Plugin for VisualQualityPlugin {
                 resource_exists::<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
             ),
         );
+    }
+}
+
+/// Translate the graphics API's adapter class into the tier policy's own
+/// vocabulary.
+///
+/// ⭐ THE TRANSLATION IS ALL THIS SEAM DOES. Which tier a class of hardware
+/// should start on is `ambition_persistence`'s decision, next to the tiers it
+/// decides between and testable without a GPU — which is the only way it is
+/// testable on the machines it matters for. This function is the only place in
+/// the codebase that names `wgpu::DeviceType`.
+fn detected_gpu_class(device_type: wgpu::DeviceType) -> DetectedGpuClass {
+    match device_type {
+        wgpu::DeviceType::DiscreteGpu => DetectedGpuClass::Discrete,
+        wgpu::DeviceType::IntegratedGpu => DetectedGpuClass::Integrated,
+        wgpu::DeviceType::VirtualGpu => DetectedGpuClass::Virtual,
+        wgpu::DeviceType::Cpu => DetectedGpuClass::Cpu,
+        wgpu::DeviceType::Other => DetectedGpuClass::Other,
+    }
+}
+
+/// Seed the visual quality tier from the adapter the renderer actually came up
+/// on — ONCE, on a profile the player has not touched.
+///
+/// ⛔⛔ A DETECTED DEFAULT IS A FIRST-RUN SEED, NEVER A PER-BOOT OVERRIDE.
+/// Re-deciding every launch would silently undo the settings menu. Both guards
+/// live in [`VisualQualitySettings::seed_from_hardware`] — a persisted
+/// `hardware_seeded` flag AND the profile still being the untouched default —
+/// so this system only supplies the adapter class and reports what happened.
+///
+/// ⚠ WHY IT IS NEEDED: `default_visual_quality_profile()` decides by TARGET OS,
+/// so every desktop booted `High`, including one whose renderer is an Intel
+/// HD 630. Measured on `calculex` 2026-08-29: p50 51.0ms (~19.6 FPS) at High.
+/// The OS was never the thing that made it slow.
+///
+/// ⛔ EVERY PARAM IS OPTIONAL AND THAT IS DELIBERATE. A headless composition has
+/// no `RenderAdapterInfo` and a fixture may carry no `UserSettings`; a `Res` that
+/// matches nothing is a system-param VALIDATION PANIC, not a skip. A world with
+/// no renderer has no adapter to read, which is an ordinary state here.
+pub fn seed_visual_quality_from_adapter(
+    adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
+    settings: Option<ResMut<UserSettings>>,
+) {
+    let (Some(adapter), Some(mut settings)) = (adapter, settings) else {
+        return;
+    };
+    if settings.video.quality.hardware_seeded {
+        return;
+    }
+    let class = detected_gpu_class(adapter.device_type);
+    let name = adapter.name.clone();
+    match settings.video.quality.seed_from_hardware(class) {
+        Some(profile) => info!(
+            "visual quality seeded to `{}` for a {:?} adapter ({name}); \
+             this is a FIRST-RUN default and the settings menu owns it from here",
+            profile.label(),
+            class,
+        ),
+        None => debug!("visual quality left as-is for a {class:?} adapter ({name})"),
     }
 }
 

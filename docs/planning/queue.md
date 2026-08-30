@@ -327,34 +327,43 @@ below it and on different silicon.
 
 - ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
   MSAA.** Both moved together. One interleaved A/B, three reps per arm; the
-  knobs are already independent and no rebuild is needed between arms.
+  knobs are already independent (`AMBITION_MAX_SCALE_FACTOR`, `AMBITION_MSAA` —
+  both confirmed live at `quality.rs`) and no rebuild is needed between arms.
+  ⛔⛔ **THIS ONE CANNOT BE RUN FROM `aivm-2404`, AND THAT IS NOT A SETUP
+  PROBLEM.** The whole measurement is what a real rasteriser costs per pixel.
+  The VM has no GPU at all — only lavapipe, a CPU rasteriser — so a DPI-cap arm
+  measured there reports the speed of a software renderer that the shipped game
+  never uses, and the MSAA arm is close to meaningless. `calculex` (Intel HD 630
+  since the discrete card died) is the only host that can answer this, and it is
+  the host the 2.76x was measured on.
+  ⚠ Which also means: do not "unblock" this by running it here. A number from
+  the wrong rasteriser is worse than no number, because it will be quoted later.
 
-- ◐ **D-RASTER-4 — nothing picked a quality tier from the hardware.**
+- ✔ **D-RASTER-4 — nothing picked a quality tier from the hardware.**
   `default_visual_quality_profile()` decides by target OS, so every desktop
-  boots High — including one whose renderer is an Intel HD 630, which measured
+  booted High — including one whose renderer is an Intel HD 630, which measured
   p50 51.0ms (~19.6 FPS) there. The OS was never the thing that made it slow.
-  **Landed 2026-08-30 (the policy, with tests):**
-  `DetectedGpuClass` (a `wgpu::DeviceType` mirror that keeps `wgpu` OUT of
-  persistence), `seed_profile_for_gpu` — Discrete→High, Integrated/Virtual→
-  Medium, Cpu→**Potato**, Other→the existing default — and
-  `VisualQualitySettings::seed_from_hardware`, which applies it ONCE, guarded by
-  a new persisted `hardware_seeded` flag AND by the profile still being the
-  untouched default. Guarded by
-  `the_seed_tier_follows_the_adapter_and_not_the_operating_system`,
-  `the_hardware_seed_fires_once_and_respects_a_chosen_tier`, and
+  **The policy, in `ambition_persistence`:** `DetectedGpuClass` (a
+  `wgpu::DeviceType` mirror that keeps `wgpu` OUT of persistence),
+  `seed_profile_for_gpu` — Discrete→High, Integrated/Virtual→Medium, Cpu→
+  **Potato**, Other→the existing default — and
+  `VisualQualitySettings::seed_from_hardware`.
+  **The seam, in `ambition_render`:** `seed_visual_quality_from_adapter` reads
+  `RenderAdapterInfo` (Bevy inserts it in the MAIN world) on `PreStartup`, ahead
+  of the `Update` pair that resolves the budget.
+  ⛔ **A DETECTED DEFAULT IS A FIRST-RUN SEED, NEVER A PER-BOOT OVERRIDE.**
+  Re-deciding each launch would silently undo the settings menu. TWO guards, both
+  in the policy: a persisted `hardware_seeded` flag, and the profile still being
+  the untouched default. The seam only names the adapter class.
+  ⭐ **THE DECISION IS TESTABLE WITHOUT A GPU**, which is the only way it is
+  testable on the machines it matters for — `seed_from_hardware` is pure.
+  Guarded by `the_seed_tier_follows_the_adapter_and_not_the_operating_system`,
+  `the_hardware_seed_fires_once_and_respects_a_chosen_tier` and
   `a_stored_profile_survives_a_reload_and_is_never_re_seeded`.
-  ⛔ **A DETECTED DEFAULT IS A FIRST-RUN SEED, NEVER A PER-BOOT OVERRIDE** —
-  re-deciding each launch silently undoes the settings menu, so the decision
-  lives in `seed_from_hardware` (pure, unit-testable WITHOUT a GPU, which is the
-  only way it is testable on the machine it matters for) rather than at the
-  render seam.
-  ⚠ `Cpu` seeds Potato rather than Low because a software rasteriser is not a
-  weak GPU — it is NO GPU, and its fill cost is paid by the cores running the
-  sim.
-  ▢ **REMAINING:** the render seam must map `wgpu::DeviceType` →
-  `DetectedGpuClass` from `RenderAdapterInfo` and call `seed_from_hardware` at
-  startup. Nothing reads `device_type` programmatically today — it is only ever
-  logged, which is how `profile_timeline.py` detects software rendering.
+  ⚠ `Cpu` seeds Potato rather than Low: a software rasteriser is not a weak GPU,
+  it is NO GPU, and its fill cost is paid by the cores running the sim.
+  ⚠ Every system param is `Option`: a headless composition has no adapter, and a
+  `Res` that matches nothing is a VALIDATION PANIC rather than a skip.
 
 
 - ✔ **D-BUILD-1 — the sprite cache verified that an output EXISTED, not that it

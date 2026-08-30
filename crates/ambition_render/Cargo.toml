@@ -31,6 +31,13 @@ portal_render = ["dep:ambition_portal2d_presentation"]
 # doing exactly its job: a debug tool must not be in a shipped game's dependency
 # graph.
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+# ⭐ THE ONE PLACE A GRAPHICS-API TYPE IS NAMED, and it is named here on purpose.
+# The tier POLICY lives in `ambition_persistence` with the tiers it decides
+# between and knows nothing of `wgpu`; this crate already links wgpu through
+# Bevy's renderer, so classifying the adapter at the render seam adds a name,
+# not a dependency. `default-features = false` because Cargo unions features
+# and Bevy already asks for the ones the renderer needs.
+wgpu = { version = "27", default-features = false }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }

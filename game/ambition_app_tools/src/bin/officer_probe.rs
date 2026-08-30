@@ -112,7 +112,14 @@ fn main() {
          (stick {:+.0})",
         facing_at_press, steer
     );
-    println!("  tick  facing   move                     round pos.x   round vel.x");
+    // ⭐ THE OFFSET IS THE QUESTION THE VELOCITY CANNOT ANSWER. A round with the
+    // right velocity that leaves from BEHIND him still reads as firing
+    // backwards — that is what `fb9230363` ("the shot leaves where the flash
+    // is") was about, and a probe that only compared signs would call this run
+    // correct.
+    println!(
+        "  tick  facing   move                     officer.x   round.x   offset   vel.x"
+    );
 
     let mut rounds_seen = 0usize;
     let mut first_round: Option<(usize, f32, f32, f32)> = None;
@@ -129,17 +136,20 @@ fn main() {
 
         let f = facing(&app, seat0);
         let mv = probe_stage::playing_move(&app, seat0).unwrap_or_else(|| "-".into());
+        let ox = probe_stage::kin(&app, seat0).0.x;
         if let Some((pos, vel)) = live_round(&mut app) {
             rounds_seen += 1;
             if first_round.is_none() {
-                first_round = Some((tick, f, pos.x, vel.x));
+                first_round = Some((tick, f, pos.x - ox, vel.x));
             }
             println!(
-                "  {tick:4}  {f:+6.0}   {mv:<22}   {:>9.1}   {:>9.1}",
-                pos.x, vel.x
+                "  {tick:4}  {f:+6.0}   {mv:<22}  {ox:>9.1}  {:>8.1}  {:>7.1}  {:>6.1}",
+                pos.x,
+                pos.x - ox,
+                vel.x
             );
         } else if tick % 10 == 0 {
-            println!("  {tick:4}  {f:+6.0}   {mv:<22}           -           -");
+            println!("  {tick:4}  {f:+6.0}   {mv:<22}  {ox:>9.1}         -        -       -");
         }
     }
 
@@ -152,12 +162,23 @@ fn main() {
                  bug and has to be settled first."
             );
         }
-        Some((tick, f, x, vx)) => {
+        Some((tick, f, offset, vx)) => {
             let agree = (vx > 0.0 && f > 0.0) || (vx < 0.0 && f < 0.0);
+            let muzzle_ahead = (offset > 0.0 && f > 0.0) || (offset < 0.0 && f < 0.0);
             println!(
-                "first round at tick {tick}: pos.x {x:.1}, vel.x {vx:+.1}, \
-                 officer facing {f:+.0} ({rounds_seen} round-ticks observed)"
+                "first round at tick {tick}: offset from the officer {offset:+.1}, \
+                 vel.x {vx:+.1}, facing {f:+.0} ({rounds_seen} round-ticks observed)"
             );
+            if !muzzle_ahead {
+                println!(
+                    "⛔ THE ROUND LEAVES FROM BEHIND HIM. offset {offset:+.1} is on the \
+                     opposite side from facing {f:+.0} — the muzzle is drawn on one side \
+                     and the shot spawns on the other, which reads as firing backwards \
+                     however the velocity is signed."
+                );
+            } else {
+                println!("  muzzle offset {offset:+.1} is AHEAD of him, as it should be.");
+            }
             if vx == 0.0 {
                 println!("⛔ the round has NO horizontal velocity — it is not travelling at all.");
             } else if agree {

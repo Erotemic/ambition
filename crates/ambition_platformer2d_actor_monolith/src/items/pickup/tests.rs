@@ -1625,3 +1625,116 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
          reported as having missed"
     );
 }
+
+/// ⭐⭐ SEAT ZERO DOING NOTHING MUST NOT SILENCE SEAT ONE.
+///
+/// ⛔⛔ FOUR PER-BODY EXITS INSIDE `for … in driven.entities()` WERE `return`,
+/// NOT `continue` — single-subject control flow transplanted into a loop when
+/// these systems were made multi-seat. Each one ended the SYSTEM: seat zero
+/// holding a non-ranged item stopped seat one's gun from firing, and seat zero
+/// with nothing to release stopped seat one from throwing. Seat zero is idle on
+/// most ticks, so this was the common case rather than an edge.
+///
+/// ⭐ THE ARMS ARE THE TWO EXITS THAT FIRE FIRST. `driven.entities()` orders
+/// seats by `SimId`, so seat "a" is visited before seat "b" and its early exit
+/// is what reaches seat "b" — or does not.
+mod multi_seat {
+    use super::*;
+
+    fn seated(app: &mut App, slot: u8, sim: &str, pos: Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                BodyKinematics {
+                    pos,
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                BodyBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
+                },
+                ActionSet::default(),
+                ambition_characters::control::ActorControl::default(),
+                ambition_characters::control::DrivingParticipant(
+                    ambition_characters::control::PlayerSlot(slot),
+                ),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+                ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+            ))
+            .id()
+    }
+
+    /// Seat zero holds a MELEE item, so its `held.spec.ranged` is `None`.
+    #[test]
+    fn a_seat_holding_no_ranged_weapon_does_not_stop_the_next_seat_firing() {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.insert_resource(ControlFrame::default());
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
+            None,
+        ));
+        app.add_systems(Update, fire_held_ranged_system);
+
+        let first = seated(&mut app, 0, "seat_a", Vec2::new(100.0, 100.0));
+        let second = seated(&mut app, 1, "seat_b", Vec2::new(300.0, 100.0));
+        app.world_mut()
+            .entity_mut(first)
+            .insert(HeldItem::new(axe_spec()));
+        app.world_mut()
+            .entity_mut(second)
+            .insert(HeldItem::new(gunsword_spec()));
+        set_control(&mut app, first, true, false);
+        set_control(&mut app, second, true, false);
+
+        app.update();
+
+        let shots = {
+            let mut q = app.world_mut().query::<&HeldProjectile>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(
+            shots, 1,
+            "seat b holds a gun-sword and pressed Attack; seat a holds an axe, \
+             which has no ranged spec — and that exit used to end the SYSTEM"
+        );
+    }
+
+    /// Seat zero presses nothing releasable, so the throw resolver's `else` arm
+    /// runs on it first.
+    #[test]
+    fn a_seat_with_nothing_to_release_does_not_stop_the_next_seat_throwing() {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
+            None,
+        ));
+        app.add_systems(Update, throw_held_item_system);
+
+        let first = seated(&mut app, 0, "seat_a", Vec2::new(100.0, 100.0));
+        let second = seated(&mut app, 1, "seat_b", Vec2::new(300.0, 100.0));
+        app.world_mut()
+            .entity_mut(first)
+            .insert(HeldItem::new(axe_spec()));
+        app.world_mut()
+            .entity_mut(second)
+            .insert(HeldItem::new(axe_spec()));
+        // Seat a presses nothing. Seat b asks for a Z-drop.
+        app.world_mut()
+            .get_mut::<ambition_characters::control::ActorControl>(second)
+            .unwrap()
+            .0
+            .grab_pressed = true;
+
+        app.update();
+
+        assert!(
+            app.world().get::<HeldItem>(second).is_none(),
+            "seat b asked to drop its axe and is still holding it — seat a's \
+             'nothing to release' exit ended the system before seat b was asked"
+        );
+        assert!(
+            app.world().get::<HeldItem>(first).is_some(),
+            "seat a pressed nothing and must still be holding its axe"
+        );
+    }
+}

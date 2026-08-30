@@ -1626,7 +1626,11 @@ pub fn throw_held_item_system(
             control.0.melee_pressed = false;
             Release::Throw
         } else {
-            return;
+            // ⛔⛔ `continue`, NOT `return`. This loop is over every DRIVEN body, and
+            // a `return` here ends the system: seat zero holding nothing to release
+            // stopped seat one from releasing anything, on every tick seat zero was
+            // idle — which is most of them.
+            continue;
         };
         let spec = held.spec.clone();
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
@@ -1680,7 +1684,8 @@ pub fn throw_held_item_system(
             // launches at ZERO velocity, so an object that kept the settled marker
             // it wore when it was picked up would hang at head height forever.
             commands.entity(entity).remove::<SettledItem>();
-            return;
+            // ⛔⛔ `continue`, NOT `return` — this body is done, the loop is not.
+            continue;
         }
         // NO OBJECT BEHIND THE HAND — materialize one. A body can come to hold
         // an item with no world instance at all: the inventory menu equips straight
@@ -1879,14 +1884,18 @@ pub fn fire_held_ranged_system(
             continue;
         }
         let Some(ranged) = held.spec.ranged.clone() else {
-            return;
+            // ⛔⛔ `continue`, NOT `return`. Seat zero holding a NON-ranged item
+            // ended the system, so seat one's gun did not fire.
+            continue;
         };
         // The body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
         let local_dir = ability_aim_local(&c, kin.facing);
         let dir = frame.to_world(local_dir).normalize_or_zero();
         if dir == Vec2::ZERO {
-            return;
+            // ⛔⛔ `continue`, NOT `return` — one body with no aim is not a reason
+            // to stop asking the others.
+            continue;
         }
         let muzzle_side = if local_dir.x.abs() > 0.001 {
             local_dir.x.signum()

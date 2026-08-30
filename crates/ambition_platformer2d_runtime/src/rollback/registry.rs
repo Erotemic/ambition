@@ -52,6 +52,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔ v136: `marker.posed_body` — the opt-in that publishes a body's pose read
 /// model (which row, which clip, which frame). A construction-time marker on a
 /// simulated body, so a rewind that dropped it would stop publishing mid-match.
+/// ⛔⛔ v137: THE ANCHOR IS A SEPARATE FACT FROM THE CODEC, and five dynamic
+/// archetypes were missing one or the other. `portal.shot` and
+/// `encounter.falling_hazard` had a codec and NO anchor — the registry listed
+/// them, the census counted them accounted, and nothing restored them, because
+/// nothing put the ENTITY in the envelope. `ability.sentry`,
+/// `ability.vortex_well`, `gravity.temporary_zone` and `gravity.zone` were not
+/// in the vocabulary at all. All five are spawned MID-MATCH by an ability, a
+/// fuse or an encounter beat, so a one-shot census of a booted world could
+/// never see them. Reported by a GPT re-review 2026-08-30.
 /// ⛔ v135: eight EVENT-CREATED components joined the schema —
 /// `ability.player_mark`, `ability.bomb_fuse`, `ability.gravity_grenade_fuse`,
 /// `ability.puppy_slug_ally`, `feature.falling_chest`,
@@ -62,7 +71,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// One index decides which prop the arena rebuilds, and a presence-only probe
 /// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
 /// it on the sim schedule, so a resimulation can move it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 136;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 137;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

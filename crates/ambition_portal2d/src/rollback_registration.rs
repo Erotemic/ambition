@@ -36,6 +36,16 @@ where
     registrar.rollback_component_clone::<crate::PortalEmission>(OWNER, "portal.emission");
     // A shot is a generic portal opener: scripts, AI, moving emitters, or a gun
     // can all produce the same PortalFireIntent.
+    //
+    // ⛔⛔ THE ANCHOR IS A SEPARATE FACT FROM THE CODEC, and this shipped with
+    // only the codec. `rollback_component_clone` says what to save IF the entity
+    // is in the rollback envelope; `require_rollback` is what PUTS it there
+    // (`register_required_components::<PortalShot, Rollback>`). A shot is spawned
+    // MID-MATCH by `portal_fire_system`, carries authoritative `pos`/`vel`/
+    // `traveled`, and decides where a portal opens — so a shot on an abandoned
+    // prediction branch could keep flying to a placement the authoritative
+    // timeline never fired. Every registry-shaped check read this as covered.
+    registrar.require_rollback::<crate::PortalShot>(OWNER, "entity:portal_shot");
     registrar.rollback_component_clone::<crate::PortalShot>(OWNER, "portal.shot");
     registrar.declare_rollback_derived_component::<crate::PortalTransitable>(
         OWNER,

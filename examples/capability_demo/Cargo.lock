@@ -743,6 +743,7 @@ dependencies = [
  "ambition_ui_nav",
  "ambition_vfx",
  "bevy",
+ "wgpu",
 ]
 
 [[package]]

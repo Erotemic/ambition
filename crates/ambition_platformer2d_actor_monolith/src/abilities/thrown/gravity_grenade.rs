@@ -52,6 +52,42 @@ pub fn arm_thrown_gravity_grenades(
     }
 }
 
+/// Open one temporary up-gravity well. THE seam a grenade's well comes into the
+/// world through.
+///
+/// ⭐ ONE PLACE, like `deploy_sentry` and `open_vortex_well`: an archetype that
+/// only exists after a fuse burns down is invisible to a census of a booted
+/// room, and a named seam is what lets a test build the real thing rather than
+/// an approximation of it.
+///
+/// ⛔⛔ AN AUTHORED GRAVITY COLUMN AND THIS ARE NOT THE SAME KIND OF THING. The
+/// authored one is room geometry a room load rebuilds; this one is spawned
+/// mid-match, counts `remaining` down, and despawns itself. `TemporaryZone` is
+/// therefore the rollback ANCHOR of the pair — see the shared-tangle
+/// registration, which says why anchoring `GravityZone` instead would enlist
+/// every authored column for nothing.
+pub fn open_temporary_gravity_well(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    center: ae::Vec2,
+) -> Entity {
+    commands
+        .spawn_session_scoped(
+            scope,
+            (
+                GravityZone {
+                    aabb: ae::Aabb::new(center, WELL_HALF),
+                    dir: ae::Vec2::new(0.0, -1.0), // up
+                },
+                TemporaryZone {
+                    remaining: WELL_DURATION_SECS,
+                },
+                Name::new("Gravity well (grenade)"),
+            ),
+        )
+        .id()
+}
+
 /// Burn fuses; on expiry open a temporary up-gravity well at the grenade and
 /// despawn it.
 pub fn tick_gravity_grenade_fuses(
@@ -75,18 +111,10 @@ pub fn tick_gravity_grenade_fuses(
         if fuse.timer > 0.0 {
             continue;
         }
-        commands.spawn_session_scoped(
+        open_temporary_gravity_well(
+            &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
-            (
-                GravityZone {
-                    aabb: ae::Aabb::new(ground.pos, WELL_HALF),
-                    dir: ae::Vec2::new(0.0, -1.0), // up
-                },
-                TemporaryZone {
-                    remaining: WELL_DURATION_SECS,
-                },
-                Name::new("Gravity well (grenade)"),
-            ),
+            ground.pos,
         );
         sfx.write_for(
             entity,

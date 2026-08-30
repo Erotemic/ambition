@@ -91,15 +91,10 @@ pub fn fire_vortex_system(
         return;
     }
     let center = kin.pos + aim * VORTEX_RANGE;
-    commands.spawn_session_scoped(
+    open_vortex_well(
+        &mut commands,
         SessionSpawnScope::new(owner.map(|owner| owner.0)),
-        (
-            VortexWell {
-                center,
-                remaining_s: VORTEX_LIFETIME_S,
-            },
-            Name::new("Vortex singularity"),
-        ),
+        center,
     );
     sfx.write_for(
         subject,
@@ -108,6 +103,39 @@ pub fn fire_vortex_system(
             pos: center,
         },
     );
+}
+
+/// Open one singularity. THE seam a vortex well comes into the world through.
+///
+/// ⭐ ONE PLACE, for the same reason `deploy_sentry` is one place — and for a
+/// second reason the sentry taught: an archetype spawned only from inside a
+/// system that needs a held gauntlet, spent mana and an aim vector is an
+/// archetype no coverage sweep can reach, so the state it carries is registered
+/// on trust. A named seam is what lets a test bring the entity into a booted
+/// world the way production does.
+///
+/// ⛔⛔ ITS `remaining_s` IS AUTHORITATIVE SIMULATION STATE. The well pulls every
+/// body in radius for as long as it counts down, so a rewind that kept a
+/// future's well keeps a pull the authoritative timeline never applied. Both the
+/// component and the entity anchor are declared in the actor crate's
+/// `register_rollback_state`.
+pub fn open_vortex_well(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    center: ae::Vec2,
+) -> Entity {
+    commands
+        .spawn_session_scoped(
+            scope,
+            (
+                VortexWell {
+                    center,
+                    remaining_s: VORTEX_LIFETIME_S,
+                },
+                Name::new("Vortex singularity"),
+            ),
+        )
+        .id()
 }
 
 /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well

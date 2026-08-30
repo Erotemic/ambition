@@ -132,3 +132,70 @@ One of:
    and close the rows.
 
 Whichever it is, push `d194-and-respawn-verified` and `attrib-beat-only` first.
+
+---
+
+## 2026-08-29 — the fourth branch, and a sync sweep
+
+`scripts/sync_status.sh` now answers *"is everything merged and synced"* in one
+command. Run against every branch, worktree and submodule it found **four**
+unmerged branches, not three. The fourth is `specials-are-real-moves`.
+
+### ✔ `specials-are-real-moves` — **do not merge; superseded, and measured**
+
+Two commits from 2026-08-27, 566 behind main, ten files. It is the FIRST
+iteration of the Performer's trapdoor, and that move has since been rebuilt on
+main twice over.
+
+⛔ **The branch does not contain what main contains.** `TrapdoorVisual`,
+`sync_trapdoor_visuals` and `stays_over_its_surface` are all on main and none of
+them is on the branch. Merging would not add the mode; it would drag an earlier
+shape of it back underneath the current one.
+
+⭐ **Its five extra test arms ARE the salvageable part, and three of them
+contradict a rule Jon asked for.** Ported onto main verbatim and run:
+
+```text
+a_submerged_body_does_not_fall                 ok
+a_submerged_body_with_no_stick_stays_put       ok
+a_submerged_body_moves_under_a_rooted_move     FAILED  (400 -> 400)
+a_submerged_body_travels_the_way_the_stick_points  FAILED
+a_submerged_body_passes_through_solid_ground   FAILED  (stopped at 400)
+```
+
+All three failures are the same fact: their fixture suspends her in OPEN AIR at
+`y=600` with the floor at `y=852`, and main's `stays_over_its_surface` refuses
+every step for a body with no surface above it. That rule is Jon's, verbatim
+(2026-08-28): the trapdoor *"can only move along a ground surface (i.e. it can't
+go over a ledge)."* The branch predates it, so its arms assert the mode it
+replaced.
+
+⇒ the two arms that pass are worth having and want a fixture that puts her UNDER
+a platform, which is a rewrite rather than a port — the same verdict the three
+branches above already carry, arrived at independently and with numbers this
+time.
+
+### What the sweep actually changed
+
+* `dev/ambition_dev_measurements` was BEHIND its recorded pointer and held one
+  uncommitted append — a workspace run from 2026-08-29 that existed on one disk.
+  Committed inside the submodule, rebased onto its own main, pushed, and the
+  superproject's pointer moved to it. ⛔ **both repositories had to move**: a push
+  with no pointer commit leaves the data unreachable, a pointer commit with no
+  push leaves a sha nobody can fetch.
+* Nothing anywhere was unpushed. All four stale branches are on `origin`, so the
+  reference copies the verdict above depends on are safe.
+
+### ⚠ Still open, and it is a decision rather than a task
+
+Three worktrees hold uncommitted work that is **not mine to commit or discard**:
+`agent-worktree1` (1 file), `agent-worktree2` (32, detached at a commit already
+in main), `sidework` (34). Sampled, it is a partial application of a refactor
+that has since LANDED on main by another route — `HazardFeature` moving from the
+monolith to `ambition_combat::hazard_runtime`, which main already spells the new
+way. So it is very likely abandoned scaffolding rather than work in flight, but
+"very likely" is not a thing to run `git checkout --` against.
+
+⇒ **for the maintainer:** if those three worktrees are idle, they can be reset
+and the four stale branches deleted, at which point the sweep reports clean. If
+any agent is still live in one, leave it.

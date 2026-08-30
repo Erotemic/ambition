@@ -108,6 +108,16 @@ WAIVERS: dict[str, str] = {
         "`capture_twintrack` spelled the path out and was caught. The class was "
         "always here; only the spelling decided whether anyone saw it."
     ),
+    "adopt_cameras_into_capture_target": (
+        "`setup_capture_target`'s other half, and waived for the same reason: it "
+        "points a capture binary's cameras at the render target that binary just "
+        "built. A shipped composition has no capture target for it to adopt. "
+        "⚠ AND IT IS THE SAME BLIND SPOT the waiver above documents, now with a "
+        "count: SIX binaries register this system and only the TWO that spell out "
+        "`ambition_platformer2d::render::capture::…` are reported — "
+        "`moveset_render` and `zero_time_capture_spike`. The other four import "
+        "the bare name and are invisible to this script."
+    ),
     "apply_placeholder_sprites_override": (
         "dev tool. The app owns its dev overlay and its hotkeys."
     ),

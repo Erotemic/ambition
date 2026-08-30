@@ -1328,6 +1328,25 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_app::dev::",
         "developer instruments (fps overlay, rollback observatory). Measurements          ABOUT the run; rewinding a measurement of the rewind is meaningless",
     ),
+    // THE OPENING BELL OUTRAN THE ART, and this is the instrument that says so.
+    //
+    // ⭐ NOTHING IN THE SIMULATION READS IT — grep-checkable, and the property the
+    // waiver rests on: the only non-test reference outside `audit.rs` is the
+    // `init_resource` that installs it. It is a monotone report (a name set, two
+    // frame counters) written by `report_late_match_critical_art`, and its own
+    // doc states the rule that keeps it out of the sim: it REPORTS, it never
+    // GATES, because the bell is deterministic and asset loading is not.
+    //
+    // ⚠ AND SAY THE COST RATHER THAN IMPLY IT IS FREE: it is written in the sim
+    // schedule, so a resimulated frame counts again and `unready_frames` /
+    // `live_frames` over-count under a live rollback session. That makes them a
+    // RATE-shaped instrument, not a frame ledger — acceptable only because no
+    // gameplay decision reads them. ⛔ If anything ever does, this waiver is void
+    // and the counters become rollback state.
+    (
+        "ambition_platformer2d_actor_monolith::character_runtime::audit::LateMatchCriticalArt",
+        "a loading-punctuality instrument: monotone counters plus a name set, read          by no simulation system, never fed back into gameplay",
+    ),
     (
         "ambition_app::app::world_flow::room_transition_presentation::",
         "the transition's own curtain/telemetry: what the player is shown WHILE a          room swaps, not what the room becomes",

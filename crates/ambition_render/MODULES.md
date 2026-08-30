@@ -17,10 +17,11 @@
 | [`quality`](src/quality.rs) | Live resolved visual-quality resource. |
 | [`reading_layout`](src/reading_layout.rs) | Where a block of text goes, for every overlay that shows one. |
 | [`rendering`](src/rendering/mod.rs) | Bevy presentation systems that project simulation/view state into visuals. |
+| [`runtime_census`](src/runtime_census.rs) | Profiling-only presentation census: the views, targets and draw population Ambition hands the renderer. |
 | [`screen_effects`](src/screen_effects.rs) | Whole-screen post-processing effects for presentation cameras. |
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -31,10 +31,17 @@ pub struct CheckpointCommitted;
 
 /// Put the world back to the last committed checkpoint.
 ///
-///  this is the DEATH/RETRY horizon and nothing else. Not a room unload,
-/// not a room transition, not a save load. Each of those preserves or replaces
-/// current truth by its own rule; this one and only this one rewinds the world
-/// to a baseline.
+///  this is the HORIZON RESTORE and nothing else. Not a room unload and not
+/// a room transition: each of those preserves or replaces current truth by its
+/// own rule, while this one rewinds the world to a recorded baseline.
+///
+///  A SAVE LOAD IS ONE OF THESE, and the exclusion this comment used to
+/// carry was wrong about its own producer. `complete_durable_restore` adopts
+/// the file's occurrence/custody/minted rows into the live baselines and then
+/// writes this — because putting the world at the horizon the file records is
+/// the same operation a death performs against the horizon a checkpoint
+/// recorded. Two producers, one meaning; a death and a load differ in where the
+/// baseline came from, not in what happens to the world.
 ///
 ///  it is a request, not a report. Writing it asks the horizon to be
 /// restored; the restoring happens in [`CheckpointRestore`], and a host that

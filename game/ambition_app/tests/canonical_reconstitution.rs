@@ -669,7 +669,7 @@ fn a_replay_does_not_adopt_what_the_attempt_created() {
     assert_same_population("a replay over attempt residue", &fresh, &replayed);
 }
 
-/// Case 4b: RETENTION, the leg the room census cannot see.
+/// Case 6: RETENTION, the leg the room census cannot see.
 ///
 /// An authored object in a body's hands rides through a replay for exactly the
 /// reason it rides through a door: it is `RoomScopedEntity` but not
@@ -758,7 +758,201 @@ fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
     );
 }
 
-/// Case 7: running one lifecycle path then another lands in the same room.
+// ── the durable road ─────────────────────────────────────────────────────────
+
+/// Boot a fresh session with a supplied save file and wait for the production
+/// restore latch.
+///
+/// ⭐ THE ONE MANUFACTURED BEAT IS THE BOOT. A load is two facts inside one
+/// process — the save resource holds the file's bytes and `SaveRestored` is
+/// false because nothing has applied them — and `load_save_at_startup` produces
+/// exactly that pair. Every system that then runs is the shipped one, in its
+/// shipped order.
+/// Frames a boot takes before the save is written in, and after.
+///
+/// ⭐ FIXED, AND THE SAME ON EVERY DURABLE ARM. A load performs no room
+/// construction of its own when the file carries no rows, so
+/// `settle_after_construction` has nothing to wait for here; frame alignment is
+/// what makes these censuses comparable instead.
+const BEFORE_LOAD: usize = 8;
+const AFTER_LOAD: usize = 90;
+
+fn boot_with_save(
+    room: &str,
+    file: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) -> Platformer2dSimHarness {
+    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    let mut sim = fixed_60hz_room_sim(room);
+    for _ in 0..BEFORE_LOAD {
+        sim.step(base());
+    }
+    sim.world_mut().resource_mut::<AmbitionGameSave>().0 = file.clone();
+    sim.world_mut().resource_mut::<SaveRestored>().0 = false;
+    for _ in 0..AFTER_LOAD {
+        sim.step(base());
+    }
+    assert!(
+        sim.world().resource::<SaveRestored>().0,
+        "the load must have LANDED — a latch still false means it returned early \
+         and everything below is measuring a load that never happened"
+    );
+    sim
+}
+
+/// Case 7: a fresh-process load builds the room a session already standing in it
+/// would build.
+///
+/// This is the fourth road in the model — new session, transition, replay,
+/// durable restore — and the one that still builds its first room BEFORE the
+/// save's occurrence facts are adopted, then corrects it. Measured 2026-08-30:
+/// the correction lands on the same population, so the shape is a shape and not
+/// a defect. This case is what keeps that true.
+///
+/// ⛔ THE PREMISE ARM IS NOT OPTIONAL. Comparing a load against a fresh entry
+/// with an EMPTY save proves only that an empty file changes nothing. The second
+/// arm carries a real durable deviation — an authored occurrence the file says is
+/// lying in the room next door — and demands the loaded room and the re-entered
+/// room agree about it.
+#[test]
+fn loading_a_save_builds_the_room_a_re_entry_builds() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    // ARM 1 — the empty file. A load of a world nobody has touched must leave the
+    // room exactly as a session that never loaded anything has it.
+    //
+    // Aged to the same frame as the load, because a room whose enemies patrol is
+    // only comparable to itself at the same age.
+    let mut untouched = fixed_60hz_room_sim(ROOM);
+    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
+        untouched.step(base());
+    }
+    let fresh = census(&mut untouched);
+    let empty_file = untouched
+        .world()
+        .resource::<AmbitionGameSave>()
+        .data()
+        .clone();
+    let mut played = untouched;
+
+    let mut loaded = boot_with_save(ROOM, &empty_file);
+    assert_same_population("a fresh-process load", &fresh, &census(&mut loaded));
+}
+
+/// A room that authors occurrence-bearing objects, so a durable "it is lying
+/// somewhere else" row has something to be about. [`ROOM`] is chosen for its
+/// population; this one is chosen for its objects.
+const DURABLE_ROOM: &str = "central_hub_complex";
+
+/// Case 8: a durable fact the room must ACT on reaches both roads the same way.
+///
+/// The file says one of the room's own authored occurrences is lying next door.
+/// Construction has to suppress it — minting a second one puts two live things
+/// behind one identity — and it must not matter whether the room was built by a
+/// boot or by walking back into it.
+#[test]
+fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    let mut played = fixed_60hz_room_sim(DURABLE_ROOM);
+    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
+        played.step(base());
+    }
+    let empty_file = played.world().resource::<AmbitionGameSave>().data().clone();
+
+    let relocatable = {
+        let mut q = played.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let world = played.world();
+        let mut ids: Vec<String> = q
+            .iter(world)
+            .map(|(id, _)| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        ids.into_iter().next().unwrap_or_else(|| {
+            panic!(
+                "'{DURABLE_ROOM}' authors no occurrence-bearing object, so this case \
+                 has nothing to relocate"
+            )
+        })
+    };
+    let neighbour = {
+        let world = played.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = q
+            .iter(world)
+            .next()
+            .expect("the session has an active room set");
+        room_set
+            .active_loading_zones()
+            .iter()
+            .filter_map(|zone| {
+                room_set
+                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+                    .and_then(|t| room_set.rooms.get(t.target_room))
+                    .map(|room| room.id.clone())
+            })
+            .find(|id| id != DURABLE_ROOM)
+            .unwrap_or_else(|| panic!("'{DURABLE_ROOM}' has no authored exit"))
+    };
+
+    let mut relocated_file = empty_file.clone();
+    relocated_file.occurrences = vec![PersistedOccurrence::new(
+        relocatable.clone(),
+        PersistedWhereabouts::Placed {
+            room: neighbour.clone(),
+            x: 200,
+            y: 200,
+        },
+    )];
+
+    // The BOOT road.
+    let mut loaded = boot_with_save(DURABLE_ROOM, &relocated_file);
+    let after_load = census(&mut loaded);
+    assert!(
+        !after_load.contains_key(&relocatable),
+        "the load authored `{relocatable}` into '{DURABLE_ROOM}' even though the \
+         file says it is lying in '{neighbour}' — two live things behind one \
+         identity.\nCensus was:\n{}",
+        render(&after_load)
+    );
+
+    // ⛔ THE PREMISE: without the row, the room DOES author it. Otherwise the
+    // assertion above passes on a room that never had the object at all.
+    let mut plain = boot_with_save(DURABLE_ROOM, &empty_file);
+    assert!(
+        census(&mut plain).contains_key(&relocatable),
+        "'{DURABLE_ROOM}' does not author `{relocatable}` even with an empty file, \
+         so suppressing it proves nothing"
+    );
+
+    // The RE-ENTRY road, under the same saved facts.
+    let mut walked = boot_with_save(DURABLE_ROOM, &relocated_file);
+    let live = population_entities(&mut walked);
+    let away = walk_to(&mut walked, &neighbour);
+    assert_eq!(away, neighbour);
+    let live = settle_after_construction(&mut walked, &live);
+    assert_eq!(walk_to(&mut walked, DURABLE_ROOM), DURABLE_ROOM);
+    settle_after_construction(&mut walked, &live);
+
+    let after_walk = census(&mut walked);
+    assert!(
+        !after_walk.contains_key(&relocatable),
+        "walking back into '{DURABLE_ROOM}' authored `{relocatable}`, which the \
+         file says is lying in '{neighbour}'"
+    );
+}
+
+/// Case 9: running one lifecycle path then another lands in the same room.
 #[test]
 fn running_one_lifecycle_path_then_another_lands_in_the_same_room() {
     let (mut sim, live) = enter_the_room();

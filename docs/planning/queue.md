@@ -41,7 +41,19 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-The one unresolved developer-policy choice from that work is in
+✔ **D-RESTORE-FACTS — measured, and it is a shape rather than a defect.** A save
+load builds its first room with no occurrence continuity and the file's facts
+then correct it. Measured: the correction lands on the same authoritative
+population an in-session re-entry produces, both for an empty file and for a
+file carrying a relocated occurrence (`canonical_reconstitution.rs` cases 7-8,
+both red under a poisoned `outlook_for`). Removing the build-then-correct shape
+is worth doing when it buys something concrete — a load currently pays for a
+room construction it is about to replace, and the window between the two is
+where a fact re-derived from live state can overwrite a restored one — not for
+tidiness. `ResetToCheckpoint`'s contract, which claimed it was "not a save
+load", is reconciled.
+
+The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
@@ -55,25 +67,6 @@ The one unresolved developer-policy choice from that work is in
   changed. **Do not bulk-waive the suite to make it green.** Acceptance: the
   policy crate passes and each changed policy still points at a current durable
   source of truth.
-
-- ▢ **D-RESTORE-FACTS — make a save load a construction, not a correction.**
-  The storage half of C3 holds: the save file is product facts keyed by stable
-  ids and refuses component blobs. The restore half does not. Session activation
-  builds its first room with `None` occurrence continuity, and the save's facts
-  are then adopted into that already-built world; the room only reaches the
-  canonical plan indirectly, when `complete_durable_restore` emits
-  `ResetToCheckpoint` and `shrine::resume_at_checkpoint_on_reset` records a
-  transition intent. Custody, inventory/entitlement, switch, boss-defeat,
-  NPC-liveness, encounter-authority and quest families each have their own
-  adapter that mutates or spawns into that world. Feed activation the saved
-  occurrence facts so the first room is constructed against them; then retire
-  the adapters the canonical path makes redundant. Also reconcile
-  `ResetToCheckpoint`'s own doc, which says it is the death/retry horizon and
-  explicitly "not a save load". Acceptance: a fresh-process load and an
-  in-session re-entry produce the same authoritative population for the same
-  saved facts, proven the way `canonical_reconstitution.rs` proves the
-  in-session paths. Owner:
-  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 - ▢ **D-SIM-LOCAL — remove authoritative non-rewinding edge/history state.** The
   current review still identifies Mary-O `follow_the_active_room` memory that can

@@ -1,7 +1,8 @@
 # Construction and reconstitution
 
-**State:** OPEN — the four in-session rebuild paths are converged on one
-constructor; durable restore still corrects an already-built world.
+**State:** OPEN — the four rebuild paths agree on the population they produce;
+durable restore reaches that agreement by building and then correcting, which is
+a shape worth removing rather than a defect.
 
 ## Goal
 
@@ -153,27 +154,36 @@ the world in the same frame it was asked to:
   It now registers a `RoomContentStagingRegistry` stager for the active room, so
   every construction of that room produces it.
 
-### C3 — make durable restore consume facts, not ECS snapshots — PARTIAL
+### C3 — make durable restore consume facts, not ECS snapshots — MEASURED
 
 The storage half holds: `AmbitionGameSaveData` is product facts keyed by stable
 ids (occurrence whereabouts, custody, encounter/quest/switch/boss records,
 inventory quantities), and it explicitly refuses component blobs.
 
-The restore half does not. A loaded save adopts its facts into live baselines and
-then emits `ResetToCheckpoint`, which reaches the canonical plan only indirectly —
-`shrine::resume_at_checkpoint_on_reset` records a room-transition intent. The
-session has already built its first room with NO occurrence continuity by then,
-so the saved facts correct an already-built world instead of informing its
-construction. Custody, inventory/entitlement, switch, boss-defeat, NPC-liveness,
-encounter-authority and quest families each have their own restore adapter that
-mutates or spawns into that built world.
+The restore half is a build-then-correct. Session activation prepares its first
+room with `None` occurrence continuity — the comment there says "Activation
+BUILDS a world; there is no earlier occurrence of anything to have a disposition
+yet", which is true of a new game and false of a load. The save's facts are then
+adopted into that already-built world, and `complete_durable_restore` emits
+`ResetToCheckpoint`, which reaches the canonical plan indirectly:
+`shrine::resume_at_checkpoint_on_reset` records a room-transition intent, and
+THAT construction does state the continuity.
 
-Two follow-ups fall out of this and are not yet done:
+**Measured 2026-08-30: the correction lands on the same population.** A
+fresh-process load of an empty file builds the room a session that never loaded
+anything has, and a load carrying a relocated occurrence suppresses it exactly as
+walking back into the room does — cases 7 and 8 of the acceptance suite, both red
+under a poisoned `outlook_for`. So this is a SHAPE, not a defect: a load
+constructs a room it is about to replace.
 
-- session activation should prepare its first room against the save's occurrence
-  facts rather than `None`, so a load is a construction rather than a correction;
-- `ResetToCheckpoint`'s own contract says it is the death/retry horizon and
-  "not a save load", which the durable road contradicts.
+Worth removing when it buys something concrete (a load currently costs an extra
+room construction, and the window between the two is where a fact re-derived
+from live state can overwrite a restored one). Not worth removing for tidiness.
+
+`ResetToCheckpoint`'s contract said it was the death/retry horizon and "not a
+save load" while the durable road wrote exactly that; the comment was wrong about
+its own producer and now says so. A death and a load differ in where the baseline
+came from, not in what happens to the world.
 
 ### C4 — keep transition preparation and commit singular ✔
 
@@ -217,10 +227,16 @@ lifecycle paths against a fresh entry:
 | `a_freshly_entered_room_is_a_population_worth_comparing` | the premise: two empty censuses are equal, so the room must author a real population |
 | `leaving_a_room_and_returning_rebuilds_what_entering_it_built` | the reference arm — a transition has always been canonical |
 | `replaying_a_room_rebuilds_what_entering_it_builds` | the replay rebuilds rather than repairs |
-| `a_replay_reconstructs_the_room_without_retiring_the_body_playing_it` | the body playing the room is not swept with it |
+| `a_replay_reconstructs_the_room_without_retiring_the_body_playing_it` | the body playing the room is not swept with it, and arrives at the room's spawn |
 | `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` | BOTH retention legs: `RoomResident` and the durable-fact input |
 | `a_replay_does_not_adopt_what_the_attempt_created` | the attempt-residue leg |
+| `loading_a_save_builds_the_room_a_re_entry_builds` | the durable road produces the population the in-session roads produce |
+| `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` | a durable fact construction must ACT on reaches both roads alike |
 | `running_one_lifecycle_path_then_another_lands_in_the_same_room` | repeated rebuilds do not drift |
+
+The rollback host is covered by `rollback_lifecycle_reset.rs`, which drives the
+same reset under a forced sync-test session and requires the timeline to stay
+checksum-clean across the rebuild.
 
 Each was verified red before green by poisoning one leg of the reconstitution at
 a time; every poison failed exactly the case that names it.

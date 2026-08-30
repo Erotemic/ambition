@@ -1192,9 +1192,15 @@ pub(crate) fn drive_the_cursor(
             // ⚠ THE STICK WINS WHEN BOTH ARE LIVE. Somebody with a thumb on the
             // stick and a finger on the d-pad is holding a pointer; snapping
             // under a moving hand is the exact fight this screen was losing.
+            //
+            // ⭐ THE RAMP IS ADVANCED ON EVERY FRAME THE STICK IS READ, including
+            // the ones where it is at rest — that is what lets it RESET. Folding
+            // it inside the `!= ZERO` branch would leave a released stick
+            // holding its built-up speed for the next push.
+            let dt = inputs.time.delta_secs();
+            let ramp = pointer.ramp.advance(drive.analog, dt);
             if drive.analog != Vec2::ZERO {
-                let travel =
-                    cursor::cursor_travel(drive.analog, layout.cell(), inputs.time.delta_secs());
+                let travel = cursor::cursor_travel(drive.analog, layout.cell(), dt, ramp);
                 let roamed = pointer.position + travel;
                 pointer.move_to(Vec2::new(
                     roamed.x.clamp(0.0, layout.viewport.x),
@@ -2272,6 +2278,93 @@ mod touch_tests {
             (second - first).abs() < first * 0.05,
             "two equal frames travelled {first} then {second} — the cursor is \
              not integrating a held stick"
+        );
+    }
+
+    /// ⭐⭐ AND IT BUILDS SPEED WHILE IT IS HELD — through the real screen, not
+    /// just the model.
+    ///
+    /// `cursor_ramp_tests` pins the CURVE; this pins the WIRING, which is a
+    /// different claim. A ramp advanced in the wrong place, or reset every frame
+    /// by a fresh `SelectCursor`, would leave every one of those unit arms green
+    /// and the cursor exactly as slow as before.
+    ///
+    /// ⚠ THE POSITION IS RESET EACH FRAME so the measurement is per-frame TRAVEL
+    /// and not a race against the viewport clamp — a cursor pinned to the right
+    /// edge reports zero movement however fast it is going.
+    #[test]
+    fn a_stick_held_a_long_time_covers_more_ground_per_frame_than_it_did_at_first() {
+        const HOME: f32 = 100.0;
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+        app.update();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .analog = Vec2::X;
+
+        let mut travel_per_frame = Vec::new();
+        for _ in 0..60 {
+            {
+                let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
+                let pointer = cursors.seat_mut(0).expect("seat 0");
+                pointer.move_to(Vec2::new(HOME, pointer.position.y));
+            }
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_millis(16));
+            app.update();
+            let x = app
+                .world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .position
+                .x;
+            travel_per_frame.push(x - HOME);
+        }
+
+        let early = travel_per_frame[1];
+        let late = travel_per_frame[travel_per_frame.len() - 1];
+        assert!(early > 0.0, "the cursor never moved at all");
+        assert!(
+            late > early * 1.5,
+            "after a second of holding, a frame still travels {late:.2}px against \
+             the opening {early:.2}px — the ramp is not reaching the screen"
+        );
+
+        // ⛔ AND LETTING GO FORGETS IT. Without this the next push starts at
+        // speed, which is the failure that feels like the cursor "sticking".
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .analog = Vec2::ZERO;
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .analog = Vec2::X;
+        {
+            let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
+            let pointer = cursors.seat_mut(0).expect("seat 0");
+            pointer.move_to(Vec2::new(HOME, pointer.position.y));
+        }
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+        let after_release = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+            .x
+            - HOME;
+        assert!(
+            (after_release - early).abs() < early * 0.05,
+            "the push after a release travelled {after_release:.2}px against an \
+             opening {early:.2}px — it inherited the speed of the last sweep"
         );
     }
 

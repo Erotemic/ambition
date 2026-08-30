@@ -15,6 +15,7 @@ to make.
 | 4 | Speed scaled from portrait geometry, not viewport width | ▣ landed |
 | 5 | Clamp the cursor's integration `dt` | ▣ landed |
 | 6 | Regression tests for precision and screen aspect | ▣ landed |
+| 6b | **Hold-time acceleration** (Jon, after playing it) | ▣ landed |
 | 7 | Gamepad-axis diagnostic | ▣ landed — `Shift+F6` |
 | 8 | Compare the Switch Pro endpoint on both machines | ☐ **Jon runs this** |
 | 9 | Outer-stick saturation, IF the endpoint is the cause | ☐ blocked on 8 |
@@ -94,6 +95,68 @@ thing that got fixed. It is replaced by the pair that states the new contract:
 reported bug, asserted directly.
 
 smash 127/127, app 192 lib + 509 it, 36/36 contracts.
+
+---
+
+## ▣ 6b — one speed cannot do both jobs
+
+Jon, having played the fixed cursor: *"a bit too slow. Could we do a thing where
+it starts off slow and then accelerates if you keep holding it? Just enough that
+the player doesn't notice — but it feels like the cursor is responsible, gets
+where it needs to go quickly, and also repositions precisely."*
+
+That is a correct diagnosis of a constant, not of a number. A single speed is
+either fast enough to cross an eighteen-portrait grid or slow enough to sit on
+the portrait you want, and picking one is what made this cursor feel wrong in
+both directions in turn — first far too fast, then a bit too slow.
+
+**`CursorRamp`**: base speed raised 4.0 → 4.5 cells/s, plus a build while a
+committed push is held.
+
+| | |
+|---|---|
+| arms above | **0.6** deflection |
+| after | **0.18s** of continuous push |
+| builds over | **0.6s** |
+| to | **2.2×** |
+
+Measured at 1920×1080 with 8 fighters: **base 1130 px/s, top 2486 px/s** — and a
+full six-cell row sweep takes **0.87s with the ramp against 1.35s without**. That
+36% is what the feature buys; every short movement still runs at the base rate.
+
+⭐ **SMOOTHSTEP, and that is what "the player doesn't notice" actually requires.**
+The build has zero slope at both ends, so no frame visibly changes gear. A linear
+ramp has a corner where it starts and another where it tops out, and both are
+felt as a lurch even when the speeds either side are identical.
+
+⭐⭐ **It arms on DEFLECTION as well as time.** A gentle push never accelerates
+however long it is held — half a stick means "place the hand", and a hand that
+crept faster the longer you were being careful with it would be exactly
+backwards. This is the precision half, and it is a separate knob from the delay.
+
+⛔⛔ **It resets on a REVERSAL.** Overshoot at speed, flick back, and the return
+starts at base speed — so the gesture that corrects an overshoot cannot inherit
+the momentum that caused it. Without this the player oscillates around the target
+they are trying to land on. ⚠ A right-angle turn is not a reversal (`dot < 0`):
+sweeping along a row and then down a column is still travelling.
+
+⚠ **Two multipliers, two questions, and they compose.** The squared curve asks
+how HARD the stick is pushed — precision within one gesture. The ramp asks how
+LONG — precision between a correction and a journey. Neither can do the other's
+job.
+
+**Eight arms on the curve** (shape, correction never ramps, reversal resets,
+right-angle keeps, gentle push never builds, release forgets, no corner at either
+end, hitch does not fast-forward) **plus one on the screen** — because a ramp
+advanced in the wrong place would leave every unit arm green and the cursor
+exactly as slow as before. That one is poison-verified: rebuilding the ramp each
+frame gives `22.29px against the opening 22.29px`.
+
+⚠ The top speed is now slightly ABOVE the 2208 px/s that was reported as
+unusable, and that is recorded on purpose. It is reached only after ~0.78s of
+continuous committed push, by which point the player is plainly travelling rather
+than placing — but a ramp whose top speed nobody wrote down is how "it got fast
+again" happens without anybody deciding to.
 
 ---
 

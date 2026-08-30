@@ -150,6 +150,11 @@ pub struct SelectCursor {
     /// decides whether the first arrow press snaps from the corner or from the
     /// middle of the screen.
     pub placed: bool,
+    /// Speed built up by holding a direction. See [`CursorRamp`].
+    ///
+    /// ⭐ PER SEAT, because it is a property of one person's hand. A shared ramp
+    /// would have player two's sweep accelerating player one's careful nudge.
+    pub ramp: CursorRamp,
 }
 
 impl SelectCursor {
@@ -456,15 +461,19 @@ mod tests {
 ///
 /// ⭐ CELLS PER SECOND FIXES ALL THREE. It is aspect-independent by construction
 /// (one scalar, both axes), it scales with the grid rather than the screen, and
-/// it is a number a designer can reason about: at 4.0, a fully deflected stick
-/// crosses four portraits a second, and a six-wide grid takes ~1.5s corner to
-/// corner.
+/// it is a number a designer can reason about: at 4.5, a fully deflected stick
+/// crosses four and a half portraits a second.
+///
+/// ⚠ THIS IS THE STARTING SPEED, NOT THE TOP SPEED. A committed push held for
+/// longer than a correction builds up to [`RAMP_MAX_MULTIPLIER`] times this —
+/// see [`CursorRamp`]. The base is deliberately the PRECISE one: it is what
+/// every short movement gets, and short movements are most of them.
 ///
 /// ⚠ Cells are 0.86 as wide as they are tall ([`PORTRAIT_ASPECT`]), so crossing
 /// a cell VERTICALLY takes about 16% longer than crossing one horizontally. That
 /// is the honest consequence of one uniform pixel rate, and it is a great deal
 /// smaller than the 78% the viewport-width version had.
-pub const CURSOR_CELLS_PER_SECOND: f32 = 4.0;
+pub const CURSOR_CELLS_PER_SECOND: f32 = 4.5;
 
 /// The longest frame the cursor will integrate over.
 ///
@@ -474,6 +483,100 @@ pub const CURSOR_CELLS_PER_SECOND: f32 = 4.0;
 /// which is the right trade: the cursor is a POINTER, not a physics body whose
 /// integral has to stay honest.
 pub const MAX_CURSOR_DT: f32 = 1.0 / 30.0;
+
+/// How far the stick must be pushed before the cursor builds any speed at all.
+///
+/// ⭐⭐ THE PRECISION HALF OF THE WHOLE FEATURE. A gentle push never accelerates,
+/// however long it is held: half a stick is "place the hand", and a hand that
+/// crept faster the longer you were being careful with it would be exactly
+/// backwards. Only a committed push is read as "I am going somewhere".
+pub const RAMP_ARM_DEFLECTION: f32 = 0.6;
+
+/// How long a committed push is held at base speed before it starts building.
+///
+/// ⭐ SO A CORRECTION NEVER RAMPS. Nudging one portrait over takes a fraction of
+/// this, so the whole gesture happens at the precise speed and the acceleration
+/// is something the player only meets when they are actually travelling.
+pub const RAMP_ARM_SECONDS: f32 = 0.18;
+
+/// How long the build takes, once it starts.
+pub const RAMP_TO_FULL_SECONDS: f32 = 0.6;
+
+/// Top speed, as a multiple of [`CURSOR_CELLS_PER_SECOND`].
+///
+/// ⚠ REACHED ONLY AFTER ~0.78s OF CONTINUOUS COMMITTED PUSH, which is longer
+/// than crossing most grids takes. In practice the cursor spends its time
+/// somewhere on the curve rather than at the end of it, and that is the point:
+/// the top speed exists so the middle of the curve can be brisk.
+pub const RAMP_MAX_MULTIPLIER: f32 = 2.2;
+
+/// Speed built up by holding a direction, so the cursor is unhurried over short
+/// distances and quick over long ones.
+///
+/// ⭐⭐ THE FEEL THIS IS FOR: *"it starts off slow and then accelerates if you
+/// keep holding it — just enough that the player doesn't notice, but the cursor
+/// gets where it needs to go quickly and still repositions precisely."* One
+/// speed cannot do both jobs. A single constant is either fast enough to cross
+/// an eighteen-portrait grid or slow enough to sit on the portrait you want, and
+/// picking one is what made this cursor feel wrong in both directions in turn.
+///
+/// ⭐ SMOOTHSTEP, NOT A LINEAR RAMP OR A STEP. The build has zero slope at both
+/// ends, so there is no instant where the cursor visibly "changes gear" — which
+/// is what "the player doesn't notice" actually requires. A linear ramp has a
+/// corner where it starts and another where it tops out, and both are felt as a
+/// lurch even when the speeds either side are identical.
+///
+/// ⛔⛔ AND IT RESETS ON A REVERSAL, which is the half that keeps precision.
+/// Overshoot at speed, flick back, and the return starts at BASE speed — so the
+/// gesture that corrects an overshoot cannot inherit the momentum that caused
+/// it. Without this, coming back is as fast as going was, and the player
+/// oscillates around the target they are trying to land on.
+///
+/// ⚠ A right-angle turn is NOT a reversal (the test is `dot < 0`), so sweeping
+/// across a row and then down a column keeps the speed it built. Turning a
+/// corner is still travelling.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CursorRamp {
+    /// Seconds of continuous committed push in the current direction.
+    held_seconds: f32,
+    /// The unit direction the build belongs to, so a reversal can be seen.
+    direction: Vec2,
+}
+
+impl CursorRamp {
+    /// Fold this frame in, and report the multiplier to apply to base speed.
+    pub fn advance(&mut self, analog: Vec2, dt: f32) -> f32 {
+        let magnitude = analog.length();
+        if magnitude < RAMP_ARM_DEFLECTION {
+            *self = Self::default();
+            return 1.0;
+        }
+        let heading = analog / magnitude;
+        if self.direction != Vec2::ZERO && self.direction.dot(heading) < 0.0 {
+            *self = Self::default();
+            // ⭐ THE REVERSAL FRAME ITSELF IS ALREADY THE NEW GESTURE, so it
+            // starts building from zero rather than being skipped — the player
+            // has committed to the new direction, they simply get no inherited
+            // speed for it.
+        }
+        self.direction = heading;
+        self.held_seconds += dt.clamp(0.0, MAX_CURSOR_DT);
+        self.multiplier()
+    }
+
+    /// The current multiplier, without advancing.
+    pub fn multiplier(&self) -> f32 {
+        let building = (self.held_seconds - RAMP_ARM_SECONDS).max(0.0);
+        let t = (building / RAMP_TO_FULL_SECONDS).clamp(0.0, 1.0);
+        let eased = t * t * (3.0 - 2.0 * t);
+        1.0 + eased * (RAMP_MAX_MULTIPLIER - 1.0)
+    }
+
+    /// Whether any speed has been built. Diagnostics and tests, not gameplay.
+    pub fn is_building(&self) -> bool {
+        self.held_seconds > RAMP_ARM_SECONDS
+    }
+}
 
 /// How far the cursor travels this frame for one stick deflection.
 ///
@@ -492,13 +595,18 @@ pub const MAX_CURSOR_DT: f32 = 1.0 / 30.0;
 /// ⭐ AND NO STICKY-TARGET MAGNETISM. A good curve gives enough precision on its
 /// own, and magnetism makes the cursor fight the player near anything selectable
 /// — the exact complaint that started this.
-pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32) -> Vec2 {
+///
+/// ⚠ TWO MULTIPLIERS, TWO QUESTIONS, AND THEY COMPOSE. The squared curve asks
+/// HOW HARD the stick is pushed — precision within one gesture; `ramp` asks HOW
+/// LONG it has been pushed — precision between a correction and a journey.
+/// Neither can do the other's job, which is why there are two.
+pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32, ramp: f32) -> Vec2 {
     let magnitude = analog.length().min(1.0);
     if magnitude <= 0.0 {
         return Vec2::ZERO;
     }
     let direction = analog / analog.length();
-    let speed = magnitude * magnitude * CURSOR_CELLS_PER_SECOND * cell.x;
+    let speed = magnitude * magnitude * CURSOR_CELLS_PER_SECOND * cell.x * ramp;
     direction * speed * dt.clamp(0.0, MAX_CURSOR_DT)
 }
 
@@ -507,6 +615,11 @@ pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32) -> Vec2 {
 mod cursor_travel_tests {
     use super::*;
     use crate::select_screen::layout::SelectLayout;
+
+    /// The arms below are about the BASE model — deflection response, units,
+    /// aspect, the dt clamp — so they ask for no built-up speed. The hold ramp
+    /// has its own module.
+    const NO_RAMP: f32 = 1.0;
 
     /// A 16:9 monitor and a 4:3 one, same roster.
     fn wide() -> SelectLayout {
@@ -523,8 +636,8 @@ mod cursor_travel_tests {
     #[test]
     fn a_full_deflection_travels_the_same_distance_up_as_it_does_across() {
         let cell = wide().cell();
-        let across = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
-        let down = cursor_travel(Vec2::Y, cell, 1.0 / 60.0).length();
+        let across = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
+        let down = cursor_travel(Vec2::Y, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (across - down).abs() < 0.001,
             "a vertical push travelled {down:.2}px and a horizontal one {across:.2}px"
@@ -538,7 +651,7 @@ mod cursor_travel_tests {
     fn crossing_one_portrait_takes_the_same_time_on_any_screen_shape() {
         let seconds_per_cell = |layout: SelectLayout| {
             let cell = layout.cell();
-            let per_frame = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
+            let per_frame = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
             cell.x / (per_frame * 60.0)
         };
         let a = seconds_per_cell(wide());
@@ -561,8 +674,8 @@ mod cursor_travel_tests {
     #[test]
     fn a_half_deflection_moves_at_a_quarter_speed_not_half() {
         let cell = wide().cell();
-        let full = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
-        let half = cursor_travel(Vec2::X * 0.5, cell, 1.0 / 60.0).length();
+        let full = cursor_travel(Vec2::X, cell, 1.0 / 60.0, NO_RAMP).length();
+        let half = cursor_travel(Vec2::X * 0.5, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (half / full - 0.25).abs() < 0.01,
             "a half deflection moved at {:.3} of full speed",
@@ -570,7 +683,7 @@ mod cursor_travel_tests {
         );
         // And a gentle nudge is genuinely a nudge: a fifth of the stick is a
         // twenty-fifth of the speed.
-        let nudge = cursor_travel(Vec2::X * 0.2, cell, 1.0 / 60.0).length();
+        let nudge = cursor_travel(Vec2::X * 0.2, cell, 1.0 / 60.0, NO_RAMP).length();
         assert!(
             (nudge / full - 0.04).abs() < 0.01,
             "a fifth deflection moved at {:.3} of full speed",
@@ -589,7 +702,7 @@ mod cursor_travel_tests {
             Vec2::new(3.0, 1.0).normalize() * 0.9,
             Vec2::new(-1.0, 2.0).normalize() * 0.6,
         ] {
-            let travel = cursor_travel(stick, cell, 1.0 / 60.0);
+            let travel = cursor_travel(stick, cell, 1.0 / 60.0, NO_RAMP);
             let angle = travel.normalize().dot(stick.normalize());
             assert!(
                 angle > 0.9999,
@@ -603,14 +716,14 @@ mod cursor_travel_tests {
     #[test]
     fn a_long_frame_is_clamped_so_a_hitch_does_not_throw_the_cursor() {
         let cell = wide().cell();
-        let hitch = cursor_travel(Vec2::X, cell, 0.100).length();
-        let capped = cursor_travel(Vec2::X, cell, MAX_CURSOR_DT).length();
+        let hitch = cursor_travel(Vec2::X, cell, 0.100, NO_RAMP).length();
+        let capped = cursor_travel(Vec2::X, cell, MAX_CURSOR_DT, NO_RAMP).length();
         assert!(
             (hitch - capped).abs() < 0.001,
             "a 100ms frame travelled {hitch:.1}px against the {capped:.1}px cap"
         );
         // An ordinary frame is NOT clamped, or the cap would be the speed.
-        let ordinary = cursor_travel(Vec2::X, cell, 1.0 / 120.0).length();
+        let ordinary = cursor_travel(Vec2::X, cell, 1.0 / 120.0, NO_RAMP).length();
         assert!(
             ordinary < capped * 0.5,
             "a 120Hz frame travelled {ordinary:.2}px, which is the cap, not the rate"
@@ -622,29 +735,271 @@ mod cursor_travel_tests {
     #[test]
     fn a_stick_at_rest_moves_the_cursor_nowhere() {
         assert_eq!(
-            cursor_travel(Vec2::ZERO, wide().cell(), 1.0 / 60.0),
+            cursor_travel(Vec2::ZERO, wide().cell(), 1.0 / 60.0, NO_RAMP),
             Vec2::ZERO
         );
     }
 
-    /// ⚠ THE OLD SPEED, FOR THE RECORD. `1.15 * viewport.x` was ~2208px/s at
-    /// 1920 wide; the new full-deflection rate is a small fraction of that, and
-    /// this arm exists so nobody quietly restores it.
+    /// ⚠ THE OLD SPEED, FOR THE RECORD, AND WHERE THE NEW ONE SITS EITHER SIDE
+    /// OF IT.
+    ///
+    /// `1.15 * viewport.x` was ~2208px/s at 1920 wide, INSTANTLY, from a
+    /// standing start. The honest comparison is not one number against one
+    /// number, because there are now two:
+    ///
+    /// - the BASE, which every short movement gets, is about half of it;
+    /// - the TOP, reached only after ~0.78s of continuous committed push, is
+    ///   somewhat above it — and that is fine, because by then the player is
+    ///   plainly travelling rather than placing.
+    ///
+    /// ⭐ Recording both is the point. A ramp whose top speed nobody wrote down
+    /// is how "it got fast again" happens without anybody deciding to.
     #[test]
-    fn a_full_deflection_is_far_slower_than_the_viewport_width_rate_it_replaced() {
+    fn the_base_speed_is_half_the_rate_it_replaced_and_the_top_is_reached_slowly() {
         let layout = wide();
+        let cell = layout.cell();
         let old_px_per_second = layout.viewport.x * 1.15;
-        // Per SECOND, from a frame short enough not to be clamped.
         let dt = 1.0 / 60.0;
-        let new_px_per_second = cursor_travel(Vec2::X, layout.cell(), dt).length() / dt;
+        let base = cursor_travel(Vec2::X, cell, dt, NO_RAMP).length() / dt;
+        let top = cursor_travel(Vec2::X, cell, dt, RAMP_MAX_MULTIPLIER).length() / dt;
         println!(
-            "cell {:?}: full deflection {new_px_per_second:.0}px/s (was {old_px_per_second:.0})",
-            layout.cell()
+            "cell {cell:?}: base {base:.0}px/s, top {top:.0}px/s (old was {old_px_per_second:.0})"
         );
         assert!(
-            new_px_per_second < old_px_per_second * 0.5,
-            "full deflection is {new_px_per_second:.0}px/s against the old \
-             {old_px_per_second:.0}px/s — the constant moved but the feel did not"
+            base < old_px_per_second * 0.6,
+            "the starting speed is {base:.0}px/s against the old {old_px_per_second:.0} — \
+             a short movement should be markedly calmer than the rate that was \
+             reported as unusable"
+        );
+        assert!(
+            top > old_px_per_second,
+            "top speed is {top:.0}px/s, under the old rate — then the ramp is \
+             not buying a faster journey and the base could simply be raised"
+        );
+
+        // AND THE TOP IS NOT WHERE A CORRECTION LANDS. A short push runs at
+        // the base rate, which is the property that makes the top speed safe.
+        let mut ramp = CursorRamp::default();
+        let correction = ramp.advance(Vec2::X, 0.12);
+        assert_eq!(
+            correction, 1.0,
+            "a 120ms nudge already had built-up speed, so every small \
+             repositioning inherits a journey's momentum"
+        );
+    }
+}
+
+/// The hold ramp: unhurried over short distances, quick over long ones.
+#[cfg(test)]
+mod cursor_ramp_tests {
+    use super::*;
+
+    /// Hold a full deflection for `seconds` in 60Hz frames, reporting the
+    /// multiplier at the end.
+    fn after_holding(seconds: f32) -> f32 {
+        let mut ramp = CursorRamp::default();
+        let dt = 1.0 / 60.0;
+        let mut multiplier = 1.0;
+        let frames = (seconds / dt).round() as i32;
+        for _ in 0..frames {
+            multiplier = ramp.advance(Vec2::X, dt);
+        }
+        multiplier
+    }
+
+    /// ⭐⭐ THE SHAPE, IN ONE ASSERTION. Slow at first, faster later, and it
+    /// stops. Everything else in this module is a corner of it.
+    #[test]
+    fn speed_starts_at_the_base_rate_builds_while_held_and_then_stops_building() {
+        let start = after_holding(0.05);
+        let middle = after_holding(0.5);
+        let end = after_holding(1.5);
+        let much_later = after_holding(4.0);
+        assert_eq!(start, 1.0, "a push already had speed before it was held");
+        assert!(
+            middle > start && middle < end,
+            "held 0.05s/{start:.2}x, 0.5s/{middle:.2}x, 1.5s/{end:.2}x — not a build"
+        );
+        assert!(
+            (end - RAMP_MAX_MULTIPLIER).abs() < 0.01,
+            "a long hold reached {end:.2}x, not the {RAMP_MAX_MULTIPLIER}x the constant promises"
+        );
+        assert_eq!(
+            much_later, end,
+            "the ramp kept climbing past its stated maximum"
+        );
+    }
+
+    /// ⛔ A CORRECTION MUST NEVER RAMP. This is the precision half: nudging one
+    /// portrait over is over in a fraction of the arming delay, so the whole
+    /// gesture happens at the base rate.
+    #[test]
+    fn a_short_correction_never_leaves_the_base_speed() {
+        for nudge in [0.016_f32, 0.05, 0.1, RAMP_ARM_SECONDS - 0.01] {
+            assert_eq!(
+                after_holding(nudge),
+                1.0,
+                "a {nudge:.3}s push had already started building speed"
+            );
+        }
+    }
+
+    /// ⛔⛔ AND A REVERSAL DROPS IT, which is what stops an overshoot turning
+    /// into an oscillation: the correction cannot inherit the momentum that
+    /// caused it.
+    #[test]
+    fn reversing_direction_gives_the_return_trip_base_speed_again() {
+        let mut ramp = CursorRamp::default();
+        let dt = 1.0 / 60.0;
+        for _ in 0..60 {
+            ramp.advance(Vec2::X, dt);
+        }
+        assert!(
+            ramp.multiplier() > 1.5,
+            "the sweep did not build enough speed for this arm to mean anything"
+        );
+        let back = ramp.advance(-Vec2::X, dt);
+        assert_eq!(
+            back, 1.0,
+            "flicking back after an overshoot inherited {back:.2}x of the \
+             speed that caused the overshoot"
+        );
+    }
+
+    /// ⚠ BUT TURNING A CORNER IS NOT REVERSING. Sweeping along a row and then
+    /// down a column is still travelling, and losing the build there would
+    /// punish exactly the movement the ramp is for.
+    #[test]
+    fn a_right_angle_turn_keeps_the_speed_it_built() {
+        let mut ramp = CursorRamp::default();
+        let dt = 1.0 / 60.0;
+        for _ in 0..60 {
+            ramp.advance(Vec2::X, dt);
+        }
+        let built = ramp.multiplier();
+        let turned = ramp.advance(Vec2::Y, dt);
+        assert!(
+            turned >= built,
+            "turning ninety degrees dropped the build from {built:.2}x to {turned:.2}x"
+        );
+    }
+
+    /// ⭐⭐ A GENTLE PUSH NEVER ACCELERATES, HOWEVER LONG IT IS HELD. Half a
+    /// stick means "place the hand", and a hand that crept faster the longer you
+    /// were being careful with it would be exactly backwards.
+    #[test]
+    fn a_deflection_under_the_arming_threshold_never_builds_speed() {
+        let mut ramp = CursorRamp::default();
+        let dt = 1.0 / 60.0;
+        let mut multiplier = 1.0;
+        for _ in 0..180 {
+            multiplier = ramp.advance(Vec2::X * (RAMP_ARM_DEFLECTION - 0.05), dt);
+        }
+        assert_eq!(
+            multiplier, 1.0,
+            "three seconds of a careful half-push accelerated to {multiplier:.2}x"
+        );
+        assert!(!ramp.is_building());
+    }
+
+    /// Releasing the stick forgets the build, or the next push starts fast.
+    #[test]
+    fn letting_go_forgets_the_speed_that_was_built() {
+        let mut ramp = CursorRamp::default();
+        let dt = 1.0 / 60.0;
+        for _ in 0..60 {
+            ramp.advance(Vec2::X, dt);
+        }
+        assert!(ramp.is_building());
+        assert_eq!(ramp.advance(Vec2::ZERO, dt), 1.0);
+        assert_eq!(
+            ramp.advance(Vec2::X, dt),
+            1.0,
+            "the push after a release started with inherited speed"
+        );
+    }
+
+    /// ⭐⭐ SMOOTHSTEP, AND THIS IS WHAT "the player doesn't notice" MEANS.
+    /// The build has zero slope at both ends, so there is no frame where the
+    /// cursor visibly changes gear. A linear ramp has a corner where it starts
+    /// and another where it tops out, and both are felt as a lurch even when the
+    /// speeds either side are identical.
+    #[test]
+    fn the_build_has_no_corner_at_either_end() {
+        let dt = 1.0 / 60.0;
+        let samples: Vec<f32> = (0..120)
+            .map(|frame| after_holding(frame as f32 * dt))
+            .collect();
+        let jumps: Vec<f32> = samples.windows(2).map(|w| w[1] - w[0]).collect();
+        // The first and last frames of the build move by far less than its
+        // middle does — which is exactly what a corner would NOT do.
+        let biggest = jumps.iter().cloned().fold(0.0_f32, f32::max);
+        let arming_frame = (RAMP_ARM_SECONDS / dt).ceil() as usize;
+        let full_frame = ((RAMP_ARM_SECONDS + RAMP_TO_FULL_SECONDS) / dt).floor() as usize;
+        assert!(
+            jumps[arming_frame] < biggest * 0.25,
+            "the build starts with a {:.4} step against a {biggest:.4} peak — that is a gear change",
+            jumps[arming_frame]
+        );
+        assert!(
+            jumps[full_frame - 1] < biggest * 0.25,
+            "the build tops out with a {:.4} step against a {biggest:.4} peak",
+            jumps[full_frame - 1]
+        );
+    }
+
+    /// ⭐⭐ THE NUMBER THE DESIGN IS ACTUALLY ABOUT: how long a full-stick sweep
+    /// takes to cross a whole grid row, against how long it would take with no
+    /// ramp at all. That difference is what the feature buys, and a constant
+    /// nobody converted into it is a constant nobody can argue with.
+    #[test]
+    fn a_full_row_sweep_is_meaningfully_quicker_than_it_would_be_without_the_ramp() {
+        use crate::select_screen::layout::SelectLayout;
+        let layout = SelectLayout::new(Vec2::new(1920.0, 1080.0), 8);
+        let cell = layout.cell();
+        let row = cell.x * 6.0;
+        let dt = 1.0 / 60.0;
+
+        let seconds_to_cross = |ramped: bool| {
+            let mut ramp = CursorRamp::default();
+            let mut travelled = 0.0;
+            let mut elapsed = 0.0;
+            while travelled < row && elapsed < 10.0 {
+                let multiplier = ramp.advance(Vec2::X, dt);
+                let multiplier = if ramped { multiplier } else { 1.0 };
+                travelled += cursor_travel(Vec2::X, cell, dt, multiplier).length();
+                elapsed += dt;
+            }
+            elapsed
+        };
+        let with_ramp = seconds_to_cross(true);
+        let without = seconds_to_cross(false);
+        println!("a six-cell row: {with_ramp:.2}s with the ramp, {without:.2}s without");
+        assert!(
+            with_ramp < without * 0.8,
+            "the ramp saved only {:.2}s of a {without:.2}s sweep — not worth a \
+             second speed the player has to learn",
+            without - with_ramp
+        );
+        assert!(
+            with_ramp > 0.5,
+            "a full row goes by in {with_ramp:.2}s, which is quick enough to \
+             overshoot the whole grid"
+        );
+    }
+
+    /// The clamp that protects the travel integral protects the ramp too: a
+    /// render hitch must not fast-forward the build either.
+    #[test]
+    fn a_long_frame_does_not_fast_forward_the_build() {
+        let mut hitched = CursorRamp::default();
+        let mut steady = CursorRamp::default();
+        hitched.advance(Vec2::X, 1.0);
+        steady.advance(Vec2::X, MAX_CURSOR_DT);
+        assert_eq!(
+            hitched.multiplier(),
+            steady.multiplier(),
+            "a one-second frame built more speed than the clamp allows"
         );
     }
 }

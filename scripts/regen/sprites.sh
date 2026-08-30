@@ -51,6 +51,7 @@ print_help() {
 
 force_regen=0
 list_targets=0
+check_toolchain_only=0
 # `--target` ACCUMULATES.
 target_names=()
 make_gifs=0
@@ -77,6 +78,7 @@ while [ "$#" -gt 0 ]; do
             target_names+=("$one")
             shift
             ;;
+        --check-toolchain) check_toolchain_only=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -99,6 +101,45 @@ line_profile_requested="${LINE_PROFILE:-}"
 unset LINE_PROFILE AMBITION_LINE_PROFILE_OUTPUT LINE_PROFILER_OWNER_PID
 
 python_bin="$(ambition_select_tool_python "$renderer_dir" AMBITION_SPRITE_PYTHON)"
+# ⭐ THE SAME PROBE, ANSWERED AS A YES/NO SO OTHER SCRIPTS CAN GATE ON IT.
+# `--check-toolchain` exits 0 when this machine can render for real and non-zero
+# when it would silently substitute. `regen/assets.sh` asks before running any
+# category that reads this renderer.
+check_toolchain() {
+    local missing=0
+    printf 'sprite renderer toolchain — %s\n' "$(hostname)"
+    printf '  python : %s\n' "$python_bin"
+    if (cd "$renderer_dir" && "$python_bin" -c 'import resvg_py' >/dev/null 2>&1); then
+        printf '  resvg_py: present — SVG-rigged targets render for real\n'
+    else
+        printf '  resvg_py: ⛔ ABSENT — SVG-rigged targets (player_robot_v3) cannot render\n'
+        printf '            declared in %s\n' "tools/ambition_sprite2d_renderer/pyproject.toml"
+        missing=1
+    fi
+    # ⚠ THE USUAL CAUSE IS NOT A MISSING PACKAGE. It is a tool venv inside this
+    # shared checkout whose interpreter belongs to another user.
+    local cfg="$renderer_dir/.venv/pyvenv.cfg" home
+    if [ -f "$cfg" ]; then
+        home="$(sed -n 's/^home = //p' "$cfg" | head -1)"
+        if [ -n "$home" ] && [ ! -d "$home" ]; then
+            printf '  venv    : ⛔ %s/.venv points at %s, which does not exist here\n' \
+                "tools/ambition_sprite2d_renderer" "$home"
+            printf '            the checkout is shared; that interpreter is another user'"'"'s\n'
+            missing=1
+        fi
+    fi
+    [ "$missing" -eq 0 ] && printf '  → usable\n' || printf '  → NOT usable; do not publish from this machine\n'
+    return "$missing"
+}
+
+
+# ⭐ ANSWERED BEFORE ANY WORK. `--check-toolchain` is what `regen/assets.sh` asks
+# before running a category that reads this renderer, so a machine that would
+# silently substitute art refuses instead of publishing.
+if [ "$check_toolchain_only" -eq 1 ]; then
+    check_toolchain
+    exit $?
+fi
 ldtk_python="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON 0)"
 ambition_require_python_module \
     "$python_bin" ambition_sprite2d_renderer \
@@ -779,6 +820,7 @@ compute_fingerprint() {
         }
     ) | sha256sum | awk '{print $1}'
 }
+
 
 # What the renderer can actually DO on this machine, as a hashable line.
 # Reports the reason rather than a bare boolean so a cache miss is explicable

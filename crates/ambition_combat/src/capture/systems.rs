@@ -231,8 +231,8 @@ pub fn acquire_captures(
     // — but `B→C` and `A→B` on one tick left B captive of A AND captor of C,
     // recreating exactly the contradictory state the pair rule existed to
     // prevent. Worse, it depended on MESSAGE ORDER: `A→B` then `B→C` granted one
-    // edge, the reverse granted both. Found by a GPT review reading the accept
-    // condition, which rejected `taken(victim)` but never `holding(victim)`.
+    // edge, the reverse granted both — the accept condition rejected
+    // `taken(victim)` and never `holding(victim)`.
     //
     // ⇒ ONE loop, ONE set, ONE question: accept an edge iff NEITHER endpoint has
     // already participated in an accepted one. `A↔B`, `A→B→C`, `A→C←B` and the
@@ -462,10 +462,10 @@ pub fn sample_capture_escape(
 /// ⛔⛔ THIS IS RULESET STATE AND IT LIVES IN A RULESET SYSTEM. It was first
 /// written inside `restrict_captor_control` — the generic restricted-control
 /// projection — mutating the generic `CapturedBy` relation to implement a
-/// platform-fighter input gesture. A GPT review caught it: "centre the stick
-/// before a direction-alone throw" is not a fact about who holds whom or what
-/// release restores, and a game that constrains bodies without a throw
-/// vocabulary should not pay to rewind it.
+/// platform-fighter input gesture. "Centre the stick before a direction-alone
+/// throw" is not a fact about who holds whom or what release restores, and a
+/// game that constrains bodies without a throw vocabulary should not pay to
+/// rewind it.
 ///
 /// ⭐ THE QUERY IS THE BOUNDARY. Asking for `SmashHoldState` is what scopes this
 /// to holds this ruleset has an opinion about; a capture without one is simply
@@ -1071,8 +1071,8 @@ mod tests {
     /// of the three bodies. It passed while `B→C` then `A→B` left B captive of A
     /// AND captor of C — the exact contradictory state the mutual-pair rule
     /// existed to prevent, reached by a shape the pair rule never looked at.
-    /// Found by a GPT review reading the accept condition: it rejected a victim
-    /// already TAKEN this pass, but never one already HOLDING.
+    /// The accept condition rejected a victim already TAKEN this pass, but
+    /// never one already HOLDING.
     ///
     /// ⭐ BOTH ORDERS, AND THE WHOLE RELATIONSHIP SET. An arbitration that
     /// depends on the mailbox produces different sets from the same world, so

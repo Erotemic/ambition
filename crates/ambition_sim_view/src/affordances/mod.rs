@@ -4,15 +4,15 @@
 //! input adapter: is there something in reach, and what kind of thing is it?
 //! [`NearestInteractable`] carries the answer as an [`InteractVariant`].
 //!
-//! it was a whole affordance TABLE — *"what would each input do right now?"* for jump, attack,
-//! shield, dash, special and interact — and 1,200 of its 1,725 lines had no reader at all. Its
-//! own module doc said the HUD read the table and that gameplay would follow; the HUD had since
-//! stopped, and gameplay never started.
+//! ⛔⛔ IT IS DELIBERATELY NOT A TABLE. The affordance TABLE this replaced —
+//! *"what would each input do right now?"* for jump, attack, shield, dash,
+//! special and interact — had 1,200 of its 1,725 lines with no reader at all,
+//! under a doc promising that the HUD read it and gameplay would follow.
 //!
-//! and it had just been CARVED out of the monolith into this crate, which
-//! is how a dead subsystem earns a second life: a move is easy to justify and
-//! says nothing about whether anything wants the thing. Counting consumers is
-//! what "does this belong here" actually means, and it should have come first.
+//! ⭐ AND IT HAD JUST BEEN CARVED into this crate, which is how a dead subsystem
+//! earns a second life: a move is easy to justify and says nothing about whether
+//! anything wants the thing. Counting consumers is what "does this belong here"
+//! actually means, and it comes first.
 //!
 //!  what survives is what somebody calls: the interactable proximity scan and
 //! its classification. The rest is deleted rather than relocated again.

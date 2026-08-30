@@ -342,9 +342,8 @@ pub fn depart_when_riderless(
 /// spent, the body goes `OutOfPlay` and waits out its `DeathInterlude`, and
 /// `RidingOn` is still on it the whole time — so the corpse rides along, and
 /// when the respawn places it, `sync_riders_to_mounts` snaps it straight back to
-/// the shark. Found by a GPT review of this branch, and it is the more serious
-/// of the two lifecycle holes because it costs a stock and then hands the ride
-/// back.
+/// the shark. ⇒ the more serious of the two lifecycle holes, because it costs a
+/// stock and then hands the ride back.
 ///
 /// ⭐ LEASED RIDES ONLY, AND THAT IS THE SAME LINE `dissolve_the_ride_when_the_shark_dies`
 /// DRAWS. ADR 0020 keeps the link across a death ON PURPOSE — *"keeping the link
@@ -496,7 +495,6 @@ pub fn tick_departures(
         // tick's movement pass integrated; it runs in
         // `WorldPrepSet::BeforeIntegrate` now, so the intent written here is
         // read by THIS tick's pass and a departing shark moves immediately.
-        // (Stale prose caught by a GPT review, 2026-08-27.)
         //
         // ⭐ what has not changed is the reason for the seam: the alternative is
         // a second position authority, which everybody eventually can see.

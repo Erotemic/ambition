@@ -248,11 +248,10 @@ fn a_stage_with_no_live_match_is_never_decided() {
 
 /// ⭐⭐ AN ASK TO STOP NAMES ITS MATCH, AND THAT IS WHY IT CAN OUTLIVE A REWIND.
 ///
-/// This was a `MatchAbandoned` MESSAGE registered with
-/// `clear_message_on_rollback`, whose comment claimed the clear *"restores the
-/// channel with its cursor, so the resim reads the request again"*. The backend
-/// does no such thing — it `.clear()`s the buffer — so an Exit Match consumed on
-/// a speculative frame was simply gone after a rewind and the match kept going.
+/// ⛔ A `MatchAbandoned` MESSAGE registered with `clear_message_on_rollback`
+/// cannot carry it: the backend `.clear()`s the buffer rather than restoring the
+/// channel with its cursor, so an Exit Match consumed on a speculative frame is
+/// simply gone after a rewind and the match keeps going.
 ///
 /// ⛔ SNAPSHOTTING IT INSTEAD WOULD LOSE IT TOO: the ask is made OUTSIDE the
 /// simulation, so a resimulation cannot re-make it, and rewinding a resource

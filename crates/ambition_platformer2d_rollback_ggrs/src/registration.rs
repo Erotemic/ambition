@@ -347,8 +347,7 @@ pub trait AmbitionRollbackApp {
     /// declaration that lies is worse than no declaration, because it satisfies
     /// the coverage sweep.
     ///
-    /// It is not the whole contract, and the earlier version of this comment claimed
-    /// it was. A presence census sees a MISSING derived
+    /// ⛔ IT IS NOT THE WHOLE CONTRACT. A presence census sees a MISSING derived
     /// component; it cannot see one rebuilt with entirely wrong values on the right
     /// number of carriers, and for a singleton derived resource "present" is nearly a
     /// constant. `declare_rollback_derived_component_state` is the value-sensitive

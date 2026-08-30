@@ -1486,9 +1486,8 @@ fn dropping_a_guard_costs_the_authored_lag() {
 ///
 /// Measured as a DIFFERENCE against the same tech without the press, because
 /// the absolute sign proves nothing: a body teching a wall mid-rise is already
-/// going up, and an assertion on `vel.y < 0` passes with the rise deleted. That
-/// is the version of this test I wrote first, and it is how the dead line got
-/// as far as it did.
+/// going up, and an assertion on `vel.y < 0` passes with the rise DELETED —
+/// which is how the dead line got as far as it did.
 #[test]
 fn a_wall_tech_asked_to_jump_leaves_the_wall_higher_than_one_that_is_not() {
     /// Tech off the right wall, optionally asking for a jump, and report the

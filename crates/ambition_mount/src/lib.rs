@@ -692,12 +692,9 @@ pub fn board_reserved_mounts(
                     reservation.rider,
                 );
             } else {
-                // ⛔⛔ THE REFUSAL SAYS WHY, AND IT USED TO SAY NOTHING. Splitting
-                // the summon from the board moved this off the construction road,
-                // which had a `warn!` naming `CanPilot` as the usual cause — and
-                // the replacement was silent, so a player who watched a shark
-                // appear and nobody get on had no evidence to hand back. That is
-                // the exact report this line exists to answer.
+                // ⛔⛔ A REFUSAL MUST SAY WHY. A silent one leaves a player who
+                // watched a shark appear and nobody get on with no evidence to
+                // hand back, and `CanPilot` is the usual cause.
                 let class = world.get::<Mountable>(mount).map(|m| m.class.clone());
                 let can = world
                     .get::<CanPilot>(reservation.rider)

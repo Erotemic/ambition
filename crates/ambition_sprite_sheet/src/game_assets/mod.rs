@@ -427,7 +427,7 @@ pub fn load_entity_sprites(
         };
         handles.insert(key, asset_server.load(path));
     }
-    // what this catches, precisely — measured, and narrower than my first wording claimed.
+    // ⚠ WHAT THIS CATCHES IS NARROW, AND SAYING SO IS THE POINT.
     // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or
     // a quality profile that excludes it). Two different failures, and this is the one that had
     // no voice at all.

@@ -1030,12 +1030,10 @@ fn main() {
             // seventeen bound verbs on the admiral reach their move and the
             // eighteenth, `special_air_down`, reports UNBOUND rather than
             // crediting itself with the down-B the chain answered with.
-            // ⛔⛤ ONE VOCABULARY WITH THE RENDERER. This said
-            // `intended.is_none_or(|id| moves.contains(id))`, so an UNBOUND verb
-            // was a SUCCESS — while `moveset_render` called the same press a
-            // mismatch. The diagnostic panel and the engine panel beside it could
-            // therefore disagree about the same input. `Outcome` has four answers
-            // and none of them collapse into another.
+            // ⛔⛔ ONE VOCABULARY WITH THE RENDERER. `Outcome` has four answers and
+            // none of them collapse into another — in particular an UNBOUND verb
+            // is not a SUCCESS. Collapsing them lets this diagnostic panel and
+            // `moveset_render` disagree about the same press.
             let intended = move_exercise::intended_move(&mut app, character, verb.verb);
             let verdict = move_exercise::outcome(prepared, intended.as_deref(), &moves);
             let reached = verdict.reached();

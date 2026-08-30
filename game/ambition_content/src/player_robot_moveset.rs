@@ -566,10 +566,10 @@ mod tests {
     /// it is a debug affordance, and a character that authored it would hand
     /// every game that seats the robot a way to teleport home.
     ///
-    /// `fly` is PRESENT, and my first pass had that wrong — see the note
-    /// at the authoring site. It reads like a dev toggle from the player's side
-    /// and is not: the robot is a grounded-base hybrid that takes to the air for
-    /// vertical space, and the duel arena's exhibition robot uses it.
+    /// `fly` is PRESENT, and it reads like a dev toggle from the player's side
+    /// without being one — see the note at the authoring site. The robot is a
+    /// grounded-base hybrid that takes to the air for vertical space, and the
+    /// duel arena's exhibition robot uses it.
     #[test]
     fn the_robot_authors_its_verbs_rather_than_taking_a_match_s_word_for_them() {
         let v3 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V3);

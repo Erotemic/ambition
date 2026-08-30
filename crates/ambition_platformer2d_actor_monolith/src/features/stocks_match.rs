@@ -183,12 +183,11 @@ pub struct SuddenDeathBegan {
 /// not a player-body action."* So it carries no seat and no reason — only WHICH
 /// MATCH is being stopped.
 ///
-/// ⛔⛔ AND IT NAMES ITS MATCH BECAUSE IT CANNOT REWIND. This was a `MatchAbandoned`
-/// MESSAGE registered with `clear_message_on_rollback`, and that registration's
-/// comment claimed the clear *"restores the channel with its cursor, so the resim
-/// reads the request again"*. The backend does no such thing: it `.clear()`s the
-/// buffer. So an Exit Match consumed on a speculative frame was simply GONE after
-/// a rewind — the player pressed it and the match kept going.
+/// ⛔⛔ AND IT NAMES ITS MATCH BECAUSE IT CANNOT REWIND. ⛔ A `MatchAbandoned`
+/// MESSAGE registered with `clear_message_on_rollback` CANNOT carry it: the
+/// backend `.clear()`s the buffer rather than restoring the channel with its
+/// cursor, so an Exit Match consumed on a speculative frame is simply GONE after
+/// a rewind — the player presses it and the match keeps going.
 ///
 /// ⛔ AND SNAPSHOTTING IT WOULD NOT HELP EITHER, which is the part that decides
 /// the shape. The ask is made OUTSIDE the simulation, so a resimulation cannot

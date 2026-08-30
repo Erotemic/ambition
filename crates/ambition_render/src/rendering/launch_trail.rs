@@ -68,9 +68,9 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // not: it was fitted to `peak launch`, the speed at the tick a launch is
 // WRITTEN. Those are different distributions — gravity keeps working, so a
 // launched body routinely passes 1500 px/s in a match whose peak launch reads
-// 1000 — and the gap is why `TRAIL_NEAR_KO_SPEED = 770` had drifted to the 90th
-// percentile of flight while its own comment claimed it was reserved for the
-// very top of what a fight produces. One tick of flight in ten is not reserved.
+// 1000 — and the gap is why a threshold fitted to peak launch lands at the 90th
+// percentile of FLIGHT while reading as "the very top of what a fight
+// produces". One tick of flight in ten is not reserved.
 //
 // ⛔ do not re-pick these off `peak launch`, and do not re-pick them off a
 // single run: the first version of this file used 650 (the stage's

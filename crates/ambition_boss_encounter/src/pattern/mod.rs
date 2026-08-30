@@ -8,7 +8,6 @@
 //!
 //! ⭐ THIS CRATE WAS ALREADY THE OWNER IN EVERYTHING BUT ADDRESS: `behavior.rs`
 //! re-exported `boss_pattern::profile` and `anim.rs` reads `boss_pattern_state()`.
-//! The row that priced this said the boss carve should have taken it.
 //!
 //! ⛔ `content_schema.rs` CAME TOO, and it is the one real cost of the move —
 //! priced on D168 before it was taken. It reads

@@ -675,14 +675,10 @@ fn the_flyline() -> MoveSpec {
 mod tests {
     use super::*;
 
-    /// ⛔⛔ SHE STEERS UNDER THE STAGE, AND FOR A WHILE SHE DID NOT.
-    ///
-    /// The Trap is built on `hitless_special`, which roots the body across the
-    /// WHOLE duration — Startup and Recovery both author `motion_scale: 0.0` —
-    /// and `MoveSpec::motion_scale_at` folds overlapping windows with `min`. So
-    /// the submerged second, the beat this move exists FOR, ran with the
-    /// player's steering multiplied by zero while the module doc said *"no
-    /// gravity, no geometry — and still steering"*.
+    /// ⛔⛔ SHE STEERS UNDER THE STAGE, AND THE ROOTING IS WHAT TAKES IT AWAY.
+    /// `hitless_special` roots the body across its whole duration and
+    /// `motion_scale_at` folds with `min`, so the submerged beat has to be left
+    /// UNCOVERED by any window — see `trapdoor`, which moves Recovery's start.
     ///
     /// ⛔⛔ THE SUBTERRANEAN BEAT IS THE SHIPPED TIMELINE HOLD rather than a
     /// second mechanic. Jon, 2026-08-28: *"they can move for up to the timelimit

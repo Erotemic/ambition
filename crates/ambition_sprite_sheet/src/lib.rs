@@ -155,9 +155,9 @@ pub struct SheetRecord {
     /// ⚠ It DOES touch every gameplay rectangle the sheet publishes. A hitbox,
     /// a hurtbox and a body box are all frame pixels — coordinates in the
     /// artwork — so a left-drawn sheet's forward runs toward `-x` in all of
-    /// them. This comment used to say the opposite, which was true only while
-    /// the left-drawn sheets happened to author no hitboxes; when one did, her
-    /// jab came out behind her. `frame_space::FrameToBody` is the crossing that
+    /// them. ⛔ "it does not touch gameplay rectangles" holds only while the
+    /// left-drawn sheets author none; the first one that does has its jab come
+    /// out behind it. `frame_space::FrameToBody` is the crossing that
     /// applies it, and the only one that should.
     #[serde(default)]
     pub authored_faces_left: bool,

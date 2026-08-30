@@ -169,12 +169,11 @@ mod tests {
 
     /// The coin shelf has coins on it, and they rest ON it.
     ///
-    /// it was bare, and only the module doc said otherwise. This level's
-    /// own grammar calls the shelf *"a short raised run with coins on it, so the
-    /// first thing the room teaches is that its ceiling is low enough to
-    /// matter"* — and the Rust version never authored a single one, so the beat
-    /// it describes did not exist. A doc comment claiming content is the easiest
-    /// kind of claim to leave untrue, because nothing reads it.
+    /// ⛔⛔ A DOC COMMENT CLAIMING CONTENT IS THE EASIEST CLAIM TO LEAVE UNTRUE,
+    /// because nothing reads it. This level's own grammar calls the shelf *"a
+    /// short raised run with coins on it, so the first thing the room teaches is
+    /// that its ceiling is low enough to matter"* — so the coins are the beat,
+    /// and this test is what makes the sentence true.
     ///
     /// the rest position is the assertion that matters. A coin floating
     /// above the shelf or sunk into it still "exists" and still collects; what

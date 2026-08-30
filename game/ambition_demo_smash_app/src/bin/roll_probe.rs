@@ -78,7 +78,7 @@
 //! ~149px of coast. ⚠ THAT ARITHMETIC WAS INCOMPLETE, not the measurement:
 //! `AIR_STOP_ASSIST` is 3750 — a hands-off airborne stop assist that stacks with
 //! the friction — so ~30px is the tuning working, and nothing cancels the
-//! dodge's velocity. (A first reading of this said something did; it does not.)
+//! dodge's velocity.
 //!
 //! ⇒ **NOTHING IN THE EVADE FAMILY MOVES A FIGHTER MORE THAN ~30px.** Ground
 //! roll 11.2, roll off the lip 12.7, air dodge 29.5, chained rolls ~26px/s.

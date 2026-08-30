@@ -760,10 +760,9 @@ mod tests {
     /// with four consumers — the save sync, the path assignment and two sprite
     /// reads — and the one that kept the sandbags on the archetype file.
     ///
-    /// it authors NO contact damage, and the old row's comment claimed
-    /// otherwise directly above the `body_contact_damage: false` that turned it
-    /// off. Believing the prose would have given the dummy a hitbox it never
-    /// had.
+    /// ⛔ IT AUTHORS NO CONTACT DAMAGE. Prose above a
+    /// `body_contact_damage: false` claiming otherwise would give the dummy a
+    /// hitbox it never had — read the field, not the sentence beside it.
     #[test]
     fn the_sandbag_authors_the_dummy_its_archetype_row_used_to() {
         use ambition_characters::brain::CharacterBrainTemplate;

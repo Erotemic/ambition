@@ -2049,9 +2049,9 @@ fn rises_out_of_shield(
 /// ⭐⭐ EXTRACTED FROM `trigger_moveset_moves`, which had grown into one
 /// contextual resolver holding free attacks, smashes, specials, shield,
 /// out-of-shield, grab, pummel, throws, items, buffers, cancels and running
-/// variants in a single `if/else if` chain. A GPT review named the cost and the
-/// evidence for it: the held-direction throw bug was another contextual
-/// interpretation inside that chain getting hard to reason about.
+/// variants in a single `if/else if` chain. The held-direction throw bug was one
+/// more contextual interpretation inside that chain, which is the cost of the
+/// shape rather than a defect of its own.
 ///
 /// ⛔ CAPTURE REPLACES THE ORDINARY ACTION CONTEXT rather than adding to it —
 /// that is why this is a whole resolver and not a special case inside one. A

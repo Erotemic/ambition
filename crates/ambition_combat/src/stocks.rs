@@ -369,11 +369,10 @@ pub fn spend_fighter_stocks(
     // despawning the strike boxes it derived, and only the playback knows which
     // entities those are. `cancel_move_playback` is the canonical teardown.
     //
-    // ⛔ SMASH ALREADY DID THIS — inside `place_respawning_fighters`, which runs
-    // when the fighter comes BACK. Its comment was right that the move did not
-    // survive the stock it cost; it was one lifecycle boundary too late, so the
-    // swing stayed live for the entire interlude and only got cleaned up a
-    // second later. Owned here, by the seam that opens the episode.
+    // ⛔ THE TEARDOWN BELONGS AT THE SEAM THAT OPENS THE EPISODE, not at the one
+    // that closes it. Cancelling in `place_respawning_fighters` — which runs when
+    // the fighter comes BACK — is one lifecycle boundary too late: the swing
+    // stays live for the whole interlude and is cleaned up a second later.
     mut swings: Query<&mut crate::moveset::MovePlayback>,
     // ⭐ WHERE THE BODY IS, READ WHERE THE STOCK IS SPENT. The knockout beat is
     // drawn at the place the fighter left play, and until D201 that position was

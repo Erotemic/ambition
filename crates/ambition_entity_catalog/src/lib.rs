@@ -301,12 +301,11 @@ pub struct HitVolume {
     /// the victim's percent grows is a combo that dissolves exactly when it
     /// matters — and it was unauthorable.
     ///
-    /// ⛔ IT WAS AN `f32` AND ZERO MEANT BOTH THINGS. This field's own doc said
-    /// `0.0` was flat knockback while
-    /// `ambition_platformer2d::combat::hitbox::resolved_hitbox_knockback_magnitude` read `0.0`
-    /// as "unspecified, use the stage's" and substituted it — so the documented
-    /// behaviour was the one you could not get, and the doc had been wrong since
-    /// the ruleset fallback landed. One value with two meanings is the shape
+    /// ⛔ AN `f32` HERE MAKES ZERO MEAN BOTH THINGS: flat knockback to an author,
+    /// and "unspecified, use the stage's" to
+    /// `ambition_platformer2d::combat::hitbox::resolved_hitbox_knockback_magnitude`,
+    /// which substitutes — so the documented behaviour is the one you cannot get.
+    /// One value with two meanings is the shape
     /// this repository keeps paying for; an `Option` is what tells "the author
     /// said zero" from "the author said nothing".
     #[serde(default)]

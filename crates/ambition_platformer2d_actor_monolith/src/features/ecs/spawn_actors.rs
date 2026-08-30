@@ -842,12 +842,11 @@ fn boss_actor_cluster(
     let caps = ambition_combat::CombatCapabilities::default();
     let movement_kit = ae::AbilitySet {
         fly: true,
-        //  PERMANENT flight, and the toggle was a lie that cost a boss its
-        // legs. This said `fly_toggle: true` — "the toggled kind a boss has
-        // always had" — but nothing ever toggles a boss: it spawns flying
-        // (`ActorTuning::is_aerial` → `flight.fly_enabled`) and must stay
-        // flying, because its `BossPattern` brain steers ONLY by commanding an
-        // exact velocity, which only the flight limb reads.
+        // ⛔ PERMANENT FLIGHT, AND `fly_toggle` MUST STAY FALSE. Nothing ever
+        // toggles a boss: it spawns flying (`ActorTuning::is_aerial` →
+        // `flight.fly_enabled`) and must stay flying, because its `BossPattern`
+        // brain steers ONLY by commanding an exact velocity and only the flight
+        // limb reads that. A toggle here costs the boss its legs.
         fly_toggle: false,
         ..ae::AbilitySet::NONE
     };
@@ -2310,7 +2309,7 @@ pub fn apply_summon_effects(
         // ⛔ AND IT WAS NEVER THE ATOMIC TRANSACTION ITS COMMENT CLAIMED. A
         // refused board left the freshly-built mount standing in the world with
         // no `MountSlot`, which every cleanup path filters on, so nothing could
-        // see it — a GPT review named this and Jon hit it in play. Now the
+        // see it, and Jon hit it in play. Now the
         // reservation is the whole of what construction owes: it either becomes
         // a ride or becomes a `RideRefused`, and `board_reserved_mounts` owns
         // both endings.

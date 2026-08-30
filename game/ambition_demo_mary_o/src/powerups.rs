@@ -766,8 +766,7 @@ pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
 /// unresponsive, which is the failure the always-acknowledge rule above exists
 /// to prevent.
 ///
-/// this function guards the BLOCK PAYOUT only, and for a day its comment
-/// claimed the whole rule. The floor is guarded by
+/// ⚠ THIS FUNCTION GUARDS THE BLOCK PAYOUT ONLY. The floor is guarded by
 /// [`refuse_a_weaker_form_pickup`], which runs before the engine's collector;
 /// between them the invariant is true of every road a form item can arrive on.
 fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {

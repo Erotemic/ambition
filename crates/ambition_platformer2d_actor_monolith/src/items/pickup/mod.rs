@@ -435,12 +435,11 @@ pub struct SettledItem {
 /// composited world, so "what counts as support" has one definition rather than
 /// two that can disagree.
 ///
-/// ⭐⭐ AND A SUPPORTED ONE RIDES, which is the half this used to say it had not
-/// built. It reached for support IDENTITY and a local offset — and neither is
-/// needed, because `Block::velocity` is the block's own PER-FRAME DISPLACEMENT
-/// and its doc already says the sweep carries *"any body resting on the block"*
-/// by it, *"uniform across every body, with no per-actor wiring"*. The fact was
-/// at the site: the probe below already finds the block.
+/// ⭐⭐ AND A SUPPORTED ONE RIDES, with no support IDENTITY and no local offset.
+/// `Block::velocity` is the block's own PER-FRAME DISPLACEMENT and the sweep
+/// already carries *"any body resting on the block"* by it, *"uniform across
+/// every body, with no per-actor wiring"* — and the probe below already finds
+/// the block, so the fact is at the site.
 ///
 /// ⛔ THE PROBE ASKS WHERE THE BLOCK WAS. It runs after the platform has moved,
 /// so testing against its NEW footprint would drop an item off any platform

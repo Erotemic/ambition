@@ -980,12 +980,11 @@ pub fn verify_rig_composition(
 /// Wire a rider onto a mount. One function writes both ends, and it writes them
 /// from the SAME recipe the runtime board uses.
 ///
-/// ⛔⛔ IT USED TO SPELL THE RECIPE OUT and got it wrong by one component:
-/// `RidingOn + Mounted`, with no `PoseOwnedExternally`. Once that marker acquired
-/// real movement semantics the two roads into one relation stopped meaning the
-/// same thing — a runtime-boarded rider had its locomotion suppressed by the
-/// kernel while an authored rider went on walking under a saddle that repaired
-/// the pose afterwards. See [`ambition_mount::rider_of`].
+/// ⛔⛔ DO NOT SPELL THE RECIPE OUT HERE. `PoseOwnedExternally` carries real
+/// movement semantics, so a hand-written `RidingOn + Mounted` makes the two roads
+/// into one relation mean different things: the runtime-boarded rider has its
+/// locomotion suppressed by the kernel while the authored one walks under a
+/// saddle that repairs the pose afterwards. See [`ambition_mount::rider_of`].
 fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands
         .entity(rider)

@@ -6,9 +6,9 @@ use ambition_content_pack::{
     PackVersion, SchemaRegistry, SourceDeclaration,
 };
 
-///  copied from the shape `goblin_encounter.ron` actually uses — I first wrote
-/// this from the field names I expected (`archetype`/`at`) and both positive
-/// cases failed. A fixture invented rather than read tests the invention.
+/// ⛔ COPIED FROM THE SHAPE `goblin_encounter.ron` ACTUALLY USES. Written from
+/// the field names one would expect (`archetype`/`at`), both positive cases
+/// fail: a fixture invented rather than read tests the invention.
 const ONE_MOB: &str =
     r#"(kind: "medium_striker", spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0)"#;
 

@@ -64,13 +64,9 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
 /// what the ranged subsumption (E54) nudged us onto — the mechanic itself is unchanged.
 fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
-    // This said only
-
-    // `Custom("cellular_automaton_fighter")`, and that archetype row was
-
-    // DELETED when the automaton became a character — so this fixture had
-
-    // been quietly spawning a generic `combatant` and asserting on it.
+    // ⛔ SPAWN BY CHARACTER, NOT BY ARCHETYPE. A `Custom(..)` row that no longer
+    // exists falls back to a generic `combatant`, so the fixture keeps passing
+    // while asserting on a body that is not the one it names.
 
     sim.spawn_enemy_character_at(
         ACTOR_ID,
@@ -249,13 +245,9 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     // Drop a normal actor one short stride from the player — inside POSSESS_RADIUS
     // (150px). Same known-good melee archetype the enemy-attacks test uses.
     let p = player_pos(sim.world_mut());
-    // This said only
-
-    // `Custom("cellular_automaton_fighter")`, and that archetype row was
-
-    // DELETED when the automaton became a character — so this fixture had
-
-    // been quietly spawning a generic `combatant` and asserting on it.
+    // ⛔ SPAWN BY CHARACTER, NOT BY ARCHETYPE. A `Custom(..)` row that no longer
+    // exists falls back to a generic `combatant`, so the fixture keeps passing
+    // while asserting on a body that is not the one it names.
 
     sim.spawn_enemy_character_at(
         ACTOR_ID,

@@ -54,13 +54,11 @@ pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 /// are read from authored RON and never written back. Debug is derived on all of
 /// them and moves when a value moves.
 ///
-/// but Debug follows ITERATION ORDER, so every container reaching this must
-/// be ordered. I wrote "gives stable field order" here and it was only true of
-/// the fields: `BossBehaviorProfile::strike_geometry` was a `HashMap`, whose
-/// order is randomised per instance (measured: six constructions of one
-/// four-key map, six different orders, same process). Two identical rosters
-/// therefore fingerprinted differently the moment a boss authored a second
-/// strike override. It is a `BTreeMap` now, and
+/// ⛔ **Debug gives stable FIELD order and follows ITERATION order, so every
+/// container reaching this must be ordered.** A `HashMap` here randomises per
+/// instance (measured: six constructions of one four-key map, six different
+/// orders, same process), so two identical rosters fingerprint differently the
+/// moment a boss authors a second strike override. `BTreeMap` everywhere;
 /// `the_canonical_form_does_not_depend_on_map_construction_order` is the guard.
 fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")

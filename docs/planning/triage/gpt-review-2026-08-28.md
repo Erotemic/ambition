@@ -151,8 +151,43 @@ Monologue, both copies of the blink exemption, `JobResult`, the brain dispatcher
 line-count correction, and the re-export note — which got STRONGER, from a record
 of nine deleted names to an instruction not to add more.
 
-▢ **What is left is other people's and older**, and it is a sweep rather than a
-fix. ⚠ do NOT turn it into a de-dating campaign: `Moved 2026-08-28 (D33)` on a
-carved module is PROVENANCE and the repo uses it everywhere. The target is the
-incident TRANSCRIPT around a rule — what the code used to do, when it was
-corrected, and a quotation of the sentence that was wrong.
+▣ **CLOSED 2026-08-29. The sweep ran, and its value was in the RULE it had to
+state first.** ⚠ do NOT turn it into a de-dating campaign: `Moved 2026-08-28
+(D33)` on a carved module is PROVENANCE and the repo uses it everywhere. The
+target is the incident TRANSCRIPT around a rule — what the code used to do, when
+it was corrected, and a quotation of the sentence that was wrong.
+
+⭐⭐ **THE SWEEP IS ONLY SAFE ONCE THE THREE CLASSES ARE SEPARATED, because two of
+them look identical to a grep and only one is surplus:**
+
+| class | census | verdict |
+|---|---:|---|
+| model attribution — *which reviewer found it* | 10 | ⛔ REMOVED. Incident history; the review documents own it |
+| first-person debugging narrative — *"I first wrote…", "I had guessed…"* | 9 | ⛔ REMOVED. The reasoning survives in the third person |
+| a QUOTATION of the superseded sentence, with the chronology around it | 28 | ⛔ REMOVED, keeping the hazard the quotation was illustrating |
+| dated comments generally (`2026-08-2x` on a rule) | **241** | ✔ KEPT. A date on a rule that CHANGED is part of the rule |
+| "X is not Y" where Y is the wrong reading | ~200 | ✔ KEPT. Naming the wrong reading is what makes the rule checkable |
+| Jon's quoted words | — | ✔ KEPT. The maintainer's sentence is the authority, not a transcript |
+
+⭐ **THE TEST FOR EACH ONE: delete the sentence and ask whether the RULE is still
+checkable.** *"`fly_toggle` must stay false, because a boss steers only by
+commanded velocity"* survives; *"this said `fly_toggle: true` — the toggled kind
+a boss has always had"* does not add to it. The first is a contract, the second
+is a diff.
+
+⛔⛔ **AND ONE SUB-CLASS WAS QUOTING A SENTENCE THAT NO LONGER EXISTS.** Three
+comments (`stocks_match.rs`, `rollback_coverage.rs`, `stocks.rs`) quoted
+`clear_message_on_rollback`'s claim that the clear *"restores the channel with its
+cursor"* — a comment that had already been corrected, so the quotation was the
+only remaining copy of a sentence the repo had disowned. ⇒ **a quoted mistake
+outlives the mistake**, and a reader greps the quotation and finds it.
+
+⭐ Also fixed in passing: seven copies of one mangled fixture comment across six
+app tests (blank `//` line between every sentence), replaced by the rule it was
+narrating — spawn by CHARACTER, because a `Custom(..)` archetype row that no
+longer exists falls back to a generic `combatant` and the fixture keeps passing
+while asserting on the wrong body.
+
+⚠ **WHAT WAS NOT TOUCHED, deliberately:** the two test docs that quote this
+review as their SPEC (`smash_in_the_host.rs`), for the same reason R19 kept a
+waiver's reason string — there the quoted text IS the contract.

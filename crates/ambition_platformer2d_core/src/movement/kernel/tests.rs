@@ -1412,8 +1412,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
 /// enough to end the ride was CONSUMED — the rider tumbled, the dismount fired a
 /// stage later, and the body dropped out of the saddle at zero velocity.
 ///
-/// ⛔⛔ AND THE REPAIR FOR IT WAS TOO BROAD, which a GPT review Jon relayed the
-/// same day caught: deferring EVERY launch meant a weak hit that flinches a rider
+/// ⛔⛔ AND THE OBVIOUS REPAIR IS TOO BROAD: deferring EVERY launch means a weak hit that flinches a rider
 /// and leaves it aboard also staged its travel, and nothing ever spent it. The jab
 /// waited in the gateway until the ride ended for a reason of its own — the lease
 /// ran out, the player jumped off — and THEN threw the body across the stage,

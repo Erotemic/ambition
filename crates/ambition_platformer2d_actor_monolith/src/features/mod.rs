@@ -938,13 +938,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             integrate_sim_bodies
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::Integrate),
         );
-        // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, and until now it
-        // only SAID so. It sat in a chained tuple whose comment claimed it
-        // ran after `update_ecs_actors` — a system that no longer exists —
-        // and the tuple did not contain the integrator at all, so the two
-        // pose authorities for a ridden body had no stated order between
-        // them. Whether the rider was snapped to its mount before or after
-        // the movement pass moved it was a scheduler-topology accident.
+        // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, AND THE ORDER MUST BE
+        // STATED. A chained tuple that does not CONTAIN the integrator states
+        // nothing about it, so the two pose authorities for a ridden body are
+        // ordered by scheduler topology — whether the rider is snapped to its
+        // mount before or after the movement pass moved it becomes an accident.
         //
         // ⭐ `AfterIntegrate` IS THE PHASE FOR EXACTLY THIS, and capture's
         // equivalent external constraint already lives there. A constraint

@@ -1255,17 +1255,16 @@ mod retained_hud_image_tests {
         app
     }
 
-    /// ⭐ THE PROPERTY IS RETENTION, NOT HANDLE IDENTITY — and the first version of
-    /// this test got that wrong.
+    /// ⭐ THE PROPERTY IS RETENTION, NOT HANDLE IDENTITY.
     ///
-    /// I first asserted that asking twice returns the same handle. **That check
-    /// cannot fail**: `AssetServer::load` dedupes by path and hands back the same
-    /// handle while the asset is alive, so a poisoned cache that reloaded on every
-    /// call still passed. Proven by poisoning it.
+    /// ⛔ "asking twice returns the same handle" is a check that CANNOT FAIL:
+    /// `AssetServer::load` dedupes by path and hands back the same handle while
+    /// the asset is alive, so a cache that reloaded on every call passes it.
+    /// Poison-proven.
     ///
-    /// What actually fixes the bug is that this map holds a STRONG handle of its
-    /// own, so the image survives the HUD entity despawning — which is what made
-    /// the select screen re-decode its portraits on a second visit.
+    /// What fixes the bug is that this map holds a STRONG handle of its own, so
+    /// the image survives the HUD entity despawning — which is what made the
+    /// select screen re-decode its portraits on a second visit.
     #[test]
     fn the_cache_keeps_a_handle_after_the_caller_drops_theirs() {
         let app = asset_app();

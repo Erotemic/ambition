@@ -1097,9 +1097,10 @@ pub fn stage_player_victim_hit_events(
             // reads `!seeks_victims()` and an enemy swing's cause is filed
             // victim-side by the direction words.
             //
-            // that is what desynced the rollback suite the moment every body
-            // could broadcast, and the localizer named this resource — not the
-            // boss encounter I had guessed. `which_component_does_the_lifecycle_reset_divergence_live_in`.
+            // ⛔ that is what desynces the rollback suite once every body can
+            // broadcast, and the divergence lives in THIS resource rather than in
+            // the boss encounter that looks like the cause —
+            // `which_component_does_the_lifecycle_reset_divergence_live_in` names it.
             HitTarget::UnresolvedFeatures => false,
             _ => !event.source.seeks_victims(),
         };

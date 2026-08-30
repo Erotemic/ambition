@@ -11,14 +11,12 @@
 //! the step where gameplay time CROSSES a multiple of `every_ticks`, a pure
 //! function of the match clock the same way the opening ceremony's phase is.
 //!
-//! ⚠ WHAT CHANGED, 2026-08-24: `elapsed` is now the LIVE match clock
-//! ([`LiveMatchTicks`](crate::character_runtime::live_match_clock::LiveMatchTicks))
-//! rather than `ActiveMatch::ticks_since_activation`. That clock IS counted, and
-//! it IS registered rollback state — the cost this paragraph used to say the
-//! spawner would not pay. It is paid once, by the clock, for the two consumers
-//! that need it, instead of here: the alternative was each consumer patching
-//! around the ceremony its own way, which is what the hand-written `elapsed == 0`
-//! below used to be doing.
+//! ⚠ `elapsed` IS THE LIVE MATCH CLOCK
+//! ([`LiveMatchTicks`](crate::character_runtime::live_match_clock::LiveMatchTicks)),
+//! not `ActiveMatch::ticks_since_activation`. That clock IS counted and IS
+//! registered rollback state, so the cost is real — and it is paid ONCE, by the
+//! clock, for the two consumers that need it. The alternative is each consumer
+//! patching around the opening ceremony its own way.
 //!
 //! ⛔ AND THE IDENTITY IS DERIVED, not sequenced. `SimId::match_spawn(activation,
 //! ordinal)` — the pickup road mints under the THROWER and takes a

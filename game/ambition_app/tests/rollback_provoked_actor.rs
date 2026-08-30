@@ -218,13 +218,9 @@ fn possession_survives_the_real_rollback_window() {
         >();
         q.single(world).expect("primary player").pos
     };
-    // This said only
-
-    // `Custom("cellular_automaton_fighter")`, and that archetype row was
-
-    // DELETED when the automaton became a character — so this fixture had
-
-    // been quietly spawning a generic `combatant` and asserting on it.
+    // ⛔ SPAWN BY CHARACTER, NOT BY ARCHETYPE. A `Custom(..)` row that no longer
+    // exists falls back to a generic `combatant`, so the fixture keeps passing
+    // while asserting on a body that is not the one it names.
 
     sim.spawn_enemy_character_at(
         "possess_target_rollback",

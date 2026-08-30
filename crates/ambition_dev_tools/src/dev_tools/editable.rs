@@ -318,12 +318,11 @@ impl EditableMovementTuning {
             // IS a default to compose over, and it is not this projection's job
             // to decide there was none.
             crouch_speed_frac: self.crouch_speed_frac,
-            // ⛔⛔ "CARRIED, NOT EDITED" — AND IT WAS NOT CARRIED. This said the
-            // right thing and did the opposite: reading `DEFAULT_TUNING`
-            // REPLACES whatever the stage declared with the engine's answer, so
-            // a game with its own dash phases lost them to an unrelated slider.
-            // Carried means carried; the ONLY thing "not edited" adds is that no
-            // inspector row offers it, which `reflect(ignore)` is for.
+            // ⛔⛔ CARRIED MEANS CARRIED. Reading `DEFAULT_TUNING` here REPLACES
+            // whatever the stage declared with the engine's answer, so a game
+            // with its own dash phases loses them to an unrelated slider. The
+            // ONLY thing "not edited" adds is that no inspector row offers it,
+            // which `reflect(ignore)` is for.
             initial_dash_time: self.initial_dash_time,
             initial_dash_speed: self.initial_dash_speed,
             turnaround_time: self.turnaround_time,

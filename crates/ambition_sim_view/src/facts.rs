@@ -607,17 +607,14 @@ pub fn rebuild_dynamic_feature_views(
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
-        // ⛔⛔ "PEACEFUL" IS NOT "DOES NOT EXIST", AND THIS ARM USED TO SAY IT WAS.
-        // It read *"Encounter mobs are hostile by construction; skip any peaceful
-        // one"* and dropped them — so a runtime mob that was not fighting
-        // published no `DynamicFeatureFact`, `spawn_dynamic_feature_visuals`
-        // never made it a `FeatureVisual`, and it had no sprite no matter how
-        // healthy its art was. That is how the pirate's summoned shark came out
-        // INVISIBLE: it is deliberately nobody's enemy, the targeting stand-down
-        // marks an unengaged hostile actor peaceful anyway, and presentation then
-        // declined to draw a body that was standing right there. Jon saw a debug
-        // box and nothing else; every measurement said the actor was fine,
-        // because it was — the renderer was never asked.
+        // ⛔⛔ "PEACEFUL" IS NOT "DOES NOT EXIST". Skipping a peaceful mob here on
+        // the argument that encounter mobs are hostile by construction publishes
+        // no `DynamicFeatureFact`, so `spawn_dynamic_feature_visuals` never makes
+        // it a `FeatureVisual` and it has NO SPRITE however healthy its art is.
+        // That is how the pirate's summoned shark comes out INVISIBLE: it is
+        // deliberately nobody's enemy, and the targeting stand-down marks even an
+        // unengaged hostile actor peaceful. ⚠ Every actor-side measurement says
+        // the body is fine, because it is — the renderer is never asked.
         //
         // ⭐ THE FIELD FOR THIS ALREADY EXISTED. `fighting` is exactly the
         // distinction the skip was abusing existence to express, and the

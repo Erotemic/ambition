@@ -28,7 +28,7 @@ const LIMB_SLOT_CAP: usize = 24;
 /// character crate the registry of every body part any content pack imagines.
 /// Nothing in the engine branches on WHICH slot: it needs a typed name,
 /// deterministic ordering, validation, and exact rig composition, and a
-/// validated newtype gives all four (GPT review, 2026-08-22).
+/// validated newtype gives all four.
 ///
 /// ⛔ **validated, not a bare `String`.** `from_str` refuses anything that is
 /// not non-empty `[a-z0-9_]` within [`LIMB_SLOT_CAP`], so a typo in authored

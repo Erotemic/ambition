@@ -1124,8 +1124,8 @@ fn realize_seat(
     // `project_prepared_character_definitions` is a SECOND template observer, it fires on
     // `Changed<WornCharacter>`, and a seated body had no `ProjectedCharacterKit` — so a seat
     // that asked the derive for nothing was still finished a tick later by the projector:
-    // hurtboxes, the authored posed body, movement tuning, the motion model. Two observers, and
-    // I had verified one.
+    // hurtboxes, the authored posed body, movement tuning, the motion model. ⛔ TWO
+    // observers reach this body, so silencing one settles nothing.
     //
     // so the seat calls the ONE materializer instead of hand-copying a
     // third subset of it. `CallerResolved` says what is true here and nowhere

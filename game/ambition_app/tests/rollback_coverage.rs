@@ -891,11 +891,9 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // rewinds. `PendingRespawn` beside it is a MARKER: it names the consequence
     // the window owes when it closes and carries no countdown of its own.
     //
-    // ⛔⛔ THIS PARAGRAPH DESCRIBED THE OLD IMPLEMENTATION FOR SEVERAL COMMITS.
-    // It said `.ticks`, and that the countdown was `PendingRespawn` — both true
-    // of D192 and neither true after D201 moved the window into `DeathInterlude`.
-    // The waiver is keyed by TYPE NAME, so nothing failed; a stale reason in a
-    // waiver hands the next rollback reviewer an architecture that is gone.
+    // ⛔⛔ A WAIVER IS KEYED BY TYPE NAME, SO ITS REASON CAN GO STALE WITHOUT
+    // ANYTHING FAILING — and a stale reason hands the next rollback reviewer an
+    // architecture that is gone. Re-read the reason when the type moves.
     (
         "ambition_combat::stocks::RespawnInterval",
         "authored config in seconds: inserted once at plugin build, never written by a system; the countdown it seeds (DeathInterlude::remaining) is registered",
@@ -904,13 +902,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // it would LOSE the request rather than preserve it.
     //
     // ⛔⛔ THE ASK IS MADE OUTSIDE THE SIMULATION — a shell menu — so a
-    // resimulation cannot re-make it. It rode a `MatchAbandoned` message
-    // registered with `clear_message_on_rollback` before, and that
-    // registration's own comment claimed the clear *"restores the channel with
-    // its cursor, so the resim reads the request again"*; the backend simply
-    // `.clear()`s the buffer, so an Exit Match consumed on a speculative frame
-    // was GONE after a rewind and the match kept going. Snapshotting it fails
-    // the same way from the other side.
+    // resimulation cannot re-make it. ⛔ A `MatchAbandoned` message registered
+    // with `clear_message_on_rollback` cannot carry it either: the backend
+    // `.clear()`s the buffer, so an Exit Match consumed on a speculative frame is
+    // GONE after a rewind. Snapshotting it fails the same way from the other
+    // side.
     //
     // ⭐ WHAT SURVIVES BOTH is a latch that does not rewind and NAMES ITS MATCH:
     // a rewind leaves the ask standing so the resim reaches the same verdict,

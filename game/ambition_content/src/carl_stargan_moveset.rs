@@ -714,11 +714,11 @@ mod tests {
         }
 
         // NO POISON HERE, and that is a finding rather than an omission.
-        // I wrote one — "Oiler's table must violate this, or the rule is about
-        // fighters rather than about Carl" — and it FAILED: his forward line is
-        // monotonic too. So this is a discipline the authored tables share, not
-        // Carl's distinguishing trait. What IS his is the SPREAD, and that claim
-        // carries its own comparison in the test below.
+        // The obvious one — "Oiler's table must violate this, or the rule is
+        // about fighters rather than about Carl" — does not hold: his forward
+        // line is monotonic too. ⇒ monotonicity is a discipline the authored
+        // tables SHARE, not Carl's distinguishing trait. What IS his is the
+        // SPREAD, and that claim carries its own comparison in the test below.
     }
 
     /// The spread is the widest on the grid — the very small and the very

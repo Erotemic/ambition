@@ -614,13 +614,13 @@ pub fn resolve_shield(
     broken: bool,
     // ⛔ WHETHER THIS BODY MAY GUARD WHERE IT IS — see `ShieldTuning::air_guard`.
     //
-    // ⛔⛔ IT GATES THE SUSTAIN AS WELL AS THE RAISE, and reading it as
-    // raise-only was a live contradiction. It said `may_guard_here || *active`,
-    // on the argument that a body which left the ground guarding "has not made a
-    // new decision" — but under `air_guard: false` a held Shield ALSO fills the
-    // air-dodge buffer the moment the body is airborne, so walking off a ledge
-    // with the guard up produced the one state the policy exists to forbid: an
-    // active ground shield and an air dodge in the same tick. The genre's answer
+    // ⛔⛔ IT GATES THE SUSTAIN AS WELL AS THE RAISE. `may_guard_here || *active`
+    // reads it as raise-only — the argument being that a body which left the
+    // ground guarding "has not made a new decision" — but under
+    // `air_guard: false` a held Shield ALSO fills the air-dodge buffer the moment
+    // the body is airborne, so walking off a ledge with the guard up produces the
+    // one state the policy exists to forbid: an active ground shield and an air
+    // dodge in the same tick. The genre's answer
     // is the plain one — leaving the ground drops the guard, which is what makes
     // jumping out of shield a commitment.
     may_guard_here: bool,

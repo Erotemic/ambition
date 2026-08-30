@@ -7,7 +7,7 @@
 //! "control authority flows THROUGH the brain", which stopped being true when
 //! `Brain::Player` was deleted. Seat tables kept landing beside each other on
 //! the honest local reasoning that the neighbours were already there, and the
-//! neighbours were all in the wrong module too (GPT review, 2026-08-22).
+//! neighbours were all in the wrong module too.
 //!
 //! The split is by QUESTION: this module answers *who is driving and what did
 //! they press*; `brain` answers *what policy drives a body with nobody in it*.

@@ -6,14 +6,12 @@
 //! - Placement comes from the demo's LDtk file: `EnemySpawn` entities
 //!   carrying `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns` and
 //!   the engine's room staging spawns them — no demo staging system at all.
-//! - Body + walk + contact damage DO NOT come from what this said they
-//!   did. It claimed "a demo-owned roster archetype (`sanic_badnik`, a 1-HP
-//!   `Wanderer` that paces and reverses at walls)", and there is no such row —
-//!   not in this crate, not in Ambition's `character_archetypes.ron`, and not in
-//! its history. `spec_for_brain` answers
-//!   `combatant` for a key it does not know, so a badnik has ALWAYS been built
-//!   with the generic combatant body: its health, walk speed and contact damage
-//!   are the fallback's, not the 1-HP wanderer's described above.
+//! - ⛔⛔ Body + walk + contact damage are the GENERIC COMBATANT'S, not a
+//!   badnik's. There is no `sanic_badnik` roster archetype — not in this crate,
+//!   not in Ambition's `character_archetypes.ron` — and `spec_for_brain` answers
+//!   `combatant` for a key it does not know. So health, walk speed and contact
+//!   damage are the FALLBACK's, silently, and a doc describing a 1-HP wanderer
+//!   here would be describing a row that does not exist.
 //!
 //! The 1-HP wanderer is not implemented; making it authoritative requires a `sanic_badnik`
 //! character definition because health and movement are character facts.

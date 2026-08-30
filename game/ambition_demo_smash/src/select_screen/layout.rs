@@ -182,6 +182,18 @@ impl SelectLayout {
         }
     }
 
+    /// One portrait cell's size in pixels.
+    ///
+    /// ⭐ THE CURSOR'S SPEED IS SCALED FROM THIS, not from the viewport, which is
+    /// the whole reason it is public. A cursor measured in screen fractions gets
+    /// faster relative to the things it is selecting as the grid grows, and
+    /// slower as it shrinks; measured in CELLS it always takes the same time to
+    /// cross one portrait, which is the distance the player is actually
+    /// thinking in. See `CURSOR_CELLS_PER_SECOND`.
+    pub fn cell(&self) -> Vec2 {
+        self.cell
+    }
+
     /// How many portraits one page shows.
     pub fn per_page(&self) -> usize {
         self.columns * self.rows

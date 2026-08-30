@@ -91,29 +91,40 @@ pub struct MenuControlFrame {
     /// Positive values mean “navigate/scroll up”, negative values mean
     /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
     pub scroll_y: f32,
-    /// HELD navigation, in SCREEN space: `+x` right, `+y` DOWN.
+    /// The ANALOG STICK's held deflection, in SCREEN space: `+x` right, `+y`
+    /// DOWN. Nothing else is in here.
     ///
-    /// the one non-edge direction on this frame, and it exists because a
-    /// FREE cursor cannot be built from edges. Every other direction here is
-    /// a just-pressed edge with repeat, which is exactly right for walking a
-    /// list and unusable for a pointer: integrating an edge gives a cursor that
-    /// jumps one step per tap and cannot be steered. A character select screen
-    /// that wants Smash's roaming hand needs the stick's actual deflection, so
-    /// this carries it.
+    /// ⭐ A POINTER AND A LIST WANT DIFFERENT INPUTS, and this field exists to
+    /// keep them apart. Every other direction on this struct is a just-pressed
+    /// EDGE with repeat — exactly right for walking a list, and unusable for a
+    /// cursor, because integrating an edge gives a hand that jumps one step per
+    /// tap and cannot be steered. A character-select screen that wants Smash's
+    /// roaming hand needs the stick's actual deflection, so this carries it.
     ///
-    /// screen space, not stick space — `+y` is DOWN, matching the
-    /// rectangles a UI hit-tests against and deliberately NOT matching
-    /// [`Self::scroll_y`] one field up, whose positive is up. Two conventions
-    /// on one struct is a real cost; the alternative was every consumer
-    /// flipping a sign at the point of use, which is where sign errors live.
+    /// ⛔⛔ AND IT USED TO CARRY THE D-PAD TOO. This was `nav`, and it summed the
+    /// stick with the HELD digital directions (`held_x`/`held_y`) into one
+    /// vector — which made the two semantics indistinguishable downstream. A
+    /// direction EDGE implies the same direction is held on that very frame, so
+    /// on a stick the select screen snapped to the next portrait and then, on
+    /// the very next frame, roamed away from it at full cursor speed. "You flick
+    /// toward something, it lands there, and then immediately shoots away unless
+    /// you release precisely." A consumer cannot separate what the producer
+    /// merged, so the split is here.
     ///
-    /// magnitude is meaningful. A keyboard or d-pad reports a unit vector
-    /// while a stick reports its deflection, so a consumer gets analog speed
-    /// for free and must not re-normalise.
+    /// ⭐ SCREEN SPACE, NOT STICK SPACE — `+y` is DOWN, matching the rectangles a
+    /// UI hit-tests against, and deliberately NOT matching [`Self::scroll_y`] one
+    /// field up, whose positive is up. Two conventions on one struct is a real
+    /// cost; the alternative was every consumer flipping a sign at the point of
+    /// use, which is where sign errors live.
     ///
-    /// `Vec2::ZERO` when nothing is held, which is the resting state and not a
-    /// missing reading.
-    pub nav: Vec2,
+    /// ⚠ MAGNITUDE IS MEANINGFUL and already through the seat's own deadzone, so
+    /// a consumer gets analog speed for free and must not re-normalise. A
+    /// keyboard or d-pad contributes NOTHING here — it has no deflection to
+    /// report, and pretending it has one is what this field was split to stop.
+    ///
+    /// `Vec2::ZERO` when the stick is at rest, which is the resting state and
+    /// not a missing reading.
+    pub analog: Vec2,
 }
 
 impl MenuControlFrame {

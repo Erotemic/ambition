@@ -437,3 +437,214 @@ mod tests {
         assert_eq!(cursors.seat(1).expect("seat 1").carrying, None);
     }
 }
+
+/// How many portrait cells a fully deflected stick crosses per second.
+///
+/// ⛔⛔ THIS USED TO BE A FRACTION OF THE VIEWPORT'S WIDTH, at 1.15/second, and
+/// it was wrong three ways at once:
+///
+/// 1. **Far too fast.** At 1920x1080 that is ~2200 px/s — a full-stick sweep
+///    crossed the whole screen in under a second, which is not a hand, it is a
+///    thrown object.
+/// 2. **WIDTH for BOTH AXES.** A vertical sweep crossed 1080px at the horizontal
+///    rate, so it took 0.49s against 0.87s across: vertical was intrinsically
+///    1.78x more sensitive, and only on a 16:9 screen — the ratio changed with
+///    the window.
+/// 3. **The wrong unit entirely.** What the player is aiming at is a PORTRAIT,
+///    so a speed that does not know how big a portrait is gets worse every time
+///    the roster or the window changes size.
+///
+/// ⭐ CELLS PER SECOND FIXES ALL THREE. It is aspect-independent by construction
+/// (one scalar, both axes), it scales with the grid rather than the screen, and
+/// it is a number a designer can reason about: at 4.0, a fully deflected stick
+/// crosses four portraits a second, and a six-wide grid takes ~1.5s corner to
+/// corner.
+///
+/// ⚠ Cells are 0.86 as wide as they are tall ([`PORTRAIT_ASPECT`]), so crossing
+/// a cell VERTICALLY takes about 16% longer than crossing one horizontally. That
+/// is the honest consequence of one uniform pixel rate, and it is a great deal
+/// smaller than the 78% the viewport-width version had.
+pub const CURSOR_CELLS_PER_SECOND: f32 = 4.0;
+
+/// The longest frame the cursor will integrate over.
+///
+/// ⛔ A RENDER HITCH MUST NOT MOVE THE HAND. Without this, one 100ms stall while
+/// the stick is held travels 0.4 of a cell in a single frame, from a frame the
+/// player never saw. Clamping costs a slightly slower cursor during a stutter,
+/// which is the right trade: the cursor is a POINTER, not a physics body whose
+/// integral has to stay honest.
+pub const MAX_CURSOR_DT: f32 = 1.0 / 30.0;
+
+/// How far the cursor travels this frame for one stick deflection.
+///
+/// ⭐ THE RESPONSE CURVE IS THE PRECISION. Speed is proportional to the stick's
+/// magnitude SQUARED, so a half-deflection moves at a quarter speed rather than
+/// half — small pushes are for placing the hand and full pushes are for crossing
+/// the grid. A linear stick has to choose between "too slow to cross" and "too
+/// twitchy to place"; a squared one does not, which is why the fix here is a
+/// curve and not a smaller constant.
+///
+/// ⚠ THE CURVE SHAPES SPEED, NOT DIRECTION. `direction` keeps the stick's angle
+/// exactly; only the length is bent. Curving the components independently would
+/// turn a 45-degree push into something else, which is a steering bug wearing a
+/// feel change.
+///
+/// ⭐ AND NO STICKY-TARGET MAGNETISM. A good curve gives enough precision on its
+/// own, and magnetism makes the cursor fight the player near anything selectable
+/// — the exact complaint that started this.
+pub fn cursor_travel(analog: Vec2, cell: Vec2, dt: f32) -> Vec2 {
+    let magnitude = analog.length().min(1.0);
+    if magnitude <= 0.0 {
+        return Vec2::ZERO;
+    }
+    let direction = analog / analog.length();
+    let speed = magnitude * magnitude * CURSOR_CELLS_PER_SECOND * cell.x;
+    direction * speed * dt.clamp(0.0, MAX_CURSOR_DT)
+}
+
+/// The cursor's velocity model, asked about the properties it was reshaped for.
+#[cfg(test)]
+mod cursor_travel_tests {
+    use super::*;
+    use crate::select_screen::layout::SelectLayout;
+
+    /// A 16:9 monitor and a 4:3 one, same roster.
+    fn wide() -> SelectLayout {
+        SelectLayout::new(Vec2::new(1920.0, 1080.0), 8)
+    }
+    fn tall() -> SelectLayout {
+        SelectLayout::new(Vec2::new(1024.0, 768.0), 8)
+    }
+
+    /// ⛔⛔ THE ASPECT-RATIO BUG, DIRECTLY. Speed was `viewport.x` for BOTH axes,
+    /// so a vertical sweep crossed 1080px at the horizontal rate — 0.49s down
+    /// against 0.87s across, and the ratio changed with the window. One scalar
+    /// derived from the cell makes the two axes agree by construction.
+    #[test]
+    fn a_full_deflection_travels_the_same_distance_up_as_it_does_across() {
+        let cell = wide().cell();
+        let across = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
+        let down = cursor_travel(Vec2::Y, cell, 1.0 / 60.0).length();
+        assert!(
+            (across - down).abs() < 0.001,
+            "a vertical push travelled {down:.2}px and a horizontal one {across:.2}px"
+        );
+    }
+
+    /// And the speed follows the PORTRAITS, not the window: the cursor takes the
+    /// same time to cross a cell on a wide monitor and a squarer one, which is
+    /// the unit change the fix is actually about.
+    #[test]
+    fn crossing_one_portrait_takes_the_same_time_on_any_screen_shape() {
+        let seconds_per_cell = |layout: SelectLayout| {
+            let cell = layout.cell();
+            let per_frame = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
+            cell.x / (per_frame * 60.0)
+        };
+        let a = seconds_per_cell(wide());
+        let b = seconds_per_cell(tall());
+        assert!(
+            (a - b).abs() < 0.001,
+            "one portrait took {a:.3}s to cross on a 16:9 screen and {b:.3}s on a 4:3 one"
+        );
+        assert!(
+            (a - 1.0 / CURSOR_CELLS_PER_SECOND).abs() < 0.001,
+            "a full deflection crossed a cell in {a:.3}s, not the \
+             1/{CURSOR_CELLS_PER_SECOND} the constant promises"
+        );
+    }
+
+    /// ⭐ THE PRECISION THE CURVE BUYS. A half deflection must be much slower
+    /// than half speed, or placing the hand and crossing the grid are the same
+    /// gesture — which is what a linear stick forces and why the repair is a
+    /// curve rather than a smaller constant.
+    #[test]
+    fn a_half_deflection_moves_at_a_quarter_speed_not_half() {
+        let cell = wide().cell();
+        let full = cursor_travel(Vec2::X, cell, 1.0 / 60.0).length();
+        let half = cursor_travel(Vec2::X * 0.5, cell, 1.0 / 60.0).length();
+        assert!(
+            (half / full - 0.25).abs() < 0.01,
+            "a half deflection moved at {:.3} of full speed",
+            half / full
+        );
+        // And a gentle nudge is genuinely a nudge: a fifth of the stick is a
+        // twenty-fifth of the speed.
+        let nudge = cursor_travel(Vec2::X * 0.2, cell, 1.0 / 60.0).length();
+        assert!(
+            (nudge / full - 0.04).abs() < 0.01,
+            "a fifth deflection moved at {:.3} of full speed",
+            nudge / full
+        );
+    }
+
+    /// ⚠ THE CURVE BENDS SPEED, NOT DIRECTION. Curving the components
+    /// independently would turn a 45-degree push into something else — a
+    /// steering bug wearing a feel change.
+    #[test]
+    fn the_response_curve_does_not_bend_the_direction_the_stick_is_pointing() {
+        let cell = wide().cell();
+        for stick in [
+            Vec2::new(1.0, 1.0).normalize() * 0.4,
+            Vec2::new(3.0, 1.0).normalize() * 0.9,
+            Vec2::new(-1.0, 2.0).normalize() * 0.6,
+        ] {
+            let travel = cursor_travel(stick, cell, 1.0 / 60.0);
+            let angle = travel.normalize().dot(stick.normalize());
+            assert!(
+                angle > 0.9999,
+                "a stick at {stick:?} moved the cursor along {travel:?}"
+            );
+        }
+    }
+
+    /// ⛔ A RENDER HITCH MUST NOT MOVE THE HAND. Without the clamp, one 100ms
+    /// stall travels six frames' worth in a frame the player never saw.
+    #[test]
+    fn a_long_frame_is_clamped_so_a_hitch_does_not_throw_the_cursor() {
+        let cell = wide().cell();
+        let hitch = cursor_travel(Vec2::X, cell, 0.100).length();
+        let capped = cursor_travel(Vec2::X, cell, MAX_CURSOR_DT).length();
+        assert!(
+            (hitch - capped).abs() < 0.001,
+            "a 100ms frame travelled {hitch:.1}px against the {capped:.1}px cap"
+        );
+        // An ordinary frame is NOT clamped, or the cap would be the speed.
+        let ordinary = cursor_travel(Vec2::X, cell, 1.0 / 120.0).length();
+        assert!(
+            ordinary < capped * 0.5,
+            "a 120Hz frame travelled {ordinary:.2}px, which is the cap, not the rate"
+        );
+    }
+
+    /// A stick at rest moves nothing, and the zero case cannot divide by zero on
+    /// its way to saying so.
+    #[test]
+    fn a_stick_at_rest_moves_the_cursor_nowhere() {
+        assert_eq!(
+            cursor_travel(Vec2::ZERO, wide().cell(), 1.0 / 60.0),
+            Vec2::ZERO
+        );
+    }
+
+    /// ⚠ THE OLD SPEED, FOR THE RECORD. `1.15 * viewport.x` was ~2208px/s at
+    /// 1920 wide; the new full-deflection rate is a small fraction of that, and
+    /// this arm exists so nobody quietly restores it.
+    #[test]
+    fn a_full_deflection_is_far_slower_than_the_viewport_width_rate_it_replaced() {
+        let layout = wide();
+        let old_px_per_second = layout.viewport.x * 1.15;
+        // Per SECOND, from a frame short enough not to be clamped.
+        let dt = 1.0 / 60.0;
+        let new_px_per_second = cursor_travel(Vec2::X, layout.cell(), dt).length() / dt;
+        println!(
+            "cell {:?}: full deflection {new_px_per_second:.0}px/s (was {old_px_per_second:.0})",
+            layout.cell()
+        );
+        assert!(
+            new_px_per_second < old_px_per_second * 0.5,
+            "full deflection is {new_px_per_second:.0}px/s against the old \
+             {old_px_per_second:.0}px/s — the constant moved but the feel did not"
+        );
+    }
+}

@@ -355,13 +355,6 @@ pub fn exit_leads_somewhere(
 }
 
 /// The layout this frame, from the window if there is one.
-/// How much of the screen's WIDTH a fully deflected stick crosses per second.
-///
-/// a fraction rather than a pixel rate, so the cursor takes the same TIME to
-/// cross a phone and a monitor. `1.15` puts a corner-to-corner sweep just under
-/// a second on a 16:9 screen, which is about where Smash's own cursor sits.
-const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
-
 /// Character-select interaction policy.
 ///
 /// Token ownership and selection stay one state machine; policy only answers
@@ -920,7 +913,7 @@ pub(crate) fn drive_the_cursor(
     #[derive(Default, Clone, Copy)]
     struct SeatDrive {
         moved_to: Option<Vec2>,
-        nav: Vec2,
+        analog: Vec2,
         direction: Vec2,
         pressed: bool,
         released: bool,
@@ -954,7 +947,7 @@ pub(crate) fn drive_the_cursor(
             if frame.down {
                 drive.direction.y += 1.0;
             }
-            drive.nav = frame.nav;
+            drive.analog = frame.analog;
             drive.pressed |= frame.select;
             drive.back |= frame.back && !frame.start;
             drive.back_held |= frame.back_held && !frame.start;
@@ -988,8 +981,8 @@ pub(crate) fn drive_the_cursor(
         if global.down {
             drive.direction.y += 1.0;
         }
-        if global.nav.length_squared() > drive.nav.length_squared() {
-            drive.nav = global.nav;
+        if global.analog.length_squared() > drive.analog.length_squared() {
+            drive.analog = global.analog;
         }
         drive.pressed |= global.select;
         drive.back |= global.back && !global.start;
@@ -1178,39 +1171,41 @@ pub(crate) fn drive_the_cursor(
                 pointer.move_to(position);
             }
 
-            // A HELD STICK ROAMS; A TAP STILL SNAPS.
+            // ⭐⭐ THE STICK ROAMS; THE D-PAD SNAPS. ONE DEVICE, ONE SEMANTIC.
             //
-            // ⛔⛔ AND FOR MONTHS IT DID NOT — THE SNAP BRANCH WAS UNREACHABLE ON
-            // EVERY REAL DEVICE, which is what *"the controls don't feel good,
-            // they are very hard to use with a gamepad"* was. `nav` is not just
-            // the stick: `decode_menu_frame` folds the HELD d-pad and the held
-            // arrow keys into it too (`held_x`/`held_y`), and a direction EDGE
-            // implies the same direction is held on that very frame. So
-            // `nav != ZERO` was true on every frame any edge could fire, the
-            // roam always won, and nothing ever snapped — on a stick, a d-pad or
-            // a keyboard. The comment above stated the rule; the code could not
-            // reach it.
+            // ⛔⛔ THEY USED TO BE THE SAME BRANCH AND IT WAS UNUSABLE. `nav`
+            // summed the stick with the HELD d-pad, and a direction EDGE implies
+            // the same direction is held on that very frame — so a stick flick
+            // fired the snap AND then roamed away from the portrait it had just
+            // landed on, at ~2200 px/s, on the next frame. *"You flick toward
+            // something, it lands there, and then immediately shoots away unless
+            // you release precisely."* Ordering the branches could not fix it,
+            // because both halves were true on the same frame for one device.
             //
-            // ⭐ THE EDGE GOES FIRST NOW, which is the rule as written: a flick
-            // lands on the next portrait's centre, and a deflection that is
-            // still held between repeats roams freely, so Smash's hand survives
-            // for the player who wants to sweep the grid.
-            if drive.direction != Vec2::ZERO {
-                if let Some(entity) = cursor::snap(pointer.position, drive.direction, &snap_rects) {
-                    if let Some(target) = snap_rects.iter().find(|target| target.entity == entity) {
-                        pointer.move_to(target.rect.center());
-                    }
-                }
-            } else if drive.nav != Vec2::ZERO {
-                let travel = drive.nav
-                    * layout.viewport.x
-                    * CURSOR_SPEED_PER_SECOND
-                    * inputs.time.delta_secs();
+            // ⭐ NOW THE PRODUCER KEEPS THEM APART (`MenuControlFrame::analog` is
+            // the stick and nothing else), so the arbitration here is a plain
+            // statement of the rule: a hand on the stick is a POINTER and never
+            // snaps, and everything else — d-pad, arrow keys, and the analog
+            // direction edges the repeat machinery still emits — walks the grid
+            // target to target.
+            //
+            // ⚠ THE STICK WINS WHEN BOTH ARE LIVE. Somebody with a thumb on the
+            // stick and a finger on the d-pad is holding a pointer; snapping
+            // under a moving hand is the exact fight this screen was losing.
+            if drive.analog != Vec2::ZERO {
+                let travel =
+                    cursor::cursor_travel(drive.analog, layout.cell(), inputs.time.delta_secs());
                 let roamed = pointer.position + travel;
                 pointer.move_to(Vec2::new(
                     roamed.x.clamp(0.0, layout.viewport.x),
                     roamed.y.clamp(0.0, layout.viewport.y),
                 ));
+            } else if drive.direction != Vec2::ZERO {
+                if let Some(entity) = cursor::snap(pointer.position, drive.direction, &snap_rects) {
+                    if let Some(target) = snap_rects.iter().find(|target| target.entity == entity) {
+                        pointer.move_to(target.rect.center());
+                    }
+                }
             }
         }
 
@@ -2079,9 +2074,10 @@ mod touch_tests {
 
     /// A HELD STICK ROAMS; IT DOES NOT SNAP.
     ///
-    /// the whole point of `MenuControlFrame::nav`, and the thing a d-pad cannot express: the
-    /// cursor lands wherever the stick left it, which will almost never be a target's centre.
-    /// So this checks BOTH: it travelled, and it did not arrive anywhere in particular.
+    /// The whole point of `MenuControlFrame::analog`, and the thing a d-pad
+    /// cannot express: the cursor lands wherever the stick left it, which will
+    /// almost never be a target's centre. So this checks BOTH: it travelled, and
+    /// it did not arrive anywhere in particular.
     #[test]
     fn a_held_stick_roams_the_cursor_instead_of_snapping_to_a_target() {
         let mut app = screen();
@@ -2097,7 +2093,7 @@ mod touch_tests {
         // A tenth of a second of full-right deflection.
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
-            .nav = Vec2::X;
+            .analog = Vec2::X;
         let step = std::time::Duration::from_millis(100);
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
@@ -2128,33 +2124,22 @@ mod touch_tests {
         );
     }
 
-    /// AND A FLICK LANDS ON A PORTRAIT, WHICH IS THE HALF THAT WAS BROKEN.
+    /// A D-PAD EDGE LANDS ON A PORTRAIT.
     ///
-    /// ⛔⛔ THE FIXTURE IS THE FINDING. A real device never sends a direction
-    /// EDGE with an idle deflection: `decode_menu_frame` builds `nav` from the
-    /// held d-pad and held arrow keys as well as the stick, so on the frame any
-    /// edge fires, that same direction is held and `nav` is non-zero. The
-    /// screen took the roam branch first, so the snap branch was unreachable on
-    /// a stick, a d-pad AND a keyboard — and Jon's report was *"very hard to use
-    /// with a gamepad"*.
-    ///
-    /// ⭐ so this drives BOTH TOGETHER, which is the shape production sends, and
-    /// asserts the cursor arrived somewhere in particular. Its sibling above
-    /// keeps the other half honest: deflection with no edge still roams.
+    /// ⭐ THE FIXTURE IS THE FIX. This used to have to send a direction edge AND
+    /// a deflection together, because `nav` folded the held d-pad into the stick
+    /// and a real device could not send one without the other. It can now: a
+    /// d-pad press arrives with `analog` at rest, which is what makes "the stick
+    /// roams, the d-pad snaps" expressible at all.
     #[test]
-    fn a_flick_snaps_even_though_the_same_direction_is_held() {
+    fn a_d_pad_edge_snaps_to_the_next_portrait() {
         let mut app = screen();
         app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
         app.update();
 
-        // A press edge AND the deflection that necessarily accompanies it.
-        {
-            let mut frame = app
-                .world_mut()
-                .resource_mut::<ambition_platformer2d::input::MenuControlFrame>();
-            frame.right = true;
-            frame.nav = Vec2::X;
-        }
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .right = true;
         app.world_mut()
             .resource_mut::<Time>()
             .advance_by(std::time::Duration::from_millis(16));
@@ -2174,9 +2159,70 @@ mod touch_tests {
             .fold(f32::INFINITY, f32::min);
         assert!(
             nearest < 0.5,
-            "a flick left the cursor at {landed:?}, {nearest:.1}px from the \
-             nearest target centre — it roamed instead of snapping, which is the \
-             branch order that made this screen hard to drive with a pad"
+            "a d-pad press left the cursor at {landed:?}, {nearest:.1}px from the \
+             nearest target centre — a digital direction must walk the grid \
+             target to target"
+        );
+    }
+
+    /// ⛔⛔ AND A STICK FLICK NEVER SNAPS — NOT EVEN ON THE EDGE FRAME.
+    ///
+    /// This is the reported bug, exactly: *"you flick toward something, it lands
+    /// there, and then immediately shoots away unless you release precisely."*
+    /// The analog repeat machinery still emits a direction edge from a deflected
+    /// stick, so on the flick frame BOTH `right` and `analog` are live. Snapping
+    /// then roaming out of the target on the next frame is the two semantics
+    /// fighting over one device.
+    ///
+    /// ⭐ A hand on the stick is a POINTER for as long as it is on the stick.
+    #[test]
+    fn a_stick_flick_does_not_snap_even_though_it_also_fires_a_direction_edge() {
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+        app.update();
+
+        let start = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position;
+
+        // What a real stick sends on the frame it crosses the edge threshold.
+        {
+            let mut frame = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::input::MenuControlFrame>();
+            frame.right = true;
+            frame.analog = Vec2::X;
+        }
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+
+        let landed = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position;
+        let layout = headless_layout();
+        let nearest = layout
+            .targets()
+            .into_iter()
+            .map(|(_, rect)| rect.center().distance(landed))
+            .fold(f32::INFINITY, f32::min);
+        assert!(
+            nearest >= 0.5,
+            "a stick flick snapped the cursor onto a target centre at {landed:?} \
+             — the next frame of the same hold then roams away from it, which is \
+             the whole complaint"
+        );
+        assert!(
+            landed.x > start.x,
+            "the flick moved the cursor nowhere at all, so this arm would pass \
+             for a cursor that is simply dead"
         );
     }
 
@@ -2190,7 +2236,7 @@ mod touch_tests {
         app.update();
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
-            .nav = Vec2::X;
+            .analog = Vec2::X;
 
         let step = std::time::Duration::from_millis(50);
         let start = app

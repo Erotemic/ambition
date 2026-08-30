@@ -141,3 +141,66 @@ fn a_submerged_tick_travels_exactly_the_step_it_authored() {
         body.kinematics.vel.x / 60.0,
     );
 }
+
+/// ⭐⭐ AN EXCLUSIVE MODE ENDS THE GROUND MANEUVERS IT TAKES THE BODY AWAY FROM.
+///
+/// ⛔⛔ CLEARING `dash_timer` ALONE WAS NOT ENOUGH, and the half that was missed
+/// is the one nothing ticks down: `initial_dash_timer` is decayed by NORMAL
+/// movement, which is exactly the branch an exclusive mode REPLACES. Measured on
+/// the shipped code — armed at 0.2333s, still **exactly 0.2333s after 30
+/// submerged ticks holding nothing**, when 14 frames of normal movement spend
+/// it. It then resumed on the way out, so a fighter surfaced still owed a dash
+/// window bought half a second earlier.
+///
+/// ⚠ THE ARM MEASURES DECAY, NOT PRESENCE. Asserting the timer is zero while
+/// submerged would also pass on a body that never armed one, which is what the
+/// first version of this probe did — `TEST_TUNING` authors no initial dash, so
+/// it read 0 before AND after and proved nothing.
+#[test]
+fn an_exclusive_mode_ends_an_initial_dash_instead_of_freezing_it() {
+    let world = super::test_world();
+    let mut tuning = TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    tuning.initial_dash_speed = 0.0;
+    let hold = |x: f32| InputState {
+        axes: LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+
+    let mut body = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    // Land first: an airborne body has no dash phase at all, which reads exactly
+    // like the fix working.
+    for _ in 0..40 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(body.ground.on_ground, "the fixture never reached the floor");
+    super::update_player_with_tuning_scratch(&world, &mut body, hold(1.0), 1.0 / 60.0, tuning);
+    let armed = body.axis().initial_dash_timer;
+    assert!(
+        armed > 0.0,
+        "the dash window never opened, so nothing below observes anything"
+    );
+
+    body.body_mode.body_mode = crate::player_state::BodyMode::Submerged;
+    super::update_player_with_tuning_scratch(
+        &world,
+        &mut body,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+
+    assert_eq!(
+        body.axis().initial_dash_timer,
+        0.0,
+        "the initial dash window survived into the trapdoor (armed at {armed}) — \
+         normal movement is what spends it, and this mode replaces normal \
+         movement, so it freezes and resumes on the way out"
+    );
+}

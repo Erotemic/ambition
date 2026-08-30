@@ -1069,7 +1069,7 @@ pub(super) fn integrate_submerged_clusters(
 ) {
     // Under the stage a dash is over: nothing down here to dash against, and a
     // timer still running would resume on the way out.
-    state.dash_timer = 0.0;
+    interrupt_maneuvers_for_mode_transition(state);
     let local_stick = input.local_axis();
     let body_frame = frame.basis();
     let world_stick = body_frame.to_world(Vec2::new(local_stick.x, 0.0));
@@ -1101,6 +1101,24 @@ pub(super) fn integrate_submerged_clusters(
     // surfaces on, and a body that refused to move while still reporting
     // 245 px/s would come out of the boards sprinting.
     kinematics.vel = step / dt.max(f32::EPSILON);
+}
+
+/// End every ground maneuver an EXCLUSIVE mode takes the body away from.
+///
+/// ⛔⛔ CLEARING `dash_timer` ALONE IS NOT ENOUGH, and the half that was missed is
+/// the one nothing ticks down. `initial_dash_timer` is decayed by NORMAL
+/// movement — the mode branch that an exclusive mode replaces — so a body that
+/// entered the wire or the trapdoor mid-dash carried the window FROZEN through
+/// the whole mode and resumed it on the way out. Measured: armed at 0.2333s,
+/// still exactly 0.2333s after 30 submerged ticks holding nothing, when 14
+/// frames of normal movement would have spent it.
+///
+/// ⭐ ONE AUTHORITY, so the next exclusive mode inherits the list instead of
+/// rediscovering which timers it owed.
+fn interrupt_maneuvers_for_mode_transition(state: &mut AxisManeuverState) {
+    state.dash_timer = 0.0;
+    state.initial_dash_timer = 0.0;
+    state.initial_dash_dir = 0.0;
 }
 
 /// Refuse a submerged step that would leave the surface the body is under.
@@ -1274,6 +1292,9 @@ pub(super) fn integrate_wire_clusters(
     if dt <= 0.0 {
         return;
     }
+    // The rope owns the body for the same reason the trapdoor does, so the same
+    // maneuvers end.
+    interrupt_maneuvers_for_mode_transition(state);
     // THE CLOCK FIRST, so the release tick is unambiguous: the wire either has
     // time left and lifts, or it is out of time and lets go. A tick that did
     // both would write two velocities.

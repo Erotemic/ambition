@@ -188,6 +188,32 @@ below it and on different silicon.
   build that hashes what it reads and not what it wrote cannot tell "I made
   this" from "something is there".
 
+- ▢ **D-BUILD-3 — a full sprite publish overwrites `player_robot_v3` with the
+  `robot` rig's art; a single-target publish does not.** This is why the wrong
+  robot keeps coming back after being fixed.
+  **The evidence, 2026-08-30:**
+  * all three lineage members declare the SAME `renderer_target: "robot"` and
+    differ only by `output_stem` (`robot`, `player_robot_v2`, `player_robot_v3`);
+  * `sprites.sh --target player_robot_v3 --force` publishes the correct art —
+    3072x2468, byte-identical to `generated/player_robot_v3/`;
+  * a full `assets.sh` run then republished it as 2815x2312, byte-identical to
+    `player_robot_v2`, and the published manifest came out saying
+    `target: "robot"`, `// Auto-emitted from robot_spritesheet.yaml` — the RIG's
+    manifest under v3's filename;
+  * a variants-only run was tested against this and is INNOCENT: same md5, same
+    mtime before and after.
+  ⭐ THE CODEBASE ALREADY NAMED THIS FAILURE. `SheetRecord`'s doc: *"ask for a
+  sheet by `key`. Keyed by [target], 'give me sheet X' is answered by whichever
+  manifest happened to load last: `robot` lost its own 256x256 page to
+  `tech_bro_disruptor` that way."* `target` is the RIG — 18 sheets share `robot`,
+  16 share `toon` — and `key` is identity. The publish path resolves by rig.
+  ⛔ v3 is the SVG-rigged incarnation and its art comes from a different
+  generator than the raster `robot` rig, so for THIS character the collision is
+  not a cosmetic mix-up: it replaces the whole body.
+  **Direction:** publish by `output_stem`/`key`, never by `renderer_target`, and
+  add a postcondition that a published stem's bytes match the generator output
+  for that stem. ⚠ Lives in `tools/ambition_sprite2d_renderer` (a submodule).
+
 - ▢ **D-BUILD-2 — the tool venvs live inside the shared checkout and point at
   one user's Python.** All three `tools/*/.venv/pyvenv.cfg` name
   `/home/joncrall/.local/share/uv/…`, so on a checkout shared over virtiofs the

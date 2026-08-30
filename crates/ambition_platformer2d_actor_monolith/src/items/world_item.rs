@@ -22,6 +22,7 @@ use ambition_characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::sim_selection::{in_deterministic_order, winner_by};
 
 /// A collectible resting in the world. Touch it (AABB overlap) and its
 /// [`payload`](WorldItem::payload) is applied to the collecting body, then it
@@ -135,6 +136,9 @@ pub fn collect_world_items(
         ),
     >,
     items: Query<(Entity, &WorldItem)>,
+    // The tie-break's authority, for both orders. A read-only lookup so a body
+    // or item without one still competes — it just cannot win a tie.
+    sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) {
     // Snapshot eligible collector boxes before mutating equipment.
     let collectors: Vec<(Entity, ae::Aabb)> = bodies
@@ -150,12 +154,34 @@ pub fn collect_world_items(
 
     // One item per body per frame, so two items landing on one bare body cannot
     // have the second `WornEquipment::new` overwrite the first.
+    //
+    // ⛔⛔ WHICH MAKES THE OUTER ORDER A GAMEPLAY DECISION TOO, and it was Bevy
+    // query order. Because the loop spends a body on its first match, the order
+    // items are visited decides WHICH of two overlapping items a body receives —
+    // so this system had the ordering defect twice: once choosing the body, once
+    // choosing the item. Both are archetype order, which a resimulated tick can
+    // present differently.
+    //
+    // ⭐ THE ITEM ORDER'S METRIC IS ITS OWN IDENTITY. There is no meaningful
+    // distance between two items competing for one body, so the rule is the tie-
+    // break alone: a constant metric plus stable `SimId`.
+    let ordered_items = in_deterministic_order(
+        items.iter(),
+        |_| 0.0,
+        |(entity, _)| sim_ids.get(*entity).ok(),
+    );
+
     let mut spent: Vec<Entity> = Vec::new();
-    for (item_entity, item) in &items {
-        let Some(&(body, _)) = collectors
-            .iter()
-            .find(|(body, aabb)| !spent.contains(body) && aabb.strict_intersects(item.aabb()))
-        else {
+    for (item_entity, item) in ordered_items {
+        // ⭐ AND THE NEAREST UNSPENT BODY GETS IT, not the first one the query
+        // happened to yield.
+        let Some(&(body, _)) = winner_by(
+            collectors.iter().filter(|(body, aabb)| {
+                !spent.contains(body) && aabb.strict_intersects(item.aabb())
+            }),
+            |(_, aabb)| aabb.center().distance_squared(item.aabb().center()),
+            |(entity, _)| sim_ids.get(*entity).ok(),
+        ) else {
             continue;
         };
         let Ok((_, _, _, _, worn)) = bodies.get_mut(body) else {
@@ -393,5 +419,75 @@ mod tests {
             app.world().get::<WornEquipment>(bystander).is_none(),
             "an autonomous actor standing on an item must not equip it",
         );
+    }
+
+    /// ⛔⛔ THE ORDERING DEFECT TWICE OVER. `collect_world_items` spends a body
+    /// on its first match — one item per body per frame — so Bevy query order
+    /// decided WHICH of two overlapping items a body received, as well as which
+    /// body received an item. Both are archetype order, which a resimulated tick
+    /// can present differently.
+    mod which_item {
+        use super::*;
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+        fn row(id: &str) -> EquipmentRow {
+            EquipmentRow {
+                id: id.into(),
+                modifiers: Vec::new(),
+                grants: Vec::new(),
+                on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
+                exclusive_slot: None,
+            }
+        }
+
+        /// Two items on one body, spawned in `order`; reports which one it wore.
+        fn worn_with_spawn_order(order: [&str; 2]) -> String {
+            let mut app = App::new();
+            app.add_systems(Update, collect_world_items);
+            let here = ae::Vec2::ZERO;
+            app.world_mut().spawn((
+                kin(here),
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                SimId::player_slot(0),
+            ));
+            for id in order {
+                app.world_mut().spawn((
+                    WorldItem::equipping(row(id), here, ae::Vec2::new(12.0, 12.0)),
+                    SimId::placement(id),
+                ));
+            }
+
+            app.update();
+
+            let world = app.world_mut();
+            let mut worn_q = world.query::<&WornEquipment>();
+            let worn = worn_q
+                .iter(world)
+                .next()
+                .expect("the body collected one of the two items it is standing on");
+            for id in ["alpha", "omega"] {
+                if worn.wears(id) {
+                    return id.to_string();
+                }
+            }
+            panic!("the body wore neither authored row");
+        }
+
+        /// ⭐ THE PROPERTY. Reversing the order two contested items were spawned
+        /// in must not change which one the body ends up wearing.
+        #[test]
+        fn the_same_item_is_collected_whichever_order_the_two_were_spawned_in() {
+            let forward = worn_with_spawn_order(["alpha", "omega"]);
+            let reversed = worn_with_spawn_order(["omega", "alpha"]);
+            assert_eq!(
+                forward, reversed,
+                "which of two overlapping items the body wore changed with the \
+                 order they were spawned in, so a resimulated tick equips the other"
+            );
+            assert_eq!(
+                forward, "alpha",
+                "the order is stable SimId, so the lower id is collected first"
+            );
+        }
     }
 }

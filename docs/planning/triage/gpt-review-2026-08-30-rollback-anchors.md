@@ -30,8 +30,8 @@ twice independently.
 | 5 | One spawn seam for authoritative dynamic sim state | architecture | ◐ named seams landed; a universal `spawn_sim_entity` is argued against below |
 | 6 | Scenario-driven inert/coverage sweep that fires abilities | architecture | ▣ landed |
 | 7 | `portal_fire_system` keeps only the LAST intent per tick | P1 | ▣ landed |
-| 8 | `collect_ecs_pickups` / `collect_world_items` decide by query order | P1 | ☐ |
-| 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ☐ |
+| 8 | `collect_ecs_pickups` / `collect_world_items` decide by query order | P1 | ▣ landed |
+| 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ▣ landed; three adopters, more to convert |
 | 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ☐ |
 | 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ☐ |
 | 12 | Fighter-brain L3 rollout — **measure before changing** | — | ☐ deliberately not a code change |
@@ -249,3 +249,86 @@ belongs in this system as a stated policy over emitter identity.
 - every shot emits its own `PortalShotFired`
 
 portal 59/59, content 296/296.
+
+
+---
+
+## ▣ 8 and 9 — query order was deciding who gets the ring
+
+Bevy query order is archetype order, which depends on the order entities entered
+their archetypes — a thing that differs between a live tick and the resimulated
+one that replaces it, and between two peers that reached the same state by
+different routes. A system that resolves "who gets this" with `.iter().find(..)`
+has written down no rule at all.
+
+`collect_ecs_pickups` did, and its own comment said so in as many words: *"find
+the first overlapping collector"*. That reads like a rule and is not one. With
+two players standing on one pickup it decided who healed, who banked the
+currency, and who took the flag — unrepeatably.
+
+`collect_world_items` had it **twice**. Because the system spends a body on its
+first match — one item per body per frame, so a second `WornEquipment::new`
+cannot overwrite the first — the order ITEMS are visited decides which of two
+overlapping items a body receives, on top of which body receives one.
+
+### The primitive
+
+`ambition_platformer2d_shared_tangle::sim_selection`, next to the `SimId` it
+depends on:
+
+- `winner_by(candidates, metric, identity)` — smallest metric, ties by stable id
+- `in_deterministic_order(..)` — the same rule as a sort, for the outer loop
+- `every_candidate_is_identified(..)` — see below
+
+⚠ **An unidentified candidate cannot win a tie, and the module refuses to pretend
+otherwise.** A candidate with no `SimId` has nothing to break a tie WITH, so it
+loses to any identified candidate at an equal metric and ties with its own kind
+by encounter order — which is the non-determinism this module exists to remove.
+`every_candidate_is_identified` exists so a caller can assert the population
+rather than discover it in a desync: sorting an unidentified population produces
+a stable-LOOKING result that is still encounter-ordered underneath, and a guard
+that cannot tell those apart is a guard that cannot fail.
+
+### Adopters
+
+| Site | Metric | Was |
+|------|--------|-----|
+| `collect_ecs_pickups` | nearest centre | `.iter().find(..)` |
+| `collect_world_items` — which body | nearest centre | `.iter().find(..)` |
+| `collect_world_items` — which item | identity alone | unsorted `for` over the query |
+| `update_sentries` | nearest enemy | `min_by` on distance, no tie-break |
+
+⭐ **Nearest-centre is a rule a player can see**, which is why it is the metric
+rather than "whoever the engine yields first, but sorted". The item order has no
+meaningful metric — there is no distance between two items competing for one body
+— so it is the tie-break alone, and the code says that.
+
+⚠ `update_sentries` used `min_by`, which keeps the FIRST minimum. Two badniks
+abreast of a turret is an ordinary arrangement, not a corner case, and which one
+eats the bolt changes who dies and when.
+
+### Guarded
+
+Seven unit tests on the primitive, the load-bearing one being *the winner does
+not depend on the order the candidates arrived in* — asserted forward, reversed
+and shuffled.
+
+Two wiring tests per adopter shape, **both poison-verified** against the restored
+`.find(..)` / unsorted loop:
+
+- `who_gets_it::the_same_body_collects_whichever_order_the_two_were_spawned_in`
+  — two equidistant players on one ring, spawned both ways round.
+- `who_gets_it::the_nearer_body_wins_even_with_the_higher_identity` — ⭐ the arm
+  that stops the tie-break quietly becoming the whole rule.
+- `which_item::the_same_item_is_collected_whichever_order_the_two_were_spawned_in`
+  — two items on one body, spawned both ways round. Red under the poison with
+  `left: "alpha", right: "omega"`.
+
+### Still to convert
+
+The review lists possession candidates, projectile victim ties and magnet
+ownership as further adopters. They are not converted here — each needs its own
+population arm, and a conversion with no test that can fail is worth nothing.
+`sim_selection` is the place they go.
+
+monolith 1172/1172, tangle 242/242, app_it 509/509.

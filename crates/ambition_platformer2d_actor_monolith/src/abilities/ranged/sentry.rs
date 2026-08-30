@@ -25,6 +25,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";
@@ -168,6 +169,10 @@ pub fn update_sentries(
             Option<&ambition_characters::actor::BodyHealth>,
             // The world's hands are off this body — it is not a target either.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // The tie-break's authority, read here rather than through a second
+            // lookup: two equidistant enemies is an ordinary arrangement, not a
+            // corner case, and query order must not be what decides it.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -190,21 +195,25 @@ pub fn update_sentries(
         if sentry.fire_cooldown > 0.0 {
             continue;
         }
-        // Nearest enemy within range.
-        let target = enemies
-            .iter()
-            // Structural tangibility gate: a dead enemy is an
-            // intangible corpse — the sentry does not target it.
-            .filter(|(_, f, health, out_of_play)| {
-                **f == ActorFaction::Enemy
-                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
-            })
-            .map(|(aabb, _, _, _)| aabb.center)
-            .filter(|c| c.distance(sentry.pos) <= SENTRY_RANGE)
-            .min_by(|a, b| {
-                a.distance_squared(sentry.pos)
-                    .total_cmp(&b.distance_squared(sentry.pos))
-            });
+        // ⛔ NEAREST ENEMY — AND A NAMED TIE-BREAK. This was `min_by` on
+        // distance alone, which keeps the FIRST minimum, so two equidistant
+        // enemies were resolved by Bevy query order. Two badniks abreast of a
+        // turret is not a corner case, and which one eats the bolt changes who
+        // dies and when.
+        let target = winner_by(
+            enemies
+                .iter()
+                // Structural tangibility gate: a dead enemy is an
+                // intangible corpse — the sentry does not target it.
+                .filter(|(_, f, health, out_of_play, _)| {
+                    **f == ActorFaction::Enemy
+                        && !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
+                })
+                .filter(|(aabb, _, _, _, _)| aabb.center.distance(sentry.pos) <= SENTRY_RANGE),
+            |(aabb, _, _, _, _)| aabb.center.distance_squared(sentry.pos),
+            |(_, _, _, _, id)| *id,
+        )
+        .map(|(aabb, _, _, _, _)| aabb.center);
         let Some(target) = target else {
             // No target — idle (keep the cadence ready so it fires the instant
             // an enemy wanders in).

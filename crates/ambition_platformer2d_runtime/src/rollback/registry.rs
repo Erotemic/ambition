@@ -49,6 +49,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// reset". The clone registration PREVENTS that (it restores); the presence-only
 /// probe could not SEE it, and presence cannot tell one queued entry from five.
 /// Bytes unchanged; a peer that checksums it and one that does not disagree.
+/// ⛔ v136: `marker.posed_body` — the opt-in that publishes a body's pose read
+/// model (which row, which clip, which frame). A construction-time marker on a
+/// simulated body, so a rewind that dropped it would stop publishing mid-match.
 /// ⛔ v135: eight EVENT-CREATED components joined the schema —
 /// `ability.player_mark`, `ability.bomb_fuse`, `ability.gravity_grenade_fuse`,
 /// `ability.puppy_slug_ally`, `feature.falling_chest`,
@@ -59,7 +62,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// One index decides which prop the arena rebuilds, and a presence-only probe
 /// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
 /// it on the sim schedule, so a resimulation can move it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 135;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 136;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -332,6 +332,19 @@ pub struct Subject {
     /// still falling is a CAPABILITY the body carries. A flyer at rest in the
     /// air is settled; an ordinary fighter in the air is mid-jump.
     pub flies: bool,
+    /// ⭐⭐ WHICH POSE ROW THE GAME INTENDS TO DRAW THIS TICK, with no renderer.
+    ///
+    /// ⛔⛔ THIS WAS UNANSWERABLE HEADLESSLY UNTIL 2026-08-29. `CharacterAnimator`
+    /// is built by the RENDER layer from a loaded sprite asset, and `NoWindow`
+    /// omits the render app by design — so a recorded take could say where a
+    /// fighter was and what MOVE it was playing, but not what the engine meant
+    /// to DRAW, and the moveset inspector reconstructed the frame cursor in
+    /// JavaScript. `BodyPoseView` is the render-INDEPENDENT read model and always
+    /// was; it was merely gated on a marker no match fighter receives.
+    pub pose: Option<ambition_platformer2d::actor::CharacterAnim>,
+    /// The CLIP the pose asks the sheet for, when the move names one. `None` is
+    /// the ordinary case and means *draw the semantic pose*.
+    pub clip: Option<String>,
 }
 
 /// Seat zero, or `None` when nothing is seated there.
@@ -344,15 +357,18 @@ pub fn subject(app: &mut App) -> Option<Subject> {
         Option<&ambition_platformer2d::actor::MovePlayback>,
         Option<&ambition_platformer2d::actor::RidingOn>,
         Option<&ambition_platformer2d::actor::BodyFlightState>,
+        Option<&ambition_platformer2d::actor::BodyPoseView>,
     )>();
     q.iter(world)
         .find(|(seat, ..)| seat.0 == 0)
-        .map(|(_, kin, ground, playing, riding, flight)| Subject {
+        .map(|(_, kin, ground, playing, riding, flight, pose)| Subject {
             facing: kin.facing,
             grounded: ground.map(|g| g.on_ground),
             playing: playing.map(|p| p.spec.id.clone()),
             riding: riding.is_some(),
             flies: flight.is_some_and(|f| f.fly_enabled),
+            pose: pose.map(|p| p.anim),
+            clip: pose.and_then(|p| p.clip.as_ref().map(|c| c.clip.clone())),
         })
 }
 
@@ -618,6 +634,11 @@ mod tests {
             playing: playing.then(|| "some_move".to_string()),
             riding,
             flies,
+            // ⛔ THE SETTLE RULE READS NEITHER, and stating that here keeps the
+            // fixture honest: a pose the rule ignored would be a value this test
+            // silently depends on.
+            pose: None,
+            clip: None,
         }
     }
 

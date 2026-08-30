@@ -656,13 +656,23 @@ fn the_walk_row_plays_on_every_arms_floor_including_the_walls() {
 fn player_pose_anim(
     sim: &mut Platformer2dSimHarness,
 ) -> ambition_platformer2d::sprite_sheet::character::CharacterAnim {
+    // ⛔⛔ THE PLAYER'S, NOT THE ONLY ONE. This took the sole `BodyPoseView` in the
+    // world and panicked on any other count — true only while the read model was
+    // gated on `PlayerVisual`, which one entity in the game ever receives. When
+    // every granted character body started publishing one (2026-08-29, so a
+    // headless tool could read the engine's animation decision for a match
+    // fighter) this room's six bodies made a one-row assumption into a failure
+    // about nothing. ⇒ ask for the PLAYER's, which is what the name always said.
     let world = sim.world_mut();
-    let mut q = world.query::<&ambition_platformer2d::sim_view::BodyPoseView>();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::sim_view::BodyPoseView,
+        bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
+    >();
     let rows: Vec<_> = q.iter(world).map(|v| v.anim).collect();
     match rows.as_slice() {
         [one] => *one,
         other => panic!(
-            "expected exactly one player pose view, found {}: the pose read-model \
+            "expected exactly one PLAYER pose view, found {}: the pose read-model \
              is what the renderer draws from, so this test cannot speak without it",
             other.len()
         ),

@@ -232,6 +232,7 @@
     "map.strike_volume",
     "marker.feature_sim_entity",
     "marker.player_entity",
+    "marker.posed_body",
     "marker.primary_body",
     "marker.primary_player",
     "marker.runtime_staged_actor",

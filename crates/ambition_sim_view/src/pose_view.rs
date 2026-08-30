@@ -14,9 +14,9 @@
 //! materializes one row, so the render pool is a pure consumer.
 
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PosedBody};
 use ambition_sprite_sheet::character::CharacterAnim;
-use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With};
 
 /// Sim-resolved presentation pose for one player-bodied entity: everything
 /// the renderer needs to place, size, animate, and flash the sprite. Plain
@@ -248,7 +248,18 @@ pub fn rebuild_body_pose_views(
                 Option<&mut BodyPoseView>,
             ),
         ),
-        With<PlayerVisual>,
+        // ⛔⛔ WIDENED 2026-08-29: `With<PlayerVisual>` ALONE MEANT NO MATCH
+        // FIGHTER EVER GOT A POSE VIEW. That marker is granted in exactly one
+        // production place — the exploration player's avatar — so a seated body
+        // was invisible to this read model, and the moveset inspector
+        // reconstructed pose/clip/frame in JavaScript because the engine never
+        // published it for the bodies it was looking at.
+        //
+        // ⭐ `PosedBody` IS THE OPT-IN, and it is separate from `PlayerVisual`
+        // on purpose: that marker means "the player's own drawn avatar" and
+        // other presentation keys on it, so granting it to every seat would turn
+        // those on too.
+        Or<(With<PlayerVisual>, With<PosedBody>)>,
     >,
 ) {
     // The player path has always read the GLOBAL gravity field for its facing
@@ -993,6 +1004,54 @@ mod pose_view_tests {
             app.world().get::<BodyPoseView>(pinned).map(|p| p.anim),
             Some(CharacterAnim::Grow),
             "and a pinned one shows what the content pinned"
+        );
+    }
+}
+
+#[cfg(test)]
+mod posed_body_gate_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// ⭐⭐ A BODY THAT IS NOT THE PLAYER'S AVATAR STILL PUBLISHES ITS POSE.
+    ///
+    /// ⛔⛔ THE GATE WAS `With<PlayerVisual>` ALONE, AND A MATCH FIGHTER NEVER
+    /// RECEIVES ONE — that marker is granted in exactly one production place, the
+    /// exploration player's avatar. So `BodyPoseView` was not built for a seated
+    /// body at all: a headless diagnostic could say where a fighter was and what
+    /// move it played, and not which POSE and CLIP the game intended to draw, and
+    /// the moveset inspector reconstructed the frame cursor in JavaScript.
+    ///
+    /// ⚠ THE SECOND ARM IS WHAT MAKES THE FIRST MEAN SOMETHING. A body with
+    /// NEITHER marker must still get nothing — a gate widened to "every body"
+    /// would pass the first arm and publish a read model for every crate, pot and
+    /// projectile in the room.
+    #[test]
+    fn a_posed_body_gets_a_view_and_an_unmarked_body_does_not() {
+        let mut app = App::new();
+        app.add_systems(Update, rebuild_body_pose_views);
+        let kin = ambition_platformer2d_core::BodyKinematics {
+            pos: ambition_platformer2d_core::Vec2::new(10.0, 20.0),
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        };
+        // A seated fighter: `PosedBody`, and deliberately NO `PlayerVisual`.
+        let seat = app.world_mut().spawn((PosedBody, kin)).id();
+        // Anything else in the room.
+        let scenery = app.world_mut().spawn(kin).id();
+
+        app.update();
+
+        assert!(
+            app.world().get::<BodyPoseView>(seat).is_some(),
+            "a body carrying PosedBody must publish its pose read model without \
+             ever being the player's drawn avatar"
+        );
+        assert!(
+            app.world().get::<BodyPoseView>(scenery).is_none(),
+            "a body carrying neither marker must publish nothing — a gate widened \
+             to every body would build a read model for every crate and pot"
         );
     }
 }

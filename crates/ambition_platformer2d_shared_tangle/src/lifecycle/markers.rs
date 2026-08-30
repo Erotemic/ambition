@@ -49,6 +49,30 @@ pub struct ModeScopedEntity(pub String);
 #[derive(Component, Clone, Default)]
 pub struct PlayerVisual;
 
+/// PUBLISH THIS BODY'S POSE READ MODEL — which row it draws, which clip, which
+/// frame — whether or not anything is rendering.
+///
+/// ⛔⛔ THE POSE READ MODEL WAS GATED ON [`PlayerVisual`], AND A MATCH FIGHTER
+/// NEVER RECEIVES ONE. `PlayerVisual` is granted in exactly one production place
+/// — the exploration player's avatar — so `BodyPoseView` was simply not built
+/// for a seated `MatchSeat` body. A headless diagnostic could therefore say
+/// where a fighter was and what move it was playing, but not which POSE, CLIP
+/// and FRAME the game intends to draw, and the moveset inspector reconstructed
+/// that in JavaScript from sprite sheets.
+///
+/// ⭐ IT IS A SEPARATE MARKER AND NOT A WIDER `PlayerVisual` GRANT. That marker
+/// means "this is the player's own drawn avatar" and other presentation keys on
+/// it; handing it to every seat would turn those on too. This one says only the
+/// thing the read model needs, and says it for any body somebody wants a pose
+/// answer about.
+///
+/// ⛔ IT DOES NOT IMPLY A RENDERER. `BodyPoseView` is a pure function of sim
+/// state rebuilt every tick, declared rollback-DERIVED, so a `NoWindow`
+/// composition publishes it exactly as a windowed one does — which is the whole
+/// point: the engine's animation decision becomes readable without a rasterizer.
+#[derive(Component, Clone, Default)]
+pub struct PosedBody;
+
 /// Simulation-side feature entity spawned from the active room.
 ///
 /// Presentation visuals remain separate and join live state by `FeatureId`.

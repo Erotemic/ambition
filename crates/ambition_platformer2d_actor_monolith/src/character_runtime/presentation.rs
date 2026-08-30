@@ -472,6 +472,16 @@ pub fn grant_prepared_character_body(
     movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
 ) {
     {
+        // ⭐⭐ EVERY GRANTED CHARACTER BODY PUBLISHES ITS POSE READ MODEL. Which
+        // row it draws, which clip, which frame — `BodyPoseView` is a pure
+        // function of sim state, declared rollback-DERIVED, and it costs no
+        // renderer. Without this marker the read model was gated on
+        // `PlayerVisual`, which only the exploration player's avatar ever
+        // receives, so no match fighter had one and a headless diagnostic could
+        // not say what the engine intended to DRAW.
+        commands
+            .entity(entity)
+            .insert(ambition_platformer2d_shared_tangle::lifecycle::PosedBody);
         // Construction writes the gameplay baseline unless persona derivation will
         // do so. A newly constructed body displaced nothing, so its baseline has
         // an empty `displaced` set even when the caller resolved its kit.

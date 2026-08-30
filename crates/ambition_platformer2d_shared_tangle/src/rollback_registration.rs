@@ -66,6 +66,11 @@ where
         OWNER,
         "marker.feature_sim_entity",
     );
+    // A construction-time marker on a simulated body, exactly like `PlayerVisual`
+    // beside it: it decides whether the pose read model is published for this
+    // entity, and a rewind that dropped it would stop publishing mid-match.
+    registrar
+        .rollback_component_clone::<crate::lifecycle::PosedBody>(OWNER, "marker.posed_body");
     registrar
         .rollback_component_clone::<crate::markers::PlayerEntity>(OWNER, "marker.player_entity");
     registrar

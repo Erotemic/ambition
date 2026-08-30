@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v135
+ggrs-rollback-schema-v136
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -281,6 +281,7 @@ map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remap
 map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
 marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.posed_body	component-clone	PosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

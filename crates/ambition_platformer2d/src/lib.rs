@@ -352,6 +352,21 @@ pub mod actor {
     /// cannot see this reports a mounted body's own locomotion as if it were
     /// driving.
     pub use ambition_mount::RidingOn;
+    /// ⭐⭐ WHAT THE GAME INTENDS TO DRAW FOR THIS BODY, and it needs no renderer.
+    ///
+    /// The semantic pose row, the requested clip, and the presentation facts
+    /// derived from them — a pure function of sim state, rebuilt every tick and
+    /// declared rollback-DERIVED, so a `NoWindow` composition publishes it
+    /// exactly as a windowed one does.
+    ///
+    /// ⛔ IT IS PUBLISHED ONLY FOR A BODY THAT ASKS. See
+    /// `lifecycle::PosedBody` — the marker every granted character body
+    /// receives. Before 2026-08-29 the gate was `PlayerVisual`, which only the
+    /// exploration player's avatar ever gets, so no match fighter had one and a
+    /// headless tool had to reconstruct the frame cursor from sprite sheets.
+    pub use ambition_sim_view::{BodyPoseView, ClipRequest};
+    /// The 56 semantic body states a pose row can be.
+    pub use ambition_sprite_sheet::character::CharacterAnim;
     /// The body-local safe-position state used by reset/hazard observers.
     ///
     /// The implementation type still carries its historical player-centric name;

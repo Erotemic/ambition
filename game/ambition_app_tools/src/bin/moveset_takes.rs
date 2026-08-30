@@ -257,6 +257,13 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // exactly ZERO of them. `BodyPoseView` is published by the SIM every tick
         // and carries the same two facts: the semantic pose, and the CLIP an
         // active move asked to be drawn as.
+        //
+        // ⛔⛔ AND IT WAS PUBLISHED FOR NOBODY THIS TOOL WATCHES UNTIL 2026-08-29.
+        // The read model was gated on `With<PlayerVisual>`, granted in exactly
+        // one production place — the exploration player's avatar — so every
+        // `MatchSeat` fighter recorded `has_pose: false` and the viewer fell back
+        // to reconstructing a frame cursor in JavaScript. Every granted character
+        // body carries `PosedBody` now and the gate is `Or` of the two.
         Option<&ambition_platformer2d::sim_view::BodyPoseView>,
         // ⛔⛔ A SUMMON WEARS NO CATALOG CHARACTER, and the summon is the one
         // everybody opens this view to watch — Jon asked to *"see things like the

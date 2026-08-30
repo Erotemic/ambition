@@ -314,7 +314,9 @@ fn main() {
         // is not what the picture shows.
         let at_shutter = move_exercise::subject(&mut app);
         let shot_move = at_shutter.as_ref().and_then(|s| s.playing.clone());
-        let shot_grounded = at_shutter.and_then(|s| s.grounded);
+        let shot_grounded = at_shutter.as_ref().and_then(|s| s.grounded);
+        let shot_pose = at_shutter.as_ref().and_then(|s| s.pose);
+        let shot_clip = at_shutter.and_then(|s| s.clip.clone());
         if let Some(id) = shot_move.clone() {
             observed.insert(id);
         }
@@ -343,6 +345,16 @@ fn main() {
             "action_tick": at_action,
             // Saved at the shutter, not re-read after the pump — see above.
             "move": shot_move,
+            // ⭐⭐ WHAT THE ENGINE MEANT TO DRAW ON THIS TICK, beside the picture
+            // of it. Before 2026-08-29 no headless road could answer this for a
+            // match fighter — `CharacterAnimator` needs a render app, and
+            // `BodyPoseView` was gated on a marker a seat never receives — so
+            // the inspector reconstructed the frame cursor from sprite sheets.
+            // Now the PNG and the engine's own animation decision travel
+            // together, and a mismatch between them is visible rather than
+            // arguable.
+            "pose": shot_pose.map(|p| format!("{p:?}")),
+            "clip": shot_clip,
             // ⭐ THE POSTURE OF THE TICK IN THE PICTURE. `prepared` says the
             // exercise ESTABLISHED a posture before the press; this says what the
             // body was doing when the shutter opened, which is the thing a

@@ -761,8 +761,38 @@ compute_fingerprint() {
             # to keep stability across filesystem locations.
             sha256sum "$repo_root/scripts/regen/sprites.sh" \
                 | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
+            # ⛔⛔ THE TOOLCHAIN IS AN INPUT. The same source art renders
+            # DIFFERENTLY, or not at all, depending on whether the native SVG
+            # rasteriser is importable — `resvg-py` is declared in the
+            # renderer's pyproject, and v3 of the player robot is SVG-rigged
+            # where v2 is not. A checkout whose tool venv is missing or points
+            # at another user's Python silently resolves to a bare `python3`
+            # without it.
+            #
+            # ⚠ MEASURED 2026-08-29: all three `tools/*/.venv/pyvenv.cfg` in
+            # this shared checkout name `/home/joncrall/.local/share/uv/...`,
+            # so the venv is real for one user and interpreter-less for anyone
+            # else on the same filesystem. Without this line both produce
+            # artifacts under one fingerprint and each treats the other's as
+            # current.
+            renderer_capability_fingerprint
         }
     ) | sha256sum | awk '{print $1}'
+}
+
+# What the renderer can actually DO on this machine, as a hashable line.
+# Reports the reason rather than a bare boolean so a cache miss is explicable
+# from the fingerprint file alone.
+renderer_capability_fingerprint() {
+    local probe
+    probe="$(run_renderer_python capability-probe -c '
+import importlib.util, sys
+print("python", ".".join(map(str, sys.version_info[:2])))
+for mod in ("resvg_py", "cairosvg", "PIL"):
+    spec = importlib.util.find_spec(mod)
+    print(mod, "present" if spec is not None else "ABSENT")
+' 2>/dev/null || printf 'capability-probe FAILED\n')"
+    printf 'capability %s\n' "$(printf '%s' "$probe" | tr '\n' ';')"
 }
 
 all_outputs_present() {
@@ -858,21 +888,58 @@ unit_key() {
         | sha256sum | awk '{print $1}'
 }
 
-# Fresh iff the stored key matches AND at least one output matching the
-# glob already exists on disk (a hand-deletion re-renders that sheet).
+# The digests of everything this unit published, in the order the glob yields
+# them. Stored beside the key so freshness can ask whether the files on disk are
+# THE ONES THIS CACHE PRODUCED, rather than whether some file is present.
+sheet_output_digests() {
+    local glob="$1"
+    compgen -G "$glob" >/dev/null 2>&1 || return 1
+    # shellcheck disable=SC2086
+    sha256sum $glob 2>/dev/null \
+        | awk -v root="$sprites_dir/" '{sub(root, "", $2); print $1, $2}' \
+        | sort
+}
+
+# Fresh iff the stored key matches AND every published output still hashes to
+# what this cache recorded when it wrote them.
+#
+# ⛔⛔ IT USED TO ASK ONLY WHETHER A FILE EXISTED (`compgen -G "$glob"`), AND
+# THAT IS HOW A CHARACTER SHIPPED WEARING ANOTHER CHARACTER'S ART. On
+# 2026-08-29 `sprites/player_robot_v3_spritesheet.png` was byte-identical to
+# `player_robot_v2`'s — 3.9MB of the wrong robot, published under v3's name. The
+# file existed, so this function said "fresh", so every later run skipped it. It
+# took a hand-run `md5sum` across the whole directory to notice, and the game had
+# been drawing the wrong body for a day.
+#
+# ⭐ THE INPUTS WERE ALREADY CONTENT-ADDRESSED — `compute_fingerprint` hashes
+# the renderer, `leaf_hash` hashes each target's generator. Only the OUTPUTS
+# were taken on trust. A build that hashes what it reads and not what it wrote
+# cannot tell "I made this" from "something is there".
 sheet_cache_fresh() {
-    local unit="$1" key="$2" glob="$3" stored
+    local unit="$1" key="$2" glob="$3" stored stored_key stored_digests now_digests
     [ "$force_regen" -ne 1 ] || return 1
     [ -f "$sheets_cache_dir/$unit" ] || return 1
     stored="$(cat "$sheets_cache_dir/$unit")"
-    [ "$stored" = "$key" ] || return 1
-    compgen -G "$glob" >/dev/null 2>&1 || return 1
+    stored_key="$(printf '%s\n' "$stored" | head -1)"
+    [ "$stored_key" = "$key" ] || return 1
+
+    now_digests="$(sheet_output_digests "$glob")" || return 1
+    stored_digests="$(printf '%s\n' "$stored" | tail -n +2)"
+    # An entry written before outputs were recorded has no digest block. Treat
+    # it as stale rather than trusting it: re-rendering one sheet is cheap and
+    # this is exactly the population that may be carrying the defect above.
+    [ -n "$stored_digests" ] || return 1
+    [ "$stored_digests" = "$now_digests" ] || return 1
     return 0
 }
 
 sheet_cache_store() {
+    local unit="$1" key="$2" glob="${3-}"
     mkdir -p "$sheets_cache_dir"
-    printf '%s\n' "$2" > "$sheets_cache_dir/$1"
+    {
+        printf '%s\n' "$key"
+        [ -n "$glob" ] && sheet_output_digests "$glob"
+    } > "$sheets_cache_dir/$unit"
 }
 
 # Publish registered targets in explicit batches. Registry discovery and YAML
@@ -947,7 +1014,8 @@ publish_cached_batch() {
         -m ambition_sprite2d_renderer publish-many \
         --quiet --dest-root "$sprites_dir" "${stale[@]}"; then
         for target in "${stale[@]}"; do
-            sheet_cache_store "$target" "$(unit_key "$target")"
+            sheet_cache_store "$target" "$(unit_key "$target")" \
+                "$(_target_sheet_glob "$target")"
         done
     else
         echo "  [warn] batch '$label' had one or more publish failures; cache keys were not advanced" >&2

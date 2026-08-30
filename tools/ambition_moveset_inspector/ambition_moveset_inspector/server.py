@@ -355,7 +355,34 @@ def inspector_status() -> dict:
         "renders_dir": str(RENDERS),
         "cached_renders": sorted(p.name for p in RENDERS.glob("*")) if RENDERS.exists() else [],
         "binaries": binaries,
+        # ⛔⛔ WHY THE ENGINE RENDER IS OR IS NOT AVAILABLE, BEFORE ANYBODY ASKS
+        # FOR ONE. `/api/render` answers 503 only after composing the whole game,
+        # which is minutes late and names the renderer whatever went wrong — a
+        # 2026-08-29 review read one such message, concluded this machine had no
+        # Vulkan adapter, and recommended a package that was already installed.
+        # This says what the loader and the ICD directory actually hold.
+        "render_capability": _render_capability(),
     }
+
+
+def _render_capability() -> dict:
+    """The offscreen-render verdict, or why it could not be reached.
+
+    ⛔ FAILURE IS A FIELD, NOT AN EXCEPTION. The Status page is what somebody
+    opens when the render is missing; a doctor that raises takes the page down
+    with it.
+    """
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "render_capability_doctor", REPO / "scripts/render_capability_doctor.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.report()
+    except Exception as error:  # noqa: BLE001 - reported, never raised
+        return {"offscreen_capture": "unknown", "error": str(error)}
 
 
 def _contained(root: Path, relative: str) -> str:

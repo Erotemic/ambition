@@ -239,6 +239,37 @@ character-and-verb per session and caches under `data/renders/<id>/`. Engine
 Takes then draws the engine's own picture with the hitboxes over it, and the
 label beside the scrubber reads `sprites: rendered by the engine`.
 
+## Why the engine render is or is not available, BEFORE anybody asks for one
+
+`/api/status` carries `render_capability`, and the Status page shows it:
+
+```text
+vulkan loader     libvulkan.so.1
+vulkan ICDs       lvp_icd.json, radeon_icd.json, …
+software adapter  lvp_icd.json
+offscreen capture likely
+```
+
+```bash
+python3 scripts/render_capability_doctor.py          # or --json
+```
+
+⛔⛔ **IT EXISTS BECAUSE THE QUESTION WAS ANSWERED WRONG.** `/api/render` returns
+its `503` only after composing the whole game, which is minutes late and blames
+whatever the driver reported. A 2026-08-29 review read one such message,
+concluded this machine had no Vulkan adapter, and recommended installing a
+package that was **already installed** — on a machine where `moveset_render` then
+produced real engine PNGs.
+
+⭐ **LAVAPIPE ALONE IS ENOUGH, AND NO XVFB.** `VisibleRenderMode::OffscreenGpu`
+creates no window and disables winit; it needs an adapter that can render to a
+texture, not a physical GPU and not an X server.
+
+⛔ **IT REPORTS, IT DOES NOT PROVE.** An ICD on disk is necessary and not
+sufficient — a driver can still refuse — so the verdict is `likely`, never
+`available`, and the tool says it created no adapter. An engine render
+succeeding is the authoritative answer.
+
 ⛔ EVERY FAILURE IS A JSON ANSWER. No GPU, no built binary, a driver that will not
 start — the route returns `503 {available: false, reason}` and the viewer falls
 back to the derived sprites, saying `sprites: derived — engine render unavailable

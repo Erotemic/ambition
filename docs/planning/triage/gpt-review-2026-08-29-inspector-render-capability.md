@@ -90,13 +90,19 @@ these depend on its environmental premise.
   before rendering would let `moveset_takes` record the engine's actual animation
   decision with no rasterizer, and delete the duplicated cursor logic.
   ⚠ `docs/inspector.md` already names this as "the bounded piece of work".
-- ▢ **A render-capability doctor**, surfaced on the Status page: backend,
-  adapter, device type (CPU vs discrete), offscreen-capture availability, and —
-  when unavailable — whether the loader is present, whether any ICD is, and the
-  package to install. ⚠ **this VM would have answered the review's question in a
-  second**, which is the whole argument for it. Plus an explicit
-  `auto | hardware | software` adapter request so a CI/agent job's environment
-  does not change when a driver appears or disappears.
+- ▣ **A render-capability doctor — BUILT 2026-08-29.**
+  `scripts/render_capability_doctor.py`, surfaced as `render_capability` on
+  `/api/status`. It reads the loader and the ICD directory, which is what decides
+  whether WGPU has a device behind it, and answers in a second rather than after
+  a whole-game compose. ⛔ **IT REPORTS AND DOES NOT PROVE**: an ICD on disk is
+  necessary and not sufficient, so the verdict is `likely`, never `available`,
+  and it states that it created no adapter — an engine render succeeding is the
+  authoritative answer. Four arms, and they are about what it SAYS rather than
+  this machine's state: loader-without-ICD names the package, ICD-without-loader
+  is a different answer, Lavapipe alone is enough, and a hardware ICD counts.
+  ▢ **STILL OPEN from this row:** an explicit `auto | hardware | software`
+  adapter request, so a CI/agent job's environment does not change when a driver
+  appears or disappears.
 - ▢ **A CPU diagnostic renderer** as an exportable artifact rather than a browser
   canvas — the inspector already implements sprite-sheet crop, body box, combat
   volumes, projectiles in JS, and `ambition_app_tools` already depends on

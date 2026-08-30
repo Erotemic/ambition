@@ -33,7 +33,7 @@ twice independently.
 | 8 | `collect_ecs_pickups` / `collect_world_items` decide by query order | P1 | ▣ landed |
 | 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ▣ landed; three adopters, more to convert |
 | 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ▣ landed |
-| 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ☐ |
+| 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ▣ landed |
 | 12 | Fighter-brain L3 rollout — **measure before changing** | — | ☐ deliberately not a code change |
 
 Rows carried forward from the 2026-08-29 review and NOT re-litigated here: Mary-O
@@ -395,3 +395,52 @@ Poison-verified against the restored `vel != ZERO`: three of six bomb arms go
 red — the falling bomb, the caught bomb, and the re-throw.
 
 monolith 1177/1177, app_it 509/509, 36 of 36 contracts.
+
+
+---
+
+## ▣ 11 — Two stages, two ideas of what `Submerged` means
+
+The continuous sweep took `BodyModeState` and knew a submerged body is not in the
+world. `resolve_axis_repair` — the overlap/penetration stage that runs at the END
+of the same function call — took neither it nor anything equivalent. A body that
+legitimately travelled INTO a block was found overlapping it and pushed straight
+back out, by the second half of the call that had just let it in.
+
+`BodyCollisionPolicy` is that question asked once. The sweep's filter and the
+repair's claim loop both call `policy.passes_through(block)`.
+
+⚠ **CLIMBING HAD THE SAME GAP**, and it is why this is a shared value rather than
+the `if Submerged` in the repair the review warned against. A climbing body
+passes through exactly the blocks its climbable region overlaps, hazards
+excluded; the repair could not tell which those were either. One policy, asked
+the same question by both stages, is what makes "passable" mean one thing.
+
+### ⛔ The measurement that corrected my own first test
+
+The first version of this arm placed the body 24px into a 48px platform and
+**passed under the bug**. Measuring the unfixed repair by depth:
+
+| overlap | unfixed repair | fixed |
+|---------|----------------|-------|
+| 2px  | y 854 → **828** (pushed out) | 854 (stays) |
+| 6px  | 858 (unchanged) | 858 |
+| 12px | 864 (unchanged) | 864 |
+| 24px | 876 (unchanged) | 876 |
+| 40px | 892 (unchanged) | 892 |
+
+The no-pushout-teleport rule (`is_contact_range_snap`) already refuses any claim
+deeper than the body's own half-extent, so a deeply embedded body was being
+deferred anyway. **The defect lives only in contact range** — which is exactly
+where a body travelling just under a surface is, on every tick of the move. An
+arm placed 24px deep proves nothing at all, and mine did not until it was moved
+to 2px.
+
+⭐ The control arm matters as much: the same body at the same place, NOT
+submerged, is still repaired out (854 → 828). Without it, "submerged bodies are
+left alone" reads identically to "penetration repair is broken".
+
+Both arms poison-verified against the restored policy-blind repair: the submerged
+one goes red, the control stays green.
+
+core 533/533, app_it 509/509.

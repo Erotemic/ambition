@@ -365,11 +365,13 @@ fn install_session_with_ownership(
     session: AmbitionGgrsSession,
     ownership: RollbackSessionOwnership,
 ) {
+    // Borrowed for the same reason `enforce_session_contract` borrows: a clone's
+    // memo starts empty, so reading through one leaves the world's registry
+    // permanently uncached and every later frame pays the full hash.
     let schema = world
         .get_resource::<RollbackRegistry>()
-        .cloned()
-        .unwrap_or_default()
-        .schema_fingerprint();
+        .map(RollbackRegistry::schema_fingerprint)
+        .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
     let content = live_content_identity(world);
     world.insert_resource(RollbackSessionContract { content, schema });
     // AC23: an unhealthy timeline hands its reason to the one replacing it. A
@@ -927,11 +929,16 @@ fn enforce_session_contract(world: &mut World) {
         return;
     }
 
+    // ⛔⛔ BORROWED, NOT CLONED. `RollbackRegistry`'s hand-written `Clone` starts
+    // the memo `OnceLock` EMPTY on purpose, so `.cloned()` here handed
+    // `schema_fingerprint()` a registry that could never be memoised: this frame
+    // paid a ~450-entry BTreeMap clone AND rebuilt+hashed the whole ~40KB schema
+    // dump, every frame, which is the 292us the memo was added to remove. The
+    // cache only pays off on the resource that actually lives in the world.
     let current_schema = world
         .get_resource::<RollbackRegistry>()
-        .cloned()
-        .unwrap_or_default()
-        .schema_fingerprint();
+        .map(RollbackRegistry::schema_fingerprint)
+        .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
     let current_content = live_content_identity(world);
 
     let Some(contract) = world.get_resource::<RollbackSessionContract>().cloned() else {
@@ -995,6 +1002,81 @@ fn live_content_identity(world: &mut World) -> Option<PreparedContentIdentity> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn schema_entry(name: &str) -> crate::RollbackRegistrationDescriptor {
+        crate::RollbackRegistrationDescriptor {
+            name: name.to_owned(),
+            owner: "test".to_owned(),
+            kind: crate::RollbackEntryKind::Derived,
+            type_name: format!("test::{name}"),
+            detail: String::new(),
+        }
+    }
+
+    /// ⭐⭐ THE PER-FRAME SCHEMA HASH MUST BE THE MEMOISED ONE.
+    ///
+    /// `schema_fingerprint` was memoised because rebuilding the ~40KB schema dump
+    /// and blake3ing it cost 292us of EVERY frame. The memo then did nothing,
+    /// because this system read it through `.cloned()` — and `RollbackRegistry`'s
+    /// hand-written `Clone` starts the `OnceLock` empty on purpose. Every value
+    /// assertion still passed; the trace still showed the cost.
+    ///
+    /// ⛔ SO THIS TEST ASKS THE WORLD'S OWN REGISTRY, NOT THE VALUE. A test that
+    /// compares fingerprints across frames is exactly the test that agreed with
+    /// the bug: the recomputed value is correct, it is just recomputed.
+    #[test]
+    fn the_session_contract_hashes_the_schema_once_per_registry_not_once_per_frame() {
+        let mut world = World::new();
+        let mut registry = RollbackRegistry::default();
+        for name in ["alpha", "beta", "gamma"] {
+            registry
+                .try_register(schema_entry(name))
+                .expect("fixture registration");
+        }
+        assert!(
+            !registry.fingerprint_is_memoised(),
+            "the fixture must start uncached, or this proves nothing"
+        );
+        world.insert_resource(registry);
+
+        start_sync_test_session(&mut world, SyncTestSettings::for_players(1))
+            .expect("session starts");
+
+        // ⛔⛔ RE-ARM THE INSTRUMENT. Installing the session reads the fingerprint
+        // too, so by here the memo is already populated and "is it cached?" can
+        // no longer tell us who cached it. A `clone()` is precisely "same entries,
+        // empty memo" — swap it in, and from this point ONLY the per-frame system
+        // can populate it, and only by reading the world's registry directly.
+        let uncached = world.resource::<RollbackRegistry>().clone();
+        assert!(
+            !uncached.fingerprint_is_memoised(),
+            "a clone must start uncached, or this test observes nothing"
+        );
+        world.insert_resource(uncached);
+
+        for _ in 0..8 {
+            enforce_session_contract(&mut world);
+        }
+
+        assert!(
+            world
+                .resource::<RollbackRegistry>()
+                .fingerprint_is_memoised(),
+            "the world's registry never cached its schema fingerprint, so every \
+             frame rebuilt and re-hashed the whole schema dump — the memo is \
+             being read through a clone again"
+        );
+        assert!(
+            world.contains_resource::<AmbitionGgrsSession>(),
+            "the contract check must not have invalidated the session it was \
+             asked to police"
+        );
+        assert_eq!(
+            world.resource::<RollbackSessionStatus>().invalidation,
+            None,
+            "a stable registry must produce a stable schema across frames"
+        );
+    }
 
     /// One call reaches whichever seam the host actually reads.
     ///

@@ -408,6 +408,18 @@ impl RollbackRegistry {
         computed
     }
 
+    /// HAS THIS REGISTRY ALREADY COMPUTED ITS FINGERPRINT?
+    ///
+    /// ⭐ THE INSTRUMENT THAT CATCHES A DEFEATED MEMO. The memo is per-instance
+    /// and a clone starts empty, so a hot-path caller that reads the fingerprint
+    /// off a CLONE recomputes it every single time while every value-based test
+    /// still passes. Asking the world's own registry whether it is memoised is
+    /// the one question that separates "the cache exists" from "the cache is the
+    /// thing being read". Callers outside a test have no reason for it.
+    pub fn fingerprint_is_memoised(&self) -> bool {
+        self.fingerprint.get().is_some()
+    }
+
     fn compute_schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"ambition.ggrs-rollback-schema\0");

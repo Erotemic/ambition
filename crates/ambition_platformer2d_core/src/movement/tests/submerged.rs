@@ -86,3 +86,58 @@ fn a_submerged_body_travels_along_its_surface_and_stops_at_the_ledge() {
         inward.kinematics.pos.x,
     );
 }
+
+/// ⭐⭐ ONE TICK IS ONE STEP, AND THE MOVEMENT SPINE IS THE ONLY PLACE THAT
+/// MOVES A BODY.
+///
+/// ⛔⛔ `integrate_submerged_clusters` WROTE BOTH `vel` AND `pos`, and the shared
+/// sweep below it then advanced by that same velocity — so every submerged tick
+/// travelled TWICE. Measured before the fix: **10.8px against an authored 5.4 at
+/// 60Hz, ratio exactly 2.00**.
+///
+/// ⛔ AND THE SPEED IS THE SMALLER HALF. `stays_over_its_surface` validates ONE
+/// prospective step; the sweep added a second, equal step nobody asked about, so
+/// a body approved for a supported step landed a step further on — past the lip
+/// the ledge rule exists to refuse. The neighbouring ledge test could not see
+/// it: it asserts WHERE she stops, and she stops at the lip either way.
+///
+/// ⭐ THE SECOND ASSERTION IS THE CONTRACT, NOT THE NUMBER. `pos` moved by
+/// exactly `vel * dt` says "one displacement authority" in a form that catches
+/// the next mode to write a position, whatever its authored speed is.
+#[test]
+fn a_submerged_tick_travels_exactly_the_step_it_authored() {
+    let world = platform_with_a_right_ledge();
+    // Mid-platform, so the surface rule approves the step and the measurement is
+    // about integration rather than about the ledge.
+    let mut body = submerged_at(Vec2::new(300.0, world.spawn.y));
+    let before = body.kinematics.pos;
+
+    let _ = step_scratch(&world, &mut body, stick(1.0));
+
+    let moved = body.kinematics.pos.x - before.x;
+    let authored = TEST_TUNING.base.max_run_speed * super::super::integration::SUBMERGED_SPEED_FRAC / 60.0;
+    assert!(
+        (moved - authored).abs() < 0.01,
+        "one submerged tick moved {moved}px against an authored {authored}px \
+         ({:.2}x) — some layer other than the movement spine is advancing the \
+         position as well",
+        moved / authored,
+    );
+
+    // ⛔ NON-VACUITY: a mode that refused to move would satisfy nothing above
+    // if `authored` were also zero, and would satisfy the ratio test trivially.
+    assert!(
+        authored > 1.0,
+        "the fixture authors a {authored}px step, which is too small to tell a \
+         double integration from rounding"
+    );
+
+    assert!(
+        (moved - body.kinematics.vel.x / 60.0).abs() < 0.01,
+        "the body moved {moved}px while publishing {} px/s = {}px of travel — a \
+         position written outside the sweep makes those two disagree, and the \
+         swept sample every consumer reads is the second one",
+        body.kinematics.vel.x,
+        body.kinematics.vel.x / 60.0,
+    );
+}

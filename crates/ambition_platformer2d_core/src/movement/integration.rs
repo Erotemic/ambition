@@ -1079,19 +1079,28 @@ pub(super) fn integrate_submerged_clusters(
     let step = world_stick * speed * dt;
     // ⛔⛔ AND THE STEP IS REFUSED IF IT LEAVES THE SURFACE. Written here rather
     // than in the sweep below because a submerged body is passable against
-    // every block in the world, so the sweep has nothing to stop it with — and
-    // because this is where the position is actually set.
+    // every block in the world, so the sweep has nothing to stop it with.
     let step = if stays_over_its_surface(world, kinematics, step, frame.down()) {
         step
     } else {
         Vec2::ZERO
     };
-    // ⛔ THE VELOCITY IS ZEROED WITH THE STEP, not merely left unapplied. It is
-    // what the sweep re-applies, what the swept sample publishes and what
-    // survives into the tick she surfaces on; a body that refused to move and
-    // still reported 245 px/s would come out of the boards sprinting.
+    // ⛔⛔ VELOCITY ONLY — THIS MODE IS NOT A POSITION AUTHORITY. It wrote
+    // `pos += step` as well, and the shared sweep below then advanced by the
+    // very velocity written here, so every submerged tick moved TWICE: measured
+    // 10.8px against an authored 5.4 at 60Hz, exactly 2.00x.
+    //
+    // ⛔ AND THE DOUBLE STEP DEFEATED THE LEDGE RULE ABOVE, which is the part
+    // that is not merely a speed bug. `stays_over_its_surface` validates ONE
+    // prospective step; the sweep then added a second, equal step that nothing
+    // asked about, so a body could be approved for a supported step and land a
+    // step further on, past the lip the rule exists to refuse.
+    //
+    // ⭐ THE VELOCITY IS ZEROED WITH THE STEP, not merely left unapplied: it is
+    // what the swept sample publishes and what survives into the tick she
+    // surfaces on, and a body that refused to move while still reporting
+    // 245 px/s would come out of the boards sprinting.
     kinematics.vel = step / dt.max(f32::EPSILON);
-    kinematics.pos += step;
 }
 
 /// Refuse a submerged step that would leave the surface the body is under.
@@ -1164,7 +1173,7 @@ const SUBMERGED_GROUND_PROBE: f32 = 8.0;
 /// quicker; the number is here to make the trip worth taking while the move is
 /// being judged, and it is the first knob to turn when it turns out to be too
 /// good. The earlier 0.82 was the opposite instinct and was mine, not authored.
-const SUBMERGED_SPEED_FRAC: f32 = 1.2;
+pub(super) const SUBMERGED_SPEED_FRAC: f32 = 1.2;
 
 /// How hard the swing is damped, per second of angular velocity.
 ///

@@ -97,6 +97,7 @@ mod portal_translation_camera_continuity;
 mod possession_end_to_end;
 mod presentation_ui_lifecycle;
 mod projectile_portal_transit;
+mod projectile_speed_stays_under_the_swept_threshold;
 mod quality_change_keeps_each_character;
 mod registered_character_art_resolves;
 mod rendered_identities_are_registered;

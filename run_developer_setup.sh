@@ -498,12 +498,39 @@ print(f"{sys.version_info.major}.{sys.version_info.minor}")
 PY
 }
 
+# ⛔⛔ A VENV IS MACHINE STATE AND THIS CHECKOUT CAN BE SHARED. `pyvenv.cfg`
+# records an absolute interpreter path in one user's home, so a `.venv` inside a
+# tree two users mount over virtiofs is real for exactly one of them. The other
+# falls through to a bare `python3` without the tool's dependencies — and on
+# 2026-08-29 the sprite pipeline then published a character wearing another
+# character's art and reported success.
+#
+# ⭐ The same shape as `scripts/setup/target_bindmount.sh`, which exists because
+# `target/` is machine state in a shared tree. `tool_python.sh` resolves this
+# store BEFORE any in-repo `.venv`, so both users get their own and neither sees
+# the other's.
+#
+# ⚠ In-repo `.venv` directories are still honoured for checkouts that predate
+# this, and `AMBITION_TOOL_VENVS` moves the store.
+# The ONE place that knows how a tool's interpreter is resolved. Sourced rather
+# than reimplemented so setup, the regen scripts and the game all agree.
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
+
+ambition_tool_venv_dir() {
+    local project="$1"
+    printf '%s/%s\n' \
+        "${AMBITION_TOOL_VENVS:-${XDG_CACHE_HOME:-$HOME/.cache}/ambition-tool-venvs}" \
+        "$(basename -- "$project")"
+}
+
 ensure_tool_venv() {
     local project="$1"
     local requested_python="$2"
-    local venv_dir="$project/.venv"
-    # ".venv" for the repo root, "tools/<name>/.venv" for a tool project.
-    local label="${venv_dir#"$repo_root"/}"
+    local venv_dir
+    venv_dir="$(ambition_tool_venv_dir "$project")"
+    mkdir -p "$(dirname -- "$venv_dir")"
+    local label="${venv_dir/#$HOME/~}"
 
     if [ -x "$venv_dir/bin/python" ]; then
         local current_python
@@ -535,15 +562,17 @@ install_tool_project() {
     [ -f "$project/pyproject.toml" ] || fatal "missing $relative_project/pyproject.toml"
 
     ensure_tool_venv "$project" "$requested_python"
-    log "installing $relative_project into its own .venv"
+    local venv_python
+    venv_python="$(ambition_tool_venv_dir "$project")/bin/python"
+    log "installing $relative_project into ${venv_python/#$HOME/~}"
     (
         cd "$project"
-        uv pip install --python "$project/.venv/bin/python" -e "$editable_target"
+        uv pip install --python "$venv_python" -e "$editable_target"
         if [ -d "$project/tests" ]; then
-            uv pip install --python "$project/.venv/bin/python" pytest
+            uv pip install --python "$venv_python" pytest
         fi
     )
-    "$project/.venv/bin/python" -c "import $import_name" \
+    "$venv_python" -c "import $import_name" \
         || fatal "$relative_project installed but '$import_name' is not importable"
 }
 
@@ -562,11 +591,16 @@ verify_tool_environments() {
     local relative_project import_name project python_bin
     while read -r relative_project import_name; do
         project="$repo_root/$relative_project"
-        python_bin="$project/.venv/bin/python"
-        [ -x "$python_bin" ] \
-            || fatal "missing $relative_project/.venv; rerun without --skip-python"
+        # ⚠ Ask `tool_python.sh`, do not reconstruct the path: it is the ONE
+        # place that knows the resolution order (per-machine store, then an
+        # in-repo `.venv` for checkouts that predate the store). A verifier with
+        # its own idea of where the interpreter lives will fail a machine that
+        # is actually fine.
+        python_bin="$(ambition_select_tool_python "$project" "" 0)"
+        ambition_python_exists "$python_bin" \
+            || fatal "no interpreter for $relative_project; rerun without --skip-python"
         "$python_bin" -c "import $import_name" >/dev/null 2>&1 \
-            || fatal "$import_name is not importable from $relative_project/.venv; rerun without --skip-python"
+            || fatal "$import_name is not importable from $python_bin; rerun without --skip-python"
     done < <(tool_projects)
 }
 

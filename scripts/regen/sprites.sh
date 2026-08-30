@@ -128,10 +128,16 @@ check_toolchain() {
     if [ -f "$cfg" ]; then
         home="$(sed -n 's/^home = //p' "$cfg" | head -1)"
         if [ -n "$home" ] && [ ! -d "$home" ]; then
-            if [ -n "${AMBITION_SPRITE_PYTHON:-}" ]; then
+            # ⭐ THE QUESTION IS WHETHER THIS BROKEN VENV IS THE ONE IN USE, not
+            # whether some particular env var was set. `tool_python.sh` resolves
+            # a per-machine store BEFORE the in-repo `.venv`, so a second user
+            # on a shared checkout gets a working interpreter with no env var at
+            # all — and reporting "not usable" then would send them to fix
+            # something they had already stopped depending on.
+            if [ "$python_bin" != "$renderer_dir/.venv/bin/python" ]; then
                 printf '  venv    : ⚠ %s/.venv is another user'"'"'s (%s)\n' \
                     "tools/ambition_sprite2d_renderer" "$home"
-                printf '            ignored — AMBITION_SPRITE_PYTHON supplies this machine'"'"'s own\n'
+                printf '            ignored — this machine resolves its own interpreter above\n'
             else
                 printf '  venv    : ⛔ %s/.venv points at %s, which does not exist here\n' \
                     "tools/ambition_sprite2d_renderer" "$home"

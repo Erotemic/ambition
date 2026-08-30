@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `HEAD` (see `git log -1`) (2026-08-28 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-29 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -20,7 +20,85 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — where this session left off
+## 2026-08-29, LATEST — the measured performance day, and a hygiene sweep after it
+
+⛔⛔ **300 COMMITS LANDED ON 2026-08-29, AND THE SECTION BELOW THIS ONE WAS THE
+"LATEST" MARKER FOR ALL OF THEM.** That is the failure mode this page's own header
+warns about, so the correction is worth one line: **a cold-start map that names a
+date is only true until the next session, and updating it is part of finishing.**
+
+⭐ **THE DAY'S SHAPE: the performance campaign replaced several plausible theories
+with measurements, and two of the answers were "no".**
+
+1. **Weak GPU — the big win, and it was RESOLUTION.** A 1600×900 window under a 2×
+   Wayland scale was rendering a **3200×1800** framebuffer. Combined raster-quality
+   changes moved the laptop from **p50 51.0ms → 18.5ms, p95 82.7 → 30.3** (~19.6
+   FPS to ~54). ⚠ still to separate: DPI/render-scale contribution vs MSAA, and
+   the suspected transparent overdraw.
+2. **Desktop hitching — it is ASSET PREPARATION, not the engine.** Worst in-play
+   frame **516.3ms → 78.4ms** on an RTX 3090. ⛔ **THREE THINGS THAT ARE NOT WHAT
+   THEY LOOK LIKE** are recorded on D258 and worth re-reading before touching it:
+   the 516ms was the CHARACTER GALLERY (match entry was **162ms**), the spike RATE
+   did not move (magnitude did), and the hitch is EXTRACT rather than decode.
+3. ⛔ **CAPABILITY REMOVAL IS NOT A FRAME-TIME LEVER — MEASURED.** Removing four
+   whole experiences from a Smash match changed the frame by nothing outside
+   noise. The runtime is BROAD: hundreds of systems, microseconds each. Capability
+   composition keeps its startup, ownership and isolation case; it has lost its
+   frame-time case. Same for **generic change-driven projection**, closed the same
+   day — see `engine/runtime-efficiency-architecture.md` §3, whose execution-order
+   list disagreed with its own §3 until 2026-08-29 evening.
+
+⛔⛔ **THE DEFAULT TEST LANE HAS BEEN RED FOR WEEKS, so its exit code carries no
+information** — `workspace (default features)` failed 29 of 79 recorded runs and
+the last 8 consecutively. A feature-combination sweep then found five shippable
+configurations broken and invisible to the gate. ⇒ "arm the feature checks" and
+"make that job green" are ONE task, and it is the cheapest high-value row open.
+
+▢ **D258's three open items are all DECISIONS with a number attached**: raise the
+three `opt-level = 0` pins (dev build is 42% slower than it needs to be; the pins
+buy 1–2% of an edit-rebuild) · the residency/eviction call · arm the feature
+checks (~6 min).
+
+### The hygiene sweep that closed the day (2026-08-29 evening)
+
+⭐ **INTEGRATION HYGIENE HAD STARTED TRAILING THE RATE OF CHANGE**, which a review
+named better than a list of bugs would: *locally sensible work failing to propagate
+all the way through the repository.* Five instances, all fixed, all now guarded:
+
+- ⛔⛔ **`deploy_to_steamdeck.sh` BUILT ONE BINARY AND SHIPPED ANOTHER.** It built
+  `ambition_game_bin` and rsync'd, launched and verified
+  `ambition_platformer2d_actor_monolith` — a name that stopped being an executable
+  when that crate became a library. A clean tree fails at rsync; a stale `target/`
+  deploys an obsolete executable. One `$BIN`, a post-build `test -x`, and
+  `scripts/tests/test_deploy_ships_what_it_builds.py`. It also now sets
+  `CARGO_INCREMENTAL=0` like every other optimized build.
+- ⛔⛔ **THE ROLLBACK FINGERPRINT MEMO NEVER ENGAGED.** `enforce_session_contract`
+  read it through `.cloned()`, and `Clone` empties the `OnceLock` by design, so the
+  ~450-entry clone + 40KB dump + blake3 still ran EVERY frame. **162.45us → 1ns per
+  call** measured locally. ⛔ every existing guard was a VALUE assertion and the
+  recomputed value is correct — the new guard asks the world's own registry whether
+  it is memoised.
+- **The script relocation crossed a submodule boundary.** `regen_sprites.sh` became
+  `scripts/regen/sprites.sh`; the parent's callers moved and the sprite renderer's
+  did not (4 tests red, plus README/AGENTS/codegen strings). Both renderer
+  submodules updated; the roster path now lives in ONE fixture that skips honestly
+  on a standalone clone.
+- **`sync_status.sh` promised an exit code it does not return** (0/1/2, not a
+  count) and truncated any worktree path containing a space — reporting **"✔
+  everything is committed"** about a directory it never opened. Both fixed, three
+  tests added.
+- **Two documents carried arithmetic that could not both be right.** The monolith
+  dependency count is now stated with its counting rule: **28 manifest lines, 27
+  resolved direct, 34 closure** (`ambition_causal` is optional — that is the entire
+  gap), and the `ambition_dialog` removal was resolved-direct 28→27 / manifest
+  29→28.
+
+⚠ **WHAT THIS SWEEP DID NOT DO:** re-take the hardware trace. The 226.9us
+`enforce_session_contract` row in the perf doc is now known to be measuring the
+defect, so it is a mechanism claim with a micro-measurement behind it until a run
+says otherwise.
+
+## 2026-08-28 — where the previous session left off
 
 ⭐ **Tree clean, `main` pushed, submodule at `53dbceb`.** App suite 500/500,
 smash 39/39, 35/35 absence contracts, renderer suite 692 green, dev-tools 14/14.
@@ -136,8 +214,10 @@ Monologue's doc names a helper it does not call, and the wire asked for
 explain why it was not a duplicate*.
 
 ⚠ **MOST THIN DEPENDENCY EDGES CANNOT SHRINK THE FOOTPRINT.** Removing
-`ambition_dialog` from the monolith took declared edges 28 → 27 and left the
-closure at 34, because `ambition_conversation` brings it. **Ask
+`ambition_dialog` from the monolith took resolved direct edges 28 → 27 (manifest
+lines 29 → 28 — `ambition_causal` is optional, which is the whole gap between
+those two numbers) and left the closure at 34, because `ambition_conversation`
+brings it. **Ask
 `cargo tree -i <dep>` first**; only four crates reach the monolith by one path
 (`dev_tools`, `mount`, `items`, `damage`) and the weights are in
 [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).

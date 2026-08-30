@@ -276,21 +276,30 @@ a campaign:
 
 ## The order to execute in
 
-1. **runtime capability activation and composition** — ⛔ RE-SCOPED TWICE AND NOW
+1. **render-view and residency ownership** — the only one of the three with a
+   USER-VISIBLE cost measured behind it: synchronous large sprite-sheet
+   materialization, and a framebuffer whose size nobody owned. Both were found by
+   measurement rather than argued for;
+2. **runtime capability activation and composition** — ⛔ RE-SCOPED TWICE AND NOW
    MEASURED: removing four whole experiences from a Smash match changed the frame
    by nothing outside noise. Pursue it for composition clarity, cost ownership and
    STARTUP (plugin build scales with registered systems, and startup is what a
    phone player feels). ⛔ Do not pursue it for frame time;
-2. **change-driven projection architecture** — the one with measured per-frame
-   cost behind it today;
-3. **render-view and residency ownership**.
+3. ~~change-driven projection architecture~~ — ⛔⛔ **CLOSED 2026-08-29 AS A
+   PERFORMANCE DIRECTION**, see §3 above. It sat at position 2 here as "the one
+   with measured per-frame cost behind it today" for as long as it took to
+   re-measure the four candidates: one already had the gate and the other three
+   are bounded by phases totalling ~0.14ms. Left in the list rather than deleted
+   so the next reader can see it was ANSWERED, not forgotten.
 
-Those three address what has actually been observed and lay the foundation for
+⭐ **THIS ORDERING IS A MEASUREMENT, AND IT MOVED ONCE ALREADY.** The list above
+used to rank change-driven projection second on a 31.8us/frame figure that turned
+out to be stale, with a trailing note arguing it might deserve first place — while
+§3 of this same document had already closed it. A conclusion recorded in two
+places goes stale in one of them; when they disagree, the section that carries the
+measurement wins and the ordering here gets rewritten, not annotated.
+
+The live items address what has actually been observed and lay the foundation for
 the later bulk-instance and streaming work. Done well, the engine stops
 behaving like a giant Bevy app containing every game, and starts behaving like a
 runtime whose work follows the game being played.
-
-⚠ On the evidence available on 2026-08-29, item 2 has more measured per-frame
-cost behind it than item 1 does. The ordering above is the review's; the
-measurement suggests 2 may deserve to go first, and whoever picks this up should
-settle that with a measurement rather than by preference.

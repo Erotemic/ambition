@@ -78,7 +78,7 @@ frames was.** Two windowed RTX 3090 runs bracket the work.
 | `bevy_egui pass output has not been prepared` | 28,353 | **0** |
 | `SheetRegistry: loaded 870 sheets` | startup **+ a punch at 23.9s** | both at startup |
 | `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` | 312.8us / 8.87s | **80.1us / 0.94s** |
-| `enforce_session_contract` | 292.3us | 226.9us |
+| `enforce_session_contract` | 292.3us | 226.9us ⛔ still paying — see below |
 | profile bundle size | 28G | **642M** |
 
 ⛔ **READ THESE CAVEATS OR MISREAD THE TABLE.** The spike RATE is UNCHANGED
@@ -2528,6 +2528,41 @@ makes `registering_after_reading_the_fingerprint_changes_it` fail with *"the mem
 is stale"*; `a_clone_agrees_with_its_source_and_still_notices_its_own_changes`
 covers the clone. 56/56 rollback tests, 45 runtime tests, gate clean.
 
+⛔⛔ **AND THE MEMO NEVER ENGAGED ON THE HOT PATH — CORRECTED 2026-08-29 (evening).**
+Fix 3 was landed and fix 1 was NOT, and fix 1 turns out to be the one that
+matters. `Clone` starts the `OnceLock` empty *on purpose*, so
+`.cloned().unwrap_or_default().schema_fingerprint()` handed the memo a registry
+that could never be cached: every frame still deep-cloned ~450 descriptors, built
+the ~40KB dump and blake3'd it. That is why the follow-up trace still shows
+**226.9us**, and why nobody caught it — **every guard in this section is a VALUE
+assertion, and the recomputed value is CORRECT.** It is merely recomputed.
+
+⭐ **Measured directly, `aivm-2404` (i9-11900K), release, 467-entry registry read
+from `rollback_schema_baseline.txt`, 2000 iterations each:**
+
+| path | per call |
+|---|---:|
+| `registry.clone().schema_fingerprint()` — what shipped | **162.45us** |
+| `registry.schema_fingerprint()` on the world's own resource | **1ns** |
+
+⇒ different silicon from the 3090 trace, so the 226.9us does not map onto 162.45us
+directly; the RATIO is the transferable part, and the zone goes to free. Both call
+sites now borrow (`enforce_session_contract` and `install_session_with_ownership`).
+
+⚠ **THE NEW GUARD ASKS A DIFFERENT QUESTION**, because a value assertion cannot
+see this class of defect at all:
+`the_session_contract_hashes_the_schema_once_per_registry_not_once_per_frame`
+runs the system eight times and then asks the WORLD'S OWN registry whether it is
+memoised — via `RollbackRegistry::fingerprint_is_memoised()`. It re-arms the
+instrument first (installing the session also reads the fingerprint, so it swaps
+in a `clone()`, which is by definition "same entries, empty memo") so only the
+per-frame system can populate it. Restoring the `.cloned()` fails it.
+
+▢ **OPEN: the trace has not been re-taken.** The 226.9us row above is now known to
+be measuring a defect, so the next hardware run should show this zone effectively
+gone. Until then this is a mechanism claim with a micro-measurement behind it, not
+a trace.
+
 ⭐ **ALSO SEEN IN THE SAME SWEEP, AND IT IS THE LARGEST RECURRING SYSTEM OF ALL:**
 `update_action_state<Platformer2dInputActionMonolith>` totals **10.11s** — more
 than the hit-flash material (8.87s) or the session contract (8.29s) — at 178.3us
@@ -2589,7 +2624,7 @@ is not:**
 | `bevy_egui pass output has not been prepared` | **28,353** | **0** |
 | `SheetRegistry: loaded 870 sheets` | 2 — startup **and a punch at 23.9s** | 2 — **both at startup** (3.771s warm, 3.774s init) |
 | `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` | 312.8us mean / 8.87s | **80.1us / 0.94s** |
-| `enforce_session_contract` | 292.3us mean | **226.9us** |
+| `enforce_session_contract` | 292.3us mean | 226.9us ⛔ the memo was read through a `.cloned()`; fixed later the same day, not yet re-traced |
 | bundle size | 28G | **642M** (pruner removed 10.8GB) |
 
 ⭐⭐⭐ **AND THE SPIKES DURING PLAY, WHICH IS THE POINT.** Excluding boot (>10s), the

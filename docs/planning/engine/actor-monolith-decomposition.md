@@ -35,12 +35,25 @@ A 2026-08-18 review said the monolith *"still has approximately 30 direct
 internal Ambition dependencies, essentially unchanged"* and that **the next
 payoff comes from carves that remove a dependency edge, not files**. Right, and
 the number it quotes is a PROXY: it counts `Cargo.toml` lines, which include
-optional and dev edges. The default resolved graph is **28 direct, 34 in the full
-closure** (`cargo tree -p … --edges normal`).
+optional and dev edges.
+
+⛔ **THREE DIFFERENT NUMBERS ARE ALL "THE DEPENDENCY COUNT", so every one below
+names its rule.** Re-measured 2026-08-29 at HEAD:
+
+| what is counted | how | today |
+|---|---|---:|
+| `ambition_*` lines in `[dependencies]` | reading the manifest | **28** |
+| direct edges in the DEFAULT resolved graph | `cargo tree --edges normal --depth 1` | **27** |
+| the full default closure | `cargo tree --edges normal` | **34** |
+
+The manifest is one higher than the resolved graph because `ambition_causal` is
+`optional = true` and off by default. A review that reads the manifest and a note
+that quotes the resolved graph will disagree by exactly that, and did.
 
 ⛔⛔ **AND MOST THIN EDGES CANNOT MOVE THE CLOSURE, because another path already
-supplies them.** Removing `ambition_dialog` (2026-08-28, below) took the DECLARED
-edge from 28 to 27 and left the closure at 34 — `ambition_conversation` brings it.
+supplies them.** Removing `ambition_dialog` (2026-08-28, below) took the resolved
+direct edges from 28 to 27 — the manifest lines went 29 to 28 — and left the
+closure at 34, because `ambition_conversation` brings it.
 ⇒ **before carving for footprint, ask `cargo tree -i <dep>`**; if it lists a
 second path, the carve buys edit-surface and not a linked crate.
 
@@ -1295,7 +1308,7 @@ Record these measurements after meaningful waves, not after every tiny edit:
 | Measure | 2026-08-07 baseline | Direction |
 |---|---:|---|
 | Actor `src/**/*.rs` lines | 110,911 | down substantially |
-| Normal internal `ambition_*` dependencies | 28 | down |
+| Normal internal `ambition_*` dependencies (resolved direct, default features) | 28 | down — **27** at 2026-08-29 |
 | Unwanted movement-only capability crates inherited through actors | 15 | toward 0 |
 | Actor-monolith builds in the measured full-suite workflow | 16 | suite target remains <=2; carves also reduce cost per build |
 | Root modules | 42 | descriptive only; do not optimize this count directly |

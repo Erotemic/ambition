@@ -839,7 +839,25 @@ then the portal/boomerang vector mismatch.
 ⚠ GPT's closing note, and it is the one that matters for how the inspector is USED: opponent-output contamination + ranged moves reported as zero-damage melee + sweet/sour summed as multihit + nulls entering comparison statistics together mean several of its apparently quantitative conclusions can be wrong for STRUCTURAL reasons rather than balance ones. Fix those before tuning against its numbers.
 
 
-### The boomerang's FIRST-HIT expiry — scoped 2026-08-27, not yet built
+### ▣ FIXED 2026-08-27 (`f4910156a`) — the boomerang's FIRST-HIT expiry
+
+⛔⛔ **THIS HEADING SAID "not yet built" UNTIL 2026-08-29 AND THE MECHANIC HAD
+SHIPPED THE SAME DAY IT WAS SCOPED.** A 2026-08-29 external review read this
+section and reported the defect as live, which is what a stale ▢ costs: the
+scoping text below is exactly right, and every word of it was IMPLEMENTED. ⇒ when
+the fix lands in the commit after the scope, the heading is part of the fix.
+
+⭐ **WHAT SHIPPED, and it is the split the scope asked for:**
+`ProjectileGameplay::leg(vel)` is DERIVED from the sign of `vel · accel`, so it
+cannot disagree with the trajectory. `ProjectileHits` is the STORED per-victim
+ledger, authoritative rollback state, registered through the same registrar path
+as `HitboxHits` (`rollback_component_clone_entity_set` + `rollback_map_entities`)
+because a resimulated frame that lost it re-hits everybody the shot passed
+through. Pinned by `game/ambition_app/tests/boomerang_hits_both_legs.rs`.
+⚠ measured with the despawn simply removed and no ledger: **165 damage from a
+3-damage shot**, 3 per tick — the machine-gun the scope predicted.
+
+#### The original scope, kept because it is the reasoning behind the design
 
 ⛔ THE REMAINING HALF, and it is a MECHANIC, not a patch. A projectile currently
 ends by DESPAWNING on its first body hit (three sites in

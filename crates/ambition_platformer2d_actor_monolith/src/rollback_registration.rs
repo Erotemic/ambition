@@ -296,6 +296,20 @@ where
     // component with a stale speed would be invisible: the item is settled on
     // both peers and the bomb goes off on one. `rollback_exit_oracle` is what
     // said so, on the run after the field was added.
+    // ⛔⛔ IT DECIDES WHETHER AN OBJECT IN THE WORLD IS GOING TO EXPLODE, and it
+    // lives on a `GroundItem`, which is already an anchor. A rewind that lost it
+    // disarms a live bomb; a rewind that restored it onto a caught bomb re-arms
+    // one in a hand. It replaced a velocity heuristic that WAS rollback state by
+    // accident (`GroundItem` carries `vel`), so this is the same coverage moved
+    // to the fact that actually decides.
+    registrar.rollback_component_clone_probed::<crate::items::pickup::ReleasedAs>(
+        OWNER,
+        "item.released_as",
+        |released| match released.0 {
+            crate::items::pickup::Release::Throw => 1,
+            crate::items::pickup::Release::Drop => 2,
+        },
+    );
     registrar.rollback_component_clone_probed::<crate::items::pickup::SettledItem>(
         OWNER,
         "item.settled_item",

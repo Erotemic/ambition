@@ -203,6 +203,7 @@
     "item.item_custody",
     "item.motion",
     "item.pickup_magnet",
+    "item.released_as",
     "item.settled_item",
     "item.world_item",
     "lifecycle.player_visual",

@@ -52,6 +52,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔ v136: `marker.posed_body` — the opt-in that publishes a body's pose read
 /// model (which row, which clip, which frame). A construction-time marker on a
 /// simulated body, so a rewind that dropped it would stop publishing mid-match.
+/// ⛔ v138: `item.released_as` — the throw/drop decision made durable, so the
+/// bomb and grenade fuses stop inferring "somebody threw this" from a nonzero
+/// velocity. It decides whether an object in the world is going to explode and
+/// lives on a `GroundItem`, which is already an anchor.
 /// ⛔⛔ v137: THE ANCHOR IS A SEPARATE FACT FROM THE CODEC, and five dynamic
 /// archetypes were missing one or the other. `portal.shot` and
 /// `encounter.falling_hazard` had a codec and NO anchor — the registry listed
@@ -71,7 +75,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// One index decides which prop the arena rebuilds, and a presence-only probe
 /// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
 /// it on the sim schedule, so a resimulation can move it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 137;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 138;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -32,7 +32,7 @@ twice independently.
 | 7 | `portal_fire_system` keeps only the LAST intent per tick | P1 | ▣ landed |
 | 8 | `collect_ecs_pickups` / `collect_world_items` decide by query order | P1 | ▣ landed |
 | 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ▣ landed; three adopters, more to convert |
-| 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ☐ |
+| 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ▣ landed |
 | 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ☐ |
 | 12 | Fighter-brain L3 rollout — **measure before changing** | — | ☐ deliberately not a code change |
 
@@ -332,3 +332,66 @@ population arm, and a conversion with no test that can fail is worth nothing.
 `sim_selection` is the place they go.
 
 monolith 1172/1172, tangle 242/242, app_it 509/509.
+
+
+---
+
+## ▣ 10 — A velocity does not know who moved it
+
+`Release { Throw, Drop }` was already the right abstraction, and the review was
+right that it did not own the decision it was introduced to describe. The enum
+was computed, used to pick a launch vector, and **thrown away**; the fuses then
+guessed it back from the consequence.
+
+Both directions failed:
+
+- A bomb the room authored begins at rest and then FALLS. `ground_item_physics`
+  gives it a velocity, `vel != ZERO` reads that as a throw, and it arms itself
+  on the way down. Ordinary gravity was evidence of a player's intent.
+- Catching a live bomb zeroed the velocity and left the lit `BombFuse`. The
+  ticker did not care whose hand it was in, so it counted down and detonated in
+  custody.
+
+### The fix
+
+`ReleasedAs(Release)` — the release decision made durable, stamped by the one
+release transaction and retracted the moment a body takes custody. The heuristic
+is **deleted**, not patched.
+
+Three release paths, three different answers, all of them now stated:
+
+| Path | Stamp |
+|------|-------|
+| `throw_held_item_system`, `Release::Throw` | `ReleasedAs(Throw)` — arms |
+| `throw_held_item_system`, `Release::Drop` | `ReleasedAs(Drop)` — does not arm |
+| `return_released_items` (menu stow / brandish swap) | nothing — not a release at all |
+
+⚠ **A Z-drop does not arm.** That was the old answer too, but only because a drop
+happens to launch at zero velocity, which is not a reason. It is now the stated
+rule: handing the item to the floor is not an attack.
+
+⭐ **Disarming is the same system as arming, deliberately.** `arm_thrown_bombs`
+is chained ahead of `tick_bomb_fuses`, so a bomb caught this tick has its fuse
+removed before anything can burn it down — catching a live bomb is a defined
+outcome, not a race between two systems. Re-throwing re-arms with a *full* fuse,
+which is what the old `Without<BombFuse>` arming already implied.
+
+### It is rollback state, and the last commit is why that got noticed
+
+`ReleasedAs` decides whether an object in the world is going to explode, and it
+lives on a `GroundItem` — which is already an anchor. `v137 → v138`,
+`item.released_as`. It replaced a heuristic that was rollback state **by
+accident** (`GroundItem` carries `vel`), so this is the same coverage moved onto
+the fact that actually decides.
+
+### Guarded
+
+Six bomb arms and two grenade arms. The two that shipped before were rewritten
+rather than kept: `a_thrown_bomb_arms_but_a_resting_one_does_not` spawned a bomb
+with a nonzero velocity and CALLED it thrown — the velocity was the heuristic
+under test, so the test agreed with the bug by construction.
+
+Poison-verified against the restored `vel != ZERO`: three of six bomb arms go
+red — the falling bomb, the caught bomb, and the re-throw.
+
+monolith 1177/1177, app_it 509/509, 36 of 36 contracts.

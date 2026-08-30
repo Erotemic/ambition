@@ -435,6 +435,18 @@ tackon_targets=(
     # That file is deleted; this line is what keeps her published.
     noether
     oiler
+    # ⛔⛔ THE GNU-TON'S APPLE, WHICH NO ROSTER LINE NAMED. `ambition_content`
+    # registers the `apple` projectile as
+    # `ProjectileArtSource::Image { path: "sprites/gnu_ton_boss/gnu_ton_apple.png" }`,
+    # and that file was absent from this checkout: the boss's apple rain fell
+    # back to `ProjectileArt::generic()`, an orange-red quad, for every player.
+    # ⚠ NOTHING CRASHES AND NOTHING LOGS when that happens — `resolve` falls
+    # back silently, so the shot simply flies with the wrong look. Caught
+    # 2026-08-30 by `declared_art_resolves::every_declared_projectile_image_names_a_file_that_exists`
+    # the first time `app_it` was swept end to end (D-QTT-2), which is the same
+    # shape as `goblin_cave_dagger` one array up: a target that no batch names
+    # exists only on the machine that once rendered it.
+    gnu_ton_apple
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right

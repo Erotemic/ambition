@@ -192,20 +192,28 @@ migration prose names it.
 Jon restarted the session here. `672bf257f` is committed and NOT pushed. Two
 things remain, both cheap, and the FIRST one is a decision only Jon makes.
 
-- ▢ **D-QTT-1 — `cargo test --workspace --lib` never ran, because the disk
-  refuses.** `python3 scripts/check_disk_headroom.py` says **31.8 GB free
-  against its 40 GB floor**, and its refusal is correct rather than
-  conservative: a mid-build ENOSPC surfaces as unrelated compile errors in
-  whichever crate was unlucky and the real cause appears nowhere. ⛔ The
-  bindmount was checked and is **BOUND**, so this is REAL occupancy and not the
-  2026-08-27 virtiofs-duplicate symptom — do not go looking for a phantom copy.
-  ⭐ **THE RECLAIM IS JON'S CALL AND IS NOT BLOCKED ON ANALYSIS:**
-  `./scripts/clean_workspace_crates.sh --incremental-only --apply` returns
-  **78G** (61G debug + 17G profiling, 1116 stale crate sessions) and deletes no
-  artifact and invalidates no fingerprint — a fresh crate stays fresh and is
-  skipped on the next build. Cost is one non-incremental compile per crate, and
-  only on the next edit to that crate. Then run the gate, then
-  `git push origin main`.
+- ✔ **D-QTT-1 — `cargo test --workspace --lib` had never been run to
+  completion, and the first complete run FAILED.** The disk blocker is gone
+  (165.1 GB free against the 40 GB floor) and `672bf257f` is on `origin/main`.
+  **Green 2026-08-30: exit 0, 50 crates, 3695 passed, 0 failed.**
+  ⭐⭐ **WHAT IT CAUGHT WAS A MISSING ASSET WEARING A CODE BUG'S CLOTHES.**
+  `ambition_render`'s
+  `a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`
+  panicked on `goblin_cave_dagger`, its canonical RIGHT-drawn sheet:
+  `record_for_sheet_key` returned `None` because NO ROSTER LINE EVER PUBLISHED
+  IT. The whole goblin weapon family was absent — the roster's own comment said
+  *"install the rest"* and the weapon variants were the rest. Fixed by rostering
+  and publishing them; the class is now caught by
+  `scripts/check_published_sheets_are_present.py` (see D-RASTER-5).
+  ⛔ GENERATED ART IS GITIGNORED, so "it works on my checkout" is the EXPECTED
+  symptom of this class, not a surprising one: whoever rendered the target by
+  hand has it and nobody else does. That is why it belongs in the bootstrap and
+  not in a person's memory.
+  ⚠ **AND KILLING A BUILD IS NOT FREE.** A `pkill -9` mid-archive left `syn`
+  with an `.rmeta` and no `.rlib`; cargo's pipelining then started dependents
+  that failed at LINK with *"can't find crate for `proc_macro2`"* — a fake
+  error naming crates that were fine. Let `rustc` drain instead.
+
 
 - ▢ **D-QTT-2 — the full `app_it` binary was never swept, and not for a code
   reason.** It was OOM-killed twice at the default 6-way parallelism: this box

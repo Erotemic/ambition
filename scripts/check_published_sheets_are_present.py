@@ -41,10 +41,22 @@ DEFAULT_ASSET_ROOT = (
 SPRITES_SH = REPO_ROOT / "scripts/regen/sprites.sh"
 
 #: The roster arrays in `sprites.sh` that name TARGETS this script can check.
-#: `faction_cues` is deliberately excluded — its comment says those YAMLs live
-#: in `configs/factions/`, which no discovery surface registers, so they are
-#: named products rather than registered targets.
-ROSTER_ARRAYS = ("review_cues", "tackon_targets")
+#:
+#: ⚠ `publish_targets` is the REAL roster and is mostly `"${other[@]}"`
+#: expansions, so it is parsed for the bare names it adds directly
+#: (`entities`, `puppy_slug`, `mockingbird_boss`) and the arrays it expands are
+#: listed alongside it. Missing one of these is how `gnu_ton_apple` stayed
+#: unpublished while every check passed.
+#:
+#: ⛔ `faction_cues` is deliberately excluded — its comment says those YAMLs
+#: live in `configs/factions/`, which no discovery surface registers, so they
+#: are named products rather than registered targets.
+ROSTER_ARRAYS = (
+    "review_cues",
+    "tackon_targets",
+    "pirate_targets",
+    "publish_targets",
+)
 
 
 def roster_targets(sprites_sh: Path) -> list[str]:

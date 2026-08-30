@@ -48,7 +48,6 @@ const SLUG_ARCHETYPE: &str = "npc_puppy_slug";
 /// no melee/ranged verb, so this is the only thing `Attack` does while it's held.
 pub fn fire_puppy_slug_gun_system(
     mut commands: Commands,
-    mut next_id: Local<u64>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -64,6 +63,16 @@ pub fn fire_puppy_slug_gun_system(
         Option<&SessionScopedEntity>,
     )>,
     allies: Query<(), With<PuppySlugAlly>>,
+    // ⛔⛔ THE SUMMONER'S OWN ROLLBACKED COUNTER, NOT A `Local<u64>`. A `Local`
+    // does not rewind, so an abandoned predicted branch that summoned a slug
+    // advanced it and the resimulation of that same tick minted a DIFFERENT
+    // identity for the same summon — which is the dynamic-spawn rule this repo
+    // already states: a dynamically spawned body takes
+    // `(spawner SimId, per-spawner counter)`, and both halves rewind.
+    mut summoner_identity: Query<(
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter,
+    )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
@@ -84,7 +93,15 @@ pub fn fire_puppy_slug_gun_system(
     if allies.iter().count() >= MAX_ALLIES {
         return;
     }
-    *next_id = next_id.wrapping_add(1);
+    // ⛔ THE PAIR IS ONE VALUE. A summoner with no identity mints neither half,
+    // so "dynamic, parent unknown" stays unspellable — the same rule the thrown
+    // item mint follows.
+    let minted = summoner_identity
+        .get_mut(subject)
+        .ok()
+        .map(|(id, mut counter)| {
+            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, counter.next())
+        });
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
     let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
@@ -95,7 +112,10 @@ pub fn fire_puppy_slug_gun_system(
         &authored_sheets,
         prepared.as_deref().unwrap_or(&empty_cast),
         session_scope,
-        format!("puppy_slug_ally_{}", *next_id),
+        minted
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_else(|| "puppy_slug_ally".to_string()),
         // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
         // — the character-sprite table is keyed by display_name and silently falls
         // back to the goblin sheet on a miss, so "Puppy Slug (ally)" rendered a
@@ -131,7 +151,7 @@ mod tests {
     use crate::abilities::test_support::spawn_primary_player_holding;
     use ambition_combat::ActorFaction as Faction;
 
-    fn test_app() -> App {
+    pub(super) fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.insert_resource(
@@ -206,5 +226,69 @@ mod tests {
         spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.update();
         assert_eq!(ally_count(&mut app), 0);
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+    use crate::abilities::test_support::spawn_primary_player_holding;
+
+    /// ⭐⭐ EACH SUMMON GETS ITS OWN IDENTITY, AND IT COMES FROM ROLLBACK STATE.
+    ///
+    /// ⛔⛔ THE COUNTER WAS A `Local<u64>`, WHICH DOES NOT REWIND. A predicted
+    /// branch that summoned a slug advanced it, the branch was abandoned, and
+    /// the resimulation of that same tick minted a DIFFERENT identity for the
+    /// same summon — a body whose id disagrees between two peers replaying the
+    /// same inputs. The summoner's own `SimIdCounter` is rollback state, so both
+    /// halves of `(spawner SimId, sequence)` rewind together.
+    ///
+    /// ⚠ THE DISTINCTNESS IS THE OBSERVABLE HALF. A rewind is not reachable from
+    /// this fixture, but "three summons, three ids" fails immediately if the
+    /// counter stops advancing or the identity stops being read — which is what
+    /// a wrong replacement looks like.
+    #[test]
+    fn three_summons_carry_three_distinct_identities() {
+        let mut app = super::tests::test_app();
+        let player = spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
+        app.world_mut().entity_mut(player).insert((
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("summoner"),
+            ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
+        ));
+        for _ in 0..MAX_ALLIES {
+            app.world_mut()
+                .get_mut::<ActorControl>(player)
+                .unwrap()
+                .0
+                .melee_pressed = true;
+            app.update();
+        }
+
+        let ids: Vec<String> = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&ambition_combat::components::FeatureId, With<PuppySlugAlly>>();
+            q.iter(app.world())
+                .map(|id| id.as_str().to_string())
+                .collect()
+        };
+        assert_eq!(
+            ids.len(),
+            MAX_ALLIES,
+            "the fixture summoned {} slug(s); this test is about their ids, so \
+             it observes nothing if they are not there: {ids:?}",
+            ids.len()
+        );
+        let unique: std::collections::BTreeSet<&String> = ids.iter().collect();
+        assert_eq!(
+            unique.len(),
+            ids.len(),
+            "two summons share an identity: {ids:?}"
+        );
+        assert!(
+            ids.iter().all(|id| id.contains("summoner")),
+            "each summon is named UNDER its summoner, which is what makes the \
+             pair rewind together: {ids:?}"
+        );
     }
 }

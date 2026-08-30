@@ -239,6 +239,26 @@ character-and-verb per session and caches under `data/renders/<id>/`. Engine
 Takes then draws the engine's own picture with the hitboxes over it, and the
 label beside the scrubber reads `sprites: rendered by the engine`.
 
+## A picture with no rasterizer at all
+
+```bash
+python3 scripts/render_take_diagnostic.py \
+    --takes tools/ambition_moveset_inspector/data/takes/takes.json \
+    --out /tmp/sheets --character npc_pirate_admiral
+```
+
+One SVG contact sheet per take: body boxes, combat volumes, projectiles, and the
+move/pose/clip of each tick. **No WGPU, no sprite decode, no browser.**
+
+⛔⛔ **IT SAYS ON ITS FACE THAT IT IS DERIVED.** An ENGINE RENDER is what the
+production Bevy graph drew (`moveset_render`); a DIAGNOSTIC RENDER is derived
+from a recorded take. This page is careful never to pass one off as the other,
+and an exported file leaves the context that made that obvious — so the
+distinction lives on the picture.
+
+⭐ **SVG RATHER THAN PNG**, because geometry is what a take records. Rasterizing
+would need the sheets decoded and a compositor, which is the work this avoids.
+
 ## Why the engine render is or is not available, BEFORE anybody asks for one
 
 `/api/status` carries `render_capability`, and the Status page shows it:

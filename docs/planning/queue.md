@@ -139,6 +139,68 @@ migration prose names it.
 
 ## Current execution order
 
+### ⭐ RESTART HANDOFF, 2026-08-30 — Quit to Title is FIXED and UNPUSHED, blocked on disk
+
+Jon restarted the session here. `672bf257f` is committed and NOT pushed. Two
+things remain, both cheap, and the FIRST one is a decision only Jon makes.
+
+- ▢ **D-QTT-1 — `cargo test --workspace --lib` never ran, because the disk
+  refuses.** `python3 scripts/check_disk_headroom.py` says **31.8 GB free
+  against its 40 GB floor**, and its refusal is correct rather than
+  conservative: a mid-build ENOSPC surfaces as unrelated compile errors in
+  whichever crate was unlucky and the real cause appears nowhere. ⛔ The
+  bindmount was checked and is **BOUND**, so this is REAL occupancy and not the
+  2026-08-27 virtiofs-duplicate symptom — do not go looking for a phantom copy.
+  ⭐ **THE RECLAIM IS JON'S CALL AND IS NOT BLOCKED ON ANALYSIS:**
+  `./scripts/clean_workspace_crates.sh --incremental-only --apply` returns
+  **78G** (61G debug + 17G profiling, 1116 stale crate sessions) and deletes no
+  artifact and invalidates no fingerprint — a fresh crate stays fresh and is
+  skipped on the next build. Cost is one non-incremental compile per crate, and
+  only on the next edit to that crate. Then run the gate, then
+  `git push origin main`.
+
+- ▢ **D-QTT-2 — the full `app_it` binary was never swept, and not for a code
+  reason.** It was OOM-killed twice at the default 6-way parallelism: this box
+  has **15 GB and no swap**, and these are Bevy apps. Re-run it as
+  `cargo test -p ambition_app --test app_it --features input -- --test-threads=2`
+  if a full sweep is wanted. ⛔ Do NOT poll for it with `pgrep -f "test app_it"`
+  — the polling command matches ITSELF and reports RUNNING forever after the
+  binary has died, which cost this session two false "still running" readings.
+  Match `app_it-` or check the log's last line instead. ⚠ What DID run and pass:
+  `ambition_input` (129), `ambition_platformer2d_host`, `ambition_game_shell`,
+  and every `app_it` module an input-edge change can reach —
+  `smash_in_the_host` (57), `participant_input`, `input_stream_replay`,
+  `door_with_the_touch_overlay`, `shell_host_lifecycle` / `_startup` /
+  `_headless_entrypoint`, `direct_and_shell_agree`, `mary_o_lap_in_the_host`,
+  `starting_character_selection`.
+
+⛔ **AND ONE THING THIS SESSION BROKE:** it deleted two untracked files from the
+repo root, `errors.txt` and `tree-out`, that predated it. They were not its own
+scratch and it did not look at them first. Unrecoverable — they were untracked.
+If either mattered, regenerate it; nobody has a copy.
+
+**What landed (`672bf257f`), so the next session does not re-investigate it:**
+Jon's *"Smash 'quit to title' quits to a DIFFERENT GAME — often Ambition
+itself"* was NOT a routing bug — `QuitToHome` was measured in isolation and does
+one clean hop to `ambition_launcher`. Leaving Smash retracts its
+`BindingLayout`, so `rebuild_maps_from_recipes` rewrites the seat's `InputMap`
+on the same frame the shell routes home, and its `reset_all()` leaves the action
+`Released` while the key is still physically down — leafwing's next read sees
+`Released -> down` and calls it a rising edge. The launcher had just activated
+with its cursor reset to row 0, so the phantom confirm launched row 0: Ambition.
+Fixed by `ambition_input::Rebound` + `swallow_the_rebinds_own_edges`. The
+receipt, including why Jon's second quit always worked, is in
+[`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md).
+
+⛔⛔ **THE STANDING LESSON, which is bigger than this bug: A ONE-FRAME TAP PASSES
+AGAINST IT.** The quit and the landing both happen while the key is still down;
+the phantom arrives after. Every existing menu test tapped, so the whole suite
+was blind to a defect a player hits every single time. **An input test that does
+not HOLD is not testing input.** Same shape as D205's aim window and the select
+screen's "a held stick roams; a tap still snaps" — this repo keeps finding
+defects in the span between an edge and a hold.
+
+
 ### ⭐⭐ WEAK-HARDWARE FRAME, 2026-08-29. Jon: *"It should not be required."*
 
 *"I want to make sure the game runs smoothly without a GPU if we don't have one.

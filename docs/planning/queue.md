@@ -215,20 +215,23 @@ things remain, both cheap, and the FIRST one is a decision only Jon makes.
   error naming crates that were fine. Let `rustc` drain instead.
 
 
-- ▢ **D-QTT-2 — the full `app_it` binary was never swept, and not for a code
-  reason.** It was OOM-killed twice at the default 6-way parallelism: this box
-  has **15 GB and no swap**, and these are Bevy apps. Re-run it as
-  `cargo test -p ambition_app --test app_it --features input -- --test-threads=2`
-  if a full sweep is wanted. ⛔ Do NOT poll for it with `pgrep -f "test app_it"`
-  — the polling command matches ITSELF and reports RUNNING forever after the
-  binary has died, which cost this session two false "still running" readings.
-  Match `app_it-` or check the log's last line instead. ⚠ What DID run and pass:
-  `ambition_input` (129), `ambition_platformer2d_host`, `ambition_game_shell`,
-  and every `app_it` module an input-edge change can reach —
-  `smash_in_the_host` (57), `participant_input`, `input_stream_replay`,
-  `door_with_the_touch_overlay`, `shell_host_lifecycle` / `_startup` /
-  `_headless_entrypoint`, `direct_and_shell_agree`, `mary_o_lap_in_the_host`,
-  `starting_character_selection`.
+- ✔ **D-QTT-2 — the full `app_it` binary had never been swept.** It was
+  OOM-killed twice at the default 6-way parallelism; this box has 15 GB and no
+  swap and these are Bevy apps. Swept 2026-08-30 at `--test-threads=2` with
+  ~13 GB still free: **508 passed, 0 failed, 21 ignored** in 689s.
+  ⭐ **THE SWEEP EARNED ITS KEEP ON THE FIRST RUN.**
+  `declared_art_resolves::every_declared_projectile_image_names_a_file_that_exists`
+  failed: `ambition_content` declares the GNU-ton's apple as
+  `sprites/gnu_ton_boss/gnu_ton_apple.png` and that file was ABSENT, so the
+  boss's apple rain drew `ProjectileArt::generic()` — an orange-red quad — for
+  every player. ⛔ Nothing crashes and nothing logs when that happens: `resolve`
+  falls back silently. Same shape as D-QTT-1's `goblin_cave_dagger`; both are
+  now rostered, published, and covered by
+  `scripts/check_published_sheets_are_present.py`.
+  ⛔ Do NOT poll for this run with `pgrep -f "test app_it"` — the polling
+  command matches ITSELF and reports RUNNING forever after the binary has died.
+  Match `app_it-` or read the log's last line.
+
 
 ⛔ **AND ONE THING THIS SESSION BROKE:** it deleted two untracked files from the
 repo root, `errors.txt` and `tree-out`, that predated it. They were not its own
@@ -298,6 +301,29 @@ below it and on different silicon.
   AREA per layer/entity. Until it does, any depth-rejection work is aimed by
   inference.
 
+
+- ▢ **D-BG-1 — Jon, 2026-08-30: *"backgrounds aren't rendering"* — NOT
+  reproducible after the asset regeneration, and the cause is therefore
+  UNCONFIRMED.**
+  Checked and found healthy: parallax art exists at all four tiers (36 layer
+  PNGs each) with real pixels — `sky` is the only fully OPAQUE layer (alpha
+  255; `far_backplate` peaks at 61 and `near_background` at 108), Medium's
+  budget is `enabled: true, max_layers: Some(3)`, and `RUNTIME_PARALLAX_LAYERS`
+  is ordered Sky→Far→Near→Foreground so `take(3)` drops only the front
+  atmosphere and KEEPS the opaque sky. Every `(theme, layer)` id is registered
+  in the manifest with an `Image` kind (guarded by
+  `sandbox_image_manifest_registers_every_entity_and_parallax_entry`).
+  **Rendered at Jon's own profile** (`AMBITION_QUALITY_PROFILE=medium`, via
+  `moveset_render` on lavapipe): *"loaded 4/4 generated background/parallax
+  layers for 'hub'"*, and the frames draw moon, stars, structures and water.
+  ⚠ **THE HONEST GAP: the game was never run BEFORE the regeneration**, so
+  whether the 184 stale tier files and the missing rostered sheets were the
+  cause cannot now be established from this session. The prime suspect is that
+  class (D-RASTER-5), since the tiers for weak hardware are exactly the ones
+  that were stale. If it recurs, capture a frame BEFORE regenerating anything.
+  ⛔ And note the check that would have settled it in one line:
+  `spawn_parallax_layers` returns early when `assets.parallax_layers.is_empty()`
+  — the log line above (`loaded N/4`) is the thing to read first.
 
 - ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
   MSAA.** Both moved together. One interleaved A/B, three reps per arm; the

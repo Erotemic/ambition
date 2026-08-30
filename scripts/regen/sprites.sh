@@ -118,14 +118,27 @@ check_toolchain() {
     fi
     # ⚠ THE USUAL CAUSE IS NOT A MISSING PACKAGE. It is a tool venv inside this
     # shared checkout whose interpreter belongs to another user.
+    #
+    # ⛔ BUT A BROKEN IN-REPO VENV IS ONLY A PROBLEM IF IT IS THE ONE IN USE.
+    # `AMBITION_SPRITE_PYTHON` exists precisely so a second user on a shared
+    # checkout can bring their own interpreter, and reporting "not usable" while
+    # holding a working one would send them to fix something that does not
+    # matter. Diagnose the venv; judge the INTERPRETER.
     local cfg="$renderer_dir/.venv/pyvenv.cfg" home
     if [ -f "$cfg" ]; then
         home="$(sed -n 's/^home = //p' "$cfg" | head -1)"
         if [ -n "$home" ] && [ ! -d "$home" ]; then
-            printf '  venv    : ⛔ %s/.venv points at %s, which does not exist here\n' \
-                "tools/ambition_sprite2d_renderer" "$home"
-            printf '            the checkout is shared; that interpreter is another user'"'"'s\n'
-            missing=1
+            if [ -n "${AMBITION_SPRITE_PYTHON:-}" ]; then
+                printf '  venv    : ⚠ %s/.venv is another user'"'"'s (%s)\n' \
+                    "tools/ambition_sprite2d_renderer" "$home"
+                printf '            ignored — AMBITION_SPRITE_PYTHON supplies this machine'"'"'s own\n'
+            else
+                printf '  venv    : ⛔ %s/.venv points at %s, which does not exist here\n' \
+                    "tools/ambition_sprite2d_renderer" "$home"
+                printf '            the checkout is shared; that interpreter is another user'"'"'s\n'
+                printf '            set AMBITION_SPRITE_PYTHON to a venv of your own, outside the repo\n'
+                missing=1
+            fi
         fi
     fi
     [ "$missing" -eq 0 ] && printf '  → usable\n' || printf '  → NOT usable; do not publish from this machine\n'

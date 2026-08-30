@@ -243,6 +243,7 @@ feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; state che
 feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.held_projectile	component-clone	HeldProjectile	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

@@ -195,6 +195,7 @@
     "feature.switch_on",
     "gravity.flip_switch",
     "item.ground_item",
+    "item.held_projectile",
     "item.item_custody",
     "item.motion",
     "item.pickup_magnet",

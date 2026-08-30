@@ -60,6 +60,33 @@ where
         "gravity.temporary_zone",
         |zone| zone.remaining.to_bits() as u64,
     );
+    // ⛔⛔ AND AN AUTHORED OSCILLATING COLUMN IS DYNAMIC TOO, which the note above
+    // got wrong by generalizing from the STATIC case. `oscillate_gravity_zones`
+    // runs every simulation tick and advances `phase`, then rewrites the zone's
+    // `aabb` from it — so a column the room authored carries authoritative
+    // MUTABLE state, and the sandbox ships one with a 150px amplitude.
+    //
+    // ⛔ A ROOM LOAD CANNOT RECONSTRUCT IT. Re-running the constructor rebuilds
+    // phase ZERO, not the phase at historical tick N, so "room geometry a room
+    // load rebuilds" is true of the region's SHAPE and false of where it is. A
+    // rewind through a moving column had no snapshot to restore its position
+    // from, and every body riding that column rode it to the wrong place.
+    //
+    // ⭐ STILL ONLY THE MOVING ONES. A static authored column omits
+    // `OscillatingZone` entirely (see `gravity::construction`), so anchoring THIS
+    // component enlists the sliding columns and leaves the walls of gravity out
+    // of the sweep — the same "only the dynamic one carries the anchor"
+    // distinction the temporary well makes, applied to the fact that made it
+    // dynamic.
+    registrar
+        .require_rollback::<crate::gravity::OscillatingZone>(OWNER, "entity:oscillating_zone");
+    registrar.rollback_component_clone_probed::<crate::gravity::OscillatingZone>(
+        OWNER,
+        "gravity.oscillating_zone",
+        // The phase is the whole of the mutable state; amplitude, frequency,
+        // half-extent and base centre are authored constants the room owns.
+        |zone| zone.phase.to_bits() as u64,
+    );
     registrar.rollback_component_clone_probed::<crate::gravity::GravityZone>(
         OWNER,
         "gravity.zone",

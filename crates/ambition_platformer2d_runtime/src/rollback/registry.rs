@@ -75,7 +75,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// One index decides which prop the arena rebuilds, and a presence-only probe
 /// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
 /// it on the sim schedule, so a resimulation can move it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 138;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 139;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -1857,6 +1857,79 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
 // A registered component is actually rewound only on entities carrying a GGRS rollback
 // anchor. This runtime sweep checks that registered components co-occur with such an anchor.
 
+/// ⛔⛔ AN AUTHORED COLUMN THAT MOVES IS DYNAMIC STATE, and the rule that let it
+/// off said the opposite. `TemporaryZone`'s registration note reasoned that "an
+/// authored column is room geometry a room load rebuilds", which is true of a
+/// STATIC column and false of an oscillating one: `oscillate_gravity_zones` runs
+/// every simulation tick, advances `phase`, and rewrites the zone's region from
+/// it. Re-running the room constructor rebuilds phase ZERO, not the phase at
+/// historical tick N, so a rewind through a moving column had nothing to restore
+/// its position from — and every body riding it rode it to the wrong place.
+///
+/// ⭐ THE PREMISE IS MEASURED FIRST. The arm asserts the phase actually ADVANCES
+/// before it asserts the anchor, because "this state is mutable" is the whole
+/// reason the anchor is owed — a column that never moved would need no snapshot
+/// and this test would be agreeing with nothing.
+///
+/// ⚠ The sandbox authors exactly one, in `gravity_lab`, amplitude 150.
+#[test]
+fn the_authored_oscillating_column_is_in_the_rollback_envelope() {
+    use ambition_platformer2d::platformer::gravity::OscillatingZone;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("gravity_lab"),
+    )
+    .expect("the sandbox boots into the gravity lab");
+
+    let column = {
+        let world = sim.world_mut();
+        let mut columns = world.query_filtered::<Entity, With<OscillatingZone>>();
+        let found: Vec<Entity> = columns.iter(world).collect();
+        assert_eq!(
+            found.len(),
+            1,
+            "gravity_lab authors exactly one sliding gravity column (amplitude \
+             150); if that changed, this arm is measuring the wrong room"
+        );
+        found[0]
+    };
+
+    let before = sim
+        .world()
+        .get::<OscillatingZone>(column)
+        .expect("the column carries its oscillator")
+        .phase;
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let after = sim
+        .world()
+        .get::<OscillatingZone>(column)
+        .expect("the column still carries its oscillator")
+        .phase;
+    assert_ne!(
+        before, after,
+        "the authored column's phase did not advance over 30 ticks, so this arm \
+         is not measuring mutable simulation state at all"
+    );
+
+    let anchors = rollback_anchors(&mut sim);
+    let carried: BTreeSet<String> = sim
+        .world()
+        .inspect_entity(column)
+        .expect("the column exists")
+        .map(|info| info.name().to_string())
+        .collect();
+    assert!(
+        carried.intersection(&anchors).next().is_some(),
+        "the sliding gravity column carries NO rollback anchor, so its advancing \
+         phase is never snapshotted and a rewind restores the column to wherever \
+         the live timeline last left it. It carries: {carried:#?}"
+    );
+}
+
 /// Unanchored archetypes whose registered components are immutable after construction.
 /// A waiver stops applying as soon as the archetype gains simulation-mutated registered state.
 const INERT_WAIVED: &[(&str, &str)] = &[
@@ -2121,7 +2194,6 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
     );
 }
 
-
 /// ⛔⛔ THE POPULATION A ONE-SHOT CENSUS CANNOT REACH.
 ///
 /// Every sweep above walks the entities a booted room HAS. `unaccounted_components`
@@ -2162,6 +2234,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
     use ambition_platformer2d::combat::components::ActorFaction;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::platformer::sim_id::SimId;
     use ambition_platformer2d::portal::{PortalFireIntent, PortalGunColor, PortalShot};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
@@ -2192,11 +2265,15 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
             ActorFaction::Player,
             None,
             None,
+            // The identity production mints: these are dynamically-spawned sim
+            // entities, and a turret's bolts mint under IT.
+            Some(SimId::spawned(&SimId::player_slot(0), 0)),
         );
         open_vortex_well(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
             bevy::math::Vec2::new(128.0, 96.0),
+            Some(SimId::spawned(&SimId::player_slot(0), 1)),
         );
         open_temporary_gravity_well(
             &mut commands,

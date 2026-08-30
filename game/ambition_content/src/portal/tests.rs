@@ -1096,6 +1096,125 @@ fn portal_carve_is_transient_and_pair_gated() {
     );
 }
 
+/// A booted app with just the shot adapter over two walls, plus the messages it
+/// and the fire system write.
+fn app_with_the_shot_adapter() -> App {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_portal2d::PortalShotFired>();
+    app.add_message::<ambition_portal2d::PortalFireIntent>();
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world_with_two_walls(),
+    );
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(
+        Update,
+        (portal_fire_system, crate::portal::portal_projectile_step).chain(),
+    );
+    app
+}
+
+fn blue_portals(app: &mut App) -> Vec<PlacedPortal> {
+    let mut q = app.world_mut().query::<&PlacedPortal>();
+    let world = app.world();
+    q.iter(world)
+        .filter(|p| p.channel == BLUE)
+        .cloned()
+        .collect()
+}
+
+/// ⛔⛔ TWO BLUE SHOTS LANDING ON ONE TICK LEFT TWO BLUE PORTALS. The adapter
+/// applied each shot against the same PRE-SYSTEM `portals` query while its
+/// despawn/spawn sat in a deferred command buffer, so neither could see what the
+/// other had queued: both despawned the old blue and both spawned a new one.
+///
+/// ⚠ AND IT WAS UNREACHABLE UNTIL THE UPSTREAM FIX. While `portal_fire_system`
+/// kept only `read().last()`, one tick could never produce two shots — so
+/// widening the producer is what made this consumer's assumption live. Both
+/// origins are 25px from the left wall, inside one 31.7px step, so both resolve
+/// on the same tick.
+#[test]
+fn two_same_channel_shots_landing_on_one_tick_leave_exactly_one_portal() {
+    let mut app = app_with_the_shot_adapter();
+    for y in [100.0, 200.0] {
+        app.world_mut()
+            .write_message(ambition_portal2d::PortalFireIntent {
+                origin: Vec2::new(45.0, y),
+                dir: Vec2::new(-1.0, 0.0),
+                channel: BLUE,
+            });
+    }
+
+    app.update();
+
+    let blue = blue_portals(&mut app);
+    assert_eq!(
+        blue.len(),
+        1,
+        "two blue shots landed on one tick and left {} blue portals — \
+         `find_portal` is a `.find()`, so the extra one is unreachable geometry \
+         that still carves the world: {blue:?}",
+        blue.len()
+    );
+    assert_eq!(
+        {
+            let mut q = app.world_mut().query::<&PortalShot>();
+            q.iter(app.world()).count()
+        },
+        0,
+        "both shots are spent, whether or not their placement won the channel"
+    );
+}
+
+/// ⭐ AND THE SURVIVOR IS THE NEWEST SHOT, which is what "opens **or replaces**"
+/// already meant. Among shots resolving on one tick there is no later, so the
+/// rule reads the shot's own age: `traveled` is distance at a fixed speed, so the
+/// SMALLEST traveled was fired most recently.
+///
+/// ⛔ REVERSING THE SPAWN ORDER MUST NOT MOVE THE PORTAL. Two shots in one
+/// archetype are visited in spawn order, so a rule that read "the last one the
+/// query yielded" would flip here and be green in only one of the two arms.
+#[test]
+fn the_newest_of_two_same_tick_shots_is_the_one_that_places() {
+    fn surviving_portal_y(order: [f32; 2]) -> f32 {
+        let mut app = app_with_the_shot_adapter();
+        // Same wall, different heights, so the two placements are distinguishable.
+        // The OLDER shot (traveled 900) is deliberately spawned first in one arm
+        // and second in the other.
+        for traveled in order {
+            let y = if traveled > 0.0 { 300.0 } else { 100.0 };
+            app.world_mut().spawn(PortalShot {
+                channel: BLUE,
+                pos: Vec2::new(45.0, y),
+                vel: Vec2::new(-1900.0, 0.0),
+                traveled,
+            });
+        }
+        app.update();
+        let blue = blue_portals(&mut app);
+        assert_eq!(blue.len(), 1, "exactly one blue portal, got {blue:?}");
+        blue[0].pos.y
+    }
+
+    let older_first = surviving_portal_y([900.0, 0.0]);
+    let newer_first = surviving_portal_y([0.0, 900.0]);
+    assert_eq!(
+        older_first, newer_first,
+        "which of two same-tick placements survived changed with the order the \
+         shots were spawned in ({older_first} vs {newer_first}), so a resimulated \
+         tick opens the portal somewhere else"
+    );
+    assert_eq!(
+        older_first, 100.0,
+        "the NEWEST shot places: the one that has traveled least is the one fired \
+         most recently, and a later placement replaces an earlier one"
+    );
+}
+
 #[test]
 fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     let mut app = App::new();

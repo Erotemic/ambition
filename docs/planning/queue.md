@@ -374,6 +374,21 @@ below it and on different silicon.
   `spawn_parallax_layers` returns early when `assets.parallax_layers.is_empty()`
   — the log line above (`loaded N/4`) is the thing to read first.
 
+- ▢ **D-REVIEW-STATUS — the GPT review findings have ONE status file now, and
+  it is not a dated one.** ⛔⛔ The 2026-08-30 re-review found a live P0 that had
+  fallen out of every list: gravity authority/ordering was open in the 08-29
+  review, was not in the 08-30 file's carry-forward paragraph, and was still real
+  in the source. Nobody dropped it — it stopped appearing anywhere a session
+  would regenerate its list from, which is exactly the failure this ledger's own
+  header warns about one register up. Measured 2026-08-30: four rows listed OPEN
+  in the 08-29 file had LANDED, six were carried forward, and **three were named
+  by neither carry list** (gravity, the trapdoor `UntilPressedAgain` hold, the
+  quadratic `InputStreamRecorder`).
+  ⭐ [`triage/review-findings-status.md`](triage/review-findings-status.md) is
+  now the authoritative ledger; the dated `gpt-review-*` files are EVIDENCE and
+  are deliberately not rewritten when a row later lands. This queue row is the
+  spine's handle on it and closes when that file has no `▢` left.
+
 - ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
   MSAA.** Both moved together. One interleaved A/B, three reps per arm; the
   knobs are already independent (`AMBITION_MAX_SCALE_FACTOR`, `AMBITION_MSAA` —

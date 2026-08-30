@@ -651,6 +651,15 @@ pub fn bonk_power_blocks(
         };
         let popped = spawn_moving_world_item(
             &mut commands,
+            // ⛔⛔ THE BLOCK'S OWN NAME, because the item had none and the engine's
+            // collection order is decided BY the name. `collect_world_items` sorts
+            // contested items by `SimId` against a constant metric, so an item with
+            // no id sorted by nothing and the winner was Bevy query order — the
+            // exact defect that sort was added to remove. A `GeoId` is already the
+            // durable identity of the block that owes this payout, a block pops at
+            // most one item per attempt, and the room reload that re-arms the block
+            // is the same one that despawns the old item.
+            ambition_platformer2d::platformer::sim_id::SimId::geometry(id),
             // it starts INSIDE the block and climbs out. Spawned at the block's own centre
             // rather than above it, so the first frame shows nothing and the pickup rises into view
             // through the block's top edge.

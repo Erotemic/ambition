@@ -1,5 +1,9 @@
 # GPT review — the Rust correctness pass (relayed by Jon, 2026-08-29)
 
+> ⚠ **This file is EVIDENCE, not status.** Its `▢ Open` list below is what was
+> open ON 2026-08-29 and four of those rows have since landed. Whether a finding
+> is still open lives in [the status ledger](review-findings-status.md).
+
 Reviewed HEAD `23e472c39fd4`, source-level, **with no Cargo available in the
 reviewing environment**. 24 findings: 8 P0, 12 P1, 4 P2. Its thesis is that a
 focused repair phase should come before another monolith carve, because several
@@ -75,6 +79,12 @@ than half-built:
    and puppy-slug findings as instances of one defect.
 
 ## ▢ Open, in the review's own order
+
+⚠ **As of 2026-08-30 this list is stale in BOTH directions** — four rows below
+have landed, and three of the rest were named by no later carry-forward list at
+all (gravity, the trapdoor hold, the quadratic recorder). It is kept verbatim
+because what the review said on the day is the evidence; the live answer is in
+[the status ledger](review-findings-status.md).
 
 - ▢ **P1 — Wire/Submerged can preserve an old `initial_dash_timer`.** Exclusive
   modes clear `dash_timer` and not this one; normal movement is what consumes it,

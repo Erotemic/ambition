@@ -5,7 +5,7 @@ status: current
 authority: durable-concept
 last_verified: 2026-07-18
 related_docs:
-  - docs/planning/engine/architecture.md
+  - docs/architecture/engine-architecture.md
   - docs/planning/engine/immutable-content-and-transactional-construction.md
   - docs/concepts/engine-mental-model.md
   - docs/concepts/ldtk-world-composition.md

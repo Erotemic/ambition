@@ -64,7 +64,7 @@ for intended direction.
 * Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 * LDtk owns world/level authoring. RON room manifests are historical; RON remains appropriate for tuning, save/settings, and other structured data.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. `ambition_platformer2d_actor_monolith` is not awaiting a size-driven carve. Current roles and accepted extractions are in `docs/planning/engine/architecture.md` and `docs/planning/tracks.md`.
+* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. `ambition_platformer2d_actor_monolith` is not awaiting a size-driven carve. Current roles and accepted extractions are in `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 
 ### Assets in worktrees
 

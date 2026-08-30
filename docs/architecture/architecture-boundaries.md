@@ -4,7 +4,7 @@ last_verified: 2026-07-18
 related_docs:
   - docs/concepts/engine-mental-model.md
   - docs/concepts/content-and-provider-boundaries.md
-  - docs/planning/engine/architecture.md
+  - docs/architecture/engine-architecture.md
 ---
 
 # Architecture boundary guardrails

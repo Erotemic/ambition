@@ -6,32 +6,61 @@
 
 Make engine composition reflect what a game actually chooses to use.
 
-A consumer building a small platformer should not inherit portal rendering,
-boss orchestration, networking integration, persistence, debug presentation or
-Ambition-only content because a broad historical crate happens to sit in the
-middle of the dependency graph.
+A consumer building a small platformer should not inherit portal rendering, boss
+orchestration, networking integration, persistence, debug presentation or
+Ambition-only content merely because a broad historical crate sits in the middle
+of the dependency graph.
+
+## Why this program still matters
+
+Current measurements changed the rationale.
+
+Removing several non-Smash experiences from a measured Smash composition did not
+materially improve representative frame time, and the associated plugin/system
+removal did not improve plugin-registration startup in the measured probe.
+Therefore capability composition is **not currently a funded generic runtime CPU
+or startup optimization**.
+
+Its demonstrated value is:
+
+- dependency closure;
+- coherent ownership;
+- smaller/minimal consumers;
+- compile/change and test isolation;
+- host/platform composition;
+- public SDK quality;
+- making optional domains actually optional.
 
 ## Principles
 
 - capability selection is a semantic engine API, not a Cargo-feature illusion;
 - dependency closure and installed runtime behavior should agree;
-- the easy default may install a broad useful engine, while narrow composition
+- the easy default may install a broad useful engine while narrow composition
   remains real and tested;
 - internal implementation crates are not public capability names;
-- a capability owns its data/schema/install declarations close to the domain;
-- headless, rendered, desktop and mobile hosts compose from the same capability
-  vocabulary with host-specific presentation/services layered on top.
+- a capability owns its data/schema/install declarations close to its domain;
+- headless, rendered, desktop and mobile hosts compose from one capability
+  vocabulary with host-specific services layered on top;
+- domain-owned rollback/content declarations compose through backend-neutral
+  registrars/catalogs; the generic runtime does not own concrete domain-type
+  censuses.
 
 ## Current pressure points
 
-- `ambition_platformer2d_actor_monolith` still acts as a composition root for
-  several unrelated domains;
-- `ambition_platformer2d_shared_tangle` has high fan-in and mixed ownership;
-- the runtime still knows domain-specific rollback registrations;
-- the public facade can expose both semantic APIs and historical implementation
+- `ambition_platformer2d_actor_monolith` still owns several unrelated domains
+  and therefore acts as a dependency/composition hub;
+- `ambition_platformer2d_shared_tangle` still has high fan-in and mixed ownership;
+- the public facade can expose semantic APIs beside historical implementation
   topology;
-- some optional features are reachable through dependencies even when a
-  consumer did not request them.
+- some optional domains remain reachable through dependency closure even when a
+  consumer did not ask for them;
+- construction/content capability installation can still have compile-time and
+  runtime-install assumptions that need explicit closure proofs.
+
+Rollback registration itself is no longer the earlier central-census problem:
+concrete gameplay declarations are federated by domain and the GGRS backend is
+separate from the generic runtime. Do not use that completed migration as the
+justification for another capability layer.
 
 ## Target shape
 
@@ -50,32 +79,37 @@ Prepared capability plan
           +--> mobile rendered host
 ```
 
-The plan is not a second service locator. It records what is being installed,
-validates requirements/conflicts and lowers to ordinary Bevy plugins/resources.
+The plan is not a service locator. It records what is installed, validates
+requirements/conflicts and lowers to ordinary Bevy plugins/resources.
 
 ## Phases
 
-### C1 — capability inventory from actual consumers
+### C1 — inventory from actual consumers
 
-Use Ambition, Mary-O, Sanic, TwinTrack, Smash and the external consumer fixture
-to identify capability families that have real independent consumers.
+Use Ambition, Mary-O, Sanic, TwinTrack, Smash and the external-consumer fixture to
+identify capability families that have independent customers.
 
 ### C2 — choose one leaky capability
 
-Pick a capability whose absence still drags in unrelated crates or runtime
-behavior. Carve its declaration/installation boundary and prove a minimal
-consumer no longer inherits the unwanted dependency.
+Pick a capability whose absence still drags in unrelated crates/runtime behavior.
+Carve its declaration/installation boundary and prove a minimal consumer no
+longer inherits the unwanted dependency.
 
-### C3 — align rollback/content declarations
+Choose the slice for dependency/ownership value, not because system count is
+expected to move frame time.
 
-Capability composition should collect domain-owned authored schemas and rollback
-fragments without a central runtime census.
+### C3 — align content/construction declarations
 
-### C4 — separate host services
+A capability that contributes authored schema/construction lanes must have a
+coherent installation contract. Avoid states where compile-time support says a
+room may build a feature while the runtime fingerprint says that capability is
+absent.
+
+### C4 — separate host services where substitution is real
 
 Audio, persistence, networking transport, window/input devices and renderer
-services should be explicit host/service contracts where real consumers need
-substitution. Do not abstract them all preemptively.
+services may become explicit host/service contracts where actual consumers need
+substitution. Do not abstract all of them preemptively.
 
 ### C5 — narrow the facade
 
@@ -86,10 +120,12 @@ moves behind the facade.
 
 - a minimal external game selects a small capability set and its dependency tree
   reflects that choice;
-- Ambition composes the rich engine without special privileged paths;
-- adding a new optional domain does not require edits in unrelated runtime or
-  game crates;
+- Ambition composes the rich engine without privileged hidden paths;
+- adding an optional domain does not require edits in unrelated runtime/game
+  crates merely to register its state/content;
 - capability conflicts/missing requirements fail during preparation with useful
   diagnostics;
-- internal crate decomposition can continue without forcing external game code
-  to follow it.
+- internal decomposition can continue without forcing external game code to
+  follow crate topology;
+- any claimed performance/startup benefit is backed by a new comparable
+  measurement rather than inferred from fewer plugins/crates.

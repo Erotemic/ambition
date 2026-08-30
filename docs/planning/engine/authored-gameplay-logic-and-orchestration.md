@@ -1,858 +1,159 @@
-# Authored gameplay logic and orchestration — Engine 1.0 program
+# Authored gameplay logic and orchestration
 
-**State:** OPEN / NAMED CAPABILITY — direction is settled, representation is not, and no implementation campaign is authorized yet. M0 is the gate.
+**State:** OPEN capability, narrowed 2026-08-30. The semantic condition/command
+and preparation substrate exists. A general rule/sequencing representation is
+still deliberately unchosen.
 
 ## Goal
 
-Let an agent author not only **what exists** in the world, but increasingly
-**what the world does** — without writing a new Rust system for every ordinary
-relationship between concepts the engine already models semantically.
+Let authored content ask semantic questions and request semantic domain actions
+without moving domain authority into a universal scripting engine.
+
+The stable split is:
 
 ```text
-Rust extends the engine's vocabulary.
-Authored gameplay content composes vocabulary that already exists.
+authored source
+    -> preparation / validation
+    -> semantic condition or command
+    -> owning domain evaluates/reduces it
+    -> authoritative simulation
 ```
 
-And, unchanged:
-
-```text
-The deterministic simulation determines what is true.
-Authored rules may invoke explicit semantic domain operations;
-they do not directly mutate arbitrary ECS implementation state.
-```
-
-## Why this is now a capability gap and not an abstraction hobby
-
-Ambition's LLM-native authoring story is strong for **nouns** — characters,
-items, rooms, encounters, sprites, music, SFX, moving platforms, portals,
-capabilities, prepared world content. An agent can discover, author, validate
-and place all of those.
-
-It is weak for **verbs and relationships over time**:
-
-- when two switches are active, power a lift;
-- when an item is placed somewhere, open a gate;
-- after an actor observes an event, start another action;
-- sequence several semantic world operations;
-- latch a condition once it becomes true;
-- react to a persistent world fact;
-- wait for a semantic event;
-- trigger an encounter consequence;
-- coordinate mechanisms without a bespoke Rust system.
-
-Today most of these fall through into hand-authored Rust.
-
-⭐ **the evidence that a shared doctrine may be warranted is that the repository
-already contains several independent partial implementations of the same idea** —
-encounter scripts/triggers/effects, cutscene beats, boss phase triggers, boss
-attack timelines, move/action event timelines, Yarn semantic commands, world/intro
-flag chains, flag-gated mechanisms, and other hand-wired condition → action sites.
-
-⛔ **that is evidence, not a mandate.** Their existence does not mean they are
-wrong, does not mean they should be unified, and emphatically does not license a
-`UniversalRuleVM`. Several of them predate the common doctrine and are perfectly
-good code. They are **customers and evidence**, and M0 exists to find out which.
-
-⭐ **M0 ran on 2026-08-15 and answered that question — see the M0 result below.
-Read it before designing anything.** Its headline: **sequencing must NOT be
-unified, and boss patterns are the template rather than a customer.**
-
-## The ladder this amends
-
-[`extension-model.md`](extension-model.md) owns the supported extension ladder.
-This program inserts one rung:
-
-```text
-authored data/content
-    ↓
-semantic authoring operations
-    ↓
-prepared immutable content
-    ↓
-prepared deterministic rules / orchestration programs   ← this program
-    ↓
-semantic domain commands and observations
-    ↓
-Rust plugin/domain implementations
-```
-
-⛔ **this rung is not Lua, not Rhai, not arbitrary runtime scripting, not
-arbitrary ECS reflection, and not a Godot-style "mutate any property on any
-object" surface.** See the non-goals below; they are load-bearing.
-
-## Settled architectural direction
+The substrate owns description, preparation and discovery. Domains own mutable
+state and sequencing policy.
 
-These are decided. Argue with the representation, not with these.
+## Landed architecture
 
-### 1. Conditions query semantic facts
+### Semantic conditions
 
-A rule depends on stable semantic concepts — mechanism state, item custody,
-actor/world occurrence state, capabilities, world facts, encounter state,
-observations/events, reachability results where appropriate, timer/sequence
-state, and provider-defined domain predicates.
-
-⛔ a condition must not be phrased against an arbitrary ECS component layout. A
-rule that reads a component is coupled to an implementation detail that the
-owning domain is entitled to change.
-
-### 2. Effects are semantic domain commands
-
-Conceptually: open/close/set mechanism state, transfer/drop/consume an item,
-command an actor, start/advance an encounter, spawn prepared content, set or
-clear a world fact, publish an observation, activate a prepared behavior, request
-a presentation consequence where appropriate.
-
-⛔⛔ **there must not be one giant closed `EngineEffect` enum owned by a central
-god crate.** The concrete domains own the actual operations. A new domain
-participating must not require editing a central enum — that requirement is the
-falsifier for whatever contract M1 proposes.
-
-### 2b. The substrate does not own a universal sequencer  ⭐ added by M0
-
-⛔ **the shared layer does not own a sequencer, and the existing domain
-sequencers are not to be forcibly unified.** M0 found a monotonic cursor, a
-reversible cycling timer machine, and a subroutine stack with interrupts and
-seeded selection — three execution machines, and one shared form covering all
-three needs a branch naming its customer.
+Conditions query domain facts through registered semantic condition vocabulary.
+The authored surface does not reach arbitrary ECS components or execute Rust
+callbacks from strings.
 
-The shared substrate is **conditions + commands + prepared references +
-preparation + discovery.** A domain that needs a timeline keeps its own, and
-gives up nothing.
+### Semantic commands
 
-⚠ **state this precisely.** The proven claim is about *this* substrate and *these*
-customers. *"Sequencing can never be shared"* is **not** proven and is not
-claimed here — if several genuine customers later want the same control flow, a
-reusable backend becomes a legitimate experiment. See the backend question in the
-open-questions section.
-
-### 3. Domain ownership stays distributed; discovery may be aggregated
-
-Each participating domain owns its condition vocabulary, its commands, their
-schemas, validation, preparation, and execution adapters.
-
-⭐ **but discovery is a different axis from authority, and this project has
-previously confused them.** A composed, **read-only, derived** catalog surface is
-not merely acceptable — it is the point. The installed engine should eventually
-be able to tell an agent what conditions exist, what commands exist, their
-parameter schemas, their documentation, their reference requirements, and which
-domain owns each one.
+Commands publish typed semantic requests to the domain that owns the mutation.
+The authored layer does not become a second reducer for encounters, dialogue,
+world state or another domain.
 
-See the doctrine correction in
-[`architecture.md`](architecture.md) / [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md):
-**an authoritative central census is bad; a derived read-only index is good.**
-
-### 4. Prepared programs are immutable
-
-Authored source prepares into typed, validated runtime programs. Validation
-happens before runtime, not on the tick. ⛔ nothing parses an expression string
-during simulation. The prepared program belongs to the prepared-content epoch and
-is immutable while the simulation runs.
-
-### 5. Runtime rule state is explicit
-
-Whatever state orchestration needs — sequence cursor, timers, once/repeat/latch,
-branch state, cooldown, waiting-for-event — is visible and has stated semantics.
-
-It must eventually participate coherently and **separately** in:
-
-- GGRS rollback;
-- room residency;
-- occurrence lifetime;
-- durable save/load where appropriate.
-
-⛔ these are three or four different concerns, not one. ⛔⛔ durable gameplay
-state must not hide inside opaque interpreter state — an interpreter's program
-counter that decides whether a gate is open is world state wearing a disguise.
-
-### 6. References are prepared semantically
-
-⛔ do not build the final architecture around raw strings like `"gate_west"`, and
-do not build it around runtime Bevy `Entity` values.
-
-Use the project's existing prepared-reference and identity doctrine. This program
-**integrates with** rather than bypasses the work on authored references, instance
-identity, provenance, lifetime and residency — see
-[`instance-lifetime-provenance-and-persistence.md`](instance-lifetime-provenance-and-persistence.md)
-and the native LDtk `EntityRef` migration in
-[`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md).
-
-### 7. LLM inspection is an acceptance criterion, not polish
+The existing command road already has real customers, including authored
+encounter signaling and dialogue-authored commands.
 
-This is one of the main reasons to build the feature at all.
+### Prepared calls
 
-An agent should eventually be able to perform semantic operations of roughly this
-shape (⚠ **names are illustrative and unsettled; the capability is not**):
-
-```text
-list-rule-conditions
-describe-rule-condition item_held
-list-rule-commands
-describe-rule west_lift_power
-validate-rule west_lift_power
-explain-rule west_lift_power
-show-rule-dependencies west_lift_power
-dry-run-rule west_lift_power
-```
-
-⭐ **the single most important diagnostic is "why did this rule not fire?"** and
-the answer must be structured, not a log line:
-
-```text
-west_lift_power
-  switch_a active ........ yes
-  switch_b active ........ no
-      object: Hall/switch_b
-      current state: released
-  relay powered .......... yes
-
-result: blocked by switch_b active
-```
-
-Treat explainability and structured diagnostics as product requirements.
-
-## Explicit non-goals
-
-Recorded so this plan cannot mutate into the wrong project:
-
-- ⛔ no general-purpose programming language in the first campaign;
-- ⛔ no embedded Lua/Rhai for Godot parity;
-- ⛔ no arbitrary ECS reflection/mutation API;
-- ⛔ no universal scene graph;
-- ⛔ no universal `EngineEffect` / `EngineCondition` god enum;
-- ⛔ no immediate replacement of every existing encounter/cutscene/boss/moveset
-  representation;
-- ⛔ no requirement that every game behavior be data-driven;
-- ⛔ no requirement to eliminate Rust plugins;
-- ⛔⛔ no reading of "LLM-native" as *"LLMs can write Rust, therefore semantic
-  gameplay authoring is unnecessary."* The cost of a bespoke Rust system is not
-  the typing; it is that it is undiscoverable, unvalidatable and unexplainable.
-
-The boundary, restated: **use Rust to create new engine semantics; use authored
-orchestration to compose existing semantics.**
-
-## Falsifiers for the shared substrate
-
-⭐ this program must be able to fail. It fails if any of these hold:
-
-1. **M0 finds two existing customers whose condition/sequencing/state models
-   cannot share one prepared representation without a branch that names the
-   customer.** Then there is no common substrate — record the evidence and stop.
-2. **A migrated customer needs more lines than it deletes.** Deletion is the
-   proof; a rule layer that only adds is a wrapper.
-3. **The second provider cannot be added without editing a central enum or
-   registry** — that is the god-enum failure in disguise.
-4. **The prepared program cannot answer "why did this not fire?"** without
-   re-running the simulation. If explanation requires replay, the representation
-   is wrong.
-5. **Rule runtime state cannot be given rollback semantics without special-casing
-   the interpreter** in rollback registration.
-
-## Milestones
-
-⚠ **none of these is authorized to start yet.** Priority rises when the selected
-customers are ready, or when product work starts repeatedly requiring bespoke
-Rust behavior wiring. Until then this is a named capability with an executable
-first step.
-
-### M0 — inventory and evidence  ✔ DONE 2026-08-15
-
-14 systems inspected at HEAD and classified along: condition model ·
-effect/command model · sequencing · runtime state · reference model ·
-persistence/rollback semantics · preparation model · inspection/tooling support.
-
-**Acceptance — met:** the major customers were inspected at HEAD rather than
-recalled; ⭐ **genuine incompatibilities were found and they narrowed the design**
-(sequencing is out); no universal abstraction was assumed; two proof customers
-are named with their expected deletions. See the M0 result above.
-
-### M1 — vocabulary/provider contract
-
-Prototype the smallest domain-owned contract by which **two** domains expose
-semantic conditions/commands to preparation and discovery.
-
-**Acceptance:** domain ownership stays local; a composed read-only catalog
-enumerates both; ⭐ **no central engine enum is edited to add the second
-provider** — this is the behavioral test, not a review opinion.
-
-✔✔ **MET FOR CONDITIONS, 2026-08-15; consumer side closed 2026-08-16.**
-
-Landed evidence, all at HEAD:
-
-```text
-contract   shared_tangle::authored_logic — ConditionId (domain.question),
-           ConditionDescriptor, ConditionOutcome, ConditionCatalog.
-           `publish` is PRIVATE; the only way in is `PublishCondition for App`.
-provider 1 items/pickup/mod.rs        -> custody.is_held
-provider 2 world_facts.rs             -> world.flag_set
-consumer   world/gated_lock_walls.rs  -> asks world.flag_set, names no flag
-deletion   INTRO_FLAG_GATED_LOCK_WALLS + its 136-line const table, replaced by
-           an authored `gated_by` field on the LDtk LockWall entity
-```
-
-⭐ **all three acceptance clauses hold, including the behavioural one**: adding
-the second provider edited no central enum — each domain publishes from its own
-plugin — and `a_provider_that_names_no_other_domain_can_publish_and_be_asked`
-pins exactly that.
-
-#### ⭐⭐ M1b — authored DIALOGUE became a consumer, 2026-08-16
-
-The condition contract had one consumer (a lock wall) and a **rival**: authored
-`.yarn` asked the world questions through hand-written Yarn library functions
-over a per-frame `YarnStateMirror`. A wall asking `world.flag_set` and a
-dialogue asking `flag("...")` were the same question through two unrelated
-mechanisms — the second-authority shape this program refuses everywhere else.
-
-```text
-contract   one generic Yarn verb: condition("domain.question", <arg>)
-           ambition_platformer2d_actor_monolith::dialog::authored_conditions,
-           pushed through the existing YarnContentBindings installer seam.
-           It names no question, no domain and no flag.
-provider 3 items/conditions.rs -> inventory.holds   (one line of composition)
-deletion   the `flag(id)` Yarn function + YarnStateMirrorData::flags
-           the `inventory_has(item)` Yarn function + ::inventory_counts
-           + its per-frame refill, `normalize_item_id`, `mirror_inventory_has`,
-           `Item::legacy_dialog_alias` (zero production adopters after the
-           refill went), and three tests that pinned them.
-```
-
-⭐⭐ **the belief that made the mirror necessary was FALSE.** Three module
-headers said *"functions can't be Bevy systems — they're called synchronously
-from the runtime interpreter"*. Measured at HEAD: `bevy_yarnspinner` advances
-the interpreter from `continue_runtime`, an **exclusive** system, and threads
-its `&mut World` down through `Dialogue::continue_with_world` →
-`YarnFn::call_with_world` → `World::run_system_with`; `SystemId<In<P>, O>`
-implements `YarnFn`. So a Yarn function *is* a Bevy system and *does* get the
-live world. ⇒ **design answer (1), not the projection** — no staleness, no
-second copy, and the mirror shrank instead of gaining a feed.
-
-⚠ **the mirror survives and is now documented as downstream.** What is left in
-it (boss/quest state, visit counts, wallet, content `extras`) has no published
-condition, and two of its functions return `f32`, which a boolean condition verb
-cannot express. ⛔ a fact the catalog can answer must be asked, never mirrored.
-
-⚠ **two honest limits, both recorded rather than hidden.**
-
-- **Exactly one argument.** Yarn's VM *asserts* that a call's argument count
-  equals the registered function's parameter count, and `Option` parameters are
-  counted, so a variadic bridge is not expressible. `condition(id, arg)` asks any
-  one-parameter condition; a zero- or two-parameter one needs a sibling
-  registration, deliberately not written because no published condition wants it.
-- **`ParamKind::Reference` is REFUSED, not coerced.** A `.yarn` literal is a
-  string and a prepared reference is a `SimId`; turning one into the other is
-  exactly the un-renameable string reference the contract forbids. The refusal is
-  a thing M2 can replace — a wrong answer is a thing M2 would have to find first.
-
-⚠ **HALF the milestone, and the half that is missing is the interesting one:
-COMMANDS have no provider contract at all.** Grep is conclusive — no
-`PublishCommand`, no command catalog, nothing. Conditions are *questions about
-the world*, which are safe because they cannot change it; a command mutates, so
-it owes what a condition does not: authority (who may run it), ordering (when in
-the frame), and rollback semantics. ⇒ **M1's remainder is not "one more of the
-same"**, and M4's warning applies to it directly rather than to M2.
-
-⇒ **the next executable step is either M1-commands or M2**, and they are not
-independent: M2 prepares a *condition/command program*, so a program with no
-command vocabulary can only ever be a predicate. ⚠ M4 is still a design input to
-both, not a cleanup after them.
-
-### M2 — prepared rule representation
-
-Prepare one small deterministic condition/command program from authored source.
-
-**Acceptance:** validation occurs before runtime; references are prepared, not
-strings; the runtime parses no expression strings; program data is immutable
-during simulation.
-
-✔✔ **MET FOR THE PREPARED CALL, 2026-08-17 — and NOT for a `when … then` rule
-form, which was designed and cut.** See *The prepared half* below.
-
-### M3 — two real customers
-
-Migrate/prove two materially different Ambition customers.
-
-**Acceptance:** one encounter/sequenced behavior; one ordinary world mechanism or
-other independent domain; **neither requires an evaluator branch naming the
-customer**; ⭐ if the abstraction becomes awkward for one customer, **stop and
-revise rather than forcing convergence** — record the awkwardness as evidence.
-
-### M4 — deterministic runtime state  ⚠ NOT deferrable — see M0 Finding 4
-
-⛔ **the milestone number is not the order.** The tree ships three different
-answers to *"is a program counter rollback state?"*, so whichever the shared form
-picks changes at least two shipped systems. Rollback semantics are a **design
-input to M1/M2**, not a cleanup afterwards. ⭐ boss patterns hold the answer to
-copy: snapshot the **resolved** timeline, not the source program.
-
-If the proof needs timers/sequences/latches, give that state explicit rollback
-and lifetime semantics.
-
-**Acceptance:** rollback behavior is tested (not asserted); residency and save
-expectations are stated explicitly even where durable save support is deferred.
-
-### M5 — agent diagnostics
-
-**Acceptance:** list conditions/commands; describe schemas; validate an authored
-program; inspect dependencies; and **explain why a condition/rule is or is not
-satisfied in a test fixture** — structured output, checked by a test.
-
-### M6 — semantic refactoring integration
-
-Feed rule references into the project-wide semantic dependency graph owned by
-[`authoring-and-tools.md`](authoring-and-tools.md).
-
-**Acceptance:** reverse-reference queries include authored rules; rename/delete
-planning reports affected rules before mutation.
-
-## M0 result — census of 2026-08-15
-
-**14 authored/semi-authored behavior systems inspected at HEAD.** Full inventory
-and per-system classification:
-[`../triage/authored-behavior-inventory-2026-08-15.md`](../triage/authored-behavior-inventory-2026-08-15.md)
-— evidence, with two post-census corrections recorded in its header. The
-decision-relevant findings are reproduced below because they change the design.
-
-### ⛔ Finding 1 — the substrate must not own a universal sequencer
-
-Two structural incompatibilities, each fatal to a shared sequencer:
-
-- **monotonic cursor vs reversible timer machine.** `EncounterScript::advance` is
-  `cursor += 1; elapsed = 0.0`. `tick_gate_portal_phase` runs *backwards* and maps
-  its timer symmetrically to preserve visual progress, cycling with no terminal
-  state. Neither form covers the other without a branch naming the customer.
-- **subroutine stack + interrupts + seeded randomness vs flat cursor.**
-  `BossPatternState` has a stance return stack, interrupts that preempt the
-  cursor, and a weighted `Select` carrying `rng_seed` in its snapshot. That is a
-  different execution machine, not another configuration of one.
-
-⇒ **the substrate that survives contact with this tree is: conditions +
-commands + prepared references + preparation + discovery — with sequencing left
-domain-owned.** ⛔ do not put a sequencer in the shared layer. This narrows the
-program significantly and is the most important thing M0 produced.
-
-### ⭐ Finding 2 — the gap is on the CONDITION side, and the effect side already learned this lesson
-
-There is **no shared condition/predicate type anywhere in the workspace.** The
-effect side, by contrast, already has five-plus typed command buses — and a
-monolithic `GameplayEffect` enum **was built and has already been deleted**
-(`features/ecs/effect_bus.rs`). ⇒ non-goal *"no universal `EngineEffect` enum"* is
-not a preference here; it is a repeated experiment with a recorded outcome.
-
-### ⭐ Finding 3 — boss patterns are the TEMPLATE, not a customer
-
-⛔ **correction to this document's first draft, which listed them as likely
-customers.** The boss-pattern family already did the whole job: authored `.ron`
-(nine encounters plus `boss_profiles.ron`, whose header says *"to re-tune a
-fight: edit the row… No Rust changes needed"*), a schema family in the content
-pack, compile-time cross-reference resolution, a design validator with
-data-driven bands, and a cursor that snapshots the **resolved** timeline rather
-than the source program. **Leave them alone and copy them.**
-
-### ⛔ Finding 4 — M4 cannot be deferred behind M2/M3
-
-The tree ships **three different answers** to *"is a program counter rollback
-state?"*: cutscene and `MovePlayback` register the cursor **and the whole
-immutable program**; `EncounterScript` registers nothing and despawns/rebuilds;
-the gate portal waives it as "authored" while gating a room transition. Boss
-patterns are the fourth and correct answer. Any shared form must pick one, and
-picking one changes at least two shipped systems — so **rollback semantics are a
-design input, not a later milestone.** Relatedly there are three occurrence
-models (singleton resource · per-entity component · string-keyed `HashMap`
-resource), and the last is invisible to entity-scoped rollback sweeps.
-
-### Consume, do not reinvent
-
-`AmbitionGameSaveData` (world facts — versioned, migrating, rollback-registered) ·
-`Objective` (the only composable boolean condition tree, deliberately with no
-`Custom(String)` escape hatch) · `SetFlagRequested` / `EncounterCommand` (command
-buses) · `NarrativeInputLedger` (out-of-sim decider → deterministic sim command,
-already solved) · `SimId` (occurrence identity) · `PendingRef` /
-`ResolvedContentRef` + `ContentSchemaHandler` (prepared references and
-validation) · `ConstructionPlan` / `ConstructionReceipt` (transactional spawn and
-wiring) · `ambition_causal` for M5 explanation — ⭐ which **already satisfies
-falsifier 4 by explaining a tick without replay**, but is observer-only by
-contract, so ⛔ conditions may never read it.
-
-### Control-flow backends
-
-**No `bonsai-bt`, and no behavior-tree or state-machine crate of any kind, is in
-`Cargo.lock`.** The only third-party control-flow engine is `bevy_yarnspinner`,
-whose state is opaque and rollback-waived. There is no first-party generic
-sequencer — five hand-rolled ones, plus two duplicate copies of the same path
-stepper. ⇒ combined with Finding 1, **a behavior-tree backend would be a new
-dependency solving the one part of the problem that must stay domain-owned.**
-That lowers the value of the Bonsai spike considerably; it is not refuted, but it
-is no longer near the front.
-
-## Proof customers — selected by M0
-
-- **Customer A (sequenced) — the cut-rope Smirking Behemoth**
-  (`game/ambition_content/src/bosses/cut_rope/`). The fight's whole content is a
-  Rust literal assembled by a system that polls `active_props()` every frame
-  waiting for the anvil and derives tolerance from boss width. Authored source
-  must express two beats, `Gate(name)` triggers, `CommandMoveTo` / `DropHazard` /
-  `ForceKill`, and a **prepared reference to a room prop** resolved at prepare
-  time. ⭐ **deletes** `setup_cut_rope_encounter`, five Rust consts, the content
-  crate's coupling to `BossConfig` query types, and — the real prize — the
-  *"despawn the encounter so the script rebuilds itself"* reset arm, which exists
-  **only** because the script is Rust-built and unrollbackable. ⚠ honest weakness:
-  it is small, two beats.
-- **Customer B (world mechanism) — intro flag chains + flag-gated lock walls**
-  (`game/ambition_content/src/intro/route_state.rs`). Two const tables and two
-  systems; one re-walks every LDtk level matching `LockWall` id strings behind a
-  hand-written cache whose invalidation rule exists purely for a measured ~1.8%
-  profile cost. ⭐ **deletes** both tables and both systems, `IntroLockWallCache`
-  and its invalidation rule entirely (a prepared rule resolves its reference once),
-  and fixes the `Update`-instead-of-sim-schedule defect by construction. ⚠ honest
-  weakness: 4 of 5 chain targets are dead vocabulary with no readers — **the live
-  deletion is the lock-wall half**, and the campaign should say so rather than
-  count the dead rows as value.
-
-⛔ **rejected as a customer: moving-platform gating** — this document's own first
-draft reached for it, and it has **nothing to delete**. It is pure addition, which
-is falsifier 2. ⛔ **also rejected: the Noether symmetry puzzle** — the best
-evidence in the tree and a good M3 stretch, but it is implemented *as* an
-encounter, so it fails "materially different from Customer A".
-
-⛔ if the two selected customers reveal incompatible semantics during M3, that is
-a **result** — record it here and let the program fail honestly rather than
-forcing one abstraction.
-
-## Relationships to other programs
-
-- **[Instance lifetime, provenance and persistence](instance-lifetime-provenance-and-persistence.md)
-  (D125):** ⛔ this program does not derail D125 — it **consumes** it. A condition
-  like *"item occurrence X is held by body Y"* must have a well-defined semantic
-  answer, and that answer is D125's. Rule runtime occurrences that carry state
-  need the same lifetime/persistence doctrine. ⭐ D125 makes authored rules
-  easier; it is not competing with them.
-- **[Platformer navigation and reachability](platformer-navigation-and-reachability.md):**
-  ⛔ does not derail the first capability-aware reachability customer. But
-  `body X can_reach location Y` and `exit Z reachable_by body X` are plausible
-  future authored conditions — ⭐ one more reason reachability should expose a
-  clean query API with diagnostic explanation rather than stay buried in AI code.
-- **[Reusable authored world composition](reusable-authored-world-composition.md):**
-  a reusable composition may eventually reference prepared rule programs (a lift
-  composition carrying its own power/control rules). ⛔ that direction is
-  recorded, not adopted — composition stays INCUBATING until real content hurts.
-- **[World facts, observations and memory](world-facts-observations-and-memory.md):**
-  authored orchestration is both a **consumer and a producer** of structured world
-  facts/events. ⛔ doctrine unchanged: simulation determines reality; AI determines
-  what characters think, infer, want, say, remember and attempt. Authored rules
-  change deterministic world state through semantic operations; ⛔⛔ **LLM
-  character intelligence never becomes the authoritative rule engine.**
-- **[Render, animation and VFX](render-animation-and-vfx.md):** presentation
-  animation and authoritative gameplay timelines are different things. ⛔ arbitrary
-  property animation must not become an escape hatch around simulation authority.
-- **[Extension model](extension-model.md):** owns the ladder this amends.
-- **[Inspection, diagnostics and workbench](inspection-diagnostics-and-workbench.md):**
-  owns the discovery/explanation surface M5 lands in.
-
-## The command half — LANDED (2026-08-17)
-
-**M1 is now met for commands too: the contract, one command, one converted
-customer, and a deletion.**
-
-### What shipped
-
-`ambition_platformer2d_shared_tangle::authored_logic::commands` — the mirror of
-the condition contract, with the same shape and the same privacy:
-
-```text
-CommandId          domain.verb; `new` panics, `parse` refuses. A SEPARATE type
-                   from ConditionId, sharing one spelling rule.
-AuthoredArg        ⭐ the RENAMED `ConditionArg`. One prepared scalar for both
-                   halves — a second four-variant enum would have been a fork
-                   declared in its own name.
-CommandDescriptor  id + summary + &[ParamSpec]   (ParamSpec/ParamKind shared)
-CommandOutcome     Done | Refused(reason)  — ⭐ deliberately one FEWER answer
-                   than ConditionOutcome; "I cannot tell" is a question's
-                   answer, not a verb's.
-CommandRunner      fn(&mut World, &[AuthoredArg]) -> CommandOutcome
-CommandCatalog     private `publish`, private `run`
-PublishCommand     the whole provider surface, on App
-RunAuthoredCommand a Message: the only public road to `run`
-AuthoredCommandSet where in the frame an authored verb happens
-```
-
-### The three answers
-
-**1. Immutability, reproduced first.** `CommandCatalog::publish` is private; the
-only way in is `PublishCommand` on `App`; a tick holds a `World`. The catalog is
-WAIVED in `rollback_coverage`, with the same structural argument
-`ConditionCatalog` carries and the same consequence if anybody makes `publish`
-public.
-
-**2. Authority: `run` is private too, and that is the entire answer.** Holding
-the catalog lets a caller DISCOVER the vocabulary and speak none of it. The one
-road is `RunAuthoredCommand`; the one reader is
-`run_requested_authored_commands`, defined in the same file as the private
-function it is the only caller of. ⚠ **the narrow choice, stated so the next
-widening is a decision**: authority is the RUNNER, not the requester. Anything
-that can write a message can ASK; nothing can perform one out of phase. A
-per-command list of permitted callers was rejected — this engine has no
-vocabulary for *who* a caller is that is not already a seat, a session or a
-body, and inventing a fourth here would answer a question nobody has asked.
-
-**3. Ordering + rollback, and the first command makes the second a non-question.**
-`AuthoredCommandSet` sits inside `GameplaySimulationRoot`, after
-`CoreSimulation` and before `GameplayEffects` — both sets live in the same
-schedule, so neither pin is the silently-vacuous cross-schedule kind.
-`world.set_flag`'s runner writes `SetFlagRequested`, a channel that already
-existed, is already cleared on rollback, and is already applied by
-`apply_flag_effects` in the phase the set is ordered before. ⇒ **the command
-introduces no new kind of write.** ⭐ and the dispatcher DRAINS rather than
-reading with a cursor, so it holds no `Local` — the trap a message-clear
-registration usually exists to close is absent by construction, and
-`message.run_authored_command` covers only the residual window (a request
-released onto a frame the host rewinds past before the set ran).
-
-Wire format: 358 → 359 stable names, encoded types unchanged at 85,
-`GGRS_ROLLBACK_SCHEMA_VERSION` 35 → 36. ⚠ the JSON baseline's
-`stable_schema_name_count` read 357 against a 358-entry list before this
-commit — a stale field, corrected in passing.
-
-### The customer, and the deletion — ⚠ NOT the one this section named
-
-⛔ **`KERNEL_FACES` did NOT go, and the refusal has a cause worth writing down.**
-It pairs an authored switch id with a *signal key*, which is the encounter
-domain's vocabulary, not the world-fact domain's. Deleting it needs:
-
-1. a SECOND command, `encounter.signal(<encounter>, <signal>)`, in
-   `ambition_encounter` — outside "one command, one customer"; and, decisively,
-2. **an authored surface in LDtk that carries a command WITH ITS ARGUMENTS** —
-   a `Switch` field spelling `encounter.signal symmetry_attunement gravity_down`
-   or a pair of fields. That is *prepared arguments from authored source*, which
-   this plan already assigns to **M2**.
-
-⚠ **the condition half hit the same wall and narrowed rather than invented.**
-`LockWall.gated_by` names a FLAG, not a whole condition, and
-`gated_lock_walls`'s own header says why: *"the mechanism is general; the
-spelling is not... an authored surface is much harder to take back than to
-widen."* Inventing an LDtk command-call syntax to pay a gate would be the
-opposite of that judgement.
-
-⚠ **and only HALF of `KERNEL_FACES` is the offending shape.** Its use in
-`spawn_symmetry_attunement` builds `Objective::All([ReceiveSignal(…)])` — an
-encounter stating its own win condition, which is legitimate and survives any
-version of this. The id→behaviour pairing in `drive_symmetry_attunement` is the
-part that owes a deletion.
-
-⭐ **a real deletion was paid instead, in the same file the condition half paid
-its second one in.** `ambition_content::yarn_vocabulary` lost `cmd_set_flag` and
-`cmd_clear_flag` — two hand-written Bevy systems differing by one bool, each
-registered by name in a second list, each with its own conversion from Yarn's
-untyped text — plus both `add_command` registrations, the module header's
-classification row, and `NarrativeInputPlugin::<SetFlagRequested>` (whose only
-narrative writer they were). Authored `.yarn` now spells it
-`<<command "world.set_flag" "<id>" true>>`, and `intro.yarn` / `kernel.yarn`
-were rewritten to it.
-
-⇒ **the rival mechanism is gone in BOTH directions.** Authored content asks with
-`condition("world.flag_set", …)` and tells with `command("world.set_flag", …)`,
-and a domain publishing either adds nothing to any bridge.
-
-### What the command verb can do that the condition verb cannot
-
-⭐ **it is not limited to one argument, and the reason the other one is turned
-out to be specific to FUNCTIONS.** Yarn's VM asserts a function call's argument
-count against the registered parameter count; a **command** is dispatched by
-name with its parameters as a list (`Command::parse`), with no arity assertion
-anywhere, and `Option` parameters retrieve `None` when the list runs out. So
-`<<command id arg…>>` carries up to three arguments — a cap this repo chose, not
-one Yarn imposed — and `world.set_flag(flag, on)` takes two, which is why
-`set_flag` and `clear_flag` collapsed into one verb rather than two.
-
-⚠ **but every authored argument arrives as TEXT**, because Yarn types a
-function's arguments and does not type a command's. The bridge parses against
-the published descriptor's declared kind — the descriptor decides, the text only
-has to fit. ⛔ and `Truth` accepts exactly `true`/`false`: a lenient parse would
-map an unrecognised spelling to `false`, and `false` on `world.set_flag` is not
-a no-op, it is a flag being CLEARED.
-
-⛔ **a prepared `Reference` is refused**, the same as on the condition side and
-for a sharper reason: a condition that guesses returns a wrong answer; a command
-that guesses changes the wrong thing.
-
-### The falsifier
-
-`authored_logic::commands::tests::a_provider_that_names_no_other_domain_can_publish_and_be_performed`
-publishes a command from a module that names no other domain, using only
-`PublishCommand`, and asserts the world is UNCHANGED while the request is merely
-written and changed only after the dispatcher runs. ⚠ **both terms are
-observed**, so it cannot pass with the dispatcher deleted — verified by probe:
-short-circuiting `run_requested_authored_commands` turns it and its once-only
-sibling red.
-
-At the consumer end,
-`ambition_conversation::dialog::authored_commands::tests` drives the REAL
-interpreter and publishes `gossip.spread` from the test module — a domain
-nothing in the engine mentions — asserting the released request carries
-`AuthoredArg::Truth(true)` prepared from the authored text `true`. ⭐ the Yarn
-harness those tests share with the condition ones was extracted rather than
-copied (`dialog::yarn_harness`).
-
-## Open design questions — deliberately unresolved
-
-- Is the authored surface one rule form, or several domain-shaped forms sharing a
-  preparation and discovery contract?
-- Do rules live in room content (LDtk), in provider content, or in their own
-  authoring backend — and who owns their identity namespace?
-- Is sequencing expressed as an explicit state machine, an ordered program with a
-  cursor, or a behavior-tree-shaped evaluation? (See the backend question below.)
-- Should a rule's runtime occurrence be an ECS entity with the ordinary scope
-  components, or state owned by the domain that installed it?
-- What is the evaluation order contract between rules, and how is it made
-  deterministic without a central scheduler owning every domain?
-- Can a rule be authored against a *definition* and instantiated per occurrence,
-  or is every rule placed?
-- ⚠ **Could an existing deterministic control-flow backend (e.g. `bonsai-bt`)
-  serve beneath Ambition-owned semantic conditions, commands, schemas and
-  prepared programs?** ⛔ **M0 lowered this considerably**: there is no
-  behavior-tree or state-machine crate in the lockfile at all, so this is a new
-  dependency — and it would solve *sequencing*, which Finding 1 says must stay
-  domain-owned. Not refuted, but no longer near the front. The question is *not*
-  "should Ambition become a Bonsai engine". The required shape would be
-  `authored content → prepared Ambition representation → optional execution
-  backend → semantic intent → authoritative simulation`.
-  ⛔ do not expose any backend's AST as permanent Ambition content ABI without
-  strong evidence, and ⛔⛔ do not let a behavior-tree blackboard become
-  authoritative world state. A measurement/falsification spike answering
-  determinism, rollback/serialization, per-instance memory, execution cost,
-  inspectability, and whether one existing actor policy reproduces cleanly is
-  sufficient — this is not a dependency-adoption campaign.
-
-## The prepared half — LANDED (2026-08-17)
-
-**M2's four acceptance clauses hold, all four structurally, and the deletion the
-command half refused with cause has been paid.**
-
-### What shipped
-
-`ambition_platformer2d_shared_tangle::authored_logic::prepared`:
-
-```text
-PreparedCondition   a validated (ConditionId, Vec<AuthoredArg>)
-PreparedCommand     a validated (CommandId,   Vec<AuthoredArg>)
-PreparationError    source + reason, so a loader's diagnostic names the line
-ConditionCatalog::prepare / prepare_line / ask
-CommandCatalog::prepare  / prepare_line
-RunAuthoredCommand::prepared   the one bridge from preparation to the channel
-```
-
-The authored form is one line: `<domain>.<leaf> <arg>…`, whitespace-separated.
-⛔ no operators, no nesting, no quoting — adding quoting is the first inch of the
-expression language the non-goals refuse.
-
-### The four clauses, and why each is a SHAPE
-
-1. **Validation cannot be skipped.** Both types have private fields and **no
-   public constructor**. The only producers are `prepare`/`prepare_line`, which
-   check the id against the published catalog, the arity against the descriptor
-   and every value against its declared `ParamKind`. ⇒ *"prepared but never
-   validated"* is not a state this program can be in.
-2. **The runtime parses nothing, because it holds no text.** The authored source
-   is consumed by `prepare` and is **not retained** — there is no accessor that
-   returns it. A tick holds an id and prepared values and has nothing to parse.
-3. **Program data is immutable.** No `&mut` accessor, no public field, no
-   interior mutability. A holder can REPLACE a prepared call with another
-   validated one; nothing can edit one. ⭐ this is the catalogs' privacy argument
-   adapted from a registry to a value: they are safe because a tick cannot reach
-   the door, and a prepared call is safe because no door exists.
-4. **A reference is a `SimId` minted by `SimId`'s own constructors.** The
-   authored text names its namespace — `encounter:symmetry_attunement` — and
-   preparation dispatches to `SimId::encounter` / `SimId::placement`. ⛔ never
-   `SimId::from_snapshot`, which that module reserves for snapshot blobs and
-   which would skip the escaping the id encoding's injectivity depends on.
-   ⚠ **the author spelling the namespace is a choice with a recorded
-   alternative** (put it on the `ParamSpec`, so a field could say just
-   `symmetry_attunement`) — rejected because it needs `ParamKind::Reference` to
-   carry a payload, which breaks the one-line kind check both catalogs share.
-
-⭐⭐ **this is the refusal both M1 bridges recorded as *"a thing M2 can
-replace"*, replaced.** A prepared reference from authored source now exists.
-
-### The customer, and the deletion the command half owed
-
-```text
-provider 2 (commands)  ambition_encounter -> encounter.signal(<ref>, <key>)
-consumer   actor_monolith::world::authored_switch_commands
-authored   Switch.on_activate in symmetry_room, x4:
-           "encounter.signal encounter:symmetry_attunement gravity_down"
-deletion   KERNEL_FACES's (switch id -> signal key) half + the SwitchActivated
-           loop in ambition_content::encounters
-```
-
-⭐ **the end-to-end `symmetry_attunement` app fixture passes UNCHANGED**, driven
-entirely by the level: it presses the four kernel faces by id and the puzzle
-completes. Nothing in Rust says which face is which any more.
-
-⚠ **the spawn-side half of `KERNEL_FACES` survives with cause**, exactly as this
-document predicted: `KERNEL_SIGNALS` builds `Objective::All([ReceiveSignal(…)])`,
-an encounter stating its own win condition. That is a different sentence from
-*"this switch does that"*, and only the puzzle knows it.
-
-⭐ **and `encounter.signal` takes a REFERENCE rather than a name for a reason
-visible in behaviour**: a name that matches nothing produces a well-formed
-`EncounterCommand` addressed to a non-existent encounter, which the reducer drops
-in silence — the exact failure mode of a typo'd id in a const table. A reference
-is resolved against the live occurrences and an unresolvable one is `Refused`
-with a sentence. ⚠ and the id handed to the reducer is read **off the resolved
-occurrence**, never recovered from the reference's spelling.
-
-### ⛔ No program counter appeared — and the `when` half was CUT
-
-A prepared call is one call, evaluated fresh, with nothing to rewind. ⇒ M0
-Finding 4's *"the tree ships three different answers to 'is a program counter
-rollback state?'"* is answered for this slice by having none, and no shipped
-system changed.
-
-⛔ **a `when: Vec<PreparedCondition>` / `then: PreparedCommand` rule form was
-designed and deliberately not built.** The one customer that pays for M2 — a
-`Switch` naming a verb — has an EMPTY condition list in all four of its rows, and
-a shipped `when` with zero adopters is precisely falsifier 2's wrapper. The
-domain that owns a trigger decides when to ask; the substrate owns what is asked.
-⇒ **the rule FORM is still open and needs a real customer before it is built.**
-
-The store is a room-scoped derived resource (`AuthoredSwitchCommands`), declared
-`derived` to rollback on the same argument `GatedLockWallCache` makes: a pure
-function of (LDtk project, active room), neither of which can move inside a
-rollback window. **No wire format change**; `GGRS_ROLLBACK_SCHEMA_VERSION` stays
-36 and both baselines gain one derived row.
-
-### The falsifier, and the probe that proved it can fail
-
-`authored_logic::prepared::tests` publishes `gossip.spread` and
-`gossip.is_rumoured` **from the test module** — a domain nothing in the engine
-mentions — prepares a call from authored TEXT, asserts the world is unchanged
-while the line is merely PREPARED and again while the request is merely WRITTEN,
-and changed only after the dispatcher runs. Beside it,
-`preparation_refuses_before_the_tick_what_a_tick_would_otherwise_discover` walks
-nine wrong lines (unknown id, both arities, a non-truth, a reference with no
-namespace, an unknown namespace, an empty body, a malformed id, a blank line) and
-**prepares the good one in the same test**, so a preparer that refused everything
-fails too.
-
-⚠ **probed red, twice.** Neutering the arity check turned the refusal test and
-the condition-side assertion red; minting the reference with
-`SimId::from_snapshot(text)` instead of `SimId::encounter(body)` turned
-`an_authored_reference_goes_through_the_identity_vocabulary` red on
-`encounter:a:b` vs `encounter:a%3Ab`. Restored and re-verified green.
-
-At the customer end, `world::authored_switch_commands::tests` publishes
-`bystander.ring` from the test module, presses the switch and observes the bell
-silent before and ringing after; `a_line_no_composition_can_perform_never_reaches_the_prepared_set`
-pins *"validation occurs before runtime"* as a behaviour. And
-`ambition_content::encounters::tests` reads the **shipped** `sandbox.ldtk` and
-asserts the four kernel switches actually say it — the wiring pin, because
-`on_activate` is optional and losing it would be silent.
-
-### ⚠ Two follow-ups this slice named and did not do
-
-- **`gated_lock_walls` does not hold a `PreparedCondition` yet.** It still
-  rebuilds `AuthoredArg::Name(wall.gated_by.clone())` every tick, so its
-  validation is still per-tick — the condition half of *"validation occurs before
-  runtime"* is available and unadopted.
-- **`ambition_conversation::dialog::authored_commands` owns a second copy of the
-  text→`AuthoredArg` conversion** that `prepared::prepare_args` now generalises.
-  Collapsing the fork would also give authored `.yarn` prepared references for
-  free, which is the widening that file's header already anticipates.
+`PreparedCondition` and `PreparedCommand` are validated immutable values.
+Preparation resolves:
+
+- registered semantic id;
+- arity;
+- parameter kinds;
+- typed references such as `SimId` namespaces.
+
+Runtime consumers do not reparse authored text. Invalid calls are refused before
+they can become runtime work.
+
+### No universal sequencer
+
+The earlier census found several legitimate control-flow shapes: monotonic
+cursors, interruptible boss-pattern state, dialogue/Yarn control flow, encounter
+state machines, and event-triggered one-shot commands.
+
+That evidence argues **against** forcing every customer into one universal
+program counter, behavior tree, or engine-owned sequencer.
+
+A domain decides *when* to ask/effect. Shared authored-logic infrastructure
+answers *what semantic question/request is being made*.
+
+## Current work
+
+### O1 — adopt prepared conditions where a real per-tick parser still exists
+
+`gated_lock_walls` remains a concrete candidate: it still assembles condition
+arguments at runtime rather than holding a prepared condition produced at
+content-preparation time.
+
+A promoted slice should delete the runtime validation/parsing road rather than
+introduce another wrapper around it.
+
+### O2 — collapse duplicated authored-argument preparation
+
+Dialogue-authored commands still have their own text-to-`AuthoredArg` conversion
+path. Reuse the shared preparation semantics if doing so removes a real duplicate
+without forcing dialogue control flow into the shared substrate.
+
+### O3 — wait for a real rule-form customer
+
+Do **not** build `when ... then ...`, an ordered generic rule list, a behavior
+-tree AST, or a universal state-machine format merely because prepared conditions
+and commands now exist.
+
+Promote a rule representation only when a real authored feature needs both:
+
+- a condition/trigger representation that its current domain-specific format
+  handles poorly; and
+- a semantic command/effect that already has an owning domain.
+
+The first implementation must state who owns per-occurrence runtime memory and
+how that memory participates in rollback/lifetime semantics.
+
+### O4 — keep discovery/inspection first-class
+
+Authoring and agent tooling should be able to enumerate:
+
+- available conditions and commands;
+- parameter kinds and documentation;
+- prepared source location/provenance;
+- preparation failures;
+- the owning domain/capability.
+
+Do not require a developer to search Rust registration topology to discover the
+authored vocabulary.
+
+## Determinism and lifetime
+
+Prepared program data is immutable. If a future authored rule has mutable
+runtime occurrence state—cursor, cooldown, branch memory, trigger history—that
+state belongs to an explicit domain/session occurrence and must follow the same
+rollback, stable-identity, deterministic-order and lifetime rules as other
+authoritative simulation state.
+
+A blackboard owned by an execution backend is not automatically valid gameplay
+authority.
+
+## Optional execution backends
+
+A deterministic behavior-tree/state-machine library may eventually implement a
+specific domain's control-flow backend. That is an implementation choice behind
+Ambition-owned semantic content contracts.
+
+Do not expose a third-party AST as permanent Ambition content ABI without a real
+customer and evidence for deterministic execution, rollback/state ownership,
+inspection and maintenance value.
+
+## Non-goals
+
+- no general-purpose scripting language;
+- no arbitrary ECS reflection/mutation from authored content;
+- no universal sequencer owned by the shared substrate;
+- no central god registry that absorbs domain mutation authority;
+- no runtime string parsing when content could have been prepared;
+- no speculative behavior-tree adoption.
+
+## Acceptance for the next promoted slice
+
+A slice should demonstrate all of:
+
+1. a real authored customer;
+2. preparation catches invalid ids/arity/types before runtime;
+3. the runtime holds prepared semantic values rather than authored text;
+4. the owning domain remains the sole mutation authority;
+5. any runtime occurrence memory has explicit rollback/lifetime ownership;
+6. a duplicated hard-coded or per-tick interpretation path is deleted;
+7. diagnostics can explain the authored source and semantic owner.
+
+## Exit
+
+This plan remains open because the representation for reusable authored rules is
+intentionally unresolved. It can close when real customers have either proven a
+small shared rule form or demonstrated that prepared semantic calls plus
+independent domain control-flow backends are sufficient.

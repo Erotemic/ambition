@@ -185,7 +185,7 @@ python scripts/agent_query.py "<task words>"
 ```
 
 Active architecture direction lives in
-[`docs/planning/engine/architecture.md`](docs/planning/engine/architecture.md).
+[`docs/architecture/engine-architecture.md`](docs/architecture/engine-architecture.md).
 
 
 ## Developer setup

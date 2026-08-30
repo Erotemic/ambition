@@ -62,8 +62,11 @@ Use [`concepts/index.md`](concepts/index.md) for the full focused list.
 Architecture pages hold settled cross-domain boundaries rather than execution
 plans:
 
+- [`architecture/engine-architecture.md`](architecture/engine-architecture.md) — canonical current engine roles, dependency direction, authority/lifetime and composition model.
 - [`architecture/architecture-boundaries.md`](architecture/architecture-boundaries.md) — policy/guardrail ownership.
+- [`architecture/bevy-system-boundaries.md`](architecture/bevy-system-boundaries.md) — ECS query/SystemParam/phase boundary doctrine without parameter-ceiling packing.
 - [`architecture/package-and-capability-boundaries.md`](architecture/package-and-capability-boundaries.md) — package extraction, Bevy plugin maturity, capability composition and residual actor-kernel doctrine.
+- [`architecture/spatial-model.md`](architecture/spatial-model.md) — backend-neutral world/spatial representation, geometry policy and reopen triggers.
 
 Active migration/extraction work stays in `planning/`; once a campaign settles a
 boundary, distill the rule here/concepts/systems/ADRs and remove its execution
@@ -74,6 +77,8 @@ diary from the live planning surface.
 System docs are intentionally fewer and shorter than the source. They explain a
 current cross-crate flow or authority boundary that cannot be discovered from a
 single module map. Exact symbol inventories belong in `.agent/`, not prose.
+
+- [`systems/camera-reference-frames.md`](systems/camera-reference-frames.md) — shipped world-fixed/subject-relative camera policy and per-view authority.
 
 See [`systems/index.md`](systems/index.md). If a system page reads like a
 migration ledger, future plan, or dated audit, move it to `archive/` or delete it.

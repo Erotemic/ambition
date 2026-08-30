@@ -21,6 +21,22 @@ world exists
     != room is visible in a local view
 ```
 
+
+## Foundation dependency
+
+Open-world expansion should build on the current lifetime/reconstitution model
+rather than inventing another residency manager first. In particular:
+
+- gameplay-session and rollback-timeline ownership remain distinct (ADR 0027);
+- room/session reconstruction should converge through
+  [`construction-and-reconstitution.md`](construction-and-reconstitution.md);
+- persistent item/actor location is an occurrence/lifetime policy, not evidence
+  that every nonresident entity should remain instantiated;
+- existence, residency, simulation activity and visibility remain separate axes.
+
+This is a sequencing dependency, not a requirement to solve a universal world
+scheduler before adding another room/customer.
+
 ## Required capabilities
 
 - stable world/room identity independent of ECS entities;

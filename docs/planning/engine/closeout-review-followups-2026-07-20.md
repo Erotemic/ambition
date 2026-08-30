@@ -1,212 +1,33 @@
-# Closeout followups — remaining work
+# Closeout review followups — routed residuals
 
-**Status:** residual work only, re-verified against HEAD on 2026-08-13.
+**Status:** closed as an independent planning authority on 2026-08-30.
 
-The completed session-retirement repair and the original review evidence are
-archived at
-[`../../archive/planning-superseded/2026-08-13/engine/closeout-review-followups-2026-07-20.md`](../../archive/planning-superseded/2026-08-13/engine/closeout-review-followups-2026-07-20.md).
+The July closeout review accumulated several unrelated residuals. Current HEAD
+and later architecture work give each surviving item a better owner, so this
+file no longer owns executable work. The full investigation remains in git
+history and in the existing superseded-planning archive.
 
-The live file keeps only work that still has a concrete source-backed gap or an
-explicit future consumer trigger.
+## Current routing
 
-## 1. Portal mapping convention is session authority, not a process global
+- **Portal mapping convention:** still source-backed. The live process-global
+  `PORTAL_MAP_ROTATION` policy is queue row `D-PORTAL-POLICY` under
+  [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md).
+- **Shipping/fresh-clone configurations:** owned by
+  [`project-build-and-distribution.md`](project-build-and-distribution.md) and the
+  build/platform reservoir in [`../tracks.md`](../tracks.md).
+- **Rollback schema fingerprint cost:** the registry now memoizes its schema
+  fingerprint with `OnceLock`; do not preserve the old hot-path claim as open
+  work.
+- **Projectile-view cloning / repeated collision composition:** neither has a
+  current measured budget failure. They are covered by the standing rule in
+  [`performance-and-iteration.md`](performance-and-iteration.md): reopen generic
+  CPU work only from representative measurements.
+- **Dormant `GravityFlipSwitch`:** retained as a small convergence trigger in
+  [`../tracks.md`](../tracks.md); delete the unused path unless a real authored
+  overlap-plate customer appears.
+- **Provider-owned persistence and item identities:** retained as external-provider
+  triggers in [`../tracks.md`](../tracks.md). Do not build generic provider
+  abstractions before a second real consumer needs them.
 
-### Evidence
-
-`ambition_platformer2d_shared_tangle::math` stores the active mapping convention in
-`static PORTAL_MAP_ROTATION: AtomicBool`. Placement and mapping helpers read it
-implicitly; `ambition_portal2d::tuning` mutates it from live tuning. The pure
-engine-core map functions already accept an explicit `MapConvention`.
-
-The static prevents two Apps/providers in one process from choosing independent
-conventions, contaminates tests, and leaves a simulation rule outside the
-session/rollback identity. `portal_reverses_facing` belongs to the same policy
-family.
-
-### Work
-
-1. Introduce an App/session-local portal convention authority in the portal
-   domain; do not put policy back into `engine_core`.
-2. Thread the convention explicitly through placement, facing, input-warp, and
-   transit/mapping consumers.
-3. Seed it from provider/session rules, not directly from local settings.
-4. Include the effective convention/facing policy in the prepared-session or
-   synchronized-rules fingerprint before P2P is accepted.
-5. Delete the atomic setter/getter and tests that depend on process order.
-
-### Exit
-
-Two independent Apps/providers can use different portal conventions in one
-process, and identical synchronized session rules produce identical portal
-mapping regardless of local settings.
-
-## 2. Honest shipping and fresh-clone configurations
-
-### Evidence
-
-`ambition_app` defaults to `desktop_dev`, which includes developer tools,
-mobile touch, RL simulation, and falling sand. Runtime/actors still have other
-production dependencies on `ambition_dev_tools` after K1a, so naming a
-`desktop_game` feature today would not by itself create a lean shipping build.
-
-The supported fresh-clone route is also the full authoring-workstation setup:
-system/audio packages, Rust utilities, submodules, multiple Python
-environments, and regeneration of every untracked runtime asset class. That is
-valid for contributors, but not a minimal build/play experience.
-
-There is deliberately no CI initiative.
-
-### Work
-
-1. Continue the K1 authority removals until developer editing/inspection is an
-   optional adapter rather than runtime setup authority (`DeveloperRuntimeState`,
-   `EditableAbilitySet`, dev-owned schedule sets, and profiling hooks remain).
-2. Only then define explicit supported app configurations:
-   - desktop development;
-   - desktop game/shipping;
-   - headless simulation;
-   - Android;
-   - web.
-3. Make simulation-host choice explicit in each configuration rather than a
-   side effect of `dev_tools`.
-4. Split local setup into:
-   - build/play asset hydration and compile;
-   - full authoring/regeneration workstation setup.
-5. Choose the asset-hydration/distribution mechanism only when implementing
-   that split; do not invent a hosted cache or GitHub workflow preemptively.
-6. Periodically validate with a manual clean clone/new-machine drill.
-
-### Exit
-
-A fresh machine has a documented minimal command that hydrates runtime assets
-and builds/plays the game without installing the full authoring stack. A
-shipping-like desktop build excludes inspector/editor machinery by actual
-dependency shape, not merely by feature name.
-
-## 3. Measured runtime-scale pass
-
-These are observed avoidable costs, but their runtime rank is unmeasured. Do
-small unconditional wins first; measure before architectural optimization.
-
-### 3.1 Cheap bounded fixes
-
-- Cache `SnapshotSchemaFingerprint` when `RollbackRegistry` registrations
-  change instead of cloning/string-dumping/hashing the full registry every
-  active-session render frame. Keep the verbose dump lazy for diagnostics.
-- Stop cloning `ProjectileView.visual_id: String` for every projectile every
-  simulation tick; update stable identity only on creation/change or use an
-  existing cheap shared/stable identifier.
-- Make rich gameplay trace capture opt-in in ordinary execution after its
-  predicted-vs-confirmed policy is decided. Retain a cheap anomaly trigger if
-  automatic OOB capture is valuable.
-
-Each item already has a source-backed smell entry in
-`dev/journals/code_smells.md`; this card supplies ordering and exit discipline.
-
-### 3.2 Collision composition measurement
-
-`world_with_sandbox_solids` clones/composes authored geometry, moving
-platforms, overlay solids, gates/liquids/subtractions, and portal carving. It
-has many independent production call sites in body integration, actor/boss
-updates, combat/damage, and both rich trace recorders.
-
-Instrument representative authored rooms with disposable or narrowly owned
-counters for:
-
-- composed-world constructions per simulation tick/phase;
-- blocks cloned, added, subtracted, and carved;
-- wall-clock time by composition and major simulation phase;
-- raycast candidate visits;
-- surface-momentum face comparisons.
-
-First gate/remove unnecessary trace constructions. If repeated composition is
-material after that, publish one deterministic derived collision view at an
-explicit phase boundary after its dynamic inputs are finalized. If candidate
-scans dominate at realistic room sizes, then evaluate indexing. Do not build a
-broadphase or permanent profiling subsystem from theory.
-
-### Exit
-
-Every retained optimization has before/after measurements from representative
-authored rooms and preserves deterministic collision behavior. Temporary probes
-are removed unless repeated use justifies a small maintained diagnostic seam.
-
-## 4. Delete the dormant `GravityFlipSwitch` cluster or give it a real owner
-
-### Evidence
-
-The generic authored hub/C4 gravity controls are LDtk `Switch` entities handled
-through the normal switch-action path. They do not use
-`ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch`.
-
-`GravityPlugin` explicitly does not install `gravity_flip_switch_system` because
-nothing spawns the component in-game. The dormant type nevertheless retains:
-
-- the component/system and unit test;
-- sim-view extraction;
-- renderer support;
-- rollback registration;
-- primitive documentation implying it is live.
-
-### Work
-
-Prefer deletion unless a near-term authored overlap-plate requirement is named:
-
-1. Reconfirm no authored/runtime spawn or plugin installation exists.
-2. Delete the component, dormant system, view/render support, rollback
-   registration, and dedicated test together.
-3. Keep the live generic LDtk switch/gravity-action path unchanged.
-
-Do not synthesize a fixture solely to justify pre-paid generality.
-
-### Exit
-
-The repository has one live gravity-switch mechanism. If an overlap plate is
-needed later, implement it as an authored feature through the normal placement
-and action authorities.
-
-## 5. Deferred provider-boundary slices: persistence and items
-
-These are strategically important but wait until K2 provider ownership and the
-single activation lifecycle are stable.
-
-### Persistence
-
-Reusable actor/dialog/cutscene systems currently depend on Ambition-specific
-`AmbitionGameSave`. `AmbitionGameSaveData.version` exists, but loading does not yet form a
-provider-owned migration/rejection contract suitable for another game.
-
-When a real external provider needs persistence:
-
-1. keep file/storage I/O reusable;
-2. move Ambition's payload/schema to Ambition content/provider ownership;
-3. give each provider explicit save identity/version/migration responsibility;
-4. remove one reusable domain's direct `AmbitionGameSave` dependency per slice;
-5. reject unsupported future versions rather than silently accepting them.
-
-### Items
-
-`ambition_items::Item` is a fixed Ambition roster; catalog overrides alter
-metadata for those variants but cannot define another game's item identities.
-When a second provider needs items, introduce provider-stable item IDs/catalog
-authority and migrate one real consumer. Do not create a type-erased universal
-inventory before that need exists.
-
-### Exit
-
-One external provider can own a persistence payload or item identity without
-editing Ambition content enums, and the slice deletes the corresponding direct
-engine dependency. No generic persistence framework is built ahead of a real
-consumer.
-
-## 6. Execution order
-
-These cards are not a new overriding wave. Apply them when adjacent work makes
-them cheap:
-
-1. dormant `GravityFlipSwitch` deletion (small convergence fix);
-2. portal convention during deterministic-session-authority work;
-3. cheap measured performance fixes;
-4. collision measurement only when runtime scale is being investigated;
-5. shipping/bootstrap after remaining dev-tool authority is optional;
-6. persistence/items only with a real external-provider consumer.
+No future work should be added here. Route new findings directly to the current
+queue, a focused plan, `tracks.md`, or a maintainer decision.

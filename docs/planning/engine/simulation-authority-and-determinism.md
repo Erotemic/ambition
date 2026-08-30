@@ -1,248 +1,244 @@
 # Simulation authority and determinism
 
-**State:** OPEN successor program.
+**State:** OPEN — rollback registration/backend ownership is largely settled;
+remaining work is runtime authoritative-state correctness, deterministic
+composition, lifetime boundaries, and explicit phase ownership.
 
 ## Goal
 
-Make simulation ownership explicit enough that deterministic behavior does not
-depend on incidental Bevy scheduler topology, mirrored read-model state, giant
-systems, or a central runtime census of every domain type.
+A simulation result should be determined by explicit authoritative data and
+semantic phase/composition rules, not by:
 
-⚠ **read that last clause precisely — it is about AUTHORITY, not about
-discovery.** The bad shape is a low-level generic runtime that owns an
-authoritative census of every gameplay domain and must be edited whenever a new
-domain participates. A **derived, read-only** index that each domain contributes
-descriptors to is a different thing and is actively wanted; see
-[`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md).
-⛔ do not cite this goal as an objection to discoverability.
+- whether a component happened to be registered but its entity was not on the
+  rollback timeline;
+- Bevy query/entity iteration order;
+- a `Local<T>` or process-global value remembering a future state across rewind;
+- ambiguous gameplay-session ownership;
+- multiple mutable representations of one fact;
+- scheduler topology among otherwise unordered writers;
+- tuple/SystemParam packing that hides one system owning unrelated domains.
 
-## Current pressure points
+## Current model
 
-The current tree has already exposed four recurring problems:
+An authoritative dynamic object can require five independent guarantees.
 
-1. large systems such as actor-brain ticks approach Bevy's parameter ceiling and
-   have historically hidden that pressure by tuple packing;
-2. some actor facts have existed simultaneously in integrated cluster state and
-   ECS components, requiring careful projection/synchronization;
-3. adding otherwise unrelated systems has changed ordering among ambiguous
-   writers in the past;
-4. rollback registration is centralized high in the runtime, forcing generic
-   composition code to know exact domain types.
+### 1. Rewind codec
 
-D73 removed several instances of duplicate actor authority. This program starts
-from that cleaner state rather than rebuilding the deleted mirrors.
+What mutable component/resource state is saved, restored, remapped and included
+in deterministic checksum policy?
 
-## Target architecture
+### 2. Rollback participation
 
-### Explicit simulation phases
+Does the authoritative entity itself participate in GGRS entity
+creation/destruction history? A registered component on an entity without the
+appropriate authoritative-family `Rollback` anchor is not enough.
 
-Prefer named phases with clear inputs/outputs, for example:
+### 3. Stable semantic identity
+
+Which logical object is this across construction/reconstruction and when a rule
+needs to compare peers? `SimId` is Ambition's semantic identity;
+`bevy_ggrs::RollbackId` remains internal frame-history identity.
+
+A stable identity is not required merely because an entity exists. It is required
+when behavior, relationships, reconstruction, diagnostics or deterministic
+selection depend on that logical identity.
+
+### 4. Deterministic selection and composition
+
+If multiple valid entities can affect one result, define the rule. Sorting by a
+stable key is appropriate for deterministic selection, but not every operation
+is order-independent. Where effects do not commute, define precedence or a
+canonical state-first/identity-last composition rather than laundering ECS query
+order into gameplay semantics.
+
+### 5. Lifetime ownership
+
+Which gameplay session and rollback timeline may treat the state as authority?
+
+Current rollback lifetime is:
 
 ```text
-sample participant / AI intent
-    -> resolve body-valid actions
-    -> decision / targeting
-    -> movement + contacts
-    -> combat production
-    -> reaction / death / lifecycle
-    -> authoritative event publication
-    -> presentation/read-model projection
+process
+  -> gameplay session           SessionScopeId
+       -> rollback timeline     RollbackTimelineGeneration
 ```
 
-The exact set may differ by subsystem. The rule is that dependencies should be
-semantic, not an accidental by-product of which systems happen to share a
-schedule.
+`ActiveRollbackAuthority` owns the current rollback contract/status together.
+Health carries across timeline generations only when the gameplay-session owner
+is the same. A foreign session reads `Unavailable`, never the other session's
+health. Historical diagnostics are process-lifetime evidence and gate no
+simulation/lifecycle work.
 
-### Named data contracts
+ADR 0027 is the durable authority for this rule.
 
-Use `QueryData`, coherent `SystemParam`s and domain-owned resources to state what
-a phase reads and writes. A parameter object is useful when it names a real
-concept; it is not useful merely as a way to fit seventeen unrelated authorities
-through Bevy's argument limit.
+## Landed architecture that should not be reopened
 
-### Domain-owned rollback declaration
+### Domain-owned rollback declarations
 
-A gameplay domain should describe its rewindable state close to where that state
-is defined. Runtime composition may collect/install declarations, but it should
-not import every gameplay crate only to enumerate concrete types.
+Every gameplay domain owns its `register_rollback_state` declaration beside the
+types it owns. The generic runtime collects backend-neutral declarations without
+naming every concrete gameplay component.
 
-The design must avoid simply pushing `bevy_ggrs` into every leaf crate. Prefer a
-small engine-owned registration vocabulary or capability fragment that domains
-can implement without depending on the transport/integration backend.
+The concrete GGRS schedule/session/backend lives in
+`ambition_platformer2d_rollback_ggrs`; the generic runtime has no `bevy_ggrs`
+dependency. Do not reconstruct the old runtime `rollback/domains/*` census.
 
-#### DONE — semantics and installation both federate
+### Explicit schedule phases
 
-`RollbackRegistrar` (`ambition_platformer2d_core::snapshot`, depends on
-`bevy_ecs` only — no `bevy_app`, no `bevy_ggrs`) lets each domain call a
-backend-neutral registration method with its own concrete type; the generic
-runtime never names it. It is deliberately not object-safe (`&mut impl
-RollbackRegistrar`), so monomorphisation lands at the host's call site rather
-than in a central list — a generic API constrains where monomorphisation
-happens, not where the list of types lives (the correction to the reopened
-conclusion below). The orphan rule is why the implementor is a wrapper: `impl
-RollbackRegistrar for App` inside the runtime is foreign-trait-on-foreign-type
-(E0117), so `GgrsRollbackRegistrar<'a>(&'a mut App)` implements it instead.
+`GgrsSchedule` uses explicit Ambition phase sets and the single-threaded
+executor. Current measurement found parallel dispatch expensive for the present
+many-small-system workload; parallelization is not a determinism or performance
+objective without new evidence.
 
-`GatePortalPhases` was the representative customer: its snapshot/projection
-moved to `ambition_platformer2d_world::snapshot_impls` (2026-07-30, −2,688
-lines from the runtime), with zero new `bevy_ggrs` dependency edges and schema
-unchanged (31).
+### Controlled-actor observation/decision decomposition
 
-**Migration completed 2026-08-18:** every gameplay crate now owns one
-`register_rollback_state` declaration beside its types (canonical/clone
-component and resource state, cursor/resolved projections, entity-reference
-remapping, rollback anchors, message clearing, derived-state claims, value
-probes); the former `runtime/rollback/domains/*` adapter census is deleted.
+Large actor decision code has already shed several unrelated authorities:
+observation, target selection and pre-decision maintenance have clearer owners;
+old primary-player combat-slot arbitration was deleted after proving it had no
+production consumer.
 
-**Backend ownership extracted 2026-08-19:** the concrete GGRS schedule,
-snapshot/history installation, session lifecycle, and checksum/restore probes
-now live in `ambition_platformer2d_rollback_ggrs`. The generic
-`ambition_platformer2d_runtime` no longer depends on `bevy_ggrs` at all; the
-facade's `rollback` feature selects the backend explicitly, and a fixed-step
-minimal consumer can omit it entirely. Schema metadata stays in the generic
-runtime so prepared-content identity doesn't depend on whether a netcode
-backend is linked.
+Continue phase decomposition only when it removes real authority coupling.
 
-⭐ **The boundary now:** the host may know an installed domain offers rollback
-state; it does not know the concrete types or projections inside that offer.
-Adding a rewindable type changes the owning domain, not a runtime census.
-Extend the backend-neutral vocabulary only when a genuinely new rollback
-semantic appears, rather than growing a parallel snapshot abstraction.
+### Gameplay-session rollback ownership
 
----
+`26ec7b19` fixed the demonstrated Smash -> title -> Ambition contamination by
+making rollback confirmation session-owned, resolving contracts against their
+own session root, and re-establishing session-mirrored resources at activation.
 
-**Historical note.** An earlier pass argued the census was structural — that
-`bevy_ggrs` registration being generic over `T` meant the runtime's source had
-to own the list of `T`s. That did not survive review: genericity only
-constrains where monomorphisation happens, not who holds the list, and the
-migration above completed the resulting redesign. ⛔ **A rejected fix along the
-way, worth keeping as a prohibition:** moving the registrations into a
-`domains/rooms.rs` inside the same crate is not decentralization — its `mod.rs`
-is still a facade holding the same list.
+Do not replace this with ad hoc "clear health on quit" calls. Same-session poison
+must survive a timeline rebase; different gameplay sessions must not inherit it.
 
-### One authoritative state, explicit projections
+## Current work
 
-Read models are allowed and useful. They must be one-way projections from the
-authoritative state. If a projection contains a field that another system also
-mutates authoritatively, separate the fields or move the authority rather than
-saving/restoring exceptions around a rebuild.
+### S1 — scenario-populated rollback coverage
 
-## Phases
+Boot-time/static registration checks cannot prove runtime-created authoritative
+families. Representative scenarios should create the populations real gameplay
+creates, then assert the required combination of:
 
-### S1 — inventory ambiguous high-authority systems
+- rollback participation;
+- registered mutable state/remapping;
+- stable semantic identity where needed;
+- deterministic composition/selection;
+- correct gameplay-session ownership.
 
-Re-measure HEAD. Rank systems by:
+Prefer domain-specific authoritative constructors/request types that make the
+required invariants hard to omit. Do **not** introduce a universal
+`spawn_sim_entity` wrapper merely so a source scanner can ban raw `spawn`.
+
+### S2 — remove authoritative non-rewinding memory
+
+Current review evidence still identifies gameplay logic whose `Local<T>`/edge
+memory can remember a future state after rollback. Examples include the Mary-O
+active-room follower and quest/room-visit edge detection.
+
+For each case, decide whether the memory is:
+
+- authoritative history that must rewind;
+- derivable from rewound state and should be recomputed;
+- presentation/diagnostic memory that must not mutate authoritative state during
+  historical resimulation.
+
+Move authoritative memory into registered state or eliminate it. Do not add it
+to checksums while leaving the actual restore semantics unchanged.
+
+### S3 — close remaining deterministic selection/composition sites
+
+Current known sites include projectile-victim ties, possession candidates and
+pickup-magnet ownership. Use the existing deterministic-selection vocabulary
+where the operation is a true selection.
+
+For composition problems, first state whether the operation is commutative. A
+stable sort is not a semantic answer when reversing the same valid influences
+changes the result.
+
+### S4 — dynamic identity and provenance
+
+Runtime-spawned authoritative entities must use the runtime identity/provenance
+road rather than borrowing authored-placement identity. Required component
+relationships should make paired facts difficult to forget where the type system
+can express the invariant.
+
+Do not attempt to enforce semantic authored-vs-runtime provenance with a grep of
+all `SimId::placement` call sites. A future typed `PlacementId` seam may be
+appropriate when the refactor is justified by a concrete failure/customer.
+
+### S5 — phase and ownership decomposition
+
+Continue breaking high-authority systems where a split produces a real semantic
+phase or domain owner. Useful criteria are:
 
 - independent authoritative domains read/written;
 - ordering constraints;
 - query breadth;
-- parameter count;
 - rollback participation;
-- number of callers that must understand the system's internal state.
+- mutation during what should be proposal/decision;
+- duplicated derivations of the same authority.
 
-Start with a system where decomposition removes real authority coupling, not the
-largest function by LOC.
+See [`../../architecture/bevy-system-boundaries.md`](../../architecture/bevy-system-boundaries.md) for the durable ECS-boundary rule.
 
-**Measured 2026-08-14 on `tick_actor_brains`, the ranking's top system.** Its
-largest player-centric authority — a combat slot board anchored on
-`PrimaryPlayer`, or the lowest `PlayerSlot` when a build had none — turned out to
-drive nothing. `assign_slots` filled the board every tick and no production
-reader consumed the assignment; the per-actor position it produced had been
-discarded since before the monolith split, and the board was rewound as
-registered rollback state on top of that. Actor spacing comes from the brain's
-crowding signal, which reads positions and a ground/aerial kind and has no
-anchor at all.
+A cohesive `SystemParam` or `QueryData` is good when it names one concept. It is
+not a fix when it only hides the parameter ceiling.
 
-So the slice was a deletion, not a target-relative rewrite: arbitration that no
-consumer observes does not become correct by being re-anchored. Gone with it are
-`CombatSlotBoard`/`assign_slots`/`CombatSlotsRes`, the `PrimaryPlayer` query and
-the position/`PlayerSlot` reads in `tick_actor_brains`, one rollback
-registration (schema v28), and the room-transition and room-reset paths that
-cleared the board. `ambition_combat::slots` is now `::crowd`, holding the one
-fact the surviving signal needs.
+### S6 — session-scoped process-resource residue
 
-⇒ **the remaining player-centrism in this system is gone**; what remains to
-carve is phase structure, below.
+The current engine still has process resources that mirror one live gameplay
+session. `SessionScopedResources` now re-establishes the known set on activation,
+so skipped/misordered retirement is not the correctness boundary.
 
-**Then the contract for the phase above it already existed.** Phase 2's first
-job is separating world observation from decision, and
-`ambition_platformer2d_world::collision::CollisionWorld` — "the single collision
-read-API" — already owns that composition. Eight systems had adopted it and the
-six largest had not: they each carried the room, the moving-platform set and the
-overlay as three parameters and wrote out the same
-`world_with_sandbox_solids(...)` call. Migrating them deleted eight duplicate
-compositions and let `tick_actor_brains` drop its seven-parameter tuple for ten
-named ones — `PerceivedWorld` being the concept that three of the seven turned
-out to share. **Count the adopters, not the capability.**
+Treat additions to this set as migration pressure: decide whether the fact is
+truly process-global, should remain a session mirror with activation semantics,
+or belongs structurally under session-owned state. Do not mandate one storage
+shape without a concrete ownership case.
 
-**A duplicate authority found on the way out.** `advance_moving_platforms` read
-the primary body's `hitstop_timer` to decide whether world geometry may move,
-while that same body's hitstop already drives the global clock to zero through
-`emit_player_time_intent_system`. Two consequences, and the second is the one
-this program is about: no home avatar meant no platform motion at all, and the
-clock request lands a frame after the timer is armed, so the platforms froze one
-frame before the bodies riding them did — a rider integrating on a nonzero `dt`
-across a surface reporting no displacement. Reading the world's own clock fixes
-both. ⇒ **when two systems derive the same freeze from one component, the
-ordering difference between them is a defect waiting for a witness.**
+The remaining `LocalSessionPolicy::check_distance` F9-proof-pulse question is a
+maintainer/productivity decision, not evidence that all such resources need an
+entity-based rewrite.
 
-### S2 — carve decision from mutation
+## State projection rule
 
-For the selected system, produce a decision/result representation that can be
-reasoned about independently, then apply it in a narrower mutation phase. Do not
-create a giant `SimulationContext` bag.
+Read models are allowed. They must be one-way projections from authoritative
+state. If a projected component contains fields that another system mutates as
+authority, split the representation or move the authority; do not preserve
+exceptions by saving/restoring selected fields around a projection rebuild.
 
-**First actor-decision carve, 2026-08-22.** `tick_actor_brains` no longer owns
-the cross-body observation pass or body-state maintenance. The scheduled producer
-`observe_actor_decision_inputs` derives frame-local `ActorDecisionFacts` plus the
-movement-only `ActorSteering` projection; target-derived stand-down now belongs
-to `select_actor_targets`; `maintain_actor_pre_decision_state` owns only the
-existing reaction-timer decay. The surviving brain tick mutates only
-decision-owned `Brain` / `PerceptionMemory` state and emits plain
-`ActorDecisionFrames`; `publish_actor_decision_frames` is the separate, narrow
-authority that commits those results to `ActorControl`. Body access during
-decision uses the generated read-only view of `ActorClusterQueryData`, preserving
-the exact complete-cluster eligibility of the former mutable query without giving
-decision write authority over movement state. No parameter-budget context bag was
-introduced.
+## Test topology
 
-### S3 — make ordering explicit
+Use the host needed by the invariant:
 
-For each authoritative write-after-write or read-after-write dependency, encode
-it as a phase edge or data dependency. Re-run deterministic replay/rollback
-oracles after each slice.
+| Property | Required proof shape |
+|---|---|
+| deterministic simulation | headless real `GgrsSchedule` / `SyncTestSession` |
+| runtime-created rollback population | scenario that actually creates it before rewind |
+| cross-game/session isolation | shell/app host that creates, retires and creates real sessions |
+| physical input/rebinding lifecycle | real input/session host |
+| rendered materialization/raster behavior | rendered hardware measurement |
+| durable persistence | fresh-process reconstruction |
+| capability combinations | explicit supported feature/product matrix |
 
-**The same slice names the schedule contract.** `ActorDecisionSet` now encodes
-`Targeting → Prepare → Observe → StateMaintenance → Decide → Publish`, with an
-explicit edge from `Publish` into `WorldPrepSet::BeforeIntegrate`. Target feud
-settlement and selection form a short local chain inside `Targeting`; later phases
-depend on that named boundary rather than either leaf. Movement preconditions,
-integration, and post-integration projection are registered in their existing
-`WorldPrepSet` phases instead of inheriting their order from one long leaf-system
-`.chain()`. A structural schedule-graph test pins those edges and memberships. The
-split also exposed and corrected a diagnostic ordering error: the causal
-movement-operation reader had run before `integrate_sim_bodies`, the writer it
-claims to observe; it now runs in `AfterIntegrate`.
-
-### S4 — invert rollback registration ownership
-
-Introduce the minimal declaration/composition seam, migrate one representative
-domain, then remove the corresponding central runtime knowledge in the same
-slice. Expand only after the shape proves useful.
-
-### S5 — simplify projections
-
-Use the cleaner phase model to delete remaining mixed-authority mirrors and
-family-specific maintenance lists.
+A simplified host is useful only if it still contains the composition property
+being asserted.
 
 ## Acceptance
 
-- adding an unrelated read-only system cannot change authoritative results;
-- a new rewindable domain can declare rollback participation without editing a
-  central runtime type census;
-- the largest actor decision systems have named domain contracts and explicit
-  phase boundaries rather than tuple-packed authority bags;
-- read-model projection code never preserves hidden authoritative fields around
-  reconstruction;
-- deterministic/headless tests exercise the same phase graph used by visible
-  hosts.
+- adding a rewindable domain type changes its domain declaration, not a central
+  concrete-type census;
+- representative dynamic authoritative families survive rewind/recreation with
+  correct identity and deterministic behavior;
+- no known authoritative edge/history uses non-rewinding `Local<T>` memory;
+- peer selection/composition does not depend on raw ECS iteration order;
+- one gameplay session cannot consume another session's rollback health or live
+  session mirror state;
+- same-session rollback rebases cannot clear a real desync by accident;
+- major simulation systems have named authority/phase contracts rather than
+  parameter packing disguising breadth.
+
+## Explicit non-goals for the current program
+
+- another custom rollback/snapshot engine;
+- pushing `bevy_ggrs` into every leaf domain;
+- a universal raw-spawn wrapper;
+- exhaustive pairwise schedule edges duplicating semantic phase structure;
+- scheduler parallelism as an architecture objective;
+- source-text policy where a type/API/runtime test can make the invariant
+  structural.

@@ -25,6 +25,7 @@ Migration ledgers, dated audits, and future designs belong in `archive/` or
 |---|---|
 | Asset manager | [`asset-manager.md`](asset-manager.md) |
 | Camera and room visual profiles | [`camera-and-visual-profiles.md`](camera-and-visual-profiles.md) |
+| Camera reference frames / per-view observer policy | [`camera-reference-frames.md`](camera-reference-frames.md) |
 | Developer hotkeys | [`developer-hotkeys.md`](developer-hotkeys.md) |
 | Display modes | [`display-modes.md`](display-modes.md) |
 | LDtk hot reload | [`ldtk-hot-reload.md`](ldtk-hot-reload.md) |

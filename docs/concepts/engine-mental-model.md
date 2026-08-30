@@ -3,10 +3,10 @@ id: engine-mental-model
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-24
+last_verified: 2026-08-30
 related_docs:
   - docs/planning/vision.md
-  - docs/planning/engine/architecture.md
+  - docs/architecture/engine-architecture.md
   - docs/concepts/content-and-provider-boundaries.md
   - docs/concepts/sim-presentation-seam.md
   - docs/adr/0025-character-actions-input-ownership.md
@@ -152,17 +152,35 @@ A useful test is:
 If not, either presentation owns too much or the headless composition is
 incomplete. See [`sim-presentation-seam.md`](sim-presentation-seam.md).
 
-## Determinism and reconstruction
+## Determinism, lifetime, and reconstruction
 
 The engine is designed for headless tests, replay, rollback-ready snapshots,
-local multiplayer, and forward-model AI. Therefore:
+local multiplayer, and forward-model AI. Two lifetime boundaries must not be
+collapsed:
+
+```text
+Process
+  └── Gameplay session        SessionScopeId
+        └── Rollback timeline RollbackTimelineGeneration
+```
+
+A timeline rebase inside one gameplay session is continuity. Starting a new
+gameplay session is not. Current rollback health/confirmation is owned by the
+gameplay-session scope and carries across timeline generations only for that
+same owner; foreign-session authority reads as unavailable.
+
+Therefore:
 
 - authoritative decisions cannot depend on wall-clock duration;
 - iteration order that affects outcomes must be explicit and stable;
+- rollback state codec, entity participation, semantic identity, deterministic
+  peer composition, and lifetime ownership are separate correctness concerns;
 - derived read models are rebuilt rather than persisted as competing truth;
-- reset, room replacement, provider switching, and snapshot restore must use
-  the same canonical construction/lowering seams;
-- process-global mirrors of session state are suspicious by default.
+- reset, room replacement, provider switching, and durable restore should use
+  the same semantic construction/reconstitution seams;
+- process-global mirrors of session-lifetime state are migration pressure: if
+  retained, activation must establish the current session's value and stale
+  sessions must not remain live authority.
 
 Bit-identical replay is a canary, not a command to preserve bad pre-release
 behavior. Preserve invariants and intentional semantics, not accidental output.

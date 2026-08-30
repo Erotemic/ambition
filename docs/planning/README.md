@@ -14,9 +14,9 @@ The planning surface has four jobs:
 
 ## Where the open work is
 
-[`queue.md`](queue.md) is the **live execution
-queue and continuation engine**. Its dated filename records where this run
-started; the mechanism is intentionally self-replenishing.
+[`queue.md`](queue.md) is the **live execution queue and continuation engine**.
+It has no dated filename because it outlives any one run; the mechanism is
+intentionally self-replenishing.
 
 A queue with no actionable rows is not a signal to stop. It is a signal to
 inspect the standing backlog, focused plans, direct maintainer observations,
@@ -96,8 +96,7 @@ policy.
 
 ### Live execution
 
-- `queue.md` — one live execution order, intentionally
-  self-replenishing.
+- `queue.md` — one live execution order, intentionally self-replenishing.
 - `tracks.md` — standing backlog and reservoir feeding the live queue.
 - active campaign documents — focused implementation authority for a bounded
   architectural or product push.
@@ -200,6 +199,11 @@ One fact should have one current planning authority. `status.md`, `tracks.md`, a
 focused plan, and the live queue should link to one another rather than each
 maintaining independent copies of the same completion narrative.
 
+Dated reviews are evidence, not another status hierarchy. A live review finding
+must be promoted into `queue.md`, `tracks.md`, a focused plan, a maintainer
+decision, or a direct-observation owner; do not maintain a parallel review-status
+ledger.
+
 ## Ambiguity is part of planning
 
 A focused plan does not need to pretend that every design answer is known.
@@ -228,7 +232,7 @@ primary product driver.** Engine capabilities should make Ambition better while
 remaining reusable enough that another substantial game can consume them through
 supported seams rather than editing Ambition-specific engine internals.
 
-Post-D73 forward architecture is organized under
+Forward Engine 1.0 architecture is organized under
 [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
 New capability programs feed the live queue; they do not create parallel
 execution queues.

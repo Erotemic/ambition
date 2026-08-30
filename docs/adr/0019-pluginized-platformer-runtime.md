@@ -11,7 +11,7 @@ content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
 
-The old plugin-refactor plan has been superseded by the Stage 20 crate split documented in `docs/planning/engine/architecture.md` and `docs/concepts/engine-mental-model.md`. The original decision still matters as historical context: use same-crate proto-boundaries before extracting real crates, and make dependency direction visible before broad moves.
+The old plugin-refactor plan has been superseded by the Stage 20 crate split documented in `docs/architecture/engine-architecture.md` and `docs/concepts/engine-mental-model.md`. The original decision still matters as historical context: use same-crate proto-boundaries before extracting real crates, and make dependency direction visible before broad moves.
 
 ## Decision
 
@@ -65,7 +65,7 @@ can be mapped cleanly onto reusable runtime phases.
   `ambition_portal2d` / `ambition_time` / `ambition_input` / `ambition_menu` /
   `ambition_audio` (foundations) ← `ambition_platformer2d_actor_monolith` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
-  tests). See `docs/planning/engine/architecture.md` and `docs/concepts/engine-mental-model.md`.
+  tests). See `docs/architecture/engine-architecture.md` and `docs/concepts/engine-mental-model.md`.
 - The `crate::{engine_core, kinematic, input, ui_nav, interaction, actor, brain}`
   compat re-exports inside `ambition_platformer2d_actor_monolith` were REMOVED (2026-06-25). Import
   each by its canonical path — `ambition_platformer2d_core`,

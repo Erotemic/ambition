@@ -3,7 +3,7 @@ id: invariants
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-19
+last_verified: 2026-08-30
 related_docs:
   - AGENTS.md
   - docs/concepts/engine-mental-model.md
@@ -61,6 +61,15 @@ may not have transparent edges, or the collision stops being visible.
   wherever order affects outcomes; raw `Entity` ids are NOT stable across GGRS
   rollback entity recreation. `docs/concepts/engine-mental-model.md`, ADR 0023,
   deep-review-2026-07-19 §2.5.
+- **Rollback codec is not rollback correctness** — authoritative state also
+  needs the correct entity/lifetime participation, stable semantic identity, and
+  deterministic composition when several peers can affect one result. A boot
+  census cannot prove runtime-created populations.
+  `docs/architecture/engine-architecture.md`, ADR 0027.
+- **Gameplay session is not rollback timeline** — rollback health may carry
+  across timeline generations only for the same `SessionScopeId`; a different
+  gameplay session must not inherit foreign rollback confirmation/health as live
+  authority. `docs/architecture/engine-architecture.md`, ADR 0027.
 - **`cargo check -p <one_crate>` is not the gate** — `cargo check -p
   ambition_app` is; and the inverse trap is real too (a crate that only
   compiles when co-built siblings unify features in — declare what you use;

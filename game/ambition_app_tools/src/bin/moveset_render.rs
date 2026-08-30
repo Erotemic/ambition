@@ -22,11 +22,11 @@
 //! decides. The manifest carries the intended move and the observed ones, and a
 //! mismatch is reported rather than cached under the name that was asked for.
 
-#[path = "support/move_exercise.rs"]
-mod move_exercise;
+use ambition_sim_harness::move_exercise;
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
+use ambition_sim_harness::DeterministicCaptureSession;
 use move_exercise::{verb_named, VERBS};
 
 const USAGE: &str = "\
@@ -131,20 +131,14 @@ fn main() {
             ambition_platformer2d::engine_core::Vec2::new(size.x as f32, size.y as f32),
         ),
     );
-    app.insert_resource(ambition_platformer2d::render::capture::CaptureSettings {
-        output: out_dir.join("frame.png"),
-        size,
-        include_ui: false,
-    });
-    app.init_resource::<ambition_platformer2d::render::capture::CaptureProgress>();
+    // ⭐ THE SESSION OWNS THE HARD PART; this binary owns the composition and the
+    // ordering, because `PresentationSetupSet` is the product shell's and the
+    // harness sits below it.
+    DeterministicCaptureSession::install(&mut app, size, out_dir.join("frame.png"));
     app.add_systems(
         Startup,
-        ambition_platformer2d::render::capture::setup_capture_target
+        ambition_platformer2d::capture::setup_capture_target
             .after(ambition_app::app::PresentationSetupSet),
-    );
-    app.add_systems(
-        Update,
-        ambition_platformer2d::render::capture::adopt_cameras_into_capture_target,
     );
 
     // ⛔⛔ FINALIZE BEFORE STEPPING. Bevy builds the render device in plugin
@@ -153,6 +147,7 @@ fn main() {
     // "Res<RenderDevice> failed validation".
     ambition_platformer2d::runtime::finalize(&mut app);
     let canonical = ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+    let camera = DeterministicCaptureSession::adopt(canonical, size);
 
     for _ in 0..30 {
         app.update();
@@ -213,7 +208,7 @@ fn main() {
             >();
             (staged, q.iter(world).count())
         };
-        let session = ambition_platformer2d::rollback::session_is_active(app.world());
+        let rollback_session = ambition_platformer2d::rollback::session_is_active(app.world());
         if staged == 0 {
             eprintln!(
                 "moveset_render: '{character}' seated nobody — the match staged 0 \
@@ -228,7 +223,7 @@ fn main() {
                  ceremony still holds {held} of the cast under ScriptedControl \
                  after 1200 updates — a press driven now would be discarded."
             );
-        } else if !session {
+        } else if !rollback_session {
             eprintln!(
                 "moveset_render: '{character}' is seated and free, but no rollback \
                  session became active in 1200 updates."
@@ -303,75 +298,20 @@ fn main() {
             observed.insert(id);
         }
 
+        // ⭐⭐ ONE CALL, AND IT IS THE WHOLE SCHEME: arm the shot, service the GPU
+        // with zero-duration pumps, refuse the frame if the fixed clock moved.
+        // Extracted 2026-08-29 — it was the only reusable thing in this binary
+        // and it was not reusable.
+        let captured = match camera.capture(&mut app, out_dir.join(format!("frame.{shot:04}.png")))
         {
-            let world = app.world_mut();
-            let target = world
-                .remove_resource::<ambition_platformer2d::render::capture::CaptureTarget>()
-                .expect("the capture target exists");
-            let mut progress = ambition_platformer2d::render::capture::CaptureProgress::default();
-            world.insert_resource(ambition_platformer2d::render::capture::CaptureSettings {
-                output: out_dir.join(format!("frame.{shot:04}.png")),
-                size,
-                include_ui: false,
-            });
-            let mut commands = world.commands();
-            ambition_platformer2d::render::capture::request_capture(
-                &mut commands,
-                &target,
-                &mut progress,
-            );
-            world.insert_resource(target);
-            world.insert_resource(progress);
-            world.flush();
-        }
-
-        // ⭐⭐ SERVICE THE GPU AT ZERO COST. Every pump runs the schedules and
-        // moves no clock, so the picture belongs to `tick` and to no other.
-        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-            std::time::Duration::ZERO,
-        ));
-        let mut pumps = 0;
-        let mut done = false;
-        while pumps < 600 {
-            app.update();
-            pumps += 1;
-            // ⛔⛔ A HARD INVARIANT, NOT A `debug_assert!`. This was one, and a
-            // `debug_assert` COMPILES OUT OF A RELEASE BUILD — which is a build
-            // the inspector's server will happily select, because it prefers the
-            // NEWEST renderer on disk regardless of profile. So the one check
-            // standing between "this PNG belongs to tick N" and a silent lie
-            // was absent from exactly the binary most likely to be running.
-            //
-            // ⛔ AND IT REFUSES RATHER THAN RECORDS. Every shot's `sim_tick` is
-            // provenance the viewer synchronises on; a picture taken while the
-            // simulation moved underneath it is worse than no picture, so the
-            // half-written frame goes with the process.
-            let now = sim_tick(&app);
-            if now != tick {
-                let _ = std::fs::remove_file(out_dir.join(format!("frame.{shot:04}.png")));
-                eprintln!(
-                    "moveset_render: a zero-duration pump advanced the simulation from tick \
-                     {tick} to {now} on shot {shot} (pump {pumps}). Every PNG names the tick it \
-                     was captured on, and this one cannot; refusing rather than writing false \
-                     provenance."
-                );
+            Ok(frame) => frame,
+            Err(error) => {
+                eprintln!("moveset_render: shot {shot}: {error}");
                 std::process::exit(1);
             }
-            if app
-                .world()
-                .get_resource::<ambition_platformer2d::render::capture::CaptureProgress>()
-                .is_some_and(|p| p.completed)
-            {
-                done = true;
-                break;
-            }
-        }
-        pumps_total += pumps;
-        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(canonical));
-        if !done {
-            eprintln!("moveset_render: readback never completed for shot {shot}");
-            std::process::exit(1);
-        }
+        };
+        debug_assert_eq!(captured.sim_tick, tick, "the session photographs the tick it was given");
+        pumps_total += captured.pumps;
         shots.push(serde_json::json!({
             "file": format!("frame.{shot:04}.png"),
             // The absolute tick this picture belongs to...

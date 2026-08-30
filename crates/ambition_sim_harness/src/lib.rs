@@ -21,6 +21,9 @@
 //! ```
 
 pub mod action;
+#[cfg(feature = "capture")]
+pub mod capture;
+pub mod move_exercise;
 pub mod observation;
 pub mod options;
 pub mod random_policy;
@@ -28,6 +31,8 @@ pub mod reward;
 pub mod runtime;
 
 pub use action::AgentAction;
+#[cfg(feature = "capture")]
+pub use capture::{CaptureError, CapturedFrame, DeterministicCaptureSession};
 pub use observation::{AgentObservation, EnemyObs, PickupObs};
 pub use options::{RollbackMode, Platformer2dSimHarnessOptions, TimestepMode};
 pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};

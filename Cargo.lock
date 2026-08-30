@@ -181,6 +181,7 @@ dependencies = [
  "ambition_demo_smash",
  "ambition_demo_smash_app",
  "ambition_platformer2d",
+ "ambition_sim_harness",
  "bevy",
  "image",
  "serde_json",

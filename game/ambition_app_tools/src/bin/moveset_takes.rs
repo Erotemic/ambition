@@ -23,8 +23,7 @@ use bevy::prelude::*;
 /// Ticks recorded per take. Long enough for a five-second shark ride to show its
 /// shape without every take carrying the tail of an idle stage.
 const TAKE_TICKS: usize = 150;
-#[path = "support/move_exercise.rs"]
-mod move_exercise;
+use ambition_sim_harness::move_exercise;
 use move_exercise::{settle, step, VERBS};
 
 /// Everything one recorded tick says.

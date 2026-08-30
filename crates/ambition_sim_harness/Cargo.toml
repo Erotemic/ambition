@@ -9,6 +9,19 @@ description = "Programmatic simulation harness: reset/step, typed AgentAction, A
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = []
+# ⛔ THE OFFSCREEN CAPTURE SESSION IS OPTIONAL, and it must stay that way. It
+# reaches `ambition_platformer2d/capture`, which links the render crate — and the
+# harness's whole point is that a test, a fuzz driver or an RL agent runs a sim
+# WITHOUT paying for the product shell or a renderer. A developer tool that wants
+# pictures asks for them.
+#
+# ⛔⛔ A FEATURE-GATED MODULE IS INVISIBLE TO A PLAIN `cargo test -p`: run
+# `cargo test -p ambition_sim_harness --features capture` or the capture module's
+# own tests silently do not exist.
+capture = ["ambition_platformer2d/capture"]
+
 [dependencies]
 # The engine surface: runtime foundation, actor/world/input/characters/items
 # vocabulary. The harness reaches these through the facade exactly as the moved

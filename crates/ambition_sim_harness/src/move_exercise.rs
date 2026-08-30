@@ -13,17 +13,20 @@
 //! - `special_pressed` is a rising EDGE: holding it true is a press every tick;
 //! - and a charge move only pays out when the button comes UP.
 //!
-//! ⛔ A SOURCE MODULE, NOT A LIBRARY. `ambition_app_tools` has no `lib.rs` ON
-//! PURPOSE — it is a collection of binaries rather than a layer — so the two
-//! consumers `#[path]`-include this. If it ever becomes real reusable Smash
-//! domain API it belongs in a domain crate, and moving it then is a rename.
+//! ⭐⭐ A LIBRARY MODULE SINCE 2026-08-29, AND ITS OWN DOC ASKED FOR THIS. It
+//! lived in `game/ambition_app_tools/src/bin/support/` and both `moveset_takes`
+//! and `moveset_render` `#[path]`-INCLUDED it — two copies compiled from one
+//! file, each using a subset, so everything the other consumer needed was dead
+//! code in both. The note here said *"if it ever becomes real reusable domain
+//! API it belongs in a domain crate, and moving it then is a rename"*. It did,
+//! and it was.
+//!
+//! ⛔ IT LANDED IN THE HARNESS AND NOT IN A NEW CRATE because its dependencies
+//! are exactly the harness's: `ambition_platformer2d` and `bevy`, and nothing
+//! from the product shell. A driver that composes a smash match supplies the
+//! composition; this only knows how to press.
 
-// ⛔ TWO CONSUMERS, TWO SUBSETS. Each binary `#[path]`-includes this whole file
-// and uses part of it, so everything the OTHER one needs is dead code from here.
-// The alternative is a `lib.rs` this crate does not want.
-#![allow(dead_code)]
-
-use ambition_platformer2d::engine_core::ControlFrame;
+use ambition_platformer2d::sim::ControlFrame;
 use bevy::prelude::App;
 
 /// A full stick is a SMASH. A tilt has to ask for less.
@@ -271,7 +274,7 @@ pub const VERBS: &[Verb] = &[
 /// forward air under `attack_air_back`.
 pub fn intended_move(app: &mut App, character: &str, verb: &str) -> Option<String> {
     app.world()
-        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+        .get_resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
         .and_then(|prepared| prepared.kit.projectable_moveset())
         .and_then(|set| set.verbs.get(verb).cloned())
@@ -336,11 +339,11 @@ pub fn subject(app: &mut App) -> Option<Subject> {
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_platformer2d::actor::MatchSeat,
-        &ambition_platformer2d::engine_core::BodyKinematics,
-        Option<&ambition_platformer2d::engine_core::BodyGroundState>,
-        Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
-        Option<&ambition_platformer2d::mount::RidingOn>,
-        Option<&ambition_platformer2d::engine_core::BodyFlightState>,
+        &ambition_platformer2d::actor::BodyKinematics,
+        Option<&ambition_platformer2d::actor::BodyGroundState>,
+        Option<&ambition_platformer2d::actor::MovePlayback>,
+        Option<&ambition_platformer2d::actor::RidingOn>,
+        Option<&ambition_platformer2d::actor::BodyFlightState>,
     )>();
     q.iter(world)
         .find(|(seat, ..)| seat.0 == 0)

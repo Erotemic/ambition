@@ -34,6 +34,7 @@
 | [`schedule`](src/schedule.rs) | Runtime schedule vocabulary independent of game content. |
 | [`shrine`](src/shrine.rs) | Shared presentation pulse state for save/heal shrines. |
 | [`sim_id`](src/sim_id.rs) | Stable deterministic identity for snapshot, replay, and netcode. |
+| [`sim_selection`](src/sim_selection.rs) | One rule for deciding a gameplay contest, so a rewind decides it the same way. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`temporary_control`](src/temporary_control.rs) | Temporary-control state: whether an autonomous actor is currently masked by a transient controller (player possession or a mount), recorded by STABLE [`SimId`] so it survives a snapshot rewind in both directions. |
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
@@ -41,7 +42,7 @@
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

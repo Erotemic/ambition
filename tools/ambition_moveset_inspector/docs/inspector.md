@@ -20,7 +20,7 @@ every time, whether or not anything is missing:
 
 ```text
 [inspector] this tool never builds; refresh a binary yourself with:
-[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin capture_scene
+[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin moveset_render
 [inspector] moveset_export  <target>/debug/moveset_export  (built 2026-08-27 17:04, 2h old)
 [inspector] moveset_takes   NOT BUILT — there will be no recorded takes to look at
 [inspector]                   cargo build -p ambition_app_tools --bin moveset_takes
@@ -36,7 +36,7 @@ that already exists needs the same line as somebody who has none, and the age is
 what tells them whether they should.
 
 The renderer's own path and build time also ride back with its frames, so the
-Engine Takes label reads `sprites: rendered by the engine (capture_scene built
+Engine Takes label reads `sprites: rendered by the engine (moveset_render built
 2026-08-27 18:35)` and its tooltip is the binary's full path.
 
 Missing binaries are never fatal. No exporter means the bundle already on disk is
@@ -202,15 +202,23 @@ derivation here.
 
 The derived frame cursor is the FALLBACK now, not the only answer.
 
-ONE binary: **`capture_scene`**. Nothing else in the tool needs a GPU.
+ONE binary: **`moveset_render`**. Nothing else in the tool needs a GPU.
+
+⛔⛔ **THIS SECTION DESCRIBED `capture_scene` UNTIL 2026-08-29, AND THAT TOOL
+PHOTOGRAPHS A FIGHTER STANDING.** The `/api/render` route took a character alone
+and cached one picture of somebody doing nothing, so every move of a fighter
+shared it. `moveset_render` performs the requested move and captures exact ticks;
+the section below this one owns the details, and the two must not describe two
+different architectures again. ⚠ a doc that names a superseded binary sends the
+next reader to build the wrong thing.
 
 ```bash
 # you build it; the tool never will
-cargo build -p ambition_app_tools --bin capture_scene
+cargo build -p ambition_app_tools --bin moveset_render
 
 # and it is useful by hand
-target/debug/capture_scene hall_of_characters player /tmp/a/anim.png 480x360 \
-    --warmup 60 --character projectile_polygon --frames 24 --stride 2
+target/debug/moveset_render --character projectile_polygon --verb attack \
+    --out /tmp/a --frames 24 --stride 2
 ```
 
 The server looks for it in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}/`
@@ -222,15 +230,14 @@ which wants a GPU: `moveset_export` (the bundle; `serve_inspector.sh` runs it fo
 you) and `moveset_takes` (the recorded takes; run it yourself for the fighters
 you care about).
 
-`--frames N` re-arms the capture after each readback and numbers the files
-`<stem>.NNNN.png`; `--stride K` advances K sim frames between shots. A single
-shot keeps the exact path it was given, so every existing room recipe is
-unchanged.
+`--frames N` is how many pictures to take; `--stride K` advances K simulation
+ticks between them, and every PNG is named for the exact `SimTick` it was
+captured on.
 
-The inspector asks `/api/render?character=<id>` once per fighter per session and
-caches under `data/renders/<id>/`. Engine Takes then draws the engine's own
-picture with the hitboxes over it, and the label beside the scrubber reads
-`sprites: rendered by the engine`.
+The inspector asks `/api/render?character=<id>&verb=<verb>` once per
+character-and-verb per session and caches under `data/renders/<id>/`. Engine
+Takes then draws the engine's own picture with the hitboxes over it, and the
+label beside the scrubber reads `sprites: rendered by the engine`.
 
 ⛔ EVERY FAILURE IS A JSON ANSWER. No GPU, no built binary, a driver that will not
 start — the route returns `503 {available: false, reason}` and the viewer falls

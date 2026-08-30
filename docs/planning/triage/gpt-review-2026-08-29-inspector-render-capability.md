@@ -61,54 +61,70 @@ photographing a fighter STANDING, while the newer section below it described
 for some time. Two sections of one document described two architectures; the
 superseded one is rewritten and says what it used to claim.
 
-## ▢ The architecture proposals, which stand on their own merits
+## ▣ The architecture proposals — ALL FIVE LANDED 2026-08-29
 
-The review is right that the capability is scattered across binaries, and none of
-these depend on its environmental premise.
+The review was right that the capability was scattered across binaries, and none
+of it depended on its environmental premise. ⭐ The one row that is not finished
+is named inside its own bullet: an explicit `auto | hardware | software` request
+shipped, but only `moveset_render` takes the flag.
 
-- ▢ **Extract `DeterministicCaptureSession`.** The hard part `moveset_render`
-  solved — sim advances only on canonical fixed ticks while readback is serviced
-  with `ManualDuration(ZERO)`, so GPU latency cannot change WHICH ticks are
-  captured — lives in a `bin/`. ⭐ that is the reusable piece: room capture,
-  match screenshots, character previews and visual regression all want it.
-  `ambition_render::capture` stays the low-level texture/readback mechanism; the
-  session belongs one layer above, because it needs app composition and stepping.
-- ▢ **Promote `move_exercise.rs` out of `#[path]`-inclusion.** `moveset_takes`
-  and `moveset_render` both textually include the same file because
-  `ambition_app_tools` is deliberately not a library. It carries learned
-  semantics — tilt vs smash stick magnitude, airborne preparation, back-air
-  facing stabilisation, input-edge semantics, the charge hold/release schedule,
-  canonical one-tick stepping, intended-vs-observed classification — and **the
-  file's own comment says it should move out once it is reusable domain API.**
-  It is. ⇒ `ambition_sim_harness` or a developer-harness crate above it.
-- ▢ **A render-independent `BodyPresentationView` (pose / clip / clip_frame /
-  facing / sprite row / mirroring).** ⭐ **the review is right that this is the
-  biggest one for agent workflows.** Today `CharacterAnimator` exists only once
-  the render layer loaded a `CharacterSpriteAsset`, and `BodyPoseView` is gated
-  by `PlayerVisual`, which Smash seats never receive — so the inspector
-  RECONSTRUCTS the frame cursor in JavaScript. A presentation read model built
-  before rendering would let `moveset_takes` record the engine's actual animation
-  decision with no rasterizer, and delete the duplicated cursor logic.
-  ⚠ `docs/inspector.md` already names this as "the bounded piece of work".
-- ▣ **A render-capability doctor — BUILT 2026-08-29.**
-  `scripts/render_capability_doctor.py`, surfaced as `render_capability` on
-  `/api/status`. It reads the loader and the ICD directory, which is what decides
-  whether WGPU has a device behind it, and answers in a second rather than after
-  a whole-game compose. ⛔ **IT REPORTS AND DOES NOT PROVE**: an ICD on disk is
-  necessary and not sufficient, so the verdict is `likely`, never `available`,
-  and it states that it created no adapter — an engine render succeeding is the
-  authoritative answer. Four arms, and they are about what it SAYS rather than
-  this machine's state: loader-without-ICD names the package, ICD-without-loader
-  is a different answer, Lavapipe alone is enough, and a hardware ICD counts.
-  ▢ **STILL OPEN from this row:** an explicit `auto | hardware | software`
-  adapter request, so a CI/agent job's environment does not change when a driver
-  appears or disappears.
-- ▢ **A CPU diagnostic renderer** as an exportable artifact rather than a browser
-  canvas — the inspector already implements sprite-sheet crop, body box, combat
-  volumes, projectiles in JS, and `ambition_app_tools` already depends on
-  `image`. ⭐ **label the two outputs separately**: an *engine render* is what the
-  production Bevy graph drew; a *diagnostic render* is derived. The inspector is
-  already careful never to pass one off as the other, and that must survive.
+⛔⛔ **THE RECURRING LESSON OF THIS FILE: EVERY MOVE MADE A LATENT RULE LIVE.**
+Promoting `move_exercise` reddened an SDK contract; widening the pose read model
+reddened a test that assumed one row. Both were correct guards doing their job,
+and both were cheaper to answer than to waive — the SDK gaps got closed and the
+test learned to ask for the PLAYER's pose rather than the only one.
+
+- ▣ **`DeterministicCaptureSession` EXTRACTED 2026-08-29** into
+  `ambition_sim_harness::capture`, behind an optional `capture` feature so a
+  test, fuzz driver or RL agent keeps paying for no renderer. The hard part it
+  owns is that **a slow adapter must not change WHICH tick a picture belongs
+  to**: the sim advances only at the caller's canonical period, a pending
+  readback is serviced with `ManualDuration(ZERO)`, and the session CHECKS the
+  tick after every pump and refuses the frame if it moved. ⛔ that check was a
+  `debug_assert!`, which COMPILES OUT OF A RELEASE BUILD — the profile the
+  inspector's server prefers. ⛔ composition and the `Startup` ordering stay with
+  the caller, because `PresentationSetupSet` is the product shell's and the
+  harness sits below it; a no-op local anchor would order against nothing.
+- ▣ **`move_exercise` PROMOTED 2026-08-29**, and its own doc had asked for it.
+  Both binaries `#[path]`-included one file, so each compiled a copy and treated
+  the other's half as dead code. It landed in the harness rather than a new crate
+  because its dependencies are exactly the harness's.
+  ⭐ **THE MOVE MADE A LATENT RULE LIVE**: `sim-harness-names-only-the-public-sdk`
+  went red on `engine_core`, `combat` and `mount`, and that contract's own reason
+  says what to do — *"if it needs crate-shaped facade paths, those are SDK gaps."*
+  Four gaps closed (`actor::BodyGroundState`, `actor::MovePlayback`,
+  `actor::RidingOn`, `sim::SimTick`) plus a new `capture` SDK module, rather than
+  a waiver.
+- ▣ **THE RENDER-INDEPENDENT PRESENTATION READ MODEL — DONE 2026-08-29, and the
+  finding under it was smaller than the review framed.** `BodyPoseView` already
+  WAS render-independent: a pure function of sim state, rebuilt every tick,
+  declared rollback-DERIVED. It was gated on `With<PlayerVisual>` — granted in
+  exactly one production place, the exploration player's avatar — so no
+  `MatchSeat` fighter had one.
+  ⭐ **MEASURED BEFORE: the recorded take on disk has `has_pose` true for 0 of
+  13,947 bodies.** Every granted character body now carries `PosedBody` (a
+  separate marker, because `PlayerVisual` means "the player's drawn avatar" and
+  other presentation keys on it), and `moveset_render`'s manifest carries the
+  engine's own decision beside each PNG — `tick 21 polygon_projectile_jab | pose:
+  Idle | clip: jab`. Schema v135 → v136.
+  ⛔⛔ **AND WIDENING A POPULATION MADE A LATENT RULE LIVE HERE TOO**:
+  `gravity_symmetry_room` read *"the sole `BodyPoseView` in the world"*, true only
+  while one entity could have one. Six bodies in that room have one now.
+- ▣ **A CPU DIAGNOSTIC RENDERER — BUILT 2026-08-29.**
+  `scripts/render_take_diagnostic.py` turns a recorded take into an SVG contact
+  sheet — body boxes, combat volumes, projectiles, and the move/pose/clip of each
+  tick — with **no WGPU, no sprite decode and no browser**. It existed only inside
+  the inspector's canvas, so the one machine that could produce these pictures was
+  one with a browser attached to a running server.
+  ⭐ **SVG RATHER THAN PNG IS THE POINT**: geometry is what a take records, and
+  rasterizing it would need the sheets decoded and a compositor — the work this
+  avoids. Diffable, scalable, readable from the terminal that made it.
+  ⛔⛔ **AND EVERY SHEET SAYS IT IS DERIVED, ON ITS FACE.** The inspector is
+  careful never to pass a derived picture off as an engine render, and an exported
+  file leaves the context that made that obvious — so the distinction lives on the
+  picture. Five arms, and two are about the sampling: an evenly-spaced strip,
+  because the first twelve ticks of a 150-tick take are the wind-up and a strip of
+  them says the move does nothing.
 
 ## What this review got right that is worth keeping
 

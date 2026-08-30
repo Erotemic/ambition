@@ -947,10 +947,27 @@ compute_core_shared() {
     ) | sha256sum | awk '{print $1}'
 }
 
-# Hash a target's own source (single-file module or package dir).
-# Empty (constant) when no leaf file is found — such units fall back to
-# CORE_SHARED-only keying, which is still correct (they re-render on any
-# shared change and are gated by their output existence).
+# Hash a target's own source (single-file module or package dir) AND the
+# authored DATA it renders from.
+#
+# ⛔⛔ THE DATA HALF IS NOT OPTIONAL, AND LEAVING IT OUT SHIPPED A KNOWN-FIXED
+# BUG FOR THREE DAYS. This hashed only `.py`/`.rig.json` leaves, and
+# CORE_SHARED hashes only `.py` — so NOTHING under `data/` was in the key. On
+# 2026-08-27 `f21eac9` ("The Officer stops shooting over his own shoulder")
+# rewrote `data/motion/humanoid/officer_brawler_v1/clips/shoot.clip.json`. The
+# key did not move, the Aug-28 publish hit the cache and skipped the render,
+# and the Officer kept firing over his shoulder in the game until 2026-08-30.
+#
+# ⛔ AND THE OUTPUT-DIGEST GUARD COULD NOT SEE IT. `sheet_cache_fresh` asks
+# whether the files on disk are the ones this cache PRODUCED; they were. Output
+# hashing catches a SUBSTITUTED sheet. It cannot catch a faithfully-cached sheet
+# built from a source that has since changed — that is what the key is for.
+#
+# ⭐ RESOLVED PER-CHARACTER, NOT GLOBALLY. Folding `data/` into CORE_SHARED
+# would make one clip edit invalidate every sheet in the roster, which is the
+# same mistake the CORE_SHARED note above already refuses for this script. A
+# character names its own motion library, so follow that edge and hash exactly
+# what this target reads.
 leaf_hash() {
     local name="$1"
     (
@@ -959,16 +976,36 @@ leaf_hash() {
         # Rigged characters (GUI .rig.json docs) are data, not a .py leaf —
         # hash the document so editing a rig invalidates only its sheet.
         local rig="ambition_sprite2d_renderer/targets/characters/rigged/$name.rig.json"
-        if [ -f "$rig" ]; then sha256sum "$rig"; return 0; fi
+        if [ -f "$rig" ]; then sha256sum "$rig"; fi
         for f in ambition_sprite2d_renderer/targets/*/"$name".py; do
-            if [ -f "$f" ]; then sha256sum "$f"; return 0; fi
+            if [ -f "$f" ]; then sha256sum "$f"; fi
         done
         for d in ambition_sprite2d_renderer/targets/*/"$name"; do
             if [ -d "$d" ]; then
                 find "$d" -type f -name '*.py' -print0 | sort -z | xargs -0 sha256sum
-                return 0
             fi
         done
+        # The authored data this character renders from: its SVG, sockets and
+        # `<name>.motion.json`.
+        local cdir="ambition_sprite2d_renderer/data/characters/$name"
+        if [ -d "$cdir" ]; then
+            find "$cdir" -type f -print0 | sort -z | xargs -0 sha256sum
+            # …and the motion library that file BINDS to, which is where the
+            # poses and clips actually live. Path is relative to the character
+            # dir, exactly as the document states it.
+            local motion="$cdir/$name.motion.json"
+            if [ -f "$motion" ]; then
+                local rel lib
+                rel="$(sed -n 's/.*"motion_library"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$motion" | head -1)"
+                if [ -n "$rel" ]; then
+                    lib="$(cd "$cdir" 2>/dev/null && cd "$(dirname "$rel")" 2>/dev/null && pwd)"
+                    if [ -n "$lib" ] && [ -d "$lib" ]; then
+                        find "$lib" -type f -print0 | sort -z | xargs -0 sha256sum \
+                            | awk '{print $1}'
+                    fi
+                fi
+            fi
+        fi
     ) | sha256sum | awk '{print $1}'
 }
 

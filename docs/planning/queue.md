@@ -192,6 +192,45 @@ migration prose names it.
 Jon restarted the session here. `672bf257f` is committed and NOT pushed. Two
 things remain, both cheap, and the FIRST one is a decision only Jon makes.
 
+- ✔ **D-OFFICER-2 — the DRAW ANIMATION fired over his shoulder, and the fix
+  had been sitting unrendered for three days.** Jon, 2026-08-30: *"The officer
+  is still animating his gun firing backwards. The projectile fires the right
+  way, the animation is the problem."*
+  His sheet is drawn WEST and the whole sprite mirrors on `authored_faces_left`,
+  so a per-clip disagreement cannot be expressed there — the body faced west
+  while the gun arm, muzzle flash and beam went EAST.
+  ⭐ **THE RIG WAS ALREADY CORRECT.** Solving the clip through the renderer's own
+  `doc.solve` puts the gun hand at **-33 (west)** on the fire frames 6–8, the
+  same side as `jab` (-30) and `attack_side` (-46). `f21eac9` fixed it on
+  2026-08-27. What was wrong was the PUBLISHED ART, and the frame geometry says
+  so without any eyeballing: in the stale sheet the flash frames kept
+  `off.x ≈ 55` and grew to x=322 — EASTWARD; a fresh render keeps the right edge
+  and drops `off.x` to 4 — WESTWARD. Republished with `--force`, then all four
+  quality tiers, then verified in-engine at `AMBITION_QUALITY_PROFILE=medium`.
+  ⛔⛔ **ROOT CAUSE: THE SPRITE CACHE KEY DID NOT COVER `data/`.**
+  `unit_key = hash(CORE_SHARED : leaf_hash)`; CORE_SHARED hashed only `.py`, and
+  `leaf_hash` only the target's `.py`/`.rig.json`. Nothing hashed
+  `data/characters/**` or `data/motion/**` — so rewriting
+  `officer_brawler_v1/clips/shoot.clip.json` did not move the key, the Aug-28
+  publish hit the cache, and the corrected clip never reached a pixel.
+  ⛔ **AND D-BUILD-1'S OUTPUT DIGESTS COULD NOT SEE IT.** `sheet_cache_fresh`
+  asks whether the files on disk are the ones this cache PRODUCED — they were.
+  Output hashing catches a SUBSTITUTED sheet; it cannot catch a faithfully
+  cached sheet whose SOURCE has since changed. That is what a key is for, and
+  the two guards answer different questions.
+  Fixed in `leaf_hash`: it now hashes `data/characters/<name>/**` and follows
+  that character's `motion_library` edge to hash the bound library. Verified by
+  perturbing one `at_s` in `shoot.clip.json` — the key changes and returns
+  byte-exact on restore.
+  ⭐ Resolved PER-CHARACTER on purpose: folding `data/` into CORE_SHARED would
+  make one clip edit invalidate every sheet in the roster, the same mistake the
+  CORE_SHARED note already refuses for `sprites.sh` itself.
+  ⚠ **A `--target X` PUBLISH IS NOT PROOF THE GAME CHANGED.** Generated art is
+  gitignored, so this produced ZERO git diff; and Medium/Low load
+  `sprites_0_5x/…`, which still held the old art until the tiers were
+  regenerated. Republish, then regen tiers, then look at the tier the machine
+  actually runs.
+
 - ✔ **D-QTT-1 — `cargo test --workspace --lib` had never been run to
   completion, and the first complete run FAILED.** The disk blocker is gone
   (165.1 GB free against the 40 GB floor) and `672bf257f` is on `origin/main`.

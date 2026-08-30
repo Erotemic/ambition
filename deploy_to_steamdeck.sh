@@ -15,7 +15,8 @@ DECK="${DECK:-deck@steamdeck}"
 # Or choose any other side-by-side name:
 #     DEPLOY_NAME=ambition-test ./deploy_steamdeck.sh
 #
-NAME_SUFFIX="${NAME_SUFFIX-2026-08-30}"
+#NAME_SUFFIX="${NAME_SUFFIX-2026-08-30}"
+NAME_SUFFIX="${NAME_SUFFIX-latest}"
 DEPLOY_NAME="${DEPLOY_NAME-ambition-$NAME_SUFFIX}"
 
 if [[ -n "$DEPLOY_NAME" ]]; then

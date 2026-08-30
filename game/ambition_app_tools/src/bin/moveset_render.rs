@@ -195,7 +195,47 @@ fn main() {
         }
     }
     if !live {
-        eprintln!("moveset_render: no live rollback session for '{character}'");
+        // ⛔⛔ NAME THE CONDITION THAT FAILED, NOT THE LAST ONE IN THE `&&`.
+        // This said *"no live rollback session"* whichever of the three was
+        // false, and the common failure is the FIRST one: a character id that is
+        // not on the smash grid seats nobody, so `staged` stays 0 and the message
+        // sent the reader (and a 2026-08-29 review) looking for a missing GPU or
+        // a broken session. ⇒ the loop above already distinguishes the three;
+        // the report has to as well. The comment on that loop learned this exact
+        // lesson one layer down and the message repeated it one layer up.
+        let (staged, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&ambition_platformer2d::actor::MatchSeat>();
+            let staged = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &ambition_platformer2d::actor::MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (staged, q.iter(world).count())
+        };
+        let session = ambition_platformer2d::rollback::session_is_active(app.world());
+        if staged == 0 {
+            eprintln!(
+                "moveset_render: '{character}' seated nobody — the match staged 0 \
+                 fighters, so this is almost certainly a character id the smash \
+                 grid does not carry rather than anything about rendering.\n\
+                 \x20 seatable ids: run `moveset_export` and read `characters[].id` \
+                 from its bundle."
+            );
+        } else if held > 0 {
+            eprintln!(
+                "moveset_render: '{character}' is seated ({staged}) but the opening \
+                 ceremony still holds {held} of the cast under ScriptedControl \
+                 after 1200 updates — a press driven now would be discarded."
+            );
+        } else if !session {
+            eprintln!(
+                "moveset_render: '{character}' is seated and free, but no rollback \
+                 session became active in 1200 updates."
+            );
+        } else {
+            eprintln!("moveset_render: '{character}' never became drivable");
+        }
         std::process::exit(1);
     }
 

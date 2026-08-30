@@ -220,9 +220,49 @@ fn sync_session_room_visuals(
         // later frame is retried rather than permanently skipped.
         return;
     };
+    let spec = room_set.active_spec();
+
+    // ⛔⛔ DO NOT MARK THIS SCOPE PRESENTED UNTIL ITS BACKDROP CAN ACTUALLY BE
+    // BUILT. `spawn_parallax_layers` early-returns when `GameAssets` has no
+    // layers for the room's theme, and `GameAssets` loads ONE theme at startup
+    // — every other theme lazy-loads via `ensure_active_room_parallax_theme`.
+    // Setting the memo first meant a session that activated on the frame BEFORE
+    // its theme arrived got no parallax and was never retried: one shot, and it
+    // missed.
+    //
+    // ⭐ THIS IS WHY AMBITION HAD A BACKDROP AND SMASH DID NOT, on the same
+    // assets and the same theme (`Hub`). The sandbox draws through
+    // `spawn_initial_room_visuals`, which has no memo and simply tries again
+    // next frame; the session path is memoized and does not. The bug was the
+    // asymmetry, not the art — which is why regenerating assets never touched
+    // it.
+    //
+    // ⚠ Deferral is conditional on the budget WANTING parallax. A tier that
+    // disables it (or a room whose theme legitimately has no art) must present
+    // normally, or the whole room's static visuals would be held hostage to a
+    // backdrop that is never coming.
+    let wants_parallax = quality
+        .as_deref()
+        .map(|q| q.budget.parallax.enabled)
+        .unwrap_or(true);
+    if wants_parallax {
+        let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
+            &spec.metadata,
+        );
+        let theme_loaded = assets.as_deref().is_some_and(|a| {
+            ambition_sprite_sheet::game_assets::ParallaxLayerAsset::ALL
+                .iter()
+                .any(|layer| a.parallax_layers.get(theme, *layer).is_some())
+        });
+        if !theme_loaded {
+            // Leave `presented` unset so the next frame retries, exactly as the
+            // unscoped path does.
+            return;
+        }
+    }
+
     presented.0 = Some(scope);
     let spawn_scope = SessionSpawnScope::scoped(scope);
-    let spec = room_set.active_spec();
     spawn_parallax_layers(
         &mut commands,
         spawn_scope,

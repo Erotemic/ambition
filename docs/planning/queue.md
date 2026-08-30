@@ -231,6 +231,36 @@ things remain, both cheap, and the FIRST one is a decision only Jon makes.
   regenerated. Republish, then regen tiers, then look at the tier the machine
   actually runs.
 
+- ✔ **D-BG-2 — smash drew no backdrop while Ambition drew one, on the same
+  assets and the same theme.** Jon, 2026-08-30: *"The background is just blank
+  for smash… Ambition shows the background. Why not smash?"*
+  ⛔ **NOT THE ART, AND NOT THE THEME.** `smash_stage()` sets only `mode` and
+  `nameplate_policy`, so `ParallaxTheme::from_room_metadata` falls through to
+  `Hub` — whose art is present and opaque at all four tiers. `moveset_render`
+  drives the SAME host (`build_visible_app_with`) to the SAME route
+  (`SMASH_GAMEPLAY_ROUTE`) and draws the backdrop correctly, which is what ruled
+  the assets out.
+  ⭐⭐ **THE BUG WAS AN ASYMMETRY BETWEEN TWO SPAWN PATHS.** The sandbox draws
+  through `spawn_initial_room_visuals`, which has NO memo and simply tries again
+  next frame. A session draws through `sync_session_room_visuals`, which set
+  `presented.0 = Some(scope)` and only THEN called `spawn_parallax_layers` — and
+  that function early-returns when `GameAssets` holds no layers for the room's
+  theme. `GameAssets` loads ONE theme at startup; every other theme lazy-loads
+  via `ensure_active_room_parallax_theme`. So a session that activated on the
+  frame before its theme arrived got no parallax, and the memo guaranteed it was
+  never retried. One shot, and it missed.
+  Fixed by deferring the memo: `sync_session_room_visuals` now returns without
+  marking the scope presented while the budget wants parallax and the room's
+  theme has no layers loaded, so the next frame retries exactly as the unscoped
+  path does.
+  ⚠ The deferral is conditional on `budget.parallax.enabled`. A tier that turns
+  parallax off — or a room whose theme legitimately has no art — must present
+  normally, or the room's STATIC visuals would be held hostage to a backdrop
+  that is never coming.
+  ⛔ **REGENERATING ART WOULD NEVER HAVE FIXED THIS**, which is why D-BG-1's
+  asset sweep left it standing: the defect is in when the scope is marked
+  presented, not in what was on disk.
+
 - ✔ **D-QTT-1 — `cargo test --workspace --lib` had never been run to
   completion, and the first complete run FAILED.** The disk blocker is gone
   (165.1 GB free against the 40 GB floor) and `672bf257f` is on `origin/main`.

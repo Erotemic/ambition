@@ -177,6 +177,32 @@ below it and on different silicon.
   never a per-boot override — re-deciding each launch would silently undo the
   settings menu.
 
+- ✔ **D-BUILD-1 — the sprite cache verified that an output EXISTED, not that it
+  was the one it produced**, so `player_robot_v3_spritesheet.png` shipped
+  byte-identical to v2's and every later run skipped it as fresh. Fixed by
+  `efd253c49`: `sheet_cache_store` records the sha256 of everything a unit
+  published and `sheet_cache_fresh` re-hashes and compares, so a substitution is
+  self-healing on the next run. The toolchain joined the fingerprint too —
+  `resvg-py` present or absent changes what the same source renders to.
+  ⛔ Inputs were already content-addressed; only the outputs were on trust. A
+  build that hashes what it reads and not what it wrote cannot tell "I made
+  this" from "something is there".
+
+- ▢ **D-BUILD-2 — the tool venvs live inside the shared checkout and point at
+  one user's Python.** All three `tools/*/.venv/pyvenv.cfg` name
+  `/home/joncrall/.local/share/uv/…`, so on a checkout shared over virtiofs the
+  venv is real for one user and interpreter-less for everyone else; the tool
+  resolution then falls back silently to a bare `python3` that cannot rasterise
+  SVG. That is what published v2's art as v3.
+  ⭐ THE REPO ALREADY SOLVED THIS CLASS ONCE. `scripts/setup/target_bindmount.sh`
+  exists because `target/` is machine-specific state in a shared tree, and
+  AGENTS.md carries a ⛔⛔ block about the silent damage when it is not bound.
+  `.venv/` is the same class of object and got the opposite treatment.
+  **Direction:** relocate tool venvs to a per-machine store keyed the way the
+  target bindmount is, so a shared checkout stops being a single-user checkout.
+  ⚠ D-BUILD-1 now makes this LOUD rather than silent (the capability is in the
+  fingerprint), which is why it is second and not first.
+
 - ▢ **D-RASTER-5 — no bootstrap step generates the scaled asset variants.**
   998 sheets ~11 days stale on `calculex`, and the parallax tiers did not exist
   at all, so Low/Medium drew old art or none — the tiers for weak hardware were

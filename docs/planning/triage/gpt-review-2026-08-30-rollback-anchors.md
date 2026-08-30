@@ -34,7 +34,7 @@ twice independently.
 | 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ▣ landed; three adopters, more to convert |
 | 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ▣ landed |
 | 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ▣ landed |
-| 12 | Fighter-brain L3 rollout — **measure before changing** | — | ☐ deliberately not a code change |
+| 12 | Fighter-brain L3 rollout — **measure before changing** | — | ▣ measured; no code change, and none warranted |
 
 Rows carried forward from the 2026-08-29 review and NOT re-litigated here: Mary-O
 `Local` room-transition state, quest/map-room edge detectors, held-projectile
@@ -476,3 +476,55 @@ turret does not fire on the body a second participant is driving; a well does no
 drag it either.
 
 monolith 1180/1180, app_it 509/509.
+
+
+---
+
+## ▣ 12 — The measurement the review asked for, and its answer is "nothing moved"
+
+The review declined to raise the L3 rollout as a new bug, correctly: the planning
+notes say rollout depth caused a measurable `recovery_below` regression, and also
+say the post-`RecoveryLens` ladder A/B had never been run. Its recommendation was
+to run it before touching recovery behaviour again.
+
+`ladder_rig --sweep-below [--no-rollout] --seeds 45`, on `d2676664d`:
+
+| level below | l1 | l3 | l5 | l6 | l9 |
+|---|---|---|---|---|---|
+| rollout ON (shipped) | 45/45 unfought | 0/45 | 0/45 | **45/45** | 0/45 |
+| rollout OFF | 45/45 unfought | 0/45 | 0/45 | **0/45** | 0/45 |
+
+**Byte-identical to the 2026-08-29 recording.** `RecoveryLens` widened the horizon
+the rollout searches; it did not change which bouts are fought. l6 still fails
+totally with rollout on, is completely rescued by turning it off, and l1 is
+unaffected either way — which is what keeps this controlled rather than a global
+perturbation.
+
+⭐ **The null result is the whole value.** Without it, "the newer `RecoveryLens` is
+intended to address the too-short 12-tick horizon" is a plausible story that
+would eventually have been quoted as a fix. It is not one. Recorded in
+`dev/ambition_dev_measurements/README.md` beside the run it re-measures; no code
+changed, and on this evidence none should until somebody decides what l6 should
+do differently.
+
+---
+
+## Where this review stands
+
+Eleven of twelve rows landed; the twelfth was a measurement and it ran. Two
+sub-items are deliberately left open and named rather than ticked:
+
+- **A universal `spawn_sim_entity` seam.** Argued against above: a seam nothing
+  forces a caller to use is convenience, not a guard. If it lands later it wants
+  an absence contract forbidding the raw spawn for rollback-registered bundles.
+- **Deterministic selection at the remaining sites** — possession candidates,
+  projectile victim ties, magnet ownership. `sim_selection` is where they go;
+  each needs its own population arm, and a conversion with no test that can fail
+  is worth nothing.
+
+The rows carried forward from the [2026-08-29 Rust-correctness
+review](gpt-review-2026-08-29-rust-correctness.md) are untouched by this pass and
+stay open there: Mary-O `Local` room-transition state, quest/map-room edge
+detectors, held-projectile attacker provenance, folding `HeldProjectile` into
+`ProjectileSpawnRequest`, `ControlledSubject` vs `DrivenBodies` for custom item
+abilities, and the D199 swept-AABB / one-way policy.

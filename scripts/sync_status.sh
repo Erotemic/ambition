@@ -169,15 +169,26 @@ done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
 # for reasons that look nothing like a submodule.
 say ""
 say "── submodules ───────────────────────────────────────────────────────────"
-if [[ -f .gitmodules ]]; then
-  while IFS= read -r path; do
+#
+# ⛔⛔ EVERY WORKTREE HAS ITS OWN SUBMODULE CHECKOUTS, and this loop used to walk
+# only the primary one. With five worktrees and five submodules that is five of
+# twenty-five actually inspected. It was not hypothetical: `agent-worktree3` held
+# two uncommitted measurement appends in ITS copy of
+# `dev/ambition_dev_measurements` — data that existed on one disk, in a slot
+# whose branch was about to be deleted, and the sweep reported the repo clean of
+# it while looking straight at the same submodule in another directory.
+for wt_root in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do
+  [[ -f "$wt_root/.gitmodules" ]] || continue
+  (( quiet )) || [[ "$wt_root" == "$repo" ]] || say "[sync] ── in worktree $wt_root"
+  while IFS= read -r rel; do
+    path="$wt_root/$rel"
     [[ -d "$path/.git" || -f "$path/.git" ]] || { warn "[sync] ⚠ $path is not initialised (git submodule update --init)"; continue; }
-    recorded="$(git ls-tree HEAD "$path" | awk '{print $3}')"
+    recorded="$(git -C "$wt_root" ls-tree HEAD "$rel" | awk '{print $3}')"
     actual="$(git -C "$path" rev-parse HEAD 2>/dev/null || echo '?')"
     sub_dirty="$(git -C "$path" status --porcelain | wc -l)"
     sub_branch="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
 
-    printf '[sync] %-34s %s\n' "$path" "$sub_branch @ ${actual:0:9}"
+    printf '[sync] %-34s %s\n' "$rel" "$sub_branch @ ${actual:0:9}"
 
     if (( sub_dirty > 0 )); then
       warn "[sync] ⚠ $path: $sub_dirty uncommitted file(s) INSIDE the submodule"
@@ -198,19 +209,29 @@ if [[ -f .gitmodules ]]; then
       fi
     fi
     # 5: the submodule's OWN remote.
+    #
+    # ⛔⛔ A SUBMODULE IN A WORKTREE IS ALWAYS DETACHED, so "tracks no upstream"
+    # is the normal state and warning on it fired for EVERY submodule in EVERY
+    # worktree — twenty warnings that meant nothing, burying the two that did.
+    # The question is never "is there an upstream", it is "does this checkout
+    # hold commits no remote has", so ask that directly and fall back to the
+    # remote's default branch when HEAD names no upstream of its own.
     sub_up="$(git -C "$path" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || true)"
     if [[ -z "$sub_up" ]]; then
-      warn "[sync] ⚠ $path tracks no upstream — its commits exist only on this machine"
+      for cand in origin/HEAD origin/main origin/master; do
+        git -C "$path" rev-parse --verify -q "$cand" >/dev/null && { sub_up="$cand"; break; }
+      done
+    fi
+    if [[ -z "$sub_up" ]]; then
+      warn "[sync] ⚠ $path has no remote at all — everything in it is on this machine only"
     else
-      read -r s_ahead _ <<<"$(git -C "$path" rev-list --left-right --count "HEAD...$sub_up" 2>/dev/null || echo '? ?')"
+      s_ahead="$(git -C "$path" rev-list --count "$sub_up..HEAD" 2>/dev/null || echo '?')"
       if [[ "$s_ahead" != "0" && "$s_ahead" != "?" ]]; then
-        warn "[sync] ⚠ $path has $s_ahead commit(s) not pushed to $sub_up"
+        warn "[sync] ⚠ $path has $s_ahead commit(s) no remote has (vs $sub_up)"
       fi
     fi
-  done < <(git config -f .gitmodules --get-regexp '^submodule\..*\.path$' | awk '{print $2}')
-else
-  say "[sync] (no .gitmodules)"
-fi
+  done < <(git -C "$wt_root" config -f "$wt_root/.gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $2}')
+done
 
 say ""
 if (( problems == 0 )); then

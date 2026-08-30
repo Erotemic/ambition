@@ -9,6 +9,15 @@ PACKAGE_ASSETS="$PACKAGE_ROOT/assets"
 ASSET_CONTRACT="$PACKAGE_ROOT/asset-contract.steamdeck.json"
 ASSET_HASH_MANIFEST="$PACKAGE_ROOT/asset-contract.steamdeck.sha256"
 
+# ⛔⛔ ONE NAME FOR THE EXECUTABLE, BECAUSE THIS SCRIPT ONCE BUILT ONE BINARY AND
+# SHIPPED ANOTHER. It built `ambition_game_bin` and then rsync'd, launched and
+# verified `target/release/ambition_platformer2d_actor_monolith` — a name that
+# stopped being an executable when that crate became a library. On a clean tree
+# the rsync fails; on a machine with an old `target/`, it silently deploys a
+# stale executable that no longer corresponds to anything in this tree. Every
+# mention of the binary now reads this variable, and the build is checked below.
+BIN="${BIN:-ambition_game_bin}"
+
 cd "$REPO"
 
 # Optional but useful: fail before deploying a bad map.
@@ -30,12 +39,29 @@ python3 "$REPO/scripts/package_asset_guard.py" compose \
 # Safest build: keep default desktop features, add the static_map + static_content
 # fallbacks so the deployed binary carries its world JSON and generated content
 # rather than needing the source tree beside it.
-cargo build -p ambition_app --bin ambition_game_bin --release --features static_map,static_content
+#
+# ⛔ `CARGO_INCREMENTAL=0` for the reason `run_game.sh` sets it on every optimized
+# profile: an incremental optimized build has linked stale codegen under mold,
+# and rustc's incremental codegen-unit splitting means the artifact is not the
+# one the profiling numbers describe. An explicit setting from the caller wins.
+if [[ -z "${CARGO_INCREMENTAL:-}" ]]; then
+    export CARGO_INCREMENTAL=0
+fi
+
+cargo build -p ambition_app --bin "$BIN" --release --features static_map,static_content
+
+# The cheapest possible proof that what is about to ship is what was just built.
+# Without it a wrong name is only caught by rsync's error — or not caught at all,
+# because a stale file of that name is still sitting in `target/release`.
+if [[ ! -x "target/release/$BIN" ]]; then
+    echo "deploy: cargo build did not produce target/release/$BIN" >&2
+    exit 1
+fi
 
 ssh "$DECK" "mkdir -p '$APPDIR'"
 
 rsync -av --delete \
-    target/release/ambition_platformer2d_actor_monolith \
+    "target/release/$BIN" \
     "$DECK:$APPDIR/"
 
 # Deploy the already-composed tree, not two independently-maintained rsync
@@ -68,21 +94,23 @@ cd "\$APPDIR/assets"
 ln -sfn . assets
 EOF_REMOTE
 
-ssh "$DECK" "cat > '$APPDIR/run_ambition.sh' && chmod +x '$APPDIR/run_ambition.sh'" <<'EOF_INNER'
+# ⛔ UNQUOTED HEREDOC: `$BIN` must expand HERE, while every other `$` belongs to
+# the launcher that runs on the Deck and is escaped.
+ssh "$DECK" "cat > '$APPDIR/run_ambition.sh' && chmod +x '$APPDIR/run_ambition.sh'" <<EOF_INNER
 #!/usr/bin/env bash
 set -euo pipefail
 
-APPDIR="$HOME/Games/ambition"
-cd "$APPDIR"
+APPDIR="\$HOME/Games/ambition"
+cd "\$APPDIR"
 
 # Important: this is the app/root directory, not the assets directory.
-# Bevy's default asset folder is "$BEVY_ASSET_ROOT/assets".
-export BEVY_ASSET_ROOT="$APPDIR"
+# Bevy's default asset folder is "\$BEVY_ASSET_ROOT/assets".
+export BEVY_ASSET_ROOT="\$APPDIR"
 
 export RUST_BACKTRACE=1
-export RUST_LOG="${RUST_LOG:-warn}"
+export RUST_LOG="\${RUST_LOG:-warn}"
 
-exec "$APPDIR/ambition_platformer2d_actor_monolith" "$@"
+exec "\$APPDIR/$BIN" "\$@"
 EOF_INNER
 
 # Verify every remote file against the same byte contract used locally. A
@@ -91,7 +119,7 @@ EOF_INNER
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
-test -x "\$APPDIR/ambition_platformer2d_actor_monolith"
+test -x "\$APPDIR/$BIN"
 cd "\$APPDIR/assets"
 sha256sum -c "\$APPDIR/asset-contract.steamdeck.sha256"
 test ! -e "\$APPDIR/assets/fonts/local"

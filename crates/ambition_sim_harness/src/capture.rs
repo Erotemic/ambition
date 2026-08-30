@@ -95,6 +95,72 @@ pub struct CapturedFrame {
     pub pumps: usize,
 }
 
+/// WHICH ADAPTER a capture run should ask for.
+///
+/// ⛔⛔ A CI OR AGENT JOB SHOULD NOT CHANGE BEHAVIOUR WHEN A DRIVER APPEARS.
+/// Left to WGPU, adapter choice depends on what is installed — so the same job
+/// renders through Lavapipe on one machine and an NVIDIA driver on another, and a
+/// pixel comparison between them is meaningless. A run that means to be
+/// reproducible asks for [`Self::Software`] and says so.
+///
+/// ⛔ IT STEERS WGPU, IT DOES NOT COMMAND IT. These are the environment knobs
+/// Bevy's adapter selection reads (`WGPU_FORCE_FALLBACK_ADAPTER`,
+/// `WGPU_ADAPTER_NAME`); if nothing matches, WGPU still picks what it can rather
+/// than failing. The authoritative answer to "what did I render on" is the
+/// adapter the run reports, not what it asked for.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AdapterPreference {
+    /// Whatever WGPU picks. The default, and the wrong choice for a job whose
+    /// output is compared across machines.
+    #[default]
+    Auto,
+    /// Prefer a real GPU.
+    Hardware,
+    /// Prefer the software rasterizer — Lavapipe on Linux.
+    ///
+    /// ⭐ ENOUGH FOR OFFSCREEN CAPTURE: `OffscreenGpu` creates no window and
+    /// disables winit, so it needs an adapter that can render to a texture and
+    /// neither a physical GPU nor an X server.
+    Software,
+}
+
+impl AdapterPreference {
+    /// Parse a `--adapter` argument.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "auto" => Some(Self::Auto),
+            "hardware" => Some(Self::Hardware),
+            "software" => Some(Self::Software),
+            _ => None,
+        }
+    }
+
+    /// The environment this preference asks for, as `(key, value)` pairs.
+    ///
+    /// ⭐ RETURNED RATHER THAN APPLIED, so it is testable without mutating the
+    /// process — `apply` is the thin wrapper, and the MAPPING is the part worth
+    /// pinning.
+    pub fn env(self) -> Vec<(&'static str, &'static str)> {
+        match self {
+            Self::Auto => Vec::new(),
+            // ⛔ ONLY the fallback flag is cleared: naming a hardware adapter by
+            // string would be guessing at a vendor.
+            Self::Hardware => vec![("WGPU_FORCE_FALLBACK_ADAPTER", "0")],
+            Self::Software => vec![("WGPU_FORCE_FALLBACK_ADAPTER", "1")],
+        }
+    }
+
+    /// Apply it to this process. Call BEFORE the app is built — Bevy reads these
+    /// when it creates the device, which happens during plugin `finish()`.
+    pub fn apply(self) {
+        for (key, value) in self.env() {
+            // SAFETY: called before any render thread exists, which is the only
+            // time this is sound and the only time it has any effect.
+            unsafe { std::env::set_var(key, value) };
+        }
+    }
+}
+
 /// Drives offscreen captures without letting GPU latency move the clock.
 pub struct DeterministicCaptureSession {
     canonical: Duration,
@@ -263,6 +329,34 @@ mod tests {
             text.contains("cannot name the tick"),
             "the message must say what is WRONG with the frame, not only that \
              something moved: {text}"
+        );
+    }
+
+    /// ⛔ `Auto` MUST SET NOTHING. A preference that always writes the
+    /// environment makes "I did not ask" unspellable, and then a job inherits a
+    /// choice nobody made.
+    #[test]
+    fn auto_asks_for_nothing_and_the_other_two_are_opposites() {
+        assert!(AdapterPreference::Auto.env().is_empty());
+        assert_eq!(
+            AdapterPreference::Software.env(),
+            vec![("WGPU_FORCE_FALLBACK_ADAPTER", "1")]
+        );
+        assert_eq!(
+            AdapterPreference::Hardware.env(),
+            vec![("WGPU_FORCE_FALLBACK_ADAPTER", "0")],
+            "hardware CLEARS the fallback flag rather than naming a vendor — a \
+             string like `nvidia` would be a guess, and a wrong guess silently \
+             falls through to whatever WGPU picks"
+        );
+    }
+
+    #[test]
+    fn an_unknown_adapter_word_is_refused_rather_than_defaulted() {
+        assert_eq!(AdapterPreference::parse("software"), Some(AdapterPreference::Software));
+        assert_eq!(
+            AdapterPreference::parse("lavapipe"), None,
+            "a typo must not quietly become Auto — the caller reports it"
         );
     }
 

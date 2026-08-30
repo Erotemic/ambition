@@ -26,7 +26,7 @@ use ambition_sim_harness::move_exercise;
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
-use ambition_sim_harness::DeterministicCaptureSession;
+use ambition_sim_harness::{AdapterPreference, DeterministicCaptureSession};
 use move_exercise::{verb_named, VERBS};
 
 const USAGE: &str = "\
@@ -34,6 +34,7 @@ moveset_render — render a fighter performing one move, one PNG per simulation 
 
 USAGE:
     moveset_render --character ID --verb VERB [--out DIR] [--frames N] [--stride K]
+                   [--adapter auto|hardware|software]
 
 OPTIONS:
     --character ID   catalog id of the fighter
@@ -41,6 +42,9 @@ OPTIONS:
     --out DIR        directory for the PNGs and manifest.json  [default: /tmp/moveset_render]
     --frames N       how many pictures                          [default: 24]
     --stride K       simulation ticks between pictures          [default: 1]
+    --adapter WHICH  auto | hardware | software                  [default: auto]
+                     ⭐ `software` pins Lavapipe, so a CI or agent job does not
+                     change behaviour when a driver appears on the machine.
     -h, --help       print this and exit
 
 NOTES:
@@ -73,7 +77,7 @@ fn main() {
         .find(|a| {
             !matches!(
                 a.as_str(),
-                "--character" | "--verb" | "--out" | "--frames" | "--stride"
+                "--character" | "--verb" | "--out" | "--frames" | "--stride" | "--adapter"
             )
         })
     {
@@ -113,6 +117,23 @@ fn main() {
         .unwrap_or(1)
         .max(1);
     let size = UVec2::new(480, 360);
+
+    // ⛔ BEFORE THE APP IS BUILT. Bevy reads the adapter environment when it
+    // creates the device, in plugin `finish()`, so a preference applied later
+    // silently does nothing.
+    let adapter = match arg("--adapter").as_deref() {
+        None => AdapterPreference::Auto,
+        Some(word) => match AdapterPreference::parse(word) {
+            Some(pref) => pref,
+            None => {
+                eprintln!(
+                    "moveset_render: unknown --adapter '{word}'; expected auto, hardware or software"
+                );
+                std::process::exit(2);
+            }
+        },
+    };
+    adapter.apply();
 
     std::fs::create_dir_all(&out_dir).expect("the output directory is creatable");
     for stale in std::fs::read_dir(&out_dir).into_iter().flatten().flatten() {
@@ -384,6 +405,14 @@ fn main() {
         .map(|grounded| !grounded);
     let posture_held = !verb.airborne || airborne_at_press == Some(true);
     let verdict = move_exercise::outcome(prepared && posture_held, intended.as_deref(), &observed);
+    // ⭐ WHAT IT ACTUALLY RENDERED ON, not what it asked for. A preference steers
+    // WGPU and does not command it, so the run reports the adapter it got — which
+    // is the only answer a reader comparing two machines' pixels can use.
+    let adapter_used = app
+        .world()
+        .get_resource::<bevy::render::renderer::RenderAdapterInfo>()
+        .map(|info| format!("{} ({:?})", info.0.name, info.0.device_type))
+        .unwrap_or_else(|| "unknown".to_string());
     let manifest = serde_json::json!({
         "character": character,
         "verb": verb.verb,
@@ -410,6 +439,11 @@ fn main() {
         "stride": stride,
         "shots": shots,
         "renderer": "moveset_render",
+        // ⭐ THE ADAPTER THAT DREW THESE PIXELS, beside the one that was asked
+        // for. Two runs whose PNGs differ are not comparable unless both say the
+        // same thing here, and `auto` means the machine decided.
+        "adapter_requested": format!("{adapter:?}").to_lowercase(),
+        "adapter_used": adapter_used,
         "zero_time_pumps": pumps_total,
     });
     std::fs::write(

@@ -32,7 +32,7 @@ pub mod runtime;
 
 pub use action::AgentAction;
 #[cfg(feature = "capture")]
-pub use capture::{CaptureError, CapturedFrame, DeterministicCaptureSession};
+pub use capture::{AdapterPreference, CaptureError, CapturedFrame, DeterministicCaptureSession};
 pub use observation::{AgentObservation, EnemyObs, PickupObs};
 pub use options::{RollbackMode, Platformer2dSimHarnessOptions, TimestepMode};
 pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};

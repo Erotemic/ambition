@@ -25,6 +25,10 @@ pub enum DeveloperAction {
     QuitToHome,
     ApplyLdtkReload,
     ToggleLdtkAutoApply,
+    /// Show what each connected pad's left stick actually reports, with a
+    /// peak-hold. Toggling also RESETS the peaks — see the app-side
+    /// `gamepad_probe` overlay for why the peak is the measurement.
+    ToggleGamepadProbe,
 }
 
 /// One exact keyboard chord. Extra modifiers suppress a match so `F8` and
@@ -126,6 +130,12 @@ impl Default for DeveloperHotkeyBindings {
             DeveloperHotkeyBinding {
                 action: A::TogglePortalGun,
                 chord: C::key(KeyCode::F7),
+            },
+            // Beside the FPS overlay on purpose: both answer "what is this
+            // machine actually doing", and F1..F12 unshifted are all spoken for.
+            DeveloperHotkeyBinding {
+                action: A::ToggleGamepadProbe,
+                chord: C::shift(KeyCode::F6),
             },
             DeveloperHotkeyBinding {
                 action: A::DumpGameplayTrace,

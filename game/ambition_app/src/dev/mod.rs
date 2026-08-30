@@ -5,6 +5,7 @@
 //! one proof-request seam.
 pub mod debug_overlay;
 pub mod fps_overlay;
+pub mod gamepad_probe;
 pub mod portal_inspector;
 #[cfg(feature = "dev_tools")]
 pub mod rollback_observatory;
@@ -23,6 +24,8 @@ impl Plugin for DevToolsPlugin {
     fn build(&self, app: &mut App) {
         // FPS overlay (ON by default on wasm, OFF on desktop; F6 toggles).
         app.add_plugins(fps_overlay::FpsOverlayPlugin);
+        // What the stick actually reports, per pad, with a peak-hold. Shift+F6.
+        app.add_plugins(gamepad_probe::GamepadProbePlugin);
         #[cfg(feature = "dev_tools")]
         app.add_plugins(rollback_observatory::RollbackObservatoryPlugin);
         install_egui_inspectors(app);

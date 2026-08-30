@@ -853,7 +853,7 @@ pub fn decode_menu_frame(
     // turns exactly one page, independent of the arrow/d-pad item cursor.
     next.page_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageLeft);
     next.page_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageRight);
-    // THE HELD NAVIGATION VECTOR — see `MenuControlFrame::nav`. Everything
+    // THE STICK'S HELD DEFLECTION — see `MenuControlFrame::analog`. Everything
     // above is an EDGE, which is what a list wants and what a free cursor
     // cannot be built from; this is the same stick, undecided, so a screen that
     // wants to roam can integrate it.
@@ -863,14 +863,16 @@ pub fn decode_menu_frame(
     // cannot pick a `MenuDir` cannot creep a cursor either — one filter, one
     // answer, and the two can never disagree about whether the stick is idle.
     //
-    // `sy` is negated. A stick reports `+y` UP and `nav` is screen space,
+    // ⛔⛔ AND THE HELD D-PAD IS NOT FOLDED IN. It was, and that is what made a
+    // pointer and a list indistinguishable downstream: a direction EDGE implies
+    // the same direction is held on that frame, so the select screen snapped to
+    // a portrait and then roamed away from it on the very next frame. The d-pad
+    // and the arrow keys already speak through `up`/`down`/`left`/`right` with
+    // repeat, which is the whole vocabulary a list navigator needs.
+    //
+    // `sy` is negated. A stick reports `+y` UP and `analog` is screen space,
     // where `+y` is DOWN.
-    let held_x = f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateRight))
-        - f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateLeft));
-    let held_y = f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateDown))
-        - f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateUp));
-    // A d-pad and a stick both held would otherwise sum past full deflection.
-    next.nav = bevy::math::Vec2::new(sx + held_x, -sy + held_y).clamp_length_max(1.0);
+    next.analog = bevy::math::Vec2::new(sx, -sy).clamp_length_max(1.0);
     next
 }
 

@@ -929,6 +929,13 @@ MODULE_ALLOWLISTS: list[dict] = [
         "facade": "ambition_platformer2d",
         "allowed": {
             "actor",
+            # ⭐ OFFSCREEN CAPTURE IS AN SDK CONCEPT, added 2026-08-29 when the
+            # harness took the deterministic capture session in. It is NOT a
+            # crate mirror — the crate is `ambition_render` — and it is behind a
+            # default-off feature, so a sim that takes no pictures links none of
+            # it. ⛔ the rule this widens is "no implementation topology", and a
+            # game-concept module is exactly what the rule asks for.
+            "capture",
             "character",
             "engine",
             "item",

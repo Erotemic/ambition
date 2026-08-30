@@ -335,6 +335,23 @@ pub mod actor {
     pub use ambition_platformer2d_core::BodyClusterQueryData;
     pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
     pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    /// ⭐ WHETHER THE BODY IS STANDING ON SOMETHING — the companion to
+    /// [`BodyFlightState`], and a question every observer of a body asks.
+    ///
+    /// ⛔ ADDED 2026-08-29 BECAUSE A CUSTOMER HAD TO SPELL A CRATE PATH FOR IT.
+    /// `ambition_sim_harness` moved its move-exercise machinery in and the
+    /// `sim-harness-names-only-the-public-sdk` contract went red on
+    /// `engine_core`, `combat` and `mount` — and that contract's own reason says
+    /// what to do about it: *"if it needs crate-shaped facade paths, those are
+    /// SDK gaps."* These three rows are those gaps, closed rather than waived.
+    pub use ambition_platformer2d_core::BodyGroundState;
+    /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
+    /// has to know whether the press it made became the move it asked for.
+    pub use ambition_combat::moveset::MovePlayback;
+    /// WHAT THE BODY IS RIDING, when it is riding something. An observer that
+    /// cannot see this reports a mounted body's own locomotion as if it were
+    /// driving.
+    pub use ambition_mount::RidingOn;
     /// The body-local safe-position state used by reset/hazard observers.
     ///
     /// The implementation type still carries its historical player-centric name;
@@ -449,6 +466,13 @@ pub mod sim {
     pub use ambition_platformer2d_core::InputStream;
     /// Simulation time. Not wall time — a game reads the clock the sim advances.
     pub use ambition_time::WorldTime;
+    /// WHICH TICK IT IS. The absolute fixed-step counter every recorded artifact
+    /// names itself by — a screenshot, a take, a trace row.
+    ///
+    /// ⛔ ADDED 2026-08-29 for the same reason as the `actor` rows above: a
+    /// supported customer had to spell `runtime::SimTick`, and a crate-shaped
+    /// path in the SDK's own customers is an SDK gap rather than a waiver.
+    pub use ambition_platformer2d_runtime::SimTick;
 
     /// One frame of input, and the one seam that delivers it.
     pub use ambition_input::ControlFrame;
@@ -529,6 +553,24 @@ pub mod sim {
 ///
 /// Deliberately thin. A consumer reads the presented world; it does not own the
 /// render path.
+/// OFFSCREEN CAPTURE — photograph what the renderer drew, with no window.
+///
+/// ⭐ A SUPPORTED SURFACE, NOT AN INTERNAL ONE. Developer tools (the moveset
+/// renderer, room capture, visual regression) are real customers, and they were
+/// reaching `render::capture::…` — a crate-shaped path. `VisibleRenderMode::
+/// OffscreenGpu` creates no window and disables winit, so this needs an adapter
+/// that can render to a texture and neither a physical GPU nor an X server.
+///
+/// ⛔ BEHIND `capture`, DEFAULT-OFF, for the reason every instrument here is:
+/// a game that never takes a screenshot must not link the machinery.
+#[cfg(feature = "capture")]
+pub mod capture {
+    pub use ambition_render::capture::{
+        adopt_cameras_into_capture_target, finish_after_capture, request_capture,
+        setup_capture_target, CaptureAdopted, CaptureProgress, CaptureSettings, CaptureTarget,
+    };
+}
+
 pub mod view {
     pub use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 

@@ -39,9 +39,26 @@ use ambition_platformer2d::platformer::lifecycle::{
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
 
-fn shell_host_app() -> App {
+/// The shipped shell host, headless, under an EXPLICIT simulation host.
+///
+/// ⛔⛔ THE HOST IS NOT A DETAIL OF THE FIXTURE. This walk ran only under
+/// [`SimulationHost::RenderFrame`] for its whole life, which means GGRS was
+/// never installed and the entire class of cross-session rollback contamination
+/// was structurally invisible to the one test that walks every game in
+/// sequence. `SimulationHost::Rollback` is what the visible binary actually
+/// composes (`visible_composition.rs`), so the render-frame arm is the
+/// approximation, not the other way round.
+fn shell_host_app_hosted_by(host: ambition_platformer2d::runtime::SimulationHost) -> App {
+    use ambition_platformer2d::runtime::SimulationHostAppExt as _;
+
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // PINNED, because `app.update()` is otherwise a unit of WALL CLOCK — and a
+    // rollback host derives its tick count from elapsed time, so an unpinned
+    // clock advances the GGRS timeline zero frames in a headless walk.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
     app.add_plugins(AssetPlugin::default());
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
@@ -50,9 +67,17 @@ fn shell_host_app() -> App {
     // Host configuration FIRST: the startup constructors consult it.
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
+    // Bevy seals the simulation schedule when the first simulation plugin
+    // registers, so the host is chosen before `add_simulation_plugins` — the
+    // same deadline `visible_composition.rs` documents.
+    app.set_simulation_host(host);
     ambition_app::app::add_simulation_plugins(&mut app);
     shell_host::compose_ambition_shell_host(&mut app);
     app
+}
+
+fn shell_host_app() -> App {
+    shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::RenderFrame)
 }
 
 fn settle(app: &mut App) {
@@ -416,9 +441,23 @@ fn assert_in_game(
     scope
 }
 
+/// The whole walk, under BOTH shipped simulation hosts.
+///
+/// ⭐ Parameterized rather than duplicated: every leak this walk looks for is a
+/// property of session lifetime, and session lifetime is exactly what changes
+/// when a rollback timeline is installed underneath it.
 #[test]
 fn the_full_multi_game_lifecycle_is_leak_free() {
-    let mut app = shell_host_app();
+    the_full_multi_game_lifecycle(ambition_platformer2d::runtime::SimulationHost::RenderFrame);
+}
+
+#[test]
+fn the_full_multi_game_lifecycle_is_leak_free_under_rollback() {
+    the_full_multi_game_lifecycle(ambition_platformer2d::runtime::SimulationHost::Rollback);
+}
+
+fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::SimulationHost) {
+    let mut app = shell_host_app_hosted_by(host);
     settle(&mut app);
 
     // Boot lands on the title screen: no gameplay was constructed at startup.
@@ -918,4 +957,189 @@ fn the_encounter_authorities_belong_to_their_session() {
             "authority `{id}` is owned by session B, not a survivor of A"
         );
     }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Cross-game rollback contamination
+// ──────────────────────────────────────────────────────────────────────────
+
+/// The confirmation authority the ACTIVE gameplay session may read.
+///
+/// ⛔ ASKED THE WAY A GAMEPLAY SYSTEM ASKS IT: for the LIVE scope. A test that
+/// read the authority's own status would pass while every consumer refused,
+/// because the whole defect is that the value belonged to somebody else.
+fn confirmation(app: &App) -> ambition_platformer2d::runtime::RollbackConfirmationState {
+    use ambition_platformer2d::platformer::lifecycle::live_session_scope;
+
+    app.world()
+        .get_resource::<ambition_platformer2d::rollback::ActiveRollbackAuthority>()
+        .map(|authority| authority.confirmation_for(live_session_scope(app.world())))
+        .unwrap_or(ambition_platformer2d::runtime::RollbackConfirmationState::Unavailable)
+}
+
+fn ggrs_session_is_live(app: &App) -> bool {
+    ambition_platformer2d::rollback::session_is_active(app.world())
+}
+
+/// The active room id of the one exact live session world.
+fn active_room(app: &App) -> Option<String> {
+    session_world_component::<RoomSet>(app.world())
+        .map(|rooms| rooms.active_spec().id.as_str().to_owned())
+}
+
+/// Stand the controlled body inside an overlap-fire loading zone of the live
+/// room and report the room it should leave.
+///
+/// ⭐ AN OVERLAP-FIRE ZONE, not a door: `EdgeExit` and `Walk` fire on overlap,
+/// so this exercises the transition authority without also requiring the host
+/// input stack. `door_entry` and `door_with_the_touch_overlay` own the press.
+fn stand_in_an_overlap_transition(app: &mut App) -> String {
+    use ambition_platformer2d::world::rooms::LoadingZoneActivation;
+
+    let before = active_room(app).expect("a live session room");
+    let zone = {
+        let rooms = session_world_component::<RoomSet>(app.world()).expect("a live session room");
+        rooms
+            .active_loading_zones()
+            .iter()
+            .find(|zone| {
+                matches!(
+                    zone.activation,
+                    LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk
+                )
+            })
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!("room `{before}` authors no overlap-fire loading zone to walk into")
+            })
+    };
+    let world = app.world_mut();
+    let mut bodies = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
+    let mut kin = bodies
+        .single_mut(world)
+        .expect("the live session seats exactly one primary player");
+    kin.pos = ambition_platformer2d::engine_core::AabbExt::center(zone.aabb);
+    kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+    before
+}
+
+/// Step until the active room changes, or give up after `frames`.
+fn settle_until_the_room_changes(app: &mut App, before: &str, frames: u32) -> Option<String> {
+    for _ in 0..frames {
+        app.update();
+        match active_room(app) {
+            Some(room) if room != before => return Some(room),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Which admissible order the local-session owner and the shell's session
+/// bridge run in.
+///
+/// ⛔⛔ NOTHING IN THE SHIPPED SCHEDULE ORDERS THEM. `LocalSessionSet::Maintain`
+/// is constrained only against `InputSet::Collect`; `GameplaySessionSet::Bridge`
+/// only against `AmbitionGameShellSet::Pending`. Both live in `Update`, so both
+/// orders below are things this app may legitimately do — and they are not
+/// equally survivable: with the owner running FIRST, retirement removes the
+/// canonical root while the GGRS session is still installed, and the contract
+/// check on the next `PreUpdate` reads deliberate teardown as corruption.
+///
+/// ⭐ The fix orders them (`SessionScopeSet::RetireAuthority`), but ordering is
+/// hygiene. These arms exist to prove the OWNERSHIP holds when the ordering does
+/// not, which is the only version of the guarantee worth having.
+#[derive(Clone, Copy, Debug)]
+enum RetirementOrder {
+    /// What the shipped schedule happens to produce today.
+    AsScheduled,
+    /// The other admissible order — a scheduling regression, simulated.
+    LocalSessionOwnerFirst,
+}
+
+/// ⭐⭐ THE ACCEPTANCE WALK: Smash → title → Ambition, and the doors still work.
+///
+/// The user-visible symptom was not a status enum. Ambition's player could move
+/// and could not change rooms, because room-transition commit refuses every
+/// transition while confirmation authority is unhealthy — and the unhealthy
+/// value belonged to the SMASH session that had already ended.
+///
+/// ⛔ SO THE ASSERTION IS A ROOM CHANGE, not `Healthy`. A health flag can be
+/// cleared by any number of wrong fixes; the transition is the authority that
+/// actually failed.
+#[test]
+fn a_smash_session_does_not_take_ambitions_doors_with_it() {
+    smash_then_ambition(RetirementOrder::AsScheduled);
+}
+
+/// The same walk with the scheduling regressed back to the order that broke it.
+#[test]
+fn a_smash_session_does_not_take_ambitions_doors_even_when_retirement_is_misordered() {
+    smash_then_ambition(RetirementOrder::LocalSessionOwnerFirst);
+}
+
+fn smash_then_ambition(order: RetirementOrder) {
+    let mut app =
+        shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    if let RetirementOrder::LocalSessionOwnerFirst = order {
+        app.configure_sets(
+            Update,
+            ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain
+                .before(ambition_platformer2d::game_shell::GameplaySessionSet::Bridge),
+        );
+    }
+    settle(&mut app);
+    assert_home(&mut app, "boot");
+
+    // ── Session A: Smash ───────────────────────────────────────────────
+    // The launcher's Smash row opens character select (a question, not a game),
+    // so the stage route is addressed directly. What matters here is only that
+    // a DIFFERENT gameplay session ran first and installed a rollback timeline.
+    app.world_mut().write_message(ShellCommand::GoTo(
+        ambition_platformer2d::game_shell::ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        ),
+    ));
+    settle(&mut app);
+    let scope_a = live_scope(&app).expect("the Smash session is live");
+    assert!(
+        ggrs_session_is_live(&app),
+        "the rollback host installs a GGRS session for the Smash match, or this \
+         walk is measuring the render-frame host again ({order:?})"
+    );
+
+    // ── Back to the title ──────────────────────────────────────────────
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_home(&mut app, "after Smash");
+
+    // ── Session B: Ambition ────────────────────────────────────────────
+    launch_labeled(&mut app, "Ambition");
+    settle(&mut app);
+    let scope_b = live_scope(&app).expect("the Ambition session is live");
+    assert_ne!(scope_a, scope_b, "session scopes are never reused");
+
+    assert_eq!(
+        confirmation(&app),
+        ambition_platformer2d::runtime::RollbackConfirmationState::Healthy,
+        "{order:?}: session B's confirmation authority is its own, and it is \
+         healthy — a value inherited from the retired Smash scope is not B's to read"
+    );
+
+    // ── The authority that actually failed ─────────────────────────────
+    let before = stand_in_an_overlap_transition(&mut app);
+    let after = settle_until_the_room_changes(&mut app, &before, 240).unwrap_or_else(|| {
+        panic!(
+            "{order:?}: the Ambition body stood in an overlap-fire loading zone of \
+             `{before}` for 240 frames and the room never changed. Confirmation \
+             authority is {:?}: a transition cannot commit while it is unhealthy, \
+             and an unhealthy value that outlived session {scope_a:?} is not \
+             session {scope_b:?}'s to inherit",
+            confirmation(&app)
+        )
+    });
+    assert_ne!(
+        before, after,
+        "the transition committed and the room changed"
+    );
 }

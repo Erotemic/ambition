@@ -386,6 +386,16 @@ pub fn fail_room_transition_commit_precondition(
 /// - a rollback host requires both a live boundary and healthy confirmation authority;
 ///   absence or invalidation means confirmation authority is unavailable, so no
 ///   transition may begin or continue toward commit.
+///
+/// ⛔⛔ AND THE AUTHORITY IT ASKS IS THE LIVE GAMEPLAY SESSION'S, which is why
+/// [`SessionRollbackConfirmation`] is here rather than a bare resource read.
+/// This gate is where the cross-game contamination SURFACED — quit a Smash match
+/// to the title, start Ambition, and every door refused, because the unhealthy
+/// value this read belonged to the match that had already ended. The fix is not
+/// a check in this system; it is that the authority now names its owner and
+/// there is no way to read it without naming a scope.
+///
+/// [`SessionRollbackConfirmation`]: crate::SessionRollbackConfirmation
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ConfirmedRoomTransitionIntent<'w, 's> {
     pending: Res<
@@ -394,7 +404,7 @@ pub struct ConfirmedRoomTransitionIntent<'w, 's> {
     >,
     host: Res<'w, crate::SimulationHost>,
     boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
-    confirmation: Option<Res<'w, crate::RollbackConfirmationState>>,
+    confirmation: crate::SessionRollbackConfirmation<'w, 's>,
     /// ⭐ HAS THE "every transition is refused" EPISODE ALREADY BEEN REPORTED?
     ///
     /// A `Local`, deliberately: this is a property of the LOG and not of the
@@ -412,14 +422,11 @@ pub struct ConfirmedRoomTransitionIntent<'w, 's> {
 fn confirmation_frame_for_host(
     host: crate::SimulationHost,
     boundary: Option<&ambition_platformer2d_core::ConfirmedFrameBoundary>,
-    confirmation: Option<&crate::RollbackConfirmationState>,
+    confirmation: crate::RollbackConfirmationState,
 ) -> Option<i32> {
     match host {
         crate::SimulationHost::Rollback => {
-            if !confirmation
-                .copied()
-                .is_some_and(crate::RollbackConfirmationState::is_healthy)
-            {
+            if !confirmation.is_healthy() {
                 return None;
             }
             boundary.map(|boundary| boundary.confirmed)
@@ -442,7 +449,7 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
             && confirmation_frame_for_host(
                 *self.host,
                 self.boundary.as_deref(),
-                self.confirmation.as_deref(),
+                self.confirmation.state(),
             )
             .is_none()
     }
@@ -465,7 +472,7 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
-            self.confirmation.as_deref(),
+            self.confirmation.state(),
         )?;
         match &self.pending.confirmed(confirmed)?.kind {
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
@@ -590,10 +597,12 @@ pub fn begin_room_transition_load_system(
             bevy::log::error!(
                 target: "ambition_platformer2d::room_transition",
                 "retired room transition {sequence} ({source_room_id} -> {target_room_id}) because \
-                 rollback confirmation authority is unavailable (boundary_present={}, confirmation={:?}); \
+                 rollback confirmation authority is unavailable (boundary_present={}, confirmation={:?}, \
+                 authority_owner/live_scope={:?}); \
                  refusing to reinterpret a stopped or unhealthy rollback timeline as an eager host",
                 pending.boundary.is_some(),
-                pending.confirmation.as_deref(),
+                pending.confirmation.state(),
+                pending.confirmation.ownership(),
             );
         }
         // ⛔⛔ AND SAY SO WHEN THERE WAS NOTHING TO ORPHAN, WHICH IS THE CASE
@@ -619,17 +628,22 @@ pub fn begin_room_transition_load_system(
             bevy::log::error!(
                 target: "ambition_platformer2d::room_transition",
                 "REFUSING every room transition: this app is a rollback host and its \
-                 confirmation authority is unavailable (boundary_present={}, confirmation={:?}). \
+                 confirmation authority is unavailable (boundary_present={}, confirmation={:?}, \
+                 authority_owner/live_scope={:?}). \
                  A pending intent cannot be promoted, so the room will never change and \
                  whatever asked for it will time out. This is session-scoped state - it is \
-                 normally the shape of a session that stopped or never started healthily.",
+                 normally the shape of a session that stopped or never started healthily. \
+                 When the two scopes DIFFER, the authority belongs to a session that is over \
+                 and this one has none installed yet.",
                 pending.boundary.is_some(),
-                pending.confirmation.as_deref(),
+                pending.confirmation.state(),
+                pending.confirmation.ownership(),
             );
             ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                "room-transition REFUSED boundary={} confirmation={:?}",
+                "room-transition REFUSED boundary={} confirmation={:?} owner/live={:?}",
                 pending.boundary.is_some(),
-                pending.confirmation.as_deref(),
+                pending.confirmation.state(),
+                pending.confirmation.ownership(),
             ));
         }
         return;
@@ -1328,18 +1342,26 @@ mod tests {
             confirmation_frame_for_host(
                 crate::SimulationHost::Rollback,
                 None,
-                Some(&crate::RollbackConfirmationState::Healthy),
+                crate::RollbackConfirmationState::Healthy,
             ),
             None,
             "a rollback app without a live boundary has no confirmation authority"
         );
         assert_eq!(
-            confirmation_frame_for_host(crate::SimulationHost::Fixed60Hz, None, None),
+            confirmation_frame_for_host(
+                crate::SimulationHost::Fixed60Hz,
+                None,
+                crate::RollbackConfirmationState::Unavailable,
+            ),
             Some(i32::MAX),
             "a true eager host confirms on arrival"
         );
         assert_eq!(
-            confirmation_frame_for_host(crate::SimulationHost::RenderFrame, None, None),
+            confirmation_frame_for_host(
+                crate::SimulationHost::RenderFrame,
+                None,
+                crate::RollbackConfirmationState::Unavailable,
+            ),
             Some(i32::MAX),
             "the render-frame host is eager too"
         );
@@ -1356,7 +1378,7 @@ mod tests {
             confirmation_frame_for_host(
                 crate::SimulationHost::Rollback,
                 Some(&boundary),
-                Some(&crate::RollbackConfirmationState::Healthy),
+                crate::RollbackConfirmationState::Healthy,
             ),
             Some(12)
         );
@@ -1369,12 +1391,11 @@ mod tests {
             confirmed: 12,
             session: 4,
         };
-        let unhealthy = crate::RollbackConfirmationState::Unhealthy;
         assert_eq!(
             confirmation_frame_for_host(
                 crate::SimulationHost::Rollback,
                 Some(&boundary),
-                Some(&unhealthy),
+                crate::RollbackConfirmationState::Unhealthy,
             ),
             None,
             "a replacement session carrying an invalidation must not authorize a load"

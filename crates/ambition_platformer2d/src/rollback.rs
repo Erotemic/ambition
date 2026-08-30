@@ -18,8 +18,10 @@ pub use ambition_platformer2d_core::snapshot::{
 pub use ambition_platformer2d_rollback_ggrs::local_session;
 pub use ambition_platformer2d_rollback_ggrs::session::{
     drive_control_frame, drive_slot_frame, session_health, session_is_active,
-    start_sync_test_session, stop_session, stop_session_deferred, RollbackExecutionStats,
-    RollbackSessionOwnership, RollbackSessionStatus, SyncTestOwner, SyncTestSettings,
+    start_sync_test_session, stop_session, stop_session_deferred, ActiveRollbackAuthority,
+    RollbackDiagnostic, RollbackDiagnosticHistory, RollbackExecutionStats,
+    RollbackSessionOwnership, RollbackTimelineContract, RollbackTimelineGeneration,
+    RollbackTimelineStatus, SyncTestOwner, SyncTestSettings,
 };
 pub use ambition_platformer2d_rollback_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,
@@ -313,26 +315,37 @@ impl RollbackHealth {
 /// What survives teardown deliberately is the DIAGNOSIS. A session that
 /// desynced and was then stopped still reports [`RollbackHealth::Invalidated`]
 /// carrying why, because a divergence that disappears when the timeline is torn
-/// down is exactly the laundering `RollbackSessionStatus::carried_from` exists
+/// down is exactly the laundering `RollbackTimelineStatus::carried_from` exists
 /// to prevent — the reason is the part a reader acts on, and it is the same
 /// prose the NEXT session would inherit.
 pub fn health(app: &App) -> RollbackHealth {
-    use ambition_platformer2d_rollback_ggrs::{RollbackFrameCount, RollbackSessionStatus};
+    use ambition_platformer2d_rollback_ggrs::ActiveRollbackAuthority;
 
     let world = app.world();
-    let status = world.get_resource::<RollbackSessionStatus>();
+    let authority = world.get_resource::<ActiveRollbackAuthority>();
+    let invalidation = authority.and_then(|authority| {
+        RollbackTimelineStatus::carried_from(Some(authority.status()))
+            .invalidation
+            .clone()
+    });
     if !ambition_platformer2d_rollback_ggrs::session_is_active(world) {
         // No live session: the only honest report is what is left to say about
         // the timeline that ended, which is its diagnosis or nothing.
-        return match RollbackSessionStatus::carried_from(status).invalidation {
+        //
+        // ⭐ Its OWN timeline's, and no other's. An authority whose gameplay
+        // session has been retired is removed outright, so a consumer that
+        // launches a second game does not read the first one's diagnosis here.
+        // The process-lifetime record of it lives in
+        // [`RollbackDiagnosticHistory`], which authorizes nothing.
+        return match invalidation {
             Some(reason) => RollbackHealth::Invalidated { reason },
             None => RollbackHealth::NoSession,
         };
     }
-    let Some(status) = status else {
+    let Some(authority) = authority else {
         return RollbackHealth::NoSession;
     };
-    if let Some(reason) = &status.invalidation {
+    if let Some(reason) = &authority.status().invalidation {
         return RollbackHealth::Invalidated {
             reason: reason.clone(),
         };
@@ -347,11 +360,11 @@ pub fn health(app: &App) -> RollbackHealth {
         .get_resource::<ambition_platformer2d_core::confirmed_frame::ConfirmedFrameBoundary>()
         .map(|boundary| boundary.session)
         .unwrap_or(0);
-    if status.mismatch_frames.is_empty() {
+    if authority.status().mismatch_frames.is_empty() {
         RollbackHealth::Healthy { frame, generation }
     } else {
         RollbackHealth::Desynced {
-            frames: status.mismatch_frames.clone(),
+            frames: authority.status().mismatch_frames.clone(),
             frame,
             generation,
         }

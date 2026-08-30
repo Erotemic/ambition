@@ -1538,17 +1538,13 @@ severity = "error"
 contains = ["ambition_platformer2d_shared_tangle::orientation"]
 file = "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/orientation.rs"
 
-[[policy]]
-id = "engine.actor-physics-facade"
-scope = "engine"
-kind = "file-contains"
-owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/physics.rs"]
-rationale = "physics re-exports the extracted gravity module"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-contains = ["ambition_platformer2d_shared_tangle::gravity"]
-file = "crates/ambition_platformer2d_actor_monolith/src/physics.rs"
+# `engine.actor-physics-facade` was here. It required
+# `crates/ambition_platformer2d_actor_monolith/src/physics.rs` to re-export
+# `ambition_platformer2d_shared_tangle::gravity` — and 6e39ac0a5 (2026-08-26)
+# DELETED that file on purpose, as one of three monolith re-export facades whose
+# removal was the point of the commit. The policy guarded a forwarding module
+# that no longer exists, so it was not a boundary any more; it was a requirement
+# that the deleted file come back. `every_watch_path_exists` had been red since.
 
 
 # was: architecture_boundaries_asset_manager_is_backend_generic

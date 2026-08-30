@@ -35,7 +35,7 @@ policies = ["engine.platformer-runtime-content-free"]
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_crate_is_extracted"
 disposition = "declarative"
-policies = ["engine.platformer-primitives-extracted", "engine.platformer-primitives-no-actors", "engine.platformer-primitives-projectile-generic-spec", "engine.platformer-primitives-projectile-generic-body", "engine.platformer-primitives-projectile-generic-collision", "engine.platformer-primitives-projectile-generic-mod", "engine.actor-platformer-facade-shrunk", "engine.actor-platformer-facade-reexports", "engine.actor-orientation-facade", "engine.actor-physics-facade"]
+policies = ["engine.platformer-primitives-extracted", "engine.platformer-primitives-no-actors", "engine.platformer-primitives-projectile-generic-spec", "engine.platformer-primitives-projectile-generic-body", "engine.platformer-primitives-projectile-generic-collision", "engine.platformer-primitives-projectile-generic-mod", "engine.actor-platformer-facade-shrunk", "engine.actor-platformer-facade-reexports", "engine.actor-orientation-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_sim_does_not_import_presentation"

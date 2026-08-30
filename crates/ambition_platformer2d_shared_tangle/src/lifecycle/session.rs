@@ -141,10 +141,7 @@ pub fn simulation_authorized(
     {
         return false;
     }
-    let Ok(root) = roots.single() else {
-        return false;
-    };
-    gate.is_none() || scope.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
+    live_scope_of(gate.as_deref(), scope.as_deref(), &roots).is_some()
 }
 
 /// A captured entity-ownership context.
@@ -271,10 +268,26 @@ pub fn session_world_exists(
     active: Option<Res<ActiveSessionScope>>,
     roots: Query<&SessionRoot>,
 ) -> bool {
-    let Ok(root) = roots.single() else {
-        return false;
-    };
-    gate.is_none() || active.as_deref().and_then(ActiveSessionScope::current) == Some(root.0)
+    live_scope_of(gate.as_deref(), active.as_deref(), &roots).is_some()
+}
+
+/// The query-side [`live_session_world_root`], shared by every system-parameter
+/// form so the World-level and query-level answers cannot drift apart.
+fn live_scope_of(
+    gate: Option<&SessionGatedSimulation>,
+    active: Option<&ActiveSessionScope>,
+    roots: &Query<&SessionRoot>,
+) -> Option<SessionScopeId> {
+    match gate {
+        // Shell-routed: the activation names its root. Selecting by scope means
+        // a lingering retired root is not a candidate rather than an ambiguity.
+        Some(_) => {
+            let active = active.and_then(ActiveSessionScope::current)?;
+            roots.iter().map(|root| root.0).find(|owner| *owner == active)
+        }
+        // Direct-entry: exactly one root IS the authority.
+        None => roots.single().ok().map(|root| root.0),
+    }
 }
 
 fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
@@ -290,6 +303,36 @@ fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> 
     Some(root)
 }
 
+/// The canonical root of the LIVE session, and the scope that owns it.
+///
+/// ⭐⭐ A SHELL-ROUTED HOST SELECTS BY SCOPE; IT DOES NOT ASSERT UNIQUENESS.
+/// The activation names its root, so a root from a retired activation that has
+/// not been despawned yet is simply NOT A CANDIDATE — it can neither be chosen
+/// nor make the choice ambiguous.
+///
+/// ⛔⛔ THIS ASSERTED INSTEAD, AND THE ASSERT WAS THE HAZARD. A composition that
+/// briefly held two roots PANICKED rather than resolving the live one, which is
+/// the opposite of what ownership is for: a stale entity must be harmless, and a
+/// process abort is not harmless. The same panic is already recorded once in
+/// `ambition_app::app::resources` against a build-time root coexisting with an
+/// activation's.
+///
+/// A direct-entry host has no activation to name a root, so uniqueness IS the
+/// authority there and the assert stays.
+fn live_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> {
+    let mut query = world.try_query::<(Entity, &SessionRoot)>()?;
+    if world.contains_resource::<SessionGatedSimulation>() {
+        let active = world
+            .get_resource::<ActiveSessionScope>()
+            .and_then(ActiveSessionScope::current)?;
+        return query
+            .iter(world)
+            .find(|(_, root)| root.0 == active)
+            .map(|(entity, root)| (entity, root.0));
+    }
+    unique_session_world_root(world)
+}
+
 /// Locate the one exact live session-world root without constructing a
 /// persistent query state. Useful at imperative App/World boundaries such as
 /// snapshot codecs, CLI inspection, and focused tests.
@@ -298,16 +341,37 @@ fn unique_session_world_root(world: &World) -> Option<(Entity, SessionScopeId)> 
 /// session scope. A delayed root from a retired activation therefore remains
 /// structurally unreadable even at imperative boundaries.
 pub fn session_world_entity(world: &World) -> Option<Entity> {
-    let (entity, owner) = unique_session_world_root(world)?;
-    if world.contains_resource::<SessionGatedSimulation>()
-        && world
-            .get_resource::<ActiveSessionScope>()
-            .and_then(ActiveSessionScope::current)
-            != Some(owner)
-    {
-        return None;
+    live_session_world_root(world).map(|(entity, _)| entity)
+}
+
+/// Which gameplay session owns the one exact live session world, if any.
+///
+/// ⭐⭐ THE SCOPE ANY SESSION-OWNED AUTHORITY MUST NAME TO BE READ. At a
+/// frontend route it is `None`; during gameplay it is the activation's; in a
+/// direct-entry app or headless harness it is the root's own, which is what
+/// lets a harness and the shell host share ONE ownership rule instead of two.
+///
+/// ⛔ NOT [`ActiveSessionScope::current`], which is `None` in every app that
+/// never installed shell routing — the root is the authority, and this is the
+/// same question [`session_world_entity`] answers, returning who instead of
+/// which entity.
+pub fn live_session_scope(world: &World) -> Option<SessionScopeId> {
+    live_session_world_root(world).map(|(_, owner)| owner)
+}
+
+/// [`live_session_scope`] as a system parameter.
+#[derive(SystemParam)]
+pub struct LiveSessionScope<'w, 's> {
+    gate: Option<Res<'w, SessionGatedSimulation>>,
+    active: Option<Res<'w, ActiveSessionScope>>,
+    roots: Query<'w, 's, &'static SessionRoot>,
+}
+
+impl LiveSessionScope<'_, '_> {
+    /// The owning scope, or `None` when no session world is live.
+    pub fn get(&self) -> Option<SessionScopeId> {
+        live_scope_of(self.gate.as_deref(), self.active.as_deref(), &self.roots)
     }
-    Some(entity)
 }
 
 /// Advance until [`session_world_entity`] resolves, returning the frame count.
@@ -397,12 +461,49 @@ pub fn insert_session_world_component<T: Component>(world: &mut World, component
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionScopeRetired(pub SessionScopeId);
 
+/// Signal that a session scope has become the live one, before anything has
+/// been built for it.
+///
+/// ⭐⭐ THE EDGE THAT MAKES CLEANUP HYGIENE. A process-global resource that
+/// mirrors one live session is dangerous only if the NEXT session can read the
+/// previous one's value. Re-establishing it when a session BEGINS closes that
+/// without giving every reader an ownership check, because the value a session
+/// reads is one its own activation wrote.
+///
+/// ⛔ Retirement alone could not do this. It is a cleanup that must happen, and
+/// "must happen" is exactly the property a scheduling change, an abnormal exit
+/// or a delayed frame can take away — which it did: a retired Smash match left
+/// state that Ambition then read as its own.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionScopeActivated(pub SessionScopeId);
+
 /// Stable schedule seam for exact scope retirement.
+///
+/// ⭐⭐ THE ORDER IS AN OWNERSHIP RULE, not three systems that happen to be
+/// chained: an authority governing a scope stands down BEFORE the world it
+/// governs is removed. Read the other way round and the authority observes its
+/// own world vanishing underneath it, which is indistinguishable from
+/// corruption — and that is precisely how a retired Smash match came to
+/// poison the rollback timeline the next game would inherit.
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SessionScopeSet {
+    /// A newly live scope re-establishes the process-global state that mirrors
+    /// one session, BEFORE any provider builds that session's world.
+    ///
+    /// ⭐ This seam is why the retirement resets below are hygiene. Whatever a
+    /// skipped, delayed or abnormal teardown left standing is overwritten here
+    /// by the session about to read it.
+    Activate,
     /// Presentation systems may materialize activation-owned visuals after the
     /// provider has published its session world.
     Presentation,
+    /// Authorities that GOVERN the retiring scope stand down: the rollback
+    /// timeline, and anything else holding a claim over that session's world.
+    ///
+    /// ⛔ Scheduling here is hygiene, not correctness. An authority that misses
+    /// this seam must still be inert for the next scope, because it names its
+    /// owner and the next scope is not it.
+    RetireAuthority,
     /// Exact retirement of entities owned by the retired session.
     Cleanup,
 }
@@ -536,9 +637,16 @@ impl Plugin for SessionScopePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveSessionScope>()
             .add_message::<SessionScopeRetired>()
+            .add_message::<SessionScopeActivated>()
             .configure_sets(
                 Update,
-                (SessionScopeSet::Presentation, SessionScopeSet::Cleanup).chain(),
+                (
+                    SessionScopeSet::Activate,
+                    SessionScopeSet::Presentation,
+                    SessionScopeSet::RetireAuthority,
+                    SessionScopeSet::Cleanup,
+                )
+                    .chain(),
             )
             .add_systems(
                 Update,

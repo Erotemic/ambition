@@ -1380,8 +1380,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "composition marker installed once by the selected rollback backend before the simulation runs. It says which host machinery this App was assembled with; no simulation tick can change that fact",
     ),
     (
-        "ambition_platformer2d_runtime::RollbackConfirmationState",
-        "current rollback-driver confirmation health. It is host authority ABOUT whether speculative work may be promoted, updated by session lifecycle/mismatch handling outside the rewound world; rewinding the authority doing the rewind would be backwards",
+        "ambition_platformer2d_runtime::rollback::authority::ActiveRollbackAuthority",
+        "the live rollback timeline's contract, generation, health, and the SessionScopeId that owns it. Host authority ABOUT whether speculative work may be promoted, written by session lifecycle and mismatch handling outside the rewound world; rewinding the authority doing the rewind would be backwards. It replaced a bare RollbackConfirmationState resource whose ownerless health leaked from one gameplay session into the next",
+    ),
+    (
+        "ambition_platformer2d_runtime::rollback::authority::RollbackDiagnosticHistory",
+        "what went wrong on timelines this PROCESS has run, kept after the gameplay sessions that owned them ended. Deliberately outside every session lifetime and deliberately powerless: it gates nothing, so remembering a failure cannot become a way to inherit one. A rewind restoring it would delete a record of the divergence being diagnosed",
     ),
     (
         "ambition_platformer2d_actor_monolith::audio::environment::AudioEnvironment",
@@ -1502,6 +1506,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeRetired",
         "the announcement that a session scope ENDED — the same authority and the          same writer as `ActiveSessionScope` above (`translate_shell_session_lifecycle`,          registered in literal `Update`, verified 2026-08-06), so a rewind cannot          re-run it. It arrived on the census with K2b edit 2: a build-time root          never retired a scope because it never had an activation to retire.          ⚠ this waiver goes stale with its sibling's, and for the same reason — if          that system ever moves into `app.sim_schedule()`, BOTH arguments fail          together",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeActivated",
+        "the announcement that a session scope BEGAN, and the third member of the          family above: the same authority, the same sole writer          (`translate_shell_session_lifecycle`), the same literal `Update`          registration, so a rewind cannot re-run it. It exists because retirement          alone could not make the session-scoped process globals safe — a          teardown that is delayed, misordered or skipped leaves them for the next          game, while a value re-established when a session BEGINS is one that          session wrote. ⚠ it goes stale with both siblings, and for one reason:          if that system moves into `app.sim_schedule()`, all three arguments fail          together",
     ),
     (
         "ambition_platformer2d_rollback_ggrs::local_session::",

@@ -10,9 +10,15 @@
 use ambition_platformer2d_core::snapshot::{checksum_bytes, RollbackRegistrar};
 use bevy::prelude::*;
 
+pub mod authority;
 pub mod registrar;
 pub mod registry;
 
+pub use authority::{
+    ActiveRollbackAuthority, RollbackConfirmationState, RollbackDiagnostic,
+    RollbackDiagnosticHistory, RollbackTimelineContract, RollbackTimelineGeneration,
+    RollbackTimelineStatus, SessionRollbackConfirmation,
+};
 pub use registrar::SchemaRollbackRegistrar;
 pub use registry::*;
 

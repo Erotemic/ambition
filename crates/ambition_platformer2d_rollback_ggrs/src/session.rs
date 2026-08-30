@@ -10,7 +10,7 @@ use bevy_ggrs::{
 use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 
 use super::RollbackRegistry;
-use crate::{PreparedContentIdentity, SnapshotSchemaFingerprint};
+use crate::PreparedContentIdentity;
 
 pub type AmbitionGgrsConfig = GgrsConfig<ControlFrame>;
 pub type AmbitionGgrsSession = Session<AmbitionGgrsConfig>;
@@ -105,75 +105,15 @@ impl RollbackExecutionStats {
     }
 }
 
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct RollbackSessionStatus {
-    pub mismatch_frames: Vec<i32>,
-    pub invalidation: Option<String>,
-}
-
-impl RollbackSessionStatus {
-    /// Whether this timeline may still authorize confirmed host-side effects.
-    ///
-    /// Keeping the predicate on the status itself gives every host-side gate the same answer
-    /// instead of re-deriving a subtly different idea of "healthy".
-    pub fn is_healthy(&self) -> bool {
-        self.invalidation.is_none() && self.mismatch_frames.is_empty()
-    }
-
-    /// The status a NEW session starts from, given the outgoing one. (AC23)
-    ///
-    /// So the diagnostic CARRIES. An unhealthy timeline hands its reason to the
-    /// timeline that replaces it, and the only way to clear it is to say so
-    /// (`acknowledge_and_clear`).
-    ///
-    ///  `mismatch_frames` does NOT carry, and that is not an oversight: frame
-    /// numbers restart at zero for every GGRS session, so carrying them forward
-    /// would report a mismatch at frames the new timeline has not reached yet.
-    /// The reason survives as prose, which is the part a reader acts on.
-    pub fn carried_from(previous: Option<&Self>) -> Self {
-        let Some(previous) = previous else {
-            return Self::default();
-        };
-        let inherited = previous.invalidation.clone().or_else(|| {
-            (!previous.mismatch_frames.is_empty()).then(|| {
-                format!(
-                    "GGRS sync-test checksum mismatch at frames {:?} on the PREVIOUS timeline",
-                    previous.mismatch_frames
-                )
-            })
-        });
-        Self {
-            mismatch_frames: Vec::new(),
-            invalidation: inherited,
-        }
-    }
-
-    /// Clear an inherited diagnostic DELIBERATELY.
-    ///
-    /// The escape hatch, named for what it is. A tool that has shown the
-    /// divergence to a human and been told to carry on calls this; nothing on
-    /// the ordinary install path does.
-    pub fn acknowledge_and_clear(&mut self) {
-        self.mismatch_frames.clear();
-        self.invalidation = None;
-    }
-}
-
-/// Monotonic identity for rollback timelines.
-///
-/// This resource deliberately survives session teardown. Frame numbers restart
-/// at zero for every GGRS session, so deriving a generation from the optional
-/// [`ConfirmedFrameBoundary`] aliases a stopped-and-restarted session with the
-/// one that preceded it. Host-side journals and traces use this generation to
-/// discard work from timelines that no longer exist.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct RollbackSessionGeneration(u64);
-
-#[derive(Resource, Clone, Debug, PartialEq, Eq)]
-pub struct RollbackSessionContract {
-    pub content: Option<PreparedContentIdentity>,
-    pub schema: SnapshotSchemaFingerprint,
-}
+/// Ambition's rollback authority vocabulary, re-exported at the seam that
+/// installs it. The types themselves are backend-neutral and live in the
+/// runtime beside the schema registry — see
+/// [`ambition_platformer2d_runtime::rollback::authority`] for the lifetime
+/// model they encode.
+pub use ambition_platformer2d_runtime::{
+    ActiveRollbackAuthority, RollbackDiagnostic, RollbackDiagnosticHistory,
+    RollbackTimelineContract, RollbackTimelineGeneration, RollbackTimelineStatus,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyncTestSettings {
@@ -372,21 +312,22 @@ fn install_session_with_ownership(
         .get_resource::<RollbackRegistry>()
         .map(RollbackRegistry::schema_fingerprint)
         .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
-    let content = live_content_identity(world);
-    world.insert_resource(RollbackSessionContract { content, schema });
-    // AC23: an unhealthy timeline hands its reason to the one replacing it. A
-    // session install must never LAUNDER a divergence into a clean baseline, and
-    // making that the seam's behaviour is what stops it depending on each caller
-    // remembering — one of the four remembered.
-    let carried_status =
-        RollbackSessionStatus::carried_from(world.get_resource::<RollbackSessionStatus>());
-    let confirmation = if carried_status.is_healthy() {
-        ambition_platformer2d_runtime::RollbackConfirmationState::Healthy
-    } else {
-        ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy
-    };
-    world.insert_resource(carried_status);
-    world.insert_resource(confirmation);
+    // ⭐⭐ THE TIMELINE NAMES ITS OWNER AT INSTALL. Everything else follows from
+    // this one line: which content it may bind to, whose health it carries, and
+    // who is allowed to read the answer.
+    let owner = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
+    let content = content_identity_of(world, owner);
+    // AC23 and the cross-session rule are ONE rule, and it lives in
+    // `ActiveRollbackAuthority::installed`. A caller supplies who and what,
+    // never whether — a session install must not LAUNDER a divergence into a
+    // clean baseline, and it must not INHERIT one from a game that has ended.
+    let authority = ActiveRollbackAuthority::installed(
+        world.get_resource::<ActiveRollbackAuthority>(),
+        owner,
+        RollbackTimelineContract { content, schema },
+    );
+    let generation = authority.generation().0;
+    world.insert_resource(authority);
     // Per-session counters restart; lifetime totals do not. A caller measuring
     // a whole run must not have its measurement silently zeroed by a rebase it
     // did not ask for and cannot see (AC18).
@@ -398,15 +339,9 @@ fn install_session_with_ownership(
     world.insert_resource(ownership);
     world.insert_resource(session);
 
-    // A new session is a new timeline. The counter lives independently of the
-    // boundary because teardown removes the boundary; deriving from that optional
-    // resource would make every stop/restart cycle reuse generation zero.
-    let generation = {
-        let mut generation =
-            world.get_resource_or_insert_with::<RollbackSessionGeneration>(Default::default);
-        generation.0 = generation.0.wrapping_add(1);
-        generation.0
-    };
+    // A new session is a new timeline. The generation lives on the authority
+    // because it identifies the timeline the authority governs; the boundary
+    // merely carries it to consumers, and teardown removes the boundary.
     world.insert_resource(ConfirmedFrameBoundary {
         current: 0,
         confirmed: -1,
@@ -426,13 +361,33 @@ pub fn stop_session(world: &mut World) {
     // begin with a jump nobody pressed in it.
     reset_input_authority(world);
     world.remove_resource::<AmbitionGgrsSession>();
-    world.remove_resource::<RollbackSessionContract>();
     world.remove_resource::<RollbackSessionOwnership>();
     // Nothing speculates any more, so external effects and persistence return
     // to their non-rollback behavior immediately. Leaving this installed would
     // strand pending effects and keep confirmed-state save gates closed forever.
     world.remove_resource::<ConfirmedFrameBoundary>();
-    world.insert_resource(ambition_platformer2d_runtime::RollbackConfirmationState::Unavailable);
+    // ⭐ THE AUTHORITY STAYS, STOOD DOWN. The gameplay session that owned this
+    // timeline has NOT ended — only the timeline has — so a divergence recorded
+    // before the stop must keep refusing confirmed work. Removing the authority
+    // here is what would let a desync launder itself through a teardown.
+    // Retirement of the SCOPE is the thing that removes it; see
+    // `retire_rollback_authority_with_its_scope`.
+    if let Some(mut authority) = world.get_resource_mut::<ActiveRollbackAuthority>() {
+        authority.stand_down_timeline();
+    }
+}
+
+/// Retire the rollback authority governing `scope`, whether or not its timeline
+/// is still running.
+///
+/// ⛔⛔ THIS IS TEARDOWN, NOT INVALIDATION. The gameplay session is over; its
+/// timeline's health is a fact about a world that no longer exists. The
+/// diagnosis is preserved in [`RollbackDiagnosticHistory`], which has no
+/// gameplay authority, and the resource itself goes — so nothing can be
+/// inherited even by accident.
+fn retire_rollback_authority(world: &mut World) {
+    stop_session(world);
+    world.remove_resource::<ActiveRollbackAuthority>();
 }
 
 /// Queue the exact same teardown from a regular Bevy system.
@@ -443,9 +398,10 @@ pub fn stop_session_deferred(commands: &mut Commands) {
 /// Return a diagnostic error when GGRS invalidated the session contract or a
 /// sync-test checksum mismatch was observed.
 pub fn session_health(world: &World) -> Result<(), String> {
-    let Some(status) = world.get_resource::<RollbackSessionStatus>() else {
+    let Some(authority) = world.get_resource::<ActiveRollbackAuthority>() else {
         return Ok(());
     };
+    let status = authority.status();
     if status.is_healthy() {
         return Ok(());
     }
@@ -577,12 +533,23 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .after(ambition_input::InputSet::Collect),
         );
 
+    // ⭐⭐ THE AUTHORITY DIES BEFORE THE WORLD IT GOVERNS. Named ordering, not an
+    // ad-hoc edge: `SessionScopeSet::RetireAuthority` exists to say that an
+    // authority stands down before `SessionScopeSet::Cleanup` removes the
+    // entities it was governing.
+    app.add_systems(
+        Update,
+        retire_rollback_authority_with_its_scope.in_set(
+            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority,
+        ),
+    );
+
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
     app.init_resource::<InputSeamMisuse>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
-        .init_resource::<RollbackSessionStatus>()
+        .init_resource::<RollbackDiagnosticHistory>()
         .configure_sets(
             ReadInputs,
             (
@@ -915,19 +882,71 @@ fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
 
 fn record_sync_test_mismatch(
     trigger: On<SyncTestMismatch>,
-    mut status: ResMut<RollbackSessionStatus>,
-    mut confirmation: ResMut<ambition_platformer2d_runtime::RollbackConfirmationState>,
+    authority: Option<ResMut<ActiveRollbackAuthority>>,
+    mut history: ResMut<RollbackDiagnosticHistory>,
 ) {
-    status
-        .mismatch_frames
-        .extend(trigger.event().mismatched_frames.iter().copied());
-    *confirmation = ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy;
+    let Some(mut authority) = authority else {
+        return;
+    };
+    let frames: Vec<i32> = trigger.event().mismatched_frames.to_vec();
+    authority.record_mismatch(frames.iter().copied());
+    // The active authority refuses work; the history only remembers. See
+    // `RollbackDiagnosticHistory` for why those are two values now.
+    history.record(RollbackDiagnostic {
+        scope: authority.owner(),
+        generation: authority.generation(),
+        reason: format!("GGRS sync-test checksum mismatch at frames {frames:?}"),
+    });
 }
 
-fn enforce_session_contract(world: &mut World) {
+/// Enforce the live timeline's contract against the world it actually governs.
+///
+/// ⭐⭐ THREE QUESTIONS, IN THIS ORDER, and the first one is the one that was
+/// missing: *whose world is this?* A timeline whose gameplay session is no
+/// longer live is not enforcing anything — it is standing down. Only once the
+/// owner is confirmed live do "the schema changed" and "the content
+/// disappeared" mean what they say.
+///
+/// ⛔⛔ RETIREMENT IS NOT CORRUPTION. Quitting a match to the title retires the
+/// scope and removes its canonical root, which a contract that looked only at
+/// "is a GGRS session installed?" read as an illegal mid-session content
+/// disappearance — poisoning a timeline that had done nothing wrong, and
+/// (before ownership) handing that poison to the next game. The scheduling
+/// order that produced it is fixed too (`SessionScopeSet::RetireAuthority`),
+/// but this is the half that holds when scheduling regresses.
+pub(crate) fn enforce_session_contract(world: &mut World) {
     if !session_is_active(world) {
         return;
     }
+
+    let live_scope = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
+    let Some(authority) = world.get_resource::<ActiveRollbackAuthority>() else {
+        // A live timeline with no authority governs nobody and can authorize
+        // nothing. Stand it down rather than let it run ownerless.
+        retire_rollback_authority(world);
+        return;
+    };
+    match (authority.owner(), live_scope) {
+        // The ordinary case: this timeline governs the live session.
+        (owner, live) if owner == live => {}
+        // A timeline installed before its world was built adopts the first one
+        // it sees — the ownership sibling of the content adoption below, and
+        // permitted for the same reason (`warn_if_no_world_to_rewind` documents
+        // the empty-world fixture that rebases frame zero onto a world it is
+        // about to construct).
+        (None, Some(adopted)) => {
+            world
+                .resource_mut::<ActiveRollbackAuthority>()
+                .adopt_owner(adopted);
+        }
+        // The session this timeline governed is over, or another one is live.
+        // Neither is a contract violation; both mean this authority is done.
+        _ => {
+            retire_rollback_authority(world);
+            return;
+        }
+    }
+    let owner = world.resource::<ActiveRollbackAuthority>().owner();
 
     // ⛔⛔ BORROWED, NOT CLONED. `RollbackRegistry`'s hand-written `Clone` starts
     // the memo `OnceLock` EMPTY on purpose, so `.cloned()` here handed
@@ -939,15 +958,11 @@ fn enforce_session_contract(world: &mut World) {
         .get_resource::<RollbackRegistry>()
         .map(RollbackRegistry::schema_fingerprint)
         .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
-    let current_content = live_content_identity(world);
-
-    let Some(contract) = world.get_resource::<RollbackSessionContract>().cloned() else {
-        world.insert_resource(RollbackSessionContract {
-            content: current_content,
-            schema: current_schema,
-        });
-        return;
-    };
+    let current_content = content_identity_of(world, owner);
+    let contract = world
+        .resource::<ActiveRollbackAuthority>()
+        .contract()
+        .clone();
 
     if contract.schema != current_schema {
         invalidate_session(
@@ -962,7 +977,9 @@ fn enforce_session_contract(world: &mut World) {
 
     match (contract.content, current_content) {
         (None, Some(identity)) => {
-            world.resource_mut::<RollbackSessionContract>().content = Some(identity);
+            world
+                .resource_mut::<ActiveRollbackAuthority>()
+                .adopt_content(identity);
         }
         (Some(expected), Some(observed)) if expected != observed => {
             invalidate_session(
@@ -977,8 +994,9 @@ fn enforce_session_contract(world: &mut World) {
             invalidate_session(
                 world,
                 format!(
-                    "canonical prepared content {:?} disappeared while the GGRS session was active",
-                    expected
+                    "canonical prepared content {:?} disappeared from the LIVE session root {:?} \
+                     while the GGRS session was active",
+                    expected, owner
                 ),
             );
         }
@@ -986,17 +1004,80 @@ fn enforce_session_contract(world: &mut World) {
     }
 }
 
-fn invalidate_session(world: &mut World, reason: String) {
-    stop_session(world);
-    world
-        .get_resource_or_insert_with::<RollbackSessionStatus>(Default::default)
-        .invalidation = Some(reason);
-    world.insert_resource(ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy);
+/// Retire the authority governing a scope the shell has just retired.
+///
+/// ⭐ THE EXPLICIT SIGNAL, consumed where it belongs: an authority stands down
+/// BEFORE the world it governs is cleaned up ([`SessionScopeSet::RetireAuthority`]
+/// is ordered before [`SessionScopeSet::Cleanup`]). Polling for the absence of a
+/// world is what made deliberate teardown look like corruption.
+///
+/// [`SessionScopeSet::RetireAuthority`]: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority
+/// [`SessionScopeSet::Cleanup`]: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Cleanup
+pub(crate) fn retire_rollback_authority_with_its_scope(
+    mut retired: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeRetired>,
+    authority: Option<Res<ActiveRollbackAuthority>>,
+    mut commands: Commands,
+) {
+    let owner = authority
+        .as_deref()
+        .and_then(ActiveRollbackAuthority::owner);
+    // Read the WHOLE batch, never `any()`: a short-circuit leaves later
+    // retirements on the cursor to be re-read next frame.
+    let mut retiring = false;
+    for scope in retired.read() {
+        retiring |= Some(scope.0) == owner;
+    }
+    if retiring {
+        commands.queue(|world: &mut World| retire_rollback_authority(world));
+    }
 }
 
-fn live_content_identity(world: &mut World) -> Option<PreparedContentIdentity> {
-    let mut query = world.query::<&PreparedContentIdentity>();
-    query.iter(world).next().copied()
+/// Record a divergence on the live timeline and stop it.
+///
+/// The timeline stops but its authority stays STOOD DOWN, so the diagnosis keeps
+/// refusing confirmed work for the rest of this gameplay session. The same
+/// reason is also copied into the process-lifetime
+/// [`RollbackDiagnosticHistory`], which outlives the session and authorizes
+/// nothing.
+fn invalidate_session(world: &mut World, reason: String) {
+    let record = world
+        .get_resource::<ActiveRollbackAuthority>()
+        .map(|authority| RollbackDiagnostic {
+            scope: authority.owner(),
+            generation: authority.generation(),
+            reason: reason.clone(),
+        });
+    stop_session(world);
+    if let Some(mut authority) = world.get_resource_mut::<ActiveRollbackAuthority>() {
+        authority.invalidate(reason);
+    }
+    if let Some(record) = record {
+        world
+            .get_resource_or_insert_with::<RollbackDiagnosticHistory>(Default::default)
+            .record(record);
+    }
+}
+
+/// The prepared content identity of the canonical root belonging to `owner`.
+///
+/// ⛔⛔ NOT "THE FIRST `PreparedContentIdentity` IN THE WORLD". A global
+/// first-match let a delayed root from a retired activation satisfy the current
+/// session's contract, and let the current session's root go unseen while a
+/// stale one was still being despawned. The contract belongs to a scope, so it
+/// inspects that scope's root and no other.
+fn content_identity_of(
+    world: &mut World,
+    owner: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+) -> Option<PreparedContentIdentity> {
+    let owner = owner?;
+    let mut query = world.query::<(
+        &ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
+        &PreparedContentIdentity,
+    )>();
+    query
+        .iter(world)
+        .find(|(root, _)| root.0 == owner)
+        .map(|(_, identity)| *identity)
 }
 
 #[cfg(test)]
@@ -1072,7 +1153,10 @@ mod tests {
              asked to police"
         );
         assert_eq!(
-            world.resource::<RollbackSessionStatus>().invalidation,
+            world
+                .resource::<ActiveRollbackAuthority>()
+                .status()
+                .invalidation,
             None,
             "a stable registry must produce a stable schema across frames"
         );
@@ -1359,6 +1443,12 @@ mod tests {
     #[test]
     fn invalidation_removes_the_confirmed_boundary_but_preserves_the_reason() {
         let mut world = World::new();
+        world.init_resource::<RollbackRegistry>();
+        world.init_resource::<RollbackDiagnosticHistory>();
+        // An invalidation is a fact ABOUT A TIMELINE, so the fixture installs
+        // one. A bare world has nothing to invalidate.
+        start_sync_test_session(&mut world, SyncTestSettings::for_players(1))
+            .expect("session starts");
         world.insert_resource(ConfirmedFrameBoundary {
             current: 7,
             confirmed: 2,
@@ -1370,10 +1460,16 @@ mod tests {
         assert!(!world.contains_resource::<ConfirmedFrameBoundary>());
         assert_eq!(
             world
-                .resource::<RollbackSessionStatus>()
+                .resource::<ActiveRollbackAuthority>()
+                .status()
                 .invalidation
                 .as_deref(),
             Some("contract changed")
+        );
+        assert_eq!(
+            world.resource::<RollbackDiagnosticHistory>().len(),
+            1,
+            "the divergence is also remembered where it authorizes nothing"
         );
     }
 
@@ -1715,90 +1811,6 @@ mod multi_seat_input_tests {
             "slot 0 is NOT written here — the primary seat is `ControlFrame`, and \
              two homes for one seat is how the two come to disagree"
         );
-    }
-}
-
-#[cfg(test)]
-mod ac23_tests {
-    use super::*;
-
-    /// A new session inherits an unhealthy timeline's reason. (AC23)
-    #[test]
-    fn an_invalidated_session_hands_its_reason_to_its_replacement() {
-        let previous = RollbackSessionStatus {
-            mismatch_frames: Vec::new(),
-            invalidation: Some("room reconstructed under a live timeline".to_string()),
-        };
-        let carried = RollbackSessionStatus::carried_from(Some(&previous));
-        assert!(
-            !carried.is_healthy(),
-            "an inherited invalidation was reported healthy"
-        );
-        assert_eq!(
-            carried.invalidation.as_deref(),
-            Some("room reconstructed under a live timeline"),
-            "the replacement session came up clean, so the divergence was \
-             laundered by the install"
-        );
-    }
-
-    /// A checksum mismatch carries as PROSE, not as frame numbers.
-    ///
-    /// Frames restart at zero for every GGRS session, so carrying the numbers
-    /// would report a mismatch at frames the new timeline has not reached.
-    #[test]
-    fn a_mismatch_carries_its_reason_but_not_its_frame_numbers() {
-        let previous = RollbackSessionStatus {
-            mismatch_frames: vec![41, 42],
-            invalidation: None,
-        };
-        let carried = RollbackSessionStatus::carried_from(Some(&previous));
-        assert!(
-            carried.mismatch_frames.is_empty(),
-            "frame numbers from a dead timeline were carried into a live one, so \
-             the new session reports a mismatch at frames it has not reached"
-        );
-        let reason = carried
-            .invalidation
-            .expect("the mismatch survives as prose");
-        assert!(
-            reason.contains("41"),
-            "the reason lost the evidence: {reason}"
-        );
-        assert!(
-            reason.contains("PREVIOUS"),
-            "the reason does not say the mismatch belongs to the old timeline: {reason}"
-        );
-    }
-
-    /// A HEALTHY session installs clean, which is the ordinary case and must not
-    /// acquire a phantom diagnostic.
-    #[test]
-    fn a_healthy_session_installs_clean() {
-        let previous = RollbackSessionStatus::default();
-        assert!(
-            previous.is_healthy(),
-            "the default session status is not healthy"
-        );
-        assert_eq!(
-            RollbackSessionStatus::carried_from(Some(&previous)),
-            RollbackSessionStatus::default()
-        );
-        assert_eq!(
-            RollbackSessionStatus::carried_from(None),
-            RollbackSessionStatus::default()
-        );
-    }
-
-    /// Clearing is possible, but only by SAYING SO.
-    #[test]
-    fn a_diagnostic_can_be_cleared_only_deliberately() {
-        let mut status = RollbackSessionStatus {
-            mismatch_frames: vec![7],
-            invalidation: Some("diverged".to_string()),
-        };
-        status.acknowledge_and_clear();
-        assert_eq!(status, RollbackSessionStatus::default());
     }
 }
 

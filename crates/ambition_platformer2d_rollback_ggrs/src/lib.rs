@@ -38,6 +38,8 @@ mod reconcile;
 mod registrar;
 mod registration;
 pub mod session;
+#[cfg(test)]
+mod session_ownership_tests;
 
 pub use codec::*;
 pub use probes::*;
@@ -84,7 +86,6 @@ impl Plugin for AmbitionRollbackPlugin {
             .insert_resource(RollbackFrameRate(
                 ambition_platformer2d_runtime::SIM_TICK_HZ as usize,
             ))
-            .init_resource::<ambition_platformer2d_runtime::RollbackConfirmationState>()
             .init_resource::<ambition_sim_view::PresentationPhase>()
             .insert_resource(ambition_platformer2d_runtime::RollbackHostReady);
 

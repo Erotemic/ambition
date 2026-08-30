@@ -2,7 +2,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScopeRetired};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    SessionScopeActivated, SessionScopeId, SessionScopeRetired,
+};
 
 use super::*;
 use crate::abilities::traversal::possession::PossessionState;
@@ -16,6 +18,7 @@ use ambition_platformer2d_world::collision::MovingPlatformSet;
 fn app_with_populated_mirrors() -> App {
     let mut app = App::new();
     app.add_message::<SessionScopeRetired>();
+    app.add_message::<SessionScopeActivated>();
     app.init_resource::<MovingPlatformSet>();
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
@@ -27,7 +30,13 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<SwitchActivationQueue>();
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
-    app.add_systems(Update, reset_session_scoped_resources_on_retire);
+    app.add_systems(
+        Update,
+        (
+            reset_session_scoped_resources_on_activation,
+            reset_session_scoped_resources_on_retire,
+        ),
+    );
 
     // Populate the mirrors with distinctive session-A state.
     app.world_mut().resource_mut::<MovingPlatformSet>().0.push(
@@ -173,4 +182,75 @@ fn no_retirement_leaves_mirrors_untouched() {
         .resource::<PossessionState>()
         .possessed
         .is_some());
+}
+
+/// ⭐⭐ THE NEXT SESSION IS CLEAN EVEN IF RETIREMENT NEVER HAPPENED.
+///
+/// ⛔ NOTHING RETIRES SESSION A HERE, DELIBERATELY. The whole claim is that
+/// activation is the correctness edge and retirement is hygiene, and a fixture
+/// that retires A first cannot tell those apart — it would pass with the
+/// activation reset deleted.
+#[test]
+fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
+    let mut app = app_with_populated_mirrors();
+    app.update();
+
+    // Session A's mirrors are still standing: its retirement was delayed,
+    // misordered, or lost to an abnormal exit.
+    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
+    assert!(app
+        .world()
+        .resource::<PossessionState>()
+        .possessed
+        .is_some());
+    assert!(app
+        .world()
+        .resource::<SlotInteractionState>()
+        .primary()
+        .buffered());
+
+    // Session B begins.
+    app.world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(1)));
+    app.update();
+
+    assert!(
+        app.world().resource::<MovingPlatformSet>().0.is_empty(),
+        "session B inherited A's moving platforms"
+    );
+    assert_eq!(
+        app.world().resource::<PossessionState>().possessed,
+        None,
+        "session B inherited a handle to a body that belonged to A — and Bevy \
+         reuses entity ids, so that handle can come to name one of B's own"
+    );
+    assert!(
+        !app.world()
+            .resource::<SlotInteractionState>()
+            .primary()
+            .buffered(),
+        "session B started with a buffered interact nobody pressed in it"
+    );
+    assert!(
+        app.world().resource::<EncounterRegistry>().ids.is_empty(),
+        "session B inherited A's encounter index, and its `specs_loaded` latch \
+         would then suppress B's own repopulation"
+    );
+    assert_eq!(
+        app.world().resource::<RoomTransitionCooldown>().remaining,
+        0.0,
+        "session B started inside A's room-transition cooldown, which refuses \
+         every door for as long as it lasts"
+    );
+    assert!(
+        app.world().resource::<SwitchActivationQueue>().0.is_empty(),
+        "a switch activation produced in A was about to be delivered into B"
+    );
+    assert!(
+        !app.world()
+            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .0,
+        "the latch still said A's save had been applied, so B would never \
+         restore into its own world"
+    );
 }

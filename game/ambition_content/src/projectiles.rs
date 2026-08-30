@@ -125,6 +125,40 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // THE OFFICER'S SERVICE ROUND — his sidearm's shot, with his own art.
+    //
+    // ⭐⭐ REGISTERED BECAUSE IT WAS NOT. `RangedActionSpec::pistol` authored no
+    // `visual` and the Officer's `CharacterDefinition` sets no `ranged_vfx`, so
+    // his shot resolved through an EMPTY id to `ProjectileArt::generic()` — the
+    // engine's content-free orange-red quad. His sheet draws a drawn pistol and
+    // a muzzle flare, and what came out of it was the debug placeholder.
+    //
+    // ⛔ AND THE PLACEHOLDER IS WHY THE FLIP LOOKED INNOCENT. `FlipToTravel`
+    // mirrors the sprite with `flip_x = vel.x < 0.0`, which assumes art drawn
+    // pointing +x. A SOLID-COLOUR QUAD IS SYMMETRIC, so that flip was a no-op
+    // and the axis could not be seen to be right or wrong from the picture. The
+    // sheet is authored nose-+x (`targets/projectiles/pistol_round.py` states
+    // it), which is what makes the rotation axis meaningful here.
+    //
+    // `FixedWidth`, not `Body`: the round's hitbox is the shared pistol
+    // envelope and a bullet drawn to it would be a fat lozenge. A slug reads by
+    // its silhouette at a fixed size.
+    app.register_projectile_visual(
+        "pistol_round",
+        ProjectileArt {
+            source: ProjectileArtSource::Sheet {
+                target: "pistol_round".to_string(),
+                animation: "travel".to_string(),
+                animate: true,
+            },
+            size: ProjectileRenderSize::FixedWidth(22.0),
+            rotation: ProjectileRotation::FlipToTravel,
+            debug_tint: [0.97, 0.81, 0.42, 1.0],
+            label: "pistol_round".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // PCA zoning shot: the animated Conway glider, upright vs gravity, sized for
     // arena readability rather than to the small hitbox.
     app.register_projectile_visual(

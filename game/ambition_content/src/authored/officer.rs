@@ -40,6 +40,42 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
                     // admiral's 360 because a service pistol is not a
                     // gun-sword — it reaches a spacing exchange, not the stage.
                     .with_aim_assist(ambition_characters::brain::action_set::AimAssist::half_plane(280.0))
+                    // ⭐⭐ HIS SHOT LEAVES THE BARREL, NOT HIS MIDRIFF. Without a
+                    // `Discharge` this defaulted to `Muzzle::BodyOrigin`, whose
+                    // spawn is `origin + (0, -8)` — a purely VERTICAL offset, so
+                    // the round was born at his centre while the gun and its
+                    // flare are drawn out at his hand. `Muzzle::Hand`'s own doc
+                    // says it exists for exactly this: *"so the shot leaves the
+                    // barrel the player can see rather than the fighter's
+                    // midriff."* The hand is mirrored by `facing_sign`, so this
+                    // is correct in both directions.
+                    //
+                    // ⛔⛔ AND THIS IS WHAT "STILL FIRING BACKWARDS" WAS. The
+                    // velocity was never wrong — `officer_probe` proves vel.x
+                    // agrees with facing both ways. A round that is born behind
+                    // the visible muzzle and then travels forward reads as
+                    // coming out of the wrong place however the velocity is
+                    // signed, which is the complaint a sign check cannot see.
+                    //
+                    // ⚠ THE PROBE'S OWN "+9.3 AHEAD" WAS NOT A MUZZLE OFFSET.
+                    // It samples the first tick the round is VISIBLE, one tick
+                    // after spawn: 560 px/s ÷ 60 Hz = 9.33. It was reading one
+                    // tick of travel and reporting it as the spawn offset, so
+                    // the instrument called `BodyOrigin` "ahead of him".
+                    .with_discharge(ambition_characters::brain::action_set::Discharge {
+                        muzzle: ambition_characters::brain::action_set::Muzzle::Hand {
+                            ahead: 10.0,
+                        },
+                        // No cue of its own: `officer_the_draw` already plays
+                        // the draw at 0.116s, and naming a second one here
+                        // would be a cue this table has to keep in step with a
+                        // weapon it does not own.
+                        ..Default::default()
+                    })
+                    // ⭐ AND IT LOOKS LIKE A BULLET. Registered in
+                    // `crate::projectiles`; without this the id is empty and
+                    // resolves to the engine's generic quad.
+                    .with_visual(ambition_characters::brain::action_set::PISTOL_ROUND_VISUAL)
                     // ⛔⛔ THE MOVE'S OWN RECOVERY IS THE CADENCE. `refire_s` is
                     // checked where the move is ACCEPTED, so a recharge on top
                     // of a 0.7s special would refuse a shot the move had already
@@ -57,4 +93,60 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         .with_moveset(crate::officer_moveset::officer_moveset());
     definition.vitals.max_health = Some(6);
     definition
+}
+
+#[cfg(test)]
+mod tests {
+    use ambition_characters::brain::action_set::{Muzzle, PISTOL_ROUND_VISUAL};
+
+    /// ⭐⭐ THE SHOT LEAVES THE BARREL, AND IT LOOKS LIKE A BULLET.
+    ///
+    /// Jon, 2026-08-30: *"the officer is still firing backwards."* His round's
+    /// VELOCITY was never wrong — `officer_probe` shows `vel.x` agreeing with
+    /// facing in both directions. Two presentation facts were:
+    ///
+    /// * no `Discharge`, so the shot defaulted to [`Muzzle::BodyOrigin`], whose
+    ///   spawn offset is purely VERTICAL — the round was born at his sternum
+    ///   while the gun and its muzzle flare are drawn out at his hand;
+    /// * no `visual`, so an empty id resolved to `ProjectileArt::generic()`, the
+    ///   engine's orange-red QUAD. A symmetric quad also makes `FlipToTravel` a
+    ///   no-op, which is why the flip looked innocent under inspection.
+    ///
+    /// ⛔ THIS GOES THROUGH `author_for`, not `author`, for the reason Emmy's
+    /// test does: authoring a weapon on a character no table reaches would be
+    /// indistinguishable from authoring nothing.
+    #[test]
+    fn the_officers_round_leaves_his_hand_and_carries_his_own_art() {
+        let author = super::super::author_for("officer")
+            .expect("the Officer is in AUTHORED_CAST, or nothing he authors is reachable");
+        let definition = author(
+            "officer",
+            super::super::CharacterDefinition::new("officer", "The Officer", "ambition"),
+        );
+        let ranged = definition
+            .action_set
+            .as_ref()
+            .and_then(|a| a.ranged.as_ref())
+            .expect("the Officer states a ranged action — `The Draw` fires it");
+
+        let discharge = ranged
+            .discharge
+            .as_ref()
+            .expect("his sidearm authors a discharge, or the shot is born at his midriff");
+        assert!(
+            matches!(discharge.muzzle, Muzzle::Hand { .. }),
+            "the Officer's gun is DRAWN — his shot must be born at the hand the \
+             `shoot` clip puts it in, not at `BodyOrigin`, which is horizontally \
+             ON him and reads as firing from the wrong place however the \
+             velocity is signed"
+        );
+
+        assert_eq!(
+            ranged.visual.as_deref(),
+            Some(PISTOL_ROUND_VISUAL),
+            "his round must carry its own art; an absent visual id resolves to \
+             the engine's generic quad, which is both wrong for a pistol and \
+             symmetric enough to hide a flip error"
+        );
+    }
 }

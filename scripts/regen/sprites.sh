@@ -408,6 +408,22 @@ review_cues=(
     # Phase 6 + bonus follow-up: every review config is now an
     # actual catalog character. Install the rest so the Hall of
     # Characters has a sprite for each.
+    #
+    # ⛔⛔ THE GOBLIN WEAPON VARIANTS WERE THE "REST" AND WERE NEVER ADDED, and
+    # a TEST depended on one of them. `ambition_render`'s
+    # `a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`
+    # uses `goblin_cave_dagger` as its canonical RIGHT-drawn sheet, and
+    # `record_for_sheet_key` returned `None` because no roster line ever
+    # published it — so `cargo test --workspace --lib` failed on a missing
+    # ASSET while reading like a handedness regression. Found 2026-08-30, the
+    # first time that gate was run to completion (D-QTT-1).
+    #
+    # ⭐ THE LESSON IS THE ONE THIS BLOCK ALREADY TEACHES ONE COMMENT UP: a
+    # target that no batch publishes does not exist for anybody who did not
+    # render it by hand, and generated art is gitignored, so "it works on my
+    # checkout" is the expected symptom rather than a surprising one.
+    goblin_brute_hammer goblin_cave_dagger goblin_desert_bow
+    goblin_forest_spear goblin_frost_sword goblin_shaman_staff
 )
 
 # Faction-leader cues copied out of the `draw-factions` scratch render. Their

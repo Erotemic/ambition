@@ -375,3 +375,126 @@ fn settings_ron_without_raster_still_parses() {
     assert_eq!(parsed.raster.sanitized_msaa_samples(), 4, "must still be Bevy's default MSAA");
     assert_eq!(parsed.raster, RasterBudget::default());
 }
+
+/// ⭐⭐ THE TIER IS SEEDED FROM WHAT THE MACHINE RENDERS WITH, not from its OS.
+///
+/// `default_visual_quality_profile` decides by target OS, so every desktop
+/// boots `High` — including `calculex`, whose renderer is an Intel HD 630 and
+/// which measured p50 51.0ms (~19.6 FPS) there. The OS was never the thing that
+/// made it slow.
+#[test]
+fn the_seed_tier_follows_the_adapter_and_not_the_operating_system() {
+    use super::{seed_profile_for_gpu, DetectedGpuClass, VisualQualityProfile};
+
+    assert_eq!(
+        seed_profile_for_gpu(DetectedGpuClass::Discrete),
+        VisualQualityProfile::High,
+        "a discrete card is what the High tier was authored against"
+    );
+    assert_eq!(
+        seed_profile_for_gpu(DetectedGpuClass::Integrated),
+        VisualQualityProfile::Medium,
+        "an IGP shares system memory and must not start where a discrete card does"
+    );
+    assert_eq!(
+        seed_profile_for_gpu(DetectedGpuClass::Virtual),
+        VisualQualityProfile::Medium,
+        "a paravirtualised adapter is an IGP's problem wearing a guest's clothes"
+    );
+
+    // ⛔ NO GPU IS NOT A WEAK GPU. A software rasteriser pays its fill cost on
+    // the same cores running the sim, so the tier that merely trims effects is
+    // the wrong answer for it.
+    assert_eq!(
+        seed_profile_for_gpu(DetectedGpuClass::Cpu),
+        VisualQualityProfile::Potato,
+        "llvmpipe/lavapipe must start at the cheapest tier there is"
+    );
+
+    // ⛔ AND AN ADAPTER WE CANNOT CLASSIFY KEEPS THE EXISTING DEFAULT. Booting an
+    // unrecognised machine into a degraded tier makes "we did not recognise
+    // your GPU" indistinguishable from "your GPU is bad".
+    assert_eq!(
+        seed_profile_for_gpu(DetectedGpuClass::Other),
+        super::default_visual_quality_profile(),
+        "an unknown adapter must not be guessed downward"
+    );
+}
+
+/// ⛔⛔ A SEED IS NOT AN OVERRIDE. Re-deciding the tier each launch would
+/// silently undo the settings menu — a player who chose High on an integrated
+/// laptop would be put back on Medium every boot with nothing admitting why.
+///
+/// The seam that enforces this is serde: `VisualQualitySettings::profile`
+/// carries `#[serde(default = "default_visual_quality_profile")]`, so a STORED
+/// profile is read back verbatim and the default function is not consulted at
+/// all. This pins that, so a future refactor that "helpfully" re-seeds on load
+/// fails here rather than in a player's settings menu.
+#[test]
+fn a_stored_profile_survives_a_reload_and_is_never_re_seeded() {
+    use super::{VisualQualityProfile, VisualQualitySettings};
+
+    let stored = r#"(profile: High)"#;
+    let parsed: VisualQualitySettings = ron::from_str(stored)
+        .expect("a stored quality block must deserialize");
+    assert_eq!(
+        parsed.profile,
+        VisualQualityProfile::High,
+        "the player's own choice must come back exactly as they left it"
+    );
+
+    // And the absent case is the ONLY one the default may answer.
+    let unset = r#"()"#;
+    let seeded: VisualQualitySettings =
+        ron::from_str(unset).expect("a settings block with no profile must still load");
+    assert_eq!(
+        seeded.profile,
+        super::default_visual_quality_profile(),
+        "only a settings file that never stored a profile may take a default"
+    );
+}
+
+/// The seed runs ONCE, and never against a tier the player owns.
+#[test]
+fn the_hardware_seed_fires_once_and_respects_a_chosen_tier() {
+    use super::{DetectedGpuClass, VisualQualityProfile, VisualQualitySettings};
+
+    // First run on an integrated laptop: seeded down, and recorded.
+    let mut fresh = VisualQualitySettings::default();
+    assert!(!fresh.hardware_seeded, "a fresh settings block has not been seeded");
+    assert_eq!(
+        fresh.seed_from_hardware(DetectedGpuClass::Integrated),
+        Some(VisualQualityProfile::Medium),
+        "an IGP must not start where a discrete card does"
+    );
+    assert!(fresh.hardware_seeded);
+
+    // ⛔ AND NEVER AGAIN. A second boot must not re-decide, even if the player
+    // has since moved the tier UP — that is exactly the silent override this
+    // whole mechanism is written to avoid.
+    fresh.profile = VisualQualityProfile::High;
+    assert_eq!(
+        fresh.seed_from_hardware(DetectedGpuClass::Integrated),
+        None,
+        "a seeded install is never re-seeded"
+    );
+    assert_eq!(
+        fresh.profile,
+        VisualQualityProfile::High,
+        "the player's later choice survives the next launch"
+    );
+
+    // An existing install where the player already chose a tier is left alone
+    // on its one and only seeding pass.
+    let mut chosen = VisualQualitySettings {
+        profile: VisualQualityProfile::Potato,
+        ..Default::default()
+    };
+    assert_eq!(
+        chosen.seed_from_hardware(DetectedGpuClass::Discrete),
+        None,
+        "a tier the player moved off the default is theirs, not the seed's"
+    );
+    assert_eq!(chosen.profile, VisualQualityProfile::Potato);
+    assert!(chosen.hardware_seeded, "the attempt is recorded so it is not retried each boot");
+}

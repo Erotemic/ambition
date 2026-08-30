@@ -779,6 +779,15 @@ pub fn gun_sword_discharge() -> Discharge {
 /// The gun-sword's shot LOOKS like a spinning blade.
 pub const LASERSWORD_VISUAL: &str = "lasersword";
 
+/// A service pistol's shot LOOKS like a bullet — brass slug, hot tip, short
+/// wake, authored travelling +x so `FlipToTravel` mirrors it correctly.
+///
+/// ⛔ NAMED HERE FOR THE REASON `LASERSWORD_VISUAL` IS: the id is a contract
+/// between a weapon that fires and the content catalog that registers the look,
+/// and a bare string at each end drifts silently — an unregistered id does not
+/// fail, it quietly draws the engine's generic quad.
+pub const PISTOL_ROUND_VISUAL: &str = "pistol_round";
+
 /// A weapon's willingness to correct the shooter's aim.
 ///
 /// ⭐ THE COMMANDED DIRECTION IS STILL THE DECISION. Jon, 2026-08-27, on the

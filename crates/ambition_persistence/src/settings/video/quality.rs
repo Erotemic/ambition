@@ -149,6 +149,59 @@ pub fn default_visual_quality_profile() -> VisualQualityProfile {
     }
 }
 
+/// What KIND of adapter the renderer came up on, as a fact this crate can hold
+/// without depending on `wgpu`.
+///
+/// ⭐ MIRRORS `wgpu::DeviceType` DELIBERATELY, and stops there. The mapping from
+/// the graphics API's enum belongs at the render seam that already owns that
+/// dependency; the POLICY — which tier a class of hardware should start on —
+/// belongs here with the tiers it names. Persistence gaining a `wgpu`
+/// dependency to answer a question about its own tiers would be the tail
+/// wagging the dog.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DetectedGpuClass {
+    /// A discrete card on its own bus.
+    Discrete,
+    /// An IGP sharing system memory — an Intel HD 630, say.
+    Integrated,
+    /// A paravirtualised adapter inside a guest.
+    Virtual,
+    /// No GPU: a software rasteriser (llvmpipe / lavapipe / SwiftShader).
+    Cpu,
+    /// The adapter answered something this build does not recognise.
+    Other,
+}
+
+/// The tier a machine should START on, given what it renders with.
+///
+/// ⛔⛔ THIS IS A FIRST-RUN SEED AND NOTHING ELSE. Re-deciding it each launch
+/// would silently undo the settings menu: a player who chose High on an
+/// integrated laptop because they prefer the picture to the framerate would
+/// find themselves back on Medium every boot, with nothing in the UI admitting
+/// why. Callers must apply this only where no stored profile exists.
+///
+/// ⚠ WHY IT IS NEEDED: [`default_visual_quality_profile`] decides by TARGET OS,
+/// so every desktop boots `High` — including one whose renderer is an Intel HD
+/// 630. Measured on `calculex` 2026-08-29: that machine ran p50 51.0ms
+/// (~19.6 FPS) at High, and 20.1ms (~49.7 FPS) once the raster budget matched
+/// the hardware. The OS was never the thing that made it slow.
+///
+/// ⚠ `Cpu` gets `Potato` rather than `Low` because a software rasteriser is not
+/// a weak GPU, it is NO GPU — the fill cost is paid by the same cores running
+/// the sim, so the tier that merely trims effects is not the right answer.
+pub fn seed_profile_for_gpu(class: DetectedGpuClass) -> VisualQualityProfile {
+    match class {
+        DetectedGpuClass::Discrete => VisualQualityProfile::High,
+        DetectedGpuClass::Integrated | DetectedGpuClass::Virtual => VisualQualityProfile::Medium,
+        DetectedGpuClass::Cpu => VisualQualityProfile::Potato,
+        // ⛔ AN UNKNOWN ADAPTER KEEPS THE EXISTING DEFAULT rather than guessing
+        // downward. Booting a machine we cannot classify into a degraded tier
+        // would make "we did not recognise your GPU" indistinguishable from
+        // "your GPU is bad", and the player has no way to tell which happened.
+        DetectedGpuClass::Other => default_visual_quality_profile(),
+    }
+}
+
 /// `Ord` is declaration order, which is ascending quality (Potato <
 /// Quarter < Half < Full). Derived so a set of tiers has a deterministic
 /// iteration order for diagnostics; nothing decides policy by comparing two
@@ -614,9 +667,54 @@ pub struct VisualQualitySettings {
     pub profile: VisualQualityProfile,
     #[serde(default)]
     pub custom: VisualQualityBudget,
+    /// Whether this profile has already been seeded from the detected adapter.
+    ///
+    /// ⛔⛔ THE WHOLE POINT IS THAT THIS HAPPENS ONCE. [`seed_profile_for_gpu`]
+    /// is a FIRST-RUN SEED; re-deciding the tier every launch would silently
+    /// undo the settings menu, so the seeding step records that it ran and
+    /// never runs again. `false` in every file written before this existed,
+    /// which is correct: those installs have not been seeded.
+    ///
+    /// ⚠ AND SEEDING IS ADDITIONALLY GATED ON THE PROFILE STILL BEING THE
+    /// UNTOUCHED DEFAULT, so an existing install where the player CHOSE a tier
+    /// keeps it. The two conditions together leave one narrow false positive —
+    /// a player whose deliberate choice happens to equal the OS default — and
+    /// it costs them one tier change they can undo in the menu, once, rather
+    /// than every boot.
+    #[serde(default)]
+    pub hardware_seeded: bool,
 }
 
 impl VisualQualitySettings {
+    /// Apply the one-time hardware seed, returning the tier if it changed.
+    ///
+    /// ⭐ THE DECISION LIVES HERE, NOT AT THE RENDER SEAM, so it can be tested
+    /// without a GPU — which is the only way it can be tested at all on the
+    /// machine this most matters for. The render layer's job is reduced to
+    /// naming the adapter class; every rule about WHEN to apply it is below and
+    /// is exercised by unit tests.
+    ///
+    /// Returns `None` when nothing was changed: already seeded, or the player
+    /// has moved the tier off its default and owns it now.
+    pub fn seed_from_hardware(&mut self, class: DetectedGpuClass) -> Option<VisualQualityProfile> {
+        if self.hardware_seeded {
+            return None;
+        }
+        // Record the attempt even when it declines to move anything, or a
+        // player who chose their tier before this existed would be re-examined
+        // on every launch forever.
+        self.hardware_seeded = true;
+        if self.profile != default_visual_quality_profile() {
+            return None;
+        }
+        let seeded = seed_profile_for_gpu(class);
+        if seeded == self.profile {
+            return None;
+        }
+        self.profile = seeded;
+        Some(seeded)
+    }
+
     pub fn resolved_budget(&self) -> VisualQualityBudget {
         if self.profile == VisualQualityProfile::Custom {
             self.custom.clone()
@@ -636,6 +734,10 @@ impl Default for VisualQualitySettings {
         Self {
             profile,
             custom: VisualQualityBudget::for_profile(profile),
+            // A fresh settings block has NOT been seeded — that is the whole
+            // state this field exists to hold, and the seeding pass is what
+            // sets it.
+            hardware_seeded: false,
         }
     }
 }

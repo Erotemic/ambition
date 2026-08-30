@@ -41,6 +41,19 @@ use bevy::prelude::*;
 /// Watch well past it so a round that arrives late is still seen.
 const WATCH_TICKS: usize = 90;
 
+/// ⛔⛔ THE OFFSET COLUMN WAS READING ONE TICK OF TRAVEL AS A MUZZLE OFFSET.
+/// A round is only VISIBLE to this probe on the tick after it spawns, by which
+/// point it has already moved `speed × dt` — for the Officer's 560 px/s that is
+/// 560 ÷ 60 = **9.33 px**, which is exactly the "+9.3 (ahead)" this probe
+/// reported and a handoff then cited as proof the spawn origin was correct.
+/// It was not measuring the spawn origin at all: the shot was born at
+/// `Muzzle::BodyOrigin`, a purely VERTICAL offset, i.e. horizontally ON him.
+///
+/// ⇒ back the travel out before judging where the round was BORN. An instrument
+/// that cannot distinguish "left from the barrel" from "left from his sternum
+/// and flew for one tick" cannot answer the question it exists to answer.
+const SIM_DT: f32 = 1.0 / 60.0;
+
 fn main() {
     let steer: f32 = match std::env::args().nth(1).as_deref() {
         Some("left") => -1.0,
@@ -58,7 +71,31 @@ fn main() {
         demo_host,
         rendered,
     });
-    let _ = seat1;
+    // ⛔⛔ GET THE SPARRING PARTNER OUT OF THE MUZZLE, or the probe cannot
+    // measure the thing it exists to measure.
+    //
+    // Both seats are Officers standing close, and this probe HOLDS the stick to
+    // keep the facing — so firing toward seat1 walks into him as well as
+    // shooting at him. Once the muzzle moved to the hand (`Muzzle::Hand`) the
+    // round was being born close enough to land on the SAME TICK it spawned:
+    // 2026-08-30 the `right` run printed *"NO ROUND EVER SPAWNED"* while the
+    // sim clock printed `impact_hitstop` — the shot fired, connected and
+    // despawned between two samples, and `live_round` polls surviving
+    // projectiles.
+    //
+    // ⚠ THAT IS NOT A BUG IN THE SHOT. A point-blank hit is a hit. It is a bug
+    // in the INSTRUMENT: a probe whose answer depends on which way the other
+    // fighter happens to be standing reports "no round" for a working move,
+    // which is exactly the vacuous reading its own header warns about.
+    // ⭐ PLACED BEHIND THE SHOOTER RATHER THAN FAR AWAY. A big absolute teleport
+    // can leave the stage and be clamped or culled, which would trade this
+    // problem for a less obvious one; standing him a fixed distance BEHIND the
+    // muzzle keeps him on the stage and keeps the firing lane empty whichever
+    // way the run steers.
+    let behind = probe_stage::kin(&app, seat0).0.x - 220.0 * steer;
+    if let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(seat1) {
+        kin.pos.x = behind;
+    }
 
     println!(
         "[officer_probe] host = {}, steering {}",
@@ -122,7 +159,9 @@ fn main() {
     );
 
     let mut rounds_seen = 0usize;
-    let mut first_round: Option<(usize, f32, f32, f32)> = None;
+    // (tick, facing, observed offset, BORN offset with the tick of travel backed
+    // out, vel.x)
+    let mut first_round: Option<(usize, f32, f32, f32, f32)> = None;
     for tick in 0..WATCH_TICKS {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
@@ -140,7 +179,7 @@ fn main() {
         if let Some((pos, vel)) = live_round(&mut app) {
             rounds_seen += 1;
             if first_round.is_none() {
-                first_round = Some((tick, f, pos.x - ox, vel.x));
+                first_round = Some((tick, f, pos.x - ox, (pos.x - vel.x * SIM_DT) - ox, vel.x));
             }
             println!(
                 "  {tick:4}  {f:+6.0}   {mv:<22}  {ox:>9.1}  {:>8.1}  {:>7.1}  {:>6.1}",
@@ -162,22 +201,36 @@ fn main() {
                  bug and has to be settled first."
             );
         }
-        Some((tick, f, offset, vx)) => {
+        Some((tick, f, offset, born, vx)) => {
             let agree = (vx > 0.0 && f > 0.0) || (vx < 0.0 && f < 0.0);
-            let muzzle_ahead = (offset > 0.0 && f > 0.0) || (offset < 0.0 && f < 0.0);
+            // ⛔ THE VERDICT IS ON WHERE IT WAS BORN, NOT WHERE IT WAS FIRST
+            // SEEN. See `SIM_DT`: the seen offset always leads the born one by a
+            // full tick of travel, which is enough to make a shot that starts on
+            // his sternum look like it started ahead of him.
+            let muzzle_ahead = (born > 0.0 && f > 0.0) || (born < 0.0 && f < 0.0);
             println!(
-                "first round at tick {tick}: offset from the officer {offset:+.1}, \
+                "first round at tick {tick}: BORN at {born:+.1} from the officer \
+                 (first seen at {offset:+.1}, one tick of travel later), \
                  vel.x {vx:+.1}, facing {f:+.0} ({rounds_seen} round-ticks observed)"
             );
+            if born.abs() < 1.0 {
+                println!(
+                    "⚠ THE ROUND IS BORN ON HIM ({born:+.1}). Its velocity may still be \
+                     right, but it leaves from his body rather than from the barrel the \
+                     `shoot` clip draws in his hand — which is what reads as firing \
+                     backwards. That is `Muzzle::BodyOrigin`; a drawn weapon wants \
+                     `Muzzle::Hand`."
+                );
+            }
             if !muzzle_ahead {
                 println!(
-                    "⛔ THE ROUND LEAVES FROM BEHIND HIM. offset {offset:+.1} is on the \
+                    "⛔ THE ROUND LEAVES FROM BEHIND HIM. it is born at {born:+.1}, on the \
                      opposite side from facing {f:+.0} — the muzzle is drawn on one side \
                      and the shot spawns on the other, which reads as firing backwards \
                      however the velocity is signed."
                 );
             } else {
-                println!("  muzzle offset {offset:+.1} is AHEAD of him, as it should be.");
+                println!("  muzzle offset {born:+.1} is AHEAD of him, as it should be.");
             }
             if vx == 0.0 {
                 println!("⛔ the round has NO horizontal velocity — it is not travelling at all.");

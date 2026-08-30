@@ -736,6 +736,7 @@ regenerate_assets() {
 
     log "regenerating all runtime assets"
     "$repo_root/scripts/regen/assets.sh"
+    regenerate_missing_published_sheets
     verify_generated_content_is_current
 }
 
@@ -763,6 +764,68 @@ verify_generated_content_is_current() {
     log "   the game draws old art at Low/Medium and may draw none at all:"
     log "     python3 scripts/check_quality_variants_are_fresh.py   # what is stale"
     log "     ./scripts/regen/quality_variants.sh                   # rebuild it"
+}
+
+# ⛔⛔ FRESHNESS AND PRESENCE ARE TWO DIFFERENT FAILURES, and only one of them
+# had an instrument. `verify_generated_content_is_current` above asks *"is the
+# published tier art OLDER than its source?"* — which says nothing about art
+# that was never published at all, because A FILE THAT DOES NOT EXIST CANNOT BE
+# STALE.
+#
+# ⚠ MEASURED 2026-08-30, the first time `cargo test --workspace --lib` was run
+# to completion (D-QTT-1): it failed inside `ambition_render` on
+# `a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`,
+# which uses `goblin_cave_dagger` as its canonical RIGHT-drawn sheet.
+# `record_for_sheet_key` returned `None` because no roster line ever published
+# it. The panic named handedness; the defect was a missing ASSET, and the whole
+# goblin weapon family was absent with it.
+#
+# ⭐ GENERATED ART IS GITIGNORED, so "it works on my checkout" is the EXPECTED
+# symptom of this class rather than a surprising one: whoever rendered the
+# target by hand has it and nobody else does. That is exactly why it belongs in
+# the bootstrap and not in a person's memory.
+#
+# GENERATES rather than only reporting, because the whole lesson of the
+# quality-variant row above is that a checker nothing acts on is a checker
+# nobody runs.
+regenerate_missing_published_sheets() {
+    have python3 || return 0
+    local checker="$repo_root/scripts/check_published_sheets_are_present.py"
+    [ -f "$checker" ] || return 0
+
+    # Through the renderer's own interpreter: the check asks each target what it
+    # DECLARES it installs, which needs the package importable. Without it the
+    # script says "cannot check" and succeeds rather than inventing a verdict.
+    local py="python3"
+    if [ -f "$repo_root/scripts/lib/tool_python.sh" ]; then
+        # shellcheck source=/dev/null
+        py="$(. "$repo_root/scripts/lib/tool_python.sh" >/dev/null 2>&1 \
+            && tool_python ambition_sprite2d_renderer 2>/dev/null || echo python3)"
+        [ -x "$py" ] || py="python3"
+    fi
+
+    local missing
+    if missing="$("$py" "$checker" 2>/dev/null)"; then
+        log "every rostered sheet is published"
+        return 0
+    fi
+
+    warn "rostered sheets are MISSING — regenerating them"
+    printf '%s\n' "$missing" | sed 's/^/     /'
+    local names
+    names="$(printf '%s\n' "$missing" | awk '/^ *missing /{print $2}')"
+    [ -n "$names" ] || return 0
+    local name
+    for name in $names; do
+        log "  publishing $name"
+        "$repo_root/scripts/regen/sprites.sh" --target "$name" --force >/dev/null 2>&1 \
+            || warn "  could not publish $name — run sprites.sh --target $name to see why"
+    done
+    if "$py" "$checker" >/dev/null 2>&1; then
+        log "every rostered sheet is published"
+    else
+        warn "some rostered sheets are still missing; see the list above"
+    fi
 }
 
 # **`-lstdc++` fails at the END of a cold profiling build, and having `g++`

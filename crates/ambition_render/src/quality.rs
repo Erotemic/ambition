@@ -82,11 +82,22 @@ impl Plugin for VisualQualityPlugin {
         app.insert_resource(VisualQualityInstalled);
         log_quality_profile_override();
         app.init_resource::<ResolvedVisualQuality>();
-        // ⭐ STARTUP, AND ONCE. The seed reads the adapter the renderer came up
-        // on and writes the tier only if the player has never had one; it must
-        // run BEFORE the Update pair below reads settings into the resolved
-        // budget, or the first frame renders at the un-seeded tier.
-        app.add_systems(PreStartup, seed_visual_quality_from_adapter);
+        // ⭐ STARTUP, AND ONCE — but AFTER the settings file lands.
+        //
+        // ⛔⛔ `PostStartup`, NOT `PreStartup`. `load_settings_at_startup` runs
+        // in `Startup` and REPLACES the whole `UserSettings` resource with the
+        // file's contents. Seeding before it meant the load overwrote the
+        // seeded tier and restored the file's `hardware_seeded: false` — and
+        // because this system is startup-only it never ran again. An existing
+        // install on an integrated GPU, which is the exact machine the seed was
+        // written for, therefore migrated on no boot, ever. A fresh install
+        // (no file, the loader returns early) migrated fine, which is why the
+        // unit tests on `seed_from_hardware` and a first-run play-through both
+        // looked correct.
+        //
+        // `PostStartup` still precedes the first `Update`, so the pair below
+        // reads the seeded tier into the resolved budget before frame one.
+        app.add_systems(PostStartup, seed_visual_quality_from_adapter);
         app.add_systems(Update, (sync_resolved_visual_quality, sync_raster_budget).chain());
         // This bridge reads visual quality and writes portal presentation
         // quality, so register it only when the destination resource exists.
@@ -269,5 +280,200 @@ pub fn sync_raster_budget(
         if current != Some(&desired) {
             commands.entity(entity).insert(desired);
         }
+    }
+}
+
+/// The hardware seed against the schedule that actually runs it.
+///
+/// ⭐ THESE ARE INTEGRATION TESTS ON PURPOSE. `seed_from_hardware` is unit
+/// tested next to the tiers it decides between, and those tests pass whether or
+/// not the seed ever reaches a real settings file — the whole defect this
+/// module had was an ORDERING one, invisible to any test that calls the
+/// function directly.
+#[cfg(test)]
+mod seed_schedule_tests {
+    use super::*;
+    use ambition_persistence::settings::persistence::{save_settings, settings_path_under};
+    use ambition_persistence::settings::seed_profile_for_gpu;
+    use ambition_persistence::{PersistenceRoot, PersistenceSchedulePlugin};
+
+    /// A `RenderAdapterInfo` for a machine that is not present. Every field but
+    /// `device_type` is inert here; the seed reads the class and the name.
+    fn adapter(
+        device_type: wgpu::DeviceType,
+        name: &str,
+    ) -> bevy::render::renderer::RenderAdapterInfo {
+        bevy::render::renderer::RenderAdapterInfo(bevy::render::renderer::WgpuWrapper::new(
+            wgpu::AdapterInfo {
+                name: name.to_string(),
+                vendor: 0,
+                device: 0,
+                device_type,
+                driver: String::new(),
+                driver_info: String::new(),
+                backend: wgpu::Backend::Noop,
+            },
+        ))
+    }
+
+    /// The app a player actually boots: settings load from disk, and the render
+    /// seam seeds the tier.
+    fn booted_app(root: PersistenceRoot, device_type: wgpu::DeviceType) -> App {
+        let mut app = App::new();
+        app.insert_resource(root);
+        app.init_resource::<UserSettings>();
+        // The schedule plugin installs the SAVE systems beside the settings
+        // ones and they take their resource non-optionally; the composition
+        // that ships inits both. Naming them here keeps this test on the real
+        // plugin rather than a hand-copied subset of its schedule.
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.add_plugins(PersistenceSchedulePlugin);
+        app.add_plugins(VisualQualityPlugin);
+        app.insert_resource(adapter(device_type, "a machine that is not here"));
+        app
+    }
+
+    /// ⛔⛔ THE CASE THE FEATURE WAS WRITTEN FOR. An install that predates the
+    /// seed has a settings file on disk with no `hardware_seeded` key, so serde
+    /// gives it `false` — and that file lands in `Startup`, after `PreStartup`.
+    /// Seeding before the load meant the load overwrote the seed AND restored
+    /// the un-seeded flag, and the startup-only system never ran again: the
+    /// exact machine this was for migrated on no boot, ever.
+    #[test]
+    fn an_existing_settings_file_still_receives_its_first_run_seed() {
+        let root = PersistenceRoot::isolated();
+        let path = settings_path_under(&root.0);
+        let mut stored = UserSettings::default();
+        // Proof the file was really loaded — without it a green result could
+        // just mean the load silently did nothing.
+        stored.audio.master_volume = 0.37;
+        assert!(
+            !stored.video.quality.hardware_seeded,
+            "a file written before the seed existed has not been seeded; \
+             the arm is meaningless if the fixture is already seeded"
+        );
+        save_settings(&path, &stored).expect("the fixture settings file is written");
+
+        let mut app = booted_app(root, wgpu::DeviceType::Cpu);
+        app.update();
+
+        let settings = app.world().resource::<UserSettings>();
+        assert_eq!(
+            settings.audio.master_volume, 0.37,
+            "the stored file was not loaded at all, so this test proves nothing"
+        );
+        assert_eq!(
+            settings.video.quality.profile,
+            seed_profile_for_gpu(ambition_persistence::settings::DetectedGpuClass::Cpu),
+            "an existing install on a software rasteriser kept its OS-decided \
+             default tier: the seed ran before the file that overwrote it"
+        );
+        assert!(
+            settings.video.quality.hardware_seeded,
+            "the seed did not record that it ran, so it would be re-examined \
+             every boot forever"
+        );
+    }
+
+    /// The other half of the same order: a player who ALREADY chose a tier keeps
+    /// it. Moving the seed after the load is what makes this arm reachable at
+    /// all — before, the load always won by accident.
+    #[test]
+    fn a_chosen_tier_in_an_existing_file_survives_the_seed() {
+        let root = PersistenceRoot::isolated();
+        let path = settings_path_under(&root.0);
+        let mut stored = UserSettings::default();
+        stored.video.quality.profile = VisualQualityProfile::Ultra;
+        save_settings(&path, &stored).expect("the fixture settings file is written");
+
+        let mut app = booted_app(root, wgpu::DeviceType::Cpu);
+        app.update();
+
+        let settings = app.world().resource::<UserSettings>();
+        assert_eq!(
+            settings.video.quality.profile,
+            VisualQualityProfile::Ultra,
+            "the seed overrode a tier the player had chosen"
+        );
+        assert!(
+            settings.video.quality.hardware_seeded,
+            "the attempt must be recorded even when it declines to move anything, \
+             or this player is re-examined on every launch"
+        );
+    }
+
+    /// A fresh install — no file — must still seed. This is the case the
+    /// original `PreStartup` placement did get right, and moving the system
+    /// must not lose it.
+    #[test]
+    fn a_fresh_install_with_no_settings_file_is_seeded() {
+        let root = PersistenceRoot::isolated();
+        assert!(
+            !settings_path_under(&root.0).exists(),
+            "an isolated root must start with no settings file"
+        );
+
+        let mut app = booted_app(root, wgpu::DeviceType::IntegratedGpu);
+        app.update();
+
+        let settings = app.world().resource::<UserSettings>();
+        assert_eq!(
+            settings.video.quality.profile,
+            seed_profile_for_gpu(ambition_persistence::settings::DetectedGpuClass::Integrated),
+        );
+    }
+
+    /// The migration REACHES DISK. `hardware_seeded` is the guard that stops
+    /// the seed re-examining a player every boot, and it only does that job if
+    /// the settings writer commits it — the seed writes the resource, and the
+    /// `Update` writer is what makes the answer durable.
+    #[test]
+    fn the_seed_is_persisted_so_it_is_not_re_examined_next_boot() {
+        let root = PersistenceRoot::isolated();
+        let path = settings_path_under(&root.0);
+        save_settings(&path, &UserSettings::default()).expect("fixture written");
+        assert!(
+            !ambition_persistence::settings::persistence::load_settings(&path)
+                .video
+                .quality
+                .hardware_seeded,
+            "the fixture on disk must start un-seeded"
+        );
+
+        let mut app = booted_app(root, wgpu::DeviceType::Cpu);
+        app.update();
+
+        let on_disk = ambition_persistence::settings::persistence::load_settings(&path);
+        assert!(
+            on_disk.video.quality.hardware_seeded,
+            "the seed moved the live resource but never reached the file, so the \
+             next boot re-examines this player and the flag is decorative"
+        );
+    }
+
+    /// The seed reaches the resource the renderer reads, not just the settings
+    /// it was written into. `sync_resolved_visual_quality` runs in `Update`,
+    /// after every startup schedule, so the first frame renders at the seeded
+    /// tier.
+    #[test]
+    fn the_first_frame_resolves_the_seeded_tier() {
+        // The forced-profile env var wins over settings by design, which would
+        // make this arm read the override instead of the seed.
+        if std::env::var(ambition_persistence::settings::QUALITY_PROFILE_ENV).is_ok() {
+            return;
+        }
+        let root = PersistenceRoot::isolated();
+        let path = settings_path_under(&root.0);
+        save_settings(&path, &UserSettings::default()).expect("fixture written");
+
+        let mut app = booted_app(root, wgpu::DeviceType::Cpu);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ResolvedVisualQuality>().profile,
+            seed_profile_for_gpu(ambition_persistence::settings::DetectedGpuClass::Cpu),
+            "the seed moved the setting but the first frame still resolved the \
+             un-seeded tier"
+        );
     }
 }

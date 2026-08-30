@@ -107,16 +107,20 @@ pub struct RoomReplayApplied;
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// — a level restart, a death, a "try again" dialogue beat.
 ///
-/// Engine-generic: this returns the primary body to spawn and requests the room feature reset.
+/// Engine-generic: this returns the primary body to spawn and asks for the room
+/// to be rebuilt. The rebuild itself is `rooms::reconstitute_the_active_room` —
+/// it records a lifecycle intent and the room-transition road commits it at a
+/// confirmed frame, so the body answers on the frame the request lands while the
+/// room comes back a couple of frames later, exactly as a door does.
 ///
 /// This intentionally mirrors the host's reset-input system instead of driving
 /// `ControlFrame::reset_pressed`: the request can arrive while gameplay input
 /// is suspended by dialogue, so relying on the input frame would make the reset
 /// timing depend on UI/game-mode scheduling.
 ///
-/// The room-feature reset is requested even when no primary body matches the
-/// query, so a replay still rebuilds the room in a host that has no home avatar
-/// at that instant.
+/// The rebuild is requested even when no primary body matches the query, so a
+/// replay still rebuilds the room in a host that has no home avatar at that
+/// instant.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_room_replay_request_system(
     mut replay_requests: MessageReader<
@@ -251,7 +255,6 @@ impl Plugin for RoomReplaySchedulePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     /// ⭐⭐ THE WIRING, not the primitive.
     ///

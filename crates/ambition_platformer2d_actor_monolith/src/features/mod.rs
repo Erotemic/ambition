@@ -132,7 +132,7 @@ pub use ecs::{
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move, rebuild_dismounted_rider_brains,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
+    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
     spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,

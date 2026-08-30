@@ -1,7 +1,7 @@
 # Construction and reconstitution
 
-**State:** OPEN — canonical construction exists; lifecycle consumers still have
-residual independent reconstruction/reset logic.
+**State:** OPEN — the four in-session rebuild paths are converged on one
+constructor; durable restore still corrects an already-built world.
 
 ## Goal
 
@@ -25,7 +25,7 @@ The lifecycle operations may retain different populations and may require
 different authorization barriers, but they should not invent different ways to
 build the same authoritative state.
 
-## Current architecture at `26ec7b19`
+## Current architecture
 
 ### Prepared construction is transactional and federated
 
@@ -52,68 +52,134 @@ cannot restore the pre-transition room.
 Therefore a "rollback snapshot that crosses the room boundary" is not an engine
 requirement. Persistence/checkpoint state is a separate durable product boundary.
 
+### Same-room replay is a construction, not a repair
+
+`rooms::reconstitute_the_active_room` names a room; it does not build one. A
+replay records a `LifecycleIntent::Transition` naming the ACTIVE room, and the
+room-transition road prepares, authorizes, commits and rebases it — the road a
+door takes, and the road a checkpoint resume already took. The in-session rebuild
+paths differ in three values and in nothing else:
+
+```text
+                    target room      retires                  durable facts
+new session         start            (nothing live yet)       as saved
+room transition     the next one     RoomResident             as remembered
+same-room replay    the active one   RoomResident             as remembered
+new-game reset      start            every RoomScopedEntity   forgotten
+```
+
+`RoomResident` is "room-scoped and not in anybody's hands". Custody is the
+retention class that decides what rides through a rebuild, so an object a body is
+carrying survives a replay for exactly the reason it survives a door.
+
+**Consuming the same construction semantics is not enough; the authorization is
+part of the road.** An intermediate version of this work prepared and committed
+the plan directly from the reset request. It passed every eager-host test and
+desynced a sync-test session within three frames of a player death
+(`rollback_lifecycle_reset`, checksum mismatch at frames 105-107): a room rebuild
+is a structural change to the simulated world, so under a rollback host it may
+only commit at a confirmed frame, after which GGRS rebases onto a fresh
+frame-zero baseline. A second caller of the plan is a second lifecycle
+authority even when it is not a second constructor.
+
+What a replay retires BEYOND the room is the previous attempt's residue —
+`SpawnedThisAttempt` loot, post-boss NPCs, in-flight projectiles. Those are
+session-scoped by lifetime, so no room sweep reaches them and the policy states
+them explicitly rather than by omission.
+
+A replay therefore costs what a door costs: a couple of frames, a clock ease, and
+a transition cooldown. `reset_sandbox` still returns the body and its meters
+immediately, so the input still answers on the frame it is pressed.
+
 ### Provenance/lifetime vocabulary exists
 
 `SessionScopeId`, `SessionRoot`, spawn provenance/lifetime components, occurrence
 records and room/session scope helpers already provide the vocabulary needed to
 decide which populations a lifecycle operation may retire or reconstruct.
 
-The open work is to use that vocabulary consistently in each reconstruction
-road, not to invent another universal instance manager.
+## What the hand-kept ledger cost
 
-## The remaining second-constructor problem
+`reset_ecs_room_features` was a second, incomplete room constructor: sixteen
+queries at Bevy's parameter ceiling, mutating twelve families of surviving
+entity back toward a presumed spawn state. Every row was a fact somebody noticed
+was missing, so the list could only grow, and adding an authoritative family to
+fresh construction never added it to the replay.
 
-Same-room replay/reset still has behavior that has historically been expressed as
-a hand-maintained reset/rebuild ledger. That is dangerous because adding an
-authoritative room-scoped population to fresh construction does not automatically
-add it to replay reconstruction.
-
-The target is not "make the reset list complete." The target is:
-
-> replay chooses a retention policy, then invokes the same domain construction
-> semantics used by a fresh room.
-
-A lifecycle operation may retain session-owned or persistent occurrences while
-retiring room-scoped state. Those retention decisions are policy and should be
-explicit inputs to reconstitution rather than implicit omissions from a reset
-list.
+Its measured divergence at `ac633fce2`, on `combat_calibration_lab`: after a
+replay every enemy came back **facing the wrong way** and drifted 34.6px from
+where a fresh entry puts it, because `ActorMut::reset_to_spawn` hard-set
+`facing = -1.0` and no row of the ledger restored the brain's chosen direction.
+An enemy that patrols right on entry patrolled left — into the wall behind it —
+after every retry.
 
 ## Required convergence
 
-### C1 — name retention classes at the lifecycle boundary
+### C1 — name retention classes at the lifecycle boundary ✔
 
-For each authoritative family, decide whether the operation retains or
-reconstructs it because of its declared lifetime/provenance, not because a reset
-function happened to remember the component.
-
-At minimum distinguish:
+Retention is decided by declared lifetime/provenance, not by what a reset
+function happened to remember:
 
 - process-only diagnostics/services;
-- gameplay-session authority;
-- room-resident authoritative population;
-- persistent occurrences whose durable facts outlive residency;
-- rollback-timeline history, which is discarded/rebased at confirmed room
-  boundaries rather than restored across them;
-- presentation/read models, which may be rebuilt downstream.
+- gameplay-session authority (`SessionScopedEntity`, and the session-mirrored
+  resources re-established at `SessionScopeActivated`);
+- room-resident authoritative population (`RoomResident`);
+- room-scoped but in custody (`RoomScopedEntity` + `InCustodyOf`) — rides
+  through a rebuild with whoever holds it;
+- attempt residue (`SpawnedThisAttempt`, post-boss NPCs, live projectiles);
+- persistent occurrences whose durable facts outlive residency
+  (`AuthoredOccurrences` -> `RoomOccurrenceOutlook`);
+- rollback-timeline history, discarded/rebased at confirmed room boundaries.
 
-### C2 — make replay consume canonical constructors
+### C2 — make replay consume canonical constructors ✔
 
-Replace family-specific replay/reset reconstruction with calls into the same
-typed construction lanes used by fresh room construction. Keep only the explicit
-retention/destroy policy at the replay boundary.
+Done. `reset_ecs_room_features` is deleted; `RoomTransitionSet::Reset` now runs
+`reconstitute_the_active_room`, which records a lifecycle intent for the active
+room. The only thing that stayed behind is `SpawnedThisAttempt`, which is a
+lifetime declaration rather than a reset row.
 
-### C3 — make durable restore consume facts, not ECS snapshots
+Two defects fell out of the convergence, both invisible while the replay reset
+the world in the same frame it was asked to:
 
-Save/checkpoint loading should reconstruct from authored/prepared content plus
-saved facts such as occurrence disposition, encounter/quest/switch state and
-inventory/custody. Do not grow a second ephemeral rollback snapshot engine.
+- **A boss's persisted defeat was re-derived from its corpse, every frame.**
+  `update_boss_encounters` wrote the `Cleared` record whenever a boss sat in
+  `Death` with its outro complete, guarded by `if !boss_is_cleared(..)` — which
+  looks idempotent and is not. A road that RETRACTS the record, so the boss can
+  be re-fought, had its retraction overwritten on the next frame by the body it
+  was replaying. The record is now written on the death EDGE.
+- **A scenario actor injected by the sim harness had no reconstruction record.**
+  `spawn_boss_at` is documented as "the programmatic counterpart to a room
+  `BossSpawn`", but it wrote a one-shot `SpawnActorRequest` into a world whose
+  room definition said nothing about it — so it survived a reset and not a door.
+  It now registers a `RoomContentStagingRegistry` stager for the active room, so
+  every construction of that room produces it.
 
-### C4 — keep transition preparation and commit singular
+### C3 — make durable restore consume facts, not ECS snapshots — PARTIAL
 
-Eager/headless and rollback hosts may authorize commitment differently, but they
-must consume the same prepared construction semantics. The rollback host's
-confirmed-frame barrier is a lifecycle authorization layer, not a second room
-constructor.
+The storage half holds: `AmbitionGameSaveData` is product facts keyed by stable
+ids (occurrence whereabouts, custody, encounter/quest/switch/boss records,
+inventory quantities), and it explicitly refuses component blobs.
+
+The restore half does not. A loaded save adopts its facts into live baselines and
+then emits `ResetToCheckpoint`, which reaches the canonical plan only indirectly —
+`shrine::resume_at_checkpoint_on_reset` records a room-transition intent. The
+session has already built its first room with NO occurrence continuity by then,
+so the saved facts correct an already-built world instead of informing its
+construction. Custody, inventory/entitlement, switch, boss-defeat, NPC-liveness,
+encounter-authority and quest families each have their own restore adapter that
+mutates or spawns into that built world.
+
+Two follow-ups fall out of this and are not yet done:
+
+- session activation should prepare its first room against the save's occurrence
+  facts rather than `None`, so a load is a construction rather than a correction;
+- `ResetToCheckpoint`'s own contract says it is the death/retry horizon and
+  "not a save load", which the durable road contradicts.
+
+### C4 — keep transition preparation and commit singular ✔
+
+Eager/headless and rollback hosts authorize commitment differently but consume
+the same prepared construction semantics. The rollback host's confirmed-frame
+barrier is a lifecycle authorization layer, not a second room constructor.
 
 ### C5 — external/P2P lifecycle barrier only with a real transport customer
 
@@ -129,6 +195,8 @@ ceremony merely to satisfy a local planning checkbox.
   facts.
 - A lifecycle operation cannot publish a partially verified room.
 - Replay/restore do not maintain independent semantic constructors.
+- A rebuild prepares before it retires, so a failed preflight costs nothing and
+  the running room keeps playing.
 - Rollback history does not cross a confirmed room boundary; a new baseline is
   installed after the lifecycle commit.
 - Durable persistence stores product facts, not allocator-local ECS history.
@@ -139,24 +207,32 @@ ceremony merely to satisfy a local planning checkbox.
 
 ## Acceptance
 
-A representative suite should eventually prove the same authored room and
-ledger facts through:
+`game/ambition_app/tests/canonical_reconstitution.rs` censuses the authored
+room-scoped authoritative population — position, facing, health, disposition,
+breakable state, collected/opened markers, switch position — and compares the
+lifecycle paths against a fresh entry:
 
-1. fresh session construction;
-2. in-session room transition;
-3. same-room replay/reset;
-4. fresh-process durable restore;
+| case | what it pins |
+| --- | --- |
+| `a_freshly_entered_room_is_a_population_worth_comparing` | the premise: two empty censuses are equal, so the room must author a real population |
+| `leaving_a_room_and_returning_rebuilds_what_entering_it_built` | the reference arm — a transition has always been canonical |
+| `replaying_a_room_rebuilds_what_entering_it_builds` | the replay rebuilds rather than repairs |
+| `a_replay_reconstructs_the_room_without_retiring_the_body_playing_it` | the body playing the room is not swept with it |
+| `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` | BOTH retention legs: `RoomResident` and the durable-fact input |
+| `a_replay_does_not_adopt_what_the_attempt_created` | the attempt-residue leg |
+| `running_one_lifecycle_path_then_another_lands_in_the_same_room` | repeated rebuilds do not drift |
 
-and compare the authoritative populations/facts that the operation promises to
-be equivalent, while explicitly allowing lifecycle-specific retained state.
+Each was verified red before green by poisoning one leg of the reconstitution at
+a time; every poison failed exactly the case that names it.
 
-The test does not need byte-identical worlds. It needs semantic equivalence of
-the authorities the lifecycle claims to reconstruct.
+The census compares positions within a 2px tolerance and everything else exactly.
+The tolerance buys one thing: a boot builds its room before the first frame while
+a rebuild commits partway through one, so two identically-constructed populations
+get different fractions of a frame of motion. The defect this suite was written
+against measured 34.6px plus a flipped facing.
 
 ## Open design questions — deliberately unresolved
 
-- Which session-scoped populations should a same-room replay retain rather than
-  reconstruct?
 - Which persistent occurrence states are terminal, resettable, or recoverable?
 - How should persistent actor relocation outside authored home rooms be expressed?
 - Which durable relationships require stable IDs across a fresh process?
@@ -166,6 +242,7 @@ the authorities the lifecycle claims to reconstruct.
 ## Related durable/current authorities
 
 - ADR 0027 — GGRS and gameplay-session rollback authority.
+- ADR 0030 — spawn provenance is data.
 - [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md) —
   existence/residency/simulation/visibility policy.
 - [`item-custody-and-accounting.md`](item-custody-and-accounting.md) — physical

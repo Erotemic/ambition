@@ -31,9 +31,7 @@ use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hi
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
-use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
-};
+use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without};
 
 use ambition_time::WorldTime;
 
@@ -59,6 +57,7 @@ mod damage;
 // ⛔ `damage_apply` LEFT FOR `crates/ambition_damage`, 2026-08-26. It named no
 // monolith type by the time it went — five re-export facades had been hiding
 // what it actually depended on — so the carve was a move rather than a design.
+mod attempt;
 mod damage_drops;
 mod damage_predicates;
 pub mod dormancy;
@@ -69,7 +68,6 @@ mod fighter_harness;
 mod interact;
 pub mod perception;
 pub mod pickups;
-mod reset;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
@@ -143,11 +141,11 @@ mod mount_pair_tests;
 // `ambition_mount` owns it; a `pub use` here would let every caller keep
 // spelling it `ambition_mount::MountSlot` and hide whose domain it is — the same rule
 // `Mass`, `MountDied` and `TemporaryControl` each moved under.
+pub use attempt::SpawnedThisAttempt;
 pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize,
 };
-pub use reset::{reset_ecs_room_features, SpawnedThisAttempt};
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };

@@ -179,6 +179,24 @@ pub fn update_boss_encounters(
             continue;
         }
 
+        // ⭐ WAS THE DEATH ALREADY SETTLED BEFORE THIS TICK? Read before the tick,
+        // because the record below is a fact about an EVENT and must be written on
+        // its edge.
+        //
+        // ⛔⛔ IT USED TO BE RE-DERIVED FROM THE CORPSE, EVERY FRAME, and the
+        // `if !boss_is_cleared(..)` guard made that look idempotent. It is not:
+        // a road that RETRACTS the record — a room replay clearing the attempt so
+        // the boss can be re-fought — had its retraction overwritten on the very
+        // next frame by the body it was replaying. That was invisible while the
+        // only replay reset the corpse in the same frame it cleared the record;
+        // it became live the moment the rebuild moved to a confirmed lifecycle
+        // boundary two frames later.
+        let death_was_already_settled = feature
+            .status
+            .encounter
+            .as_ref()
+            .is_some_and(|phase| phase.death_outro_complete(spec.death_seconds));
+
         // Wake (Dormant → start) while alive, then advance the phase mechanism.
         // The phase ticks even when not alive so a dead boss's death OUTRO timer
         // advances (so `death_outro_complete` can fire).
@@ -187,12 +205,7 @@ pub fn update_boss_encounters(
         let mut phase_events = Vec::new();
         {
             let phase = feature.status.encounter.as_mut().expect("seeded above");
-            if alive
-                && matches!(
-                    phase.phase,
-                    crate::BossEncounterPhase::Dormant
-                )
-            {
+            if alive && matches!(phase.phase, crate::BossEncounterPhase::Dormant) {
                 phase_events.extend(phase.wake());
             }
             phase_events.extend(phase.tick(dt, hp_fraction));
@@ -238,7 +251,11 @@ pub fn update_boss_encounters(
             if health.alive() {
                 health.health.current = 0;
             }
-            if !crate::boss_is_cleared(&save, &feature.config) {
+            // The EDGE, not the resting state: recorded the frame the outro
+            // completes and never again, so the record can be retracted while
+            // the corpse is still standing. `boss_is_cleared` still guards the
+            // quest event, which must fire once per placement either way.
+            if !death_was_already_settled && !crate::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
                     ambition_persistence::save_data::PersistedEncounterState::Cleared,
@@ -302,10 +319,7 @@ pub fn update_boss_encounters(
 /// change in the same frame.
 pub fn notify_bosses_on_mount_death(
     mut mount_deaths: MessageReader<ambition_platformer2d_shared_tangle::body::MountDied>,
-    mut riders: Query<
-        &mut crate::BossEncounter,
-        With<crate::BossConfig>,
-    >,
+    mut riders: Query<&mut crate::BossEncounter, With<crate::BossConfig>>,
 ) {
     for ev in mount_deaths.read() {
         let Ok(mut encounter) = riders.get_mut(ev.rider) else {

@@ -99,7 +99,7 @@ pub fn drop_currency_coin(
             // transition, forever.
             RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_COIN),
-            super::reset::SpawnedThisAttempt,
+            super::attempt::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             super::pickups::PickupMagnet::classic(),
         ),
@@ -227,7 +227,7 @@ pub fn drop_health_pickup(
             // Room-scoped for the same reason as the coin above.
             RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_HEALTH),
-            super::reset::SpawnedThisAttempt,
+            super::attempt::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             super::pickups::PickupMagnet::classic(),
         ),
@@ -268,7 +268,7 @@ pub fn drop_ability_pickup(
             // coin's comment describes, on the longest-lived drop in the game.
             RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_ABILITY),
-            super::reset::SpawnedThisAttempt,
+            super::attempt::SpawnedThisAttempt,
         ),
     );
 }
@@ -324,7 +324,7 @@ pub fn drop_held_weapon(
             // did. Both fall out of one death, and an attempt reset that
             // un-fights the boss while leaving half its loot on the floor is two
             // answers to one question. They agree now.
-            super::reset::SpawnedThisAttempt,
+            super::attempt::SpawnedThisAttempt,
         ),
     );
 }

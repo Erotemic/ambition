@@ -138,16 +138,15 @@ fn door_to(
     })
 }
 
-/// THE SANDBOX RESET — the road that rebuilds the room.
+/// THE NEW-GAME RESET — the road that rebuilds the WORLD.
 ///
 /// not `reset_episode()`, and the difference is the whole reason this helper
 /// exists. `reset_episode` presses `ControlFrame::reset_pressed`, which
 /// `apply_player_reset_input_system` turns into `reset_sandbox` plus a
-/// `ResetRoomFeaturesEvent`: the body returns to spawn and the room's FEATURE
-/// state is reset IN PLACE (collected pickups un-collected, actors re-posed,
-/// this-attempt loot despawned). It never sweeps `RoomScopedEntity`, never
-/// empties a hand, and never re-runs authored construction. A test that drives it
-/// and then asserts "the room was rebuilt" is measuring a road it did not take.
+/// `ResetRoomFeaturesEvent`. That is a SAME-ROOM REPLAY: it rebuilds the active
+/// room through the room-transition road, so it sweeps `RoomResident` (leaving
+/// whatever is in a hand alone), prepares against what the world remembers, and
+/// touches no room but the one you are standing in.
 ///
 /// The reset this file's last test is about is `process_new_game_reset_request`:
 /// it sweeps `With<RoomScopedEntity>` (deliberately NOT `RoomResident`), commits

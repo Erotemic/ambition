@@ -4,10 +4,10 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use ambition_platformer2d::actor::{
-    default_body_size, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
+    default_body_size, transit_body, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
     BodyFlightState, BodyHealth, BodyKinematics, BodyMode, BodyMotionFacts, BodySafetyState,
     BossBrain, BossOverrides, Health, MotionModel, PrimaryPlayerOnly, SpawnActorKind,
-    SpawnActorRequest, TransitVelocity, transit_body,
+    SpawnActorRequest, TransitVelocity,
 };
 use ambition_platformer2d::character::{CharacterBrain, CharacterId};
 use ambition_platformer2d::engine::{
@@ -140,12 +140,7 @@ impl Platformer2dSimHarness {
         // world they cannot use, and the desync canary reported exactly that as
         // `"the sandbox session has a controlled subject"` the first time the
         // harness met a shell-routed host.
-        if let Err(budget) =
-            settle_until_controlled_subject(
-                &mut app,
-                SESSION_SETTLE_FRAMES,
-            )
-        {
+        if let Err(budget) = settle_until_controlled_subject(&mut app, SESSION_SETTLE_FRAMES) {
             bevy::log::debug!(
                 "sim harness: no session world after {budget} frames; the caller's \
                  first world read will be the one that reports it"
@@ -340,8 +335,7 @@ impl Platformer2dSimHarness {
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&BodyCombat, PrimaryPlayerOnly>(
-            );
+            .query_filtered::<&BodyCombat, PrimaryPlayerOnly>();
         let mut health_query = self
             .app
             .world_mut()
@@ -349,22 +343,18 @@ impl Platformer2dSimHarness {
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&BodySafetyState, PrimaryPlayerOnly>(
-            );
+            .query_filtered::<&BodySafetyState, PrimaryPlayerOnly>();
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
-        let mut enemy_query = self.app.world_mut().query::<(
-            &BodyKinematics,
-            &BodyHealth,
-        )>();
+        let mut enemy_query = self
+            .app
+            .world_mut()
+            .query::<(&BodyKinematics, &BodyHealth)>();
         // IN-WORLD items only. A picked-up item keeps its entity now (it
         // records custody instead of being despawned), so an unfiltered query
         // would report the axe in the agent's own hand as an axe lying on the
         // floor — an instrument agreeing with a state that does not exist.
-        let mut pickup_query = self.app.world_mut().query::<(
-            &GroundItem,
-            &ItemCustody,
-        )>();
+        let mut pickup_query = self.app.world_mut().query::<(&GroundItem, &ItemCustody)>();
 
         let world = self.app.world();
         let gravity_dir = world
@@ -394,10 +384,9 @@ impl Platformer2dSimHarness {
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| Health::new(20));
-        let room =
-            session_world_component::<RoomSet>(world)
-                .expect("active session RoomSet")
-                .active_spec();
+        let room = session_world_component::<RoomSet>(world)
+            .expect("active session RoomSet")
+            .active_spec();
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -449,9 +438,7 @@ impl Platformer2dSimHarness {
             resets: lifetime.map(|l| l.resets).unwrap_or(0),
             body_mode: format!(
                 "{:?}",
-                body_mode
-                    .map(|b| b.body_mode)
-                    .unwrap_or(BodyMode::Standing)
+                body_mode.map(|b| b.body_mode).unwrap_or(BodyMode::Standing)
             ),
             active_room: room.id.clone(),
             world_size: (room.world.size.x, room.world.size.y),
@@ -624,10 +611,7 @@ impl Platformer2dSimHarness {
     /// `GravityField` directly gets overwritten next tick). Test-only
     /// scaffolding for gravity-symmetry checks.
     pub fn set_base_gravity_dir(&mut self, dir: (f32, f32)) {
-        let mut base = self
-            .app
-            .world_mut()
-            .resource_mut::<BaseGravity>();
+        let mut base = self.app.world_mut().resource_mut::<BaseGravity>();
         base.dir = Vec2::new(dir.0, dir.1);
         drop(base);
         self.rebase_after_direct_setup_mutation();
@@ -635,10 +619,7 @@ impl Platformer2dSimHarness {
 
     /// Set the active input-frame mapping mode for scripted control.
     pub fn set_movement_frame_mode(&mut self, mode: InputFrameMode) {
-        let mut settings =
-            self.app
-                .world_mut()
-                .resource_mut::<UserSettings>();
+        let mut settings = self.app.world_mut().resource_mut::<UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
         drop(settings);
         self.rebase_after_direct_setup_mutation();
@@ -648,11 +629,10 @@ impl Platformer2dSimHarness {
     /// discrete TRANSIT (ADR 0024 authority): contacts and attachment reconcile
     /// so a scenario cannot start with stale departure facts.
     pub fn teleport_player(&mut self, pos: (f32, f32)) {
-        let mut q = self.app.world_mut().query_filtered::<(
-            BodyClusterQueryData,
-            &mut MotionModel,
-        ), PrimaryPlayerOnly>(
-        );
+        let mut q = self
+            .app
+            .world_mut()
+            .query_filtered::<(BodyClusterQueryData, &mut MotionModel), PrimaryPlayerOnly>();
         if let Ok((mut cluster_item, mut motion_model)) = q.single_mut(self.app.world_mut()) {
             let mut clusters = cluster_item.as_clusters_mut();
             transit_body(
@@ -683,16 +663,57 @@ impl Platformer2dSimHarness {
     /// sets both; nothing in the sim disables `fly_enabled` except the player's
     /// own fly-toggle input, so it persists across steps.
     pub fn grant_flight(&mut self) {
-        let mut q = self.app.world_mut().query_filtered::<(
-            &mut BodyAbilities,
-            &mut BodyFlightState,
-        ), PrimaryPlayerOnly>(
-        );
+        let mut q = self
+            .app
+            .world_mut()
+            .query_filtered::<(&mut BodyAbilities, &mut BodyFlightState), PrimaryPlayerOnly>();
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;
         }
         self.rebase_after_direct_setup_mutation();
+    }
+    /// Stage one scenario actor into the ACTIVE room, and spawn it now.
+    ///
+    /// ⭐ SCENARIO SETUP IS CONTENT, NOT AN INJECTION. `spawn_boss_at` is
+    /// documented as "the programmatic counterpart to a room `BossSpawn`", and a
+    /// `BossSpawn` is part of the room's definition: every construction of that
+    /// room produces it — activation, transition, same-room replay, hot reload.
+    /// So the request is registered as a content stager for the active room
+    /// FIRST, and only then written as a one-shot for the room that is already
+    /// standing.
+    ///
+    /// ⛔ WITHOUT THE REGISTRATION A SCENARIO BOSS SURVIVED A RESET AND NOT A
+    /// DOOR, which is the inconsistency canonical reconstitution exists to
+    /// remove: the entity is `RoomVisual` and therefore `RoomScopedEntity`, so
+    /// any rebuild retires it, and nothing could build it again because no
+    /// record of it existed anywhere.
+    ///
+    /// The stager is keyed by the actor id, so several scenario actors can be
+    /// staged into one room and re-staging the same id is refused rather than
+    /// silently doubling the room's population.
+    fn stage_actor(&mut self, request: SpawnActorRequest) {
+        let room_id = session_world_component::<RoomSet>(self.app.world())
+            .expect("active session RoomSet")
+            .active_spec()
+            .id
+            .clone();
+        let staged = request.clone();
+        let world = self.app.world_mut();
+        if let Some(mut registry) =
+            world.get_resource_mut::<ambition_platformer2d::actor::RoomContentStagingRegistry>()
+        {
+            registry
+                .register(
+                    room_id,
+                    "sim-harness",
+                    format!("scenario:{}", staged.id),
+                    "sim-harness/scenario-actor/v1",
+                    move |_spec| vec![staged.clone()],
+                )
+                .expect("a scenario actor id may be staged into one room only once");
+        }
+        world.write_message(request);
     }
 
     /// Spawn a boss into the live sim at `pos` via [`SpawnActorRequest`], then
@@ -714,14 +735,7 @@ impl Platformer2dSimHarness {
         half_size: (f32, f32),
         brain: BossBrain,
     ) {
-        self.spawn_boss_at_with(
-            id,
-            name,
-            pos,
-            half_size,
-            brain,
-            BossOverrides::default(),
-        );
+        self.spawn_boss_at_with(id, name, pos, half_size, brain, BossOverrides::default());
     }
 
     /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
@@ -737,21 +751,16 @@ impl Platformer2dSimHarness {
         brain: BossBrain,
         overrides: BossOverrides,
     ) {
-        self.app.world_mut().write_message(
-            SpawnActorRequest {
-                id: id.into(),
-                name: name.into(),
-                pos: Vec2::new(pos.0, pos.1),
-                half_size: Vec2::new(half_size.0, half_size.1),
-                // Ignored for the Boss kind (always faction Boss); set for completeness.
-                faction: ActorFaction::Boss,
-                grudge_against: None,
-                kind: SpawnActorKind::Boss {
-                    brain,
-                    overrides,
-                },
-            },
-        );
+        self.stage_actor(SpawnActorRequest {
+            id: id.into(),
+            name: name.into(),
+            pos: Vec2::new(pos.0, pos.1),
+            half_size: Vec2::new(half_size.0, half_size.1),
+            // Ignored for the Boss kind (always faction Boss); set for completeness.
+            faction: ActorFaction::Boss,
+            grudge_against: None,
+            kind: SpawnActorKind::Boss { brain, overrides },
+        });
         self.run_rollback_setup_frame()
             .expect("boss setup frame establishes a fresh GGRS rollback baseline");
     }
@@ -767,20 +776,18 @@ impl Platformer2dSimHarness {
         brain: CharacterBrain,
         character: &str,
     ) {
-        self.app.world_mut().write_message(
-            SpawnActorRequest {
-                id: id.into(),
-                name: name.into(),
-                pos: Vec2::new(pos.0, pos.1),
-                half_size: Vec2::new(half_size.0, half_size.1),
-                faction: ActorFaction::Enemy,
-                grudge_against: None,
-                kind: SpawnActorKind::Enemy {
-                    brain,
-                    character: CharacterId::from(character),
-                },
+        self.stage_actor(SpawnActorRequest {
+            id: id.into(),
+            name: name.into(),
+            pos: Vec2::new(pos.0, pos.1),
+            half_size: Vec2::new(half_size.0, half_size.1),
+            faction: ActorFaction::Enemy,
+            grudge_against: None,
+            kind: SpawnActorKind::Enemy {
+                brain,
+                character: CharacterId::from(character),
             },
-        );
+        });
         self.run_rollback_setup_frame()
             .expect("enemy setup frame establishes a fresh GGRS rollback baseline");
     }
@@ -790,13 +797,11 @@ impl Platformer2dSimHarness {
     /// target without authoring a room. Build with `Block::pogo_orb`
     /// / `Block::one_way` / etc.
     pub fn add_block(&mut self, block: Block) {
-        session_world_component_mut::<
-            RoomGeometry,
-        >(self.app.world_mut())
-        .expect("active session RoomGeometry")
-        .0
-        .blocks
-        .push(block);
+        session_world_component_mut::<RoomGeometry>(self.app.world_mut())
+            .expect("active session RoomGeometry")
+            .0
+            .blocks
+            .push(block);
         self.rebase_after_direct_setup_mutation();
     }
 
@@ -805,13 +810,11 @@ impl Platformer2dSimHarness {
     /// (`rl_smoke` binary) or RL training loops that pick a fresh
     /// room per episode.
     pub fn room_ids(&self) -> Vec<String> {
-        session_world_component::<RoomSet>(
-            self.app.world(),
-        )
-        .expect("active session RoomSet")
-        .rooms
-        .iter()
-        .map(|r| r.id.clone())
-        .collect()
+        session_world_component::<RoomSet>(self.app.world())
+            .expect("active session RoomSet")
+            .rooms
+            .iter()
+            .map(|r| r.id.clone())
+            .collect()
     }
 }

@@ -11,7 +11,24 @@ use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Entity, With, Without, World};
+
+/// Resolve an authored identity to whatever entity currently carries it.
+///
+/// ⛔⛔ AN `Entity` HANDLE DOES NOT SURVIVE A ROOM RESET. A same-room replay is a
+/// reconstruction now: the room's population is retired and rebuilt from
+/// prepared content at the confirmed lifecycle boundary, so the enemy that comes
+/// back is a NEW entity carrying the SAME `SimId`. Holding the old handle across
+/// the reset asks "did this exact allocation survive", which is not the question
+/// this file is about.
+fn entity_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> Option<Entity> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &SimId)>();
+    q.iter(world)
+        .find(|(_, live)| *live == id)
+        .map(|(entity, _)| entity)
+}
 
 fn repro_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
@@ -59,12 +76,13 @@ fn stage_on_floor(sim: &mut Platformer2dSimHarness, hp: i32) {
 /// A DETERMINISTIC damaged baseline beats hoping the emergent fight leaves an
 /// enemy alive-but-damaged at the reset frame — and a mid-window direct write
 /// would not be reproduced during resim, so it must live in the baseline.
-fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
+fn wound_one_enemy(world: &mut World) -> (SimId, i32) {
     // Westmost keeps the choice stable across runs without depending on Bevy's
     // (unstable) query iteration order.
-    let (entity, max) = {
+    let (entity, id, max) = {
         let mut q = world.query_filtered::<(
             Entity,
+            &SimId,
             &BodyHealth,
             &ambition_platformer2d::platformer::body::BodyKinematics,
         ), (
@@ -72,9 +90,9 @@ fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
             Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         )>();
         q.iter(world)
-            .map(|(e, h, k)| (e, h.health.max, k.pos.x))
-            .min_by(|a, b| a.2.total_cmp(&b.2))
-            .map(|(e, max, _)| (e, max))
+            .map(|(e, id, h, k)| (e, id.clone(), h.health.max, k.pos.x))
+            .min_by(|a, b| a.3.total_cmp(&b.3))
+            .map(|(e, id, max, _)| (e, id, max))
             .expect("the calibration lab authors at least one non-player enemy")
     };
     let wounded = (max / 2).max(1);
@@ -83,20 +101,21 @@ fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
         .expect("enemy health")
         .health
         .current = wounded;
-    (entity, max)
+    (id, max)
 }
 
 /// Smash the first intact breakable (pure world mutation, folded into the
 /// baseline). Returns its entity so the reset's restore-to-intact can be checked.
-fn smash_one_brick(world: &mut World) -> Entity {
-    let brick = {
+fn smash_one_brick(world: &mut World) -> SimId {
+    let (brick, id) = {
         let mut q = world.query::<(
             Entity,
+            &SimId,
             &ambition_platformer2d::combat::components::BreakableFeature,
         )>();
         q.iter(world)
-            .find(|(_, feature)| !feature.broken())
-            .map(|(e, _)| e)
+            .find(|(_, _, feature)| !feature.broken())
+            .map(|(e, id, _)| (e, id.clone()))
             .expect("the calibration lab authors a breakable brick")
     };
     let mut feature = world
@@ -104,21 +123,25 @@ fn smash_one_brick(world: &mut World) -> Entity {
         .expect("breakable feature");
     feature.breakable.apply_damage(9999);
     assert!(feature.broken(), "the brick is broken after lethal damage");
-    brick
+    id
 }
 
-fn enemy_hp(sim: &mut Platformer2dSimHarness, enemy: Entity) -> i32 {
+fn enemy_hp(sim: &mut Platformer2dSimHarness, enemy: &SimId) -> i32 {
+    let entity = entity_named(sim, enemy)
+        .unwrap_or_else(|| panic!("no live entity carries `{enemy}` after the reset"));
     sim.world_mut()
-        .get::<BodyHealth>(enemy)
+        .get::<BodyHealth>(entity)
         .map(|h| h.health.current)
-        .expect("wounded enemy still exists after the in-place reset")
+        .expect("the reconstructed enemy has health")
 }
 
-fn brick_is_broken(sim: &mut Platformer2dSimHarness, brick: Entity) -> bool {
+fn brick_is_broken(sim: &mut Platformer2dSimHarness, brick: &SimId) -> bool {
+    let entity = entity_named(sim, brick)
+        .unwrap_or_else(|| panic!("no live entity carries `{brick}` after the reset"));
     sim.world_mut()
-        .get::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
+        .get::<ambition_platformer2d::combat::components::BreakableFeature>(entity)
         .map(|f| f.broken())
-        .expect("brick still exists after the in-place reset")
+        .expect("the reconstructed brick is a breakable")
 }
 
 fn player_hp(sim: &mut Platformer2dSimHarness) -> i32 {
@@ -219,31 +242,40 @@ fn a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollb
     }
 
     // Record the exact pre-reset facts (read live, not assumed).
-    let pre_hp = enemy_hp(&mut sim, enemy);
+    let pre_hp = enemy_hp(&mut sim, &enemy);
     assert!(
         pre_hp > 0 && pre_hp < enemy_max,
         "the enemy is alive-but-damaged before the reset (hp {pre_hp}/{enemy_max})"
     );
     assert!(
-        brick_is_broken(&mut sim, brick),
+        brick_is_broken(&mut sim, &brick),
         "the brick is broken before the reset"
     );
 
-    // Trigger the in-place manual reset (op 2a) on the next frame.
+    // Trigger the manual reset, then let the rebuild land.
+    //
+    // ⛔ NOT ONE FRAME. A same-room reset is a reconstruction authorized at a
+    // CONFIRMED lifecycle boundary — the same barrier a door crossing waits for —
+    // so the room comes back a couple of frames later, and under a sync-test
+    // host it comes back through the rollback rebase. Asserting on the reset
+    // frame itself measures the frame the request was made, not the rebuild.
     sim.step(AgentAction::reset());
-    sim.rollback_health()
-        .unwrap_or_else(|error| panic!("reset frame: {error}"));
+    for frame in 0..30 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("rebuild frame {frame}: {error}"));
+    }
 
     // The reset RESTORED the damaged enemy and the broken brick — the behavioral
     // claim, not just an absence of checksum divergence.
     assert_eq!(
-        enemy_hp(&mut sim, enemy),
+        enemy_hp(&mut sim, &enemy),
         enemy_max,
-        "the in-place reset revived the damaged enemy to spawn HP"
+        "the reset did not bring the damaged enemy back at spawn HP"
     );
     assert!(
-        !brick_is_broken(&mut sim, brick),
-        "the in-place reset restored the broken brick to intact"
+        !brick_is_broken(&mut sim, &brick),
+        "the reset did not bring the broken brick back intact"
     );
 
     // ...and the sim stays checksum-clean well past the rollback window.

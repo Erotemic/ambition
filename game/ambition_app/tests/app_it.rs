@@ -38,6 +38,7 @@ mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;
 mod camera_names_its_view;
+mod canonical_reconstitution;
 mod carried_item_crosses_rooms;
 mod causal_explains_the_real_app;
 mod character_containment;

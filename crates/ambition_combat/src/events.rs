@@ -110,7 +110,8 @@ pub enum RoomResetReason {
 /// Reset request for ECS-owned room features.
 ///
 /// Same-room resets and full sandbox resets emit this once, and
-/// `reset_ecs_room_features` consumes it through Bevy's message stream.
+/// `rooms::reconstitute_the_active_room` consumes it through Bevy's message
+/// stream and rebuilds the room through canonical construction.
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ResetRoomFeaturesEvent {
     pub reason: RoomResetReason,

@@ -65,9 +65,10 @@ rebase onto a new frame-zero baseline; speculative rollback frames do not cross 
 room boundary.
 
 The remaining architectural problem is **reconstitution**, not another rollback
-snapshot format: fresh construction, room transition, same-room replay,
-checkpoint/save restoration, and persistent occurrence reconstruction should not
-maintain independent hand-written population/reset algorithms.
+snapshot format. Fresh construction, room transition, same-room replay and
+new-game reset now run one constructor; the same-room replay's hand-kept reset
+ledger is deleted. Checkpoint/save restoration still corrects an already-built
+world instead of informing its construction.
 
 See [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 

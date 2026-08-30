@@ -150,10 +150,16 @@ Import, validation, lowering, preparation, commit, and publication are distinct
 phases. Preflight does not mutate the live world. A room/session replacement
 remains authoritative until the replacement is ready to commit.
 
-New-session construction, room transition, same-room replay, and durable
-restoration should consume the same semantic construction/reconstitution model
-rather than maintain independent population builders. The active migration is
-owned by `docs/planning/engine/construction-and-reconstitution.md`.
+New-session construction, room transition, same-room replay, and new-game reset
+consume this one model. They differ in three values — which room they target,
+which population they retire, and whether they read or forget durable occurrence
+facts — and in nothing else. Retention is decided by declared lifetime: an
+object in a body's custody rides through a rebuild, room residents do not.
+
+Durable restoration is the remaining exception: a loaded save adopts its facts
+into an already-built world rather than informing that world's construction. The
+active migration is owned by
+`docs/planning/engine/construction-and-reconstitution.md`.
 
 ## Gameplay-session and rollback authority
 

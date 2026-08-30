@@ -39,9 +39,10 @@ checkpoint/save restoration, and persistent occurrence reconstruction should
 consume one semantic construction model rather than maintain independent reset
 or reconstruction ledgers.
 
-Prepared transactional construction and the transition readiness/authorization
-transaction already exist. The next work is convergence, not another snapshot
-engine.
+Prepared transactional construction, the transition readiness/authorization
+transaction, and the same-room replay all run one constructor. What remains is
+the durable-restore leg: a save load should prepare its first room against the
+saved occurrence facts rather than build the room and then correct it.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 

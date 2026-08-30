@@ -499,17 +499,21 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
 /// compares BEHAVIOUR rather than components.
 ///
 /// comes back and stands inert; *leaving the room and re-entering restores its
-/// movement*. That second half is the important half. A room transition
-/// reconstructs the room through `RoomConstructionPlan`; the same-room replay
-/// instead mutates the surviving entities back toward a presumed spawn state in
-/// `reset_ecs_room_features`. So the replay has become a SECOND, incomplete
-/// room constructor, and every "which component did we forget?" answer makes
-/// its ledger longer.
+/// movement*. That second half was the important half: a room transition
+/// reconstructed the room through `RoomConstructionPlan` while the same-room
+/// replay mutated the surviving entities back toward a presumed spawn state
+/// through a hand-kept ledger, so every "which component did we forget?" answer
+/// made that ledger longer.
+///
+/// ✔ THE TWO CONSTRUCTORS ARE ONE NOW. A replay records a lifecycle intent for
+/// the active room and the transition road rebuilds it, so this test's boss is
+/// a freshly constructed one by construction. It stays because the claim it
+/// makes is still the claim worth making, and because it would go red again the
+/// day something re-introduces an in-place repair.
 ///
 /// this test must therefore never enumerate components. It measures what a
 /// player sees — does the boss wake, and does it move — on a freshly
-/// constructed boss, and demands the replayed one match. Whatever the two
-/// constructors disagree about, this fails until they are ONE.
+/// constructed boss, and demands the replayed one match.
 #[test]
 fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())

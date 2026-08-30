@@ -188,10 +188,12 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
 ///
 /// R3: the boss's live state is entity-local, so the actual reset happens when
-/// the caller's `ResetRoomFeaturesEvent` reaches `reset_ecs_room_features`. This
-/// helper only clears the *persisted* "cleared" record (so the revived boss
-/// isn't pre-marked defeated), re-hides the victory NPC, and restores the intro
-/// music from the read-only profile catalog.
+/// the caller's `ResetRoomFeaturesEvent` reaches
+/// `rooms::reconstitute_the_active_room`, which rebuilds the room through
+/// canonical construction. This helper only clears the *persisted* "cleared"
+/// record (so the rebuilt boss isn't constructed pre-marked defeated), re-hides
+/// the victory NPC, and restores the intro music from the read-only profile
+/// catalog.
 ///
 /// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
 /// passes the cut-rope boss placement ids currently in the room to clear.

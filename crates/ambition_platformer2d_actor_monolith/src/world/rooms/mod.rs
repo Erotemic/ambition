@@ -12,6 +12,7 @@ pub mod binding;
 // roster parameter, so it was a second place the "a carried object is not a resident" rule
 // would have had to be applied, and a dead one. A fork you cannot reach is still a fork that
 // lies about how many commits this engine has.
+mod reconstitution;
 mod stage;
 mod systems;
 pub(crate) mod transaction;
@@ -26,6 +27,7 @@ mod tests;
 // world crate as monolith coupling, which is what it did until 2026-08-26.
 // What this module re-exports below is what it OWNS.
 pub use binding::RoomBindings;
+pub use reconstitution::reconstitute_the_active_room;
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

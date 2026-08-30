@@ -49,11 +49,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// reset". The clone registration PREVENTS that (it restores); the presence-only
 /// probe could not SEE it, and presence cannot tell one queued entry from five.
 /// Bytes unchanged; a peer that checksums it and one that does not disagree.
+/// ⛔ v135: seven EVENT-CREATED components joined the schema —
+/// `ability.player_mark`, `ability.bomb_fuse`, `ability.gravity_grenade_fuse`,
+/// `ability.puppy_slug_ally`, `feature.falling_chest`,
+/// `encounter.commanded_move` and `encounter.falling_hazard` (+ its entity
+/// mapping). None existed in a boot world, which is why the coverage census —
+/// which sweeps the INITIAL world — never asked whether they rewind.
 /// ⛔ v134: `content.cut_rope_heavy_object_cycle` gained a checksum projection.
 /// One index decides which prop the arena rebuilds, and a presence-only probe
 /// cannot see WHICH — while `reset_cut_rope_boss_arena_on_room_reset` advances
 /// it on the sim schedule, so a resimulation can move it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 134;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 135;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

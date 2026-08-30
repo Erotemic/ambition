@@ -1,4 +1,8 @@
-ggrs-rollback-schema-v134
+ggrs-rollback-schema-v135
+ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -184,7 +188,9 @@ derived.strike_rank	derived	StrikeRank	stamped from the move's authored (window,
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.commanded_move	component-clone	CommandedMove	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.falling_hazard	component-clone	FallingHazard	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 encounter.lifecycle	component-canonical	EncounterLifecycle	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 encounter.lock_wall	component-clone	EncounterLockWall	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -220,6 +226,7 @@ feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; state check
 feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.empowered	component-clone	Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+feature.falling_chest	component-clone	FallingChest	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.hazard	component-clone	HazardFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.id	component-clone	FeatureId	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.name	component-clone	FeatureName	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -253,6 +260,7 @@ map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
 map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
+map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
 map.item_custody	entity-mapping	ItemCustody	bevy_ggrs LoadWorld entity-reference remapping

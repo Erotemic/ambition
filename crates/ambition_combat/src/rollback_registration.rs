@@ -67,6 +67,15 @@ where
         "derived.strike_rank",
         "stamped from the move's authored (window, volume) when the volume spawns",
     );
+    // ⛔ EVENT-CREATED: a chest starts falling when it is knocked loose, so it
+    // exists in no boot world and the coverage census never saw it. `vel_y` is
+    // where the chest IS a tick later, and a rewind that kept the future speed
+    // lands it somewhere the resimulation did not put it.
+    registrar.rollback_component_clone_probed::<crate::components::FallingChest>(
+        OWNER,
+        "feature.falling_chest",
+        |chest| chest.vel_y.to_bits() as u64,
+    );
     registrar.rollback_component_clone_checksum::<crate::on_hit::HitboxOnHit>(
         OWNER,
         "combat.hitbox_on_hit",

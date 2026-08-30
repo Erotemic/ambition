@@ -186,6 +186,15 @@ pub struct FallingHazard {
     pub dropping: bool,
 }
 
+/// ⛔ THE `target` IS AN ENTITY, SO IT MUST BE REMAPPED ON RESTORE. A rewind
+/// rebuilds the world's entities; a raw id restored verbatim points at whoever
+/// landed in that slot, and this hazard drops on whatever it points at.
+impl bevy::ecs::entity::MapEntities for FallingHazard {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.target = mapper.get_mapped(self.target);
+    }
+}
+
 /// Integrate every [`FallingHazard`]: wait for the target to align, then fall +
 /// clamp to the floor + fire the impact gate on contact. Despawns the hazard on
 /// impact (or if its target left the world).

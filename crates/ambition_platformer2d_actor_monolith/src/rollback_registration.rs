@@ -519,6 +519,49 @@ where
         "resource.save_restored",
     );
 
+    // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The
+    // boot census can only see components that exist in the INITIAL world; every
+    // component below is inserted later, by an ability firing, so nothing
+    // structural ever asked whether it rewinds. Four gameplay decisions were
+    // being made from state a rewind left at its future value.
+    //
+    // ⭐ PROBED, NOT PRESENCE-ONLY. Each of these is a NUMBER that decides an
+    // outcome — where a recall puts a body, which tick a bomb goes off — and a
+    // presence probe satisfies the coverage oracle while seeing none of it.
+    registrar.rollback_component_clone_probed::<crate::abilities::traversal::mark_recall::PlayerMark>(
+        OWNER,
+        "ability.player_mark",
+        // WHERE the mark is, not merely that one exists. Recall teleports to this
+        // position, so a rewind across setting or moving the mark that kept the
+        // future position puts the body somewhere the resimulation never chose.
+        |mark| match mark.pos {
+            Some(pos) => {
+                ((pos.x.to_bits() as u64) << 32) ^ (pos.y.to_bits() as u64) ^ 0x9e37_79b9
+            }
+            None => 0,
+        },
+    );
+    registrar.rollback_component_clone_probed::<crate::abilities::ranged::bomb::BombFuse>(
+        OWNER,
+        "ability.bomb_fuse",
+        // The countdown, because WHICH TICK it reaches zero is the explosion.
+        |fuse| fuse.timer.to_bits() as u64,
+    );
+    registrar
+        .rollback_component_clone_probed::<crate::abilities::thrown::gravity_grenade::GravityGrenadeFuse>(
+            OWNER,
+            "ability.gravity_grenade_fuse",
+            // Same shape as the bomb: the tick this reaches zero is the tick a
+            // gravity well opens, and a well moves every body inside it.
+            |fuse| fuse.timer.to_bits() as u64,
+        );
+    // A MARKER, and presence is the whole of it — the summon cap counts these,
+    // so a rewind that dropped one lets a fourth slug through.
+    registrar.rollback_component_clone::<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>(
+        OWNER,
+        "ability.puppy_slug_ally",
+    );
+
     // Item checkpoint baselines declare their rewind/checksum obligations beside
     // the item horizon that owns capture, restore and durable adoption.
     crate::items::pickup::minted_horizon::register_checkpoint_rollback_state(registrar);

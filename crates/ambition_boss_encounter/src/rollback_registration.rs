@@ -21,6 +21,36 @@ where
         "derived.encounter_progress",
         "recomputed from lifecycle and participant health every tick",
     );
+    // ⛔⛔ THE SCRIPT'S TRANSIENTS, AND THEY ARE AUTHORITATIVE. Both are attached
+    // by an encounter EFFECT mid-fight, so they exist in no boot world and the
+    // coverage census — which sweeps the initial world — could never ask about
+    // them. Each one steers a body.
+    //
+    // `CommandedMove` overrides the boss's own control every tick it is present:
+    // a rewind that restored the boss's position without restoring where it was
+    // being walked to would send it somewhere the resimulation never chose.
+    registrar.rollback_component_clone_probed::<crate::encounter_script::CommandedMove>(
+        OWNER,
+        "encounter.commanded_move",
+        |cmd| {
+            (cmd.target.x.to_bits() as u64) << 32
+                ^ (cmd.target.y.to_bits() as u64)
+                ^ (cmd.speed.to_bits() as u64)
+        },
+    );
+    // ⛔ AND THIS ONE NAMES AN ENTITY, so the clone is only half of it: a
+    // resimulation rebuilds the world's entities and a raw id would point at
+    // whoever landed in that slot. `vel_y` and `dropping` are the fall itself.
+    registrar.rollback_component_clone_entity_ref::<crate::encounter_script::FallingHazard>(
+        OWNER,
+        "encounter.falling_hazard",
+        |hazard| hazard.target,
+    );
+    registrar.rollback_map_entities::<crate::encounter_script::FallingHazard>(
+        OWNER,
+        "map.falling_hazard",
+    );
+
     registrar.clear_message_on_rollback::<crate::PayloadReleased>(
         OWNER,
         "message.payload_released",

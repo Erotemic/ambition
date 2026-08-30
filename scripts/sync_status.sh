@@ -12,11 +12,19 @@
 #   5. a submodule whose own commits are not on ITS remote
 #
 # A repo can be clean by every one of the first four and still be losing work by
-# the fifth. Each is reported separately and the exit code is the number of
-# things that need attention.
+# the fifth. Each is reported separately, and the COUNT of things needing
+# attention is printed in the final verdict line.
 #
 #   --fetch      refresh remotes first (default; --no-fetch to skip)
 #   --quiet      only print the problems and the verdict
+#
+# ⛔ EXIT CODE IS A VERDICT, NOT A COUNT. 0 = nothing needs attention, 1 = at
+# least one thing does, 2 = this tool could not answer (not a repo, bad
+# argument). The header used to promise "the number of problems", which no
+# caller could have used anyway: a shell exit code wraps at 256, and 2 already
+# means "could not answer" — so a run with exactly two problems would have been
+# indistinguishable from a run that never looked. Read the count off the verdict
+# line; branch on the exit code.
 #
 # ⛔ IT CHANGES NOTHING. No fetch --prune, no merge, no push, no submodule
 # update. A status tool that mutates is a tool nobody dares run when they are
@@ -74,8 +82,11 @@ say ""
 
 # ── 1 + 2 + 3: worktrees, their branches, and their remotes ─────────────────
 say "── worktrees ────────────────────────────────────────────────────────────"
-while IFS= read -r line; do
-  wt="${line%% *}"
+# ⛔ PORCELAIN, BECAUSE A WORKTREE PATH MAY CONTAIN A SPACE. The plain listing is
+# `<path> <sha> [branch]`, so `${line%% *}` truncated any path with a space in it
+# to its first word and then `[[ -d ]]` skipped the whole worktree in SILENCE —
+# a status tool answering "nothing to report" about a directory it never opened.
+while IFS= read -r wt; do
   [[ -d "$wt" ]] || continue
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
 
@@ -133,7 +144,7 @@ $main_ref — that work exists only on this machine"
   elif [[ "$up_ahead" != "0" && "$up_ahead" != "?" ]]; then
     warn "[sync] ⚠ $branch has $up_ahead commit(s) not pushed to $upstream"
   fi
-done < <(git worktree list)
+done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
 
 # Branches with no worktree are still branches, and still hold work.
 say ""
@@ -177,7 +188,8 @@ say "── submodules ───────────────────
 # `dev/ambition_dev_measurements` — data that existed on one disk, in a slot
 # whose branch was about to be deleted, and the sweep reported the repo clean of
 # it while looking straight at the same submodule in another directory.
-for wt_root in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do
+# Same space rule as above: read whole lines, never word-split `$(...)`.
+while IFS= read -r wt_root; do
   [[ -f "$wt_root/.gitmodules" ]] || continue
   (( quiet )) || [[ "$wt_root" == "$repo" ]] || say "[sync] ── in worktree $wt_root"
   while IFS= read -r rel; do
@@ -231,7 +243,7 @@ for wt_root in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); 
       fi
     fi
   done < <(git -C "$wt_root" config -f "$wt_root/.gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $2}')
-done
+done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
 
 say ""
 if (( problems == 0 )); then

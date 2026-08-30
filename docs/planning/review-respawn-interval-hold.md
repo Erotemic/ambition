@@ -199,3 +199,35 @@ way. So it is very likely abandoned scaffolding rather than work in flight, but
 ⇒ **for the maintainer:** if those three worktrees are idle, they can be reset
 and the four stale branches deleted, at which point the sweep reports clean. If
 any agent is still live in one, leave it.
+
+---
+
+## 2026-08-29 — deleted, and where the shas live now
+
+Jon: *"We can just delete them if neither of us remember if they are useful at
+all. They probably got superceded. Maybe we fixed the trapdoor thing and then
+redid it again."* He is right about the trapdoor: `specials-are-real-moves` is
+the first iteration of a move main has since rebuilt twice.
+
+⭐ **THE PRECONDITION THIS DOC SET WAS ALREADY MET.** The hold said *"delete them
+once the replacement lands"*; D192's replacement landed as `cefbfde55` on
+2026-08-25. `respawn_delay_ticks` is absent from main not because the mechanism
+is missing but because the shipped representation is `RespawnInterval` +
+`DeathInterlude` + `OutOfPlay` — the components that already existed.
+
+| deleted branch | tip | last commit | age at deletion | behind main |
+|---|---|---|---|---|
+| `specials-are-real-moves` | `88000c757` | 2026-08-27 | 2 days | 568 |
+| `attrib-beat-only` | `819e48e14` | 2026-08-23 | 6 days | 1226 |
+| `d194-and-respawn-verified` | `54d97e05b` | 2026-08-23 | 6 days | 1223 |
+| `respawn-interval-holding` | `238d59bfb` | 2026-08-23 | 6 days | 1226 |
+
+⛔ **"SIX DAYS OLD" UNDERSELLS IT, AND THE COMMIT RATE IS WHY.** Main took
+118–297 commits a day across that window, so the three 08-23 branches diverged
+**1,223–1,226 commits** ago. That is not a stale branch, it is a different
+codebase — which is exactly why the 2026-08-25 verdict said re-do rather than
+rebase, and why a merge was never the cheap option it looked like.
+
+⭐ A tip sha is enough to resurrect a branch (`git fetch origin <sha>`) until the
+remote garbage-collects it, which is why they are written down here, in the D200
+queue row, and in the commit that did the deleting.

@@ -29,7 +29,7 @@ twice independently.
 | 4 | Sentry / Vortex: rollback lifetime, effective allegiance, deterministic targets | P1 | ◐ lifetime landed; allegiance + ordering open |
 | 5 | One spawn seam for authoritative dynamic sim state | architecture | ◐ named seams landed; a universal `spawn_sim_entity` is argued against below |
 | 6 | Scenario-driven inert/coverage sweep that fires abilities | architecture | ▣ landed |
-| 7 | `portal_fire_system` keeps only the LAST intent per tick | P1 | ☐ |
+| 7 | `portal_fire_system` keeps only the LAST intent per tick | P1 | ▣ landed |
 | 8 | `collect_ecs_pickups` / `collect_world_items` decide by query order | P1 | ☐ |
 | 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ☐ |
 | 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ☐ |
@@ -211,3 +211,41 @@ had been failing since `915068407` added `wgpu` to `ambition_render` without
 refreshing the sub-workspace lockfiles — which crashed
 `check_absence_contracts.py` before it reached the rollback-wire-format ratchet
 this change had to satisfy. Both locks refreshed; **36 of 36 contracts hold.**
+
+
+---
+
+## ▣ 7 — A channel that says "any emitter" kept one emitter
+
+`PortalFireIntent`'s own doc says a host may lower an intent from a "gun, replay,
+script, AI, or any future emitter". `portal_fire_system` read
+`fires.read().last()`, so every other intent in the tick went on the floor: two
+players firing on the same frame made ONE shot, a script firing beside an actor
+made one, a four-seat couch match made one.
+
+⭐ **The singleton reading was a leftover.** It was correct when the only emitter
+was the primary player's held gun, and it outlived the generalisation that
+removed that assumption — which is what makes it worth naming rather than just
+fixing. `MessageReader::last()` is an implicit global winner wearing a reader
+method.
+
+The `return` on a zero aim was the same bug in miniature: one degenerate aim
+cancelled the tick for everybody. It is a `continue` now.
+
+⚠ **Order is the write order, and that is deliberate.** The intent buffer is
+cleared on `LoadWorld::Mapping`, and a resimulated tick re-writes the same intents
+from the same inputs in the same order, so two shots on one channel resolve
+identically on every peer. If a same-channel same-tick winner is ever wanted, it
+belongs in this system as a stated policy over emitter identity.
+
+**Four arms, all four poison** against a restored `.last()`:
+
+- two emitters in one tick each get their shot
+- each shot keeps the channel of the intent that made it (dropping all but the
+  last also silently re-coloured the survivor)
+- a zero aim cancels only its own shot — ⭐ with the degenerate intent written
+  LAST on purpose, because with it first a `.last()` implementation still finds
+  the good one and the arm passes for the wrong reason
+- every shot emits its own `PortalShotFired`
+
+portal 59/59, content 296/296.

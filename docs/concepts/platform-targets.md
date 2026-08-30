@@ -3,7 +3,7 @@ id: platform-targets
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-18
+last_verified: 2026-08-30
 implemented_by:
   - crates/ambition_platformer2d_runtime
   - crates/ambition_platformer2d_host
@@ -48,12 +48,31 @@ out architecturally.
 - Platform-specific degradation is explicit and must not silently change game
   rules.
 
+## Shared visible composition
+
+A platform host may differ in window/canvas/device setup, asset delivery, input
+unlock policy and packaging. It should not hand-spell a second copy of the game
+composition. Desktop, browser, offscreen/capture and future device hosts compose
+the same visible game/session contract over different host foundations.
+
+A compile/link check proves that a target builds; it does not prove that the
+application installed its shell, route, session visuals or asset source. Keep a
+behavioral composition test over the shared spec so a platform cannot silently
+become a different application.
+
+Packaging follows the same rule: publish the product asset contract, not one
+implementation crate's `assets/` directory. A platform build must survive
+internal crate moves when logical asset identity and provider catalogs are
+unchanged.
+
 ## Validation ladder
 
 1. owner-crate tests with the relevant feature;
-2. `./run_tests.sh` headless suite;
-3. target compilation/build recipe;
-4. device/browser manual acceptance for input, audio, focus, and lifecycle.
+2. behavioral composition/asset-contract tests against the shared host spec;
+3. `./run_tests.sh` headless suite for simulation contracts;
+4. target compilation/link and packaging recipe;
+5. device/browser manual acceptance for input, audio, focus, lifecycle and an
+   actually visible frame.
 
 Use the current recipe rather than copying old Cargo feature strings:
 

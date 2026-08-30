@@ -22,6 +22,33 @@ strong base.
 - localization/pluralization and eventual RTL/layout support when needed;
 - agent-native inspection of active UI/focus state.
 
+## Triggered localization/accessibility backlog
+
+The broad presentation/shell audit is closed. Its surviving product gaps belong
+here rather than in a second audit plan.
+
+### Localization trigger
+
+There is no translation catalog/runtime locale system yet. Build one when the
+first non-English shipping target or another concrete translated-UI/dialogue
+consumer appears. Keep authored IDs language-independent, resolve display text at
+the presentation boundary, and report missing keys with provider/source
+provenance. Do not create an i18n framework only because the old audit named the
+absence.
+
+### Accessibility gaps
+
+Current remaining capability gaps are:
+
+- make the colorblind setting drive a real presentation/palette transform;
+- add user-controlled text/UI scaling when a shipping target requires it;
+- integrate the Bevy accessibility tree/screen-reader path when non-visual menu
+  navigation has a target;
+- add captions/subtitles for non-dialogue audio cues when required.
+
+Treat each as a presentation capability with a real acceptance case rather than
+building a parallel UI stack.
+
 ## Candidate crate / Bevy ecosystem value
 
 `ambition_ui_nav` is a plausible general Bevy plugin candidate if it can remain

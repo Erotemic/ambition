@@ -57,6 +57,18 @@ Start with:
 
 Use [`concepts/index.md`](concepts/index.md) for the full focused list.
 
+## Durable architecture
+
+Architecture pages hold settled cross-domain boundaries rather than execution
+plans:
+
+- [`architecture/architecture-boundaries.md`](architecture/architecture-boundaries.md) — policy/guardrail ownership.
+- [`architecture/package-and-capability-boundaries.md`](architecture/package-and-capability-boundaries.md) — package extraction, Bevy plugin maturity, capability composition and residual actor-kernel doctrine.
+
+Active migration/extraction work stays in `planning/`; once a campaign settles a
+boundary, distill the rule here/concepts/systems/ADRs and remove its execution
+diary from the live planning surface.
+
 ## Current system docs
 
 System docs are intentionally fewer and shorter than the source. They explain a

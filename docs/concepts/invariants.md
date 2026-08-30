@@ -83,7 +83,7 @@ may not have transparent edges, or the collision stops being visible.
   is become a term every body pays for. `docs/planning/vision.md` §8,
   `docs/concepts/movement-collision.md`, `maintainer-decisions.md` 2026-08-20.
 - **Feet = the +gravity face of the contact box** (`AabbExt::feet`) — never
-  screen-down. `engine/unified-movement-kernel.md`.
+  screen-down. `docs/adr/0024-frame-aware-unified-movement-kernel.md`.
 - **ONE BODY, ONE PATH** — before keying anything on player-vs-actor, run the
   bifurcation smell test. AGENTS.md §Core values (the long paragraph).
 - **std `HashMap`/`HashSet` iteration is banned in sim** — machine-enforced

@@ -1,67 +1,148 @@
 # Render, animation and VFX — Engine 1.0 program
 
-**State:** OPEN — existing implementation is substantial; long-term subsystem boundaries are under-specified.
+**State:** OPEN — built-in semantic VFX path is real; third-party particle
+provider work remains demand/trigger driven.
+
+The old temporary extension has been consolidated into this authority. See
+[`render-animation-and-vfx-extension.md`](render-animation-and-vfx-extension.md)
+only as a forwarding receipt until Phase 2 removes stale control-plane links.
 
 ## Goal
 
-Give Ambition a coherent first-class 2D presentation architecture that remains
-usable with one or many local views and does not leak presentation authority back
-into deterministic simulation.
+Keep simulation responsible for **what happened** and presentation responsible
+for **how that fact looks/sounds on this host/view/quality tier**.
 
-Current capability already spans `ambition_render`, `ambition_vfx`, character
-sprite metadata, screen effects, HUD, quality profiles and capture tooling. The
-plan is to converge these pieces, not replace them with a new renderer.
+The engine should support:
 
-## Program areas
+- authored sprite effects;
+- lightweight procedural/built-in particles;
+- optional richer particle providers when a real effect requires them;
+- persistent emitters when a semantic source actually persists;
+- explicit reference-frame/orientation semantics;
+- presentation quality/budgets;
+- multiview-safe presentation;
+- confirmed-effect handling where an external/non-rewindable side effect cannot
+  simply be replayed.
 
-- sprite/material rendering and layering;
-- animation state/vocabulary and authored timing;
-- VFX/particles and combat/world-effect presentation;
-- 2D lighting/shadows/material effects where Ambition needs them;
-- view-local camera and screen effects;
-- quality/resolution/residency policies across desktop/mobile/multiview;
-- render extraction/read models that remain downstream of simulation;
-- agent-native visual diagnostics and concise review captures.
+Do not make animation/VFX another gameplay timeline.
 
-## ⛔ Presentation animation is not a gameplay timeline
+## Current boundary
 
-Two different things are easy to conflate once a general animation capability
-exists:
+The reusable effect vocabulary lives outside game-specific presentation. The
+visible host installs the VFX presentation consumer, while simulation/domain
+code emits semantic requests/facts.
 
-- **presentation animation** — free to animate presentation properties, curves,
-  transforms, sprite presentation, material parameters, camera effects. It is
-  downstream and non-authoritative.
-- **authoritative deterministic gameplay timelines/orchestration** — owned by
-  [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
-  and by the simulation. Gameplay truth changes through deterministic
-  simulation/domain operations.
+Current built-in rendering already supports authored effect clips and fallback
+particles. The `generic_action_fx` sheet is consumed for ordinary hit markers,
+and `ParticleBudget` is part of the quality policy surface.
 
-⛔⛔ **arbitrary property animation must never become an escape hatch around
-simulation authority.** "The animation sets the value" is how a presentation
-system quietly acquires gameplay authority.
+A product may omit the visible VFX consumer without changing simulation outcome.
+Backend dependencies therefore point upward into presentation/host composition,
+not down into gameplay.
 
-⚠ **and before any bespoke low-level animation runtime is built, investigate
-Bevy's existing animation capabilities** (`bevy_animation`, its curve/clip
-model, animation graph) and record what they do and do not give a 2D sprite-first
-game. This does not need to become an active campaign yet; it needs to happen
-before a large custom runtime is committed to.
+## Settled architecture
 
-## Candidate crate / Bevy shape
+### Presentation providers are presentation only
 
-Presentation domains should be ordinary Bevy plugins downstream of read models.
-Do not turn `ambition_render` into a second application composition root.
+A third-party particle engine may consume semantic VFX requests. Gameplay must
+not depend on its particle entities/components or use its state as simulation
+authority.
 
-Potential reusable slices (animation selection, view-local screen effects,
-quality policy, sprite metadata) should be evaluated independently with the
-crate strategy rather than splitting by file count.
+### One-shot and persistent effects have different lifetimes
 
-## Open design questions — deliberately unresolved
+A one-shot can be emitted as an event/request carrying all facts needed to draw
+it. A persistent emitter needs a stable semantic source and reconciliation so
+presentation can create/update/remove its visual representation without becoming
+its authority.
 
-- Does Ambition need an explicit reusable animation graph/state-machine model, or
-  are typed action/pose vocabularies sufficient?
-- Which VFX are authored simulation events versus purely presentation inference?
-- What lighting model is worth supporting in a sprite-first game?
-- How should view-local effects behave when adaptive split views merge/split?
-- Which quality/residency policies belong in generic rendering versus game
-  content?
-- Which render capabilities are valuable enough to publish as Bevy plugins?
+Do not force both through an ever-growing `ParticleKind` taxonomy.
+
+### No universal VFX backend trait in advance
+
+The built-in renderer and any future provider should first prove what they need
+in common. Compose plugins/adapters over semantic requests; introduce a trait
+only if two real providers need the same runtime interface.
+
+### Optional means optional in the compile graph
+
+A richer provider should be behind a presentation capability/feature and must not
+be required by headless simulation or minimal consumers.
+
+### Quality is presentation policy
+
+Particle counts, trail density, expensive shaders and other purely visual work
+follow the active quality/raster budget. Lower quality must preserve semantic
+readability rather than delete gameplay information.
+
+### Reference frames are explicit
+
+An effect that is gravity-relative, surface-relative, attacker-facing or world
+fixed should say so through semantic pose/reference-frame data. Do not infer
+orientation from a victim/world axis after the authoritative producer has lost
+the relevant frame.
+
+### Authored sprites and procedural particles compose
+
+Use authored sheets where they carry identity/readability and procedural
+particles where motion/volume is the useful part. Do not require one provider to
+replace the other.
+
+### Prototype evidence precedes dependency adoption
+
+A new particle dependency must first demonstrate an effect the current built-in
+path cannot express adequately, on the pinned Bevy/platform targets. Do not add a
+provider because "particles" exist as a category.
+
+## Current open work
+
+### Persistent emitter reconciliation
+
+Add only when a real persistent semantic source needs it. The simulation/source
+owns existence and parameters; presentation reconciles the provider-specific
+entity. Rollback/replay may recreate presentation from current semantic state.
+
+### Rich particle provider trigger
+
+The prior Enoki/Hanabi comparison campaign is closed. Hanabi is not a standing
+planned dependency. Reopen a provider spike only when a concrete desired effect
+cannot be expressed reasonably by the authored-sprite + built-in particle path.
+
+The acceptance question is capability, platform fit and ownership—not whether a
+third-party screenshot looks more elaborate.
+
+### Trails and afterimages
+
+Extract a separate reusable trail/afterimage facility only when multiple current
+consumers need shared lifetime/geometry semantics. Do not hide it inside the
+particle taxonomy.
+
+### Multiview
+
+Effects are derived presentation. A local view decides visibility/culling and
+quality while consuming the same semantic event/state. Never let one camera's
+presentation entity become simulation authority for another view.
+
+### Confirmed external effects
+
+Pure visual entities may be discarded/rebuilt on rewind. Effects that cross an
+external irreversible boundary must follow the netcode/confirmed-frame contract.
+Do not solve this by making ordinary VFX rollback state.
+
+## Assets and authoring
+
+Effect identities should resolve through the same provider/catalog preparation
+principles as other assets. Authored effect sheets should publish stable semantic
+clip names/metadata; runtime presentation consumes the published products rather
+than maintaining a second hand-written copy of sheet geometry.
+
+## Acceptance
+
+This program is in a healthy Engine 1.0 state when:
+
+1. gameplay emits semantic effect facts without importing presentation backends;
+2. built-in sprite/particle presentation covers common gameplay feedback;
+3. quality/reference-frame/multiview policy is explicit;
+4. persistent emitters, if introduced, reconcile from semantic source state;
+5. richer providers remain optional and are added only for demonstrated
+   expressibility needs;
+6. headless/minimal consumers do not depend on particle/render packages.

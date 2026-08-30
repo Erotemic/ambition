@@ -71,12 +71,19 @@ pub fn fire_sentry_system(
         // The deployer's combat side, copied onto the turret. `Option` because a
         // body without one is a fixture, not something production seats.
         Option<&ActorFaction>,
+        // ⛔⛔ AND THE DRIVER, because the AUTHORED faction is not the side this
+        // body is fighting on. Possession deliberately leaves a possessed NPC's
+        // faction as `Enemy` and moves its allegiance through the driving
+        // relationship instead (`targeting::effective_faction`) — so freezing
+        // the authored value onto the turret gave a player's sentry an ENEMY
+        // side, and it then shot at the player who placed it.
+        Option<&ambition_characters::control::DrivingParticipant>,
         Option<&ambition_combat::targeting::MatchTeam>,
     )>,
     mut commands: Commands,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    for (wielder, control, kin, held, mut mana, owner, side, team) in &mut wielders {
+    for (wielder, control, kin, held, mut mana, owner, side, driver, team) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
             continue;
         }
@@ -94,7 +101,10 @@ pub fn fire_sentry_system(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             kin.pos,
-            side.copied().unwrap_or(ActorFaction::Player),
+            ambition_combat::targeting::effective_faction(
+                side.copied().unwrap_or(ActorFaction::Player),
+                driver,
+            ),
             team.cloned(),
             inherited,
         );
@@ -173,6 +183,9 @@ pub fn update_sentries(
             // lookup: two equidistant enemies is an ordinary arrangement, not a
             // corner case, and query order must not be what decides it.
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            // Whether a participant is driving this body, which is what decides
+            // its EFFECTIVE side. See the filter below.
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -205,15 +218,27 @@ pub fn update_sentries(
                 .iter()
                 // Structural tangibility gate: a dead enemy is an
                 // intangible corpse — the sentry does not target it.
-                .filter(|(_, f, health, out_of_play, _)| {
-                    **f == ActorFaction::Enemy
+                // ⛔⛔ THE EFFECTIVE FACTION, NOT THE AUTHORED ONE. A possessed
+                // NPC keeps `ActorFaction::Enemy` on purpose and fights as a
+                // Player through its driving relationship, so a raw `== Enemy`
+                // test had a turret firing on the body the player is currently
+                // driving. `effective_faction` is the same answer the strike
+                // resolver has been giving for a while — this asks it too.
+                //
+                // ⚠ DELIBERATELY NOT WIDENED TO `can_damage`. Which CLASSES a
+                // sentry engages (Enemy, and not Npc/Boss/Neutral) is a design
+                // question this repair does not answer; it only stops the
+                // allegiance being read from the wrong field.
+                .filter(|(_, f, health, out_of_play, _, driver)| {
+                    ambition_combat::targeting::effective_faction(**f, *driver)
+                        == ActorFaction::Enemy
                         && !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
                 })
-                .filter(|(aabb, _, _, _, _)| aabb.center.distance(sentry.pos) <= SENTRY_RANGE),
-            |(aabb, _, _, _, _)| aabb.center.distance_squared(sentry.pos),
-            |(_, _, _, _, id)| *id,
+                .filter(|(aabb, _, _, _, _, _)| aabb.center.distance(sentry.pos) <= SENTRY_RANGE),
+            |(aabb, _, _, _, _, _)| aabb.center.distance_squared(sentry.pos),
+            |(_, _, _, _, id, _)| *id,
         )
-        .map(|(aabb, _, _, _, _)| aabb.center);
+        .map(|(aabb, _, _, _, _, _)| aabb.center);
         let Some(target) = target else {
             // No target — idle (keep the cadence ready so it fires the instant
             // an enemy wanders in).
@@ -282,6 +307,97 @@ mod tests {
                 .chain(),
         );
         app
+    }
+
+    /// ⛔⛔ POSSESSION MOVES THE ALLEGIANCE, NOT THE FACTION.
+    ///
+    /// A possessed NPC keeps `ActorFaction::Enemy` deliberately — the whole
+    /// point of `targeting::effective_faction` is that possession needs no
+    /// faction overwrite/restore path. Both halves of the sentry read the
+    /// authored field instead, so a player driving an enemy body deployed a
+    /// turret whose frozen side was ENEMY, and that turret then had the player's
+    /// own body as a valid target.
+    #[test]
+    fn a_turret_deployed_through_a_possessed_body_fights_on_the_players_side() {
+        use ambition_characters::control::DrivingParticipant;
+        use ambition_characters::control::PlayerSlot;
+
+        let mut app = test_app();
+        // The body the player is DRIVING: authored Enemy, effectively Player.
+        let possessed = spawn_primary_player_holding(&mut app, SENTRY_ID);
+        app.world_mut()
+            .entity_mut(possessed)
+            .insert((ActorFaction::Enemy, DrivingParticipant(PlayerSlot(0))));
+        // A real enemy, nobody driving it, in range of the deploy point.
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            CenteredAabb::new(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(24.0, 40.0)),
+            ActorFaction::Enemy,
+        ));
+
+        app.world_mut()
+            .get_mut::<ActorControl>(possessed)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        app.world_mut()
+            .get_mut::<ActorControl>(possessed)
+            .unwrap()
+            .0
+            .melee_pressed = false;
+
+        let side = {
+            let world = app.world_mut();
+            let mut turrets = world.query_filtered::<&ActorFaction, With<Sentry>>();
+            turrets.iter(world).next().copied()
+        };
+        assert_eq!(
+            side,
+            Some(ActorFaction::Player),
+            "the turret froze the possessed body's AUTHORED faction, so a player's \
+             sentry came out on the enemy side and will shoot the player"
+        );
+    }
+
+    /// And the same fact on the target end: the body a player is driving must
+    /// not be shot by a player's own turret, however its authored faction reads.
+    #[test]
+    fn a_turret_does_not_fire_on_the_body_a_player_is_driving() {
+        use ambition_characters::control::DrivingParticipant;
+        use ambition_characters::control::PlayerSlot;
+
+        let mut app = test_app();
+        let player = spawn_primary_player_holding(&mut app, SENTRY_ID);
+        // The ONLY candidate in range: authored Enemy, but driven by a
+        // participant, so its effective side is Player.
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            CenteredAabb::new(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(24.0, 40.0)),
+            ActorFaction::Enemy,
+            DrivingParticipant(PlayerSlot(1)),
+        ));
+
+        app.world_mut()
+            .get_mut::<ActorControl>(player)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        app.world_mut()
+            .get_mut::<ActorControl>(player)
+            .unwrap()
+            .0
+            .melee_pressed = false;
+        for _ in 0..10 {
+            app.update();
+        }
+
+        assert!(
+            live_projectile_bodies(&mut app).is_empty(),
+            "the turret fired on a body a second participant is driving — its \
+             authored `Enemy` is not the side it is fighting on"
+        );
     }
 
     #[test]

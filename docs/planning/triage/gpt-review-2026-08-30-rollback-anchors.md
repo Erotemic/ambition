@@ -26,7 +26,7 @@ twice independently.
 | 1 | Quality seed runs in `PreStartup`, settings load in `Startup` | P1 | ▣ landed |
 | 2 | `PortalShot` has a codec and no anchor | P0/P1 | ▣ landed |
 | 3 | `FallingHazard` has a codec and no anchor (after an attempted fix) | P1 | ▣ landed |
-| 4 | Sentry / Vortex: rollback lifetime, effective allegiance, deterministic targets | P1 | ◐ lifetime landed; allegiance + ordering open |
+| 4 | Sentry / Vortex: rollback lifetime, effective allegiance, deterministic targets | P1 | ▣ all three landed |
 | 5 | One spawn seam for authoritative dynamic sim state | architecture | ◐ named seams landed; a universal `spawn_sim_entity` is argued against below |
 | 6 | Scenario-driven inert/coverage sweep that fires abilities | architecture | ▣ landed |
 | 7 | `portal_fire_system` keeps only the LAST intent per tick | P1 | ▣ landed |
@@ -444,3 +444,35 @@ Both arms poison-verified against the restored policy-blind repair: the submerge
 one goes red, the control stays green.
 
 core 533/533, app_it 509/509.
+
+
+---
+
+## ▣ 4 (the remaining half) — the allegiance was read from the wrong field
+
+`targeting::effective_faction(authored, driver)` has been the answer for a while,
+and the strike resolver already asks it. Sentry and Vortex did not, in **both**
+directions:
+
+- **At deploy.** `deploy_sentry` freezes its summoner's combat side onto the
+  turret, deliberately, so the turret outlives its deployer with a side. It froze
+  the AUTHORED faction — and possession leaves a possessed NPC's faction as
+  `Enemy` on purpose, moving the allegiance through the driving relationship
+  instead. A player driving an enemy body therefore deployed an **enemy turret**,
+  which then had the player's own body as a valid target.
+- **At target time.** Both `update_sentries` and `update_vortex_wells` compared
+  the raw `ActorFaction::Enemy`, so a body a second participant is driving was
+  shot at and dragged in.
+
+⚠ **Deliberately NOT widened to `can_damage`.** Which CLASSES a sentry engages —
+`Enemy`, and not `Npc`/`Boss`/`Neutral` — is a design question this repair does
+not answer, and switching to the general predicate would silently make a player's
+turret shoot peaceful NPCs. The repair reads the allegiance from the right field
+and changes nothing else.
+
+Three arms, all three poison-verified against the restored authored-faction read:
+a turret deployed through a possessed body comes out on the player's side; a
+turret does not fire on the body a second participant is driving; a well does not
+drag it either.
+
+monolith 1180/1180, app_it 509/509.

@@ -568,12 +568,14 @@ impl Platformer2dSimHarness {
             .copied()
     }
 
+    /// The live timeline's health, as its OWN gameplay session sees it.
     pub fn rollback_status(
         &self,
-    ) -> Option<&ambition_platformer2d::rollback::RollbackSessionStatus> {
+    ) -> Option<&ambition_platformer2d::rollback::RollbackTimelineStatus> {
         self.app
             .world()
-            .get_resource::<ambition_platformer2d::rollback::RollbackSessionStatus>()
+            .get_resource::<ambition_platformer2d::rollback::ActiveRollbackAuthority>()
+            .map(ambition_platformer2d::rollback::ActiveRollbackAuthority::status)
     }
 
     /// Return an actionable error if the active GGRS session invalidated its

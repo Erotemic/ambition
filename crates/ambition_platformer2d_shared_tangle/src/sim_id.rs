@@ -111,6 +111,32 @@ impl SimId {
         Self(format!("match:{activation}/spawn/{tick}"))
     }
 
+    /// A piece of durable ROOM GEOMETRY, by its [`GeoId`].
+    ///
+    /// ⭐ ITS OWN NAMESPACE BECAUSE GEOMETRY IS NOT A PLACEMENT. A `GeoId` is a
+    /// source plus an ordinal — one LDtk placement can emit several blocks, and a
+    /// tile layer emits blocks that have no placement iid at all — so folding it
+    /// into [`Self::placement`] would let block 1 of placement `p` and the actor
+    /// placed at `p` claim the same identity.
+    ///
+    /// ⚠ [`GeoSource::Anon`] IS FIXTURE GEOMETRY AND IS NOT DURABLY NAMED. The
+    /// authoring pipeline never emits it, so it appears only in tests — but two
+    /// anon blocks spell the SAME id here, which is why a population that sorts
+    /// by identity should also assert
+    /// [`no_two_candidates_share_an_identity`](crate::sim_selection::no_two_candidates_share_an_identity)
+    /// rather than merely that everyone has one.
+    pub fn geometry(geo: &ambition_platformer2d_core::GeoId) -> Self {
+        use ambition_platformer2d_core::GeoSource;
+        let source = match &geo.source {
+            GeoSource::Placement(id) => format!("placement/{}", escape_segment(id.as_str())),
+            GeoSource::TileLayer { layer } => format!("tile/{}", escape_segment(layer)),
+            GeoSource::Generator(id) => format!("generator/{}", escape_segment(id.as_str())),
+            GeoSource::Delta { op_index } => format!("delta/{op_index}"),
+            GeoSource::Anon => "anon".to_string(),
+        };
+        Self(format!("geo:{source}/{}", geo.index))
+    }
+
     /// Rebuild an id from a snapshot blob's key.
     ///
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its
@@ -174,6 +200,31 @@ mod tests {
         // A boss WRAP and the boss BODY share the raw id string but live in
         // different namespaces (orchestration vs body).
         assert_ne!(SimId::encounter("boss_1"), SimId::placement("boss_1"));
+    }
+
+    /// Geometry gets its OWN namespace, and the reason is a collision that would
+    /// otherwise be silent: one placement can emit several blocks, so block 1 of
+    /// placement `p` and the actor placed at `p` must not spell the same id.
+    #[test]
+    fn geometry_ids_do_not_collide_with_placements_or_with_each_other() {
+        use ambition_platformer2d_core::{GeoId, PlacementId};
+        let block0 = SimId::geometry(&GeoId::placement(PlacementId::new("p"), 0));
+        let block1 = SimId::geometry(&GeoId::placement(PlacementId::new("p"), 1));
+        let actor = SimId::placement("p");
+        assert_ne!(block0, block1, "the ordinal is part of the identity");
+        assert_ne!(block0, actor, "a block is not the actor placed at its iid");
+        // A tile-layer block has no placement iid at all; a generator's ordinal is
+        // its emission index. All three sources stay distinct.
+        assert_ne!(
+            SimId::geometry(&GeoId::tile_layer("Collision", 0)),
+            SimId::geometry(&GeoId::placement(PlacementId::new("Collision"), 0)),
+        );
+        // ⚠ And the documented hole: fixture geometry is not durably named, which
+        // is why a population sorting by identity owes a DISTINCTNESS check too.
+        assert_eq!(
+            SimId::geometry(&GeoId::anon()),
+            SimId::geometry(&GeoId::anon())
+        );
     }
 
     /// The encoding is INJECTIVE: distinct constructions, distinct strings.

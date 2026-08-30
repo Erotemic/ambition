@@ -13,7 +13,7 @@ use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, Front
 use ambition_load::LoadBarrierRef;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
-    SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
+    SessionScopeActivated, SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
@@ -329,7 +329,15 @@ impl Plugin for GameplaySessionBridgePlugin {
             .add_message::<AudioContextChanged>()
             .configure_sets(
                 Update,
-                (GameplaySessionSet::Bridge, GameplaySessionSet::Providers)
+                // ⛔ `SessionScopeSet::Activate` sits BETWEEN them, not beside
+                // them: the bridge announces the new scope, the scope's own
+                // state is re-established, and only then does a provider build
+                // the world that will read it.
+                (
+                    GameplaySessionSet::Bridge,
+                    SessionScopeSet::Activate,
+                    GameplaySessionSet::Providers,
+                )
                     .chain()
                     .after(AmbitionGameShellSet::Pending)
                     .before(SessionScopeSet::Presentation),
@@ -508,6 +516,7 @@ fn translate_shell_session_lifecycle(
     mut loads: ResMut<ambition_load::LoadCoordinator>,
     mut session_events: MessageWriter<GameplaySessionEvent>,
     mut retired: MessageWriter<SessionScopeRetired>,
+    mut activated: MessageWriter<SessionScopeActivated>,
     mut game_mode: Option<ResMut<NextState<GameMode>>>,
 ) {
     for event in shell_events.read() {
@@ -577,6 +586,13 @@ fn translate_shell_session_lifecycle(
                         .map(|session| session.activation.activation_id),
                 );
                 let scope = active_scope.begin();
+                // ⭐ BOTH EDGES ARE ANNOUNCED HERE. This is the one translator
+                // from shell routing to gameplay-session lifetime, so it is the
+                // one place that can say a session has begun before anything
+                // has been built for it — which is what lets session-scoped
+                // process globals be re-established by their owner rather than
+                // by a teardown somebody has to remember.
+                activated.write(SessionScopeActivated(scope));
                 links.bind(activation.activation_id, scope);
                 let audio_provider = registry
                     .profile(&activation.experience_id)

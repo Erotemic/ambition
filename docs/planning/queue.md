@@ -139,6 +139,78 @@ migration prose names it.
 
 ## Current execution order
 
+### ⭐ CROSS-GAME SESSION CONTAMINATION, 2026-08-30 — a retired game's health was the next game's
+
+- ✔ **D-SESSION-OWNERSHIP — Smash → title → Ambition and no door would open,
+  because rollback health had no owner.** Retiring Smash's scope removed the
+  canonical `SessionRoot` its still-installed GGRS session was policing;
+  `enforce_session_contract` read deliberate teardown as *"canonical prepared
+  content disappeared while the GGRS session was active"* and invalidated the
+  timeline; and `RollbackSessionStatus` / `RollbackConfirmationState` were bare
+  process globals, so Ambition read Smash's invalidation as its own and
+  room-transition commit refused every transition forever.
+  **Reproduced first**, both halves, before any implementation.
+
+  Fixed by giving rollback authority an owner. `ActiveRollbackAuthority`
+  (owner + generation + contract + status, one resource) states the whole rule
+  in `installed()`: same `SessionScopeId` ⇒ the diagnosis carries (AC23);
+  different ⇒ a fresh authority. Every read names a scope, so a stranger's
+  authority answers `Unavailable`, never `Unhealthy`. Gameplay reads through
+  `SessionRollbackConfirmation`, which cannot reach the state without naming the
+  live scope. Diagnostics split into process-lifetime `RollbackDiagnosticHistory`,
+  which gates nothing. Model and guards: **ADR 0027**.
+
+  ⛔⛔ **THE ORDERING WAS A RACE, AND THE SHIPPED ORDER IS THE LUCKY ONE.**
+  Nothing orders `LocalSessionSet::Maintain` against `GameplaySessionSet::Bridge`
+  — both sit in `Update`, constrained only against unrelated sets. Today the
+  bridge wins and `maintain_local_session` stops the session before the contract
+  check sees anything, which is why no existing test caught this. Pinning the
+  other admissible order reproduces it exactly. `SessionScopeSet::RetireAuthority`
+  now names the ordering, but **ordering is hygiene**: the acceptance walk runs
+  in BOTH orders and the ownership check is what holds in the adverse one.
+
+  ⛔⛔ **AND `session_world_entity` PANICKED ON TWO ROOTS RATHER THAN PICKING THE
+  LIVE ONE** — the opposite of what ownership is for, and already recorded once
+  in `app/resources.rs` against a build-time root. A shell-routed host now
+  SELECTS by active scope; uniqueness stays the authority only for direct entry.
+
+  ⭐ **THE AUDIT'S RESULT IS ONE MESSAGE, NOT ELEVEN ACCESSORS.** The eleven
+  session mirrors in `session::teardown` were reset only at retirement, and nine
+  change the next session's behaviour if that reset is delayed or skipped — a
+  dangling possessed-body handle, a `specs_loaded` latch that suppresses the next
+  session's repopulation, a room-transition cooldown that refuses doors, a
+  buffered interact nobody pressed. They are re-established on
+  `SessionScopeActivated` in `SessionScopeSet::Activate`, before any provider
+  builds the world that reads them: ownership without a check at any of the
+  several hundred read sites, because **the value a session reads is one its own
+  activation wrote.** Retirement reset stays, documented as hygiene.
+
+  Guards, every one verified red first: the acceptance walk in both orderings
+  (`shell_host_lifecycle::a_smash_session_does_not_take_ambitions_doors_*`), the
+  whole multi-game walk under `SimulationHost::Rollback`, seven arms in
+  `session_ownership_tests`, and
+  `teardown::tests::activating_a_session_clears_what_a_skipped_teardown_left_behind`.
+
+- ▢ **D-SESSION-OWNERSHIP residue — one dev knob still crosses a session, and
+  `ambition_workspace_policy` has been red since 2026-08-26.**
+  * `LocalSessionPolicy::check_distance` is raised for an F9 proof pulse and
+    dropped back only when the pulse COMPLETES (`finish_completed_proof_pulse`).
+    Quit to the title mid-pulse and the next game starts with rollback
+    verification still raised. Left alone deliberately: it is developer tuning
+    with one writer, and a pulse a human may want to span a relaunch is not
+    obviously session-scoped. Decide before it becomes a "why is this build
+    slow" report.
+  * The policy crate aborted on `engine.actor-physics-facade` (watching a file
+    6e39ac0a5 deliberately deleted) and on the archetype-free scanner (whose
+    `ActorConfig` moved to `ambition_combat` in aa70a41e3). Both repaired here
+    because they were masking the report — which then showed **12 pre-existing
+    engine-policy failures** across `actor-orientation-facade`,
+    `actor-platformer-facade-reexports`, `module-size`,
+    `pose-writes-are-authority-only`, `runtime-applies-clock-reset`,
+    `runtime-manifest-allow`, `velocity-writes-are-authority-only`. None touch
+    the files above; all are residue from the recent carve commits and want
+    their owners' judgement, not a sweep.
+
 ### ⭐ THE OFFICER'S DRAW, 2026-08-30 — the shot was never aimed wrong
 
 - ✔ **D-OFFICER-1 — "the officer is still firing backwards" was TWO
@@ -403,6 +475,21 @@ below it and on different silicon.
   ⛔ And note the check that would have settled it in one line:
   `spawn_parallax_layers` returns early when `assets.parallax_layers.is_empty()`
   — the log line above (`loaded N/4`) is the thing to read first.
+
+- ▢ **D-REVIEW-STATUS — the GPT review findings have ONE status file now, and
+  it is not a dated one.** ⛔⛔ The 2026-08-30 re-review found a live P0 that had
+  fallen out of every list: gravity authority/ordering was open in the 08-29
+  review, was not in the 08-30 file's carry-forward paragraph, and was still real
+  in the source. Nobody dropped it — it stopped appearing anywhere a session
+  would regenerate its list from, which is exactly the failure this ledger's own
+  header warns about one register up. Measured 2026-08-30: four rows listed OPEN
+  in the 08-29 file had LANDED, six were carried forward, and **three were named
+  by neither carry list** (gravity, the trapdoor `UntilPressedAgain` hold, the
+  quadratic `InputStreamRecorder`).
+  ⭐ [`triage/review-findings-status.md`](triage/review-findings-status.md) is
+  now the authoritative ledger; the dated `gpt-review-*` files are EVIDENCE and
+  are deliberately not rewritten when a row later lands. This queue row is the
+  spine's handle on it and closes when that file has no `▢` left.
 
 - ▢ **D-RASTER-3 — nothing splits D-RASTER-1's 2.76x between the DPI cap and
   MSAA.** Both moved together. One interleaved A/B, three reps per arm; the

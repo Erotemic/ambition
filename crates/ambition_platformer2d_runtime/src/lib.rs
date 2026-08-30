@@ -161,22 +161,15 @@ impl SimulationHost {
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct RollbackHostReady;
 
-/// Backend-neutral availability/health of confirmation authority for a rollback
-/// host. The concrete backend publishes this state; room/lifecycle policy only
-/// needs to know whether a speculative intent may be promoted to host-side work.
-#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum RollbackConfirmationState {
-    #[default]
-    Unavailable,
-    Healthy,
-    Unhealthy,
-}
-
-impl RollbackConfirmationState {
-    pub fn is_healthy(self) -> bool {
-        matches!(self, Self::Healthy)
-    }
-}
+/// The rollback authority and its lifetime model. See
+/// [`rollback::authority`] for why confirmation health is owned by a
+/// [`SessionScopeId`](ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId)
+/// rather than by the process.
+pub use rollback::authority::{
+    ActiveRollbackAuthority, RollbackConfirmationState, RollbackDiagnostic,
+    RollbackDiagnosticHistory, RollbackTimelineContract, RollbackTimelineGeneration,
+    RollbackTimelineStatus, SessionRollbackConfirmation,
+};
 
 /// Choose [`SimulationHost`] before any content or simulation plugin builds.
 pub trait SimulationHostAppExt {

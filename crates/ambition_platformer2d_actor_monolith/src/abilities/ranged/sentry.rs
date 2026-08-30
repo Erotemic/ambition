@@ -25,6 +25,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 
 /// Held-item id of the sentry gauntlet.
@@ -79,11 +80,28 @@ pub fn fire_sentry_system(
         // side, and it then shot at the player who placed it.
         Option<&ambition_characters::control::DrivingParticipant>,
         Option<&ambition_combat::targeting::MatchTeam>,
+        // The deployer's identity and its own mint stream. `Option` because a
+        // fixture body carries neither.
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
     mut commands: Commands,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    for (wielder, control, kin, held, mut mana, owner, side, driver, team) in &mut wielders {
+    for (
+        wielder,
+        control,
+        kin,
+        held,
+        mut mana,
+        owner,
+        side,
+        driver,
+        team,
+        deployer_id,
+        mut deployer_counter,
+    ) in &mut wielders
+    {
         if !control.0.melee_pressed || control.0.shield_held {
             continue;
         }
@@ -97,6 +115,17 @@ pub fn fire_sentry_system(
         // shots it fires minutes later still sound like the character that placed
         // it — and still do after that character has left the field.
         let inherited = sfx.source_of(wielder);
+        // `SimId::spawned(deployer, counter.next())` — the turret is a
+        // dynamically-spawned sim entity, and its bolts mint under IT.
+        let id = match (deployer_id, deployer_counter.as_mut()) {
+            (Some(deployer), Some(counter)) => {
+                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                    deployer,
+                    counter.next(),
+                ))
+            }
+            _ => None,
+        };
         deploy_sentry(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
@@ -107,6 +136,7 @@ pub fn fire_sentry_system(
             ),
             team.cloned(),
             inherited,
+            id,
         );
         sfx.write_for(
             wielder,
@@ -131,6 +161,11 @@ pub fn fire_sentry_system(
 /// a NAMED owner — so `can_hit` was false against every victim in the world. The
 /// turret fired, the bolt flew, it overlapped its target, and nothing happened.
 ///
+/// ⛔⛔ AND SO IS ITS IDENTITY, for the same reason and a second one: a bolt's
+/// `SimId` is minted as `SimId::spawned(owner, ..)` where the owner is the
+/// TURRET, so an unnamed turret produced bolts `mint_spawned_sim_ids` skips
+/// entirely — the chain broke one link above where anybody was looking.
+///
 /// ⭐ FROZEN AT DEPLOY, NOT LOOKED UP AT FIRE TIME, for the reason the turret
 /// exists: it deliberately outlives its deployer. A side re-derived from a body
 /// that has left the field is no side at all, and the presentation source is
@@ -142,6 +177,7 @@ pub fn deploy_sentry(
     side: ActorFaction,
     team: Option<ambition_combat::targeting::MatchTeam>,
     inherited_presentation: Option<ambition_sfx::PresentationSourceId>,
+    id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> Entity {
     let mut turret = commands.spawn_session_scoped(
         scope,
@@ -162,16 +198,34 @@ pub fn deploy_sentry(
     if let Some(source) = inherited_presentation {
         turret.insert(ambition_sfx::BodyPresentationSource(source));
     }
+    if let Some(id) = id {
+        turret.insert(id);
+    }
     turret.id()
 }
 
 /// Tick every sentry: age it out, and when its cadence is ready, fire one
 /// player-faction bolt at the nearest Enemy-faction actor within range. Runs on
 /// `scaled_dt` (bullet-time slows the turret with everything else).
+///
+/// ⛔⛔ THE OUTER LOOP IS A GAMEPLAY DECISION TOO, and it was Bevy query order.
+/// Two turrets firing on one tick write two `ProjectileSpawnRequest`s, and the
+/// materializer hands out the GLOBAL `ProjectileSeq` in request order — so which
+/// turret's bolt gets the lower sequence, and therefore which identity each bolt
+/// mints, depended on archetype order. The nearest-target tie-break inside the
+/// loop was repaired; the loop AROUND it was not.
+///
+/// ⭐ ORDERED BY THE TURRET'S OWN STATE, THEN ITS IDENTITY — the same rule
+/// [`update_vortex_wells`] uses. Position and the two timers determine what a
+/// turret does this tick completely, so two that tie on them emit identical
+/// requests and may be visited either way round.
 pub fn update_sentries(
     world_time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
+    // The final tie-break's authority for the OUTER loop, read separately so a
+    // turret with no id still fires — it just cannot break a tie WITH one.
+    ids: Query<&SimId>,
     enemies: Query<
         (
             &CenteredAabb,
@@ -196,7 +250,30 @@ pub fn update_sentries(
     if dt <= 0.0 {
         return;
     }
-    for (entity, mut sentry) in &mut sentries {
+    let mut order: Vec<(ae::Vec2, f32, f32, Option<SimId>, Entity)> = sentries
+        .iter()
+        .map(|(entity, sentry)| {
+            (
+                sentry.pos,
+                sentry.remaining_s,
+                sentry.fire_cooldown,
+                ids.get(entity).ok().cloned(),
+                entity,
+            )
+        })
+        .collect();
+    order.sort_by(|a, b| {
+        a.0.x
+            .total_cmp(&b.0.x)
+            .then_with(|| a.0.y.total_cmp(&b.0.y))
+            .then_with(|| a.1.total_cmp(&b.1))
+            .then_with(|| a.2.total_cmp(&b.2))
+            .then_with(|| a.3.cmp(&b.3))
+    });
+    for (_, _, _, _, entity) in order {
+        let Ok((entity, mut sentry)) = sentries.get_mut(entity) else {
+            continue;
+        };
         sentry.remaining_s -= dt;
         if sentry.remaining_s <= 0.0 {
             if let Ok(mut ec) = commands.get_entity(entity) {
@@ -524,6 +601,84 @@ mod damage_tests {
         }
     }
 
+    /// ⛔⛔ WHICH TURRET FIRES FIRST DECIDED WHICH BOLT GOT WHICH IDENTITY. Two
+    /// turrets ready on the same tick each write a `ProjectileSpawnRequest`, and
+    /// the materializer hands out the GLOBAL `ProjectileSeq` in request order —
+    /// so archetype order chose the sequence, and `mint_spawned_sim_ids` sorts by
+    /// `(owner, seq)` to name the bolts. The nearest-target tie-break INSIDE the
+    /// loop was repaired last pass; the loop around it was still query-ordered.
+    ///
+    /// This arm reverses only the deploy order and compares the whole request
+    /// sequence the tick produced.
+    #[test]
+    fn two_turrets_firing_on_one_tick_write_their_requests_in_the_same_order() {
+        fn request_origins(order: [ae::Vec2; 2]) -> Vec<ae::Vec2> {
+            #[derive(Resource, Default)]
+            struct Captured(Vec<ae::Vec2>);
+            fn capture(
+                mut reader: MessageReader<ProjectileSpawnRequest>,
+                mut out: ResMut<Captured>,
+            ) {
+                out.0.extend(reader.read().map(|r| r.projectile.body.pos()));
+            }
+
+            let mut app = App::new();
+            app.add_message::<ProjectileSpawnRequest>();
+            app.add_message::<ambition_sfx::OwnedSfxMessage>();
+            app.init_resource::<Captured>();
+            app.insert_resource(ambition_time::WorldTime {
+                raw_dt: 1.0 / 60.0,
+                scaled_dt: 1.0 / 60.0,
+            });
+            app.add_systems(Update, (update_sentries, capture).chain());
+            for (n, pos) in order.iter().enumerate() {
+                // An enemy just beside each turret, so both acquire a target and
+                // both fire on the same tick. Beside, not ON: a target at the
+                // turret's own position gives a zero aim, which the fire path
+                // skips.
+                app.world_mut().spawn((
+                    FeatureSimEntity,
+                    CenteredAabb {
+                        center: *pos + ae::Vec2::new(50.0, 0.0),
+                        half_size: ae::Vec2::splat(12.0),
+                    },
+                    ActorFaction::Enemy,
+                ));
+                let mut commands = app.world_mut().commands();
+                deploy_sentry(
+                    &mut commands,
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    *pos,
+                    ActorFaction::Player,
+                    None,
+                    None,
+                    Some(SimId::spawned(&SimId::player_slot(0), n as u64)),
+                );
+                app.world_mut().flush();
+            }
+            // Past the 0.25s arm delay both share, so both are ready together.
+            for _ in 0..17 {
+                app.update();
+            }
+            std::mem::take(&mut app.world_mut().resource_mut::<Captured>().0)
+        }
+
+        let a = ae::Vec2::new(100.0, 100.0);
+        let b = ae::Vec2::new(900.0, 100.0);
+        let forwards = request_origins([a, b]);
+        let backwards = request_origins([b, a]);
+        assert!(
+            forwards.len() >= 2,
+            "both turrets fired at least once, got {forwards:?}"
+        );
+        assert_eq!(
+            forwards, backwards,
+            "reversing the order two turrets were deployed in changed the order \
+             their spawn requests were written, so the global ProjectileSeq — and \
+             every bolt identity minted from it — lands on the other bolt"
+        );
+    }
+
     /// ⭐⭐ A DEPLOYED SENTRY MUST ACTUALLY DAMAGE THE ENEMY IT SHOOTS.
     ///
     /// ⛔⛔ ASSERTING THAT A BOLT APPEARS IS NOT THIS TEST. The turret fired,
@@ -612,6 +767,7 @@ mod damage_tests {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 ae::Vec2::new(300.0, 400.0),
                 side,
+                None,
                 None,
                 None,
             );

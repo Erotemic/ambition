@@ -3,32 +3,53 @@ set -euo pipefail
 
 REPO="${REPO:-$HOME/code/ambition}"
 DECK="${DECK:-deck@steamdeck}"
-APPDIR="${APPDIR:-/home/deck/Games/ambition}"
+
+# Name of this deployed build on the Steam Deck.
+#
+# Default:
+#     ~/Games/ambition-2026-08-30
+#
+# Disable the dated/snapshot name and deploy over the normal installation:
+#     DEPLOY_NAME= ./deploy_steamdeck.sh
+#
+# Or choose any other side-by-side name:
+#     DEPLOY_NAME=ambition-test ./deploy_steamdeck.sh
+#
+#NAME_SUFFIX="${NAME_SUFFIX-2026-08-30}"
+NAME_SUFFIX="${NAME_SUFFIX-latest}"
+DEPLOY_NAME="${DEPLOY_NAME-ambition-$NAME_SUFFIX}"
+
+if [[ -n "$DEPLOY_NAME" ]]; then
+    APPDIR="${APPDIR:-/home/deck/Games/$DEPLOY_NAME}"
+else
+    APPDIR="${APPDIR:-/home/deck/Games/ambition}"
+fi
+
 PACKAGE_ROOT="$REPO/target/package-assets/steamdeck"
 PACKAGE_ASSETS="$PACKAGE_ROOT/assets"
 ASSET_CONTRACT="$PACKAGE_ROOT/asset-contract.steamdeck.json"
 ASSET_HASH_MANIFEST="$PACKAGE_ROOT/asset-contract.steamdeck.sha256"
 
-# ⛔⛔ ONE NAME FOR THE EXECUTABLE, BECAUSE THIS SCRIPT ONCE BUILT ONE BINARY AND
-# SHIPPED ANOTHER. It built `ambition_game_bin` and then rsync'd, launched and
-# verified `target/release/ambition_platformer2d_actor_monolith` — a name that
-# stopped being an executable when that crate became a library. On a clean tree
-# the rsync fails; on a machine with an old `target/`, it silently deploys a
-# stale executable that no longer corresponds to anything in this tree. Every
-# mention of the binary now reads this variable, and the build is checked below.
+
+# Register this deployment as a Non-Steam game.
+# Disable with:
+#     REGISTER_STEAM=0 ./deploy_steamdeck.sh
+REGISTER_STEAM="${REGISTER_STEAM:-1}"
+
+STEAM_NAME="${STEAM_NAME:-Ambition $NAME_SUFFIX}"
+
+# One name for the executable. Keep build, deploy, launch, and verification
+# pointed at the same artifact.
 BIN="${BIN:-ambition_game_bin}"
 
 cd "$REPO"
 
-# Optional but useful: fail before deploying a bad map.
+# Fail before deployment if the map is invalid.
 PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate \
     game/ambition_content/assets/worlds/sandbox.ldtk
 
-# Compose the exact installed asset tree before building. This is the same
-# two-root collapse Android uses, with local-machine fallback fonts excluded.
-# The tool fails on missing declarations, case collisions, symlinks, conflicting
-# root overlays, or any byte mismatch in the composed tree.
+# Compose the exact installed asset tree before building.
 python3 "$REPO/scripts/package_asset_guard.py" compose \
     --repo "$REPO" \
     --profile steamdeck \
@@ -36,23 +57,19 @@ python3 "$REPO/scripts/package_asset_guard.py" compose \
     --contract "$ASSET_CONTRACT" \
     --hash-manifest "$ASSET_HASH_MANIFEST"
 
-# Safest build: keep default desktop features, add the static_map + static_content
-# fallbacks so the deployed binary carries its world JSON and generated content
-# rather than needing the source tree beside it.
-#
-# ⛔ `CARGO_INCREMENTAL=0` for the reason `run_game.sh` sets it on every optimized
-# profile: an incremental optimized build has linked stale codegen under mold,
-# and rustc's incremental codegen-unit splitting means the artifact is not the
-# one the profiling numbers describe. An explicit setting from the caller wins.
+# Optimized incremental builds have previously linked stale codegen under mold.
+# Respect an explicit setting from the caller, otherwise disable incremental.
 if [[ -z "${CARGO_INCREMENTAL:-}" ]]; then
     export CARGO_INCREMENTAL=0
 fi
 
-cargo build -p ambition_app --bin "$BIN" --release --features static_map,static_content
+cargo build \
+    -p ambition_app \
+    --bin "$BIN" \
+    --release \
+    --features static_map,static_content
 
-# The cheapest possible proof that what is about to ship is what was just built.
-# Without it a wrong name is only caught by rsync's error — or not caught at all,
-# because a stale file of that name is still sitting in `target/release`.
+# Verify that the build produced the executable we intend to deploy.
 if [[ ! -x "target/release/$BIN" ]]; then
     echo "deploy: cargo build did not produce target/release/$BIN" >&2
     exit 1
@@ -64,47 +81,45 @@ rsync -av --delete \
     "target/release/$BIN" \
     "$DECK:$APPDIR/"
 
-# Deploy the already-composed tree, not two independently-maintained rsync
-# recipes. --delete makes the remote tree exactly match the audited package.
+# Deploy the already-composed asset tree.
 rsync -av --delete \
     "$PACKAGE_ASSETS/" \
     "$DECK:$APPDIR/assets/"
+
 rsync -av \
     "$ASSET_CONTRACT" \
     "$ASSET_HASH_MANIFEST" \
     "$DECK:$APPDIR/"
 
 # Compatibility symlinks:
-# - BEVY_ASSET_ROOT should be the app/root dir. Bevy's default asset folder is
-#   then $BEVY_ASSET_ROOT/assets, which matches the rsync destination above.
-# - Some preflight checks tolerate $BEVY_ASSET_ROOT/<rel_path>, so expose
-#   sprites/audio/ambition/fonts at the app root as compatibility symlinks too.
-# - The assets/assets -> . link also tolerates launchers that accidentally set
-#   BEVY_ASSET_ROOT=$APPDIR/assets.
+# - BEVY_ASSET_ROOT is the app directory.
+# - sprites/audio/ambition/fonts are exposed at the app root.
+# - assets/assets -> . tolerates launchers that point BEVY_ASSET_ROOT at assets.
 ssh "$DECK" "bash -s" <<EOF_REMOTE
 set -euo pipefail
 APPDIR='$APPDIR'
+
 cd "\$APPDIR"
 rm -rf sprites audio ambition fonts
 ln -sfn assets/sprites sprites
 ln -sfn assets/audio audio
 ln -sfn assets/ambition ambition
 ln -sfn assets/fonts fonts
+
 cd "\$APPDIR/assets"
 ln -sfn . assets
 EOF_REMOTE
 
-# ⛔ UNQUOTED HEREDOC: `$BIN` must expand HERE, while every other `$` belongs to
-# the launcher that runs on the Deck and is escaped.
+# The launcher locates its own installation directory. This is important for
+# side-by-side deployments: the same launcher works in ambition,
+# ambition-2026-08-30, or any future snapshot directory.
 ssh "$DECK" "cat > '$APPDIR/run_ambition.sh' && chmod +x '$APPDIR/run_ambition.sh'" <<EOF_INNER
 #!/usr/bin/env bash
 set -euo pipefail
 
-APPDIR="\$HOME/Games/ambition"
+APPDIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
 cd "\$APPDIR"
 
-# Important: this is the app/root directory, not the assets directory.
-# Bevy's default asset folder is "\$BEVY_ASSET_ROOT/assets".
 export BEVY_ASSET_ROOT="\$APPDIR"
 
 export RUST_BACKTRACE=1
@@ -113,22 +128,57 @@ export RUST_LOG="\${RUST_LOG:-warn}"
 exec "\$APPDIR/$BIN" "\$@"
 EOF_INNER
 
-# Verify every remote file against the same byte contract used locally. A
-# successful rsync is not enough evidence if a launcher/deploy path moved or a
-# filesystem normalized names unexpectedly.
+# Verify the remote installation against the same byte contract used locally.
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
+
 test -x "\$APPDIR/$BIN"
+
 cd "\$APPDIR/assets"
 sha256sum -c "\$APPDIR/asset-contract.steamdeck.sha256"
+
 test ! -e "\$APPDIR/assets/fonts/local"
 test -f "\$APPDIR/sprites/robot_spritesheet.png"
 test -f "\$APPDIR/assets/assets/audio/music/generated/long_lofi_drift/full.ogg"
 EOF_CHECK
 
+echo
 echo "Deployed to $DECK:$APPDIR"
 echo "Steam shortcut target: $APPDIR/run_ambition.sh"
-echo "Launcher sets BEVY_ASSET_ROOT=$APPDIR"
+echo "Launcher sets BEVY_ASSET_ROOT to its own installation directory"
 echo "Compatibility symlinks created: sprites/audio/ambition/fonts -> assets/..."
 echo "Excluded from deployment: assets/fonts/local/"
+
+
+#-----
+
+
+if [[ "$REGISTER_STEAM" == "1" ]]; then
+    STEAM_DESKTOP="$APPDIR/ambition.desktop"
+
+    ssh "$DECK" "cat > '$STEAM_DESKTOP'" <<EOF_STEAM
+[Desktop Entry]
+Type=Application
+Name=$STEAM_NAME
+Exec=$APPDIR/run_ambition.sh
+Path=$APPDIR
+Terminal=false
+Categories=Game;
+EOF_STEAM
+
+    ssh "$DECK" "chmod +x '$STEAM_DESKTOP'"
+
+    # Avoid creating another Steam shortcut every time this same snapshot
+    # is redeployed.
+    if ssh "$DECK" \
+        "grep -aFq '$STEAM_NAME' \
+            \$HOME/.local/share/Steam/userdata/*/config/shortcuts.vdf \
+            2>/dev/null"
+    then
+        echo "Steam shortcut already exists: $STEAM_NAME"
+    else
+        ssh "$DECK" "/usr/bin/steamos-add-to-steam '$STEAM_DESKTOP'"
+        echo "Registered Steam shortcut: $STEAM_NAME"
+    fi
+fi

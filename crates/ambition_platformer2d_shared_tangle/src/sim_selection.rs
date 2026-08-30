@@ -87,6 +87,38 @@ where
     candidates.into_iter().all(|c| identity(&c).is_some())
 }
 
+/// Whether the candidates' identities are all DISTINCT as well as present.
+///
+/// ⛔⛔ THE WEAKER CHECK IS NOT ENOUGH, and this is the second half of the same
+/// hole. [`every_candidate_is_identified`] answers "does everyone have a name";
+/// two candidates sharing one name still tie, and a tie still falls back to
+/// encounter order. An id derived from a fact that is not unique per entity —
+/// fixture geometry, a constant, a truncated key — passes the first check and
+/// fails to order anything.
+///
+/// A caller that sorts a population by identity alone (a constant metric) owes
+/// BOTH assertions.
+pub fn no_two_candidates_share_an_identity<T, I, D>(candidates: I, identity: D) -> bool
+where
+    I: IntoIterator<Item = T>,
+    D: for<'a> Fn(&'a T) -> Option<&'a SimId>,
+{
+    let mut seen: std::collections::BTreeSet<SimId> = std::collections::BTreeSet::new();
+    for candidate in candidates {
+        match identity(&candidate) {
+            // An unidentified candidate is the OTHER check's business; it is not
+            // a duplicate of anything, so this one does not fail on it.
+            None => continue,
+            Some(id) => {
+                if !seen.insert(id.clone()) {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
 fn beats<T, M, D>(candidate: &T, current: &T, metric: &M, identity: &D) -> bool
 where
     M: Fn(&T) -> f32,
@@ -218,6 +250,36 @@ mod tests {
         assert!(!every_candidate_is_identified(
             vec![c(1.0, "a"), anonymous(2.0)],
             |c: &Candidate| c.id.as_ref()
+        ));
+    }
+
+    /// ⛔⛔ THE WEAKER CHECK PASSES A POPULATION THAT ORDERS NOTHING. Two
+    /// candidates sharing one id are both "identified" and still tie, and a tie
+    /// against a constant metric is encounter order.
+    #[test]
+    fn identified_is_not_the_same_as_distinctly_identified() {
+        let duplicates = vec![c(0.0, "same"), c(0.0, "same")];
+        assert!(
+            every_candidate_is_identified(duplicates.clone(), |c| c.id.as_ref()),
+            "both carry a name"
+        );
+        assert!(
+            !no_two_candidates_share_an_identity(duplicates, |c| c.id.as_ref()),
+            "and the name is the same one, so it orders nothing"
+        );
+        assert!(no_two_candidates_share_an_identity(
+            vec![c(0.0, "a"), c(0.0, "b")],
+            |c| c.id.as_ref()
+        ));
+    }
+
+    /// An unidentified candidate is the OTHER check's business: it is not a
+    /// duplicate of anything, so distinctness does not fail on it.
+    #[test]
+    fn distinctness_does_not_double_report_a_missing_identity() {
+        assert!(no_two_candidates_share_an_identity(
+            vec![anonymous(0.0), anonymous(1.0)],
+            |c| c.id.as_ref()
         ));
     }
 }

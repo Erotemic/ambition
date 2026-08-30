@@ -150,9 +150,61 @@ pub struct GravityZonesCollected;
 
 /// Rebuild the [`GravityZones`] snapshot from the live zone components. Runs
 /// before the actor integrators each frame.
-pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&GravityZone>) {
+///
+/// ⛔⛔ THE SNAPSHOT'S ORDER IS THE PRECEDENCE RULE, and it used to be Bevy query
+/// order. Both resolvers below take the FIRST zone that contains the body, so
+/// when an authored column and a thrown gravity well overlap, the order this
+/// `extend` happened to produce decided which way gravity pulled. That is
+/// gameplay authority — which direction a body falls — settled by archetype
+/// order, which a resimulated tick can present differently.
+///
+/// ⭐ SO THE RULE IS WRITTEN DOWN HERE, in [`zone_precedence`]: a zone somebody
+/// THREW outranks the room's furniture, then the smaller region wins, then
+/// geometry breaks the remainder. Sorting the snapshot rather than teaching each
+/// resolver the rule keeps "first match wins" true at both call sites and leaves
+/// exactly one place that knows what first MEANS.
+pub fn collect_gravity_zones(
+    mut snapshot: ResMut<GravityZones>,
+    zones: Query<(&GravityZone, bevy::prelude::Has<TemporaryZone>)>,
+) {
+    let mut ranked: Vec<(u8, ambition_platformer2d_core::Aabb, Vec2)> = zones
+        .iter()
+        .map(|(zone, temporary)| (u8::from(!temporary), zone.aabb, zone.dir))
+        .collect();
+    ranked.sort_by(zone_precedence);
     snapshot.zones.clear();
-    snapshot.zones.extend(zones.iter().map(|z| (z.aabb, z.dir)));
+    snapshot
+        .zones
+        .extend(ranked.into_iter().map(|(_, aabb, dir)| (aabb, dir)));
+}
+
+/// Which of two overlapping gravity zones governs a body inside both.
+///
+/// ⭐ A THROWN WELL BEATS AN AUTHORED COLUMN. A gravity grenade is an action a
+/// participant took THIS SECOND and paid for; the column is room furniture that
+/// was always there. When they disagree, the thing somebody just did wins — and
+/// it expires on its own, so the column resumes without anyone arbitrating.
+///
+/// ⚠ THEN THE SMALLER REGION, because a small zone inside a big one reads as the
+/// more specific authoring. Then the geometry itself, which is a TOTAL order: two
+/// zones agreeing on rank, area, region and direction are the same pull, so which
+/// one answers cannot be observed.
+fn zone_precedence(
+    a: &(u8, ambition_platformer2d_core::Aabb, Vec2),
+    b: &(u8, ambition_platformer2d_core::Aabb, Vec2),
+) -> std::cmp::Ordering {
+    fn area(aabb: &ambition_platformer2d_core::Aabb) -> f32 {
+        let size = aabb.max - aabb.min;
+        size.x * size.y
+    }
+    a.0.cmp(&b.0)
+        .then_with(|| area(&a.1).total_cmp(&area(&b.1)))
+        .then_with(|| a.1.min.x.total_cmp(&b.1.min.x))
+        .then_with(|| a.1.min.y.total_cmp(&b.1.min.y))
+        .then_with(|| a.1.max.x.total_cmp(&b.1.max.x))
+        .then_with(|| a.1.max.y.total_cmp(&b.1.max.y))
+        .then_with(|| a.2.x.total_cmp(&b.2.x))
+        .then_with(|| a.2.y.total_cmp(&b.2.y))
 }
 
 /// A [`GravityZone`] that slides horizontally — a "gravity column riding a moving
@@ -213,7 +265,9 @@ pub fn oscillate_gravity_zones(
 }
 
 /// The localized gravity direction for a body whose center is at `pos`: the
-/// first [`GravityZone`] containing `pos`, else `base_dir` (the room ambient).
+/// HIGHEST-PRECEDENCE [`GravityZone`] containing `pos`, else `base_dir` (the room
+/// ambient). "First" is a rule, not an accident — [`collect_gravity_zones`] sorts
+/// the snapshot by [`zone_precedence`] so the front of the list is the winner.
 ///
 /// This is the heart of "gravity is local in space" — every non-player actor
 /// resolves gravity from its own position through this, so a body inside a
@@ -230,8 +284,8 @@ pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
     base_dir.normalize_or_zero()
 }
 
-/// The localized gravity direction for a BODY: the first [`GravityZone`] the
-/// body's AABB overlaps, else `base_dir`. This is the resolver the movement
+/// The localized gravity direction for a BODY: the highest-precedence
+/// [`GravityZone`] the body's AABB overlaps, else `base_dir`. This is the resolver the movement
 /// frame uses — a field grabs a body when the body TOUCHES it (the same rule
 /// [`resolve_active_gravity`] applies to the primary body), not when its center
 /// point crosses in; the point form above stays for cheap observation reads
@@ -528,6 +582,92 @@ mod tests {
         });
         app.update();
         assert_eq!(app.world().resource::<GravityZones>().zones.len(), 1);
+    }
+
+    /// ⛔⛔ WHICH GRAVITY WINS WAS ARCHETYPE ORDER. Both resolvers take the FIRST
+    /// zone containing the body, and the snapshot was built by an unsorted
+    /// `extend`, so an authored column overlapping a thrown well resolved by
+    /// whichever the query yielded first. That is the direction a body FALLS,
+    /// decided by spawn order.
+    ///
+    /// ⭐ THE THROWN WELL WINS, and this arm reverses only the spawn order to say
+    /// so twice.
+    #[test]
+    fn a_thrown_well_overrides_an_authored_column_it_overlaps() {
+        fn resolved(well_first: bool) -> Vec2 {
+            let mut app = App::new();
+            app.init_resource::<GravityZones>();
+            app.add_systems(Update, collect_gravity_zones);
+            let here = Vec2::new(100.0, 100.0);
+            // The column: a big authored region pulling UP.
+            let column = |app: &mut App| {
+                app.world_mut().spawn(GravityZone {
+                    aabb: ambition_platformer2d_core::Aabb::new(here, Vec2::new(200.0, 200.0)),
+                    dir: Vec2::new(0.0, -1.0),
+                });
+            };
+            // The well: a grenade's short-lived region pulling RIGHT.
+            let well = |app: &mut App| {
+                app.world_mut().spawn((
+                    GravityZone {
+                        aabb: ambition_platformer2d_core::Aabb::new(here, Vec2::new(60.0, 60.0)),
+                        dir: Vec2::new(1.0, 0.0),
+                    },
+                    TemporaryZone { remaining: 0.5 },
+                ));
+            };
+            if well_first {
+                well(&mut app);
+                column(&mut app);
+            } else {
+                column(&mut app);
+                well(&mut app);
+            }
+            app.update();
+            let zones = app.world().resource::<GravityZones>();
+            gravity_dir_at(here, zones, Vec2::new(0.0, 1.0))
+        }
+
+        let well_first = resolved(true);
+        let column_first = resolved(false);
+        assert_eq!(
+            well_first, column_first,
+            "which gravity a body inside both zones felt changed with the order \
+             they were spawned in ({well_first:?} vs {column_first:?})"
+        );
+        assert_eq!(
+            well_first,
+            Vec2::new(1.0, 0.0),
+            "the zone somebody THREW outranks the room's authored column"
+        );
+    }
+
+    /// And two authored columns that overlap still resolve the same way twice:
+    /// the smaller region is the more specific authoring, so it wins.
+    #[test]
+    fn the_smaller_of_two_authored_columns_governs_their_overlap() {
+        fn resolved(small_first: bool) -> Vec2 {
+            let mut app = App::new();
+            app.init_resource::<GravityZones>();
+            app.add_systems(Update, collect_gravity_zones);
+            let here = Vec2::new(100.0, 100.0);
+            let mut spawn = |half: Vec2, dir: Vec2| {
+                app.world_mut().spawn(GravityZone {
+                    aabb: ambition_platformer2d_core::Aabb::new(here, half),
+                    dir,
+                });
+            };
+            let big = (Vec2::new(200.0, 200.0), Vec2::new(0.0, -1.0));
+            let small = (Vec2::new(40.0, 40.0), Vec2::new(1.0, 0.0));
+            let (first, second) = if small_first { (small, big) } else { (big, small) };
+            spawn(first.0, first.1);
+            spawn(second.0, second.1);
+            app.update();
+            let zones = app.world().resource::<GravityZones>();
+            gravity_dir_at(here, zones, Vec2::new(0.0, 1.0))
+        }
+        assert_eq!(resolved(true), resolved(false));
+        assert_eq!(resolved(true), Vec2::new(1.0, 0.0), "the smaller region wins");
     }
 
     #[test]

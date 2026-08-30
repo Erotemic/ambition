@@ -196,6 +196,7 @@
     "feature.switch",
     "feature.switch_on",
     "gravity.flip_switch",
+    "gravity.oscillating_zone",
     "gravity.temporary_zone",
     "gravity.zone",
     "item.ground_item",

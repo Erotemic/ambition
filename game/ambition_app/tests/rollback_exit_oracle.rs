@@ -1599,6 +1599,11 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         ),
 
         (
+            "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeActivated",
+            "a session scope BEGAN — the sibling of `SessionScopeRetired` one entry up,          with the same sole writer (`translate_shell_session_lifecycle`) in literal          `Update`, so the same argument holds and the two go stale together. Its          reader re-establishes the process globals that mirror one live session,          which is `Update` work about a session that has not simulated a frame yet",
+        ),
+
+        (
             "ambition_load::plugin::LoadCommand",
             "asset-loading orchestration; `apply_load_commands` runs in Update, not              the GGRS schedule",
         ),

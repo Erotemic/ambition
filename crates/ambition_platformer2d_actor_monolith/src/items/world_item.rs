@@ -88,9 +88,22 @@ pub enum WorldItemPayload {
 /// is this function's business; whether the item is also residue of one ATTEMPT is
 /// the caller's, and it could not say so while this returned `()`. See
 /// `SpawnedThisAttempt` — *"one scope cannot answer both"*.
-pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) -> Entity {
+///
+/// ⛔⛔ `id` IS A PARAMETER, NOT A CONVENIENCE, and it is why this signature
+/// changed. [`collect_world_items`] resolves "which of two overlapping items does
+/// this body get" by [`SimId`] and a CONSTANT metric, so the identity is not a
+/// tie-break there — it is the entire ordering authority. Both spawn helpers used
+/// to attach none, which made that sort stable-LOOKING and encounter-ordered
+/// underneath: the guard's own test supplied the `SimId` production never did, so
+/// it agreed with the fix by construction while every real item stayed in query
+/// order. Taking the id here is what makes forgetting it a compile error.
+pub fn spawn_world_item(
+    commands: &mut Commands,
+    id: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    item: WorldItem,
+) -> Entity {
     commands
-        .spawn_room_scoped((item, Name::new("World item")))
+        .spawn_room_scoped((item, id, Name::new("World item")))
         .id()
 }
 
@@ -102,12 +115,14 @@ pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) -> Entity {
 /// naming which one you meant is worth a second function.
 pub fn spawn_moving_world_item(
     commands: &mut Commands,
+    id: ambition_platformer2d_shared_tangle::sim_id::SimId,
     item: WorldItem,
     plan: super::item_motion::ItemMotionPlan,
 ) -> Entity {
     commands
         .spawn_room_scoped((
             item,
+            id,
             super::item_motion::ItemMotion::new(plan),
             Name::new("World item"),
         ))
@@ -210,6 +225,7 @@ pub fn collect_world_items(
 mod tests {
     use super::*;
     use ambition_characters::equipment::{EquipmentGrant, OnHit};
+    use bevy::ecs::system::RunSystemOnce;
 
     fn kin(pos: ae::Vec2) -> BodyKinematics {
         BodyKinematics {
@@ -222,6 +238,14 @@ mod tests {
 
     /// A plain armor row (grow-cap shape): collecting equips it, the body ends
     /// up wearing it, and the item is gone.
+    /// A distinguishable row per item, so the arm can say WHICH one was collected.
+    fn row_named(id: &str) -> EquipmentRow {
+        EquipmentRow {
+            id: format!("row_{id}").into(),
+            ..armor_row()
+        }
+    }
+
     fn armor_row() -> EquipmentRow {
         EquipmentRow {
             id: "grow_cap".into(),
@@ -269,6 +293,117 @@ mod tests {
             .get::<WornEquipment>(body)
             .expect("collecting inserts a worn set on a bare body");
         assert!(worn.wears("grow_cap"), "the row is now worn");
+    }
+
+    /// ⛔⛔ THE ORDERING AUTHORITY PRODUCTION NEVER SUPPLIED, and the reason this
+    /// arm goes through the SEAM. `collect_world_items` orders contested items by
+    /// `SimId` against a CONSTANT metric, so identity is not a tie-break there —
+    /// it is the whole rule. Neither spawn helper attached one, so `sort_by`
+    /// compared `Equal` on every pair and Rust's stable sort preserved the input
+    /// order: the Bevy query order the sort was added to remove. The guard that
+    /// shipped with the fix spawned `WorldItem` and `SimId` by hand, which is the
+    /// one population where the bug cannot appear.
+    ///
+    /// ⭐ SO THE ARM REVERSES THE SPAWN ORDER. Two items in one archetype are
+    /// visited in spawn order, so if identity decides nothing the winner flips —
+    /// and if it decides everything, both arrangements collect the same item.
+    #[test]
+    fn which_of_two_overlapping_items_a_body_gets_does_not_depend_on_spawn_order() {
+        fn collected_row(first: &str, second: &str) -> String {
+            let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
+            let (a, b) = (first.to_string(), second.to_string());
+            app.world_mut()
+                .run_system_once(move |mut commands: Commands| {
+                    for id in [a.as_str(), b.as_str()] {
+                        spawn_world_item(
+                            &mut commands,
+                            ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
+                                &ae::GeoId::tile_layer("Blocks", id.parse().unwrap()),
+                            ),
+                            WorldItem::equipping(
+                                row_named(id),
+                                ae::Vec2::ZERO,
+                                ae::Vec2::new(12.0, 12.0),
+                            ),
+                        );
+                    }
+                })
+                .expect("the spawn seam runs");
+            app.update();
+            let worn = app
+                .world()
+                .get::<WornEquipment>(body)
+                .expect("one of the two items was collected");
+            for id in ["1", "2"] {
+                if worn.wears(&format!("row_{id}")) {
+                    return id.to_string();
+                }
+            }
+            unreachable!("neither row was equipped");
+        }
+
+        let forwards = collected_row("1", "2");
+        let backwards = collected_row("2", "1");
+        assert_eq!(
+            forwards, backwards,
+            "reversing the spawn order changed which item the body collected — the \
+             sort is falling back to query order, so the items carry no identity to \
+             order BY (got {forwards} then {backwards})"
+        );
+    }
+
+    /// And the population itself satisfies what the sort needs: every item is
+    /// identified, and no two share an id. ⛔ THE WEAKER HALF ALONE IS NOT ENOUGH
+    /// — two items spelling one id tie, and a tie is encounter order again.
+    #[test]
+    fn every_item_the_seams_spawn_is_distinctly_identified() {
+        use ambition_platformer2d_shared_tangle::sim_selection::{
+            every_candidate_is_identified, no_two_candidates_share_an_identity,
+        };
+        let mut app = App::new();
+        app.world_mut()
+            .run_system_once(|mut commands: Commands| {
+                spawn_world_item(
+                    &mut commands,
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
+                        &ae::GeoId::tile_layer("Blocks", 3),
+                    ),
+                    WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::splat(12.0)),
+                );
+                spawn_moving_world_item(
+                    &mut commands,
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
+                        &ae::GeoId::placement(ae::PlacementId::new("block-iid"), 0),
+                    ),
+                    WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::splat(12.0)),
+                    super::super::item_motion::ItemMotionPlan::still(),
+                );
+            })
+            .expect("the spawn seams run");
+
+        let world = app.world_mut();
+        let items: Vec<(
+            Entity,
+            Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        )> = world
+            .query_filtered::<(
+                Entity,
+                Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            ), With<WorldItem>>()
+            .iter(world)
+            .map(|(entity, id)| (entity, id.cloned()))
+            .collect();
+        assert_eq!(items.len(), 2, "both seams spawned an item");
+        assert!(
+            every_candidate_is_identified(items.iter(), |(_, id)| id.as_ref()),
+            "a world item joined the contested population with no SimId, so the \
+             collection order has nothing to sort by"
+        );
+        assert!(
+            no_two_candidates_share_an_identity(items.iter(), |(_, id)| id.as_ref()),
+            "two world items spell the same SimId, so they tie and fall back to \
+             query order"
+        );
     }
 
     /// The presentation `sprite` tag threads onto the item (default `None`) so the
@@ -475,6 +610,14 @@ mod tests {
 
         /// ⭐ THE PROPERTY. Reversing the order two contested items were spawned
         /// in must not change which one the body ends up wearing.
+        ///
+        /// ⛔⛔ AND THIS ARM PINS THE FUNCTION, NOT THE WIRING. It hands each item
+        /// the `SimId` production did not, so it stays GREEN while every real
+        /// world item sorts by nothing — measured: poisoning the spawn seam leaves
+        /// this test passing and fails
+        /// `which_of_two_overlapping_items_a_body_gets_does_not_depend_on_spawn_order`,
+        /// which is the arm that goes through the seam. Keep both: this one says
+        /// the rule is right, that one says the population obeys it.
         #[test]
         fn the_same_item_is_collected_whichever_order_the_two_were_spawned_in() {
             let forward = worn_with_spawn_order(["alpha", "omega"]);

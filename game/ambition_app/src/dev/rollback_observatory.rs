@@ -24,8 +24,8 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::rollback::{
-    self, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, ConfirmedFrameCount, LoadWorld,
-    LoadWorldSystems, Rollback, RollbackFrameCount, RollbackSessionStatus, RunGgrsSystems,
+    self, ActiveRollbackAuthority, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession,
+    ConfirmedFrameCount, LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems,
 };
 
 const DEFAULT_CHECK_DISTANCE: usize = 6;
@@ -424,7 +424,7 @@ fn observe_completed_host_update(
     time: Res<Time>,
     frame: Option<Res<RollbackFrameCount>>,
     confirmed: Option<Res<ConfirmedFrameCount>>,
-    status: Option<Res<RollbackSessionStatus>>,
+    authority: Option<Res<ActiveRollbackAuthority>>,
     mut state: ResMut<RollbackProofState>,
 ) {
     if state.session_mode != Some(OwnedSessionMode::Proof)
@@ -436,7 +436,7 @@ fn observe_completed_host_update(
     }
     state.current_frame = frame.as_deref().map_or(0, |frame| frame.0);
     state.confirmed_frame = confirmed.as_deref().map_or(-1, |frame| frame.0);
-    if let Some(status) = status.as_deref() {
+    if let Some(status) = authority.as_deref().map(ActiveRollbackAuthority::status) {
         state
             .mismatch_frames
             .extend(status.mismatch_frames.iter().copied());

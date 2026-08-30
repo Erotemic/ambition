@@ -9,9 +9,26 @@
 use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
-const FILE: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs";
 const POLICY_ID: &str = "engine.enemy-config-archetype-free";
-const STRUCTS: &[&str] = &["pub struct ActorConfig {", "pub struct ActorMut<'a> {"];
+
+/// The two durable structs and where each one is DECLARED.
+///
+/// ⛔⛔ ONE PATH FOR BOTH WAS A LATENT PANIC. `ActorConfig` left the monolith for
+/// `ambition_combat::actor_tuning` (aa70a41e3, 2026-08-26) and this scanner
+/// still read only `actor_clusters.rs`, so `engine_policies` aborted with
+/// "`pub struct ActorConfig {` not found" rather than reporting anything. A
+/// checker that locates its subject by a hard-coded path owes that path a
+/// per-subject entry, or the next move silently turns the gate into a crash.
+const STRUCTS: &[(&str, &str)] = &[
+    (
+        "pub struct ActorConfig {",
+        "crates/ambition_combat/src/actor_tuning.rs",
+    ),
+    (
+        "pub struct ActorMut<'a> {",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs",
+    ),
+];
 
 /// Fields of a struct body that name the roster enum. Doc/comment lines are
 /// skipped (a field's prose may say "projected from the archetype" while the
@@ -36,24 +53,28 @@ pub fn metas() -> Vec<CustomMeta> {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
         owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
-        watch_paths: vec![FILE.to_string()],
+        watch_paths: STRUCTS
+            .iter()
+            .map(|(_, file)| (*file).to_string())
+            .collect(),
         source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
         severity: Severity::Error,
     }]
 }
 
 pub fn run(ws: &Workspace, report: &mut Report) {
-    let text = std::fs::read_to_string(ws.abs(FILE)).expect("read actor_clusters.rs");
-    for struct_name in STRUCTS {
+    for (struct_name, file) in STRUCTS {
+        let text = std::fs::read_to_string(ws.abs(file))
+            .unwrap_or_else(|error| panic!("read {file}: {error}"));
         let fields = archetype_fields(&text, struct_name)
-            .unwrap_or_else(|| panic!("{struct_name} not found in {FILE}"));
+            .unwrap_or_else(|| panic!("{struct_name} not found in {file}"));
         for field in fields {
             report.push(Diagnostic {
                 policy_id: POLICY_ID.to_string(),
                 owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
                 source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
                 rationale: "durable enemy structs must stay archetype-free — project generic kit data (tuning/brain_spec/caps) at spawn instead of storing the roster enum".to_string(),
-                location: format!("{FILE} :: {struct_name}"),
+                location: format!("{file} :: {struct_name}"),
                 detail: format!("names the roster enum in a field: {field}"),
             });
         }

@@ -264,9 +264,8 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
 
     // Poison: as if the sim diverged this window.
     sim.world_mut()
-        .resource_mut::<ambition_platformer2d::rollback::RollbackSessionStatus>()
-        .mismatch_frames
-        .push(-999);
+        .resource_mut::<ambition_platformer2d::rollback::ActiveRollbackAuthority>()
+        .record_mismatch([-999]);
 
     // Step past the confirmation horizon: the committer sees the unhealthy
     // session and must NOT rebase (a rebase would erase the mismatch).

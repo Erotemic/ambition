@@ -1,5 +1,10 @@
 # GPT re-review 2026-08-30 — dynamic spawn anchors, schedule order, deterministic selection
 
+> ⚠ **This file is EVIDENCE, not status.** Whether a finding is still open lives
+> in [the status ledger](review-findings-status.md), which is the one place that
+> answers it. This file records what was claimed on a date and what was measured
+> in response, and is deliberately not rewritten when a row later lands.
+
 Snapshot reviewed: `e3499e3d2f57`, 42 commits after the `23e472c39fd4` tree of
 [the Rust-correctness review](gpt-review-2026-08-29-rust-correctness.md). Cargo was
 unavailable in the reviewer's environment, so every finding below is source review
@@ -34,7 +39,7 @@ twice independently.
 | 9 | Deterministic selection as a shared primitive (metric, then `SimId`) | architecture | ▣ landed; three adopters, more to convert |
 | 10 | Fuse arming still reads `vel != ZERO` instead of `Release::Throw` | P1 | ▣ landed |
 | 11 | Submerged: sweep knows the passability policy, penetration repair does not | P1 | ▣ landed |
-| 12 | Fighter-brain L3 rollout — **measure before changing** | — | ▣ measured; no code change, and none warranted |
+| 12 | Fighter-brain L3 rollout — **measure before changing** | confirmed | ◐ **confirmed bug, diagnosis pending** — see the correction below |
 
 Rows carried forward from the 2026-08-29 review and NOT re-litigated here: Mary-O
 `Local` room-transition state, quest/map-room edge detectors, held-projectile
@@ -503,9 +508,41 @@ perturbation.
 ⭐ **The null result is the whole value.** Without it, "the newer `RecoveryLens` is
 intended to address the too-short 12-tick horizon" is a plausible story that
 would eventually have been quoted as a fix. It is not one. Recorded in
-`dev/ambition_dev_measurements/README.md` beside the run it re-measures; no code
-changed, and on this evidence none should until somebody decides what l6 should
-do differently.
+`dev/ambition_dev_measurements/README.md` beside the run it re-measures.
+
+### ⛔⛔ The verdict this row first carried was wrong, and the follow-up review is right
+
+It read `▣ measured; no code change, and none warranted`, which is a CLOSED
+state. The measurement does not license it.
+
+Before the A/B, "rollout is hurting l6 recovery" was a plausible story and
+changing recovery code would have been premature. After it, l6 fails **45/45**
+with rollout on and **0/45** with it off, reproducibly, twice, with l1 unmoved as
+the control. That is not "nothing to do" — it is a **confirmed
+rollout-caused level-6 recovery regression whose DIAGNOSIS is missing**.
+
+⚠ **"I do not know which line to change" is not the same as "no change is
+warranted",** and collapsing the two is how a measured bug becomes a closed row.
+The first is a next experiment; the second is a decision nobody made.
+
+⭐ **The next experiment is narrower than another sweep, and the review names it.**
+The authority boundary is small — `decision.rs:347-372`, where L3's
+`suicidal_movement` filters L2's movement list. Instrument ONE l6
+`recovery_below` case at `refine_by_rollout` and capture, per tick:
+
+```text
+the L2 movement order
+each rolled movement line
+which verbs enter suicidal_movement
+RecoveryLens::regains_support's verdict for each
+least_bad_movement
+the movement finally chosen
+```
+
+Then run the identical seed with rollout disabled and diff the L2 choice that
+survives. That identifies the specific veto that converts the successful l6
+behaviour into the total failure. Carried as O10 in
+[the status ledger](review-findings-status.md).
 
 ---
 
@@ -528,3 +565,235 @@ stay open there: Mary-O `Local` room-transition state, quest/map-room edge
 detectors, held-projectile attacker provenance, folding `HeldProjectile` into
 `ProjectileSpawnRequest`, `ControlledSubject` vs `DrivenBodies` for custom item
 abilities, and the D199 swept-AABB / one-way policy.
+
+---
+
+# ▣ Follow-up 2026-08-30 — the second pass
+
+The re-review of `d7d1b940568b` accepted the codec/anchor correction and the
+live-archetype sweep, and then found four more defects **one level deeper**: two
+of them introduced or exposed by the nine commits that closed the rows above.
+That is the shape worth naming.
+
+⭐ **THE MODEL GREW A THIRD AXIS, and the reviewer's phrasing is better than
+mine.** The first pass separated two facts that had been one:
+
+> a codec answers **what bytes rewind**; an anchor answers **whether this entity
+> rewinds**.
+
+The follow-up adds the one that was still folded in:
+
+> stable identity/order answers **whether several rewound entities produce the
+> same decision when composed**.
+
+All three are independent, all three can be tested separately, and a fix for any
+one of them is silent about the other two. Every finding below is an instance:
+the entities in F1–F4 were correctly registered and correctly anchored by the
+previous pass, and were still non-deterministic.
+
+| # | Finding | Rank | State |
+|---|---------|------|-------|
+| F1 | The new `WorldItem` ordering is vacuous for production-spawned items | P1 | ▣ landed |
+| F2 | Two same-channel portal shots on one tick leave TWO portals | P1 | ▣ landed |
+| F3 | Authored oscillating gravity does not rewind; overlapping zones resolve by query order | P0 | ▣ landed |
+| F4 | Multiple vortex wells / sentries compose in query order | P1 | ▣ landed |
+| F5 | The two review documents disagree and have dropped open findings | bookkeeping | ▣ landed — [the status ledger](review-findings-status.md) |
+| F6 | Fighter-brain L6 rollout is a CONFIRMED regression, not a closed row | confirmed | ◐ reclassified above; diagnosis pending |
+
+---
+
+## ▣ F1 — A sort whose ordering authority production never attached
+
+`collect_world_items` orders contested items with a **constant metric**:
+
+```rust
+in_deterministic_order(items.iter(), |_| 0.0, |(entity, _)| sim_ids.get(*entity).ok())
+```
+
+so `SimId` is not a tie-break here — it is the **entire** rule. And neither spawn
+helper attached one. Every pair therefore compared `Equal`, and Rust's stable
+sort preserved the input order: **the Bevy query order the sort was added to
+remove.**
+
+### ⛔⛔ The guard agreed with the bug by construction
+
+The arm that shipped with the fix spawned `WorldItem` and `SimId` by hand — the
+one population where the defect cannot appear. Measured, by poisoning the seam so
+it drops the id:
+
+| arm | under the poison |
+|---|---|
+| `which_item::the_same_item_is_collected_whichever_order_…` (hand-built) | **green** |
+| `which_of_two_overlapping_items_a_body_gets_does_not_depend_on_spawn_order` (through the seam) | **red** |
+| `every_item_the_seams_spawn_is_distinctly_identified` (through the seam) | **red** |
+
+Both arms are kept. The hand-built one says the RULE is right; the seam arms say
+the POPULATION obeys it, and only the second kind can fail here.
+
+### The fix
+
+`spawn_world_item` and `spawn_moving_world_item` now **take** a `SimId`. Not
+attach one internally — take one, so forgetting it is a compile error rather than
+a silent tie. Mary-O's popped reward derives its identity from the block that
+owes it: `SimId::geometry(&GeoId)`, a new constructor in the `SimId` vocabulary,
+because a `GeoId` is a source plus an ordinal and folding it into
+`SimId::placement` would let block 1 of placement `p` and the actor placed at `p`
+claim one identity. A block pops at most one item per attempt, and the room
+reload that re-arms the block is the same one that despawns the old item.
+
+### ⚠ And the weaker population check is not enough
+
+`every_candidate_is_identified` asks "does everyone have a name". Two candidates
+sharing one name still tie, and a tie is encounter order again — so an id derived
+from a fact that is not unique per entity passes it and orders nothing.
+`sim_selection` gained `no_two_candidates_share_an_identity`, and a caller that
+sorts by identity alone owes **both**.
+
+---
+
+## ▣ F2 — Widening a producer made a downstream assumption live
+
+`portal_fire_system` used to keep `read().last()`, so one tick could never
+produce two shots. Repairing that loss is what made this reachable:
+
+`shot_adapter` applied each shot against the same **pre-system** `portals` query
+while its despawn/spawn sat in a deferred command buffer. Two blue shots landing
+on one tick therefore both despawned the old blue and both spawned a new one —
+and `PlacedPortal`'s entire API assumes at most one per channel (`find_portal` is
+a `.find()`). The extra portal was unreachable geometry that still carved the
+world.
+
+⭐ **A fix that widens a producer owes a look at every consumer that was narrow
+because the producer was.** That is the transferable half of this row.
+
+### The winner
+
+**The newest shot**, which is what "opens **or replaces**" already meant. Among
+shots resolving on one tick there is no later, so the rule reads the shot's own
+age: `traveled` is distance at a fixed speed, so the smallest traveled was fired
+most recently. Geometry breaks the remaining tie, and a tie *there* means two
+shots that would place the identical portal.
+
+⛔ **Deliberately not `sim_selection::winner_by`.** Its tie-break vocabulary is
+`SimId` and a portal shot carries none — but here the placement is fully
+determined by its own geometry, which is a *stronger* tie-break than an id: two
+shots with equal keys produce byte-identical portals, so the choice cannot be
+observed. Inventing an identity to order by would have been ceremony.
+
+Two arms, both poison-verified: removing the dedupe leaves two blue portals;
+removing the sort alone flips which one survives (`300` vs `100`).
+
+---
+
+## ▣ F3 — The P0 that fell out of every list
+
+This was a P0 in the [2026-08-29 review](gpt-review-2026-08-29-rust-correctness.md),
+was not in this file's carry-forward paragraph, and was **still live in the
+source**. Nobody dropped it; it simply stopped appearing on any list a session
+would regenerate. See F5.
+
+### ⛔⛔ The generalization that was wrong
+
+`TemporaryZone`'s registration note reasoned:
+
+> an authored column is room geometry a room load rebuilds … only the zone with a
+> lifetime is dynamic
+
+True of a **static** column. False of an oscillating one. `oscillate_gravity_zones`
+runs every simulation tick, advances `phase`, and rewrites the zone's `aabb` from
+it — so an authored column carries authoritative MUTABLE state, and re-running
+the constructor rebuilds phase **zero**, not the phase at historical tick N.
+
+Measured: the sandbox authors exactly **one**, in `gravity_lab`, amplitude 150.
+
+`OscillatingZone` now carries the anchor and a phase-probed codec. Still only the
+moving ones: a static column omits the component entirely, so the walls of
+gravity stay out of the sweep. Schema **v138 → v139**, both baselines moved.
+
+⭐ **The arm measures the PREMISE first.** It asserts the phase actually advances
+over 30 ticks before it asserts the anchor, because "this state is mutable" is the
+whole reason the anchor is owed — a column that never moved would need no
+snapshot and the test would be agreeing with nothing.
+
+### And the second half: which gravity wins
+
+`collect_gravity_zones` built its snapshot with an unsorted `extend`, and **both**
+resolvers take the first zone containing the body. So when an authored column
+overlapped a thrown gravity well, archetype order decided which way a body fell.
+
+The rule is now written down in `zone_precedence`, and the snapshot is sorted
+rather than each resolver taught it — which keeps "first match wins" true at both
+call sites and leaves exactly one place that knows what *first* means:
+
+| rank | rule | why |
+|---|---|---|
+| 1 | a zone somebody THREW beats an authored one | a grenade is an action a participant took this second and paid for; the column is furniture. It expires on its own, so the column resumes with nobody arbitrating |
+| 2 | the smaller region | a small zone inside a big one is the more specific authoring |
+| 3 | region, then direction | total, and two zones agreeing on all of it are the same pull |
+
+---
+
+## ▣ F4 — Anchored, rewound, and still not repeatable
+
+The cleanest demonstration of the third axis. `update_vortex_wells` lerps each
+body a fraction `f` toward each well's own centre, so A-then-B ends `f²·(B−A)`
+away from B-then-A. **Measured** by reversing only the spawn order:
+
+```text
+forwards   Vec2(14.720002, 16.000002)
+backwards  Vec2(16.000002, 14.720002)
+                    ^ 1.28px, in ONE TICK
+```
+
+which is exactly the review's arithmetic — `f = 5 × 0.016 = 0.08`, wells 200px
+apart, `0.0064 × 200 = 1.28`. Three orders of magnitude past a rounding
+difference, from iteration order alone. Two live wells is ordinary: they last
+0.9s and nothing stops a caster opening a second.
+
+`update_sentries` had the same shape one level out. Its nearest-target tie-break
+was repaired last pass; the loop AROUND it still ran in query order, and two
+turrets ready on one tick write two `ProjectileSpawnRequest`s whose GLOBAL
+`ProjectileSeq` is handed out in request order — so archetype order chose which
+bolt got which sequence, and therefore which identity each bolt minted.
+
+⛔⛔ **And the chain broke one link above where anybody was looking.** A bolt's
+`SimId` is `SimId::spawned(owner, ..)` where the owner is the TURRET. An unnamed
+turret produced bolts that `mint_spawned_sim_ids` skips entirely — so sentry
+bolts were not merely mis-ordered, they were **unidentified**.
+
+### The fix
+
+`deploy_sentry` and `open_vortex_well` take an identity, minted at the fire site
+as `SimId::spawned(deployer, counter.next())` from the deployer's own
+`SimIdCounter`. Both composition loops order by the entity's **own state first,
+identity last**:
+
+```text
+vortex   (centre.x, centre.y, remaining_s, SimId)
+sentry   (pos.x, pos.y, remaining_s, fire_cooldown, SimId)
+```
+
+⭐ **State before identity is deliberate.** State determines the transformation
+completely, so two candidates tying on it *are* the same operation and may be
+applied either way round — which keeps an unidentified fixture population
+repeatable too. The `Option<SimId>` is the fixture road, not a hedge, and it
+never decides the order.
+
+---
+
+## ▣ F5 — One file is status; dated files are evidence
+
+Measured against the source on 2026-08-30:
+
+```text
+listed OPEN in the 08-29 file but LANDED             4 rows
+listed as CARRIED FORWARD by this file               6 rows
+still open and named by NEITHER carry list           3 rows
+    gravity authority/ordering  ← and it was a live P0
+    trapdoor UntilPressedAgain
+    quadratic InputStreamRecorder
+```
+
+[`review-findings-status.md`](review-findings-status.md) is now the one place a
+row's state lives. Dated files keep whatever they said — the evidence of what was
+believed on a date is what makes the next review's disagreement legible.

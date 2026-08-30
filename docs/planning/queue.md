@@ -279,27 +279,37 @@ below it and on different silicon.
   a CAP and must never RAISE a scale factor, or a tier meant to make things
   cheaper tells a 1x laptop to rasterise at 2x.
 
-- ▢ **D-RASTER-2 — every 2D draw goes through the TRANSPARENT pass, so nothing
+- ◐ **D-RASTER-2 — every 2D draw goes through the TRANSPARENT pass, so nothing
   can be depth-rejected.** ~5.3x overdraw (41,482,624 fragments against a
   7,818,240-pixel framebuffer) with `main_opaque_pass_2d` at **zero**. The
   largest remaining lever on weak hardware and the first that is engine work
   rather than a setting.
-  ⛔⛔ **THE PREREQUISITE THIS ROW NAMED CANNOT BE MET BY THE FILE IT NAMED.**
+  ⛔⛔ **THE PREREQUISITE THIS ROW NAMED COULD NOT BE MET BY THE FILE IT NAMED.**
   It said to confirm from `draw_census.csv` WHICH entities produce the
-  fragments. That file's columns are `wall_s,t,sprites,sprites_visible,text2d,
-  per_view_projections` — POPULATION ONLY, no per-entity screen area — so it
-  cannot attribute overdraw at all. Checked 2026-08-30 across every bundle:
-  peak `sprites_visible` is **76**, with `text2d` 15 and
-  `per_view_projections` **6**.
-  ⭐ 76 sprites cannot make 41.5M fragments unless some cover the viewport, and
-  the only viewport-sized quads in the scene are the PARALLAX PANELS —
-  `sync_parallax_layers` sizes each against the owning view's own rectangle, and
-  there are up to 4 of them per view across 6 projections. That is the arithmetic
-  to go and confirm, and it points at the parallax stack rather than at
-  character sprites.
-  **Next step is an instrument, not a fix:** extend the census to record drawn
-  AREA per layer/entity. Until it does, any depth-rejection work is aimed by
-  inference.
+  fragments. That file's columns were `sprites`, `sprites_visible`, `text2d`,
+  `per_view_projections` — ALL COUNTS, no screen area — so it could not attribute
+  overdraw at all. Across every recorded bundle peak `sprites_visible` is **76**,
+  and 76 sprites cannot make 41M fragments unless some cover the viewport.
+  Counting them again more precisely would never have said which.
+  **Instrument landed 2026-08-30:** `report_draw_census` now also emits
+  `sprite_area`, `sprite_area_max` and `sprite_area_unsized`; the census CSV
+  writer derives its columns from the emitted keys, so `draw_census.csv` grows
+  them with no parser change.
+  ⚠ World units, not pixels — converting needs each sprite's view and
+  projection, a per-view question this per-world pass has no business answering.
+  The `sprite_area_max` / `sprite_area` RATIO is what identifies a few
+  viewport-sized panels hiding among many small sprites, and a ratio does not
+  care about the unit.
+  ⚠ `sprite_area_unsized` counts visible sprites with no `custom_size`, whose
+  extent comes from their image and cannot be resolved without the asset store.
+  They are EXCLUDED, not guessed at zero, so a row with a large `unsized` has
+  area columns that are a FLOOR.
+  ▢ **REMAINING: capture a bundle on `calculex` and read the ratio**, then do
+  the engine work. The standing hypothesis, from `per_view_projections=6` and
+  `sync_parallax_layers` sizing each panel to its view's own rectangle, is that
+  the fragments are the PARALLAX PANELS multiplied across views rather than
+  character sprites — but that is an inference until the ratio is read, and this
+  VM cannot capture it (see D-RASTER-3: no GPU, only lavapipe).
 
 
 - ▢ **D-BG-1 — Jon, 2026-08-30: *"backgrounds aren't rendering"* — NOT

@@ -281,13 +281,37 @@ pub fn report_view_census(
     }
 }
 
-/// The draw population: how much there IS, and how much of it survived
-/// visibility. A large gap between the two is work the scene created and the
-/// renderer then threw away.
+/// The draw population: how much there IS, how much of it survived visibility,
+/// and how much SCREEN it covers. A large gap between the first two is work the
+/// scene created and the renderer then threw away; a large third number against
+/// a small second one is overdraw.
+///
+/// ⭐⭐ THE AREA COLUMNS EXIST BECAUSE POPULATION COULD NOT ANSWER THE QUESTION
+/// THE CENSUS WAS BEING ASKED. D-RASTER-2 measured ~5.3x overdraw — 41,482,624
+/// fragments against a 7,818,240-pixel framebuffer — and told the next reader to
+/// confirm from `draw_census.csv` WHICH entities produced them. It could not:
+/// the row was `sprites`, `sprites_visible`, `text2d`, `per_view_projections`,
+/// all COUNTS. Peak `sprites_visible` across every recorded bundle is 76, and 76
+/// sprites cannot make 41M fragments unless some of them cover the viewport.
+/// Counting them again at higher precision would never have said which.
+///
+/// ⛔ WORLD UNITS, NOT PIXELS, AND THE NAME SAYS SO. Turning these into screen
+/// pixels needs each sprite's view and that view's projection, which is a
+/// per-view question this per-world pass has no business answering. The ratio
+/// between `sprite_area` and `sprite_area_max` is what identifies a few
+/// full-screen panels hiding among many small sprites, and a ratio does not care
+/// about the unit.
+///
+/// ⚠ `sprite_area_unsized` IS PART OF THE READING, NOT A FOOTNOTE. A `Sprite`
+/// with no `custom_size` takes its extent from its image, which this pass cannot
+/// resolve without the asset store — so those are counted and EXCLUDED rather
+/// than guessed at zero. A row whose `unsized` is large is a row whose area
+/// columns are a floor, and reading it as a total would understate exactly the
+/// entities most likely to be big.
 #[allow(clippy::type_complexity)]
 pub fn report_draw_census(
     census: Res<RuntimeCensus>,
-    sprites: Query<Option<&ViewVisibility>, With<Sprite>>,
+    sprites: Query<(Option<&ViewVisibility>, &Sprite, &GlobalTransform)>,
     texts: Query<(), With<Text2d>>,
     projections: Query<(), With<PresentedForView>>,
 ) {
@@ -296,15 +320,32 @@ pub fn report_draw_census(
     };
     let mut sprite_total = 0usize;
     let mut sprite_visible = 0usize;
-    for visibility in &sprites {
+    let mut area_total = 0.0f32;
+    let mut area_max = 0.0f32;
+    let mut unsized_visible = 0usize;
+    for (visibility, sprite, transform) in &sprites {
         sprite_total += 1;
-        if visibility.is_some_and(|visible| visible.get()) {
-            sprite_visible += 1;
+        if !visibility.is_some_and(|visible| visible.get()) {
+            continue;
+        }
+        sprite_visible += 1;
+        let Some(size) = sprite.custom_size else {
+            unsized_visible += 1;
+            continue;
+        };
+        // The drawn quad is the authored size times whatever the transform does
+        // to it; `abs` because a mirrored sprite covers the same ground.
+        let scale = transform.scale();
+        let area = (size.x * scale.x).abs() * (size.y * scale.y).abs();
+        area_total += area;
+        if area > area_max {
+            area_max = area;
         }
     }
     eprintln!(
         "[census] draws t={at:.3} sprites={sprite_total} sprites_visible={sprite_visible} \
-         text2d={} per_view_projections={}",
+         text2d={} per_view_projections={} sprite_area={area_total:.0} \
+         sprite_area_max={area_max:.0} sprite_area_unsized={unsized_visible}",
         texts.iter().count(),
         projections.iter().count(),
     );

@@ -22,6 +22,18 @@ data/content source
 
 This is already powerful and particularly well suited to LLM agents.
 
+For the Godot-class capability target, this ladder is judged by **what behavior a
+game can express and ship**, not by whether Ambition has a GDScript-shaped entry
+point. Godot's scripting/extension stack is useful evidence that games need both
+low-friction authored behavior and deep native extension. Ambition may satisfy
+those needs through prepared authored rules plus Rust/Bevy plugins instead.
+
+Runtime scripting becomes necessary only if a real requirement remains unsolved:
+for example user modding without recompilation, downloadable behavior, or a
+deployment boundary where Rust provider crates are impractical.
+
+See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
 ⭐ **the orchestration rung is new and is the one identified gap** — authoring is
 strong for nouns and weak for verbs and relationships over time. It is owned by
 [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).
@@ -44,7 +56,7 @@ not answer it.
 
 A reusable Ambition capability should look like an ordinary Bevy plugin whenever
 that model fits. See
-[`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy.md).
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md).
 
 ## Open design questions — deliberately unresolved
 

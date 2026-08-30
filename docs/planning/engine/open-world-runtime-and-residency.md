@@ -72,7 +72,7 @@ lets a game/world provider supply preparation and instantiation adapters.
 
 Whether this belongs in `ambition_platformer2d_world`, `ambition_load`, a new
 world-runtime crate, or a split between them is **not decided**. Use
-[`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy.md)
+[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md)
 before carving.
 
 ## Acceptance pressure

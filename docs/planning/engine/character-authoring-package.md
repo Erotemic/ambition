@@ -142,7 +142,7 @@ Do not generalize those merely because several games use the same character.
 
 ## Action-authoring residuals
 
-The old `character-actions.md` campaign is folded here. Two trigger-based
+The completed character-actions campaign is folded here. Two trigger-based
 questions remain:
 
 - only generalize prompt layout when a real repertoire exceeds the current

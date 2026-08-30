@@ -18,6 +18,33 @@ Unless Jon or a new reproducible report changes the order:
 6. serious secondary game customers;
 7. trigger-based work only after its trigger exists.
 
+## Competitive 2D engine bar
+
+Use [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md)
+as a gap detector when replenishing work. It is not a second queue and it is not
+an editor-parity checklist. Promote a capability gap only when a real Ambition or
+secondary-game customer lacks a supported engine path, then prefer Bevy/ecosystem
+machinery for generic concerns and add Ambition policy only where stronger
+semantics are needed.
+
+Standing competitive pressure that is legitimate even when not immediately
+executable:
+
+- external/minimal game proof that public capabilities compose into a buildable,
+  testable, packageable 2D project;
+- LLM-first discovery/inspection/mutation/validation across engine and authored
+  vocabulary;
+- structured diagnostics/provenance/why-not answers that do not require a GUI
+  inspector or implementation grep;
+- real-customer audits of rendering, animation/VFX, audio, UI, input, assets and
+  platform/export completeness;
+- measured runtime, hitch/memory and build/test budgets on declared target
+  profiles.
+
+Do not promote scene-editor cloning, visual scripting, GDScript parity, general
+3D breadth, a plugin marketplace, or a general rigid-body layer without an
+actual product requirement.
+
 ## Engine architecture reservoir
 
 ### Persistent systemic world

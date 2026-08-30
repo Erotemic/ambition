@@ -1,7 +1,7 @@
 # HEAD orientation
 
-**Reviewed baseline:** `26ec7b1997f3671b47c7ccf2c6daf6ec0a693287` —
-`A retired game's rollback health was the next game's` (2026-08-30).
+**Reviewed baseline:** `4e5f59cf753a62105cbc9fd53aa9697d337d0eed` —
+`Update docs phase 2` (2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated
@@ -97,6 +97,34 @@ those claims without new evidence.
 See [`architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md)
 and [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 
+## Engine-product posture
+
+Ambition is targeting a **Godot-class 2D engine capability surface**, but not a
+Godot-style editor product. The comparison is engine expressiveness, runtime/build
+efficiency, composition, diagnostics, portability and the ability for another
+serious 2D game to use supported capabilities.
+
+The preferred authoring surface is LLM-first and semantic: machine-readable
+discovery, structured inspection, transactional mutation where formats are
+fragile, validation/preparation, deterministic test scenarios, concise visual
+review artifacts and noninteractive build/package commands. Human visual editors
+are optional frontends for genuinely visual/manual tasks.
+
+Current strengths include specialized platformer movement/collision, deterministic
+headless/rollback-oriented simulation, prepared content and construction, strong
+secondary-game pressure, generated sprite/music/SFX pipelines, LDtk semantic
+tooling, and an increasingly semantic public facade.
+
+The largest product-level completeness gaps are persistent/open-world
+reconstitution, public SDK/capability closure, asset materialization/residency and
+weak-GPU quality, external project build/package, structured provenance/why-not
+diagnostics, authored gameplay orchestration, and remaining multiplayer/multiview
+maturity. Ordinary rendering/UI/audio capability should be audited from real game
+needs and composed from Bevy/ecosystem facilities where that is the cleaner path.
+
+See
+[`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
+
 ## Current performance model
 
 ### Simulation CPU
@@ -173,10 +201,11 @@ Questions that genuinely need Jon rather than engineering inference are in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Answered
 rulings live in [`maintainer-decisions.md`](maintainer-decisions.md).
 
-Dated GPT review files are evidence, not status. Review findings that still need
-work are promoted to the queue or tracks; see
-[`triage/review-findings-status.md`](triage/review-findings-status.md) for the
-routing rule.
+Dated GPT review files are evidence, not status. Phase 3 removes the closed dated
+review reports from live planning; git history retains them. Any review finding
+that still needs work must be promoted directly to the queue, tracks, a focused
+plan, a maintainer decision, or Jon's direct-observation file. The routing rule is
+part of [`README.md`](README.md), not a second review-status ledger.
 
 ## Product and engine customers
 

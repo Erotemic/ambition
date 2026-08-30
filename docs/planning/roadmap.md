@@ -117,6 +117,40 @@ Owners:
 - [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 - [`game/reactive-characters-and-dialogue.md`](game/reactive-characters-and-dialogue.md)
 
+## Cross-cutting Engine 1.0 competitive capability bar
+
+The priority order above is architecture sequencing. Engine 1.0 also has a
+**product completeness bar**: it must be able to support serious 2D games across
+ordinary rendering, movement/collision, animation/VFX, audio, UI, input, assets,
+persistence, diagnostics, headless testing and project build/package concerns.
+
+That bar is owned by
+[`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
+It is deliberately not an editor roadmap. Ambition competes through engine
+capability, runtime/build efficiency, semantic expressiveness, public composition,
+inspectability and LLM-first operation.
+
+Use the capability map as a **gap detector**, not as a second queue:
+
+1. a real game/customer exposes a missing ordinary engine capability;
+2. check whether Bevy or a maintained ecosystem plugin already supplies the
+   generic mechanism;
+3. identify the semantic/composition/public layer Ambition actually lacks;
+4. route the executable slice to the focused plan and queue;
+5. verify it through Ambition plus a materially different customer where the
+   boundary is supposed to be reusable.
+
+Do not promote visual-editor parity, visual scripting, a scripting-language
+clone, a plugin marketplace, general 3D breadth, or generic rigid-body ownership
+merely to make the feature list resemble Godot.
+
+The current highest-value competitive gaps line up with the architecture order:
+correct deterministic/lifetime semantics; canonical reconstitution; persistent
+world behavior; public SDK/capability closure; asset/raster/runtime quality;
+project build/package; structured diagnostics; authored orchestration; and
+multiplayer/multiview maturity. Presentation/UI/audio gaps should be filled from
+real game pressure rather than replacement-framework campaigns.
+
 ## Controlled-character work is no longer a roadmap gate
 
 The first major decision-authority convergence has landed. Remaining

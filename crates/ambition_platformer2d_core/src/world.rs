@@ -693,7 +693,7 @@ impl SurfaceChain {
         twice_area * 0.5
     }
 
-    /// Authoring validation (the pragmatic tier from `spatial-model.md`:
+    /// Authoring validation (the pragmatic tier from `docs/architecture/spatial-model.md`:
     /// catch the geometry that would masquerade as physics bugs). Returns
     /// human-readable problems; empty = valid.
     pub fn validate(&self) -> Vec<String> {

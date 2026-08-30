@@ -19,6 +19,17 @@ The governing oracle remains:
 > capability through supported Bevy/plugin/provider seams without editing
 > Ambition-specific engine code?
 
+Engine architecture is only one part of the 1.0 bar. A credible engine product
+also needs ordinary 2D capability completeness, measured runtime/build
+efficiency, a coherent public extension surface, structured diagnostics, and an
+agent-operable path from intent to validated/packageable game change. The
+cross-program acceptance map is
+[`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
+That comparison is about **engine capability and expressiveness**, not editor
+parity. Visual/manual tools are optional frontends; LLM-first semantic operation
+is the preferred authoring model.
+
 ## Current architecture gate
 
 The immediate gate is **authoritative-state correctness across reconstruction and
@@ -133,7 +144,7 @@ presentation from the same session/actor/world semantics rather than introducing
 multiplayer-only ontology.
 
 Owners: [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md),
-[`camera-reference-frame-policy.md`](camera-reference-frame-policy.md), and
+[`../../systems/camera-reference-frames.md`](../../systems/camera-reference-frames.md), and
 [`../game/multiplayer.md`](../game/multiplayer.md).
 
 ### E9 — agent-native authoring and world tools
@@ -171,6 +182,20 @@ Owners:
 - [`ui-localization-and-accessibility.md`](ui-localization-and-accessibility.md)
 - [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md)
 
+### E12 — Godot-class 2D capability and expressiveness
+
+Continuously test whether the collection of programs above adds up to a usable
+engine rather than a set of elegant subsystems. The competitive bar covers
+ordinary 2D rendering/presentation, movement/collision, animation/VFX, audio,
+UI, input, assets/readiness, persistence, diagnostics, headless execution,
+platform/build/package, extension and SDK capability.
+
+The bar does **not** require Godot-style editor workflows. Generic capability may
+come directly from Bevy or an ecosystem plugin; Ambition owns the semantic
+contracts and specializations that its games actually need.
+
+Owner: [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
 ## Cross-program rules
 
 1. **Ambition first, reusable second, neither sacrificed.**
@@ -200,6 +225,12 @@ Owners:
 11. **Do not pre-generalize without a real customer.**
 12. **Every focused plan names genuine unresolved questions.** Product/design
     choices go to `awaiting-maintainer-decision.md` rather than being inferred.
+13. **Compete on engine capability, not editor mimicry.** LLM-first semantic
+    discovery/mutation/validation is a primary authoring surface; GUI work is
+    justified by a visual/manual task, not by another engine having a panel.
+14. **Commodity capability may stay Bevy-native.** A complete engine product does
+    not imply an Ambition wrapper for rendering, physics, UI, audio, assets, or
+    platform services that Bevy already supplies adequately.
 
 ## Program-level exit shape
 
@@ -225,7 +256,15 @@ A credible 1.0 should make these statements unsurprising:
   budgets rather than incidental burst behavior;
 - reusable domains can become standalone Bevy plugins without dragging Ambition
   policy with them;
-- public SDK, diagnostics and project workflows are usable outside Ambition.
+- public SDK, diagnostics and project workflows are usable outside Ambition;
+- another substantial 2D game has supported paths for ordinary presentation,
+  animation/VFX, audio, UI, input, assets/loading, persistence and packaging
+  without building private replacements around the engine;
+- a capable LLM agent can discover, inspect, author, validate, test and package a
+  representative cross-domain change without operating a monolithic editor or
+  learning internal crate topology;
+- capability gaps are judged against real game expressiveness and measured
+  runtime/build cost, not against another engine's UI feature count.
 
 ## Open program questions
 

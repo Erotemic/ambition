@@ -1,7 +1,7 @@
 # Small Manifesto: Frame Awareness
 
 > **Status: Jon's design position (2026-07-05), captured verbatim.** The third
-> binding manifesto, beside [`spatial-model.md`](spatial-model.md) (space) and
+> binding manifesto, beside [`../../architecture/spatial-model.md`](../../architecture/spatial-model.md) (space) and
 > the relativity principle it generalizes. Adjudicated into working discipline
 > as **AJ13** in the archived 07-05 plan
 > ([`../../archive/reviews/fable-demo-plan-2026-07-05.md`](../../archive/reviews/fable-demo-plan-2026-07-05.md));
@@ -40,7 +40,7 @@ may follow a designated subject's resolved frame so gravity changes visually
 rotate the world around that body. The choice belongs to the **view/context**,
 not to gravity simulation and not to a global player singleton. Existing modes
 remain valid; future multiview may choose independently per view. See
-[`camera-reference-frame-policy.md`](camera-reference-frame-policy.md).
+[`../../systems/camera-reference-frames.md`](../../systems/camera-reference-frames.md).
 
 We should not build a grand frame graph before we need it. We should not
 infect every system with abstract machinery too early. But we should write

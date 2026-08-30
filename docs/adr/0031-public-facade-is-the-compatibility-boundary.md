@@ -81,7 +81,7 @@ and made the consumer re-derive.** This ADR generalises that method to the API
 itself.
 
 It is also what
-[`../planning/engine/decomposition.md`](../planning/engine/decomposition.md)
+[`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md)
 already anticipated. Its settled "no size-driven `ambition_platformer2d_actor_monolith` carve" ruling
 ends: *"This ruling does not protect misplaced named content or prevent a later
 split that **a real second consumer demonstrates**."* Building the public API

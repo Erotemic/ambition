@@ -11,6 +11,14 @@ require consumers to understand Ambition's internal crate history. Internal
 architecture remains free to change aggressively until the semantic surface has
 proved itself across real consumers.
 
+For the Godot-class 2D target, the SDK is the proof that engine capability is
+actually reusable. A feature that only Ambition can reach through private crates
+is not yet a competitive engine capability, even if the implementation exists.
+The SDK does not need to wrap every Bevy API; it needs to make the supported
+composition story obvious and stable.
+
+See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
 ## Primary customers
 
 1. **Ambition** — deepest integration and primary product driver.
@@ -33,8 +41,12 @@ A consumer should be able to discover coherent APIs for:
 - simulation queries/events and headless stepping;
 - multiplayer participant/control declarations;
 - local views/presentation policies;
+- semantic animation/VFX/audio/UI hooks where Ambition adds policy beyond Bevy;
+- asset identity, readiness/preparation and provider registration;
 - persistence/audio/network host services where installed;
-- diagnostics, preparation errors and content provenance.
+- diagnostics, preparation errors and content provenance;
+- supported project/target composition needed to build and package an external
+  game.
 
 That list is a product map, not a request to create one giant SDK crate.
 
@@ -97,9 +109,26 @@ failures and simulation facts without importing internal debug crates.
 Maintain small complete examples for the common paths. Examples must build
 against the same public surface external games use.
 
+### A7 — machine-readable discovery
+
+The same public concepts exposed to Rust consumers should be discoverable by
+agent-native tooling: capabilities, provider vocabulary, schemas, diagnostics and
+example entry points should not exist only as prose or implementation knowledge.
+This does not require a universal reflection framework; domain-owned descriptors
+may compose into read-only discovery.
+
+### A8 — external project build/package proof
+
+Keep at least one clean external/minimal consumer that can configure capabilities,
+prepare content, build, run representative tests and produce a target artifact
+through supported tooling. This is the engine-product counterpart to facade
+compile tests.
+
 ## Acceptance
 
-A competent Rust/Bevy developer should be able to create a small game with a
-world, character, movement/combat capability, participant input and room
-transition by reading public docs/examples rather than Ambition migration plans
-or importing internal implementation crates.
+A competent Rust/Bevy developer **or capable LLM agent** should be able to create
+a small 2D game with a world, character, movement/combat capability, participant
+input, presentation, assets and room transition by using public docs/discovery
+rather than Ambition migration plans or internal implementation crates. The same
+project should run headlessly for tests and have a supported noninteractive path
+to a release artifact on at least one declared desktop target.

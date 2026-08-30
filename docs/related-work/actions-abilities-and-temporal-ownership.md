@@ -20,7 +20,7 @@ ownership is needed by the *next* action family that cannot fit `MovePlayback`
 or a movement maneuver without duplication?
 
 See [`participant-action-system.md`](../planning/engine/participant-action-system.md),
-[`character-actions.md`](../planning/engine/character-actions.md), and the
+[`participant-action-system.md`](../planning/engine/participant-action-system.md), and the
 Engine 1.0 [`public-sdk-1.0.md`](../planning/engine/public-sdk-1.0.md) consumer
 requirements.
 

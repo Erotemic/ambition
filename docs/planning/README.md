@@ -91,6 +91,8 @@ policy.
 8. [`roadmap.md`](roadmap.md) and
    [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md)
    for longer-horizon strategy and capability programs.
+9. [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md)
+   when judging whether those programs add up to a competitive 2D engine product.
 
 ## Document roles
 
@@ -222,7 +224,7 @@ under-specified paragraph as doctrine.
 For reusable engine domains, also state the plausible **Bevy/plugin/crate seam**:
 what the domain would own, how its plugin registers itself, and whether there is
 credible ecosystem value. See
-[`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
+[`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
 
 ## Binding spine
 
@@ -240,5 +242,8 @@ execution queues.
 Prefer reusable composition, explicit ownership, deterministic/headless
 simulation, strong public APIs, modular capability selection, useful authoring
 diagnostics, low change amplification, and reasonable compile/iteration cost.
-Delete duplicate authority rather than preserving it indefinitely behind
-compatibility paths.
+For the Godot-class 2D target, judge parity by engine capability,
+expressiveness, efficiency and supported composition rather than by whether a
+feature has an equivalent visual-editor panel. LLM-first semantic operation is a
+primary authoring surface. Delete duplicate authority rather than preserving it
+indefinitely behind compatibility paths.

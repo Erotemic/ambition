@@ -99,7 +99,7 @@ The mechanism (phase triggers, the optional encounter entity, the scripted-beat 
 the event channel) is **engine**. A boss's stats, phase thresholds, music, placement,
 and signature effects are **content**. A second game gets the boss system for free and
 installs its own bosses as data (via the `BOSS_*` / `ENCOUNTER_WAVE_BOOK` install seams
-— see [`architecture.md`](architecture.md)).
+— see [`../../architecture/engine-architecture.md`](../../architecture/engine-architecture.md)).
 
 ## Pointers
 

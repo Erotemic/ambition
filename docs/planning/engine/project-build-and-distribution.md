@@ -20,7 +20,12 @@ clone/create
 ```
 
 Build/test iteration is an engine productivity concern independently of runtime
-frame performance.
+frame performance. It is also part of the Godot-class engine-product bar: an
+external project must have a reliable noninteractive path from clean checkout to
+validated target artifact. A graphical export dialog is not required; reproducible
+CLI/CI operation is preferable for agent-first development.
+
+See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
 
 ## Current empirical lessons
 
@@ -111,9 +116,36 @@ Do not report an absent NDK/GPU/display as proof that the target's code is broke
 
 ### B6 — packaging/distribution
 
-Keep packaging/release work product-driven. The eventual external-project layout,
-SDK templates, update mechanism and broad release-target policy should follow the
-public SDK and real distribution customers.
+Keep packaging/release work product-driven, but Engine 1.0 needs at least one
+complete external-project path rather than leaving packaging indefinitely
+abstract. The eventual external-project layout, SDK templates, update mechanism
+and broad release-target policy should follow the public SDK and real distribution
+customers.
+
+Minimum competitive proof:
+
+- one clean external/minimal project can select capabilities/providers without
+  workspace-private wiring;
+- preparation/build/test/package are noninteractive and scriptable;
+- at least one desktop release artifact is reproducible from documented inputs;
+- web/Android/headless profiles state their prerequisites and failure modes;
+- target packaging uses the same logical asset/content identities as development
+  rather than a target-specific shadow application;
+- CI can distinguish source failure, missing prerequisite, unsupported profile and
+  packaging failure.
+
+One-click GUI export is not an acceptance requirement.
+
+### B7 — agent iteration budget
+
+Track the wall-clock and resource shape of the common agent loop: inspect/edit,
+compile, targeted test, preparation/generation, representative run, and package
+when required. Optimize the dominant measured step rather than applying generic
+Cargo folklore.
+
+The goal is not a universal fixed time budget across machines. The goal is enough
+telemetry that an agent can choose a narrow fast path and know when a change has
+accidentally expanded the iteration surface.
 
 ## Candidate tool shape
 
@@ -134,7 +166,11 @@ agents: plan/check/build/test/package with clear artifact/cache ownership.
   workflow;
 - supported capability/platform combinations compile in deliberate gates;
 - a platform prerequisite failure is distinguishable from a source/build defect;
-- packaging work does not introduce a second runtime composition model.
+- packaging work does not introduce a second runtime composition model;
+- a clean external/minimal consumer can produce at least one release artifact
+  through supported noninteractive tooling;
+- common agent edit/build/test/preparation loops have enough measurement to avoid
+  optimizing the wrong phase.
 
 ## Open design questions — deliberately unresolved
 

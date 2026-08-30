@@ -154,7 +154,7 @@ pub struct GameplaySettings {
     ///
     /// the stored [`Self::movement_frame_mode`] is deliberately NOT rewritten
     /// when this changes: clobbering it would lose the player's choice for when
-    /// they switch back, and `camera-reference-frame-policy.md` rules out camera
+    /// they switch back, and `docs/systems/camera-reference-frames.md` rules out camera
     /// policy mutating input state. The collapse happens at the point of use.
     #[serde(default)]
     pub camera_reference_frame: CameraReferenceFrame,

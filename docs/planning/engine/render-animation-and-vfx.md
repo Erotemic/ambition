@@ -3,9 +3,7 @@
 **State:** OPEN — built-in semantic VFX path is real; third-party particle
 provider work remains demand/trigger driven.
 
-The old temporary extension has been consolidated into this authority. See
-[`render-animation-and-vfx-extension.md`](render-animation-and-vfx-extension.md)
-only as a forwarding receipt until Phase 2 removes stale control-plane links.
+The old temporary extension has been consolidated into this authority; its execution history remains in git.
 
 ## Goal
 

@@ -320,7 +320,7 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
         elif [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
             warn "the wasm module is $(human_size "$OUT_WASM") even under web-release."
             warn "  The profile levers are spent; what is left is genuine code and data."
-            warn "  See docs/planning/engine/portable-preparation-and-load-explainability.md."
+            warn "  See docs/planning/engine/project-build-and-distribution.md."
         fi
     else
         warn "wasm-bindgen finished but expected $OUT_WASM was not produced"

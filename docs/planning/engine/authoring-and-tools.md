@@ -20,6 +20,31 @@ than becoming a second authority.
 Durable doctrine:
 [`../../concepts/agent-native-authoring.md`](../../concepts/agent-native-authoring.md).
 
+## Competitive criterion
+
+Godot/Unity demonstrate the value of discoverability and short feedback loops.
+Ambition should achieve those outcomes through a different primary interface. The
+comparison is not whether an operation has a visual editor panel; it is whether a
+capable agent can perform the same meaningful engine task reliably and faster
+through supported semantic tools.
+
+For Engine 1.0, an authoring capability is competitive when an agent can:
+
+- discover what can be expressed without implementation grep;
+- inspect current semantic state before changing it;
+- make the change through stable authored data or an intent-level operation;
+- receive source-qualified validation/provenance failures;
+- run the smallest representative simulation/render/test needed to check it;
+- produce a concise human-review artifact when subjective visual/audio judgment
+  remains;
+- continue through build/package without manual editor operation.
+
+A GUI is useful when the task is intrinsically visual or manual. It is not the
+definition of engine capability.
+
+See the cross-program bar:
+[`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
 ## Existing advantage
 
 This is an extension program, not a greenfield tooling project. The repository
@@ -223,6 +248,10 @@ Ambition content request and, without repository archaeology:
 6. validate/prepare all affected references;
 7. explain provenance and semantic diff;
 8. produce a concise human-review artifact;
-9. explicitly publish/install generated products where required.
+9. explicitly publish/install generated products where required;
+10. run the relevant public build/test/package path without switching to a
+    separate human-editor workflow.
 
-Manual editor operation is not a prerequisite for this acceptance test.
+Manual editor operation is not a prerequisite for this acceptance test. The
+authoring loop should be benchmarked by successful intent-to-validated-change
+work, not by editor-feature parity.

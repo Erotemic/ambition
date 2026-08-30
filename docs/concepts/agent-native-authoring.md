@@ -9,7 +9,7 @@ related_docs:
   - docs/concepts/llm-spatial-authoring-discipline.md
   - docs/planning/engine/authoring-and-tools.md
   - docs/tools/index.md
-last_verified: 2026-08-13
+last_verified: 2026-08-30
 ---
 
 # Agent-native authoring
@@ -24,6 +24,19 @@ surfaces.
 Human-facing editors remain valuable, especially for manual visual refinement.
 They should be optional frontends over the same authored semantics rather than a
 second authority.
+
+## Competitive implication
+
+When Ambition is compared with Godot/Unity-class engines, authoring should be
+judged by **intent-to-validated-change efficiency and expressiveness**, not by
+visual-editor parity. If another engine exposes an operation through a scene tree,
+inspector or asset browser, Ambition needs a supported way to accomplish the
+meaningful engine task; that way may be a schema, query API, semantic command,
+provider, Rust plugin, generated review artifact or CLI.
+
+A visual tool should be added when direct manipulation itself is valuable. It
+should not be added merely so the feature can be checked off against another
+engine's editor.
 
 ## The authoring loop
 

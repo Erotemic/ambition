@@ -258,7 +258,7 @@ impl RampOrientation {
 
 /// `SurfaceRamp` — the quarter-circle fillet that lets a momentum body carry
 /// its speed from a floor onto a wall (Q27; pinned math in
-/// `docs/planning/engine/spatial-model.md` §`SurfaceRamp`).
+/// `docs/architecture/spatial-model.md` §`SurfaceRamp`).
 ///
 /// Fields: `radius` (px, required), `orientation` (one of the four
 /// [`RampOrientation`] names, default `FloorToRightWall`), `segments` (polygon
@@ -976,7 +976,7 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
 
 /// The winding oracle for `SurfaceRamp` (Q27).
 ///
-/// `docs/planning/engine/spatial-model.md`: *"Do NOT hand-derive the winding sign
+/// `docs/architecture/spatial-model.md`: *"Do NOT hand-derive the winding sign
 /// per orientation … let the WINDING ORACLE decide correctness — a 4-case
 /// parameterized headless test in which a momentum body enters each ramp along
 /// the floor at speed and must EXIT moving up the wall … A sign error flips a case

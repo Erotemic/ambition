@@ -48,10 +48,10 @@ See [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
 
 ## Engine 1.0
 
-The post-D73 program is
-[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
-The immediate priority is the controlled-character actor kernel, followed by
-world/LDtk mechanics, persistent-world semantics and multiplayer pressure.
+The current program is
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md),
+with execution order in [`roadmap.md`](roadmap.md). The competitive product bar is
+[`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
 
 A credible 1.0 has:
 
@@ -66,7 +66,40 @@ A credible 1.0 has:
 - shared, split and adaptive presentation over one simulation;
 - agent-native authoring, preparation diagnostics and introspection;
 - honest optional capabilities and semantic public APIs;
-- reusable domain crates/plugins that can mature into Bevy ecosystem components.
+- reusable domain crates/plugins that can mature into Bevy ecosystem components;
+- a complete supported path for the ordinary 2D game concerns another project
+  should not have to reinvent: rendering/presentation, animation/VFX, audio, UI,
+  input, assets/readiness, persistence, diagnostics, headless testing and
+  build/package on declared target profiles;
+- runtime/build efficiency measured against representative product profiles rather
+  than inferred from architecture shape.
+
+## What Godot/Unity-class competition means
+
+The competitive target is **engine capability, expressiveness, efficiency and
+composability**, not reproduction of another engine's editor workflow. Godot is
+useful as a completeness reference: a serious 2D engine should cover ordinary
+rendering, physics/movement, input, UI, audio, assets, animation, diagnostics,
+networking, persistence and platform/export concerns. Ambition may satisfy those
+through Bevy directly, a selected ecosystem plugin, an Ambition semantic layer,
+or a provider.
+
+The engine should differentiate where its architecture can be stronger:
+
+- deterministic/headless/rollback-aware systemic simulation;
+- platformer/action-specific movement and interaction semantics;
+- persistent-world identity, residency and reconstitution;
+- Rust/Bevy capability composition and static dependency boundaries;
+- machine-readable diagnostics and provenance;
+- LLM-first semantic authoring and noninteractive project operation.
+
+Engine 1.0 does **not** require a scene editor, visual inspector, asset browser,
+visual scripting system, GDScript clone, or one-click export GUI. Those are
+frontends. Add visual/manual tools when the task itself benefits from them, not
+for parity theater.
+
+See
+[`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
 
 ## Agent-native authoring
 
@@ -93,7 +126,7 @@ The engine should increasingly feel like a set of coherent Bevy domains rather
 than one historical workspace graph. Registration moves with the domain plugin;
 composition roots compose plugins rather than importing private systems.
 
-Use [`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
+Use [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
 Publish reusable pieces only when they have genuinely general APIs and another
 Bevy game can consume them through ordinary plugin/system composition.
 

@@ -11,6 +11,14 @@ collection of unrelated debug hotkeys.
 The first-class product is **structured introspection**. A future GUI workbench
 may consume the same APIs.
 
+This is part of the engine's competitive surface. A graphical inspector is one
+way to make state discoverable; Ambition's primary requirement is stronger: the
+same facts must be queryable, diffable and explainable to tools and LLM agents
+without screen-scraping a GUI. The structured surface should also be useful to a
+human debugger and may power optional visual views later.
+
+See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+
 ## Questions the engine should answer
 
 - What authored/prepared definition produced this entity/body/item?
@@ -55,6 +63,10 @@ tool discovery alike.
 - collision/navigation/world-residency visualization data;
 - profiler/compile/runtime measurements surfaced through stable reports;
 - concise agent review products;
+- public/project-level capability inspection: what is installed, what depends on
+  what, what target/profile is active, and which provider owns a vocabulary;
+- performance-budget reports that distinguish simulation CPU, render/GPU, asset
+  materialization/residency, build/test cost and target-profile configuration;
 - **structured "why not" explanation** — an unsatisfied condition should report
   the term that blocked it, the object it names and that object's current state,
   not a log line. This is M5 of
@@ -77,3 +89,20 @@ public.
 - How do we expose deterministic state without exposing private implementation
   topology as public SDK?
 - Which inspection pieces are generic enough to become independently consumable Bevy crates?
+
+## Engine 1.0 acceptance
+
+A competitive inspection surface should let a capable agent diagnose a failed
+representative gameplay/content/build task without reading private implementation
+modules first. At minimum it should be possible to obtain structured answers for:
+
+1. installed capabilities/providers and their declared dependencies;
+2. authored/prepared provenance and unresolved references;
+3. live semantic entity/session/participant/view state;
+4. action/rule/AI cause and why-not evidence;
+5. rollback/reconstitution participation where relevant;
+6. target/profile build or preparation failure;
+7. representative runtime/build performance attribution.
+
+A GUI workbench may visualize these queries. It is not required for the queries to
+exist.

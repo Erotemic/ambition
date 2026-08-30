@@ -2,7 +2,7 @@
 //!
 //! > *"A demo app builds from runtime+host groups + its content crate with zero
 //! > engine edits (the oracle, executable)."*
-//! > — `docs/planning/engine/decomposition.md`, exit criterion 3
+//! > — durable boundary: `docs/architecture/package-and-capability-boundaries.md`
 //!
 //! This file assembles it and steps the real simulation. If a future engine change breaks a demo's
 //! ability to boot from `PlatformerEnginePlugins` + `PlatformerHostPlugins` + a content crate, THIS

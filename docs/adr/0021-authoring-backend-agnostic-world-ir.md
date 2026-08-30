@@ -14,7 +14,7 @@ IR, sim-side room transition systems, and Bevy/LDtk runtime-spine adapters.
 That shape made LDtk feel like the world model instead of one authoring backend,
 and it made a generated/RON/test backend look like a special case.
 
-The W-track ruling in `docs/planning/engine/decomposition.md` closed the design:
+The W-track ruling, now distilled into `docs/architecture/package-and-capability-boundaries.md`, closed the design:
 world IR is pure authored input; LDtk and future backends convert into it; the
 sim/content layer lowers authored placement records into live entities at room
 load.

@@ -42,6 +42,36 @@ where
         OWNER,
         "resource.gravity_field",
     );
+    // ⛔⛔ A TEMPORARY WELL IS SPAWNED MID-MATCH, so the room-load re-derivation
+    // that covers an AUTHORED gravity zone covers nothing here. A gravity
+    // grenade's fuse spawns this pair, `tick_temporary_zones` counts `remaining`
+    // down, and the zone despawns at zero — existence, position and countdown
+    // are all authoritative simulation state on an entity nothing anchored.
+    //
+    // ⭐ THE ANCHOR IS `TemporaryZone`, NOT `GravityZone`, and that is the whole
+    // distinction: an authored column is room geometry a room load rebuilds, and
+    // enlisting every one of them in the rollback sweep would pay for state that
+    // never changes. Only the zone with a lifetime is dynamic, so only it carries
+    // the anchor — and `GravityZone` is registered as state because a restored
+    // temporary entity that came back without its aabb would pull nothing.
+    registrar.require_rollback::<crate::gravity::TemporaryZone>(OWNER, "entity:temporary_zone");
+    registrar.rollback_component_clone_probed::<crate::gravity::TemporaryZone>(
+        OWNER,
+        "gravity.temporary_zone",
+        |zone| zone.remaining.to_bits() as u64,
+    );
+    registrar.rollback_component_clone_probed::<crate::gravity::GravityZone>(
+        OWNER,
+        "gravity.zone",
+        |zone| {
+            ((zone.aabb.min.x.to_bits() as u64) << 32)
+                ^ (zone.aabb.min.y.to_bits() as u64)
+                ^ ((zone.aabb.max.x.to_bits() as u64) << 16)
+                ^ (zone.aabb.max.y.to_bits() as u64)
+                ^ ((zone.dir.x.to_bits() as u64) << 48)
+                ^ (zone.dir.y.to_bits() as u64)
+        },
+    );
     registrar.rollback_component_canonical::<crate::sim_id::SimId>(OWNER, "entity.sim_id");
     registrar.rollback_component_canonical::<crate::body::BodyKinematics>(OWNER, "body.kinematics");
     registrar

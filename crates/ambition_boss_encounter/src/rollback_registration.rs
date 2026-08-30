@@ -38,6 +38,14 @@ where
                 ^ (cmd.speed.to_bits() as u64)
         },
     );
+    // ⛔⛔ AND THE CODEC IS ONLY HALF OF IT AGAIN. A hazard is spawned MID-MATCH
+    // by `EncounterEffect::DropHazard` with a plain `spawn_session_scoped`, so
+    // the entity carried no rollback anchor and every registration below was
+    // INERT on it: the registry listed them, the coverage sweep counted them as
+    // accounted, and nothing restored them. The anchor is the fact that puts the
+    // ENTITY in the envelope; the clone is the fact about its bytes.
+    registrar
+        .require_rollback::<crate::encounter_script::FallingHazard>(OWNER, "entity:falling_hazard");
     // ⛔ AND THIS ONE NAMES AN ENTITY, so the clone is only half of it: a
     // resimulation rebuilds the world's entities and a raw id would point at
     // whoever landed in that slot. `vel_y` and `dropping` are the fall itself.

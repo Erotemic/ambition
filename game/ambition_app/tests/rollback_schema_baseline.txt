@@ -1,8 +1,10 @@
-ggrs-rollback-schema-v136
+ggrs-rollback-schema-v138
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+ability.sentry	component-clone	Sentry	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.vortex_well	component-clone	VortexWell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -204,6 +206,7 @@ entity.spawn_origin	component-canonical	SpawnOrigin	bevy_ggrs canonical codec sn
 entity.transform	component-clone	Transform	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 entity:body_kinematics	required-rollback	BodyKinematics	component presence automatically installs bevy_ggrs::Rollback
 entity:encounter_lifecycle	required-rollback	EncounterLifecycle	component presence automatically installs bevy_ggrs::Rollback
+entity:falling_hazard	required-rollback	FallingHazard	component presence automatically installs bevy_ggrs::Rollback
 entity:feature_sim_entity	required-rollback	FeatureSimEntity	component presence automatically installs bevy_ggrs::Rollback
 entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -216,10 +219,14 @@ entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence au
 entity:pending_respawn	component-canonical	PendingRespawn	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:placed_portal	required-rollback	PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
 entity:portal_gun_pickup	required-rollback	PortalGunPickup	component presence automatically installs bevy_ggrs::Rollback
+entity:portal_shot	required-rollback	PortalShot	component presence automatically installs bevy_ggrs::Rollback
 entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
+entity:sentry	required-rollback	Sentry	component presence automatically installs bevy_ggrs::Rollback
 entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
+entity:temporary_zone	required-rollback	TemporaryZone	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
+entity:vortex_well	required-rollback	VortexWell	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -242,11 +249,14 @@ feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-p
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.held_projectile	component-clone	HeldProjectile	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.released_as	component-clone	ReleasedAs	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

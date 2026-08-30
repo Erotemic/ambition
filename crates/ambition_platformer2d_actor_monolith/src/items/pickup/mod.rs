@@ -690,10 +690,14 @@ pub fn return_released_items(
         }
         // The body let go: the object lands where that body is standing.
         item.pos = kin.pos;
-        // A released object is at rest, not mid-throw: `arm_thrown_bombs` reads
-        // "moving" as "thrown", and a bomb stowed from the menu must not arm.
+        // A released object is at rest, not mid-throw.
         item.vel = Vec2::ZERO;
         *custody = ItemCustody::InWorld;
+        // ⭐ AND THIS IS NOT A `Release` AT ALL — it is a stow, from the menu or
+        // a brandish swap. It stamps no `ReleasedAs`, so a bomb that leaves a
+        // hand this way does not arm. That used to be true only because the
+        // velocity happened to be zero here.
+        commands.entity(entity).remove::<ReleasedAs>();
         // Released from a hand at whatever height that body is at: this object
         // is back under gravity until it lands on something.
         commands.entity(entity).remove::<SettledItem>();
@@ -1463,7 +1467,7 @@ pub fn pickup_held_item_system(
     )>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
-    mut grounds: Query<(&mut GroundItem, &mut ItemCustody)>,
+    mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     for player in driven.entities() {
@@ -1483,7 +1487,7 @@ pub fn pickup_held_item_system(
             continue;
         }
         let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-        for (mut ground, mut custody) in &mut grounds {
+        for (item, mut ground, mut custody) in &mut grounds {
             // Only an item that is IN THE WORLD can be grabbed.
             if !custody.in_world() {
                 continue;
@@ -1522,11 +1526,15 @@ pub fn pickup_held_item_system(
                 // on body state and commit by spending the semantic control edge.
                 control.0.melee_pressed = false;
                 *custody = ItemCustody::Held { holder: player };
-                // A carried item is not in flight. Zeroing here (rather than relying
-                // on the custody gate alone) also keeps the fuse arming honest:
-                // `arm_thrown_bombs` / `arm_thrown_gravity_grenades` treat "moving"
-                // as "thrown", and a bomb picked up mid-arc must not stay armed in
-                // a hand because its last world velocity was nonzero.
+                // ⭐ THE RELEASE IS OVER, so the fact it recorded is retracted —
+                // and `arm_thrown_bombs` puts out the fuse on the same tick,
+                // because it is chained ahead of the ticker. Catching a live bomb
+                // is now a defined outcome rather than a race the ticker wins.
+                commands.entity(item).remove::<ReleasedAs>();
+                // A carried item is not in flight. This is no longer what keeps
+                // the fuse honest — `ReleasedAs` is — but a held object with a
+                // stale world velocity would resume mid-arc the moment it is put
+                // back down.
                 ground.vel = Vec2::ZERO;
                 break;
             }
@@ -1540,12 +1548,37 @@ pub fn pickup_held_item_system(
 /// third (a soft toss, a hand-off) would be a variant rather than a second
 /// parameter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Release {
+pub enum Release {
     /// Forward and up — an attack.
     Throw,
     /// Straight down where the body stands — the genre's Z-drop.
     Drop,
 }
+
+/// How the object now lying in the world got there, stamped by the ONE release
+/// transaction and removed the moment a body takes custody again.
+///
+/// ⛔⛔ THE FUSES USED TO INFER THIS FROM VELOCITY, and a velocity does not know
+/// who moved it. `arm_thrown_bombs` armed any `bomb` whose `vel != ZERO`, so a
+/// bomb the room authored at rest armed itself the instant `ground_item_physics`
+/// gave it gravity — ordinary falling read as "a player threw this". The other
+/// direction failed too: catching an armed bomb zeroed the velocity but left the
+/// lit `BombFuse`, and the ticker did not care whose hand it was in, so it
+/// counted down and detonated in custody.
+///
+/// ⭐ `Release` ALREADY DECIDED THIS and had nowhere to say it. The throw/drop
+/// distinction was computed, used to pick a launch vector, and thrown away; the
+/// fuses then guessed it back from the consequence. This is that decision made
+/// durable, which is what lets the heuristic be deleted rather than patched.
+///
+/// ⚠ A `Drop` DOES NOT ARM. A Z-drop is handing the item to the floor, not an
+/// attack — the same answer the velocity test gave for a drop, now for the
+/// stated reason rather than because a drop happens to launch at zero.
+///
+/// Rollback state: it decides whether an object in the world is going to
+/// explode, and it lives on a `GroundItem`, which is a rollback anchor.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReleasedAs(pub Release);
 
 /// Let go of the held item: restore the stashed action set, detach `HeldItem`,
 /// and put the item back into the world. Fires on `Grab` (a [`Release::Drop`],
@@ -1680,6 +1713,9 @@ pub fn throw_held_item_system(
             ground.pos = throw_pos;
             ground.vel = throw_vel;
             *custody = ItemCustody::InWorld;
+            // The release SAYS what it was. Every fuse downstream reads this
+            // rather than re-deriving intent from the launch vector.
+            commands.entity(entity).insert(ReleasedAs(release));
             // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
             // launches at ZERO velocity, so an object that kept the settled marker
             // it wore when it was picked up would hang at head height forever.
@@ -1734,6 +1770,7 @@ pub fn throw_held_item_system(
                 pos: throw_pos,
                 half_extent: MINTED_ITEM_HALF_EXTENT,
             },
+            ReleasedAs(release),
             Name::new("Ground item: thrown"),
         ));
         if let Some((sim_id, origin)) = minted {

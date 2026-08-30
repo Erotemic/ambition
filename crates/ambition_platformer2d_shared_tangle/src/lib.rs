@@ -45,6 +45,7 @@ pub mod shrine;
 
 /// The ONE identity vocabulary for snapshot / replay / netcode (N3.1).
 pub mod sim_id;
+pub mod sim_selection;
 mod snapshot_impls;
 /// Whether an autonomous body is currently masked by a transient controller.
 ///

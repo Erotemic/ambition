@@ -5,7 +5,7 @@ use super::step_scratch;
 use crate::body_clusters::BodyClusterScratch;
 #[allow(unused_imports)]
 use crate::test_support::*;
-use crate::{AbilitySet, LocalAxes, Vec2, World};
+use crate::{AabbExt, AbilitySet, LocalAxes, Vec2, World};
 
 /// One platform with a RIGHT LEDGE at x = 600 and nothing past it.
 fn platform_with_a_right_ledge() -> World {
@@ -202,5 +202,83 @@ fn an_exclusive_mode_ends_an_initial_dash_instead_of_freezing_it() {
         "the initial dash window survived into the trapdoor (armed at {armed}) — \
          normal movement is what spends it, and this mode replaces normal \
          movement, so it freezes and resumes on the way out"
+    );
+}
+
+/// ⛔⛔ THE TWO COLLISION STAGES HAD DIFFERENT IDEAS OF WHAT `Submerged` MEANS.
+///
+/// The continuous sweep took `BodyModeState` and knew a submerged body is not in
+/// the world. `resolve_axis_repair` — the overlap/penetration stage that runs at
+/// the END of the same call — took neither it nor anything equivalent. So a body
+/// that legitimately travelled INTO a block was found overlapping it and pushed
+/// straight back out, by the second half of the function that had just let it in.
+///
+/// ⛔ AND THE OVERLAP HAS TO BE SHALLOW, which is not obvious and is why the
+/// first version of this test passed under the bug. Measured against the
+/// unfixed repair on a 48px platform: a 2px overlap is pushed out (y 854 → 828),
+/// and 6px, 12px, 24px and 40px are all left exactly where they are — the
+/// no-pushout-teleport rule (`is_contact_range_snap`) refuses a claim deeper
+/// than the body's own half-extent, so a deeply embedded body was already being
+/// deferred. An arm placed at 24px deep therefore proves nothing at all.
+///
+/// ⭐ WHICH IS ALSO WHY THE DEFECT MATTERS: contact range is exactly where a
+/// body travelling just under a surface lives, on every tick of the move.
+#[test]
+fn a_submerged_body_inside_a_block_is_not_pushed_back_out_of_it() {
+    let world = platform_with_a_right_ledge();
+    let top = world.size.y - 48.0;
+    // ⭐ TWO PIXELS IN — inside the contact range the repair actually acts on.
+    let inside = Vec2::new(300.0, top + 2.0);
+
+    let mut scratch = submerged_at(inside);
+    assert!(
+        world.blocks[0]
+            .aabb
+            .strict_intersects(scratch.kinematics.aabb()),
+        "the fixture did not place the body inside the platform, so the repair \
+         stage has no claim to reject and this arm would pass vacuously"
+    );
+
+    // Neutral stick: no authored travel, so any movement is the repair's.
+    for _ in 0..4 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+
+    assert_eq!(
+        scratch.kinematics.pos, inside,
+        "a submerged body was moved out of a block it is entitled to be inside \
+         — the repair stage is applying a collision policy the sweep does not"
+    );
+}
+
+/// ⚠ AND THE MODE IS WHAT DOES IT, not the depth. The same body at the same
+/// place, NOT submerged, must still be repaired out; without this arm the fix
+/// above would read exactly the same as having broken penetration repair
+/// outright.
+#[test]
+fn a_body_that_is_not_submerged_is_still_repaired_out_of_the_same_block() {
+    let world = platform_with_a_right_ledge();
+    let top = world.size.y - 48.0;
+    let inside = Vec2::new(300.0, top + 2.0);
+
+    let mut scratch = BodyClusterScratch::new_with_abilities(inside, AbilitySet::sandbox_all());
+    assert!(
+        world.blocks[0]
+            .aabb
+            .strict_intersects(scratch.kinematics.aabb()),
+        "the fixture must start this body inside the platform too, or the two \
+         arms are not comparing the same situation"
+    );
+
+    for _ in 0..4 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+
+    assert!(
+        !world.blocks[0]
+            .aabb
+            .strict_intersects(scratch.kinematics.aabb()),
+        "an ordinary body was left embedded in a solid — the shared policy is \
+         letting everybody through, not just the mode that earned it"
     );
 }

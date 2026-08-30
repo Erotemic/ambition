@@ -2120,3 +2120,198 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
         fresh.len()
     );
 }
+
+
+/// ⛔⛔ THE POPULATION A ONE-SHOT CENSUS CANNOT REACH.
+///
+/// Every sweep above walks the entities a booted room HAS. `unaccounted_components`
+/// says so in its own doc comment, and it has said so for a while: state that
+/// only exists after an EVENT is structurally invisible to it, and no amount of
+/// sweeping more rooms reaches it, because the entity is not there to sweep.
+///
+/// That silence read exactly like a pass, and five archetypes shipped inside it.
+/// A GPT re-review found the first two by reading the spawn sites:
+///
+/// - `PortalShot` and `FallingHazard` carried a rollback CODEC and no rollback
+///   ANCHOR. `rollback_component_clone::<T>` says what to save IF the entity is
+///   in the envelope; `require_rollback::<T>` is what PUTS it there. Both looked
+///   completely registered in a `rollback_registration.rs`, and both were inert
+///   on the live entity — the registry listed them, `unaccounted_components`
+///   counted them accounted, and nothing restored them.
+/// - `Sentry`, `VortexWell` and the gravity grenade's `TemporaryZone`/`GravityZone`
+///   were worse and quieter: not inert, ABSENT. No codec, no anchor, no waiver,
+///   no line in the schema at all.
+///
+/// This test closes the hole by BUILDING the population instead of hoping to
+/// find it. Each archetype comes into the world through the same named seam
+/// production uses — `deploy_sentry`, `open_vortex_well`,
+/// `open_temporary_gravity_well`, `drop_hazard`, and a real `PortalFireIntent`
+/// through `portal_fire_system` — so a fixture cannot assemble a shape
+/// production never builds. Then both existing sweeps run over the result.
+///
+/// ⭐ THE SEAMS ARE THE OTHER HALF OF THE FIX. Three of these five had no
+/// callable spawn function at all: they were spawned inline inside a system that
+/// first needs a held gauntlet, spent mana, an aim vector or a burnt fuse. An
+/// archetype with no seam is an archetype no sweep can reach, so its state is
+/// registered on trust forever.
+#[test]
+fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
+    use ambition_platformer2d::actors::abilities::ranged::sentry::deploy_sentry;
+    use ambition_platformer2d::actors::abilities::ranged::vortex::{open_vortex_well, VortexWell};
+    use ambition_platformer2d::actors::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
+    use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
+    use ambition_platformer2d::combat::components::ActorFaction;
+    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::portal::{PortalFireIntent, PortalGunColor, PortalShot};
+
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+
+    // A real body to aim the hazard at: its `target` is an ENTITY, and a hazard
+    // pointed at nothing retires itself on the next tick.
+    let target = {
+        let world = sim.world_mut();
+        let mut bodies =
+            world.query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
+        bodies
+            .iter(world)
+            .next()
+            .expect("the booted room has a body to drop a hazard on")
+    };
+
+    {
+        let world = sim.world_mut();
+        let mut commands = world.commands();
+        deploy_sentry(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            bevy::math::Vec2::new(96.0, 96.0),
+            ActorFaction::Player,
+            None,
+            None,
+        );
+        open_vortex_well(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            bevy::math::Vec2::new(128.0, 96.0),
+        );
+        open_temporary_gravity_well(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            bevy::math::Vec2::new(160.0, 96.0),
+        );
+        drop_hazard(
+            &mut commands,
+            SessionSpawnScope::UNSCOPED,
+            bevy::math::Vec2::new(192.0, 240.0),
+            FallingHazard {
+                size: bevy::math::Vec2::new(24.0, 24.0),
+                gravity: 900.0,
+                terminal: 600.0,
+                align_tolerance: 8.0,
+                target,
+                impact_gate: "a_gate_this_test_never_reads".to_string(),
+                vel_y: 0.0,
+                dropping: false,
+            },
+        );
+        world.flush();
+    }
+
+    // The portal shot goes through the REAL system, not a hand-built bundle: the
+    // defect was in what `portal_fire_system` spawns, so a fixture that spawned
+    // its own `PortalShot` would be testing the fixture.
+    sim.world_mut().write_message(PortalFireIntent {
+        origin: bevy::math::Vec2::new(224.0, 96.0),
+        dir: bevy::math::Vec2::new(1.0, 0.0),
+        channel: ambition_platformer2d::portal::PortalChannel::Gun(PortalGunColor::BLUE),
+    });
+    sim.step(AgentAction::default());
+
+    //  ANTI-VACUITY, and it is the whole test. Every assertion below passes
+    // on an EMPTY population, which is exactly the failure mode this file exists
+    // to close: a sweep is silent about what is not there, and that silence
+    // reads like an all-clear. Each archetype is counted before anything is
+    // swept, so a seam that stops spawning turns this red rather than green.
+    let counts = {
+        let world = sim.world_mut();
+        let sentries = world
+            .query_filtered::<Entity, With<ambition_platformer2d::actors::abilities::ranged::sentry::Sentry>>()
+            .iter(world)
+            .count();
+        let wells = world
+            .query_filtered::<Entity, With<VortexWell>>()
+            .iter(world)
+            .count();
+        let zones = world
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::gravity::TemporaryZone>>()
+            .iter(world)
+            .count();
+        let hazards = world
+            .query_filtered::<Entity, With<FallingHazard>>()
+            .iter(world)
+            .count();
+        let shots = world
+            .query_filtered::<Entity, With<PortalShot>>()
+            .iter(world)
+            .count();
+        [
+            ("sentry", sentries),
+            ("vortex well", wells),
+            ("temporary gravity zone", zones),
+            ("falling hazard", hazards),
+            ("portal shot", shots),
+        ]
+    };
+    for (what, count) in counts {
+        assert!(
+            count > 0,
+            "no {what} exists after its production seam was driven, so the sweep \
+             below would inspect a world without one and report a confident \
+             all-clear — the exact false negative this test was written for"
+        );
+    }
+
+    // And every one of them must be IN the swept population: existing is not the
+    // same fact as being looked at.
+    let population: BTreeSet<Entity> = simulated_population(&mut sim).into_iter().collect();
+    let dynamic: Vec<(Entity, String)> = {
+        let world = sim.world_mut();
+        let mut found = Vec::new();
+        for entity in world
+            .query_filtered::<Entity, With<ambition_platformer2d::actors::abilities::ranged::sentry::Sentry>>()
+            .iter(world)
+            .collect::<Vec<_>>()
+        {
+            found.push((entity, "sentry".to_string()));
+        }
+        for entity in world
+            .query_filtered::<Entity, With<PortalShot>>()
+            .iter(world)
+            .collect::<Vec<_>>()
+        {
+            found.push((entity, "portal shot".to_string()));
+        }
+        for entity in world
+            .query_filtered::<Entity, With<FallingHazard>>()
+            .iter(world)
+            .collect::<Vec<_>>()
+        {
+            found.push((entity, "falling hazard".to_string()));
+        }
+        found
+    };
+    for (entity, what) in &dynamic {
+        assert!(
+            population.contains(entity),
+            "a live {what} ({entity}) is not in the swept population, so no \
+             amount of sweeping reaches the event-created families"
+        );
+    }
+
+    assert_components_accounted(&mut sim, "an event-created population");
+    assert_no_inert_registrations(&mut sim, "an event-created population");
+}

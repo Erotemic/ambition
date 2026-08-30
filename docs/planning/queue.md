@@ -398,8 +398,17 @@ below it and on different silicon.
   **Potato**, Other→the existing default — and
   `VisualQualitySettings::seed_from_hardware`.
   **The seam, in `ambition_render`:** `seed_visual_quality_from_adapter` reads
-  `RenderAdapterInfo` (Bevy inserts it in the MAIN world) on `PreStartup`, ahead
-  of the `Update` pair that resolves the budget.
+  `RenderAdapterInfo` (Bevy inserts it in the MAIN world) on `PostStartup` —
+  AFTER `load_settings_at_startup`, ahead of the `Update` pair that resolves the
+  budget.
+  ⛔⛔ **IT SHIPPED ON `PreStartup`, WHICH MIGRATED NOBODY.** The loader runs in
+  `Startup` and REPLACES the whole `UserSettings` resource, so an existing file
+  overwrote the seeded tier and restored its own `hardware_seeded: false`; the
+  system is startup-only, so it never ran again. A fresh install (no file, the
+  loader returns early) migrated fine, which is why every unit test and a
+  first-run play-through looked correct. Reported by a GPT review 2026-08-30,
+  fixed the same day. See `seed_schedule_tests` in `quality.rs`: five arms on a
+  real booted App, including one that reads the file back off disk.
   ⛔ **A DETECTED DEFAULT IS A FIRST-RUN SEED, NEVER A PER-BOOT OVERRIDE.**
   Re-deciding each launch would silently undo the settings menu. TWO guards, both
   in the policy: a persisted `hardware_seeded` flag, and the profile still being

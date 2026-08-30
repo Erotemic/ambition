@@ -91,15 +91,10 @@ pub fn fire_vortex_system(
         return;
     }
     let center = kin.pos + aim * VORTEX_RANGE;
-    commands.spawn_session_scoped(
+    open_vortex_well(
+        &mut commands,
         SessionSpawnScope::new(owner.map(|owner| owner.0)),
-        (
-            VortexWell {
-                center,
-                remaining_s: VORTEX_LIFETIME_S,
-            },
-            Name::new("Vortex singularity"),
-        ),
+        center,
     );
     sfx.write_for(
         subject,
@@ -108,6 +103,39 @@ pub fn fire_vortex_system(
             pos: center,
         },
     );
+}
+
+/// Open one singularity. THE seam a vortex well comes into the world through.
+///
+/// ⭐ ONE PLACE, for the same reason `deploy_sentry` is one place — and for a
+/// second reason the sentry taught: an archetype spawned only from inside a
+/// system that needs a held gauntlet, spent mana and an aim vector is an
+/// archetype no coverage sweep can reach, so the state it carries is registered
+/// on trust. A named seam is what lets a test bring the entity into a booted
+/// world the way production does.
+///
+/// ⛔⛔ ITS `remaining_s` IS AUTHORITATIVE SIMULATION STATE. The well pulls every
+/// body in radius for as long as it counts down, so a rewind that kept a
+/// future's well keeps a pull the authoritative timeline never applied. Both the
+/// component and the entity anchor are declared in the actor crate's
+/// `register_rollback_state`.
+pub fn open_vortex_well(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    center: ae::Vec2,
+) -> Entity {
+    commands
+        .spawn_session_scoped(
+            scope,
+            (
+                VortexWell {
+                    center,
+                    remaining_s: VORTEX_LIFETIME_S,
+                },
+                Name::new("Vortex singularity"),
+            ),
+        )
+        .id()
 }
 
 /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well
@@ -125,6 +153,9 @@ pub fn update_vortex_wells(
             Option<&ambition_characters::actor::BodyHealth>,
             // The world's hands are off this body — it is not a target either.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // Whether a participant is driving this body, which is what decides
+            // its EFFECTIVE side. See the filter below.
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -135,10 +166,22 @@ pub fn update_vortex_wells(
     }
     let factor = (VORTEX_PULL_RATE * dt).min(1.0);
     for (entity, mut well) in &mut wells {
-        for (mut kin, faction, health, out_of_play) in &mut actors {
-            // Structural tangibility gate: a dead enemy is an
-            // intangible corpse — the well does not drag it.
-            if *faction != ActorFaction::Enemy
+        for (mut kin, faction, health, out_of_play, driver) in &mut actors {
+            // ⛔⛔ THE EFFECTIVE FACTION, NOT THE AUTHORED ONE. Possession keeps a
+            // possessed NPC's `ActorFaction::Enemy` on purpose and moves its
+            // allegiance through the driving relationship, so a raw `!= Enemy`
+            // test had the well dragging the body the player is currently
+            // driving into its own singularity.
+            //
+            // ⚠ Deliberately not widened past the `Enemy` class — see the same
+            // note on `update_sentries`. This repair reads the allegiance from
+            // the right field; which classes a vortex engages is a separate
+            // design question.
+            //
+            // Structural tangibility gate: a dead enemy is an intangible corpse
+            // — the well does not drag it.
+            if ambition_combat::targeting::effective_faction(*faction, driver)
+                != ActorFaction::Enemy
                 || ambition_combat::util::body_is_untouchable(health, out_of_play)
             {
                 continue;
@@ -188,6 +231,42 @@ mod tests {
                 ActorFaction::Enemy,
             ))
             .id()
+    }
+
+    /// ⛔⛔ SAME ALLEGIANCE DEFECT AS THE SENTRY. A possessed NPC keeps
+    /// `ActorFaction::Enemy` on purpose — `targeting::effective_faction` is how
+    /// possession moves the side without a faction overwrite/restore path — so a
+    /// raw `!= Enemy` test had the well dragging the body a participant is
+    /// currently driving into its own singularity.
+    #[test]
+    fn a_well_does_not_drag_the_body_a_player_is_driving() {
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+        let mut app = test_app();
+        let player = spawn_primary_player_holding(&mut app, VORTEX_ID);
+        // Authored Enemy, but DRIVEN — so effectively on the player's side.
+        let driven = spawn_enemy(&mut app, ae::Vec2::new(420.0, 100.0));
+        app.world_mut()
+            .entity_mut(driven)
+            .insert(DrivingParticipant(PlayerSlot(1)));
+        let start = ae::Vec2::new(420.0, 100.0);
+
+        app.world_mut()
+            .get_mut::<ActorControl>(player)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        for _ in 0..10 {
+            app.update();
+        }
+
+        assert_eq!(
+            app.world().get::<BodyKinematics>(driven).unwrap().pos,
+            start,
+            "the well pulled a body a second participant is driving — its \
+             authored `Enemy` is not the side it is fighting on"
+        );
     }
 
     #[test]

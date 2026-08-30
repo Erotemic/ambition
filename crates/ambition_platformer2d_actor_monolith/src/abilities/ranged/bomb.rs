@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
-use crate::items::pickup::GroundItem;
+use crate::items::pickup::{GroundItem, Release, ReleasedAs};
 use ambition_platformer2d_core as ae;
 
 /// Held-item id the bomb grants.
@@ -31,18 +31,46 @@ pub struct BombFuse {
     pub timer: f32,
 }
 
-/// Arm any thrown bomb: a `bomb` [`GroundItem`] that is moving (just thrown) and
-/// not yet armed gets a lit [`BombFuse`]. A resting debug bomb (never thrown)
-/// stays unarmed so the player can pick it up safely.
+/// A `bomb` [`GroundItem`] is armed exactly while it is in the world because
+/// somebody THREW it, and this is where that becomes true in both directions.
+///
+/// ⛔⛔ IT USED TO ASK THE VELOCITY, and a velocity does not know who moved it:
+/// `ground.vel != ZERO` armed any bomb the room authored at rest the instant
+/// `ground_item_physics` gave it gravity. Ordinary falling read as "a player
+/// threw this". The reverse failed too — catching an armed bomb zeroed the
+/// velocity and left the lit fuse, and the ticker did not care whose hand it was
+/// in, so it counted down and went off in custody.
+///
+/// ⭐ [`ReleasedAs`] IS THE FACT, and `Release::Throw` versus `Release::Drop` was
+/// already decided by the one release transaction — it just had nowhere to say
+/// so. A Z-drop is handing the item to the floor, not an attack, so it does not
+/// arm; that was the old answer too, but only because a drop happens to launch
+/// at zero velocity.
+///
+/// ⚠ AND DISARMING IS THE SAME SYSTEM, deliberately. It is chained ahead of
+/// [`tick_bomb_fuses`], so a bomb caught this tick has its fuse removed before
+/// anything can burn it down — catching a live bomb is a defined outcome, not a
+/// race between two systems. Re-throwing re-arms with a fresh fuse, which is
+/// what `Without`-style arming already implied.
 pub fn arm_thrown_bombs(
     mut commands: Commands,
-    bombs: Query<(Entity, &GroundItem), Without<BombFuse>>,
+    bombs: Query<(Entity, &GroundItem, Option<&ReleasedAs>, Has<BombFuse>)>,
 ) {
-    for (entity, ground) in &bombs {
-        if ground.spec.id == BOMB_ID && ground.vel != ae::Vec2::ZERO {
-            commands.entity(entity).insert(BombFuse {
-                timer: BOMB_FUSE_SECS,
-            });
+    for (entity, ground, released, armed) in &bombs {
+        if ground.spec.id != BOMB_ID {
+            continue;
+        }
+        let thrown = matches!(released, Some(ReleasedAs(Release::Throw)));
+        match (thrown, armed) {
+            (true, false) => {
+                commands.entity(entity).insert(BombFuse {
+                    timer: BOMB_FUSE_SECS,
+                });
+            }
+            (false, true) => {
+                commands.entity(entity).remove::<BombFuse>();
+            }
+            _ => {}
         }
     }
 }
@@ -111,13 +139,19 @@ mod tests {
         }
     }
 
+    /// ⭐ THE ORIGINAL CONTRACT, ASKED OF THE RIGHT FACT. This arm used to spawn
+    /// a bomb with a nonzero velocity and call it "thrown"; the velocity was the
+    /// heuristic under test, so the test agreed with the bug by construction.
     #[test]
-    fn a_thrown_bomb_arms_but_a_resting_one_does_not() {
+    fn a_thrown_bomb_arms_but_a_bomb_nobody_threw_does_not() {
         let mut app = App::new();
         app.add_systems(Update, arm_thrown_bombs);
         let thrown = app
             .world_mut()
-            .spawn(bomb_ground(ae::Vec2::new(60.0, -200.0)))
+            .spawn((
+                bomb_ground(ae::Vec2::new(60.0, -200.0)),
+                ReleasedAs(Release::Throw),
+            ))
             .id();
         let resting = app.world_mut().spawn(bomb_ground(ae::Vec2::ZERO)).id();
         app.update();
@@ -127,7 +161,107 @@ mod tests {
         );
         assert!(
             app.world().get::<BombFuse>(resting).is_none(),
-            "resting bomb stays safe"
+            "a bomb nobody threw stays safe"
+        );
+    }
+
+    /// ⛔⛔ THE FIRST HALF OF THE DEFECT. A bomb the room authored begins at rest
+    /// and then FALLS: `ground_item_physics` gives it a velocity, and the old
+    /// arming read that as evidence a player threw it. Nobody threw it; it is
+    /// just subject to gravity like everything else.
+    #[test]
+    fn a_falling_bomb_nobody_threw_does_not_arm_itself() {
+        let mut app = App::new();
+        app.add_systems(Update, arm_thrown_bombs);
+        // The velocity a second of ordinary free-fall gives it. Under the old
+        // rule this is indistinguishable from a throw.
+        let authored = app
+            .world_mut()
+            .spawn(bomb_ground(ae::Vec2::new(0.0, 980.0)))
+            .id();
+        app.update();
+        assert!(
+            app.world().get::<BombFuse>(authored).is_none(),
+            "a bomb armed itself by falling — ordinary gravity is being read as \
+             a player's throw"
+        );
+    }
+
+    /// ⛔⛔ THE SECOND HALF, and the one that kills you. Catching a live bomb
+    /// zeroed its velocity and left the lit fuse; the ticker did not care whose
+    /// hand it was in, so it counted down and detonated in custody.
+    ///
+    /// ⚠ `arm_thrown_bombs` is CHAINED AHEAD of `tick_bomb_fuses` in the shipped
+    /// schedule, so the disarm lands before anything can burn the fuse down —
+    /// this arm runs them in that order for the same reason.
+    #[test]
+    fn catching_a_live_bomb_puts_the_fuse_out() {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        let mut wt = ambition_time::WorldTime::default();
+        wt.scaled_dt = 0.05;
+        app.insert_resource(wt);
+        app.add_systems(Update, (arm_thrown_bombs, tick_bomb_fuses).chain());
+
+        // In the air with a fuse almost out, exactly as a caught bomb is.
+        let caught = app
+            .world_mut()
+            .spawn((
+                bomb_ground(ae::Vec2::ZERO),
+                ReleasedAs(Release::Throw),
+                BombFuse { timer: 0.001 },
+            ))
+            .id();
+        // A body takes custody: the release is over, so its record is retracted.
+        app.world_mut().entity_mut(caught).remove::<ReleasedAs>();
+
+        app.update();
+
+        assert!(
+            app.world().get::<GroundItem>(caught).is_some(),
+            "a bomb detonated in the hand that caught it"
+        );
+        assert!(
+            app.world().get::<BombFuse>(caught).is_none(),
+            "the fuse survived the catch, so it is still counting down in custody"
+        );
+    }
+
+    /// A Z-drop is handing the item to the floor, not an attack. The old rule
+    /// agreed, but only because a drop happens to launch at zero velocity —
+    /// which is not a reason.
+    #[test]
+    fn a_dropped_bomb_does_not_arm() {
+        let mut app = App::new();
+        app.add_systems(Update, arm_thrown_bombs);
+        let dropped = app
+            .world_mut()
+            .spawn((bomb_ground(ae::Vec2::ZERO), ReleasedAs(Release::Drop)))
+            .id();
+        app.update();
+        assert!(app.world().get::<BombFuse>(dropped).is_none());
+    }
+
+    /// And throwing it again re-arms with a fresh fuse, which is what a catch
+    /// being a DISARM rather than a permanent defusal means.
+    #[test]
+    fn re_throwing_a_caught_bomb_arms_it_again() {
+        let mut app = App::new();
+        app.add_systems(Update, arm_thrown_bombs);
+        let bomb = app.world_mut().spawn(bomb_ground(ae::Vec2::ZERO)).id();
+        app.update();
+        assert!(app.world().get::<BombFuse>(bomb).is_none());
+
+        app.world_mut()
+            .entity_mut(bomb)
+            .insert(ReleasedAs(Release::Throw));
+        app.update();
+        assert_eq!(
+            app.world().get::<BombFuse>(bomb).map(|fuse| fuse.timer),
+            Some(BOMB_FUSE_SECS),
+            "a re-thrown bomb gets a FULL fuse, not the remainder of its last one"
         );
     }
 

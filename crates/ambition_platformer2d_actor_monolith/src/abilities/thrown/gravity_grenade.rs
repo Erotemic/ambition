@@ -16,9 +16,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
-use crate::items::pickup::GroundItem;
-use ambition_platformer2d_shared_tangle::gravity::{GravityZone, TemporaryZone};
+use crate::items::pickup::{GroundItem, Release, ReleasedAs};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::gravity::{GravityZone, TemporaryZone};
 
 /// Held-item id the gravity grenade grants.
 pub const GRAVITY_GRENADE_ID: &str = "gravity_grenade";
@@ -37,19 +37,76 @@ pub struct GravityGrenadeFuse {
 }
 
 /// Arm a thrown gravity grenade: a moving `gravity_grenade` [`GroundItem`] (just
-/// thrown) that isn't armed yet gets a lit fuse. A resting debug grenade stays
+/// thrown) that isn't armed yet gets a lit fuse. A grenade nobody threw stays
 /// safe so the player can pick it up.
+///
+/// ⛔⛔ SAME DEFECT AS THE BOMB, same repair. This asked `ground.vel != ZERO`,
+/// which arms an authored grenade the moment gravity moves it and leaves a lit
+/// fuse burning in the hand of whoever catches one. [`ReleasedAs`] carries the
+/// decision the release transaction already made; disarming lives here too, and
+/// is chained ahead of the ticker so a caught grenade cannot detonate in custody.
 pub fn arm_thrown_gravity_grenades(
     mut commands: Commands,
-    grenades: Query<(Entity, &GroundItem), Without<GravityGrenadeFuse>>,
+    grenades: Query<(
+        Entity,
+        &GroundItem,
+        Option<&ReleasedAs>,
+        Has<GravityGrenadeFuse>,
+    )>,
 ) {
-    for (entity, ground) in &grenades {
-        if ground.spec.id == GRAVITY_GRENADE_ID && ground.vel != ae::Vec2::ZERO {
-            commands.entity(entity).insert(GravityGrenadeFuse {
-                timer: GRAVITY_GRENADE_FUSE_SECS,
-            });
+    for (entity, ground, released, armed) in &grenades {
+        if ground.spec.id != GRAVITY_GRENADE_ID {
+            continue;
+        }
+        let thrown = matches!(released, Some(ReleasedAs(Release::Throw)));
+        match (thrown, armed) {
+            (true, false) => {
+                commands.entity(entity).insert(GravityGrenadeFuse {
+                    timer: GRAVITY_GRENADE_FUSE_SECS,
+                });
+            }
+            (false, true) => {
+                commands.entity(entity).remove::<GravityGrenadeFuse>();
+            }
+            _ => {}
         }
     }
+}
+
+/// Open one temporary up-gravity well. THE seam a grenade's well comes into the
+/// world through.
+///
+/// ⭐ ONE PLACE, like `deploy_sentry` and `open_vortex_well`: an archetype that
+/// only exists after a fuse burns down is invisible to a census of a booted
+/// room, and a named seam is what lets a test build the real thing rather than
+/// an approximation of it.
+///
+/// ⛔⛔ AN AUTHORED GRAVITY COLUMN AND THIS ARE NOT THE SAME KIND OF THING. The
+/// authored one is room geometry a room load rebuilds; this one is spawned
+/// mid-match, counts `remaining` down, and despawns itself. `TemporaryZone` is
+/// therefore the rollback ANCHOR of the pair — see the shared-tangle
+/// registration, which says why anchoring `GravityZone` instead would enlist
+/// every authored column for nothing.
+pub fn open_temporary_gravity_well(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    center: ae::Vec2,
+) -> Entity {
+    commands
+        .spawn_session_scoped(
+            scope,
+            (
+                GravityZone {
+                    aabb: ae::Aabb::new(center, WELL_HALF),
+                    dir: ae::Vec2::new(0.0, -1.0), // up
+                },
+                TemporaryZone {
+                    remaining: WELL_DURATION_SECS,
+                },
+                Name::new("Gravity well (grenade)"),
+            ),
+        )
+        .id()
 }
 
 /// Burn fuses; on expiry open a temporary up-gravity well at the grenade and
@@ -75,18 +132,10 @@ pub fn tick_gravity_grenade_fuses(
         if fuse.timer > 0.0 {
             continue;
         }
-        commands.spawn_session_scoped(
+        open_temporary_gravity_well(
+            &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
-            (
-                GravityZone {
-                    aabb: ae::Aabb::new(ground.pos, WELL_HALF),
-                    dir: ae::Vec2::new(0.0, -1.0), // up
-                },
-                TemporaryZone {
-                    remaining: WELL_DURATION_SECS,
-                },
-                Name::new("Gravity well (grenade)"),
-            ),
+            ground.pos,
         );
         sfx.write_for(
             entity,
@@ -118,23 +167,55 @@ mod tests {
         }
     }
 
+    /// ⭐ ASKED OF THE RELEASE, NOT THE VELOCITY. This used to spawn a grenade
+    /// with a nonzero velocity and call it "thrown" — which is the heuristic
+    /// under test, so the arm agreed with the bug by construction.
     #[test]
-    fn a_thrown_grenade_arms_but_a_resting_one_does_not() {
+    fn a_thrown_grenade_arms_but_a_grenade_nobody_threw_does_not() {
         let mut app = App::new();
         app.add_systems(Update, arm_thrown_gravity_grenades);
         let thrown = app
             .world_mut()
-            .spawn(grenade_ground(ae::Vec2::new(60.0, -200.0)))
+            .spawn((
+                grenade_ground(ae::Vec2::new(60.0, -200.0)),
+                ReleasedAs(Release::Throw),
+            ))
             .id();
-        let resting = app.world_mut().spawn(grenade_ground(ae::Vec2::ZERO)).id();
+        // FALLING, not thrown: the velocity a second of free-fall gives an
+        // authored grenade, which the old rule could not tell from a throw.
+        let falling = app
+            .world_mut()
+            .spawn(grenade_ground(ae::Vec2::new(0.0, 980.0)))
+            .id();
         app.update();
         assert!(
             app.world().get::<GravityGrenadeFuse>(thrown).is_some(),
             "a thrown grenade arms",
         );
         assert!(
-            app.world().get::<GravityGrenadeFuse>(resting).is_none(),
-            "a resting grenade stays safe",
+            app.world().get::<GravityGrenadeFuse>(falling).is_none(),
+            "a grenade armed itself by falling — gravity is being read as a throw",
+        );
+    }
+
+    /// ⛔⛔ AND CATCHING ONE PUTS THE FUSE OUT. Same defect, same repair as the
+    /// bomb: taking custody retracts `ReleasedAs`, and the arming system — which
+    /// is chained ahead of the ticker — removes the fuse before it can burn.
+    #[test]
+    fn catching_a_live_grenade_puts_the_fuse_out() {
+        let mut app = App::new();
+        app.add_systems(Update, arm_thrown_gravity_grenades);
+        let caught = app
+            .world_mut()
+            .spawn((
+                grenade_ground(ae::Vec2::ZERO),
+                GravityGrenadeFuse { timer: 0.01 },
+            ))
+            .id();
+        app.update();
+        assert!(
+            app.world().get::<GravityGrenadeFuse>(caught).is_none(),
+            "the fuse survived the catch, so it is still counting down in custody",
         );
     }
 

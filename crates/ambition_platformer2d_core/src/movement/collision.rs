@@ -117,6 +117,36 @@ fn block_passable_while_submerged(body_mode: &crate::body_clusters::BodyModeStat
     )
 }
 
+/// The blocks this body passes through this step — decided once, consulted by
+/// BOTH collision stages.
+///
+/// ⛔⛔ THE TWO STAGES HAD DIFFERENT IDEAS OF WHAT `Submerged` MEANS. The
+/// continuous sweep took `BodyModeState` and knew a submerged body is not in the
+/// world; [`resolve_axis_repair`] took neither it nor anything equivalent, so a
+/// body that legitimately travelled THROUGH a block was then found overlapping
+/// it and pushed back out — by the second half of the same function call. The
+/// mode that exists to make a body intangible was intangible to one stage only.
+///
+/// ⚠ CLIMBING HAD THE SAME GAP, and it is the reason this is a shared value
+/// rather than another `if Submerged` in the repair. A climbing body passes
+/// through exactly the blocks its climbable region overlaps; the repair could
+/// not tell which those were either, so it shoved a climber out of the wall she
+/// was on. One policy, asked the same question by both stages, is what makes
+/// "passable" mean one thing.
+#[derive(Clone, Copy)]
+pub(super) struct BodyCollisionPolicy<'a> {
+    body_mode: &'a crate::body_clusters::BodyModeState,
+    env_contact: &'a crate::body_clusters::BodyEnvironmentContact,
+}
+
+impl BodyCollisionPolicy<'_> {
+    /// Whether `block` is not there, for this body, this step.
+    fn passes_through(&self, block: &crate::world::Block) -> bool {
+        block_passable_while_submerged(self.body_mode)
+            || block_passable_during_climb_clusters(self.body_mode, self.env_contact, block)
+    }
+}
+
 fn block_passable_during_climb_clusters(
     body_mode: &crate::body_clusters::BodyModeState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
@@ -268,12 +298,19 @@ pub(super) fn sweep_player_axis_clusters(
 ) -> Option<AxisConstraintConflict> {
     let role = axis_role(axis, gravity_dir);
     let delta = axis_vec(axis, delta_along);
+    // ONE policy for both stages below. See [`BodyCollisionPolicy`] for what the
+    // repair used to do without it.
+    let policy = BodyCollisionPolicy {
+        body_mode,
+        env_contact,
+    };
     if delta_along.abs() <= 1.0e-5 {
         return resolve_axis_repair(
             world,
             kinematics,
             ground,
             wall,
+            policy,
             axis,
             prev_feet_coord,
             drop_through,
@@ -287,10 +324,7 @@ pub(super) fn sweep_player_axis_clusters(
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
             return false;
         }
-        if block_passable_while_submerged(body_mode) {
-            return false;
-        }
-        if block_passable_during_climb_clusters(body_mode, env_contact, block) {
+        if policy.passes_through(block) {
             return false;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -426,6 +460,7 @@ pub(super) fn sweep_player_axis_clusters(
         kinematics,
         ground,
         wall,
+        policy,
         axis,
         prev_feet_coord,
         drop_through,
@@ -467,6 +502,7 @@ fn resolve_axis_repair(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
+    policy: BodyCollisionPolicy<'_>,
     axis: Axis,
     prev_feet_coord: f32,
     drop_through: bool,
@@ -483,6 +519,12 @@ fn resolve_axis_repair(
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
         {
+            continue;
+        }
+        // ⭐ THE SAME QUESTION THE SWEEP ASKED. A block this body passed through
+        // contributes no repair claim, or the repair undoes the traversal the
+        // sweep just allowed.
+        if policy.passes_through(block) {
             continue;
         }
         // `BonkOnly` reacts to rising-head contact but never supplies support/repair geometry.

@@ -4,8 +4,9 @@ use super::*;
 use ambition_combat::components::{CenteredAabb, Collected, FeatureName, PickupFeature};
 use ambition_combat::events::GameplayBanner;
 use ambition_combat::events::SetFlagRequested;
-use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Bodies eligible for passive touch collection.
 ///
@@ -179,6 +180,10 @@ pub fn collect_ecs_pickups(
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
+    // The tie-break's authority. Read through a lookup rather than joined onto
+    // the collector query so a body without one still competes on distance —
+    // it just cannot win a tie, which is what `winner_by` documents.
+    sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
@@ -188,18 +193,27 @@ pub fn collect_ecs_pickups(
         if collected.is_some() {
             continue;
         }
-        // Find the first overlapping collector. The heal is then routed
-        // to that specific body via `PlayerHealRequested::target` so
-        // a non-primary collector still actually heals themselves
-        // (OVERNIGHT-TODO #17.6 bridge). Single-player behavior is
-        // unchanged: the iterator has one entity, and the target ==
-        // primary fallback path lands the heal on the same player.
-        let Some((collector_entity, ..)) =
-            collectors.iter().find(|(_, kin, is_player, control)| {
+        // ⛔⛔ THE NEAREST OVERLAPPING COLLECTOR, NOT THE FIRST. This was
+        // `collectors.iter().find(..)`, and its own comment said so — "find the
+        // first overlapping collector" — which reads like a rule and is not one:
+        // "first" is Bevy query order, i.e. archetype order, which a resimulated
+        // tick can present differently. With two players standing on one ring
+        // that decided who healed, who banked the currency, and who took the
+        // flag, and it decided it unrepeatably.
+        //
+        // ⭐ NEAREST-CENTRE IS A RULE A PLAYER CAN SEE, and `SimId` is what makes
+        // the answer the same on both peers when two bodies are equidistant. The
+        // heal is still routed to that specific body via
+        // `PlayerHealRequested::target`, so single-player behaviour is unchanged:
+        // one candidate wins by being the only one.
+        let Some((collector_entity, ..)) = winner_by(
+            collectors.iter().filter(|(_, kin, is_player, control)| {
                 body_collects_on_touch(*is_player, *control)
                     && aabb.aabb().strict_intersects(kin.aabb())
-            })
-        else {
+            }),
+            |(_, kin, _, _)| kin.pos.distance_squared(aabb.center),
+            |(entity, _, _, _)| sim_ids.get(*entity).ok(),
+        ) else {
             continue;
         };
         commands.entity(entity).insert(Collected);

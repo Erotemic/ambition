@@ -257,3 +257,126 @@ fn nearby_pickups_drift_toward_the_player() {
     );
     assert_eq!(far_x, 500.0, "the far pickup is out of magnet range");
 }
+
+/// ⛔⛔ WHO GETS THE RING, WHEN TWO PLAYERS ARE STANDING ON IT.
+///
+/// `collect_ecs_pickups` resolved this with `collectors.iter().find(..)`, and
+/// the comment above it said "find the first overlapping collector" — which
+/// reads like a rule and is not one. "First" is Bevy query order, i.e. archetype
+/// order, and a resimulated tick can present the same two bodies in the other
+/// one. Depending on the pickup that decides who heals, who banks the currency,
+/// and who takes the flag.
+mod who_gets_it {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    fn identified_player_at(app: &mut App, slot: u8, pos: ae::Vec2) -> bevy::prelude::Entity {
+        let entity = player_at(app, pos);
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SimId::player_slot(slot));
+        entity
+    }
+
+    /// Run one collection with the two collectors spawned in `order`, and report
+    /// the winner's stable identity.
+    fn winner_with_spawn_order(order: [u8; 2]) -> SimId {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let ring = ae::Vec2::new(64.0, 64.0);
+        // EQUIDISTANT ON PURPOSE. The metric cannot separate them, so the answer
+        // is entirely the tie-break — which is the half that was missing.
+        let places = [
+            ring + ae::Vec2::new(-6.0, 0.0),
+            ring + ae::Vec2::new(6.0, 0.0),
+        ];
+        for (slot, place) in order.into_iter().zip(places) {
+            identified_player_at(&mut app, slot, place);
+        }
+        let pickup = health_pickup_at(&mut app, "hp_contested", ring);
+
+        app.update();
+
+        assert!(
+            app.world().get::<Collected>(pickup).is_some(),
+            "nobody collected a pickup both bodies overlap, so this arm proves \
+             nothing about who won"
+        );
+        let world = app.world_mut();
+        let mut heals = world.resource_mut::<bevy::prelude::Messages<PlayerHealRequested>>();
+        let mut cursor = heals.get_cursor();
+        let target = cursor
+            .read(&heals)
+            .next()
+            .and_then(|heal| heal.target)
+            .expect("the heal is routed to the specific body that collected it");
+        let world = app.world();
+        world
+            .get::<SimId>(target)
+            .cloned()
+            .expect("the winner carries the identity the tie-break used")
+    }
+
+    /// ⭐ THE PROPERTY. Reversing the order the two bodies were spawned in must
+    /// not change who collects. Under `.iter().find(..)` it does — the winner
+    /// follows archetype order, so this arm reads `slot:0` one way and `slot:1`
+    /// the other.
+    #[test]
+    fn the_same_body_collects_whichever_order_the_two_were_spawned_in() {
+        let forward = winner_with_spawn_order([0, 1]);
+        let reversed = winner_with_spawn_order([1, 0]);
+        assert_eq!(
+            forward, reversed,
+            "which of two equidistant bodies collected the pickup changed with \
+             the order they were spawned in, so a resimulated tick can hand it \
+             to the other player"
+        );
+        assert_eq!(
+            forward,
+            SimId::player_slot(0),
+            "the tie-break is stable SimId, so the lower slot wins an exact tie"
+        );
+    }
+
+    /// And the metric still comes first: a body that is genuinely nearer wins
+    /// regardless of its identity, or the tie-break would have quietly become
+    /// the whole rule.
+    #[test]
+    fn the_nearer_body_wins_even_with_the_higher_identity() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let ring = ae::Vec2::new(64.0, 64.0);
+        identified_player_at(&mut app, 0, ring + ae::Vec2::new(-12.0, 0.0));
+        identified_player_at(&mut app, 1, ring);
+        health_pickup_at(&mut app, "hp_contested", ring);
+
+        app.update();
+
+        let world = app.world_mut();
+        let heals = world.resource::<bevy::prelude::Messages<PlayerHealRequested>>();
+        let mut cursor = heals.get_cursor();
+        let target = cursor
+            .read(heals)
+            .next()
+            .and_then(|heal| heal.target)
+            .expect("a heal was routed");
+        assert_eq!(
+            app.world().get::<SimId>(target).cloned(),
+            Some(SimId::player_slot(1)),
+            "the higher slot standing exactly on the pickup lost to a farther \
+             body, so the identity tie-break is outranking the gameplay metric"
+        );
+    }
+}

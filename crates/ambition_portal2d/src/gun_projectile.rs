@@ -36,32 +36,46 @@ pub struct PortalShot {
 /// On a generic [`PortalFireIntent`], fire a portal *shot* of the intent's `channel` from
 /// `origin` along `dir`. Portal core no longer reaches for a primary actor or held gun — the
 /// host resolver may produce the intent from a gun, replay, script, AI, or any future emitter.
+/// ⛔⛔ EVERY INTENT, NOT THE LAST ONE. This read `fires.read().last()` and
+/// dropped the rest of the tick on the floor — a silent global winner, and the
+/// last thing that should be implicit in a channel whose whole contract says any
+/// number of emitters may produce one. Two players firing in the same tick made
+/// ONE shot; a script and an actor firing together made one; a four-seat couch
+/// match made one. The singleton reading was a leftover from when the only
+/// emitter was the primary player's gun, and it outlived the generalisation that
+/// removed that assumption.
+///
+/// ⚠ ORDER IS THE WRITE ORDER, and that is a deliberate rollback property: the
+/// message buffer is cleared on `LoadWorld::Mapping`, and a resimulated tick
+/// re-writes the same intents from the same inputs in the same order, so two
+/// shots on one channel resolve the same way on every peer. If a same-channel
+/// same-tick winner is ever wanted it belongs here as a stated policy over
+/// emitter identity — not as a reader method nobody reads as policy.
 pub fn portal_fire_system(
     mut fires: MessageReader<PortalFireIntent>,
     mut commands: Commands,
     mut fired: MessageWriter<PortalShotFired>,
 ) {
-    let Some(fire) = fires.read().last().copied() else {
-        return;
-    };
-    let dir = fire.dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return;
+    for fire in fires.read().copied() {
+        let dir = fire.dir.normalize_or_zero();
+        if dir == Vec2::ZERO {
+            continue;
+        }
+        // The crate emits the fire signal; a host audio adapter plays any blast /
+        // travel cues (the crate owns neither audio nor ids).
+        fired.write(PortalShotFired {
+            origin: fire.origin,
+        });
+        commands.spawn_room_scoped((
+            PortalShot {
+                channel: fire.channel,
+                pos: fire.origin,
+                vel: dir * PORTAL_SHOT_SPEED,
+                traveled: 0.0,
+            },
+            Name::new("Portal shot"),
+        ));
     }
-    // The crate emits the fire signal; a host audio adapter plays any blast /
-    // travel cues (the crate owns neither audio nor ids).
-    fired.write(PortalShotFired {
-        origin: fire.origin,
-    });
-    commands.spawn_room_scoped((
-        PortalShot {
-            channel: fire.channel,
-            pos: fire.origin,
-            vel: dir * PORTAL_SHOT_SPEED,
-            traveled: 0.0,
-        },
-        Name::new("Portal shot"),
-    ));
 }
 
 /// World access for the pure portal-shot step: the solid surfaces the shot's
@@ -152,5 +166,128 @@ pub fn step_portal_shot<W: SolidWorldQuery + ?Sized>(
             pos,
             traveled_delta: step,
         }
+    }
+}
+
+#[cfg(test)]
+mod fire_intent_tests {
+    use super::*;
+    use crate::color::{PortalChannel, PortalGunColor};
+
+    fn app_with_the_fire_system() -> App {
+        let mut app = App::new();
+        app.add_message::<PortalFireIntent>();
+        app.add_message::<PortalShotFired>();
+        app.add_systems(Update, portal_fire_system);
+        app
+    }
+
+    fn intent(origin_x: f32, channel: PortalChannel) -> PortalFireIntent {
+        PortalFireIntent {
+            origin: Vec2::new(origin_x, 0.0),
+            dir: Vec2::new(1.0, 0.0),
+            channel,
+        }
+    }
+
+    fn shots(app: &mut App) -> Vec<PortalShot> {
+        let world = app.world_mut();
+        let mut query = world.query::<&PortalShot>();
+        query.iter(world).copied().collect()
+    }
+
+    /// ⛔⛔ THE DEFECT. `PortalFireIntent`'s own doc says the host may lower an
+    /// intent from a "gun, replay, script, AI, or any future emitter" — and the
+    /// implementation kept only `read().last()`, so every other emitter in the
+    /// tick was discarded. Two players firing on the same frame produced one
+    /// shot.
+    #[test]
+    fn two_emitters_firing_in_one_tick_each_get_their_shot() {
+        let mut app = app_with_the_fire_system();
+        app.world_mut()
+            .write_message(intent(10.0, PortalChannel::Gun(PortalGunColor::BLUE)));
+        app.world_mut()
+            .write_message(intent(20.0, PortalChannel::Gun(PortalGunColor::ORANGE)));
+        app.update();
+
+        let mut origins: Vec<f32> = shots(&mut app).iter().map(|shot| shot.pos.x).collect();
+        origins.sort_by(f32::total_cmp);
+        assert_eq!(
+            origins,
+            vec![10.0, 20.0],
+            "one of two same-tick fire intents was dropped, so a second player, \
+             a script, or any non-gun emitter cannot fire on a frame the gun did"
+        );
+    }
+
+    /// The channel each shot opens on is its OWN intent's, not the last one's.
+    /// Dropping all but the last intent also silently re-coloured the survivor.
+    #[test]
+    fn each_shot_keeps_the_channel_of_the_intent_that_made_it() {
+        let mut app = app_with_the_fire_system();
+        app.world_mut()
+            .write_message(intent(10.0, PortalChannel::Gun(PortalGunColor::BLUE)));
+        app.world_mut()
+            .write_message(intent(20.0, PortalChannel::Gun(PortalGunColor::ORANGE)));
+        app.update();
+
+        let mut pairs: Vec<(i32, PortalChannel)> = shots(&mut app)
+            .iter()
+            .map(|shot| (shot.pos.x as i32, shot.channel))
+            .collect();
+        pairs.sort_by_key(|(x, _)| *x);
+        assert_eq!(
+            pairs,
+            vec![
+                (10, PortalChannel::Gun(PortalGunColor::BLUE)),
+                (20, PortalChannel::Gun(PortalGunColor::ORANGE)),
+            ]
+        );
+    }
+
+    /// ⚠ A ZERO AIM SKIPS ITS OWN INTENT AND NOTHING ELSE. The old `return`
+    /// meant one degenerate aim cancelled the whole tick for every other
+    /// emitter; iterating turns that into a `continue`, which is the only
+    /// reading that matches "each emitter fires its own shot".
+    #[test]
+    fn a_zero_aim_cancels_only_its_own_shot() {
+        let mut app = app_with_the_fire_system();
+        app.world_mut()
+            .write_message(intent(20.0, PortalChannel::Gun(PortalGunColor::ORANGE)));
+        // ⭐ THE DEGENERATE ONE GOES LAST ON PURPOSE. With it first, a
+        // `read().last()` implementation still finds the good intent and this
+        // arm passes for the wrong reason — it has to be the intent the broken
+        // reading would have kept.
+        app.world_mut().write_message(PortalFireIntent {
+            origin: Vec2::new(10.0, 0.0),
+            dir: Vec2::ZERO,
+            channel: PortalChannel::Gun(PortalGunColor::BLUE),
+        });
+        app.update();
+
+        let origins: Vec<f32> = shots(&mut app).iter().map(|shot| shot.pos.x).collect();
+        assert_eq!(
+            origins,
+            vec![20.0],
+            "a degenerate aim from one emitter must not cancel another emitter's \
+             shot in the same tick"
+        );
+    }
+
+    /// One signal per shot: a host audio adapter plays a blast cue for each, and
+    /// the emitter count is what a versus HUD would read.
+    #[test]
+    fn every_shot_emits_its_own_fired_signal() {
+        let mut app = app_with_the_fire_system();
+        app.world_mut()
+            .write_message(intent(10.0, PortalChannel::Gun(PortalGunColor::BLUE)));
+        app.world_mut()
+            .write_message(intent(20.0, PortalChannel::Gun(PortalGunColor::ORANGE)));
+        app.update();
+
+        let world = app.world_mut();
+        let messages = world.resource::<Messages<PortalShotFired>>();
+        let mut cursor = messages.get_cursor();
+        assert_eq!(cursor.read(messages).count(), 2);
     }
 }

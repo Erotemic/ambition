@@ -98,29 +98,53 @@ pub fn tick_encounter_scripts(
                     impact_gate,
                 } => {
                     if let Some(target) = member_entity(*target_member) {
-                        commands.spawn_session_scoped(
+                        drop_hazard(
+                            &mut commands,
                             SessionSpawnScope::new(
                                 session_owners.get(target).ok().map(|owner| owner.0),
                             ),
-                            (
-                                CenteredAabb::from_center_size(*anchor, *size),
-                                FallingHazard {
-                                    size: *size,
-                                    gravity: *gravity,
-                                    terminal: *terminal,
-                                    align_tolerance: *align_tolerance,
-                                    target,
-                                    impact_gate: impact_gate.clone(),
-                                    vel_y: 0.0,
-                                    dropping: false,
-                                },
-                            ),
+                            *anchor,
+                            FallingHazard {
+                                size: *size,
+                                gravity: *gravity,
+                                terminal: *terminal,
+                                align_tolerance: *align_tolerance,
+                                target,
+                                impact_gate: impact_gate.clone(),
+                                vel_y: 0.0,
+                                dropping: false,
+                            },
                         );
                     }
                 }
             }
         }
     }
+}
+
+/// Drop one hazard. THE seam a falling hazard comes into the world through.
+///
+/// ⭐ ONE PLACE, because an archetype that exists only after an encounter beat
+/// fires is an archetype no census of a booted room can reach — which is exactly
+/// how this one shipped carrying a rollback codec and no rollback ANCHOR. A
+/// named seam is what lets a test bring the real entity into a booted world.
+///
+/// ⛔⛔ `vel_y`, `dropping` and the entity it is aimed at are the fall itself, and
+/// the hazard decides when a boss takes an impact. The declaration is in this
+/// crate's `register_rollback_state`, anchor and codec together.
+pub fn drop_hazard(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    anchor: ae::Vec2,
+    hazard: FallingHazard,
+) -> Entity {
+    let size = hazard.size;
+    commands
+        .spawn_session_scoped(
+            scope,
+            (CenteredAabb::from_center_size(anchor, size), hazard),
+        )
+        .id()
 }
 
 /// Generic "lured movement" override: while present on a boss, its brain control

@@ -49,6 +49,43 @@ where
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
     registrar.require_rollback::<crate::shrine::HealShrine>(OWNER, "entity:heal_shrine");
+    // ⛔⛔ TWO AUTONOMOUS EMITTERS THAT WERE NOT IN THE ROLLBACK VOCABULARY AT
+    // ALL — not inert, ABSENT. A turret and a singularity are both spawned
+    // mid-match by an ability, both outlive the frame that made them, and both
+    // carry timers that decide when the world changes: the sentry's cooldown
+    // decides which tick a bolt is emitted on, the well's `remaining_s` decides
+    // how long every body in radius keeps being pulled. Nothing saved either, so
+    // a rewind across a deployment kept the future's turret, its future
+    // cooldown, and the shots that cooldown had already authorized.
+    //
+    // ⚠ THE ANCHOR IS WHY THE COVERAGE SWEEP NEVER SAID SO. A one-shot census
+    // walks the entities a booted room HAS; a turret exists only after somebody
+    // fires, so its absence from the registry read exactly like a pass. See the
+    // scenario sweep this landed with.
+    registrar.require_rollback::<crate::abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
+    registrar.rollback_component_clone_probed::<crate::abilities::ranged::sentry::Sentry>(
+        OWNER,
+        "ability.sentry",
+        |sentry| {
+            ((sentry.pos.x.to_bits() as u64) << 32)
+                ^ (sentry.pos.y.to_bits() as u64)
+                ^ ((sentry.remaining_s.to_bits() as u64) << 16)
+                ^ (sentry.fire_cooldown.to_bits() as u64)
+        },
+    );
+    registrar.require_rollback::<crate::abilities::ranged::vortex::VortexWell>(
+        OWNER,
+        "entity:vortex_well",
+    );
+    registrar.rollback_component_clone_probed::<crate::abilities::ranged::vortex::VortexWell>(
+        OWNER,
+        "ability.vortex_well",
+        |well| {
+            ((well.center.x.to_bits() as u64) << 32)
+                ^ (well.center.y.to_bits() as u64)
+                ^ (well.remaining_s.to_bits() as u64)
+        },
+    );
     // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
     // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
     // installs that domain offer only for LDtk games.
@@ -259,6 +296,20 @@ where
     // component with a stale speed would be invisible: the item is settled on
     // both peers and the bomb goes off on one. `rollback_exit_oracle` is what
     // said so, on the run after the field was added.
+    // ⛔⛔ IT DECIDES WHETHER AN OBJECT IN THE WORLD IS GOING TO EXPLODE, and it
+    // lives on a `GroundItem`, which is already an anchor. A rewind that lost it
+    // disarms a live bomb; a rewind that restored it onto a caught bomb re-arms
+    // one in a hand. It replaced a velocity heuristic that WAS rollback state by
+    // accident (`GroundItem` carries `vel`), so this is the same coverage moved
+    // to the fact that actually decides.
+    registrar.rollback_component_clone_probed::<crate::items::pickup::ReleasedAs>(
+        OWNER,
+        "item.released_as",
+        |released| match released.0 {
+            crate::items::pickup::Release::Throw => 1,
+            crate::items::pickup::Release::Drop => 2,
+        },
+    );
     registrar.rollback_component_clone_probed::<crate::items::pickup::SettledItem>(
         OWNER,
         "item.settled_item",

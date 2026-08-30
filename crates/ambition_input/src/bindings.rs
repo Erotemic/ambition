@@ -276,8 +276,10 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
 /// `Changed<InputMap>` hook re-binds them the same frame, exactly as it does
 /// for every other wholesale map write.
 pub fn rebuild_maps_from_recipes(
+    mut commands: Commands,
     mut participants: Query<
         (
+            Entity,
             &BindingRecipe,
             &mut InputMap<Platformer2dInputActionMonolith>,
             &mut ActionState<Platformer2dInputActionMonolith>,
@@ -285,7 +287,7 @@ pub fn rebuild_maps_from_recipes(
         Changed<BindingRecipe>,
     >,
 ) {
-    for (recipe, mut map, mut actions) in &mut participants {
+    for (seat, recipe, mut map, mut actions) in &mut participants {
         let mut built = recipe.build();
         if let Some(pad) = map.gamepad() {
             built.set_gamepad(pad);
@@ -297,7 +299,70 @@ pub fn rebuild_maps_from_recipes(
         if *map != built {
             *map = built;
             actions.reset_all();
+            // …and the reset is only HALF of "edges do not leak". See
+            // [`Rebound`]: the other half lands next frame.
+            commands.entity(seat).insert(Rebound);
         }
+    }
+}
+
+/// A seat whose map was rewritten on the previous frame.
+///
+/// ⛔⛔ `reset_all()` ALONE MANUFACTURES THE PRESS IT MEANS TO PREVENT, and the
+/// bug it shipped was Jon's: *"Smash 'quit to title' quits to a DIFFERENT GAME —
+/// often Ambition itself."* Leaving Smash retracts its `BindingLayout`, which
+/// rebuilds every seat's map on the same frame the shell routes home. Traced,
+/// with Enter held the whole time:
+///
+/// ```text
+/// f0  select=true   route=smash_gameplay     <- the real confirm, on "Quit to Title"
+/// f1  select=false  route=ambition_launcher  <- home, launcher cursor reset to row 0
+/// f2  select=false  route=ambition_launcher  <- map rewritten, ActionState reset: NOT pressed
+/// f3  select=true   route=ambition_launcher  <- the key never moved. leafwing sees
+///                                              Released -> down and calls it a PRESS
+/// f5  ...           route=ambition_gameplay  <- the launcher launched row 0
+/// ```
+///
+/// `reset_all` leaves the action `Released` while the control is still
+/// physically down, so leafwing's next `Update` reads a rising edge off a key
+/// nobody touched. The player quit to the title screen and the title screen
+/// launched a game at them.
+///
+/// ⭐ THE RESET IS STILL RIGHT — a press latched under the old bindings is not a
+/// press under the new ones, and ending it is honest. What is not honest is the
+/// edge that re-evaluation produces one frame later, so this marker exists to
+/// age that edge out in [`swallow_the_rebinds_own_edges`].
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Rebound;
+
+/// Age out every press edge born of the rebind, not of a finger.
+///
+/// Runs in `PreUpdate` AFTER leafwing has re-read the devices through the new
+/// map, which is the only moment the phantom exists: `JustPressed` is demoted to
+/// `Pressed`, so a control held across the rebind still reads held and simply
+/// never reads as newly pressed. Nothing is invented — an action is only
+/// demoted if leafwing itself, reading the live device, says it is down.
+///
+/// ⚠ IT CANNOT TELL THE PHANTOM FROM A REAL PRESS ON THAT ONE FRAME, and does
+/// not try: the state was cleared, so a control already down and a control that
+/// went down this very frame are the same evidence. A genuine press landing on
+/// the single frame after a rebind loses its edge and must be pressed again.
+/// That is 16ms, on the frame a preset changes or a mode hands the pad back —
+/// against a phantom confirm that starts a game the player was leaving.
+pub fn swallow_the_rebinds_own_edges(
+    mut commands: Commands,
+    mut seats: Query<(Entity, &mut ActionState<Platformer2dInputActionMonolith>), With<Rebound>>,
+) {
+    use leafwing_input_manager::buttonlike::ButtonState;
+
+    for (seat, mut actions) in &mut seats {
+        for action in actions.get_just_pressed() {
+            if let Some(data) = actions.button_data_mut(&action) {
+                data.state = ButtonState::Pressed;
+                data.update_state = ButtonState::Pressed;
+            }
+        }
+        commands.entity(seat).remove::<Rebound>();
     }
 }
 
@@ -965,6 +1030,93 @@ mod tests {
                 .all()
                 .any(|(_, controls)| controls.contains(&PhysicalControl::Key(KeyCode::F13))),
             "and the override's key went nowhere at all"
+        );
+    }
+
+    /// ⛔⛔ A KEY HELD ACROSS A REBIND IS NOT A NEW PRESS, and for one release
+    /// it was. `rebuild_maps_from_recipes` clears the seat's `ActionState` so no
+    /// press latches across the change; leafwing then re-reads the same key,
+    /// still down, off a state that says `Released` — and calls it a rising
+    /// edge. The shell's launcher took that phantom as a confirm, which is how
+    /// Smash's *Quit to Title* started a game instead of reaching the title
+    /// (`Rebound`).
+    ///
+    /// ⭐ THE MAP CHANGES, THE HELD KEY DOES NOT. The override moves a DIFFERENT
+    /// action's binding, so the rebuild is real (`*map != built`) while `Jump`
+    /// stays on the very key this test is holding — which is exactly the shape
+    /// leaving Smash produces, where retracting the layout rewrites the map and
+    /// leaves the confirm key where it was.
+    ///
+    /// Poison: drop `swallow_the_rebinds_own_edges` from the schedule and the
+    /// last assertion fails with a press nobody made.
+    #[test]
+    fn a_key_held_across_a_rebind_is_not_a_new_press() {
+        use leafwing_input_manager::prelude::{Buttonlike, InputManagerPlugin};
+
+        const HELD: KeyCode = KeyCode::KeyJ;
+        let jump = Platformer2dInputActionMonolith::Jump;
+
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
+            .add_systems(Update, rebuild_maps_from_recipes)
+            .add_systems(
+                bevy::app::PreUpdate,
+                swallow_the_rebinds_own_edges
+                    .after(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            );
+
+        let recipe = BindingRecipe::preset(PresetId::ArrowsZxc)
+            .with_overrides(vec![BindingOverride::key("Jump", HELD)]);
+        let seat = app
+            .world_mut()
+            .spawn((
+                InputParticipant::with_id(crate::ParticipantId(0)),
+                recipe.clone(),
+                recipe.build(),
+                ActionState::<Platformer2dInputActionMonolith>::default(),
+            ))
+            .id();
+        app.update();
+
+        let state = |app: &App| {
+            let actions = app
+                .world()
+                .entity(seat)
+                .get::<ActionState<Platformer2dInputActionMonolith>>()
+                .expect("the seat keeps its action state");
+            (actions.pressed(&jump), actions.just_pressed(&jump))
+        };
+
+        // Pre-poison: the fixture has to be able to see a real press at all,
+        // or every assertion below passes for the wrong reason.
+        Buttonlike::press(&HELD, app.world_mut());
+        app.update();
+        assert_eq!(state(&app), (true, true), "the real press is an edge");
+        app.update();
+        assert_eq!(state(&app), (true, false), "and only on its own frame");
+
+        // The rebind. `Interact` moves; `Jump` stays on the held key.
+        app.world_mut().entity_mut(seat).insert(
+            BindingRecipe::preset(PresetId::ArrowsZxc).with_overrides(vec![
+                BindingOverride::key("Jump", HELD),
+                BindingOverride::key("Interact", KeyCode::F13),
+            ]),
+        );
+        app.update();
+
+        // THE FRAME THE PHANTOM ARRIVED ON.
+        app.update();
+        let (pressed, just_pressed) = state(&app);
+        assert!(
+            pressed,
+            "the key never moved, so the action is still held after the rebind"
+        );
+        assert!(
+            !just_pressed,
+            "a rebind is not a press: the key was already down when the map \
+             changed and must not read as newly pressed"
         );
     }
 

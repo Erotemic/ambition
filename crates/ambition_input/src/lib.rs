@@ -98,7 +98,8 @@ pub enum InputSet {
 #[cfg(feature = "input")]
 pub use bindings::{
     action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
-    ActionBindings, BindingRecipe, BindingSources, PhysicalControl, SeatBindings,
+    swallow_the_rebinds_own_edges, ActionBindings, BindingRecipe, BindingSources, PhysicalControl,
+    Rebound, SeatBindings,
 };
 pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]

@@ -6277,3 +6277,120 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
          above is refusing everything rather than refusing predictions"
     );
 }
+
+/// Jon, 2026-08-25: *"Smash 'quit to title' quits to a DIFFERENT GAME — often
+/// Ambition itself. From there a second quit does reach the real title screen."*
+///
+/// ⭐⭐ THE CONFIRM IS HELD, AND THAT IS THE WHOLE TEST. A one-frame tap PASSES
+/// against the defect: the quit and the landing both happen while the key is
+/// still down, and the phantom press arrives on the frame after the rebind that
+/// leaving Smash triggers. Traced in this very fixture, before the fix:
+///
+/// ```text
+/// f0 select=true   smash_gameplay      <- the real confirm on "Quit to Title"
+/// f2 select=false  ambition_launcher   <- Smash's BindingLayout retracted, map
+///                                        rebuilt, ActionState reset: NOT pressed
+/// f3 select=true   ambition_launcher   <- a key nobody touched reads as a NEW press
+/// f5 -             ambition_gameplay   <- the launcher launched row 0
+/// ```
+///
+/// ⛔ WHICH IS WHY IT ASSERTS THE ROUTE OVER TIME rather than once. Sampling
+/// after the hop lands on the launcher and calls it green; the launch is three
+/// frames further on. `home` is the route this app actually booted to, so a
+/// renamed launcher route cannot make the assertion vacuous.
+///
+/// Jon's second sentence is the fix's other half: quitting from Ambition always
+/// reached the title because Ambition declares no layout, so there is no rebind
+/// and no phantom. See `ambition_input::Rebound`.
+#[test]
+fn quit_to_title_from_a_smash_match_reaches_the_title_and_stays() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    let home = active_route(&app);
+    assert!(home.is_some(), "the host boots to a title route");
+
+    launch_row(&mut app, "Smash");
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "a match has to actually be running or the quit proves nothing"
+    );
+
+    // Escape opens the shell pause menu; walk to "Quit to Title" by NAME rather
+    // than by a counted number of rows, so an added audio row cannot quietly
+    // re-aim this at "Quit to Desktop".
+    tap(&mut app, KeyCode::Escape);
+    settle(&mut app);
+    let quit_row = pause_row_index(&mut app, "Quit to Title");
+    for _ in 0..quit_row {
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+
+    // HELD, the way a hand holds it, and released well after the shell has landed.
+    Buttonlike::press(&KeyCode::Enter, app.world_mut());
+    let mut trail: Vec<Option<String>> = Vec::new();
+    for frame in 0..150 {
+        app.update();
+        if frame == 20 {
+            Buttonlike::release(&KeyCode::Enter, app.world_mut());
+        }
+        let now = active_route(&app);
+        if trail.last() != Some(&now) {
+            trail.push(now);
+        }
+    }
+
+    // ONE hop, and it ends at the title. A trail with anything after `home` is
+    // the defect: the launcher took a press nobody made and started a game.
+    assert_eq!(
+        trail,
+        vec![
+            Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE.to_owned()),
+            home,
+        ],
+        "Quit to Title must reach the title screen and STAY there"
+    );
+}
+
+/// How many Downs it takes to reach a labelled row of the open pause menu.
+///
+/// `PauseEntry` is private to `ambition_game_shell`, so the row list is read the
+/// way a player reads it: off the screen. The menu's `Button`s come back in
+/// spawn order, which is the order the cursor walks — but the "Paused" header is
+/// a `Button` too and the cursor does not stop on it, so the count is taken
+/// FROM `Resume`, the row the cursor starts on in a live session. Anchoring on a
+/// named row rather than subtracting one keeps this honest if the chrome grows
+/// another non-stop node.
+fn pause_row_index(app: &mut App, label: &str) -> usize {
+    let world = app.world_mut();
+    let mut rows = world.query_filtered::<&Children, With<Button>>();
+    let children: Vec<Vec<Entity>> = rows
+        .iter(world)
+        .map(|kids| kids.iter().collect::<Vec<_>>())
+        .collect();
+    let mut texts = world.query::<&Text>();
+    let labels: Vec<String> = children
+        .iter()
+        .map(|kids| {
+            kids.iter()
+                .filter_map(|kid| texts.get(world, *kid).ok().map(|t| t.0.clone()))
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect();
+    let position = |wanted: &str| {
+        labels
+            .iter()
+            .position(|row| row == wanted)
+            .unwrap_or_else(|| panic!("no pause row labelled {wanted:?}; rows are {labels:?}"))
+    };
+    let first = position("Resume");
+    let wanted = position(label);
+    assert!(
+        wanted >= first,
+        "{label:?} sits above Resume, so the cursor cannot walk down to it: {labels:?}"
+    );
+    wanted - first
+}

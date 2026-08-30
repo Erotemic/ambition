@@ -384,6 +384,27 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
 * Menu up/down select (the control text) OVERLAPS the buttons in many menus.
 * Smash "quit to title" quits to a DIFFERENT GAME — often Ambition itself. From there
   a second quit does reach the real title screen.
+  * ✔ FIXED 2026-08-30. **The shell routed home correctly the whole time; the launcher
+    was handed a press nobody made.** Leaving Smash retracts its `BindingLayout`, so
+    `rebuild_maps_from_recipes` rewrites every seat's `InputMap` on the same frame the
+    shell routes home — and its `reset_all()` leaves the action `Released` while your
+    finger is still on the key. leafwing re-reads that key next frame, sees
+    `Released -> down`, and calls it a rising edge. The launcher had just become active
+    with its cursor reset to row 0, so the phantom confirm launched row 0: Ambition.
+  * ⭐ **THAT IS WHY YOUR SECOND QUIT WORKED** — Ambition declares no binding layout, so
+    there is no rewrite, no phantom, and the title screen holds. It also names the
+    "maybe Mary-O one time": the phantom lands on whatever row the cursor is on.
+  * ⛔ **A ONE-FRAME TAP PASSES AGAINST THIS DEFECT**, which is why the existing tests
+    never saw it: the quit and the landing both happen while the key is still down, and
+    the phantom arrives after. Both guards HOLD the confirm —
+    `a_key_held_across_a_rebind_is_not_a_new_press` (`ambition_input`) and
+    `quit_to_title_from_a_smash_match_reaches_the_title_and_stays` (`ambition_app`),
+    which asserts the route trail over 150 frames rather than sampling once, because
+    sampling right after the hop reads `ambition_launcher` and calls it green.
+  * ⛔ **STANDING: A REBIND IS NOT A PRESS.** Clearing an `ActionState` does not stop an
+    edge, it schedules one — the control is still down and the next device read is a
+    rising edge. `ambition_input::swallow_the_rebinds_own_edges` ages those out for one
+    frame; anything else that rewrites a seat's map owes the same.
 * Opening the menu on the TITLE SCREEN puts the settings menu BEHIND the select-game
   menu, which makes it unusable; same in loading screens. Jon: *"Typically the pause
   menu should supercede whatever is behind it unless it is a live online game -

@@ -310,17 +310,29 @@ forbid = ["ambition_platformer2d_actor_monolith::"]
 #    consumer-vocab rules migrated declaratively (generated). ─────────────────
 
 # was: architecture_boundaries_platformer_runtime_stays_content_free
+#
+# FOUR POLICIES DESCRIBED THE SHAPE OF A COMPATIBILITY SHIM
+# (`.../src/platformer_runtime`): that it stayed content-free, that it had
+# shrunk to the right files, and that two of those files re-exported the
+# extracted crate. All four went away with the shim on 2026-08-30, at the
+# instruction of its own TODO: *"migrate the callers to their owning crates,
+# then delete those re-export modules and leave no generic runtime facade
+# inside the actor monolith."* Two of them were RED because the migration had
+# finished and the re-exports were gone — a policy asking a deleted forwarding
+# module to come back, exactly like `engine.actor-physics-facade` before it.
+#
+# What replaces them is the rule they were standing in for. A shim's shape is
+# not a boundary; "the actor crate does not hold a generic runtime facade" is.
 [[policy]]
-id = "engine.platformer-runtime-content-free"
+id = "engine.no-generic-runtime-facade-in-the-actor-crate"
 scope = "engine"
-kind = "forbidden-source-reference"
+kind = "forbidden-path"
 owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
-rationale = "the platformer_runtime facade in ambition_platformer2d_actor_monolith must remain reusable and content-free"
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "generic platformer-runtime vocabulary lives in its own crate; the actor monolith may not re-export it under a facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
-forbid = ["crate::content", "crate::ambition_content", "crate::intro", "ambition_boss_encounter", "crate::quest", "crate::assets::platformer_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime", "crates/ambition_platformer2d_actor_monolith/src/physics.rs"]
 
 
 # was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
@@ -1503,41 +1515,6 @@ severity = "error"
 forbid = ["ProjectileKind", "Fireball", "Hadouken"]
 file = "crates/ambition_platformer2d_shared_tangle/src/projectile/mod.rs"
 
-[[policy]]
-id = "engine.actor-platformer-facade-shrunk"
-scope = "engine"
-kind = "forbidden-path"
-owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
-rationale = "sandbox platformer_runtime facade shrunk after extraction"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/schedule.rs", "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/lifecycle", "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/transit.rs"]
-
-[[policy]]
-id = "engine.actor-platformer-facade-reexports"
-scope = "engine"
-kind = "file-contains"
-owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/mod.rs"]
-rationale = "facade re-exports the extracted modules"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-contains = ["ambition_platformer2d_shared_tangle::{gravity, lifecycle, math, schedule, transit}"]
-file = "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/mod.rs"
-
-[[policy]]
-id = "engine.actor-orientation-facade"
-scope = "engine"
-kind = "file-contains"
-owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/orientation.rs"]
-rationale = "orientation facade re-exports the extracted module"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-contains = ["ambition_platformer2d_shared_tangle::orientation"]
-file = "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/orientation.rs"
-
 # `engine.actor-physics-facade` was here. It required
 # `crates/ambition_platformer2d_actor_monolith/src/physics.rs` to re-export
 # `ambition_platformer2d_shared_tangle::gravity` — and 6e39ac0a5 (2026-08-26)
@@ -1728,7 +1705,17 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # Conversation continuity is lower-tier domain state composed by the runtime.
     "ambition_conversation",
     # Boss-encounter state is lower-tier domain state composed by the runtime.
-    "ambition_boss_encounter"]
+    "ambition_boss_encounter",
+    # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`
+    # and `stage_player_victim_hit_events` into its player/combat chains and
+    # registers `WalletShieldSpent` beside them. Same relationship as
+    # `ambition_combat`; the row was simply never added when damage was carved out.
+    "ambition_damage",
+    # Mount/rider link enforcement plus the four dismount/ride message channels.
+    "ambition_mount",
+    # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
+    # `ambition_causal` row above.
+    "ambition_gameplay_trace"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -2280,7 +2267,15 @@ watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
 rationale = "the runtime time-control chain applies queued ClockResetRequest messages"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["apply_clock_reset_requests", "run_if(gameplay_allowed)"]
+# ⛔ IT USED TO ASK FOR `run_if(gameplay_allowed)` AND THE GATE MOVED. The
+# schedule stopped repeating that predicate on system after system and named
+# the rule instead: every gameplay system joins `GameplayGated`, a set a host
+# with `SessionGatedSimulation` gates once. The policy was pinning the old
+# spelling of the gate, so it went red for a change that made the gating
+# STRONGER — one declaration a reader can find, rather than a predicate a call
+# site can forget. What the rule is about is that the clock-reset applier is
+# gated at all.
+contains = ["apply_clock_reset_requests", "GameplayGated"]
 file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
 
 
@@ -2499,6 +2494,17 @@ skip_paths = [
     "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
+    # Domain integrator, and the third crate in a set of three: the ECS system
+    # that steps projectiles snaps a shot's endpoint back to the first solid on
+    # the leg it just flew. Its `kin` is `&mut BodyKinematics` under
+    # `With<LiveProjectile>` — the shared position component on a body that has
+    # no `MotionModel` and no contact clusters, so `transit_body` cannot be
+    # called on it at all. Exactly the "cannot tell a live body from a thing
+    # that merely carries BodyKinematics" blind spot this rule's own rationale
+    # describes, and the same class as `ambition_projectiles/src/` above.
+    # Scoped to the FILE, not the directory, so an actor-body write elsewhere
+    # in the module still fails.
+    "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
     # A PRESCRIBED CONTENT WORLDLINE, and the one file that is allowed to be
     # one. TwinTrack's chase beacon is a marker + `BodyKinematics` + `SimId`: no
     # `MotionModel`, no contact clusters, so there is nothing for `transit_body`
@@ -2621,6 +2627,25 @@ skip_paths = [
     # fails and has to argue for itself.
     "ambition_demo_mary_o/src/snake.rs",
     "ambition_demo_sanic/src/ball_dash.rs",
+    # ── three more of authority #4, added 2026-08-30 ──
+    # ⭐ THE OWNERSHIP RULE DID NOT CHANGE; THE LEDGER LAGGED THE SEAMS. Each of
+    # these is one of the forms quoted above, in a file that was never listed.
+    #   clank rebound — a combat seam. Two attacks trade and both bodies take an
+    #   impulse along the axis between them; the same class as
+    #   `features/ecs/damage/actor_hit.rs` already listed.
+    "ambition_combat/src/clank.rs",
+    #   ledge trump pop — a FRAME-ROTATED `vel +=` in the literal sense the ADR
+    #   means: it projects out the component along the body's own `side` axis
+    #   and re-adds the pop there, because under sideways gravity a fighter's
+    #   outward IS world Y and a bare `vel.x` popped it along the axis it falls
+    #   on.
+    "ambition_combat/src/ledge_trump.rs",
+    #   trapdoor entry — a traversal ability that SETS a velocity rather than
+    #   adding an impulse, the same distinction `grapple.rs` above is listed
+    #   under. Entering `Submerged` switches collision off, so a leftover fall
+    #   would carry the body through the world for the one tick before the
+    #   submerged integrator overwrites it.
+    "ambition_platformer2d_actor_monolith/src/abilities/traversal/trapdoor.rs",
     # The same prescribed content worldline the pose rule above waives, and for
     # the same reason: a clusterless beacon whose velocity IS the authored fact
     # the pursuit is about. Its file, not its demo.

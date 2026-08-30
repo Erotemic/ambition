@@ -92,10 +92,9 @@ fn main() {
     // problem for a less obvious one; standing him a fixed distance BEHIND the
     // muzzle keeps him on the stage and keeps the firing lane empty whichever
     // way the run steers.
-    let behind = probe_stage::kin(&app, seat0).0.x - 220.0 * steer;
-    if let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(seat1) {
-        kin.pos.x = behind;
-    }
+    let (here, _) = probe_stage::kin(&app, seat0);
+    let there = probe_stage::kin(&app, seat1).0;
+    probe_stage::place(&mut app, seat1, Vec2::new(here.x - 220.0 * steer, there.y));
 
     println!(
         "[officer_probe] host = {}, steering {}",

@@ -818,9 +818,6 @@ fn boot_with_save(
 #[test]
 fn loading_a_save_builds_the_room_a_re_entry_builds() {
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
-    use ambition_platformer2d::persistence::save_data::{
-        PersistedOccurrence, PersistedWhereabouts,
-    };
 
     // ARM 1 — the empty file. A load of a world nobody has touched must leave the
     // room exactly as a session that never loaded anything has it.
@@ -837,7 +834,6 @@ fn loading_a_save_builds_the_room_a_re_entry_builds() {
         .resource::<AmbitionGameSave>()
         .data()
         .clone();
-    let mut played = untouched;
 
     let mut loaded = boot_with_save(ROOM, &empty_file);
     assert_same_population("a fresh-process load", &fresh, &census(&mut loaded));

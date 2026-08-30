@@ -27,7 +27,15 @@ pub mod construction;
 /// player brain. See `control/mod.rs`.
 pub mod control;
 pub mod host;
-pub mod platformer_runtime;
+// ⛔ `platformer_runtime` IS GONE (2026-08-30), and its own TODO is what asked
+// for it: *"migrate `platformer_runtime::{lifecycle,schedule,math,transit,body,
+// collision}` callers to their owning crates, then delete those re-export
+// modules and leave no generic runtime facade inside the actor monolith."* The
+// callers had migrated; what was left was two EMPTY files, a `mod.rs` of `pub
+// mod` lines, and a prelude re-exporting one function that every caller already
+// named through `ambition_platformer2d_core::cast`. Four workspace policies
+// described the shape of that shim; `engine.no-generic-runtime-facade-in-the-actor-crate`
+// now states the rule the shim was standing in for.
 pub mod quest;
 pub mod schedule;
 // Stable facade for save-game data shapes used by dialogue bindings.

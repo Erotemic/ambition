@@ -53,20 +53,29 @@ where a fact re-derived from live state can overwrite a restored one — not for
 tidiness. `ResetToCheckpoint`'s contract, which claimed it was "not a save
 load", is reconciled.
 
+✔ **D-POLICY-1 — `ambition_workspace_policy` is green, 35/35, with no bulk
+waiver.** Twelve failures in five groups, each triaged to whether the ownership
+rule had changed. Four policies described the SHAPE of the dead
+`platformer_runtime` compat shim, whose own TODO asked for its deletion once
+callers migrated — deleted, and replaced by the rule they stood in for
+(`engine.no-generic-runtime-facade-in-the-actor-crate`). One pinned
+`run_if(gameplay_allowed)` after the schedule replaced that repeated predicate
+with the `GameplayGated` SET — a red for a change that made the gating
+stronger. Three runtime dependencies the runtime already schedules
+(`ambition_damage`, `ambition_mount`, `ambition_gameplay_trace`) were missing
+from its allowlist. Four pose/velocity write sites were the ADR 0024 authority
+forms the rule already sanctions elsewhere, in files never listed; one
+(`officer_probe`) was a real bare write and now goes through `transit_body` via
+a new `probe_stage::place`. `ambition_demo_smash/src/lib.rs` came under the size
+limit by moving its 1640 lines of inline tests into sibling `tests.rs` files —
+`module_size.toml` still has zero waivers. The velocity rule gained the poison
+self-test its pose twin has always had: it had nineteen waivers and nothing
+proving it still fired.
+
 The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-POLICY-1 — return `ambition_workspace_policy` to green after recent
-  carves.** The 2026-08-30 session-ownership work repaired two stale scanners and
-  exposed a reported set of pre-existing policy failures across orientation,
-  platformer facade re-exports, module size, clock reset, manifest allowlists,
-  pose writes and velocity writes. Triage each against the current durable
-  boundary; fix code or update a policy only when the ownership rule itself has
-  changed. **Do not bulk-waive the suite to make it green.** Acceptance: the
-  policy crate passes and each changed policy still points at a current durable
-  source of truth.
 
 - ▢ **D-SIM-LOCAL — remove authoritative non-rewinding edge/history state.** The
   current review still identifies Mary-O `follow_the_active_room` memory that can

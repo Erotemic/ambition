@@ -166,6 +166,34 @@ pub fn kin(app: &App, body: Entity) -> (Vec2, Vec2) {
     (Vec2::new(k.pos.x, k.pos.y), Vec2::new(k.vel.x, k.vel.y))
 }
 
+/// Stand `body` at `pos`, at rest, THROUGH THE MOVEMENT AUTHORITY.
+///
+/// ⛔ NOT `kin.pos.x = `. A probe places a real fighter in a real match, so the
+/// body it moves has contacts, an attachment and a resolved frame — the things
+/// `transit_body` reconciles and a bare field write silently keeps. A probe
+/// whose fixture leaves a body standing on a surface it is no longer touching
+/// measures the fixture.
+///
+/// `officer_probe` needed this to stand the second fighter out of the firing
+/// lane; every later probe gets the seam instead of the field.
+pub fn place(app: &mut App, body: Entity, pos: Vec2) {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        ambition_platformer2d::engine_core::BodyClusterQueryData,
+        &mut ambition_platformer2d::actor::MotionModel,
+    )>();
+    let Ok((mut cluster_item, mut model)) = q.get_mut(world, body) else {
+        return;
+    };
+    let mut clusters = cluster_item.as_clusters_mut();
+    ambition_platformer2d::engine_core::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        pos,
+        ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+    );
+}
+
 pub fn playing_move(app: &App, body: Entity) -> Option<String> {
     app.world()
         .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)

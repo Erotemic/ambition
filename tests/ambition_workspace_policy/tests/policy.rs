@@ -657,6 +657,48 @@ fn pose_write_guard_reacts() {
     }
 }
 
+/// The velocity-write authority guard reacts to every bare-write shape it bans.
+///
+/// ⛔ IT HAD NO POISON UNTIL 2026-08-30, while its waiver list grew to nineteen
+/// entries. A rule with many waivers and no poison is one edit from a check
+/// that cannot fail, and the only evidence it was still working was that nobody
+/// had added a violation — which is what a deleted rule also produces.
+#[test]
+fn velocity_write_guard_reacts() {
+    let p = poison(
+        r#"
+        id = "poison.velocity-writes"
+        scope = "engine"
+        kind = "forbidden-source-reference"
+        rationale = "poison"
+        production_only = true
+        roots = ["tests/ambition_workspace_policy/fixtures/poison/velocity_writes"]
+        forbid = [
+            "kin.vel = ", "kin.vel += ", "kin.vel -= ",
+            "kinematics.vel = ", "kinematics.vel += ", "kinematics.vel -= ",
+            "kin.vel.x = ", "kin.vel.y = ",
+            " body.vel = ", " body.vel += ", " body.vel -= ",
+        ]
+    "#,
+    );
+    let report = run_one(&p);
+    for needle in [
+        "kin.vel = ",
+        "kinematics.vel += ",
+        "kinematics.vel -= ",
+        "kin.vel.y = ",
+        " body.vel += ",
+    ] {
+        assert!(
+            report
+                .diagnostics()
+                .iter()
+                .any(|d| d.detail.contains(needle)),
+            "velocity-write guard dropped `{needle}`"
+        );
+    }
+}
+
 /// The mechanics-consume-the-resolved-frame guard reacts to every
 /// reconstruction shape it bans.
 #[test]

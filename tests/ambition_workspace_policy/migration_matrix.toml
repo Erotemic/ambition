@@ -27,15 +27,22 @@ old_test = "architecture_boundaries_render_and_actor_crates_are_decoupled"
 disposition = "declarative"
 policies = ["engine.render-decoupled-member", "engine.actor-manifest-no-render", "engine.actor-source-no-render", "engine.render-no-actor-crate-dependency", "engine.render-source-names-no-actors"]
 
+# The shim this watched (`.../src/platformer_runtime`) was deleted on
+# 2026-08-30 at the instruction of its own TODO, once its callers had migrated
+# to the owning crates. The boundary it stood in for is now stated directly.
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_stays_content_free"
 disposition = "declarative"
-policies = ["engine.platformer-runtime-content-free"]
+policies = ["engine.no-generic-runtime-facade-in-the-actor-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_crate_is_extracted"
 disposition = "declarative"
-policies = ["engine.platformer-primitives-extracted", "engine.platformer-primitives-no-actors", "engine.platformer-primitives-projectile-generic-spec", "engine.platformer-primitives-projectile-generic-body", "engine.platformer-primitives-projectile-generic-collision", "engine.platformer-primitives-projectile-generic-mod", "engine.actor-platformer-facade-shrunk", "engine.actor-platformer-facade-reexports", "engine.actor-orientation-facade"]
+# The three facade-shape rows (`...-facade-shrunk`, `...-facade-reexports`,
+# `engine.actor-orientation-facade`) went with the shim they described; the
+# extraction they were part of is still guarded by the six rows that remain,
+# plus `engine.no-generic-runtime-facade-in-the-actor-crate`.
+policies = ["engine.platformer-primitives-extracted", "engine.platformer-primitives-no-actors", "engine.platformer-primitives-projectile-generic-spec", "engine.platformer-primitives-projectile-generic-body", "engine.platformer-primitives-projectile-generic-collision", "engine.platformer-primitives-projectile-generic-mod", "engine.no-generic-runtime-facade-in-the-actor-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_sim_does_not_import_presentation"

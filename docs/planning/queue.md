@@ -625,6 +625,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   PURPOSE and now reports BOTH counts, because a red test naming a real gap
   beats an `#[ignore]` nobody reads. ⛔ do not "fix" it by asserting the count it
   currently produces.
+  ⭐⭐ AND TWO MORE ELIMINATIONS, so the next person starts from a NAMED
+  suspect rather than a symptom. (3) NOT THE WRONG RESOURCE: writing an
+  `OwnedSfxMessage` straight into the world the test reads is visible to it
+  (`len=1 current=1`), so reader and writer are the same channel. (4) NOT A
+  BUFFER-SWAP ARTIFACT: `Messages::len()` — which counts BOTH buffers — is
+  **0 on every frame**, so nothing is written and then aged out; nothing is
+  written at all.
+  ⇒ IN A QUIET SANDBOX THE RESET IS THE ONLY EXPECTED CUE (nobody moves, nobody
+  fights), so the suspect is `return_the_replay_subject_to_spawn`, which reaches
+  `reset_sandbox` — the one `SfxMessage::Reset` writer on this road — only past
+  TWO early returns: no `subject` on the admitted message, or **no body whose
+  `SimId` matches it**. The admission log proves a subject exists, so the body
+  lookup is the one to instrument. ⚠ note the function's own comment already
+  records a previous instance of exactly this shape: requiring a component the
+  subject may not carry *"made the reset silently skip it entirely"*.
   ⚠ AND THE 191 OTHER TESTS in that target have never been run in this rhythm
   either. They pass today, and nothing was watching.
 

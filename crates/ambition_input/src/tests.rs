@@ -24,7 +24,6 @@ fn keyboard_preset_presets_returns_four_unique_ids() {
     }
 }
 
-
 #[test]
 fn analog_to_dir_picks_dominant_axis() {
     assert_eq!(analog_to_dir(0.8, 0.1, 0.5), Some(MenuDir::Right));
@@ -161,4 +160,116 @@ fn menu_state_back_passes_through() {
         false, false, false, false, None, false, true, false, 0.016, 0.30, 0.10,
     );
     assert!(f.back);
+}
+
+/// ⭐⭐ A KEYBOARD FIGHTER CAN WALK.
+///
+/// ⛔⛔ THE SIMULATION READS THE STICK'S MAGNITUDE AS THE GAIT — below
+/// `run_commit_frac` is a walk, at or above it is a run — and a DIGITAL source
+/// can only ever say 1.0. So a keyboard or D-pad fighter could not walk at all:
+/// no walk approach, no walk-to-tilt spacing, and `BodyMotionFacts::running`
+/// permanently true, which answers every grounded Attack press with the dash
+/// attack. The parity inventory's row points at this file rather than at
+/// locomotion, and the gait itself is measured correct by
+/// `a_light_tilt_walks_and_a_full_one_runs`.
+///
+/// ⭐ A CAP, NOT A SCALE. A player already tilting an analog stick to a walk
+/// must not be punished for also asking to walk.
+#[cfg(feature = "input")]
+mod the_walk_modifier {
+    use crate::actions::Platformer2dInputActionMonolith as Action;
+    use crate::control::{read_gameplay_control_frame_with_settings, WALK_AXIS_CAP};
+    use crate::settings::{ControlFilters, TriggerEdgeState};
+    use leafwing_input_manager::prelude::ActionState;
+
+    /// An action state holding `Move` at `axis` with Walk up or down.
+    fn holding(axis: bevy::math::Vec2, walk: bool) -> ActionState<Action> {
+        let mut state = ActionState::<Action>::default();
+        state.set_axis_pair(&Action::Move, axis);
+        if walk {
+            state.press(&Action::Walk);
+        }
+        state
+    }
+
+    fn frame_of(axis: bevy::math::Vec2, walk: bool) -> ambition_platformer2d_core::ControlFrame {
+        read_gameplay_control_frame_with_settings(
+            &holding(axis, walk),
+            ControlFilters::from_settings(&crate::settings::ControlSettings::default()),
+            TriggerEdgeState::default(),
+        )
+        .0
+    }
+
+    /// ⛔ THE PREMISE. A digital hold really is full deflection, which is the
+    /// whole reason the action has to exist.
+    #[test]
+    fn a_digital_hold_is_full_deflection_without_the_walk_key() {
+        let frame = frame_of(bevy::math::Vec2::new(1.0, 0.0), false);
+        assert!(
+            (frame.axis_x - 1.0).abs() < 1e-6,
+            "a key held is 1.0; got {}",
+            frame.axis_x
+        );
+    }
+
+    #[test]
+    fn holding_walk_caps_a_digital_hold_into_the_walk_band() {
+        let frame = frame_of(bevy::math::Vec2::new(1.0, 0.0), true);
+        assert!(
+            (frame.axis_x - WALK_AXIS_CAP).abs() < 1e-6,
+            "a walking key hold must come out at the cap; got {}",
+            frame.axis_x
+        );
+        // ⛔ THE COUPLING, ASSERTED. The cap is only a walk because it is below
+        // the gait threshold; a change to either that crossed the other would
+        // ship a "walk" that runs.
+        assert!(
+            frame.axis_x < ambition_platformer2d_core::movement::RUN_COMMIT_FRAC,
+            "the cap must stay below the gait threshold or the `walk` runs: {} vs {}",
+            frame.axis_x,
+            ambition_platformer2d_core::movement::RUN_COMMIT_FRAC
+        );
+    }
+
+    /// ⭐ IT IS A CAP. An analog stick already inside the walk band is left
+    /// alone — asking to walk while walking must not slow you further.
+    #[test]
+    fn an_analog_tilt_already_inside_the_band_is_untouched() {
+        // ⚠ COMPARED AGAINST THE SAME INPUT UNHELD, not against the raw number:
+        // the deadzone rescales a small tilt before the cap ever sees it, so a
+        // raw 0.3 is already ~0.15 by then. The claim is that holding walk
+        // changes NOTHING here, and only the pair can say that.
+        let held = frame_of(bevy::math::Vec2::new(0.3, 0.0), true);
+        let free = frame_of(bevy::math::Vec2::new(0.3, 0.0), false);
+        assert!(
+            free.axis_x < WALK_AXIS_CAP,
+            "the premise: 0.3 must already be inside the walk band, else this \
+             measures the cap rather than its absence; got {}",
+            free.axis_x
+        );
+        assert!(
+            (held.axis_x - free.axis_x).abs() < 1e-6,
+            "asking to walk while already walking slowed the body: {} -> {}",
+            free.axis_x,
+            held.axis_x
+        );
+    }
+
+    /// ⭐ AND IT PRESERVES DIRECTION. A diagonal walk is still a diagonal.
+    #[test]
+    fn the_cap_preserves_direction() {
+        let frame = frame_of(bevy::math::Vec2::new(1.0, 1.0), true);
+        let magnitude = (frame.axis_x * frame.axis_x + frame.axis_y * frame.axis_y).sqrt();
+        assert!(
+            (magnitude - WALK_AXIS_CAP).abs() < 1e-5,
+            "a capped diagonal must have the cap's magnitude; got {magnitude}"
+        );
+        assert!(
+            (frame.axis_x.abs() - frame.axis_y.abs()).abs() < 1e-5,
+            "a 45° hold must stay at 45°: {} vs {}",
+            frame.axis_x,
+            frame.axis_y
+        );
+    }
 }

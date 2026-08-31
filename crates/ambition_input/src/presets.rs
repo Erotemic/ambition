@@ -49,6 +49,14 @@ pub struct ActionKeys {
     /// reason and by the same rule as `grab`.
     pub taunt: KeyCode,
     pub interact: KeyCode,
+    /// WALK — hold to cap movement into the walk band.
+    ///
+    /// ⛔ `ShiftRight`, and the SAME key in every preset, unlike `grab`/`taunt`
+    /// which are chosen per preset from that preset's unused letters. Walk is a
+    /// modifier a hand rests on, not a verb it reaches for, so it belongs under
+    /// the little finger wherever the movement keys are — and `ShiftLeft` is
+    /// already `modifier` in three of the four.
+    pub walk: KeyCode,
     pub modifier: KeyCode,
     pub utility: KeyCode,
     pub map: KeyCode,
@@ -118,6 +126,7 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyS,
                 taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
+                walk: KeyCode::ShiftRight,
                 // How it actually works, since the obvious explanation is wrong:
                 // the run/fire pair is delivered ENTIRELY by the modifier slot —
                 // `modifier_held` is her run, `modifier_pressed` is her spark
@@ -170,6 +179,7 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyO,
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
+                walk: KeyCode::ShiftRight,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyU,
                 map: KeyCode::Tab,
@@ -203,6 +213,7 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyY,
                 taunt: KeyCode::KeyU,
                 interact: KeyCode::KeyF,
+                walk: KeyCode::ShiftRight,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyG,
                 map: KeyCode::Tab,
@@ -236,6 +247,7 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyY,
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
+                walk: KeyCode::ShiftRight,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyK,
                 map: KeyCode::Tab,
@@ -342,6 +354,7 @@ impl KeyboardPreset {
             Platformer2dInputActionMonolith::Interact,
             self.actions.interact,
         );
+        map.insert(Platformer2dInputActionMonolith::Walk, self.actions.walk);
         map.insert(
             Platformer2dInputActionMonolith::Modifier,
             self.actions.modifier,
@@ -534,6 +547,15 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         Platformer2dInputActionMonolith::Interact,
         GamepadButton::RightTrigger,
     );
+    // ⚠ NO GAMEPAD `Walk` BINDING, deliberately. A pad's left stick is ANALOG
+    // and has always been able to walk — the defect this action exists for is
+    // digital-only. Every gamepad button is already spent, and stealing one to
+    // duplicate something the stick does would be a worse trade.
+    //
+    // ⛔ A D-PAD-ONLY PAD PLAYER STILL CANNOT WALK, and that is a real gap
+    // rather than a decision: `Move` binds both the D-pad and the left stick, so
+    // the D-pad half has the same 1.0-or-nothing problem the keyboard had. It
+    // needs a free button or a chord, and there is no free button.
     map.insert(
         Platformer2dInputActionMonolith::Modifier,
         GamepadButton::LeftTrigger2,
@@ -750,7 +772,7 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn every_control_slot_reaches_a_key_on_every_preset() {
-        use crate::bindings::{ActionBindings, action_for_slot};
+        use crate::bindings::{action_for_slot, ActionBindings};
         use ambition_entity_catalog::action_scheme::CANONICAL_SLOT_ORDER;
 
         for preset in KeyboardPreset::presets() {

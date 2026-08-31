@@ -70,6 +70,21 @@ pub enum Platformer2dInputActionMonolith {
     /// and a body that has one is not thereby more dangerous.
     Taunt,
     Interact,
+    /// WALK — hold to cap movement into the walk band.
+    ///
+    /// ⛔⛔ ITS OWN ACTION, AND NOT [`Self::Modifier`], which is what the obvious
+    /// reading suggests. The modifier slot is already CLAIMED: Mary-O reads
+    /// `modifier_held` as her RUN (`ambition_demo_mary_o::movement`), so capping
+    /// the axis on it at the shared adapter would make her run key slow her
+    /// down. Two games would be spelling opposite intents with one key.
+    ///
+    /// ⭐ WHY IT EXISTS AT ALL: the simulation reads the stick's MAGNITUDE as
+    /// the gait, and a DIGITAL source can only ever say 1.0 — so without this a
+    /// keyboard or D-pad fighter cannot walk, which costs the whole genre
+    /// neutral (no walk approach, no walk-to-tilt spacing, and every grounded
+    /// Attack answered with the dash attack). An analog stick has never needed
+    /// it and is unaffected: the adapter CAPS rather than scales.
+    Walk,
     Modifier,
     Utility,
     Map,
@@ -163,6 +178,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Grab
             | Self::Taunt
             | Self::Interact
+            | Self::Walk
             | Self::Modifier
             | Self::Utility
             | Self::Map

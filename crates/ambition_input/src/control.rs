@@ -15,6 +15,21 @@ use ambition_platformer2d_core::ControlFrame;
 #[cfg(feature = "input")]
 use crate::actions::Platformer2dInputActionMonolith;
 
+/// The largest movement magnitude the walk modifier permits.
+///
+/// ⛔⛔ IT MUST STAY BELOW `LocomotionTuning::run_commit_frac`, whose default is
+/// [`ambition_platformer2d_core::movement::tuning::RUN_COMMIT_FRAC`] (0.55) —
+/// that constant is what the simulation compares the magnitude against to decide
+/// walk from run, so a cap at or above it would produce a "walk" that runs.
+/// Stated as a named constant with the coupling written down rather than a 0.5
+/// somebody has to rediscover.
+///
+/// ⚠ A body may author its OWN `run_commit_frac`. A kit that authors one above
+/// this cap simply walks at this speed; a kit that authors one BELOW it would
+/// run while the modifier is held, and that body wants its own answer rather
+/// than a smaller global number.
+pub const WALK_AXIS_CAP: f32 = 0.5;
+
 /// Build a gameplay control frame, applying configurable deadzones,
 /// trigger hysteresis, and the burst-input mode from
 /// [`crate::settings::ControlSettings`].
@@ -24,6 +39,7 @@ use crate::actions::Platformer2dInputActionMonolith;
 /// function returns the next state so the caller can store it back into a Bevy
 /// resource.
 #[cfg(feature = "input")]
+
 pub fn read_gameplay_control_frame_with_settings(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     controls: crate::settings::ControlFilters,
@@ -35,11 +51,6 @@ pub fn read_gameplay_control_frame_with_settings(
     // distinction (`run * max_run_speed`, cut by `run_commit_frac`), so drift
     // here is a body that walks on its own.
     //
-    // ⚠ there is no walk MODIFIER, and the comment this replaces named one —
-    // a fossil describing logic that has never existed here. A digital source
-    // can only say 1.0, which is why a keyboard fighter cannot walk; see the
-    // parity inventory's row, which points at this file rather than at
-    // locomotion.
     let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
         raw_move.x,
         raw_move.y,
@@ -52,6 +63,39 @@ pub fn read_gameplay_control_frame_with_settings(
     // sustaining it does.
     let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
     let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
+    // ⭐⭐ THE WALK. The simulation reads the stick's MAGNITUDE as the gait —
+    // below `run_commit_frac` is a walk, at or above it is a run — and a DIGITAL
+    // source can only ever say 1.0. So a keyboard or D-pad fighter could not
+    // walk at all: no walk approach, no walk-to-tilt spacing, and
+    // `BodyMotionFacts::running` permanently true, which answers every grounded
+    // Attack press with the dash attack.
+    //
+    // ⭐ A CAP, NOT A SCALE, and the difference matters on an analog stick. A
+    // scale would take a player already tilting 0.3 down to 0.15 — punishing
+    // them for asking to walk while already walking. Capping says what the
+    // player means: *do not exceed a walk*. It is therefore source-independent,
+    // which is what the composite `Move` binding needs: a gamepad binds BOTH the
+    // D-pad and the left stick to it, and a rule that read differently on each
+    // would drift the two apart.
+    //
+    // ⛔ THE LOCOMOTION HALF IS NOT TOUCHED, deliberately: the parity inventory's
+    // row says the gap is INPUT and that the gait itself works
+    // (`a_light_tilt_walks_and_a_full_one_runs` measures it). This is the one
+    // place a key becomes an axis.
+    // ⛔ THE `Walk` ACTION, NOT `Modifier`. The modifier slot is already claimed
+    // — Mary-O reads `modifier_held` as her RUN — so capping on it here would
+    // make her run key slow her down. See `Platformer2dInputActionMonolith::Walk`.
+    let walk_held = actions.pressed(&Platformer2dInputActionMonolith::Walk);
+    let axis = if walk_held {
+        let magnitude = axis.length();
+        if magnitude > WALK_AXIS_CAP {
+            axis * (WALK_AXIS_CAP / magnitude)
+        } else {
+            axis
+        }
+    } else {
+        axis
+    };
     let left_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveLeft);
     let right_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveRight);
     let up_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveUp);

@@ -425,10 +425,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
-  and current maintainer observations before choosing the next slice. Prefer
-  mechanics/readability/control defects that expose reusable engine seams over
-  broad polish. Explicitly keep already-settled genre decisions and shipped
-  mechanics from being reimplemented.
+  and [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+  before choosing the next slice. Prefer mechanics/readability/control defects
+  that expose reusable engine seams over broad polish. Explicitly keep
+  already-settled genre decisions and shipped mechanics from being
+  reimplemented. ✔ SLICE TAKEN 2026-08-31: the walk gait had no road on a
+  digital input (inventory §4). ⭐ SURVEYED AND RE-MEASURED — three inventory
+  rows were STALE and are corrected in place: wall-tech jump shipped 2026-08-23
+  and is re-marked `✔`; the combat action buffer's *"nothing writes them"* prose
+  is wrong (four writers, and tests assert them); and the inventory's
+  `options.rs:752` citation is dead — the file moved crate to
+  `ambition_characters` and the line is `:707`. ⛔ NEXT CANDIDATES, in order:
+  `CancelCondition::OnBlock` (inventory §1 — its stated blocker, "shield contact
+  lands with CM6", is itself stale: shieldstun shipped, and the deferral note at
+  `entity_catalog/src/lib.rs:212` must be deleted by whoever takes it), then the
+  `Auto`/`Tilt`/`Smash` strength hint (§9 — a full deflection can never be a
+  tilt today). ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
+  `fda65a386`), D204/D205 (shipped), or anything in
+  `awaiting-maintainer-decision.md`.
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
   MSAA.** The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;

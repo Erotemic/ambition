@@ -464,6 +464,12 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Talk, open, use",
     ),
     engine(
+        "walk",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Hold to walk instead of run",
+    ),
+    engine(
         "modifier",
         ActionControlKind::Button,
         GAMEPLAY,

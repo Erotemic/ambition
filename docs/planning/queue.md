@@ -53,6 +53,18 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   activation so the temporary population never exists. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
+✔ **D-SIM-SELECT — the last two selection sites now break ties on identity.**
+The row named three; one was already closed (projectile-victim ties carry a
+stable `(distance, x, y)` key). The two live ones were bare
+`min_by(total_cmp)` on distance: possession candidates and the pickup magnet.
+Both go through `sim_selection::winner_by(metric, SimId)` now — nearest first,
+identity last — and both carry a spawn-order arm modelled on the projectile
+tie-break's: the same two bodies spawned left-then-right and right-then-left,
+with the identities fixed to POSITION rather than to the spawn slot, so "the
+same winner" means the same body and not the same index. Each verified red by
+poisoning its identity function to `None`, which is the exact shape of having no
+tie-break at all.
+
 ✔ **D-REPLAY-RESIDUAL — the dead intent variants are gone and one listener was
 measured redundant.** `LifecycleIntent` carried `DeathReset`, `ManualReset`,
 `Replay` and `FullReset`; nothing recorded any of them and a stray one would
@@ -120,15 +132,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-SIM-SELECT — close the remaining deterministic selection/composition
-  sites.** Current review evidence names projectile-victim ties, possession
-  candidates and pickup-magnet ownership. Use stable semantic keys for true
-  selection. If several peers compose into one result, first state whether the
-  operation is commutative; a stable sort is not enough when precedence changes
-  the physics. Acceptance: reversing ECS insertion/query order does not change
-  the selected/composed authoritative result. Owner:
-  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 
 - ▢ **D-PORTAL-POLICY — remove process-global portal mapping policy from live
   simulation.** `ambition_platformer2d_shared_tangle::math` still stores the

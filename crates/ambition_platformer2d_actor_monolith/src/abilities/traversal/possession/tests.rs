@@ -102,6 +102,60 @@ fn hold_down_interact(app: &mut App, held: bool) {
     slots.set(slot, frame);
 }
 
+/// ⛔⛔ TWO CANDIDATES AT EQUAL REACH IS A COIN FLIP UNTIL SOMETHING BREAKS THE
+/// TIE. The pick was `min_by` on distance alone, which keeps whichever body the
+/// query yields first — archetype order, not a gameplay rule, and not what a
+/// resimulation reproduces. Which body the player is DRIVING is about as
+/// authoritative as state gets.
+///
+/// ⭐ THE ARM IS SPAWN ORDER, and the identities are fixed to POSITION rather
+/// than to the spawn slot, so "the same winner" means the same body both times
+/// and not merely the same index.
+#[test]
+fn possessing_between_two_equidistant_candidates_picks_the_same_one_either_spawn_order() {
+    fn possessed_id(left_first: bool) -> String {
+        let mut app = trigger_app();
+        spawn_home(&mut app);
+        let left = vec2(-80.0, 0.0);
+        let right = vec2(80.0, 0.0);
+        let (first, second) = if left_first {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        for at in [first, second] {
+            let entity = spawn_candidate(&mut app, at);
+            let id = if at.x < 0.0 { "left" } else { "right" };
+            app.world_mut()
+                .entity_mut(entity)
+                .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id));
+        }
+
+        hold_down_interact(&mut app, true);
+        app.update();
+        app.update();
+
+        let target = app
+            .world()
+            .resource::<PossessionState>()
+            .possessed
+            .expect("the hold crossed the threshold and possessed something");
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::sim_id::SimId>(target)
+            .expect("the fixture gave every candidate an identity")
+            .as_str()
+            .to_string()
+    }
+
+    assert_eq!(
+        possessed_id(true),
+        possessed_id(false),
+        "the player possessed one body when the left candidate was spawned \
+         first and the other when the right one was — the choice is archetype \
+         order, which a rollback resimulation does not reproduce"
+    );
+}
+
 #[test]
 fn possession_transfers_the_seat_and_release_hands_it_back() {
     let mut app = trigger_app();

@@ -99,6 +99,11 @@ pub fn magnetize_pickups(
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
+            // ⭐ THE TIE-BREAK. Two collectors equidistant from a pickup is the
+            // ordinary couch arrangement, and `min_by` on distance alone answered
+            // it with whichever body the query happened to yield first — which is
+            // archetype order, not a gameplay rule.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         ),
         TouchCollectorFilter,
     >,
@@ -118,14 +123,20 @@ pub fn magnetize_pickups(
         // NEAREST collector, not the first one the query yields: iteration order
         // is not a gameplay fact, and on a couch "whoever the query happened to
         // return" would be a coin flip between two players.
-        let Some((to_collector, dist)) = collectors
-            .iter()
-            .filter(|(_, is_player, control)| body_collects_on_touch(*is_player, *control))
-            .map(|(body, _, _)| {
-                let delta = body.pos - aabb.center;
-                (delta, delta.length())
-            })
-            .min_by(|a, b| a.1.total_cmp(&b.1))
+        let Some((to_collector, dist, _)) =
+            ambition_platformer2d_shared_tangle::sim_selection::winner_by(
+                collectors
+                    .iter()
+                    .filter(|(_, is_player, control, _)| {
+                        body_collects_on_touch(*is_player, *control)
+                    })
+                    .map(|(body, _, _, id)| {
+                        let delta = body.pos - aabb.center;
+                        (delta, delta.length(), id)
+                    }),
+                |(_, dist, _)| *dist,
+                |(_, _, id)| *id,
+            )
         else {
             return;
         };

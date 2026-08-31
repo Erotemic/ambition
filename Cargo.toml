@@ -248,4 +248,8 @@ codegen-units = 256
 # RETIRE when a bevy_ggrs release contains #134: drop this entry and keep the version requirement.
 # ⚠ Upstream at this rev takes `ggrs` from its git main rather than the v0.13.0 release, so
 # `ggrs` is pinned by Cargo.lock rather than by a requirement here; `cargo update -p ggrs` moves it.
+# ⛔ AND THAT MOVE IS NOW GUARDED, because it moves the DETERMINISTIC CORE with no diff a reviewer
+# reads as a rollback change:
+# `scripts/tests/test_sdk_manifest_advice_is_current.py` pins the resolved `ggrs` commit. A
+# deliberate bump edits that constant in the same commit and says what was re-measured.
 bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

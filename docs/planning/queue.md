@@ -458,7 +458,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   fact *"lands with CM6"* — shieldstun shipped (`body_clusters.rs:1620`).
   Acceptance: a blocked move does NOT confirm an `OnHit` cancel (the pinned test
   inverts), an `OnBlock` window does, and both on the actor road. Owner:
-  [demos/smash-parity-inventory.md).
+  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
   MSAA.** The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;

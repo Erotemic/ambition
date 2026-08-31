@@ -41,6 +41,21 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D-SHRINE-CHECKPOINT-OWNER — the code's rule is real, the comment's was not.**
+`heal_save_shrine_system` said the checkpoint was written *"for the PRIMARY
+player's session, not the possessed subject's body"* and wrote `kin.pos` — the
+RESTING body's. The two disagree only under possession, and no test covered it,
+so neither claim was measured. ⭐ MEASURED NOW, and the CODE's rule is kept: a
+vessel resting at a shrine records the vessel's position, and *"I rested here, I
+come back here"* is what a player means by a checkpoint — the body they were
+wearing at the time is not part of the promise. Implementing the comment would
+have meant a shrine touched while possessing silently records a position the
+player never stood at. Guarded by
+`the_checkpoint_records_where_the_resting_body_stood` (an avatar at (50,900) that
+never touches the shrine, a driven vessel resting at (700,100)), red the moment
+the write reads the avatar. Both stale comments are replaced with what the code
+does and why.
+
 ✔ **D-PORTAL-GESTURE-SEAT — every gun gesture names its body now.**
 `FirePortalGun` carried an aim and nothing else, so the adapter resolved one
 `ControlledSubject` and the resolver re-derived the firer the same way: a second
@@ -365,19 +380,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-SHRINE-CHECKPOINT-OWNER — a comment states a rule the code does not
-  follow.** `heal_save_shrine_system` says the checkpoint is written "for the
-  PRIMARY player's session, not the possessed subject's body" and then writes the
-  RESTING body's `kin.pos`. Its consumer, `restore_checkpoint_on_session_start`,
-  places the PRIMARY avatar there — so a checkpoint taken while possessing
-  resumes the avatar somewhere it never stood. Read from the source, NOT driven;
-  no test covers the possession case either way. Acceptance: an arm that rests
-  while possessing and says where the next session starts, then whichever of the
-  two rules is chosen, with the other's comment deleted. ⚠ It is a
-  save-compatibility ruling, which is why the multi-seat conversion preserved
-  today's behaviour rather than deciding it. Owner:
-  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 - ▢ **D-FIGHTER-L1 — level 1 fails the same recovery scenario, and rollout is not
   why.** `ladder_rig --sweep-below --seeds 45` reports l1 `unfought 45/45` with

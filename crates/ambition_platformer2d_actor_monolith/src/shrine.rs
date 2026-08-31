@@ -57,10 +57,12 @@ pub fn heal_save_shrine_system(
         &mut BodyHealth,
         &mut BodyMana,
     )>,
-    // SLOT-0 BY DESIGN: a shrine heals every DRIVEN body that touched it (the
-    // loop below) but ALSO writes a CHECKPOINT to the save. The
-    // checkpoint is a session fact owned by the local player, not by whatever body
-    // slot 0 happens to be driving — hence the second, primary-scoped query.
+    // ⚠ THE STARTUP-FRAME FALLBACK SUBJECT, and nothing else. Before a seat is
+    // attached there is no driven body at all, and the primary avatar is the
+    // subject every single-player fixture expects.
+    //
+    // ⛔ It is NOT the checkpoint's owner. That comment lived here and the code
+    // never followed it — see the checkpoint write below for which rule is real.
     primary: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     shrines: Query<&HealShrine>,
     // WHICH room the checkpoint is in. A position with no room is not a

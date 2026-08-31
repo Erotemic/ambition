@@ -889,7 +889,6 @@ const DURABLE_ROOM: &str = "central_hub_complex";
 /// boot or by walking back into it.
 #[test]
 fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
-    use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::persistence::save_data::{
         PersistedOccurrence, PersistedWhereabouts,
     };

@@ -97,7 +97,7 @@ def test_overlap_is_reported_separately_from_a_resolved_hit() -> None:
     missed = tool.report(_take(contact_at=None))["measurements"]
 
     # The GEOMETRY is identical in both takes...
-    assert hit["overlap_ticks"] == missed["overlap_ticks"] > 0
+    assert hit["aabb_overlap_ticks"] == missed["aabb_overlap_ticks"] > 0
     # ...and only one of them says the runtime resolved a hit.
     assert len(hit["contacts"]) == 1 and hit["first_contact_tick"] == 4
     assert missed["contacts"] == [] and missed["first_contact_tick"] is None
@@ -112,7 +112,7 @@ def test_the_summary_flags_an_overlap_that_resolved_nothing() -> None:
 
 def test_an_intangible_target_can_be_overlapped_and_never_hit() -> None:
     m = tool.report(_take(contact_at=None, target_hurt=False))["measurements"]
-    assert m["overlap_ticks"] == 0, "a body with no damageable volume cannot be overlapped"
+    assert m["aabb_overlap_ticks"] == 0, "a body with no damageable volume cannot be overlapped"
     assert m["contacts"] == []
 
 
@@ -129,7 +129,7 @@ def test_the_authored_windows_are_counted_from_the_runtime_move_clock() -> None:
 def test_reach_is_measured_from_the_body_origin() -> None:
     m = tool.report(_take(contact_at=4))["measurements"]
     # subject at 100, strike centre at 120 with half-width 12 → far edge 132.
-    assert m["max_reach_px"] == 32.0
+    assert m["aabb_reach_bound_px"] == 32.0
     assert m["attack_extents"]["x_max"] == 132.0
 
 
@@ -434,4 +434,43 @@ def test_a_v1_take_without_roles_still_measures() -> None:
     take["seat"] = 0
     m = tool.report(take)["measurements"]
     assert m["first_active_tick"] == 3
-    assert m["max_reach_px"] == 32.0
+    assert m["aabb_reach_bound_px"] == 32.0
+
+
+def test_touching_boxes_are_not_an_overlap_because_the_runtime_says_so() -> None:
+    """⛔⛔ THE REPORT DISAGREED WITH THE GAME, SILENTLY AND IN ONE DIRECTION.
+
+    `CombatVolume::intersects` documents the contract — *"box-vs-box preserves
+    the strict platformer contract (edge-touching is NOT an overlap)"* — and its
+    broad phase is `bounds().strict_intersects(..)`. This script used `<=`, so
+    two volumes whose edges met exactly counted as overlapping here and as a miss
+    in the runtime. Reported through a field called `overlap_ticks`, that reads
+    as "the strike was on the target and the engine ignored it", which is the
+    one conclusion a reader must never draw from an instrument's rounding.
+
+    ⭐ AND THE FIELDS SAY WHAT THEY MEASURE NOW. `_bounds` already carried the
+    rule — *"every field derived from this says `_aabb`"* — and none of them did:
+    `overlap_ticks`, `max_reach_px` and `geometry_reached_target` all claimed the
+    engine's authority for a broad phase. Schema is `v2` for the rename.
+    """
+    touching_a = {"pos": (0.0, 0.0), "half": (10.0, 10.0)}
+    touching_b = {"pos": (20.0, 0.0), "half": (10.0, 10.0)}  # right edge meets left edge
+    assert not tool._overlaps(touching_a, touching_b), (
+        "edge-touching boxes counted as an overlap; the runtime calls that a MISS"
+    )
+
+    # ⛔ THE PREMISE: a real overlap still reads as one, or the arm above passes
+    # because the function stopped answering yes to anything.
+    overlapping_b = {"pos": (19.0, 0.0), "half": (10.0, 10.0)}
+    assert tool._overlaps(touching_a, overlapping_b)
+
+    # …and the derived names carry their own provenance.
+    take = _take(contact_at=4)
+    m = tool.report(take)["measurements"]
+    for name in ("aabb_overlap_ticks", "first_aabb_overlap_tick", "aabb_reach_bound_px"):
+        assert name in m, f"{name} is missing — a broad-phase field must say so"
+    for name in ("overlap_ticks", "max_reach_px", "geometry_reached_target"):
+        assert name not in m, (
+            f"`{name}` is back: a bounds measurement under a name that claims the "
+            "engine's geometry is how this instrument started lying"
+        )

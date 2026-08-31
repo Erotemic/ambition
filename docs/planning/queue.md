@@ -725,16 +725,32 @@ The one unresolved developer-policy choice from the session-ownership work is in
   per-body playback GENERATION from runtime observation; never infer instance
   boundaries from a textual move id.
 
-- ▢ **D-REPORT-GEOMETRY — the report reduces exact volumes to AABBs and uses the
-  wrong tangent rule.** ⭐ GPT review 2026-08-31, REPRODUCED: two boxes whose
+- ◐ **D-REPORT-GEOMETRY — the TANGENT RULE and the NAMES are fixed; the exact
+  geometry is still owed.** ⭐ GPT review 2026-08-31, REPRODUCED: two boxes whose
   edges meet exactly report `overlap = True` in `moveset_report.py`, while
   `CombatVolume`'s runtime `strict_intersects` returns false. The raw
   observation layer is correct — it preserves exact circles/OBBs/convex — and
   `moveset_report.py:58-72` flattens every volume to bounds before computing
   `overlap_ticks`, `max_reach_px` and `geometry_reached_target`, whose names
-  claim more than a broad phase supports. ⇒ publish the exact facts from RUST
-  using the same authority gameplay uses; keep the cheap bounds only under names
-  that say `aabb_`.
+  claimed more than a broad phase supports.
+  ✔ TWO HALVES CLOSED 2026-08-31, both cheap and both real. (1) `_overlaps` is
+  STRICT now, matching `CombatVolume::intersects`'s own documented contract —
+  *"edge-touching is NOT an overlap"* — so the report and the game agree about
+  tangency. ⛔ the old `<=` was wrong in ONE DIRECTION: it claimed contact the
+  engine denied, under a field called `overlap_ticks`, which reads as *"the
+  strike was on the target and the engine ignored it"*. (2) The derived fields
+  are `aabb_overlap_ticks`, `first_aabb_overlap_tick`, `aabb_reach_bound_px` and
+  `aabb_bounds_reached_target`; schema `v2`. `_bounds` already carried the rule —
+  *"every field derived from this says `_aabb`"* — and not one of them did.
+  Guarded by `touching_boxes_are_not_an_overlap_because_the_runtime_says_so`,
+  which pins the tangent case, its premise, and the absence of the old names.
+  22/22.
+  ▢ WHAT REMAINS is the expensive half and the review is right about it: a
+  circle or an OBB whose BOUNDS overlap while the SHAPES miss is still reported
+  as an overlap, because Python stops at the broad phase. ⛔ do not port Parry —
+  publish exact overlap/reach from Rust through the same `CombatVolume` authority
+  gameplay uses, and leave the bounds fields as the cheap answer they now admit
+  to being.
 
 - ⊙ **GPT review 2026-08-31, TWO ITEMS ANSWERED BY COMMITS IT COULD NOT SEE.**
   Its HEAD was `04dff7366`; the following landed after it. (1) Its P3 *"explicit

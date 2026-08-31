@@ -67,9 +67,23 @@ def _bounds(volume: dict) -> tuple[float, float, float, float]:
 
 
 def _overlaps(a: dict, b: dict) -> bool:
+    """Do the two volumes' BOUNDS strictly overlap?
+
+    ⛔⛔ STRICT, BECAUSE THE RUNTIME IS. `CombatVolume::intersects` says it in
+    its own doc — *"box-vs-box preserves the strict platformer contract
+    (edge-touching is NOT an overlap)"* — and its broad phase is
+    `bounds().strict_intersects(..)`. This used `<=`, so two boxes whose edges
+    met exactly counted as overlapping here and as a miss in the game. A
+    measurement that disagrees with the thing it measures is worse than no
+    measurement: it disagrees SILENTLY, in the direction of claiming contact.
+
+    ⚠ STILL ONLY THE BROAD PHASE. Agreeing about tangency does not make this the
+    runtime's answer for a circle, an OBB or a convex shape — see `_bounds`, and
+    every field derived from this is named `aabb_`.
+    """
     ax0, ay0, ax1, ay1 = _bounds(a)
     bx0, by0, bx1, by1 = _bounds(b)
-    return ax0 <= bx1 and bx0 <= ax1 and ay0 <= by1 and by0 <= ay1
+    return ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1
 
 
 def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
@@ -224,12 +238,12 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
              for f in frames),
             default=0,
         ),
-        "max_reach_px": round(reach, 3) if active_ticks else None,
+        "aabb_reach_bound_px": round(reach, 3) if active_ticks else None,
         "max_reach_tick": reach_tick,
         "attack_extents": {k: (round(v, 3) if v is not None else None) for k, v in extents.items()},
         # GEOMETRY, said so in the name.
-        "overlap_ticks": len(overlap_ticks),
-        "first_overlap_tick": overlap_ticks[0] if overlap_ticks else None,
+        "aabb_overlap_ticks": len(overlap_ticks),
+        "first_aabb_overlap_tick": overlap_ticks[0] if overlap_ticks else None,
         # THE RUNTIME'S ANSWER.
         "contacts": contacts,
         "first_contact_tick": first_contact,
@@ -396,7 +410,7 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
             "first_live_tick": b_live[0] if b_live else None,
             "first_contact_tick": b_contact[0] if b_contact else None,
             # ⛔ REACH IS GEOMETRY; the contact beside it is the runtime's.
-            "geometry_reached_target": reaches(second, second_tick) if second else False,
+            "aabb_bounds_reached_target": reaches(second, second_tick) if second else False,
         },
         "target_hitstun_ended_tick": hitstun_ends,
         "gap_ticks": (second_tick - a_contact[0]) if (a_contact and second_tick) else None,
@@ -594,7 +608,7 @@ def report(
 ) -> dict:
     """One scenario's machine-readable authority."""
     return {
-        "schema": "ambition.moveset_report.v1",
+        "schema": "ambition.moveset_report.v2",
         "provenance": provenance(take, source, bundle),
         "scenario": {
             "subject": take.get("subject") or take.get("character"),
@@ -659,7 +673,7 @@ def summary(doc: dict) -> str:
         "",
         "## Reach",
         "",
-        f"- max reach from body origin: {_fmt(m['max_reach_px'])} px"
+        f"- max reach from body origin: {_fmt(m['aabb_reach_bound_px'])} px"
         f" (tick {_fmt(m['max_reach_tick'])})",
         f"- attack extents: x {_fmt(m['attack_extents']['x_min'])}…"
         f"{_fmt(m['attack_extents']['x_max'])}, y {_fmt(m['attack_extents']['y_min'])}…"
@@ -672,12 +686,12 @@ def summary(doc: dict) -> str:
         # ⛔⛔ THE TWO CLAIMS, SIDE BY SIDE AND NAMED. Geometry says where things
         # were; the runtime says what connected. Reporting one as the other is
         # how a tool starts lying confidently.
-        f"- geometric overlap with the target: {m['overlap_ticks']} tick(s)"
-        f" (first at {_fmt(m['first_overlap_tick'])}) — MEASURED FROM BOXES",
+        f"- geometric overlap with the target: {m['aabb_overlap_ticks']} tick(s)"
+        f" (first at {_fmt(m['first_aabb_overlap_tick'])}) — MEASURED FROM BOXES",
         f"- runtime-resolved contacts: {len(m['contacts'])}"
         f" (first at {_fmt(m['first_contact_tick'])}) — THE ENGINE'S OWN ANSWER",
     ]
-    if m["overlap_ticks"] and not m["contacts"]:
+    if m["aabb_overlap_ticks"] and not m["contacts"]:
         lines.append(
             "- ⚠ the strike and the target's hurtbox overlapped and the runtime "
             "resolved NO hit: intangibility, team, shield, or a strike that had "
@@ -711,7 +725,7 @@ def summary(doc: dict) -> str:
                 f"- B first live volume: tick {_fmt(second['first_live_tick'])}"
                 f" · first contact: tick {_fmt(second['first_contact_tick'])}",
                 f"- B geometry reached the target: "
-                f"{'yes' if second['geometry_reached_target'] else 'no'}",
+                f"{'yes' if second['aabb_bounds_reached_target'] else 'no'}",
                 f"- target hitstun ended: tick {_fmt(chain['target_hitstun_ended_tick'])}"
                 f" — B started "
                 f"{'INSIDE' if chain['second_started_within_hitstun'] else 'AFTER'} it",
@@ -723,7 +737,7 @@ def summary(doc: dict) -> str:
                         f"  — the press was BUFFERED for {held} tick(s) before the "
                         f"engine started it; the request is not the acceptance."
                     )
-            if second["geometry_reached_target"] and second["first_contact_tick"] is None:
+            if second["aabb_bounds_reached_target"] and second["first_contact_tick"] is None:
                 lines.append(
                     "  — ⚠ B's box overlapped the target's and the runtime "
                     "resolved NO hit. The overlap is a broad-phase AABB test; "
@@ -800,10 +814,10 @@ COMPARED = [
     ("recovery", lambda m: (m.get("recovery") or {}).get("ticks")),
     ("first live volume", lambda m: m.get("first_active_tick")),
     ("live ticks", lambda m: m.get("live_volume_ticks")),
-    ("max reach px", lambda m: m.get("max_reach_px")),
+    ("aabb reach bound px", lambda m: m.get("aabb_reach_bound_px")),
     ("first contact", lambda m: m.get("first_contact_tick")),
     ("contacts", lambda m: len(m.get("contacts") or [])),
-    ("overlap ticks", lambda m: m.get("overlap_ticks")),
+    ("aabb overlap ticks", lambda m: m.get("aabb_overlap_ticks")),
     ("launch speed", lambda m: m.get("target_launch_speed")),
     ("travel before active", lambda m: m.get("subject_travel_before_active")),
 ]

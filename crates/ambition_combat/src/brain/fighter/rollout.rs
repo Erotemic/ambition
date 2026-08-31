@@ -846,6 +846,16 @@ pub struct RefinedChoice {
     /// refinement's winner can be EXECUTED as the move it won with. `None`
     /// exactly when `move_id` is.
     pub binding: Option<ambition_characters::brain::attack_kit::AttackBinding>,
+    /// Verbs the shadow model does not simulate, so the rollout judged them
+    /// NEITHER safe NOR fatal.
+    ///
+    /// ⚠ ABSENCE FROM [`Self::suicidal_movement`] IS NOT SAFETY, and the caller
+    /// currently reads it as if it were: `movement_intent` returns `None` for
+    /// these, the option is dropped from the rolled set, and "not vetoed" then
+    /// promotes it above every modelled verb the moment those are struck off.
+    /// Published so a trace can show it rather than a reader having to infer it
+    /// from `movement_intent`'s match arms.
+    pub unmodelled_movement: Vec<ambition_characters::brain::fighter::options::MovementVerb>,
     /// Movement lines the rollout found SUICIDAL, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
@@ -1035,11 +1045,15 @@ pub fn refine_by_rollout(
         ambition_characters::brain::fighter::options::MovementVerb,
         u32,
     )> = None;
+    let mut unmodelled_movement = Vec::new();
     let suicidal_movement = options
         .movement
         .iter()
         .filter_map(|option| {
-            let intent = movement_intent(option.verb, &start)?;
+            let Some(intent) = movement_intent(option.verb, &start) else {
+                unmodelled_movement.push(option.verb);
+                return None;
+            };
             let mut probe = start.clone();
             // The same decision that picks a movement verb also arms an attack
             // whenever L2 offers one, and every melee press shoves the body
@@ -1171,6 +1185,7 @@ pub fn refine_by_rollout(
     // independent answers, and a body with nothing to swing still gets the one
     // that keeps it alive.
     Some(RefinedChoice {
+        unmodelled_movement,
         least_bad_movement: longest_lived.map(|(verb, _)| verb),
         move_id: best.map(|(index, _)| options.attacks[index].move_id.clone()),
         binding: best.map(|(index, _)| options.attacks[index].binding),

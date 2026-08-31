@@ -1,7 +1,7 @@
 # Advanced fighter brain — current evaluation and regression work
 
-**State:** implementation exists; current work is evaluation and one confirmed
-rollout regression.
+**State:** implementation exists; the confirmed level-6 rollout regression is
+CLOSED (see below). Current work is evaluation and the separate level-1 case.
 
 The historical construction campaign is not active planning. The production
 fighter brain already has situation classification, option scoring, delayed
@@ -23,9 +23,9 @@ the caps while reaction/decision cadence still separated profiles.
 Do not infer "higher rung wins more" from one-body scenario metrics. Duel
 outcomes, self-KO behavior, damage and recovery are different measurements.
 
-### Level-6 rollout regression is confirmed
+### Level-6 rollout regression — DIAGNOSED AND FIXED 2026-08-31
 
-The current controlled `recovery_below` A/B is:
+The A/B that established it, 2026-08-29:
 
 ```text
                          l1      l3      l5      l6      l9
@@ -33,38 +33,79 @@ rollout ON (shipped)    45/45     0       0     45/45     0
 rollout OFF             45/45     0       0      0/45     0
 ```
 
+**After the fix, rollout ON:** `l1 45/45, l3 0, l5 0, l6 0/45, l9 0` — l6 now
+fights (84%/54% peak damage where it was 0%/0%). Recorded in
+`dev/ambition_dev_measurements/ladder_recovery_sweep.jsonl`.
+
+⭐ **THE ROLLOUT READ ITS OWN SILENCE AS SAFETY.** `movement_intent` returns
+`None` for verbs the shadow cannot simulate (Dodge, Blink), and its header says
+outright that a rollout reporting every unknown as safe *"would be lying in one
+direction"*. It reported neither — the option was dropped from the rolled set —
+so it never appeared in `suicidal_movement`, and the consumer's `find` over
+"not vetoed" promoted it above every verb the rollout DID judge. Worse, it
+suppressed `least_bad_movement` entirely: that fallback was gated on every
+OFFERED verb being vetoed, and an unjudged verb never is.
+
+The trace line, two ticks before l6 died at 0%:
+
+```text
+offered=[Approach, Dodge, Jump] vetoed=[Approach, Jump]
+  unmodelled=[Dodge] chose=Some(Dodge) least_bad=Some(Approach)
+```
+
+`pick_movement` ranks three tiers now — judged-and-unvetoed, then the least-bad
+line, then unmodelled — with the third tier also carrying the untouched
+no-rollout path.
+
+⚠ **THE TRACE HAD TO GROW FIRST.** `least_bad` and `unmodelled` never left
+`refine_by_rollout`, so *"every option was fatal and this one dies latest"* and
+*"a verb nobody rolled outranked them"* rendered identically. Both are published
+now, on the `AMBITION_FIGHTER_TRACE=1` line and on the `fighter_decision` causal
+fact. F1 asked for a decision trace rather than another sweep; the trace was one
+field short of being able to answer, and that is worth remembering the next time
+an instrument reports a decision without its reason.
+
 Run: `ladder_rig --sweep-below [--no-rollout] --seeds 45`.
 
-The result was reproduced and remained byte-identical to the prior recording.
-`RecoveryLens` did **not** change which bouts are fought. Level 6 is completely
-rescued by disabling rollout while level 1 is unaffected, so this is a
-rollout-caused level-6 recovery regression rather than evidence for a global
-recovery rewrite.
+`RecoveryLens` did **not** change which bouts are fought, and the traced Recovery
+decisions were byte-identical between the two arms for their first 22 ticks — the
+divergence was never on the recovery road at all. It was in Neutral/Advantage,
+where the veto emptied the modelled options and an unjudged one took over.
 
 Level 1 is a separate case: disabling rollout does not rescue it, and its long
 reaction delay relative to the fixture fall time is one of the profile-level
 variables the rig can isolate.
 
-## F1 — diagnose one level-6 decision, do not run another broad sweep
+## F1 — DONE. The trace named it; here is what to reuse
 
-The next experiment is a single controlled trace at the rollout authority
-boundary. For one failing level-6 `recovery_below` seed, capture per decision:
+The experiment was a single controlled trace at the rollout authority boundary,
+one failing seed, rollout on and off, and it worked — see the diagnosis above.
+Three things from it are worth carrying to the next one:
 
-- L2 movement option order;
-- each movement line passed into rollout refinement;
-- which verbs enter `suicidal_movement`;
-- `RecoveryLens::regains_support` / route verdicts;
-- `least_bad_movement`;
-- the final selected movement.
+- **run the trace, not another sweep, and let it name the tick.** The Recovery
+  decisions were byte-identical between arms; the divergence was in
+  Neutral/Advantage. A sweep would have said "l6 fails" for another week.
+- **the instrument was one field short.** `least_bad_movement` and the unjudged
+  set never left `refine_by_rollout`, so the two candidate explanations rendered
+  the same. Adding them was cheaper than reasoning without them, and they are
+  published now.
+- **check what the consumer does with a `None`.** `movement_intent`'s own header
+  says an unknown must not read as safe OR as fatal; the consumer read it as
+  safe. A refusal to answer is not an answer, and the caller has to be told
+  which it got.
 
-Run the identical seed with rollout disabled and diff the L2 choice that
-survives. The goal is to identify the specific veto/reordering that converts a
-successful L2 decision into the total level-6 failure.
+Reproduce with:
 
-This is queue row `D-FIGHTER-L6`.
+```text
+AMBITION_FIGHTER_TRACE=1 cargo run --release -p ambition_demo_smash_app \
+  --bin ladder_rig -- --sweep-below --seeds 1 2>&1 | grep '^\[fighter '
+```
 
 Do **not** tune rollout depth, RecoveryLens heuristics, APM, reaction time, or
-movement weights before the trace identifies the responsible decision.
+movement weights without a trace that identifies the responsible decision first.
+
+The remaining case is level 1, which rollout never explained: queue row
+`D-FIGHTER-L1`.
 
 ## F2 — keep the evaluation rig representative
 
@@ -84,9 +125,11 @@ Do not build a second permanent telemetry stack around the fighter brain.
 ## Relationship to navigation/recovery architecture
 
 The reusable recovery probe and `RecoveryLens` are legitimate body-capability
-infrastructure, but the level-6 A/B is evidence that the **decision integration**
-remains wrong for this case. It is not evidence that the generic platformer
-navigation architecture should be replaced.
+infrastructure, and the level-6 A/B was evidence that the **decision
+integration** was wrong — which it was, and it is fixed. It was never evidence
+that the generic platformer navigation architecture should be replaced, and the
+trace confirmed that directly: the recovery road's own decisions matched between
+the two arms.
 
 Broader reusable navigation/reachability remains owned by
 [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md).

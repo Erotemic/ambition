@@ -1336,3 +1336,99 @@ fn every_published_level_below_the_stage_asks_to_rise() {
         );
     }
 }
+
+/// ⭐⭐ THE THREE TIERS `pick_movement` RANKS BY, one arm each.
+///
+/// ⛔⛔ THE MIDDLE ONE IS THE DEFECT THIS FILE WAS OPENED FOR. An unmodelled
+/// verb is absent from `vetoed`, so a `find` over "not vetoed" promoted it above
+/// every verb the rollout judged AND suppressed `least_bad_movement`, which was
+/// gated on every OFFERED verb being vetoed. Measured on seed 0 of
+/// `ladder_rig --sweep-below`, two ticks before level 6 died at 0%:
+/// `vetoed=[Approach, Jump] unmodelled=[Dodge] chose=Some(Dodge)
+/// least_bad=Some(Approach)`.
+mod movement_ranking {
+    use super::*;
+    use ambition_characters::brain::fighter::options::{MoveOption, MovementVerb};
+
+    fn offered(verbs: &[(MovementVerb, f32)]) -> Vec<MoveOption> {
+        verbs
+            .iter()
+            .map(|(verb, score)| MoveOption {
+                verb: *verb,
+                score: *score,
+            })
+            .collect()
+    }
+
+    /// Tier 1: a judged, unvetoed verb wins outright.
+    #[test]
+    fn a_line_the_rollout_modelled_and_did_not_veto_wins() {
+        let options = offered(&[
+            (MovementVerb::Approach, 1.0),
+            (MovementVerb::Dodge, 0.9),
+            (MovementVerb::Retreat, 0.5),
+        ]);
+        assert_eq!(
+            super::super::pick_movement(
+                &options,
+                &[MovementVerb::Approach],
+                &[MovementVerb::Dodge],
+                Some(MovementVerb::Approach),
+            ),
+            Some(MovementVerb::Retreat),
+            "Retreat is modelled and unvetoed; nothing should outrank it"
+        );
+    }
+
+    /// Tier 2, and the regression: every JUDGED verb is fatal, an unmodelled one
+    /// is on offer, and the rollout's own least-bad answer must still win.
+    #[test]
+    fn the_least_bad_line_outranks_a_verb_nobody_rolled() {
+        let options = offered(&[
+            (MovementVerb::Approach, 1.0),
+            (MovementVerb::Dodge, 0.9),
+            (MovementVerb::Jump, 0.5),
+        ]);
+        assert_eq!(
+            super::super::pick_movement(
+                &options,
+                &[MovementVerb::Approach, MovementVerb::Jump],
+                &[MovementVerb::Dodge],
+                Some(MovementVerb::Approach),
+            ),
+            Some(MovementVerb::Approach),
+            "the rollout had an answer for `everything I can judge is fatal` and \
+             it was discarded for a verb nobody rolled"
+        );
+    }
+
+    /// Tier 3: nothing was judged at all — no rollout, or every offered verb is
+    /// one the shadow cannot simulate. L2's order is the only ranking there is,
+    /// and this is also the whole no-rollout path.
+    #[test]
+    fn with_nothing_judged_l2s_order_comes_straight_through() {
+        let options = offered(&[(MovementVerb::Dodge, 1.0), (MovementVerb::Blink, 0.9)]);
+        assert_eq!(
+            super::super::pick_movement(
+                &options,
+                &[],
+                &[MovementVerb::Dodge, MovementVerb::Blink],
+                None,
+            ),
+            Some(MovementVerb::Dodge),
+        );
+        // The no-rollout shape: nothing vetoed, nothing unmodelled, no least-bad.
+        assert_eq!(
+            super::super::pick_movement(&options, &[], &[], None),
+            Some(MovementVerb::Dodge),
+            "with rollouts off, L2's order must come through untouched"
+        );
+    }
+
+    /// ⛔ AND AN EMPTY OFFER IS STILL `None`. A tier that invents a verb out of
+    /// an empty list would press a direction nobody scored.
+    #[test]
+    fn nothing_offered_chooses_nothing() {
+        assert_eq!(super::super::pick_movement(&[], &[], &[], None), None);
+    }
+}

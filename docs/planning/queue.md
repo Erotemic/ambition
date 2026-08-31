@@ -41,6 +41,30 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D-FIGHTER-L6 — the rollout read its own silence as safety.** Reproduced at
+HEAD on seed 0 before touching anything (l6 `unfought 1/1` with rollout on,
+`both survive` with it off), then traced. ⭐ THE TRACE SAID IT IN ONE LINE, two
+ticks before the body died at 0%: `offered=[Approach, Dodge, Jump]
+vetoed=[Approach, Jump] unmodelled=[Dodge] chose=Some(Dodge)
+least_bad=Some(Approach)`. `movement_intent` returns `None` for the verbs the
+shadow cannot simulate — Dodge, Blink — and its own header says a rollout
+reporting every unknown as safe *"would be lying in one direction"*. It reports
+neither: the option is dropped from the rolled set, so it never appears in
+`vetoed`, and a `find` over "not vetoed" promoted it above every verb the rollout
+DID judge — while also suppressing `least_bad_movement`, which was gated on every
+OFFERED verb being vetoed and an unjudged one never is. ⭐ `pick_movement` ranks
+three tiers now: judged-and-unvetoed, then the least-bad line, then unmodelled
+(which is also the untouched no-rollout path). ⚠ THE TRACE HAD TO GROW FIRST —
+`least_bad` and `unmodelled` never left `refine_by_rollout`, so "every option was
+fatal and this one dies latest" and "a verb nobody rolled outranked them"
+rendered identically. Both are published now, on the stderr line and on the
+causal fact. **Measured after: l6 `unfought` 45/45 → 0/45 at 45 seeds with
+rollout ON**, peak damage 84%/54% where it was 0%/0%; recorded in
+`dev/ambition_dev_measurements/ladder_recovery_sweep.jsonl`. Guards: four arms on
+`pick_movement`'s tiers (two red under the old rule) and one on the rollout
+publishing its unjudged set. ⚠ l1 is still `unfought 45/45` and was 45/45 in BOTH
+arms of the original A/B, so it is a SEPARATE defect — see D-FIGHTER-L1.
+
 ✔ **D-TRAP-HOLD — "any action press" meant Attack or Special, and nothing else.**
 `ChargeSustain::UntilPressedAgain`'s comment has long said the Performer ends her
 trapdoor beat by *"pressing a non-move action"*, movement excluded. The check
@@ -348,14 +372,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   today's behaviour rather than deciding it. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
-- ▢ **D-FIGHTER-L6 — diagnose the confirmed rollout regression with a decision
-  trace, not another sweep.** The controlled A/B already established the signal:
-  rollout-enabled level 6 fails the cited recovery scenario 45/45 while disabled
-  succeeds 45/45; level 1 is unaffected and RecoveryLens did not fix it. Trace
-  one fixed seed through option generation, rollout vetoes, suicidal-movement /
-  support recovery reasoning, least-bad selection and final choice. Fix the
-  first wrong authority/decision exposed by the trace. Owner:
-  [`engine/fighter-brain.md`](engine/fighter-brain.md).
+- ▢ **D-FIGHTER-L1 — level 1 fails the same recovery scenario, and rollout is not
+  why.** `ladder_rig --sweep-below --seeds 45` reports l1 `unfought 45/45` with
+  rollout ON and OFF alike, before and after the D-FIGHTER-L6 fix — so the l6
+  diagnosis does not touch it and never did. l1's profile is the floor's slowest
+  rung: `reaction_ms 500`, `apm_cap 120`, `execution_noise 0.45`, no rollout
+  (`FighterBrainProfile::for_level`). The trace instrument is now good enough to
+  answer this the same way l6 was answered: `AMBITION_FIGHTER_TRACE=1` and read
+  `offered`/`chose`/`emit_x` from the first `situation=Recovery` line.
+  Acceptance: the first wrong authority named from a trace, not a sweep — and a
+  statement of whether "the slowest rung cannot recover" is a DEFECT or the
+  intended floor. Owner: [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

@@ -357,19 +357,50 @@ fn decide(
     // protection while protecting nothing; `ladder_probe` confirmed it fires zero times across five
     // matches.
     frame.locomotion = ae::LocalAxes::ZERO;
-    let chosen = options
-        .movement
-        .iter()
-        .find(|option| !vetoed.contains(&option.verb))
-        .map(|option| option.verb)
-        // Every option is fatal — but doing nothing is not automatically the
-        // safe alternative, and for an airborne body it never is. Take the line
-        // that dies latest and leave the most room for the world to change.
-        .or_else(|| {
-            refined
-                .as_ref()
-                .and_then(|refined| refined.least_bad_movement)
-        });
+    // ⛔⛔ AN UNMODELLED VERB IS NOT A SAFE ONE, AND THIS READ IT AS ONE.
+    // `movement_intent` returns `None` for the verbs the shadow cannot
+    // simulate — Dodge, Blink, Shield-as-motion — and says outright that
+    // *"a rollout that reported every unknown as safe or as fatal would be
+    // lying in one direction or the other"*. It reports neither: the option is
+    // dropped from the rolled set, so it never appears in `vetoed`. A `find`
+    // over "not vetoed" then promotes it above every verb the rollout DID judge,
+    // and — worse — it stops `least_bad_movement` from ever firing, because that
+    // fallback is gated on every OFFERED verb being vetoed and an unjudged one
+    // never is.
+    //
+    // ⭐ MEASURED, seed 0 of `ladder_rig --sweep-below`, the two ticks before
+    // level 6 dies at 0%:
+    //
+    // ```text
+    // offered=[Approach, Dodge, Jump] vetoed=[Approach, Jump]
+    //   unmodelled=[Dodge] chose=Some(Dodge) least_bad=Some(Approach)
+    // ```
+    //
+    // The rollout had an answer for "everything I can judge is fatal" and it was
+    // discarded for a verb nobody rolled. Two ticks later the body is off the
+    // stage.
+    //
+    // ⭐ SO THE FALLBACK IS GATED ON THE JUDGED SET, not the offered one. Three
+    // tiers, in the order the rollout's own contract implies:
+    //
+    // ```text
+    // 1. judged and not vetoed   the rollout says this one lives
+    // 2. least-bad               every judged line is fatal; this one dies latest
+    // 3. unmodelled              nobody knows; better than a known death, and
+    //                            worse than a measured survival
+    // ```
+    let unmodelled = refined
+        .as_ref()
+        .map(|refined| refined.unmodelled_movement.as_slice())
+        .unwrap_or(&[]);
+    let chosen = pick_movement(
+        &options.movement,
+        vetoed,
+        unmodelled,
+        refined
+            .as_ref()
+            .and_then(|refined| refined.least_bad_movement),
+    );
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
     }
@@ -535,6 +566,16 @@ fn decide(
             situation,
             vetoed,
             chosen,
+            // ⭐ WHY `chose` IS ALSO IN `vetoed`, when it is. Without these two
+            // fields "every option was fatal and this one dies latest" and "an
+            // unmodelled verb outranked the modelled ones" render identically.
+            least_bad: refined
+                .as_ref()
+                .and_then(|refined| refined.least_bad_movement),
+            unmodelled: refined
+                .as_ref()
+                .map(|refined| refined.unmodelled_movement.as_slice())
+                .unwrap_or(&[]),
             attack: wants_attack.as_ref().map(|(_, id)| id.as_str()),
             recovery: endorsed_recovery,
             recovery_move: endorsed_recovery
@@ -565,6 +606,24 @@ struct DecisionSummary<'a, 'k> {
     vetoed: &'a [MovementVerb],
     /// The movement verb that survived.
     chosen: Option<MovementVerb>,
+    /// The LEAST-BAD line, when every offered verb was vetoed and the choice
+    /// fell to it.
+    ///
+    /// ⛔⛔ IT NEVER LEFT `refine_by_rollout` BEFORE, and that is the fact a
+    /// reader most needs when `chose` is also in `vetoed`: "every option was
+    /// fatal and this one dies latest" and "the veto was ignored" render
+    /// identically without it. `None` here with a non-empty `vetoed` means a
+    /// verb survived the veto on its own.
+    least_bad: Option<MovementVerb>,
+    /// Verbs the shadow model does not simulate, so the rollout judged neither
+    /// safe nor fatal.
+    ///
+    /// ⚠ THE CALLER READS SILENCE AS SAFETY. `movement_intent` returns `None`
+    /// for these and the option is dropped from the rolled set entirely, so an
+    /// unmodelled verb is absent from `vetoed` and therefore outranks every
+    /// modelled verb the moment the modelled ones are struck off. Publishing it
+    /// is what makes that visible in a trace instead of inferable from source.
+    unmodelled: &'a [MovementVerb],
     /// The authored move this decision will press, by id. `None` = no swing.
     attack: Option<&'a str>,
     /// The recovery search's verdict, when the situation made one run.
@@ -583,6 +642,59 @@ struct DecisionSummary<'a, 'k> {
 
 // Moving it to the module that owns the tilt/smash distinction removes that edge without either
 // brain naming the other.
+
+/// Which movement verb this decision takes, given what the rollout judged.
+///
+/// ⛔⛔ AN UNMODELLED VERB IS NOT A SAFE ONE, AND THIS USED TO READ IT AS ONE.
+/// `movement_intent` returns `None` for the verbs the shadow cannot simulate —
+/// Dodge, Blink, Shield-as-motion — and says outright that *"a rollout that
+/// reported every unknown as safe or as fatal would be lying in one direction or
+/// the other"*. It reports neither: the option is dropped from the rolled set,
+/// so it never appears in `vetoed`. A `find` over "not vetoed" therefore
+/// promoted it above every verb the rollout DID judge — and, worse, stopped
+/// `least_bad_movement` from ever firing, because that fallback was gated on
+/// every OFFERED verb being vetoed and an unjudged one never is.
+///
+/// ⭐ MEASURED, seed 0 of `ladder_rig --sweep-below`, on the two ticks before
+/// level 6 dies at 0% damage:
+///
+/// ```text
+/// offered=[Approach, Dodge, Jump] vetoed=[Approach, Jump]
+///   unmodelled=[Dodge] chose=Some(Dodge) least_bad=Some(Approach)
+/// ```
+///
+/// The rollout had an answer for *"everything I can judge is fatal"* and it was
+/// discarded for a verb nobody rolled. Two ticks later the body is off the stage.
+///
+/// ⭐ THREE TIERS, in the order the rollout's own contract implies:
+///
+/// ```text
+/// 1. judged and not vetoed   the rollout modelled this line and it lives
+/// 2. least-bad               every judged line is fatal; this one dies latest
+/// 3. unmodelled              nobody knows — better than a known death, worse
+///                            than a measured survival
+/// ```
+///
+/// ⚠ TIER 3 IS ALSO THE NO-ROLLOUT PATH. With rollouts off nothing is judged and
+/// nothing is vetoed, so L2's order comes straight through tier 3 unchanged.
+fn pick_movement(
+    movement: &[ambition_characters::brain::fighter::options::MoveOption],
+    vetoed: &[MovementVerb],
+    unmodelled: &[MovementVerb],
+    least_bad: Option<MovementVerb>,
+) -> Option<MovementVerb> {
+    movement
+        .iter()
+        .find(|option| !vetoed.contains(&option.verb) && !unmodelled.contains(&option.verb))
+        .map(|option| option.verb)
+        .or(least_bad)
+        .or_else(|| {
+            movement
+                .iter()
+                .find(|option| !vetoed.contains(&option.verb))
+                .map(|option| option.verb)
+        })
+}
 
 /// AIM THE ATTACK STICK — the direction half of a chosen move, written at
 /// DECISION time and held until the next decision, the way a hand holds a stick.
@@ -754,6 +866,8 @@ fn trace_decision(
         situation,
         vetoed,
         chosen,
+        least_bad,
+        unmodelled,
         attack,
         recovery,
         recovery_move,
@@ -781,7 +895,7 @@ fn trace_decision(
     // fighters on a stage produced two interleaved streams with nothing to tell
     // them apart, and this trace exists because reasoning about that failed.
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
@@ -796,7 +910,9 @@ fn trace_decision(
         view.floor_edge_distance().map(|d| d.round()),
         offered,
         vetoed,
+        unmodelled,
         chosen,
+        least_bad,
         attack.unwrap_or("none"),
         proposed,
         match (recovery_searched, recovery_regained, recovery_move) {
@@ -834,6 +950,13 @@ fn trace_decision(
         .field("offered", format!("{offered:?}"))
         .field("vetoed", format!("{vetoed:?}"))
         .field("vetoed_count", vetoed.len() as i64)
+        // ⭐ WHY `chose` IS ALSO IN `vetoed`, when it is: either the least-bad
+        // fallback fired, or an UNMODELLED verb was promoted by the caller's
+        // reading of silence as safety. Two different fixes, and without these
+        // two fields the fact renders them identically.
+        .field("least_bad", format!("{least_bad:?}"))
+        .field("unmodelled", format!("{unmodelled:?}"))
+        .field("unmodelled_count", unmodelled.len() as i64)
         // L1's answer, so every other field is readable as conditional on
         // it. `first("fighter_decision")` could say which verb a brain took
         // and never which QUESTION it was answering, so the histogram this

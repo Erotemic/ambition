@@ -1160,3 +1160,62 @@ fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
          would mean the veto had stopped reading the surfaces"
     );
 }
+
+/// ⭐⭐ A VERB THE SHADOW CANNOT SIMULATE IS PUBLISHED AS UNJUDGED.
+///
+/// ⛔⛔ ABSENCE FROM `suicidal_movement` USED TO BE THE ONLY SIGNAL, and it
+/// conflates two opposite facts: "the rollout modelled this line and it lives"
+/// and "the rollout could not model this line at all". `movement_intent`'s own
+/// header says a rollout reporting every unknown as safe would be "lying in one
+/// direction"; the consumer then read its silence as safety, so an unmodelled
+/// verb outranked every modelled one the moment those were struck off — and
+/// suppressed `least_bad_movement`, which is gated on every offered verb being
+/// vetoed.
+#[test]
+fn a_verb_the_shadow_cannot_model_is_reported_as_unjudged() {
+    use ambition_characters::brain::fighter::options::{MoveOption, MovementVerb, OptionSet};
+
+    let view = view_falling_beside_the_platform();
+    let options = OptionSet {
+        attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
+        movement: vec![
+            MoveOption {
+                verb: MovementVerb::Approach,
+                score: 1.0,
+            },
+            // Dodge and Blink are the two `movement_intent` returns `None` for.
+            MoveOption {
+                verb: MovementVerb::Dodge,
+                score: 0.9,
+            },
+            MoveOption {
+                verb: MovementVerb::Blink,
+                score: 0.8,
+            },
+        ],
+    };
+    let refined = refine_by_rollout(
+        Perceived::cheating(&view),
+        Situation::Recovery,
+        &options,
+        &HabitModel::default(),
+        &profile(4, 12, 0.0),
+        &ShadowTuning::default(),
+        60.0,
+        60,
+        None,
+    )
+    .expect("rollouts are on");
+
+    assert_eq!(
+        refined.unmodelled_movement,
+        vec![MovementVerb::Dodge, MovementVerb::Blink],
+        "the two verbs the shadow has no intent for must be named as unjudged"
+    );
+    // ⛔ AND THEY ARE NOT VETOED EITHER. That is the whole hazard: a reader
+    // asking only `suicidal_movement` sees nothing about them at all.
+    assert!(
+        !refined.suicidal_movement.contains(&MovementVerb::Dodge),
+        "an unmodelled verb must not be reported as suicidal — it was not judged"
+    );
+}

@@ -197,10 +197,22 @@ pub fn admit_room_replay(
                 zone_sfx: None,
             }),
         ),
-        // ⚠ NO BODY, NO CROSSING TO DESCRIBE. The room is not rebuilt here —
-        // `RoomTransitionIntent` requires a subject by contract — but the
-        // consequences that are not about a body still run, and the log says
-        // which half happened rather than leaving a silent partial.
+        // ⛔⛔ NO BODY, NO CROSSING TO DESCRIBE — AND THIS ARM IS A PARTIAL
+        // TRANSACTION, filed as D-REPLAY-NOSUBJECT. `RoomTransitionIntent`
+        // requires a subject by contract, so nothing is recorded and the room is
+        // NOT rebuilt; the consequences that are not about a body still run,
+        // which means attempt residue is retired, gravity reset and portals
+        // cleared for an operation that never took the pending slot.
+        //
+        // ⚠ AND THIS LOG IS INVISIBLE WHERE IT MATTERS. `bevy::log::info!` needs
+        // a `LogPlugin`, and the headless compositions that actually reach this
+        // arm install none — while the `world_event` line below prints
+        // unconditionally on BOTH arms. Reading the absence of this line as "a
+        // subject existed" is a mistake that has already been made once.
+        //
+        // ⇒ the fix is a lifecycle intent that does not require a subject, which
+        // costs `RoomTransitionApplication::apply` becoming subject-optional
+        // through eight sites. Recorded rather than half-done.
         None => {
             bevy::log::info!(
                 target: "ambition_platformer2d::room_reset",
@@ -472,5 +484,105 @@ mod tests {
         }
         probe.snapped = blink_cam.camera_snap_timer;
         probe.blink_cam = blink_cam;
+    }
+}
+
+#[cfg(test)]
+mod subjectless_replay_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope,
+    };
+
+    fn room_set(room_id: &str) -> ambition_platformer2d_world::rooms::RoomSet {
+        let world = ae::World {
+            name: room_id.to_string(),
+            size: ae::Vec2::new(640.0, 480.0),
+            spawn: ae::Vec2::new(64.0, 400.0),
+            blocks: vec![ae::world::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 440.0),
+                ae::Vec2::new(640.0, 40.0),
+            )],
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            chains: Vec::new(),
+            edges: Default::default(),
+        };
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            room_id,
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id, world,
+            )],
+            Vec::new(),
+        )
+    }
+
+    /// ⛔⛔ A REPLAY WITH NO CONTROLLED BODY ADMITS WITHOUT OWNING THE SLOT.
+    ///
+    /// `RoomReplayAdmitted`'s doc promised for a long time that an admitted
+    /// replay *"owns the one pending-commit slot, and the room WILL be
+    /// rebuilt"*. On the `None` arm `admit_room_replay` constructs its own
+    /// `Admission::Admitted`, records NOTHING, logs *"clearing the attempt, not
+    /// rebuilding"*, and writes the message anyway — so every consequence
+    /// hanging off it (attempt-residue retirement, gravity reset, portal policy)
+    /// runs for an operation that never acquired lifecycle ownership.
+    ///
+    /// ⭐ REACHABLE, not theoretical: `ControlledSubject` is `None` for one frame
+    /// after `settle_until_session_world` returns, so a headless or tooling
+    /// composition pressing reset in that window takes exactly this arm. That
+    /// window is what made D-SFX-RESET-RED take five wrong hypotheses to find.
+    ///
+    /// ⚠ THIS TEST DOCUMENTS THE DEFECT RATHER THAN FORBIDDING IT, in the same
+    /// shape as `a_blocked_strike_is_still_recorded_as_a_connection` did before
+    /// its own fix landed: repairing it needs a lifecycle intent that does not
+    /// require a subject, which costs `RoomTransitionApplication::apply`
+    /// becoming subject-optional through eight sites. Queue row
+    /// D-REPLAY-NOSUBJECT. When that lands, the second assertion inverts and the
+    /// `⛔⛔` above becomes the receipt.
+    #[test]
+    fn a_subjectless_replay_is_admitted_without_recording_an_intent() {
+        let mut app = App::new();
+        app.add_message::<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>();
+        app.add_message::<RoomReplayAdmitted>();
+        app.init_resource::<ActiveSessionScope>();
+        app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.init_resource::<
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        >();
+        insert_session_world_component(app.world_mut(), room_set("central"));
+        // ⛔ NO `ControlledSubject` RESOURCE AT ALL — the composition this arm is
+        // about. Inserting `ControlledSubject(None)` would test the same branch;
+        // omitting it also proves the `Option<Res<..>>` reaches it.
+        app.add_systems(Update, admit_room_replay);
+        app.world_mut().write_message(
+            ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual(),
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let messages = world.resource::<bevy::prelude::Messages<RoomReplayAdmitted>>();
+        let mut cursor = messages.get_cursor();
+        let admitted: Vec<_> = cursor.read(messages).cloned().collect();
+        assert_eq!(
+            admitted.len(),
+            1,
+            "the premise changed: a bodyless replay no longer admits at all, so \
+             this arm measures nothing"
+        );
+        assert!(
+            admitted[0].subject.is_none(),
+            "the fixture accidentally supplied a subject"
+        );
+
+        let pending = app.world().resource::<
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        >();
+        assert!(
+            pending.peek().is_none(),
+            "a bodyless replay RECORDED an intent — D-REPLAY-NOSUBJECT is fixed \
+             and this assertion should now be the opposite: the slot is owned \
+             and the room is rebuilt"
+        );
     }
 }

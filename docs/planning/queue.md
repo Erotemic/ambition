@@ -685,6 +685,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
   identity cannot produce a transition"* is a rule that is right for a crossing. Acceptance: a bodyless replay acquires a
   commit, retires attempt residue, REBUILDS the room, and admits with
   `subject: None`; poison the pending slot and none of it happens.
+  ⭐ MEASURED AND PINNED 2026-08-31, so the fix has an acceptance test before it
+  is written: `a_subjectless_replay_is_admitted_without_recording_an_intent`
+  drives the real `admit_room_replay` with no `ControlledSubject` and asserts
+  what happens TODAY — one `RoomReplayAdmitted` with `subject: None`, and
+  `PendingLifecycleCommit::peek()` empty. Its second assertion inverts when this
+  row lands, exactly as `a_blocked_strike_is_still_recorded_as_a_connection` did
+  for D-CANCEL-ONBLOCK. ⇒ this is no longer a source reading.
+  ✔ AND THE TYPE NO LONGER LIES. `RoomReplayAdmitted`'s doc described only the
+  `Some` transaction; it now names both and says plainly that `None` means
+  nothing was recorded and nothing will be rebuilt, so a consumer added before
+  the fix knows which of the two it is handling. ⛔ it also records the trap:
+  the `None` arm's `info!` needs a `LogPlugin` the reaching compositions do not
+  install, while the `world_event` line beside it prints on BOTH arms — reading
+  the absence of the first as "a subject existed" is a mistake already made once.
 
 - ◐ **D-SCENARIO-IDENTITY — the REPORT half is closed; the transport, cache and
   render halves are not.** ⭐ GPT review

@@ -107,8 +107,29 @@ pub enum RoomResetReason {
     Manual,
 }
 
-/// A SAME-ROOM REPLAY HAS BEEN ADMITTED: the lifecycle operation owns the one
-/// pending-commit slot, and the room WILL be rebuilt.
+/// A SAME-ROOM REPLAY HAS BEEN ADMITTED.
+///
+/// ⛔⛔ TWO DIFFERENT TRANSACTIONS TRAVEL ON ONE MESSAGE, and this doc claimed
+/// only the first until 2026-08-31. Read [`Self::subject`] before believing
+/// anything about the world:
+///
+/// * `Some(subject)` — the lifecycle operation OWNS the one pending-commit slot
+///   and the room WILL be rebuilt. This is the contract every consequence below
+///   was written against.
+/// * `None` — **nothing was recorded and nothing will be rebuilt.**
+///   `admit_room_replay` constructs its own `Admission::Admitted` on that arm,
+///   logs *"clearing the attempt, not rebuilding"*, and writes this message
+///   anyway. The consequences still run, so a bodyless replay retires attempt
+///   residue, resets gravity and clears portals for an operation that never
+///   acquired lifecycle ownership.
+///
+/// ⚠ THAT IS A PARTIAL TRANSACTION AND IT IS RECORDED AS A DEFECT, not a design:
+/// queue row D-REPLAY-NOSUBJECT. The doc is written this way so a consumer added
+/// before it is fixed knows which of the two it is handling. ⛔ do not "fix" it
+/// by making the `None` arm silent — the reachable case is a headless or tooling
+/// composition in the frame before `ControlledSubject` resolves, and a replay
+/// that does nothing at all there is what made D-SFX-RESET-RED take five wrong
+/// hypotheses to find.
 ///
 /// ⭐ THIS IS THE SIGNAL EVERY REPLAY CONSEQUENCE HANGS OFF. Exactly one system
 /// writes it — `runtime::sandbox_reset::admit_room_replay` — and only after the

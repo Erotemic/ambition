@@ -717,6 +717,110 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
         })
 }
 
+/// The absolute simulation tick, which is what a causal fact is stamped with.
+///
+/// ⭐ THE JOIN KEY. A take's frames are an INDEX into one exercise; a causal
+/// fact names the sim tick it happened on. Without this the two cannot be put
+/// beside each other, and an inspector is left matching a consequence to a
+/// frame by counting.
+fn sim_tick(app: &App) -> u64 {
+    app.world()
+        .get_resource::<ambition_platformer2d::runtime::SimTick>()
+        .map(|t| t.0)
+        .unwrap_or_default()
+}
+
+/// The causal inspector, when this build carries it.
+///
+/// ⭐⭐ THE ENGINE ALREADY ANNOUNCES WHY A HIT RESOLVED AS IT DID — ignored,
+/// blocked, armored, wallet-shielded, damaged — and the monolith already turns
+/// those announcements into facts with a cause chain. A recorder that invented
+/// its own hit events would be a second answer to a question with one; this
+/// installs the existing inspector and writes down what it says.
+///
+/// ⛔ OFF WITHOUT THE FEATURE, AND THAT IS THE POINT. An instrument that is on
+/// by default is one somebody switches off, and then it is not there when it is
+/// needed — so a plain build records geometry and consequences and simply has no
+/// `causal` array, which is a visible absence rather than a silent one.
+#[cfg(feature = "causal")]
+mod causal_trace {
+    use bevy::prelude::App;
+
+    pub fn arm(app: &mut App) {
+        use ambition_platformer2d::causal::{domains, CausalRecording, RecordingPolicy};
+        app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
+        if let Some(mut log) = app.world_mut().get_resource_mut::<CausalRecording>() {
+            // DAMAGE is the resolution vocabulary; MOVESET is what the move
+            // itself was doing when it produced one. Recording every domain
+            // would bury both under movement and input.
+            log.set_policy(RecordingPolicy::only([domains::DAMAGE, domains::MOVESET]));
+        }
+    }
+
+    /// Forget everything before this take. The log is a ring buffer shared by
+    /// the whole run, and a take that carried the previous take's facts would
+    /// attribute one move's consequences to another.
+    pub fn clear(app: &mut App) {
+        use ambition_platformer2d::causal::CausalRecording;
+        if let Some(mut log) = app.world_mut().get_resource_mut::<CausalRecording>() {
+            log.clear();
+        }
+    }
+
+    /// Every fact the log holds, in the shape the artifact writes.
+    pub fn drain(app: &mut App) -> Vec<serde_json::Value> {
+        use ambition_platformer2d::causal::CausalRecording;
+        let Some(log) = app.world().get_resource::<CausalRecording>() else {
+            return Vec::new();
+        };
+        log.facts()
+            .map(|fact| {
+                serde_json::json!({
+                    // The absolute tick, which the frames also carry.
+                    "sim_tick": fact.tick,
+                    "domain": fact.domain.0,
+                    "kind": fact.detail.kind,
+                    "summary": fact.detail.summary,
+                    // ⛔ THE SUBJECT IS A STABLE ID where the publisher had one.
+                    // `entity:N` means the domain has no stable id yet and says
+                    // so — a recorded API leak, not a join key.
+                    "subject": fact.subject.as_ref().map(|s| s.to_string()),
+                    "participant": fact.participant,
+                    // What this fact FOLLOWED FROM, which is what makes the log
+                    // a chain rather than a list.
+                    "cause": fact.cause.map(|id| id.0),
+                    "id": fact.id.0,
+                    // ⛔⛔ A RESIMULATED TICK IS NOT ITS ORIGINAL. Rollback can
+                    // execute one tick more than once and the two attempts can
+                    // produce different facts; an artifact that dropped this
+                    // would merge them into one explanation.
+                    "execution": fact.execution.to_string(),
+                    "attempt": fact.attempt,
+                    "fields": fact
+                        .detail
+                        .fields
+                        .iter()
+                        .map(|(name, value)| (name.to_string(), value.to_string()))
+                        .collect::<std::collections::BTreeMap<_, _>>(),
+                })
+            })
+            .collect()
+    }
+}
+
+/// Without the feature there is no inspector to install, and the take says so
+/// by carrying no `causal` array at all.
+#[cfg(not(feature = "causal"))]
+mod causal_trace {
+    use bevy::prelude::App;
+
+    pub fn arm(_: &mut App) {}
+    pub fn clear(_: &mut App) {}
+    pub fn drain(_: &mut App) -> Vec<serde_json::Value> {
+        Vec::new()
+    }
+}
+
 /// Sample the world and append it to a take, reporting any body it could not
 /// identify.
 ///
@@ -741,6 +845,10 @@ fn record(
     let frame = sample(app.world_mut(), scenario);
     let unidentified = frame.unidentified.clone();
     frames.push(serde_json::json!({
+        // The absolute tick this frame is, so a causal fact can be put beside
+        // it. The frame INDEX is how far into the exercise it is; the two are
+        // different numbers and a reader needs both.
+        "sim_tick": sim_tick(app),
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
         "projectiles": frame.projectiles,
@@ -856,6 +964,9 @@ fn main() {
     // was already the canonical answer, so the caller had no business having an
     // opinion about it.
     ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+    // ⭐ THE INSPECTOR, WHEN THIS BUILD HAS ONE. Installed before the first
+    // update so its frame stamp is on every tick a take records.
+    causal_trace::arm(&mut app);
     for _ in 0..30 {
         app.update();
     }
@@ -976,6 +1087,11 @@ fn main() {
             // the forward smash reported 70px of spacing for a press thrown at
             // 33. A measurement named for a moment must be taken at it.
             let spacing_at_press = move_exercise::gap_to_seat(&mut app, 1).map(f32::abs);
+            // ⛔ THE LOG IS A RING BUFFER SHARED BY THE WHOLE RUN. A take that
+            // carried the previous take's facts would credit one move's
+            // consequences to another — the same defect a shared stage had
+            // before every take got its own re-seat.
+            causal_trace::clear(&mut app);
             let mut frames: Vec<serde_json::Value> = Vec::new();
             // Every body this take could not identify, collected across its ticks.
             let mut unidentified: std::collections::BTreeSet<String> = Default::default();
@@ -1206,6 +1322,10 @@ fn main() {
                 // things to a reader and to the viewer.
                 "outcome": verdict.as_str(),
                 "prepared": prepared,
+                // ⛔ EMPTY WITHOUT THE `causal` FEATURE, and that is a visible
+                // absence rather than a silent one: this build carries no
+                // inspector, so it announces no resolutions.
+                "causal": causal_trace::drain(&mut app),
                 "frames": frames,
             }));
         }

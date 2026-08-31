@@ -270,6 +270,29 @@ provenance: the source recording, its timestamp, and all three schema versions),
 `summary.md`, `trace.jsonl` (one line per tick, for the question the report did
 not anticipate) and `filmstrip.svg`.
 
+### Why a hit resolved the way it did
+
+The chain above says WHAT changed. WHY — `ignored` / `blocked` / `armored` /
+`wallet_shielded` / `damaged` — is the engine's own vocabulary and it travels on
+`BodyHitResolved`, behind the default-off `causal` feature. Record with it and
+the take carries the inspector's facts:
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes --features causal -- \
+    --characters npc_pirate_admiral --verbs attack --spacing 40
+```
+
+⛔⛔ **A DAMAGE DELTA CANNOT TELL `Blocked` FROM `Ignored`.** Both leave HP
+unchanged, and so does a windbox that authored no damage. The report reads the
+resolution or reports nothing; it never infers one — and a recording made
+without the feature says so where the answer would have been, so an absence of
+evidence cannot be read as a decision.
+
+⚠ A seated fighter's causal subject is its SEAT (`seat:1`), not its `SimId`:
+`body_subject` prefers `SubjectKey::Seat` for any body a participant drives.
+Joining on the id alone finds nothing for exactly the two bodies an inspection
+scenario is about.
+
 Before and after, for a tuning change:
 
 ```bash

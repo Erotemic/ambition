@@ -1,85 +1,90 @@
-//! The observation, staged through a real world rather than a hand-built row.
+//! The artifact `CombatObservation` writes, from a view and a world of identities.
 //!
-//! ⛔ THESE LIVE OUT HERE ON PURPOSE. They publish `DamageableVolumes` to stage a
-//! body that is deliberately unhittable, and `check_absence_contracts.py` keeps
-//! that type out of `combat_observation.rs` — the module must READ the runtime's
-//! damageable rule through `CombatGeometryView`, never apply it. A fixture that
-//! stages a world is not a second resolver, but the checker cannot tell the
-//! difference and should not have to: the rule is about the module.
+//! ⛔ IT BUILDS THE VIEW BY HAND, ON PURPOSE. Whether `CombatGeometryView`
+//! resolves the runtime's three-way damageable rule correctly is
+//! `ambition_sim_view`'s invariant and is tested there, against real
+//! `DamageableVolumes`. What this crate owns is the SERIALIZATION and the
+//! identity/role join — so staging combat components here would test the other
+//! crate's job through this one, and would need authority types the observation
+//! surface deliberately does not expose.
 
-use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::observation::{
+    Aabb, CombatBodyGeometryView, CombatGeometryView, CombatStrikeGeometryView, CombatVolume,
+    HurtboxSource, SimId, Vec2,
+};
 use ambition_sim_harness::combat_observation::{CombatObservation, ScenarioRoles};
+use bevy::prelude::*;
 
-/// The whole road, end to end: two seated bodies, the real read model, and
-/// the artifact that comes out of it.
+fn body(entity: Entity, at: Vec2, hurt: bool) -> CombatBodyGeometryView {
+    let collision = Aabb::new(at, Vec2::new(10.0, 20.0));
+    CombatBodyGeometryView {
+        body: entity,
+        collision,
+        hurtboxes: if hurt {
+            vec![CombatVolume::aabb(Aabb::new(at, Vec2::new(8.0, 18.0)))]
+        } else {
+            Vec::new()
+        },
+        hurtbox_source: if hurt {
+            HurtboxSource::Published
+        } else {
+            HurtboxSource::Intangible
+        },
+        damage_taken: 0,
+        facing: 1.0,
+        hitstun_s: 0.0,
+        hitlag_s: 0.0,
+        landing_lag_s: 0.0,
+        jump_squat_s: 0.0,
+        velocity: Vec2::ZERO,
+        grounded: true,
+        on_wall: false,
+        wall_normal_x: 0.0,
+        move_state: None,
+    }
+}
+
+/// Two seated fighters, a strike, and the artifact that comes out.
 ///
-/// ⛔⛔ THE ARTIFACT MUST BE READABLE WITHOUT KNOWING A SEAT CONVENTION.
-/// This scenario seats the SAME character twice on purpose, which is what
-/// the recorder does — so an identity, a colour or a character id cannot say
-/// which fighter the move belongs to, and only the role can.
+/// ⛔⛔ THE ARTIFACT MUST BE READABLE WITHOUT KNOWING A SEAT CONVENTION. This
+/// scenario seats the SAME character twice on purpose, which is what the
+/// recorder does — so an identity, a colour or a character id cannot say which
+/// fighter the move belongs to, and only the role can.
 #[test]
 fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
-    use ambition_platformer2d::actor::{BodyCombat, MatchSeat};
-    use ambition_platformer2d::combat::components::{CenteredAabb, DamageableVolumes};
-    use ambition_platformer2d::combat::strike::{
-        HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
-    };
-    use ambition_platformer2d::platformer::sim_id::SimId;
-    use ambition_platformer2d::sim_view::CombatGeometryView;
-    use bevy::prelude::*;
-
     let mut app = App::new();
-    app.init_resource::<CombatGeometryView>();
-    app.add_systems(
-        Update,
-        ambition_platformer2d::sim_view::rebuild_combat_geometry_view,
-    );
-
-    let seat = |app: &mut App, index: usize, x: f32, published: bool| {
-        let centre = ae::Vec2::new(x, 100.0);
-        let collision = ae::Aabb::new(centre, ae::Vec2::new(10.0, 20.0));
-        let mut body = app.world_mut().spawn((
-            MatchSeat(index),
-            CenteredAabb::from_aabb(collision),
-            BodyCombat::default(),
-            SimId::placement(&format!("fighter#seat{index}")),
-        ));
-        if published {
-            body.insert(DamageableVolumes::single(ae::Aabb::new(
-                centre,
-                ae::Vec2::new(8.0, 18.0),
-            )));
-        }
-        body.id()
+    let seat = |app: &mut App, index: usize| {
+        app.world_mut()
+            .spawn((
+                MatchSeat(index),
+                SimId::placement(&format!("fighter#seat{index}")),
+            ))
+            .id()
     };
-    let subject = seat(&mut app, 0, 100.0, true);
-    let target = seat(&mut app, 1, 130.0, true);
+    let subject = seat(&mut app, 0);
+    let target = seat(&mut app, 1);
+    let strike = app
+        .world_mut()
+        .spawn(SimId::from_snapshot("strike#1".to_string()))
+        .id();
 
-    // The subject's swing, which has already connected with the target.
-    app.world_mut().spawn((
-        Hitbox {
+    app.insert_resource(CombatGeometryView {
+        bodies: vec![
+            body(subject, Vec2::new(100.0, 100.0), true),
+            body(target, Vec2::new(130.0, 100.0), true),
+        ],
+        strikes: vec![CombatStrikeGeometryView {
+            volume: CombatVolume::aabb(Aabb::new(Vec2::new(120.0, 100.0), Vec2::new(12.0, 6.0))),
+            strike,
             owner: subject,
-            source: HitSide::Player,
-            anchor: HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::new(20.0, 0.0),
-            },
-            half_extent: ae::Vec2::new(12.0, 6.0),
-            shape: None,
-            facing: 1.0,
             damage: 7,
-            knockback: HitboxKnockback::FeelScale(1.0),
-            launch_dir: None,
-            frame_down: ae::Vec2::new(0.0, 1.0),
-            strike_sfx: None,
-            reaction: None,
-        },
-        HitboxHits {
-            hit: std::iter::once(target).collect(),
-        },
-        SimId::from_snapshot("strike#1".to_string()),
-    ));
+            anchored_to_body: true,
+            // The runtime's own hit-once memory: this strike HAS connected.
+            hit: vec![target],
+        }],
+    });
 
-    app.update();
     let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
     assert_eq!(scenario.subject(), Some(subject));
     assert_eq!(scenario.target(), Some(target));
@@ -109,8 +114,7 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
     assert_eq!(strikes[0]["damage"], 7);
     assert_eq!(strikes[0]["owner_id"], "placement:fighter#seat0");
 
-    // ⛔⛔ AND THE CONTACT IS THE RUNTIME'S ANSWER, not an overlap test run
-    // here: it comes from the resolver's own hit-once memory.
+    // ⛔⛔ AND THE CONTACT IS THE RUNTIME'S ANSWER, not an overlap test run here.
     let contacts = doc["contacts"].as_array().expect("contacts serialize");
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0]["victim"], "placement:fighter#seat1");
@@ -118,41 +122,30 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
     assert_eq!(contacts[0]["owner_role"], "subject_owned");
 }
 
-/// ⛔ A PUBLISHED-EMPTY DAMAGEABLE LIST PRODUCES NO HURTBOX, and says why.
+/// ⛔ AN EMPTY HURTBOX LIST IS A DECISION, AND THE ARTIFACT SAYS WHICH ONE.
+///
+/// A body nothing published for falls back to its coarse box; a body mid-dodge
+/// publishes nothing ON PURPOSE. Both reach a reader as "no volumes", and an
+/// inspector that could not tell them apart would report a bug for a rule.
 #[test]
-fn an_intangible_body_publishes_no_hurtbox_and_names_the_reason() {
-    use ambition_platformer2d::actor::{BodyCombat, MatchSeat};
-    use ambition_platformer2d::combat::components::{CenteredAabb, DamageableVolumes};
-    use ambition_platformer2d::platformer::sim_id::SimId;
-    use ambition_platformer2d::sim_view::CombatGeometryView;
-    use bevy::prelude::*;
-
+fn the_artifact_distinguishes_intangible_from_a_coarse_fallback() {
     let mut app = App::new();
-    app.init_resource::<CombatGeometryView>();
-    app.add_systems(
-        Update,
-        ambition_platformer2d::sim_view::rebuild_combat_geometry_view,
-    );
-    let collision = ae::Aabb::new(ae::Vec2::new(10.0, 10.0), ae::Vec2::new(6.0, 12.0));
-    let mut intangible = DamageableVolumes::default();
-    intangible.clear();
-    app.world_mut().spawn((
-        MatchSeat(0),
-        CenteredAabb::from_aabb(collision),
-        BodyCombat::default(),
-        intangible,
-        SimId::placement("dodging#seat0"),
-    ));
-    // Nothing published at all: the coarse fallback, which is a DIFFERENT
-    // fact from being deliberately unhittable.
-    app.world_mut().spawn((
-        MatchSeat(1),
-        CenteredAabb::from_aabb(collision),
-        BodyCombat::default(),
-        SimId::placement("ordinary#seat1"),
-    ));
+    let dodging = app
+        .world_mut()
+        .spawn((MatchSeat(0), SimId::placement("dodging#seat0")))
+        .id();
+    let ordinary = app
+        .world_mut()
+        .spawn((MatchSeat(1), SimId::placement("ordinary#seat1")))
+        .id();
 
-    app.update();
+    let mut fallback = body(ordinary, Vec2::new(130.0, 100.0), true);
+    fallback.hurtbox_source = HurtboxSource::BodyFallback;
+    app.insert_resource(CombatGeometryView {
+        bodies: vec![body(dodging, Vec2::new(100.0, 100.0), false), fallback],
+        strikes: Vec::new(),
+    });
+
     let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
     let roles = scenario.resolve(app.world_mut());
     let doc = CombatObservation::capture(app.world_mut(), &roles).to_json();

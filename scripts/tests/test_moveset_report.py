@@ -199,6 +199,98 @@ def test_the_chain_says_what_the_contact_did_and_never_why() -> None:
     )
 
 
+def test_the_engines_own_resolution_is_read_never_inferred() -> None:
+    """⛔⛔ A DAMAGE DELTA CANNOT TELL `Blocked` FROM `Ignored`.
+
+    Both leave HP unchanged, and so does a windbox that authored no damage. The
+    resolver announces its decision; a report that guessed would be inventing
+    the one fact the engine already publishes.
+    """
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["seat"] = 1
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "body_hit_resolved",
+            "summary": "blocked a 12-damage hit",
+            # ⛔ A SEATED FIGHTER'S SUBJECT IS ITS SEAT. `body_subject` prefers
+            # `SubjectKey::Seat` for any body a participant drives, so matching
+            # on the SimId alone finds nothing for exactly the two bodies an
+            # inspection scenario is about.
+            "subject": "seat:1",
+            "participant": 1,
+            "fields": {"resolution": "Blocked", "raw_damage": "12"},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"]["fields"]["resolution"] == "Blocked"
+    text = tool.summary(tool.report(take))
+    assert "the engine RESOLVED it as: blocked a 12-damage hit" in text
+    assert "WHAT changed, not WHY" not in text, (
+        "the caveat is for a recording that HAS no resolution, not one that does"
+    )
+
+
+def test_a_recording_without_the_causal_feature_says_so() -> None:
+    """⛔ ABSENCE OF EVIDENCE, NAMED. A build with no inspector announces no
+    resolutions, and a reader must not mistake that for "the engine ignored it"."""
+    take = _take(contact_at=4)
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"] is None
+    text = tool.summary(tool.report(take))
+    assert "--features causal" in text
+
+
+def test_a_sim_id_prefix_does_not_hide_the_resolution() -> None:
+    """⛔⛔ MEASURED ON A REAL RECORDING. `SimId::placement(id)` prints
+    `placement:npc_pirate_admiral#seat1`; the causal subject keys on
+    `ActorIdentity::id`, which is the bare `npc_pirate_admiral#seat1`. Comparing
+    the two whole strings never matches, and a recording FULL of facts reads as
+    "this build has no inspector"."""
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["id"] = "placement:npc_pirate_admiral#seat1"
+    for frame in take["frames"]:
+        for row in frame["contacts"]:
+            row["victim"] = "placement:npc_pirate_admiral#seat1"
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "hit_resolved",
+            "summary": "took 4",
+            "subject": "sim:npc_pirate_admiral#seat1",
+            "fields": {"outcome": "damaged", "damage": "4"},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"]["fields"]["outcome"] == "damaged"
+
+
+def test_a_resolution_for_another_body_is_not_this_contacts() -> None:
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["seat"] = 1
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "body_hit_resolved",
+            "summary": "somebody else took one",
+            "subject": "seat:0",
+            "participant": 0,
+            "fields": {},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"] is None, "a fact about another body is not this contact's"
+
+
 def test_a_contact_that_changed_nothing_reports_no_steps() -> None:
     """A hit the victim absorbed with no published change is a real observation,
     and inventing a step for it would be a lie about the tick."""

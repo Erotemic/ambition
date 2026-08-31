@@ -209,6 +209,7 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         "frames": len(frames),
         "sim_hz": sim_hz,
         "consequence_chain": _chain(take, frames, contacts, tick_s),
+        "move_chain": _move_chain(take, frames, contacts, tick_s),
         "startup": _window("Startup"),
         "active": _window("Active"),
         "recovery": _window("Recovery"),
@@ -275,6 +276,107 @@ def provenance(take: dict, source: Path | None, bundle: dict | None) -> dict:
         # id is visible rather than silently compared against another move.
         "resolved_move": take.get("intended_move"),
         "verb": take.get("verb"),
+    }
+
+
+def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict | None:
+    """A → B, as HARD FACTS rather than a verdict.
+
+    ⭐⭐ THE PLAN'S OWN RULE: "prefer reporting hard facts rather than prematurely
+    classifying every sequence as a true combo." Whether B is guaranteed depends
+    on a ruleset (DI, teching, escape options) this observatory does not model,
+    so it reports when B was REQUESTED, when the engine ACCEPTED it, when its
+    geometry went live, when the target's hitstun ended, and whether B reached —
+    and lets the reader draw the conclusion.
+
+    `None` when the take played fewer than two moves, which is every ordinary
+    single-move recording.
+    """
+    order: list[tuple[str, int]] = []
+    for tick, frame in enumerate(frames):
+        subject = _body(frame, take, "subject")
+        move = ((subject or {}).get("move_state") or {}).get("id")
+        if move and (not order or order[-1][0] != move):
+            order.append((move, tick))
+    # A move re-entered after another one is a THIRD entry, not the first again;
+    # the first two in time are the pair a chain probe is about.
+    if len(order) < 2:
+        return None
+    (first, first_tick), (second, second_tick) = order[0], order[1]
+
+    def ticks_of(move: str) -> list[int]:
+        return [
+            tick
+            for tick, frame in enumerate(frames)
+            if ((_body(frame, take, "subject") or {}).get("move_state") or {}).get("id") == move
+        ]
+
+    def live_ticks(move: str) -> list[int]:
+        window = set(ticks_of(move))
+        return [
+            tick
+            for tick in window
+            if any(
+                _role(h, take) == "subject_owned" for h in (frames[tick].get("hitboxes") or [])
+            )
+        ]
+
+    def contact_ticks(move: str) -> list[int]:
+        window = set(ticks_of(move))
+        return [c["tick"] for c in contacts if c["tick"] in window]
+
+    def reaches(move: str) -> bool:
+        for tick in live_ticks(move):
+            target = _body(frames[tick], take, "target")
+            hurt = (target or {}).get("hurtboxes") or []
+            mine = [
+                h for h in (frames[tick].get("hitboxes") or [])
+                if _role(h, take) == "subject_owned"
+            ]
+            if any(_overlaps(v, h) for v in mine for h in hurt):
+                return True
+        return False
+
+    a_contact = contact_ticks(first)
+    # When the target's reduced-authority window ran out. A B that lands after
+    # this is a fresh engagement, not a follow-up — the distinction the reader
+    # is here for.
+    hitstun_ends = None
+    if a_contact:
+        for tick in range(a_contact[0], len(frames)):
+            target = _body(frames[tick], take, "target")
+            if target and not (target.get("hitstun_s") or 0.0) > 0.0 and tick > a_contact[0]:
+                hitstun_ends = tick
+                break
+
+    b_live = live_ticks(second)
+    b_contact = contact_ticks(second)
+    return {
+        "first": {
+            "move": first,
+            "first_tick": first_tick,
+            "first_contact_tick": a_contact[0] if a_contact else None,
+        },
+        "second": {
+            "move": second,
+            # What the SCENARIO asked for, when it asked deliberately.
+            "requested_tick": (take.get("chain") or {}).get("at"),
+            # When the engine let it start, which is the fact a cancel window
+            # decides and the one nobody can read off an authored table.
+            "accepted_tick": second_tick,
+            "first_live_tick": b_live[0] if b_live else None,
+            "first_contact_tick": b_contact[0] if b_contact else None,
+            # ⛔ REACH IS GEOMETRY; the contact beside it is the runtime's.
+            "geometry_reached_target": reaches(second),
+        },
+        "target_hitstun_ended_tick": hitstun_ends,
+        "gap_ticks": (second_tick - a_contact[0]) if a_contact else None,
+        "gap_s": round((second_tick - a_contact[0]) * tick_s, 4) if a_contact else None,
+        # ⛔ NOT A COMBO VERDICT. Whether the target could have escaped depends on
+        # a ruleset this observatory does not model.
+        "second_started_within_hitstun": (
+            hitstun_ends is not None and second_tick <= hitstun_ends
+        ),
     }
 
 
@@ -376,10 +478,66 @@ def _chain(take: dict, frames: list, contacts: list, tick_s: float) -> list:
                 "strike": contact.get("strike"),
                 "victim": contact.get("victim"),
                 "victim_role": contact.get("victim_role"),
+                # ⭐ THE ENGINE'S OWN WORD FOR WHAT IT DECIDED, when the
+                # recording was made by a build carrying the inspector.
+                "resolution": _resolution(take, frames, tick, at),
                 "steps": steps,
             }
         )
     return chain
+
+
+def _resolution(take: dict, frames: list, tick: int, victim: dict | None) -> dict | None:
+    """WHY the hit resolved as it did, from the causal log — never inferred.
+
+    ⛔⛔ A DAMAGE DELTA CANNOT TELL `Blocked` FROM `Ignored` FROM A ZERO-DAMAGE
+    WINDBOX. The resolver announces its own decision on `BodyHitResolved`, the
+    monolith turns it into a `damage` fact, and this reads that. `None` means the
+    recording was made by a build without the `causal` feature — which is an
+    ABSENCE OF EVIDENCE, and the summary says so rather than filling it in.
+
+    ⛔⛔ A SEATED FIGHTER'S SUBJECT IS ITS SEAT, NOT ITS `SimId`. `body_subject`
+    prefers `SubjectKey::Seat` for any body a participant drives and falls back
+    to `Sim` only for the rest — so matching on the id alone finds nothing for
+    exactly the two bodies an inspection scenario is about, and every resolution
+    reads as "this build has no inspector".
+    """
+    facts = take.get("causal")
+    if not facts or victim is None:
+        return None
+    if tick < 0 or tick >= len(frames):
+        return None
+    sim_tick = frames[tick].get("sim_tick")
+    if sim_tick is None:
+        return None
+    seat = victim.get("seat")
+    victim_id = victim.get("id")
+    # ⛔⛔ AND A `SimId` CARRIES A KIND PREFIX THE CAUSAL SUBJECT DOES NOT.
+    # `SimId::placement(id)` prints `placement:npc_pirate_admiral#seat1`;
+    # `body_subject` keys on `ActorIdentity::id`, which is the bare
+    # `npc_pirate_admiral#seat1`. Comparing the two whole strings never matches,
+    # and the report reads as "this build has no inspector" for a recording full
+    # of facts.
+    bare = victim_id.split(":", 1)[-1] if victim_id else None
+    for fact in facts:
+        if fact.get("sim_tick") != sim_tick or fact.get("domain") != "damage":
+            continue
+        subject = fact.get("subject") or ""
+        named = subject.removeprefix("sim:")
+        names_this_body = (
+            (seat is not None and (fact.get("participant") == seat or subject == f"seat:{seat}"))
+            or (victim_id is not None and named in (victim_id, bare))
+        )
+        # A recording whose facts name nobody at all is still evidence about the
+        # tick; one that names SOMEBODY ELSE is not.
+        if subject and not names_this_body:
+            continue
+        return {
+            "kind": fact.get("kind"),
+            "summary": fact.get("summary"),
+            "fields": fact.get("fields") or {},
+        }
+    return None
 
 
 def report(
@@ -479,6 +637,25 @@ def summary(doc: dict) -> str:
         f"- target launch speed after first contact: {_fmt(m['target_launch_speed'])}",
         f"- target displacement after contact: {_fmt(m['target_displacement_after_contact'])} px",
     ]
+    chain = m.get("move_chain")
+    if chain:
+        lines += ["", "## Move chain", ""]
+        lines += [
+            f"- A `{chain['first']['move']}` first contact: tick "
+            f"{_fmt(chain['first']['first_contact_tick'])}",
+            f"- B `{chain['second']['move']}` requested at "
+            f"{_fmt(chain['second']['requested_tick'])}, ACCEPTED at "
+            f"{_fmt(chain['second']['accepted_tick'])}"
+            f" ({_fmt(chain['gap_ticks'])} ticks / {_fmt(chain['gap_s'])}s after A connected)",
+            f"- B first live volume: tick {_fmt(chain['second']['first_live_tick'])}"
+            f" · first contact: tick {_fmt(chain['second']['first_contact_tick'])}",
+            f"- B geometry reached the target: "
+            f"{'yes' if chain['second']['geometry_reached_target'] else 'no'}",
+            f"- target hitstun ended: tick {_fmt(chain['target_hitstun_ended_tick'])}"
+            f" — B started {'INSIDE' if chain['second_started_within_hitstun'] else 'AFTER'} it",
+            "- ⚠ these are FACTS, not a combo verdict. Whether the target could "
+            "have escaped depends on a ruleset this report does not model.",
+        ]
     if m.get("consequence_chain"):
         lines += ["", "## What each contact did", ""]
         for link in m["consequence_chain"]:
@@ -486,15 +663,24 @@ def summary(doc: dict) -> str:
                 f"- tick {link['tick']} ({link['time_s']}s): `{_fmt(link['strike'])}` "
                 f"→ `{_fmt(link['victim'])}` ({_fmt(link['victim_role'])})"
             )
+            if link.get("resolution"):
+                resolution = link["resolution"]
+                lines.append(
+                    f"    - the engine RESOLVED it as: {resolution['summary']}"
+                    + (f" ({resolution['fields']})" if resolution.get("fields") else "")
+                )
             for step in link["steps"]:
                 lines.append(
                     f"    - {step['what']}: {_fmt(step['before'])} → {_fmt(step['after'])}"
                 )
-        lines.append(
-            "- ⚠ WHAT changed, not WHY. ignored / blocked / armored / "
-            "wallet-shielded / damaged is the runtime's own vocabulary and it "
-            "travels on `BodyHitResolved`, behind the `causal` feature."
-        )
+        if not any(link.get("resolution") for link in m["consequence_chain"]):
+            lines.append(
+                "- ⚠ WHAT changed, not WHY. ignored / blocked / armored / "
+                "wallet-shielded / damaged is the runtime's own vocabulary; it "
+                "travels on `BodyHitResolved` and this recording was made by a "
+                "build without the `causal` feature. Re-record with "
+                "`--features causal` to get it."
+            )
     if m["spawns"]:
         lines += ["", "## Spawns", ""]
         for spawn in m["spawns"]:

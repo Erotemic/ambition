@@ -66,10 +66,40 @@ pub fn drop_portal_gun_system(
     // ⭐ THE BODY WHOSE PRESS IT WAS. This read "did anybody drop?" and then
     // re-derived the dropper from `ControlledSubject`, so a second seat's drop
     // gesture dropped the FIRST seat's gun.
-    let Some(drop) = drops.read().next().copied() else {
-        return;
-    };
-    let player = drop.body;
+    //
+    // ⛔⛔ AND EVERY DROP IN THE TICK, NOT THE FIRST. `read().next()` served one
+    // intent and left the rest for a later run, so two seats dropping on the
+    // same tick were SERIALIZED ACROSS UPDATES — the second one landing in a
+    // world the first had already changed. The intents already name their
+    // bodies; taking one of them was the last thing making this singular.
+    for drop in drops.read().copied().collect::<Vec<_>>() {
+        drop_one_portal_gun(
+            drop.body,
+            &mut commands,
+            &mut holders,
+            owned.as_deref_mut(),
+            &mut sfx,
+        );
+    }
+}
+
+/// One body's drop. Split out so the loop above reads as "every intent, in
+/// order" rather than burying the operation inside it.
+fn drop_one_portal_gun(
+    player: bevy::prelude::Entity,
+    commands: &mut Commands,
+    holders: &mut Query<
+        (
+            &BodyKinematics,
+            &mut ActionSet,
+            Option<&StashedActionSet>,
+            &mut ambition_characters::control::ActorControl,
+        ),
+        (With<PortalGun>, Without<HeldItem>),
+    >,
+    mut owned: Option<&mut OwnedItems>,
+    sfx: &mut ambition_sfx::SfxWriter,
+) {
     let Ok((kin, mut action_set, stashed, mut actor_control)) = holders.get_mut(player) else {
         return;
     };
@@ -78,7 +108,7 @@ pub fn drop_portal_gun_system(
     // CUSTODY, one operation: detach the gun, restore the swing it replaced, and
     // clear the catalog slot. The same release the inventory menu performs.
     unequip_portal_gun(
-        &mut commands,
+        commands,
         player,
         &mut action_set,
         stashed,
@@ -121,10 +151,56 @@ pub fn pickup_portal_gun_system(
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     // ⭐ THE BODY WHOSE PRESS IT WAS — see `drop_portal_gun_system`.
-    let Some(pick) = picks.read().next().copied() else {
-        return;
-    };
-    let player = pick.body;
+    //
+    // ⛔⛔ AND EVERY INTENT IN THE TICK. `read().next()` served one and left the
+    // rest for a later run, so two seats reaching for the gun on one tick were
+    // answered a frame apart, the second against a world the first had changed.
+    //
+    // ⭐ CONTENTION HAS A DEFINITE WINNER AND IT IS MESSAGE ORDER: the first
+    // intent that overlaps an ARMED pickup despawns it, so the second finds
+    // nothing and takes no gun. There is one portal gun in the world and there
+    // is one after two people grab for it. ⚠ that ordering is the producers',
+    // and `portal_input_adapter_system` walks its bodies in a stable order — it
+    // is not the entity iteration order of this system.
+    // ⛔⛔ AND A CLAIM IS NOT A DESPAWN YET. `commands.entity(..).despawn()` is
+    // DEFERRED to the next flush, so a second intent served in the SAME run
+    // still sees the pickup in this query — and two bodies came away with a gun
+    // that exists once in the world. Serving every intent is what made that
+    // reachable; `.next()` had been hiding it. The claimed set is what makes the
+    // winner definite WITHIN the run as well as across it.
+    let mut claimed: std::collections::HashSet<bevy::prelude::Entity> =
+        std::collections::HashSet::new();
+    for pick in picks.read().copied().collect::<Vec<_>>() {
+        pick_up_one_portal_gun(
+            pick.body,
+            &mut commands,
+            &mut bodies,
+            &pickups,
+            &mut claimed,
+            owned.as_deref_mut(),
+            &mut equipped,
+            &mut sfx,
+        );
+    }
+}
+
+/// One body's attempt. Split out for the same reason the drop is.
+#[allow(clippy::too_many_arguments)]
+fn pick_up_one_portal_gun(
+    player: bevy::prelude::Entity,
+    commands: &mut Commands,
+    bodies: &mut Query<(
+        &BodyKinematics,
+        &mut ActionSet,
+        Has<PortalGun>,
+        Has<HeldItem>,
+    )>,
+    pickups: &Query<(bevy::prelude::Entity, &PortalGunPickup)>,
+    claimed: &mut std::collections::HashSet<bevy::prelude::Entity>,
+    mut owned: Option<&mut OwnedItems>,
+    equipped: &mut MessageWriter<PortalGunEquipped>,
+    sfx: &mut ambition_sfx::SfxWriter,
+) {
     let Ok((kin, mut action_set, has_gun, has_held)) = bodies.get_mut(player) else {
         return;
     };
@@ -133,8 +209,8 @@ pub fn pickup_portal_gun_system(
         return;
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    for (entity, pickup) in &pickups {
-        if pickup.arm_timer > 0.0 {
+    for (entity, pickup) in pickups {
+        if pickup.arm_timer > 0.0 || claimed.contains(&entity) {
             continue;
         }
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
@@ -147,7 +223,8 @@ pub fn pickup_portal_gun_system(
                 owned.grant(Item::PortalGun, 1);
             }
             // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-            equip_portal_gun(&mut commands, player, &mut action_set, owned.as_deref_mut());
+            equip_portal_gun(commands, player, &mut action_set, owned.as_deref_mut());
+            claimed.insert(entity);
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });
             // Rising sci-fi charge-up as the device wakes.

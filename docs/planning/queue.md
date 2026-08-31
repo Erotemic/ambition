@@ -733,10 +733,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   claimed the button. So seat zero standing near a chest suppresses seat one's
   portal toggle, and seat zero standing clear lets seat one both toggle AND
   interact. ⚠ ALSO THE WRONG DIRECTION: a gameplay input decision consulting a
-  presentation read-model. Smaller sibling: `inventory_adapter.rs` drop/pickup
-  read `.next()` instead of iterating every body-tagged intent. ⭐ this is the
-  same class as the nine abilities converted to `DrivenBodies` on 2026-08-31 —
-  the conversion has a layer left under it.
+  presentation read-model. ⭐ this is the same class as the nine abilities
+  converted to `DrivenBodies` on 2026-08-31 — the conversion has a layer left
+  under it. ▢ THE FIX NEEDS A NEW FACT: the gameplay road computes its reach per
+  subject inline (`interact.rs`, `reach_aabb = subject_kin.aabb()`) and publishes
+  no per-body claim, so the adapter has nothing to read; duplicating the search
+  in content would be a second authority on *"did an interaction claim this
+  press"*.
+  ✔ THE SMALLER SIBLING IS CLOSED 2026-08-31. `inventory_adapter`'s drop and
+  pickup read `.next()`, so two seats acting on one tick were serialized across
+  updates — the second landing in a world the first had changed. Both iterate
+  every body-tagged intent now.
+  ⛔⛔ AND SERVING EVERY INTENT EXPOSED A DUPLICATION `.next()` HAD BEEN HIDING:
+  `commands.entity(..).despawn()` is DEFERRED, so a second intent served in the
+  SAME run still saw the pickup in the query and **two bodies came away with a
+  gun that exists once in the world.** A claimed set makes the winner definite
+  within the run as well as across it, and the winner is message order — the
+  producer's stable body order, not this system's entity iteration. Guarded by
+  `two_seats_dropping_on_one_tick_both_drop` and
+  `two_seats_grabbing_one_gun_produce_exactly_one_gun`, red under both poisons
+  (serve one intent; drop the claimed set).
 
 - ▢ **D-MOVE-INSTANCE — a same-id move restart is invisible to the chain
   probe.** ⭐ GPT review 2026-08-31, REPRODUCED: `moveset_report.py` discovers

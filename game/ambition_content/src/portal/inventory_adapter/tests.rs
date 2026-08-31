@@ -221,3 +221,99 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
         "once disarmed, a pickup intent while overlapping re-grabs the gun"
     );
 }
+
+/// TWO SEATS ACT ON ONE TICK, and both are answered.
+///
+/// ⛔⛔ `read().next()` SERVED ONE INTENT AND LEFT THE REST. The intents already
+/// name their bodies — that was fixed when a second seat's drop dropped the
+/// FIRST seat's gun — but taking only the head of the queue meant two seats
+/// acting on the same tick were SERIALIZED ACROSS UPDATES, the second landing in
+/// a world the first had already changed. Found by the 2026-08-31 GPT review.
+#[test]
+fn two_seats_dropping_on_one_tick_both_drop() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<DropPortalGun>();
+    app.add_systems(Update, drop_portal_gun_system);
+    let one = spawn_player(&mut app, Vec2::new(0.0, 0.0), 1.0);
+    let two = spawn_player(&mut app, Vec2::new(300.0, 0.0), -1.0);
+
+    app.world_mut().write_message(DropPortalGun { body: one });
+    app.world_mut().write_message(DropPortalGun { body: two });
+    app.update();
+
+    assert!(
+        app.world().get::<PortalGun>(one).is_none(),
+        "the first seat kept its gun"
+    );
+    assert!(
+        app.world().get::<PortalGun>(two).is_none(),
+        "the SECOND seat's drop was left in the queue — one tick, two intents, \
+         and only the head of the queue was served"
+    );
+    // …and both left a pickup behind, rather than one drop overwriting the other.
+    let mut pickups = app.world_mut().query::<&PortalGunPickup>();
+    let world = app.world();
+    assert_eq!(pickups.iter(world).count(), 2);
+}
+
+/// TWO SEATS REACH FOR ONE GUN, and exactly one gets it.
+///
+/// ⭐ THE WINNER IS MESSAGE ORDER, and it is definite: the first intent that
+/// overlaps an ARMED pickup despawns it, so the second finds nothing. There is
+/// one portal gun in the world and there is one after two people grab for it —
+/// serving every intent must not mint a second.
+#[test]
+fn two_seats_grabbing_one_gun_produce_exactly_one_gun() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<PickUpPortalGun>();
+    app.add_message::<PortalGunEquipped>();
+    app.add_systems(Update, pickup_portal_gun_system);
+    let bare = |app: &mut App, pos: Vec2| {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                BodyKinematics {
+                    pos,
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                BodyBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
+                },
+                ActionSet::default(),
+            ))
+            .id()
+    };
+    // Both bodies overlap the same pickup.
+    let one = bare(&mut app, Vec2::new(50.0, 50.0));
+    let two = bare(&mut app, Vec2::new(52.0, 50.0));
+    app.world_mut().spawn(PortalGunPickup {
+        pos: Vec2::new(50.0, 50.0),
+        half_extent: Vec2::splat(20.0),
+        arm_timer: 0.0,
+    });
+
+    app.world_mut().write_message(PickUpPortalGun { body: one });
+    app.world_mut().write_message(PickUpPortalGun { body: two });
+    app.update();
+
+    let armed = [one, two]
+        .iter()
+        .filter(|body| app.world().get::<PortalGun>(**body).is_some())
+        .count();
+    assert_eq!(
+        armed, 1,
+        "two bodies reached for one gun and {armed} came away armed"
+    );
+    assert!(
+        app.world().get::<PortalGun>(one).is_some(),
+        "the winner should be the first INTENT, not whichever body the query \
+         yielded first"
+    );
+    let mut pickups = app.world_mut().query::<&PortalGunPickup>();
+    let world = app.world();
+    assert_eq!(pickups.iter(world).count(), 0, "the world item survived");
+}

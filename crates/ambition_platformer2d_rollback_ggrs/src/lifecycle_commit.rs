@@ -64,14 +64,16 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // A confirmed room transition still waits for the readiness transaction.
     // Commit the exact construction plan that transaction authorized; re-preparing
     // here could build against a different content epoch than the assets checked.
-    let authorized = match &kind {
-        LifecycleIntent::Transition(intent) => match authorized_plan(world, intent) {
-            AuthorizedPlan::Ready(plan) => Some(plan),
-            // Not yet, or no longer valid. Returning is not DROPPING: the intent
-            // stays pending and this runs again next frame while the transaction
-            // progresses (or is superseded) in `Update`.
-            AuthorizedPlan::Wait => return,
-        },
+    // ⭐ BOTH SHAPES NEED AN AUTHORIZED PLAN, and for the same reason: each ends
+    // with a room built from its authored spec, and re-preparing here could
+    // build against a different content epoch than the transaction checked. A
+    // rebuild with nobody in it is not a cheaper operation, only a bodyless one.
+    let authorized = match authorized_plan(world, &kind) {
+        AuthorizedPlan::Ready(plan) => Some(plan),
+        // Not yet, or no longer valid. Returning is not DROPPING: the intent
+        // stays pending and this runs again next frame while the transaction
+        // progresses (or is superseded) in `Update`.
+        AuthorizedPlan::Wait => return,
     };
 
     // It touches no world and depends only on `settings`, so if it fails the room is never
@@ -117,8 +119,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // schedule is ordinary. The rollback-registered `PendingLifecycleCommit`
             // above is cleared from the exclusive world on a CONFIRMED frame,
             // which is the one place that is legal.
-            let LifecycleIntent::Transition(intent) = kind;
-            retire_cancelled_room_transition(world, &intent);
+            retire_cancelled_room_transition(world, &kind);
             return;
         }
         CommitOutcome::Committed => {}
@@ -161,13 +162,14 @@ enum AuthorizedPlan {
 /// transaction rather than cancelling the still-pending crossing.
 fn authorized_plan(
     world: &mut World,
-    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
+    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
 ) -> AuthorizedPlan {
     // Everything the active transaction is compared against, copied out FIRST:
     // the checks below query the world, and a live borrow of the load state
     // would make that impossible.
     let epoch = world
-        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionContentEpoch>()
+        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionContentEpoch>(
+        )
         .map(|epoch| epoch.get());
     let session_scope = world
         .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
@@ -176,14 +178,17 @@ fn authorized_plan(
         let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
         rooms.iter(world).next().map(|set| set.active)
     };
-    let Some(state) = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+    let Some(state) = world
+        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
     else {
         return AuthorizedPlan::Wait;
     };
     let Some(active) = state.active.as_ref() else {
         return AuthorizedPlan::Wait;
     };
-    if active.phase != ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::CommitAuthorized {
+    if active.phase
+        != ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::CommitAuthorized
+    {
         return AuthorizedPlan::Wait;
     }
     if &active.intent != intent {
@@ -298,7 +303,7 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
 /// symmetry looking right rather than being right.
 fn retire_cancelled_room_transition(
     world: &mut World,
-    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
+    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
 ) {
     let Some(barrier) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
@@ -349,19 +354,19 @@ fn execute_lifecycle_commit(
     authorized: Option<std::sync::Arc<RoomConstructionPlan>>,
 ) -> CommitOutcome {
     match (kind, authorized) {
-        (LifecycleIntent::Transition(intent), Some(plan)) => commit_transition(
+        (kind, Some(plan)) => commit_transition(
             world,
             &plan,
-            &intent.subject,
-            &intent.target_room,
-            intent.arrival,
-            intent.edge_exit,
-            intent.zone_sfx.as_deref(),
+            kind.subject(),
+            kind.target_room(),
+            kind.arrival(),
+            kind.edge_exit(),
+            kind.zone_sfx(),
         ),
-        // A transition with no authorized plan cannot reach here: the caller
+        // An intent with no authorized plan cannot reach here: the caller
         // returns before building a session. Treated as transient rather than
         // asserted, so a future caller cannot turn a mistake into a panic.
-        (LifecycleIntent::Transition(_), None) => CommitOutcome::Retry,
+        (_, None) => CommitOutcome::Retry,
     }
 }
 
@@ -374,9 +379,11 @@ fn commit_transition(
     world: &mut World,
     // Use the exact plan whose readiness and assets were authorized.
     plan: &RoomConstructionPlan,
-    subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
+    // — see the resolution below, which keeps those two apart.
+    subject: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     target_room: &str,
-    arrival: ae::Vec2,
+    arrival: Option<ae::Vec2>,
     edge_exit: bool,
     zone_sfx: Option<&str>,
 ) -> CommitOutcome {
@@ -414,11 +421,24 @@ fn commit_transition(
     > = bevy::ecs::system::SystemState::new(world);
     let outcome = {
         let mut application = state.get_mut(world);
-        match application.subject_entity(subject) {
-            None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
-            Some(entity) => {
-                application.apply(plan, entity, target_index, arrival, edge_exit, zone_sfx)
-            }
+        // ⛔ THE TWO `None`s AGAIN. An intent that names NO subject is a bodyless
+        // rebuild and applies with `None`. An intent that names one whose body is
+        // gone is `SubjectGone` — a void crossing the caller drops. Collapsing
+        // them would silently rebuild the destination room for a dead body's
+        // crossing instead of cancelling it.
+        match subject {
+            None => application.apply(plan, None, target_index, arrival, edge_exit, zone_sfx),
+            Some(recorded) => match application.subject_entity(recorded) {
+                None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
+                Some(entity) => application.apply(
+                    plan,
+                    Some(entity),
+                    target_index,
+                    arrival,
+                    edge_exit,
+                    zone_sfx,
+                ),
+            },
         }
     };
     //  unconditionally, before any early return. `SystemState` holds the
@@ -457,33 +477,42 @@ mod tests {
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use ambition_platformer2d_runtime::room_transition::{
-        ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
-    };
     /// Deferred transitions resolve the recorded `SimId` of the crossing body.
     /// If that body no longer exists, the crossing is cancelled; another body is
     /// never substituted. The assertion exercises the shared resolver used by
     /// both transition hosts.
     use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+    use ambition_platformer2d_runtime::room_transition::{
+        ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
+    };
 
-    fn intent_to(target_room: &str, subject: SimId) -> RoomTransitionIntent {
-        RoomTransitionIntent {
+    fn intent_to(target_room: &str, subject: SimId) -> LifecycleIntent {
+        LifecycleIntent::Transition(RoomTransitionIntent {
             subject,
             target_room: target_room.to_string(),
             arrival: ae::Vec2::ZERO,
             edge_exit: true,
             zone_sfx: None,
-        }
+        })
     }
 
-    fn authorized_transaction(intent: RoomTransitionIntent) -> ActiveRoomTransitionLoad {
+    /// The bodyless shape: a room rebuilt with nobody in it (v146).
+    fn rebuild_of(target_room: &str) -> LifecycleIntent {
+        LifecycleIntent::ReconstituteRoom(
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomReconstitutionIntent {
+                target_room: target_room.to_string(),
+            },
+        )
+    }
+
+    fn authorized_transaction(intent: LifecycleIntent) -> ActiveRoomTransitionLoad {
         ActiveRoomTransitionLoad {
             sequence: 1,
             content_epoch: 1,
             session_scope: None,
             source_room: 0,
             source_room_id: "a".to_string(),
-            target_room_id: intent.target_room.clone(),
+            target_room_id: intent.target_room().to_string(),
             target_room: 1,
             intent,
             construction_plan: None,
@@ -633,6 +662,36 @@ mod tests {
         );
     }
 
+    /// A cancelled rebuild retires the transaction it opened, through the same
+    /// road a cancelled crossing does. Without this the orphan sits resident and
+    /// the next operation to the same room matches it.
+    ///
+    /// ⛔ A SIBLING TEST WAS DELETED HERE RATHER THAN KEPT GREEN. It asserted
+    /// that a bodyless rebuild does not commit under a CROSSING's authorized
+    /// plan, by expecting `authorized_plan` to answer `Wait`. Poisoning it with
+    /// the matching crossing intent showed it passed either way: this fixture
+    /// has no `RoomTransitionContentEpoch` and no construction plan, so
+    /// `authorized_plan` waits before it ever compares the intents, and the test
+    /// could not fail. The discrimination it meant to pin is real and IS pinned,
+    /// one seam earlier, by `repeated_zone_detection_is_one_destination` in
+    /// `room_transition::loading` — `same_destination` is what decides whether a
+    /// transaction gets reused, and that fixture can tell the two shapes apart.
+    #[test]
+    fn a_cancelled_rebuild_retires_the_transaction_it_opened() {
+        let mut world = World::new();
+        world.insert_resource(ambition_load::LoadCoordinator::default());
+        let mut state = RoomTransitionLoadState::default();
+        state.active = Some(authorized_transaction(rebuild_of("b")));
+        world.insert_resource(state);
+
+        retire_cancelled_room_transition(&mut world, &rebuild_of("b"));
+
+        assert!(
+            world.resource::<RoomTransitionLoadState>().active.is_none(),
+            "a cancelled bodyless rebuild left its authorized transaction resident"
+        );
+    }
+
     #[test]
     fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();
@@ -647,8 +706,9 @@ mod tests {
         // bare `World` can host it. Building the full application here would
         // demand a dozen unrelated resources — a fixture that models nothing.
         // `RoomTransitionApplication::subject_entity` delegates straight to this.
-        let mut state: bevy::ecs::system::SystemState<ambition_platformer2d_runtime::room_transition::TransitBodies> =
-            bevy::ecs::system::SystemState::new(&mut world);
+        let mut state: bevy::ecs::system::SystemState<
+            ambition_platformer2d_runtime::room_transition::TransitBodies,
+        > = bevy::ecs::system::SystemState::new(&mut world);
         let bodies = state.get_mut(&mut world);
 
         assert_eq!(

@@ -701,8 +701,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `oiler_vfx`'s 1 clipped frame in the D129 population is unrelated to it.
   Renderer suite 693 passed, 0 failed (was 692/1).
 
-- ▢ **D-REPLAY-NOSUBJECT — a subjectless replay ADMITS without owning the
-  lifecycle slot, and the type's own doc says it must.** ⭐ GPT review 2026-08-31
+- ✔ **D-REPLAY-NOSUBJECT — CLOSED 2026-08-31 (rollback schema v146). A
+  subjectless replay now OWNS the slot it admits on.** ⭐ GPT review 2026-08-31
   (baseline `9aec2f04`, HEAD `04dff7366`), and VERIFIED HERE against the source:
   `RoomReplayAdmitted`'s doc says *"the lifecycle operation owns the one
   pending-commit slot, and the room WILL be rebuilt"* and that `None` is *"a room
@@ -755,6 +755,41 @@ The one unresolved developer-policy choice from the session-ownership work is in
   the `None` arm's `info!` needs a `LogPlugin` the reaching compositions do not
   install, while the `world_event` line beside it prints on BOTH arms — reading
   the absence of the first as "a subject existed" is a mistake already made once.
+  ✔✔ **DONE.** `LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+  target_room })`, recorded by `admit_room_replay`'s bodyless arm through
+  `pending.record` like any other operation — so a replay that LOSES the race to
+  another lifecycle op is now refused outright instead of half-running.
+  ⭐ **THE SHAPE IS NOT THE REVIEW'S HYPOTHESIS, and this row said why before I
+  started.** The review proposed `subject: Option<SimId>`. The variant carries NO
+  subject field at all, which makes a bodyless DOOR CROSSING unrepresentable
+  rather than merely discouraged — the objection this row already raised against
+  the `Option` shape, applied to the new variant too.
+  ⛔ **AND THE COST WAS NOT WHERE THIS ROW COSTED IT.** The estimate was "~8
+  sites in `RoomTransitionApplication::apply`". Those were real and all eight are
+  now optional, but the load side was never counted: `ActiveRoomTransitionLoad`
+  stores the intent for its staleness comparison, so it had to hold a
+  `LifecycleIntent` and read it through accessors (`target_room`, `subject`,
+  `arrival`, `edge_exit`, `zone_sfx`) — and there is a SECOND EXECUTOR, the eager
+  host in `room_transition/commit.rs`, which the row's "one variant, one
+  consumer" framing never mentioned. Both executors now keep TWO `None`s apart:
+  an intent naming no subject is a bodyless rebuild, while `subject_entity`
+  missing on a subject that WAS named is a void crossing that still cancels.
+  Collapsing them would silently rebuild the destination room for a dead body's
+  crossing.
+  ⚠ codec tag **5, not 4** — tags 0-4 all belonged to the four variants deleted
+  in v140, so 4 would decode an old `FullReset` as a reconstitution instead of
+  refusing it. `scripts/rollback_codec_shape.py` caught the byte change on its
+  own; the registration dump moved only its version line, which is correct for a
+  variant added inside an already-registered type.
+  ⛔ **ONE TEST WAS DELETED FOR BEING UNFALSIFIABLE.** A guard that a bodyless
+  rebuild cannot commit under a CROSSING's authorized plan passed with the
+  matching crossing intent too: that fixture has no content epoch and no
+  construction plan, so `authorized_plan` waits before it ever compares intents.
+  The discrimination is pinned one seam earlier instead, in `same_destination`
+  (`repeated_zone_detection_is_one_destination`), whose fixture can tell the two
+  shapes apart — poisoned both ways to prove it.
+  Gates: app_it 533/533; monolith --lib 1204; runtime 50+5; rollback_ggrs 54;
+  `--all-targets` clean on all six crates naming the changed types.
 
 - ◐ **D-SCENARIO-IDENTITY — the REPORT half is closed; the transport, cache and
   render halves are not.** ⭐ GPT review

@@ -29,6 +29,77 @@ pub enum LifecycleIntent {
     /// during the confirmation delay. A body without stable identity cannot
     /// produce a deferred transition intent.
     Transition(RoomTransitionIntent),
+    /// Reconstitution with NOBODY IN IT: rebuild `target_room` from its authored
+    /// spec, carrying no body through and placing none on arrival.
+    ///
+    /// ⭐ THIS VARIANT HAS NO SUBJECT BY CONSTRUCTION, and that is the point. The
+    /// obvious alternative — making [`RoomTransitionIntent::subject`] an
+    /// `Option` — would also make a bodyless DOOR CROSSING representable, and
+    /// *"a body without stable identity cannot produce a transition"* is a rule
+    /// that is right for a crossing. Two shapes, each unable to express the
+    /// other's mistake.
+    ///
+    /// The one road that records this is a replay in a composition with no
+    /// controlled body (`admit_room_replay`). It arrives WITH its consumer,
+    /// which is the condition the deletion note below sets.
+    ReconstituteRoom(RoomReconstitutionIntent),
+}
+
+/// Deterministic description of a room rebuild that no body takes part in.
+///
+/// Rollback state, so it names the room by its authored id. It carries no
+/// arrival: nobody arrives.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoomReconstitutionIntent {
+    /// The room to rebuild, by authored id. For a replay this is the room the
+    /// session is already in.
+    pub target_room: String,
+}
+
+impl LifecycleIntent {
+    /// The room this operation will leave standing, whichever shape it has.
+    pub fn target_room(&self) -> &str {
+        match self {
+            Self::Transition(intent) => &intent.target_room,
+            Self::ReconstituteRoom(intent) => &intent.target_room,
+        }
+    }
+
+    /// The body that takes part, if one does. `None` is a rebuild with nobody
+    /// in it — not a missing subject.
+    pub fn subject(&self) -> Option<&SimId> {
+        match self {
+            Self::Transition(intent) => Some(&intent.subject),
+            Self::ReconstituteRoom(_) => None,
+        }
+    }
+
+    /// Where the subject comes out. `None` when there is no subject to place —
+    /// which is why this is not a `Vec2` with a default: a reconstitution has no
+    /// arrival, and `Vec2::ZERO` would be a position somebody could validate.
+    pub fn arrival(&self) -> Option<Vec2> {
+        match self {
+            Self::Transition(intent) => Some(intent.arrival),
+            Self::ReconstituteRoom(_) => None,
+        }
+    }
+
+    /// The door cue, if a door was opened. Nobody opens one on a rebuild.
+    pub fn zone_sfx(&self) -> Option<&str> {
+        match self {
+            Self::Transition(intent) => intent.zone_sfx.as_deref(),
+            Self::ReconstituteRoom(_) => None,
+        }
+    }
+
+    /// Whether this is an edge crossing, which selects the cooldown and feel.
+    /// A rebuild nobody walks into is never one.
+    pub fn edge_exit(&self) -> bool {
+        match self {
+            Self::Transition(intent) => intent.edge_exit,
+            Self::ReconstituteRoom(_) => false,
+        }
+    }
 }
 
 /// Deterministic description of a room transition, independent of host
@@ -85,6 +156,14 @@ impl Admission {
 /// is about — "one lifecycle operation at a time" — and a new variant is
 /// welcome the day it arrives WITH ITS CONSUMER. It was the four that arrived
 /// without one.
+///
+/// ✔ AND ONE ARRIVED, 2026-08-31: [`LifecycleIntent::ReconstituteRoom`], under
+/// exactly that condition. Unlike the deleted four, something records it
+/// (`admit_room_replay`'s bodyless arm, which until now admitted a replay
+/// without ever taking this slot) and something executes it. It is also not one
+/// of the four coming back: those were in-place resets that a same-room
+/// transition already covers, whereas this one exists because a room rebuild
+/// with NO BODY cannot be described as a crossing at all.
 ///
 /// One deferred lifecycle op, stamped with the sim frame that produced it.
 #[derive(Clone, Debug, PartialEq)]

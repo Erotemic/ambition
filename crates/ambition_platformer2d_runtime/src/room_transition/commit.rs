@@ -5,8 +5,8 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
-use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
@@ -199,9 +199,12 @@ impl std::fmt::Display for RoomTransitionApplyError {
 }
 
 /// What a successful application did, for the caller's diagnostics.
+///
+/// Both fields are `None` for a room rebuild with nobody in it: no body took
+/// part, so none arrived anywhere.
 pub struct AppliedRoomTransition {
-    pub subject: Entity,
-    pub arrival_pos: ae::Vec2,
+    pub subject: Option<Entity>,
+    pub arrival_pos: Option<ae::Vec2>,
 }
 
 impl RoomTransitionApplication<'_, '_> {
@@ -231,12 +234,18 @@ impl RoomTransitionApplication<'_, '_> {
     /// resolve and preflight everything that can fail, then mutate. Past the
     /// preflight block nothing here returns `Err`, so the source room is never
     /// retired for a crossing that then cannot complete.
+    /// `subject` is `None` for a room rebuild with NOBODY IN IT
+    /// (`LifecycleIntent::ReconstituteRoom`) — a replay in a composition with no
+    /// controlled body. That is not a missing subject: every body-shaped step
+    /// below is skipped because there is no body, not because one could not be
+    /// found. A crossing whose recorded body is gone never reaches here; its
+    /// caller cancels the intent instead.
     pub fn apply(
         &mut self,
         plan: &rooms::RoomConstructionPlan,
-        subject: Entity,
+        subject: Option<Entity>,
         target_room: usize,
-        arrival_at: ae::Vec2,
+        arrival_at: Option<ae::Vec2>,
         edge_exit: bool,
         zone_sfx: Option<&str>,
     ) -> Result<AppliedRoomTransition, RoomTransitionApplyError> {
@@ -244,24 +253,30 @@ impl RoomTransitionApplication<'_, '_> {
         if self.session.iter().next().is_none() {
             return Err(RoomTransitionApplyError::NoSessionWorld);
         }
-        for (missing, present) in [
-            ("MotionModel", self.bodies.motion_models.contains(subject)),
-            (
-                "complete actor cluster",
-                self.bodies.clusters.contains(subject),
-            ),
-            ("BodyCombat", self.bodies.combat.contains(subject)),
-        ] {
-            if !present {
-                return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing });
+        // Only a body can fail the transit contract. A rebuild with nobody in it
+        // has nothing to check, and checking anyway would need an entity to name
+        // in the error.
+        if let Some(subject) = subject {
+            for (missing, present) in [
+                ("MotionModel", self.bodies.motion_models.contains(subject)),
+                (
+                    "complete actor cluster",
+                    self.bodies.clusters.contains(subject),
+                ),
+                ("BodyCombat", self.bodies.combat.contains(subject)),
+            ] {
+                if !present {
+                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                        subject,
+                        missing,
+                    });
+                }
             }
         }
 
         // Read-only facts gathered before the mutable borrows below.
-        let subject_gravity_dir = self
-            .bodies
-            .motion_frames
-            .get(subject)
+        let subject_gravity_dir = subject
+            .and_then(|subject| self.bodies.motion_frames.get(subject).ok())
             .map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
         let tuning = self.tuning.0;
@@ -278,7 +293,9 @@ impl RoomTransitionApplication<'_, '_> {
         //
         // and it removes a player-centrism: the transition no longer has an
         // opinion about which body is the protagonist.
-        let carry_body = Some(subject);
+        // `None` on a rebuild with nobody in it: nothing is carried through,
+        // so the outgoing room retires whole.
+        let carry_body = subject;
 
         // ── MUTATION ─────────────────────────────────────────────────────────
         // Nothing below may fail.
@@ -291,22 +308,40 @@ impl RoomTransitionApplication<'_, '_> {
             // Unreachable: the preflight above proved exactly one match.
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
-        let Ok(mut motion_model) = self.bodies.motion_models.get_mut(subject) else {
-            return Err(RoomTransitionApplyError::SubjectCannotTransit {
-                subject,
-                missing: "MotionModel",
-            });
+        // ⛔ TWO DIFFERENT `None`s, and conflating them is the whole hazard here.
+        // `subject` being `None` means NOBODY IS CROSSING — legitimate, and the
+        // body steps below simply do not apply. A `get_mut` MISS on a subject
+        // that IS named is a body that cannot transit, and stays an error.
+        let mut motion_model = match subject {
+            Some(subject) => match self.bodies.motion_models.get_mut(subject) {
+                Ok(model) => Some(model),
+                Err(_) => {
+                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                        subject,
+                        missing: "MotionModel",
+                    })
+                }
+            },
+            None => None,
         };
-        let Ok(mut cluster_item) = self.bodies.clusters.get_mut(subject) else {
-            return Err(RoomTransitionApplyError::SubjectCannotTransit {
-                subject,
-                missing: "complete actor cluster",
-            });
+        let mut cluster_item = match subject {
+            Some(subject) => match self.bodies.clusters.get_mut(subject) {
+                Ok(item) => Some(item),
+                Err(_) => {
+                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                        subject,
+                        missing: "complete actor cluster",
+                    })
+                }
+            },
+            None => None,
         };
-        let mut clusters = cluster_item.as_clusters_mut();
+        let mut clusters = cluster_item.as_mut().map(|item| item.as_clusters_mut());
 
-        // The door makes a sound, at the body's position BEFORE the transit.
-        if let Some(cue) = zone_sfx {
+        // The door makes a sound, at the body's position BEFORE the transit —
+        // so a rebuild nobody walks into has no position to make it at, which is
+        // consistent with `zone_sfx` being `None` for a reconstitution anyway.
+        if let (Some(cue), Some(clusters)) = (zone_sfx, clusters.as_ref()) {
             self.effects.sfx.write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
                 pos: clusters.kinematics.pos,
@@ -314,7 +349,7 @@ impl RoomTransitionApplication<'_, '_> {
         }
 
         debug_assert_eq!(plan.target_index(), target_room);
-        let player_size = clusters.kinematics.size;
+        let player_size = clusters.as_ref().map(|c| c.kinematics.size);
         plan.retire_outgoing(
             &mut self.commands,
             self.room_visuals
@@ -332,23 +367,40 @@ impl RoomTransitionApplication<'_, '_> {
         // The authored arrival, validated against the NOW-target geometry using
         // the body's own size, so the body is never placed inside a solid or out
         // of bounds.
-        let arrival = ambition_platformer2d_world::rooms::validated_spawn(
-            &geometry.0,
+        //
+        // ⭐ ALL FOUR OR NONE. A rebuild with nobody in it has no arrival to
+        // validate, no size to validate it against and nothing to place, and
+        // `validated_spawn` needs a size — so the placement is one step that
+        // either has its body or does not run. It is NOT defaulted: a
+        // `Vec2::ZERO` arrival is a position, and something downstream would
+        // treat it as one.
+        let arrival_pos = match (
+            motion_model.as_mut(),
+            clusters.as_mut(),
             arrival_at,
             player_size,
-        );
-        ae::arrive_body_in_room(
-            &mut motion_model,
-            &mut clusters,
-            arrival,
-            tuning.air_jumps,
-            if edge_exit {
-                ae::ArrivalMomentum::Preserve
-            } else {
-                ae::ArrivalMomentum::Reset
-            },
-        );
-        let arrival_pos = clusters.kinematics.pos;
+        ) {
+            (Some(motion_model), Some(clusters), Some(arrival_at), Some(player_size)) => {
+                let arrival = ambition_platformer2d_world::rooms::validated_spawn(
+                    &geometry.0,
+                    arrival_at,
+                    player_size,
+                );
+                ae::arrive_body_in_room(
+                    motion_model,
+                    clusters,
+                    arrival,
+                    tuning.air_jumps,
+                    if edge_exit {
+                        ae::ArrivalMomentum::Preserve
+                    } else {
+                        ae::ArrivalMomentum::Reset
+                    },
+                );
+                Some(clusters.kinematics.pos)
+            }
+            _ => None,
+        };
 
         self.clock.clock_resets.write(ClockResetRequest::sim_clock(
             ambition_time::time_control::ClockRequester::Engine,
@@ -365,7 +417,7 @@ impl RoomTransitionApplication<'_, '_> {
         // Four different domains' state, so no single domain owns this and the
         // operation that composes them does (anti-god rule 6). Optional
         // components are absent for a possessed non-home body, which is allowed.
-        if let Ok(mut combat) = self.bodies.combat.get_mut(subject) {
+        if let Some(mut combat) = subject.and_then(|s| self.bodies.combat.get_mut(s).ok()) {
             // The arrival flash is the one thing a transition adds.
             combat.reset();
             combat.hit_flash = if edge_exit {
@@ -374,7 +426,10 @@ impl RoomTransitionApplication<'_, '_> {
                 feel.door_transition_flash
             };
         }
-        if let Ok((mut blink_cam, mut safety)) = self.bodies.presentation.get_mut(subject) {
+        if let (Some((mut blink_cam, mut safety)), Some(arrival_pos)) = (
+            subject.and_then(|s| self.bodies.presentation.get_mut(s).ok()),
+            arrival_pos,
+        ) {
             blink_cam.blink_in_timer = 0.0;
             blink_cam.blink_camera_from = arrival_pos;
             blink_cam.blink_camera_to = arrival_pos;
@@ -391,7 +446,7 @@ impl RoomTransitionApplication<'_, '_> {
         // transition just despawned the room they were standing in.
         self.conversation.close();
 
-        if let Some(log) = self.bodies.class_b.as_mut() {
+        if let (Some(log), Some(subject)) = (self.bodies.class_b.as_mut(), subject) {
             log.record(
                 subject,
                 ambition_platformer2d_shared_tangle::class_b::ClassBRemap::RoomTransition,
@@ -410,39 +465,45 @@ impl RoomTransitionApplication<'_, '_> {
         self.effects
             .respawn_room_visuals
             .write(world_rooms::RespawnRoomVisualsRequested);
-        if edge_exit {
-            // Edge exits should feel like contiguous room scrolling, not a
-            // death-like teleport. Only an arrival puff in the new room, because
-            // `from` would be expressed in the previous room's coordinate space.
-            self.effects.vfx.write(VfxMessage::Burst {
-                pos: arrival_pos,
-                count: 18,
-                speed: 260.0,
-                color: [0.35, 0.95, 1.0, 0.75],
-                kind: ParticleKind::Dust,
-            });
-        } else {
-            // Door transitions are discrete interactions, so a teleport-like
-            // effect is acceptable; use the destination for both endpoints to
-            // avoid mixing coordinate systems from two rooms.
-            self.effects.vfx.write(VfxMessage::ResetEffects {
-                from: arrival_pos,
-                to: arrival_pos,
-            });
-        }
-        self.effects
-            .sfx
-            .write(SfxMessage::Reset { pos: arrival_pos });
+        // ⭐ EVERY EFFECT BELOW IS ABOUT A BODY ARRIVING SOMEWHERE, so a rebuild
+        // with nobody in it emits none of them. Skipping is not a degradation:
+        // there is no position to place a puff at and no landing to log, and the
+        // room's own visuals were already asked for above, unconditionally.
+        if let (Some(arrival_pos), Some(player_size)) = (arrival_pos, player_size) {
+            if edge_exit {
+                // Edge exits should feel like contiguous room scrolling, not a
+                // death-like teleport. Only an arrival puff in the new room, because
+                // `from` would be expressed in the previous room's coordinate space.
+                self.effects.vfx.write(VfxMessage::Burst {
+                    pos: arrival_pos,
+                    count: 18,
+                    speed: 260.0,
+                    color: [0.35, 0.95, 1.0, 0.75],
+                    kind: ParticleKind::Dust,
+                });
+            } else {
+                // Door transitions are discrete interactions, so a teleport-like
+                // effect is acceptable; use the destination for both endpoints to
+                // avoid mixing coordinate systems from two rooms.
+                self.effects.vfx.write(VfxMessage::ResetEffects {
+                    from: arrival_pos,
+                    to: arrival_pos,
+                });
+            }
+            self.effects
+                .sfx
+                .write(SfxMessage::Reset { pos: arrival_pos });
 
-        log_room_transition_landing(
-            target_room,
-            &room_set,
-            arrival_pos,
-            player_size,
-            subject_gravity_dir,
-            &geometry.0,
-            &self.carryover.feature_overlay,
-        );
+            log_room_transition_landing(
+                target_room,
+                &room_set,
+                arrival_pos,
+                player_size,
+                subject_gravity_dir,
+                &geometry.0,
+                &self.carryover.feature_overlay,
+            );
+        }
 
         Ok(AppliedRoomTransition {
             subject,
@@ -626,13 +687,10 @@ pub fn commit_ready_room_transition_system(
     // The host-side transaction is DERIVED from this exact simulation intent. A different
     // pending intent is equally not this transaction's authority — keep that new intent, retire
     // only the stale transaction, and let readiness open the new one in `Update`.
-    let intent_still_pending = pending_lifecycle.pending.as_ref().is_some_and(|pending| {
-        matches!(
-            &pending.kind,
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(intent)
-                if intent == &active.intent
-        )
-    });
+    let intent_still_pending = pending_lifecycle
+        .pending
+        .as_ref()
+        .is_some_and(|pending| pending.kind == active.intent);
     if !intent_still_pending {
         cancel_eager_room_transition_transaction(
             &mut transition_state,
@@ -758,23 +816,35 @@ pub fn commit_ready_room_transition_system(
     // retiring its transaction. Treating this as retryable reopens the same
     // impossible crossing forever. Death-owned crossings are retracted earlier by
     // the eager death lifecycle, before an out-of-play body can reach this point.
-    let Some(subject) = application.subject_entity(&intent.subject) else {
-        pending_lifecycle.take();
-        cancel_eager_room_transition_transaction(
-            &mut transition_state,
-            &mut loads,
-            &mut load_events,
-            &mut next_mode,
-            &active,
-            "room_commit_subject_unavailable",
-        );
-        bevy::log::warn!(
-            target: "ambition_platformer2d::room_transition",
-            "the body that triggered room transition {} ({:?}) is gone; cancelling the crossing",
-            active.sequence,
-            intent.subject,
-        );
-        return;
+    // ⛔ TWO `None`s, AND THEY MEAN OPPOSITE THINGS. `intent.subject()` being
+    // `None` is a room rebuild with NOBODY IN IT — legitimate, and the whole
+    // reason `ReconstituteRoom` exists. `subject_entity` answering `None` for a
+    // subject the intent DID name is a body that is gone, which is terminal.
+    // Collapsing them would turn every dead-body crossing into a silent bodyless
+    // rebuild of the destination room.
+    let subject = match intent.subject() {
+        None => None,
+        Some(recorded) => {
+            let Some(entity) = application.subject_entity(recorded) else {
+                pending_lifecycle.take();
+                cancel_eager_room_transition_transaction(
+                    &mut transition_state,
+                    &mut loads,
+                    &mut load_events,
+                    &mut next_mode,
+                    &active,
+                    "room_commit_subject_unavailable",
+                );
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::room_transition",
+                    "the body that triggered room transition {} ({:?}) is gone; cancelling the crossing",
+                    active.sequence,
+                    recorded,
+                );
+                return;
+            };
+            Some(entity)
+        }
     };
 
     let target_room = active.target_room;
@@ -793,9 +863,9 @@ pub fn commit_ready_room_transition_system(
         construction_plan,
         subject,
         target_room,
-        intent.arrival,
-        intent.edge_exit,
-        intent.zone_sfx.as_deref(),
+        intent.arrival(),
+        intent.edge_exit(),
+        intent.zone_sfx(),
     ) {
         match error {
             terminal @ RoomTransitionApplyError::SubjectGone

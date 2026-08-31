@@ -430,6 +430,16 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         put_bool(out, zone_sfx.is_some());
                         put_str(out, zone_sfx.as_deref().unwrap_or(""));
                     }
+                    // ⭐ TAG 5, NOT 4. Tags 0-4 all belonged to the deleted
+                    // variants, so 4 would make a v139 snapshot's `FullReset`
+                    // decode as a room reconstitution instead of being refused.
+                    // A new variant takes the first tag no build ever wrote.
+                    LifecycleIntent::ReconstituteRoom(
+                        crate::session::lifecycle_commit::RoomReconstitutionIntent { target_room },
+                    ) => {
+                        put_u8(out, 5);
+                        put_str(out, target_room);
+                    }
                 }
             }
         }
@@ -457,6 +467,11 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         let cue = r.str()?.to_string();
                         present.then_some(cue)
                     },
+                },
+            ),
+            5 => LifecycleIntent::ReconstituteRoom(
+                crate::session::lifecycle_commit::RoomReconstitutionIntent {
+                    target_room: r.str()?.to_string(),
                 },
             ),
             // Tags 0, 1, 2 and 4 were the deleted reset variants. Refusing them

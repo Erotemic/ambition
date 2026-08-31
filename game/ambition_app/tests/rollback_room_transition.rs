@@ -318,7 +318,15 @@ fn a_deferred_transition_still_plays_the_zone_cue() {
             .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
             .and_then(|slot| slot.pending.clone())
         {
-            let LifecycleIntent::Transition(transition) = intent.kind;
+            // ⛔ A CROSSING, not a rebuild. `LifecycleIntent` grew a bodyless
+            // `ReconstituteRoom` in v146, and a door walked through by a body
+            // must never record one — it carries no cue and places nobody.
+            let LifecycleIntent::Transition(transition) = intent.kind else {
+                panic!(
+                    "walking through a door recorded a bodyless room \
+                     reconstitution instead of a crossing"
+                );
+            };
             recorded_cue = Some(transition.zone_sfx);
         }
         if obs.active_room.as_str() == TARGET_ROOM {

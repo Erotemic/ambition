@@ -116,7 +116,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// is the first jab or the second — which is a different move to staling, to
 /// hit-once memory, and to anything reading the instance. Seeded from the
 /// playback it replaces, so it needs no counter of its own.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 145;
+/// ⛔ v146: `LifecycleIntent` gained a SECOND VARIANT, `ReconstituteRoom` — a
+/// room rebuild with nobody in it, which a crossing cannot describe. It encodes
+/// under tag 5 rather than 4: tags 0-4 all belonged to the four reset variants
+/// deleted in v140, so reusing 4 would decode an old `FullReset` as a
+/// reconstitution instead of refusing it. A peer on v145 meets tag 5, finds no
+/// arm, and refuses the snapshot — which is correct, because it has no executor
+/// for the operation.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 146;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

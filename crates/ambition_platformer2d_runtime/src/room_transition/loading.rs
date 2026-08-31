@@ -19,7 +19,7 @@ use ambition_load::{
 use ambition_platformer2d_actor_monolith::rooms;
 use ambition_platformer2d_world::rooms as world_rooms;
 
-use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+use ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent;
 use ambition_time::SimTick;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
@@ -154,7 +154,13 @@ pub struct ActiveRoomTransitionLoad {
     /// and no subject, and only an eager host ever produced one — which is why
     /// the shipped rollback host opened no transaction at all and every room
     /// change in the game went uncovered.
-    pub intent: RoomTransitionIntent,
+    /// ⭐ THE WHOLE LIFECYCLE INTENT, not only a crossing. A replay in a
+    /// composition with no controlled body records
+    /// `LifecycleIntent::ReconstituteRoom`, which has no subject and no arrival
+    /// and therefore cannot be a `RoomTransitionIntent` — see the accessors
+    /// (`target_room`, `subject`, `arrival`, `edge_exit`) this file reads it
+    /// through, each of which answers for both shapes.
+    pub intent: LifecycleIntent,
     pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
     pub commit_not_before_tick: u64,
@@ -215,7 +221,7 @@ impl ActiveRoomTransitionLoad {
 
     fn same_destination(
         &self,
-        intent: &RoomTransitionIntent,
+        intent: &LifecycleIntent,
         session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
@@ -236,12 +242,18 @@ impl ActiveRoomTransitionLoad {
         // sloppy: both sides come from the same authored `RoomSpec` field by the
         // same path, so trigger noise reproduces the same bits. A near-miss here
         // means a genuinely different destination.
+        //
+        // ⭐ A RECONSTITUTION ANSWERS ALL FOUR TOO: no subject, no arrival, never
+        // an edge exit. So two bodyless rebuilds of one room dedupe with each
+        // other, and a rebuild never dedupes against a crossing into the same
+        // room — the subject differs (`None` vs `Some`), which is the honest
+        // answer, because one places a body there and the other does not.
         self.content_epoch == content_epoch
             && self.session_scope == session_scope
-            && self.intent.subject == intent.subject
-            && self.intent.target_room == intent.target_room
-            && self.intent.arrival == intent.arrival
-            && self.intent.edge_exit == intent.edge_exit
+            && self.intent.subject() == intent.subject()
+            && self.intent.target_room() == intent.target_room()
+            && self.intent.arrival() == intent.arrival()
+            && self.intent.edge_exit() == intent.edge_exit()
     }
 }
 
@@ -461,24 +473,22 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
     /// [`Self::rollback_confirmation_unavailable`] exists to refuse; this is how
     /// the refusal can say whether it is refusing ANYTHING, so a silently
     /// stalled game is distinguishable from an idle one.
-    fn get_unconfirmed(&self) -> Option<&RoomTransitionIntent> {
-        let ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) =
-            &self.pending.peek()?.kind;
-        Some(transition)
+    fn get_unconfirmed(&self) -> Option<&LifecycleIntent> {
+        Some(&self.pending.peek()?.kind)
     }
 
-    fn get(&self) -> Option<&RoomTransitionIntent> {
+    fn get(&self) -> Option<&LifecycleIntent> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
             self.confirmation.state(),
         )?;
-        // ⭐ ONE VARIANT. The four in-place reset variants were deleted in v140:
-        // nothing recorded them, and a same-room replay is a transition to the
-        // room you are standing in.
-        let ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) =
-            &self.pending.confirmed(confirmed)?.kind;
-        Some(transition)
+        // ⭐ TWO VARIANTS NOW. The four in-place reset variants deleted in v140
+        // are still gone — a same-room replay BY A BODY is a transition to the
+        // room you are standing in. What v146 added is the case that is not a
+        // crossing at all: a replay with no controlled body, which rebuilds the
+        // room with nobody in it. This road serves both, through the accessors.
+        Some(&self.pending.confirmed(confirmed)?.kind)
     }
 }
 
@@ -721,11 +731,11 @@ pub fn begin_room_transition_load_system(
         // The intent names its destination by AUTHORED ID, because it is rollback
         // state and an index is not stable across a content reload. Resolving it
         // is this transaction's first job — and its first way to fail.
-        let target_index = room_set.room_index_by_id(&intent.target_room);
+        let target_index = room_set.room_index_by_id(intent.target_room());
         let target_label = target_index
             .and_then(|index| room_set.rooms.get(index))
             .map(|room| room.id.clone())
-            .unwrap_or_else(|| intent.target_room.clone());
+            .unwrap_or_else(|| intent.target_room().to_string());
         let load_id = LoadId::new(format!(
             "room-transition:{sequence}:{source_room_id}->{target_label}"
         ));
@@ -867,7 +877,8 @@ pub fn begin_room_transition_load_system(
         let Some(target_spec) = target_index.and_then(|index| room_set.rooms.get(index)) else {
             let detail = format!(
                 "transition from '{}' targets room '{}', which this world does not contain",
-                active.source_room_id, intent.target_room,
+                active.source_room_id,
+                intent.target_room(),
             );
             fail_work(
                 &mut loads,
@@ -910,10 +921,15 @@ pub fn begin_room_transition_load_system(
             LoadWorkState::Complete,
         );
 
-        if !intent.arrival.is_finite() {
+        // ⭐ A REBUILD WITH NOBODY IN IT HAS NO ARRIVAL TO VALIDATE, and that is
+        // not the same as an arrival that failed validation — `is_finite` on a
+        // substituted zero would PASS and place a body at the origin. `None`
+        // skips the check because there is nothing being placed.
+        if intent.arrival().is_some_and(|arrival| !arrival.is_finite()) {
             let detail = format!(
                 "transition into '{}' has non-finite arrival {:?}",
-                target_spec.id, intent.arrival,
+                target_spec.id,
+                intent.arrival(),
             );
             fail_work(
                 &mut loads,
@@ -1259,18 +1275,29 @@ mod tests {
         SimId::placement("hero")
     }
 
-    fn request(target_room: &str) -> RoomTransitionIntent {
+    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+
+    fn request(target_room: &str) -> LifecycleIntent {
         request_by(target_room, ae::Vec2::ZERO, hero())
     }
 
-    fn request_by(target_room: &str, arrival: ae::Vec2, subject: SimId) -> RoomTransitionIntent {
-        RoomTransitionIntent {
+    fn request_by(target_room: &str, arrival: ae::Vec2, subject: SimId) -> LifecycleIntent {
+        LifecycleIntent::Transition(RoomTransitionIntent {
             subject,
             target_room: target_room.to_string(),
             arrival,
             edge_exit: false,
             zone_sfx: None,
-        }
+        })
+    }
+
+    /// A rebuild with nobody in it, of the same room a `request` crosses into.
+    fn rebuild(target_room: &str) -> LifecycleIntent {
+        LifecycleIntent::ReconstituteRoom(
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomReconstitutionIntent {
+                target_room: target_room.to_string(),
+            },
+        )
     }
 
     #[test]
@@ -1326,6 +1353,12 @@ mod tests {
             None,
             1
         ));
+        // ⭐ AND A BODYLESS REBUILD OF THE SAME ROOM IS NOT THIS CROSSING (v146).
+        // One places a body at an arrival and the other places nobody, so a
+        // transaction opened for the crossing must not be reused for the
+        // rebuild — the subject differs (`Some` vs `None`), which is the
+        // difference that matters.
+        assert!(!active.same_destination(&rebuild("b"), None, 1));
         assert!(!active.same_destination(&request("c"), None, 1));
         assert!(!active.same_destination(&request("b"), None, 2));
         assert!(!active.same_destination(

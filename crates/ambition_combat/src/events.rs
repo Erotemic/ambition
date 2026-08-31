@@ -109,27 +109,27 @@ pub enum RoomResetReason {
 
 /// A SAME-ROOM REPLAY HAS BEEN ADMITTED.
 ///
-/// ⛔⛔ TWO DIFFERENT TRANSACTIONS TRAVEL ON ONE MESSAGE, and this doc claimed
-/// only the first until 2026-08-31. Read [`Self::subject`] before believing
-/// anything about the world:
+/// ✔ ONE TRANSACTION, EITHER SHAPE. This message is written only after the
+/// operation OWNS the one pending-commit slot, and the room WILL be rebuilt.
+/// [`Self::subject`] says who takes part, not whether anything happened:
 ///
-/// * `Some(subject)` — the lifecycle operation OWNS the one pending-commit slot
-///   and the room WILL be rebuilt. This is the contract every consequence below
-///   was written against.
-/// * `None` — **nothing was recorded and nothing will be rebuilt.**
-///   `admit_room_replay` constructs its own `Admission::Admitted` on that arm,
-///   logs *"clearing the attempt, not rebuilding"*, and writes this message
-///   anyway. The consequences still run, so a bodyless replay retires attempt
-///   residue, resets gravity and clears portals for an operation that never
-///   acquired lifecycle ownership.
+/// * `Some(subject)` — a body replays the room it is standing in, recorded as
+///   `LifecycleIntent::Transition`.
+/// * `None` — the room is rebuilt with NOBODY IN IT, recorded as
+///   `LifecycleIntent::ReconstituteRoom`. Not a degraded replay: no body is
+///   carried through and none is placed on arrival, which is the whole content
+///   of the operation.
 ///
-/// ⚠ THAT IS A PARTIAL TRANSACTION AND IT IS RECORDED AS A DEFECT, not a design:
-/// queue row D-REPLAY-NOSUBJECT. The doc is written this way so a consumer added
-/// before it is fixed knows which of the two it is handling. ⛔ do not "fix" it
-/// by making the `None` arm silent — the reachable case is a headless or tooling
-/// composition in the frame before `ControlledSubject` resolves, and a replay
-/// that does nothing at all there is what made D-SFX-RESET-RED take five wrong
-/// hypotheses to find.
+/// ⛔⛔ IT WAS NOT ALWAYS SO, and the shape of the old defect is worth keeping.
+/// Until v146 the `None` arm constructed its own `Admission::Admitted`, recorded
+/// NOTHING, logged *"clearing the attempt, not rebuilding"* and wrote this
+/// message anyway — so every consequence below ran for an operation that had
+/// never acquired lifecycle ownership. Fixed under queue row D-REPLAY-NOSUBJECT
+/// by giving a bodyless rebuild an intent it could actually record.
+/// ⛔ the fix was NOT to make the `None` arm silent: the reachable case is a
+/// headless or tooling composition in the frame before `ControlledSubject`
+/// resolves, and a replay that does nothing at all there is what made
+/// D-SFX-RESET-RED take five wrong hypotheses to find.
 ///
 /// ⭐ THIS IS THE SIGNAL EVERY REPLAY CONSEQUENCE HANGS OFF. Exactly one system
 /// writes it — `runtime::sandbox_reset::admit_room_replay` — and only after the

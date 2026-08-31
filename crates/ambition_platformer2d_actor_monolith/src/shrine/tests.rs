@@ -377,7 +377,12 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
              they rested"
         );
     };
-    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind;
+    // A shrine warp is a CROSSING by a body, never the bodyless
+    // `ReconstituteRoom` that v146 added — it names a subject and an arrival.
+    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
+    else {
+        panic!("the shrine recorded a bodyless room reconstitution, not a warp");
+    };
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
         transition.subject,

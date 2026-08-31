@@ -425,8 +425,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   2026-08-31: the `Auto`/`Tilt`/`Smash` strength hint (§9) — a full deflection
   could never be a tilt, because `strong_hint || recent_matches` could only ever
   ADD a smash. `AttackStrengthHint` replaces the bool from `ControlFrame` to the
-  gesture resolver (schema 142→143); ▢ the DEVICE half is open — no adapter emits
-  `Tilt` yet, which is `ambition_input` work touching no sim code. ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
+  gesture resolver (schema 142→143), and ✔ THE DEVICE HALF LANDED THE SAME DAY:
+  `ControlSettings::right_stick_mode` (`Aim` / `TiltAttack` / `SmashAttack`,
+  default `Aim`, surfaced as a Controls row), a hysteretic flick that presses
+  attack once per push, and `ControlFrame::attack_from_aim_stick` so a C-stick
+  attack points where the RIGHT stick went while the left keeps meaning walk.
+  ⛔ THE NEW SETTING NEEDED `#[serde(default)]` AND ALMOST DID NOT GET IT:
+  `ControlSettings` has no container default, so a key missing from an older save
+  is a parse error, and `load_settings` answers that by discarding the ENTIRE
+  settings file. Now guarded by
+  `a_settings_file_predating_a_knob_still_loads_everything_else`, which is red
+  without the attribute. ⛔ NEXT CANDIDATES: pick from the inventory again — most
+  remaining `▢` rows are deliberately-deferred FEATURES ("add when a move needs
+  it"), and §9's own row says a capability wants a CUSTOMER before it is built. ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
   `fda65a386`), D204/D205 (shipped), or anything in
   `awaiting-maintainer-decision.md`.
 
@@ -589,6 +600,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
   0. ⇒ the remaining 35 targets are a POPULATION, not a defect list; the open
   work is an instrument that separates "drawn flush to a fitted frame" from
   "severed", not 35 canvas edits.
+
+- ▢ **D-SFX-RESET-RED — `ambition_app`'s own lib suite has a long-red test, and
+  no gate I run covers it.** Found 2026-08-31 while gating an unrelated slice:
+  `headless::tests::sim_emits_sfx_reset_when_control_frame_requests_reset` fails
+  on a CLEAN tree — *"expected at least one SfxMessage::Reset emitted by the sim;
+  got 0"* — verified by reverting that session's 14 changed files and re-running.
+  ⛔ THE INTERESTING HALF IS WHY IT WAS INVISIBLE: every gate in the working
+  rhythm is `cargo test -p ambition_app --test app_it` (533 green), which is the
+  INTEGRATION target and does not build `src/`'s own `#[cfg(test)]` modules.
+  `cargo test -p ambition_app --lib` is 191/192. ⚠ the reset itself HAPPENS —
+  the log shows `room-replay admitted reason=Manual` — so this is the CUE not
+  being observed, which is either a real silent reset or a stale fixture.
+  Decide which before touching anything: 191 other tests in that target have
+  never been run in this rhythm either.
 
 - ▢ **D-OILER-CONFIG — a review config publishes as a module target, and the
   renderer suite has been red about it.** Found 2026-08-31 while sweeping D129:

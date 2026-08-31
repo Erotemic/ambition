@@ -155,6 +155,10 @@ impl From<AgentAction> for ControlFrame {
             } else {
                 ambition_platformer2d::sim::AttackStrengthHint::Auto
             },
+            // ⛔ A SCRIPTED ACTION HAS NO SECOND STICK. It says which
+            // direction it wants through the movement axis, so an attack from it
+            // is aimed by that — which is what `false` means here.
+            attack_from_aim_stick: false,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,

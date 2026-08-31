@@ -80,6 +80,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::DpadMenuNav,
     SettingsOptionId::InvertAimY,
     SettingsOptionId::BurstInputMode,
+    SettingsOptionId::RightStickMode,
     SettingsOptionId::TouchControls,
     SettingsOptionId::MenuTapMode,
     SettingsOptionId::ResetControlFiltering,
@@ -147,6 +148,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::DpadMenuNav
         | SettingsOptionId::InvertAimY
         | SettingsOptionId::BurstInputMode
+        | SettingsOptionId::RightStickMode
         | SettingsOptionId::TouchControls
         | SettingsOptionId::MenuTapMode
         | SettingsOptionId::ResetControlFiltering

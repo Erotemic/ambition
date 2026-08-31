@@ -147,6 +147,68 @@ pub enum BurstInputMode {
     Both,
 }
 
+/// What the RIGHT STICK does during gameplay.
+///
+/// ⭐⭐ THE GENRE'S C-STICK, and the reason it is a MODE rather than a second
+/// reader of the same stick: the right stick already aims the blink, and a
+/// deflection cannot mean "aim there" and "attack that way" at once. A player
+/// picks which one their right stick is.
+///
+/// ⛔ THE TWO ATTACK MODES ARE NOT COSMETIC VARIANTS OF EACH OTHER. A tilt stick
+/// exists so a full deflection throws a TILT — the flick that a movement stick
+/// would read as a smash — and a smash stick exists so a gentle push still
+/// throws a SMASH. Each forces the strength the other cannot reach, which is why
+/// [`ambition_platformer2d_core::AttackStrengthHint`] had to stop being a
+/// one-way bool before either could exist.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum RightStickMode {
+    /// Aim the blink. Default, and what the stick has always done.
+    #[default]
+    Aim,
+    /// Flicking the stick throws a TILT in that direction, at any deflection.
+    TiltAttack,
+    /// Flicking the stick throws a SMASH in that direction, at any deflection.
+    SmashAttack,
+}
+
+impl RightStickMode {
+    pub const ALL: [Self; 3] = [Self::Aim, Self::TiltAttack, Self::SmashAttack];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Aim => "aim",
+            Self::TiltAttack => "tilt attack",
+            Self::SmashAttack => "smash attack",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::Aim => Self::TiltAttack,
+            Self::TiltAttack => Self::SmashAttack,
+            Self::SmashAttack => Self::Aim,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Aim => Self::SmashAttack,
+            Self::TiltAttack => Self::Aim,
+            Self::SmashAttack => Self::TiltAttack,
+        }
+    }
+
+    /// The strength a press from this stick asks for, or `None` when the stick
+    /// is not an attack stick at all.
+    pub fn attack_strength(self) -> Option<ambition_platformer2d_core::AttackStrengthHint> {
+        match self {
+            Self::Aim => None,
+            Self::TiltAttack => Some(ambition_platformer2d_core::AttackStrengthHint::Tilt),
+            Self::SmashAttack => Some(ambition_platformer2d_core::AttackStrengthHint::Smash),
+        }
+    }
+}
+
 impl BurstInputMode {
     pub const ALL: [Self; 3] = [Self::Trigger, Self::Button, Self::Both];
 
@@ -292,6 +354,8 @@ pub struct ControlFilters {
     /// a PREFERENCE, not a calibration — which trigger or button means BURST
     /// is a choice about the person, so it stays machine-wide even per pad.
     pub burst_input_mode: BurstInputMode,
+    /// What the right stick is for — see [`RightStickMode`].
+    pub right_stick_mode: RightStickMode,
     /// Also a preference. Inverted aim is a habit, not a hardware property.
     pub invert_aim_y: bool,
 }
@@ -306,6 +370,7 @@ impl ControlFilters {
             trigger_release_threshold: settings.trigger_release_threshold,
             trigger_press_threshold: settings.trigger_press_threshold,
             burst_input_mode: settings.burst_input_mode,
+            right_stick_mode: settings.right_stick_mode,
             invert_aim_y: settings.invert_aim_y,
         }
     }
@@ -453,6 +518,17 @@ pub struct ControlSettings {
     /// the first launch after the rename.
     #[serde(rename = "dash_input_mode")]
     pub burst_input_mode: BurstInputMode,
+    /// What the right stick is for — see [`RightStickMode`].
+    ///
+    /// ⛔⛔ `#[serde(default)]`, AND THE FIELD ABOVE EXPLAINS WHY IT IS NOT
+    /// OPTIONAL. `ControlSettings` has no container default, so a key missing
+    /// from a saved file is a deserialize error for the WHOLE struct — and
+    /// `load_settings` answers a parse error by discarding the entire settings
+    /// file, bindings and all. Every settings file written before 2026-08-31
+    /// lacks this key, so without this attribute adding a right-stick mode would
+    /// have wiped every existing player's settings on their next launch.
+    #[serde(default)]
+    pub right_stick_mode: RightStickMode,
     /// Initial repeat delay for held menu directions, in seconds.
     pub menu_repeat_initial_delay: f32,
     /// Repeat interval after the initial delay.
@@ -502,6 +578,7 @@ impl Default for ControlSettings {
             dpad_menu_navigation: true,
             invert_aim_y: false,
             burst_input_mode: BurstInputMode::default(),
+            right_stick_mode: RightStickMode::default(),
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
@@ -649,6 +726,31 @@ pub enum TriggerEdgeState {
     Released,
     Pressed,
 }
+
+/// The per-device analog edges a gameplay frame has to remember between ticks.
+///
+/// ⭐ ONE CARRIER, because the caller stores exactly one value back into its
+/// resource. The burst trigger was the only member until the right stick became
+/// an attack stick, and a C-STICK FLICK IS THE SAME MECHANISM — an analog value
+/// crossing a press threshold from rest, with hysteresis so a stick held out
+/// does not re-fire every frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GameplayEdgeState {
+    /// The burst trigger's hysteretic press.
+    pub burst: TriggerEdgeState,
+    /// The aim stick's DEFLECTION, when the stick is an attack stick. Idle in
+    /// [`RightStickMode::Aim`], which is what the stick does by default.
+    pub aim_stick: TriggerEdgeState,
+}
+
+/// How far the aim stick must be pushed to throw a C-stick attack.
+///
+/// ⭐ ABOVE THE DEADZONE AND BELOW A FULL DEFLECTION. The point of an attack
+/// stick is that ANY deflection past this throws the authored strength — a tilt
+/// stick's full push is still a tilt — so this is a "did you mean it" gate, not
+/// a strength threshold. The release side is the stick's own deadzone, so the
+/// gesture re-arms exactly when the stick reads as centred.
+pub const AIM_STICK_ATTACK_THRESHOLD: f32 = 0.5;
 
 /// Update a hysteretic trigger edge.
 ///

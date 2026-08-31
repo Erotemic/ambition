@@ -69,6 +69,7 @@ pub fn tick_player_brain_from_control(
         attack_held: _,
         attack_released: _,
         attack_strength_hint: _,
+        attack_from_aim_stick: _,
         pogo_pressed: _,
         fast_fall_pressed: _,
         fly_toggle_pressed: _,
@@ -188,7 +189,21 @@ pub fn tick_player_brain_from_control(
     out.melee_strength_hint = c.attack_strength_hint;
     // Per-tilt direction for the attack, in the controlled body's local frame.
     // Zero still means "use facing".
-    out.attack_axis = local_axis;
+    //
+    // ⭐⭐ A C-STICK ATTACK POINTS WHERE THE RIGHT STICK WENT. Both sticks are
+    // already resolved into the body's local frame a few lines up, so this is a
+    // choice between two values rather than a second resolution — and the left
+    // stick keeps meaning WALK on the frame a C-stick attack is thrown, which is
+    // the entire point of having a second stick.
+    //
+    // ⛔ ONLY WHEN THE ADAPTER SAYS SO. `local_aim` is non-zero whenever the
+    // right stick is deflected at all, including while it is aiming a blink, so
+    // reading it unconditionally would point every attack at the aim.
+    out.attack_axis = if c.attack_from_aim_stick && local_aim != ae::Vec2::ZERO {
+        ae::LocalAxes::from_vec(local_aim)
+    } else {
+        local_axis
+    };
 
     // Projectile: held + released path stays in the player's
     // existing charge state machine for now. The brain just

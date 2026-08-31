@@ -114,6 +114,7 @@ pub enum SettingsOptionId {
     DpadMenuNav,
     InvertAimY,
     BurstInputMode,
+    RightStickMode,
     TouchControls,
     MenuTapMode,
     ResetControlFiltering,

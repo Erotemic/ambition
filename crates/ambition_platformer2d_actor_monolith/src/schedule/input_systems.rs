@@ -507,7 +507,7 @@ pub fn toggle_player_trail_emission_from_actions(
 /// participant entity like everybody else — and that resource is deleted.
 #[cfg(feature = "input")]
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SeatBurstTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
+pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdgeState);
 
 /// EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE. (C4 couch versus)
 ///
@@ -573,7 +573,7 @@ pub fn populate_seat_control_frames(
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
-            burst.0 = ambition_persistence::settings::TriggerEdgeState::default();
+            burst.0 = ambition_persistence::settings::GameplayEdgeState::default();
             // seat zero is handed `read_menu_control_frame`, which sets
             // exactly one field: `start_pressed`. Nothing in gameplay reads it
             // — `brain/player.rs` destructures it away and says why: *"pause and

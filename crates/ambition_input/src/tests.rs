@@ -179,7 +179,7 @@ fn menu_state_back_passes_through() {
 mod the_walk_modifier {
     use crate::actions::Platformer2dInputActionMonolith as Action;
     use crate::control::{read_gameplay_control_frame_with_settings, WALK_AXIS_CAP};
-    use crate::settings::{ControlFilters, TriggerEdgeState};
+    use crate::settings::{ControlFilters, GameplayEdgeState};
     use leafwing_input_manager::prelude::ActionState;
 
     /// An action state holding `Move` at `axis` with Walk up or down.
@@ -196,7 +196,7 @@ mod the_walk_modifier {
         read_gameplay_control_frame_with_settings(
             &holding(axis, walk),
             ControlFilters::from_settings(&crate::settings::ControlSettings::default()),
-            TriggerEdgeState::default(),
+            GameplayEdgeState::default(),
         )
         .0
     }
@@ -270,6 +270,118 @@ mod the_walk_modifier {
             "a 45° hold must stay at 45°: {} vs {}",
             frame.axis_x,
             frame.axis_y
+        );
+    }
+}
+
+/// The right stick as an attack stick — the device half of parity inventory §9.
+#[cfg(feature = "input")]
+mod the_attack_stick {
+    use crate::actions::Platformer2dInputActionMonolith as Action;
+    use crate::control::read_gameplay_control_frame_with_settings;
+    use crate::settings::{
+        ControlFilters, ControlSettings, GameplayEdgeState, RightStickMode,
+        AIM_STICK_ATTACK_THRESHOLD,
+    };
+    use ambition_platformer2d_core::AttackStrengthHint;
+    use leafwing_input_manager::prelude::ActionState;
+
+    fn filters(mode: RightStickMode) -> ControlFilters {
+        let mut settings = ControlSettings::default();
+        settings.right_stick_mode = mode;
+        ControlFilters::from_settings(&settings)
+    }
+
+    fn aiming(aim: bevy::math::Vec2) -> ActionState<Action> {
+        let mut state = ActionState::<Action>::default();
+        state.set_axis_pair(&Action::AimStick, aim);
+        state
+    }
+
+    /// Push the stick to `aim` for two frames, carrying the edge state, and
+    /// return both frames — the flick and the frame after it.
+    fn push(
+        mode: RightStickMode,
+        aim: bevy::math::Vec2,
+    ) -> (
+        ambition_platformer2d_core::ControlFrame,
+        ambition_platformer2d_core::ControlFrame,
+    ) {
+        let (first, edges) = read_gameplay_control_frame_with_settings(
+            &aiming(aim),
+            filters(mode),
+            GameplayEdgeState::default(),
+        );
+        let (second, _) =
+            read_gameplay_control_frame_with_settings(&aiming(aim), filters(mode), edges);
+        (first, second)
+    }
+
+    /// ⭐⭐ A TILT STICK THROWS A TILT AT FULL DEFLECTION, which is the thing the
+    /// one-way `attack_strong_hint` bool made impossible: the deflection armed a
+    /// flick, the flick matched the direction, and the interpreter returned
+    /// `Smash` however the device asked.
+    #[test]
+    fn a_tilt_stick_flick_is_a_tilt_press_even_at_full_deflection() {
+        let (flick, _) = push(RightStickMode::TiltAttack, bevy::math::Vec2::new(1.0, 0.0));
+        assert!(flick.attack_pressed, "the flick did not press attack");
+        assert_eq!(flick.attack_strength_hint, AttackStrengthHint::Tilt);
+        assert!(
+            flick.attack_from_aim_stick,
+            "the press did not say it was aimed by the right stick, so the attack \
+             would come out in whatever direction the player was running"
+        );
+    }
+
+    /// …and a smash stick forces the other direction, from the same push.
+    #[test]
+    fn a_smash_stick_flick_is_a_smash_press() {
+        let (flick, _) = push(RightStickMode::SmashAttack, bevy::math::Vec2::new(1.0, 0.0));
+        assert!(flick.attack_pressed);
+        assert_eq!(flick.attack_strength_hint, AttackStrengthHint::Smash);
+    }
+
+    /// ⛔ THE HYSTERESIS. A stick held out is one attack, not one per frame —
+    /// the same rule the burst trigger has, and without it leaning on the stick
+    /// is a machine gun.
+    #[test]
+    fn a_held_stick_presses_once() {
+        let (flick, held) = push(RightStickMode::TiltAttack, bevy::math::Vec2::new(1.0, 0.0));
+        assert!(flick.attack_pressed);
+        assert!(
+            !held.attack_pressed,
+            "the stick re-fired while it was still held out"
+        );
+    }
+
+    /// ⛔ AND THE DEFAULT MODE IS UNTOUCHED. The right stick aims; it does not
+    /// attack, at any deflection.
+    #[test]
+    fn the_aim_mode_never_presses_attack() {
+        let (flick, held) = push(RightStickMode::Aim, bevy::math::Vec2::new(1.0, 0.0));
+        for frame in [flick, held] {
+            assert!(
+                !frame.attack_pressed,
+                "the right stick pressed attack while it was set to AIM"
+            );
+            assert_eq!(frame.attack_strength_hint, AttackStrengthHint::Auto);
+            assert!(!frame.attack_from_aim_stick);
+        }
+    }
+
+    /// ⛔ A NUDGE IS NOT A FLICK. Between the deadzone and the threshold the
+    /// stick says nothing, so resting a thumb on it does not attack.
+    #[test]
+    fn a_deflection_below_the_threshold_is_not_a_press() {
+        let nudge = AIM_STICK_ATTACK_THRESHOLD * 0.5;
+        let (flick, _) = push(
+            RightStickMode::TiltAttack,
+            bevy::math::Vec2::new(nudge, 0.0),
+        );
+        assert!(
+            !flick.attack_pressed,
+            "a {nudge} deflection threw an attack; `AIM_STICK_ATTACK_THRESHOLD` \
+             is what makes the gesture deliberate"
         );
     }
 }

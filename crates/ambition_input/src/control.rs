@@ -43,8 +43,8 @@ pub const WALK_AXIS_CAP: f32 = 0.5;
 pub fn read_gameplay_control_frame_with_settings(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     controls: crate::settings::ControlFilters,
-    burst_state: crate::settings::TriggerEdgeState,
-) -> (ControlFrame, crate::settings::TriggerEdgeState) {
+    edges: crate::settings::GameplayEdgeState,
+) -> (ControlFrame, crate::settings::GameplayEdgeState) {
     let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
     // Deadzone first, so analog drift does not pollute the magnitude the
     // simulation reads as a gait: the stick's MAGNITUDE is the walk/run
@@ -119,7 +119,7 @@ pub fn read_gameplay_control_frame_with_settings(
     };
     let trigger_value = raw_trigger.max(burst_button_value);
     let (next_burst_state, trigger_edge_pressed) = crate::settings::update_trigger_edge(
-        burst_state,
+        edges.burst,
         trigger_value,
         controls.trigger_release_threshold,
         controls.trigger_press_threshold,
@@ -149,6 +149,29 @@ pub fn read_gameplay_control_frame_with_settings(
         aim_y_raw
     };
 
+    // ⭐⭐ THE C-STICK. In an attack mode the right stick's deflection is a
+    // PRESS, not an aim: crossing `AIM_STICK_ATTACK_THRESHOLD` from rest throws
+    // the authored strength in that direction, and the same hysteresis the
+    // burst trigger uses stops a stick held out from re-firing every frame.
+    //
+    // ⛔ THE DIRECTION STILL RIDES `aim_x`/`aim_y`, deliberately: the brain
+    // already resolves that pair into the body's local frame for the projectile
+    // aim, so a C-stick attack needs no second resolution and cannot disagree
+    // with one.
+    //
+    // ⚠ AND THE STICK STOPS AIMING, which is the whole reason this is a MODE. A
+    // player whose right stick throws attacks is not aiming a blink with it.
+    let (next_aim_stick_state, aim_stick_flicked) = crate::settings::update_trigger_edge(
+        edges.aim_stick,
+        bevy::math::Vec2::new(aim_x_raw, aim_y_raw).length(),
+        controls.right_stick_deadzone,
+        crate::settings::AIM_STICK_ATTACK_THRESHOLD,
+    );
+    let stick_attack = controls
+        .right_stick_mode
+        .attack_strength()
+        .filter(|_| aim_stick_flicked);
+
     let frame = ControlFrame {
         axis_x: axis.x,
         // Ambition's simulation uses screen-space world coordinates: +Y is
@@ -168,7 +191,8 @@ pub fn read_gameplay_control_frame_with_settings(
         blink_released: actions.just_released(&Platformer2dInputActionMonolith::Blink),
         special_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Special),
         special_held: actions.pressed(&Platformer2dInputActionMonolith::Special),
-        attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack),
+        attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack)
+            || stick_attack.is_some(),
         attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
         attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
         // ⚠ ONLY `Smash` IS BOUND TODAY. The hint is three-valued so a
@@ -176,11 +200,19 @@ pub fn read_gameplay_control_frame_with_settings(
         // inventory §9); no device produces that yet, and an unbound hint is
         // `Auto` — the interpreter reading the stick, which is what every
         // ordinary attack button asks for.
-        attack_strength_hint: if actions.pressed(&Platformer2dInputActionMonolith::StrongAttack) {
-            ambition_platformer2d_core::AttackStrengthHint::Smash
-        } else {
-            ambition_platformer2d_core::AttackStrengthHint::Auto
-        },
+        // ⭐ THE STICK OUTRANKS THE BUTTON when both speak on one frame, because
+        // the stick's whole purpose is to force a strength the interpreter would
+        // not have chosen. A `StrongAttack` press with no stick flick still means
+        // `Smash`, and everything else is `Auto` — the interpreter reading the
+        // stick, which is what an ordinary attack button asks for.
+        attack_strength_hint: stick_attack.unwrap_or(
+            if actions.pressed(&Platformer2dInputActionMonolith::StrongAttack) {
+                ambition_platformer2d_core::AttackStrengthHint::Smash
+            } else {
+                ambition_platformer2d_core::AttackStrengthHint::Auto
+            },
+        ),
+        attack_from_aim_stick: stick_attack.is_some(),
         pogo_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Pogo),
         fly_toggle_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Utility),
         interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),
@@ -205,7 +237,13 @@ pub fn read_gameplay_control_frame_with_settings(
         // Match the sim's +Y-down convention.
         aim_y: -aim_y,
     };
-    (frame, next_burst_state)
+    (
+        frame,
+        crate::settings::GameplayEdgeState {
+            burst: next_burst_state,
+            aim_stick: next_aim_stick_state,
+        },
+    )
 }
 
 /// Convenience for tests/headless-visible paths: gameplay frame with default
@@ -218,7 +256,7 @@ pub fn read_gameplay_control_frame(
     let (frame, _) = read_gameplay_control_frame_with_settings(
         actions,
         crate::settings::ControlFilters::from_settings(&defaults),
-        crate::settings::TriggerEdgeState::default(),
+        crate::settings::GameplayEdgeState::default(),
     );
     frame
 }

@@ -238,3 +238,54 @@ fn a_pre_burst_settings_file_keeps_its_saved_preferences() {
     assert!(!s.controls.dpad_menu_navigation);
     let _ = fs::remove_dir_all(&root);
 }
+
+/// A settings file written before a knob existed must still load — ALL of it.
+///
+/// ⛔⛔ A MISSING KEY DISCARDS THE WHOLE FILE. `ControlSettings` has no container
+/// default, so a field without `#[serde(default)]` turns every older save into a
+/// deserialize error, and `load_settings` answers a parse error by returning
+/// `UserSettings::default()` — throwing away video, audio, gameplay, presets and
+/// every binding override the player had. `burst_input_mode`'s own doc records
+/// that hazard from the time it was nearly caused by a rename; this is the test
+/// that catches the next instance, which was `right_stick_mode` on 2026-08-31.
+///
+/// ⭐ THE FIXTURE IS A REAL SAVE WITH ONE LINE DELETED, not a hand-written stub.
+/// A stub goes stale the moment a field is added and then proves nothing about
+/// the file players actually have.
+#[test]
+fn a_settings_file_predating_a_knob_still_loads_everything_else() {
+    let _guard = TEST_DIR_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let root = temp_root("forward_compat");
+    let path = root.join("settings.ron");
+
+    // Something non-default in a DIFFERENT section, so a discarded file is
+    // visible as more than a defaulted knob.
+    let mut written = UserSettings::default();
+    written.gameplay.difficulty = Difficulty::Hard;
+    save_settings(&path, &written).expect("settings save");
+
+    let body = std::fs::read_to_string(&path).expect("read back");
+    assert!(
+        body.contains("right_stick_mode"),
+        "the knob is not in the saved form, so removing it proves nothing"
+    );
+    let older: String = body
+        .lines()
+        .filter(|line| !line.contains("right_stick_mode"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&path, older).expect("write the older file");
+
+    let loaded = load_settings(&path);
+    assert_eq!(
+        loaded.gameplay.difficulty,
+        Difficulty::Hard,
+        "a settings file predating `right_stick_mode` was DISCARDED — the player \
+         lost every other setting they had. The field needs `#[serde(default)]`"
+    );
+    assert_eq!(
+        loaded.controls.right_stick_mode,
+        crate::settings::RightStickMode::Aim,
+        "the absent knob should read as its default"
+    );
+}

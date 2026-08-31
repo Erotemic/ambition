@@ -126,6 +126,20 @@ pub struct ControlFrame {
     /// What this press asks the attack interpreter to make of it — see
     /// [`AttackStrengthHint`].
     pub attack_strength_hint: AttackStrengthHint,
+    /// This attack's DIRECTION came from the aim stick, not the movement stick.
+    ///
+    /// ⭐ A C-STICK ATTACK POINTS WHERE THE RIGHT STICK WENT, and the left stick
+    /// keeps meaning "walk". Without this the two roles collide: `attack_axis`
+    /// is the movement axis, so a right-stick attack would come out in whatever
+    /// direction the player happened to be running.
+    ///
+    /// ⛔ A BOOL BECAUSE THE QUESTION REALLY HAS TWO ANSWERS — which of the two
+    /// sticks aimed this press. A third source would make it a three-state
+    /// field, and the field would have to change shape rather than alias.
+    ///
+    /// ⚠ MEANINGLESS WITHOUT `attack_pressed`. It qualifies a press; a frame
+    /// with no press carries `false` and says nothing.
+    pub attack_from_aim_stick: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -227,6 +241,7 @@ impl ControlFrame {
             attack_pressed: self.attack_pressed | sample.attack_pressed,
             attack_released: self.attack_released | sample.attack_released,
             attack_strength_hint: self.attack_strength_hint.merge(sample.attack_strength_hint),
+            attack_from_aim_stick: self.attack_from_aim_stick | sample.attack_from_aim_stick,
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,

@@ -23,7 +23,7 @@ pub fn close_menu_option() -> SettingsOption {
 pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut UserSettings) -> bool {
     use ambition_persistence::host::windowing::DisplayModeKind;
     use ambition_persistence::settings::controls::{
-        BurstInputMode, ControllerProfileId, MenuTapMode,
+        BurstInputMode, ControllerProfileId, MenuTapMode, RightStickMode,
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
@@ -217,6 +217,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::InvertAimY => tog!(settings.controls.invert_aim_y),
         SettingsOptionId::BurstInputMode => {
             cyc!(settings.controls.burst_input_mode, BurstInputMode)
+        }
+        SettingsOptionId::RightStickMode => {
+            cyc!(settings.controls.right_stick_mode, RightStickMode)
         }
         SettingsOptionId::TouchControls => tog!(settings.controls.touch_controls_visible),
         SettingsOptionId::MenuTapMode => cyc!(settings.controls.menu_tap_mode, MenuTapMode),

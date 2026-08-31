@@ -17,8 +17,8 @@ pub mod video;
 
 pub use audio::AudioSettings;
 pub use controls::{
-    update_trigger_edge, BurstInputMode, ControlSettings, MenuPointerPress, MenuTapMode,
-    TriggerEdgeState,
+    update_trigger_edge, BurstInputMode, ControlSettings, GameplayEdgeState, MenuPointerPress,
+    MenuTapMode, RightStickMode, TriggerEdgeState,
 };
 pub use gameplay::{AssistMode, GameplaySettings};
 pub use video::{

@@ -7,7 +7,7 @@ use ambition_persistence::settings::UserSettings;
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::host::windowing::DisplayModeKind;
     use ambition_persistence::settings::controls::{
-        BurstInputMode, ControllerProfileId, MenuTapMode,
+        BurstInputMode, ControllerProfileId, MenuTapMode, RightStickMode,
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
@@ -415,6 +415,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Which control fires the dodge/dash button.",
+                )
+            },
+            {
+                let (i, n) = enum_index(&RightStickMode::ALL, c.right_stick_mode);
+                cycle(
+                    SettingsOptionId::RightStickMode,
+                    "Right Stick",
+                    c.right_stick_mode.label(),
+                    i,
+                    n,
+                    "Aim the blink, or throw tilts / smashes in the direction you flick.",
                 )
             },
             toggle(

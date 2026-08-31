@@ -347,7 +347,7 @@ where
                                 // no `TextFont` still GETS one (required
                                 // component), and that one is the ASCII subset.
                                 TextFont {
-                                    font: font.cloned().unwrap_or_default(),
+                                    font: font.cloned().unwrap_or_default().into(),
                                     ..default()
                                 },
                                 TextColor(label_color),
@@ -857,8 +857,11 @@ pub fn resolve_menu_text_size(
 
     for (fraction, mut font) in &mut text {
         let pixels = fraction.pixels_at(height);
-        if (font.font_size - pixels).abs() > f32::EPSILON {
-            font.font_size = pixels;
+        // Read-compare-write: a `Mut` deref marks the component changed for the
+        // rest of the frame, so the no-op case must not touch it. This system is
+        // the only writer of these sizes, so every value it finds is a `Px`.
+        if !matches!(font.font_size, FontSize::Px(px) if (px - pixels).abs() <= f32::EPSILON) {
+            font.font_size = FontSize::Px(pixels);
         }
     }
 }

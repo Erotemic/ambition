@@ -476,6 +476,20 @@ pub(crate) fn resolve_label_layout(
     }
 }
 
+/// The pixel size a label's font asks for.
+///
+/// The fallback measurement below works in logical pixels and this pass has no
+/// viewport, so a viewport-relative or rem-relative `FontSize` cannot be
+/// resolved here. Nothing writes one today — every Ambition label size is
+/// authored in pixels — and this is the seam that would have to learn the
+/// viewport if one ever did, rather than silently measuring zero.
+pub(crate) fn label_font_px(font: &TextFont) -> f32 {
+    match font.font_size {
+        FontSize::Px(px) => px,
+        other => other.eval(Vec2::ZERO, bevy::text::RemSize::default().0),
+    }
+}
+
 /// Measure a label. Prefers what Bevy's text pipeline actually laid out; falls
 /// back to a per-character estimate on the first frame of a label's life, when
 /// no layout has run yet.
@@ -664,7 +678,7 @@ pub fn layout_world_labels(
                 size: label_size(
                     layout.map(|layout| layout.size),
                     text.as_str(),
-                    font.font_size,
+                    label_font_px(font),
                     &settings,
                 ),
                 owner_opacity: label.owner_opacity,
@@ -1174,7 +1188,7 @@ mod tests {
                 .spawn((
                     Text2d::new("abcdefghij"),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: FontSize::Px(12.0),
                         ..default()
                     },
                     TextColor(Color::WHITE),
@@ -1344,7 +1358,7 @@ mod tests {
                 .spawn((
                     Text2d::new("abcdefghij"),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: FontSize::Px(12.0),
                         ..default()
                     },
                     TextColor(Color::WHITE),

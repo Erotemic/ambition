@@ -188,8 +188,11 @@ pub fn apply_touch_control_placement(
             continue;
         };
         let scaled = spec.font_size * scale;
-        if (font.font_size - scaled).abs() > f32::EPSILON {
-            font.font_size = scaled;
+        // Read-compare-write: a `Mut` deref marks the component changed for the
+        // frame, and this is the only writer of touch-label sizes, so every
+        // value it finds is a `Px`.
+        if !matches!(font.font_size, FontSize::Px(px) if (px - scaled).abs() <= f32::EPSILON) {
+            font.font_size = FontSize::Px(scaled);
         }
     }
 }
@@ -349,8 +352,8 @@ impl Plugin for TouchControlsPlugin {
             // `virtual_joystick`'s own `update_ui` (in
             // `JoystickSystems::UpdateUI`) so it overrides the
             // centered rest position the crate writes when no
-            // `touch_state` is active. A real mouse / touch drag still
-            // wins because we early-out when `touch_state.is_some()`.
+            // `pointer_state` is active. A real mouse / touch drag still
+            // wins because we early-out when `pointer_state.is_some()`.
             .add_systems(
                 PostUpdate,
                 // Between the behavior stage (which hard-resets `base_offset`
@@ -384,7 +387,7 @@ impl Plugin for TouchControlsPlugin {
 /// knob are given explicit `left`/`top` by the crate.
 ///
 /// `JoystickFixed` also derives its input center from the base rect
-/// (`touch_state.current - joystick_base_rect.center()`), so moving the art
+/// (`pointer_state.current - joystick_base_rect.center()`), so moving the art
 /// moves the stick's input center with it rather than leaving the touch
 /// response offset from what is drawn.
 fn offset_joystick_art_within_footprint(
@@ -830,7 +833,7 @@ fn touch_text_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
     ui_fonts
         .map(|fonts| fonts.text_font(font_size, UiFontWeight::Regular))
         .unwrap_or(TextFont {
-            font_size,
+            font_size: FontSize::Px(font_size),
             ..default()
         })
 }
@@ -883,7 +886,7 @@ fn spawn_action_button_at(
                 // left-justifies and the glyph subtitle drifts to the
                 // left edge of the circle while the verb stays in its
                 // own line; the eye reads them as mis-aligned.
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
                 // Marker so the rendering system can find this text
                 // node and rewrite it. Carries the canonical action
                 // identity; the ButtonVerb / ButtonGlyph components
@@ -1621,7 +1624,7 @@ pub fn axis_override_drives_knob(context: ControlContextKind) -> bool {
 /// knob's visual position, so the touch HUD doubles as an input
 /// display for non-touch devices.
 ///
-/// When a real drag is in progress (`state.touch_state.is_some()`),
+/// When a real drag is in progress (`state.pointer_state.is_some()`),
 /// this system bails out and lets `virtual_joystick`'s built-in
 /// `update_ui` drive the knob from the actual touch / mouse cursor
 /// — the drag is the authoritative source. Otherwise, we override
@@ -1654,8 +1657,8 @@ fn drive_joystick_knob_from_axis(
     }
     // Treat axes inside ±1e-3 as "no input." Below this the knob must
     // snap to the base's center regardless of any active or stale
-    // `state.touch_state`: on Android the crate occasionally holds a
-    // non-`None` touch_state after release, which left the knob pinned
+    // `state.pointer_state`: on Android the crate occasionally holds a
+    // non-`None` pointer_state after release, which left the knob pinned
     // bottom-right of the base ring even with zero stick input. The
     // stick-active gate in the menu_bridge fold already prevents this
     // tiny dead-band from contributing to gameplay.
@@ -1673,7 +1676,7 @@ fn drive_joystick_knob_from_axis(
         // `state.delta` based on the live cursor, so we don't fight it
         // there. A neutral axis means we DO need to override (see the
         // NEUTRAL_EPS comment above).
-        if state.touch_state.is_some() && !neutral {
+        if state.pointer_state.is_some() && !neutral {
             continue;
         }
         let mut base_size: Option<Vec2> = None;

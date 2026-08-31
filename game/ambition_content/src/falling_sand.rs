@@ -101,6 +101,7 @@ impl Plugin for FallingSandRoomPlugin {
                     .with_chunk_size(64)
                     .with_map_size(32),
             )
+            .init_resource::<FallingSandTypeIds>()
             .add_systems(Startup, setup_particle_types)
             // DERIVED, and said so rather than left on the sweep's ceiling.
             // `project_particles_to_movement_world` runs in the SIM schedule and
@@ -188,7 +189,46 @@ fn gate_bfs_simulation_to_room_presence(
     }
 }
 
-fn setup_particle_types(mut commands: Commands) {
+/// Ambition's material names, and the ids `bevy_falling_sand` generated for them.
+///
+/// bevy_falling_sand 0.8 removed the string name from `ParticleType`: an id is
+/// minted at spawn and a particle points at its type ENTITY through
+/// `AttachedToParticleType`. Ambition's names are still the authored vocabulary
+/// — LDtk blocks, the spout table, `MaterialKind`, and every diagnostic line —
+/// so this resource is the ONE place the two namespaces meet. Both directions
+/// are stored: emitters need name -> id, and the projection and diagnostics
+/// need id -> name.
+#[derive(Resource, Debug, Default)]
+struct FallingSandTypeIds {
+    ids: HashMap<&'static str, ParticleTypeId>,
+    names: HashMap<ParticleTypeId, &'static str>,
+}
+
+impl FallingSandTypeIds {
+    fn record(&mut self, name: &'static str, particle_type: &ParticleType) {
+        self.ids.insert(name, particle_type.id());
+        self.names.insert(particle_type.id(), name);
+    }
+
+    fn id(&self, name: &str) -> Option<ParticleTypeId> {
+        self.ids.get(name).copied()
+    }
+
+    /// The Ambition name for a spawned particle, resolved through its type entity.
+    ///
+    /// `None` for a particle whose type this room did not author, which
+    /// `tally_particles` already counts as `unmodelled` rather than dropping.
+    fn name_of(
+        &self,
+        attached: &AttachedToParticleType,
+        types: &Query<&ParticleType>,
+    ) -> Option<&'static str> {
+        let particle_type = types.get(attached.0).ok()?;
+        self.names.get(&particle_type.id()).copied()
+    }
+}
+
+fn setup_particle_types(mut commands: Commands, mut type_ids: ResMut<FallingSandTypeIds>) {
     // bevy_falling_sand v0.7.0 lazy-loads chunk entities in `update_chunk_loading`, which
     // early-returns if there's no `ChunkLoader` entity in the world.
     //
@@ -206,9 +246,11 @@ fn setup_particle_types(mut commands: Commands) {
     // No sand ParticleType: sand runs on the deterministic grid in
     // `falling_sand_sim` and never enters the external crate.
 
+    let water = ParticleType::new();
+    type_ids.record(TYPE_WATER, &water);
     commands.spawn((
         Name::new("particle type: ambition water"),
-        ParticleType::new(TYPE_WATER),
+        water,
         ColorProfile::palette(vec![
             Color::Srgba(Srgba::hex("#4DA3FF").expect("valid water color")),
             Color::Srgba(Srgba::hex("#2E6FBF").expect("valid water color")),
@@ -231,18 +273,22 @@ fn setup_particle_types(mut commands: Commands) {
     // immovable wall. Adding Density(3000) ALSO blocks sand by virtue
     // of "moving particle density < wall density → obstructed", but
     // the demo specifically uses the no-Density form, so mirror it.
+    let wall = ParticleType::new();
+    type_ids.record(TYPE_WALL, &wall);
     commands.spawn((
         Name::new("particle type: ambition static wall"),
-        ParticleType::new(TYPE_WALL),
+        wall,
         ColorProfile::palette(vec![
             Color::Srgba(Srgba::hex("#253040").expect("valid wall color")),
             Color::Srgba(Srgba::hex("#34445A").expect("valid wall color")),
         ]),
     ));
 
+    let oil = ParticleType::new();
+    type_ids.record(TYPE_OIL, &oil);
     commands.spawn((
         Name::new("particle type: ambition oil"),
-        ParticleType::new(TYPE_OIL),
+        oil,
         ColorProfile::palette(vec![
             Color::Srgba(Srgba::hex("#4C3520").expect("valid oil color")),
             Color::Srgba(Srgba::hex("#2A1E14").expect("valid oil color")),
@@ -286,6 +332,7 @@ fn seed_falling_sand_room_boundaries(
     >,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
+    type_ids: Res<FallingSandTypeIds>,
 ) {
     let room = room_set.active_spec();
     if room.id != ROOM_ID || state.seeded_boundaries {
@@ -297,6 +344,7 @@ fn seed_falling_sand_room_boundaries(
     // Side walls keep falling material inside the room.
     emit_wall_rect(
         &mut writer,
+        &type_ids,
         world,
         0.0,
         0.0,
@@ -305,6 +353,7 @@ fn seed_falling_sand_room_boundaries(
     );
     emit_wall_rect(
         &mut writer,
+        &type_ids,
         world,
         world.size.x - SIDE_WALL_THICKNESS as f32,
         0.0,
@@ -315,6 +364,7 @@ fn seed_falling_sand_room_boundaries(
     // in the LDtk floor doesn't tunnel out of the bevy_falling_sand map.
     emit_wall_rect(
         &mut writer,
+        &type_ids,
         world,
         0.0,
         world.size.y - SIDE_WALL_THICKNESS as f32,
@@ -351,7 +401,15 @@ fn seed_falling_sand_room_boundaries(
         if width <= 0 || strip_height <= 0 {
             continue;
         }
-        emit_wall_rect(&mut writer, world, min.x, min.y, width, strip_height);
+        emit_wall_rect(
+            &mut writer,
+            &type_ids,
+            world,
+            min.x,
+            min.y,
+            width,
+            strip_height,
+        );
         block_wall_emits += (width as usize) * (strip_height as usize);
     }
 
@@ -359,7 +417,7 @@ fn seed_falling_sand_room_boundaries(
     // separate columns. Particles, not Ambition collision.
     let retain_top = (world.size.y - 200.0).max(0.0);
     for x in [256.0, 512.0, 704.0] {
-        emit_wall_rect(&mut writer, world, x, retain_top, 2, 190);
+        emit_wall_rect(&mut writer, &type_ids, world, x, retain_top, 2, 190);
     }
 
     bevy::log::info!(
@@ -373,17 +431,19 @@ fn seed_falling_sand_room_boundaries(
 
 fn emit_wall_rect(
     writer: &mut MessageWriter<SpawnParticleSignal>,
+    type_ids: &FallingSandTypeIds,
     world: &ae::World,
     x: f32,
     y: f32,
     width: i32,
     height: i32,
 ) {
-    emit_particle_rect(writer, TYPE_WALL, world, x, y, width, height);
+    emit_particle_rect(writer, type_ids, TYPE_WALL, world, x, y, width, height);
 }
 
 fn emit_particle_rect(
     writer: &mut MessageWriter<SpawnParticleSignal>,
+    type_ids: &FallingSandTypeIds,
     particle_type: &'static str,
     world: &ae::World,
     x: f32,
@@ -391,6 +451,10 @@ fn emit_particle_rect(
     width: i32,
     height: i32,
 ) {
+    let Some(type_id) = type_ids.id(particle_type) else {
+        warn!("falling_sand: no ParticleType registered for {particle_type}; emitting nothing");
+        return;
+    };
     let start_x = x.round() as i32;
     let start_y = y.round() as i32;
     for dx in 0..width.max(0) {
@@ -402,7 +466,7 @@ fn emit_particle_rect(
             // tunnel through. `new` would silently skip any cell that's
             // already occupied by an earlier seed call this frame.
             writer.write(SpawnParticleSignal::overwrite_existing(
-                Particle::new(particle_type),
+                type_id,
                 world_to_particle_grid(world, world_pos),
             ));
         }
@@ -524,6 +588,7 @@ fn emit_falling_sand_spouts(
     >,
     state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
+    type_ids: Res<FallingSandTypeIds>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
 ) {
     let room = room_set.active_spec();
@@ -553,6 +618,7 @@ fn emit_falling_sand_spouts(
         }
         emit_spout(
             &mut writer,
+            &type_ids,
             mouth.particle_type,
             world,
             mouth.x,
@@ -565,6 +631,7 @@ fn emit_falling_sand_spouts(
 
 fn emit_spout(
     writer: &mut MessageWriter<SpawnParticleSignal>,
+    type_ids: &FallingSandTypeIds,
     particle_type: &'static str,
     world: &ae::World,
     x: f32,
@@ -572,13 +639,17 @@ fn emit_spout(
     width: i32,
     height: i32,
 ) {
+    let Some(type_id) = type_ids.id(particle_type) else {
+        warn!("falling_sand: no ParticleType registered for {particle_type}; emitting nothing");
+        return;
+    };
     let start_x = x.round() as i32 - width / 2;
     let start_y = y.round() as i32;
     for dx in 0..width {
         for dy in 0..height {
             let world_pos = ae::Vec2::new((start_x + dx) as f32, (start_y + dy) as f32);
             writer.write(SpawnParticleSignal::overwrite_existing(
-                Particle::new(particle_type),
+                type_id,
                 world_to_particle_grid(world, world_pos),
             ));
         }
@@ -680,12 +751,12 @@ impl TallyLedger {
 /// regions, both of which the overlay rebuild clears every frame.
 fn tally_particles<'a>(
     world: &ae::World,
-    particles: impl Iterator<Item = (IVec2, &'a str)>,
+    particles: impl Iterator<Item = (IVec2, Option<&'a str>)>,
     scratch: &mut ProjectionScratch,
 ) -> TallyLedger {
     let mut ledger = TallyLedger::default();
     for (grid_position, particle_type) in particles {
-        let Some(kind) = MaterialKind::from_particle_type(particle_type) else {
+        let Some(kind) = particle_type.and_then(MaterialKind::from_particle_type) else {
             ledger.unmodelled += 1;
             continue;
         };
@@ -717,10 +788,10 @@ fn project_particles_to_movement_world(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut overlay: ResMut<
-        ambition_platformer2d::world::FeatureEcsWorldOverlay,
-    >,
-    particles: Query<(&GridPosition, &Particle)>,
+    mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+    particles: Query<(&GridPosition, &AttachedToParticleType), With<Particle>>,
+    particle_types: Query<&ParticleType>,
+    type_ids: Res<FallingSandTypeIds>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     sand: Res<FallingSandWorld>,
     mut scratch: Local<ProjectionScratch>,
@@ -743,7 +814,11 @@ fn project_particles_to_movement_world(
 
     let ledger = tally_particles(
         &world.0,
-        particles.iter().map(|(g, p)| (g.0, p.name.as_ref())),
+        // A particle whose type this room did not author resolves to `None`;
+        // `tally_particles` counts those as `unmodelled` rather than dropping them.
+        particles
+            .iter()
+            .map(|(g, attached)| (g.0, type_ids.name_of(attached, &particle_types))),
         &mut scratch,
     );
     // No silent caps: the projection truncates at MAX_DYNAMIC_* tiles, and a
@@ -925,7 +1000,9 @@ fn log_falling_sand_diagnostics(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::world::rooms::RoomSet,
     >,
-    particles: Query<(&Particle, &GridPosition)>,
+    particles: Query<(&AttachedToParticleType, &GridPosition), With<Particle>>,
+    particle_types: Query<&ParticleType>,
+    type_ids: Res<FallingSandTypeIds>,
     // Component-presence query: every particle that has Particle should ALSO get
     // Density/Speed/Movement/AirResistance/MovementRng inherited from its ParticleType via the
     // sync propagators.
@@ -978,8 +1055,12 @@ fn log_falling_sand_diagnostics(
     let mut sand_near_floor = 0usize;
     let mut sand_below_floor = 0usize;
     let mut wall_in_floor_band = 0usize;
-    for (particle, grid_pos) in &particles {
-        let name: &str = particle.name.as_ref();
+    for (attached, grid_pos) in &particles {
+        // A particle of a type this room did not author counts under "(unknown)"
+        // rather than vanishing from the census.
+        let name = type_ids
+            .name_of(attached, &particle_types)
+            .unwrap_or("(unknown)");
         *counts.entry(name.to_owned()).or_default() += 1;
         let gy = grid_pos.0.y;
         if name == TYPE_SAND {
@@ -1257,7 +1338,7 @@ fn sync_sand_grid_texture(
     if visual.drawn_tick == Some(grid.tick()) {
         return;
     }
-    let Some(image) = images.get_mut(&visual.image) else {
+    let Some(mut image) = images.get_mut(&visual.image) else {
         return;
     };
     let Some(data) = image.data.as_mut() else {

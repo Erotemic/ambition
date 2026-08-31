@@ -434,8 +434,8 @@ pub fn spawn_select_screen(
         .and_then(|font| font.0.clone())
         .unwrap_or_default();
     let text_font = |size: f32| TextFont {
-        font: font.clone(),
-        font_size: size,
+        font: font.clone().into(),
+        font_size: FontSize::Px(size),
         ..default()
     };
     let portrait = |id: &str| art.portrait(id);
@@ -582,7 +582,7 @@ pub fn spawn_select_screen(
                         Text::new(display_name(catalog, id)),
                         text_font(13.0),
                         TextColor(INK),
-                        TextLayout::new_with_justify(Justify::Center),
+                        TextLayout::justify(Justify::Center),
                     ));
                 });
             }
@@ -642,7 +642,7 @@ pub fn spawn_select_screen(
                         Text::new("RANDOM"),
                         text_font(13.0),
                         TextColor(INK),
-                        TextLayout::new_with_justify(Justify::Center),
+                        TextLayout::justify(Justify::Center),
                     ));
                 });
             }
@@ -715,7 +715,7 @@ pub fn spawn_select_screen(
                             Text::new(card_name_text(catalog, &fighters, None)),
                             text_font(13.0),
                             TextColor(DIM_INK),
-                            TextLayout::new_with_justify(Justify::Center),
+                            TextLayout::justify(Justify::Center),
                         ));
                     });
                 });

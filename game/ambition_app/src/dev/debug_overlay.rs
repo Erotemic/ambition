@@ -63,7 +63,7 @@ pub(crate) fn render_debug_overlay_labels(
         commands.spawn((
             Text2d::new(label.text),
             TextFont {
-                font_size: DEBUG_LABEL_FONT_PX,
+                font_size: FontSize::Px(DEBUG_LABEL_FONT_PX),
                 ..default()
             },
             TextColor(label.color),

@@ -142,7 +142,7 @@ pub fn spawn_player_hud(
                         overlay_label(),
                         Text::new("HP"),
                         TextFont {
-                            font_size: 11.0,
+                            font_size: FontSize::Px(11.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.98, 0.96, 0.98)),
@@ -161,7 +161,7 @@ pub fn spawn_player_hud(
                         overlay_label(),
                         Text::new("MP"),
                         TextFont {
-                            font_size: 11.0,
+                            font_size: FontSize::Px(11.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.96, 0.98, 1.0)),
@@ -172,7 +172,7 @@ pub fn spawn_player_hud(
                 MoneyLabel,
                 Text::new("$0"),
                 TextFont {
-                    font_size: 15.0,
+                    font_size: FontSize::Px(15.0),
                     ..default()
                 },
                 TextColor(Color::srgb(1.0, 0.86, 0.42)),
@@ -459,7 +459,9 @@ mod tests {
     /// Mary-O's score.
     #[test]
     fn the_builtin_vitals_hud_hides_when_a_game_declares_its_own() {
-        use ambition_platformer2d_shared_tangle::gameplay_presentation::{HudDeclaration, HudSlotSpec};
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
+            HudDeclaration, HudSlotSpec,
+        };
         fn display_with(declaration: Option<HudDeclaration>) -> Display {
             let mut app = App::new();
             app.insert_resource(ActiveHudDeclaration(declaration));

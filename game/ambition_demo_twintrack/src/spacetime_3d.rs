@@ -439,7 +439,7 @@ fn spawn_spacetime_3d(
             SpacetimeLegend3d(index),
             Text2d::new(text),
             TextFont {
-                font_size: if index == 0 { 18.0 } else { 12.0 },
+                font_size: FontSize::Px(if index == 0 { 18.0 } else { 12.0 }),
                 ..default()
             },
             TextColor(color),

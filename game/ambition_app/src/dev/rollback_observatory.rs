@@ -489,7 +489,7 @@ fn spawn_rollback_proof_hud(mut commands: Commands, ui_fonts: Option<Res<UiFonts
     let font = ui_fonts
         .map(|fonts| fonts.text_font(13.0, UiFontWeight::Monospace))
         .unwrap_or(TextFont {
-            font_size: 13.0,
+            font_size: FontSize::Px(13.0),
             ..default()
         });
     commands.spawn((

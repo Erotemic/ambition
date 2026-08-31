@@ -57,7 +57,7 @@ fn spawn_activity(
         ),
         Text::new("Loading practice: tap up/down four times (0/4)"),
         TextFont {
-            font_size: 18.0,
+            font_size: FontSize::Px(18.0),
             ..default()
         },
         TextColor(Color::srgb(0.78, 0.84, 1.0)),

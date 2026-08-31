@@ -36,7 +36,9 @@ impl UiFonts {
         }
     }
 
-    pub fn text_font(&self, size: f32, weight: UiFontWeight) -> TextFont {
+    /// `size` takes `impl Into<FontSize>` so a caller holding a `TextFont`'s own
+    /// `font_size` can pass it straight through; a bare `f32` still means pixels.
+    pub fn text_font(&self, size: impl Into<FontSize>, weight: UiFontWeight) -> TextFont {
         let handle = match weight {
             UiFontWeight::Regular => self.regular.clone(),
             UiFontWeight::Semibold => self.semibold.clone().or_else(|| self.regular.clone()),
@@ -44,12 +46,12 @@ impl UiFonts {
         };
 
         let mut font = TextFont {
-            font_size: size,
+            font_size: size.into(),
             ..default()
         };
 
         if let Some(handle) = handle {
-            font.font = handle;
+            font.font = handle.into();
         }
 
         font
@@ -220,6 +222,6 @@ mod tests {
     fn text_font_uses_size_even_without_handle() {
         let fonts = UiFonts::default();
         let font = fonts.text_font(14.0, UiFontWeight::Regular);
-        assert_eq!(font.font_size, 14.0);
+        assert_eq!(font.font_size, FontSize::Px(14.0));
     }
 }

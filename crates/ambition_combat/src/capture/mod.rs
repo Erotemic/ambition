@@ -121,7 +121,7 @@ mod tests {
 
         let mut system_state: bevy::ecs::system::SystemState<Query<(Entity, &CapturedBy)>> =
             bevy::ecs::system::SystemState::new(app.world_mut());
-        let captives = system_state.get(app.world());
+        let captives = system_state.get(app.world()).expect("capture params");
 
         assert_eq!(captive_of(captor, &captives), Some(captive));
         assert_eq!(

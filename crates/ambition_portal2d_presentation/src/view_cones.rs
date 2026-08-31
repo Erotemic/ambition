@@ -709,8 +709,7 @@ fn portal_capture_camera_frame(
     // cardinal portals, and the mesh's entry polygon is clipped to this same
     // host rect, so every mapped vertex now lands inside the capture frame.
     let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
-    let mapped =
-        ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
+    let mapped = ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
     Some(geometry::CaptureCameraFrame {
         center: mapped.center(),
         size: mapped.half_size() * 2.0,
@@ -872,7 +871,14 @@ pub fn sync_portal_view_cones(
             let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
             rig.blend += (plan.target - rig.blend) * step;
         }
-        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit, convention);
+        let cone = blend_cones(
+            &plan.min,
+            &plan.wedge,
+            smooth01(rig.blend),
+            &enter,
+            &exit,
+            convention,
+        );
         let (z, pane_dominant) =
             pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
         rig.pane_dominant = pane_dominant;
@@ -886,18 +892,23 @@ pub fn sync_portal_view_cones(
             clip_max,
             z,
             capture_frame,
-                convention,
+            convention,
         );
         match render {
             Some(r) => {
-                if let Some(mesh) = meshes.get_mut(&rig.mesh) {
-                    apply_mesh(mesh, &r);
+                if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {
+                    apply_mesh(&mut mesh, &r);
                 }
                 cam_tf.translation = r.cam_center;
                 rig.parallax_anchor = frame
                     .to_render(
-                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit, convention)
-                            .unwrap_or_else(|| (r.source_min + r.source_max) * 0.5),
+                        portal_parallax_anchor_world(
+                            host_view.as_deref(),
+                            &enter,
+                            &exit,
+                            convention,
+                        )
+                        .unwrap_or_else(|| (r.source_min + r.source_max) * 0.5),
                         0.0,
                     )
                     .truncate();
@@ -1102,11 +1113,14 @@ pub fn sync_portal_view_cones(
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 parallax_anchor: frame
                     .to_render(
-                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit, convention)
-                            .or_else(|| {
-                                render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5)
-                            })
-                            .unwrap_or(exit.frame.origin),
+                        portal_parallax_anchor_world(
+                            host_view.as_deref(),
+                            &enter,
+                            &exit,
+                            convention,
+                        )
+                        .or_else(|| render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5))
+                        .unwrap_or(exit.frame.origin),
                         0.0,
                     )
                     .truncate(),
@@ -1135,7 +1149,7 @@ fn sync_cone_material_tint(
     let Ok(material_handle) = cone_materials.get(cone) else {
         return;
     };
-    let Some(material) = materials.get_mut(&material_handle.0) else {
+    let Some(mut material) = materials.get_mut(&material_handle.0) else {
         return;
     };
     material.color = tint;

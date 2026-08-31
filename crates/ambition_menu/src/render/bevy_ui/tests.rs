@@ -638,7 +638,7 @@ fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
         commands.spawn((
             Text::new("Ambition"),
             TextFont {
-                font_size: fraction.reference_pixels(),
+                font_size: FontSize::Px(fraction.reference_pixels()),
                 ..default()
             },
             fraction,

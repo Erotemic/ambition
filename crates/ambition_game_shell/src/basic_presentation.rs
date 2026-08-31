@@ -442,12 +442,12 @@ fn render_basic_shell(
                 root.spawn((
                     Text::default(),
                     TextFont {
-                        font: card_font.clone(),
-                        font_size: 24.0,
+                        font: card_font.clone().into(),
+                        font_size: FontSize::Px(24.0),
                         ..default()
                     },
                     TextColor(Color::srgb(1.0, 0.55, 0.55).with_alpha(0.0)),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     BasicSequenceCardContent,
                     BasicSequenceMissingNotice,
                     Name::new("basic shell sequence missing-frame notice"),
@@ -457,12 +457,12 @@ fn render_basic_shell(
                 root.spawn((
                     Text::new(frame.text),
                     TextFont {
-                        font: card_font.clone(),
-                        font_size: 28.0,
+                        font: card_font.clone().into(),
+                        font_size: FontSize::Px(28.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.92, 0.94, 1.0).with_alpha(0.0)),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     BasicSequenceCardContent,
                 ));
             }

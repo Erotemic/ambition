@@ -229,7 +229,7 @@ fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &s
         ClockReadout(target),
         Text2d::new("CLOCK 0.0 s"),
         TextFont {
-            font_size: 16.0,
+            font_size: FontSize::Px(16.0),
             ..default()
         },
         TextColor(Color::srgb(0.96, 0.98, 1.0)),
@@ -289,7 +289,7 @@ fn spawn_twintrack_visuals(
             LabCharacterLabel(id),
             Text2d::new(label),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
             TextColor(color),
@@ -301,7 +301,7 @@ fn spawn_twintrack_visuals(
             LabSpeedLabel(id),
             Text2d::new(""),
             TextFont {
-                font_size: 15.0,
+                font_size: FontSize::Px(15.0),
                 ..default()
             },
             TextColor(color),
@@ -356,7 +356,7 @@ fn spawn_twintrack_visuals(
             TwinTrackVisible,
             Text2d::new(format!("BEACON {}\nFLASHES WITH ITS TWIN", beacon.label())),
             TextFont {
-                font_size: 13.0,
+                font_size: FontSize::Px(13.0),
                 ..default()
             },
             TextColor(beacon_map_color(beacon)),
@@ -373,7 +373,7 @@ fn spawn_twintrack_visuals(
 REUNION POINT",
         ),
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor(Color::srgb(0.92, 0.96, 1.0)),
@@ -392,7 +392,7 @@ REUNION POINT",
         LabDialogueBubble,
         Text2d::new(""),
         TextFont {
-            font_size: 17.0,
+            font_size: FontSize::Px(17.0),
             ..default()
         },
         TextColor(Color::srgb(1.0, 1.0, 0.82)),
@@ -404,7 +404,7 @@ REUNION POINT",
         TwinTrackVisible,
         Text2d::new("VIEW CONSOLE\nINTERACT"),
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor(Color::srgb(0.55, 1.0, 0.85)),
@@ -443,7 +443,7 @@ REUNION POINT",
              GREEN = INTERCEPT   CYAN = YOUR AIM",
         ),
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor(Color::srgb(0.78, 1.0, 0.92)),
@@ -465,7 +465,7 @@ REUNION POINT",
             LabSignalLabel(index),
             Text2d::new(""),
             TextFont {
-                font_size: 12.0,
+                font_size: FontSize::Px(12.0),
                 ..default()
             },
             TextColor(Color::srgb(1.0, 0.95, 0.55)),
@@ -488,7 +488,7 @@ REUNION POINT",
         DjFrequencyLabel,
         Text2d::new(""),
         TextFont {
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::srgb(0.65, 0.82, 1.0)),
@@ -534,7 +534,7 @@ REUNION POINT",
         ObservatoryTitle,
         Text2d::new("WHAT REACHES YOU NOW"),
         TextFont {
-            font_size: 28.0,
+            font_size: FontSize::Px(28.0),
             ..default()
         },
         TextColor(Color::srgb(0.72, 0.92, 1.0)),
@@ -549,7 +549,7 @@ REUNION POINT",
              SPACE + TIME: orbit a real 3D worldline sculpture",
         ),
         TextFont {
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::srgb(0.65, 0.78, 0.95)),
@@ -580,7 +580,7 @@ REUNION POINT",
              WATCH THEM CROWD AHEAD AND CHANGE COLOR AS YOU APPROACH LIGHT SPEED",
         ),
         TextFont {
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::srgb(0.80, 0.92, 1.0)),
@@ -642,7 +642,7 @@ REUNION POINT",
             OpticalProxyLabel(label.to_owned()),
             Text2d::new(label.to_uppercase()),
             TextFont {
-                font_size: 13.0,
+                font_size: FontSize::Px(13.0),
                 ..default()
             },
             TextColor(Color::WHITE),
@@ -670,7 +670,7 @@ REUNION POINT",
 DIRECTIONS AROUND YOU",
         ),
         TextFont {
-            font_size: 13.0,
+            font_size: FontSize::Px(13.0),
             ..default()
         },
         TextColor(Color::srgb(0.45, 1.0, 1.0)),
@@ -703,7 +703,7 @@ DIRECTIONS AROUND YOU",
         OpticalTagGuideLabel,
         Text2d::new("RED FOX = VISIBLE IMAGE • GREEN = SEND LIGHT HERE • CYAN = YOUR AIM"),
         TextFont {
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::srgb(0.78, 1.0, 0.92)),

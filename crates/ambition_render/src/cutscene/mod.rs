@@ -79,7 +79,7 @@ pub fn sync_cutscene_ui(
             .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
             .unwrap_or(TextFont {
-                font_size,
+                font_size: FontSize::Px(font_size),
                 ..default()
             })
     };

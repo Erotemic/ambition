@@ -19,12 +19,12 @@ use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dA
 use ambition_platformer2d::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::SfxBankResource;
+use ambition_platformer2d::content::MusicRegistry;
+use ambition_platformer2d::content::SfxRegistry;
 use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition_platformer2d::sfx::BankProvider;
-use ambition_platformer2d::content::MusicRegistry;
-use ambition_platformer2d::content::SfxRegistry;
 
 /// Build and insert the host-resident audio library (packed SFX bank +
 /// catalog-resolved music assets) and its playback state. An asset CACHE —
@@ -284,10 +284,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // full-screen dim-scrim now targets its own display-scoped UI camera rather
     // than borrowing this one (which carries a `Camera::viewport` under any
     // fixed-aspect profile, and is one pane of several under a split).
-    ambition_platformer2d::platformer::camera_layers::publish_main_camera(
-        commands,
-        main_camera,
-    );
+    ambition_platformer2d::platformer::camera_layers::publish_main_camera(commands, main_camera);
 }
 
 /// Borrowed inputs for [`session_gameplay_dressing`].
@@ -324,7 +321,7 @@ pub fn session_gameplay_dressing(
         ui_fonts
             .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
             .unwrap_or(TextFont {
-                font_size: 14.0,
+                font_size: FontSize::Px(14.0),
                 ..default()
             }),
         TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
@@ -347,7 +344,7 @@ pub fn session_gameplay_dressing(
         ui_fonts
             .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
             .unwrap_or(TextFont {
-                font_size: 14.0,
+                font_size: FontSize::Px(14.0),
                 ..default()
             }),
         TextColor(Color::srgba(0.92, 0.86, 0.62, 0.95)),

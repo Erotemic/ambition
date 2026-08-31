@@ -452,7 +452,7 @@ pub fn sync_hit_flash_overlays(
                 && material.color_texture == source_sprite.image
         });
         if !unchanged {
-            if let Some(material) = materials.get_mut(&material_handle.0) {
+            if let Some(mut material) = materials.get_mut(&material_handle.0) {
                 material.uv_rect = uv_rect;
                 material.control = control;
                 material.color_texture = source_sprite.image.clone();

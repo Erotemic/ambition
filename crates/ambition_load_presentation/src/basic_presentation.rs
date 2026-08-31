@@ -1,7 +1,9 @@
 //! Plain Bevy UI reference presentation for load evidence and ready-hold.
 
 use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
-use ambition_platformer2d_shared_tangle::developer_hotkeys::{DeveloperAction, DeveloperHotkeyBindings};
+use ambition_platformer2d_shared_tangle::developer_hotkeys::{
+    DeveloperAction, DeveloperHotkeyBindings,
+};
 use bevy::prelude::*;
 
 use crate::{
@@ -145,11 +147,11 @@ fn render_basic_load(
             root.spawn((
                 Text::new(text),
                 TextFont {
-                    font_size: 24.0,
+                    font_size: FontSize::Px(24.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.93, 0.95, 1.0)),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
             ));
         });
 }

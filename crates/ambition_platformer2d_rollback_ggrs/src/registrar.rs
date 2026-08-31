@@ -55,11 +55,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
-    fn rollback_component_cursor<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_component_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotCursor,
     {
@@ -79,11 +75,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
-    fn rollback_component_clone<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_component_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Component<Mutability = Mutable> + Clone,
     {
@@ -200,7 +192,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState,
+        T: Resource<Mutability = Mutable> + SnapshotState,
     {
         self.app.rollback_resource_canonical::<T>(owner, name);
         self
@@ -212,20 +204,16 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState,
+        T: Resource<Mutability = Mutable> + SnapshotState,
     {
         self.app
             .rollback_resource_optional_canonical::<T>(owner, name);
         self
     }
 
-    fn rollback_resource_clone<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_resource_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         self.app.rollback_resource_clone::<T>(owner, name);
         self
@@ -238,7 +226,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         referenced: fn(&T) -> Vec<Entity>,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         self.app
             .rollback_resource_clone_entity_set::<T>(owner, name, referenced);
@@ -253,7 +241,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         facts: fn(&T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         self.app
             .rollback_resource_clone_entity_set_probed::<T>(owner, name, referenced, facts);
@@ -268,7 +256,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         crate::registration::install_resource_clone_checksum::<T>(
             self.app,
@@ -288,18 +276,14 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         self.app
             .rollback_resource_clone_checksum::<T>(owner, name, detail, checksum);
         self
     }
 
-    fn rollback_map_entities<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_map_entities<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Component<Mutability = Mutable> + MapEntities,
     {
@@ -313,17 +297,13 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + MapEntities,
+        T: Resource<Mutability = Mutable> + MapEntities,
     {
         self.app.rollback_resource_map_entities::<T>(owner, name);
         self
     }
 
-    fn require_rollback<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn require_rollback<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Component,
     {
@@ -331,11 +311,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
-    fn clear_message_on_rollback<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn clear_message_on_rollback<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Message,
     {
@@ -408,8 +384,7 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
     where
         T: 'static,
     {
-        self.app
-            .declare_dynamic_anchor::<T>(owner, name, detail);
+        self.app.declare_dynamic_anchor::<T>(owner, name, detail);
         self
     }
 }

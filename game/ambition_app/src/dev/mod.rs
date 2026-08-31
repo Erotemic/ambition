@@ -57,7 +57,7 @@ fn install_debug_input_context(app: &mut App) {
     ) {
         let typing = egui
             .iter_mut()
-            .any(|mut context| context.get_mut().wants_keyboard_input());
+            .any(|mut context| context.get_mut().egui_wants_keyboard_input());
         for mut contexts in &mut participants {
             // Touch the component only when the claim actually moves, so a
             // quiet frame is not a change-detection event downstream.

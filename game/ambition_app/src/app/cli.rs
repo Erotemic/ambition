@@ -774,13 +774,15 @@ pub fn build_visible_app_with(
     // asset root ever containing a world. Must register before
     // DefaultPlugins builds AssetPlugin.
     app.register_asset_source("game", game_asset_source_builder());
-    let plugins = DefaultPlugins.set(ambition_log_plugin()).set(bevy::asset::AssetPlugin {
-        // See `desktop_asset_root`: post-bisection the binary's
-        // crate has no assets/ tree; the canonical one lives with
-        // the machinery lib.
-        file_path: asset_root,
-        ..default()
-    });
+    let plugins = DefaultPlugins
+        .set(ambition_log_plugin())
+        .set(bevy::asset::AssetPlugin {
+            // See `desktop_asset_root`: post-bisection the binary's
+            // crate has no assets/ tree; the canonical one lives with
+            // the machinery lib.
+            file_path: asset_root,
+            ..default()
+        });
     match render {
         VisibleRenderMode::Windowed => {
             app.add_plugins(plugins.set(WindowPlugin {
@@ -822,10 +824,10 @@ pub fn build_visible_app_with(
                     .disable::<bevy::core_pipeline::CorePipelinePlugin>()
                     .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
                     .set(RenderPlugin {
-                        render_creation: RenderCreation::Automatic(WgpuSettings {
+                        render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                             backends: None,
                             ..default()
-                        }),
+                        })),
                         ..default()
                     })
                     .set(WindowPlugin {

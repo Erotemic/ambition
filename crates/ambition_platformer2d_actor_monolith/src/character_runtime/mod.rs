@@ -1083,12 +1083,12 @@ impl Plugin for CharacterRuntimePlugin {
                         bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
                             CharacterCatalog,
                         >
-                        .or(
+                        .or_else(
                             bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
                                 PreparedCharacterRegistry,
                             >,
                         )
-                        .or(
+                        .or_else(
                             bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
                                 ambition_characters::actor::character_catalog::CharacterCatalogOwners,
                             >,

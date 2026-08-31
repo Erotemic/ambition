@@ -41,17 +41,58 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-- ▢ **D-RESTORE-INTERIM — prove the pre-correction population is harmless, or
-  remove it.** A save load builds its first room with no occurrence continuity
-  and corrects it afterwards; the acceptance suite establishes the two roads
-  agree on the FINAL population, not that the interim one is safe to exist or to
-  run. No gameplay gate is tied to `SaveRestored`, and the boss-defeat record is
-  a live example of state re-deriving over a restored fact inside such a window.
-  Take one of: a genuine `load_save_at_startup` test showing gameplay cannot
-  observe or mutate the pre-correction population; a gate on gameplay authority
-  until restoration completes; or feed the saved occurrence facts to session
-  activation so the temporary population never exists. Owner:
+- ▢ **D-RESTORE-COLLISION — two checkpoint roads want the same one-slot
+  lifecycle commit.** `shrine::restore_checkpoint_on_session_start` runs in
+  `PlayerSimulation` on the first tick a body exists and, when the checkpoint
+  names a different room, records a `LifecycleIntent::Transition`. The slot is
+  earliest-sticky, so on a save carrying BOTH a cross-room checkpoint and
+  occurrence rows, `resume_at_checkpoint_on_reset` gets `AlreadyPending`, writes
+  no `RoomReplayAdmitted`, and the `ResetToCheckpoint` message is drained
+  unconditionally — the durable correction is dropped. Read from the schedule,
+  NOT yet driven: write the arm first. ⚠ Same file, same pair of systems:
+  `restore_checkpoint_on_session_start` keeps its once-per-session memory in two
+  `Local`s on a SIM system, which do not rewind. Unreachable today only because a
+  confirmed transition rebases GGRS onto a new frame zero, which is a
+  correctness that moves when the rebase does. Acceptance: a save with a
+  cross-room checkpoint and a relocated occurrence lands both, and the two
+  memories are rollback state or are shown not to need to be. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+- ▢ **D-RESTORE-LEDGER-SCOPE — `AuthoredOccurrences` is app-level, not
+  session-scoped.** It is absent from `SessionScopedResources`, so a second
+  gameplay session in one process inherits the first's ledger. Noticed while
+  moving adoption to the activation edge; not measured. Acceptance: two sessions
+  in one process, the second with an empty save, and the second does not see the
+  first's rows. Owner:
+  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+✔ **D-RESTORE-INTERIM — a load builds its first room right, instead of building
+it wrong and correcting it.** Activation passed `continuity: None` with the
+comment *"there is no earlier occurrence of anything to have a disposition
+yet"* — true for a fresh session, false for a LOAD, whose file has been on disk
+since before the process started. So a room whose object the save says is lying
+next door authored it anyway; the durable chain then ran in `Update`, latched,
+asked for a checkpoint resume, and the room-transition road rebuilt the room
+several ticks later with the ledger in hand. Measured: two live things behind
+one identity for two frames of a real startup load — in a window where combat,
+pickups and encounters all run ungated on `SaveRestored`, so the body that
+picked one of them up wrote its custody over the very row the correction was
+about to read. ⭐ THE LEDGER LEG NEEDS NO BODY, which is why it could move: only
+the item/wallet leg of the durable chain requires a primary body, so ledger
+adoption now runs at `SessionScopeSet::Activate` — the seam whose stated promise
+is "before any provider constructs the world these values describe" — and
+activation passes the real `OccurrenceContinuity`. The temporary population is
+never built. Guarded by
+`a_load_never_authors_the_occurrence_it_is_about_to_suppress`, which samples
+EVERY frame rather than the ends (both endpoints answered "absent" while the
+middle answered "present" — the shape a two-endpoint test cannot see), red under
+each leg poisoned separately. ⭐ It needed a harness that boots WITH a save the
+way the binary does: `Platformer2dSimHarnessOptions::with_save`, inserting the
+file before the first update. Writing a save into a RUNNING session can only
+measure the correction road. The save types moved onto the SDK's `session`
+surface for it — the durable state a session resumes from is a session concept —
+which is the gap `sim-harness-names-only-the-public-sdk` predicts by name.
+⚠ STILL OPEN, and now its own row: D-RESTORE-COLLISION.
 
 ✔ **D-INPUT-RECORDER — the input recorder was quadratic rollback state.**
 `InputStreamRecorder` was `rollback_resource_clone`, so every GGRS save cloned
@@ -139,9 +180,10 @@ load builds its first room with no occurrence continuity and the file's facts
 then correct it. Measured: the correction lands on the same authoritative
 population an in-session re-entry produces, both for an empty file and for a
 file carrying a relocated occurrence (`canonical_reconstitution.rs` cases 7-8,
-both red under a poisoned `outlook_for`). ⚠ That is EVENTUAL convergence: the
-fixture is not a real startup load, and the interim population is unproven
-rather than proven harmless — see D-RESTORE-INTERIM above.
+both red under a poisoned `outlook_for`). ⚠ That was EVENTUAL convergence, and
+the interim population it left unproven is now gone: D-RESTORE-INTERIM moved
+ledger adoption to the activation edge, so the first room is built right rather
+than built and repaired.
 `ResetToCheckpoint`'s contract, which claimed it was "not a save load", is
 reconciled.
 

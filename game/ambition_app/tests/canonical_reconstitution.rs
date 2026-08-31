@@ -22,9 +22,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
 
-use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::platformer::lifecycle::RoomScopedEntity;
@@ -983,6 +983,152 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
         "walking back into '{DURABLE_ROOM}' authored `{relocatable}`, which the \
          file says is lying in '{neighbour}'"
     );
+}
+
+/// Case 8b: the room a load builds is built ONCE, and built right.
+///
+/// ⛔⛔ THIS IS THE ARM CASE 8 DOES NOT HAVE. Case 8 censuses after ninety
+/// frames and finds the two roads agree — which establishes that the load
+/// CONVERGES, and says nothing about the population it converges FROM. A load
+/// used to construct its first room with no occurrence continuity at all and
+/// correct it afterwards, so for a stretch of ticks the room held a live object
+/// the file says is lying next door: two live things behind one identity, in a
+/// window where combat, pickups and encounters all run ungated.
+///
+/// ⭐ SAMPLE EVERY FRAME, not the ends. "Does the population ever contain it"
+/// is the question, and both endpoints answer no while the middle answers yes —
+/// which is exactly the shape a two-endpoint test cannot see.
+#[test]
+fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
+    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    let (relocatable, neighbour, empty_file) = relocatable_occurrence();
+
+    let mut relocated_file = empty_file.clone();
+    relocated_file.occurrences = vec![PersistedOccurrence::new(
+        relocatable.clone(),
+        PersistedWhereabouts::Placed {
+            room: neighbour.clone(),
+            x: 200,
+            y: 200,
+        },
+    )];
+
+    // ⭐ BOOT WITH THE FILE, the way the binary does — bytes in the world before
+    // the session activates. Writing the save into a RUNNING session measures
+    // the correction road and can say nothing about what the first construction
+    // knew.
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(relocated_file),
+    )
+    .expect("the harness boots with a save file");
+
+    let mut present_at: Vec<usize> = Vec::new();
+    for frame in 0..AFTER_LOAD {
+        if live_ids(&mut sim).contains(&relocatable) {
+            present_at.push(frame);
+        }
+        sim.step(base());
+    }
+    assert!(
+        sim.world().resource::<SaveRestored>().0,
+        "the load never landed, so this measured a load that did not happen"
+    );
+
+    // ⛔ THE PREMISE: with an EMPTY file the room DOES author it, so "never
+    // present" is a claim about the row and not about a room that has no such
+    // object.
+    let mut plain = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(empty_file),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        plain.step(base());
+    }
+    assert!(
+        live_ids(&mut plain).contains(&relocatable),
+        "'{DURABLE_ROOM}' does not author `{relocatable}` even with an empty file, \
+         so suppressing it proves nothing"
+    );
+
+    assert!(
+        present_at.is_empty(),
+        "the load authored `{relocatable}` into '{DURABLE_ROOM}' on {} of the {AFTER_LOAD} \
+         frames after the file said it is lying in '{neighbour}' — frames {:?}. \
+         A population that is corrected later is a population that EXISTED, and \
+         everything gameplay does in that window it does to two live things \
+         behind one identity.",
+        present_at.len(),
+        &present_at[..present_at.len().min(12)]
+    );
+}
+
+/// Every `SimId` alive in the world right now.
+fn live_ids(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
+    let mut q = sim.world_mut().query::<&SimId>();
+    let world = sim.world();
+    q.iter(world).map(|id| id.as_str().to_string()).collect()
+}
+
+/// The first occurrence-bearing object `DURABLE_ROOM` authors, a room it has an
+/// authored exit to, and a save file of a session that touched nothing.
+///
+/// ⭐ ONE DEFINITION so the two durable cases cannot drift into relocating
+/// different objects and calling it the same measurement.
+fn relocatable_occurrence() -> (
+    String,
+    String,
+    ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    let mut played = fixed_60hz_room_sim(DURABLE_ROOM);
+    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
+        played.step(base());
+    }
+    let empty_file = played.world().resource::<AmbitionGameSave>().data().clone();
+
+    let relocatable = {
+        let mut q = played.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let world = played.world();
+        let mut ids: Vec<String> = q
+            .iter(world)
+            .map(|(id, _)| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        ids.into_iter().next().unwrap_or_else(|| {
+            panic!(
+                "'{DURABLE_ROOM}' authors no occurrence-bearing object, so this case \
+                 has nothing to relocate"
+            )
+        })
+    };
+    let neighbour = {
+        let world = played.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = q
+            .iter(world)
+            .next()
+            .expect("the session has an active room set");
+        room_set
+            .active_loading_zones()
+            .iter()
+            .filter_map(|zone| {
+                room_set
+                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+                    .and_then(|t| room_set.rooms.get(t.target_room))
+                    .map(|room| room.id.clone())
+            })
+            .find(|id| id != DURABLE_ROOM)
+            .unwrap_or_else(|| panic!("'{DURABLE_ROOM}' has no authored exit"))
+    };
+    (relocatable, neighbour, empty_file)
 }
 
 /// ⛔⛔ ZERO PARTIAL RESET. The one pending-lifecycle slot is earliest-sticky, so

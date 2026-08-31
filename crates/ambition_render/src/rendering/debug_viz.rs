@@ -976,7 +976,9 @@ mod presented_strike_tests {
             )),
             strike: bevy::prelude::Entity::from_raw_u32(1).unwrap(),
             owner: bevy::prelude::Entity::from_raw_u32(2).unwrap(),
+            damage: 4,
             anchored_to_body,
+            hit: Vec::new(),
         }
     }
 

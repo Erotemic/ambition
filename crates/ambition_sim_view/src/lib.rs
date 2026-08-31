@@ -27,7 +27,7 @@ pub use anim_index::{
 };
 pub use combat_geometry_view::{
     rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView,
-    CombatStrikeGeometryView,
+    CombatStrikeGeometryView, HurtboxSource,
 };
 pub use control_prompt::{
     project_prompt_readiness, publish_frontend_context_prompt, rebuild_control_prompt,

@@ -9,6 +9,7 @@
 
 use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 use ambition_combat::hitbox::{Hitbox, HitboxAnchor};
+use ambition_combat::strike::HitboxHits;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Query, ResMut, Resource, With};
 
@@ -37,6 +38,42 @@ pub struct CombatMoveView {
     pub landed_hit: bool,
 }
 
+/// WHERE a body's damageable geometry came from.
+///
+/// The three-way rule this view already implements, named rather than left for
+/// the reader to infer from an empty list. An inspector that shows a hurtbox
+/// must be able to say whether the runtime AUTHORED it or fell back to the
+/// coarse body box, because those answer different authoring questions: the
+/// first is a silhouette somebody tuned, the second is the absence of one.
+///
+/// ⛔ `Published` DOES NOT MEAN "AUTHORED BY A MOVE". The default publisher
+/// (`refresh_body_damageable_volumes`) publishes the coarse envelope as a
+/// single volume when a body has no `ResolvedHurtboxes`, so a published single
+/// box may be either. Distinguishing those needs the resolved-hurtbox component
+/// itself, which lives above this crate; this view states what it can SEE.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HurtboxSource {
+    /// A publisher spoke for this body and named volumes.
+    Published,
+    /// Nothing published, so the resolver falls back to the coarse body box —
+    /// and so does this view.
+    BodyFallback,
+    /// A publisher explicitly made this body unhittable. No volumes, on
+    /// purpose: an absence that is a decision rather than a gap.
+    Intangible,
+}
+
+impl HurtboxSource {
+    /// The stable word an artifact writes down.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Published => "published",
+            Self::BodyFallback => "body_fallback",
+            Self::Intangible => "intangible",
+        }
+    }
+}
+
 /// One combat body's geometry AND the state a designer tunes against.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CombatBodyGeometryView {
@@ -44,6 +81,11 @@ pub struct CombatBodyGeometryView {
     pub body: bevy::prelude::Entity,
     pub collision: ae::Aabb,
     pub hurtboxes: Vec<ae::CombatVolume>,
+    /// Which of the runtime's three damageable-volume states produced
+    /// [`Self::hurtboxes`]. An empty list means two different things —
+    /// deliberately intangible, or a body this view could not resolve — and an
+    /// inspector that cannot tell them apart reports a bug for a rule.
+    pub hurtbox_source: HurtboxSource,
     /// Accumulated damage — "percent". The number every knockback
     /// calculation in the game reads, and the one a tuner is watching.
     pub damage_taken: i32,
@@ -92,10 +134,28 @@ pub struct CombatStrikeGeometryView {
     pub strike: bevy::prelude::Entity,
     /// The body whose strike this is.
     pub owner: bevy::prelude::Entity,
+    /// What connecting with this volume is authored to cost. The one attack
+    /// PROPERTY an observer needs to interpret a contact at all — a geometry
+    /// row that omits it forces every consumer back to the `Hitbox` component
+    /// this view exists to keep them away from.
+    pub damage: i32,
     /// The distinction presentation actually needs: only a body-tracking strike
     /// stands in for somebody's attack, and only a body-tracking strike takes
     /// its owner's presentation translation.
     pub anchored_to_body: bool,
+    /// The bodies this strike HAS ALREADY CONNECTED WITH.
+    ///
+    /// ⭐⭐ OVERLAP IS NOT A HIT, and an observer must never conclude one from
+    /// the other. A volume can pass through a body that is intangible, on
+    /// another team, already hit by this same strike, or shielded — so a picture
+    /// showing two rectangles touching cannot say whether the game agreed. This
+    /// is the runtime's own answer: `HitboxHits` is the hit-once set the
+    /// resolver writes, and it is sim truth under rollback.
+    ///
+    /// ⛔ SORTED. The set behind it is a `HashSet`, whose iteration order is
+    /// randomized per process — an observation built from it unsorted differs
+    /// between two runs of one binary that simulated identically.
+    pub hit: Vec<bevy::prelude::Entity>,
 }
 
 /// Presentation-facing snapshot of authoritative combat geometry.
@@ -105,14 +165,25 @@ pub struct CombatGeometryView {
     pub strikes: Vec<CombatStrikeGeometryView>,
 }
 
+/// The runtime's three-way damageable rule, and WHICH of the three it was.
+///
+/// The rule and its provenance are one decision, so they are returned together:
+/// a caller that recomputed the source from the volumes would be inferring a
+/// rule from its consequence, and an intangible body and an unresolvable one
+/// both hand back an empty list.
 fn effective_hurtboxes(
     collision: ae::Aabb,
     damageable: Option<&DamageableVolumes>,
-) -> Vec<ae::CombatVolume> {
+) -> (Vec<ae::CombatVolume>, HurtboxSource) {
     match damageable {
-        Some(published) if published.intangible() => Vec::new(),
-        Some(published) if published.published() => published.volumes.clone(),
-        _ => vec![ae::CombatVolume::aabb(collision)],
+        Some(published) if published.intangible() => (Vec::new(), HurtboxSource::Intangible),
+        Some(published) if published.published() => {
+            (published.volumes.clone(), HurtboxSource::Published)
+        }
+        _ => (
+            vec![ae::CombatVolume::aabb(collision)],
+            HurtboxSource::BodyFallback,
+        ),
     }
 }
 
@@ -138,7 +209,7 @@ pub fn rebuild_combat_geometry_view(
         ),
         With<ambition_characters::actor::BodyCombat>,
     >,
-    hitboxes: Query<(bevy::prelude::Entity, &Hitbox)>,
+    hitboxes: Query<(bevy::prelude::Entity, &Hitbox, Option<&HitboxHits>)>,
     owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
     mut view: ResMut<CombatGeometryView>,
@@ -148,10 +219,12 @@ pub fn rebuild_combat_geometry_view(
 
     for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
+        let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable);
         view.bodies.push(CombatBodyGeometryView {
             body,
             collision,
-            hurtboxes: effective_hurtboxes(collision, damageable),
+            hurtboxes,
+            hurtbox_source,
             damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
             facing: kin.map(|k| k.facing).unwrap_or(1.0),
             hitstun_s: combat.hitstun_timer,
@@ -178,7 +251,7 @@ pub fn rebuild_combat_geometry_view(
         });
     }
 
-    for (strike, hitbox) in &hitboxes {
+    for (strike, hitbox, hits) in &hitboxes {
         let owner_pos = match hitbox.anchor {
             HitboxAnchor::World { .. } => Some(ae::Vec2::ZERO),
             HitboxAnchor::FollowOwner { .. } => owner_boxes
@@ -194,7 +267,14 @@ pub fn rebuild_combat_geometry_view(
             volume: hitbox.world_volume(owner_pos),
             strike,
             owner: hitbox.owner,
+            damage: hitbox.damage,
             anchored_to_body: matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }),
+            hit: {
+                let mut victims: Vec<_> =
+                    hits.map(|hits| hits.hit.iter().copied().collect()).unwrap_or_default();
+                victims.sort();
+                victims
+            },
         });
     }
 }
@@ -300,16 +380,153 @@ mod tests {
         let collision = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(10.0, 12.0));
         assert_eq!(
             effective_hurtboxes(collision, None),
-            vec![ae::CombatVolume::aabb(collision)]
+            (
+                vec![ae::CombatVolume::aabb(collision)],
+                HurtboxSource::BodyFallback
+            )
         );
         let unpublished = DamageableVolumes::default();
         assert_eq!(
             effective_hurtboxes(collision, Some(&unpublished)),
-            vec![ae::CombatVolume::aabb(collision)]
+            (
+                vec![ae::CombatVolume::aabb(collision)],
+                HurtboxSource::BodyFallback
+            )
         );
         let mut intangible = DamageableVolumes::default();
         intangible.clear();
-        assert!(effective_hurtboxes(collision, Some(&intangible)).is_empty());
+        assert_eq!(
+            effective_hurtboxes(collision, Some(&intangible)),
+            (Vec::new(), HurtboxSource::Intangible)
+        );
+    }
+
+    /// An empty hurtbox list has TWO meanings, and the view now says which.
+    ///
+    /// ⛔⛔ THE ONE THAT LOOKS LIKE A BUG IS THE CORRECT ONE. A body mid-dodge
+    /// publishes no volumes ON PURPOSE; a body whose publisher has not run yet
+    /// falls back to its coarse box. Both used to reach an observer as
+    /// geometry with no label, so an inspector could report "this attack should
+    /// have hit" for a frame where the rule says it could not.
+    #[test]
+    fn an_intangible_body_is_not_a_body_with_no_geometry() {
+        let mut app = App::new();
+        app.init_resource::<CombatGeometryView>();
+        app.add_systems(Update, rebuild_combat_geometry_view);
+
+        let collision = ae::Aabb::new(ae::Vec2::new(10.0, 10.0), ae::Vec2::new(6.0, 12.0));
+        let mut intangible = DamageableVolumes::default();
+        intangible.clear();
+        app.world_mut().spawn((
+            CenteredAabb::from_aabb(collision),
+            intangible,
+            ambition_characters::actor::BodyCombat::default(),
+        ));
+        // No `DamageableVolumes` at all: the coarse fallback, which is a
+        // different fact from being deliberately unhittable.
+        app.world_mut().spawn((
+            CenteredAabb::from_aabb(collision),
+            ambition_characters::actor::BodyCombat::default(),
+        ));
+
+        app.update();
+        let view = app.world().resource::<CombatGeometryView>();
+        let sources: Vec<_> = view.bodies.iter().map(|b| b.hurtbox_source).collect();
+        assert!(sources.contains(&HurtboxSource::Intangible));
+        assert!(sources.contains(&HurtboxSource::BodyFallback));
+        for body in &view.bodies {
+            assert_eq!(
+                body.hurtboxes.is_empty(),
+                body.hurtbox_source == HurtboxSource::Intangible,
+                "only the intangible state publishes no volumes"
+            );
+        }
+    }
+
+    /// ⛔⛔ OVERLAP IS NOT A HIT. Two rectangles touching cannot say whether the
+    /// game agreed — the victim may be intangible, on the same team, or already
+    /// struck by this same strike. The runtime's own hit-once set is carried so
+    /// an observer never has to conclude a connect from geometry.
+    #[test]
+    fn a_strike_reports_the_bodies_it_has_actually_connected_with() {
+        use ambition_combat::strike::HitboxHits;
+        let mut app = App::new();
+        app.init_resource::<CombatGeometryView>();
+        app.add_systems(Update, rebuild_combat_geometry_view);
+
+        let owner = app
+            .world_mut()
+            .spawn((
+                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0)),
+                ambition_characters::actor::BodyCombat::default(),
+            ))
+            .id();
+        let victim = app.world_mut().spawn_empty().id();
+        app.world_mut().spawn((
+            Hitbox {
+                // Not a windbox: this fixture is about the geometry VIEW.
+                owner,
+                source: HitSide::Player,
+                anchor: HitboxAnchor::FollowOwner {
+                    local_offset: ae::Vec2::new(12.0, 0.0),
+                },
+                half_extent: ae::Vec2::new(5.0, 6.0),
+                shape: None,
+                facing: 1.0,
+                damage: 3,
+                knockback: HitboxKnockback::FeelScale(1.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                strike_sfx: None,
+                reaction: None,
+            },
+            HitboxHits {
+                hit: std::iter::once(victim).collect(),
+            },
+        ));
+
+        app.update();
+        let view = app.world().resource::<CombatGeometryView>();
+        assert_eq!(view.strikes[0].hit, vec![victim]);
+    }
+
+    /// The strike row carries what a contact COSTS, so no observer needs the
+    /// `Hitbox` component to interpret it.
+    #[test]
+    fn a_strike_row_carries_its_damage() {
+        let mut app = App::new();
+        app.init_resource::<CombatGeometryView>();
+        app.add_systems(Update, rebuild_combat_geometry_view);
+
+        let owner = app
+            .world_mut()
+            .spawn((
+                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0)),
+                ambition_characters::actor::BodyCombat::default(),
+            ))
+            .id();
+        app.world_mut().spawn(Hitbox {
+            // Not a windbox: this fixture is about the geometry VIEW.
+            owner,
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(12.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(5.0, 6.0),
+            shape: None,
+            facing: 1.0,
+            damage: 13,
+            knockback: HitboxKnockback::FeelScale(1.0),
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+            strike_sfx: None,
+            reaction: None,
+        });
+
+        app.update();
+        let view = app.world().resource::<CombatGeometryView>();
+        assert_eq!(view.strikes.len(), 1);
+        assert_eq!(view.strikes[0].damage, 13);
     }
 
     /// The tuning readout is a projection, and it needs no protagonist.

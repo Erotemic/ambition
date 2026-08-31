@@ -18,7 +18,7 @@
 
 use crate::common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
-use ambition_platformer2d::combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d::combat::events::{RoomReplayAdmitted, RoomResetReason};
 use ambition_platformer2d::portal::PlacedPortal;
 use ambition_app::Platformer2dSimHarness;
 
@@ -44,9 +44,7 @@ fn authored_portals_survive_both_death_and_manual_resets() {
     );
 
     // A DEATH reset must not despawn any authored portal.
-    sim.world_mut().write_message(ResetRoomFeaturesEvent {
-        reason: RoomResetReason::PlayerDeath,
-    });
+    sim.world_mut().write_message(RoomReplayAdmitted::because(RoomResetReason::PlayerDeath));
     sim.step(base());
     assert_eq!(
         authored_count(&mut sim),
@@ -55,9 +53,7 @@ fn authored_portals_survive_both_death_and_manual_resets() {
     );
 
     // A MANUAL reset also spares authored portals (it only clears the gun pair).
-    sim.world_mut().write_message(ResetRoomFeaturesEvent {
-        reason: RoomResetReason::Manual,
-    });
+    sim.world_mut().write_message(RoomReplayAdmitted::because(RoomResetReason::Manual));
     sim.step(base());
     assert_eq!(
         authored_count(&mut sim),

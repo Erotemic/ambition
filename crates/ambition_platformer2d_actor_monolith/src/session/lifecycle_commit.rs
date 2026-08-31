@@ -61,6 +61,26 @@ pub struct RoomTransitionIntent {
     pub zone_sfx: Option<String>,
 }
 
+/// Whether a lifecycle operation got the one pending slot.
+///
+/// A refusal is ordinary, not an error: two operations asked in the same frame
+/// and the earlier one owns the world. What is NOT ordinary is running the
+/// refused operation's consequences anyway.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[must_use]
+pub enum Admission {
+    /// The slot is this operation's. Its consequences may run.
+    Admitted,
+    /// Another lifecycle operation already owns the slot. Change nothing.
+    AlreadyPending,
+}
+
+impl Admission {
+    pub fn admitted(self) -> bool {
+        matches!(self, Self::Admitted)
+    }
+}
+
 /// One deferred lifecycle op, stamped with the sim frame that produced it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PendingIntent {
@@ -83,13 +103,24 @@ pub struct PendingLifecycleCommit {
 
 impl PendingLifecycleCommit {
     /// Record a lifecycle intent for `frame`, keeping any intent already present
-    /// (earliest wins). Idempotent under resim: re-recording the same
-    /// (frame, kind) is a no-op, and a *different* later intent does not clobber
-    /// an earlier unconfirmed one.
-    pub fn record(&mut self, frame: i32, kind: LifecycleIntent) {
-        if self.pending.is_none() {
-            self.pending = Some(PendingIntent { frame, kind });
+    /// (earliest wins), and say WHICH HAPPENED. Idempotent under resim:
+    /// re-recording the same (frame, kind) is a no-op, and a *different* later
+    /// intent does not clobber an earlier unconfirmed one.
+    ///
+    /// ⛔⛔ `#[must_use]`, AND THAT IS THE POINT. This is one slot and it is
+    /// earliest-sticky, so recording is a request that can be REFUSED — and a
+    /// caller that performs the operation's consequences without checking has
+    /// changed the world for an operation that never happened. The same-room
+    /// replay did exactly that: it reset the avatar, gravity, content cycles and
+    /// the previous attempt's residue, and only then discovered the slot was
+    /// taken. Admit first, mutate second.
+    #[must_use = "the slot is earliest-sticky: a refused intent must not have its consequences run"]
+    pub fn record(&mut self, frame: i32, kind: LifecycleIntent) -> Admission {
+        if self.pending.is_some() {
+            return Admission::AlreadyPending;
         }
+        self.pending = Some(PendingIntent { frame, kind });
+        Admission::Admitted
     }
 
     /// The pending intent WHETHER OR NOT it is confirmed — "is anything waiting".
@@ -142,10 +173,10 @@ mod tests {
     #[test]
     fn record_keeps_the_earliest_intent() {
         let mut slot = PendingLifecycleCommit::default();
-        slot.record(10, LifecycleIntent::DeathReset);
+        let _ = slot.record(10, LifecycleIntent::DeathReset);
         // A later PREDICTED op must not overwrite the earlier one before the
         // host can commit it, or the confirmed intent is silently lost.
-        slot.record(15, LifecycleIntent::ManualReset);
+        let _ = slot.record(15, LifecycleIntent::ManualReset);
         assert_eq!(
             slot.pending,
             Some(PendingIntent {
@@ -158,7 +189,7 @@ mod tests {
     #[test]
     fn confirmed_only_fires_once_the_frame_is_settled() {
         let mut slot = PendingLifecycleCommit::default();
-        slot.record(
+        let _ = slot.record(
             10,
             LifecycleIntent::Transition(RoomTransitionIntent {
                 subject: SimId::placement("hero"),
@@ -179,7 +210,7 @@ mod tests {
     #[test]
     fn take_empties_the_slot() {
         let mut slot = PendingLifecycleCommit::default();
-        slot.record(3, LifecycleIntent::FullReset);
+        let _ = slot.record(3, LifecycleIntent::FullReset);
         assert!(slot.take().is_some());
         assert_eq!(slot.pending, None);
     }
@@ -197,14 +228,14 @@ mod tests {
         });
 
         let mut slot = PendingLifecycleCommit::default();
-        slot.record(8, transition.clone());
+        let _ = slot.record(8, transition.clone());
         assert!(!slot.retract_transition_for_subject(&other));
         assert_eq!(slot.pending.as_ref().map(|p| &p.kind), Some(&transition));
 
         assert!(slot.retract_transition_for_subject(&hero));
         assert!(slot.pending.is_none());
 
-        slot.record(9, LifecycleIntent::Replay);
+        let _ = slot.record(9, LifecycleIntent::Replay);
         assert!(!slot.retract_transition_for_subject(&hero));
         assert!(matches!(
             slot.pending.as_ref().map(|p| &p.kind),

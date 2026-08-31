@@ -14,14 +14,14 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_sanic_app::build_demo_app;
 use bevy::prelude::*;
 
-/// Counts every `ResetRoomFeaturesEvent` observed, so a second consumer of the
+/// Counts every `RoomReplayAdmitted` observed, so a second consumer of the
 /// same request would show up as a second room-feature reset.
 #[derive(Resource, Default)]
 struct RoomResetsSeen(usize);
 
 fn count_room_resets(
     mut seen: ResMut<RoomResetsSeen>,
-    mut resets: MessageReader<ambition_platformer2d::combat::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::RoomReplayAdmitted>,
 ) {
     seen.0 += resets.read().count();
 }
@@ -105,7 +105,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
     app.update();
 
     let home = player_pos(&mut app).expect("he is still in the world");
@@ -206,7 +206,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
     for _ in 0..4 {
         app.update();
     }

@@ -530,10 +530,10 @@ pub fn tag_mary_o_snakes(
 
 /// Restore demo-owned snake-shell state on room reset. Engine reset restores
 /// body state, but `SnakeShell` and the shell mechanic's runtime contact-damage
-/// toggle are owned here. Listen to `ResetRoomFeaturesEvent` so same-room retries
+/// toggle are owned here. Listen to `RoomReplayAdmitted` so same-room retries
 /// reset them as well as room reloads.
 pub fn reset_snakes_on_room_reset(
-    mut resets: MessageReader<ambition_platformer2d::combat::events::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::events::RoomReplayAdmitted>,
     mut snakes: Query<(&mut SnakeShell, &mut BodyCombat, &mut ActorConfig)>,
 ) {
     if resets.read().count() == 0 {

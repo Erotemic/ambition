@@ -20,7 +20,7 @@ struct FrameCounter(usize);
 fn record_resets(
     frame: Res<FrameCounter>,
     mut seen: ResMut<ResetFrames>,
-    mut resets: MessageReader<ambition_platformer2d::combat::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::RoomReplayAdmitted>,
 ) {
     for _ in resets.read() {
         seen.0.push(frame.0);
@@ -104,7 +104,7 @@ pub(crate) fn beat_remaining(app: &mut App) -> Option<f32> {
 /// than throwing one hit and hoping. A victim-side hit is staged into
 /// `PendingPlayerHitEvents` at the end of one frame's Combat phase and applied
 /// on the next, and `void_pending_player_hits_at_lifecycle_boundaries` clears
-/// that FIFO on every `RoomLoaded` / `ResetRoomFeaturesEvent` — so a hit thrown
+/// that FIFO on every `RoomLoaded` / `RoomReplayAdmitted` — so a hit thrown
 /// in the frames around a room load lands on nothing. Swinging until the beat
 /// arms means no caller has to know which frame that boundary fell on.
 pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
@@ -290,7 +290,7 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
 /// is right about THIS host. `build_demo_app` is the standalone Mary-O binary,
 /// and the standalone binary does not carry `apply_home_reset_policy`; the
 /// hosted `ambition_app` does (`game/ambition_app/src/app/player_tick.rs:40`).
-/// That system writes `ResetRoomFeaturesEvent { reason: PlayerDeath }` on every
+/// That system writes `RoomReplayAdmitted { reason: PlayerDeath }` on every
 /// frame `PlayerBodyFrameOutput.reset` is `Some`, with no other condition than
 /// `gameplay_allowed`.
 ///
@@ -347,7 +347,7 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
             }
         }
         // THE INPUT the hosted app's home-reset policy reads. One `Some` here is
-        // one `ResetRoomFeaturesEvent { PlayerDeath }` there.
+        // one `RoomReplayAdmitted { PlayerDeath }` there.
         if active {
             if let Some(reset) = kernel_reset_flag(&mut app) {
                 reflagged_during_beat += 1;
@@ -368,7 +368,7 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
     println!(
         "[one fall] kernel re-flagged the world reset on {reflagged_during_beat} frames \
          DURING the beat — in the hosted app that is {reflagged_during_beat} \
-         `ResetRoomFeaturesEvent {{ PlayerDeath }}` while the death music plays. \
+         `RoomReplayAdmitted {{ PlayerDeath }}` while the death music plays. \
          First few: {reflag_causes:?}"
     );
 

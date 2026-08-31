@@ -107,14 +107,65 @@ pub enum RoomResetReason {
     Manual,
 }
 
-/// Reset request for ECS-owned room features.
+/// A SAME-ROOM REPLAY HAS BEEN ADMITTED: the lifecycle operation owns the one
+/// pending-commit slot, and the room WILL be rebuilt.
 ///
-/// Same-room resets and full sandbox resets emit this once, and
-/// `rooms::reconstitute_the_active_room` consumes it through Bevy's message
-/// stream and rebuilds the room through canonical construction.
-#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ResetRoomFeaturesEvent {
+/// ⭐ THIS IS THE SIGNAL EVERY REPLAY CONSEQUENCE HANGS OFF. Exactly one system
+/// writes it — `runtime::sandbox_reset::admit_room_replay` — and only after the
+/// operation has been accepted. Reset gravity here, clear a content cycle here,
+/// retire the previous attempt's residue here; do NOT do any of it on
+/// `RoomReplayRequested`, which is the ASK and can be refused.
+///
+/// ⛔⛔ IT WAS `RoomReplayAdmitted`, AND THE NAME WAS THE BUG. A message
+/// called "reset the room's features" invites a listener to reset something the
+/// moment it sees one, and the ask was what it saw: the avatar, gravity, hit
+/// events, a boss arena's heavy-object cycle and the attempt's dropped loot were
+/// all reset before anything had checked whether the replay could be described,
+/// let alone admitted. When it could not, the world had been half-reset for an
+/// operation that never happened.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct RoomReplayAdmitted {
+    /// Why the room is being replayed. Policy differs by it: a death preserves
+    /// the player's placed gun portals, a deliberate retry clears them.
     pub reason: RoomResetReason,
+    /// The body the replay is FOR, by stable identity, resolved once at
+    /// admission.
+    ///
+    /// ⛔ NOT RE-DERIVED LATER, for the reason `RoomTransitionIntent` gives
+    /// about its own subject: control can move, end, or the body can die during
+    /// the wait. `None` only where a composition genuinely has no controlled
+    /// body and the replay is a room rebuild with nobody in it.
+    pub subject: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
+impl RoomReplayAdmitted {
+    /// A replay admitted for nobody in particular — the room comes back, and no
+    /// body is returned to spawn. The ordinary shape for a fixture, and the real
+    /// shape for a composition with no controlled body.
+    ///
+    /// ⛔ There is deliberately no `Default`. A replay's subject and reason are
+    /// both decisions, and a default would let a producer forget to make either.
+    pub fn because(reason: RoomResetReason) -> Self {
+        Self {
+            reason,
+            subject: None,
+        }
+    }
+
+    /// A deliberate retry with no named subject.
+    pub fn manual() -> Self {
+        Self::because(RoomResetReason::Manual)
+    }
+
+    /// Name the body this replay is for.
+    #[must_use]
+    pub fn for_subject(
+        mut self,
+        subject: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ) -> Self {
+        self.subject = Some(subject);
+        self
+    }
 }
 
 /// Runtime HUD banner state owned directly by Bevy ECS.

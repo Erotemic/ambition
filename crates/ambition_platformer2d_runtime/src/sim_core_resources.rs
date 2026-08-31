@@ -67,7 +67,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // wants a clank to cost (the rebound is not built yet).
             .add_message::<ambition_combat::clank::AttacksClanked>()
             .add_message::<ambition_combat::events::ActorStimulus>()
-            .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
+            .add_message::<ambition_combat::RoomReplayAdmitted>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()
             // Staging fact: a room's contents finished spawning (JD4).

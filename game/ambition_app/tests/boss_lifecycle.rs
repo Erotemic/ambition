@@ -28,7 +28,7 @@ use ambition_platformer2d::boss_encounter::{
     EncounterScript, EncounterTrigger,
 };
 use ambition_platformer2d::combat::components::BossRewardChest;
-use ambition_platformer2d::combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
+
 use ambition_platformer2d::encounter::EncounterMusicRequest;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
@@ -283,9 +283,13 @@ fn boss_revives_after_a_room_reset() {
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_boss("respawner", PersistedEncounterState::Untouched);
-    sim.world_mut().write_message(ResetRoomFeaturesEvent {
-        reason: RoomResetReason::Manual,
-    });
+    // ⭐ THE ASK, NOT THE FACT. `RoomReplayAdmitted` is written by the engine's
+    // admission system and nothing else; a fixture that wrote it would get the
+    // replay's consequences without the room rebuild that makes them mean
+    // anything.
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
     for _ in 0..15 {
         sim.step(AgentAction::default());
     }
@@ -559,7 +563,7 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     // content half (clearing the persisted attempt record) and the host half
     // (resetting the player + the room's features) both hang off it.
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
 
     let replayed = observe_boss(&mut sim, "behemoth");
     assert_eq!(

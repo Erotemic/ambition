@@ -127,6 +127,7 @@ content.level_destination	derived	LevelDestination	where the ACTIVE room's goal 
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_level_departure	component-clone	LevelDeparture	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -355,13 +356,13 @@ message.portal_gun_toggle	message-clear	TogglePortalGun	clear abandoned-future m
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
-message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.ride_refused	message-clear	RideRefused	clear abandoned-future message buffer in LoadWorld::Mapping
 message.rider_dismounted	message-clear	RiderDismounted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
+message.room_replay_admitted	message-clear	RoomReplayAdmitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping

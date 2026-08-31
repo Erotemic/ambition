@@ -349,10 +349,14 @@ scope = "game"
 kind = "file-contains"
 owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["crates/ambition_platformer2d_runtime/src/sandbox_reset.rs"]
-rationale = "every host must drain RoomReplayRequested, so its one consumer is engine-side"
+rationale = "every host must drain RoomReplayRequested, so its one ADMISSION is engine-side. `apply_room_replay_request_system` became `admit_room_replay` when the replay became a lifecycle operation that can be REFUSED: the consumer no longer performs a reset and then discovers the pending slot was taken, it decides first and announces `RoomReplayAdmitted` only on acceptance. `return_the_replay_subject_to_spawn` is the consequence half, named here so a host cannot quietly keep its own copy of either."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["fn apply_room_replay_request_system", "fn reset_sandbox"]
+contains = [
+    "fn admit_room_replay",
+    "fn return_the_replay_subject_to_spawn",
+    "fn reset_sandbox",
+]
 file = "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs"
 
 

@@ -247,7 +247,10 @@ pub fn restore_checkpoint_on_session_start(
         // The intent can: a resume is a body, a destination and an arrival, which is all a
         // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
-        pending.record(
+        // ⚠ A REFUSAL IS ORDINARY HERE and costs nothing: nothing above this
+        // line has changed the world, and the checkpoint resume is re-asked on
+        // the next `ResetToCheckpoint`.
+        let _ = pending.record(
             boundary.map_or(0, |boundary| boundary.current),
             crate::session::lifecycle_commit::LifecycleIntent::Transition(
                 crate::session::lifecycle_commit::RoomTransitionIntent {
@@ -320,6 +323,7 @@ pub fn resume_at_checkpoint_on_reset(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
     // Drained unconditionally, so a reset seen while no body exists cannot be
     // re-read several frames later against a different world.
@@ -351,7 +355,16 @@ pub fn resume_at_checkpoint_on_reset(
         }
         _ => (active.id.clone(), active.world.spawn),
     };
-    pending.record(
+    // ⚠ Same rule as the session-start resume above: nothing has been mutated,
+    // so a refused slot simply means another lifecycle operation is already
+    // taking the world somewhere.
+    //
+    // ⭐ AND THIS IS THE REPLAY'S ADMISSION ON THE DEATH ROAD. `ResetToCheckpoint`
+    // is the death/retry horizon; the room rebuild it schedules IS the replay,
+    // so announcing it here is what lets the death's consequences run — and
+    // stops the death asking for two lifecycle operations that then fight over
+    // one slot.
+    let admission = pending.record(
         boundary.map_or(0, |boundary| boundary.current),
         crate::session::lifecycle_commit::LifecycleIntent::Transition(
             crate::session::lifecycle_commit::RoomTransitionIntent {
@@ -365,6 +378,17 @@ pub fn resume_at_checkpoint_on_reset(
             },
         ),
     );
+    if admission.admitted() {
+        admitted.write(
+            ambition_combat::events::RoomReplayAdmitted::because(
+                // A checkpoint resume is the DEATH/RETRY horizon by contract, so
+                // its policy is a death's: the player's placed gun portals
+                // survive, where a deliberate retry clears them.
+                ambition_combat::RoomResetReason::PlayerDeath,
+            )
+            .for_subject(subject.clone()),
+        );
+    }
 }
 
 

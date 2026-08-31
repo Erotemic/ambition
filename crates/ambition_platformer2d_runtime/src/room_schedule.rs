@@ -1,10 +1,12 @@
 //! Room-transition schedule anchors. Detection emits the request, apply prepares
-//! and commits it, and `Reset` reconstitutes the ACTIVE room when something asks
-//! for a same-room replay.
+//! and commits it, and `Reset` retires what an ADMITTED same-room replay
+//! invalidates.
 //!
-//! ⭐ `Reset` is a construction step, not a teardown step: it runs the same
-//! `RoomConstructionPlan` transaction `Apply` does, against the active room
-//! index. See `ambition_platformer2d_actor_monolith::rooms::reconstitute_the_active_room`.
+//! ⭐ `Reset` NO LONGER BUILDS ANYTHING. A same-room replay is admitted in
+//! `sandbox_reset::admit_room_replay` and rebuilt by the transition road like
+//! any other room change; what runs here is the one sweep that road cannot make
+//! — the previous attempt's session-scoped residue. See
+//! `ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt`.
 
 use bevy::prelude::*;
 
@@ -28,7 +30,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
                 ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system
                     .in_set(GameplayGated)
                     .in_set(RoomTransitionSet::Detect),
-                ambition_platformer2d_actor_monolith::rooms::reconstitute_the_active_room
+                ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
                     .in_set(RoomTransitionSet::Reset),
             ),
         );

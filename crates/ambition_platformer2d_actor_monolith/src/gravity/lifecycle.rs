@@ -14,7 +14,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 /// resolved frame with exactly one writer (`resolve_active_gravity`), so it
 /// follows on the next resolution.
 pub fn reset_gravity_on_room_reset(
-    mut resets: MessageReader<ambition_combat::events::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 ) {
     if resets.read().next().is_none() {

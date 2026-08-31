@@ -301,7 +301,7 @@
     "message.portal_shot_fired",
     "message.quest_advance_requested",
     "message.release_provocation",
-    "message.reset_room_features",
+    "message.room_replay_admitted",
     "message.reset_to_checkpoint",
     "message.resolved_body_hit",
     "message.respawn_room_visuals",

@@ -1135,7 +1135,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
     }
     fn app_with_staged_hit() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_combat::ResetRoomFeaturesEvent>()
+        app.add_message::<ambition_combat::RoomReplayAdmitted>()
             .add_message::<ambition_platformer2d_world::rooms::RoomLoaded>()
             .init_resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .add_systems(Update, void_pending_player_hits_at_lifecycle_boundaries);
@@ -1170,7 +1170,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
     let mut reset = app_with_staged_hit();
     reset
         .world_mut()
-        .write_message(ambition_combat::ResetRoomFeaturesEvent::default());
+        .write_message(ambition_combat::RoomReplayAdmitted::manual());
     reset.update();
     assert!(
         reset
@@ -1178,7 +1178,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
             .resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
             .is_empty(),
-        "ResetRoomFeaturesEvent must void hits staged by the pre-reset population"
+        "RoomReplayAdmitted must void hits staged by the pre-reset population"
     );
 
     // Room (re)staging boundary — transitions, session resets, restores.

@@ -27,7 +27,7 @@ mod tests;
 // world crate as monolith coupling, which is what it did until 2026-08-26.
 // What this module re-exports below is what it OWNS.
 pub use binding::RoomBindings;
-pub use reconstitution::reconstitute_the_active_room;
+pub use reconstitution::retire_the_previous_attempt;
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

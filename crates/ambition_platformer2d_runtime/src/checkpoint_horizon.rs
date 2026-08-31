@@ -42,7 +42,7 @@ impl Plugin for CheckpointHorizonPlugin {
             sim,
             CheckpointRestore
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .before(crate::sandbox_reset::RoomReplayApplied),
+                .before(crate::sandbox_reset::RoomReplayAdmission),
         );
         app.configure_sets(
             sim,

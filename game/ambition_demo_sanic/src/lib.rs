@@ -2404,7 +2404,7 @@ pub fn cycle_act_after_clear(
             continue;
         }
         *state = SanicActState::default();
-        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
     }
 }
 

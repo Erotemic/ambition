@@ -19,7 +19,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_combat::RoomReplayAdmitted;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
@@ -42,8 +42,12 @@ use ambition_vfx::VfxMessage;
 /// melee swing, anim, combat, gesture, and blink-camera state. Emits the reset
 /// SFX/VFX pair from the before/after positions.
 ///
-/// The one reset authority owes the whole answer; `health` is `Option` only because a scratch
-/// body without a meter is a valid thing to reset.
+/// ⭐ THE HOME-AVATAR HALVES ARE `Option`, for the same reason `health` is: a
+/// reset is for whatever body is PLAYING the room, and a possessed enemy carries
+/// no `PlayerSafetyState` and no `PlayerBlinkCameraState`. Requiring them made
+/// the whole reset a no-op for a driven non-player body — measured: the replay
+/// silently left a possessed actor at the last attempt's health, because the
+/// query it was fetched through simply did not match.
 #[allow(clippy::too_many_arguments)]
 pub fn reset_sandbox(
     world: &ae::World,
@@ -53,20 +57,24 @@ pub fn reset_sandbox(
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
-    safety: &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
+    safety: Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
     attack: &mut Option<ambition_combat::components::MeleeSwing>,
     anim: &mut ambition_characters::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     health: Option<&mut ambition_characters::actor::BodyHealth>,
     interaction: &mut ambition_characters::control::SlotGestures,
-    blink_cam: &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+    blink_cam: Option<
+        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+    >,
     tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
 ) {
     let reset_from = clusters.kinematics.pos;
     ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
     clusters.mana.meter.refill_full();
-    safety.last_safe_pos = world.spawn;
+    if let Some(safety) = safety {
+        safety.last_safe_pos = world.spawn;
+    }
     clock_resets.write(ClockResetRequest::sim_clock(
         ClockRequester::Engine,
         "sandbox_reset",
@@ -87,7 +95,9 @@ pub fn reset_sandbox(
     // ONE CALL: clears the blink AND keeps the snap. Writing the two separately
     // is what produced the defect — `reset()` clears the snap, so a placer that
     // forgot the second line eased the camera across the whole room.
-    blink_cam.reset_to_spawn(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
+    if let Some(blink_cam) = blink_cam {
+        blink_cam.reset_to_spawn(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
+    }
     let reset_to = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: reset_to });
     vfx.write(VfxMessage::ResetEffects {
@@ -96,79 +106,180 @@ pub fn reset_sandbox(
     });
 }
 
-/// The set [`apply_room_replay_request_system`] runs in.
-///
-/// A room replay rebuilds the room; a reset input that must be seen by that
-/// rebuild lands before it. ONE member — applying the request IS the step.
+/// ⭐ WHERE A REPLAY IS ADMITTED. One member: deciding whether the replay
+/// happens IS the step, and everything that reacts to a replay is ordered
+/// AFTER it.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct RoomReplayApplied;
+pub struct RoomReplayAdmission;
 
-/// Replay the ACTIVE room on a content-emitted
-/// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
-/// — a level restart, a death, a "try again" dialogue beat.
+/// Where the admitted replay's consequences run: the body back at spawn, the
+/// attempt's residue retired, content's per-attempt state cleared.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RoomReplayConsequences;
+
+/// Decide whether a requested replay HAPPENS, and say so once.
 ///
-/// Engine-generic: this returns the primary body to spawn and asks for the room
-/// to be rebuilt. The rebuild itself is `rooms::reconstitute_the_active_room` —
-/// it records a lifecycle intent and the room-transition road commits it at a
-/// confirmed frame, so the body answers on the frame the request lands while the
-/// room comes back a couple of frames later, exactly as a door does.
+/// ```text
+/// RoomReplayRequested          the ask — anybody may write it, it may be refused
+///        |
+///        v   resolve the controlled body, name the active room,
+///            take the one pending-lifecycle slot
+///        |
+/// RoomReplayAdmitted           the fact — one writer, and only on acceptance
+/// ```
 ///
-/// This intentionally mirrors the host's reset-input system instead of driving
-/// `ControlFrame::reset_pressed`: the request can arrive while gameplay input
-/// is suspended by dialogue, so relying on the input frame would make the reset
-/// timing depend on UI/game-mode scheduling.
+/// ⛔⛔ NOTHING AUTHORITATIVE MAY CHANGE BEFORE THE SLOT IS TAKEN.
+/// [`PendingLifecycleCommit::record`] is earliest-sticky: another lifecycle
+/// operation can already own it, and then this replay does not happen at all.
+/// The previous shape reset the avatar, wrote the reset message (which reset
+/// gravity, cleared pending hits, advanced a boss arena's heavy-object cycle and
+/// despawned the attempt's dropped loot), and only afterwards tried to record
+/// the intent — so a refused replay left a half-reset room standing.
 ///
-/// The rebuild is requested even when no primary body matches the query, so a
-/// replay still rebuilds the room in a host that has no home avatar at that
-/// instant.
-#[allow(clippy::too_many_arguments)]
-pub fn apply_room_replay_request_system(
-    mut replay_requests: MessageReader<
+/// ⛔ AND IT NAMES THE CONTROLLED BODY, NOT THE HOME AVATAR.
+/// `RoomReplayRequested`'s own contract says "the controlled player", and the
+/// implementation queried `PrimaryPlayerOnly` — so while possessing an actor,
+/// the replay reset the body the player was NOT driving and named it as the
+/// subject of the rebuild, while the possessed body carried the previous
+/// attempt's state through custody.
+///
+/// A composition with no controlled body still replays: the room is rebuilt with
+/// nobody in it, `subject` is `None`, and the transition road is not asked for a
+/// crossing it cannot describe.
+pub fn admit_room_replay(
+    mut requests: MessageReader<
         ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
     >,
+    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    room_set: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
+    mut pending: ResMut<
+        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+    >,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    mut admitted: MessageWriter<RoomReplayAdmitted>,
+) {
+    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+        LifecycleIntent, RoomTransitionIntent,
+    };
+
+    // Drained unconditionally: a request seen while no world exists must not be
+    // re-read several frames later against a different one.
+    let Some(reason) = requests.read().map(|request| request.reason).next() else {
+        return;
+    };
+    let Some(room_set) = room_set.as_deref() else {
+        return;
+    };
+    let active = room_set.active_spec();
+
+    // The body the player is actually playing the room with.
+    let subject = controlled
+        .as_deref()
+        .and_then(|controlled| controlled.0)
+        .and_then(|entity| identities.get(entity).ok())
+        .cloned();
+
+    let admission = match subject.clone() {
+        Some(subject) => pending.record(
+            boundary.map_or(0, |boundary| boundary.current),
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                subject,
+                target_room: active.id.clone(),
+                arrival: active.world.spawn,
+                // A replay is not a walk off the side of a room.
+                edge_exit: false,
+                // Silent on purpose: nobody opened a door.
+                zone_sfx: None,
+            }),
+        ),
+        // ⚠ NO BODY, NO CROSSING TO DESCRIBE. The room is not rebuilt here —
+        // `RoomTransitionIntent` requires a subject by contract — but the
+        // consequences that are not about a body still run, and the log says
+        // which half happened rather than leaving a silent partial.
+        None => {
+            bevy::log::info!(
+                target: "ambition_platformer2d::room_reset",
+                "room replay ({reason:?}) admitted with no controlled body: \
+                 clearing the attempt, not rebuilding `{}`",
+                active.id,
+            );
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::Admission::Admitted
+        }
+    };
+
+    if !admission.admitted() {
+        bevy::log::info!(
+            target: "ambition_platformer2d::room_reset",
+            "room replay ({reason:?}) REFUSED: another lifecycle operation \
+             already owns the pending slot. Nothing was reset."
+        );
+        return;
+    }
+    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+        "room-replay admitted reason={reason:?} room={}",
+        active.id
+    ));
+    admitted.write(RoomReplayAdmitted { reason, subject });
+}
+
+/// Put the admitted replay's subject back at the room spawn.
+///
+/// Reads the SUBJECT the admission resolved rather than re-deriving it: control
+/// can move, end, or the body can die between the two, and a reset aimed at a
+/// different body than the rebuild carries is the fork this seam exists to
+/// remove.
+#[allow(clippy::too_many_arguments)]
+pub fn return_the_replay_subject_to_spawn(
+    mut admitted: MessageReader<RoomReplayAdmitted>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
-    mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
-    mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d_core::movement::MotionModel,
-            &mut ambition_characters::actor::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-            &mut ambition_combat::BodyMelee,
-            &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
-            // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
-            // because a scratch body without a meter is a valid thing to reset.
-            Option<&mut ambition_characters::actor::BodyHealth>,
-        ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
+    mut bodies: Query<(
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d_core::movement::MotionModel,
+        &mut ambition_characters::actor::BodyAnimFacts,
+        &mut ambition_characters::actor::BodyCombat,
+        // ⛔ `Option`: THE SUBJECT MAY NOT BE A PLAYER BODY. A possessed enemy is
+        // the body playing the room and carries neither of these; requiring them
+        // made the reset silently skip it entirely.
+        Option<&mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+        &mut ambition_combat::BodyMelee,
+        Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
+        // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
+        // because a scratch body without a meter is a valid thing to reset.
+        Option<&mut ambition_characters::actor::BodyHealth>,
+    )>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
 ) {
-    if replay_requests.read().count() == 0 {
+    let Some(subject) = admitted
+        .read()
+        .filter_map(|admitted| admitted.subject.clone())
+        .next()
+    else {
         return;
-    }
-
-    let Ok((
+    };
+    let Some((
+        _,
         mut cluster_item,
         mut motion_model,
         mut anim,
         mut combat,
-        mut blink_cam,
+        blink_cam,
         mut attack,
-        mut safety,
+        safety,
         health,
-    )) = player_q.single_mut()
+    )) = bodies.iter_mut().find(|(id, ..)| **id == subject)
     else {
-        reset_room_features.write(ResetRoomFeaturesEvent {
-            reason: RoomResetReason::Manual,
-        });
         return;
     };
 
@@ -181,31 +292,23 @@ pub fn apply_room_replay_request_system(
         &mut clusters,
         &mut sim_state,
         &mut clock_resets,
-        &mut safety,
+        safety.map(|s| s.into_inner()),
         &mut attack.swing,
         &mut anim,
         &mut combat,
         health.map(|h| h.into_inner()),
         slot_gestures.primary_mut(),
-        &mut blink_cam,
+        blink_cam.map(|c| c.into_inner()),
         active_tuning.0,
         *feel_tuning,
     );
-    reset_room_features.write(ResetRoomFeaturesEvent {
-        reason: RoomResetReason::Manual,
-    });
 }
 
-/// Registers the one [`apply_room_replay_request_system`] consumer and anchors
-/// the two content slots that must run before it. Part of
-/// [`crate::PlatformerEnginePlugins`], so every host — the Ambition app, the
-/// standalone demo binaries, and the shell-hosted demos — drains the replay
-/// request through the same system.
-///
-/// The consumer holds the position the app's copy held: in
-/// [`Platformer2dSimulationPhaseMonolith::PlayerInput`], after the dev-edit sync and before the input
-/// timer. A host with its own reset-input system pins itself relative to this
-/// one (the Ambition app does).
+/// Registers the replay TRANSACTION — admission, then consequences — and
+/// anchors the two content slots around it. Part of
+/// [`crate::PlatformerEnginePlugins`], so every host (the Ambition app, the
+/// standalone demo binaries, the shell-hosted demos) admits a replay through
+/// the same system.
 pub struct RoomReplaySchedulePlugin;
 
 impl Plugin for RoomReplaySchedulePlugin {
@@ -213,8 +316,11 @@ impl Plugin for RoomReplaySchedulePlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            apply_room_replay_request_system
-                .in_set(RoomReplayApplied)
+            (
+                admit_room_replay.in_set(RoomReplayAdmission),
+                return_the_replay_subject_to_spawn.in_set(RoomReplayConsequences),
+            )
+                .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
                 // EXACTLY equivalent to the `.before(InputTimersAdvanced)` this
@@ -223,29 +329,26 @@ impl Plugin for RoomReplaySchedulePlugin {
                 // so being before it is being before all of Device.
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device),
         );
-        // The replay transaction, in the order its meaning requires:
+        // ⭐ THE ORDER THE TRANSACTION'S MEANING REQUIRES, AND IT INVERTED.
         //
-        //   emit the request  →  clear the per-attempt state it invalidates
-        //                     →  rebuild the room
+        //   emit the request  →  ADMIT it  →  clear what the admitted replay
+        //                                     invalidates  →  rebuild the room
         //
-        // So `ContentRoomReplayResetSet` could run FIRST, read no request (the dialogue followup
-        // had not written it yet), and do nothing; the followup then emitted; and the generic
-        // consumer, correctly after both, rebuilt the room from state that was still persisted as
-        // cleared. The reset sees the message on a later frame, when the reconstruction it was
-        // supposed to precede has already happened.
-        //
-        //  the Smirking Behemoth's "press reset and start again" rebuilt the
-        // room with the boss still recorded defeated. `.chain()` is the whole
-        // fix; the sets were always the right vocabulary.
+        // Content's per-attempt reset used to run BEFORE the consumer, on the
+        // REQUEST — which is how a boss arena advanced its heavy-object cycle
+        // and a persisted "cleared" record got retracted for a replay that had
+        // not been admitted and might never happen. It now runs after admission
+        // and reads `RoomReplayAdmitted`.
         //
         // `ContentDialogueFollowupSet` gets its PHASE home from
-        // `PlayerSchedulePlugin`; this owns the semantic order between the three.
+        // `PlayerSchedulePlugin`; this owns the semantic order between the four.
         app.configure_sets(
             sim,
             (
                 ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet,
+                RoomReplayAdmission,
                 ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet,
-                RoomReplayApplied,
+                RoomReplayConsequences,
             )
                 .chain(),
         );
@@ -356,13 +459,13 @@ mod tests {
                 &mut clusters,
                 &mut sim_state,
                 &mut clock_resets,
-                &mut safety,
+                Some(&mut safety),
                 &mut attack,
                 &mut anim,
                 &mut combat,
                 None,
                 &mut gestures,
-                &mut blink_cam,
+                Some(&mut blink_cam),
                 ae::DEFAULT_TUNING,
                 ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             );

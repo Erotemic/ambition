@@ -29,7 +29,6 @@ use ambition_platformer2d::world::rooms::RoomLoaded;
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
 use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
-use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
 
 /// Which bricks are broken this run, by their authored NAME.
 ///
@@ -184,7 +183,7 @@ pub fn break_bricks(
 /// and the next LIFE — starts against a whole wall. Mirrors
 /// [`crate::powerups::rearm_power_blocks_for_a_fresh_attempt`].
 ///
-/// A death emits [`RoomReplayRequested`], which the host answers with `ResetRoomFeaturesEvent`;
+/// A death emits [`RoomReplayRequested`], which the host answers with `RoomReplayAdmitted`;
 /// `RoomLoaded` is written from exactly one place, an actual room load. The two are different
 /// events on purpose, and per-attempt CONTENT state has to answer the replay — that is what
 /// `ContentRoomReplayResetSet` is for, and the bosses were already using it.
@@ -195,7 +194,9 @@ pub fn break_bricks(
 /// "any room boundary re-arms everything" is both simpler and correct.
 pub fn rearm_bricks_for_a_fresh_attempt(
     mut rooms: MessageReader<RoomLoaded>,
-    mut replays: MessageReader<RoomReplayRequested>,
+    // The ADMITTED replay: re-arming the bricks for an attempt that was refused
+    // would hand the player a fresh wall in a room nothing rebuilt.
+    mut replays: MessageReader<ambition_platformer2d::combat::events::RoomReplayAdmitted>,
     mut broken: ResMut<BrokenBricks>,
 ) {
     // Both are drained every frame regardless of the other: a `||` would
@@ -598,7 +599,7 @@ mod tests {
         broken.mark("brick_alpha");
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
-        app.add_message::<RoomReplayRequested>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
         app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
 
         app.world_mut()
@@ -624,12 +625,14 @@ mod tests {
         broken.mark("brick_alpha");
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
-        app.add_message::<RoomReplayRequested>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
         app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
 
         app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<RoomReplayRequested>>()
-            .write(RoomReplayRequested);
+            .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::combat::events::RoomReplayAdmitted>>()
+            .write(ambition_platformer2d::combat::events::RoomReplayAdmitted::because(
+                ambition_platformer2d::combat::RoomResetReason::PlayerDeath,
+            ));
         app.update();
         assert_eq!(
             app.world()

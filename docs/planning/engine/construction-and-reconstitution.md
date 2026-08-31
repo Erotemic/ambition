@@ -55,11 +55,31 @@ requirement. Persistence/checkpoint state is a separate durable product boundary
 
 ### Same-room replay is a construction, not a repair
 
-`rooms::reconstitute_the_active_room` names a room; it does not build one. A
-replay records a `LifecycleIntent::Transition` naming the ACTIVE room, and the
-room-transition road prepares, authorizes, commits and rebases it — the road a
-door takes, and the road a checkpoint resume already took. The in-session rebuild
-paths differ in three values and in nothing else:
+A replay is ONE ADMITTED LIFECYCLE OPERATION, from request to reconstruction:
+
+```text
+RoomReplayRequested { reason }      the ASK — a reset press, a death, a "try
+                                    again" beat. Anybody may write it. It may
+                                    be refused, so NOTHING authoritative may
+                                    change on it.
+        |
+        v  admit_room_replay: resolve the CONTROLLED body, name the active
+           room, take the one pending-lifecycle slot
+        |
+RoomReplayAdmitted { reason, subject }   the FACT — one writer, only on
+                                         acceptance. Every consequence hangs
+                                         off this: the subject back at spawn,
+                                         the attempt's residue retired,
+                                         content's per-attempt state cleared,
+                                         the portal policy chosen by `reason`.
+        |
+        v  the room-transition road prepares, authorizes, commits and rebases
+```
+
+`admit_room_replay` records a `LifecycleIntent::Transition` naming the ACTIVE
+room, and the room-transition road rebuilds it — the road a door takes, and the
+road a checkpoint resume already took. The in-session rebuild paths differ in
+three values and in nothing else:
 
 ```text
                     target room      retires                  durable facts
@@ -91,6 +111,30 @@ them explicitly rather than by omission.
 A replay therefore costs what a door costs: a couple of frames, a clock ease, and
 a transition cooldown. `reset_sandbox` still returns the body and its meters
 immediately, so the input still answers on the frame it is pressed.
+
+**Admission is a decision, and the slot can refuse.** `PendingLifecycleCommit`
+is one earliest-sticky slot, so `record` returns an `Admission` and is
+`#[must_use]`: a caller that runs an operation's consequences without checking
+has changed the world for an operation that never happened. That was live. On
+every player death, `close_death_interlude` wrote BOTH `ResetToCheckpoint` and a
+replay request; the checkpoint resume recorded its transition first, the
+replay's record silently no-op'd, and the replay's consequences ran anyway. The
+death road asks for one operation now — the checkpoint resume owns the room
+change and announces the admitted replay, carrying `PlayerDeath` so the player's
+placed gun portals survive a death and not a deliberate retry.
+
+**The subject is the body you are DRIVING.** `RoomReplayRequested`'s contract
+says "the controlled player"; the implementation queried `PrimaryPlayerOnly`,
+which is the home avatar. While possessing an actor, a replay therefore reset
+the body the player was not driving and named it as the rebuild's subject, while
+the possessed body carried the previous attempt's state through custody. The
+subject is resolved once, at admission, from `ControlledSubject`, and travels on
+the admitted message rather than being re-derived later — the rule
+`RoomTransitionIntent` already states about its own subject.
+
+A composition with no controlled body still replays: `subject` is `None`, the
+consequences that are not about a body run, and the transition road is not asked
+for a crossing it cannot describe.
 
 ### Provenance/lifetime vocabulary exists
 
@@ -169,16 +213,30 @@ adopted into that already-built world, and `complete_durable_restore` emits
 `shrine::resume_at_checkpoint_on_reset` records a room-transition intent, and
 THAT construction does state the continuity.
 
-**Measured 2026-08-30: the correction lands on the same population.** A
-fresh-process load of an empty file builds the room a session that never loaded
-anything has, and a load carrying a relocated occurrence suppresses it exactly as
-walking back into the room does — cases 7 and 8 of the acceptance suite, both red
-under a poisoned `outlook_for`. So this is a SHAPE, not a defect: a load
-constructs a room it is about to replace.
+**Measured 2026-08-30: the correction lands on the same FINAL population.** A
+load of an empty file builds the room a session that never loaded anything has,
+and a load carrying a relocated occurrence suppresses it exactly as walking back
+into the room does — cases 7 and 8 of the acceptance suite, both red under a
+poisoned `outlook_for`.
 
-Worth removing when it buys something concrete (a load currently costs an extra
-room construction, and the window between the two is where a fact re-derived
-from live state can overwrite a restored one). Not worth removing for tidiness.
+⚠ THAT IS EVENTUAL CONVERGENCE, NOT A CLEAN BILL. Two things it does not
+establish, and the earlier language overstated:
+
+- **The fixture is not a real startup load.** It writes the save resource and
+  clears `SaveRestored` eight frames in; it does not exercise
+  `load_save_at_startup`, the persistence root, or startup ordering. It is a
+  focused test of durable-fact ADOPTION, and the module says so.
+- **The interim world is unproven, not proven harmless.** The architecture
+  currently permits an authoritative population to exist — and run — before the
+  saved facts correct it, and no gameplay gate is tied to `SaveRestored`. The
+  boss-defeat record is the warning: live state can re-derive and overwrite a
+  durable fact inside exactly such a window.
+
+So the build-then-correct shape is kept PROVISIONALLY. Closing C3 needs one of:
+a genuine startup save-load test showing gameplay cannot observe or mutate the
+pre-correction population; a gate on gameplay authority until restoration
+completes; or supplying the saved occurrence facts to initial construction so the
+temporary population never exists.
 
 `ResetToCheckpoint`'s contract said it was the death/retry horizon and "not a
 save load" while the durable road wrote exactly that; the comment was wrong about

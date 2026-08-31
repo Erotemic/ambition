@@ -54,6 +54,19 @@ pub struct SmashFighterFacet {
     /// facet authored before this field existed.
     #[serde(default)]
     pub body: Option<FighterBodyAuthoring>,
+    /// How hard this fighter is to LAUNCH — the divisor in `scaled_knockback`.
+    ///
+    /// ⭐ A CHARACTER OWNS ITS OWN WEIGHT. This lived in the Smash demo as a
+    /// `match definition.id` table until 2026-08-31: a game-owned map from
+    /// character id to an ordinary `Vitals` field the engine already owns, which
+    /// is the exact shape `character-authoring-package.md` names as a falsifier.
+    /// A heavy is heavy because its own package says so.
+    ///
+    /// Above 1.0 resists a launch, below 1.0 flies further; 1.0 is the reference
+    /// body. `None` keeps whatever weight the character already had, which is
+    /// every fighter that has not thought about it.
+    #[serde(default)]
+    pub knockback_weight: Option<f32>,
     /// The capture kit: grab, pummel, throws.
     pub capture: CaptureKitAuthoring,
 }
@@ -283,6 +296,17 @@ impl SmashFighterFacet {
         }
         if let Some(body) = &self.body {
             body.problems(&mut out);
+        }
+        // ⛔ POSITIVE, not merely finite, for the same reason the body's
+        // magnitudes are: `scaled_knockback` DIVIDES by this. Zero is a division
+        // by zero and a negative weight launches a fighter toward the attacker.
+        if let Some(weight) = self.knockback_weight {
+            if !weight.is_finite() || weight <= 0.0 {
+                out.push(format!(
+                    "`knockback_weight` is {weight}, and the knockback term DIVIDES by it — \
+                     zero or negative is not a heavy fighter, it is a broken launch"
+                ));
+            }
         }
         self.capture.problems(&mut out);
         out

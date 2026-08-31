@@ -53,8 +53,46 @@ fn kit() -> CaptureKitAuthoring {
 fn facet() -> SmashFighterFacet {
     SmashFighterFacet {
         body: None,
+        knockback_weight: None,
         character: "test_fighter".to_string(),
         capture: kit(),
+    }
+}
+
+/// ⛔ A WEIGHT THE KNOCKBACK TERM DIVIDES BY MAY NOT BE ZERO OR NEGATIVE.
+///
+/// `scaled_knockback` divides the growth term by this, so 0.0 is a division by
+/// zero and a negative sends the victim TOWARD the attacker. Both are the class
+/// this list is for: authored values whose consequence is invisible until
+/// somebody launches the fighter.
+///
+/// ⚠ NOT a balance filter. 40.0 is a fighter nothing can launch and 0.01 is one
+/// a jab kills, and both are refused here only if this file forgets what it is
+/// for — see `problems`'s own doc.
+#[test]
+fn a_knockback_weight_the_launch_term_divides_by_must_be_positive() {
+    for bad in [0.0, -1.35, f32::NAN] {
+        let mut facet = facet();
+        facet.knockback_weight = Some(bad);
+        assert!(
+            facet
+                .problems()
+                .iter()
+                .any(|problem| problem.contains("knockback_weight")),
+            "`{bad}` was accepted as a knockback weight: {:?}",
+            facet.problems()
+        );
+    }
+    // ⭐ AND THE CONTROL. A heavy and a light are both fine; the list refuses
+    // the impossible, not the unusual.
+    for good in [0.5, 1.0, 1.35, 8.0] {
+        let mut facet = facet();
+        facet.knockback_weight = Some(good);
+        assert!(
+            facet.problems().is_empty(),
+            "`{good}` is an ordinary weight and was refused: {:?}",
+            facet.problems()
+        );
     }
 }
 

@@ -501,6 +501,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   immutable and the first Smash fighter facet exists. Re-measure the current
   residuals before migrating another field. The startup-reach proxy is a
   maintainer decision (§35), not an excuse to widen generic character data.
+  ⭐ CENSUSED 2026-08-31 against the owner doc's five-part test, ten sites; most
+  are two LEGITIMATE authors (a demo mechanic keyed on identity, a match rule
+  composed through `MatchRules`) and are not targets. ✔ FIRST SLICE CLOSED: the
+  Smash demo's `smash_reading_of_character` — a `match definition.id` writing
+  `Vitals::knockback_weight` for a character it does not own — is deleted, and
+  George states his own 1.35 in `smash_fighter.ron`. ▢ NEXT, in order: Mary-O's
+  `sheet_target` (`powerups.rs:1090`) re-derives a sheet from an id at runtime
+  when the engine already owns the join; then the `canonical_height` /
+  `standing_height` pair, which is a DELETION (one of the two has no gameplay
+  reader) rather than a migration. ⛔ NOT a residual: eleven grid fighters on the
+  actor baseline is a MISSING author, not a duplicate one.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 

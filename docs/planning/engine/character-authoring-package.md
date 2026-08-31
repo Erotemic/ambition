@@ -27,7 +27,9 @@ The repository already has important pieces of the target:
   character definition. It carries body facts, hurtboxes, abilities, autonomous
   policy, authored movesets, presentation references and validation results.
 - canonical character height is authored as a shared character fact; art quality
-  scales presentation rather than changing declared gameplay height;
+  scales presentation rather than changing declared gameplay height — ⚠ the
+  SECOND clause is guarded (`quality_change_keeps_each_character.rs`), the first
+  is only half true, see the height residual under A1;
 - ordinary Smash move repertoires are character-authored `MovesetContract`
   values rather than one shared fighter kit;
 - `ambition_characters::smash_fighter::SmashFighterFacet` is a typed,
@@ -91,6 +93,53 @@ Promote only a slice that can name:
 
 This is queue row D166.
 
+**Censused 2026-08-31, and one slice closed.** Ten sites were examined against
+the five-part test. Most are two *legitimate* authors — a demo mechanic keyed on
+identity, or a match rule composed through `MatchRules` — and are explicitly not
+targets. Three residuals name all five parts:
+
+- ✔ **Knockback weight — CLOSED 2026-08-31.** `smash_reading_of_character` in
+  `ambition_demo_smash` was a `match definition.id` writing `Vitals::knockback_
+  weight`, an ordinary character fact the engine already owns, for a character
+  the demo does not own — the falsifier below in as many words. George now states
+  `knockback_weight: Some(1.35)` in his own `smash_fighter.ron`; the two
+  stand-ins state theirs where they are constructed, which is authoring rather
+  than override. Guard: `george_carries_the_knockback_weight_his_own_facet_
+  authors` in `game/ambition_app/tests/smash_in_the_host.rs`, red under both
+  poisons (strip the RON field; cut the facet out of registration).
+- ▢ **Mary-O `sheet_target`** (`game/ambition_demo_mary_o/src/powerups.rs:1090`)
+  re-derives a character's sheet from its id at runtime, when the same pairing is
+  already authored three other ways and the engine owns the join
+  (`ambition_sprite_sheet::character::catalog_join`). One caller, so a cheap
+  ratchet.
+- ▢ **The display-name join** (`character_runtime/mod.rs`'s
+  `canonical_character_id` falling through to `id_for_display_name`) is a real
+  A3 residual, but content deliberately rides it and room/roster tokens
+  legitimately arrive as display names. Not a one-slice promotion — see A3.
+
+⛔ **NOT a residual, and worth stating so it is not re-filed**: eleven of the
+fourteen grid fighters play on the actor baseline because they author no fighter
+body. That is a *missing author*, not a duplicate authority, and it is a product
+call.
+
+⚠ **A THIRD residual, and it is a DELETION rather than a migration: two fields
+hold one fact.** `Vitals::canonical_height` is authored (`demo_mary_o`,
+`player_robot_lineage`) and **read by nothing in gameplay** — measured
+2026-08-31, the only non-test reader in the tree is a JSON dump in
+`moveset_export`. The height that actually sizes a body is the catalog row's
+`standing_height`, read at `ambition_sprite_sheet::character::catalog_join` and
+`character_sprites::assets`. Its one real effect is as an *input* to
+`world_per_pixel_for_height` at the authoring site. Two independent live truths
+for one character fact is the second falsifier below; the fix is to decide which
+field survives, not to move a value.
+
+⛔ **Two names cited in comments do not exist.** `character_id_for_display_name`
+(cited at `game/ambition_content/src/duel_arena.rs:61,81`) is really
+`id_for_display_name`; `smash_fighter_kit()` is cited as a live generic floor in
+five places and no such function exists — only the const `SMASH_FIGHTER_KIT`
+survives. `select.rs`'s "adopter count is supposed to be FALLING" note is
+therefore measuring something already at zero.
+
 ### A2 — keep the first fighter facet load-bearing
 
 The current platform-fighter facet is evidence that character-owned typed facets
@@ -107,6 +156,12 @@ benefit and the old source is deleted.
 Legacy adapters may feed the same preparation boundary during migration, but
 there must be one published `PreparedCharacterDefinition` and no downstream
 re-derivation from parent/patch/name-search state.
+
+⚠ **The second clause is a GOAL, not a standing invariant — measured 2026-08-31.**
+`canonical_character_id` resolves an identity by searching display names, and
+`game/ambition_content/src/duel_arena.rs` depends on it on purpose. Recording it
+as a known residual is honest; leaving it written as an invariant implies a guard
+that does not exist.
 
 A new serialized facet must define its schema/version and content compatibility
 behavior before it becomes a stable public format.

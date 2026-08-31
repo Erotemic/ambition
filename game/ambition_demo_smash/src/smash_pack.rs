@@ -80,6 +80,21 @@ pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_cor
         .map(|body| body.over(ambition_platformer2d::engine_core::DEFAULT_TUNING))
 }
 
+/// How hard a character is to LAUNCH, where its authored facet states it.
+///
+/// ⭐⭐ THE LAST PER-ID CHARACTER TABLE IN THIS DEMO CAME OUT THROUGH HERE.
+/// `smash_reading_of_character` was a `match definition.id` writing
+/// `Vitals::knockback_weight` — an ordinary character fact the engine already
+/// owns — for a character the demo does not own. A game describing a character's
+/// weight from outside is the falsifier `character-authoring-package.md` names.
+///
+/// `None` for a character this pack authors no facet for, and for one whose
+/// facet states no weight: both mean *keep whatever weight you already had*,
+/// which for a fighter that has never thought about it is the reference body.
+pub fn fighter_knockback_weight(character: &str) -> Option<f32> {
+    fighter_facet(character)?.knockback_weight
+}
+
 /// The prepared capture kit for a character this pack authors.
 ///
 /// # Panics

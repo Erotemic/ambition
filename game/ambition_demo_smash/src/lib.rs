@@ -10,8 +10,6 @@
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
-use ambition_platformer2d::character::CharacterDefinition;
-use ambition_platformer2d::character::Vitals;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
@@ -198,47 +196,6 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // mark/recall): those are abilities a body wields, which is a different
     // mechanic from an item fight.
     roster.rules.item_spawns = None;
-}
-
-/// SMASH'S READING OF A CHARACTER — a function from what the character
-/// AUTHORED to what this match's seat plays with.
-///
-/// PURE, and that is the requirement. Two of this
-/// ruleset's three adjustments already go through one named composition site —
-/// [`apply_smash_match_rules`] declares them and `MatchRules::body_over` /
-/// `MatchRules::pool_over` compose them. The third did not: the registration
-/// loop in `install_smash_content` reached into `definition.vitals` and ASSIGNED
-/// a weight, mid-loop, on the way past. That reach-in is now this function, and
-/// grepping the name below finds every place the smash ruleset interprets
-/// authored character data.
-///
-/// the orthogonality this expresses is not new here. Character authoring
-/// and ruleset specificity are independent axes: data may live WITH the
-/// character while being owned SEMANTICALLY by the smash capability. Mary-O's
-/// move table already works exactly this way — it sits in her own crate, is
-/// unreachable in her own game, and speaks smash's vocabulary.
-///
-/// What it buys is that the eventual answer — character-owned, game-owned, or composed — is ONE
-/// edit either way.
-///
-/// the authored numbers and their reasoning are unchanged. Weight is a SPREAD around the
-/// reference body rather than three absolute numbers: v3 is the middleweight the stage is tuned
-/// against, v2 is the lighter older build, George is the heavy.
-pub fn smash_reading_of_character(
-    definition: ambition_platformer2d::characters::actor::definition::CharacterDefinition,
-) -> ambition_platformer2d::characters::actor::definition::CharacterDefinition {
-    let knockback_weight = match definition.id.as_str() {
-        SMASH_OPPONENT_ID => 0.85,
-        SMASH_GEORGE_BOOUL => 1.35,
-        _ => 1.0,
-    };
-    CharacterDefinition {
-        vitals: Vitals {
-            knockback_weight: Some(knockback_weight),
-            ..definition.vitals
-        },
-        ..definition
-    }
 }
 
 /// Match-level movement overrides shared by platform fighters on the Smash stage.
@@ -3346,12 +3303,27 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         // draws. `smash_george_booul` was added to the grid and left off this
         // list for one commit, and the tell was a stocks fighter that never
         // seated — not a missing sprite.
-        for (id, name, sheet) in [
-            (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3"),
-            (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2"),
-            (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
+        //
+        // ⭐ THE FOURTH COLUMN IS A WEIGHT, and it is only here for the two
+        // STAND-INS. Weight is a SPREAD around the reference body: v3 is the
+        // middleweight the stage is tuned against, v2 is the lighter older
+        // build. Stating a value where you CONSTRUCT a character is authoring;
+        // `None` means the character states its own, and George does — see
+        // `smash_pack::fighter_knockback_weight`.
+        for (id, name, sheet, stand_in_weight) in [
+            (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3", Some(1.0)),
+            (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2", Some(0.85)),
+            (SMASH_GEORGE_BOOUL, "George Booul", "george_booul", None),
         ] {
-            let definition = CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
+            let mut definition =
+                CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
+            // ⛔ THE CHARACTER'S OWN FACET OUTRANKS THE COLUMN ABOVE, and the
+            // order matters: a fighter this repository authors describes itself,
+            // and a demo-owned stand-in is described where it is built. There is
+            // no longer a `match definition.id` anywhere in this crate reading an
+            // ordinary character fact back out of an id.
+            definition.vitals.knockback_weight =
+                crate::smash_pack::fighter_knockback_weight(id).or(stand_in_weight);
             // THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE
             // .
             //
@@ -3368,7 +3340,6 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // per-game properties belong to the character or to the game is
             // deliberately still open; the seam exists so the answer is one edit
             // either way.
-            let mut definition = smash_reading_of_character(definition);
             // Six numbers stood on this line — `slash_recoil: 0.0`, a
             // three-frame jump squat, the air-dodge window and a 500 px/s tumble
             // floor. Every one was right and none of them could reach the other

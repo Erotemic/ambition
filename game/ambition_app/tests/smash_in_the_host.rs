@@ -1575,7 +1575,76 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
 
 /// `SmashRoster::assemble` FILTERS to what the catalog carries, and that is
 /// correct behaviour — a host that composes only some providers shows only the
-/// fighters it has, which is what lets the bare smash app run at all. It also
+//// GEORGE IS HEAVY BECAUSE HIS OWN PACKAGE SAYS SO.
+///
+/// ⭐⭐ THE CLAIM IS PROVENANCE, NOT THE NUMBER. `Vitals::knockback_weight` is an
+/// ordinary character fact the engine has always owned, and George has always
+/// reached the stage at 1.35 — but until 2026-08-31 the number came from a
+/// `match definition.id` in `ambition_demo_smash`, a GAME describing a
+/// CHARACTER's weight from outside. `character-authoring-package.md` names that
+/// shape as a falsifier in as many words: *"a game-owned table rewrites ordinary
+/// character facts by character id"*.
+///
+/// ⛔ SO A VALUE ASSERTION ALONE WOULD HAVE BEEN GREEN BEFORE THE MIGRATION AND
+/// GREEN AFTER IT. What makes this load-bearing is the second half: the STAND-INS
+/// author no facet and must read `None` from the pack. Delete
+/// `knockback_weight` from George's `smash_fighter.ron` and the first assertion
+/// goes red; put the demo's table back and the second one does.
+#[test]
+fn george_carries_the_knockback_weight_his_own_facet_authors() {
+    use ambition_demo_smash::{SMASH_CHARACTER_ID, SMASH_GEORGE_BOOUL, SMASH_OPPONENT_ID};
+
+    // The AUTHORED end: his package states it, and the pack reads it back.
+    assert_eq!(
+        ambition_demo_smash::smash_pack::fighter_knockback_weight(SMASH_GEORGE_BOOUL),
+        Some(1.35),
+        "George's `smash_fighter.ron` must state his weight — with it gone the \
+         heaviest fighter on the grid launches like the reference body and \
+         nothing else in the tree would notice"
+    );
+    // ⛔ AND THE TWO STAND-INS AUTHOR NOTHING. If a table is quietly restored,
+    // it restores all three arms, so this is the arm that catches it.
+    for id in [SMASH_CHARACTER_ID, SMASH_OPPONENT_ID] {
+        assert_eq!(
+            ambition_demo_smash::smash_pack::fighter_knockback_weight(id),
+            None,
+            "`{id}` is a demo-owned stand-in the composed host drops; it must \
+             state its weight where it is CONSTRUCTED, not through a facet this \
+             repository does not author"
+        );
+    }
+
+    // The RUNTIME end, in the SHIPPED host: the value arrives on the prepared
+    // character, which is what `PhysicalBaseline` reads and what
+    // `a_seated_fighter_carries_its_authored_knockback_weight` then projects onto
+    // `CombatTuning::weight`.
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let george = registry
+        .get(SMASH_GEORGE_BOOUL)
+        .expect("George is not registered in the shipped host, so this measures nothing");
+    assert_eq!(
+        george.vitals.knockback_weight,
+        Some(1.35),
+        "George's authored weight did not survive registration"
+    );
+    let reference = registry
+        .get(SMASH_CHARACTER_ID)
+        .expect("the middleweight stand-in is not registered");
+    assert_eq!(
+        reference.vitals.knockback_weight,
+        Some(1.0),
+        "the stage is tuned against this body; it is the 1.0 George's 1.35 is a \
+         spread AROUND, and a heavy with no reference is just a number"
+    );
+}
+
+// fighters it has, which is what lets the bare smash app run at all. It also
 /// means a misspelled id is indistinguishable from an absent provider: the grid
 /// silently comes up one fighter short and the screen still looks fine.
 ///

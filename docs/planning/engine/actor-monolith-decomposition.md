@@ -72,19 +72,29 @@ Do not compare these as though they were the same metric. Before a footprint
 carve, run `cargo tree -i <dependency>`; another path may already keep the crate
 in the product closure.
 
-At that census, only four monolith dependencies reached it through a single path
-and therefore had the possibility of shrinking closure by removing that edge:
+⛔⛔ **THE "SINGLE PATH" LIST IS STALE — RE-MEASURED 2026-08-31.** The census
+named four monolith dependencies as reaching the closure through one path and
+therefore able to shrink it:
 
-```text
-ambition_dev_tools
-ambition_mount
-ambition_items
-ambition_damage
-```
+| dependency | dependent crates today |
+|---|---:|
+| `ambition_dev_tools` | 6 |
+| `ambition_mount` | 6 |
+| `ambition_items` | 5 |
+| `ambition_damage` | 3 |
 
-This is a prioritization hint, not an instruction to move them blindly. A
-multi-path dependency can still be worth removing for ownership or compile
-isolation.
+None is single-path. And the stronger statement, which retires the rationale
+rather than just the number: **`ambition_platformer2d` — the facade every game
+depends on — depends on all four directly** (`items` optionally). So removing the
+MONOLITH's edge to any of them cannot shrink a product's closure at all, however
+the census is counted.
+
+⭐ **SO FOOTPRINT IS NOT A REASON TO CARVE THESE FOUR.** The remaining reasons are
+the ones this doc already leads with — ownership, dependency direction, compile
+and test isolation — and a slice that promises closure movement for one of them
+is promising something arithmetic forbids. Re-run
+`grep -rl "^<dep>" crates/*/Cargo.toml game/*/Cargo.toml` before citing any
+single-path claim; it is cheaper than `cargo tree` and it is what went stale.
 
 ## What recent carves taught
 

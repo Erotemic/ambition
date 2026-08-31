@@ -472,7 +472,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
   compile/test isolation. Do not carve by LOC and do not promise frame-time
-  improvement without a measurement. Owner:
+  improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
+  "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
+  and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
+  3, and the FACADE every game depends on names all four directly. So removing
+  the monolith's edge to any of them cannot shrink a product's closure, and
+  footprint is retired as a rationale for these four; carve them for ownership
+  and compile isolation or not at all. ⭐ THE READY SLICE is `ambition_dev_tools`:
+  the doc's own frontier says developer tools are a poor reason for the
+  simulation kernel to depend upward, and the monolith has only SEVEN production
+  references — `DeveloperRuntimeState` (`time/time_control`, `control/input_systems`),
+  `profiling::phase_mark` ×2 (`audio/plugin`), the world-source hot-reload pair
+  (`features/mod.rs`), and `EditableAbilitySet` (`session/setup.rs`). ⛔ THE LAST
+  ONE IS THE LOAD-BEARING ONE and decides the slice's size: a live-editable dev
+  type is threaded into the production construction path, so the ability set
+  needs a non-dev home before the edge can go. Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real

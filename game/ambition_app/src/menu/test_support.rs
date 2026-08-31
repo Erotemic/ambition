@@ -44,6 +44,8 @@ pub(crate) fn trigger_press(app: &mut App, entity: Entity) {
         Press {
             button: PointerButton::Primary,
             hit: HitData::new(entity, 0.0, None, None),
+            // bevy 0.19: consecutive-press counter; a single synthetic press is 1.
+            count: 1,
         },
         entity,
     ));

@@ -1240,6 +1240,8 @@ fn hover_then_click(app: &mut App, move_to: MenuPageAction, click_target: MenuPa
         Press {
             button: bevy::picking::pointer::PointerButton::Primary,
             hit: HitData::new(target, 0.0, None, None),
+            // bevy 0.19: consecutive-press counter; a single synthetic press is 1.
+            count: 1,
         },
         target,
     ));
@@ -1466,6 +1468,8 @@ fn mouse_wheel_scrolls_window_not_selection() {
                 x: 0.0,
                 y: -1.0,
                 window: Entity::PLACEHOLDER,
+                // bevy 0.19: a mouse wheel always reports `Moved`.
+                phase: bevy::input::touch::TouchPhase::Moved,
             });
         app.update();
     }
@@ -1543,6 +1547,8 @@ fn keyboard_nav_clears_the_scroll_override() {
             x: 0.0,
             y: -1.0,
             window: Entity::PLACEHOLDER,
+            // bevy 0.19: a mouse wheel always reports `Moved`.
+            phase: bevy::input::touch::TouchPhase::Moved,
         });
     app.update();
     assert!(
@@ -1595,6 +1601,8 @@ fn press_move_click(app: &mut App, press_pos: Vec2, move_pos: Vec2) -> Entity {
         Press {
             button: bevy::picking::pointer::PointerButton::Primary,
             hit: HitData::new(entity, 0.0, None, None),
+            // bevy 0.19: consecutive-press counter; a single synthetic press is 1.
+            count: 1,
         },
         entity,
     ));

@@ -793,7 +793,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     let mut texts = app
         .world_mut()
         .query::<(Entity, &Text, &TextFont, Option<&MenuTextHeightFraction>)>();
-    let rendered: Vec<(String, f32, bool)> = texts
+    let rendered: Vec<(String, FontSize, bool)> = texts
         .iter(app.world())
         .filter(|(entity, ..)| under_launcher(*entity))
         .map(|(_, text, font, fraction)| (text.0.clone(), font.font_size, fraction.is_some()))
@@ -819,7 +819,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     // `typography_sized` selects among the launcher's `MenuNode::Text` nodes
     // only — never a control's label — and REQUIRES the match to be unique.
     let typography_sized = |matches: &dyn Fn(&str) -> bool, wanted: &str| -> f32 {
-        let hits: Vec<f32> = rendered
+        let hits: Vec<FontSize> = rendered
             .iter()
             .filter(|(label, _, has_fraction)| *has_fraction && matches(label))
             .map(|(_, size, _)| *size)
@@ -831,7 +831,13 @@ fn the_title_screen_says_choose_game_and_is_readable() {
              {}: {rendered:?}",
             hits.len()
         );
-        hits[0]
+        // The assertions below are about a NUMBER of pixels. `resolve_menu_text_size`
+        // converts the authored height fraction against the live window and writes
+        // pixels, so anything else here means that conversion stopped happening.
+        match hits[0] {
+            FontSize::Px(px) => px,
+            other => panic!("{wanted} was sized in {other:?}, not resolved pixels"),
+        }
     };
 
     // The title. It rendered at FIVE PIXELS, and the cause was not the launcher:

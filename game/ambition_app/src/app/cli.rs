@@ -647,25 +647,6 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     build_visible_app_with(render, shell_hosted, |_| {})
 }
 
-/// [`build_visible_app`], plus the ONE moment a caller can reach: after the App
-/// exists, before the simulation plugin builds.
-///
-/// this exists because the alternative was a second app builder, and that fork cost five
-/// bugs. `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
-/// `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS: `init_sandbox_resources` removes
-/// them while the simulation plugin builds, so a caller who wants to set one has to write it
-/// into a world that already exists and has not yet built that plugin. There was no such
-/// moment.
-///
-/// a closure rather than a struct of known inputs. A struct would have to
-/// enumerate the composition inputs, and the fifth one added elsewhere would not
-/// be reachable here — which is the same "a caller cannot say this" hole, one
-/// release later. The hook says *when*, and the resources say *what*.
-///
-/// It runs AFTER [`insert_starting_character_override`] reads
-/// `AMBITION_START_CHARACTER`, so an explicit caller wins over the environment,
-/// and after `AmbitionShellHosted`, so nothing here can be undone by the builder.
-#[cfg(not(target_arch = "wasm32"))]
 /// The log filter this game runs with, and where a person changes it.
 ///
 /// ⭐⭐ THE DEFAULT NAMES THE GAME'S OWN CHANNELS. Bevy's default filter is about
@@ -685,6 +666,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
 ///
 /// ⛔ A MISSING FILE IS NOT AN ERROR, and neither is an unreadable one: logging
 /// configuration must never be a reason the game does not start.
+///
+/// ⚠ NOT gated off wasm, and it used to be by ACCIDENT: `build_visible_app_with`'s
+/// doc block and its `cfg(not(wasm32))` had drifted up above this constant, so the
+/// gate landed here and `run_web` — which installs [`ambition_log_plugin`] too —
+/// could not resolve it. The three-place resolution above degrades correctly in a
+/// browser on its own: no `RUST_LOG`, no readable file, so the shipped default wins.
 const DEFAULT_LOG_FILTER: &str = concat!(
     "info,wgpu=error,naga=warn,",
     // The game's own channels, on by default because they exist to be read.
@@ -722,6 +709,25 @@ pub(crate) fn ambition_log_plugin() -> bevy::log::LogPlugin {
     }
 }
 
+/// [`build_visible_app`], plus the ONE moment a caller can reach: after the App
+/// exists, before the simulation plugin builds.
+///
+/// this exists because the alternative was a second app builder, and that fork cost five
+/// bugs. `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
+/// `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS: `init_sandbox_resources` removes
+/// them while the simulation plugin builds, so a caller who wants to set one has to write it
+/// into a world that already exists and has not yet built that plugin. There was no such
+/// moment.
+///
+/// a closure rather than a struct of known inputs. A struct would have to
+/// enumerate the composition inputs, and the fifth one added elsewhere would not
+/// be reachable here — which is the same "a caller cannot say this" hole, one
+/// release later. The hook says *when*, and the resources say *what*.
+///
+/// It runs AFTER [`insert_starting_character_override`] reads
+/// `AMBITION_START_CHARACTER`, so an explicit caller wins over the environment,
+/// and after `AmbitionShellHosted`, so nothing here can be undone by the builder.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn build_visible_app_with(
     render: VisibleRenderMode,
     shell_hosted: bool,

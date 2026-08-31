@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::falling_sand_sim::{MIXED_SPOUT_WIDTH, SOLO_SPOUT_WIDTH};
 
@@ -21,14 +20,19 @@ fn every_particle_lands_in_exactly_one_ledger_column() {
     let mut scratch = ProjectionScratch::default();
 
     let particles = vec![
-        (at(&w, 10.0, 10.0), TYPE_SAND),
-        (at(&w, 11.0, 10.0), TYPE_SAND),
-        (at(&w, 40.0, 40.0), TYPE_WATER),
-        (at(&w, 200.0, 200.0), TYPE_OIL),
+        (at(&w, 10.0, 10.0), Some(TYPE_SAND)),
+        (at(&w, 11.0, 10.0), Some(TYPE_SAND)),
+        (at(&w, 40.0, 40.0), Some(TYPE_WATER)),
+        (at(&w, 200.0, 200.0), Some(TYPE_OIL)),
         // A wall particle: geometry, not matter. Named, not silently dropped.
-        (at(&w, 12.0, 10.0), TYPE_WALL),
+        (at(&w, 12.0, 10.0), Some(TYPE_WALL)),
+        // A particle whose ParticleType this room did not author. Since
+        // bevy_falling_sand 0.8 a particle carries an opaque id rather than a
+        // name, so "not one of ours" is now a REPRESENTABLE answer — and it must
+        // land in `unmodelled` beside the wall, not vanish from the total.
+        (at(&w, 13.0, 10.0), None),
         // Off the map entirely.
-        (IVec2::new(100_000, 100_000), TYPE_SAND),
+        (IVec2::new(100_000, 100_000), Some(TYPE_SAND)),
     ];
     let n = particles.len();
 
@@ -38,8 +42,8 @@ fn every_particle_lands_in_exactly_one_ledger_column() {
     assert_eq!(ledger.water, 1);
     assert_eq!(ledger.oil, 1);
     assert_eq!(
-        ledger.unmodelled, 1,
-        "the wall is geometry, and is named so"
+        ledger.unmodelled, 2,
+        "the wall is geometry and the unauthored type is unknown; both are named, not dropped"
     );
     assert_eq!(ledger.outside_world, 1);
 
@@ -59,8 +63,8 @@ fn every_particle_lands_in_exactly_one_ledger_column() {
 fn particles_accumulate_within_a_tile_rather_than_collapsing() {
     let w = room(256.0, 256.0);
     let mut scratch = ProjectionScratch::default();
-    let same_tile: Vec<(IVec2, &str)> = (0..7)
-        .map(|i| (at(&w, 20.0 + i as f32, 20.0), TYPE_SAND))
+    let same_tile: Vec<(IVec2, Option<&str>)> = (0..7)
+        .map(|i| (at(&w, 20.0 + i as f32, 20.0), Some(TYPE_SAND)))
         .collect();
     let ledger = tally_particles(&w, same_tile.into_iter(), &mut scratch);
     assert_eq!(ledger.sand, 7);

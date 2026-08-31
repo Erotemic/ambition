@@ -130,6 +130,8 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
         Press {
             button: PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(bar, 0.0, None, None),
+            // bevy 0.19: consecutive-press counter; a single synthetic press is 1.
+            count: 1,
         },
         bar,
     ));
@@ -232,6 +234,8 @@ fn held_drag_survives_a_scrollbar_respawn() {
         Press {
             button: PointerButton::Primary,
             hit: bevy::picking::backend::HitData::new(bar1, 0.0, None, None),
+            // bevy 0.19: consecutive-press counter; a single synthetic press is 1.
+            count: 1,
         },
         bar1,
     ));

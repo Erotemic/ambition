@@ -83,6 +83,17 @@ android_platform = [
     "bevy/bevy_winit",
     "bevy/default_font",
     "bevy/multi_threaded",
+    # ⭐ FALLBACK GLYPH COVERAGE ON A PLATFORM THAT SHIPS NO BUNDLED FALLBACK.
+    # Android is the ONE composition that asks for this. Under Bevy 0.18 the app
+    # hand-loaded `/system/fonts` into cosmic-text's fontdb because it would
+    # otherwise panic with "no default font found"; Bevy 0.19's Parley/fontique
+    # stack has a real Android system source that scans the same directory and
+    # additionally reads the platform's `fonts.xml` generic-family mappings.
+    # ⛔ Deliberately NOT in `desktop_platform` or `web_platform`: shipped
+    # product typography is the bundled faces resolved through the asset
+    # catalog, and it must not vary with what a player happens to have
+    # installed. On Linux this feature would also pull in fontconfig.
+    "bevy/system_font_discovery",
 ]
 
 # Web/browser platform support. First-pass wasm32 build: bevy's canvas-backed

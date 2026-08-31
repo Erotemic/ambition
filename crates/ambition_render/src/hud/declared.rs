@@ -954,10 +954,18 @@ mod punch_tests {
         for _ in 0..frames {
             app.update();
         }
-        app.world()
+        // The assertions below are about a NUMBER of pixels, so unwrap the unit
+        // here rather than making every comparison carry it. This pass only ever
+        // writes `Px`; a different variant means the punch stopped owning the size.
+        match app
+            .world()
             .get::<TextFont>(node)
             .expect("still a node")
             .font_size
+        {
+            FontSize::Px(px) => px,
+            other => panic!("the HUD punch wrote a non-pixel font size: {other:?}"),
+        }
     }
 
     /// ⛔⛔ THE PUNCH MUST NOT COMPOUND, and this is the whole reason the node

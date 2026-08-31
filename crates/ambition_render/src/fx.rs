@@ -1436,7 +1436,12 @@ mod tests {
                         text.as_str().to_string(),
                         LabelBox {
                             center: transform.translation.truncate(),
-                            half: label_size(None, text.as_str(), font.font_size, &settings) * 0.5,
+                            half: label_size(
+                                None,
+                                text.as_str(),
+                                crate::rendering::label_layout::label_font_px(font),
+                                &settings,
+                            ) * 0.5,
                         },
                     )
                 })

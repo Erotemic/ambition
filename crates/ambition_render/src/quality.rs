@@ -3,8 +3,8 @@
 //! Settings persist the user's profile/custom table in gameplay-core. The render
 //! side mirrors that into one resource every visual subsystem can read.
 
-use bevy::prelude::*;
 use bevy::camera::RenderTarget;
+use bevy::prelude::*;
 use bevy::render::view::Msaa;
 
 use ambition_persistence::settings::{
@@ -47,7 +47,10 @@ impl ResolvedVisualQuality {
     pub fn from_settings(settings: &UserSettings) -> Self {
         let (profile, mut budget) = match profile_override_from_env() {
             Some(forced) => (forced, VisualQualityBudget::for_profile(forced)),
-            None => (settings.video.quality.profile, settings.video.quality.resolved_budget()),
+            None => (
+                settings.video.quality.profile,
+                settings.video.quality.resolved_budget(),
+            ),
         };
         budget.raster = budget.raster.with_env_overrides();
         Self { profile, budget }
@@ -98,7 +101,10 @@ impl Plugin for VisualQualityPlugin {
         // `PostStartup` still precedes the first `Update`, so the pair below
         // reads the seeded tier into the resolved budget before frame one.
         app.add_systems(PostStartup, seed_visual_quality_from_adapter);
-        app.add_systems(Update, (sync_resolved_visual_quality, sync_raster_budget).chain());
+        app.add_systems(
+            Update,
+            (sync_resolved_visual_quality, sync_raster_budget).chain(),
+        );
         // This bridge reads visual quality and writes portal presentation
         // quality, so register it only when the destination resource exists.
         #[cfg(feature = "portal_render")]
@@ -312,6 +318,13 @@ mod seed_schedule_tests {
                 driver: String::new(),
                 driver_info: String::new(),
                 backend: wgpu::Backend::Noop,
+                // wgpu 29 added these; `AdapterInfo` has no `Default`, so they
+                // are spelled out. Inert here for the same reason as the rest:
+                // the seed reads `device_type` and `name`.
+                device_pci_bus_id: String::new(),
+                subgroup_min_size: 0,
+                subgroup_max_size: 0,
+                transient_saves_memory: false,
             },
         ))
     }

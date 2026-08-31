@@ -440,14 +440,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   called from the PLAYER road only (`ambition_damage/src/lib.rs:692,785`) — the
   actor road every match fighter takes publishes nothing. So the resolved channel
   must become universal and attacker-bearing before the marker can read it.
-  ⭐ ONLY THEN does `CancelCondition::OnBlock` become authorable, which is what
-  the parity inventory §1 row asks for; whoever lands it must also delete the
-  stale deferral note at `entity_catalog/src/lib.rs:212`, which still claims the
-  victim-shield-contact fact *"lands with CM6"* — shieldstun shipped
-  (`body_clusters.rs:1620`). Acceptance: a blocked move does NOT confirm an
-  `OnHit` cancel (the pinned test inverts), an `OnBlock` window does, and both on
-  the actor road. Owner:
-  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
+  ⛔⛔ AND THE SCHEDULE IS THE REAL CONSTRAINT, found 2026-08-31:
+  `mark_move_playback_landed_hits` runs IMMEDIATELY after `apply_hitbox_damage`,
+  and its slot carries the reason — *"so this frame's overlaps mark this frame —
+  an OnHit cancel window opens on the connect frame"*. The block is decided later,
+  when the damage road drains those `HitEvent`s (same frame for an actor victim,
+  NEXT frame for a player one). So the two honest shapes are: **delay the
+  marker** past the damage road, which costs the connect-frame cancel window it
+  was placed there to buy; or **retract on block**, which leaves the OnHit window
+  open for the frames between overlap and resolution. ⚠ A THIRD SHAPE IS A TRAP:
+  having the marker ask the victim's shield state directly would be a second
+  authority on "was this blocked", which is the class this repo keeps finding.
+  Whoever takes this is making a FEEL ruling, not just plumbing. ⭐ ONLY THEN does
+  `CancelCondition::OnBlock` become authorable, which is what the parity
+  inventory §1 row asks for; they must also delete the stale deferral note at
+  `entity_catalog/src/lib.rs:212`, which still claims the victim-shield-contact
+  fact *"lands with CM6"* — shieldstun shipped (`body_clusters.rs:1620`).
+  Acceptance: a blocked move does NOT confirm an `OnHit` cancel (the pinned test
+  inverts), an `OnBlock` window does, and both on the actor road. Owner:
+  [demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
   MSAA.** The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;

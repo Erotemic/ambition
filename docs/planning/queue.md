@@ -395,11 +395,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   treats it as `Solid`"*, so adding it to the three floor filters is the obvious
   move. **Measured: it REGRESSES l6 back to `unfought 1/1` (7.1s : 11.6s, 0%/0%,
   its exact pre-fix numbers) and does not change l1 at all.** Reverted. A
-  coherent reading of the source is not a measurement. ⭐ WHAT THAT IMPLIES, and
-  the next thing to ask: the blink wall the body is "standing on" is 96×12 and
-  TRACKS THE BODY'S x exactly, tick for tick — so it is very likely not ground at
-  all, and `on_ground` being true beside it wants explaining before any floor
-  filter is touched. Find what spawns it. ⚠ A second smell, unchased: `terrain`
+  coherent reading of the source is not a measurement. ⭐ AND THE BLINK WALL IS A MOVING
+  PLATFORM. `platforms/mod.rs` inserts them as blink-passable blocks — *"solid
+  for normal collision, but blink-passable for upgraded blink pathing"* — which
+  is why the 96×12 solid tracks the body's x tick for tick: the body is RIDING
+  it. So the true statement is **a fighter riding a moving platform perceives no
+  floor**, and it is real independently of l1. What is NOT known is why telling
+  the brain about it makes l6 worse; the two changes interact and must be
+  measured together, not shipped one at a time. ⚠ A second smell, unchased: `terrain`
   is 1-2 solids on a stage that has more. Owner:
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 

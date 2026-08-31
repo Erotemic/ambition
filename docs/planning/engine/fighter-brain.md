@@ -100,9 +100,15 @@ three floor filters is the obvious move. It **regresses l6 back to `unfought
 1/1`, its exact pre-fix numbers**, and does not change l1. Reverted; do not
 re-derive it. A coherent reading of the source is not a measurement.
 
-⭐ **THE NEXT QUESTION** is what that blink wall IS: 96×12, tracking the body's
-`x` exactly tick for tick. That is not stage geometry, and `on_ground` being true
-beside it wants explaining before any floor filter is touched.
+⭐ **THE BLINK WALL IS A MOVING PLATFORM.** `ambition_platformer2d_world`'s
+`platforms/mod.rs` inserts them as blink-passable blocks — *"solid for normal
+collision, but blink-passable for upgraded blink pathing"* — which is why the
+96×12 solid tracks the body's `x` tick for tick: the body is RIDING it.
+
+So the true statement is **a fighter riding a moving platform perceives no
+floor**, and that is a defect independently of level 1. What is NOT known is why
+telling the brain about it makes level 6 worse. The two changes interact; measure
+them together.
 
 Queue row `D-FIGHTER-L1`.
 

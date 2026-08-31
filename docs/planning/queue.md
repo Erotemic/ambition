@@ -546,8 +546,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `phase_mark` DOWN, and both are carving for a NUMBER, which this row's first
   paragraph forbids. ✔ SO THE DEV_TOOLS SLICE IS DONE: the kernel holds no
   developer AUTHORITY, and a plugin asking a profiler to time its own startup is
-  a legitimate use of a developer tool. Pick a different dependency for the next
-  D33 slice.
+  a legitimate use of a developer tool.
+  ⭐ AND THE OTHER HALF OF THAT FRONTIER WAS MEASURED BEFORE PICKING IT UP —
+  *"presentation dependencies"* is mostly a mirage. The kernel's production refs
+  are `sfx` 160, `vfx` 103, `audio` 70, `conversation` 33, `cutscene` 16, and
+  ⛔ NONE of those crates pulls `bevy_render`, `bevy_audio`, `bevy_ui`,
+  `bevy_sprite` or `bevy_text`: they are foundation VOCABULARY crates consumed
+  DOWNWARD, and a body emitting its own hit cue is the semantic fact rather than
+  a presentation reach. ⚠ `ambition_dialog` and `ambition_sim_view` are
+  DEV-dependencies, so a manifest count that ignored section headings would
+  report two production edges that do not exist. ⛔ and `cutscene.rs` already
+  carries its own defence — gameplay-coupled to rooms, save and schedule, above
+  a crate that must stay gameplay-free — so moving it needs a THIRD crate.
+  ⇒ THE NEXT D33 SLICE SHOULD COME FROM THE DOMAIN FRONTIERS (items, mounts,
+  encounter/conversation orchestration, character preparation), not from
+  developer/presentation. Recorded in the owner doc.
   Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 

@@ -191,6 +191,37 @@ Developer tools and presentation facilities are poor reasons for the simulation
 kernel to depend upward. Remove them when the consumer can observe semantic
 facts through an existing engine seam.
 
+⭐⭐ **RE-MEASURED 2026-08-31, AND THE PRESENTATION HALF OF THIS FRONTIER IS
+NARROWER THAN IT READS.** The kernel's production references to presentation-ish
+crates are:
+
+| crate | refs | files | what it is |
+|---|---:|---:|---|
+| `ambition_sfx` | 160 | 35 | a cue MESSAGE vocabulary + writer, 1 ambition dep |
+| `ambition_vfx` | 103 | 31 | the same shape, 3 deps |
+| `ambition_audio` | 70 | 7 | channel/registry types, 2 deps |
+| `ambition_conversation` | 33 | 9 | 8 deps |
+| `ambition_cutscene` | 16 | 2 | script + stepper, 1 dep |
+
+⛔ **NONE OF THEM PULLS A RENDERER.** No `bevy_render`, `bevy_audio`, `bevy_ui`,
+`bevy_sprite` or `bevy_text` anywhere in that column, so the closure argument
+that would justify carving them does not exist — they are FOUNDATION vocabulary
+crates the kernel consumes DOWNWARD, and a body emitting its own hit cue is the
+semantic fact, not a presentation reach.
+
+⚠ `ambition_dialog` and `ambition_sim_view` are DEV-DEPENDENCIES here, so they
+are not production edges at all; a count that read the manifest without its
+section headings would report two edges that do not exist.
+
+⛔ **AND `cutscene.rs` ALREADY CARRIES ITS OWN DEFENCE**, which a carve should
+answer rather than repeat: *"These systems are gameplay-coupled (rooms, save,
+schedule) so they live here rather than in `ambition_cutscene` — which sits below
+this crate and must stay content- and gameplay-free."* Moving it needs a THIRD
+crate above both, which is a cost with no measured benefit behind it.
+
+⇒ **The developer half of this frontier is done and the presentation half is
+mostly a mirage.** Pick the next slice from the domains below, not from here.
+
 ### Items, mounts and other optional gameplay domains
 
 Move vertically: the domain owns its state/messages/plugin, the actor kernel

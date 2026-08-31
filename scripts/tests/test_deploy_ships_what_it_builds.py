@@ -35,7 +35,16 @@ def _code_lines() -> list[str]:
 
 
 def _built_bin() -> str:
-    match = re.search(r'cargo build .*?--bin\s+"?\$?\{?(\w+)\}?"?', "\n".join(_code_lines()))
+    # ⛔ ACROSS LINES. The invocation is a shell continuation — `cargo build \`
+    # then `-p`, `--bin`, `--release` on their own lines — and `.` does not match
+    # a newline without DOTALL, so this guard failed with "no recognisable cargo
+    # build --bin" while the script plainly had one. A guard that goes red for
+    # formatting is a guard people learn to ignore.
+    match = re.search(
+        r'cargo build .*?--bin\s+"?\$?\{?(\w+)\}?"?',
+        "\n".join(_code_lines()),
+        re.S,
+    )
     assert match, "deploy_to_steamdeck.sh no longer has a recognisable `cargo build --bin`"
     return match.group(1)
 

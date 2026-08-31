@@ -113,6 +113,31 @@ pub struct DeveloperRuntimeState {
     pub preset_flash: f32,
 }
 
+/// Wind down the HUD's preset flash.
+///
+/// ⭐⭐ THE CRATE THAT OWNS THE TIMER OWNS ITS DECAY. This one line lived in the
+/// actor kernel's `cleanup_timers_system`, and it was the ONLY reason that
+/// system — and through it the simulation kernel — held a
+/// `ResMut<DeveloperRuntimeState>` at all: a simulation package winding down a
+/// developer HUD's flash. The value is written by a room commit and read by the
+/// app's HUD; nothing in the sim reads it.
+///
+/// ⛔ STILL THE SIM SCHEDULE, NOT `Update`, and that is deliberate: its old home
+/// ran in `PresentationSync` precisely so presentation timers decay while
+/// gameplay is suspended, and moving it to `Update` would change WHICH CLOCK it
+/// counts on under a rollback host. Ownership moved; the clock did not.
+///
+/// ⚠ UNORDERED within the tick, on purpose. It is a monotonic decay of a value
+/// no sim system reads, so what it needs is to run once per tick — and the set
+/// its old neighbour sits in (`Platformer2dSimulationPhaseMonolith`) is a name
+/// this crate is forbidden to reach for.
+pub fn decay_developer_presentation_flash(
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    mut dev_state: bevy::prelude::ResMut<DeveloperRuntimeState>,
+) {
+    dev_state.preset_flash = (dev_state.preset_flash - time.delta_secs()).max(0.0);
+}
+
 impl Default for DeveloperRuntimeState {
     fn default() -> Self {
         Self {
@@ -201,5 +226,56 @@ mod developer_runtime_state_tests {
     #[test]
     fn debug_overlay_defaults_off_for_every_game() {
         assert!(!DeveloperRuntimeState::default().debug);
+    }
+
+    /// The HUD flash winds down, and it does so through a system THIS CRATE
+    /// registers.
+    ///
+    /// ⛔⛔ TWO CLAIMS, AND THE REGISTRATION IS THE ONE THAT CAN GO WRONG. The
+    /// decay is one subtraction and would pass as a direct call whether or not
+    /// anything ran it; the line MOVED out of the actor kernel's
+    /// `cleanup_timers_system`, and a timer nobody decays is a HUD flash that
+    /// never clears — visible, and caught by nothing else in the tree.
+    ///
+    /// ⚠ The plugin's other systems need resources from crates this one does not
+    /// depend on, so the registration is read off the SCHEDULE GRAPH rather than
+    /// by running it. That is weaker than a behavioural check and it is the
+    /// strongest thing available from inside this crate.
+    #[test]
+    fn the_developer_flash_decays_through_a_system_this_crate_registers() {
+        use bevy::prelude::*;
+
+        // 1. THE DECAY, and its floor. A HUD comparing `> 0.0` depends on the
+        //    clamp, so a decay that ran negative would read as "still flashing".
+        let mut world = World::new();
+        world.insert_resource(DeveloperRuntimeState {
+            preset_flash: 0.05,
+            ..Default::default()
+        });
+        let mut time = Time::<()>::default();
+        time.advance_by(std::time::Duration::from_millis(20));
+        world.insert_resource(time);
+        let mut run =
+            bevy::ecs::system::IntoSystem::into_system(decay_developer_presentation_flash);
+        run.initialize(&mut world);
+        run.run((), &mut world).expect("the decay system runs");
+        let once = world.resource::<DeveloperRuntimeState>().preset_flash;
+        assert!(once < 0.05, "the flash did not wind down at all: {once}");
+        run.run((), &mut world).expect("the decay system runs");
+        run.run((), &mut world).expect("the decay system runs");
+        assert_eq!(
+            world.resource::<DeveloperRuntimeState>().preset_flash,
+            0.0,
+            "the flash ran past zero, so a HUD asking `> 0.0` never stops drawing it"
+        );
+
+        // 2. AND SOMETHING RUNS IT — asserted in the SHIPPED APP rather than
+        //    here. `DevToolsSimPlugin`'s other systems need resources from
+        //    crates this one does not depend on, so a bare `App::new()` cannot
+        //    run its schedule, and the schedule graph reports every system as
+        //    `<Enable the debug feature to see the name>` without a bevy feature
+        //    this crate will not turn on for a test. The registration guard is
+        //    `the_developer_hud_flash_still_winds_down` in
+        //    `game/ambition_app/tests/`, which boots a real app.
     }
 }

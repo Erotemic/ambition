@@ -514,7 +514,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `control/input_systems`, and `profiling::phase_mark` ×2 in `audio/plugin`. The
   phase marks are instrumentation and can go anywhere; the
   `DeveloperRuntimeState` pair are the kernel reading and writing dev state, and
-  moving them means the dev crate owns those systems. That is the next slice.
+  moving them means the dev crate owns those systems.
+  ✔ THE WRITE IS GONE 2026-08-31: `cleanup_timers_system` decayed
+  `dev_state.preset_flash`, a developer HUD timer, and that ONE LINE was the only
+  reason the kernel's control module held a `ResMut<DeveloperRuntimeState>`.
+  `ambition_dev_tools::decay_developer_presentation_flash` owns it, in the SAME
+  schedule — its old home ran in `PresentationSync` so presentation timers decay
+  while gameplay is suspended, and `Update` counts a different clock under a
+  rollback host. Registration is guarded in the shipped app
+  (`the_developer_hud_flash_still_winds_down`), red when the system is
+  unregistered; a crate-local test cannot prove registration because
+  `DevToolsSimPlugin`'s siblings need resources `ambition_dev_tools` does not
+  depend on.
+  ▢ THE READ REMAINS, and it is a DECISION rather than a move — measured
+  2026-08-31. `update_time_scale_requests` reads `dev_state.slowmo` at rung 4 of
+  a 5-rung priority ladder (twice: the main ladder and the no-primary-player
+  path), so moving the SYSTEM would move the whole ladder out of the kernel,
+  which is wrong. ⭐ THE INVERSION IS ALREADY BUILT: `ClockScaleRequest` carries a
+  `ClockRequester::DevTool` variant that `RegimePolicy` already grants in `Solo`
+  and denies in `RLDeterministic`/`Cinematic`, and `apply_clock_scale_requests`
+  reduces by `min` — order-independent. So the dev crate can publish its own
+  request and the kernel can drop both rungs. ⛔ TWO THINGS TO DECIDE FIRST:
+  (a) `min` is not the ladder — today blink's 0.5 beats dev's 0.25 because blink
+  is rung 2; afterwards the strongest slowdown wins and dev's would; and
+  (b) `ambition_dev_tools` has an explicit dependency ALLOWLIST in
+  `engine.ambition_dev_tools-manifest-allow` (core, characters, shared_tangle,
+  persistence) that `ambition_time` is not on. ⚠ and `debug_slowmo_scale` is a
+  DEVELOPER number living in `Platformer2dFeelTuningMonolith`, whose own module
+  doc says those values *"are gameplay parameters rather than developer-tool
+  state"* — nothing but the dev rung reads it, so it should move with the rung.
+  ⚠ the two `profiling::phase_mark` calls in `audio/plugin` are untouched
+  instrumentation.
   Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 

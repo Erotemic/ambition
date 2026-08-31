@@ -517,7 +517,7 @@ mod tests {
         // Past `flick_threshold`: on `Auto` this is unambiguously a smash.
         let hard = ae::LocalAxes::new(0.95, 0.0);
 
-        let mut press_with = |hint: ae::AttackStrengthHint| {
+        let press_with = |hint: ae::AttackStrengthHint| {
             let mut state = AttackGestureState::default();
             // Tick one arms the flick, tick two presses — the two-tick gesture a
             // person actually makes.

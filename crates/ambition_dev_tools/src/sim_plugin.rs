@@ -66,5 +66,10 @@ impl Plugin for DevToolsSimPlugin {
             sim,
             crate::dev_tools::sync_player_stats_with_inspector.in_set(DevInspectorMirrorSet),
         );
+        // The HUD flash this crate owns, decayed by this crate. It was one line
+        // in the actor kernel's `cleanup_timers_system`, which is a simulation
+        // package winding down a developer timer — and the only thing that kept
+        // a `ResMut<DeveloperRuntimeState>` in the kernel's control module.
+        app.add_systems(sim, crate::decay_developer_presentation_flash);
     }
 }

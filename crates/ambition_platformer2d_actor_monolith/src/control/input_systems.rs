@@ -296,13 +296,18 @@ pub fn interaction_input_system(
 ///
 /// Runs every frame (including paused/dialogue) so visual flash and
 /// animation pose timers wind down continuously, not just during
-/// gameplay. Owns: real-time decay of `hit_flash`, `preset_flash`,
-/// `slash_anim_timer`, `blink_in_timer`, `camera_snap_timer`. New
-/// presentation-flash timers belong here; gameplay timers belong in
-/// `derive_slot_direction_gestures`.
+/// gameplay. Owns: real-time decay of `slash_anim_timer`, `blink_in_timer`,
+/// `camera_snap_timer`. New presentation-flash timers belong here; gameplay
+/// timers belong in `derive_slot_direction_gestures`.
+///
+/// ⛔ `preset_flash` LEFT, 2026-08-31. It is a DEVELOPER HUD timer, and winding
+/// it down here was the only thing holding a `ResMut<DeveloperRuntimeState>` in
+/// the simulation kernel's control module —
+/// `ambition_dev_tools::decay_developer_presentation_flash` owns it now, in the
+/// same schedule. `hit_flash` had already left for
+/// `tick_home_body_reaction_timers` (AC3.3).
 pub fn cleanup_timers_system(
     time: Res<Time>,
-    mut dev_state: ResMut<ambition_dev_tools::DeveloperRuntimeState>,
     mut player_q: Query<
         (
             &ae::BodyMotionFacts,
@@ -321,7 +326,6 @@ pub fn cleanup_timers_system(
     // `tick_home_body_reaction_timers`,
     // which iterates every `PlayerEntity` rather than the home avatar alone —
     // this system's query could not see a second player body at all.
-    dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     // Player-specific presentation timers (the blink-camera lerp) decay here; the
     // body-generic anim OVERLAYS advance through the shared helper the actor tick
     // also runs (fable review §A9).

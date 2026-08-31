@@ -609,11 +609,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ THE INTERESTING HALF IS WHY IT WAS INVISIBLE: every gate in the working
   rhythm is `cargo test -p ambition_app --test app_it` (533 green), which is the
   INTEGRATION target and does not build `src/`'s own `#[cfg(test)]` modules.
-  `cargo test -p ambition_app --lib` is 191/192. ⚠ the reset itself HAPPENS —
-  the log shows `room-replay admitted reason=Manual` — so this is the CUE not
-  being observed, which is either a real silent reset or a stale fixture.
-  Decide which before touching anything: 191 other tests in that target have
-  never been run in this rhythm either.
+  `cargo test -p ambition_app --lib` is 191/192.
+  ⭐ MEASURED FURTHER THE SAME DAY, and the first two hypotheses are both dead.
+  (1) NOT A TIMING WINDOW: the test read ONE frame and its own doc claimed the
+  cue was *"synchronous"*, which went stale when a same-room replay became a
+  canonical room REBUILD committing at a confirmed lifecycle boundary — but
+  scanning 30 frames finds it too. (2) NOT THE RESET SPECIFICALLY: **ZERO SFX
+  messages of ANY kind cross `Messages<OwnedSfxMessage>` in 40 frames of that
+  fixture.** The replay IS admitted (`room-replay admitted reason=Manual` in the
+  world log, and no *"admitted with no controlled body"* line), so a subject
+  exists and the intent is recorded. ⇒ the open question is whether
+  `initialized_sandbox_sim_app` composes anything that WRITES that channel at
+  all — which would mean the test has proved nothing since the composition
+  changed, rather than the reset having gone silent. ⚠ THE TEST IS LEFT RED ON
+  PURPOSE and now reports BOTH counts, because a red test naming a real gap
+  beats an `#[ignore]` nobody reads. ⛔ do not "fix" it by asserting the count it
+  currently produces.
+  ⚠ AND THE 191 OTHER TESTS in that target have never been run in this rhythm
+  either. They pass today, and nothing was watching.
 
 - ▢ **D-OILER-CONFIG — a review config publishes as a module target, and the
   renderer suite has been red about it.** Found 2026-08-31 while sweeping D129:

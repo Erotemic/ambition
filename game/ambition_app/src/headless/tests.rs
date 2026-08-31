@@ -51,11 +51,22 @@ fn run_headless_runs_multiple_ticks() {
 }
 
 /// ADR 0012 step B stop gate: with `MinimalPlugins` only and no
-/// AudioPlugin / RenderPlugin / inspector, can we drive
-/// the player tick end-to-end and observe `SfxMessage` flow? This
-/// proves the sim/presentation seam holds for the input + sfx
-/// channels. Reset is the cheapest path: pressing Reset emits
-/// `SfxMessage::Reset` synchronously, no spawn-position dependence.
+/// AudioPlugin / RenderPlugin / inspector, can we drive the player tick
+/// end-to-end and observe `SfxMessage` flow? This proves the sim/presentation
+/// seam holds for the input + sfx channels. Reset is the cheapest path — no
+/// spawn-position dependence.
+///
+/// ⛔⛔ IT IS NO LONGER SYNCHRONOUS, and this test asserted that it was. Its own
+/// doc said *"pressing Reset emits `SfxMessage::Reset` synchronously"* and it
+/// read `iter_current_update_messages` after ONE update. A same-room replay
+/// became a canonical room REBUILD, which may only commit at a confirmed
+/// lifecycle boundary — the log shows `room-replay admitted reason=Manual` on
+/// frame 2 — so the cue arrives a couple of frames after the press. The seam it
+/// exists to prove is intact; the frame it looked at was not.
+///
+/// ⚠ SO IT SCANS A WINDOW, and the window is the assertion: an unbounded loop
+/// would hang on a genuinely silent reset, and reading one frame is what went
+/// stale. If the boundary moves further out, this fails with the count it saw.
 #[test]
 fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     let mut app = initialized_sandbox_sim_app();
@@ -69,18 +80,35 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
         },
     );
 
-    app.update();
-
-    let messages = app
-        .world()
-        .resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
-    let reset_count = messages
-        .iter_current_update_messages()
-        .filter(|m| matches!(m.request, SfxMessage::Reset { .. }))
-        .count();
+    let mut reset_count = 0usize;
+    let mut any_cue = 0usize;
+    let mut frames = 0usize;
+    for _ in 0..30 {
+        app.update();
+        frames += 1;
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
+        any_cue += messages.iter_current_update_messages().count();
+        reset_count += messages
+            .iter_current_update_messages()
+            .filter(|m| matches!(m.request, SfxMessage::Reset { .. }))
+            .count();
+        if reset_count > 0 {
+            break;
+        }
+    }
+    // ⛔ THE SECOND NUMBER IS WHAT NARROWS IT, and it is why this reports both.
+    // `any_cue == 0` says the SEAM is silent — no cue of any kind crossed it —
+    // which is a different fault from "the reset specifically stopped cueing",
+    // and the two want different fixes. Measured 2026-08-31: it is ZERO.
     assert!(
         reset_count >= 1,
-        "expected at least one SfxMessage::Reset emitted by the sim; got {reset_count}",
+        "no `SfxMessage::Reset` reached the presentation seam in {frames} frames \
+         after a reset press ({any_cue} cues of ANY kind crossed it in that \
+         window). The replay IS admitted — the world log says so — so either the \
+         reset is silent or nothing writes this channel in a headless sandbox at \
+         all. See D-SFX-RESET-RED.",
     );
 }
 

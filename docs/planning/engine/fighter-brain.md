@@ -72,56 +72,29 @@ decisions were byte-identical between the two arms for their first 22 ticks — 
 divergence was never on the recovery road at all. It was in Neutral/Advantage,
 where the veto emptied the modelled options and an unjudged one took over.
 
-Level 1 is a separate case, and its reaction delay is NOT the reason.
+### Level 1 — CLOSED, and it was the same defect as the platform floor
 
-⛔ **MEASURED AND FALSIFIED 2026-08-31.** `--reaction-ms` at 500, 300, 150 and
-**0** gives byte-identical outcomes on seed 0 (`5.9s : 10.4s`, 0%/0%, unfought).
-The trace changes at 0 — the 100-200px per-decision position jumps that are
-perception staleness disappear — so the override lands and the outcome simply
-does not depend on it.
+⛔ **REACTION TIME WAS NEVER THE REASON.** `--reaction-ms` at 500, 300, 150 and
+**0** gave byte-identical outcomes; the trace changed at 0 (the per-decision
+position jumps that are perception staleness disappeared), so the override landed
+and the outcome did not depend on it.
 
-⭐ **TRACED TO A CONTRADICTION BETWEEN TWO AUTHORITIES.** On 6 of 6 grounded
-decisions the l1 body reports `ground=true terrain=1..2 supported=false
-floor_edge=None`. Terrain REACHES the body; none of it passes
-`WorldView::supporting_floor`'s hand-written y-band around the feet. `on_ground`
-is kernel truth and `supporting_floor` re-derives the same fact from a band, so a
-body the kernel says is standing on something perceives no floor at all — and
-every ledge question in the brain reads through there.
+⭐ **THE CAUSE was the respawn platform.** It was rebuilt every tick at the
+protected fighter's own position while calling itself stationary, and it reaches
+the collision world as a `BlinkWall` — which the three floor filters excluded. So
+a fighter standing on it perceived no floor at all, and every ledge question read
+through the false one.
 
-`terrain=N supported=bool` are on the trace now. They are what separated *"no
-terrain reached me"* from *"terrain reached me and none of it is under my feet"*,
-which want opposite fixes — the same instrument gap the l6 diagnosis hit one
-field over.
+⛔⛔ **NEITHER HALF COULD LAND ALONE**, which is the lesson worth keeping. Making
+the block standable while the platform still followed the body gave the rollout a
+floor defined as *"wherever I am"* — a constant 48px to the edge however far the
+body walked — so every verb was judged to walk off and vetoed, every tick, and
+level 6 regressed to its exact pre-fix numbers. Measured twice, reverted twice,
+before the platform half was found.
 
-⛔⛔ **AND THE FIX THAT FOLLOWS FROM THAT READING IS MEASURED WRONG.** The solid
-under the body is a `BlinkWall`, whose own doc says *"full collision ... a brain
-without the blink-through upgrade treats it as `Solid`"* — so adding it to the
-three floor filters is the obvious move. It **regresses l6 back to `unfought
-1/1`, its exact pre-fix numbers**, and does not change l1. Reverted; do not
-re-derive it. A coherent reading of the source is not a measurement.
-
-⭐ **THE BLINK WALL IS THE RESPAWN PLATFORM**, identified by probing the
-perceived block's name. `ambition_demo_smash` publishes it as a
-`MovingPlatformState` (`lib.rs:1662`), and `platforms/mod.rs` inserts platforms
-as blink-passable blocks — *"solid for normal collision, but blink-passable for
-upgraded blink pathing"*.
-
-⛔⛔ **AND IT IS REBUILT EVERY TICK AT THE PROTECTED FIGHTER'S OWN POSITION**
-(`Vec2::new(kin.pos.x, kin.pos.y + DROP_PX)`). It calls itself stationary — zero
-sweep, zero speed — and from the outside it tracks the body exactly. That is why
-`floor_edge` comes out a **CONSTANT 48.0 across 200px of travel** the moment the
-block becomes standable: the body is always in the middle of its own floor.
-
-⭐ **A FLOOR DEFINED AS "WHEREVER I AM" MAKES EVERY LEDGE QUESTION CIRCULAR** —
-the answer cannot change whatever the body does. That is why it poisons the
-ROLLOUT specifically, the one consumer whose whole job is asking *"where will I
-BE"*: every verb is judged to walk off, everything is vetoed every tick, and
-level 6 falls back to the least-bad line on every decision.
-
-So the fix is at the PLATFORM, not at the filter. Queue row
-`D-BRAIN-PLATFORM-FLOOR`.
-
-Queue row `D-FIGHTER-L1`.
+⭐ **TOGETHER, at 45 seeds: `unfought` is gone from every rung, and level 1 goes
+45/45 → 0/45.** The perceived edge changes as the body walks (44 → 21 → −9 past
+the lip → 226 on reaching the stage). Recorded in `dev/ambition_dev_measurements`.
 
 ## F1 — DONE. The trace named it; here is what to reuse
 

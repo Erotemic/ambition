@@ -452,12 +452,42 @@ impl WorldView {
     /// nearest solid below the body's footprint, at any distance. `None` means
     /// there is genuinely nothing beneath — which for a fighter over the
     /// blastzone is the true and useful answer.
+    /// Is this perceived solid something a body can STAND on?
+    ///
+    /// ⛔⛔ `BlinkWall` WAS MISSING, and [`SolidKind::BlinkWall`]'s own doc says
+    /// it should not be: *"full collision, blocks sight and movement (a brain
+    /// without the blink-through upgrade treats it as `Solid`)"*. Three floor
+    /// questions each spelled `Solid | OneWay` inline and all three disagreed
+    /// with that sentence — so a fighter standing on a platform contributed as
+    /// a blink-passable block reported `ground=true supported=false
+    /// floor_edge=None`, and every ledge question in the brain read through the
+    /// false one.
+    ///
+    /// ⛔⛔ THIS COULD NOT LAND ALONE, and that is worth knowing before touching
+    /// it again. The block in question was the SMASH DEMO'S RESPAWN PLATFORM,
+    /// which was rebuilt under the protected fighter every tick — so making it
+    /// visible handed the rollout a floor defined as *"wherever I am"*, whose
+    /// perceived edge is a constant 48px however far the body walks. Every verb
+    /// was then judged to walk off it and vetoed, every tick, and the ladder's
+    /// level 6 regressed to its exact pre-fix numbers. The platform is placed
+    /// ONCE now (`ambition_demo_smash::hold_the_respawn_platforms`), and the
+    /// two changes were measured together.
+    ///
+    /// ⚠ `Hazard` is NOT ground and stays out: it *"does not block sight or
+    /// movement"*, so nothing stands on it.
+    fn is_standable(kind: SolidKind) -> bool {
+        matches!(
+            kind,
+            SolidKind::Solid | SolidKind::OneWay | SolidKind::BlinkWall
+        )
+    }
+
     pub fn floor_below(&self) -> Option<ae::Aabb> {
         let me = &self.self_view;
         let feet = me.pos.y + me.half_extent.y;
         self.terrain
             .iter()
-            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| Self::is_standable(solid.kind))
             .filter(|solid| {
                 solid.aabb.min.x <= me.pos.x + me.half_extent.x
                     && solid.aabb.max.x >= me.pos.x - me.half_extent.x
@@ -473,7 +503,7 @@ impl WorldView {
         let support = self
             .terrain
             .iter()
-            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| Self::is_standable(solid.kind))
             .filter(|solid| {
                 // the body's FOOTPRINT, not its centre. This compared
                 // `me.pos.x` against the solid's span, so a body standing on the
@@ -523,7 +553,7 @@ impl WorldView {
         let feet = me.pos.y + me.half_extent.y;
         self.terrain
             .iter()
-            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| Self::is_standable(solid.kind))
             .filter(|solid| {
                 solid.aabb.min.x <= me.pos.x + me.half_extent.x
                     && solid.aabb.max.x >= me.pos.x - me.half_extent.x

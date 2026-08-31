@@ -56,6 +56,29 @@ never touches the shrine, a driven vessel resting at (700,100)), red the moment
 the write reads the avatar. Both stale comments are replaced with what the code
 does and why.
 
+✔ **D-FIGHTER-L1 + D-BRAIN-PLATFORM-FLOOR — one defect, and neither half could
+land alone.** The smash demo's respawn platform was REBUILT EVERY TICK at the
+protected fighter's own position (`hold_the_respawn_platforms`), while its own
+comment called it *"Stationary: a sweep of zero width at zero speed"* — the sweep
+was zero and the centre was not. And it reaches the collision world as a
+`BlinkWall`, which `WorldView::supporting_floor`, `floor_below` and
+`ground_below` each excluded by spelling `Solid | OneWay` inline. So a fighter
+standing on it perceived NO floor (`ground=true supported=false
+floor_edge=None`), and every ledge question in the brain — `floor_ahead`, the
+walks-off penalty, the recovery route search — read through the false one.
+⛔⛔ EITHER FIX ALONE MAKES IT WORSE. Making the block standable while the
+platform still followed the body handed the rollout a floor defined as *"wherever
+I am"*, whose perceived edge is a **constant 48.0 across 200px of travel** — every
+verb judged to walk off, everything vetoed every tick, and l6 back to `unfought
+1/1`, its exact pre-fix numbers (measured twice, reverted twice). ⭐ TOGETHER:
+**every rung of `--sweep-below` now fights at 45 seeds, `unfought` gone from all
+five, and l1 goes 45/45 → 0/45** — which nothing had ever moved, not rollout and
+not reaction time. The perceived edge now CHANGES as the body walks (44 → 21 →
+−9 past the lip → 226 on reaching the stage), which is the acceptance the row
+asked for. Recorded in `dev/ambition_dev_measurements` (`8165029`). Guards:
+`the_respawn_platform_stays_where_it_was_placed`, red on the follow. ⚠ A second
+smell, unchased: `terrain` is 1-2 solids on a stage that has more.
+
 ✔ **D-PORTAL-GESTURE-SEAT — every gun gesture names its body now.**
 `FirePortalGun` carried an aim and nothing else, so the adapter resolved one
 `ControlledSubject` and the resolver re-derived the firer the same way: a second
@@ -380,57 +403,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-FIGHTER-L1 — the obvious fix is MEASURED WRONG; do not re-derive it.**
-  ⛔ REACTION TIME IS NOT THE CAUSE: `--reaction-ms` at 500, 300, 150 and **0**
-  gives byte-identical outcomes (`5.9s : 10.4s`, 0%/0%, unfought), and the trace
-  DOES change at 0, so the override lands and the outcome does not depend on it.
-  ⭐ TRACED: on 6 of 6 grounded decisions the body reports `ground=true
-  terrain=[BlinkWall] supported=false floor_edge=None`. `on_ground` is KERNEL
-  truth; `WorldView::supporting_floor` accepts only `Solid | OneWay`, so the body
-  perceives no floor at all — and `floor_ahead`, `floor_edge_distance`, the
-  walks-off penalty and the recovery route search all read through there.
-  ⛔⛔ AND THE FIX THAT FOLLOWS FROM THAT READING IS WRONG. `SolidKind::BlinkWall`'s
-  own doc says *"full collision ... a brain without the blink-through upgrade
-  treats it as `Solid`"*, so adding it to the three floor filters is the obvious
-  move. **Measured: it REGRESSES l6 back to `unfought 1/1` (7.1s : 11.6s, 0%/0%,
-  its exact pre-fix numbers) and does not change l1 at all.** Reverted. A
-  coherent reading of the source is not a measurement. ⭐ AND THE BLINK WALL IS A MOVING
-  PLATFORM. `platforms/mod.rs` inserts them as blink-passable blocks — *"solid
-  for normal collision, but blink-passable for upgraded blink pathing"* — which
-  is why the 96×12 solid tracks the body's x tick for tick: the body is RIDING
-  it. So the true statement is **a fighter riding a moving platform perceives no
-  floor**, and it is real independently of l1. What is NOT known is why telling
-  the brain about it makes l6 worse; the two changes interact and must be
-  measured together, not shipped one at a time. ⚠ A second smell, unchased: `terrain`
-  is 1-2 solids on a stage that has more. Owner:
-  [`engine/fighter-brain.md`](engine/fighter-brain.md).
-
-- ▢ **D-BRAIN-PLATFORM-FLOOR — the floor the fighter cannot see is the RESPAWN
-  platform, and it is defined as "wherever I am".** ⭐ IDENTIFIED 2026-08-31 by
-  probing the perceived block's name: it is `"Respawn platform"`
-  (`ambition_demo_smash/src/lib.rs:1662`), contributed to the collision world as
-  a `BlinkWall` — `WorldView::supporting_floor`, `floor_below` and `ground_below`
-  each spell `Solid | OneWay` inline, so a fighter standing on it reports
-  `ground=true supported=false floor_edge=None`, and every ledge question in the
-  brain reads through the false one. ⛔⛔ AND THE ONE-LINE FIX BACKFIRES FOR A
-  REASON WORTH KNOWING. The platform is REBUILT EVERY TICK at the protected
-  fighter's own position (`Vec2::new(kin.pos.x, kin.pos.y + DROP_PX)`) — it calls
-  itself stationary, and from the outside it tracks the body exactly. So making
-  `BlinkWall` standable hands the rollout a 96px floor re-centred on the body
-  every tick: **`floor_edge` is a CONSTANT 48.0 across 200px of travel**, every
-  verb is judged to walk off it, and everything is vetoed every tick — l6
-  regresses to `unfought 1/1`, its exact pre-fix numbers (measured twice). ⭐ THE
-  STATEMENT THAT MATTERS: a floor defined as *"wherever I am"* makes every ledge
-  question CIRCULAR — the answer cannot change whatever the body does — which is
-  why it poisons the ROLLOUT specifically, the one consumer that asks *"where
-  will I BE"*. ⭐ SO THE FIX IS AT THE PLATFORM, not the filter: a respawn grace
-  affordance should either not participate in floor perception at all, or be a
-  real block placed ONCE at the respawn point rather than teleported under the
-  body. Acceptance: a fighter on the respawn platform perceives a floor, the
-  perceived edge CHANGES as it walks, and `--sweep-below` does not regress. ⚠ A
-  second smell, unchased: `terrain` is 1-2 solids on a stage that has more. Owner:
-  [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

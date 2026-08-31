@@ -982,3 +982,63 @@ fn every_ending_has_its_own_words() {
     assert!(victory_banner(&MatchVerdict::Draw, None).contains("Draw"));
     assert!(victory_banner(&MatchVerdict::NoContest, None).contains("NO CONTEST"));
 }
+
+/// ⛔⛔ THE PLATFORM MUST STAND STILL, and it did not — it was rebuilt under
+/// the fighter every tick.
+///
+/// Its own comment calls it *"Stationary: a sweep of zero width at zero
+/// speed"*, and the sweep IS zero. But the CENTRE was recomputed from
+/// `kin.pos` on every tick, so from the outside it tracked the body exactly:
+/// walk 200px and the platform walked with you.
+///
+/// ⭐ WHY IT MATTERS BEYOND LOOKING WRONG. A brain reads the floor it is
+/// standing on to answer every ledge question, and a floor defined as
+/// *"wherever I am"* makes those questions CIRCULAR — the perceived distance to
+/// the edge is a constant 48px however far the body walks. Measured: with the
+/// block made visible to perception, the fighter rollout judged every verb to
+/// walk off it and vetoed all of them on every tick, which is queue row
+/// `D-BRAIN-PLATFORM-FLOOR`.
+///
+/// ⭐ AND IT IS THE GENRE'S ANSWER TOO: a respawn platform is somewhere you
+/// LEAVE. One that follows cannot be left.
+#[test]
+fn the_respawn_platform_stays_where_it_was_placed() {
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+    let mut app = bevy::prelude::App::new();
+    app.init_resource::<MovingPlatformSet>();
+    app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
+    let fighter = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d::actor::MatchSeat(1),
+            ambition_platformer2d::engine_core::BodyKinematics {
+                pos: Vec2::new(120.0, 40.0),
+                ..Default::default()
+            },
+            ambition_platformer2d::actor::RespawnGrace {
+                remaining: RESPAWN_PROTECTION_SECONDS,
+            },
+        ))
+        .id();
+
+    app.update();
+    let placed = app.world().resource::<MovingPlatformSet>().0[0].pos;
+
+    // The fighter walks off it.
+    app.world_mut()
+        .entity_mut(fighter)
+        .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>()
+        .unwrap()
+        .pos = Vec2::new(320.0, 40.0);
+    app.update();
+
+    let set = app.world().resource::<MovingPlatformSet>();
+    assert_eq!(set.0.len(), 1, "the platform vanished or was duplicated");
+    assert_eq!(
+        set.0[0].pos, placed,
+        "the platform followed the fighter 200px. A floor defined as `wherever \
+         I am` can never be walked off, and every ledge question asked against \
+         it answers the same thing forever"
+    );
+}

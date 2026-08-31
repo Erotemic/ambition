@@ -1652,10 +1652,29 @@ fn hold_the_respawn_platforms(
     // the resource is rollback-canonical, so both want a deterministic Vec.
     wanted.sort_by(|a, b| a.0.cmp(&b.0));
 
-    platforms
-        .0
-        .retain(|platform| !platform.id.starts_with("respawn_platform_"));
+    // ⛔⛔ PLACED ONCE, NOT REBUILT. This cleared every respawn platform and
+    // re-pushed it from `kin.pos` on every tick, so a platform whose sweep is
+    // genuinely zero still TRACKED THE BODY EXACTLY — walk 200px and it walked
+    // with you. Its own comment below has always called it stationary.
+    //
+    // ⭐ THE COST IS NOT COSMETIC. A brain reads the floor it stands on to
+    // answer every ledge question, and a floor defined as *"wherever I am"*
+    // makes those questions CIRCULAR: the perceived distance to the edge is a
+    // constant 48px however far the body walks. Measured — with the block
+    // visible to perception, the fighter rollout judged every verb to walk off
+    // it and vetoed all of them, every tick (`D-BRAIN-PLATFORM-FLOOR`).
+    //
+    // ⭐ AND IT IS THE GENRE'S ANSWER TOO: a respawn platform is somewhere you
+    // LEAVE, and one that follows cannot be left.
+    platforms.0.retain(|platform| {
+        !platform.id.starts_with("respawn_platform_")
+            || wanted.iter().any(|(id, _)| *id == platform.id)
+    });
     for (id, centre) in wanted {
+        // Already standing where it was placed — leave it exactly there.
+        if platforms.0.iter().any(|platform| platform.id == id) {
+            continue;
+        }
         platforms.0.push(
             ambition_platformer2d::world::platforms::MovingPlatformState::from_sweep(
                 id,
@@ -3472,6 +3491,6 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod pause_arbitration_tests;
+#[cfg(test)]
+mod tests;

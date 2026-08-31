@@ -682,7 +682,15 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
         // `UiPlugin` schedules `ui_focus_system`, which reads mouse buttons.
         bevy::input::InputPlugin,
         // ... and, under this crate's `bevy_picking` feature, `UiPickingPlugin`.
+        //
+        // ⛔⛔ `InteractionPlugin` IS NOT OPTIONAL HERE, AND `-p ambition_menu`
+        // CANNOT TELL YOU THAT. Under `--workspace`, feature unification turns
+        // on `bevy/ui_picking` for this crate, and `UiPlugin` then schedules
+        // `widget::viewport_picking`, which reads `Res<HoverMap>` — a resource
+        // `PickingPlugin` does not own. So this test passed alone and failed in
+        // the workspace run, which is the one that ships.
         bevy::picking::PickingPlugin,
+        bevy::picking::InteractionPlugin,
         bevy::picking::input::PointerInputPlugin,
         bevy::window::WindowPlugin::default(),
         bevy::text::TextPlugin,

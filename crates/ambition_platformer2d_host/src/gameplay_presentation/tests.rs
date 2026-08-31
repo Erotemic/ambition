@@ -562,8 +562,17 @@ fn occupancy_collection_is_ordered_against_visibility_propagation() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     // `VisibilityPlugin` runs mesh-bounds systems that hard-require these.
+    //
+    // ⛔⛔ THERE ARE TWO OF THEM IN 0.19, AND THE SECOND ONE IS EASY TO MISS.
+    // `update_skinned_mesh_bounds` takes `Res<Assets<SkinnedMeshInverseBindposes>>`
+    // and panics the whole `Main` schedule when it is absent, which surfaces as
+    // "Resource does not exist" from an unnamed system — this test is not about
+    // skinning and nothing in it mentions a skeleton. Ambition composes no
+    // skinned meshes, so the empty asset store is the honest stand-in: it says
+    // "this App has none", not "pretend the system is not there".
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<bevy::mesh::Mesh>();
+    app.init_asset::<bevy::mesh::skinning::SkinnedMeshInverseBindposes>();
     app.add_plugins(bevy::camera::visibility::VisibilityPlugin);
     app.add_plugins(HostGameplayPresentationPlugin);
     app.update();

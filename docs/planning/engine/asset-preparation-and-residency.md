@@ -52,6 +52,39 @@ The gallery materialization sweep showed that bounding work reduced simultaneous
 completion/burst magnitude, but the benefit on an uncovered gameplay frame still
 needs a rendered A/B.
 
+### 2026-08-31 — the hall's demand, with the population attached
+
+A windowed capture (`desktop-timeline-run-20260831T210231Z`) walked into
+`hall_of_characters` and put a number on what one room asks for at once. From
+its own `runtime_census.csv`:
+
+```text
+t=65.32   bodies=2     archetypes=1813
+t=66.35   bodies=130   archetypes=1975
+```
+
+and across the following 3.4 seconds, **71 spritesheet decodes**. **22 of the
+run's 30 over-threshold frames are inside that window**, peaking at 199 ms.
+
+⭐ **The demand is concentrated in very few characters.** Two of roughly forty
+own 43% of the whole session's decode work, at seven sheets of about 4096² each:
+
+```text
+115.6 MP   7 sheets   noether_spritesheet
+107.7 MP   7 sheets   perfect_cellular_automaton_spritesheet
+-------------------
+223.3 MP of the session's 519.5 MP
+```
+
+⇒ This is upstream of §3 (pacing) and §4 (budgets): **pacing a demand and
+budgeting a residency are both cheaper when the demand is smaller.** Fewer pages,
+a lower quality tier for gallery previews, or eviction all attack the 43% before
+any scheduling machinery has to.
+
+⚠ The worst in-play frame moved the right way against 2026-08-29 — 516 ms → 199
+ms — but on a HEAVIER hall, and still not a controlled A/B. The rendered A/B the
+paragraph above asks for is still owed.
+
 ## Existing architecture to build on
 
 The character path already has much of a residency service in domain-specific

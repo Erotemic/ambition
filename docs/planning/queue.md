@@ -708,14 +708,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `two_spacings_are_two_scenarios` — the 40/80 case, a chained-vs-single case,
   the premise that identical takes still compare, and the drifted-settle case.
   23/23.
-  ▢ WHAT REMAINS is everything upstream of the report, and it is the larger
-  half: the HTTP server still forwards neither `--target-behavior` nor chain, the
-  cache key still truncates spacing to an int and never validates the stored
-  manifest against the request, and the browser never checks a rendered image's
-  manifest scenario against the selected take. ⇒ one serializable `MoveScenario`
-  authority that recorder, renderer, transport, cache key and report comparison
-  all consume, with *"this scenario is not renderable yet"* as the honest answer
-  for chain rather than rendering a different one.
+  ✔ AND THE TRANSPORT/CACHE HALF, same day. The server accepts and forwards
+  `--target-behavior` (it defaulted to PASSIVE, so a take against a live CPU was
+  shown beside a passive render); the cache key is a testable `scenario_key`
+  with spacing at three decimals instead of `int(spacing)`, and the behaviour
+  rides with the target it describes so a solo render is not split in two; and a
+  cached manifest is now validated against the REQUEST's scenario, not only its
+  frame count and binary mtime. The browser sends the take's own
+  `target_behavior` and keys its in-page cache on it. Guarded by
+  `tools/ambition_moveset_inspector/tests/test_server_scenario.py` (3), red when
+  the truncation is restored; `check_takes_discovery.mjs` still 19/19.
+  ▢ WHAT REMAINS: CHAIN is still not renderable, so a chained A→B take beside a
+  single-move render is the one surviving mismatch — and the honest answer there
+  is *"this scenario is not renderable yet"* rather than rendering a different
+  one, which needs a chain argument on `moveset_render` first. The wider
+  `MoveScenario` value object is still the right end state; what is closed is
+  every place the CURRENT fields leaked.
 
 - ▢ **D-PORTAL-INTERACT-SEAT — portal Interact arbitration is still a singleton
   under a per-body road.** ⭐ GPT review 2026-08-31, source-read. `portal/

@@ -88,7 +88,13 @@ function renderedFramesFor(character, verb, scenario = {}) {
   if (scenario.spacing !== null && scenario.spacing !== undefined) {
     params.set("spacing", String(scenario.spacing));
   }
-  const key = `${character}/${verb}/${params.get("target") || ""}/${params.get("spacing") || ""}`;
+  /* ⛔⛔ AND WHETHER THE OPPONENT FIGHTS BACK. The renderer defaults a missing
+   * behaviour to PASSIVE, so a take recorded against a live CPU opponent was
+   * shown beside a render of a target standing still — the same class of "two
+   * fights presented as one" the target and spacing above exist to prevent. */
+  if (scenario.behavior) params.set("target_behavior", String(scenario.behavior));
+  const key = `${character}/${verb}/${params.get("target") || ""}/` +
+    `${params.get("spacing") || ""}/${params.get("target_behavior") || ""}`;
   const have = RENDERS.get(key);
   if (have !== undefined) return have;
   RENDERS.set(key, null);
@@ -1412,6 +1418,7 @@ function syncEngineRender(take, frameIndex) {
   const doc = renderedFramesFor(take.character, verb, {
     target: take.target,
     spacing: take.requested_spacing,
+    behavior: take.target_behavior,
   });
   if (!doc) return nothing(`rendering ${verb}…`);
   if (!doc.available) {

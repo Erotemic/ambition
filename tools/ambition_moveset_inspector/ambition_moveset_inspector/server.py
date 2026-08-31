@@ -115,6 +115,52 @@ def _built_at(path: Path) -> str | None:
     return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
 
 
+def scenario_key(
+    character: str,
+    verb: str,
+    target: str | None,
+    spacing: float | None,
+    target_behavior: str,
+) -> str:
+    """The cache directory for one SCENARIO — every input that changes the fight.
+
+    ⭐ CACHED BY WHAT WAS ASKED FOR. Caching by character alone once served the
+    up-B's frames for a jab; caching by character and verb alone served a render
+    taken from across the stage as evidence for a take recorded at 40px.
+
+    ⛔⛔ AND NOT `int(spacing)`. Truncating put 40.1 and 40.9 in ONE directory, so
+    the second request was served the first one's pictures under its own number —
+    reproduced by the 2026-08-31 review. Three decimals is finer than any spacing
+    a scenario asks for and is stable across platforms; `.` becomes `_` so the key
+    stays a path component.
+
+    ⚠ THE BEHAVIOUR RIDES WITH THE TARGET IT DESCRIBES. A scenario with no
+    opponent has nothing to behave, and putting `__passive` in that key would
+    make two identical solo renders look like different experiments.
+    """
+    scenario = ""
+    if target and target != character:
+        scenario += f"__vs_{target}__{target_behavior}"
+    if spacing is not None:
+        scenario += "__at" + f"{spacing:.3f}".replace(".", "_")
+    return f"{character}__{verb}{scenario}"
+
+
+def _same_scenario_value(asked, drawn) -> bool:
+    """Do a requested and a rendered scenario field agree?
+
+    ⚠ FLOATS COMPARE WITH A TOLERANCE, and it is not laziness: the request comes
+    from JSON and the manifest from Rust's `f32`, so an exact `==` on a spacing
+    would call every cache entry a mismatch and re-render the world. The
+    tolerance is far tighter than the truncation it replaces.
+    """
+    if asked is None or drawn is None:
+        return asked is None and drawn is None
+    if isinstance(asked, (int, float)) and isinstance(drawn, (int, float)):
+        return abs(float(asked) - float(drawn)) < 1e-3
+    return asked == drawn
+
+
 def render_animation(
     character: str,
     verb: str,
@@ -122,6 +168,7 @@ def render_animation(
     stride: int,
     target: str | None = None,
     spacing: float | None = None,
+    target_behavior: str | None = None,
 ) -> tuple[int, dict]:
     """Render one fighter PERFORMING ONE MOVE, through the real engine.
 
@@ -149,6 +196,14 @@ def render_animation(
         safe_target = "".join(ch for ch in target if ch.isalnum() or ch in "_-")
         if safe_target != target:
             return 400, {"error": "target must be a plain catalog id"}
+    # ⛔⛔ AND WHETHER THE TARGET FIGHTS BACK. `moveset_render` defaults a missing
+    # `--target-behavior` to PASSIVE, and this route never forwarded it — so a
+    # take recorded against a live CPU opponent was shown beside a passive-target
+    # render, which is two different fights presented as one.
+    if target_behavior is None:
+        target_behavior = "passive"
+    if target_behavior not in ("passive", "cpu"):
+        return 400, {"error": "target_behavior must be 'passive' or 'cpu'"}
 
     # ⭐ CACHED BY WHAT WAS ASKED FOR — character AND verb AND shape. Caching by
     # character alone served the up-B's frames for a jab.
@@ -157,12 +212,9 @@ def render_animation(
     # the stage and a take recorded at 40px are two different fights, and the
     # browser shows them SIDE BY SIDE — so a cache key that ignored the target
     # and the spacing would serve one as evidence for the other.
-    scenario = ""
-    if safe_target and safe_target != safe:
-        scenario += f"__vs_{safe_target}"
-    if spacing is not None:
-        scenario += f"__at{int(spacing)}"
-    out_dir = RENDERS / f"{safe}__{safe_verb}{scenario}"
+    out_dir = RENDERS / scenario_key(
+        safe, safe_verb, safe_target, spacing, target_behavior
+    )
     manifest = out_dir / "manifest.json"
     binary = find_renderer()
 
@@ -176,7 +228,30 @@ def render_animation(
     if manifest.exists():
         try:
             have = json.loads(manifest.read_text())
-            if have.get("frames", 0) >= frames and have.get("stride") == stride:
+            # ⛔⛔ AND THE MANIFEST MUST DESCRIBE THE FIGHT THAT WAS ASKED FOR.
+            # The key is derived from the request, so a mismatch here means a
+            # directory holding somebody else's render — a truncated key that
+            # once collided, a hand-edited path, a renderer whose flags moved.
+            # Checking the frames and the binary but not the SCENARIO is what let
+            # a stale key serve one experiment as evidence for another.
+            asked = {
+                "target": safe_target,
+                "target_behavior": target_behavior if safe_target else None,
+                "requested_spacing": spacing,
+            }
+            drawn = {
+                "target": have.get("target"),
+                "target_behavior": have.get("target_behavior") if safe_target else None,
+                "requested_spacing": have.get("requested_spacing"),
+            }
+            same_scenario = all(
+                _same_scenario_value(asked[k], drawn[k]) for k in asked
+            )
+            if (
+                same_scenario
+                and have.get("frames", 0) >= frames
+                and have.get("stride") == stride
+            ):
                 cached = have
         except (OSError, ValueError):
             cached = None
@@ -228,7 +303,8 @@ def render_animation(
             ]
             # The scenario, so the picture is of the fight the take recorded.
             + (["--target", safe_target] if safe_target else [])
-            + (["--spacing", str(spacing)] if spacing is not None else []),
+            + (["--spacing", str(spacing)] if spacing is not None else [])
+            + (["--target-behavior", target_behavior] if safe_target else []),
             cwd=str(REPO),
             capture_output=True,
             text=True,
@@ -523,8 +599,14 @@ class InspectorHandler(SimpleHTTPRequestHandler):
                 return self._json(400, {"error": "spacing must be a number of pixels"})
             if spacing is not None and not 0.0 <= spacing <= 2000.0:
                 return self._json(400, {"error": "spacing must be between 0 and 2000 px"})
+            # ⛔ WHETHER THE OPPONENT FIGHTS BACK IS PART OF THE SCENARIO, and
+            # this route used to drop it: the renderer defaults to PASSIVE, so a
+            # take against a live CPU was shown beside a passive render.
+            behavior = (query.get("target_behavior") or [""])[0] or None
             return self._json(
-                *render_animation(character, verb, frames, stride, target, spacing)
+                *render_animation(
+                    character, verb, frames, stride, target, spacing, behavior
+                )
             )
         if parsed.path == "/api/review":
             subject = (parse_qs(parsed.query).get("subject") or [""])[0]

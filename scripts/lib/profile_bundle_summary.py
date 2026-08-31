@@ -39,8 +39,30 @@ DSO_BUCKETS = [
 # that prefix ("Tracy Symbol Wo", not "Tracy Symbol Worker").
 THREAD_BUCKETS = [
     ("profiler (Tracy)", ("tracy",)),
-    ("build tooling", ("cargo", "rustc", "bash", "dirname", "sh")),
-    ("audio", ("pipewire", "pulse", "alsa", "spa-")),
+    # ⛔⛔ THE COMPILER IS MOSTLY NOT CALLED `rustc`. A cargo build spawns one
+    # `rustc` per crate, but the cycles are in the threads it forks: `ld.mold`
+    # for the link and up to `2 * jobs` threads named `lto cgu.NN` / `opt cgu.NN`
+    # doing LLVM codegen. Bucketing on `cargo`/`rustc` alone reported 4.0% "build
+    # tooling" for `desktop-timeline-run-20260831T212248Z` while its own
+    # `perf-report-by-thread.txt` shows 9.11% mold plus twenty cgu threads at
+    # 1.3-2.6% each — well over a third of the capture. This section is the one a
+    # reader uses to decide whether to trust the rest, so it under-reporting the
+    # single biggest non-game cost is the worst place for it to be wrong.
+    #
+    # ⚠ Needles are matched as substrings against a COMM that perf truncates to
+    # 15 characters. These were taken from real thread names in that bundle, not
+    # guessed: `ld.mold`, `lto cgu.00`, `opt cgu.15`, `rustc`, `cargo`, `clang`.
+    (
+        "build tooling",
+        (
+            "cargo", "rustc", "bash", "dirname", "sh",
+            "cgu.", "mold", "ld.", "lld", "clang", "collect2", "cc1",
+        ),
+    ),
+    # `pw-data-loop` is PipeWire's realtime thread; the truncated COMM never
+    # contains "pipewire", which is why audio read as 0.2% on a bundle whose
+    # audio thread was sampled the whole run.
+    ("audio", ("pipewire", "pw-", "pulse", "alsa", "spa-")),
 ]
 GAME_THREADS = "the game itself"
 
@@ -634,10 +656,34 @@ def build_summary(bundle: Bundle) -> str:
         if tally:
             profiler_share = tally.get("profiler (Tracy)", 0.0)
             game_share = tally.get(GAME_THREADS, 0.0)
+            build_share = tally.get("build tooling", 0.0)
             lines += ["```text"]
             for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
                 lines.append(f"{percent:6.1f}%  {label}")
             lines += ["```", ""]
+            # ⛔⛔ A CAPTURE THAT IS MOSTLY A COMPILE MUST SAY SO, LOUDLY, HERE.
+            # Three bundles on 2026-08-31 were 92%, 70% and 51% build tooling and
+            # every one of them printed "low enough that the measurements below
+            # stand on their own" — because that sentence only ever looked at
+            # Tracy. The threshold is the game's own share: a build that out-costs
+            # the game has diluted every percentage in the native profile.
+            if build_share > game_share:
+                lines += [
+                    f"⚠⚠ **{build_share:.0f}% of the sampled cycles are a COMPILE, more than",
+                    f"the game's own {game_share:.0f}%.** A build ran inside this capture.",
+                    "",
+                    "**The native symbol ranking and the DSO split below are diluted by it and",
+                    "must not be quoted.** Everything keyed to game time — `frame_times.csv`,",
+                    "`frame_spikes.csv`, `runtime_census.csv`, the image censuses — comes from",
+                    "the game's own stderr and is unaffected.",
+                    "",
+                    "Check `warm-build.status` and the gap between `wall_s` and `game_s` in",
+                    "`frame_spikes.csv`: a first frame tens of seconds into the capture is the",
+                    "build. If the warm build ran and the launch rebuilt anyway, the two are",
+                    "asking cargo for different fingerprints — see the `build_env` rows in",
+                    "`run_game.sh --print-plan`.",
+                    "",
+                ]
         if profiler_share >= 25.0:
             lines += [
                 f"⚠ **The profiler cost {profiler_share:.0f}% of sampled cycles"
@@ -669,8 +715,11 @@ def build_summary(bundle: Bundle) -> str:
             lines += [
                 "No profiler threads were sampled, so nothing but `perf` itself was",
                 "observing the game and the frame times in this bundle are the honest ones.",
-                "A `build tooling` share is the launcher's own `cargo` resolving the build;",
-                "it competes for cores but is not attributed to the game.",
+                "⚠ A large `build tooling` share is NOT just `cargo` resolving a warm",
+                "build: it means a real compile ran inside the capture, competing for every",
+                "core. See `warm-build.status` and the gap between `wall_s` and `game_s` in",
+                "`frame_spikes.csv` — if the first frame is tens of seconds in, the native",
+                "symbol ranking below is diluted and should not be quoted.",
                 "",
             ]
     elif bundle.exists("tracy.trace"):

@@ -444,10 +444,16 @@ plan_bin=""
 plan_profile_dir=""
 plan_features=""
 plan_build_cmd=()
+# ⛔ THE ENVIRONMENT IS HALF THE BUILD PLAN. See the `build_env` block in
+# `run_game.sh --print-plan`: replaying `build_arg` without these produces a
+# different cargo fingerprint, so the warm build warms nothing and the launch
+# rebuilds the world INSIDE the perf capture.
+plan_build_env=()
 plan_status="unresolved"
 resolve_launch_plan() {
     local line key value
     plan_build_cmd=()
+    plan_build_env=()
     if ! plan_text="$("$repo_root/run_game.sh" --print-plan "${effective_run_args[@]}" 2>/dev/null)"; then
         plan_status="run_game.sh --print-plan failed"
         log "could not resolve the launch plan; falling back to a bare launch"
@@ -462,6 +468,7 @@ resolve_launch_plan() {
             profile_dir) plan_profile_dir="$value" ;;
             features) plan_features="$value" ;;
             build_arg) plan_build_cmd+=("$value") ;;
+            build_env) plan_build_env+=("$value") ;;
         esac
     done <<< "$plan_text"
     plan_status="ok"
@@ -750,8 +757,18 @@ run_warm_build_if_needed() {
         return 0
     fi
     require_tool cargo
-    echo "$(quote_cmd "${plan_build_cmd[@]}")" > "$out_dir/warm-build-command.txt"
-    log "warm-building: $(quote_cmd "${plan_build_cmd[@]}")"
+    # ⛔⛔ THE PLAN'S ENVIRONMENT, NOT THIS SHELL'S. `run_game.sh` exports
+    # `CARGO_INCREMENTAL=0` for every release-level profile, deliberately and at
+    # length (see `.cargo/config.toml`, whose `[build] incremental = true`
+    # OVERRIDES `[profile.profiling] incremental = false`). A warm build that
+    # skips it compiles an incremental variant, which cargo then rejects when
+    # the launch asks for the non-incremental one -- so the whole graph gets
+    # rebuilt under `perf record`, and the profile is a profile of rustc.
+    local -a plan_env_prefix=()
+    if [[ "${#plan_build_env[@]}" -gt 0 ]]; then plan_env_prefix=(env "${plan_build_env[@]}"); fi
+    echo "$(quote_cmd "${plan_env_prefix[@]+"${plan_env_prefix[@]}"}" "${plan_build_cmd[@]}")" \
+        > "$out_dir/warm-build-command.txt"
+    log "warm-building: $(quote_cmd "${plan_env_prefix[@]+"${plan_env_prefix[@]}"}" "${plan_build_cmd[@]}")"
     # ⭐ CARGO'S PROGRESS BAR IS TTY-GATED, AND THE `tee` BELOW MAKES CARGO'S
     # STDERR A PIPE. Nothing here ever wanted the bar gone -- it is collateral
     # damage from capturing the build log into the bundle. The `Compiling <crate>`
@@ -775,7 +792,7 @@ run_warm_build_if_needed() {
     # way to the file while the terminal keeps them. `s/.*\r//` keeps only what
     # follows the final carriage return on a line, which is exactly the settled
     # text; the transient frames drop out instead of becoming thousands of lines.
-    (cd "$repo_root" && "${build_env[@]}" "${plan_build_cmd[@]}") \
+    (cd "$repo_root" && "${build_env[@]}" "${plan_env_prefix[@]+"${plan_env_prefix[@]}"}" "${plan_build_cmd[@]}") \
         > >(tee "$out_dir/warm-build.stdout") \
         2> >(tee >(sed -u -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' -e 's/.*\r//' > "$out_dir/warm-build.stderr") >&2)
     local status=$?

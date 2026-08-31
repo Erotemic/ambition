@@ -679,6 +679,26 @@ if [[ "$print_plan" -eq 1 ]]; then
     fi
     if [[ "${#game_args[@]}" -gt 0 ]]; then printf 'game_arg=%s\n' "${game_args[@]}"; fi
     printf 'build_arg=%s\n' "${plan_build[@]}"
+    # ⛔⛔ THE PLAN IS THE COMMAND *AND* ITS ENVIRONMENT. A caller that replays
+    # `build_arg` alone builds something else: `CARGO_INCREMENTAL` above is part
+    # of this graph's cargo FINGERPRINT, so a build without it produces
+    # artifacts the launch below will not accept and rebuilds from scratch.
+    #
+    # ⭐ THE COST WAS MEASURED, NOT IMAGINED. `scripts/profile_desktop.sh` warm-
+    # built with a bare `cargo build` and then perf-recorded `run_game.sh`; the
+    # three bundles of 2026-08-31 all show `rustc`, `ld.mold` and twenty
+    # `lto cgu.NN` threads inside the capture, and in the worst one the game's
+    # first frame is 275 seconds after `perf record` started. The build was
+    # being done TWICE and the second one was billed to the profile.
+    #
+    # ⚠ ADD A ROW HERE WHENEVER THIS SCRIPT EXPORTS SOMETHING CARGO FINGERPRINTS
+    # (`RUSTFLAGS`, `CARGO_TARGET_DIR`, …). An env var that changes the build and
+    # is not on this list is invisible to every tool that asks for the plan.
+    for plan_env_name in CARGO_INCREMENTAL CARGO_TARGET_DIR RUSTFLAGS; do
+        if [[ -n "${!plan_env_name:-}" ]]; then
+            echo "build_env=$plan_env_name=${!plan_env_name}"
+        fi
+    done
     exit 0
 fi
 

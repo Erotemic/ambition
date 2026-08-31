@@ -1843,7 +1843,6 @@ impl Plugin for MaryORulesPlugin {
             // A reset hands back walkers, never the shell state the last attempt
             // left behind. First in the chain so a snake reset this frame is a
             // walker for every rule that follows it.
-            snake::reset_snakes_on_room_reset,
             snake::tag_mary_o_snakes,
             ai_slop::tag_mary_o_ai_slop,
             snake::run_snake_shells,

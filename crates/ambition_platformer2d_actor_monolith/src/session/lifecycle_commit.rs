@@ -19,12 +19,6 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// [`PendingLifecycleCommit`] can BE rollback state.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LifecycleIntent {
-    /// In-place same-room reset triggered by a player death.
-    DeathReset,
-    /// In-place same-room reset triggered by the manual reset input.
-    ManualReset,
-    /// In-place same-room replay of the current room.
-    Replay,
     /// Reconstruction: transition into `target_room` (its authored id), placing
     /// the TRIGGERING body at `arrival`. `edge_exit` selects the transition
     /// cooldown/feel, mirroring `RoomTransitionApplication::apply`.
@@ -35,8 +29,6 @@ pub enum LifecycleIntent {
     /// during the confirmation delay. A body without stable identity cannot
     /// produce a deferred transition intent.
     Transition(RoomTransitionIntent),
-    /// Reconstruction: full sandbox reset back to the world's start room.
-    FullReset,
 }
 
 /// Deterministic description of a room transition, independent of host
@@ -81,6 +73,19 @@ impl Admission {
     }
 }
 
+/// ⛔⛔ FOUR VARIANTS WERE DELETED HERE, 2026-08-30: `DeathReset`,
+/// `ManualReset`, `Replay` and `FullReset`. Nothing recorded any of them — the
+/// commit executor's own comment said so — and a stray one would have returned
+/// `CommitOutcome::Retry` forever, which is a silent stall wearing an
+/// exhaustive match's clothes. Every road that ends a room now records the one
+/// thing a lifecycle boundary actually does: `Transition`. A same-room replay
+/// is a transition to the room you are standing in.
+///
+/// ⭐ ONE VARIANT IS NOT A MISTAKE. The enum is the vocabulary the pending slot
+/// is about — "one lifecycle operation at a time" — and a new variant is
+/// welcome the day it arrives WITH ITS CONSUMER. It was the four that arrived
+/// without one.
+///
 /// One deferred lifecycle op, stamped with the sim frame that produced it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PendingIntent {
@@ -170,18 +175,34 @@ impl PendingLifecycleCommit {
 mod tests {
     use super::*;
 
+    fn crossing_to(room: &str) -> LifecycleIntent {
+        LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: SimId::placement("hero"),
+            target_room: room.into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+        })
+    }
+
     #[test]
-    fn record_keeps_the_earliest_intent() {
+    fn record_keeps_the_earliest_intent_and_says_which_happened() {
         let mut slot = PendingLifecycleCommit::default();
-        let _ = slot.record(10, LifecycleIntent::DeathReset);
+        assert_eq!(slot.record(10, crossing_to("east")), Admission::Admitted);
         // A later PREDICTED op must not overwrite the earlier one before the
         // host can commit it, or the confirmed intent is silently lost.
-        let _ = slot.record(15, LifecycleIntent::ManualReset);
+        assert_eq!(
+            slot.record(15, crossing_to("west")),
+            Admission::AlreadyPending,
+            "the slot is earliest-sticky, and a caller that runs the refused \
+             operation's consequences anyway is the defect this return value \
+             exists to make visible"
+        );
         assert_eq!(
             slot.pending,
             Some(PendingIntent {
                 frame: 10,
-                kind: LifecycleIntent::DeathReset
+                kind: crossing_to("east")
             })
         );
     }
@@ -210,7 +231,7 @@ mod tests {
     #[test]
     fn take_empties_the_slot() {
         let mut slot = PendingLifecycleCommit::default();
-        let _ = slot.record(3, LifecycleIntent::FullReset);
+        let _ = slot.record(3, crossing_to("east"));
         assert!(slot.take().is_some());
         assert_eq!(slot.pending, None);
     }
@@ -235,11 +256,18 @@ mod tests {
         assert!(slot.retract_transition_for_subject(&hero));
         assert!(slot.pending.is_none());
 
-        let _ = slot.record(9, LifecycleIntent::Replay);
+        // Another body's crossing is not this body's to retract.
+        let _ = slot.record(
+            9,
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                subject: other.clone(),
+                target_room: "west".into(),
+                arrival: Vec2::ZERO,
+                edge_exit: false,
+                zone_sfx: None,
+            }),
+        );
         assert!(!slot.retract_transition_for_subject(&hero));
-        assert!(matches!(
-            slot.pending.as_ref().map(|p| &p.kind),
-            Some(LifecycleIntent::Replay)
-        ));
+        assert!(slot.pending.is_some());
     }
 }

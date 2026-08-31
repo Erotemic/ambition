@@ -374,10 +374,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
              they rested"
         );
     };
-    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
-    else {
-        panic!("the resume recorded a lifecycle intent that is not a transition");
-    };
+    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind;
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
         transition.subject,

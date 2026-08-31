@@ -41,23 +41,6 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-- ▢ **D-REPLAY-RESIDUAL — finish the replay seam's remaining three.** The
-  admitted-transaction work closed the P1s; what is left is smaller and named.
-  (1) `LifecycleIntent` still carries `DeathReset`, `ManualReset`, `Replay` and
-  `FullReset`, which no production road records — delete them and their codec
-  branches rather than keeping the pre-convergence model as dormant API, and bump
-  the wire schema in the same commit. (2) Several `RoomReplayAdmitted` listeners
-  may now be redundant with canonical reconstruction — gravity's
-  `reset_gravity_on_room_reset` and Mary-O's snake reset are the suspects; delete
-  only what a poisoned test proves redundant. (3) Two legs are UNPINNED and say
-  so in their tests: `return_the_replay_subject_to_spawn`'s use of the admitted
-  subject (poisoning it to reset a different body leaves the case green, because
-  something else on the rebuild road restores the same facts), and
-  `follow_the_active_room`'s room memory. Acceptance: no dead intent variant, no
-  listener that a poison cannot justify, and either a guard for each unpinned leg
-  or a recorded reason it cannot be reached. Owner:
-  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
-
 - ▢ **D-RESTORE-INTERIM — prove the pre-correction population is harmless, or
   remove it.** A save load builds its first room with no occurrence continuity
   and corrects it afterwards; the acceptance suite establishes the two roads
@@ -69,6 +52,22 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   until restoration completes; or feed the saved occurrence facts to session
   activation so the temporary population never exists. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+✔ **D-REPLAY-RESIDUAL — the dead intent variants are gone and one listener was
+measured redundant.** `LifecycleIntent` carried `DeathReset`, `ManualReset`,
+`Replay` and `FullReset`; nothing recorded any of them and a stray one would
+have returned `CommitOutcome::Retry` forever — a silent stall wearing an
+exhaustive match's clothes. Deleted, with their codec branches; tags 0/1/2/4 now
+refuse to decode. ⛔ THE READABLE SCHEMA DUMP COULD NOT SEE THAT: same stable
+name, same encoder type, same projection, so every wire ledger stayed green
+while the encoding changed. `GGRS_ROLLBACK_SCHEMA_VERSION` is what that class of
+change is for — 139 → 140. Mary-O's `reset_snakes_on_room_reset` was deleted,
+but only after a cover test was written: gutting it left all 41 Mary-O tests
+green, which is evidence that nothing covered it rather than evidence of
+redundancy. Gravity's `reset_gravity_on_room_reset` STAYS — `BaseGravity` is a
+session-scoped resource and no room rebuild touches a resource. Two legs remain
+unpinned and their tests say so: `return_the_replay_subject_to_spawn`'s use of
+the admitted subject, and `follow_the_active_room`'s room memory.
 
 ✔ **D-RESTORE-FACTS — measured, and the SHAPE is provisionally kept.** A save
 load builds its first room with no occurrence continuity and the file's facts

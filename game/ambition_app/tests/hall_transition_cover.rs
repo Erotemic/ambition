@@ -123,7 +123,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             .expect("the hall has a primary avatar to send through its door")
             .clone()
     };
-    app.world_mut()
+    let _ = app.world_mut()
         .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,

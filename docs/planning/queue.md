@@ -148,13 +148,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D199 — replace the centre-line anti-tunnelling ray with policy-aware swept
-  body geometry.** The current ray tests a body's centre line against solids and
-  can miss collisions a finite AABB should hit; it also bypasses collision
-  policy distinctions. Implement swept AABB/Minkowski-equivalent continuous
-  collision using the same policy authority as ordinary movement rather than a
-  second geometry rule. Guard with edge/corner cases that the centre-line probe
-  misses and with a contrast case for intentionally passable geometry.
+- ▢ **D199 — the projectile's SOLID collision is a centre-line ray; the victim
+  half is already guarded and deferred.** Re-measured 2026-08-30, and the row as
+  written overstates what is left. Of its three asks: the victim-ordering and
+  wall-occlusion halves ARE guarded
+  (`projectile/tests/collision.rs` — `a_shot_reaching_two_bodies_hits_the_nearer_one...`
+  and `a_shot_does_not_damage_a_victim_standing_behind_a_wall`); and the
+  swept-versus-hurt-volume half is deliberately DEFERRED on a measurement that is
+  itself executable —
+  `projectile_speed_stays_under_the_swept_threshold.rs` fails the day content
+  authors a shot past ~1680 px/s, against a current fastest of 640. What remains
+  is the first ask alone: `ae::cast::raycast_solids` tests the shot's CENTRE LINE
+  against solids (`projectile/systems.rs`, the occlusion cast and the endpoint
+  snap), so a finite shot box can clip a corner the centre line misses, and the
+  cast bypasses the collision-policy distinctions ordinary movement honours. The
+  swept primitive already exists beside it (`core::cast::body_sweep`,
+  `aabb_path_contacts`) and is unused by this road. Acceptance: the shot's solid
+  test is swept and policy-aware, with an edge/corner case the centre-line probe
+  misses and a contrast case for intentionally passable geometry. ⚠ The guard for
+  the OTHER input to that inequality — a hurt volume authored below ~11px — does
+  not exist and cannot be written from authored data today; that is recorded in
+  the deferral test's own header.
 
 - ▢ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
   Review evidence still shows held ranged shots attributed through the primary

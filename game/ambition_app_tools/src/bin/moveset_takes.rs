@@ -757,6 +757,10 @@ fn sim_tick(app: &App) -> u64 {
 /// `causal` array, which is a visible absence rather than a silent one.
 #[cfg(feature = "causal")]
 mod causal_trace {
+    /// This build installs the causal recorder, so an empty `causal` array
+    /// means it ran and matched nothing — not that it was missing.
+    pub const AVAILABLE: bool = true;
+
     use bevy::prelude::App;
 
     pub fn arm(app: &mut App) {
@@ -821,11 +825,20 @@ mod causal_trace {
     }
 }
 
-/// Without the feature there is no inspector to install, and the take says so
-/// by carrying no `causal` array at all.
+/// Without the feature there is no inspector to install.
+///
+/// ⛔⛔ AND THE TAKE MUST SAY WHICH "NOTHING" IT MEANS. This doc used to claim
+/// the take carried *"no `causal` array at all"*; it always carried `[]`, and an
+/// empty array is ambiguous in the way that matters — it reads the same whether
+/// the recorder was never built, or ran and saw nothing. A reader deciding
+/// whether to trust a causal explanation needs those apart, so
+/// [`AVAILABLE`](causal_trace::AVAILABLE) is written beside the array.
 #[cfg(not(feature = "causal"))]
 mod causal_trace {
     use bevy::prelude::App;
+
+    /// This build installs no causal recorder, so `causal: []` means UNAVAILABLE.
+    pub const AVAILABLE: bool = false;
 
     pub fn arm(_: &mut App) {}
     pub fn clear(_: &mut App) {}
@@ -1376,10 +1389,15 @@ fn main() {
                 // things to a reader and to the viewer.
                 "outcome": verdict.as_str(),
                 "prepared": prepared,
-                // ⛔ EMPTY WITHOUT THE `causal` FEATURE, and that is a visible
-                // absence rather than a silent one: this build carries no
-                // inspector, so it announces no resolutions.
+                // ⛔ EMPTY MEANS TWO DIFFERENT THINGS AND THE CAPABILITY SAYS
+                // WHICH. `causal: []` with `causal_resolution: false` is "this
+                // build has no recorder"; with `true` it is "the recorder ran
+                // and matched nothing". A reader that cannot tell those apart
+                // will read a missing explanation as an absent cause.
                 "causal": causal_trace::drain(&mut app),
+                "capabilities": serde_json::json!({
+                    "causal_resolution": causal_trace::AVAILABLE,
+                }),
                 "frames": frames,
             }));
         }

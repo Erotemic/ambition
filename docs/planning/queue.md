@@ -664,7 +664,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   composition pressing reset in that window takes this arm.
   ▢ The review proposes a `ReconstituteRoom { room, subject: Option<SimId> }`
   intent so every replay follows one sequence. ⚠ TREAT THAT AS A HYPOTHESIS —
-  the reviewer could not run cargo. Acceptance: a bodyless replay acquires a
+  the reviewer could not run cargo — and ⭐ COSTED HERE 2026-08-31 before anyone
+  starts it, because the shape is right and the price is not where it looks.
+  The variant is the cheap part. `RoomTransitionApplication::apply` threads
+  `subject: Entity` through ~8 sites — a component-presence check that returns
+  `SubjectCannotTransit`, the gravity direction it reads off the body, the carry
+  body, the motion model, the clusters, `BodyCombat`, and the presentation pair
+  — so a rebuild with nobody in it needs every one of those to become optional,
+  and the room half separated from the body half. Add the rollback cost:
+  `PendingLifecycleCommit` is snapshot state, so a new variant is a schema bump
+  plus `snapshot_impls`' encode/decode (it tags variants by byte — `3 =>
+  Transition`).
+  ⛔ AND READ `loading.rs`'s COMMENT FIRST: *"ONE VARIANT. The four in-place
+  reset variants were deleted in v140: nothing recorded them, and a same-room
+  replay is a transition to the room you are standing in."* This would
+  re-introduce a variant that road deliberately collapsed — justified only
+  because, unlike those four, something WOULD record it. ⚠ the cheaper-looking
+  alternative (make `RoomTransitionIntent::subject` an `Option`) is worse: it
+  makes a bodyless DOOR CROSSING representable, and *"a body without stable
+  identity cannot produce a transition"* is a rule that is right for a crossing. Acceptance: a bodyless replay acquires a
   commit, retires attempt residue, REBUILDS the room, and admits with
   `subject: None`; poison the pending slot and none of it happens.
 
@@ -730,13 +748,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⚠ AND THE RUST FINDINGS ABOVE ARE SOURCE-READ: the reviewer had no `cargo`.
   Its Python/JS findings ARE reproduced and are the stronger evidence.
 
-- ▢ **D-CAUSAL-CAPABILITY — `causal: []` means two different things.** ⭐ GPT
+- ✔ **D-CAUSAL-CAPABILITY — CLOSED 2026-08-31, and the report was giving one
+  of the two audiences the wrong advice.** ⭐ GPT
   review 2026-08-31, source-read. `ambition_app_tools` defaults the `causal`
   feature OFF and `moveset_takes` always writes `"causal": []`, so "the recorder
   was not built" is indistinguishable from "the recorder ran and saw nothing" —
-  and `moveset_report.py` reads the empty array as the former. ⇒ write an
-  explicit `capabilities: { causal_resolution: bool }` on the artifact and pin
-  both states.
+  and `moveset_report.py` read the empty array as the former.
+  ⭐ THE HARM IS THE ADVICE, which is what makes this worth fixing rather than
+  documenting: a reader whose build ALREADY has the feature was told to
+  *"re-record with `--features causal`"* and would get the same empty array
+  again. The two absences want opposite next actions — enable the feature, or go
+  find why the JOIN missed (seat vs `SimId`, or the tick).
+  ✔ The take now writes `capabilities: { causal_resolution: bool }` beside the
+  array, from a `const AVAILABLE` in each of the two `causal_trace` modules, so
+  the flag cannot drift from the build that produced it. The report carries it
+  into the doc and prints THREE messages: unavailable, present-but-matched-
+  nothing, and *"this take predates the field and cannot say"* — a legacy take is
+  not guessed on. Guarded by
+  `an_empty_causal_array_says_which_kind_of_nothing_it_is`, all three arms, red
+  when the capability read is pinned to one answer. 21/21 report tests.
+  ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
+  *"carries no `causal` array at all"*. It always carried `[]`.
 
 ## External measurements / human-gated work
 

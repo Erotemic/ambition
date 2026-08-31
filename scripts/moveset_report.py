@@ -518,6 +518,21 @@ def _chain(take: dict, frames: list, contacts: list, tick_s: float) -> list:
     return chain
 
 
+def _causal_available(take: dict) -> bool | None:
+    """Did this recording's build carry the causal recorder?
+
+    ⭐ THREE ANSWERS, NOT TWO. `True`/`False` come from the take's own
+    `capabilities.causal_resolution`; `None` is a take recorded before that field
+    existed, where an empty `causal` array genuinely cannot be read either way.
+    Guessing on its behalf is what this function exists to stop.
+    """
+    capabilities = take.get("capabilities")
+    if not isinstance(capabilities, dict):
+        return None
+    value = capabilities.get("causal_resolution")
+    return value if isinstance(value, bool) else None
+
+
 def _resolution(take: dict, frames: list, tick: int, victim: dict | None) -> dict | None:
     """WHY the hit resolved as it did, from the causal log — never inferred.
 
@@ -593,6 +608,10 @@ def report(
             "verb": take.get("verb"),
             "label": take.get("label"),
         },
+        # ⛔ WHAT THE RECORDING COULD SEE, carried so a reader never has to
+        # guess which kind of "nothing" an empty `causal` array is. `None` is a
+        # take written before the recorder declared itself.
+        "capabilities": {"causal_resolution": _causal_available(take)},
         "activation": {
             "intended_move": take.get("intended_move"),
             "observed_moves": take.get("moves_seen"),
@@ -732,13 +751,38 @@ def summary(doc: dict) -> str:
                     f"    - {step['what']}: {_fmt(step['before'])} → {_fmt(step['after'])}"
                 )
         if not any(link.get("resolution") for link in m["consequence_chain"]):
-            lines.append(
-                "- ⚠ WHAT changed, not WHY. ignored / blocked / armored / "
-                "wallet-shielded / damaged is the runtime's own vocabulary; it "
-                "travels on `BodyHitResolved` and this recording was made by a "
-                "build without the `causal` feature. Re-record with "
-                "`--features causal` to get it."
-            )
+            # ⛔⛔ TWO DIFFERENT ABSENCES, and this said only one of them. An
+            # empty `causal` array reads the same whether the recorder was never
+            # BUILT or ran and MATCHED NOTHING, and the two want opposite next
+            # actions: re-record with the feature, or go look at why the join
+            # missed. The take declares which in `capabilities`.
+            # ⚠ a take written before that field existed says neither, so the
+            # message stays honest about not knowing.
+            available = doc.get("capabilities", {}).get("causal_resolution")
+            if available is False:
+                lines.append(
+                    "- ⚠ WHAT changed, not WHY. ignored / blocked / armored / "
+                    "wallet-shielded / damaged is the runtime's own vocabulary; "
+                    "it travels on `BodyHitResolved` and this recording was made "
+                    "by a build WITHOUT the `causal` feature. Re-record with "
+                    "`--features causal` to get it."
+                )
+            elif available is True:
+                lines.append(
+                    "- ⚠ WHAT changed, not WHY — and the recorder WAS present. "
+                    "This build carries the causal inspector and it matched no "
+                    "resolution for these hits, so the gap is in the JOIN (seat "
+                    "vs `SimId`, or the tick) rather than in the build. "
+                    "Re-recording will not help."
+                )
+            else:
+                lines.append(
+                    "- ⚠ WHAT changed, not WHY, and this take does not say "
+                    "which kind of nothing it means: it predates the "
+                    "`capabilities.causal_resolution` field, so the empty "
+                    "`causal` array could be a build without the feature OR a "
+                    "recorder that matched nothing. Re-record to find out."
+                )
     if m["spawns"]:
         lines += ["", "## Spawns", ""]
         for spawn in m["spawns"]:

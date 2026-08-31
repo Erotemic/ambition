@@ -235,14 +235,40 @@ def test_the_engines_own_resolution_is_read_never_inferred() -> None:
     )
 
 
-def test_a_recording_without_the_causal_feature_says_so() -> None:
-    """⛔ ABSENCE OF EVIDENCE, NAMED. A build with no inspector announces no
-    resolutions, and a reader must not mistake that for "the engine ignored it"."""
-    take = _take(contact_at=4)
-    chain = tool.report(take)["measurements"]["consequence_chain"]
-    assert chain[0]["resolution"] is None
-    text = tool.summary(tool.report(take))
+def test_an_empty_causal_array_says_which_kind_of_nothing_it_is() -> None:
+    """⛔⛔ THREE ANSWERS, AND `[]` USED TO GIVE ONE. A take always carried
+    `causal: []`, so "this build has no recorder" and "the recorder ran and
+    matched nothing" produced the same artifact and the same advice — and the
+    two want OPPOSITE next actions: re-record with the feature, or go find why
+    the join missed. `capabilities.causal_resolution` is what tells them apart,
+    and a take written before that field existed must say it cannot tell.
+
+    ⭐ ALL THREE ARMS, because the interesting one is the middle: a report that
+    says "re-record with `--features causal`" to somebody who ALREADY has the
+    feature sends them to do nothing for an afternoon."""
+    unavailable = _take(contact_at=4)
+    unavailable["capabilities"] = {"causal_resolution": False}
+    assert tool.report(unavailable)["measurements"]["consequence_chain"][0][
+        "resolution"
+    ] is None
+    text = tool.summary(tool.report(unavailable))
     assert "--features causal" in text
+    assert "WITHOUT the `causal` feature" in text
+
+    available = _take(contact_at=4)
+    available["capabilities"] = {"causal_resolution": True}
+    text = tool.summary(tool.report(available))
+    assert "the recorder WAS present" in text
+    assert "Re-recording will not help" in text
+    assert "--features causal" not in text, (
+        "the report told somebody who already has the feature to go and enable it"
+    )
+
+    # A take from before the field existed. It must not guess either way.
+    legacy = _take(contact_at=4)
+    legacy.pop("capabilities", None)
+    text = tool.summary(tool.report(legacy))
+    assert "does not say" in text and "which kind of nothing" in text
 
 
 def test_a_sim_id_prefix_does_not_hide_the_resolution() -> None:

@@ -470,8 +470,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Pinned by `a_blocked_strike_is_an_overlap_and_not_a_connection` (inverted, as
   this row asked), `the_three_contact_outcomes_permit_three_different_cancels`
   and `a_playback_learns_connect_and_block_from_the_resolvers_own_channels`.
-  ▢ WHAT IS LEFT IS AUTHORING: no move authors an `OnBlock` window yet, which is
-  content work for whoever wants a safe-on-block follow-up. Owner:
+  ✔ AND THE AUTHORING LANDED 2026-08-31, the same day: George's jab nominates
+  `grab` on block. A blocked jab is the moment the defender has committed to
+  holding shield, which is exactly when a grab beats them — and until now a
+  shielded jab bought George nothing, because the `OnHit` route into
+  smash/special is closed by definition when nothing connected. ⛔ authored THIRD
+  in his cancel list: the chain takes the first successor it can resolve BY MOVE
+  ID, so `jab2` has to keep that slot or every held button would answer with a
+  grab. ⛔ and `grab` is a VERB, not a move in his table, so the test asserts
+  `cancel_targets` actually RESOLVES it through the contract's verb map rather
+  than trusting the string — a window naming nothing would open onto nothing and
+  no value test would notice. Red first (`0 != 1` on-block windows). Owner:
   [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and

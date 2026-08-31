@@ -114,6 +114,19 @@ pub fn george_booul_moveset() -> MovesetContract {
         &["smash", "special"],
         CancelCondition::OnHit,
     );
+    // ⭐ AND SHIELDED, IT BUYS A GRAB — the first authored `OnBlock` window in
+    // the game, and the genre's most canonical use of one. A blocked jab is the
+    // moment the defender has committed to holding shield, which is exactly when
+    // a grab beats them. Without it a shielded jab offers George nothing: the
+    // route above is `OnHit` and nothing connected, so his only blocked-jab
+    // option was to finish recovery and let the shield go.
+    //
+    // ⛔ THIRD IN THE LIST, NOT FIRST. The chain takes the first successor it can
+    // resolve BY MOVE ID (see the string test below), so `jab2` has to stay the
+    // jab's first nomination; a grab named earlier would answer every held
+    // button. `grab` is a VERB rather than a move in this table — it resolves
+    // through the contract's verb map to `george_grab`.
+    let jab = cancelable(jab, 0.05, 0.25, &["grab"], CancelCondition::OnBlock);
     let jab = feel(jab, Feel::Poke);
 
     let mut n_air = strike(Strike {
@@ -1200,6 +1213,62 @@ mod tests {
             cancels[0].0.first().map(String::as_str),
             Some("jab2"),
             "the string has to be the first thing the jab nominates"
+        );
+    }
+
+    /// ⭐ THE FIRST AUTHORED `OnBlock` WINDOW IN THE GAME, and the genre's most
+    /// canonical use of one: a jab that the opponent SHIELDED buys a grab.
+    ///
+    /// `CancelCondition::OnBlock` shipped 2026-08-31 with no customer — the
+    /// queue row closed with *"content work for whoever wants a safe-on-block
+    /// follow-up"*. This is that follow-up. A blocked jab is the moment the
+    /// defender has committed to holding shield, which is exactly when a grab
+    /// beats them; without it George's blocked jab offers nothing and his
+    /// `OnHit` route into smash/special is closed by definition, because
+    /// nothing connected.
+    ///
+    /// ⛔ IT MUST NOT WIDEN THE OTHER TWO. A blocked jab is not a whiff (it
+    /// touched something) and not a hit (it connected with nothing), so this
+    /// asserts the string is still `Always` and the route is still `OnHit`
+    /// beside it — three conditions on one move, which is the whole point of
+    /// `MoveContact` carrying three facts instead of one bool.
+    #[test]
+    fn a_shielded_jab_buys_george_a_grab() {
+        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        let george = george_booul_moveset();
+        let jab = find(&george, "jab");
+        let blocked: Vec<&Vec<String>> = jab
+            .windows
+            .iter()
+            .filter_map(|w| match &w.tag {
+                WindowTag::Cancelable { into, condition }
+                    if *condition == CancelCondition::OnBlock =>
+                {
+                    Some(into)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            blocked.len(),
+            1,
+            "the jab should nominate exactly one on-block continuation"
+        );
+        assert!(
+            blocked[0].iter().any(|t| t == "grab"),
+            "a shielded jab buys a GRAB — the option that beats the shield that \
+             just ate it; got {:?}",
+            blocked[0]
+        );
+
+        // ⛔ AND THE NAME HAS TO RESOLVE. `grab` is a VERB, not a move id in
+        // this table, so it only means anything if the contract's verb map
+        // binds it — which is the half a hand-written string cannot promise.
+        let targets = george.cancel_targets(blocked[0]);
+        assert!(
+            !targets.is_empty(),
+            "`grab` named a continuation nothing in George's table answers to; \
+             the window would open onto nothing"
         );
     }
 }

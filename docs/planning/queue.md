@@ -381,24 +381,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D-FIGHTER-L1 — `on_ground` and `supporting_floor` are two authorities on
-  "what am I standing on", and they disagree.** ⛔ THE OWNER DOC'S HYPOTHESIS IS
-  FALSIFIED: `--reaction-ms` at 500, 300, 150 and **0** gives byte-identical
-  outcomes (`5.9s : 10.4s`, 0%/0%, unfought), and the trace DOES change at 0 (the
-  100-200px per-decision position jumps vanish), so the override lands and the
-  outcome does not depend on it. ⭐ TRACED TO THE CONTRADICTION, with numbers:
-  on 6 of 6 grounded decisions the body reports `ground=true terrain=1..2
-  supported=false floor_edge=None` — terrain REACHES it, and none of it passes
-  `WorldView::supporting_floor`'s hand-written y-band around the feet. So a body
-  the kernel says is standing on something perceives no floor at all, every ledge
-  question in the brain reads through that, and `Recovery`'s route search reports
-  `no-route-found` while the body walks. ⭐ `terrain=N supported=bool` are on the
-  trace now, which is what separated "no terrain reached me" from "terrain
-  reached me and none of it is under my feet" — opposite fixes. Next: make the
-  support question read the kernel's own answer instead of re-deriving it from a
-  band, the way `integrate` already had to stop re-deriving support in the
-  rollout shadow. ⚠ A SECOND SMELL, not chased: `terrain` is 1-2 solids on a
-  stage that has more, so the viewport filter may be narrow as well. Owner:
+- ▢ **D-FIGHTER-L1 — the obvious fix is MEASURED WRONG; do not re-derive it.**
+  ⛔ REACTION TIME IS NOT THE CAUSE: `--reaction-ms` at 500, 300, 150 and **0**
+  gives byte-identical outcomes (`5.9s : 10.4s`, 0%/0%, unfought), and the trace
+  DOES change at 0, so the override lands and the outcome does not depend on it.
+  ⭐ TRACED: on 6 of 6 grounded decisions the body reports `ground=true
+  terrain=[BlinkWall] supported=false floor_edge=None`. `on_ground` is KERNEL
+  truth; `WorldView::supporting_floor` accepts only `Solid | OneWay`, so the body
+  perceives no floor at all — and `floor_ahead`, `floor_edge_distance`, the
+  walks-off penalty and the recovery route search all read through there.
+  ⛔⛔ AND THE FIX THAT FOLLOWS FROM THAT READING IS WRONG. `SolidKind::BlinkWall`'s
+  own doc says *"full collision ... a brain without the blink-through upgrade
+  treats it as `Solid`"*, so adding it to the three floor filters is the obvious
+  move. **Measured: it REGRESSES l6 back to `unfought 1/1` (7.1s : 11.6s, 0%/0%,
+  its exact pre-fix numbers) and does not change l1 at all.** Reverted. A
+  coherent reading of the source is not a measurement. ⭐ WHAT THAT IMPLIES, and
+  the next thing to ask: the blink wall the body is "standing on" is 96×12 and
+  TRACKS THE BODY'S x exactly, tick for tick — so it is very likely not ground at
+  all, and `on_ground` being true beside it wants explaining before any floor
+  filter is touched. Find what spawns it. ⚠ A second smell, unchased: `terrain`
+  is 1-2 solids on a stage that has more. Owner:
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the

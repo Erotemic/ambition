@@ -91,7 +91,20 @@ every ledge question in the brain reads through there.
 `terrain=N supported=bool` are on the trace now. They are what separated *"no
 terrain reached me"* from *"terrain reached me and none of it is under my feet"*,
 which want opposite fixes — the same instrument gap the l6 diagnosis hit one
-field over. Queue row `D-FIGHTER-L1`.
+field over.
+
+⛔⛔ **AND THE FIX THAT FOLLOWS FROM THAT READING IS MEASURED WRONG.** The solid
+under the body is a `BlinkWall`, whose own doc says *"full collision ... a brain
+without the blink-through upgrade treats it as `Solid`"* — so adding it to the
+three floor filters is the obvious move. It **regresses l6 back to `unfought
+1/1`, its exact pre-fix numbers**, and does not change l1. Reverted; do not
+re-derive it. A coherent reading of the source is not a measurement.
+
+⭐ **THE NEXT QUESTION** is what that blink wall IS: 96×12, tracking the body's
+`x` exactly tick for tick. That is not stage geometry, and `on_ground` being true
+beside it wants explaining before any floor filter is touched.
+
+Queue row `D-FIGHTER-L1`.
 
 ## F1 — DONE. The trace named it; here is what to reuse
 

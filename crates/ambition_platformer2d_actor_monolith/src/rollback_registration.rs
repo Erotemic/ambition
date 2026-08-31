@@ -569,6 +569,21 @@ where
         OWNER,
         "resource.save_restored",
     );
+    // ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM.
+    // `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, and a
+    // `Local` does not rewind: a rollback crossing the frame it routed on would
+    // resimulate with the memory already past the crossing, so one timeline asks
+    // for the crossing and the other believes it already did.
+    //
+    // ⭐ PROBED BY WHICH GENERATION, not by presence. A restore that brought
+    // back the wrong generation makes one timeline re-ask for a crossing the
+    // other already spent, and a presence probe sees none of that.
+    registrar.rollback_resource_clone_checksum::<crate::shrine::CheckpointResumeProgress>(
+        OWNER,
+        "resource.checkpoint_resume_progress",
+        "which session generation the resume has routed and placed",
+        crate::shrine::CheckpointResumeProgress::checksum,
+    );
 
     // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The
     // boot census can only see components that exist in the INITIAL world; every

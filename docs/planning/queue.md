@@ -41,16 +41,23 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-- ▢ **D-RESTORE-SIM-LOCAL — `restore_checkpoint_on_session_start` keeps its
-  once-per-session memory in two `Local`s on a SIM system.** `applied_for` and
-  `routed_for` do not rewind, so a resimulation that crossed the routing frame
-  would re-request or skip the resume. Unreachable today only because a confirmed
-  transition rebases GGRS onto a new frame zero, which is a correctness that
-  moves when the rebase does — the same argument, and the same verdict, as the
-  Mary-O room memory in `rollback_room_memory.rs`. Acceptance: the memory is
-  rollback state, or a test shows the rebase makes divergence unreachable and
-  says so where the `Local`s are. Owner:
-  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+✔ **D-RESTORE-SIM-LOCAL — the once-per-session resume memory was two `Local`s on
+a SIM system.** `restore_checkpoint_on_session_start` runs in `PlayerSimulation`,
+and a `Local` does not rewind: a rollback crossing the frame it routed on would
+resimulate with the memory already past the crossing, so one timeline asks for
+the crossing and the other believes it already did. Both memories are one
+registered resource now, `CheckpointResumeProgress`, probed by WHICH GENERATION
+rather than by presence — the coverage oracle refused a presence probe, correctly,
+because the value IS the decision. `GGRS_ROLLBACK_SCHEMA_VERSION` 141 → 142.
+⚠ MEASURED UNPINNED, AND SAID SO. `a_cross_room_checkpoint_resume_stays_checksum_clean`
+is green with the memory poisoned back to `Local`s: a confirmed transition rebases
+GGRS onto a new frame zero, so no rewind crosses the routing frame and the
+divergence is unreachable today. The move is still right — a correctness that
+holds only because some other layer rebases moves when the rebase does — but the
+test doc says plainly what it does and does not cover, the same way the Mary-O
+room memory's does. What the arm DOES pin is that a cross-room resume under a
+live sync-test session stays checksum-clean at all, with a premise assert that it
+actually crossed.
 
 ✔ **D-RESTORE-LEDGER-SCOPE — the ledger is session-scoped now, and the row was
 WRONG about the consequence.** ⛔ THE ROW WAS WRITTEN OFF A SCHEDULE READING AND

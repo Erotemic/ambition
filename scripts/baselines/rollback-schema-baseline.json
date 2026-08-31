@@ -360,6 +360,7 @@
     "resource.active_match",
     "resource.active_round_scope",
     "resource.base_gravity",
+    "resource.checkpoint_resume_progress",
     "resource.clock_regime_policy",
     "resource.clock_state",
     "resource.custody_baseline",

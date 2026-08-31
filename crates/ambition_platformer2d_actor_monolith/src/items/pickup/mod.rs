@@ -86,6 +86,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );
 
+        app.init_resource::<crate::shrine::CheckpointResumeProgress>();
         app.add_systems(
             sim,
             (

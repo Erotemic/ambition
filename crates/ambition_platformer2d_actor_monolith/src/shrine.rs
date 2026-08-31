@@ -15,7 +15,7 @@
 //!   the affordance/prompt system via an `Interactable` is the follow-up (see
 //!   TODO "Healing / save-point shrine").
 
-use ambition_platformer2d_shared_tangle::shrine::{ShrineActivationPulse};
+use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
@@ -157,6 +157,52 @@ pub fn heal_save_shrine_system(
 /// post-construction placement is additive, is testable on its own, and cannot
 /// make the authored-spawn path behave differently for every existing test.
 ///
+/// How far the once-per-session checkpoint resume has got, per session
+/// generation.
+///
+/// ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM, AND A `Local` DOES NOT REWIND.
+/// `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, so a
+/// rollback that crossed the frame it routed on would resimulate with the memory
+/// already past the crossing: one timeline asks for the resume, the other
+/// believes it already did.
+///
+/// ⚠ UNREACHABLE TODAY, AND THAT IS NOT A REASON TO LEAVE IT. A confirmed room
+/// transition rebases GGRS onto a new frame zero, so no rewind crosses the
+/// commit — which makes this a correctness that holds because some OTHER layer
+/// rebases, and it moves when the rebase does. Same argument, same verdict, as
+/// the Mary-O room memory in `rollback_room_memory.rs`; see its `⚠ WHAT THIS
+/// FILE DOES NOT PIN` note for the honest statement of what a guard here can and
+/// cannot see.
+///
+/// ⭐ THE GENERATION IS PART OF THE VALUE, so a memory left over from a retired
+/// session simply does not match the live one and self-corrects. That is why
+/// this is not also session-scoped state.
+#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq, Eq)]
+pub struct CheckpointResumeProgress {
+    /// The session generation this resume has finished placing the body for.
+    pub applied_for: Option<Option<u64>>,
+    /// The session generation this resume has already asked for a crossing on.
+    pub routed_for: Option<Option<u64>>,
+}
+
+impl CheckpointResumeProgress {
+    /// ⭐ WHICH GENERATION, not merely "a memory exists". A presence probe
+    /// satisfies the coverage oracle while seeing nothing of the value, and the
+    /// value here is the whole decision: a restore that brought back the wrong
+    /// generation makes one timeline re-ask for a crossing the other already
+    /// spent.
+    pub fn checksum(&self) -> u64 {
+        fn leg(slot: Option<Option<u64>>) -> u64 {
+            match slot {
+                None => 0,
+                Some(None) => 1,
+                Some(Some(generation)) => generation ^ 0x9e37_79b9_7f4a_7c15,
+            }
+        }
+        leg(self.applied_for).rotate_left(1) ^ leg(self.routed_for)
+    }
+}
+
 /// Movement goes through [`ae::movement::transit_body`] — the ONE transit
 /// authority (ADR 0024) — so arrival is at rest with contacts and attachment
 /// reconciled, not a raw position write that leaves the body believing it is
@@ -190,19 +236,19 @@ pub fn restore_checkpoint_on_session_start(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    mut applied_for: Local<Option<Option<u64>>>,
-    mut routed_for: Local<Option<Option<u64>>>,
+    // ⛔⛔ NOT `Local`s. See [`CheckpointResumeProgress`].
+    mut progress: ResMut<CheckpointResumeProgress>,
 ) {
     let Some(room_set) = room_set.as_deref() else {
         return;
     };
     let generation = scope.and_then(|scope| scope.current()).map(|id| id.0);
-    if *applied_for == Some(generation) {
+    if progress.applied_for == Some(generation) {
         return;
     }
     let Some(checkpoint) = save.data().checkpoint.as_ref() else {
         // Nothing to resume. Mark the session handled so this stops looking.
-        *applied_for = Some(generation);
+        progress.applied_for = Some(generation);
         return;
     };
 
@@ -217,7 +263,7 @@ pub fn restore_checkpoint_on_session_start(
     if checkpoint.room_id != room_set.active_spec().id {
         // Once per session. A transition takes several frames to commit, and
         // re-requesting every frame would restart it forever.
-        if *routed_for == Some(generation) {
+        if progress.routed_for == Some(generation) {
             return;
         }
         if !room_set
@@ -232,7 +278,7 @@ pub fn restore_checkpoint_on_session_start(
                  starting at the session's own room instead",
                 checkpoint.room_id
             );
-            *applied_for = Some(generation);
+            progress.applied_for = Some(generation);
             return;
         }
         // resolved BEFORE the latch: a session whose avatar has not been built
@@ -243,7 +289,7 @@ pub fn restore_checkpoint_on_session_start(
             return;
         };
         let subject = subject.clone();
-        *routed_for = Some(generation);
+        progress.routed_for = Some(generation);
         // The intent can: a resume is a body, a destination and an arrival, which is all a
         // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
@@ -273,7 +319,7 @@ pub fn restore_checkpoint_on_session_start(
         // handled that was never placed.
         return;
     };
-    *applied_for = Some(generation);
+    progress.applied_for = Some(generation);
     let mut item = clusters;
     let mut clusters = item.as_clusters_mut();
     ae::movement::transit_body(
@@ -390,7 +436,6 @@ pub fn resume_at_checkpoint_on_reset(
         );
     }
 }
-
 
 #[cfg(test)]
 mod tests;

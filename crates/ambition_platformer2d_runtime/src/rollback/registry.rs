@@ -91,7 +91,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// the recorder reproduces its state instead of being restored to it. A peer
 /// that snapshots the recorder and one that does not cannot agree about a
 /// snapshot, so this is a wire change even though it only REMOVES bytes.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 141;
+/// ⛔ v142: `CheckpointResumeProgress` ENTERED the snapshot. It was two `Local`s
+/// on `restore_checkpoint_on_session_start`, which runs in `PlayerSimulation` —
+/// so the once-per-session resume memory did not rewind with the world it is
+/// about. Unreachable today because a confirmed transition rebases GGRS onto a
+/// new frame zero; registered anyway, because a correctness that holds only
+/// because some other layer rebases moves when the rebase does.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 142;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

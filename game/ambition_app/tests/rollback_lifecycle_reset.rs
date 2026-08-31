@@ -408,3 +408,93 @@ fn probe_what_a_rollback_frame_costs() {
     );
     run("fixed60 tiny room", empty().with_fixed_tick(true));
 }
+
+/// The once-per-session checkpoint resume survives the rollback window.
+///
+/// ⛔⛔ IT USED TO BE TWO `Local`s ON A SIM SYSTEM.
+/// `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, and a
+/// `Local` does not rewind: a rollback crossing the frame it routed on would
+/// resimulate with the memory already past the crossing, so one timeline asks
+/// for the crossing and the other believes it already did. The memory is
+/// `CheckpointResumeProgress` now — registered, and probed by WHICH generation
+/// rather than by presence.
+///
+/// ⚠ WHAT THIS ARM CAN AND CANNOT SEE. Verified 2026-08-31 by poisoning the
+/// memory back to `Local`s: this stays GREEN. A confirmed room transition
+/// REBASES GGRS onto a new frame-zero baseline, so no rewind ever crosses the
+/// routing frame and the divergence is unreachable today. The move is still
+/// right — a correctness that holds only because some other layer rebases is a
+/// correctness that moves when the rebase does — but it is UNPINNED, and saying
+/// so beats implying a guard that does not exist. Same shape, same wording, as
+/// the Mary-O room memory in
+/// `game/ambition_demo_mary_o_app/tests/rollback_room_memory.rs`.
+///
+/// What it DOES pin is that routing a cross-room resume under a live sync-test
+/// session stays checksum-clean at all — which is not free, and was worth an arm
+/// the first time a resume became a lifecycle intent.
+#[test]
+fn a_cross_room_checkpoint_resume_stays_checksum_clean() {
+    use ambition_platformer2d::session::AmbitionGameSaveData;
+
+    // The room the session opens in, and a different one for the checkpoint to
+    // name — a same-room checkpoint never routes, so it would test nothing.
+    let mut scout = repro_sim();
+    let rooms: Vec<String> = {
+        let world = scout.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        q.iter(world)
+            .next()
+            .expect("the session has an active room set")
+            .rooms
+            .iter()
+            .map(|room| room.id.clone())
+            .filter(|id| id != "combat_calibration_lab")
+            .collect()
+    };
+    let elsewhere = rooms
+        .first()
+        .cloned()
+        .expect("the world has a second room to resume into");
+
+    let mut save = AmbitionGameSaveData::default();
+    save.checkpoint = Some(
+        ambition_platformer2d::persistence::save_data::PersistedCheckpoint::new(
+            elsewhere.clone(),
+            200,
+            200,
+        ),
+    );
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("combat_calibration_lab")
+            .with_sync_test_rollback_settings(4, 10)
+            .with_save(save),
+    )
+    .expect("the GGRS sync-test harness boots with a save file");
+
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        ambition_platformer2d::rollback::session_health(sim.world())
+            .unwrap_or_else(|error| panic!("frame {frame} of the resume desynced: {error}"));
+    }
+
+    // ⛔ THE PREMISE: a resume that never routed would keep this arm green by
+    // never doing the thing it is about.
+    let landed = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        q.iter(world)
+            .next()
+            .expect("the session has an active room set")
+            .active_spec()
+            .id
+            .clone()
+    };
+    assert_eq!(
+        landed, elsewhere,
+        "the checkpoint resume never crossed, so nothing above measured a \
+         crossing under rollback"
+    );
+}

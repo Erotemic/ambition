@@ -222,6 +222,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .begin();
     insert_session_world_component(next.world_mut(), room_set("shrine_room"));
     next.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    next.init_resource::<CheckpointResumeProgress>();
     next.add_systems(Update, restore_checkpoint_on_session_start);
     // The REAL player bundle, at the room's authored spawn — the body the
     // construction path produces, with every cluster the transit authority reads.
@@ -282,6 +283,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<CheckpointResumeProgress>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     let body = app
         .world_mut()
@@ -355,6 +357,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<CheckpointResumeProgress>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
 

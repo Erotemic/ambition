@@ -406,6 +406,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is 1-2 solids on a stage that has more. Owner:
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
+- ▢ **D-BRAIN-PLATFORM-FLOOR — a fighter riding a moving platform perceives no
+  floor.** `WorldView::supporting_floor`, `floor_below` and `ground_below` each
+  spell `Solid | OneWay` inline, and `platforms/mod.rs` inserts moving platforms
+  as blink-passable blocks (*"solid for normal collision, but blink-passable for
+  upgraded blink pathing"*). So `on_ground` is true and `supported` is false, and
+  every ledge question in the brain — `floor_ahead`, `floor_edge_distance`, the
+  walks-off penalty, the recovery route search — reads through the false one.
+  Measured on `ladder_rig --sweep-below`: `ground=true terrain=[BlinkWall]
+  supported=false` on 6 of 6 grounded decisions. ⛔⛔ THE ONE-LINE FIX IS
+  MEASURED WRONG ON ITS OWN: adding `BlinkWall` to the three filters regresses
+  D-FIGHTER-L6 back to `unfought 1/1`, its exact pre-fix numbers. The two
+  interact, so the acceptance is a single measurement of BOTH: the platform is
+  perceived as ground AND the `--sweep-below` ladder does not regress. Do not
+  ship the filter change alone. Owner:
+  [`engine/fighter-brain.md`](engine/fighter-brain.md).
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)

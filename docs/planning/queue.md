@@ -381,23 +381,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D-FIGHTER-L1 — reaction time is NOT the cause, and the live lead is a
-  perception gap.** ⛔ THE OWNER DOC'S HYPOTHESIS IS FALSIFIED. `fighter-brain.md`
-  said l1's *"long reaction delay relative to the fixture fall time"* was the
-  variable to isolate; `ladder_rig --sweep-below --seeds 1 --reaction-ms N` at
-  N = 500, 300, 150 and **0** gives byte-identical outcomes (`5.9s : 10.4s`,
-  0%/0%, unfought). The trace DOES change at 0 (the 100-200px per-decision
-  position jumps — perception staleness — vanish), so the override lands; the
-  outcome simply does not depend on it. ⭐ THE LIVE LEAD, from the same trace:
-  **seat 0 reports `floor_edge=None` for the entire bout while seat 1 reports
-  `floor_edge=Some(108.0)`.** A body that cannot perceive where the floor ends
-  cannot avoid walking off it, and l1's last decision is `x=254 vx=270
-  ground=true emit_x=1.0` — alive, on the ground, walking — and then nothing.
-  Next: find why `floor_edge_distance()` is `None` for that body and whether it
-  is a perception, placement or stage-knowledge gap. ⚠ NOT the cause and now
-  fixed anyway: the l5 partner, once its opponent died, held
-  `chose=Some(Approach) emit_x=0.0` forever — a foe-relative verb offered with no
-  foe. Owner: [`engine/fighter-brain.md`](engine/fighter-brain.md).
+- ▢ **D-FIGHTER-L1 — `on_ground` and `supporting_floor` are two authorities on
+  "what am I standing on", and they disagree.** ⛔ THE OWNER DOC'S HYPOTHESIS IS
+  FALSIFIED: `--reaction-ms` at 500, 300, 150 and **0** gives byte-identical
+  outcomes (`5.9s : 10.4s`, 0%/0%, unfought), and the trace DOES change at 0 (the
+  100-200px per-decision position jumps vanish), so the override lands and the
+  outcome does not depend on it. ⭐ TRACED TO THE CONTRADICTION, with numbers:
+  on 6 of 6 grounded decisions the body reports `ground=true terrain=1..2
+  supported=false floor_edge=None` — terrain REACHES it, and none of it passes
+  `WorldView::supporting_floor`'s hand-written y-band around the feet. So a body
+  the kernel says is standing on something perceives no floor at all, every ledge
+  question in the brain reads through that, and `Recovery`'s route search reports
+  `no-route-found` while the body walks. ⭐ `terrain=N supported=bool` are on the
+  trace now, which is what separated "no terrain reached me" from "terrain
+  reached me and none of it is under my feet" — opposite fixes. Next: make the
+  support question read the kernel's own answer instead of re-deriving it from a
+  band, the way `integrate` already had to stop re-deriving support in the
+  rollout shadow. ⚠ A SECOND SMELL, not chased: `terrain` is 1-2 solids on a
+  stage that has more, so the viewport filter may be narrow as well. Owner:
+  [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

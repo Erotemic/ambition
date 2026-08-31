@@ -895,7 +895,7 @@ fn trace_decision(
     // fighters on a stage produced two interleaved streams with nothing to tell
     // them apart, and this trace exists because reasoning about that failed.
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
@@ -908,6 +908,15 @@ fn trace_decision(
         view.stage.bounds.min.x,
         view.stage.bounds.max.x,
         view.floor_edge_distance().map(|d| d.round()),
+        // ⭐ WHAT THE BODY CAN SEE UNDER ITSELF. `on_ground` is KERNEL truth and
+        // `terrain` is viewport-limited PERCEPTION, so the two can contradict —
+        // measured on the l1 recovery fixture, 6 of 6 grounded decisions had
+        // `ground=true` with `floor_edge=None`. Without these two numbers a
+        // reader cannot tell "no terrain reached me at all" from "terrain
+        // reached me and none of it is under my feet", and those want opposite
+        // fixes.
+        view.terrain.len(),
+        view.supporting_floor().is_some(),
         offered,
         vetoed,
         unmodelled,

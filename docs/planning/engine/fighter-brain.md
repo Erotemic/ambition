@@ -80,11 +80,18 @@ The trace changes at 0 — the 100-200px per-decision position jumps that are
 perception staleness disappear — so the override lands and the outcome simply
 does not depend on it.
 
-⭐ **THE LIVE LEAD is a perception gap:** seat 0 reports `floor_edge=None` for the
-entire bout while seat 1 reports `floor_edge=Some(108.0)`. A body that cannot see
-where the floor ends cannot avoid walking off it, and l1's last decision is
-`x=254 vx=270 ground=true emit_x=1.0` — alive, on the ground, walking. Queue row
-`D-FIGHTER-L1`.
+⭐ **TRACED TO A CONTRADICTION BETWEEN TWO AUTHORITIES.** On 6 of 6 grounded
+decisions the l1 body reports `ground=true terrain=1..2 supported=false
+floor_edge=None`. Terrain REACHES the body; none of it passes
+`WorldView::supporting_floor`'s hand-written y-band around the feet. `on_ground`
+is kernel truth and `supporting_floor` re-derives the same fact from a band, so a
+body the kernel says is standing on something perceives no floor at all — and
+every ledge question in the brain reads through there.
+
+`terrain=N supported=bool` are on the trace now. They are what separated *"no
+terrain reached me"* from *"terrain reached me and none of it is under my feet"*,
+which want opposite fixes — the same instrument gap the l6 diagnosis hit one
+field over. Queue row `D-FIGHTER-L1`.
 
 ## F1 — DONE. The trace named it; here is what to reuse
 

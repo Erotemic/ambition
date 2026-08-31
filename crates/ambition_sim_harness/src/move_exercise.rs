@@ -479,6 +479,70 @@ fn take_off(app: &mut App) -> bool {
     false
 }
 
+/// The horizontal gap between seat zero and another seat, in pixels.
+///
+/// `None` when either body is absent — a gap to a fighter who is not there is
+/// not a distance, and a scenario that treats it as one walks somebody off a
+/// stage looking for them.
+pub fn gap_to_seat(app: &mut App, seat: usize) -> Option<f32> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyKinematics,
+    )>();
+    let mut mine = None;
+    let mut theirs = None;
+    for (at, kin) in q.iter(world) {
+        if at.0 == 0 {
+            mine = Some(kin.pos.x);
+        } else if at.0 == seat {
+            theirs = Some(kin.pos.x);
+        }
+    }
+    Some(theirs? - mine?)
+}
+
+/// The longest an approach will walk before giving up.
+///
+/// Generous, because a fighter crossing a stage at walking speed is slow and a
+/// short budget would silently record the move from wherever it got to.
+pub const APPROACH_LIMIT: usize = 480;
+
+/// Walk seat zero toward the target until the gap is at most `spacing` px.
+///
+/// ⭐⭐ SPACING IS A SCENARIO PARAMETER, NOT AN ACCIDENT OF STAGING. The match
+/// places its seats where a match wants them, which is far enough apart that no
+/// ordinary move can reach — so every recorded take showed a strike swinging
+/// through empty air and no take could ever exhibit a CONTACT. "How close do
+/// they have to be for this to connect" is one of the questions the observatory
+/// exists to answer, and it cannot be asked without this.
+///
+/// ⛔ IT WALKS; IT DOES NOT TELEPORT. Placing a body would skip the movement
+/// systems, and a fighter that arrived without running is in a state the game
+/// never produces. The approach uses the ordinary control frame, so the body
+/// ends up standing where a player could have walked it.
+///
+/// Returns whether the requested spacing was reached. A `false` is a real
+/// answer — a wall, a ledge, a body that cannot walk — and the caller records
+/// the gap it actually got.
+pub fn approach(app: &mut App, spacing: f32) -> bool {
+    for _ in 0..APPROACH_LIMIT {
+        let Some(gap) = gap_to_seat(app, 1) else {
+            return false;
+        };
+        if gap.abs() <= spacing {
+            // ⛔ SETTLE AFTER ARRIVING. A body still carrying walk velocity at
+            // the press is a body whose move comes out while it slides, which
+            // is a different measurement from the one that was asked for.
+            return settle(app);
+        }
+        let mut frame = ControlFrame::default();
+        frame.axis_x = gap.signum();
+        step(app, frame);
+    }
+    false
+}
+
 /// The longest anything will wait for the stage to go quiet before a press.
 ///
 /// ⛔⛔ A FIXED SETTLE IS NOT A SETTLE. Forty-five ticks was less than the

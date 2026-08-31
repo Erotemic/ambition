@@ -30,6 +30,10 @@ capture = ["ambition_platformer2d/capture"]
 ambition_platformer2d = { path = "../ambition_platformer2d" }
 # Bevy App/World/Time — the sim the harness owns and steps.
 bevy = { version = "0.18.1", default-features = false }
+# The observation artifact's own format. `combat_observation` is the ONE place a
+# recorded tick becomes JSON; a tool that serialized it itself would be the
+# second answer that module exists to prevent.
+serde_json = "1"
 
 [dev-dependencies]
 # The exit-gate test composes a minimal sim (a one-room session) through the

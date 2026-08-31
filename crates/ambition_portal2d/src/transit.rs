@@ -416,7 +416,10 @@ pub struct PortalTransitable {
 pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
     mut items: Query<&mut PortalTransitable>,
+    // The session's map convention, from the resource that owns it.
+    tuning: Res<crate::tuning::PortalTuning>,
 ) {
+    let convention = tuning.convention.map_convention();
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     if all.is_empty() {
         return;
@@ -434,7 +437,8 @@ pub fn portal_teleport_ground_items(
                 && item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent))
             {
                 // Rotation preserves speed, so momentum carries through.
-                item.vel = portal_transform_velocity(item.vel, enter.normal, exit.normal);
+                item.vel =
+                    portal_transform_velocity(item.vel, enter.normal, exit.normal, convention);
                 let clearance = portal_exit_clearance(item.half_extent, exit.normal);
                 item.pos = exit.pos + exit.normal * clearance;
                 break;

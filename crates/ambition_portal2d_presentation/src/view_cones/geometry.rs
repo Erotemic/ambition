@@ -471,6 +471,7 @@ pub(crate) fn visibility_route_summary(
     partner: &PlacedPortal,
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> VisibilityRouteSummary {
     let Some(v) = viewer.filter(|v| v.present) else {
         return VisibilityRouteSummary::default();
@@ -497,7 +498,7 @@ pub(crate) fn visibility_route_summary(
             summary.face_eye_count += 1;
         }
 
-        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
+        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner, convention) {
             if config
                 .visibility_mode
                 .admit_through_portal(direct_fraction, via_partner)
@@ -525,7 +526,7 @@ pub(crate) fn visibility_route_summary(
             && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame),
+                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame, convention),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -564,11 +565,12 @@ pub(crate) fn compute_cone(
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,
     world_size: Vec2,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> ConePlan {
     let enter = portal.aperture();
     let exit = partner.aperture();
     let closed = || {
-        let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+        let min = view_cone(&enter, &exit, config.min_depth, config.min_spread, convention);
         ConePlan {
             min,
             wedge: min,
@@ -581,7 +583,7 @@ pub(crate) fn compute_cone(
     match config.mode {
         PortalViewConeMode::Off => return closed(),
         PortalViewConeMode::Static => {
-            let c = view_cone(&enter, &exit, config.static_depth, config.static_spread);
+            let c = view_cone(&enter, &exit, config.static_depth, config.static_spread, convention);
             return ConePlan {
                 min: c,
                 wedge: c,
@@ -595,7 +597,7 @@ pub(crate) fn compute_cone(
 
     // Lower bound for an admitted window. If LOS admits nothing, the renderer
     // hides the window rather than showing this cone through blocked space.
-    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread, convention);
     let closed = |min: ViewCone| ConePlan {
         min,
         wedge: min,
@@ -628,7 +630,7 @@ pub(crate) fn compute_cone(
             push_unique_eye(&mut eyes, direct_candidate.wedge_eye);
         }
 
-        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner) {
+        if let Some((resolved, via_partner)) = window_eye(&enter, &exit, corner, convention) {
             if config
                 .visibility_mode
                 .admit_through_portal(direct_fraction, via_partner)
@@ -654,7 +656,7 @@ pub(crate) fn compute_cone(
             && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame),
+                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame, convention),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -697,6 +699,7 @@ pub(crate) fn compute_cone(
         &exit,
         config.min_depth.min(host_limit),
         config.min_spread,
+        convention,
     );
 
     // Proximity-proportional depth and preview distance use the body-edge gap
@@ -747,8 +750,14 @@ pub(crate) fn compute_cone(
             .max(aperture_half_width(&enter) + 1.0)
     };
     let finite_lateral_limit = RAY_LATERAL_CLAMP;
-    let finite_wedge =
-        aperture_wedge_multi(&enter, &exit, &eyes, finite_depth, finite_lateral_limit);
+    let finite_wedge = aperture_wedge_multi(
+        &enter,
+        &exit,
+        &eyes,
+        finite_depth,
+        finite_lateral_limit,
+        convention,
+    );
     let half_plane_alpha =
         preview_half_plane_alpha(edge_distance, config) * los_target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
@@ -762,6 +771,7 @@ pub(crate) fn compute_cone(
             &half_plane_eyes,
             half_depth,
             half_plane_lateral_limit,
+            convention,
         )
     } else {
         None
@@ -777,11 +787,11 @@ pub(crate) fn compute_cone(
         half_plane_wedge_source_size: half_wedge.map(|w| w.source.max - w.source.min),
     };
     let wedge = match (finite_wedge, half_wedge) {
-        (Some(finite), Some(half)) => blend_cones(&finite, &half, half_plane_alpha, &enter, &exit),
+        (Some(finite), Some(half)) => blend_cones(&finite, &half, half_plane_alpha, &enter, &exit, convention),
         (Some(finite), None) => finite,
         (None, Some(half)) => {
             if half_plane_alpha > 0.0 {
-                blend_cones(&min, &half, half_plane_alpha, &enter, &exit)
+                blend_cones(&min, &half, half_plane_alpha, &enter, &exit, convention)
             } else {
                 return closed(min);
             }
@@ -823,6 +833,7 @@ pub(crate) fn cone_render(
     clip_max: Vec2,
     z: f32,
     capture_frame: Option<CaptureCameraFrame>,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<ConeRender> {
     let poly = match config.source_clip_policy {
         PortalViewConeSourceClipPolicy::AllowClip => cone.entry_quad.to_vec(),
@@ -837,7 +848,7 @@ pub(crate) fn cone_render(
     // Map the clipped vertices; their bounds are the capture rect.
     let mapped: Vec<Vec2> = poly
         .iter()
-        .map(|p| ambition_portal2d::pieces::map_point(*p, &enter.frame, &exit.frame))
+        .map(|p| ambition_portal2d::pieces::map_point(*p, &enter.frame, &exit.frame, convention))
         .collect();
     let (mut smin, mut smax) = (mapped[0], mapped[0]);
     for m in &mapped[1..] {

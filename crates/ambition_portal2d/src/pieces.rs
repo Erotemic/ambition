@@ -36,28 +36,38 @@ pub use ambition_platformer2d_core::frame::{PortalAperture, PortalFrame};
 // `crate::pieces::{portal_rotation, rotate, portal_tangent,
 // portal_map_vec}` unchanged.
 pub use ambition_platformer2d_shared_tangle::math::{
-    portal_map_rotation, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation,
-    portal_rotation, portal_tangent, rotate, set_portal_map_rotation,
+    portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, portal_rotation,
+    portal_tangent, rotate, MapConvention,
 };
 
 /// Map a world point near `enter` to the corresponding point near `exit`: the
 /// depth a point has sunk *into* the entry wall becomes the depth it emerges
 /// *out* of the exit portal (so `enter.origin` maps to `exit.origin`), and its
-/// along-surface offset follows the game-wide convention (see
+/// along-surface offset follows the stated `convention` (see
 /// [`portal_map_vec`]).
-pub fn map_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
-    exit.origin + portal_map_vec(p - enter.origin, enter.normal, exit.normal)
+pub fn map_point(
+    p: Vec2,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> Vec2 {
+    exit.origin + portal_map_vec(p - enter.origin, enter.normal, exit.normal, convention)
 }
 
 /// Map an axis-aligned AABB through the portal pair. The map is axis-aligned for
 /// axis-aligned portals (a 90° turn swaps the half-extents), so the image stays
 /// an axis-aligned AABB.
-pub fn map_aabb(b: ae::Aabb, enter: &PortalFrame, exit: &PortalFrame) -> ae::Aabb {
-    let center = map_point(b.center(), enter, exit);
+pub fn map_aabb(
+    b: ae::Aabb,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> ae::Aabb {
+    let center = map_point(b.center(), enter, exit, convention);
     // Transform the half-extent through the (axis-aligned) map: each output axis
     // gets |contribution| from each input axis.
-    let col_x = portal_map_vec(Vec2::new(1.0, 0.0), enter.normal, exit.normal);
-    let col_y = portal_map_vec(Vec2::new(0.0, 1.0), enter.normal, exit.normal);
+    let col_x = portal_map_vec(Vec2::new(1.0, 0.0), enter.normal, exit.normal, convention);
+    let col_y = portal_map_vec(Vec2::new(0.0, 1.0), enter.normal, exit.normal, convention);
     let h = b.half_size();
     let half = Vec2::new(
         col_x.x.abs() * h.x + col_y.x.abs() * h.y,
@@ -169,6 +179,7 @@ pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
 pub fn compute_body_pieces(
     body: ae::Aabb,
     pair: Option<(PortalAperture, PortalAperture)>,
+    convention: MapConvention,
 ) -> BodyPieces {
     let Some((a, b)) = pair else {
         return BodyPieces::whole(body);
@@ -181,7 +192,7 @@ pub fn compute_body_pieces(
         // the wall); the back slice is what has crossed.
         let here = clip_halfspace(body, enter.frame.origin, enter.frame.normal).unwrap_or(body);
         let through = clip_halfspace(body, enter.frame.origin, -enter.frame.normal)
-            .map(|back| map_aabb(back, &enter.frame, &exit.frame))
+            .map(|back| map_aabb(back, &enter.frame, &exit.frame, convention))
             // The emerged piece shows only what is in front of the exit and
             // within its opening.
             .and_then(|mapped| clip_halfspace(mapped, exit.frame.origin, exit.frame.normal))

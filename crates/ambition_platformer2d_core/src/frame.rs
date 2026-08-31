@@ -86,9 +86,12 @@ pub struct PortalAperture {
 /// Which linear map glues an aperture pair. The two differ ONLY in the sign
 /// of the along-surface term.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum MapConvention {
-    /// det −1 (the game-wide default): along-surface component PRESERVED —
-    /// falling right through two floor portals exits still moving right.
+    /// det −1: along-surface component PRESERVED — falling right through two
+    /// floor portals exits still moving right. The DEFAULT, for the composition
+    /// that states none.
+    #[default]
     Reflection,
     /// det +1: the bare rotation taking `−n_in` onto `n_out`; opposite-facing
     /// thin-wall pairs become the identity map.

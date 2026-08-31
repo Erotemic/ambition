@@ -11,39 +11,8 @@
 //! the portal design note, though the math here is general.
 
 use bevy::math::Vec2;
-use core::sync::atomic::{AtomicBool, Ordering};
 
-/// Game-wide portal map convention, switchable at runtime so a host can A/B
-/// the feel (and a game can pick the one it wants). It is a global because the
-/// map is a property of the WORLD's portal physics, not of any one pair, and
-/// every consumer — transit position, transit velocity, the collision pieces,
-/// and the view cone — must agree. Default `false` = the historical convention.
-///
-/// - `false` — tangent-reflection (det −1). The along-surface component is
-///   PRESERVED, so falling right-and-down through two floor portals comes out
-///   right-and-up (horizontal direction kept). Two portals facing each other /
-///   on opposite faces of a wall VERTICALLY FLIP what passes through (the
-///   tangent maps onto the partner's oppositely-oriented tangent).
-/// - `true` — rotation (det +1). The bare rotation taking `−n_in` onto
-///   `n_out`; the along-surface component is FLIPPED relative to reflection. Two
-///   facing/opposite-wall portals become a clean straight-through (no flip),
-///   but floor↔floor now reverses horizontal direction (a true 180° turn).
-///
-/// The two differ by exactly the sign of the along-surface (tangent) term.
-static PORTAL_MAP_ROTATION: AtomicBool = AtomicBool::new(false);
-
-/// Set the game-wide portal map convention: `true` = rotation (det +1, no flip
-/// for facing/opposite-wall pairs), `false` = tangent-reflection (det −1, the
-/// default). See [`PORTAL_MAP_ROTATION`].
-pub fn set_portal_map_rotation(rotation: bool) {
-    PORTAL_MAP_ROTATION.store(rotation, Ordering::Relaxed);
-}
-
-/// Whether the rotation convention is currently active (see
-/// [`set_portal_map_rotation`]).
-pub fn portal_map_rotation() -> bool {
-    PORTAL_MAP_ROTATION.load(Ordering::Relaxed)
-}
+pub use ambition_platformer2d_core::frame::MapConvention;
 
 /// The rotation `(cos, sin)` that maps the "into the entry portal" direction
 /// (`-n_in`) onto the "out of the exit portal" direction (`n_out`). This is the
@@ -72,21 +41,21 @@ pub fn portal_tangent(normal: Vec2) -> Vec2 {
     ambition_platformer2d_core::frame::tangent_of(normal)
 }
 
-/// The IDEAL portal map for a free vector (velocity / spatial offset), given a
-/// consistent [`portal_tangent`]: the component going INTO the entry emerges OUT
-/// of the exit, and the along-surface (tangent) component is carried straight
-/// over. So falling right-and-down through two floor portals comes out
-/// right-and-up — you keep your horizontal direction — instead of the bare
-/// rotation's left-and-up mirror. This is one orthogonal map shared by velocity,
-/// position, AABB, input, and rays so they always agree.
-pub fn portal_map_vec(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    // Dispatch on the game-wide convention; the two differ ONLY by the sign of
-    // the along-surface term (det −1 vs det +1).
-    if portal_map_rotation() {
-        portal_map_vec_rotation(v, n_in, n_out)
-    } else {
-        portal_map_vec_reflection(v, n_in, n_out)
-    }
+/// The portal map for a free vector (velocity / spatial offset), under an
+/// explicitly stated `convention`: the component going INTO the entry emerges
+/// OUT of the exit, and the along-surface (tangent) component is carried over
+/// (reflection) or flipped (rotation). One orthogonal map shared by velocity,
+/// position, AABB, input and rays, so they always agree.
+///
+/// ⛔⛔ THE CONVENTION USED TO BE A `static AtomicBool`, and a process global is
+/// not a world's physics — it is every world's physics. Two providers in one
+/// process could not disagree, load order decided who won, and a rollback could
+/// not rewind a convention the inspector changed mid-session because a static is
+/// not rollback state. It is a parameter now, resolved from `PortalTuning` at
+/// the system boundary and threaded, so the value travels with the thing it
+/// governs.
+pub fn portal_map_vec(v: Vec2, n_in: Vec2, n_out: Vec2, convention: MapConvention) -> Vec2 {
+    ambition_platformer2d_core::frame::map_vec_between(v, n_in, n_out, convention)
 }
 
 /// Tangent-reflection map (det −1, the default): along-surface component
@@ -161,8 +130,16 @@ mod tests {
         let up = Vec2::new(0.0, -1.0);
         assert!((portal_map_vec_reflection(v, up, up) - Vec2::new(3.0, -7.0)).length() < 1e-4);
         assert!((portal_map_vec_rotation(v, up, up) - Vec2::new(-3.0, -7.0)).length() < 1e-4);
-        // The live dispatch defaults to reflection (global untouched).
-        assert!(!portal_map_rotation());
-        assert!((portal_map_vec(v, left, right) - Vec2::new(3.0, -7.0)).length() < 1e-4);
+        // And the dispatching entry point says which it is being asked for.
+        assert!(
+            (portal_map_vec(v, left, right, MapConvention::Reflection) - Vec2::new(3.0, -7.0))
+                .length()
+                < 1e-4
+        );
+        assert!(
+            (portal_map_vec(v, left, right, MapConvention::Rotation) - Vec2::new(3.0, 7.0))
+                .length()
+                < 1e-4
+        );
     }
 }

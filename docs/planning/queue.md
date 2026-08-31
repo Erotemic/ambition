@@ -53,6 +53,21 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   activation so the temporary population never exists. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
+✔ **D-PORTAL-POLICY — the portal map convention is a threaded value, not a
+process global.** `PORTAL_MAP_ROTATION: AtomicBool` in `shared_tangle::math` is
+deleted along with the per-frame system that mirrored `PortalTuning::convention`
+into it. Every consumer takes `MapConvention` as a parameter now, resolved from
+the tuning at its own system boundary — about forty call sites across the pure
+math, the piece layer, view cones, the presentation rigs, the host camera
+continuity, projectile transit and the content adapters. ⭐ THE TWO DEFAULTS
+DISAGREED: the static defaulted to Reflection and `PortalTuning::default()` says
+Rotation, reconciled only by the mirror system — so every fixture that never ran
+it silently played under a different convention than production, and one test's
+anti-vacuity assertion was resting on exactly that. Guarded by
+`two_sessions_in_one_process_keep_their_own_portal_conventions` (the acceptance,
+run in both orders) and by `engine.platformer-math-holds-no-process-state`,
+which forbids the shape returning and was verified red.
+
 ✔ **D-SIM-SELECT — the last two selection sites now break ties on identity.**
 The row named three; one was already closed (projectile-victim ties carry a
 stable `(distance, x, y)` key). The two live ones were bare
@@ -132,16 +147,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-PORTAL-POLICY — remove process-global portal mapping policy from live
-  simulation.** `ambition_platformer2d_shared_tangle::math` still stores the
-  active portal mapping convention in `PORTAL_MAP_ROTATION: AtomicBool`, while
-  the pure map functions already accept an explicit convention. Move the
-  effective mapping/facing policy into provider/session authority and thread it
-  through live portal consumers. Acceptance: two Apps/providers in one process
-  can use different conventions without process-order contamination, and
-  synchronized session rules determine identical portal behavior. Owner:
-  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 
 - ▢ **D199 — replace the centre-line anti-tunnelling ray with policy-aware swept
   body geometry.** The current ray tests a body's centre line against solids and

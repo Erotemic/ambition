@@ -270,8 +270,13 @@ impl PortalCameraContinuityState {
 /// ordinary translation (floor<->ceiling, right-wall<->left-wall), the returned
 /// roll is zero; for a 90-degree floor<->wall pair it is the temporary camera
 /// roll that makes the visible portal chart line up during the seam.
-pub fn camera_roll_for_portal_transit(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
-    ambition_portal2d::somersault_roll(n_in, n_out, gravity_dir)
+pub fn camera_roll_for_portal_transit(
+    n_in: Vec2,
+    n_out: Vec2,
+    gravity_dir: Vec2,
+    convention: ambition_portal2d::pieces::MapConvention,
+) -> f32 {
+    ambition_portal2d::somersault_roll_for_convention(convention, n_in, n_out, gravity_dir)
 }
 
 /// Host-applied marker for the camera/viewpoint that should receive the optional
@@ -306,27 +311,45 @@ mod tests {
         let gravity_down = Vec2::Y;
         let eps = 1.0e-5;
 
-        let ceiling_to_floor = camera_roll_for_portal_transit(Vec2::Y, -Vec2::Y, gravity_down);
+        let ceiling_to_floor = camera_roll_for_portal_transit(
+            Vec2::Y,
+            -Vec2::Y,
+            gravity_down,
+            ambition_portal2d::pieces::MapConvention::Reflection,
+        );
         assert!(
             ceiling_to_floor.abs() < eps,
             "ceiling->floor roll = {ceiling_to_floor}"
         );
 
-        let floor_to_ceiling = camera_roll_for_portal_transit(-Vec2::Y, Vec2::Y, gravity_down);
+        let floor_to_ceiling = camera_roll_for_portal_transit(
+            -Vec2::Y,
+            Vec2::Y,
+            gravity_down,
+            ambition_portal2d::pieces::MapConvention::Reflection,
+        );
         assert!(
             floor_to_ceiling.abs() < eps,
             "floor->ceiling roll = {floor_to_ceiling}"
         );
 
-        let right_wall_to_left_wall =
-            camera_roll_for_portal_transit(-Vec2::X, Vec2::X, gravity_down);
+        let right_wall_to_left_wall = camera_roll_for_portal_transit(
+            -Vec2::X,
+            Vec2::X,
+            gravity_down,
+            ambition_portal2d::pieces::MapConvention::Reflection,
+        );
         assert!(
             right_wall_to_left_wall.abs() < eps,
             "right-wall->left-wall roll = {right_wall_to_left_wall}"
         );
 
-        let left_wall_to_right_wall =
-            camera_roll_for_portal_transit(Vec2::X, -Vec2::X, gravity_down);
+        let left_wall_to_right_wall = camera_roll_for_portal_transit(
+            Vec2::X,
+            -Vec2::X,
+            gravity_down,
+            ambition_portal2d::pieces::MapConvention::Reflection,
+        );
         assert!(
             left_wall_to_right_wall.abs() < eps,
             "left-wall->right-wall roll = {left_wall_to_right_wall}"
@@ -336,7 +359,12 @@ mod tests {
     #[test]
     fn quarter_turn_portal_pair_has_camera_roll() {
         let gravity_down = Vec2::Y;
-        let roll = camera_roll_for_portal_transit(Vec2::Y, Vec2::X, gravity_down);
+        let roll = camera_roll_for_portal_transit(
+            Vec2::Y,
+            Vec2::X,
+            gravity_down,
+            ambition_portal2d::pieces::MapConvention::Reflection,
+        );
         assert!(
             roll.abs() > std::f32::consts::FRAC_PI_4,
             "quarter-turn roll = {roll}"

@@ -551,6 +551,11 @@ mod enabled {
                 let host_view = world.get_resource::<PortalCameraContinuityHostView>().cloned();
                 let portals: Vec<PlacedPortal> =
                     world.query::<&PlacedPortal>().iter(world).cloned().collect();
+                // The session's portal map convention, from the resource that owns it.
+                let convention = world
+                    .get_resource::<PortalTuning>()
+                    .map(|tuning| tuning.convention.map_convention())
+                    .unwrap_or_default();
                 if let Some(frame) = frame {
                     ui.collapsing("Debug Selected Pair", |ui| {
                         egui::Grid::new("portal_view_cones_selected_pair_debug_grid")
@@ -564,6 +569,7 @@ mod enabled {
                                     &frame,
                                     host_view.as_ref(),
                                     &portals,
+                                    convention,
                                 ) {
                                     read_only_text_row(
                                         ui, &row.label, &row.value, row.units, row.help,

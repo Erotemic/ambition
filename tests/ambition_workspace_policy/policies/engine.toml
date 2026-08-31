@@ -309,6 +309,29 @@ forbid = ["ambition_platformer2d_actor_monolith::"]
 # ── architecture_boundaries.rs decomposition, batch 2 (Task 9): crate-purity +
 #    consumer-vocab rules migrated declaratively (generated). ─────────────────
 
+# ⛔⛔ THE PORTAL MAP CONVENTION WAS A `static AtomicBool`, 2026-08-30. It was
+# mirrored from `PortalTuning::convention` by a per-frame system, so every
+# consumer read the global instead of the resource that owns it: two providers
+# in one process could not disagree, load order decided who won, and a static is
+# not rollback state — a convention the inspector changed mid-session did not
+# rewind with the world. Its DEFAULT also disagreed with the tuning's
+# (Reflection vs Rotation), which every fixture that never ran the mirror
+# silently inherited.
+#
+# The convention is a threaded parameter now. This forbids the shape coming
+# back: process-global mutable state in the crate that owns the pure math.
+[[policy]]
+id = "engine.platformer-math-holds-no-process-state"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/math.rs"]
+rationale = "portal map math is pure; its convention is session authority threaded as a value, never a process global"
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+roots = ["crates/ambition_platformer2d_shared_tangle/src/math.rs"]
+forbid = ["AtomicBool", "AtomicU8", "AtomicUsize", "static mut", "OnceLock", "thread_local"]
+
 # was: architecture_boundaries_platformer_runtime_stays_content_free
 #
 # FOUR POLICIES DESCRIBED THE SHAPE OF A COMPATIBILITY SHIM

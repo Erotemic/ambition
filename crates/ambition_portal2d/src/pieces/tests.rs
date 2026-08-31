@@ -1,4 +1,5 @@
 use super::*;
+use ambition_platformer2d_core::frame::MapConvention;
 use std::f32::consts::{FRAC_PI_2, PI};
 
 fn floor(pos: Vec2) -> PortalAperture {
@@ -22,13 +23,23 @@ fn map_point_turns_depth_into_emergence() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     // A point sunk 10px below the floor plane (into the wall, +y) emerges
     // 10px out in front of the right wall (left of it, -x).
-    let p = map_point(Vec2::new(100.0, 310.0), &enter.frame, &exit.frame);
+    let p = map_point(
+        Vec2::new(100.0, 310.0),
+        &enter.frame,
+        &exit.frame,
+        MapConvention::Reflection,
+    );
     assert!(
         (p.x - 390.0).abs() < 1e-3 && (p.y - 200.0).abs() < 1e-3,
         "got {p:?}"
     );
     // The portal centers map onto each other.
-    let c = map_point(enter.frame.origin, &enter.frame, &exit.frame);
+    let c = map_point(
+        enter.frame.origin,
+        &enter.frame,
+        &exit.frame,
+        MapConvention::Reflection,
+    );
     assert!(
         (c - exit.frame.origin).length() < 1e-3,
         "centers map together, got {c:?}"
@@ -40,7 +51,7 @@ fn map_aabb_swaps_halves_on_ninety_degree_turn() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let b = ae::Aabb::new(Vec2::new(100.0, 305.0), Vec2::new(12.0, 6.0));
-    let m = map_aabb(b, &enter.frame, &exit.frame);
+    let m = map_aabb(b, &enter.frame, &exit.frame, MapConvention::Reflection);
     // 90° turn → width/height swap.
     assert!(
         (m.half_size().x - 6.0).abs() < 1e-3,
@@ -87,7 +98,7 @@ fn feet_in_feet_out_decomposition() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     // Body centered just above the floor with its lower 10px sunk in.
     let body = ae::Aabb::new(Vec2::new(100.0, 290.0), Vec2::new(12.0, 20.0));
-    let pieces = compute_body_pieces(body, Some((enter, exit)));
+    let pieces = compute_body_pieces(body, Some((enter, exit)), MapConvention::Reflection);
     // `here` is the part above the floor plane (y <= 300).
     assert!(
         pieces.here.max.y <= 300.0 + 1e-3,
@@ -121,7 +132,7 @@ fn no_straddle_returns_whole_body() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let body = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(12.0, 20.0));
-    let pieces = compute_body_pieces(body, Some((enter, exit)));
+    let pieces = compute_body_pieces(body, Some((enter, exit)), MapConvention::Reflection);
     assert!(pieces.through.is_none());
     assert!((pieces.here.center() - body.center()).length() < 1e-3);
 }
@@ -192,12 +203,12 @@ fn slanted_normals_are_exact_in_the_vector_layer() {
         enter.origin + n_in * 3.0,
     ] {
         let depth_behind = -(p - enter.origin).dot(n_in);
-        let mapped = map_point(p, &enter, &exit);
+        let mapped = map_point(p, &enter, &exit, MapConvention::Reflection);
         assert!(
             (front_distance(mapped, &exit) - depth_behind).abs() < 1e-3,
             "depth->front at 45°: {p:?} -> {mapped:?}"
         );
-        let back = map_point(mapped, &exit, &enter);
+        let back = map_point(mapped, &exit, &enter, MapConvention::Reflection);
         assert!(
             (back - p).length() < 1e-3,
             "the 45° map inverts exactly: {p:?} -> {mapped:?} -> {back:?}"

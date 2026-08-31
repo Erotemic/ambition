@@ -69,20 +69,18 @@ pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
 };
-pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use placement::{
-    measure_host_depth, portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
-    portal_input_warp_flips_horizontal, portal_input_warp_flips_horizontal_for_convention,
-    portal_transit_roll, raycast_through_portals, raycast_through_portals_tuned, somersault_roll,
-    somersault_roll_for_convention, transit_step, transit_step_with_tuning, SweptSample,
-    TransitStep,
+    measure_host_depth, portal_facing_flips_for_convention, portal_fits,
+    portal_input_warp_flips_horizontal_for_convention, portal_transit_roll,
+    raycast_through_portals, raycast_through_portals_tuned, somersault_roll_for_convention,
+    transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves, tick_portal_cooldowns,
     BodyTeleported, PortalBody, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
     PortalPolicy, PortalTransit, PortalTransitable,
 };
-pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
+pub use tuning::{PortalConvention, PortalTuning};
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
     PlacedPortal, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS,

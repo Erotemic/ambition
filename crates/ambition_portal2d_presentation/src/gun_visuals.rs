@@ -52,7 +52,15 @@ pub fn sync_portal_mode_indicator(
         (&PortalBodyView, &PortalGun, Option<&PortalTransit>),
         With<PortalAffordanceBody>,
     >,
+    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
+    // The session's portal map convention, from the resource that owns it — not
+    // from a process global. `Option` because a composition without the portal
+    // plugin has no tuning, and the default convention is the honest answer.
+    let convention = tuning
+        .as_deref()
+        .map(|tuning| tuning.convention.map_convention())
+        .unwrap_or_default();
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
@@ -101,6 +109,7 @@ pub fn sync_portal_mode_indicator(
             let pieces = pp::compute_body_pieces(
                 body,
                 Some((enter_portal.aperture(), exit_portal.aperture())),
+                convention,
             );
             if pieces.through.is_some() {
                 if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
@@ -134,8 +143,13 @@ pub fn sync_portal_mode_indicator(
                             (
                                 "through",
                                 crate::PORTAL_EXIT_COPY_Z + 0.05,
-                                pp::map_point(pos, &enter.frame, &exit.frame),
-                                pp::portal_map_vec(aim, enter.frame.normal, exit.frame.normal),
+                                pp::map_point(pos, &enter.frame, &exit.frame, convention),
+                                pp::portal_map_vec(
+                                    aim,
+                                    enter.frame.normal,
+                                    exit.frame.normal,
+                                    convention,
+                                ),
                                 clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
                                 clip_plane_render(
                                     &frame,

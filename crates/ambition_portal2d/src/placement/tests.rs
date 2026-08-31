@@ -542,17 +542,69 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
 /// already exposes `*_for_convention` variants taking it explicitly. The global
 /// is a detour around a value that is right there.
 ///
-///  this probe leaves the process global at its DEFAULT and disagrees with it
-/// through tuning. Writing the global is the contamination the finding is about.
+/// ✔ THE GLOBAL IS GONE (2026-08-30). This probe used to assert that the static
+/// still held its default while the tuning disagreed with it; there is no static
+/// to hold anything now, and the convention is a parameter every consumer takes.
+/// What the test still pins is the thing that mattered: a transit rolls by the
+/// convention its TUNING states.
+/// ⭐ THE ACCEPTANCE: TWO SESSIONS IN ONE PROCESS, DISAGREEING.
+///
+/// The convention used to live in a `static AtomicBool` mirrored from
+/// `PortalTuning` once a frame, so two providers in one process could not hold
+/// different portal physics — whichever mirrored last won, for both. There is no
+/// static now, so this is a statement about values rather than about ordering:
+/// each transit answers by the tuning it was handed, and running them in either
+/// order changes nothing.
 #[test]
-fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
+fn two_sessions_in_one_process_keep_their_own_portal_conventions() {
     use crate::tuning::PortalConvention;
 
-    assert!(
-        !ambition_platformer2d_shared_tangle::math::portal_map_rotation(),
-        "this probe assumes the process default (Reflection); another test wrote \
-         the global, which is itself the contamination this is about"
+    // A pair whose two conventions genuinely disagree — same-facing walls.
+    let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
+    let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), Vec2::new(-1.0, 0.0));
+    let gravity_dir = Vec2::new(0.0, 1.0);
+
+    let roll_under = |convention| match transfer_step(
+        Vec2::new(495.0, 450.0),
+        Vec2::new(-200.0, 0.0),
+        enter.clone(),
+        exit.clone(),
+        gravity_dir,
+        &PortalTuning {
+            convention,
+            ..PortalTuning::default()
+        },
+    ) {
+        TransitStep::Transfer { roll_delta, .. } => roll_delta,
+        other => panic!("expected Transfer, got {other:?}"),
+    };
+
+    // Session A first, then B; then B first, then A. Four calls, two answers.
+    let (a_first, b_second) = (
+        roll_under(PortalConvention::Reflection),
+        roll_under(PortalConvention::Rotation),
     );
+    let (b_first, a_second) = (
+        roll_under(PortalConvention::Rotation),
+        roll_under(PortalConvention::Reflection),
+    );
+    assert_ne!(
+        a_first, b_second,
+        "the two conventions agree on this pair, so the fixture cannot show \
+         contamination and this test proves nothing"
+    );
+    assert_eq!(
+        (a_first, b_second),
+        (a_second, b_first),
+        "a session's portal physics changed because ANOTHER session ran first — \
+         which is what a process-global convention does"
+    );
+}
+
+#[test]
+fn a_transit_takes_its_convention_from_tuning() {
+    use crate::tuning::PortalConvention;
+    use ambition_platformer2d_core::frame::MapConvention;
 
     //  two SAME-facing walls, computed rather than guessed:
     // `portal_transit_roll` maps `into_render = (-n_in.x, n_in.y)` against
@@ -582,10 +634,18 @@ fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
         other => panic!("expected Transfer, got {other:?}"),
     };
 
-    let by_reflection =
-        crate::somersault_roll_for_convention(false, enter.normal, exit.normal, gravity_dir);
-    let by_rotation =
-        crate::somersault_roll_for_convention(true, enter.normal, exit.normal, gravity_dir);
+    let by_reflection = crate::somersault_roll_for_convention(
+        MapConvention::Reflection,
+        enter.normal,
+        exit.normal,
+        gravity_dir,
+    );
+    let by_rotation = crate::somersault_roll_for_convention(
+        MapConvention::Rotation,
+        enter.normal,
+        exit.normal,
+        gravity_dir,
+    );
     assert_ne!(
         by_reflection, by_rotation,
         "the two conventions agree on this portal pair, so the fixture cannot \
@@ -595,8 +655,8 @@ fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
     assert_eq!(
         roll_under(PortalConvention::Rotation),
         by_rotation,
-        "a transit tuned to Rotation rolled by the PROCESS GLOBAL's convention \
-         instead — a simulation rule read from outside session authority"
+        "a transit tuned to Rotation did not roll by Rotation — the convention \
+         reached it from somewhere other than its own tuning"
     );
     assert_eq!(
         roll_under(PortalConvention::Reflection),

@@ -101,6 +101,12 @@ REAL — observed from a running composed host:
 
 - the simulation itself: real control frames, physics, move resolution, body
   positions, live hitboxes, summons;
+- **all combat geometry**, from `CombatGeometryView`: live strike volumes in
+  world space, effective hurtboxes, and which of the runtime's three damageable
+  states produced them;
+- **the move clock**: the authored window the move is inside, elapsed of
+  duration, the facing the move committed to, whether it has landed;
+- **who is who**: the scenario role of every body, strike and shot;
 - WHICH MOVE is playing on each tick (`MovePlayback`);
 - the art: the engine's own sheets, served from its own asset directory;
 - WHICH ROW that move draws from — resolved through the move's authored
@@ -239,6 +245,47 @@ character-and-verb per session and caches under `data/renders/<id>/`. Engine
 Takes then draws the engine's own picture with the hitboxes over it, and the
 label beside the scrubber reads `sprites: rendered by the engine`.
 
+## Numbers, without reading 150 ticks of geometry
+
+```bash
+python3 scripts/moveset_report.py --takes tools/ambition_moveset_inspector/data/takes/takes.json \
+    --character npc_pirate_admiral --verb attack --out /tmp/inspection
+```
+
+Writes `report.json` (the machine-readable authority) and `summary.md` (a short
+causal read) from what the runtime published: authored window ticks, first live
+volume, max reach from the body origin, attack extents, travel before and during
+the active window, spawns, launch speed, and both kinds of contact claim.
+
+⛔⛔ **`overlap_ticks` AND `contacts` ARE TWO DIFFERENT CLAIMS AND NEVER ONE.**
+The first is this script measuring rectangles; the second is the runtime's own
+hit-once memory. They disagree whenever the victim was intangible, on the same
+team, shielded, or already struck by that strike — and a report that merged them
+would be confidently wrong in exactly the cases somebody opens it to
+investigate. Measured on the admiral's jab at 38px: **5 ticks of overlap, one
+resolved contact**, because a jab hits once.
+
+With `--out` it writes the whole bundle — `report.json` (the authority, carrying
+provenance: the source recording, its timestamp, and all three schema versions),
+`summary.md`, `trace.jsonl` (one line per tick, for the question the report did
+not anticipate) and `filmstrip.svg`.
+
+Before and after, for a tuning change:
+
+```bash
+python3 scripts/moveset_report.py --takes after.json --against before.json \
+    --character npc_pirate_admiral --verb attack
+```
+
+```text
+startup        13 → 11  (-2)
+max reach px   52 → 61  (+9)
+first contact   6 → 4   (-2)
+```
+
+⛔ A diff whose two scenarios differ — a different target, a different behaviour —
+says so at the top instead of presenting the mixture as a change in the move.
+
 ## A picture with no rasterizer at all
 
 ```bash
@@ -247,8 +294,16 @@ python3 scripts/render_take_diagnostic.py \
     --out /tmp/sheets --character npc_pirate_admiral
 ```
 
-One SVG contact sheet per take: body boxes, combat volumes, projectiles, and the
-move/pose/clip of each tick. **No WGPU, no sprite decode, no browser.**
+One SVG contact sheet per take: subject and target labelled in words, cyan
+hurtboxes, strike volumes in their real shapes, projectiles, and the move/pose/
+clip and authored window of each tick. **No WGPU, no sprite decode, no browser.**
+
+⭐⭐ **THE CELLS ARE THE TICKS THAT MEAN SOMETHING**, not a stride: opening pose,
+last startup, first live volume, first contact, max reach, spawns, last active,
+end of recovery — each labelled with why it was chosen. ⛔ An even strip samples
+the CLOCK rather than the move, and a jab is live for five of a hundred and fifty
+ticks, so twelve evenly spaced frames usually miss every one of them and show a
+fighter standing still. `--select even` restores the old stride for an old take.
 
 ⛔⛔ **IT SAYS ON ITS FACE THAT IT IS DERIVED.** An ENGINE RENDER is what the
 production Bevy graph drew (`moveset_render`); a DIAGNOSTIC RENDER is derived
@@ -258,6 +313,19 @@ distinction lives on the picture.
 
 ⭐ **SVG RATHER THAN PNG**, because geometry is what a take records. Rasterizing
 would need the sheets decoded and a compositor, which is the work this avoids.
+
+## The two panels show ONE fight
+
+⛔⛔ **THE SCENARIO TRAVELS WITH THE RENDER REQUEST.** The engine render sits
+beside the diagnostic canvas, and a render staged from across the stage next to a
+take recorded at 40px is two different fights presented as one. `/api/render`
+takes `target` and `spacing`, the browser sends the ones the TAKE was recorded
+with, and the render cache is keyed by them — so a scenario change cannot be
+served from another scenario's pictures.
+
+They are still two executions with no shared origin, which is why they are
+synchronised by `action_tick` (how far into the exercise a frame is) rather than
+by absolute `sim_tick`.
 
 ## Why the engine render is or is not available, BEFORE anybody asks for one
 
@@ -300,7 +368,64 @@ nobody could trust.
 `hall_of_characters`; it is not yet driven per MOVE. Driving `--press` from the
 move's verb is the next step and is why the route already takes a frame count.
 
-## Hitbox geometry
+## Combat geometry: whose, where, and can it be hit
+
+Every volume in this view comes from one place: `CombatGeometryView`, the read
+model the production developer overlay draws. The recorder does not resolve a
+volume, the browser does not, and the SVG exporter does not —
+`ambition_sim_harness::combat_observation` serializes the view and every consumer
+reads that.
+
+**Both halves of the interaction are drawn.**
+
+| drawn | colour | what it is |
+|---|---|---|
+| strike volume | red (subdued when it is not the subject's) | a live hitbox, in world space |
+| hurtbox | cyan | where this body can actually be struck this frame |
+| SUBJECT / TARGET | blue / amber, and the word | the scenario role, recorded not inferred |
+
+An attack volume shown alone cannot answer the question people open this view
+with. A strike passing through a fighter may be passing through a frame in which
+that fighter is INTANGIBLE, or through a silhouette much narrower than the
+sprite, and the picture is identical either way. So the recording carries the
+runtime's three-way damageable rule and the view says which one it was:
+
+- `published` — a publisher named volumes for this body;
+- `body_fallback` — nothing published, so the coarse body box stands in;
+- `intangible` — published and EMPTY, on purpose. Drawn as the word
+  `INTANGIBLE`, because an empty list and a missing recording look the same.
+
+⚠ `published` does not distinguish an authored silhouette from the default
+publisher's coarse envelope: `refresh_body_damageable_volumes` publishes the body
+box as a single volume when a character has no `ResolvedHurtboxes`, and the view
+cannot see which of the two it received. Telling them apart needs that component,
+which lives above the read model's crate.
+
+### Roles, not seats
+
+A take seats two fighters and may seat the SAME character twice, so neither the
+character id nor a seat index names the thing being inspected. Every body,
+strike and shot carries one of `subject`, `target`, `subject_owned`,
+`target_owned`, `other`, and the take names its subject and target at the top.
+`subject_owned: false` used to be the only answer available and covered the
+target, the target's summon and a stage hazard alike.
+
+### The target stands still by default
+
+`--target-behavior passive` seats the opponent on the stand-still brain preset: a
+real, seated, damageable fighter that makes no decisions. It is not a frozen
+body and nothing mutates its components — a CPU seat naming no brain profile is
+refused at preparation on purpose. `--target-behavior cpu` restores the live
+duelist, which is a different measurement, and the take records which one it was
+beside `opponent_output` so a zero there reads as the scenario rather than as
+evidence.
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes -- \
+    --characters npc_pirate_admiral --target projectile_polygon
+```
+
+### Shapes
 
 Strikes are drawn as the shape they ACTUALLY are — convex polygon, disc, rotated
 box — not as the axis-aligned box around them.
@@ -334,17 +459,32 @@ Takes label says it too, where the button is.
 
 ## Only one fighter in Engine Takes?
 
-The take list shows the fighters that have been RECORDED, which is only ever the
-ones you asked for:
+Not any more, and the reason it used to happen is worth keeping: the picker
+listed the fighters found in `takes.json`, so a fighter existed in this view only
+once somebody had recorded a bulk take for it.
+
+**The roster now comes from the prepared bundle and the takes are a cache.**
+Every prepared fighter is selectable immediately, every move it binds is
+selectable, and what the cache does or does not hold is shown as status:
+
+```text
+PIRATE ADMIRAL · 19 takes      <- recorded
+PROJECTILE POLYGON · not recorded
+```
+
+A move with no recording still opens: the diagnostic canvas says so plainly and
+the engine-render panel beside it still photographs the move on demand, because
+`/api/render` drives one character and one verb and needs no take at all.
+
+Record one when you want the per-tick geometry:
 
 ```bash
 cargo run -p ambition_app_tools --bin moveset_takes -- \
     --characters npc_pirate_admiral,projectile_polygon
 ```
 
-The fighter picker in front of the take list is the set of recorded characters,
-and it follows the fighter you were reading in the Fighter view when you switch
-tabs. Status names them too.
+The fighter picker follows the fighter you were reading in the Fighter view when
+you switch tabs. Status names coverage too.
 
 Or record the whole grid:
 
@@ -356,14 +496,15 @@ cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid
 **27 minutes**. (It was 7m08 until `settle` stopped serialising a whole frame to
 read three booleans.) Every take settles a real match between presses and there
 are 19 verbs. This is a background job, not a click — which is why the default
-records one fighter and the take view shows coverage (`2 of 21 grid fighters
-recorded`) rather than pretending the roster is there.
+records one fighter and the take view shows coverage (`21 prepared · 2
+recorded`) rather than pretending every fighter has evidence behind it.
 
 ## Checks
 
 ```bash
 node tools/ambition_moveset_inspector/check_bundle_contract.mjs   # the data
 node tools/ambition_moveset_inspector/check_draw_path.mjs         # the drawing
+node tools/ambition_moveset_inspector/check_takes_discovery.mjs   # who is listed
 ```
 
 ⛔⛔ `node --check` SAYS A FILE PARSES, NOT THAT ITS IDENTIFIERS RESOLVE. A call
@@ -376,7 +517,26 @@ console nobody had open.
 `check_draw_path.mjs` draws every frame of every recorded take against a stubbed
 canvas and fails on the first exception. Run it after touching `app.js`.
 
+`check_takes_discovery.mjs` drives the real discovery functions against
+synthesised bundles and asserts the thing that was wrong for a long time: a
+bundle of five fighters offers five with zero takes recorded, and two recordings
+do not shrink the picker to two.
+
 ## The move renderer (`moveset_render`)
+
+It draws the engine's own combat overlay over the real art by default
+(`--combat-overlay off` turns it off), so one PNG carries the actual rendered
+character, the actual target, the actual VFX **and** the actual runtime volumes —
+from ONE execution, with no browser-side transform between two coordinate
+systems. Nothing in the tool draws a box; the production
+`draw_combat_geometry_view` does.
+
+Beside every PNG the manifest carries that shot's `observation`: the same tick's
+bodies, roles, hurtboxes, strike volumes and move clock, in the same schema the
+recorder writes. It is sampled BEFORE the shutter, for the same reason `move` and
+`grounded` are — the zero-duration pump loop keeps running `Update`, so anything
+read after it describes a different moment than the picture.
+
 
 The GPU path renders a fighter **performing a selected move**, one PNG per exact
 simulation tick.

@@ -1,6 +1,7 @@
 # Combat Inspection and Moveset Observatory
 
-Status: **OPEN**
+Status: **OPEN** — M1, M2 and M4 closed; M3 half closed; M5 half derivable and
+half open; M6 not started. See the exit-criteria table.
 
 ## Purpose
 
@@ -493,6 +494,14 @@ Representative validation should include:
 
 # Milestone M2 — Geometry measurements
 
+**CLOSED.** `scripts/moveset_report.py` derives every metric below from the
+runtime's published observation and writes `report.json` + `summary.md`; the
+before/after half of M7 is the same tool's `--against`. ⛔ Its standing rule:
+`overlap_ticks` (this script measuring boxes) and `contacts` (the runtime's
+hit-once memory) are separate lines and the summary warns when the first is
+nonzero and the second is zero. Measured on the admiral's jab at 38px: 5 ticks of
+overlap, ONE resolved contact.
+
 Once the geometry is trustworthy, derive useful quantitative measurements.
 
 Do not create theoretical authored measurements when resolved runtime measurement is available.
@@ -532,6 +541,18 @@ without manually deriving the answer from Rust source.
 ---
 
 # Milestone M3 — Art/geometry agreement
+
+**The overlay half is CLOSED** (M1.5): `moveset_render` forces the production
+combat overlay on, so one PNG carries the real art, the real target, the real
+VFX and the real `CombatGeometryView` volumes from one execution. Verified by
+pixels rather than by a flag — an overlay-on and an overlay-off render of the
+same action tick differ, and the strike volume is visible over the art at the
+tick the manifest says it is live.
+
+**Still open**: the per-layer toggles (art / hitboxes / hurtboxes / trajectories
+independently) and the agreement MEASUREMENTS (visual weapon tip versus attack
+extent, a volume mostly inside the body, VFX centre versus contact point). Those
+need the render to expose its camera transform, which it does not yet.
 
 ## Goal
 
@@ -584,6 +605,14 @@ Do not automatically “correct” authored geometry from those measurements. Th
 
 # Milestone M4 — Key-frame filmstrip
 
+**CLOSED for the diagnostic sheet.** `render_take_diagnostic.py --select key`
+(the default) picks the ticks that mean something — opening pose, last startup,
+first live volume, first contact, max reach, spawns, last active, end of recovery
+— and labels each cell with why it was chosen. It reuses `moveset_report.measure`
+rather than deriving "first contact" a second way. ⛔ The failure it removes: a
+jab is live for five of a hundred and fifty ticks, so an even strip of twelve
+usually misses every one of them and shows a fighter standing still.
+
 Long animation sequences are expensive for both humans and LLMs to inspect frame by frame.
 
 Generate a compact filmstrip from semantically important frames.
@@ -613,6 +642,18 @@ The full frame corpus can still be available when needed.
 ---
 
 # Milestone M5 — Consequence tracing
+
+**Half of it arrived with M1** and is worth naming so the rest is not rebuilt:
+every observed body carries `damage_taken`, `hitstun_s`, `hitlag_s`,
+`landing_lag_s`, `jump_squat_s` and `velocity` every tick, and `contacts` names
+the strike and the victim. `moveset_report.py` already reports launch speed and
+target displacement after the first contact, so a per-tick consequence chain is
+derivable from the artifact today.
+
+⛔ What is NOT derivable, and is the actual remaining work: WHY a hit resolved
+the way it did — ignored, blocked, armored, wallet-shielded, damaged. That
+vocabulary lives in `ambition_damage::BodyHitResolved` under the `causal`
+feature, and consuming it is the M5 slice.
 
 ## Goal
 
@@ -692,6 +733,24 @@ Ruleset-specific combo classification can be added later.
 ---
 
 # Milestone M7 — Agent-native artifact and diff loop
+
+**CLOSED except the render half.** `moveset_report.py --out DIR` writes the
+bundle:
+
+```text
+report.json     the machine-readable authority, with provenance
+summary.md      the causal read, for a person or a model
+trace.jsonl     one line per tick, for the question the report did not anticipate
+filmstrip.svg   the key-frame sheet, from the one tool that draws one
+```
+
+Provenance names the source recording and its mtime plus all three schema
+versions, so a report derived from a recording made before a tuning change
+cannot read as current. `--against` is the before/after diff, and it REFUSES to
+present two different scenarios as one change.
+
+⚠ Still open: `render/` — the GPU frames are written by `moveset_render` into
+its own directory and are not yet gathered into the bundle.
 
 Every scenario should produce a reusable artifact bundle.
 
@@ -946,6 +1005,21 @@ Do not spend this first slice on:
 ---
 
 # Exit criteria
+
+Eight of ten hold. Status, so the remaining two are the whole question:
+
+| # | criterion | status |
+|---|---|---|
+| 1 | every fighter/move selectable independently of cached artifacts | ✔ 21 grid fighters offered with one recorded; an unrecorded fighter exposes all 26 of its moves |
+| 2 | a deterministic scenario inspects subject and target through the real runtime | ✔ `--target`, `--target-behavior passive`, `--spacing` |
+| 3 | attack and damageable geometry published from runtime authority | ✔ `CombatGeometryView` only; guarded by an absence contract |
+| 4 | contacts and consequences machine-readable | ✔ contacts, damage, hitstun, hitlag, launch. ⚠ the RESOLUTION vocabulary (blocked/armored/ignored) is M5 |
+| 5 | rendered evidence aligned with the same semantic scenario | ✔ one execution, overlay + shutter-time observation |
+| 6 | agents generate and consume a compact artifact noninteractively | ✔ `moveset_takes --verbs`, `moveset_report.py`, SVG sheets |
+| 7 | before/after behavioural comparison | ✔ `--against` |
+| 8 | the browser consumes the same semantic artifacts | ✔ it draws the recorded observation; it derives no geometry |
+| 9 | representative move-chain inspection | ✘ M6, not started — and it was never meant to be started first |
+| 10 | the major remaining work is UX/coverage/performance, not observability | ~ true except M5's causal channel and M6 |
 
 This architecture program can leave active planning when:
 
@@ -1533,7 +1607,40 @@ The eventual passive target should be created through existing match/body policy
 
 # Concrete M1 implementation sequence
 
-Implement M1 in this order.
+**M1 is CLOSED.** Receipts below; the standing prohibitions each step established
+are the part worth keeping.
+
+| step | what was wrong | what closed it | guard |
+|---|---|---|---|
+| M1.1 | the fighter picker read `TAKES.takes`, so a fighter existed only once recorded | `takeRoster()` / `takeSlotsFor()` enumerate `moveset_bundle.json`; the cache is shown as status | `check_takes_discovery.mjs` |
+| M1.2 | `smash_roster([c, c])` plus `seat == 0`: one character twice, told apart by a convention nothing wrote down | `ScenarioRoles` — every body, strike and shot carries `subject`/`target`/`subject_owned`/`target_owned`/`other`; the take names both fighters and their `SimId`s | `a_seated_scenario_serializes_roles_identities_and_both_geometries` |
+| M1.3 | `moveset_takes::sample` queried `Hitbox` and called `world_volume` itself, and had no hurtboxes at all | `ambition_sim_harness::combat_observation` serializes `CombatGeometryView`; the recorder resolves nothing | absence contract `the-recorders-do-not-resolve-their-own-combat-geometry` |
+| M1.4 | attack volumes only, in one browser canvas | cyan hurtboxes, role labels, phase readout, real shapes — in `app.js` AND `render_take_diagnostic.py` | `test_render_take_diagnostic.py`, `check_draw_path.mjs` |
+| M1.5 | the GPU screenshot and the diagnostic boxes came from different runs | `moveset_render` forces the production combat overlay on (`--combat-overlay`, default on): one execution, real art, real volumes | `force_combat_overlay` is one function, shared with `capture_scene` |
+| M1.6 | the PNG did not say what it showed | every shot carries its `observation`, sampled BEFORE the shutter | manifest field, same schema as the take |
+
+Two things were added that the sequence did not name and M1 could not be checked
+without:
+
+- **spacing.** The match places seats far enough apart that no ordinary move
+  reaches, so no take could ever exhibit a contact. `move_exercise::approach`
+  walks the subject to `--spacing PX` through the ordinary control frame (it does
+  not teleport), and the take records the gap it ASKED for beside the gap it
+  REACHED. Measured: the admiral's jab at 33px connects on tick 3 for 4 damage
+  and 0.088s of hitstun; the forward smash on tick 47 for 22 and 0.336s.
+- **contacts.** `CombatGeometryView` now carries each strike's `HitboxHits` — the
+  resolver's own hit-once memory, which is sim truth under rollback — so the
+  artifact says what CONNECTED rather than leaving a reader to conclude it from
+  overlapping rectangles.
+
+⛔ **THE STANDING PROHIBITION FROM M1.** Geometric overlap and a resolved hit are
+two facts and must never be merged. A strike volume inside a hurtbox is not a
+hit: the victim may be intangible, on the same team, shielded, or already struck
+by that strike. `moveset_report.py` reports `overlap_ticks` and `contacts` as
+separate lines and warns when the first is nonzero and the second is zero.
+
+<details>
+<summary>The original sequence, as specified</summary>
 
 ## M1.1 — Fix discovery before changing simulation
 
@@ -1689,6 +1796,8 @@ This lets the browser and LLM know exactly what the image represents.
 
 ---
 
+</details>
+
 # Tests and policy guards to extend
 
 The existing tool already has useful contract tests:
@@ -1704,18 +1813,25 @@ scripts/check_absence_contracts.py
 
 Extend these rather than replacing them.
 
-Required regression tests for M1:
+Required regression tests for M1 — **all ten are in place**:
 
-1. A bundle containing N fighters produces N selectable fighters even with zero takes.
-2. Two recorded fighters do not limit the picker to two fighters.
-3. Subject and target IDs/roles survive serialization.
-4. A published empty `DamageableVolumes` produces no hurtbox.
-5. Missing/unpublished damageable geometry produces the documented coarse fallback.
-6. Circle/OBB/convex strike geometry survives serialization.
-7. Target-owned strikes are not attributed to the subject.
-8. A rendered inspection frame and its semantic manifest name the same action tick.
-9. A stale render remains visibly stale rather than being presented as current.
-10. Both `moveset_takes` and `moveset_render` continue to use `move_exercise` as their single move-driving authority.
+| # | requirement | where it lives |
+|---|---|---|
+| 1 | N fighters produce N selectable fighters with zero takes | `check_takes_discovery.mjs` |
+| 2 | two recordings do not limit the picker to two | `check_takes_discovery.mjs` |
+| 3 | subject/target ids and roles survive serialization | `combat_observation::tests::a_seated_scenario_serializes_roles_identities_and_both_geometries` |
+| 4 | a published empty `DamageableVolumes` produces no hurtbox | `an_intangible_body_publishes_no_hurtbox_and_names_the_reason` |
+| 5 | unpublished damageable geometry falls back to the coarse box | same test — both bodies, both answers, in one fixture |
+| 6 | circle/OBB/convex strike geometry survives serialization | `every_volume_shape_survives_serialization`, `test_a_strike_is_drawn_in_its_real_shape` |
+| 7 | target-owned strikes are not attributed to the subject | `a_strike_belongs_to_its_owners_side_not_to_the_owner` |
+| 8 | a rendered frame and its semantic manifest name the same action tick | structural: the observation is a field OF the shot row, beside `action_tick` |
+| 9 | a stale render stays visibly stale | `test_a_cache_older_than_the_binary_is_not_served`, `test_a_cache_with_no_provenance_is_not_served_as_current` |
+| 10 | both drivers use `move_exercise` alone | absence contract `the-two-move-drivers-do-not-author-their-own-presses` |
+
+⭐ #8 is deliberately a STRUCTURE rather than a test. The observation is written
+into the shot object that carries `action_tick`, sampled before that shot's
+shutter, so there is no second value that could disagree — and a test asserting
+two fields of one JSON literal match would be testing the literal.
 
 ---
 

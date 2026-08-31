@@ -306,6 +306,37 @@ pub fn action_frame(verb: &Verb, action_tick: usize, facing: f32) -> ControlFram
     }
 }
 
+/// Drive `first`, then request `second` from action tick `at`.
+///
+/// ⭐⭐ THE SCHEDULE IS STILL A PURE FUNCTION OF THE ACTION TICK, and it has to
+/// be. A chain probe asks "if B is requested on tick N, what does the engine
+/// do?" — so N is an INPUT, not something the driver discovers mid-run. A
+/// schedule that waited for A to connect before pressing B would make the press
+/// depend on the outcome it is measuring, and two runs of it could press on
+/// different ticks for reasons the recording does not show.
+///
+/// ⛔ `at` IS WHEN B IS REQUESTED, NOT WHEN IT HAPPENS. The engine decides
+/// whether a cancel window is open; the gap between the request and the
+/// acceptance is the measurement, and reporting only the request would describe
+/// the driver rather than the game. Sweep `at` to find the window.
+///
+/// Both halves come from [`Verb::frame`] through [`action_frame`], so a chain
+/// presses exactly what a single take presses — including the smash charge's
+/// hold and release, measured against B's own clock.
+pub fn chained_frame(
+    first: &Verb,
+    second: &Verb,
+    at: usize,
+    action_tick: usize,
+    facing: f32,
+) -> ControlFrame {
+    if action_tick < at {
+        action_frame(first, action_tick, facing)
+    } else {
+        action_frame(second, action_tick - at, facing)
+    }
+}
+
 /// What seat zero is, in the four facts every driver asks about.
 ///
 /// ⭐⭐ ONE QUERY, AND THE SUBJECT'S ABSENCE IS A CASE. `moveset_takes` read
@@ -475,6 +506,70 @@ fn take_off(app: &mut App) -> bool {
         if airborne(app) {
             return true;
         }
+    }
+    false
+}
+
+/// The horizontal gap between seat zero and another seat, in pixels.
+///
+/// `None` when either body is absent — a gap to a fighter who is not there is
+/// not a distance, and a scenario that treats it as one walks somebody off a
+/// stage looking for them.
+pub fn gap_to_seat(app: &mut App, seat: usize) -> Option<f32> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyKinematics,
+    )>();
+    let mut mine = None;
+    let mut theirs = None;
+    for (at, kin) in q.iter(world) {
+        if at.0 == 0 {
+            mine = Some(kin.pos.x);
+        } else if at.0 == seat {
+            theirs = Some(kin.pos.x);
+        }
+    }
+    Some(theirs? - mine?)
+}
+
+/// The longest an approach will walk before giving up.
+///
+/// Generous, because a fighter crossing a stage at walking speed is slow and a
+/// short budget would silently record the move from wherever it got to.
+pub const APPROACH_LIMIT: usize = 480;
+
+/// Walk seat zero toward the target until the gap is at most `spacing` px.
+///
+/// ⭐⭐ SPACING IS A SCENARIO PARAMETER, NOT AN ACCIDENT OF STAGING. The match
+/// places its seats where a match wants them, which is far enough apart that no
+/// ordinary move can reach — so every recorded take showed a strike swinging
+/// through empty air and no take could ever exhibit a CONTACT. "How close do
+/// they have to be for this to connect" is one of the questions the observatory
+/// exists to answer, and it cannot be asked without this.
+///
+/// ⛔ IT WALKS; IT DOES NOT TELEPORT. Placing a body would skip the movement
+/// systems, and a fighter that arrived without running is in a state the game
+/// never produces. The approach uses the ordinary control frame, so the body
+/// ends up standing where a player could have walked it.
+///
+/// Returns whether the requested spacing was reached. A `false` is a real
+/// answer — a wall, a ledge, a body that cannot walk — and the caller records
+/// the gap it actually got.
+pub fn approach(app: &mut App, spacing: f32) -> bool {
+    for _ in 0..APPROACH_LIMIT {
+        let Some(gap) = gap_to_seat(app, 1) else {
+            return false;
+        };
+        if gap.abs() <= spacing {
+            // ⛔ SETTLE AFTER ARRIVING. A body still carrying walk velocity at
+            // the press is a body whose move comes out while it slides, which
+            // is a different measurement from the one that was asked for.
+            return settle(app);
+        }
+        let mut frame = ControlFrame::default();
+        frame.axis_x = gap.signum();
+        step(app, frame);
     }
     false
 }
@@ -684,6 +779,38 @@ mod tests {
     /// differently and a 12-frame run performed a different move from a 24-frame
     /// one. Nothing in this signature can see how many pictures were asked for,
     /// and this is the test that keeps it that way.
+    /// ⛔ A CHAIN IS TWO SCHEDULES, EACH ON ITS OWN CLOCK. B's press edge is at
+    /// ITS tick zero, not at the absolute tick — a smash chained in at 40 must
+    /// charge for its own 37 ticks and release, exactly as it would alone.
+    #[test]
+    fn a_chained_press_runs_the_second_verb_on_its_own_clock() {
+        let jab = verb_named("attack").expect("the jab is a verb");
+        let smash = verb_named("smash_forward").expect("the forward smash is a verb");
+
+        // Before the hand-off, the frames are the first verb's, verbatim.
+        for tick in [0usize, 1, 9] {
+            assert_eq!(
+                chained_frame(jab, smash, 10, tick, 1.0),
+                action_frame(jab, tick, 1.0)
+            );
+        }
+        // At the hand-off, the SECOND verb's press edge — its tick zero.
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10, 1.0),
+            action_frame(smash, 0, 1.0)
+        );
+        // And its release lands HOLD_TICKS after the hand-off, not after zero.
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10 + HOLD_TICKS, 1.0),
+            action_frame(smash, HOLD_TICKS, 1.0)
+        );
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10 + HOLD_TICKS, 1.0),
+            ControlFrame::default(),
+            "a charge only pays out when the button comes up"
+        );
+    }
+
     #[test]
     fn the_schedule_depends_only_on_the_action_tick() {
         let verb = verb_named("smash_forward").expect("the table has an f-smash");

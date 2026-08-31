@@ -459,6 +459,43 @@ where
     roster
 }
 
+/// The brain preset that DOES NOTHING, by name.
+///
+/// A stand-still seat is not a broken seat: the body is staged, damageable and
+/// physical like any other, and its policy is to make no decisions. Naming the
+/// preset here is what lets an inspection scenario ask for one without inventing
+/// a way to freeze a fighter.
+pub const SMASH_IDLE_BRAIN: &str = "stand_still";
+
+/// The same roster, with every seat after the first STANDING STILL.
+///
+/// ⭐⭐ THE TRAINING-MODE TARGET, BUILT FROM MATCH POLICY. Inspecting a move
+/// against a live CPU means measuring two decisions at once: the opponent walks
+/// into a strike, or away from it, and the recording of the move changes because
+/// of something the move did not do. A passive target removes that variable
+/// without removing the target — contact rules, hurtboxes, hitstun and launch
+/// all still run, because this is an ordinary seated fighter whose brain
+/// declines to act.
+///
+/// ⛔ IT IS A SEAT WITH A DRIVER, NOT A SEAT WITHOUT ONE. `ControllerBinding::Cpu
+/// { brain_profile: None }` is refused at preparation on purpose — "a seat with
+/// no driver stands still, which is indistinguishable from a brain that failed
+/// to install". This asks for the policy that stands still BY NAME, so the
+/// distinction survives into the artifact.
+pub fn smash_roster_with_passive_targets<I, S>(characters: I) -> MatchParticipantRoster
+where
+    I: IntoIterator<Item = S>,
+    S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
+{
+    let mut roster = smash_roster(characters);
+    for participant in &mut roster.participants {
+        if let ControllerBinding::Cpu { brain_profile } = &mut participant.controller {
+            *brain_profile = Some(SMASH_IDLE_BRAIN.to_string());
+        }
+    }
+    roster
+}
+
 /// Where a knocked-out fighter comes back.
 ///
 /// The engine spends the stock and clears the meter; it refuses to place the
@@ -3158,6 +3195,23 @@ const SMASH_CATALOG_RON: &str = r#"(
         "duelist_l9": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
             patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 9,
+        ),
+        // THE TRAINING TARGET, AND IT IS A POLICY LIKE ANY OTHER.
+        //
+        // ⛔⛔ A SEAT WITH NO DRIVER IS REFUSED, on purpose: `Cpu { brain_profile:
+        // None }` cannot be told apart from a brain that failed to install. So
+        // "stands there and takes it" is stated as a controller policy, and a
+        // fighter seated on it is an ordinary staged body — damageable, launchable,
+        // and subject to every rule — that makes no decisions.
+        //
+        // ⭐ Named beside the ladder because it belongs to the same axis: what
+        // this seat DOES is a controller fact, and zero is a rung.
+        "stand_still": (
+            template: StandStill,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            patrol_effort: 0.0,
+            chase_effort: 0.0,
         ),
     },
     brain_presets: {

@@ -2025,6 +2025,76 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
     chain
 }
 
+/// The BASE verb a composed verb id was built from — the inverse of
+/// [`directional_verb_chain`] and [`dash_stance_verb`].
+///
+/// ⭐⭐ IT LIVES BESIDE THE COMPOSER ON PURPOSE. Every id in this vocabulary is
+/// `{base}` plus a suffix those two functions append, so the inverse is a fact
+/// about the same table — and a consumer that recovered the base by splitting on
+/// the first underscore would be inventing a second vocabulary that agrees until
+/// somebody authors a base verb with one in it.
+///
+/// `attack_air_forward` → `attack`, `smash_dash` → `smash`, `special` →
+/// `special`. An id built from no known suffix is its own base.
+pub fn base_verb_of(verb: &str) -> &str {
+    // ⛔ LONGEST FIRST. `attack_air_forward` must not reduce to `attack_air` by
+    // matching `_forward`, and `attack_air` must not survive as its own base.
+    const SUFFIXES: [&str; 10] = [
+        "_air_forward",
+        "_air_back",
+        "_air_up",
+        "_air_down",
+        "_air",
+        "_dash",
+        "_forward",
+        "_back",
+        "_up",
+        "_down",
+    ];
+    SUFFIXES
+        .iter()
+        .find_map(|suffix| verb.strip_suffix(suffix))
+        .unwrap_or(verb)
+}
+
+/// The cancel namespace a move answers to when it is reached by `base`.
+///
+/// ⭐⭐ THE ONE PLACE THIS LIST LIVES. A `Cancelable` window names verbs and
+/// CLASSES as well as move ids, and something has to say which of those a given
+/// move answers to. The trigger road built this inline; an exporter that wanted
+/// to show the cancel GRAPH would have had to build it again, and two lists that
+/// must agree are one list plus a bug.
+///
+/// ⛔ A RUNNING ATTACK ANSWERS TO THE ATTACK FAMILY whatever gesture asked for
+/// it — the cancel namespace follows the move that ran, not the button.
+///
+/// ⛔⛔ AND THE EMPTY ANSWER IS A REAL ONE: a verb with no FAMILY answers to its
+/// own name and nothing else. Grabs (`&[GRAB_VERB]`), captures
+/// (`&[CAPTURE_THROW_FORWARD_VERB]`), taunts and `ranged` each pass exactly one
+/// name on the trigger road, so a fall-through that lumped them into the attack
+/// family would let `any_attack` cancel into a throw. Measured: it resolved the
+/// admiral's `ranged` cancel into 23 moves including every grab, pummel, throw
+/// and the taunt.
+pub fn cancel_names_for(base: &str, running_attack: bool) -> &'static [&'static str] {
+    match base {
+        SPECIAL_VERB => &[SPECIAL_VERB],
+        SMASH_VERB if !running_attack => &[SMASH_VERB, ATTACK_VERB, "any_attack"],
+        ATTACK_VERB | SMASH_VERB => &[ATTACK_VERB, "any_attack"],
+        // Each of these passes exactly ONE name on its own arm of the trigger
+        // road. ⛔ `grab_dash` reduces to `grab` and is right to — the grab road
+        // takes a running stance — while a capture verb does not reduce at all,
+        // which is why it falls to the empty answer below.
+        GRAB_VERB => &[GRAB_VERB],
+        RANGED_VERB => &[RANGED_VERB],
+        TAUNT_VERB => &[TAUNT_VERB],
+        // ⛔⛔ EMPTY MEANS "ITS OWN FULL NAME", not "the attack family". The
+        // capture road passes `capture_throw_forward` verbatim, and
+        // `base_verb_of` would reduce that to `capture_throw`, which names
+        // nothing.
+        _ => &[],
+    }
+}
+
 /// Which reusable character template an actor instantiates.
 ///
 /// A character is an authored template, not a singleton person: `spawn Goblin`
@@ -2155,6 +2225,54 @@ pub struct MovesetContract {
 }
 
 impl MovesetContract {
+    /// The moves a `Cancelable` window's `into` list actually admits.
+    ///
+    /// ⭐⭐ THE BROAD RULES ARE THE POINT. An authored list says `["attack",
+    /// "smash", "any_attack"]`, and a reader wants to know WHICH MOVES that is
+    /// — a question only this table can answer, because the answer is the
+    /// character's own repertoire. Resolving it anywhere else means teaching a
+    /// tool the verb-class vocabulary, and two copies of that vocabulary are one
+    /// copy plus a bug.
+    ///
+    /// The rule is the trigger road's: a candidate is admitted when the list
+    /// names its move id, or any of the verb-class names it answers to
+    /// ([`cancel_names_for`], keyed by the BASE of every verb that binds it).
+    ///
+    /// ⛔ IT DOES NOT ASK ABOUT TIMING OR CONDITION. Which window is open and
+    /// whether the move has landed are the caller's to check — see
+    /// [`MoveSpec::cancel_permits`], which is the runtime's whole test. This
+    /// answers only "who could this list mean".
+    pub fn cancel_targets(&self, into: &[String]) -> Vec<&MoveSpec> {
+        self.moves
+            .iter()
+            .filter(|candidate| {
+                if into.iter().any(|entry| entry == &candidate.id) {
+                    return true;
+                }
+                // Every verb that binds this move, reduced to its base — a move
+                // reachable as both `attack_forward` and `smash_forward`
+                // answers to both namespaces.
+                self.verbs
+                    .iter()
+                    .filter(|(_, target)| *target == &candidate.id)
+                    .flat_map(|(verb, _)| {
+                        let family = cancel_names_for(base_verb_of(verb), false);
+                        if family.is_empty() {
+                            // ⛔ NO FAMILY MEANS ITS OWN NAME. A grab, a throw, a
+                            // pummel and a taunt each pass exactly one name on
+                            // the trigger road — and it is the FULL verb, not a
+                            // reduced base: `capture_throw_forward` answers to
+                            // `capture_throw_forward`.
+                            vec![verb.as_str()]
+                        } else {
+                            family.to_vec()
+                        }
+                    })
+                    .any(|name| into.iter().any(|entry| entry == name))
+            })
+            .collect()
+    }
+
     /// Rename every move this table defines, and every reference to one.
     ///
     /// ⭐⭐ THE TRAVERSAL BELONGS TO THE SCHEMA, not to the caller that wants a

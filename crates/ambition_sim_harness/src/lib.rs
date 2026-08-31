@@ -23,6 +23,11 @@
 pub mod action;
 #[cfg(feature = "capture")]
 pub mod capture;
+// The recording half of the move exercise: what combat DID on a tick, in the
+// one vocabulary every recorder writes it down in. Beside `move_exercise` for
+// the same reason it is — two tools drive one move, and neither may describe it
+// in words of its own.
+pub mod combat_observation;
 pub mod move_exercise;
 pub mod observation;
 pub mod options;
@@ -31,6 +36,10 @@ pub mod reward;
 pub mod runtime;
 
 pub use action::AgentAction;
+pub use combat_observation::{
+    CombatObservation, ObservedBody, ResolvedRoles, ScenarioRole, ScenarioRoles,
+    OBSERVATION_SCHEMA,
+};
 #[cfg(feature = "capture")]
 pub use capture::{AdapterPreference, CaptureError, CapturedFrame, DeterministicCaptureSession};
 pub use observation::{AgentObservation, EnemyObs, PickupObs};

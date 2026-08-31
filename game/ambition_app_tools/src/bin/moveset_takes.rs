@@ -23,6 +23,7 @@ use bevy::prelude::*;
 /// Ticks recorded per take. Long enough for a five-second shark ride to show its
 /// shape without every take carrying the tail of an idle stage.
 const TAKE_TICKS: usize = 150;
+use ambition_sim_harness::combat_observation::{CombatObservation, ScenarioRoles};
 use ambition_sim_harness::move_exercise;
 use move_exercise::{settle, step, VERBS};
 
@@ -32,6 +33,9 @@ struct Frame {
     bodies: Vec<serde_json::Value>,
     hitboxes: Vec<serde_json::Value>,
     projectiles: Vec<serde_json::Value>,
+    /// What connected with what, as the RUNTIME says — never as geometry
+    /// suggests. See `CombatObservation::contacts`.
+    contacts: Vec<serde_json::Value>,
     move_id: Option<String>,
     grounded: Option<bool>,
     subject_pos: Option<(f32, f32)>,
@@ -56,7 +60,8 @@ const USAGE: &str = "\
 moveset_takes — drive real control frames through the engine and record what it did.
 
 USAGE:
-    moveset_takes [--characters ID,ID] [--out PATH]
+    moveset_takes [--characters ID,ID] [--target ID] [--target-behavior WHICH]
+                  [--out PATH]
 
 OPTIONS:
     --characters ID,ID   comma-separated catalog ids to record
@@ -65,6 +70,32 @@ OPTIONS:
                          (measured 2026-08-27, after the settle stopped
                          serialising a frame to read three booleans)
                          [default: npc_pirate_admiral]
+    --verbs V,V          record only these repertoire verbs
+                         [default: every verb the exercise can drive]
+                         ⭐ ONE MOVE IS ~4s; a fighter's whole moveset is ~1m17.
+                         Re-recording the move you are looking at should not
+                         cost the other eighteen.
+    --spacing PX         walk the subject to within PX of the target before the
+                         press [default: the match's own seat placement]
+                         ⭐ A move recorded from across the stage can never show
+                         a CONTACT. This is how reach is asked about.
+    --chain VERB         after the first verb, request this one too
+    --chain-at TICK      the action tick the chained verb is REQUESTED on
+                         [default: 37, the tick the first verb's own schedule
+                         releases]
+                         ⭐ SWEEP IT. The engine decides whether a cancel window
+                         is open; the gap between the request and the acceptance
+                         is the measurement.
+    --target ID          who the subject performs the move AGAINST
+                         [default: the subject's own character, a mirror match]
+    --target-behavior WHICH
+                         passive | cpu                        [default: passive]
+                         `passive` seats the target on the stand-still brain: a
+                         real, damageable, seated fighter that makes no
+                         decisions, so what the recording shows is the MOVE and
+                         not an opponent's reaction to it. `cpu` restores the
+                         live duelist brain, which is a different measurement
+                         and says so in the take.
     --out PATH           where to write the takes
                          [default: tools/ambition_moveset_inspector/data/takes/takes.json]
     -h, --help           print this and exit
@@ -190,8 +221,19 @@ fn drawn_row_of(
 
 /// Read the world once. Everything here is a read; nothing is mutated, so a
 /// take can never be the reason a run diverges.
-fn sample(world: &mut World, subject_seat: usize) -> Frame {
+///
+/// ⛔⛔ COMBAT GEOMETRY COMES FROM `CombatGeometryView`, THROUGH
+/// `combat_observation`. This function used to query `Hitbox` and call
+/// `world_volume` itself, which made it a SECOND implementation of the rule the
+/// engine already owns — and it had no hurtboxes at all, so the recording could
+/// show an attack volume passing through a fighter and could not say whether
+/// that fighter was hittable there.
+fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
     let mut frame = Frame::default();
+    // ⛔⛔ RESOLVED THIS TICK. The two fighters are fixed for the take; what they
+    // OWN is discovered every sample, because the summon this recording exists
+    // to show is spawned by the move itself.
+    let roles = scenario.resolve(world);
 
     // ⭐ CHARACTER ID -> SHEET KEY, off the catalog the composed host loaded. The
     // catalog stores `sprites/<name>_spritesheet.png`; the baked sheet index is
@@ -318,10 +360,6 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         )
         .collect();
 
-    let mut owner_pos = std::collections::HashMap::new();
-    for (entity, pos, ..) in &rows {
-        owner_pos.insert(*entity, *pos);
-    }
     // ⛔⛔ WHO THE OUTPUT BELONGS TO. The take seats a real CPU opponent on
     // purpose — a move recorded against an inert stage is a move recorded in a
     // game nobody plays — but that opponent SWINGS AND FIRES, and this sampler
@@ -333,13 +371,24 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // ⭐ THE FIX IS PROVENANCE, NOT AN INERT OPPONENT. Both are still recorded —
     // the viewer wants to see what was happening — but each carries whose it is,
     // and the move's own statistics count only the subject's.
-    let subject_entity = rows
+    //
+    // ⭐⭐ AND PROVENANCE IS A ROLE, NOT A BOOLEAN. `subject_owned` could say
+    // "not the subject's" and never say whose: the target's swing, the target's
+    // summon and a stage hazard were one answer. `ScenarioRoles` names all five,
+    // and every ownership question in this file is asked of it.
+
+    // ⛔⛔ THE COMBAT HALF OF EVERY ROW, FROM THE SEMANTIC VIEW. Geometry, move
+    // clock and the tuning readout are read here ONCE and merged onto the
+    // identity rows below; nothing in this file resolves a volume.
+    let observation = CombatObservation::capture(world, &roles);
+    let combat_facts: std::collections::HashMap<Entity, serde_json::Value> = observation
+        .bodies
         .iter()
-        .find(|(_, _, _, _, _, seat, ..)| *seat == Some(subject_seat))
-        .map(|(entity, ..)| *entity);
+        .map(|body| (body.entity, body.facts.clone()))
+        .collect();
 
     for (
-        _entity,
+        entity,
         pos,
         vel,
         half,
@@ -356,7 +405,8 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         sim_id,
     ) in &rows
     {
-        let subject = *seat == Some(subject_seat);
+        let role = roles.role_of(*entity);
+        let subject = role == ambition_sim_harness::ScenarioRole::Subject;
         if subject {
             frame.subject_pos = Some(*pos);
             frame.subject_vel = Some(*vel);
@@ -388,10 +438,18 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                 .unidentified
                 .push(worn.clone().unwrap_or_else(|| "<unnamed body>".to_string()));
         }
-        frame.bodies.push(serde_json::json!({
+        let mut body = serde_json::json!({
+            // The KINEMATIC box: where the body is and how big it is. The
+            // COMBAT envelope and the volumes that decide a hit arrive with the
+            // observation below, under `collision` and `hurtboxes`.
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
             "seat": seat,
+            // ⭐⭐ WHAT THIS BODY IS IN THE SCENARIO, in a word. A reader must
+            // never have to work the subject out from a seat index or a colour
+            // — and cannot, when the scenario deliberately seats one character
+            // twice.
+            "role": role.as_str(),
             // ⛔⛔ IDENTITY AND APPEARANCE ARE TWO FIELDS, NOT ONE. Preferring
             // the worn character as a "label" cannot identify a body in this
             // recording at all: the take deliberately seats TWO FIGHTERS WEARING
@@ -434,7 +492,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // the whole chain. Cheap, and it has already paid for itself once.
             "has_pose": has_pose,
             "sheet": drawn.as_ref().map(|(sheet, ..)| sheet),
-        }));
+        });
+        // The combat half, merged onto the identity half. A body the combat
+        // view does not carry — a summoned mount is not a `BodyCombat` — keeps
+        // its identity row and simply has no combat fields, which is the honest
+        // answer rather than a row of zeroes.
+        if let (Some(facts), Some(object)) = (combat_facts.get(entity), body.as_object_mut()) {
+            if let Some(facts) = facts.as_object() {
+                for (key, value) in facts {
+                    object.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        frame.bodies.push(body);
     }
 
     // ⭐ A RANGED MOVE'S DAMAGE IS ITS PROJECTILE, and a take that recorded only
@@ -466,112 +536,39 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         })
         .collect();
     for (pos, vel, size, damage, owner, sim_id) in flying {
+        // Whose shot this is, in the same vocabulary the bodies and strikes
+        // use. An unowned shot is a hazard and belongs to nobody — which is not
+        // the same as belonging to the target.
+        let role = owner.map_or(ambition_sim_harness::ScenarioRole::Other, |owner| {
+            roles.owned_role_of(owner)
+        });
         frame.projectiles.push(serde_json::json!({
             "id": sim_id,
             "pos": [pos.x, pos.y],
             "vel": [vel.x, vel.y],
             "half": [size.x * 0.5, size.y * 0.5],
             "damage": damage,
+            "role": role.as_str(),
             // A shot with no owner belongs to nobody in particular — a hazard,
-            // a stage emitter — and is not the subject's either way.
-            "subject_owned": owner.is_some() && owner == subject_entity,
+            // a stage emitter — and is not the subject's either way. Kept
+            // beside the role for readers written before roles existed; the
+            // role is the authority and this is its projection.
+            "subject_owned": role.is_subjects(),
         }));
     }
 
-    // ⭐⭐ A HITBOX HAS ITS OWN IDENTITY. `advance_move_playback` inserts
-    // `SimId::strike_volume(owner, move, window, volume)` on the volume entity
-    // itself, and `StrikeRank { window, volume }` beside it. Sorting by owner +
-    // position + damage still tied whenever one owner's two volumes shared them
-    // — a multi-hit's mirrored pair does — and a tie falls back to ECS order,
-    // which is the thing being canonicalised.
-    let mut hitboxes = world.query::<(
-        &ambition_platformer2d::combat::strike::Hitbox,
-        Option<&ambition_platformer2d::platformer::sim_id::SimId>,
-        Option<&ambition_platformer2d::combat::moveset::StrikeRank>,
-    )>();
-    let boxes: Vec<_> = hitboxes
-        .iter(world)
-        .map(|(hitbox, id, rank)| {
-            (
-                hitbox.clone(),
-                id.map(|id| id.as_str().to_string()),
-                rank.map(|r| (r.window, r.volume)),
-            )
-        })
-        .collect();
-    for (hitbox, strike_id, rank) in boxes {
-        let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
-        // The SAME resolution the combat runtime uses, so a recorded box is the
-        // box that could hit somebody rather than a redrawn approximation.
-        let at = ambition_platformer2d::engine_core::Vec2::new(anchor.0, anchor.1);
-        let aabb = hitbox.world_aabb(at);
-        // ⛔⛔ THE REAL SHAPE, not the box around it. `world_aabb` sits directly
-        // beside `world_volume` and I reached for the wrong one, so a rotated
-        // box, a disc and a convex arc were all recorded as the axis-aligned
-        // rectangle that CONTAINS them — which for a sweeping arc is a great
-        // deal larger than the thing that can actually hit you, and is the
-        // difference between a diagram and a decoration.
-        //
-        // ⭐ THE AABB STAYS BESIDE IT. It is the broad phase the engine itself
-        // uses, a viewer can draw it without knowing any shape, and keeping both
-        // means an old take still renders.
-        let shape = match hitbox.world_volume(at) {
-            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => {
-                serde_json::json!({ "kind": "aabb" })
-            }
-            ambition_platformer2d::engine_core::CombatVolume::Obb {
-                center,
-                half,
-                rotation,
-            } => serde_json::json!({
-                "kind": "obb",
-                "center": [center.x, center.y],
-                "half": [half.x, half.y],
-                "rotation": rotation,
-            }),
-            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => {
-                serde_json::json!({
-                    "kind": "circle",
-                    "center": [center.x, center.y],
-                    "radius": radius,
-                })
-            }
-            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => {
-                serde_json::json!({
-                    "kind": "convex",
-                    "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
-                })
-            }
-        };
-        frame.hitboxes.push(serde_json::json!({
-            "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
-            "half": [(aabb.max.x - aabb.min.x) * 0.5, (aabb.max.y - aabb.min.y) * 0.5],
-            "shape": shape,
-            "damage": hitbox.damage,
-            // Already read for the anchor above and then thrown away, which is
-            // how the opponent's swings got counted as the subject's.
-            "subject_owned": Some(hitbox.owner) == subject_entity,
-            // ⭐ THE VOLUME'S OWN IDENTITY. `advance_move_playback` inserts
-            // `SimId::strike_volume(owner, move, window, volume)` on the volume
-            // entity itself, so a strike is identified rather than merely
-            // attributed. ⛔ THE FALLBACK IS OWNER-QUALIFIED: a
-            // bare `strike(window 1, volume 0)` names one volume of EVERY
-            // unidentified owner, and an `id` that identifies two different
-            // things is worse than an absent one.
-            "id": strike_id.clone().or_else(|| {
-                let owner = rows
-                    .iter()
-                    .find(|(e, ..)| *e == hitbox.owner)
-                    .and_then(|row| row.14.clone())?;
-                rank.map(|(window, volume)| format!("{owner}/strike/w{window}/v{volume}"))
-            }),
-            // Provenance, not identity: whose swing this is.
-            "owner_id": rows
-                .iter()
-                .find(|(e, ..)| *e == hitbox.owner)
-                .and_then(|row| row.14.clone()),
-        }));
-    }
+    // ⭐⭐ THE STRIKES, WHOLE, FROM THE SEMANTIC VIEW. Volume, shape, damage,
+    // owner, role and identity all arrive resolved: `CombatGeometryView` puts
+    // every live strike into world space with the same `Hitbox::world_volume`
+    // the resolver uses, and `combat_observation` writes the row.
+    //
+    // ⛔⛔ THIS FILE NO LONGER RESOLVES A VOLUME. It queried `Hitbox`, anchored
+    // it against a position map of its own and called `world_volume` — a second
+    // implementation of a rule the engine owns, which had already been wrong
+    // once (`world_aabb` recorded a sweeping arc as the rectangle containing
+    // it). `check_absence_contracts.py` keeps it gone.
+    frame.hitboxes = observation.strikes.clone();
+    frame.contacts = observation.contacts.clone();
 
     // ⛔⛔ SORTED BY STABLE IDENTITY BEFORE IT IS WRITTEN. Removing entity numbers
     // from the strings is not enough to promise byte-stable JSON: the ORDER of
@@ -584,24 +581,6 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             (
                 v["id"].as_str().unwrap_or("").to_string(),
                 v["label"].as_str().unwrap_or("").to_string(),
-            )
-        };
-        key(a).cmp(&key(b))
-    });
-    // ⛔⛔ POSITION AND DAMAGE ARE NOT AN IDENTITY. Two volumes of one move can
-    // share both — a multi-hit's mirrored pair does — and ties then fall back to
-    // ECS query order, which is the thing being canonicalised. The owner's
-    // stable id leads the key, and geometry only breaks ties within one owner.
-    // ⭐ BY THE VOLUME'S OWN ID. Geometry only breaks ties among strikes that
-    // carry no derived identity at all.
-    frame.hitboxes.sort_by(|a, b| {
-        let key = |v: &serde_json::Value| {
-            (
-                v["id"].as_str().unwrap_or("").to_string(),
-                v["owner_id"].as_str().unwrap_or("").to_string(),
-                v["pos"][0].as_f64().unwrap_or_default().to_bits(),
-                v["pos"][1].as_f64().unwrap_or_default().to_bits(),
-                v["damage"].as_i64().unwrap_or_default(),
             )
         };
         key(a).cmp(&key(b))
@@ -644,6 +623,37 @@ fn platforms(app: &mut App) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
+/// How the fighter opposite the subject behaves.
+///
+/// ⭐⭐ A SCENARIO PARAMETER, NOT A TOOL DETAIL. Which of these was used decides
+/// what the recording MEANS — a move measured against a fighter that walks into
+/// it is a different measurement from the same move against one that stands
+/// there — so the take writes the answer down beside the frames.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetBehavior {
+    /// Seated, damageable, and making no decisions.
+    Passive,
+    /// The live duelist brain: a real opponent, with a real opponent's noise.
+    Cpu,
+}
+
+impl TargetBehavior {
+    fn parse(word: &str) -> Option<Self> {
+        match word {
+            "passive" => Some(Self::Passive),
+            "cpu" => Some(Self::Cpu),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Passive => "passive",
+            Self::Cpu => "cpu",
+        }
+    }
+}
+
 /// Put a clean match on the stage.
 ///
 /// ⛔⛔ A TAKE THAT STARTS FROM A CORPSE MEASURES NOTHING. Two takes reported
@@ -651,9 +661,21 @@ fn platforms(app: &mut App) -> Vec<serde_json::Value> {
 /// admiral off the stage: the recording showed a body frozen below the floor
 /// with `grounded: false` forever, and the press went to somebody who was not
 /// there. The settle can detect that state; only a re-seat can fix it.
-fn reseat(app: &mut App, character: &str) -> bool {
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([character, character]));
+///
+/// ⭐⭐ THE TARGET IS AN ARGUMENT. This seated `[character, character]` — the
+/// same fighter twice, told apart only by a seat index — so every recorded frame
+/// needed a seat convention to read, and a screenshot could not be read at all.
+fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior) -> bool {
+    let roster = match behavior {
+        // ⛔ THE STAND-STILL BRAIN IS A DRIVER, NOT A MISSING ONE. A CPU seat
+        // that names no brain profile is REFUSED at preparation, on purpose;
+        // this asks for the policy that stands still by name.
+        TargetBehavior::Passive => {
+            ambition_demo_smash::smash_roster_with_passive_targets([character, target])
+        }
+        TargetBehavior::Cpu => ambition_demo_smash::smash_roster([character, target]),
+    };
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(
@@ -702,6 +724,110 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
         })
 }
 
+/// The absolute simulation tick, which is what a causal fact is stamped with.
+///
+/// ⭐ THE JOIN KEY. A take's frames are an INDEX into one exercise; a causal
+/// fact names the sim tick it happened on. Without this the two cannot be put
+/// beside each other, and an inspector is left matching a consequence to a
+/// frame by counting.
+fn sim_tick(app: &App) -> u64 {
+    app.world()
+        .get_resource::<ambition_platformer2d::runtime::SimTick>()
+        .map(|t| t.0)
+        .unwrap_or_default()
+}
+
+/// The causal inspector, when this build carries it.
+///
+/// ⭐⭐ THE ENGINE ALREADY ANNOUNCES WHY A HIT RESOLVED AS IT DID — ignored,
+/// blocked, armored, wallet-shielded, damaged — and the monolith already turns
+/// those announcements into facts with a cause chain. A recorder that invented
+/// its own hit events would be a second answer to a question with one; this
+/// installs the existing inspector and writes down what it says.
+///
+/// ⛔ OFF WITHOUT THE FEATURE, AND THAT IS THE POINT. An instrument that is on
+/// by default is one somebody switches off, and then it is not there when it is
+/// needed — so a plain build records geometry and consequences and simply has no
+/// `causal` array, which is a visible absence rather than a silent one.
+#[cfg(feature = "causal")]
+mod causal_trace {
+    use bevy::prelude::App;
+
+    pub fn arm(app: &mut App) {
+        use ambition_platformer2d::causal::{domains, CausalRecording, RecordingPolicy};
+        app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
+        if let Some(mut log) = app.world_mut().get_resource_mut::<CausalRecording>() {
+            // DAMAGE is the resolution vocabulary; MOVESET is what the move
+            // itself was doing when it produced one. Recording every domain
+            // would bury both under movement and input.
+            log.set_policy(RecordingPolicy::only([domains::DAMAGE, domains::MOVESET]));
+        }
+    }
+
+    /// Forget everything before this take. The log is a ring buffer shared by
+    /// the whole run, and a take that carried the previous take's facts would
+    /// attribute one move's consequences to another.
+    pub fn clear(app: &mut App) {
+        use ambition_platformer2d::causal::CausalRecording;
+        if let Some(mut log) = app.world_mut().get_resource_mut::<CausalRecording>() {
+            log.clear();
+        }
+    }
+
+    /// Every fact the log holds, in the shape the artifact writes.
+    pub fn drain(app: &mut App) -> Vec<serde_json::Value> {
+        use ambition_platformer2d::causal::CausalRecording;
+        let Some(log) = app.world().get_resource::<CausalRecording>() else {
+            return Vec::new();
+        };
+        log.facts()
+            .map(|fact| {
+                serde_json::json!({
+                    // The absolute tick, which the frames also carry.
+                    "sim_tick": fact.tick,
+                    "domain": fact.domain.0,
+                    "kind": fact.detail.kind,
+                    "summary": fact.detail.summary,
+                    // ⛔ THE SUBJECT IS A STABLE ID where the publisher had one.
+                    // `entity:N` means the domain has no stable id yet and says
+                    // so — a recorded API leak, not a join key.
+                    "subject": fact.subject.as_ref().map(|s| s.to_string()),
+                    "participant": fact.participant,
+                    // What this fact FOLLOWED FROM, which is what makes the log
+                    // a chain rather than a list.
+                    "cause": fact.cause.map(|id| id.0),
+                    "id": fact.id.0,
+                    // ⛔⛔ A RESIMULATED TICK IS NOT ITS ORIGINAL. Rollback can
+                    // execute one tick more than once and the two attempts can
+                    // produce different facts; an artifact that dropped this
+                    // would merge them into one explanation.
+                    "execution": fact.execution.to_string(),
+                    "attempt": fact.attempt,
+                    "fields": fact
+                        .detail
+                        .fields
+                        .iter()
+                        .map(|(name, value)| (name.to_string(), value.to_string()))
+                        .collect::<std::collections::BTreeMap<_, _>>(),
+                })
+            })
+            .collect()
+    }
+}
+
+/// Without the feature there is no inspector to install, and the take says so
+/// by carrying no `causal` array at all.
+#[cfg(not(feature = "causal"))]
+mod causal_trace {
+    use bevy::prelude::App;
+
+    pub fn arm(_: &mut App) {}
+    pub fn clear(_: &mut App) {}
+    pub fn drain(_: &mut App) -> Vec<serde_json::Value> {
+        Vec::new()
+    }
+}
+
 /// Sample the world and append it to a take, reporting any body it could not
 /// identify.
 ///
@@ -718,13 +844,22 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
 /// a new one may emit. Measured on the admiral: 8202/8202 bodies and 166/166
 /// strikes already identified, so this refuses a regression rather than
 /// demanding something new.
-fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) -> Vec<String> {
-    let frame = sample(app.world_mut(), 0);
+fn record(
+    app: &mut App,
+    scenario: &ScenarioRoles,
+    frames: &mut Vec<serde_json::Value>,
+) -> Vec<String> {
+    let frame = sample(app.world_mut(), scenario);
     let unidentified = frame.unidentified.clone();
     frames.push(serde_json::json!({
+        // The absolute tick this frame is, so a causal fact can be put beside
+        // it. The frame INDEX is how far into the exercise it is; the two are
+        // different numbers and a reader needs both.
+        "sim_tick": sim_tick(app),
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
         "projectiles": frame.projectiles,
+        "contacts": frame.contacts,
         "move": frame.move_id,
         "grounded": frame.grounded,
         "subject_pos": frame.subject_pos.map(|p| vec![p.0, p.1]),
@@ -753,7 +888,19 @@ fn main() {
         .iter()
         .skip(1)
         .filter(|a| a.starts_with('-'))
-        .find(|a| *a != "--out" && *a != "--characters")
+        .find(|a| {
+            !matches!(
+                a.as_str(),
+                "--out"
+                    | "--characters"
+                    | "--target"
+                    | "--target-behavior"
+                    | "--verbs"
+                    | "--spacing"
+                    | "--chain"
+                    | "--chain-at"
+            )
+        })
     {
         eprintln!("moveset_takes: unknown option '{bad}'\n");
         print!("{USAGE}");
@@ -763,6 +910,71 @@ fn main() {
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());
     let asked = arg("--characters");
+    // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE. Recording a fighter
+    // against itself keeps the geometry comparable across the grid; naming a
+    // target makes the two bodies visibly different when that is what a reader
+    // needs.
+    let target = arg("--target");
+    // ⛔ A NAME THAT MATCHES NOTHING IS A REFUSAL, as it is for `--verbs`.
+    let chain = arg("--chain").map(|name| match move_exercise::verb_named(&name) {
+        Some(verb) => verb,
+        None => {
+            eprintln!(
+                "moveset_takes: '{name}' is not a verb this exercise can perform.\n\
+                 known: {}",
+                VERBS.iter().map(|v| v.verb).collect::<Vec<_>>().join(", ")
+            );
+            std::process::exit(2);
+        }
+    });
+    let chain_at: usize = match arg("--chain-at") {
+        None => move_exercise::HOLD_TICKS,
+        Some(word) => match word.parse() {
+            Ok(tick) => tick,
+            Err(_) => {
+                eprintln!("moveset_takes: --chain-at wants a tick number");
+                std::process::exit(2);
+            }
+        },
+    };
+    let spacing: Option<f32> = match arg("--spacing") {
+        None => None,
+        Some(word) => match word.parse::<f32>() {
+            Ok(px) if px >= 0.0 => Some(px),
+            _ => {
+                eprintln!("moveset_takes: --spacing wants a non-negative number of pixels");
+                std::process::exit(2);
+            }
+        },
+    };
+    // ⛔ A NAME THAT MATCHES NOTHING IS A REFUSAL, not an empty run. `--verbs
+    // upb` would otherwise record nothing and report success.
+    let only: Option<Vec<String>> = arg("--verbs").map(|list| {
+        let asked: Vec<String> = list.split(',').map(|v| v.trim().to_string()).collect();
+        for verb in &asked {
+            if !VERBS.iter().any(|known| known.verb == verb) {
+                eprintln!(
+                    "moveset_takes: '{verb}' is not a verb this exercise can perform.\n\
+                     known: {}",
+                    VERBS.iter().map(|v| v.verb).collect::<Vec<_>>().join(", ")
+                );
+                std::process::exit(2);
+            }
+        }
+        asked
+    });
+    let behavior = match arg("--target-behavior").as_deref() {
+        None => TargetBehavior::Passive,
+        Some(word) => match TargetBehavior::parse(word) {
+            Some(behavior) => behavior,
+            None => {
+                eprintln!(
+                    "moveset_takes: unknown --target-behavior '{word}'; expected passive or cpu"
+                );
+                std::process::exit(2);
+            }
+        },
+    };
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -783,6 +995,9 @@ fn main() {
     // was already the canonical answer, so the caller had no business having an
     // opinion about it.
     ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+    // ⭐ THE INSPECTOR, WHEN THIS BUILD HAS ONE. Installed before the first
+    // update so its frame stamp is on every tick a take records.
+    causal_trace::arm(&mut app);
     for _ in 0..30 {
         app.update();
     }
@@ -826,14 +1041,21 @@ fn main() {
         // A partner, so contact rules and targeting behave as they do in a
         // match. A solo stage is a different simulation from the one the
         // inspector claims to be showing.
-        reseat(&mut app, character);
+        // ⛔ THE TARGET IS RESOLVED PER SUBJECT. `--target` names one fighter
+        // for the whole run; without it each subject faces itself, which keeps
+        // a grid recording comparable fighter to fighter.
+        let target = target.clone().unwrap_or_else(|| character.clone());
+        reseat(&mut app, character, &target, behavior);
         let stage = platforms(&mut app);
         // The fighter's whole repertoire, so a take can ask what the move it played
         // AUTHORS and check its own recording against that. See
         // `authors_offense`.
         let repertoire = moveset_of(&mut app, character);
 
-        for verb in VERBS {
+        for verb in VERBS
+            .iter()
+            .filter(|verb| only.as_ref().is_none_or(|only| only.iter().any(|v| v == verb.verb)))
+        {
             // ⛔⛔ A FRESH MATCH FOR EVERY TAKE, not only when the settle fails.
             // Re-seating on failure alone left every take depending on the one
             // before it, and the up-B is where that shows: `afford_recovery`
@@ -849,7 +1071,7 @@ fn main() {
             // did not come up, or a character the host could not build, would
             // otherwise record a whole moveset against an empty stage under that
             // character's name.
-            if !reseat(&mut app, character) {
+            if !reseat(&mut app, character, &target, behavior) {
                 println!(
                     "[take] {character:<24} {:<16} SKIPPED - no fighter reached seat zero",
                     verb.verb
@@ -861,6 +1083,17 @@ fn main() {
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \
                      even after a re-seat; read this take with that in mind",
                     verb.verb
+                );
+            }
+            // ⛔ SPACING BEFORE POSTURE. Walking closes the gap on the ground;
+            // an aerial verb then takes off from where it arrived. Doing it the
+            // other way round would walk a body that is already in the air.
+            let closed = spacing.map(|px| move_exercise::approach(&mut app, px));
+            if closed == Some(false) {
+                println!(
+                    "[take] {character:<24} {:<16} WARNING - could not close to {} px;                      this take records the gap it reached",
+                    verb.verb,
+                    spacing.unwrap_or_default()
                 );
             }
             // ⭐⭐ ONE PREPARATION, SHARED WITH THE RENDERER. This had its own
@@ -876,6 +1109,20 @@ fn main() {
                     verb.verb
                 );
             }
+            // ⛔⛔ AFTER THE RE-SEAT AND BEFORE THE PRESS. Roles are entity
+            // identities, and every re-seat spawns new bodies — resolving them
+            // once per RUN would have named the previous take's corpses.
+            let roles = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
+            // ⛔ AT THE PRESS, WHICH IS WHERE THE NAME SAYS. Read after the take
+            // it was the gap at the END — and a connect LAUNCHES the target, so
+            // the forward smash reported 70px of spacing for a press thrown at
+            // 33. A measurement named for a moment must be taken at it.
+            let spacing_at_press = move_exercise::gap_to_seat(&mut app, 1).map(f32::abs);
+            // ⛔ THE LOG IS A RING BUFFER SHARED BY THE WHOLE RUN. A take that
+            // carried the previous take's facts would credit one move's
+            // consequences to another — the same defect a shared stage had
+            // before every take got its own re-seat.
+            causal_trace::clear(&mut app);
             let mut frames: Vec<serde_json::Value> = Vec::new();
             // Every body this take could not identify, collected across its ticks.
             let mut unidentified: std::collections::BTreeSet<String> = Default::default();
@@ -885,16 +1132,25 @@ fn main() {
             // renderer while `shot < frames / 4`, which happened to agree at 37
             // and would have drifted the moment either tool changed how much it
             // records. What the player does is not the recorder's business.
-            step(&mut app, move_exercise::action_frame(verb, 0, facing));
+            // ⭐ ONE SCHEDULE, WHETHER OR NOT A SECOND VERB IS CHAINED IN.
+            // `chained_frame` is `action_frame` before the hand-off, so a chain
+            // presses exactly what a single take presses up to that tick.
+            let frame_at = |tick: usize| match chain {
+                Some(second) => {
+                    move_exercise::chained_frame(verb, second, chain_at, tick, facing)
+                }
+                None => move_exercise::action_frame(verb, tick, facing),
+            };
+            step(&mut app, frame_at(0));
             // ⛔ THE PRESS TICK IS FRAME ZERO. `ResolvedAttackGesture::pressed`
             // is set on the press tick and cleared after, so a recording that
             // started one tick later showed `gesture: null` on every frame of
             // every take — the one field that says what the engine understood
             // the input to be, absent from all of them.
-            unidentified.extend(record(&mut app, &mut frames));
+            unidentified.extend(record(&mut app, &roles, &mut frames));
             for tick in 1..TAKE_TICKS {
-                step(&mut app, move_exercise::action_frame(verb, tick, facing));
-                unidentified.extend(record(&mut app, &mut frames));
+                step(&mut app, frame_at(tick));
+                unidentified.extend(record(&mut app, &roles, &mut frames));
             }
 
             // ⛔⛔ A TAKE WITH AN UNIDENTIFIED BODY IS NOT CANONICAL, so it is not
@@ -1058,11 +1314,41 @@ fn main() {
                     )
                 }
             );
+            // ⭐⭐ WHO WAS IN THIS SCENARIO, BY NAME AND BY IDENTITY. `seat: 0`
+            // was the only thing that said which body the take was about, so
+            // reading a frame — or a screenshot, or an exported SVG — needed a
+            // seat convention nothing wrote down.
+            let identity_of = |entity: Option<bevy::prelude::Entity>| {
+                entity.and_then(|entity| {
+                    ambition_sim_harness::combat_observation::sim_id_of(app.world(), entity)
+                })
+            };
             takes.push(serde_json::json!({
                 "character": character,
                 "verb": verb.verb,
                 "label": verb.label,
                 "seat": 0,
+                "subject": character,
+                "subject_id": identity_of(roles.subject()),
+                "target": target,
+                "target_id": identity_of(roles.target()),
+                // ⛔ THE PREMISE, RECORDED. A passive target produces no offence
+                // BY CONSTRUCTION, so `opponent_output: 0` below is a fact about
+                // the scenario rather than evidence of a clean recording.
+                "target_behavior": behavior.as_str(),
+                // ⛔ THE SPACING ASKED FOR AND THE SPACING REACHED. A move that
+                // could not close the gap is a finding; a take that reported
+                // only the request would hide it.
+                // ⛔ WHAT WAS REQUESTED, beside what the engine did with it.
+                // A take that recorded only the second verb's name could not say
+                // whether the engine accepted it early, late, or at all.
+                "chain": chain.map(|second| serde_json::json!({
+                    "verb": second.verb,
+                    "label": second.label,
+                    "at": chain_at,
+                })),
+                "requested_spacing": spacing,
+                "spacing_at_press": spacing_at_press,
                 "view": [x0, y0, x1, y1],
                 "platforms": stage,
                 // What the ENGINE did, which is the whole claim this file makes.
@@ -1084,13 +1370,22 @@ fn main() {
                 // things to a reader and to the viewer.
                 "outcome": verdict.as_str(),
                 "prepared": prepared,
+                // ⛔ EMPTY WITHOUT THE `causal` FEATURE, and that is a visible
+                // absence rather than a silent one: this build carries no
+                // inspector, so it announces no resolutions.
+                "causal": causal_trace::drain(&mut app),
                 "frames": frames,
             }));
         }
     }
 
     let bundle = serde_json::json!({
-        "schema": "ambition.moveset_takes.v1",
+        // ⛔ v2: every body, strike and shot carries a scenario ROLE, bodies
+        // carry runtime hurtboxes and a move clock, and the take names its
+        // subject and target. A v1 reader shown a v2 file still draws — the
+        // added fields are additive — but a reader that needs roles must check.
+        "schema": "ambition.moveset_takes.v2",
+        "observation_schema": ambition_sim_harness::OBSERVATION_SCHEMA,
         "sim_hz": 60.0,
         "takes": takes,
     });

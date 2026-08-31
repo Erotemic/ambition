@@ -64,6 +64,41 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-recorders-do-not-resolve-their-own-combat-geometry",
+        "paths": [
+            "game/ambition_app_tools/src/bin/moveset_takes.rs",
+            "game/ambition_app_tools/src/bin/moveset_render.rs",
+            # The shared serializer is held to the same rule it exists to
+            # enforce: it reads the view and joins identity, and resolves
+            # nothing.
+            "crates/ambition_sim_harness/src/combat_observation.rs",
+        ],
+        "patterns": [
+            r"world_volume|world_aabb",
+            r"DamageableVolumes",
+            r"ResolvedHurtboxes",
+        ],
+        "reason": (
+            "ONE RESOLVER FOR HIT AND HURT GEOMETRY, AND IT IS THE ENGINE'S. "
+            "`moveset_takes::sample` queried `Hitbox`, built its own owner-position "
+            "map and called `world_volume` itself -- a second implementation of a "
+            "rule `CombatGeometryView` already owns, which had already been wrong "
+            "once: it reached for `world_aabb`, so a rotated box, a disc and a "
+            "sweeping arc were all recorded as the axis-aligned rectangle CONTAINING "
+            "them. It also had no damageable geometry at all, so a recording could "
+            "show a strike passing through a fighter and could not say whether that "
+            "fighter was hittable there. "
+            "`CombatGeometryView` resolves strike volumes with the same call the "
+            "combat resolver uses and applies the runtime's three-way damageable "
+            "rule (published / published-empty is intangible / unpublished falls "
+            "back to the coarse box); `combat_observation` serializes it. A tool "
+            "that reads `Hitbox` or `DamageableVolumes` directly is growing a second "
+            "answer to a question that has one. If the view is missing a fact the "
+            "observatory needs, EXTEND THE VIEW -- that is how `damage` and "
+            "`hurtbox_source` got there."
+        ),
+    },
+    {
         "id": "ending-a-move-goes-through-the-one-teardown-path",
         "paths": [
             "crates/",
@@ -939,6 +974,15 @@ MODULE_ALLOWLISTS: list[dict] = [
             "character",
             "engine",
             "item",
+            # ⭐ WHAT AN OBSERVER READS IS AN SDK CONCEPT, added 2026-08-30 when
+            # the harness took the combat observation in. It is NOT a crate
+            # mirror — the crate is `ambition_sim_view` — and it is the same
+            # widening `capture` got: the rule is "no implementation topology",
+            # and naming the CAPABILITY is exactly what the rule asks for. The
+            # gap it closes was five crate-shaped paths (`engine_core`,
+            # `sim_view`, `mount`, `projectiles`, `platformer::sim_id`) reached
+            # for one question the engine already answers.
+            "observation",
             "participant",
             "rollback",
             "session",

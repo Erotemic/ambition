@@ -72,17 +72,27 @@ function takesCarryArt() {
 }
 
 const RENDERS = new Map();
-function renderedFramesFor(character, verb) {
+function renderedFramesFor(character, verb, scenario = {}) {
   /* ⛔⛔ KEYED ON CHARACTER **AND VERB**. This asked for a character alone, and
    * the endpoint photographed a fighter STANDING — so every move of a fighter
    * shared one cache entry of somebody doing nothing. A move renderer that
-   * ignores which move was selected is the bug this whole campaign was about. */
+   * ignores which move was selected is the bug this whole campaign was about.
+   *
+   * ⛔⛔ AND ON THE SCENARIO. This panel sits BESIDE the diagnostic canvas, and a
+   * render staged from across the stage next to a take recorded at 40px is two
+   * different fights presented as one. The take's own target and spacing travel
+   * with the request. */
   if (!character || !verb) return null;
-  const key = `${character}/${verb}`;
+  const params = new URLSearchParams({ character, verb, frames: "24", stride: "2" });
+  if (scenario.target && scenario.target !== character) params.set("target", scenario.target);
+  if (scenario.spacing !== null && scenario.spacing !== undefined) {
+    params.set("spacing", String(scenario.spacing));
+  }
+  const key = `${character}/${verb}/${params.get("target") || ""}/${params.get("spacing") || ""}`;
   const have = RENDERS.get(key);
   if (have !== undefined) return have;
   RENDERS.set(key, null);
-  fetch(`/api/render?character=${encodeURIComponent(character)}&verb=${encodeURIComponent(verb)}&frames=24&stride=2`)
+  fetch(`/api/render?${params}`)
     .then((r) => r.json())
     .then((doc) => {
       if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
@@ -313,6 +323,13 @@ let state = {
   /* Which fighter's takes are listed. Seeded from `fighter` on entry so the
    * view follows the reader rather than starting over. */
   takeFighter: null,
+  /* Which MOVE is selected — a verb from prepared content, which exists whether
+   * or not a recording of it does. `take` is the cached recording for it, or
+   * null: the fighter and the move come from the bundle, the frames from the
+   * cache. */
+  takeVerb: null,
+  /* Whether the cyan damageable volumes are drawn. */
+  takeHurt: true,
   takeFrame: 0,
   playing: false,
   /* ⛔⛔ WHICH VIEW IS ON SCREEN, and it was READ IN TWO PLACES AND WRITTEN IN
@@ -535,7 +552,12 @@ function renderMoveDetail(c, m) {
       el("div", {
         class: `win ${winClass(w.tag)}`,
         title: `${w.tag} ${f1(w.start_f)}–${f1(w.end_f)}f` +
-               (w.cancel_into.length ? ` → ${w.cancel_into.join(", ")}` : "") +
+               (w.cancel_into.length
+                 ? ` → ${w.cancel_into.join(", ")}` +
+                   ((w.cancel_into_resolved || []).length
+                     ? ` = ${w.cancel_into_resolved.join(", ")}`
+                     : "")
+                 : "") +
                (w.motion_scale !== 1 ? ` · motion ×${f2(w.motion_scale)}` : ""),
         style: `left:${(w.start_s / total) * 100}%;width:${((w.end_s - w.start_s) / total) * 100}%`,
       })
@@ -597,6 +619,31 @@ function renderMoveDetail(c, m) {
         : `${int(d.projectile_speed)} px/s`);
     }
     if (d.projectile_size_charged) row("Shot size", `×${f2(d.projectile_size_charged)} charged`);
+  }
+
+  /* ⭐⭐ THE AUTHORED CANCEL GRAPH, RESOLVED. `["attack", "smash",
+   * "any_attack"]` is what somebody wrote; the question a reader has is WHICH
+   * MOVES that is, and the answer is this character's own repertoire.
+   *
+   * ⛔ THE EXPORTER RESOLVES IT, NOT THIS FILE. `MovesetContract::cancel_targets`
+   * matches on the same verb-class names the trigger road matches on; teaching
+   * the browser that vocabulary would be a second copy of it, and two copies
+   * that must agree are one copy plus a bug. */
+  const cancels = (m.windows || []).filter((w) => (w.cancel_into || []).length);
+  if (cancels.length) {
+    for (const w of cancels) {
+      const when = w.tag.split(":")[1] || "always";
+      const resolved = w.cancel_into_resolved || [];
+      row(
+        `Cancels (${when})`,
+        `${f1(w.start_f)}–${f1(w.end_f)}f → ` +
+          (resolved.length
+            ? `${resolved.join(", ")}   [authored: ${w.cancel_into.join(", ")}]`
+            : /* A rule that resolves to nothing names moves this fighter does
+               * not have — worth seeing rather than hiding. */
+              `${w.cancel_into.join(", ")} — resolves to NO move this fighter has`)
+      );
+    }
   }
 
   const canvas = el("canvas", { class: "hitboxes", width: 420, height: 300 });
@@ -930,87 +977,197 @@ function drawHitboxShape(ctx, h, X, Y, scale) {
 }
 
 /* ---------- engine takes ---------- */
-/* ⛔⛤ ONE FLAT LIST OF EVERY TAKE was unusable the moment a second fighter was
- * recorded: nineteen entries per character, all prefixed with the same name, and
- * no way to say "show me this one". A fighter picker in front of it makes the
- * take list mean "this fighter's takes" — and makes it obvious WHICH fighters
- * have been recorded at all, which is the question behind "why can I only select
- * the pirate admiral". */
-function takeFighters() {
-  const rows = (TAKES && TAKES.takes) || [];
-  return [...new Set(rows.map((t) => t.character))].sort();
+
+/* ⭐⭐ THE SEMANTIC ROLE, AND A LEGACY FALLBACK. A v2 take records what every
+ * body, strike and shot IS; a v1 take recorded a seat index and a boolean, and
+ * an old artifact must still draw. What an old file may contain does not define
+ * what a new one may emit — the recorder writes the role. */
+function roleOf(row, take) {
+  if (row.role) return row.role;
+  if (row.subject_owned === true) return "subject_owned";
+  if (row.subject_owned === false) return "other";
+  if (take && row.seat !== undefined && row.seat !== null) {
+    return row.seat === take.seat ? "subject" : "target";
+  }
+  return "other";
+}
+
+const ROLE_COLOR = {
+  subject: "#6fb3ff",
+  target: "#e8a33d",
+  subject_owned: "#47b78a",
+  target_owned: "#b7a047",
+  other: "#7d8598",
+};
+
+const ROLE_LABEL = {
+  subject: "SUBJECT",
+  target: "TARGET",
+  subject_owned: "subject's",
+  target_owned: "target's",
+  other: null,
+};
+
+/* ⛔⛔ THE ROSTER COMES FROM PREPARED CONTENT, NOT FROM THE CACHE. This listed
+ * `[...new Set(TAKES.takes.map(t => t.character))]`, so a fighter existed in
+ * this view only once somebody had recorded it — "There are 2 fighters now, why
+ * not them all?" was not a missing-data question, it was the picker asking the
+ * wrong source. The bundle says who EXISTS; the takes say what has been
+ * RECORDED, and a missing recording is missing evidence rather than a missing
+ * fighter. */
+function takeRoster() {
+  const recorded = new Map();
+  ((TAKES && TAKES.takes) || []).forEach((t, i) => {
+    if (!recorded.has(t.character)) recorded.set(t.character, []);
+    recorded.get(t.character).push(i);
+  });
+  const rows = ((BUNDLE && BUNDLE.characters) || [])
+    .filter((c) => c.on_smash_grid || recorded.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      name: c.display_name || c.id,
+      takes: recorded.get(c.id) || [],
+    }));
+  /* A recording of somebody the current bundle no longer resolves is still
+   * evidence, and hiding it would make a stale artifact invisible instead of
+   * visible and labelled. */
+  for (const [id, takes] of recorded) {
+    if (!rows.some((r) => r.id === id)) rows.push({ id, name: `${id} — not in bundle`, takes });
+  }
+  return rows;
+}
+
+/* This fighter's supported moves, from the PREPARED repertoire, each with the
+ * recording the cache holds for it — or none.
+ *
+ * ⭐ A MOVE WITH NO TAKE IS STILL SELECTABLE. The engine render is produced on
+ * demand per character+verb and needs no recording at all, so an unrecorded
+ * fighter is inspectable the moment it is prepared. */
+function takeSlotsFor(character) {
+  const recorded = new Map();
+  ((TAKES && TAKES.takes) || []).forEach((t, i) => {
+    if (t.character === character) recorded.set(takeVerb(t), i);
+  });
+  const fighter = fighterById(character);
+  const verbs = new Set([...Object.keys((fighter && fighter.verbs) || {}), ...recorded.keys()]);
+  return [...verbs]
+    .filter(Boolean)
+    .sort((a, b) => {
+      const ra = SLOT_ORDER.has(a) ? SLOT_ORDER.get(a) : 1e3;
+      const rb = SLOT_ORDER.has(b) ? SLOT_ORDER.get(b) : 1e3;
+      return ra - rb || a.localeCompare(b);
+    })
+    .map((verb) => ({
+      verb,
+      label: SLOT_LABEL.get(verb) || verb,
+      take: recorded.has(verb) ? recorded.get(verb) : null,
+    }));
 }
 
 function renderTakeList() {
-  const pick = $("#take-pick");
   const who = $("#take-fighter");
-  if (!TAKES || !TAKES.takes.length) {
-    who.replaceChildren(el("option", {}, "—"));
-    pick.replaceChildren(el("option", {}, "no takes recorded — run moveset_takes"));
+  const roster = takeRoster();
+  if (!roster.length) {
+    who.replaceChildren(el("option", {}, "no bundle — run moveset_export"));
+    $("#take-pick").replaceChildren(el("option", {}, "—"));
     return;
   }
-  const fighters = takeFighters();
-  /* ⭐ SAY WHAT WAS LOADED, where the picker is. "Only one fighter" is either a
-   * recording with one fighter or a stale fetch, and those are indistinguishable
-   * from a combo box. Naming the count makes the difference readable without
-   * opening a tab or a console. */
+  /* ⭐ SAY WHAT IS PREPARED AND WHAT IS RECORDED, as two numbers. "2 fighters"
+   * invites "why not all of them"; "21 prepared · 2 recorded" answers it, and
+   * naming the command makes the answer actionable rather than just honest. */
   const note = $("#take-loaded");
   if (note) {
-    /* ⭐ AGAINST THE GRID, not in isolation. "2 fighters" invites "why not all
-     * of them"; "2 of 21 grid fighters recorded" answers it, and naming the
-     * command means the answer is actionable rather than just honest. */
-    const grid = (BUNDLE && BUNDLE.smash_grid) || [];
-    const missing = grid.filter((id) => !fighters.includes(id));
+    const withTakes = roster.filter((r) => r.takes.length);
+    const missing = roster.filter((r) => !r.takes.length).map((r) => r.id);
     note.textContent =
-      `${TAKES.takes.length} takes · ${fighters.length}` +
-      (grid.length ? ` of ${grid.length} grid fighters` : " fighters") +
-      ` recorded: ${fighters.join(", ")}`;
+      `${roster.length} prepared · ${withTakes.length} recorded` +
+      (TAKES ? ` · ${TAKES.takes.length} takes` : " · no takes file");
     note.title = missing.length
       ? `not recorded: ${missing.join(", ")}\n\n` +
         "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"
-      : "the whole grid is recorded";
+      : "every prepared fighter is recorded";
   }
-  /* ⭐ FOLLOW THE FIGHTER THE READER WAS ALREADY LOOKING AT. Arriving from the
-   * Fighter view and being shown somebody else is the tool losing the reader's
-   * place — and it is why this view felt unrelated to the rest of the page. */
-  if (!fighters.includes(state.takeFighter)) {
-    state.takeFighter = fighters.includes(state.fighter) ? state.fighter : fighters[0];
+  /* Follow the fighter the reader was already looking at. Arriving from the
+   * Fighter view and being shown somebody else is the tool losing their place. */
+  if (!roster.some((r) => r.id === state.takeFighter)) {
+    state.takeFighter = roster.some((r) => r.id === state.fighter)
+      ? state.fighter
+      : roster[0].id;
   }
-  who.replaceChildren(...fighters.map((id) =>
-    el("option", { value: id, ...(id === state.takeFighter ? { selected: "" } : {}) }, id)));
+  who.replaceChildren(
+    ...roster.map((r) =>
+      el(
+        "option",
+        { value: r.id, ...(r.id === state.takeFighter ? { selected: "" } : {}) },
+        `${r.name}${r.takes.length ? ` · ${r.takes.length} takes` : " · not recorded"}`
+      )
+    )
+  );
   renderTakeOptions();
 }
 
 function renderTakeOptions() {
   const pick = $("#take-pick");
-  const rows = (TAKES && TAKES.takes) || [];
-  const mine = rows
-    .map((t, i) => ({ t, i }))
-    .filter(({ t }) => t.character === state.takeFighter);
-  if (!mine.length) {
-    pick.replaceChildren(el("option", {}, "no takes for this fighter"));
+  const slots = takeSlotsFor(state.takeFighter);
+  if (!slots.length) {
+    pick.replaceChildren(el("option", {}, "this fighter binds no moves"));
+    state.take = null;
+    state.takeVerb = null;
+    drawTake();
     return;
   }
-  pick.replaceChildren(...mine.map(({ t, i }) =>
-    el("option", { value: String(i) }, `${t.label} (${t.frames.length}f)`)));
-  loadTake(mine[0].i);
+  if (!slots.some((s) => s.verb === state.takeVerb)) {
+    state.takeVerb = (slots.find((s) => s.take !== null) || slots[0]).verb;
+  }
+  pick.replaceChildren(
+    ...slots.map((s) =>
+      el(
+        "option",
+        { value: s.verb, ...(s.verb === state.takeVerb ? { selected: "" } : {}) },
+        `${s.label}${
+          s.take === null
+            ? " · not recorded"
+            : ` (${TAKES.takes[s.take].frames.length}f)`
+        }`
+      )
+    )
+  );
+  selectVerb(state.takeVerb);
 }
 
-function loadTake(i) {
-  state.take = i;
+/* Show one move of the selected fighter, recorded or not. */
+function selectVerb(verb) {
+  state.takeVerb = verb;
+  const slot = takeSlotsFor(state.takeFighter).find((s) => s.verb === verb);
+  state.take = slot && slot.take !== null ? slot.take : null;
   state.takeFrame = 0;
-  const t = TAKES.takes[i];
-  $("#take-scrub").max = String(t.frames.length - 1);
-  $("#take-scrub").value = "0";
+  const scrub = $("#take-scrub");
+  const frames = state.take === null ? 0 : TAKES.takes[state.take].frames.length;
+  scrub.max = String(Math.max(frames - 1, 0));
+  scrub.value = "0";
   drawTake();
 }
 
 function drawTake() {
-  if (!TAKES || state.take === null) return;
-  const t = TAKES.takes[state.take];
-  const frame = t.frames[state.takeFrame];
-  if (!frame) return;
   const canvas = $("#take-canvas");
+  if (!canvas) return;
+  const t = state.take === null || !TAKES ? null : TAKES.takes[state.take];
+  const frame = t ? t.frames[state.takeFrame] : null;
+  /* ⭐ AN UNRECORDED MOVE IS STILL A MOVE. The diagnostic canvas needs a take;
+   * the engine render does not, so the panel beside it can still photograph
+   * this move on demand and the reader is told which half is missing. */
+  if (!frame) {
+    drawNoTake(canvas);
+    syncEngineRender({ character: state.takeFighter, verb: state.takeVerb }, 0);
+    $("#take-frame").textContent = "—";
+    $("#take-facts").replaceChildren(
+      el("p", { class: "note" },
+        `no recording for ${state.takeFighter} · ${state.takeVerb || "—"}. `,
+        el("span", { class: "mono" },
+          `cargo run -p ambition_app_tools --bin moveset_takes -- --characters ${state.takeFighter}`))
+    );
+    return;
+  }
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 1000;
@@ -1023,7 +1180,11 @@ function drawTake() {
   /* The take carries the stage rectangle it was recorded in, so the view is the
    * same across every take rather than a per-frame autoscale that makes a
    * fighter look stationary while the world slides. */
-  const view = t.view;
+  /* ⛔ A TAKE WITH NO VIEW STILL DRAWS. `view[2]` on an absent rectangle throws,
+   * and a throw here kills the playback timer — the failure `check_draw_path`
+   * exists for. The recorder's own fallback for a take it could not measure is
+   * this same rectangle. */
+  const view = t.view && t.view.length === 4 ? t.view : [-320, -240, 320, 240];
   const scale = Math.min(cssW / (view[2] - view[0]), cssH / (view[3] - view[1]));
   const X = (x) => (x - view[0]) * scale;
   const Y = (y) => (y - view[1]) * scale;
@@ -1061,14 +1222,15 @@ function drawTake() {
   }
 
   for (const b of frame.bodies) {
-    const subject = b.seat === t.seat;
+    const role = roleOf(b, t);
+    const subject = role === "subject";
     /* ART FIRST, then the box over it. The box is a diagnostic and has to stay
      * legible on top of the sprite; drawing it under would hide the very
      * alignment somebody opened this view to check. */
     const cursor = rowCursorsFor(t)[state.takeFrame];
     const ticksOnRow = cursor ? cursor.get(b.id || `${b.label}#${b.seat ?? "-"}`) : 0;
     const drew = state.takeArt !== false && drawBodyArt(ctx, b, X, Y, scale, ticksOnRow);
-    ctx.strokeStyle = subject ? "#6fb3ff" : b.kind === "summon" ? "#47b78a" : "#7d8598";
+    ctx.strokeStyle = ROLE_COLOR[role] || ROLE_COLOR.other;
     /* An unfilled box once the art is under it: a translucent wash over a sprite
      * is a tint on the character, which is a lie about how it looks in game. */
     ctx.fillStyle = drew ? "transparent" : subject ? "rgba(111,179,255,.16)" : "rgba(125,133,152,.12)";
@@ -1077,10 +1239,39 @@ function drawTake() {
     ctx.rect(X(b.pos[0] - b.half[0]), Y(b.pos[1] - b.half[1]), b.half[0] * 2 * scale, b.half[1] * 2 * scale);
     if (!drew) ctx.fill();
     ctx.stroke();
+
+    /* ⭐⭐ DAMAGEABLE GEOMETRY, WHICH IS HALF THE INTERACTION. An attack volume
+     * drawn alone cannot say whether apparent contact is real: the box may be
+     * passing through a frame in which this body is intangible, or through a
+     * silhouette much narrower than the sprite. Cyan, and from the same runtime
+     * view the production overlay draws. */
+    if (state.takeHurt !== false) {
+      ctx.strokeStyle = "#49c8d8";
+      ctx.fillStyle = "rgba(73,200,216,.12)";
+      ctx.lineWidth = 1;
+      for (const hurt of b.hurtboxes || []) drawHitboxShape(ctx, hurt, X, Y, scale);
+      /* ⛔ AN EMPTY LIST IS A DECISION, NOT A GAP — and it is invisible unless
+       * the view says so. `intangible` is a body nothing can hit this frame. */
+      if (b.hurtbox_source === "intangible") {
+        ctx.fillStyle = "#49c8d8";
+        ctx.font = "10px ui-monospace, monospace";
+        ctx.fillText("INTANGIBLE", X(b.pos[0] - b.half[0]), Y(b.pos[1] + b.half[1]) + 12);
+      }
+    }
+
+    /* ⭐⭐ THE ROLE, IN WORDS, ON THE PICTURE. The scenario may seat one
+     * character twice; a colour cannot tell them apart and a seat index is a
+     * convention the reader has to be taught. */
+    const tag = ROLE_LABEL[role];
+    ctx.font = "10px ui-monospace, monospace";
+    const top = Y(b.pos[1] - b.half[1]);
+    if (tag) {
+      ctx.fillStyle = ROLE_COLOR[role] || ROLE_COLOR.other;
+      ctx.fillText(tag, X(b.pos[0] - b.half[0]), top - 14);
+    }
     if (b.label) {
       ctx.fillStyle = "#98a0b3";
-      ctx.font = "10px ui-monospace, monospace";
-      ctx.fillText(b.label, X(b.pos[0] - b.half[0]), Y(b.pos[1] - b.half[1]) - 3);
+      ctx.fillText(b.label, X(b.pos[0] - b.half[0]), top - 3);
     }
   }
 
@@ -1090,7 +1281,7 @@ function drawTake() {
    * be misread for so long. */
   ctx.lineWidth = 1.5;
   for (const h of frame.hitboxes || []) {
-    const mine = h.subject_owned !== false;
+    const mine = roleOf(h, t) === "subject_owned";
     ctx.strokeStyle = mine ? "#e2564a" : "rgba(226,86,74,.35)";
     ctx.fillStyle = mine ? "rgba(226,86,74,.22)" : "rgba(226,86,74,.07)";
     drawHitboxShape(ctx, h, X, Y, scale);
@@ -1103,7 +1294,7 @@ function drawTake() {
    * (GPT 5.6, 2026-08-27). A shot is drawn as its body plus a velocity whisker,
    * because where it is going is the half a still frame cannot show. */
   for (const s of frame.projectiles || []) {
-    const mine = s.subject_owned !== false;
+    const mine = roleOf(s, t) === "subject_owned";
     ctx.strokeStyle = mine ? "#e8c15a" : "rgba(232,193,90,.35)";
     ctx.fillStyle = mine ? "rgba(232,193,90,.30)" : "rgba(232,193,90,.08)";
     ctx.beginPath();
@@ -1121,6 +1312,24 @@ function drawTake() {
 
   $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
   takeFacts(t, frame);
+}
+
+/* Say that there is no recording, ON the canvas. A blank black rectangle reads
+ * as a broken viewer; a sentence reads as a missing artifact. */
+function drawNoTake(canvas) {
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 1000;
+  const cssH = 560;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#0f1116";
+  ctx.fillRect(0, 0, cssW, cssH);
+  ctx.fillStyle = "#7d8598";
+  ctx.font = "13px ui-monospace, monospace";
+  ctx.fillText("no recorded take for this move — the engine render panel still works",
+               16, cssH / 2);
 }
 
 /* The frame's own numbers. Extracted because BOTH draw paths — the engine's
@@ -1149,6 +1358,38 @@ function takeFacts(t, frame) {
   row("Projectiles", owned(frame.projectiles));
   row("Bodies", int(frame.bodies.length));
   if (frame.riding) row("Riding", frame.riding);
+
+  /* ⭐⭐ THE MOVE CLOCK, WHICH IS WHAT MAKES A BOX READABLE. "a red box
+   * appeared" is not frame data; "0.12s of 0.68, inside the authored Active
+   * window" is — and it comes from the runtime's own move state rather than
+   * from counting frames in the viewer. */
+  const subject = (frame.bodies || []).find((b) => roleOf(b, t) === "subject");
+  const move = subject && subject.move_state;
+  if (move) {
+    row("Phase", move.phase || "between windows");
+    row("Move clock", `${move.elapsed_s.toFixed(3)}s of ${move.duration_s.toFixed(3)}s`);
+    /* The orientation the move COMMITTED to, beside the body's live facing.
+     * Seeing the two disagree is what explains a strike on the far side. */
+    if (move.attack_facing !== subject.facing) {
+      row("Attack facing", `${move.attack_facing} (body faces ${subject.facing})`);
+    }
+    row("Landed hit", move.landed_hit ? "yes" : "not yet");
+  }
+  if (subject) {
+    if (subject.hurtbox_source) {
+      row("Subject hurtboxes",
+          `${(subject.hurtboxes || []).length} · ${subject.hurtbox_source}`);
+    }
+    if (subject.damage_taken !== undefined) row("Damage taken", int(subject.damage_taken));
+    if (subject.hitstun_s > 0) row("Hitstun", `${subject.hitstun_s.toFixed(3)}s`);
+    if (subject.hitlag_s > 0) row("Hitlag", `${subject.hitlag_s.toFixed(3)}s`);
+  }
+  const target = (frame.bodies || []).find((b) => roleOf(b, t) === "target");
+  if (target) {
+    row("Target", `${target.label || target.id} · ${(target.hurtboxes || []).length} hurtbox(es)`);
+    if (target.damage_taken !== undefined) row("Target damage", int(target.damage_taken));
+    if (target.hitstun_s > 0) row("Target hitstun", `${target.hitstun_s.toFixed(3)}s`);
+  }
   $("#take-facts").replaceChildren(kv);
 }
 
@@ -1167,7 +1408,11 @@ function syncEngineRender(take, frameIndex) {
   const nothing = (text) => { img.removeAttribute("src"); img.hidden = true; note.textContent = text; };
   const verb = takeVerb(take);
   if (!verb) return nothing("this take names no verb, so there is nothing to render");
-  const doc = renderedFramesFor(take.character, verb);
+  /* The scenario the TAKE was recorded in, so both panels show one fight. */
+  const doc = renderedFramesFor(take.character, verb, {
+    target: take.target,
+    spacing: take.requested_spacing,
+  });
   if (!doc) return nothing(`rendering ${verb}…`);
   if (!doc.available) {
     return nothing(`engine render unavailable — ${doc.reason || "no renderer"}` +
@@ -1256,8 +1501,13 @@ async function renderStatusView() {
     ["Bundle", b.exists ? `${b.fighters} fighters, ${b.sheets} sheets, ${b.schema} (built ${b.built})` : "MISSING — run moveset_export"],
     ["Recording", "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"],
     ["Takes", doc.takes && doc.takes.exists
-      ? `${doc.takes.takes} takes recorded ${doc.takes.built} — ` +
+      ? `${doc.takes.takes} takes recorded ${doc.takes.built}` +
+        (doc.takes.schema ? ` (${doc.takes.schema})` : "") + " — " +
         `${doc.takes.with_art}/${doc.takes.bodies} bodies with art, ` +
+        /* Both halves of the interaction, counted separately: a recording with
+         * strikes and no damageable geometry cannot say why an attack missed. */
+        `${doc.takes.with_hurtboxes ?? 0}/${doc.takes.bodies} with hurtboxes, ` +
+        `${doc.takes.with_role ?? 0}/${doc.takes.bodies} with a role, ` +
         `${doc.takes.with_shape}/${doc.takes.hitboxes} strikes with geometry`
       : "none yet — run moveset_takes"],
     ["Cached renders", (doc.cached_renders || []).length ? doc.cached_renders.join(", ") : "none yet"],
@@ -1350,7 +1600,7 @@ async function boot() {
   for (const b of document.querySelectorAll("nav.tabs button")) {
     b.addEventListener("click", () => showView(b.dataset.view));
   }
-  $("#take-pick").addEventListener("change", (e) => loadTake(Number(e.target.value)));
+  $("#take-pick").addEventListener("change", (e) => selectVerb(e.target.value));
   $("#take-fighter").addEventListener("change", (e) => {
     state.takeFighter = e.target.value;
     renderTakeOptions();
@@ -1360,6 +1610,14 @@ async function boot() {
    * read, and "where exactly is this volume" is a question the boxes answer
    * better alone — so this view can be either instrument. */
   $("#status-refresh").addEventListener("click", renderStatusView);
+  /* The hurtboxes can be turned off for the same reason the art can: two
+   * overlapping volume sets on one body is exactly the picture somebody opens
+   * this view to check, and exactly the picture that is hardest to read. */
+  $("#take-hurt").addEventListener("click", (e) => {
+    state.takeHurt = state.takeHurt === false;
+    e.target.classList.toggle("on", state.takeHurt !== false);
+    drawTake();
+  });
   $("#take-art").addEventListener("click", (e) => {
     state.takeArt = state.takeArt === false;
     e.target.classList.toggle("on", state.takeArt !== false);

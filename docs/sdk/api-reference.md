@@ -436,6 +436,7 @@ something to an implementation crate does not make it public here automatically.
 | `ambition_platformer2d::sim` | input frames, participant driving, simulation time and schedule sets |
 | `ambition_platformer2d::view` | `GameAssets`, `Platformer2dAssetCatalog`, `RoomVisual` |
 | `ambition_platformer2d::capture` | offscreen screenshots with no window — behind `capture`, default-off |
+| `ambition_platformer2d::observation` | what an observer READS: authoritative combat geometry (hurtboxes with the rule that produced them, live strike volumes, each strike's hit-once memory), stable `SimId`, and the geometric vocabulary both are expressed in |
 | `ambition_platformer2d::presentation` | generic visible-game presentation when rendering is installed |
 | `ambition_platformer2d::windowed_host` | window/input host plugin groups |
 | `ambition_platformer2d::rollback` | rollback sessions, snapshot vocabulary and registration verbs |

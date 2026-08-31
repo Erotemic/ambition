@@ -352,6 +352,16 @@ pub mod actor {
     /// cannot see this reports a mounted body's own locomotion as if it were
     /// driving.
     pub use ambition_mount::RidingOn;
+    /// WHOSE SHOT THIS IS. The other half of the same question `RidingOn`
+    /// answers for a mount: a projectile is somebody's, and an observer that
+    /// cannot follow the link credits a stage hazard to a fighter.
+    ///
+    /// ⛔ GATED, because `ambition_projectiles` is OPTIONAL. An ungated `pub
+    /// use` compiles inside the workspace, where the default feature set is on,
+    /// and fails for a consumer who took a narrower one — the exact shape the
+    /// external-consumer fixture exists to catch.
+    #[cfg(feature = "ambition_projectiles")]
+    pub use ambition_projectiles::ProjectileOwner;
     /// ⭐⭐ WHAT THE GAME INTENDS TO DRAW FOR THIS BODY, and it needs no renderer.
     ///
     /// The semantic pose row, the requested clip, and the presentation facts
@@ -675,6 +685,39 @@ pub mod world {
 // in its manifest (one line, version pinned by the workspace). See
 // docs/planning/demos/README.md.
 pub use bevy;
+
+/// What an OBSERVER reads: authoritative combat geometry, stable identity, and
+/// the geometric vocabulary both are expressed in.
+///
+/// ⭐⭐ THE SAME REASON `causal` IS HERE. An agent should be able to inspect what
+/// combat did — where a body can be struck, where a strike is, what has
+/// connected — without reading engine source or naming an engine-private path.
+/// A tool that had to say `sim_view::` or `engine_core::` to ask those questions
+/// was naming implementation topology to reach a supported capability, which is
+/// the definition of an SDK gap.
+///
+/// ⛔ READ-ONLY BY CONSTRUCTION. `CombatGeometryView` is rebuilt from simulation
+/// truth every tick; an observer compares and keys on what it finds here and
+/// must not reach back through an entity to the authoritative component, which
+/// is the coupling this surface exists to remove.
+pub mod observation {
+    /// The runtime's combat geometry, as the production debug overlay draws it:
+    /// effective hurtboxes with the rule that produced them, exact live strike
+    /// volumes in world space, and each strike's hit-once memory.
+    pub use ambition_sim_view::{
+        CombatBodyGeometryView, CombatGeometryView, CombatStrikeGeometryView, HurtboxSource,
+    };
+    /// The engine's own stable identity for a simulated entity.
+    ///
+    /// ⛔ A RAW ENTITY ID IS NOT AN IDENTITY: an entity index depends on every
+    /// spawn and despawn the app made first, so two runs of one binary label the
+    /// same body differently and a byte-diff of two recordings reports physics
+    /// that did not change.
+    pub use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    /// The vocabulary an observation is expressed in. A consumer that can read a
+    /// volume must be able to name its shape and its bounds.
+    pub use ambition_platformer2d_core::{Aabb, AabbExt, CombatVolume, Vec2};
+}
 
 /// Engine assembly helpers most games need first.
 pub mod engine {

@@ -1,0 +1,411 @@
+"""The report must never turn geometry into a claim the runtime did not make.
+
+⛔⛔ THE FAILURE THIS GUARDS. A strike volume and a hurtbox occupying the same
+rectangle is not a hit: the victim may be intangible, on the same team, shielded,
+or already struck by that same strike. A report that folded the two into one
+"hits" number would be confidently wrong in exactly the cases somebody opens it
+to investigate.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+_spec = importlib.util.spec_from_file_location(
+    "moveset_report", REPO / "scripts/moveset_report.py"
+)
+tool = importlib.util.module_from_spec(_spec)
+sys.modules["moveset_report"] = tool
+_spec.loader.exec_module(tool)
+
+
+def _body(role: str, x: float, phase: str | None = None, hurt: bool = True, vel=(0.0, 0.0)) -> dict:
+    return {
+        "role": role,
+        "pos": [x, 100.0],
+        "half": [10.0, 20.0],
+        "velocity": list(vel),
+        "hurtboxes": [{"pos": [x, 100.0], "half": [8.0, 18.0], "shape": {"kind": "aabb"}}]
+        if hurt
+        else [],
+        "hurtbox_source": "published" if hurt else "intangible",
+        "move_state": {
+            "id": "jab",
+            "phase": phase,
+            "elapsed_s": 0.0,
+            "duration_s": 0.4,
+            "attack_facing": 1.0,
+            "landed_hit": False,
+        }
+        if role == "subject"
+        else None,
+    }
+
+
+def _strike(x: float, role: str = "subject_owned") -> dict:
+    return {"pos": [x, 100.0], "half": [12.0, 6.0], "role": role, "shape": {"kind": "aabb"}}
+
+
+def _take(*, contact_at: int | None, target_hurt: bool = True, subject_x=None) -> dict:
+    """A move: 3 ticks of startup, 4 active, 3 recovery, target standing at 130."""
+    frames = []
+    for tick in range(10):
+        phase = "Startup" if tick < 3 else "Active" if tick < 7 else "Recovery"
+        x = subject_x(tick) if subject_x else 100.0
+        frame = {
+            "bodies": [
+                _body("subject", x, phase),
+                _body("target", 130.0, hurt=target_hurt),
+            ],
+            # The strike is live during the authored Active window and reaches
+            # the target, which stands at 130.
+            "hitboxes": [_strike(x + 20.0)] if 3 <= tick < 7 else [],
+            "projectiles": [],
+            "contacts": [],
+        }
+        if contact_at is not None and tick >= contact_at:
+            frame["contacts"] = [
+                {
+                    "strike": "s1",
+                    "owner_id": "subject",
+                    "owner_role": "subject_owned",
+                    "victim": "t1",
+                    "victim_role": "target",
+                }
+            ]
+        frames.append(frame)
+    return {
+        "character": "npc_pirate_admiral",
+        "subject": "npc_pirate_admiral",
+        "target": "npc_sandbag",
+        "target_behavior": "passive",
+        "verb": "attack",
+        "intended_move": "jab",
+        "moves_seen": ["jab"],
+        "reached_intended_move": True,
+        "frames": frames,
+    }
+
+
+def test_overlap_is_reported_separately_from_a_resolved_hit() -> None:
+    """⛔⛔ THE CENTRAL HONESTY PROPERTY. Same geometry, two different answers."""
+    hit = tool.report(_take(contact_at=4))["measurements"]
+    missed = tool.report(_take(contact_at=None))["measurements"]
+
+    # The GEOMETRY is identical in both takes...
+    assert hit["overlap_ticks"] == missed["overlap_ticks"] > 0
+    # ...and only one of them says the runtime resolved a hit.
+    assert len(hit["contacts"]) == 1 and hit["first_contact_tick"] == 4
+    assert missed["contacts"] == [] and missed["first_contact_tick"] is None
+
+
+def test_the_summary_flags_an_overlap_that_resolved_nothing() -> None:
+    text = tool.summary(tool.report(_take(contact_at=None)))
+    assert "resolved NO hit" in text
+    assert "MEASURED FROM BOXES" in text
+    assert "THE ENGINE'S OWN ANSWER" in text
+
+
+def test_an_intangible_target_can_be_overlapped_and_never_hit() -> None:
+    m = tool.report(_take(contact_at=None, target_hurt=False))["measurements"]
+    assert m["overlap_ticks"] == 0, "a body with no damageable volume cannot be overlapped"
+    assert m["contacts"] == []
+
+
+def test_the_authored_windows_are_counted_from_the_runtime_move_clock() -> None:
+    m = tool.report(_take(contact_at=4))["measurements"]
+    assert m["startup"]["ticks"] == 3
+    assert m["active"]["ticks"] == 4 and m["active"]["first_tick"] == 3
+    assert m["recovery"]["ticks"] == 3
+    # A volume being LIVE is a different fact from the authored window.
+    assert m["first_active_tick"] == 3
+    assert m["live_volume_ticks"] == 4
+
+
+def test_reach_is_measured_from_the_body_origin() -> None:
+    m = tool.report(_take(contact_at=4))["measurements"]
+    # subject at 100, strike centre at 120 with half-width 12 → far edge 132.
+    assert m["max_reach_px"] == 32.0
+    assert m["attack_extents"]["x_max"] == 132.0
+
+
+def test_travel_before_and_during_the_active_window_are_separate_numbers() -> None:
+    """A lunge that covers ground BEFORE it becomes live is a different move from
+    one that covers it while it can hit you."""
+    m = tool.report(_take(contact_at=4, subject_x=lambda t: 100.0 + t * 5.0))["measurements"]
+    assert m["subject_travel_before_active"] == 15.0, "ticks 0..3 at 5px"
+    assert m["subject_travel_during_active"] == 15.0, "ticks 3..6 at 5px"
+
+
+def test_a_diff_names_what_changed_and_nothing_else() -> None:
+    before = tool.report(_take(contact_at=6))
+    after = tool.report(_take(contact_at=4))
+    diff = tool.compare(before, after)
+    assert diff["comparable"] is True
+    changed = {row["metric"]: (row["before"], row["after"]) for row in diff["changes"]}
+    assert changed["first contact"] == (6, 4)
+    assert "startup" not in changed, "an unchanged metric is not a change"
+    assert "6 → 4" in tool.compare_text(diff)
+
+
+def test_two_different_scenarios_are_not_silently_comparable() -> None:
+    """⛔ A DIFF ACROSS SCENARIOS MIXES A CHANGE IN THE MOVE WITH A CHANGE IN
+    WHAT IT WAS MEASURED AGAINST."""
+    before = tool.report(_take(contact_at=4))
+    after = tool.report(_take(contact_at=4))
+    after["scenario"]["target_behavior"] = "cpu"
+    diff = tool.compare(before, after)
+    assert diff["comparable"] is False
+    assert "NOT the same scenario" in tool.compare_text(diff)
+
+
+def test_the_report_records_the_premise_it_was_measured_under() -> None:
+    scenario = tool.report(_take(contact_at=4))["scenario"]
+    assert scenario["target"] == "npc_sandbag"
+    assert scenario["target_behavior"] == "passive"
+
+
+def test_the_chain_says_what_the_contact_did_and_never_why() -> None:
+    """⛔ WHAT CHANGED IS DERIVABLE; WHY IS NOT.
+
+    Damage, hitstun, hitlag and velocity are facts the runtime published about
+    the victim, differenced across the contact. The RESOLUTION — ignored,
+    blocked, armored, wallet-shielded, damaged — is the engine's own vocabulary
+    and travels on a feature-gated channel; a report that guessed it from a
+    damage delta would be inventing the one fact the engine already announces.
+    """
+    take = _take(contact_at=4)
+    # The victim reacts on the contact tick.
+    for tick, frame in enumerate(take["frames"]):
+        target = frame["bodies"][1]
+        target["damage_taken"] = 12 if tick >= 4 else 0
+        target["hitstun_s"] = 0.3 if tick >= 4 else 0.0
+        target["velocity"] = [120.0, -40.0] if tick >= 4 else [0.0, 0.0]
+
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert len(chain) == 1 and chain[0]["tick"] == 4
+    changed = {step["what"]: (step["before"], step["after"]) for step in chain[0]["steps"]}
+    assert changed["damage taken"] == (0, 12)
+    assert changed["hitstun"] == (0.0, 0.3)
+    assert changed["velocity"] == ([0.0, 0.0], [120.0, -40.0])
+
+    text = tool.summary(tool.report(take))
+    assert "What each contact did" in text
+    assert "WHAT changed, not WHY" in text, (
+        "the report must say what it cannot answer, or a reader assumes it did"
+    )
+
+
+def test_the_engines_own_resolution_is_read_never_inferred() -> None:
+    """⛔⛔ A DAMAGE DELTA CANNOT TELL `Blocked` FROM `Ignored`.
+
+    Both leave HP unchanged, and so does a windbox that authored no damage. The
+    resolver announces its decision; a report that guessed would be inventing
+    the one fact the engine already publishes.
+    """
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["seat"] = 1
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "body_hit_resolved",
+            "summary": "blocked a 12-damage hit",
+            # ⛔ A SEATED FIGHTER'S SUBJECT IS ITS SEAT. `body_subject` prefers
+            # `SubjectKey::Seat` for any body a participant drives, so matching
+            # on the SimId alone finds nothing for exactly the two bodies an
+            # inspection scenario is about.
+            "subject": "seat:1",
+            "participant": 1,
+            "fields": {"resolution": "Blocked", "raw_damage": "12"},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"]["fields"]["resolution"] == "Blocked"
+    text = tool.summary(tool.report(take))
+    assert "the engine RESOLVED it as: blocked a 12-damage hit" in text
+    assert "WHAT changed, not WHY" not in text, (
+        "the caveat is for a recording that HAS no resolution, not one that does"
+    )
+
+
+def test_a_recording_without_the_causal_feature_says_so() -> None:
+    """⛔ ABSENCE OF EVIDENCE, NAMED. A build with no inspector announces no
+    resolutions, and a reader must not mistake that for "the engine ignored it"."""
+    take = _take(contact_at=4)
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"] is None
+    text = tool.summary(tool.report(take))
+    assert "--features causal" in text
+
+
+def test_a_sim_id_prefix_does_not_hide_the_resolution() -> None:
+    """⛔⛔ MEASURED ON A REAL RECORDING. `SimId::placement(id)` prints
+    `placement:npc_pirate_admiral#seat1`; the causal subject keys on
+    `ActorIdentity::id`, which is the bare `npc_pirate_admiral#seat1`. Comparing
+    the two whole strings never matches, and a recording FULL of facts reads as
+    "this build has no inspector"."""
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["id"] = "placement:npc_pirate_admiral#seat1"
+    for frame in take["frames"]:
+        for row in frame["contacts"]:
+            row["victim"] = "placement:npc_pirate_admiral#seat1"
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "hit_resolved",
+            "summary": "took 4",
+            "subject": "sim:npc_pirate_admiral#seat1",
+            "fields": {"outcome": "damaged", "damage": "4"},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"]["fields"]["outcome"] == "damaged"
+
+
+def test_a_resolution_for_another_body_is_not_this_contacts() -> None:
+    take = _take(contact_at=4)
+    for tick, frame in enumerate(take["frames"]):
+        frame["sim_tick"] = 1000 + tick
+        frame["bodies"][1]["seat"] = 1
+    take["causal"] = [
+        {
+            "sim_tick": 1004,
+            "domain": "damage",
+            "kind": "body_hit_resolved",
+            "summary": "somebody else took one",
+            "subject": "seat:0",
+            "participant": 0,
+            "fields": {},
+        }
+    ]
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert chain[0]["resolution"] is None, "a fact about another body is not this contact's"
+
+
+def test_a_contact_that_changed_nothing_reports_no_steps() -> None:
+    """A hit the victim absorbed with no published change is a real observation,
+    and inventing a step for it would be a lie about the tick."""
+    chain = tool.report(_take(contact_at=4))["measurements"]["consequence_chain"]
+    assert len(chain) == 1
+    # The fixture's target never changes damage/hitstun/velocity, so the only
+    # step is the displacement window — and it is zero.
+    assert all(step["after"] == 0.0 for step in chain[0]["steps"]), chain[0]["steps"]
+
+
+def _chained(*, second_at: int | None, requested: int) -> dict:
+    """A: startup 3 / active 4 / recovery 3, then optionally a SECOND instance of
+    the same move — which is what a jab combo is."""
+    take = _take(contact_at=4)
+    take["chain"] = {"verb": "attack", "label": "Jab", "at": requested}
+    frames = take["frames"]
+    for _ in range(12):
+        frames.append(json.loads(json.dumps(frames[-1])))
+    for tick, frame in enumerate(frames):
+        subject = frame["bodies"][0]
+        if tick < 10:
+            continue
+        # After A finishes the subject plays nothing...
+        subject["move_state"] = None
+        frame["hitboxes"] = []
+        frame["contacts"] = []
+        # ...until the engine accepts B.
+        if second_at is not None and tick >= second_at:
+            subject["move_state"] = {
+                "id": "jab",
+                "phase": "Startup" if tick < second_at + 3 else "Active",
+                "elapsed_s": 0.0,
+                "duration_s": 0.4,
+            }
+            if tick >= second_at + 3:
+                frame["hitboxes"] = [_strike(120.0)]
+    return take
+
+
+def test_a_repeated_move_is_a_second_instance_not_the_same_one() -> None:
+    """⛔⛔ `jab → jab` SHARES AN ID. Comparing against the last RECORDED id
+    misses the second press entirely — the subject plays nothing between them,
+    so the previous recorded id is still `jab` — and that is exactly the chain a
+    jab combo is made of."""
+    chain = tool.report(_chained(second_at=14, requested=12))["measurements"]["move_chain"]
+    assert chain is not None
+    assert chain["first"]["move"] == "jab" and chain["first"]["first_contact_tick"] == 4
+    assert chain["second"]["accepted"] is True
+    assert chain["second"]["accepted_tick"] == 14
+    # ⛔ AND THE SECOND INSTANCE'S WINDOW IS ITS OWN. Scoping by id alone would
+    # credit the FIRST jab's contact to the second.
+    assert chain["second"]["first_contact_tick"] is None
+    assert chain["second"]["first_live_tick"] == 17
+
+
+def test_a_press_the_engine_never_played_is_an_answer() -> None:
+    """⛔⛔ Measured on the admiral: a jab requested on tick 8, with the first jab
+    still playing until 17, produced no second jab at all. A report that omitted
+    the section would leave a reader thinking the probe had not run."""
+    chain = tool.report(_chained(second_at=None, requested=8))["measurements"]["move_chain"]
+    assert chain is not None
+    assert chain["second"]["accepted"] is False
+    assert chain["second"]["accepted_tick"] is None
+    assert chain["second"]["requested_tick"] == 8
+    text = tool.summary(tool.report(_chained(second_at=None, requested=8)))
+    assert "NEVER PLAYED IT" in text
+    assert "Sweep `--chain-at`" in text
+
+
+def test_the_buffered_gap_between_request_and_acceptance_is_named() -> None:
+    """⭐ MEASURED: a press on tick 14 was accepted on 18. The request is not the
+    acceptance, and the difference is the action buffer doing its job."""
+    text = tool.summary(tool.report(_chained(second_at=18, requested=14)))
+    assert "BUFFERED for 4 tick(s)" in text
+
+
+def test_a_single_move_take_has_no_chain_section() -> None:
+    assert tool.report(_take(contact_at=4))["measurements"]["move_chain"] is None
+
+
+def test_a_summon_is_a_spawn_even_though_it_is_a_body() -> None:
+    """⛔⛔ THE SHARK IS THE THING PEOPLE OPEN THIS VIEW TO WATCH.
+
+    A summon carries no seat and no worn character; it is the subject's because
+    the recording resolved the ownership. Counting only projectiles reported the
+    admiral's up-B as a move that spawns nothing.
+    """
+    take = _take(contact_at=None)
+    for tick, frame in enumerate(take["frames"]):
+        if tick >= 5:
+            frame["bodies"].append(
+                {
+                    "role": "subject_owned",
+                    "id": "shark#1",
+                    "pos": [120.0, 90.0],
+                    "half": [16.0, 8.0],
+                    "hurtboxes": [],
+                }
+            )
+    spawns = tool.report(take)["measurements"]["spawns"]
+    assert [(s["kind"], s["tick"]) for s in spawns] == [("summon", 5)]
+    assert "summon `shark#1`" in tool.summary(tool.report(take))
+
+
+def test_a_v1_take_without_roles_still_measures() -> None:
+    """An artifact recorded before roles existed falls back to seat and the
+    subject-owned boolean."""
+    take = _take(contact_at=None)
+    for frame in take["frames"]:
+        for body in frame["bodies"]:
+            body["seat"] = 0 if body.pop("role") == "subject" else 1
+        for box in frame["hitboxes"]:
+            box["subject_owned"] = box.pop("role") == "subject_owned"
+    take["seat"] = 0
+    m = tool.report(take)["measurements"]
+    assert m["first_active_tick"] == 3
+    assert m["max_reach_px"] == 32.0

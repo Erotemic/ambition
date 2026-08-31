@@ -158,7 +158,12 @@ fn volume_json(volume: &ambition_platformer2d::entity_catalog::HitVolume) -> ser
     })
 }
 
-fn window_json(window: &ambition_platformer2d::entity_catalog::MoveWindow) -> serde_json::Value {
+fn window_json(
+    window: &ambition_platformer2d::entity_catalog::MoveWindow,
+    // The contract this window belongs to, because a broad cancel rule means
+    // THIS CHARACTER'S moves and nothing else can say which those are.
+    moveset: Option<&ambition_platformer2d::entity_catalog::MovesetContract>,
+) -> serde_json::Value {
     let (tag, cancel_into) = match &window.tag {
         WindowTag::Startup => ("startup".to_string(), Vec::new()),
         WindowTag::Active => ("active".to_string(), Vec::new()),
@@ -170,9 +175,31 @@ fn window_json(window: &ambition_platformer2d::entity_catalog::MoveWindow) -> se
             into.clone(),
         ),
     };
+    // ⭐⭐ THE BROAD RULES, RESOLVED. `["attack", "smash", "any_attack"]` is what
+    // the author wrote; the question a reader has is WHICH MOVES that is, and
+    // the answer is the character's own repertoire. `cancel_targets` is the
+    // catalog's — the same verb-class names the trigger road matches on — so
+    // this exports a resolution rather than inventing one.
+    let resolved: Vec<String> = if cancel_into.is_empty() {
+        Vec::new()
+    } else {
+        moveset
+            .map(|contract| {
+                contract
+                    .cancel_targets(&cancel_into)
+                    .into_iter()
+                    .map(|mv| mv.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
     serde_json::json!({
         "tag": tag,
         "cancel_into": cancel_into,
+        // The move ids `cancel_into` admits, for this character. Empty when the
+        // window authors no cancel; a rule that resolves to nothing is a rule
+        // naming moves this fighter does not have, which is worth seeing.
+        "cancel_into_resolved": resolved,
         "start_s": window.start_s,
         "end_s": window.end_s,
         "start_f": frames(window.start_s),
@@ -509,6 +536,9 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
 fn move_json(
     spec: &MoveSpec,
     verbs: &[String],
+    // The whole contract, so a cancel rule can be resolved against the moves
+    // this fighter actually has.
+    moveset: Option<&ambition_platformer2d::entity_catalog::MovesetContract>,
     body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
     // How tall its OWNER stands, so the coverage census can say what fraction of
     // that silhouette this move fronts. `0.0` when the character declares none
@@ -544,7 +574,11 @@ fn move_json(
         "repeat": spec.repeat.as_ref().map(|r| serde_json::json!({
             "from_s": r.from_s, "to_s": r.to_s, "max_s": r.max_s,
         })),
-        "windows": spec.windows.iter().map(window_json).collect::<Vec<_>>(),
+        "windows": spec
+            .windows
+            .iter()
+            .map(|window| window_json(window, moveset))
+            .collect::<Vec<_>>(),
         "events": spec.events.iter().map(event_json).collect::<Vec<_>>(),
         "derived": derived_json(spec, body_ranged),
         // ⭐ D203's census. `None` for a move with no forward Active volume, or
@@ -605,6 +639,7 @@ fn character_json(
                     move_json(
                         m,
                         by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]),
+                        Some(c),
                         body_ranged,
                         body_height,
                     )

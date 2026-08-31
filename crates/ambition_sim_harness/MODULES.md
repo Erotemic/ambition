@@ -8,6 +8,7 @@
 |---|---|
 | [`action`](src/action.rs) | Agent-facing action vocabulary and conversion into the engine-owned `ControlFrame`. |
 | [`capture`](src/capture.rs) | ⭐⭐ PHOTOGRAPH AN EXACT SIMULATION TICK, with the GPU's latency held outside the clock. |
+| [`combat_observation`](src/combat_observation.rs) | ONE serialization of what combat did on a tick, shared by every recorder. |
 | [`move_exercise`](src/move_exercise.rs) | ⭐⭐ HOW YOU MAKE A FIGHTER PERFORM A MOVE, in one place. |
 | [`observation`](src/observation.rs) | Owned simulation observations exposed to RL agents and scripted drivers. |
 | [`options`](src/options.rs) | Construction, timestep, and GGRS rollback options for `Platformer2dSimHarness`. |
@@ -15,7 +16,7 @@
 | [`reward`](src/reward.rs) | Example reward-shaping functions for the headless RL sim (TODO #198). |
 | [`runtime`](src/runtime.rs) | Programmatic Ambition simulation runtime, including direct and GGRS-driven stepping. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

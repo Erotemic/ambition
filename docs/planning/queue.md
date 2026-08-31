@@ -53,6 +53,23 @@ where a fact re-derived from live state can overwrite a restored one — not for
 tidiness. `ResetToCheckpoint`'s contract, which claimed it was "not a save
 load", is reconciled.
 
+✔ **D-SIM-LOCAL — the level's departure memory was three Bevy `Local`s.** The
+row named Mary-O's `follow_the_active_room` room memory; the localizer named a
+different system. `cycle_level_on_flag_tally` accumulated its dwell timer on the
+SIM clock in a `Local<f32>`, and a Bevy local does not rewind — so a goal-pole
+slide desynced the demo's own sync-test host at frames 92-93 on exactly the two
+checksummed types the threshold gates (`MaryOLevelState`,
+`PendingLifecycleCommit`). All three memories (dwell, the room the level asked
+for, the room the mode last saw) now ride `LevelDeparture` on the mode owner,
+registered and value-probed beside `MaryOLevelState`. ⚠ Only the dwell half is
+PINNED: putting a `Local` back in `follow_the_active_room` leaves the new test
+green, because a confirmed transition rebases GGRS and no rewind crosses the
+commit frame. The move is still right — a correctness that holds only because
+another layer rebases moves when the rebase does — and the test says so rather
+than implying a guard it does not have. The row's quest/room-visit clause was
+NOT a defect: it is a documented, checksum-guarded tradeoff
+(`ambition_persistence/src/quest/registry.rs`).
+
 ✔ **D-POLICY-1 — `ambition_workspace_policy` is green, 35/35, with no bulk
 waiver.** Twelve failures in five groups, each triaged to whether the ownership
 rule had changed. Four policies described the SHAPE of the dead
@@ -76,16 +93,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-SIM-LOCAL — remove authoritative non-rewinding edge/history state.** The
-  current review still identifies Mary-O `follow_the_active_room` memory that can
-  treat a restored historic room as a new transition and quest/room-visit edge
-  detection that deliberately does not rewind. Classify each memory as
-  authoritative, derived, or presentation/diagnostic; registered authoritative
-  history must rewind, and derived history must be reconstructable. Acceptance:
-  rollback through the relevant transition/visit cannot apply a future-only
-  mutation after restore. Owner:
-  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 
 - ▢ **D-SIM-SELECT — close the remaining deterministic selection/composition
   sites.** Current review evidence names projectile-victim ties, possession

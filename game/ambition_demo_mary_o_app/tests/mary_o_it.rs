@@ -27,6 +27,7 @@ mod painted_blocks_still_change_their_art;
 mod presentation_schedule_handoff;
 mod rollback_registration;
 mod rollback_restore;
+mod rollback_room_memory;
 mod room_replay;
 mod scripted_level_run;
 mod shell_cycle;

@@ -447,12 +447,21 @@ fn visibility_chain(app: &mut App) -> String {
 }
 
 /// ⛔⛔ THE RELEASE CONDITION, READ OUT LOUD. `ChargeSustain::UntilPressedAgain`
-/// ends the freeze when `g.pressed.is_some() || g.special.is_some()` and
-/// `charge.held_s > 0.0` — and `special` is *"the SPECIAL press, live or
-/// REPLAYED FROM THE BUFFER"*. So the move's own starting press can end the
-/// freeze one tick later if the buffer is still replaying it, and the only
-/// guard is worth exactly one tick. Whether that fires is not a thing to reason
-/// about; it is a thing to print.
+/// ends the freeze when the body's frame carries
+/// `ActorControlFrame::action_press_that_is_not_movement` and
+/// `charge.held_s > 0.0`.
+///
+/// ⚠ THIS PROBE STILL PRINTS THE ATTACK GESTURE, which is now a SUBSET of what
+/// the condition reads: Attack and Special are two of the six verbs in that
+/// set, and a grab, taunt, projectile or Interact will end the freeze without
+/// changing a single number below. Read a surviving freeze here as "no ATTACK
+/// or SPECIAL press", not as "no press at all".
+///
+/// ⭐ THE ONE-TICK GUARD IS STILL THE SUBTLE PART. `special` is *"the SPECIAL
+/// press, live or REPLAYED FROM THE BUFFER"*, so the move's own starting press
+/// can end the freeze one tick later if the buffer is still replaying it, and
+/// `held_s > 0.0` is worth exactly one tick against that. Whether it fires is
+/// not a thing to reason about; it is a thing to print.
 fn gesture(app: &App, body: Entity) -> String {
     let g = app
         .world()

@@ -1132,10 +1132,20 @@ pub fn advance_move_playback(
                             // will end the beat with whatever is under a thumb;
                             // asking specifically for the button that started it
                             // makes the exit a trivia question. Movement — the
-                            // stick, the jump, the dash — is what she is DOING
-                            // down there, so none of it ends anything.
-                            let asked_again =
-                                gesture.is_some_and(|g| g.pressed.is_some() || g.special.is_some());
+                            // stick, the jump, the dash, and traversal — is what
+                            // she is DOING down there, so none of it ends
+                            // anything.
+                            //
+                            // ⛔ IT USED TO READ THE RESOLVED ATTACK GESTURE,
+                            // which carries Attack and Special and nothing else
+                            // — so the check was those two verbs while the
+                            // comment above claimed every action but movement.
+                            // The rule is named once now, on the body-semantic
+                            // frame that can actually express it:
+                            // `ActorControlFrame::action_press_that_is_not_movement`.
+                            let asked_again = aim_sticks.get(owner).is_ok_and(|(control, _)| {
+                                control.0.action_press_that_is_not_movement()
+                            });
                             // ⛔ NOT ON THE TICK IT LATCHED. The press that
                             // STARTED the move is buffered — `action_buffer_s`
                             // keeps a combat press spendable past its edge on

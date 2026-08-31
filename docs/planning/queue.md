@@ -41,6 +41,26 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D-TRAP-HOLD — "any action press" meant Attack or Special, and nothing else.**
+`ChargeSustain::UntilPressedAgain`'s comment has long said the Performer ends her
+trapdoor beat by *"pressing a non-move action"*, movement excluded. The check
+read the RESOLVED ATTACK GESTURE — which carries Attack and Special and nothing
+else — so **the component it consulted could not express the rule it was
+asserting**, and a grab, taunt, projectile or Interact left the freeze running.
+⭐ THE RULE IS NAMED ONCE NOW, as
+`ActorControlFrame::action_press_that_is_not_movement` on the body-semantic frame
+that CAN express it, so the next customer asks the same question instead of
+spelling a second verb list. Six verbs in, seven ways of moving out — and
+traversal (blink, pogo, flight toggle) counts as movement, because a player
+steering under the stage must not end the beat by steering. ⚠ SHIELD CANNOT
+CONTRIBUTE: the frame carries `shield_held` and no shield edge, which is a
+vocabulary gap and is recorded where the list is. Five arms: four verbs that must
+end it, red under the old attack/special check; and one contrast — steering,
+jump, dash, fast-fall, blink, pogo, flight toggle — red under an over-corrected
+predicate that counts movement, which is the other direction the fix could have
+failed in. `trap_probe`'s stale comments now say what the condition reads and
+warn that the probe prints a SUBSET of it.
+
 ✔ **D-CONTROL-INTERACT — the press-gated WORLD verbs are per driven body now.**
 `open_ecs_chests`, `interact_ecs_actors_and_switches`, `heal_save_shrine_system`
 and `regen_player_mana` each resolved one `ControlledSubject`, so a couch's
@@ -374,13 +394,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Re-run the current target, start with player-visible/selectable characters that
   still fail, and fix the authored canvas/pose/geometry rather than weakening the
   guard. Do not infer a roster-wide scale rule from one character's repair.
-
-- ▢ **D-TRAP-HOLD — make `UntilPressedAgain` use the semantic timeline-hold
-  action set it claims.** Current behavior describes "any action press except
-  movement/jump/dash" but checks only Attack/Special. Model the release input as
-  a reusable hold/timeline semantic with Smash charge as one customer rather
-  than adding another hard-coded verb list. Also repair the stale `trap_probe`
-  comments that still describe the withdrawn self-release diagnosis.
 
 ## External measurements / human-gated work
 

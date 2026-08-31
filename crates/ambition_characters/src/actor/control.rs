@@ -372,6 +372,38 @@ impl ActorControlFrame {
         Self::default()
     }
 
+    /// Did this frame carry an ACTION press — something the body did on purpose
+    /// that is not a way of MOVING?
+    ///
+    /// ⭐⭐ ONE PLACE, because the alternative is a hard-coded verb list per
+    /// customer and the lists then disagree. `ChargeSustain::UntilPressedAgain`
+    /// is the first customer: a Performer under the trapdoor ends the beat "by
+    /// pressing a non-move action", and the charge tick was checking Attack and
+    /// Special ALONE — the two verbs the resolved ATTACK gesture happens to
+    /// carry — while its own comment claimed every action but movement. The
+    /// component it was reading could not express the rule it was asserting.
+    ///
+    /// ⛔ MOVEMENT IS EXCLUDED, AND TRAVERSAL IS MOVEMENT. The stick, the jump,
+    /// the dash, the fast-fall, the blink, the pogo and the flight toggle are
+    /// all ways of GOING somewhere, and a player steering under the stage must
+    /// not end the beat by steering.
+    ///
+    /// ⚠ SHIELD IS A HOLD, NOT A PRESS. This frame carries `shield_held` and no
+    /// shield edge, so a shield cannot contribute a press here. That is a
+    /// vocabulary gap rather than a policy decision — whoever adds
+    /// `shield_pressed` should add it to this list in the same change.
+    ///
+    /// ⚠ AND `modifier_pressed` IS NOT AN ACTION. It qualifies another verb; on
+    /// its own the body did nothing.
+    pub fn action_press_that_is_not_movement(&self) -> bool {
+        self.melee_pressed
+            || self.special_pressed
+            || self.projectile_pressed
+            || self.grab_pressed
+            || self.taunt_pressed
+            || self.interact_pressed
+    }
+
     /// What the PLAYER is HOLDING, as opposed to what this body is ALLOWED to
     /// move by.
     ///

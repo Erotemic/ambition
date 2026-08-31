@@ -8146,7 +8146,10 @@ fn the_press_that_bought_an_up_special_is_the_first_thing_in_its_aim_window() {
         .world()
         .get::<MovePlayback>(body)
         .expect("the up-special was accepted");
-    assert_eq!(playback.spec.id, "committed", "poison: the wrong move started");
+    assert_eq!(
+        playback.spec.id, "committed",
+        "poison: the wrong move started"
+    );
     assert_eq!(
         playback.aimed_stick,
         Some(up),
@@ -8206,4 +8209,134 @@ fn a_special_pressed_with_a_resting_stick_opens_an_empty_aim_window() {
         "a resting stick seeded an aim, which would make the technique's own \
          default unreachable"
     );
+}
+
+/// ⛔⛔ "ANY ACTION PRESS" MEANT ATTACK OR SPECIAL, AND NOTHING ELSE.
+///
+/// `ChargeSustain::UntilPressedAgain`'s comment has long said the Performer ends
+/// her trapdoor beat by *"pressing a non-move action"*, with movement — the
+/// stick, the jump, the dash — deliberately excluded. The check read the
+/// RESOLVED ATTACK GESTURE, which carries Attack and Special and nothing else,
+/// so the component it consulted could not express the rule it was asserting: a
+/// grab, a taunt, a projectile or an Interact left the freeze running.
+///
+/// ⭐ THE RULE IS NAMED ONCE NOW, on the body-semantic frame that can express
+/// it: `ActorControlFrame::action_press_that_is_not_movement`.
+///
+/// ⛔ AND THE CONTRAST IS HALF THE TEST. A fix that ended the beat on ANY input
+/// would end it on the steering the beat exists for, so the movement arm below
+/// must stay green.
+mod until_pressed_again_ends_on_any_action {
+    use super::*;
+
+    /// Bring a body to a held `UntilPressedAgain` freeze, then hand the caller
+    /// the app to press something into.
+    fn frozen_under_the_trapdoor() -> (App, Entity) {
+        let (mut app, body) = smash_charge_app();
+        {
+            let mut moveset = app
+                .world_mut()
+                .get_mut::<ActorMoveset>(body)
+                .expect("the fixture body carries a moveset");
+            for m in &mut moveset.0.moves {
+                if let Some(policy) = m.smash_charge.as_mut() {
+                    policy.sustain = ambition_entity_catalog::ChargeSustain::UntilPressedAgain;
+                    policy.max_hold_s = 10.0;
+                }
+            }
+        }
+        // Press and RELEASE: an `UntilPressedAgain` freeze holds itself, so the
+        // button coming up must not end it.
+        press_smash(&mut app, body, false);
+        for _ in 0..6 {
+            app.update();
+        }
+        let held = app
+            .world()
+            .get::<MovePlayback>(body)
+            .expect("the move is playing")
+            .clone();
+        assert!(
+            held.charge.is_some_and(|c| c.charging()),
+            "the premise: the freeze must be holding ITSELF with the button up, \
+             t = {}",
+            held.t
+        );
+        (app, body)
+    }
+
+    fn still_frozen(app: &App, body: Entity) -> bool {
+        app.world()
+            .get::<MovePlayback>(body)
+            .and_then(|pb| pb.charge)
+            .is_some_and(|c| c.charging())
+    }
+
+    #[test]
+    fn a_grab_ends_it() {
+        let (mut app, body) = frozen_under_the_trapdoor();
+        set_frame(&mut app, body, |f| f.grab_pressed = true);
+        app.update();
+        assert!(!still_frozen(&app, body), "a grab left the freeze running");
+    }
+
+    #[test]
+    fn a_taunt_ends_it() {
+        let (mut app, body) = frozen_under_the_trapdoor();
+        set_frame(&mut app, body, |f| f.taunt_pressed = true);
+        app.update();
+        assert!(!still_frozen(&app, body), "a taunt left the freeze running");
+    }
+
+    #[test]
+    fn a_projectile_ends_it() {
+        let (mut app, body) = frozen_under_the_trapdoor();
+        set_frame(&mut app, body, |f| f.projectile_pressed = true);
+        app.update();
+        assert!(
+            !still_frozen(&app, body),
+            "a projectile press left the freeze running"
+        );
+    }
+
+    #[test]
+    fn an_interact_ends_it() {
+        let (mut app, body) = frozen_under_the_trapdoor();
+        set_frame(&mut app, body, |f| f.interact_pressed = true);
+        app.update();
+        assert!(
+            !still_frozen(&app, body),
+            "an interact left the freeze running"
+        );
+    }
+
+    /// ⛔ THE CONTRAST. Steering under the stage is the whole reason the beat
+    /// lasts a second; none of it may end anything. Green before this change and
+    /// after — that is the point of it.
+    #[test]
+    fn steering_jumping_dashing_and_blinking_do_not_end_it() {
+        for (label, edit) in [
+            (
+                "locomotion",
+                (|f: &mut ambition_characters::actor::control::ActorControlFrame| {
+                    f.locomotion = ae::LocalAxes::X;
+                })
+                    as fn(&mut ambition_characters::actor::control::ActorControlFrame),
+            ),
+            ("jump", |f| f.jump_pressed = true),
+            ("dash", |f| f.burst_pressed = true),
+            ("fast fall", |f| f.fast_fall_pressed = true),
+            ("blink", |f| f.blink_pressed = true),
+            ("pogo", |f| f.pogo_pressed = true),
+            ("fly toggle", |f| f.fly_toggle_pressed = true),
+        ] {
+            let (mut app, body) = frozen_under_the_trapdoor();
+            set_frame(&mut app, body, edit);
+            app.update();
+            assert!(
+                still_frozen(&app, body),
+                "{label} ended the freeze — it is how she MOVES down there"
+            );
+        }
+    }
 }

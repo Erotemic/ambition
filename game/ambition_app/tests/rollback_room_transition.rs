@@ -318,9 +318,8 @@ fn a_deferred_transition_still_plays_the_zone_cue() {
             .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
             .and_then(|slot| slot.pending.clone())
         {
-            if let LifecycleIntent::Transition(transition) = intent.kind {
-                recorded_cue = Some(transition.zone_sfx);
-            }
+            let LifecycleIntent::Transition(transition) = intent.kind;
+            recorded_cue = Some(transition.zone_sfx);
         }
         if obs.active_room.as_str() == TARGET_ROOM {
             break;

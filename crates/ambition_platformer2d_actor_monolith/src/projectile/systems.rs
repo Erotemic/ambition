@@ -429,6 +429,8 @@ pub fn step_projectiles(
     // list is empty by construction and the transit check below is skipped.
     #[cfg(feature = "portal")]
     let portal_list = carved.portal_list();
+    #[cfg(feature = "portal")]
+    let portal_convention = carved.portal_convention();
     let tick = trace.current_tick();
 
     // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
@@ -518,7 +520,11 @@ pub fn step_projectiles(
         // Portal transit: thread the aperture instead of hitting the wall.
         #[cfg(feature = "portal")]
         if !portal_list.is_empty()
-            && ambition_projectiles::try_projectile_portal_transit(&mut kin, &portal_list)
+            && ambition_projectiles::try_projectile_portal_transit(
+                &mut kin,
+                &portal_list,
+                portal_convention,
+            )
         {
             continue;
         }

@@ -14,7 +14,6 @@ use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 /// Held-item id of the volley gauntlet.
@@ -56,8 +55,10 @@ fn volley_origin_world(
 /// facing). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same gauntlet simply never fired.
+    driven: crate::items::pickup::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -69,71 +70,70 @@ pub fn fire_volley_system(
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
-    else {
-        return;
-    };
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
-    }
-    if held.spec.id != VOLLEY_ID {
-        return;
-    }
-    // Costs mana — out of mana, no volley.
-    if !mana.meter.try_spend(VOLLEY_MANA_COST) {
-        return;
-    }
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let frame = resolved_frame.basis();
-    let aim_local = crate::items::pickup::ability_aim_local(&c, kin.facing);
-    let aim = frame.to_world(aim_local).normalize_or_zero();
-    if aim == ae::Vec2::ZERO {
-        return;
-    }
-    let base_angle = aim.y.atan2(aim.x);
-    let origin = volley_origin_world(kin.pos, kin.size, aim_local, frame);
-    let spread = VOLLEY_SPREAD_DEG.to_radians();
-    for i in 0..VOLLEY_SHOT_COUNT {
-        // Centered fan: t in [-0.5, 0.5].
-        let t = if VOLLEY_SHOT_COUNT > 1 {
-            i as f32 / (VOLLEY_SHOT_COUNT - 1) as f32 - 0.5
-        } else {
-            0.0
+    for subject in driven.entities() {
+        let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+        else {
+            continue;
         };
-        let angle = base_angle + t * spread;
-        let dir = ae::Vec2::new(angle.cos(), angle.sin());
-        projectiles.write(ProjectileSpawnRequest::open(
-            // The firing actor owns every bolt, so a kill attributes back to the
-            // player (materialization stamps `ProjectileOwner` from this entity).
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != VOLLEY_ID {
+            continue;
+        }
+        // Costs mana — out of mana, no volley.
+        if !mana.meter.try_spend(VOLLEY_MANA_COST) {
+            continue;
+        }
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let frame = resolved_frame.basis();
+        let aim_local = crate::items::pickup::ability_aim_local(&c, kin.facing);
+        let aim = frame.to_world(aim_local).normalize_or_zero();
+        if aim == ae::Vec2::ZERO {
+            continue;
+        }
+        let base_angle = aim.y.atan2(aim.x);
+        let origin = volley_origin_world(kin.pos, kin.size, aim_local, frame);
+        let spread = VOLLEY_SPREAD_DEG.to_radians();
+        for i in 0..VOLLEY_SHOT_COUNT {
+            // Centered fan: t in [-0.5, 0.5].
+            let t = if VOLLEY_SHOT_COUNT > 1 {
+                i as f32 / (VOLLEY_SHOT_COUNT - 1) as f32 - 0.5
+            } else {
+                0.0
+            };
+            let angle = base_angle + t * spread;
+            let dir = ae::Vec2::new(angle.cos(), angle.sin());
+            projectiles.write(ProjectileSpawnRequest::open(
+                // The firing actor owns every bolt, so a kill attributes back to the
+                // player (materialization stamps `ProjectileOwner` from this entity).
+                entity,
+                ProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: VOLLEY_SPEED,
+                    damage: VOLLEY_DAMAGE,
+                    max_lifetime: VOLLEY_LIFETIME,
+                    half_extent: VOLLEY_HALF,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    boomerang_return_s: None,
+                },
+                ProjectileStart::StepThisTick,
+            ));
+        }
+        sfx.write_for(
             entity,
-            ProjectileSpawn {
-                origin,
-                dir,
-                speed: VOLLEY_SPEED,
-                damage: VOLLEY_DAMAGE,
-                max_lifetime: VOLLEY_LIFETIME,
-                half_extent: VOLLEY_HALF,
-                gravity: 0.0,
-                visual_id: String::new(),
-                // Straight volley: this ability authors no bounce.
-                bounces: 0,
-                bounce_on_world_contact: false,
-                boomerang_return_s: None,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: kin.pos,
             },
-            ProjectileStart::StepThisTick,
-        ));
+        );
     }
-    sfx.write_for(
-        entity,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
-        },
-    );
 }
 
 #[cfg(test)]

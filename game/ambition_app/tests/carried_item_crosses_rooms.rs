@@ -143,7 +143,7 @@ fn door_to(
 /// not `reset_episode()`, and the difference is the whole reason this helper
 /// exists. `reset_episode` presses `ControlFrame::reset_pressed`, which
 /// `apply_player_reset_input_system` turns into `reset_sandbox` plus a
-/// `ResetRoomFeaturesEvent`. That is a SAME-ROOM REPLAY: it rebuilds the active
+/// `RoomReplayAdmitted`. That is a SAME-ROOM REPLAY: it rebuilds the active
 /// room through the room-transition road, so it sweeps `RoomResident` (leaving
 /// whatever is in a hand alone), prepares against what the world remembers, and
 /// touches no room but the one you are standing in.

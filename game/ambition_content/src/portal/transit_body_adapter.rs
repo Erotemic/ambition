@@ -163,8 +163,12 @@ pub fn apply_portal_carried_momentum(
         &BodyKinematics,
         &mut ambition_platformer2d_core::BodyFlightState,
     )>,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Res<PortalTuning>,
 ) {
     use ambition_portal2d::pieces::portal_map_vec;
+    let convention = tuning.convention.map_convention();
+
     let gravity_dir =
         ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
     let side = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).side;
@@ -174,10 +178,10 @@ pub fn apply_portal_carried_momentum(
         };
         // `kin.vel` is the mapped exit velocity; the map is an isometry, so
         // the swapped-normal map is its inverse (pinned at 45° in pieces).
-        let pre_vel = portal_map_vec(kin.vel, ev.exit_normal, ev.enter_normal);
+        let pre_vel = portal_map_vec(kin.vel, ev.exit_normal, ev.enter_normal, convention);
         let controller_run = pre_vel.dot(side) - flight.carried_run;
         let mapped_controller =
-            portal_map_vec(controller_run * side, ev.enter_normal, ev.exit_normal);
+            portal_map_vec(controller_run * side, ev.enter_normal, ev.exit_normal, convention);
         flight.carried_run = kin.vel.dot(side) - mapped_controller.dot(side);
     }
 }
@@ -205,8 +209,12 @@ pub fn apply_portal_carried_momentum(
 pub fn rotate_projectile_acceleration_after_portal_transit(
     mut transited: MessageReader<PortalBodyTransited>,
     mut shots: Query<&mut ProjectileGameplay>,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Res<PortalTuning>,
 ) {
     use ambition_portal2d::pieces::portal_map_vec;
+    let convention = tuning.convention.map_convention();
+
     for ev in transited.read() {
         let Ok(mut shot) = shots.get_mut(ev.body) else {
             continue;
@@ -214,7 +222,7 @@ pub fn rotate_projectile_acceleration_after_portal_transit(
         if shot.accel == ambition_platformer2d_core::Vec2::ZERO {
             continue;
         }
-        shot.accel = portal_map_vec(shot.accel, ev.enter_normal, ev.exit_normal);
+        shot.accel = portal_map_vec(shot.accel, ev.enter_normal, ev.exit_normal, convention);
     }
 }
 

@@ -130,6 +130,15 @@ impl Platformer2dSimHarness {
                 app.insert_resource(TimeUpdateStrategy::ManualDuration(frame_dt));
             }
         }
+        // ⭐ THE SAVE LANDS BEFORE THE FIRST UPDATE, because that is where
+        // `load_save_at_startup` puts it in the shipped game: the file's bytes
+        // are in the world before the session activates and builds its first
+        // room. Inserting it later would make every measurement a measurement of
+        // the CORRECTION road instead of the construction.
+        if let Some(save) = options.save.clone() {
+            app.insert_resource(ambition_platformer2d::session::AmbitionGameSave(save));
+        }
+
         // First update runs Startup. In rollback mode there is deliberately no
         // Session yet, so no simulation frame can advance before the canonical
         // session root and exact content identity exist.

@@ -165,7 +165,7 @@ fn register_app_local_sim_systems(app: &mut App) {
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::dev_tools::DevEditApplySet)
             .before(ambition_platformer2d::actors::control::InputTimersAdvanced)
-            .before(ambition_platformer2d::runtime::RoomReplayApplied),
+            .before(ambition_platformer2d::runtime::RoomReplayAdmission),
     );
 
     // ── Brain-driven player clone (press K) ────────────────────────────────

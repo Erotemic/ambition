@@ -130,7 +130,13 @@ pub fn sync_portal_body_pieces(
         ),
         With<PortalSceneBody>,
     >,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
+    let convention = tuning
+        .as_deref()
+        .map(|tuning| tuning.convention.map_convention())
+        .unwrap_or_default();
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
@@ -159,6 +165,7 @@ pub fn sync_portal_body_pieces(
     let pieces = pp::compute_body_pieces(
         body,
         Some((enter_portal.aperture(), exit_portal.aperture())),
+        convention,
     );
     let Some(through) = pieces.through else {
         // Touching a portal but nothing has crossed the plane yet.
@@ -170,8 +177,8 @@ pub fn sync_portal_body_pieces(
     // The through pose: the sprite emerging from the exit, placed by the BODY
     // map exactly. The active convention decides whether that map factors as a
     // pure rotation or as rotation plus one x-reflection.
-    let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame);
-    let copy = copy_transform(&enter.frame, &exit.frame);
+    let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame, convention);
+    let copy = copy_transform(&enter.frame, &exit.frame, convention);
     let exit_roll = base_roll + copy.roll;
     // `apply_character_frame` has already mirrored the anchor to match the
     // source sprite's current `flip_x` value. If the portal copy toggles the

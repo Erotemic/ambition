@@ -37,7 +37,16 @@ fn app_with_transit() -> App {
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    app.init_resource::<ambition_portal2d::PortalTuning>();
+    // ⛔ STATE THE CONVENTION. This fixture used to get Reflection by accident:
+    // the map read a process-global `AtomicBool` whose default was Reflection,
+    // while `PortalTuning::default()` says Rotation and a live App reconciled
+    // the two with a per-frame mirror system no fixture ran. With the global
+    // gone the tuning is the only answer, and under Rotation this pair's map is
+    // the IDENTITY — so the arm below could not tell "mapped" from "untouched".
+    app.insert_resource(ambition_portal2d::PortalTuning {
+        convention: ambition_portal2d::PortalConvention::Reflection,
+        ..Default::default()
+    });
     app.add_systems(
         Update,
         (

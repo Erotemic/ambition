@@ -1156,6 +1156,23 @@ pub struct PlatformerSessionBuilder<'w, 's> {
         Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
+    /// ⭐⭐ WHERE THE FILE SAYS THINGS ARE, AT THE MOMENT THE WORLD IS BUILT.
+    /// Activation used to pass no continuity at all, so a load authored an
+    /// object the save says is lying next door and a later checkpoint resume
+    /// rebuilt the room to take it back out. The ledger is adopted at
+    /// `SessionScopeSet::Activate` now, which is before this runs.
+    ///
+    /// `Option` because a composition with no durable horizon registers neither
+    /// resource, and an empty ledger is the honest answer there — not a reason
+    /// to refuse to build a world.
+    occurrences:
+        Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    minted: Option<
+        Res<
+            'w,
+            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
+        >,
+    >,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1225,9 +1242,20 @@ impl PlatformerSessionBuilder<'_, '_> {
                         None,
                         self.prepared_characters.as_deref(),
                         self.brain_profiles.as_deref(),
-                        // Activation BUILDS a world; there is no earlier
-                        // occurrence of anything to have a disposition yet.
-                        None,
+                        // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
+                        // has an empty one and builds exactly what it always
+                        // built; a LOAD has the file's rows here, so the room it
+                        // opens in is built right the first time instead of
+                        // built wrong and corrected. The world's definitions
+                        // ride along because a row may name an object minted by
+                        // a record next door — see `OccurrenceContinuity`.
+                        self.occurrences.as_deref().map(|remembered| {
+                            ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
+                                remembered,
+                                world: &live_world.room_set.rooms,
+                                minted: self.minted.as_deref(),
+                            }
+                        }),
                     ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,

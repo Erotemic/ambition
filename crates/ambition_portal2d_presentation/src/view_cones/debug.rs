@@ -7,7 +7,9 @@
 use super::*;
 
 pub fn handle_portal_view_cone_dump_hotkey(
-    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
     mut request: ResMut<PortalViewConeDebugDumpRequest>,
 ) {
     if actions.read().any(|action| {
@@ -38,10 +40,16 @@ pub fn flush_portal_view_cone_debug_dump(
     )>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     screen_density: GameplayScreenDensity,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
     if !request.pending {
         return;
     }
+    let convention = tuning
+        .as_deref()
+        .map(|tuning| tuning.convention.map_convention())
+        .unwrap_or_default();
     let reason = if request.reason.is_empty() {
         "manual".to_string()
     } else {
@@ -62,6 +70,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &rigs,
         &cone_visibility,
         screen_density.texels_per_world(host_view.as_deref()),
+        convention,
     );
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -115,6 +124,7 @@ fn portal_view_cone_debug_dump_text(
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     screen_scale: f32,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
     let mut out = String::new();
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
@@ -322,7 +332,8 @@ fn portal_view_cone_debug_dump_text(
 
         let enter = portal.aperture();
         let exit = partner.aperture();
-        let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
+        let capture_frame =
+            portal_capture_camera_frame(config, host_view, &enter, &exit, convention);
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -336,7 +347,7 @@ fn portal_view_cone_debug_dump_text(
             recursion_depth: effective.recursion_depth,
             include_parallax: effective.include_parallax,
         };
-        let route = visibility_route_summary(portal, &partner, config, viewer);
+        let route = visibility_route_summary(portal, &partner, config, viewer, convention);
         let _ = writeln!(
             out,
             "  route.face_los_fraction: {:.3} eyes={}",
@@ -354,7 +365,7 @@ fn portal_view_cone_debug_dump_text(
         );
         let _ = writeln!(out, "  route.any_admitted: {}", route.admitted());
 
-        let plan = compute_cone(portal, &partner, config, viewer, frame.size);
+        let plan = compute_cone(portal, &partner, config, viewer, frame.size, convention);
         let _ = writeln!(out, "  plan.target: {:.3}", plan.target);
         let _ = writeln!(out, "  plan.immediate: {}", plan.immediate);
         let _ = writeln!(
@@ -475,8 +486,16 @@ fn portal_view_cone_debug_dump_text(
             let blend = rig_state
                 .map(|(rig, _, _, _)| rig.blend)
                 .unwrap_or(plan.target);
-            let cone = blend_cones(&plan.min, &plan.wedge, smooth01(blend), &enter, &exit);
-            let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
+            let cone = blend_cones(
+                &plan.min,
+                &plan.wedge,
+                smooth01(blend),
+                &enter,
+                &exit,
+                convention,
+            );
+            let capture_frame =
+                portal_capture_camera_frame(config, host_view, &enter, &exit, convention);
             match cone_render(
                 &cone,
                 &enter,
@@ -487,6 +506,7 @@ fn portal_view_cone_debug_dump_text(
                 clip_max,
                 pane_z(config, viewer, portal, &partner, None).0,
                 capture_frame,
+                convention,
             ) {
                 Some(render) => {
                     let _ = writeln!(out, "  render.present: true");
@@ -659,6 +679,7 @@ pub fn selected_portal_view_cone_debug_rows(
     frame: &PortalWorldFrame,
     host_view: Option<&PortalCameraContinuityHostView>,
     portals: &[PlacedPortal],
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> Vec<PortalViewConeDebugRow> {
     let mut rows = Vec::new();
     rows.push(PortalViewConeDebugRow::new(
@@ -716,7 +737,7 @@ pub fn selected_portal_view_cone_debug_rows(
         };
         let enter = portal.aperture();
         let exit = partner.aperture();
-        let plan = compute_cone(portal, &partner, config, viewer, frame.size);
+        let plan = compute_cone(portal, &partner, config, viewer, frame.size, convention);
         rows.push(PortalViewConeDebugRow::new(
             format!("selected_pair.{name}.plan.target"),
             format!("{:.3}", plan.target),
@@ -738,8 +759,16 @@ pub fn selected_portal_view_cone_debug_rows(
             ));
             continue;
         }
-        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
-        let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
+        let cone = blend_cones(
+            &plan.min,
+            &plan.wedge,
+            smooth01(plan.target),
+            &enter,
+            &exit,
+            convention,
+        );
+        let capture_frame =
+            portal_capture_camera_frame(config, host_view, &enter, &exit, convention);
         match cone_render(
             &cone,
             &enter,
@@ -750,6 +779,7 @@ pub fn selected_portal_view_cone_debug_rows(
             clip_max,
             pane_z(config, viewer, portal, &partner, None).0,
             capture_frame,
+            convention,
         ) {
             Some(render) => {
                 let clip = source_clip_debug(
@@ -961,6 +991,8 @@ pub fn debug_portal_view_zones(
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
     mut gizmos: Gizmos,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
     if selection.active != crate::PortalVisualEffect::ViewCones
         || !debug.enabled
@@ -969,6 +1001,10 @@ pub fn debug_portal_view_zones(
     {
         return;
     }
+    let convention = tuning
+        .as_deref()
+        .map(|tuning| tuning.convention.map_convention())
+        .unwrap_or_default();
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
@@ -977,11 +1013,18 @@ pub fn debug_portal_view_zones(
             continue;
         };
         let (enter, exit) = (portal.aperture(), partner.aperture());
-        let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
+        let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
         let (_, core) = portal.channel.display();
 
         if config.debug_outline && plan.target > 0.0 {
-            let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+            let cone = blend_cones(
+                &plan.min,
+                &plan.wedge,
+                smooth01(plan.target),
+                &enter,
+                &exit,
+                convention,
+            );
             // Exit sample zone: the source rect (axis-aligned in world stays
             // axis-aligned through the y-flip). Bright channel color.
             let s = cone.source;
@@ -1024,7 +1067,7 @@ pub fn debug_portal_view_zones(
                     &viewer.occluders,
                     config.aperture_los_quality,
                 );
-                if let Some((_, via_partner)) = window_eye(&enter, &exit, origin) {
+                if let Some((_, via_partner)) = window_eye(&enter, &exit, origin, convention) {
                     if config
                         .visibility_mode
                         .admit_through_portal(direct_fraction, via_partner)

@@ -7,8 +7,8 @@ use super::messages::{ClearPortals, PortalBodyEntered, PortalFireIntent, PortalS
 use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
-    publish_portal_carves, sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported,
-    PortalBodyTransited, PortalCarves, PortalTuning,
+    publish_portal_carves, tick_portal_cooldowns, BodyTeleported, PortalBodyTransited,
+    PortalCarves, PortalTuning,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -148,11 +148,6 @@ impl Plugin for PortalSimulationPlugin {
             sim,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
         );
-        app.add_systems(
-            sim,
-            sync_portal_tuning_convention.in_set(PortalSet::InputAdapter),
-        );
-
         // The gameplay-gated weapon systems. The host gates this set with
         // `gameplay_allowed`; the maintenance set below stays ungated (matching
         // the pre-extraction per-system gating) and chains after it.

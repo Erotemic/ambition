@@ -161,7 +161,7 @@ pub fn warp_portal_input(
             {
                 commands.entity(entity).remove::<PortalInputWarp>();
             } else {
-                dir = portal_map_vec(dir, warp.n_in, warp.n_out);
+                dir = portal_map_vec(dir, warp.n_in, warp.n_out, tuning.convention.map_convention());
             }
         }
 

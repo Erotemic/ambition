@@ -15,16 +15,15 @@
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
-use crate::features::{HeldItem};
+use crate::features::HeldItem;
 use ambition_combat::components::ActorFaction;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_core::body_clusters::BodyKinematics;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// Held-item id of the vortex gauntlet.
@@ -55,8 +54,10 @@ pub struct VortexWell {
 /// ahead of the player along the aim. Plain Attack only — `Shield + Attack`
 /// drops the item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
 pub fn fire_vortex_system(
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never fired.
+    driven: crate::items::pickup::DrivenBodies,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -73,54 +74,61 @@ pub fn fire_vortex_system(
     mut commands: Commands,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((control, kin, resolved_frame, held, mut mana, owner, caster_id, mut caster_counter)) =
-        bodies.get_mut(subject)
-    else {
-        return;
-    };
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
+    for subject in driven.entities() {
+        let Ok((
+            control,
+            kin,
+            resolved_frame,
+            held,
+            mut mana,
+            owner,
+            caster_id,
+            mut caster_counter,
+        )) = bodies.get_mut(subject)
+        else {
+            continue;
+        };
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != VORTEX_ID {
+            continue;
+        }
+        if !mana.meter.try_spend(VORTEX_MANA_COST) {
+            continue;
+        }
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let gravity_dir = resolved_frame.down();
+        let aim = crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir)
+            .normalize_or_zero();
+        if aim == ae::Vec2::ZERO {
+            continue;
+        }
+        let center = kin.pos + aim * VORTEX_RANGE;
+        // `SimId::spawned(caster, counter.next())` — N3.1's rule for a dynamically
+        // spawned sim entity. The counter lives on the CASTER so two casters never
+        // share a stream; taking a number is itself snapshot state.
+        let id = match (caster_id, caster_counter.as_mut()) {
+            (Some(caster), Some(counter)) => Some(
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(caster, counter.next()),
+            ),
+            _ => None,
+        };
+        open_vortex_well(
+            &mut commands,
+            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            center,
+            id,
+        );
+        sfx.write_for(
+            subject,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_BLINK,
+                pos: center,
+            },
+        );
     }
-    if held.spec.id != VORTEX_ID {
-        return;
-    }
-    if !mana.meter.try_spend(VORTEX_MANA_COST) {
-        return;
-    }
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let gravity_dir = resolved_frame.down();
-    let aim =
-        crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
-    if aim == ae::Vec2::ZERO {
-        return;
-    }
-    let center = kin.pos + aim * VORTEX_RANGE;
-    // `SimId::spawned(caster, counter.next())` — N3.1's rule for a dynamically
-    // spawned sim entity. The counter lives on the CASTER so two casters never
-    // share a stream; taking a number is itself snapshot state.
-    let id = match (caster_id, caster_counter.as_mut()) {
-        (Some(caster), Some(counter)) => Some(
-            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(caster, counter.next()),
-        ),
-        _ => None,
-    };
-    open_vortex_well(
-        &mut commands,
-        SessionSpawnScope::new(owner.map(|owner| owner.0)),
-        center,
-        id,
-    );
-    sfx.write_for(
-        subject,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_BLINK,
-            pos: center,
-        },
-    );
 }
 
 /// Open one singularity. THE seam a vortex well comes into the world through.
@@ -487,5 +495,55 @@ mod tests {
             .iter(app.world())
             .count();
         assert_eq!(well_count, 0, "the well expires and despawns");
+    }
+
+    /// ⭐⭐ A SECOND DRIVEN BODY OPENS ITS OWN WELL.
+    /// Same singular-`ControlledSubject` defect as the volley: this ability read
+    /// one entity, so a couch's second seat could not cast at all.
+    #[test]
+    fn two_driven_bodies_each_open_their_own_well() {
+        use crate::abilities::test_support::spawn_seated_body_holding;
+        let mut app = test_app();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+        let a = spawn_seated_body_holding(
+            &mut app,
+            VORTEX_ID,
+            0,
+            "seat_a",
+            ae::Vec2::new(100.0, 100.0),
+        );
+        let b = spawn_seated_body_holding(
+            &mut app,
+            VORTEX_ID,
+            1,
+            "seat_b",
+            ae::Vec2::new(900.0, 100.0),
+        );
+        for body in [a, b] {
+            app.world_mut()
+                .get_mut::<ActorControl>(body)
+                .unwrap()
+                .0
+                .melee_pressed = true;
+        }
+        app.update();
+
+        // Each well opens VORTEX_RANGE ahead of ITS OWN caster, so the centres
+        // are what says two bodies cast — not one body casting twice.
+        let centers: Vec<f32> = app
+            .world_mut()
+            .query::<&VortexWell>()
+            .iter(app.world())
+            .map(|well| well.center.x)
+            .collect();
+        assert_eq!(
+            centers.len(),
+            2,
+            "one well per casting seat; got {centers:?}"
+        );
+        assert!(
+            centers.iter().any(|&x| x < 500.0) && centers.iter().any(|&x| x > 900.0),
+            "each well should open ahead of its OWN caster; got {centers:?}"
+        );
     }
 }

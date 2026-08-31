@@ -45,14 +45,44 @@ pub struct ContentDialogueFollowupSet;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentRoomReplayResetSet;
 
-/// Replay the ACTIVE room in place: reset the controlled player to the
-/// room spawn and tear down + respawn the room's scoped state (bosses,
-/// features), leaving progress outside the room untouched. CONTENT emits
-/// this (a "try again" beat, a challenge retry); the host's replay
-/// consumer drains it. Engine-generic vocabulary — the message names no
-/// content.
-#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct RoomReplayRequested;
+/// ASK for the ACTIVE room to be replayed: the controlled body back at the room
+/// spawn, the room's scoped population rebuilt, progress outside the room
+/// untouched. CONTENT emits this (a "try again" beat, a challenge retry, a
+/// death); the engine's admission system decides whether it happens.
+///
+/// ⛔⛔ IT IS A REQUEST, NOT THE EVENT. Nothing may mutate authoritative state on
+/// this message. A replay is a lifecycle operation and the one pending-commit
+/// slot may already be owned by another one, in which case the replay does not
+/// happen at all — so a listener that reset gravity, cleared combat state or
+/// advanced a content cycle here would have changed the world for an operation
+/// that was refused. React to
+/// [`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted) instead;
+/// it is written by exactly one system, and only after the operation is in the
+/// slot.
+///
+/// The REASON travels with the request because the policies downstream differ by
+/// it — a death preserves the player's gun portals and a deliberate retry clears
+/// them — and the only place that knows which this is, is the producer.
+#[derive(Message, Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoomReplayRequested {
+    pub reason: ambition_combat::RoomResetReason,
+}
+
+impl RoomReplayRequested {
+    /// A deliberate retry: a reset press, a "try again" beat, a level loop.
+    pub fn manual() -> Self {
+        Self {
+            reason: ambition_combat::RoomResetReason::Manual,
+        }
+    }
+
+    /// The body died or fell out of the world.
+    pub fn player_death() -> Self {
+        Self {
+            reason: ambition_combat::RoomResetReason::PlayerDeath,
+        }
+    }
+}
 
 /// **The reset's preflight passed and the wipe is happening.**
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]

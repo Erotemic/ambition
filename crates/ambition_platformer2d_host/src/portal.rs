@@ -245,7 +245,13 @@ mod host_adapter {
         body_kinematics: Query<&BodyKinematics>,
         body_transits: Query<&ambition_portal2d::PortalTransit>,
         portals: Query<&ambition_portal2d::PlacedPortal>,
+        // The session's portal map convention, from the resource that owns it.
+        tuning: Option<Res<ambition_portal2d::PortalTuning>>,
     ) {
+        let convention = tuning
+            .as_deref()
+            .map(|tuning| tuning.convention.map_convention())
+            .unwrap_or_default();
         let Some(selection) = selection else {
             return;
         };
@@ -390,6 +396,7 @@ mod host_adapter {
                 previous_host_camera_world,
                 &enter_frame,
                 &exit_frame,
+                convention,
             );
             let correction = desired_camera_world - host_camera_world;
 
@@ -429,6 +436,7 @@ mod host_adapter {
                 ev.enter_normal,
                 ev.exit_normal,
                 gravity_dir,
+                convention,
             );
             let roll = if raw_roll.abs() <= config.roll_epsilon_radians {
                 0.0
@@ -438,8 +446,12 @@ mod host_adapter {
 
             // Debug the exact screen-space invariant.
             let body_after = body.pos;
-            let body_before =
-                ambition_portal2d::pieces::map_point(body_after, &exit_frame, &enter_frame);
+            let body_before = ambition_portal2d::pieces::map_point(
+                body_after,
+                &exit_frame,
+                &enter_frame,
+                convention,
+            );
             let screen_before = body_before - previous_host_camera_world;
             let screen_after = body_after - desired_camera_world;
             let screen_error = screen_after - screen_before;
@@ -532,6 +544,7 @@ mod host_adapter {
                         camera_state.live_target_world,
                         &enter_frame,
                         &exit_frame,
+                        convention,
                     );
                 }
             }
@@ -601,6 +614,7 @@ mod host_adapter {
                 &portal_list,
                 gravity_dir,
                 config.roll_epsilon_radians,
+                convention,
             )
         }) {
             state.roll_radians = roll;
@@ -614,6 +628,7 @@ mod host_adapter {
         portals: &[ambition_portal2d::PlacedPortal],
         gravity_dir: Vec2,
         roll_epsilon_radians: f32,
+        convention: ambition_portal2d::pieces::MapConvention,
     ) -> Option<f32> {
         let (enter_channel, exit_channel) = if transit.crossed {
             (transit.straddling.partner(), transit.straddling)
@@ -626,6 +641,7 @@ mod host_adapter {
             enter.normal,
             exit.normal,
             gravity_dir,
+            convention,
         );
         if raw_roll.abs() <= roll_epsilon_radians {
             return Some(0.0);

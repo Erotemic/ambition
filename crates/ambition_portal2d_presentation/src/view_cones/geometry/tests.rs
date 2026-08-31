@@ -1,4 +1,5 @@
 use super::*;
+use ambition_platformer2d_core::frame::MapConvention;
 use ambition_portal2d::pieces::{PortalAperture, PortalFrame};
 use ambition_portal2d::{PortalChannelColor, PortalGunColor};
 
@@ -36,7 +37,7 @@ fn cone_uvs_rotate_with_the_view_map() {
         frame: PortalFrame::fixed(Vec2::new(400.0, 200.0), Vec2::new(-1.0, 0.0)),
         half_length: 46.0,
     };
-    let cone = view_cone(&enter, &exit, 120.0, 0.25);
+    let cone = view_cone(&enter, &exit, 120.0, 0.25, MapConvention::Reflection);
     let size = cone.source.max - cone.source.min;
     let uvs: Vec<[f32; 2]> = cone
         .source_quad
@@ -252,7 +253,14 @@ fn poly_span_x(poly: &[Vec2]) -> f32 {
 fn rendered_span_x(plan: &ConePlan, enter: &PlacedPortal, exit: &PlacedPortal) -> f32 {
     let enter = enter.aperture();
     let exit = exit.aperture();
-    let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+    let cone = blend_cones(
+        &plan.min,
+        &plan.wedge,
+        smooth01(plan.target),
+        &enter,
+        &exit,
+        MapConvention::Reflection,
+    );
     span_x(&cone)
 }
 
@@ -299,7 +307,14 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
     let clip_min = Vec2::new(-96.55, 626.10);
     let clip_max = Vec2::new(703.45, 1076.10);
 
-    let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert_eq!(plan.target, 1.0);
     assert_eq!(plan.debug.half_plane_preview_alpha, 1.0);
     let enter_frame = enter.aperture();
@@ -310,6 +325,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
         smooth01(plan.target),
         &enter_frame,
         &exit_frame,
+        MapConvention::Reflection,
     );
     let render = cone_render(
         &cone,
@@ -321,6 +337,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
         clip_max,
         config.z,
         None,
+        MapConvention::Reflection,
     )
     .expect("full half-plane should render after viewport clipping");
 
@@ -383,7 +400,14 @@ fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         occluders: Vec::new(),
     };
 
-    let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert!(
         !plan.immediate,
         "doorway cone should now use the continuous spatial/temporal ease"
@@ -438,7 +462,14 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
             half_size: Vec2::ZERO,
             occluders: Vec::new(),
         };
-        let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+        let plan = compute_cone(
+            &enter,
+            &exit,
+            &config,
+            Some(&viewer),
+            world,
+            MapConvention::Reflection,
+        );
         (
             span_x(&plan.wedge),
             plan.target,
@@ -472,7 +503,8 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
             &enter.aperture(),
             &exit.aperture(),
             config.min_depth,
-            config.min_spread
+            config.min_spread,
+            MapConvention::Reflection
         ))
     );
     assert_eq!(full_target, 1.0);
@@ -504,7 +536,14 @@ fn blocked_los_hides_near_portal_cone_inside_preview_range() {
         occluders: vec![blocker],
     };
 
-    let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert_eq!(
         plan.target, 0.0,
         "preview proximity must not admit a portal window when LOS is blocked",
@@ -539,8 +578,22 @@ fn exact_mode_uses_los_geometry_without_bounded_preview() {
         occluders: Vec::new(),
     };
 
-    let exact = compute_cone(&enter, &exit, &exact_config, Some(&viewer), world);
-    let preview = compute_cone(&enter, &exit, &default_config, Some(&viewer), world);
+    let exact = compute_cone(
+        &enter,
+        &exit,
+        &exact_config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
+    let preview = compute_cone(
+        &enter,
+        &exit,
+        &default_config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     let exact_span = span_x(&exact.wedge);
     let preview_span = span_x(&preview.wedge);
 
@@ -576,7 +629,14 @@ fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
         occluders: Vec::new(),
     };
 
-    let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     let span = span_x(&plan.wedge);
     assert!(
         span <= config.half_plane_preview_max_lateral * 2.0 + 1e-3,
@@ -614,8 +674,22 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         occluders: Vec::new(),
     };
 
-    let centered = compute_cone(&enter, &exit, &config, Some(&centered_viewer), world);
-    let off_axis = compute_cone(&enter, &exit, &config, Some(&off_axis_viewer), world);
+    let centered = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&centered_viewer),
+        world,
+        MapConvention::Reflection,
+    );
+    let off_axis = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&off_axis_viewer),
+        world,
+        MapConvention::Reflection,
+    );
     let centered_span = span_x(&centered.wedge);
     let off_axis_span = span_x(&off_axis.wedge);
 
@@ -660,8 +734,22 @@ fn partial_los_reduces_window_growth() {
         occluders: Vec::new(),
     };
 
-    let partial = compute_cone(&enter, &exit, &config, Some(&partial_viewer), world);
-    let clear = compute_cone(&enter, &exit, &config, Some(&clear_viewer), world);
+    let partial = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&partial_viewer),
+        world,
+        MapConvention::Reflection,
+    );
+    let clear = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&clear_viewer),
+        world,
+        MapConvention::Reflection,
+    );
     let partial_span = rendered_span_x(&partial, &enter, &exit);
     let clear_span = rendered_span_x(&clear, &enter, &exit);
 
@@ -702,14 +790,28 @@ fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
         occluders: vec![wall],
     };
     // The far portal's own cone: enter = far, exit = near.
-    let plan = compute_cone(&far, &near, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &far,
+        &near,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert_eq!(
         plan.target, 0.0,
         "no LOS to the far face through the thin wall — its window must stay closed",
     );
     // The near portal's cone opens normally for the same viewer... when in
     // proximity range; at 100px the band is open.
-    let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &near,
+        &far,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert!(
         plan.target > 0.0,
         "the near portal's window opens for the near-side viewer",
@@ -744,7 +846,14 @@ fn window_depth_clips_to_the_host_wall_thickness() {
         half_size: Vec2::ZERO,
         occluders: vec![wall],
     };
-    let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &near,
+        &far,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert!(plan.target > 0.0, "the near window is open");
     let wall_back = 524.0;
     for p in plan
@@ -796,7 +905,14 @@ fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
         half_size: Vec2::ZERO,
         occluders: vec![wall],
     };
-    let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &near,
+        &far,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert!(plan.target > 0.0, "the doorway window is open");
     let wall_back = 524.0;
     for p in plan
@@ -909,7 +1025,14 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
         occluders: Vec::new(),
     };
 
-    let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
+    let plan = compute_cone(
+        &enter,
+        &exit,
+        &config,
+        Some(&viewer),
+        world,
+        MapConvention::Reflection,
+    );
     assert!(
         plan.target > 0.99,
         "a just-crossed doorway viewer should still see the full portal chart, target={}",

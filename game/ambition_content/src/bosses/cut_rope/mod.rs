@@ -26,7 +26,7 @@ use ambition_combat::components::{
     ActorPose, CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
     PogoTargetVolumes, PostBossNpc,
 };
-use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
+use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};
 use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -182,13 +182,13 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     }
     pending.requested = false;
     replay_requests
-        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested);
+        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual());
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
 ///
 /// R3: the boss's live state is entity-local, so the actual reset happens when
-/// the caller's `ResetRoomFeaturesEvent` reaches
+/// the caller's `RoomReplayAdmitted` reaches
 /// `rooms::reconstitute_the_active_room`, which rebuilds the room through
 /// canonical construction. This helper only clears the *persisted* "cleared"
 /// record (so the rebuilt boss isn't constructed pre-marked defeated), re-hides
@@ -231,15 +231,16 @@ pub fn reset_cut_rope_boss_attempt(
 /// victory-NPC flag, intro music) for every cut-rope placement in the room.
 ///
 /// This is the CONTENT half of the room-replay: the host's app-side replay
-/// consumer resets the player + world (and its `ResetRoomFeaturesEvent`
+/// consumer resets the player + world (and its `RoomReplayAdmitted`
 /// respawns the boss), while this system — registered in the engine's
 /// `ContentRoomReplayResetSet` slot — owns the content-named attempt reset so
 /// the host consumer never names cut-rope. Both read the same message the frame
 /// it is emitted (independent reader cursors).
 pub fn reset_cut_rope_attempt_on_replay(
-    mut replay_requests: MessageReader<
-        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
-    >,
+    // ⛔ THE ADMITTED REPLAY, NOT THE ASK. This retracts a persisted "cleared"
+    // record so the boss can be re-fought; doing that on a request the lifecycle
+    // slot might refuse would retract a defeat for a replay that never happens.
+    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
@@ -249,7 +250,7 @@ pub fn reset_cut_rope_attempt_on_replay(
     >,
     bosses: Query<&BossConfig>,
 ) {
-    if replay_requests.read().count() == 0 {
+    if replays.read().count() == 0 {
         return;
     }
     let placements: Vec<String> = bosses

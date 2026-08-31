@@ -9,8 +9,8 @@ use ambition_platformer2d_core as ae;
 use bevy::math::Vec2;
 
 use crate::pieces::{
-    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, PortalAperture,
-    PortalFrame,
+    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, MapConvention,
+    PortalAperture, PortalFrame,
 };
 
 /// A 2D orthogonal transform factored the way Bevy sprites can draw it:
@@ -56,7 +56,7 @@ impl PortalViewMap {
     fn between_with_map(
         enter: &PortalFrame,
         exit: &PortalFrame,
-        map_vec: fn(Vec2, Vec2, Vec2) -> Vec2,
+        map_vec: impl Fn(Vec2, Vec2, Vec2) -> Vec2,
     ) -> Self {
         let lin = |v: Vec2| {
             // Reflect across the entry plane (linear part: across the surface
@@ -76,10 +76,12 @@ impl PortalViewMap {
         }
     }
 
-    /// The view map for a linked pair under the active game-wide convention:
-    /// body map ∘ reflection across the entry plane.
-    pub fn between(enter: &PortalFrame, exit: &PortalFrame) -> Self {
-        Self::between_with_map(enter, exit, portal_map_vec)
+    /// The view map for a linked pair under a stated convention: body map ∘
+    /// reflection across the entry plane.
+    pub fn between(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> Self {
+        Self::between_with_map(enter, exit, move |v, n_in, n_out| {
+            portal_map_vec(v, n_in, n_out, convention)
+        })
     }
 
     /// Pure variant used by tests and convention-specific tools.
@@ -119,8 +121,13 @@ impl PortalViewMap {
 /// What a viewer sees at entry-side point `p`: the view map applied to `p`.
 /// Convenience over [`PortalViewMap::between`] + `apply` for one-off points;
 /// equals `map_point(reflect(p))` by construction.
-pub fn view_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
-    PortalViewMap::between(enter, exit).apply(p)
+pub fn view_point(
+    p: Vec2,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> Vec2 {
+    PortalViewMap::between(enter, exit, convention).apply(p)
 }
 
 /// A camera/viewpoint frame in portal world coordinates.
@@ -145,8 +152,9 @@ pub fn map_viewpoint_frame(
     frame: PortalViewpointFrame,
     enter: &PortalFrame,
     exit: &PortalFrame,
+    convention: MapConvention,
 ) -> PortalViewpointFrame {
-    let map = PortalViewMap::between(enter, exit);
+    let map = PortalViewMap::between(enter, exit, convention);
     PortalViewpointFrame {
         pos: map.apply(frame.pos),
         rotation: frame.rotation + map.angle(),
@@ -193,7 +201,7 @@ pub struct PortalCopyTransform {
 fn copy_transform_with_map(
     enter: &PortalFrame,
     exit: &PortalFrame,
-    map_vec: fn(Vec2, Vec2, Vec2) -> Vec2,
+    map_vec: impl Fn(Vec2, Vec2, Vec2) -> Vec2,
 ) -> PortalCopyTransform {
     let col_x = map_vec(Vec2::X, enter.normal, exit.normal);
     let col_y = map_vec(Vec2::Y, enter.normal, exit.normal);
@@ -218,15 +226,20 @@ pub fn copy_transform_for_convention(
     copy_transform_with_map(enter, exit, map_vec)
 }
 
-/// Sprite transform for a portal body copy under the active game-wide map
-/// convention.
-pub fn copy_transform(enter: &PortalFrame, exit: &PortalFrame) -> PortalCopyTransform {
-    copy_transform_with_map(enter, exit, portal_map_vec)
+/// Sprite transform for a portal body copy under a stated map convention.
+pub fn copy_transform(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    convention: MapConvention,
+) -> PortalCopyTransform {
+    copy_transform_with_map(enter, exit, move |v, n_in, n_out| {
+        portal_map_vec(v, n_in, n_out, convention)
+    })
 }
 
 /// Backward-compatible shorthand for callers that only need the roll.
-pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame) -> f32 {
-    copy_transform(enter, exit).roll
+pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> f32 {
+    copy_transform(enter, exit, convention).roll
 }
 
 /// Build a [`ViewCone`] from its four entry-side corners: the source quad is
@@ -237,8 +250,9 @@ fn from_entry_quad(
     entry_quad: [Vec2; 4],
     enter: &PortalAperture,
     exit: &PortalAperture,
+    convention: MapConvention,
 ) -> ViewCone {
-    let source_quad = entry_quad.map(|p| map_point(p, &enter.frame, &exit.frame));
+    let source_quad = entry_quad.map(|p| map_point(p, &enter.frame, &exit.frame, convention));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
@@ -258,6 +272,7 @@ pub fn view_cone(
     exit: &PortalAperture,
     depth: f32,
     spread: f32,
+    convention: MapConvention,
 ) -> ViewCone {
     let n = enter.frame.normal;
     let along = enter.frame.tangent();
@@ -273,6 +288,7 @@ pub fn view_cone(
         ],
         enter,
         exit,
+        convention,
     )
 }
 
@@ -343,9 +359,11 @@ pub fn window_eye(
     enter: &PortalAperture,
     exit: &PortalAperture,
     eye: Vec2,
+    convention: MapConvention,
 ) -> Option<(Vec2, bool)> {
     let direct = resolve_end_front(enter, eye);
-    let via = resolve_end_front(exit, eye).map(|r| view_point(r, &exit.frame, &enter.frame));
+    let via =
+        resolve_end_front(exit, eye).map(|r| view_point(r, &exit.frame, &enter.frame, convention));
     match (direct, via) {
         (None, None) => None,
         (Some(d), None) => Some((d, false)),
@@ -377,14 +395,16 @@ pub fn window_eye(
 ///
 /// `None` if `eye` is behind the plane. Pure geometry — line-of-sight
 /// occlusion is the caller's check.
+#[allow(clippy::too_many_arguments)]
 pub fn aperture_wedge(
     enter: &PortalAperture,
     exit: &PortalAperture,
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
+    convention: MapConvention,
 ) -> Option<ViewCone> {
-    aperture_wedge_multi(enter, exit, &[eye], max_depth, max_lateral)
+    aperture_wedge_multi(enter, exit, &[eye], max_depth, max_lateral, convention)
 }
 
 /// The wedge a SET of eyes jointly sees through the aperture: the UNION of each
@@ -406,6 +426,7 @@ pub fn aperture_wedge_multi(
     eyes: &[Vec2],
     max_depth: f32,
     max_lateral: f32,
+    convention: MapConvention,
 ) -> Option<ViewCone> {
     let n = enter.frame.normal;
     let t = enter.frame.tangent();
@@ -446,21 +467,23 @@ pub fn aperture_wedge_multi(
     let a1 = o + t * h;
     let f0 = o + t * lo - n * max_depth;
     let f1 = o + t * hi - n * max_depth;
-    Some(from_entry_quad([a0, a1, f1, f0], enter, exit))
+    Some(from_entry_quad([a0, a1, f1, f0], enter, exit, convention))
 }
 
 /// Convenience: [`window_eye`] (so it works from either end of the pair, with
 /// the in-doorway grace) then [`aperture_wedge`]. `None` only when the viewer
 /// is behind both ends and in neither doorway.
+#[allow(clippy::too_many_arguments)]
 pub fn visible_cone(
     enter: &PortalAperture,
     exit: &PortalAperture,
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
+    convention: MapConvention,
 ) -> Option<ViewCone> {
-    let (eye, _) = window_eye(enter, exit, eye)?;
-    aperture_wedge(enter, exit, eye, max_depth, max_lateral)
+    let (eye, _) = window_eye(enter, exit, eye, convention)?;
+    aperture_wedge(enter, exit, eye, max_depth, max_lateral, convention)
 }
 
 /// Per-corner linear blend `a → b` by `t ∈ [0,1]`. With `a` the minimum cone
@@ -473,10 +496,11 @@ pub fn blend_cones(
     t: f32,
     enter: &PortalAperture,
     exit: &PortalAperture,
+    convention: MapConvention,
 ) -> ViewCone {
     let t = t.clamp(0.0, 1.0);
     let entry_quad = std::array::from_fn(|i| a.entry_quad[i].lerp(b.entry_quad[i], t));
-    from_entry_quad(entry_quad, enter, exit)
+    from_entry_quad(entry_quad, enter, exit, convention)
 }
 
 #[cfg(test)]

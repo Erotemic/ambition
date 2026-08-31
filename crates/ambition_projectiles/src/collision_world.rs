@@ -36,6 +36,12 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]
     portals: Query<'w, 's, &'static ambition_portal2d::PlacedPortal>,
+    // ⭐ AND THE MAP CONVENTION, for the same reason the portals are here: the
+    // stepper is at Bevy's parameter ceiling, and this is the session's portal
+    // policy rather than a process global. `Option` because a composition
+    // without the portal plugin has no tuning.
+    #[cfg(feature = "portal")]
+    tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
@@ -51,6 +57,15 @@ impl ProjectileCollisionWorld<'_, '_> {
             &self.overlay.portal_carves,
             &self.overlay.removed_block_names,
         )
+    }
+
+    /// The session's portal map convention.
+    #[cfg(feature = "portal")]
+    pub fn portal_convention(&self) -> ambition_portal2d::pieces::MapConvention {
+        self.tuning
+            .as_deref()
+            .map(|tuning| tuning.convention.map_convention())
+            .unwrap_or_default()
     }
 
     /// Snapshot the placed portals for the per-projectile transit test.

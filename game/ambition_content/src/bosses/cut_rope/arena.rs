@@ -41,7 +41,7 @@ pub fn detect_cut_rope_rope_cut(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
-    mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
+    mut reset_events: MessageReader<RoomReplayAdmitted>,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut gate_writer: MessageWriter<EncounterGate>,
@@ -364,7 +364,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
-    mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
+    mut reset_events: MessageReader<RoomReplayAdmitted>,
     mut prop_visuals: Query<(
         &mut PropVisual,
         &mut Transform,

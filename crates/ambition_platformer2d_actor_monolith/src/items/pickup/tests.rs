@@ -1670,9 +1670,7 @@ mod multi_seat {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.insert_resource(ControlFrame::default());
-        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-            None,
-        ));
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         app.add_systems(Update, fire_held_ranged_system);
 
         let first = seated(&mut app, 0, "seat_a", Vec2::new(100.0, 100.0));
@@ -1697,6 +1695,20 @@ mod multi_seat {
             "seat b holds a gun-sword and pressed Attack; seat a holds an axe, \
              which has no ranged spec — and that exit used to end the SYSTEM"
         );
+        // ⭐ AND THE BOLT KNOWS WHOSE IT IS. `held_projectile_step` reads this to
+        // credit the hit; without it the bolt was attributed to the primary slot,
+        // which on this stage is nobody.
+        let owners: Vec<_> = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&ambition_projectiles::ProjectileOwner, With<HeldProjectile>>();
+            q.iter(app.world()).map(|owner| owner.0).collect()
+        };
+        assert_eq!(
+            owners,
+            vec![second],
+            "the bolt must carry the seat that fired it, not seat a and not nobody"
+        );
     }
 
     /// Seat zero presses nothing releasable, so the throw resolver's `else` arm
@@ -1705,9 +1717,7 @@ mod multi_seat {
     fn a_seat_with_nothing_to_release_does_not_stop_the_next_seat_throwing() {
         let mut app = App::new();
         app.insert_resource(ControlFrame::default());
-        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-            None,
-        ));
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         app.add_systems(Update, throw_held_item_system);
 
         let first = seated(&mut app, 0, "seat_a", Vec2::new(100.0, 100.0));
@@ -1737,4 +1747,118 @@ mod multi_seat {
             "seat a pressed nothing and must still be holding its axe"
         );
     }
+}
+
+/// ⭐⭐ A BOLT IS ATTRIBUTED TO WHOEVER FIRED IT, not to whoever holds the
+/// primary slot.
+///
+/// ⛔⛔ `held_projectile_step` READ `Query<Entity, PrimaryPlayerOnly>` AND
+/// STAMPED THAT ONE BODY ON EVERY BOLT IN FLIGHT. `fire_held_ranged_system` has
+/// iterated driven bodies for a while, so a second seat could already fire —
+/// and its kills were credited to seat zero. With nobody in the primary slot
+/// (a possessed body, a Smash stage) the credit went to NOBODY at all.
+///
+/// The bolt now carries `ProjectileOwner`, the same component the ECS
+/// projectile road already uses for exactly this: rollback-registered and
+/// entity-remapped on restore.
+///
+/// ⭐ THE PRIMARY PLAYER IS IN THIS FIXTURE ON PURPOSE. Without a primary body
+/// present, `attacker == shooter` would also hold for the OLD code reading
+/// `single().ok()` as `None`, and the test would agree with the bug.
+#[test]
+fn a_held_bolt_credits_the_body_that_fired_it_not_the_primary_player() {
+    let mut app = App::new();
+    app.add_message::<ambition_combat::events::HitEvent>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_boss_encounter::BossCatalog>();
+    app.add_systems(Update, held_projectile_step);
+
+    // The session's room. `SessionWorldRef` is a `Single<.., With<SessionRoot>>`,
+    // so the geometry has to hang off the session root like production's does.
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
+        ),
+        ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "attribution fixture",
+            Vec2::new(1600.0, 600.0),
+            Vec2::new(50.0, 100.0),
+            Vec::new(),
+        )),
+    ));
+
+    // The body that FIRED, and a separate primary player that did not.
+    let shooter = app
+        .world_mut()
+        .spawn((
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot(1),
+            ),
+            Name::new("seat one"),
+        ))
+        .id();
+    let primary = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            Name::new("seat zero"),
+        ))
+        .id();
+
+    // A breakable to hit — the lightest target the preflight predicates accept.
+    let target = Vec2::new(400.0, 100.0);
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+        ambition_combat::components::FeatureId::new("crate"),
+        ambition_combat::components::CenteredAabb::new(target, Vec2::splat(24.0)),
+        ambition_combat::components::BreakableFeature::new(ambition_interaction::Breakable::new(
+            "crate", 10,
+        )),
+    ));
+
+    // Seat one's bolt, already overlapping the crate.
+    app.world_mut().spawn((
+        BodyKinematics {
+            pos: target,
+            vel: Vec2::new(300.0, 0.0),
+            size: Vec2::new(24.0, 18.0),
+            facing: 1.0,
+        },
+        HeldProjectile {
+            damage: 3,
+            traveled: 0.0,
+            explode_half: 0.0,
+        },
+        ambition_projectiles::ProjectileOwner(shooter),
+    ));
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut reader = world
+        .resource_mut::<bevy::prelude::Messages<ambition_combat::events::HitEvent>>()
+        .get_cursor();
+    let world = app.world();
+    let attackers: Vec<Option<Entity>> = reader
+        .read(world.resource::<bevy::prelude::Messages<ambition_combat::events::HitEvent>>())
+        .map(|hit| hit.attacker)
+        .collect();
+    assert_eq!(
+        attackers.len(),
+        1,
+        "the bolt overlapped the crate, so exactly one hit should be written"
+    );
+    assert_eq!(
+        attackers[0],
+        Some(shooter),
+        "the bolt was fired by seat one and credited to {primary:?} (the \
+         primary player) instead"
+    );
 }

@@ -13,7 +13,6 @@ use crate::features::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// The held-item id the Blink ability grants.
 pub const BLINK_ID: &str = "blink";
@@ -82,18 +81,10 @@ pub fn blink_target(
 pub fn blink_system(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut commands: Commands,
-    // Ability execution is SUBJECT-GENERIC: it acts on the CONTROLLED SUBJECT (the
-    // body holding the primary seat) reading that body's OWN `ActorControl` (the
-    // brain output — present on ANY controlled body, player or possessed actor)
-    // and its OWN `HeldItem`. No `With<PlayerEntity>` filter and no entity-local input copy
-    // (a possessed actor has neither). A possessed body blinks iff IT holds the
-    // blink item; the vacated home avatar is not the subject, so it never blinks.
-    //
-    // The box-traversal kit belongs to the explicit axis-swept policy. A
-    // surface-momentum body's traversal IS its kernel (the S1 v1 ruling:
-    // blink/dash machinery absent) — a worn speedster must not teleport with
-    // the robot's blink. Absence is never interpreted as an axis policy.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never acted.
+    driven: crate::items::pickup::DrivenBodies,
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
@@ -110,111 +101,114 @@ pub fn blink_system(
     // that never added the engine's schedule plugin still blinks.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((
-        player,
-        mut cluster_item,
-        resolved_frame,
-        held,
-        control,
-        mut cooldown,
-        mut motion_model,
-    )) = bodies.get_mut(subject)
-    else {
-        return;
-    };
-    if !matches!(*motion_model, ambition_platformer2d_core::movement::MotionModel::AxisSwept(_)) {
-        return;
-    }
-    let c = control.0;
-    // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
-    if !c.melee_pressed || c.shield_held {
-        return;
-    }
-    if held.spec.id != BLINK_ID {
-        return;
-    }
-    // Aim from the brain-resolved frame (aim stick → movement stick → facing),
-    // rotated to world for the raycast/teleport. Body-generic — no per-ability
-    // re-reading of raw input.
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let gravity_dir = resolved_frame.down();
-    let facing = cluster_item.kinematics.facing;
-    let dir = crate::items::pickup::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
-    if dir == ae::Vec2::ZERO {
-        return;
-    }
-    // Gate on the shared movement-ability cooldown (after confirming a real blink
-    // so an aimless press doesn't burn it).
-    if !crate::ability_cooldown::try_use_ability(
-        &mut cooldown,
-        &mut commands,
-        player,
-        BLINK_COOLDOWN_S,
-    ) {
-        return;
-    }
-    let mut clusters = cluster_item.as_clusters_mut();
-    let from = clusters.kinematics.pos;
-    let half = clusters.kinematics.size * 0.5;
-    // One composited collision view (moving platforms + ECS solids included),
-    // shared by the clamp raycast and the embed safety net inside `blink_target`.
-    let collision = world.solids();
-    let target = match collision.as_ref() {
-        Some(w) => blink_target(&**w, from, dir, BLINK_DISTANCE, half),
-        // No collision world (tests / degenerate) — blink the full distance.
-        None => from + dir * BLINK_DISTANCE,
-    };
-    // THE discrete-transit authority: arrive with momentum kept, departure
-    // contacts and any attachment reconciled (ADR 0024 authority model).
-    ae::movement::transit_body(
-        &mut motion_model,
-        &mut clusters,
-        target,
-        ae::movement::TransitVelocity::Keep,
-    );
-    // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
-    // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
-    // mid-blink is a death, not a blink.
-    if let Some(log) = class_b.as_mut() {
-        log.record(player, ClassBRemap::ScriptedTeleport);
-    }
-    // Offensive blink: a small player-side shockwave at the arrival point, so you
-    // can blink *into* enemies to strike them (and the PlayerSlash source spares
-    // the player). Composes nicely with a gravity well — blink in, sweep them up.
-    hits.write(ambition_combat::events::HitEvent {
-        strike_sfx: None,
-        volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
-        damage: BLINK_SHOCKWAVE_DAMAGE,
-        source: ambition_combat::events::HitSource::Melee,
-        attacker: Some(player),
-        target: ambition_combat::events::HitTarget::Volume,
-        mode: ambition_combat::events::HitMode::Knockback,
-        knockback: None,
-        ignored_targets: Vec::new(),
-    });
-    sfx.write_for(
-        player,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_BLINK,
+    for subject in driven.entities() {
+        let Ok((
+            player,
+            mut cluster_item,
+            resolved_frame,
+            held,
+            control,
+            mut cooldown,
+            mut motion_model,
+        )) = bodies.get_mut(subject)
+        else {
+            continue;
+        };
+        if !matches!(
+            *motion_model,
+            ambition_platformer2d_core::movement::MotionModel::AxisSwept(_)
+        ) {
+            continue;
+        }
+        let c = control.0;
+        // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != BLINK_ID {
+            continue;
+        }
+        // Aim from the brain-resolved frame (aim stick → movement stick → facing),
+        // rotated to world for the raycast/teleport. Body-generic — no per-ability
+        // re-reading of raw input.
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let gravity_dir = resolved_frame.down();
+        let facing = cluster_item.kinematics.facing;
+        let dir =
+            crate::items::pickup::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
+        if dir == ae::Vec2::ZERO {
+            continue;
+        }
+        // Gate on the shared movement-ability cooldown (after confirming a real blink
+        // so an aimless press doesn't burn it).
+        if !crate::ability_cooldown::try_use_ability(
+            &mut cooldown,
+            &mut commands,
+            player,
+            BLINK_COOLDOWN_S,
+        ) {
+            continue;
+        }
+        let mut clusters = cluster_item.as_clusters_mut();
+        let from = clusters.kinematics.pos;
+        let half = clusters.kinematics.size * 0.5;
+        // One composited collision view (moving platforms + ECS solids included),
+        // shared by the clamp raycast and the embed safety net inside `blink_target`.
+        let collision = world.solids();
+        let target = match collision.as_ref() {
+            Some(w) => blink_target(&**w, from, dir, BLINK_DISTANCE, half),
+            // No collision world (tests / degenerate) — blink the full distance.
+            None => from + dir * BLINK_DISTANCE,
+        };
+        // THE discrete-transit authority: arrive with momentum kept, departure
+        // contacts and any attachment reconciled (ADR 0024 authority model).
+        ae::movement::transit_body(
+            &mut motion_model,
+            &mut clusters,
+            target,
+            ae::movement::TransitVelocity::Keep,
+        );
+        // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
+        // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
+        // mid-blink is a death, not a blink.
+        if let Some(log) = class_b.as_mut() {
+            log.record(player, ClassBRemap::ScriptedTeleport);
+        }
+        // Offensive blink: a small player-side shockwave at the arrival point, so you
+        // can blink *into* enemies to strike them (and the PlayerSlash source spares
+        // the player). Composes nicely with a gravity well — blink in, sweep them up.
+        hits.write(ambition_combat::events::HitEvent {
+            strike_sfx: None,
+            volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
+            damage: BLINK_SHOCKWAVE_DAMAGE,
+            source: ambition_combat::events::HitSource::Melee,
+            attacker: Some(player),
+            target: ambition_combat::events::HitTarget::Volume,
+            mode: ambition_combat::events::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        sfx.write_for(
+            player,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_BLINK,
+                pos: target,
+            },
+        );
+        // A wisp where you left, a flash where you arrive.
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+            pos: from,
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+            scale: 0.35,
+            pose: ambition_vfx::FxPose::UPRIGHT,
+        });
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: target,
-        },
-    );
-    // A wisp where you left, a flash where you arrive.
-    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-        pos: from,
-        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-        scale: 0.35,
-        pose: ambition_vfx::FxPose::UPRIGHT,
-    });
-    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-        pos: target,
-        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-        scale: 0.5,
-        pose: ambition_vfx::FxPose::UPRIGHT,
-    });
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+            scale: 0.5,
+            pose: ambition_vfx::FxPose::UPRIGHT,
+        });
+    }
 }
 
 #[cfg(test)]

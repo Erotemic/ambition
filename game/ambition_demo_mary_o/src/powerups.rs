@@ -1199,7 +1199,8 @@ pub fn dress_power_blocks(
 /// Re-arm every power block when its room loads or replays.
 pub fn rearm_power_blocks_for_a_fresh_attempt(
     mut rooms: MessageReader<RoomLoaded>,
-    mut replays: MessageReader<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
+    // The ADMITTED replay; see `bricks::rearm_bricks_for_a_fresh_attempt`.
+    mut replays: MessageReader<ambition_platformer2d::combat::events::RoomReplayAdmitted>,
     mut spent: ResMut<SpentPowerBlocks>,
 ) {
     let reloaded = rooms.read().count() > 0;

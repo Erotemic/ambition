@@ -27,6 +27,7 @@ const PROJECTILE_EXIT_MARGIN: f32 = 5.0;
 pub fn try_projectile_portal_transit(
     kin: &mut ae::BodyKinematics,
     portals: &[PlacedPortal],
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> bool {
     if kin.vel == ae::Vec2::ZERO {
         return false;
@@ -42,7 +43,7 @@ pub fn try_projectile_portal_transit(
             continue;
         };
         if body.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent)) {
-            kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
+            kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal, convention);
             let clearance = half.dot(exit.normal.abs()) + PROJECTILE_EXIT_MARGIN;
             kin.pos = exit.pos + exit.normal * clearance;
             return true;
@@ -54,6 +55,7 @@ pub fn try_projectile_portal_transit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_core::frame::MapConvention;
     use ambition_portal2d::{PortalChannel, PortalGunColor};
 
     fn kin(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
@@ -97,7 +99,11 @@ mod tests {
 
         // A shot whose AABB overlaps Blue's frame, flying +x into the wall.
         let mut k = kin(ae::Vec2::new(99.0, 0.0), ae::Vec2::new(360.0, 0.0));
-        assert!(try_projectile_portal_transit(&mut k, &portals));
+        assert!(try_projectile_portal_transit(
+            &mut k,
+            &portals,
+            MapConvention::Reflection
+        ));
 
         // Speed preserved through the pair rotation.
         assert!((k.vel.length() - 360.0).abs() < 1e-3);
@@ -115,7 +121,11 @@ mod tests {
     fn a_shot_not_touching_any_portal_does_not_transit() {
         let portals = [blue_facing_left(), orange_facing_right()];
         let mut k = kin(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(360.0, 0.0));
-        assert!(!try_projectile_portal_transit(&mut k, &portals));
+        assert!(!try_projectile_portal_transit(
+            &mut k,
+            &portals,
+            MapConvention::Reflection
+        ));
         assert_eq!(k.pos, ae::Vec2::new(0.0, 0.0));
     }
 
@@ -126,7 +136,11 @@ mod tests {
         let portals = [blue_facing_left(), orange_facing_right()];
         // Sitting on Orange's frame, flying +x (along Orange's normal, leaving).
         let mut k = kin(ae::Vec2::new(501.0, 0.0), ae::Vec2::new(360.0, 0.0));
-        assert!(!try_projectile_portal_transit(&mut k, &portals));
+        assert!(!try_projectile_portal_transit(
+            &mut k,
+            &portals,
+            MapConvention::Reflection
+        ));
     }
 
     #[test]
@@ -134,7 +148,8 @@ mod tests {
         let mut k = kin(ae::Vec2::new(99.0, 0.0), ae::Vec2::new(360.0, 0.0));
         assert!(!try_projectile_portal_transit(
             &mut k,
-            &[blue_facing_left()]
+            &[blue_facing_left()],
+            MapConvention::Reflection
         ));
     }
 
@@ -142,6 +157,10 @@ mod tests {
     fn a_resting_shot_never_transits() {
         let portals = [blue_facing_left(), orange_facing_right()];
         let mut k = kin(ae::Vec2::new(99.0, 0.0), ae::Vec2::ZERO);
-        assert!(!try_projectile_portal_transit(&mut k, &portals));
+        assert!(!try_projectile_portal_transit(
+            &mut k,
+            &portals,
+            MapConvention::Reflection
+        ));
     }
 }

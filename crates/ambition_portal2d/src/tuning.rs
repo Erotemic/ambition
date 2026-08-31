@@ -7,7 +7,6 @@
 
 use bevy::prelude::*;
 
-use crate::pieces::set_portal_map_rotation;
 use crate::types::{MIN_EXIT_SPEED, TELEPORT_COOLDOWN_S};
 
 /// Which isometry glues a portal pair together.
@@ -24,6 +23,21 @@ impl PortalConvention {
     /// The boolean convention used by the pure geometry layer.
     pub const fn is_rotation(self) -> bool {
         matches!(self, Self::Rotation)
+    }
+
+    /// The geometry layer's convention this names.
+    ///
+    /// ⭐ ONE VALUE, THREADED. It used to be pushed into a process-global
+    /// `AtomicBool` by a system that ran once per change; every consumer then
+    /// read the global instead of the tuning that owns it. Two providers in one
+    /// process could not disagree, and a static is not rollback state, so a
+    /// convention the inspector changed mid-session did not rewind with the
+    /// world.
+    pub const fn map_convention(self) -> ambition_platformer2d_core::frame::MapConvention {
+        match self {
+            Self::Reflection => ambition_platformer2d_core::frame::MapConvention::Reflection,
+            Self::Rotation => ambition_platformer2d_core::frame::MapConvention::Rotation,
+        }
     }
 
     /// Convert from the pure geometry layer's boolean convention.
@@ -87,7 +101,12 @@ impl Default for PortalTuning {
     }
 }
 
-/// Mirror editable Bevy state into the pure portal-map convention.
-pub fn sync_portal_tuning_convention(tuning: Res<PortalTuning>) {
-    set_portal_map_rotation(tuning.convention.is_rotation());
-}
+// ⛔⛔ `sync_portal_tuning_convention` WAS HERE, AND IT WAS THE WHOLE DEFECT. It
+// mirrored `PortalTuning::convention` into a process-global `AtomicBool` once
+// per frame so that every consumer could read the global instead of the tuning
+// that owns it. A resource copied into a static is a resource with two
+// authorities: two providers in one process could not disagree, load order
+// decided who won, and a static is not rollback state — so a convention the
+// inspector changed mid-session did not rewind with the world. Consumers take
+// `PortalTuning::map_convention()` as a parameter now, and there is nothing to
+// mirror.

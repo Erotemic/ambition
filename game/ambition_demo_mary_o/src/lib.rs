@@ -1748,7 +1748,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_message::<ambition_platformer2d::actors::features::SpawnActorRequest>();
         // The snake reset listens to the engine's ONE "put this room back"
         // signal, which a full host emits and a rules-only harness does not.
-        app.add_message::<ambition_platformer2d::combat::events::ResetRoomFeaturesEvent>();
+        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
         // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
@@ -1843,7 +1843,6 @@ impl Plugin for MaryORulesPlugin {
             // A reset hands back walkers, never the shell state the last attempt
             // left behind. First in the chain so a snake reset this frame is a
             // walker for every rule that follows it.
-            snake::reset_snakes_on_room_reset,
             snake::tag_mary_o_snakes,
             ai_slop::tag_mary_o_ai_slop,
             snake::run_snake_shells,
@@ -2403,7 +2402,7 @@ fn cycle_level_on_flag_tally(
             level.score = level.score.saturating_add(grabbed);
         }
         rearm_for_the_next_lap(&mut sequence, &mut level);
-        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         return;
     };
     // once she is EN ROUTE, the remembered target wins over the resource.
@@ -2430,7 +2429,7 @@ fn cycle_level_on_flag_tally(
             level.score = level.score.saturating_add(grabbed);
         }
         rearm_for_the_next_lap(&mut sequence, &mut level);
-        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         return;
     };
 
@@ -2496,7 +2495,7 @@ fn cycle_level_on_flag_tally(
         departure.dwell = 0.0;
         departure.target = None;
         rearm_for_the_next_lap(&mut sequence, &mut level);
-        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         return;
     }
     let arrival = set.rooms[target_index].world.spawn;
@@ -2509,7 +2508,10 @@ fn cycle_level_on_flag_tally(
     // This wrote a `RoomTransitionRequested` around a SYNTHETIC loading zone, because the
     // message could not describe a crossing nobody walked through; the intent can, so the
     // invented door goes with it.
-    pending.record(
+    // ⚠ A refused slot is ordinary and costs nothing here: the tally stays
+    // `Tallied` and this system re-asks every tick, which is the same
+    // "trigger noise is not a new request" contract a loading zone relies on.
+    let _ = pending.record(
         boundary.map_or(0, |boundary| boundary.current),
         ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
             ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {

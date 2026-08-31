@@ -265,7 +265,10 @@ pub fn detect_room_transition_system(
     // Consume the gesture only after every invariant required to describe the
     // crossing has been validated.
     slot_gestures.primary_mut().clear();
-    pending_lifecycle.record(
+    // ⚠ A refused slot is the ordinary dedupe: a loading zone re-emits every
+    // tick the body overlaps it, so the crossing is asked again next frame and
+    // nothing here has mutated anything.
+    let _ = pending_lifecycle.record(
         // an eager host has no frames to be ahead of. `0` is not a
         // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
         // so the intent is confirmed the instant it is recorded, which is what

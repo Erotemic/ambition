@@ -72,7 +72,6 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // progresses (or is superseded) in `Update`.
             AuthorizedPlan::Wait => return,
         },
-        _ => None,
     };
 
     // It touches no world and depends only on `settings`, so if it fails the room is never
@@ -118,9 +117,8 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // schedule is ordinary. The rollback-registered `PendingLifecycleCommit`
             // above is cleared from the exclusive world on a CONFIRMED frame,
             // which is the one place that is legal.
-            if let LifecycleIntent::Transition(intent) = kind {
-                retire_cancelled_room_transition(world, &intent);
-            }
+            let LifecycleIntent::Transition(intent) = kind;
+            retire_cancelled_room_transition(world, &intent);
             return;
         }
         CommitOutcome::Committed => {}
@@ -364,18 +362,6 @@ fn execute_lifecycle_commit(
         // returns before building a session. Treated as transient rather than
         // asserted, so a future caller cannot turn a mistake into a panic.
         (LifecycleIntent::Transition(_), None) => CommitOutcome::Retry,
-        // The in-place resets (death / manual / replay) are already rollback-safe
-        // executed eagerly, and the full sandbox reset was proven rollback-safe
-        // single-tick, so no consumer records these variants. Keep a stray intent
-        // pending rather than laundering a rebase for a no-op; the match stays
-        // exhaustive if deferral extends.
-        (
-            LifecycleIntent::DeathReset
-            | LifecycleIntent::ManualReset
-            | LifecycleIntent::Replay
-            | LifecycleIntent::FullReset,
-            _,
-        ) => CommitOutcome::Retry,
     }
 }
 

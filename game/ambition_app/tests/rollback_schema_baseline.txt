@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v139
+ggrs-rollback-schema-v141
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -127,6 +127,7 @@ content.level_destination	derived	LevelDestination	where the ACTIVE room's goal 
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_level_departure	component-clone	LevelDeparture	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -171,6 +172,7 @@ derived.force_zones	derived	ForceZones	per-tick zone snapshot rebuilt by collect
 derived.gated_lock_wall_cache	derived	GatedLockWallCache	authored gated walls for the active room; recomputed from the room set and LDtk project
 derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
+derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
@@ -355,13 +357,13 @@ message.portal_gun_toggle	message-clear	TogglePortalGun	clear abandoned-future m
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
-message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.ride_refused	message-clear	RideRefused	clear abandoned-future message buffer in LoadWorld::Mapping
 message.rider_dismounted	message-clear	RiderDismounted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
+message.room_replay_admitted	message-clear	RoomReplayAdmitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -446,7 +448,6 @@ resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
-resource.input_stream_recorder	resource-clone	InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.live_match_ticks	resource-canonical	LiveMatchTicks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

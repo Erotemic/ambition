@@ -99,3 +99,45 @@ fn no_grapple_without_attack_or_with_a_different_item() {
     app2.update();
     assert_eq!(player_vel(&app2, player2), ae::Vec2::ZERO);
 }
+
+/// ⭐⭐ A SECOND DRIVEN BODY GRAPPLES TOO — same singular-`ControlledSubject`
+/// defect as the blink.
+#[test]
+fn two_driven_bodies_each_grapple_the_wall_they_face() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app(Some(world_with_right_wall()));
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    // Both to the left of the same wall, at different heights.
+    let a = spawn_seated_body_holding(
+        &mut app,
+        GRAPPLE_ID,
+        0,
+        "seat_a",
+        ae::Vec2::new(100.0, 150.0),
+    );
+    let b = spawn_seated_body_holding(
+        &mut app,
+        GRAPPLE_ID,
+        1,
+        "seat_b",
+        ae::Vec2::new(100.0, 250.0),
+    );
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+    assert!(
+        player_vel(&app, a).x > 0.0,
+        "seat a was not yanked toward the wall: {:?}",
+        player_vel(&app, a)
+    );
+    assert!(
+        player_vel(&app, b).x > 0.0,
+        "seat b was not yanked toward the wall: {:?}",
+        player_vel(&app, b)
+    );
+}

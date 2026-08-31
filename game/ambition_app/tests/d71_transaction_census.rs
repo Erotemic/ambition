@@ -304,7 +304,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     };
     let avatar_before = primary_pos(&mut sim);
 
-    sim.world_mut()
+    let _ = sim.world_mut()
         .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,

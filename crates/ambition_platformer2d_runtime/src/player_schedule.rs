@@ -306,7 +306,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             ambition_platformer2d_actor_monolith::session::death::close_death_interlude
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .before(crate::sandbox_reset::RoomReplayApplied),
+                .before(crate::sandbox_reset::RoomReplayAdmission),
         );
         // Every respawn in the workspace announces itself through the derived
         // `BodyRestarted`, so returning a body to play needs no line at any of

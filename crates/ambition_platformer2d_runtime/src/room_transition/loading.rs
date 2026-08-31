@@ -462,10 +462,9 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
     /// the refusal can say whether it is refusing ANYTHING, so a silently
     /// stalled game is distinguishable from an idle one.
     fn get_unconfirmed(&self) -> Option<&RoomTransitionIntent> {
-        match &self.pending.peek()?.kind {
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
-            _ => None,
-        }
+        let ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) =
+            &self.pending.peek()?.kind;
+        Some(transition)
     }
 
     fn get(&self) -> Option<&RoomTransitionIntent> {
@@ -474,12 +473,12 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
             self.boundary.as_deref(),
             self.confirmation.state(),
         )?;
-        match &self.pending.confirmed(confirmed)?.kind {
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
-            // The in-place resets are not transitions and open no transaction;
-            // the confirmed-lifecycle committer owns them.
-            _ => None,
-        }
+        // ⭐ ONE VARIANT. The four in-place reset variants were deleted in v140:
+        // nothing recorded them, and a same-room replay is a transition to the
+        // room you are standing in.
+        let ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) =
+            &self.pending.confirmed(confirmed)?.kind;
+        Some(transition)
     }
 }
 

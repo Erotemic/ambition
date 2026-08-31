@@ -44,6 +44,18 @@ pub struct Platformer2dSimHarnessOptions {
     ///  the composition, not the roster, has to say this. By the time a roster
     /// is published the avatar has already been built.
     pub seats_a_match: bool,
+    /// Boot this harness WITH a save file already loaded, the way the binary
+    /// does.
+    ///
+    /// ⭐⭐ THE ORDERING IS THE WHOLE POINT. In the shipped game
+    /// `load_save_at_startup` runs in `Startup`, so the file's bytes are in the
+    /// world BEFORE the session activates and builds its first room. A test that
+    /// writes the save into a running session instead can only ever measure the
+    /// correction road; it cannot reach the question of what the first
+    /// construction knew. This option inserts `AmbitionGameSave` before the
+    /// harness's first `update`, which is the same pair of facts the startup
+    /// loader produces: bytes present, `SaveRestored` false.
+    pub save: Option<ambition_platformer2d::session::AmbitionGameSaveData>,
 }
 
 impl Platformer2dSimHarnessOptions {
@@ -106,6 +118,12 @@ impl Platformer2dSimHarnessOptions {
         };
         self.fixed_tick = false;
         self.timestep = TimestepMode::fixed_60hz();
+        self
+    }
+
+    /// Builder: boot with a save file already loaded (see [`Self::save`]).
+    pub fn with_save(mut self, save: ambition_platformer2d::session::AmbitionGameSaveData) -> Self {
+        self.save = Some(save);
         self
     }
 

@@ -2,20 +2,19 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
 use ambition_input::ControlFrame;
-use ambition_platformer2d_shared_tangle::gravity::{
-    gravity_upright_angle, GravityField,
-};
-use ambition_platformer2d_shared_tangle::orientation::{update_actor_roll, ActorRoll};
-use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
+use ambition_platformer2d_shared_tangle::gravity::{gravity_upright_angle, GravityField};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::orientation::{update_actor_roll, ActorRoll};
+use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 #[allow(unused_imports)]
 use super::*;
 use ambition_platformer2d_core::cast::raycast_solids;
+use ambition_platformer2d_core::frame::MapConvention;
 use ambition_portal2d::*;
 
 // Channel shorthands for the tests: the gun's pair (Blue/Orange) and two authored
@@ -235,6 +234,7 @@ fn raycast_sees_through_a_portal_pair_and_recurses() {
         6000.0,
         false,
         2,
+        MapConvention::Reflection,
     );
     assert!(
         hit.is_some_and(|(p, n)| (p.x - 20.0).abs() < 1.0 && n.x > 0.5),
@@ -251,6 +251,7 @@ fn ground_ground_keeps_horizontal_direction() {
         Vec2::new(120.0, 200.0),
         Vec2::new(0.0, -1.0),
         Vec2::new(0.0, -1.0),
+        MapConvention::Reflection,
     );
     assert!(
         out.x > 0.0,
@@ -272,6 +273,7 @@ fn velocity_transform_rotates_through_perpendicular_portals() {
         Vec2::new(0.0, 100.0),
         Vec2::new(0.0, -1.0),
         Vec2::new(-1.0, 0.0),
+        MapConvention::Reflection,
     );
     assert!(
         (out.x + 100.0).abs() < 0.01 && out.y.abs() < 0.01,
@@ -284,6 +286,8 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     use crate::portal::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
     use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
     let mut app = App::new();
+    // The map convention is the session's, and the teleport reads it from here.
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     // The content adapter brackets the core teleport: attach + sync the
     // PortalTransitable body before, mirror it back to GroundItem after.
     app.add_systems(
@@ -473,17 +477,47 @@ fn facing_flip_policy_is_convention_aware() {
 
     // Reflection convention: same-wall is the only suppressed-roll mirror, so
     // facing flips to keep the leading side leading out.
-    assert!(portal_facing_flips_for_convention(false, left, left, g));
+    assert!(portal_facing_flips_for_convention(
+        MapConvention::Reflection,
+        left,
+        left,
+        g
+    ));
     // Walls facing EACH OTHER (portal_bridge) go straight through.
-    assert!(!portal_facing_flips_for_convention(false, right, left, g));
+    assert!(!portal_facing_flips_for_convention(
+        MapConvention::Reflection,
+        right,
+        left,
+        g
+    ));
     // Floor/ceiling pairs carry their visible turn in roll, not facing.
-    assert!(!portal_facing_flips_for_convention(false, up, up, g));
-    assert!(!portal_facing_flips_for_convention(false, down, down, g));
-    assert!(!portal_facing_flips_for_convention(false, up, left, g));
+    assert!(!portal_facing_flips_for_convention(
+        MapConvention::Reflection,
+        up,
+        up,
+        g
+    ));
+    assert!(!portal_facing_flips_for_convention(
+        MapConvention::Reflection,
+        down,
+        down,
+        g
+    ));
+    assert!(!portal_facing_flips_for_convention(
+        MapConvention::Reflection,
+        up,
+        left,
+        g
+    ));
 
     // Rotation convention is a proper orientation map: no extra mirror is ever
     // needed, including the same-wall 180-degree case.
-    assert!(!portal_facing_flips_for_convention(true, left, left, g));
+    assert!(!portal_facing_flips_for_convention(
+        MapConvention::Rotation,
+        left,
+        left,
+        g
+    ));
 }
 
 #[test]
@@ -496,14 +530,23 @@ fn somersault_policy_is_convention_aware() {
 
     // Reflection convention keeps the historical gravity-platformer
     // accommodation: floor/ceiling tumble, wall↔wall stays upright.
-    assert!((somersault_roll_for_convention(false, up, up, g).abs() - PI).abs() < 1e-5);
-    assert!((somersault_roll_for_convention(false, down, down, g).abs() - PI).abs() < 1e-5);
-    assert!(somersault_roll_for_convention(false, left, left, g).abs() < 1e-5);
+    assert!(
+        (somersault_roll_for_convention(MapConvention::Reflection, up, up, g).abs() - PI).abs()
+            < 1e-5
+    );
+    assert!(
+        (somersault_roll_for_convention(MapConvention::Reflection, down, down, g).abs() - PI).abs()
+            < 1e-5
+    );
+    assert!(somersault_roll_for_convention(MapConvention::Reflection, left, left, g).abs() < 1e-5);
     // A floor→wall pair still tumbles 90° (it genuinely reorients).
-    assert!(somersault_roll_for_convention(false, up, left, g).abs() > 1.0);
+    assert!(somersault_roll_for_convention(MapConvention::Reflection, up, left, g).abs() > 1.0);
 
     // Rotation convention is a proper map, so same-wall is now a true 180° roll.
-    assert!((somersault_roll_for_convention(true, left, left, g).abs() - PI).abs() < 1e-5);
+    assert!(
+        (somersault_roll_for_convention(MapConvention::Rotation, left, left, g).abs() - PI).abs()
+            < 1e-5
+    );
 }
 
 #[test]
@@ -513,29 +556,41 @@ fn held_input_warp_gate_is_convention_aware() {
 
     // Reflection: same-wall flips horizontal movement; floor↔floor preserves it.
     assert!(portal_input_warp_flips_horizontal_for_convention(
-        false, left, left
+        MapConvention::Reflection,
+        left,
+        left
     ));
     assert!(!portal_input_warp_flips_horizontal_for_convention(
-        false, up, up
+        MapConvention::Reflection,
+        up,
+        up
     ));
 
     // Rotation: both same-wall and floor↔floor are proper 180-degree rotations,
     // so held horizontal movement must flip to keep helping the transformed
     // velocity instead of fighting it.
     assert!(portal_input_warp_flips_horizontal_for_convention(
-        true, left, left
+        MapConvention::Rotation,
+        left,
+        left
     ));
     assert!(portal_input_warp_flips_horizontal_for_convention(
-        true, up, up
+        MapConvention::Rotation,
+        up,
+        up
     ));
 
     // A 90-degree floor→wall turn maps horizontal input to vertical; the
     // platformer movement controller cannot express that as ordinary movement.
     assert!(!portal_input_warp_flips_horizontal_for_convention(
-        true, up, left
+        MapConvention::Rotation,
+        up,
+        left
     ));
     assert!(!portal_input_warp_flips_horizontal_for_convention(
-        false, up, left
+        MapConvention::Reflection,
+        up,
+        left
     ));
 }
 

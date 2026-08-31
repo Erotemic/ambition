@@ -158,6 +158,11 @@ pub fn possession_trigger_system(
             Option<&ambition_characters::actor::BodyHealth>,
             // The world's hands are off this body — it is not a target either.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // ⭐ THE TIE-BREAK. Two candidates equidistant from the home body is
+            // an ordinary arrangement, and picking between them by Bevy query
+            // order is picking by archetype order — which differs between a live
+            // tick and the resimulated one that replaces it.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         ),
         (
             With<FeatureSimEntity>,
@@ -215,18 +220,24 @@ pub fn possession_trigger_system(
         return;
     };
     let home_pos = home_clusters.kinematics.pos;
-    let nearest = candidates
-        .iter()
-        // Structural tangibility gate: a dead body is an
-        // intangible corpse — you cannot possess a corpse. Excluded BEFORE
-        // distance selection so a nearer corpse never shadows a farther live body.
-        .filter(|(_, _, health, out_of_play)| {
-            !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
-        })
-        .map(|(entity, aabb, _, _)| (entity, (aabb.center - home_pos).length()))
-        .filter(|(_, dist)| *dist <= POSSESS_RADIUS)
-        .min_by(|a, b| a.1.total_cmp(&b.1));
-    let Some((target, _)) = nearest else {
+    // ⭐ NEAREST, THEN STABLE IDENTITY — the one shape every contest in this
+    // engine uses. `min_by` on distance alone answered a tie with whichever
+    // candidate the query happened to yield first.
+    let nearest = ambition_platformer2d_shared_tangle::sim_selection::winner_by(
+        candidates
+            .iter()
+            // Structural tangibility gate: a dead body is an
+            // intangible corpse — you cannot possess a corpse. Excluded BEFORE
+            // distance selection so a nearer corpse never shadows a farther live body.
+            .filter(|(_, _, health, out_of_play, _)| {
+                !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
+            })
+            .map(|(entity, aabb, _, _, id)| (entity, (aabb.center - home_pos).length(), id))
+            .filter(|(_, dist, _)| *dist <= POSSESS_RADIUS),
+        |(_, dist, _)| *dist,
+        |(_, _, id)| *id,
+    );
+    let Some((target, _, _)) = nearest else {
         return;
     };
 

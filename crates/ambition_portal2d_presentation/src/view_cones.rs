@@ -659,9 +659,15 @@ fn portal_parallax_anchor_world(
     host_view: Option<&PortalCameraContinuityHostView>,
     enter: &PortalAperture,
     exit: &PortalAperture,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<Vec2> {
     host_view.filter(|v| v.initialized).map(|v| {
-        ambition_portal2d::pieces::map_point(v.current_center_world, &enter.frame, &exit.frame)
+        ambition_portal2d::pieces::map_point(
+            v.current_center_world,
+            &enter.frame,
+            &exit.frame,
+            convention,
+        )
     })
 }
 
@@ -687,6 +693,7 @@ fn portal_capture_camera_frame(
     host_view: Option<&PortalCameraContinuityHostView>,
     enter: &PortalAperture,
     exit: &PortalAperture,
+    convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<geometry::CaptureCameraFrame> {
     if config.capture_camera_mode != PortalCaptureCameraMode::MappedCameraSnapshot {
         return None;
@@ -702,7 +709,8 @@ fn portal_capture_camera_frame(
     // cardinal portals, and the mesh's entry polygon is clipped to this same
     // host rect, so every mapped vertex now lands inside the capture frame.
     let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
-    let mapped = ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame);
+    let mapped =
+        ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
     Some(geometry::CaptureCameraFrame {
         center: mapped.center(),
         size: mapped.half_size() * 2.0,
@@ -731,6 +739,16 @@ use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 /// When [`crate::PortalEffectSelection`] is not on `ViewCones`, every rig is
 /// DESPAWNED (cameras included) rather than hidden, so an A/B profile against
 /// the other effects measures the true cost of the capture passes.
+/// The asset stores the cone rig writes, bundled so the system stays inside
+/// Bevy's sixteen-parameter ceiling. Grouping is what the ceiling asks for; the
+/// three were already one concern.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ConeRigAssets<'w> {
+    images: ResMut<'w, Assets<Image>>,
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<ColorMaterial>>,
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn sync_portal_view_cones(
     mut commands: Commands,
@@ -740,9 +758,7 @@ pub fn sync_portal_view_cones(
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut assets: ConeRigAssets,
     time: Res<Time>,
     portals: Query<&PlacedPortal>,
     cone_materials: Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,
@@ -759,7 +775,18 @@ pub fn sync_portal_view_cones(
         (With<PortalConeMesh>, Without<PortalViewRig>),
     >,
     screen_density: GameplayScreenDensity,
+    // The session's portal map convention, from the resource that owns it.
+    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
+    let (images, meshes, materials) = (
+        &mut *assets.images,
+        &mut *assets.meshes,
+        &mut *assets.materials,
+    );
+    let convention = tuning
+        .as_deref()
+        .map(|tuning| tuning.convention.map_convention())
+        .unwrap_or_default();
     if selection.active != crate::PortalVisualEffect::ViewCones {
         for (entity, rig, ..) in &rigs {
             commands.entity(entity).despawn();
@@ -801,7 +828,7 @@ pub fn sync_portal_view_cones(
         };
         let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
-            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
+            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit, convention);
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -827,9 +854,9 @@ pub fn sync_portal_view_cones(
             rig.parallax_layer,
             &other_window_layers(&all, rig.channel),
         );
-        sync_cone_material_tint(&cone_materials, &mut materials, rig.cone, config.tint);
+        sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
 
-        let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
+        let plan = compute_cone(&portal, &partner, &config, viewer, frame.size, convention);
         if plan.target <= 0.0 {
             rig.blend = 0.0;
             cam.is_active = false;
@@ -845,7 +872,7 @@ pub fn sync_portal_view_cones(
             let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
             rig.blend += (plan.target - rig.blend) * step;
         }
-        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit, convention);
         let (z, pane_dominant) =
             pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
         rig.pane_dominant = pane_dominant;
@@ -859,6 +886,7 @@ pub fn sync_portal_view_cones(
             clip_max,
             z,
             capture_frame,
+                convention,
         );
         match render {
             Some(r) => {
@@ -868,7 +896,7 @@ pub fn sync_portal_view_cones(
                 cam_tf.translation = r.cam_center;
                 rig.parallax_anchor = frame
                     .to_render(
-                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit)
+                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit, convention)
                             .unwrap_or_else(|| (r.source_min + r.source_max) * 0.5),
                         0.0,
                     )
@@ -919,7 +947,7 @@ pub fn sync_portal_view_cones(
         }
         let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
-            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
+            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit, convention);
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -939,7 +967,7 @@ pub fn sync_portal_view_cones(
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
+        let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
         // Spawn at the target blend (no opening animation on appear).
         let cone = if plan.target > 0.0 {
             Some(blend_cones(
@@ -948,6 +976,7 @@ pub fn sync_portal_view_cones(
                 smooth01(plan.target),
                 &enter,
                 &exit,
+                convention,
             ))
         } else {
             None
@@ -964,6 +993,7 @@ pub fn sync_portal_view_cones(
                 clip_max,
                 z,
                 capture_frame,
+                convention,
             )
         });
         let mesh = meshes.add(match &render {
@@ -1072,7 +1102,7 @@ pub fn sync_portal_view_cones(
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 parallax_anchor: frame
                     .to_render(
-                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit)
+                        portal_parallax_anchor_world(host_view.as_deref(), &enter, &exit, convention)
                             .or_else(|| {
                                 render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5)
                             })

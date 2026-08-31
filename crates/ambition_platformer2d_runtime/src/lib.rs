@@ -66,7 +66,8 @@ pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
 pub use room_transition::RoomTransitionComposerPlugin;
 pub use sandbox_reset::{
-    apply_room_replay_request_system, reset_sandbox, RoomReplayApplied, RoomReplaySchedulePlugin,
+    admit_room_replay, reset_sandbox, return_the_replay_subject_to_spawn, RoomReplayAdmission,
+    RoomReplayConsequences, RoomReplaySchedulePlugin,
 };
 pub use sim_core_resources::SimCoreResourcesPlugin;
 

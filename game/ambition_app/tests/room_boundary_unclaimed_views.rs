@@ -233,7 +233,7 @@ fn cross_observing_with(
             .expect("the room has a primary avatar to send across its boundary")
             .clone()
     };
-    app.world_mut()
+    let _ = app.world_mut()
         .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,

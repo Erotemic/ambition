@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::pieces::{self as pp, PortalFrame};
+use crate::pieces::{self as pp, MapConvention, PortalFrame};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
@@ -25,7 +25,9 @@ use super::types::{find_portal, PlacedPortal};
 ///
 /// THE GAMEPLAY WRAPPER (CC5): the traversal itself is engine geometry —
 /// [`ae::cast::ray_through_apertures`] — this function supplies the aperture
-/// pairs from the placed portals and the game-wide map convention.
+/// pairs from the placed portals, and the caller supplies the map convention
+/// its session is playing under.
+#[allow(clippy::too_many_arguments)]
 pub fn raycast_through_portals(
     world: &ae::World,
     portals: &[PlacedPortal],
@@ -34,6 +36,7 @@ pub fn raycast_through_portals(
     max_dist: f32,
     include_one_way: bool,
     max_depth: u32,
+    convention: MapConvention,
 ) -> Option<(Vec2, Vec2)> {
     let pairs: Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> = portals
         .iter()
@@ -42,11 +45,6 @@ pub fn raycast_through_portals(
             Some((enter.aperture(), exit.aperture()))
         })
         .collect();
-    let convention = if pp::portal_map_rotation() {
-        ae::frame::MapConvention::Rotation
-    } else {
-        ae::frame::MapConvention::Reflection
-    };
     ae::cast::ray_through_apertures(
         world,
         &pairs,
@@ -77,6 +75,7 @@ pub fn raycast_through_portals_tuned(
         max_dist,
         include_one_way,
         tuning.raycast_recursion_depth,
+        tuning.convention.map_convention(),
     )
 }
 
@@ -105,21 +104,15 @@ fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
 /// gravity-platformer accommodation where wall↔wall crossings stay upright and
 /// express their mirror through [`portal_facing_flips_for_convention`].
 pub fn somersault_roll_for_convention(
-    rotation_convention: bool,
+    convention: MapConvention,
     n_in: Vec2,
     n_out: Vec2,
     gravity_dir: Vec2,
 ) -> f32 {
-    if !rotation_convention && wall_to_wall(n_in, n_out, gravity_dir) {
+    if convention == MapConvention::Reflection && wall_to_wall(n_in, n_out, gravity_dir) {
         return 0.0;
     }
     portal_transit_roll(n_in, n_out)
-}
-
-/// The somersault roll a body picks up crossing a portal pair under the active
-/// game-wide map convention.
-pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
-    somersault_roll_for_convention(pp::portal_map_rotation(), n_in, n_out, gravity_dir)
 }
 
 /// Whether the body's horizontal FACING flips through this portal pair.
@@ -130,20 +123,14 @@ pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
 /// the leading side still leads out. Under rotation convention the map is a
 /// proper rotation, so facing is carried by roll and no separate mirror applies.
 pub fn portal_facing_flips_for_convention(
-    rotation_convention: bool,
+    convention: MapConvention,
     n_in: Vec2,
     n_out: Vec2,
     gravity_dir: Vec2,
 ) -> bool {
-    !rotation_convention
+    convention == MapConvention::Reflection
         && wall_to_wall(n_in, n_out, gravity_dir)
         && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
-}
-
-/// Whether the body's horizontal FACING flips through this portal pair under
-/// the active game-wide map convention.
-pub fn portal_facing_flips(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
-    portal_facing_flips_for_convention(pp::portal_map_rotation(), n_in, n_out, gravity_dir)
 }
 
 /// Whether held horizontal movement should be temporarily mapped through the
@@ -153,22 +140,12 @@ pub fn portal_facing_flips(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
 /// input into vertical movement, which the platformer controller cannot express
 /// as ordinary movement, so they stay on the emergence guard alone.
 pub fn portal_input_warp_flips_horizontal_for_convention(
-    rotation_convention: bool,
+    convention: MapConvention,
     n_in: Vec2,
     n_out: Vec2,
 ) -> bool {
-    let mapped = if rotation_convention {
-        pp::portal_map_vec_rotation(Vec2::X, n_in, n_out)
-    } else {
-        pp::portal_map_vec_reflection(Vec2::X, n_in, n_out)
-    };
+    let mapped = pp::portal_map_vec(Vec2::X, n_in, n_out, convention);
     mapped.x < -0.5 && mapped.y.abs() < 0.5
-}
-
-/// Whether held horizontal movement should be temporarily mapped through the
-/// portal after a transfer under the active game-wide convention.
-pub fn portal_input_warp_flips_horizontal(n_in: Vec2, n_out: Vec2) -> bool {
-    portal_input_warp_flips_horizontal_for_convention(pp::portal_map_rotation(), n_in, n_out)
 }
 
 /// Does an actor of `size` fit through `portal`? The opening the actor must
@@ -343,7 +320,7 @@ fn transfer_step(
     gravity_dir: Vec2,
     tuning: &PortalTuning,
 ) -> TransitStep {
-    let rotation = tuning.convention.is_rotation();
+    let convention = tuning.convention.map_convention();
     let ef = enter.frame();
     let xf = exit.frame();
     // Galilean composition (CC6, §7): map the body's velocity RELATIVE to the
@@ -351,7 +328,8 @@ fn transfer_step(
     // v_out = map(v − v_enter) + v_exit. Static portals (both velocities
     // zero) reduce to the pre-CC6 arithmetic exactly.
     let mut vel_out =
-        portal_transform_velocity(vel - ef.velocity, enter.normal, exit.normal) + xf.velocity;
+        portal_transform_velocity(vel - ef.velocity, enter.normal, exit.normal, convention)
+            + xf.velocity;
     // Floor the exit speed along the exit normal so a slow walk-in still emerges
     // instead of stalling in the opening. The floor applies in the EXIT
     // aperture's REST frame (§5-P2): a moving exit must neither trivially
@@ -362,7 +340,7 @@ fn transfer_step(
         vel_out = tangential + exit.normal * tuning.min_exit_speed + xf.velocity;
     }
     TransitStep::Transfer {
-        pos: pp::map_point(center, &ef, &xf),
+        pos: pp::map_point(center, &ef, &xf, convention),
         vel: vel_out,
         // The body picks up the on-screen turn it travels through (a tumble for floor/ceiling,
         // nothing for a wall↔wall turn-around); `update_actor_roll` then eases it back to
@@ -370,19 +348,19 @@ fn transfer_step(
         // process global. `PortalTuning::convention` is right here in the argument list, and the
         // pure helpers already expose `*_for_convention` forms that take it.
         roll_delta: somersault_roll_for_convention(
-            rotation,
+            convention,
             enter.normal,
             exit.normal,
             gravity_dir,
         ),
         facing_flip: portal_facing_flips_for_convention(
-            rotation,
+            convention,
             enter.normal,
             exit.normal,
             gravity_dir,
         ),
         input_warp: portal_input_warp_flips_horizontal_for_convention(
-            rotation,
+            convention,
             enter.normal,
             exit.normal,
         ),

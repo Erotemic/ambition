@@ -694,10 +694,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "hosted on a `GeoFaceRef` (a stable `GeoId` + face), which is the stable identity G2b asks for — deliberately never an entity handle",
         ),
         (
-            "ambition_platformer2d_runtime::input_stream::InputStreamRecorder",
-            "the recorded input stream itself; grows every frame by design",
-        ),
-        (
             "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState",
             "presentation camera state, republished from the blink clock",
         ),

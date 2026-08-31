@@ -76,6 +76,7 @@ mod hall_transition_cover;
 mod held_projectile_portal_transit;
 mod hit_shakes_the_camera;
 mod input_stream_replay;
+mod input_stream_under_rollback;
 mod isolated_persistence;
 mod mary_o_hud_surround;
 mod mary_o_lap_in_the_host;

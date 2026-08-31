@@ -41,17 +41,162 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-✔ **D-RESTORE-FACTS — measured, and it is a shape rather than a defect.** A save
+- ▢ **D-RESTORE-SIM-LOCAL — `restore_checkpoint_on_session_start` keeps its
+  once-per-session memory in two `Local`s on a SIM system.** `applied_for` and
+  `routed_for` do not rewind, so a resimulation that crossed the routing frame
+  would re-request or skip the resume. Unreachable today only because a confirmed
+  transition rebases GGRS onto a new frame zero, which is a correctness that
+  moves when the rebase does — the same argument, and the same verdict, as the
+  Mary-O room memory in `rollback_room_memory.rs`. Acceptance: the memory is
+  rollback state, or a test shows the rebase makes divergence unreachable and
+  says so where the `Local`s are. Owner:
+  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+- ▢ **D-RESTORE-LEDGER-SCOPE — `AuthoredOccurrences` is app-level, not
+  session-scoped.** It is absent from `SessionScopedResources`, so a second
+  gameplay session in one process inherits the first's ledger. Noticed while
+  moving adoption to the activation edge; not measured. Acceptance: two sessions
+  in one process, the second with an empty save, and the second does not see the
+  first's rows. Owner:
+  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+✔ **D-RESTORE-COLLISION — the two checkpoint roads collide, and it is benign.**
+`restore_checkpoint_on_session_start` records a transition to the checkpoint's
+room on the first tick a body exists; `resume_at_checkpoint_on_reset` records one
+too, from the `ResetToCheckpoint` the durable chain writes. The slot is
+earliest-sticky, so the second gets `AlreadyPending`, writes no
+`RoomReplayAdmitted`, and the reset message is drained either way. ⭐ MEASURED:
+both roads ask for the SAME destination and arrival, and the only thing the loser
+drops is the replay announcement, whose consumer is the attempt-residue sweep —
+and a session start has no previous attempt. Poisoning EITHER road alone leaves
+the arm green; poisoning BOTH reddens it, which is what makes
+`a_save_with_a_checkpoint_and_an_occurrence_lands_both` a guard of the end-to-end
+contract rather than a check that cannot fail. ⛔ The first version of that arm
+was VACUOUS and all three poisons passed: it relocated an object of the room the
+session OPENS in, which the destination never authors, so the suppression was
+guaranteed by arithmetic. The row now relocates one of the RESUME room's own
+objects. ⚠ NOT closed by this: the two `Local`s — see D-RESTORE-SIM-LOCAL.
+
+✔ **D-RESTORE-INTERIM — a load builds its first room right, instead of building
+it wrong and correcting it.** Activation passed `continuity: None` with the
+comment *"there is no earlier occurrence of anything to have a disposition
+yet"* — true for a fresh session, false for a LOAD, whose file has been on disk
+since before the process started. So a room whose object the save says is lying
+next door authored it anyway; the durable chain then ran in `Update`, latched,
+asked for a checkpoint resume, and the room-transition road rebuilt the room
+several ticks later with the ledger in hand. Measured: two live things behind
+one identity for two frames of a real startup load — in a window where combat,
+pickups and encounters all run ungated on `SaveRestored`, so the body that
+picked one of them up wrote its custody over the very row the correction was
+about to read. ⭐ THE LEDGER LEG NEEDS NO BODY, which is why it could move: only
+the item/wallet leg of the durable chain requires a primary body, so ledger
+adoption now runs at `SessionScopeSet::Activate` — the seam whose stated promise
+is "before any provider constructs the world these values describe" — and
+activation passes the real `OccurrenceContinuity`. The temporary population is
+never built. Guarded by
+`a_load_never_authors_the_occurrence_it_is_about_to_suppress`, which samples
+EVERY frame rather than the ends (both endpoints answered "absent" while the
+middle answered "present" — the shape a two-endpoint test cannot see), red under
+each leg poisoned separately. ⭐ It needed a harness that boots WITH a save the
+way the binary does: `Platformer2dSimHarnessOptions::with_save`, inserting the
+file before the first update. Writing a save into a RUNNING session can only
+measure the correction road. The save types moved onto the SDK's `session`
+surface for it — the durable state a session resumes from is a session concept —
+which is the gap `sim-harness-names-only-the-public-sdk` predicts by name.
+⚠ STILL OPEN, and now its own row: D-RESTORE-COLLISION.
+
+✔ **D-INPUT-RECORDER — the input recorder was quadratic rollback state.**
+`InputStreamRecorder` was `rollback_resource_clone`, so every GGRS save cloned
+the WHOLE recorded input history and saving frame N cost N. It was registered
+for a reason: `InputStream::push` was append-only, so a resimulated tick
+recorded itself a second time and only the restore kept the stream contiguous.
+⭐ `push` IS TICK-ADDRESSED NOW — re-recording a tick the stream has already
+passed discards the abandoned tail and rewrites from there, which is what a
+rewind MEANS. The recorder reproduces its own correct state from the
+resimulation, so it is `declare_rollback_derived_resource` and carries no
+snapshot bytes at all; the confirmed prefix, which is the part that grows, never
+moves. Guarded by `input_stream_under_rollback.rs`: the same script through an
+eager host and a `check_distance: 4` sync-test host produces the same recording
+(RED by poisoning `push` back to append-only), plus an arm asserting the
+registration is `Derived` — because restoring the stream is ALSO a way to keep
+it contiguous, just the expensive way, and the behavioural test alone could not
+tell them apart. ⚠ The two hosts do not start on the same `SimTick`, so the
+comparison is on the recorded SEQUENCE, not absolute tick numbers.
+`GGRS_ROLLBACK_SCHEMA_VERSION` 140 → 141: a peer that snapshots the recorder
+and one that does not cannot agree, so removing bytes is still a wire change.
+
+✔ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
+Nine held-item abilities read `Res<ControlledSubject>` — one entity by
+construction — so a couch's second seat and a possessed body never acted:
+`ranged/{volley, meteor, beam, vortex}`, `thrown/puppy_slug_gun` and
+`traversal/{grapple, dive, blink, mark_recall}`. All nine now loop
+`DrivenBodies` (the possessed subject ∪ seated bodies, ordered by `SimId`), and
+every per-body exit is a `continue`. The held bolt carries
+`ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
+component the ECS projectile road uses — so `held_projectile_step` credits a
+hit to whoever fired it instead of `Query<Entity, PrimaryPlayerOnly>`. Looping
+exposed one new defect and it is fixed: the summon cap counted a query, which
+cannot see this tick's `Commands` spawns, so N seats firing together each read
+the same pre-tick count and every one of them summoned. Ten guards, each proven
+RED by poisoning `DrivenBodies::entities()` back to the single subject (9) and
+the bolt's attacker back to the primary slot (1). NOT in scope and NOT changed:
+presentation readers (the portal eye, the drawn gun, control prompts, camera)
+where one viewpoint is correct — see D-CONTROL-INTERACT for the rest.
+
+✔ **D-PORTAL-POLICY — the portal map convention is a threaded value, not a
+process global.** `PORTAL_MAP_ROTATION: AtomicBool` in `shared_tangle::math` is
+deleted along with the per-frame system that mirrored `PortalTuning::convention`
+into it. Every consumer takes `MapConvention` as a parameter now, resolved from
+the tuning at its own system boundary — about forty call sites across the pure
+math, the piece layer, view cones, the presentation rigs, the host camera
+continuity, projectile transit and the content adapters. ⭐ THE TWO DEFAULTS
+DISAGREED: the static defaulted to Reflection and `PortalTuning::default()` says
+Rotation, reconciled only by the mirror system — so every fixture that never ran
+it silently played under a different convention than production, and one test's
+anti-vacuity assertion was resting on exactly that. Guarded by
+`two_sessions_in_one_process_keep_their_own_portal_conventions` (the acceptance,
+run in both orders) and by `engine.platformer-math-holds-no-process-state`,
+which forbids the shape returning and was verified red.
+
+✔ **D-SIM-SELECT — the last two selection sites now break ties on identity.**
+The row named three; one was already closed (projectile-victim ties carry a
+stable `(distance, x, y)` key). The two live ones were bare
+`min_by(total_cmp)` on distance: possession candidates and the pickup magnet.
+Both go through `sim_selection::winner_by(metric, SimId)` now — nearest first,
+identity last — and both carry a spawn-order arm modelled on the projectile
+tie-break's: the same two bodies spawned left-then-right and right-then-left,
+with the identities fixed to POSITION rather than to the spawn slot, so "the
+same winner" means the same body and not the same index. Each verified red by
+poisoning its identity function to `None`, which is the exact shape of having no
+tie-break at all.
+
+✔ **D-REPLAY-RESIDUAL — the dead intent variants are gone and one listener was
+measured redundant.** `LifecycleIntent` carried `DeathReset`, `ManualReset`,
+`Replay` and `FullReset`; nothing recorded any of them and a stray one would
+have returned `CommitOutcome::Retry` forever — a silent stall wearing an
+exhaustive match's clothes. Deleted, with their codec branches; tags 0/1/2/4 now
+refuse to decode. ⛔ THE READABLE SCHEMA DUMP COULD NOT SEE THAT: same stable
+name, same encoder type, same projection, so every wire ledger stayed green
+while the encoding changed. `GGRS_ROLLBACK_SCHEMA_VERSION` is what that class of
+change is for — 139 → 140. Mary-O's `reset_snakes_on_room_reset` was deleted,
+but only after a cover test was written: gutting it left all 41 Mary-O tests
+green, which is evidence that nothing covered it rather than evidence of
+redundancy. Gravity's `reset_gravity_on_room_reset` STAYS — `BaseGravity` is a
+session-scoped resource and no room rebuild touches a resource. Two legs remain
+unpinned and their tests say so: `return_the_replay_subject_to_spawn`'s use of
+the admitted subject, and `follow_the_active_room`'s room memory.
+
+✔ **D-RESTORE-FACTS — measured, and the SHAPE is provisionally kept.** A save
 load builds its first room with no occurrence continuity and the file's facts
 then correct it. Measured: the correction lands on the same authoritative
 population an in-session re-entry produces, both for an empty file and for a
 file carrying a relocated occurrence (`canonical_reconstitution.rs` cases 7-8,
-both red under a poisoned `outlook_for`). Removing the build-then-correct shape
-is worth doing when it buys something concrete — a load currently pays for a
-room construction it is about to replace, and the window between the two is
-where a fact re-derived from live state can overwrite a restored one — not for
-tidiness. `ResetToCheckpoint`'s contract, which claimed it was "not a save
-load", is reconciled.
+both red under a poisoned `outlook_for`). ⚠ That was EVENTUAL convergence, and
+the interim population it left unproven is now gone: D-RESTORE-INTERIM moved
+ledger adoption to the activation edge, so the first room is built right rather
+than built and repaired.
+`ResetToCheckpoint`'s contract, which claimed it was "not a save load", is
+reconciled.
 
 ✔ **D-SIM-LOCAL — the level's departure memory was three Bevy `Local`s.** The
 row named Mary-O's `follow_the_active_room` room memory; the localizer named a
@@ -94,41 +239,39 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D-SIM-SELECT — close the remaining deterministic selection/composition
-  sites.** Current review evidence names projectile-victim ties, possession
-  candidates and pickup-magnet ownership. Use stable semantic keys for true
-  selection. If several peers compose into one result, first state whether the
-  operation is commutative; a stable sort is not enough when precedence changes
-  the physics. Acceptance: reversing ECS insertion/query order does not change
-  the selected/composed authoritative result. Owner:
-  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
+- ▢ **D199 — the projectile's SOLID collision is a centre-line ray; the victim
+  half is already guarded and deferred.** Re-measured 2026-08-30, and the row as
+  written overstates what is left. Of its three asks: the victim-ordering and
+  wall-occlusion halves ARE guarded
+  (`projectile/tests/collision.rs` — `a_shot_reaching_two_bodies_hits_the_nearer_one...`
+  and `a_shot_does_not_damage_a_victim_standing_behind_a_wall`); and the
+  swept-versus-hurt-volume half is deliberately DEFERRED on a measurement that is
+  itself executable —
+  `projectile_speed_stays_under_the_swept_threshold.rs` fails the day content
+  authors a shot past ~1680 px/s, against a current fastest of 640. What remains
+  is the first ask alone: `ae::cast::raycast_solids` tests the shot's CENTRE LINE
+  against solids (`projectile/systems.rs`, the occlusion cast and the endpoint
+  snap), so a finite shot box can clip a corner the centre line misses, and the
+  cast bypasses the collision-policy distinctions ordinary movement honours. The
+  swept primitive already exists beside it (`core::cast::body_sweep`,
+  `aabb_path_contacts`) and is unused by this road. Acceptance: the shot's solid
+  test is swept and policy-aware, with an edge/corner case the centre-line probe
+  misses and a contrast case for intentionally passable geometry. ⚠ The guard for
+  the OTHER input to that inequality — a hurt volume authored below ~11px — does
+  not exist and cannot be written from authored data today; that is recorded in
+  the deferral test's own header.
 
-- ▢ **D-PORTAL-POLICY — remove process-global portal mapping policy from live
-  simulation.** `ambition_platformer2d_shared_tangle::math` still stores the
-  active portal mapping convention in `PORTAL_MAP_ROTATION: AtomicBool`, while
-  the pure map functions already accept an explicit convention. Move the
-  effective mapping/facing policy into provider/session authority and thread it
-  through live portal consumers. Acceptance: two Apps/providers in one process
-  can use different conventions without process-order contamination, and
-  synchronized session rules determine identical portal behavior. Owner:
-  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
-
-- ▢ **D199 — replace the centre-line anti-tunnelling ray with policy-aware swept
-  body geometry.** The current ray tests a body's centre line against solids and
-  can miss collisions a finite AABB should hit; it also bypasses collision
-  policy distinctions. Implement swept AABB/Minkowski-equivalent continuous
-  collision using the same policy authority as ordinary movement rather than a
-  second geometry rule. Guard with edge/corner cases that the centre-line probe
-  misses and with a contrast case for intentionally passable geometry.
-
-- ▢ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
-  Review evidence still shows held ranged shots attributed through the primary
-  slot and custom held-item abilities using singular `ControlledSubject` while
-  generic pickup/throw/fire already iterate driven bodies. Converge on one
-  per-body request/ownership road; prefer the shared projectile request seam over
-  a parallel held-shot simulation. Acceptance: two independently driven bodies
-  can use their held/ranged actions in the same tick with correct owner/seat/body
-  attribution. Owner:
+- ▢ **D-CONTROL-INTERACT — the press-gated WORLD verbs are still singular.**
+  D-CONTROL-ITEM converged the held/ranged half; the interaction half was left
+  because it is a different question, not because it is done.
+  `features/ecs/interact.rs`, `features/ecs/chests.rs`, `shrine.rs` and
+  `avatar/systems.rs` still resolve one `ControlledSubject`, so a second seat
+  cannot open a chest, talk, or pray. The
+  portal gun is a THIRD shape and needs its input road first: `FirePortalGun` is
+  a seatless gesture message, so `resolve_portal_fire_intent` has nothing to key
+  a body off even if it looped — the gesture has to carry a seat before the
+  resolver can. Acceptance: two driven bodies each open their own chest in one
+  tick; and a stated decision (with its reason) for the portal gesture. Owner:
   [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 
 - ▢ **D-FIGHTER-L6 — diagnose the confirmed rollout regression with a decision
@@ -177,14 +320,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Re-run the current target, start with player-visible/selectable characters that
   still fail, and fix the authored canvas/pose/geometry rather than weakening the
   guard. Do not infer a roster-wide scale rule from one character's repair.
-
-- ▢ **D-INPUT-RECORDER — remove quadratic rollback copying from
-  `InputStreamRecorder`.** The recorder owns a growing history `Vec` that is
-  cloned into rollback state, making later frames copy the whole prior stream.
-  Keep finalized recording outside speculative rollback and rewind only the
-  cursor/unconfirmed tail needed to reproduce state. Acceptance: equivalent
-  recorded output across rewind with bounded per-frame snapshot growth. Owner:
-  [`engine/netcode.md`](engine/netcode.md).
 
 - ▢ **D-TRAP-HOLD — make `UntilPressedAgain` use the semantic timeline-hold
   action set it claims.** Current behavior describes "any action press except

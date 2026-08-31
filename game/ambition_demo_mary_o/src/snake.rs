@@ -528,23 +528,19 @@ pub fn tag_mary_o_snakes(
     }
 }
 
-/// Restore demo-owned snake-shell state on room reset. Engine reset restores
-/// body state, but `SnakeShell` and the shell mechanic's runtime contact-damage
-/// toggle are owned here. Listen to `ResetRoomFeaturesEvent` so same-room retries
-/// reset them as well as room reloads.
-pub fn reset_snakes_on_room_reset(
-    mut resets: MessageReader<ambition_platformer2d::combat::events::ResetRoomFeaturesEvent>,
-    mut snakes: Query<(&mut SnakeShell, &mut BodyCombat, &mut ActorConfig)>,
-) {
-    if resets.read().count() == 0 {
-        return;
-    }
-    for (mut shell, mut combat, mut config) in &mut snakes {
-        *shell = SnakeShell::Walking;
-        combat.recoil_lock_timer = 0.0;
-        config.tuning.body_contact_damage = true;
-    }
-}
+// ⛔⛔ `reset_snakes_on_room_reset` WAS HERE, AND CANONICAL RECONSTRUCTION MADE
+// IT REDUNDANT. It rewrote `SnakeShell`, the recoil lock and the contact-damage
+// toggle on every snake when a replay was admitted, because the replay used to
+// mutate survivors in place and a shelled snake survived it. A replay is a room
+// REBUILD now: snakes are room-scoped authored actors, so the rebuild retires
+// them and re-spawns them walking, with a fresh recoil lock and a fresh tuning.
+//
+// ⭐ MEASURED, NOT ASSUMED — and the first measurement was worthless. Gutting
+// this listener left all 41 Mary-O tests green, which is evidence that NOTHING
+// COVERED IT rather than evidence of redundancy; a deletion argued from silence
+// is argued from nothing. `replay_rebuilds_the_snakes.rs` was written as the
+// cover first, and the listener was gutted again with it in place. Still green.
+// That is the measurement this deletion rests on.
 
 /// The Solid Snake shell mechanic, the thin ECS wrapper over [`step_snake_shell`].
 ///

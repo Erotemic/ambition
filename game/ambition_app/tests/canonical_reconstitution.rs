@@ -22,9 +22,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
 
-use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::platformer::lifecycle::RoomScopedEntity;
@@ -336,6 +336,36 @@ fn enter_the_room() -> (Platformer2dSimHarness, BTreeSet<Entity>) {
     (sim, live)
 }
 
+/// The active room's authored spawn — where every rebuild puts its subject.
+fn room_spawn(sim: &mut Platformer2dSimHarness) -> Vec2 {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+    q.iter(world)
+        .next()
+        .expect("an active session publishes its room geometry")
+        .0
+        .spawn
+}
+
+/// Move the primary body through the movement authority.
+fn displace_player(sim: &mut Platformer2dSimHarness, to: Vec2) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<(
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d::actor::MotionModel,
+    ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let Some((mut cluster_item, mut model)) = q.iter_mut(world).next() else {
+        panic!("gameplay has no primary player to displace");
+    };
+    let mut clusters = cluster_item.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        to,
+        ae::movement::TransitVelocity::Zero,
+    );
+}
+
 fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
     let mut q = sim
         .world_mut()
@@ -419,8 +449,9 @@ fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
 }
 
 fn replay_the_room(sim: &mut Platformer2dSimHarness, live: &BTreeSet<Entity>) -> BTreeSet<Entity> {
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
     settle_after_construction(sim, live)
 }
 
@@ -594,10 +625,15 @@ fn replaying_a_room_rebuilds_what_entering_it_builds() {
     assert_same_population("a same-room replay", &fresh, &replayed);
 }
 
-/// Case 4: retention. The body playing the room is not retired with it, and it
-/// comes back standing at the room's own spawn.
+/// Case 4: the HOME AVATAR is not retired with the room, and comes back standing
+/// at the room's own spawn.
+///
+/// ⚠ THIS IS ABOUT THE HOME AVATAR, and its name used to say "the body playing
+/// the room" while querying only `PrimaryPlayer` — which is the home avatar and
+/// not necessarily the body being driven. The claim it was overstating is
+/// [`a_replay_follows_the_body_you_are_actually_driving`]'s.
 #[test]
-fn a_replay_reconstructs_the_room_without_retiring_the_body_playing_it() {
+fn a_replay_leaves_the_home_avatar_standing_at_spawn() {
     let (mut sim, live) = enter_the_room();
 
     disturb_the_room(&mut sim);
@@ -725,8 +761,9 @@ fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
     // for the room-scoped population to CHANGE, and this room's authored
     // population is the one object now in the body's hands — which is exactly
     // what a correct replay does not rebuild. The wait would never end.
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
     for _ in 0..30 {
         sim.step(base());
     }
@@ -852,54 +889,11 @@ const DURABLE_ROOM: &str = "central_hub_complex";
 /// boot or by walking back into it.
 #[test]
 fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
-    use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::persistence::save_data::{
         PersistedOccurrence, PersistedWhereabouts,
     };
 
-    let mut played = fixed_60hz_room_sim(DURABLE_ROOM);
-    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
-        played.step(base());
-    }
-    let empty_file = played.world().resource::<AmbitionGameSave>().data().clone();
-
-    let relocatable = {
-        let mut q = played.world_mut().query::<(
-            &SimId,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
-        )>();
-        let world = played.world();
-        let mut ids: Vec<String> = q
-            .iter(world)
-            .map(|(id, _)| id.as_str().to_string())
-            .collect();
-        ids.sort();
-        ids.into_iter().next().unwrap_or_else(|| {
-            panic!(
-                "'{DURABLE_ROOM}' authors no occurrence-bearing object, so this case \
-                 has nothing to relocate"
-            )
-        })
-    };
-    let neighbour = {
-        let world = played.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let room_set = q
-            .iter(world)
-            .next()
-            .expect("the session has an active room set");
-        room_set
-            .active_loading_zones()
-            .iter()
-            .filter_map(|zone| {
-                room_set
-                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
-                    .and_then(|t| room_set.rooms.get(t.target_room))
-                    .map(|room| room.id.clone())
-            })
-            .find(|id| id != DURABLE_ROOM)
-            .unwrap_or_else(|| panic!("'{DURABLE_ROOM}' has no authored exit"))
-    };
+    let (relocatable, neighbour, empty_file) = relocatable_occurrence();
 
     let mut relocated_file = empty_file.clone();
     relocated_file.occurrences = vec![PersistedOccurrence::new(
@@ -945,6 +939,498 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
         !after_walk.contains_key(&relocatable),
         "walking back into '{DURABLE_ROOM}' authored `{relocatable}`, which the \
          file says is lying in '{neighbour}'"
+    );
+}
+
+/// Case 8b: the room a load builds is built ONCE, and built right.
+///
+/// ⛔⛔ THIS IS THE ARM CASE 8 DOES NOT HAVE. Case 8 censuses after ninety
+/// frames and finds the two roads agree — which establishes that the load
+/// CONVERGES, and says nothing about the population it converges FROM. A load
+/// used to construct its first room with no occurrence continuity at all and
+/// correct it afterwards, so for a stretch of ticks the room held a live object
+/// the file says is lying next door: two live things behind one identity, in a
+/// window where combat, pickups and encounters all run ungated.
+///
+/// ⭐ SAMPLE EVERY FRAME, not the ends. "Does the population ever contain it"
+/// is the question, and both endpoints answer no while the middle answers yes —
+/// which is exactly the shape a two-endpoint test cannot see.
+#[test]
+fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
+    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    let (relocatable, neighbour, empty_file) = relocatable_occurrence();
+
+    let mut relocated_file = empty_file.clone();
+    relocated_file.occurrences = vec![PersistedOccurrence::new(
+        relocatable.clone(),
+        PersistedWhereabouts::Placed {
+            room: neighbour.clone(),
+            x: 200,
+            y: 200,
+        },
+    )];
+
+    // ⭐ BOOT WITH THE FILE, the way the binary does — bytes in the world before
+    // the session activates. Writing the save into a RUNNING session measures
+    // the correction road and can say nothing about what the first construction
+    // knew.
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(relocated_file),
+    )
+    .expect("the harness boots with a save file");
+
+    let mut present_at: Vec<usize> = Vec::new();
+    for frame in 0..AFTER_LOAD {
+        if live_ids(&mut sim).contains(&relocatable) {
+            present_at.push(frame);
+        }
+        sim.step(base());
+    }
+    assert!(
+        sim.world().resource::<SaveRestored>().0,
+        "the load never landed, so this measured a load that did not happen"
+    );
+
+    // ⛔ THE PREMISE: with an EMPTY file the room DOES author it, so "never
+    // present" is a claim about the row and not about a room that has no such
+    // object.
+    let mut plain = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(empty_file),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        plain.step(base());
+    }
+    assert!(
+        live_ids(&mut plain).contains(&relocatable),
+        "'{DURABLE_ROOM}' does not author `{relocatable}` even with an empty file, \
+         so suppressing it proves nothing"
+    );
+
+    assert!(
+        present_at.is_empty(),
+        "the load authored `{relocatable}` into '{DURABLE_ROOM}' on {} of the {AFTER_LOAD} \
+         frames after the file said it is lying in '{neighbour}' — frames {:?}. \
+         A population that is corrected later is a population that EXISTED, and \
+         everything gameplay does in that window it does to two live things \
+         behind one identity.",
+        present_at.len(),
+        &present_at[..present_at.len().min(12)]
+    );
+}
+
+/// Case 8c: a save carrying BOTH a cross-room checkpoint and an occurrence row
+/// lands BOTH.
+///
+/// ⛔⛔ TWO CHECKPOINT ROADS WANT THE SAME ONE-SLOT LIFECYCLE COMMIT, and the
+/// collision is real: `restore_checkpoint_on_session_start` records a transition
+/// to the checkpoint's room on the first tick a body exists;
+/// `resume_at_checkpoint_on_reset` records one too, from the `ResetToCheckpoint`
+/// the durable chain writes when the file carries rows. The slot is
+/// EARLIEST-STICKY, so the second gets `AlreadyPending`, writes no
+/// `RoomReplayAdmitted`, and the reset message is drained either way.
+///
+/// ⭐ MEASURED, AND IT IS BENIGN FOR THIS SHAPE. Both roads ask for the SAME
+/// destination and arrival, so whichever wins takes the session to the same
+/// place; the only thing the loser drops is the replay announcement, whose
+/// consumer is the attempt-residue sweep, and a session start has no previous
+/// attempt to sweep. Poisoning EITHER road alone leaves this green — they are
+/// redundant, not cooperating.
+///
+/// ⛔ SO THE POISON THAT REDDENS IT IS BOTH AT ONCE, and that is what makes this
+/// a guard rather than a check that cannot fail: it pins the end-to-end
+/// contract, which two roads happen to implement. Verified 2026-08-31 —
+/// poisoning `routed_for` and the `ResetToCheckpoint` read together fails on the
+/// active-room assertion.
+///
+/// ⛔ AND THE ROW MUST BE ABOUT THE ROOM WE RESUME INTO. The first version of
+/// this case relocated an object of the room the session OPENS in, which the
+/// destination never authors — so the suppression was guaranteed by arithmetic
+/// and all three poisons left it green.
+#[test]
+fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
+    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedCheckpoint, PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    // ⛔⛔ THE ROW MUST BE ABOUT THE ROOM WE RESUME INTO, not the one we open in.
+    // A row naming an object the destination never authors is suppressed by
+    // arithmetic rather than by the ledger, and the first version of this case
+    // stayed green with BOTH legs poisoned because of exactly that.
+    let (_, _, empty_file) = relocatable_occurrence();
+    let (resume_room, resumed_object) = another_room_with_an_object();
+
+    // The checkpoint names the NEIGHBOUR — a different room from the one the
+    // session opens in — which is the only shape that makes
+    // `restore_checkpoint_on_session_start` take the slot at all.
+    let mut file = empty_file;
+    file.checkpoint = Some(PersistedCheckpoint::new(resume_room.clone(), 200, 200));
+    file.occurrences = vec![PersistedOccurrence::new(
+        resumed_object.clone(),
+        PersistedWhereabouts::Placed {
+            room: DURABLE_ROOM.to_string(),
+            x: 200,
+            y: 200,
+        },
+    )];
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(file),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world().resource::<SaveRestored>().0,
+        "the load never landed"
+    );
+    assert_eq!(
+        active_room(&mut sim),
+        resume_room,
+        "the checkpoint names '{resume_room}', so that is where the session must \
+         resume — whichever road won the one lifecycle slot"
+    );
+    // ⭐ AND THE LEDGER ROW SURVIVED THE COLLISION. `resumed_object` is one of
+    // the RESUME room's own authored objects, and the file says it is lying back
+    // in the room the session opened in — so the room we resumed into must not
+    // author it.
+    assert!(
+        !live_ids(&mut sim).contains(&resumed_object),
+        "resuming into '{resume_room}' authored `{resumed_object}`, which the \
+         file says is lying in '{DURABLE_ROOM}'"
+    );
+
+    // ⛔ THE PREMISE: with an empty file the resume room DOES author it, so the
+    // suppression above is the ledger's doing and not the room's.
+    let mut plain = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(&resume_room).with_save(Default::default()),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        plain.step(base());
+    }
+    assert!(
+        live_ids(&mut plain).contains(&resumed_object),
+        "'{resume_room}' does not author `{resumed_object}` even with an empty \
+         file, so suppressing it proves nothing"
+    );
+}
+
+/// A room OTHER than [`DURABLE_ROOM`] that authors an occurrence-bearing object,
+/// and that object.
+///
+/// ⛔ SEARCHED, not hard-coded. The obvious candidate — the first room
+/// `DURABLE_ROOM` has an exit to — turned out to author no such object, and a
+/// case built on it would have asserted a suppression that arithmetic already
+/// guaranteed.
+fn another_room_with_an_object() -> (String, String) {
+    let mut scout = fixed_60hz_room_sim(DURABLE_ROOM);
+    let rooms: Vec<String> = {
+        let world = scout.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        q.iter(world)
+            .next()
+            .expect("the session has an active room set")
+            .rooms
+            .iter()
+            .map(|room| room.id.clone())
+            .filter(|id| id != DURABLE_ROOM)
+            .collect()
+    };
+    for room in rooms {
+        let mut sim = fixed_60hz_room_sim(&room);
+        for _ in 0..BEFORE_LOAD {
+            sim.step(base());
+        }
+        let mut q = sim.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let world = sim.world();
+        let mut ids: Vec<String> = q
+            .iter(world)
+            .map(|(id, _)| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        if let Some(object) = ids.into_iter().next() {
+            return (room, object);
+        }
+    }
+    panic!("no room besides '{DURABLE_ROOM}' authors an occurrence-bearing object");
+}
+
+/// The id of the room the session is standing in.
+fn active_room(sim: &mut Platformer2dSimHarness) -> String {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+    q.iter(world)
+        .next()
+        .expect("the session has an active room set")
+        .active_spec()
+        .id
+        .clone()
+}
+
+/// Every `SimId` alive in the world right now.
+fn live_ids(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
+    let mut q = sim.world_mut().query::<&SimId>();
+    let world = sim.world();
+    q.iter(world).map(|id| id.as_str().to_string()).collect()
+}
+
+/// The first occurrence-bearing object `DURABLE_ROOM` authors, a room it has an
+/// authored exit to, and a save file of a session that touched nothing.
+///
+/// ⭐ ONE DEFINITION so the two durable cases cannot drift into relocating
+/// different objects and calling it the same measurement.
+fn relocatable_occurrence() -> (
+    String,
+    String,
+    ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) {
+    relocatable_occurrence_in(DURABLE_ROOM)
+}
+
+/// [`relocatable_occurrence`] for any room, so a case can ask about the room it
+/// RESUMES into rather than the one it opens in.
+fn relocatable_occurrence_in(
+    room: &str,
+) -> (
+    String,
+    String,
+    ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    let mut played = fixed_60hz_room_sim(room);
+    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
+        played.step(base());
+    }
+    let empty_file = played.world().resource::<AmbitionGameSave>().data().clone();
+
+    let relocatable = {
+        let mut q = played.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let world = played.world();
+        let mut ids: Vec<String> = q
+            .iter(world)
+            .map(|(id, _)| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        ids.into_iter().next().unwrap_or_else(|| {
+            panic!(
+                "'{room}' authors no occurrence-bearing object, so this case \
+                 has nothing to relocate"
+            )
+        })
+    };
+    let neighbour = {
+        let world = played.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = q
+            .iter(world)
+            .next()
+            .expect("the session has an active room set");
+        room_set
+            .active_loading_zones()
+            .iter()
+            .filter_map(|zone| {
+                room_set
+                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+                    .and_then(|t| room_set.rooms.get(t.target_room))
+                    .map(|spec| spec.id.clone())
+            })
+            .find(|id| id.as_str() != room)
+            .unwrap_or_else(|| panic!("'{room}' has no authored exit"))
+    };
+    (relocatable, neighbour, empty_file)
+}
+
+/// ⛔⛔ ZERO PARTIAL RESET. The one pending-lifecycle slot is earliest-sticky, so
+/// a replay asked for while another lifecycle operation owns it does not happen
+/// — and must therefore change NOTHING. Before admission was a decision, the
+/// request reset the avatar, retired the previous attempt's residue and let
+/// content clear its per-attempt state, and only then discovered the slot was
+/// taken.
+#[test]
+fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let (mut sim, _) = enter_the_room();
+    let fresh = census(&mut sim);
+
+    // Attempt residue that only the replay's own sweep would take.
+    let residue = sim
+        .world_mut()
+        .spawn(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt)
+        .id();
+    // Move the body off spawn, so a reset that ran would be visible.
+    let displaced = {
+        let spawn = room_spawn(&mut sim);
+        let to = spawn + Vec2::new(240.0, 0.0);
+        displace_player(&mut sim, to);
+        sim.step(base());
+        player_pos(&mut sim)
+    };
+    assert!(
+        displaced.distance(room_spawn(&mut sim)) > 100.0,
+        "the fixture must move the body off spawn before a refused reset can be \
+         shown not to have moved it back"
+    );
+
+    // Another lifecycle operation takes the slot FIRST.
+    sim.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .pending = Some(
+        ambition_platformer2d::actors::session::lifecycle_commit::PendingIntent {
+            frame: 0,
+            kind: LifecycleIntent::Transition(RoomTransitionIntent {
+                subject: ambition_platformer2d::platformer::sim_id::SimId::placement(
+                    "somebody-elses-crossing",
+                ),
+                target_room: ROOM.to_string(),
+                arrival: Vec2::ZERO,
+                edge_exit: false,
+                zone_sfx: None,
+            }),
+        },
+    );
+
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
+    for _ in 0..8 {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world().get_entity(residue).is_ok(),
+        "the refused replay retired the previous attempt's residue anyway"
+    );
+    let after = player_pos(&mut sim);
+    assert!(
+        after.distance(displaced) < 40.0,
+        "the refused replay returned the body toward spawn anyway ({displaced:?} \
+         -> {after:?}); the reset ran for an operation that never happened"
+    );
+    // ⛔ NO CENSUS COMPARISON HERE. This arm runs extra frames on purpose, and a
+    // census compares two populations at the same AGE since construction — a
+    // patrolling enemy that walked during those frames is not a reset. The two
+    // assertions above are the claim: nothing the refused replay would have done
+    // was done.
+    let _ = fresh;
+}
+
+/// ⛔ THE BODY YOU ARE DRIVING, NOT THE ONE YOU LEFT AT HOME.
+///
+/// `RoomReplayRequested`'s contract says "the controlled player". While
+/// possessing an actor, `PrimaryPlayer` is the home avatar the player is NOT
+/// driving — so a replay that queried it reset the wrong body and named the
+/// wrong subject, while the possessed body carried the previous attempt's state
+/// through custody.
+#[test]
+fn a_replay_follows_the_body_you_are_actually_driving() {
+    const POSSESSION_ROOM: &str = "vertical_shaft";
+    use ambition_platformer2d::platformer::markers::ControlledSubject;
+
+    let mut sim = fixed_60hz_room_sim(POSSESSION_ROOM);
+    let (actor, _) = crate::common::possess_the_authored_enemy(&mut sim);
+    // The helper stops the frame possession COMMITS; the seat projection that
+    // publishes  runs after it, so let the frame finish.
+    for _ in 0..4 {
+        sim.step(base());
+    }
+    // ⛔ THE DRIVEN BODY IS WHAT THE REPLAY FOLLOWS, so the fixture asserts which
+    // body that IS before asserting anything about the replay. A fixture that
+    // assumed the possessed entity and the controlled subject were the same
+    // would be measuring its own assumption.
+    let driven = sim
+        .world()
+        .resource::<ControlledSubject>()
+        .0
+        .expect("possession leaves somebody driving");
+    assert_eq!(
+        driven, actor,
+        "setup: possession must move the primary seat onto the possessed actor, \
+         or `ControlledSubject` is not the seam a replay should follow"
+    );
+
+    // Put the driven body somewhere it plainly is not going to be after a reset.
+    let spawn = room_spawn(&mut sim);
+    let away = spawn + Vec2::new(0.0, -260.0);
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        let (mut cluster_item, mut model) = q
+            .get_mut(world, actor)
+            .expect("the possessed actor still has a body");
+        let mut clusters = cluster_item.as_clusters_mut();
+        ae::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            away,
+            ae::movement::TransitVelocity::Zero,
+        );
+    }
+    // ⭐ AND WOUND IT, so the case asserts an OUTCOME the player would notice
+    // and not only a position.
+    //
+    // ⚠ THIS ASSERTION IS NOT ATTRIBUTABLE TO ONE SYSTEM. Poisoned to reset a
+    // deliberately DIFFERENT body, the driven body still came back at full
+    // health — so something else on the rebuild road (the room reconstruction,
+    // or the save sync that follows it) delivers it too. What the POSITION
+    // assertion below pins, and what nothing else delivers, is the ADMISSION's
+    // choice of subject: naming the home avatar there leaves the driven body
+    // where the last attempt left it.
+    {
+        let world = sim.world_mut();
+        let mut health = world
+            .get_mut::<ambition_platformer2d::actor::BodyHealth>(actor)
+            .expect("the driven body has a health meter");
+        health.health.current = 1;
+    }
+    sim.step(base());
+
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
+    for _ in 0..20 {
+        sim.step(base());
+    }
+
+    let health = sim
+        .world()
+        .get::<ambition_platformer2d::actor::BodyHealth>(actor)
+        .expect("the driven body survives its own replay");
+    assert_eq!(
+        health.health.current, health.health.max,
+        "the replay left the DRIVEN body carrying the last attempt's damage"
+    );
+
+    let landed = sim
+        .world()
+        .get::<ae::BodyKinematics>(actor)
+        .map(|kin| kin.pos)
+        .expect("the driven body survives its own replay");
+    assert!(
+        landed.distance(spawn) < landed.distance(away),
+        "the replay left the DRIVEN body at {landed:?} — nearer where the last \
+         attempt left it ({away:?}) than the room spawn ({spawn:?}). The reset \
+         went to the home avatar instead of the body being played."
     );
 }
 

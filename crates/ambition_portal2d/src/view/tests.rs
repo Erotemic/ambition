@@ -1,5 +1,6 @@
 use super::*;
 use crate::pieces::{front_distance, map_point};
+use ambition_platformer2d_core::frame::MapConvention;
 use ambition_platformer2d_core::AabbExt;
 
 fn frame(pos: Vec2, normal: Vec2) -> PortalAperture {
@@ -74,8 +75,18 @@ fn view_agrees_with_body_map_on_the_face() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     for s in [-30.0_f32, 0.0, 18.5, 46.0] {
         let on_face = enter.frame.origin + Vec2::new(s, 0.0); // floor face runs along x
-        let via_view = view_point(on_face, &enter.frame, &exit.frame);
-        let via_body = map_point(on_face, &enter.frame, &exit.frame);
+        let via_view = view_point(
+            on_face,
+            &enter.frame,
+            &exit.frame,
+            MapConvention::Reflection,
+        );
+        let via_body = map_point(
+            on_face,
+            &enter.frame,
+            &exit.frame,
+            MapConvention::Reflection,
+        );
         assert!(
             (via_view - via_body).length() < 1e-3,
             "face continuity at s={s}: view {via_view:?} body {via_body:?}"
@@ -92,7 +103,7 @@ fn view_preserves_front_depth() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     for d in [0.0_f32, 5.0, 60.0, 240.0] {
         let p = enter.frame.origin + enter.frame.normal * d;
-        let seen = view_point(p, &enter.frame, &exit.frame);
+        let seen = view_point(p, &enter.frame, &exit.frame, MapConvention::Reflection);
         assert!(
             (front_distance(seen, &exit.frame) - d).abs() < 1e-3,
             "depth {d} maps to front depth {}",
@@ -109,13 +120,18 @@ fn floor_to_wall_view_pinned() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
     // y-down world: 10px in FRONT of a floor portal is y=290.
-    let seen = view_point(Vec2::new(120.0, 290.0), &enter.frame, &exit.frame);
+    let seen = view_point(
+        Vec2::new(120.0, 290.0),
+        &enter.frame,
+        &exit.frame,
+        MapConvention::Reflection,
+    );
     assert!(
         (seen - Vec2::new(390.0, 180.0)).length() < 1e-3,
         "got {seen:?}"
     );
     // The rotation angle is -90° (cos 0, sin -1) for this pair.
-    let m = PortalViewMap::between(&enter.frame, &exit.frame);
+    let m = PortalViewMap::between(&enter.frame, &exit.frame, MapConvention::Reflection);
     assert!((m.cos).abs() < 1e-4 && (m.sin + 1.0).abs() < 1e-4, "{m:?}");
 }
 
@@ -129,7 +145,7 @@ fn view_cone_source_geometry() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let depth = 120.0;
     let spread = 0.25;
-    let cone = view_cone(&enter, &exit, depth, spread);
+    let cone = view_cone(&enter, &exit, depth, spread, MapConvention::Reflection);
     // Entry quad: near edge on the face, far edge `depth` INTO the floor
     // (y-down world: into a floor = +y).
     assert!((cone.entry_quad[0].y - 300.0).abs() < 1e-3);
@@ -152,7 +168,10 @@ fn view_cone_source_geometry() {
     // Every source corner is the BODY-map image of its entry corner (the
     // window's display map IS the body map — one map for sight and transit).
     for (e, s) in cone.entry_quad.iter().zip(cone.source_quad.iter()) {
-        assert!((map_point(*e, &enter.frame, &exit.frame) - *s).length() < 1e-3);
+        assert!(
+            (map_point(*e, &enter.frame, &exit.frame, MapConvention::Reflection) - *s).length()
+                < 1e-3
+        );
     }
 }
 
@@ -163,7 +182,15 @@ fn visible_cone_none_behind_both_ends() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = floor(Vec2::new(500.0, 300.0));
     // Floors face up (−y); 60px below is past the doorway depth grace.
-    assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0, 400.0).is_none());
+    assert!(visible_cone(
+        &enter,
+        &exit,
+        Vec2::new(100.0, 360.0),
+        80.0,
+        400.0,
+        MapConvention::Reflection
+    )
+    .is_none());
 }
 
 /// The wormhole: standing in front of the PARTNER opens this end's window
@@ -175,11 +202,12 @@ fn visible_cone_opens_from_the_partner_side() {
     // Eye is BEHIND the floor (y > 300, past the doorway grace) but in
     // FRONT of the wall partner (x < 400) — only the wormhole opens it.
     let eye = Vec2::new(100.0, 360.0);
-    let (resolved, wormhole) = window_eye(&enter, &exit, eye).expect("in front of partner");
+    let (resolved, wormhole) =
+        window_eye(&enter, &exit, eye, MapConvention::Reflection).expect("in front of partner");
     assert!(wormhole, "resolved via the partner side");
     // The image is in front of `enter` (above the floor, y < 300).
     assert!(resolved.y < 300.0, "image in front of enter: {resolved:?}");
-    assert!(visible_cone(&enter, &exit, eye, 80.0, 400.0).is_some());
+    assert!(visible_cone(&enter, &exit, eye, 80.0, 400.0, MapConvention::Reflection).is_some());
 }
 
 /// Same-plane pair (two floor portals): the eye above the PARTNER is in
@@ -193,7 +221,8 @@ fn window_eye_prefers_the_nearer_end() {
     let exit = floor(Vec2::new(500.0, 300.0));
     // Eye 20px above the EXIT (the partner end).
     let eye = Vec2::new(500.0, 280.0);
-    let (resolved, wormhole) = window_eye(&enter, &exit, eye).expect("in front of both");
+    let (resolved, wormhole) =
+        window_eye(&enter, &exit, eye, MapConvention::Reflection).expect("in front of both");
     assert!(wormhole, "nearer end is the partner");
     // The image sits 20px above THIS aperture (floor↔floor: x preserved
     // relative to centers, front preserved).
@@ -217,7 +246,8 @@ fn window_eye_hands_off_continuously_between_same_plane_ends() {
     for i in 0..=160 {
         // Eye 20px above the shared plane, sweeping across the midpoint.
         let eye = Vec2::new(220.0 + i as f32, 280.0);
-        let (resolved, _) = window_eye(&enter, &exit, eye).expect("in front of both");
+        let (resolved, _) =
+            window_eye(&enter, &exit, eye, MapConvention::Reflection).expect("in front of both");
         if let Some(p) = prev {
             max_step = max_step.max((resolved - p).length());
         }
@@ -227,12 +257,22 @@ fn window_eye_hands_off_continuously_between_same_plane_ends() {
         max_step < 30.0,
         "resolved eye must crossfade, not jump: max step {max_step}"
     );
-    let (near_enter, wormhole) =
-        window_eye(&enter, &exit, Vec2::new(220.0, 280.0)).expect("resolves");
+    let (near_enter, wormhole) = window_eye(
+        &enter,
+        &exit,
+        Vec2::new(220.0, 280.0),
+        MapConvention::Reflection,
+    )
+    .expect("resolves");
     assert!(!wormhole);
     assert!((near_enter - Vec2::new(220.0, 280.0)).length() < 1e-3);
-    let (near_exit, wormhole) =
-        window_eye(&enter, &exit, Vec2::new(380.0, 280.0)).expect("resolves");
+    let (near_exit, wormhole) = window_eye(
+        &enter,
+        &exit,
+        Vec2::new(380.0, 280.0),
+        MapConvention::Reflection,
+    )
+    .expect("resolves");
     assert!(wormhole, "nearer end is the partner");
     assert!(
         (near_exit - Vec2::new(-20.0, 280.0)).length() < 1e-3,
@@ -260,8 +300,8 @@ fn window_eye_is_continuous_through_a_thin_wall_doorway() {
         let mut max_step = 0.0_f32;
         for i in 0..=104 {
             let eye = Vec2::new(490.0 + i as f32 * 0.5, y);
-            let (resolved, _) =
-                window_eye(&enter, &exit, eye).expect("front or doorway all the way");
+            let (resolved, _) = window_eye(&enter, &exit, eye, MapConvention::Reflection)
+                .expect("front or doorway all the way");
             if let Some(p) = prev {
                 max_step = max_step.max((resolved - p).length());
             }
@@ -284,7 +324,15 @@ fn window_survives_the_transit_dip_as_a_half_plane() {
     let max_lateral = 400.0;
     // Eye 10px BELOW the entry plane, laterally centered (mid-transit).
     let eye = Vec2::new(100.0, 310.0);
-    let cone = visible_cone(&enter, &exit, eye, 80.0, max_lateral).expect("doorway grace holds");
+    let cone = visible_cone(
+        &enter,
+        &exit,
+        eye,
+        80.0,
+        max_lateral,
+        MapConvention::Reflection,
+    )
+    .expect("doorway grace holds");
     let [_, _, f1, f0] = cone.entry_quad;
     // The limit continuation: far corners at the lateral clamp.
     assert!(
@@ -307,7 +355,15 @@ fn wedge_is_stable_near_the_plane_and_under_extreme_skew() {
         Vec2::new(100.0, 298.0),  // 2px in front (projective, clamped)
         Vec2::new(1000.0, 295.0), // extreme grazing skew from the right
     ] {
-        let cone = aperture_wedge(&enter, &exit, eye, 80.0, max_lateral).unwrap();
+        let cone = aperture_wedge(
+            &enter,
+            &exit,
+            eye,
+            80.0,
+            max_lateral,
+            MapConvention::Reflection,
+        )
+        .unwrap();
         for p in cone.entry_quad.iter().chain(cone.source_quad.iter()) {
             assert!(p.x.is_finite() && p.y.is_finite(), "finite corners");
             assert!(
@@ -327,7 +383,15 @@ fn near_plane_eye_outside_aperture_is_not_full_half_plane() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let max_lateral = 400.0;
-    let cone = aperture_wedge(&enter, &exit, Vec2::new(300.0, 299.5), 80.0, max_lateral).unwrap();
+    let cone = aperture_wedge(
+        &enter,
+        &exit,
+        Vec2::new(300.0, 299.5),
+        80.0,
+        max_lateral,
+        MapConvention::Reflection,
+    )
+    .unwrap();
     let [_, _, f1, f0] = cone.entry_quad;
 
     assert!(
@@ -352,7 +416,15 @@ fn visible_cone_head_on_is_symmetric_and_depth_clamped() {
     let depth = 80.0;
     // Eye 80px in front of the floor portal (−y), directly above center.
     let front = 80.0;
-    let cone = visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth, 400.0).unwrap();
+    let cone = visible_cone(
+        &enter,
+        &exit,
+        Vec2::new(100.0, 300.0 - front),
+        depth,
+        400.0,
+        MapConvention::Reflection,
+    )
+    .unwrap();
     let [a0, a1, f1, f0] = cone.entry_quad;
     // Near edge is the aperture (on the surface, y = 300).
     assert!((a0.y - 300.0).abs() < 1e-3 && (a1.y - 300.0).abs() < 1e-3);
@@ -381,7 +453,15 @@ fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
     // Floor (normal up): eye up-and-LEFT  far edge to the RIGHT.
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
-    let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0, 400.0).unwrap();
+    let cone = visible_cone(
+        &enter,
+        &exit,
+        Vec2::new(40.0, 220.0),
+        80.0,
+        400.0,
+        MapConvention::Reflection,
+    )
+    .unwrap();
     let [_, _, f1, f0] = cone.entry_quad;
     assert!(
         (f0.x + f1.x) * 0.5 > 100.0,
@@ -391,7 +471,15 @@ fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
     // Ceiling (normal DOWN, +y): eye BELOW and to the LEFT  far edge still
     // to the RIGHT (consistent — no ceiling-specific inversion).
     let ceil = frame(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0));
-    let cone = visible_cone(&ceil, &exit, Vec2::new(40.0, 380.0), 80.0, 400.0).unwrap();
+    let cone = visible_cone(
+        &ceil,
+        &exit,
+        Vec2::new(40.0, 380.0),
+        80.0,
+        400.0,
+        MapConvention::Reflection,
+    )
+    .unwrap();
     let [_, _, f1, f0] = cone.entry_quad;
     assert!(
         (f0.x + f1.x) * 0.5 > 100.0,
@@ -452,9 +540,19 @@ fn multi_eye_wedge_unions_and_anchors_at_the_aperture() {
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let left = Vec2::new(40.0, 250.0);
     let right = Vec2::new(160.0, 250.0);
-    let one_l = aperture_wedge(&enter, &exit, left, 80.0, 400.0).unwrap();
-    let one_r = aperture_wedge(&enter, &exit, right, 80.0, 400.0).unwrap();
-    let both = aperture_wedge_multi(&enter, &exit, &[left, right], 80.0, 400.0).unwrap();
+    let one_l =
+        aperture_wedge(&enter, &exit, left, 80.0, 400.0, MapConvention::Reflection).unwrap();
+    let one_r =
+        aperture_wedge(&enter, &exit, right, 80.0, 400.0, MapConvention::Reflection).unwrap();
+    let both = aperture_wedge_multi(
+        &enter,
+        &exit,
+        &[left, right],
+        80.0,
+        400.0,
+        MapConvention::Reflection,
+    )
+    .unwrap();
     // Near edge unchanged (exactly the aperture, on the surface y=300).
     assert!((both.entry_quad[0].y - 300.0).abs() < 1e-3);
     assert!((both.entry_quad[1].y - 300.0).abs() < 1e-3);
@@ -468,6 +566,7 @@ fn multi_eye_wedge_unions_and_anchors_at_the_aperture() {
         &[left, right, Vec2::new(100.0, 360.0)],
         80.0,
         400.0,
+        MapConvention::Reflection,
     )
     .unwrap();
     assert!((span(&with_behind) - span(&both)).abs() < 1e-3);
@@ -481,7 +580,8 @@ fn wedge_far_edge_is_continuous_through_the_plane() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = floor(Vec2::new(500.0, 300.0));
     let far_lat = |eyes: &[Vec2]| {
-        let c = aperture_wedge_multi(&enter, &exit, eyes, 80.0, 1000.0).unwrap();
+        let c = aperture_wedge_multi(&enter, &exit, eyes, 80.0, 1000.0, MapConvention::Reflection)
+            .unwrap();
         (c.entry_quad[2].x + c.entry_quad[3].x) * 0.5
     };
     // Eye just in FRONT of the entry plane (y just < 300).
@@ -499,7 +599,7 @@ fn wedge_far_edge_is_continuous_through_the_plane() {
 fn view_cone_zero_spread_is_a_corridor() {
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = floor(Vec2::new(500.0, 300.0));
-    let cone = view_cone(&enter, &exit, 90.0, 0.0);
+    let cone = view_cone(&enter, &exit, 90.0, 0.0, MapConvention::Reflection);
     assert!(
         (size(cone.source).x - 2.0 * enter.half_length).abs() < 1e-3,
         "{:?}",

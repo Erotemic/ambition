@@ -201,6 +201,21 @@ impl HeadlessCameraHarness {
         world.resource_mut::<PortalCameraContinuityState>().clear();
     }
 
+    /// The convention the SESSION is playing under.
+    ///
+    /// ⛔ NOT A CONSTANT. This test maps a body through the pair to check screen
+    /// continuity, so it has to use the same map the game just used — and that
+    /// is `PortalTuning::convention`, which defaults to Rotation. Hardcoding
+    /// Reflection here made a thin-wall pair (identity under Rotation, a y-flip
+    /// under Reflection) disagree by exactly the aperture height.
+    fn convention(&mut self) -> ambition_platformer2d::portal::pieces::MapConvention {
+        self.app
+            .world()
+            .get_resource::<ambition_platformer2d::portal::PortalTuning>()
+            .map(|tuning| tuning.convention.map_convention())
+            .unwrap_or_default()
+    }
+
     fn portal_near(&mut self, pos: Vec2) -> PlacedPortal {
         let world = self.app.world_mut();
         let mut portals = world.query::<&PlacedPortal>();
@@ -250,6 +265,7 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
     let mut harness = HeadlessCameraHarness::new();
     let entry = harness.portal_near(Vec2::new(2792.0, 248.0));
     let exit = harness.portal_by_channel(entry.channel.partner());
+    let convention = harness.convention();
 
     assert_near_vec("c141 position", entry.pos, Vec2::new(2792.0, 248.0), 2.0);
     assert_near_vec("c141 normal", entry.normal, Vec2::new(-1.0, 0.0), 0.01);
@@ -271,6 +287,7 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
                 current.player_pos,
                 &exit_frame,
                 &enter_frame,
+                convention,
             );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
@@ -356,6 +373,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
     let mut harness = HeadlessCameraHarness::new();
     let entry = harness.portal_near(Vec2::new(900.0, 900.0));
     let exit = harness.portal_by_channel(entry.channel.partner());
+    let convention = harness.convention();
 
     assert_near_vec("c135 position", entry.pos, Vec2::new(900.0, 900.0), 2.0);
     assert_near_vec("c135 normal", entry.normal, Vec2::new(0.0, -1.0), 0.01);
@@ -377,6 +395,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
                 current.player_pos,
                 &exit_frame,
                 &enter_frame,
+                convention,
             );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
@@ -458,6 +477,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
 #[test]
 fn thin_wall_walk_keeps_apparent_player_position_smooth() {
     let mut harness = HeadlessCameraHarness::new();
+    let convention = harness.convention();
 
     // Locate the thin-wall doorway pair: partner-linked, opposed normals,
     // faces less than ~48px apart.
@@ -514,6 +534,7 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
                 current.player_pos,
                 &exit.frame(),
                 &entry.frame(),
+                convention,
             );
             let mapped_step =
                 ((body_before - previous.camera_center) - previous.screen_pos()).length();

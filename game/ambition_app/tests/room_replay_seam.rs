@@ -11,10 +11,10 @@
 
 use crate::common::{base, fixed_60hz_sim};
 
-use ambition_platformer2d::combat::ResetRoomFeaturesEvent;
+use ambition_app::Platformer2dSimHarness;
+use ambition_platformer2d::combat::RoomReplayAdmitted;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_app::Platformer2dSimHarness;
 use bevy::prelude::*;
 
 fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
@@ -75,8 +75,9 @@ fn a_replay_request_returns_the_hosted_body_to_spawn() {
          to bring it back ({displaced:?} vs {spawn:?})"
     );
 
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
     sim.step(base());
 
     let home = player_pos(&mut sim);
@@ -107,7 +108,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
     // ONE step in isolation: step to clear, then measure the next step alone.
     let resets_this_step = |sim: &mut Platformer2dSimHarness| -> usize {
         sim.world_mut()
-            .resource_mut::<Messages<ResetRoomFeaturesEvent>>()
+            .resource_mut::<Messages<RoomReplayAdmitted>>()
             .drain()
             .count()
     };
@@ -120,8 +121,9 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
         "an idle step must not reset room features, or the count below proves nothing"
     );
 
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
     sim.step(base());
 
     assert_eq!(
@@ -133,22 +135,28 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
     );
 }
 
-/// THE REPLAY IS A TRANSACTION, AND ITS THREE STEPS HAVE AN ORDER.
+/// THE REPLAY IS A TRANSACTION, AND ITS STEPS HAVE AN ORDER.
 ///
 /// ```text
-/// ContentDialogueFollowupSet   emit the request
-/// ContentRoomReplayResetSet    clear the per-attempt state it invalidates
-/// RoomReplayApplied            rebuild the room
+/// ContentDialogueFollowupSet   emit the REQUEST
+/// RoomReplayAdmission          decide whether it happens, and say so once
+/// ContentRoomReplayResetSet    clear the per-attempt state the ADMITTED replay invalidates
+/// RoomReplayConsequences       put the subject back at spawn
 /// ```
+///
+/// ⛔⛔ THE MIDDLE TWO USED TO BE THE OTHER WAY ROUND, and that was the bug the
+/// admission split fixes: content cleared its per-attempt state on the REQUEST,
+/// so a replay the lifecycle slot refused still retracted a boss's persisted
+/// defeat and advanced an arena's heavy-object cycle in a room nothing rebuilt.
 ///
 /// this asserts the ORDER rather than the boss, deliberately. The probes are ordinary systems
 /// placed in the real sets of the real app.
 #[test]
-fn the_replay_reset_runs_after_the_dialogue_followup_that_requests_it() {
+fn the_replay_reset_runs_after_the_admission_that_authorizes_it() {
     use ambition_platformer2d::actors::session::reset::{
         ContentDialogueFollowupSet, ContentRoomReplayResetSet,
     };
-    use ambition_platformer2d::runtime::RoomReplayApplied;
+    use ambition_platformer2d::runtime::{RoomReplayAdmission, RoomReplayConsequences};
 
     #[derive(Resource, Default)]
     struct RunOrder(Vec<&'static str>);
@@ -164,8 +172,9 @@ fn the_replay_reset_runs_after_the_dialogue_followup_that_requests_it() {
         (
             (|mut order: ResMut<RunOrder>| order.0.push("followup"))
                 .in_set(ContentDialogueFollowupSet),
+            (|mut order: ResMut<RunOrder>| order.0.push("admitted")).in_set(RoomReplayAdmission),
             (|mut order: ResMut<RunOrder>| order.0.push("reset")).in_set(ContentRoomReplayResetSet),
-            (|mut order: ResMut<RunOrder>| order.0.push("applied")).in_set(RoomReplayApplied),
+            (|mut order: ResMut<RunOrder>| order.0.push("applied")).in_set(RoomReplayConsequences),
         ),
     );
 
@@ -179,15 +188,21 @@ fn the_replay_reset_runs_after_the_dialogue_followup_that_requests_it() {
             .unwrap_or_else(|| panic!("the {label} probe never ran: {order:?}"))
     };
     assert!(
-        position("followup") < position("reset"),
-        "the replay RESET ran before the dialogue followup that emits the \
-         request it exists to answer, so it reads no request and clears nothing \
-         — the room then rebuilds from state that is still persisted as \
-         cleared. Order was {order:?}"
+        position("followup") < position("admitted"),
+        "the ADMISSION ran before the dialogue followup that emits the request \
+         it exists to answer, so it reads no request and the replay never \
+         happens. Order was {order:?}"
+    );
+    assert!(
+        position("admitted") < position("reset"),
+        "content cleared its per-attempt state BEFORE the replay was admitted, \
+         which is the defect the admission split exists to remove: a refused \
+         replay would still have retracted a boss's persisted defeat. Order was \
+         {order:?}"
     );
     assert!(
         position("reset") < position("applied"),
-        "the room was rebuilt before the per-attempt state was cleared, so the \
-         rebuild used the stale record. Order was {order:?}"
+        "the subject was returned to spawn before the per-attempt state was \
+         cleared. Order was {order:?}"
     );
 }

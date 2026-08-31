@@ -47,11 +47,78 @@ pub fn adopt_occurrence_checkpoint_from_save(
     if restored.0 || bodies.is_empty() {
         return;
     }
-    let Some(mut occurrences) = occurrences else {
+    let Some(occurrences) = occurrences else {
         return;
     };
-    let data = save.data();
+    adopt_the_ledger(
+        save.data(),
+        occurrences,
+        occurrence_baseline,
+        custody_baseline,
+    );
+}
 
+/// Put the file's occurrence ledger in place BEFORE the session builds its
+/// first room.
+///
+/// ⛔⛔ A LOAD USED TO CONSTRUCT ITS FIRST ROOM KNOWING NOTHING, AND CORRECT IT
+/// AFTERWARDS. Activation passed `continuity: None`, so a room whose object the
+/// file says is lying next door authored it anyway; the durable chain then ran
+/// in `Update`, latched, asked for a checkpoint resume, and the room-transition
+/// road rebuilt the room several ticks later with the ledger in hand. For that
+/// window there were two live things behind one identity, in a world where
+/// combat, pickups and encounters all run ungated — and the population that
+/// picked one of them up wrote its custody over the very row the correction was
+/// about to read.
+///
+/// ⭐ THE LEDGER LEG NEEDS NO BODY. That is the whole reason this can move: only
+/// the item/wallet leg of the durable chain requires a primary body to exist,
+/// and it is `restore_inventory_from_save`'s, not this one's. Running the ledger
+/// adoption at [`SessionScopeSet::Activate`](ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+/// — the seam whose whole promise is "before any provider constructs the world
+/// these values describe" — means the temporary population is never built at
+/// all, rather than built and repaired.
+///
+/// ⚠ THE `Update` ADOPTER STAYS. A file can also arrive after activation (a
+/// mid-session load), and adoption is idempotent: the same rows adopted twice
+/// are the same rows.
+pub fn adopt_the_occurrence_ledger_at_activation(
+    // `Option`: a narrow fixture that never installs the session-scope plugin
+    // registers no such message, and "there is no activation channel here" is an
+    // ordinary composition rather than a reason to panic the app.
+    activated: Option<
+        MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
+    >,
+    save: Res<AmbitionGameSave>,
+    occurrences: Option<ResMut<AuthoredOccurrences>>,
+    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
+    custody_baseline: Option<ResMut<CustodyBaseline>>,
+) {
+    let Some(mut activated) = activated else {
+        return;
+    };
+    if activated.read().count() == 0 {
+        return;
+    }
+    let Some(occurrences) = occurrences else {
+        return;
+    };
+    adopt_the_ledger(
+        save.data(),
+        occurrences,
+        occurrence_baseline,
+        custody_baseline,
+    );
+}
+
+/// The adoption itself, so the activation edge and the `Update` chain cannot
+/// drift into reading the file two different ways.
+fn adopt_the_ledger(
+    data: &ambition_persistence::save_data::AmbitionGameSaveData,
+    mut occurrences: ResMut<AuthoredOccurrences>,
+    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
+    custody_baseline: Option<ResMut<CustodyBaseline>>,
+) {
     let ledger_rows: BTreeMap<SimId, OccurrenceWhereabouts> = data
         .occurrences
         .iter()
@@ -119,26 +186,36 @@ pub fn complete_durable_restore(
 ///
 /// The generic runtime calls this one domain offer.
 pub fn install_durable_save_horizon(app: &mut App) {
-    app.init_resource::<SaveRestored>().add_systems(
-        Update,
-        (
-            // Lifecycle state first: the room/custody baseline must be present
-            // before the load asks the ordinary checkpoint-resume road to act.
-            adopt_occurrence_checkpoint_from_save,
-            // Item state second. This applies the saved bag and adopts BOTH
-            // item checkpoint baselines from the post-load values.
-            crate::items::persist::restore_inventory_from_save,
-            // The host-level completion point comes last: only now is the file
-            // fully applied, and only now may a checkpoint resume be requested.
-            complete_durable_restore,
-            // Mirrors run only after the latch is true, so none can overwrite a
-            // file before all domain adopters have consumed it.
-            crate::items::persist::persist_inventory_to_save,
-            persist_occurrence_horizon_to_save,
-            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+    app.init_resource::<SaveRestored>()
+        .add_systems(
+            Update,
+            adopt_the_occurrence_ledger_at_activation
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                // AFTER the session-scoped reset, which clears `SaveRestored`.
+                // Adopting first would be adopting into a world about to have
+                // its latches wiped.
+                .after(crate::session::teardown::reset_session_scoped_resources_on_activation),
         )
-            .chain(),
-    );
+        .add_systems(
+            Update,
+            (
+                // Lifecycle state first: the room/custody baseline must be present
+                // before the load asks the ordinary checkpoint-resume road to act.
+                adopt_occurrence_checkpoint_from_save,
+                // Item state second. This applies the saved bag and adopts BOTH
+                // item checkpoint baselines from the post-load values.
+                crate::items::persist::restore_inventory_from_save,
+                // The host-level completion point comes last: only now is the file
+                // fully applied, and only now may a checkpoint resume be requested.
+                complete_durable_restore,
+                // Mirrors run only after the latch is true, so none can overwrite a
+                // file before all domain adopters have consumed it.
+                crate::items::persist::persist_inventory_to_save,
+                persist_occurrence_horizon_to_save,
+                crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+            )
+                .chain(),
+        );
 }
 
 /// Mirror the current occurrence horizon into the save after restore completes. Writes are

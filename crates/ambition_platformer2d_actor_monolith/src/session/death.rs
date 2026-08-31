@@ -169,15 +169,28 @@ pub fn close_death_interlude(
     if still_playing.iter().next().is_some() {
         return;
     }
-    // ORDER OF WRITES IS IRRELEVANT; ORDER OF READS IS NOT. Both land in
-    // this frame's channels and the schedule decides which consumer sees its
-    // own first — `CheckpointRestore` is configured before `RoomReplayApplied`
-    // precisely so the ledger is back to the baseline before anything rebuilds
-    // a room against it.
-    if let Some(restore) = restore.as_mut() {
-        restore.write(ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint);
-    }
-    replay.write(RoomReplayRequested);
+    // ⛔⛔ ONE LIFECYCLE OPERATION, NOT TWO. This used to write BOTH
+    // `ResetToCheckpoint` and `RoomReplayRequested`, and the two competed for
+    // the single pending-commit slot: `resume_at_checkpoint_on_reset` recorded
+    // its transition first and the replay's record silently no-op'd, while the
+    // replay's consequences ran anyway. That is the defect in miniature — a
+    // world half-reset for an operation that never happened — and it was
+    // invisible until the slot started reporting refusals.
+    //
+    // ⭐ THE CHECKPOINT RESUME IS THE REPLAY, on this road. It knows the target
+    // (the saved room, which is not necessarily the active one), it records the
+    // intent, and it announces the admitted replay so the death's consequences —
+    // the body back at the arrival, the attempt's residue retired, content's
+    // per-attempt state re-armed, the gun portals PRESERVED because this is a
+    // death and not a deliberate retry — all hang off the one fact.
+    let Some(restore) = restore.as_mut() else {
+        // No checkpoint horizon in this composition: fall back to asking for a
+        // plain replay of the active room, which is what a game with no
+        // checkpoints means by "the level goes back".
+        replay.write(RoomReplayRequested::player_death());
+        return;
+    };
+    restore.write(ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint);
 }
 
 /// A body that restarted is back IN play.

@@ -407,10 +407,12 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
             Some(intent) => {
                 put_bool(out, true);
                 put_i32(out, intent.frame);
+                // ⭐ THE TAG STAYS 3. Four sibling variants were deleted, and
+                // renumbering would be a second wire change for no gain: a
+                // reader that meets tag 0, 1, 2 or 4 is reading a snapshot from
+                // a build that had them, and `decode` refusing it is the honest
+                // answer.
                 match &intent.kind {
-                    LifecycleIntent::DeathReset => put_u8(out, 0),
-                    LifecycleIntent::ManualReset => put_u8(out, 1),
-                    LifecycleIntent::Replay => put_u8(out, 2),
                     LifecycleIntent::Transition(
                         crate::session::lifecycle_commit::RoomTransitionIntent {
                             subject,
@@ -428,7 +430,6 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         put_bool(out, zone_sfx.is_some());
                         put_str(out, zone_sfx.as_deref().unwrap_or(""));
                     }
-                    LifecycleIntent::FullReset => put_u8(out, 4),
                 }
             }
         }
@@ -443,9 +444,6 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
         }
         let frame = r.i32()?;
         let kind = match r.u8()? {
-            0 => LifecycleIntent::DeathReset,
-            1 => LifecycleIntent::ManualReset,
-            2 => LifecycleIntent::Replay,
             3 => LifecycleIntent::Transition(
                 crate::session::lifecycle_commit::RoomTransitionIntent {
                     subject: ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
@@ -461,7 +459,10 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                     },
                 },
             ),
-            4 => LifecycleIntent::FullReset,
+            // Tags 0, 1, 2 and 4 were the deleted reset variants. Refusing them
+            // is the point: a snapshot that carries one came from a build with a
+            // different lifecycle model, and decoding it into anything would be
+            // inventing an operation.
             _ => return None,
         };
         Some(PendingLifecycleCommit {

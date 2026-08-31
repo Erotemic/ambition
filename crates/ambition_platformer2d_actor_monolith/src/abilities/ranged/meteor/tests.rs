@@ -143,3 +143,55 @@ fn meteor_aims_with_the_left_stick_facing_on_a_null_aim() {
         "a left-facing null-aim cast strikes to the left"
     );
 }
+
+/// ⭐⭐ A SECOND DRIVEN BODY RAINS ITS OWN METEORS.
+/// Same singular-`ControlledSubject` defect as the volley — see
+/// `crate::abilities::ranged::volley`'s twin of this test for the why.
+#[test]
+fn two_driven_bodies_each_rain_their_own_meteors() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(
+        &mut app,
+        METEOR_ID,
+        0,
+        "seat_a",
+        ae::Vec2::new(100.0, 100.0),
+    );
+    let b = spawn_seated_body_holding(
+        &mut app,
+        METEOR_ID,
+        1,
+        "seat_b",
+        ae::Vec2::new(600.0, 100.0),
+    );
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+
+    let owners: Vec<_> = app
+        .world_mut()
+        .query::<&ambition_projectiles::ProjectileOwner>()
+        .iter(app.world())
+        .map(|o| o.0)
+        .collect();
+    assert!(
+        owners.iter().any(|&o| o == a),
+        "seat a rained nothing: {owners:?}"
+    );
+    assert!(
+        owners.iter().any(|&o| o == b),
+        "seat b rained nothing: {owners:?}"
+    );
+    assert_eq!(
+        owners.iter().filter(|&&o| o == a).count(),
+        owners.iter().filter(|&&o| o == b).count(),
+        "the two seats fired the same ability, so their strike counts must match: {owners:?}"
+    );
+}

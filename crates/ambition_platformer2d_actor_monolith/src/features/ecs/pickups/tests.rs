@@ -229,6 +229,72 @@ fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
     );
 }
 
+/// ⛔⛔ TWO EQUIDISTANT COLLECTORS IS A COIN FLIP UNTIL SOMETHING BREAKS THE TIE.
+///
+/// `min_by` on distance alone keeps whichever candidate the query yields first,
+/// which is archetype order — not a promise, and not what a rollback
+/// resimulation reproduces. Which body a contested pickup flies to is
+/// authoritative gameplay state, so deciding it by iteration order is
+/// deterministically wrong.
+///
+/// ⭐ THE ARM THAT CATCHES IT IS SPAWN ORDER, exactly as the projectile-victim
+/// tie-break's is: the same two bodies are spawned left-then-right and
+/// right-then-left, and the pickup must go the SAME way both times. A single
+/// arrangement agrees with the bug whenever the archetype happens to list the
+/// winner first.
+#[test]
+fn a_pickup_between_two_equidistant_collectors_goes_the_same_way_whichever_spawned_first() {
+    fn drift(left_first: bool) -> f32 {
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime {
+            scaled_dt: 0.1,
+            ..Default::default()
+        });
+        app.add_systems(Update, magnetize_pickups);
+        // EXACTLY equidistant, and both inside the classic 130px range.
+        let left = ae::Vec2::new(100.0, 100.0);
+        let right = ae::Vec2::new(300.0, 100.0);
+        let (first, second) = if left_first {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        let a = player_at(&mut app, first);
+        let b = player_at(&mut app, second);
+        // ⭐ IDENTITIES, or the tie-break has nothing to break the tie WITH and
+        // this test measures encounter order twice. The ids are fixed to the
+        // POSITION, not to the spawn order, so "the same winner" means the same
+        // body and not the same slot.
+        for (entity, at) in [(a, first), (b, second)] {
+            let id = if at.x < 200.0 { "left" } else { "right" };
+            app.world_mut()
+                .entity_mut(entity)
+                .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id));
+        }
+
+        let pickup = health_pickup_at(&mut app, "contested", ae::Vec2::new(200.0, 100.0));
+        app.world_mut()
+            .entity_mut(pickup)
+            .insert(super::PickupMagnet::classic());
+        app.update();
+        app.world().get::<CenteredAabb>(pickup).unwrap().center.x
+    }
+
+    let a = drift(true);
+    let b = drift(false);
+    assert!(
+        (a - 200.0).abs() > 1.0,
+        "the pickup did not move at all, so this arm cannot tell one winner \
+         from the other (x={a})"
+    );
+    assert_eq!(
+        a, b,
+        "the contested pickup went one way when the left collector was spawned \
+         first and the other way when the right one was — the winner is \
+         archetype order, which a resimulation does not reproduce"
+    );
+}
+
 #[test]
 fn nearby_pickups_drift_toward_the_player() {
     let mut app = App::new();

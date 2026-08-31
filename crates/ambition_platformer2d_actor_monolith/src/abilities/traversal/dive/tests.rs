@@ -191,3 +191,41 @@ fn dive_corridor_is_a_thin_rectangle_spanning_the_dash() {
         "horizontal corridor is long along x: {c:?}"
     );
 }
+
+/// ⭐⭐ A SECOND DRIVEN BODY DIVES TOO — same singular-`ControlledSubject`
+/// defect as the blink; see its twin of this test.
+#[test]
+fn two_driven_bodies_each_dive_from_their_own_position() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(
+        &mut app,
+        DIVE_ID,
+        0,
+        "seat_a",
+        ambition_platformer2d_core::Vec2::new(100.0, 100.0),
+    );
+    let b = spawn_seated_body_holding(
+        &mut app,
+        DIVE_ID,
+        1,
+        "seat_b",
+        ambition_platformer2d_core::Vec2::new(900.0, 100.0),
+    );
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+    for (body, start, who) in [(a, 100.0, "a"), (b, 900.0, "b")] {
+        let pos = app.world().get::<BodyKinematics>(body).unwrap().pos;
+        assert!(
+            (pos.x - (start + DIVE_LUNGE)).abs() < 0.01,
+            "seat {who} did not lunge from its own position: {pos:?}"
+        );
+    }
+}

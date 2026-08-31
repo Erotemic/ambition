@@ -1,15 +1,15 @@
-//! Ambition room-reset bridge: `ResetRoomFeaturesEvent` → portal `ClearPortals`.
+//! Ambition room-reset bridge: `RoomReplayAdmitted` → portal `ClearPortals`.
 //!
 //! Portal core's [`clear_portals_on_reset`](ambition_portal2d::clear_portals_on_reset)
 //! consumes the portal-owned [`ClearPortals`](ambition_portal2d::ClearPortals) signal,
-//! not the Ambition `ResetRoomFeaturesEvent`. This bridge translates the Ambition
+//! not the Ambition `RoomReplayAdmitted`. This bridge translates the Ambition
 //! room-reset event into the portal signal so portal core never names the reset
 //! event — the room-reset *policy* (when a room resets) stays Ambition's, while
 //! portal owns the *clear-portals* mechanic.
 
 use bevy::prelude::*;
 
-use ambition_combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 use ambition_portal2d::ClearPortals;
 
 /// Emit a [`ClearPortals`] for a MANUAL room reset (the delete-key reset or a
@@ -19,7 +19,7 @@ use ambition_portal2d::ClearPortals;
 /// `clear_portals_on_reset`, so the clear happens the same frame the room reset
 /// fires.
 pub fn bridge_room_reset_to_clear_portals(
-    mut resets: MessageReader<ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<RoomReplayAdmitted>,
     mut clear: MessageWriter<ClearPortals>,
 ) {
     // Clear the gun portals only if at least one reset this frame was deliberate.
@@ -38,11 +38,11 @@ mod tests {
 
     fn clears_for(reason: RoomResetReason) -> bool {
         let mut app = App::new();
-        app.add_message::<ResetRoomFeaturesEvent>();
+        app.add_message::<RoomReplayAdmitted>();
         app.add_message::<ClearPortals>();
         app.add_systems(Update, bridge_room_reset_to_clear_portals);
         app.world_mut()
-            .write_message(ResetRoomFeaturesEvent { reason });
+            .write_message(RoomReplayAdmitted::because(reason));
         app.update();
         let mut reader = app
             .world_mut()

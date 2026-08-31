@@ -614,9 +614,10 @@ where
     //
     // ⚠ REGISTERED, NOT ENDORSED. The review that found this is right that the
     // real repair is folding held shots into `ProjectileSpawnRequest` and
-    // deleting this second projectile simulation — which would take this row,
-    // the slot-zero attribution, a second world-collision implementation and a
-    // second place anti-tunnelling has to be fixed. This makes the shipped
+    // deleting this second projectile simulation — which would take this row, a
+    // second world-collision implementation and a second place anti-tunnelling
+    // has to be fixed. (The slot-zero attribution this list used to name is
+    // gone: a held shot carries `ProjectileOwner` like every other projectile.) This makes the shipped
     // behaviour correct in the meantime; it is not a reason to keep the fork.
     registrar.rollback_component_clone_probed::<crate::items::pickup::HeldProjectile>(
         OWNER,

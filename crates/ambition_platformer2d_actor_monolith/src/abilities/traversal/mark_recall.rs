@@ -23,7 +23,6 @@ use crate::features::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
 /// `HELD_ITEMS` and `items::Item::held_item_id`).
@@ -49,8 +48,10 @@ pub struct PlayerMark {
 /// as "set the mark here" rather than "recall to where I just stood".
 pub fn mark_recall_system(
     mut commands: Commands,
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never acted.
+    driven: crate::items::pickup::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -66,90 +67,89 @@ pub fn mark_recall_system(
     // that never added the engine's schedule plugin still recalls.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark)) =
-        players.get_mut(subject)
-    else {
-        return;
-    };
-    let mut clusters = cluster_item.as_clusters_mut();
-    let c = control.0;
-    if held.spec.id != MARK_RECALL_ID {
-        return;
-    }
-
-    // Plain Attack drops / moves the mark. Shield+Attack is the generic "throw
-    // the item away", so a marked frame must not be a shielded one.
-    if c.melee_pressed && !c.shield_held {
-        let pos = clusters.kinematics.pos;
-        match mark.as_deref_mut() {
-            Some(existing) => existing.pos = Some(pos),
-            None => {
-                commands
-                    .entity(player)
-                    .insert(PlayerMark { pos: Some(pos) });
-            }
+    for subject in driven.entities() {
+        let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark)) =
+            players.get_mut(subject)
+        else {
+            continue;
+        };
+        let mut clusters = cluster_item.as_clusters_mut();
+        let c = control.0;
+        if held.spec.id != MARK_RECALL_ID {
+            continue;
         }
-        sfx.write_for(
-            player,
-            ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PLAYER_DASH,
-                pos,
-            },
-        );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-            pos,
-            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-            scale: 0.4,
-            pose: ambition_vfx::FxPose::UPRIGHT,
-        });
-        return;
-    }
 
-    // Blink recalls to the mark, if one is set.
-    if c.blink_pressed {
-        if let Some(target) = mark.and_then(|m| m.pos) {
-            // THE discrete-transit authority: momentum kept, departure contacts
-            // and any attachment reconciled (ADR 0024 authority model).
-            ae::movement::transit_body(
-                &mut motion_model,
-                &mut clusters,
-                target,
-                ae::movement::TransitVelocity::Keep,
-            );
-            // Class-B transit authority (`docs/concepts/movement-collision.md`): the
-            // recall JUMPS the body, so it is a scripted teleport.
-            if let Some(log) = class_b.as_mut() {
-                log.record(player, ClassBRemap::ScriptedTeleport);
+        // Plain Attack drops / moves the mark. Shield+Attack is the generic "throw
+        // the item away", so a marked frame must not be a shielded one.
+        if c.melee_pressed && !c.shield_held {
+            let pos = clusters.kinematics.pos;
+            match mark.as_deref_mut() {
+                Some(existing) => existing.pos = Some(pos),
+                None => {
+                    commands
+                        .entity(player)
+                        .insert(PlayerMark { pos: Some(pos) });
+                }
             }
-            // Recall-strike: a player-side shockwave at the mark, so you can mark a
-            // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
-            hits.write(ambition_combat::events::HitEvent {
-                strike_sfx: None,
-                volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
-                damage: RECALL_SHOCKWAVE_DAMAGE,
-                source: ambition_combat::events::HitSource::Melee,
-                attacker: Some(player),
-                target: ambition_combat::events::HitTarget::Volume,
-                mode: ambition_combat::events::HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-            });
             sfx.write_for(
                 player,
                 ambition_sfx::SfxMessage::Play {
-                    id: ambition_sfx::ids::PLAYER_BLINK,
-                    pos: target,
+                    id: ambition_sfx::ids::PLAYER_DASH,
+                    pos,
                 },
             );
             vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-                pos: target,
+                pos,
                 fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-                scale: 0.6,
+                scale: 0.4,
                 pose: ambition_vfx::FxPose::UPRIGHT,
             });
+            continue;
+        }
+
+        // Blink recalls to the mark, if one is set.
+        if c.blink_pressed {
+            if let Some(target) = mark.and_then(|m| m.pos) {
+                // THE discrete-transit authority: momentum kept, departure contacts
+                // and any attachment reconciled (ADR 0024 authority model).
+                ae::movement::transit_body(
+                    &mut motion_model,
+                    &mut clusters,
+                    target,
+                    ae::movement::TransitVelocity::Keep,
+                );
+                // Class-B transit authority (`docs/concepts/movement-collision.md`): the
+                // recall JUMPS the body, so it is a scripted teleport.
+                if let Some(log) = class_b.as_mut() {
+                    log.record(player, ClassBRemap::ScriptedTeleport);
+                }
+                // Recall-strike: a player-side shockwave at the mark, so you can mark a
+                // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
+                hits.write(ambition_combat::events::HitEvent {
+                    strike_sfx: None,
+                    volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
+                    damage: RECALL_SHOCKWAVE_DAMAGE,
+                    source: ambition_combat::events::HitSource::Melee,
+                    attacker: Some(player),
+                    target: ambition_combat::events::HitTarget::Volume,
+                    mode: ambition_combat::events::HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: Vec::new(),
+                });
+                sfx.write_for(
+                    player,
+                    ambition_sfx::SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_BLINK,
+                        pos: target,
+                    },
+                );
+                vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                    pos: target,
+                    fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                    scale: 0.6,
+                    pose: ambition_vfx::FxPose::UPRIGHT,
+                });
+            }
         }
     }
 }

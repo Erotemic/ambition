@@ -347,9 +347,9 @@ where
         OWNER,
         "message.gameplay_sfx_requested",
     );
-    registrar.clear_message_on_rollback::<crate::events::ResetRoomFeaturesEvent>(
+    registrar.clear_message_on_rollback::<crate::events::RoomReplayAdmitted>(
         OWNER,
-        "message.reset_room_features",
+        "message.room_replay_admitted",
     );
     registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
         OWNER,
@@ -365,9 +365,9 @@ where
         OWNER,
         "message.gameplay_sfx_requested",
     );
-    registrar.clear_message_on_rollback::<crate::events::ResetRoomFeaturesEvent>(
+    registrar.clear_message_on_rollback::<crate::events::RoomReplayAdmitted>(
         OWNER,
-        "message.reset_room_features",
+        "message.room_replay_admitted",
     );
     registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
         OWNER,

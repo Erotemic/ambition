@@ -270,6 +270,32 @@ provenance: the source recording, its timestamp, and all three schema versions),
 `summary.md`, `trace.jsonl` (one line per tick, for the question the report did
 not anticipate) and `filmstrip.svg`.
 
+### Does A chain into B?
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes -- \
+    --characters npc_pirate_admiral --verbs attack --spacing 40 \
+    --chain attack --chain-at 14
+```
+
+`--chain-at` is when B is REQUESTED. The engine decides whether it is accepted,
+and the gap between the two is the measurement — so sweep it. Measured on the
+admiral's jab into itself:
+
+```text
+- A `jab` first contact: tick 3
+- B `jab` requested at 14, ACCEPTED at 18 (15 ticks after A connected)
+  — the press was BUFFERED for 4 tick(s); the request is not the acceptance.
+- B first live volume: tick 21 · first contact: tick —
+- B geometry reached the target: yes
+  — ⚠ B's box overlapped and the runtime resolved NO hit.
+```
+
+⛔ A press the engine never played is an ANSWER (requested at 8, with A still
+playing until 17, produced nothing), not a missing section. And none of this is a
+combo verdict: whether the target could have escaped depends on a ruleset this
+report does not model.
+
 ### Why a hit resolved the way it did
 
 The chain above says WHAT changed. WHY — `ignored` / `blocked` / `armored` /

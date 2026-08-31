@@ -79,6 +79,13 @@ OPTIONS:
                          press [default: the match's own seat placement]
                          ⭐ A move recorded from across the stage can never show
                          a CONTACT. This is how reach is asked about.
+    --chain VERB         after the first verb, request this one too
+    --chain-at TICK      the action tick the chained verb is REQUESTED on
+                         [default: 37, the tick the first verb's own schedule
+                         releases]
+                         ⭐ SWEEP IT. The engine decides whether a cancel window
+                         is open; the gap between the request and the acceptance
+                         is the measurement.
     --target ID          who the subject performs the move AGAINST
                          [default: the subject's own character, a mirror match]
     --target-behavior WHICH
@@ -890,6 +897,8 @@ fn main() {
                     | "--target-behavior"
                     | "--verbs"
                     | "--spacing"
+                    | "--chain"
+                    | "--chain-at"
             )
         })
     {
@@ -906,6 +915,28 @@ fn main() {
     // target makes the two bodies visibly different when that is what a reader
     // needs.
     let target = arg("--target");
+    // ⛔ A NAME THAT MATCHES NOTHING IS A REFUSAL, as it is for `--verbs`.
+    let chain = arg("--chain").map(|name| match move_exercise::verb_named(&name) {
+        Some(verb) => verb,
+        None => {
+            eprintln!(
+                "moveset_takes: '{name}' is not a verb this exercise can perform.\n\
+                 known: {}",
+                VERBS.iter().map(|v| v.verb).collect::<Vec<_>>().join(", ")
+            );
+            std::process::exit(2);
+        }
+    });
+    let chain_at: usize = match arg("--chain-at") {
+        None => move_exercise::HOLD_TICKS,
+        Some(word) => match word.parse() {
+            Ok(tick) => tick,
+            Err(_) => {
+                eprintln!("moveset_takes: --chain-at wants a tick number");
+                std::process::exit(2);
+            }
+        },
+    };
     let spacing: Option<f32> = match arg("--spacing") {
         None => None,
         Some(word) => match word.parse::<f32>() {
@@ -1101,7 +1132,16 @@ fn main() {
             // renderer while `shot < frames / 4`, which happened to agree at 37
             // and would have drifted the moment either tool changed how much it
             // records. What the player does is not the recorder's business.
-            step(&mut app, move_exercise::action_frame(verb, 0, facing));
+            // ⭐ ONE SCHEDULE, WHETHER OR NOT A SECOND VERB IS CHAINED IN.
+            // `chained_frame` is `action_frame` before the hand-off, so a chain
+            // presses exactly what a single take presses up to that tick.
+            let frame_at = |tick: usize| match chain {
+                Some(second) => {
+                    move_exercise::chained_frame(verb, second, chain_at, tick, facing)
+                }
+                None => move_exercise::action_frame(verb, tick, facing),
+            };
+            step(&mut app, frame_at(0));
             // ⛔ THE PRESS TICK IS FRAME ZERO. `ResolvedAttackGesture::pressed`
             // is set on the press tick and cleared after, so a recording that
             // started one tick later showed `gesture: null` on every frame of
@@ -1109,7 +1149,7 @@ fn main() {
             // the input to be, absent from all of them.
             unidentified.extend(record(&mut app, &roles, &mut frames));
             for tick in 1..TAKE_TICKS {
-                step(&mut app, move_exercise::action_frame(verb, tick, facing));
+                step(&mut app, frame_at(tick));
                 unidentified.extend(record(&mut app, &roles, &mut frames));
             }
 
@@ -1299,6 +1339,14 @@ fn main() {
                 // ⛔ THE SPACING ASKED FOR AND THE SPACING REACHED. A move that
                 // could not close the gap is a finding; a take that reported
                 // only the request would hide it.
+                // ⛔ WHAT WAS REQUESTED, beside what the engine did with it.
+                // A take that recorded only the second verb's name could not say
+                // whether the engine accepted it early, late, or at all.
+                "chain": chain.map(|second| serde_json::json!({
+                    "verb": second.verb,
+                    "label": second.label,
+                    "at": chain_at,
+                })),
                 "requested_spacing": spacing,
                 "spacing_at_press": spacing_at_press,
                 "view": [x0, y0, x1, y1],

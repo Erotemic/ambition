@@ -10,6 +10,7 @@ to investigate.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -299,6 +300,76 @@ def test_a_contact_that_changed_nothing_reports_no_steps() -> None:
     # The fixture's target never changes damage/hitstun/velocity, so the only
     # step is the displacement window — and it is zero.
     assert all(step["after"] == 0.0 for step in chain[0]["steps"]), chain[0]["steps"]
+
+
+def _chained(*, second_at: int | None, requested: int) -> dict:
+    """A: startup 3 / active 4 / recovery 3, then optionally a SECOND instance of
+    the same move — which is what a jab combo is."""
+    take = _take(contact_at=4)
+    take["chain"] = {"verb": "attack", "label": "Jab", "at": requested}
+    frames = take["frames"]
+    for _ in range(12):
+        frames.append(json.loads(json.dumps(frames[-1])))
+    for tick, frame in enumerate(frames):
+        subject = frame["bodies"][0]
+        if tick < 10:
+            continue
+        # After A finishes the subject plays nothing...
+        subject["move_state"] = None
+        frame["hitboxes"] = []
+        frame["contacts"] = []
+        # ...until the engine accepts B.
+        if second_at is not None and tick >= second_at:
+            subject["move_state"] = {
+                "id": "jab",
+                "phase": "Startup" if tick < second_at + 3 else "Active",
+                "elapsed_s": 0.0,
+                "duration_s": 0.4,
+            }
+            if tick >= second_at + 3:
+                frame["hitboxes"] = [_strike(120.0)]
+    return take
+
+
+def test_a_repeated_move_is_a_second_instance_not_the_same_one() -> None:
+    """⛔⛔ `jab → jab` SHARES AN ID. Comparing against the last RECORDED id
+    misses the second press entirely — the subject plays nothing between them,
+    so the previous recorded id is still `jab` — and that is exactly the chain a
+    jab combo is made of."""
+    chain = tool.report(_chained(second_at=14, requested=12))["measurements"]["move_chain"]
+    assert chain is not None
+    assert chain["first"]["move"] == "jab" and chain["first"]["first_contact_tick"] == 4
+    assert chain["second"]["accepted"] is True
+    assert chain["second"]["accepted_tick"] == 14
+    # ⛔ AND THE SECOND INSTANCE'S WINDOW IS ITS OWN. Scoping by id alone would
+    # credit the FIRST jab's contact to the second.
+    assert chain["second"]["first_contact_tick"] is None
+    assert chain["second"]["first_live_tick"] == 17
+
+
+def test_a_press_the_engine_never_played_is_an_answer() -> None:
+    """⛔⛔ Measured on the admiral: a jab requested on tick 8, with the first jab
+    still playing until 17, produced no second jab at all. A report that omitted
+    the section would leave a reader thinking the probe had not run."""
+    chain = tool.report(_chained(second_at=None, requested=8))["measurements"]["move_chain"]
+    assert chain is not None
+    assert chain["second"]["accepted"] is False
+    assert chain["second"]["accepted_tick"] is None
+    assert chain["second"]["requested_tick"] == 8
+    text = tool.summary(tool.report(_chained(second_at=None, requested=8)))
+    assert "NEVER PLAYED IT" in text
+    assert "Sweep `--chain-at`" in text
+
+
+def test_the_buffered_gap_between_request_and_acceptance_is_named() -> None:
+    """⭐ MEASURED: a press on tick 14 was accepted on 18. The request is not the
+    acceptance, and the difference is the action buffer doing its job."""
+    text = tool.summary(tool.report(_chained(second_at=18, requested=14)))
+    assert "BUFFERED for 4 tick(s)" in text
+
+
+def test_a_single_move_take_has_no_chain_section() -> None:
+    assert tool.report(_take(contact_at=4))["measurements"]["move_chain"] is None
 
 
 def test_a_summon_is_a_spawn_even_though_it_is_a_body() -> None:

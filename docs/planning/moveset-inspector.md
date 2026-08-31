@@ -1,7 +1,8 @@
 # Combat Inspection and Moveset Observatory
 
-Status: **OPEN** — M1, M2 and M4 closed; M3 half closed; M5 half derivable and
-half open; M6 not started. See the exit-criteria table.
+Status: **OPEN** — M1, M2, M4, M5 and M7 closed; M6's empirical probe closed and
+its authored cancel graph open; M3's overlay closed and its agreement
+measurements open. Nine of ten exit criteria hold; see the table.
 
 ## Purpose
 
@@ -718,7 +719,36 @@ tick 13
 
 # Milestone M6 — Move-chain and combo laboratory
 
-Do not begin here.
+**The empirical A → B probe is DONE.** `moveset_takes --chain VERB --chain-at
+TICK` drives a second verb through the same press table
+(`move_exercise::chained_frame`, so a chain presses exactly what a single take
+presses up to the hand-off), and the report answers the plan's questions from the
+recording.
+
+⛔ **THE SCHEDULE STAYS A PURE FUNCTION OF THE ACTION TICK.** A probe that waited
+for A to connect before pressing B would make the press depend on the outcome it
+is measuring. `--chain-at` is an INPUT; sweep it.
+
+Measured on the admiral's jab into itself, at 38px, against a passive target:
+
+| requested | accepted | note |
+|---|---|---|
+| 8 | never | the press landed inside A's own playback and the engine played nothing |
+| 14 | 18 | **buffered for 4 ticks** — the request is not the acceptance |
+| 18 | 18 | immediate |
+| 22 | 22 | immediate |
+
+In every accepted case B's box overlapped the target and the runtime resolved NO
+hit, which the report says in those words rather than calling it a combo.
+
+⛔ **"THE ENGINE NEVER PLAYED IT" IS AN ANSWER, NOT A MISSING SECTION.** A report
+that omitted the chain when B did not come out would leave a reader thinking the
+probe had not run.
+
+⚠ **Still open**: the AUTHORED action graph — cancel rules, timing windows, and
+`any_attack` resolved into actual candidate moves. That is a bundle question
+(`moveset_export` already exports cancel information) rather than a runtime one,
+so it needs no new simulation.
 
 This depends on trustworthy single-move inspection.
 
@@ -1032,13 +1062,13 @@ Eight of ten hold. Status, so the remaining two are the whole question:
 | 1 | every fighter/move selectable independently of cached artifacts | ✔ 21 grid fighters offered with one recorded; an unrecorded fighter exposes all 26 of its moves |
 | 2 | a deterministic scenario inspects subject and target through the real runtime | ✔ `--target`, `--target-behavior passive`, `--spacing` |
 | 3 | attack and damageable geometry published from runtime authority | ✔ `CombatGeometryView` only; guarded by an absence contract |
-| 4 | contacts and consequences machine-readable | ✔ contacts, damage, hitstun, hitlag, launch. ⚠ the RESOLUTION vocabulary (blocked/armored/ignored) is M5 |
+| 4 | contacts and consequences machine-readable | ✔ contacts, damage, hitstun, hitlag, launch, and — with `--features causal` — the engine's own resolution (`outcome: damaged, raw_damage: 4, source: Melee`) |
 | 5 | rendered evidence aligned with the same semantic scenario | ✔ one execution, overlay + shutter-time observation |
 | 6 | agents generate and consume a compact artifact noninteractively | ✔ `moveset_takes --verbs`, `moveset_report.py`, SVG sheets |
 | 7 | before/after behavioural comparison | ✔ `--against` |
 | 8 | the browser consumes the same semantic artifacts | ✔ it draws the recorded observation; it derives no geometry |
-| 9 | representative move-chain inspection | ✘ M6, not started — and it was never meant to be started first |
-| 10 | the major remaining work is UX/coverage/performance, not observability | ~ true except M5's causal channel and M6 |
+| 9 | representative move-chain inspection | ✔ the empirical A→B probe, with the buffered-acceptance case measured. ⚠ the authored cancel GRAPH is still unexposed |
+| 10 | the major remaining work is UX/coverage/performance, not observability | ✔ what is left needs no new observability: the cancel graph is already in the bundle, and M3's agreement measurements need the render's camera transform |
 
 This architecture program can leave active planning when:
 

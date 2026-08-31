@@ -292,27 +292,52 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
     `None` when the take played fewer than two moves, which is every ordinary
     single-move recording.
     """
+    # ⛔⛔ A MOVE THAT REPEATS IS A SECOND ENTRY. Comparing against the last
+    # RECORDED id misses `jab → jab`: between the two the subject plays nothing,
+    # and the previous recorded id is still `jab`, so the second press vanishes
+    # — which is exactly the chain a jab combo is made of. The comparison is
+    # against the PREVIOUS TICK, including its absence.
     order: list[tuple[str, int]] = []
+    previous: str | None = None
     for tick, frame in enumerate(frames):
         subject = _body(frame, take, "subject")
         move = ((subject or {}).get("move_state") or {}).get("id")
-        if move and (not order or order[-1][0] != move):
+        if move and move != previous:
             order.append((move, tick))
-    # A move re-entered after another one is a THIRD entry, not the first again;
-    # the first two in time are the pair a chain probe is about.
-    if len(order) < 2:
+        previous = move
+    requested = take.get("chain") or {}
+    if len(order) < 2 and not requested:
         return None
-    (first, first_tick), (second, second_tick) = order[0], order[1]
+    if not order:
+        return None
+    (first, first_tick) = order[0]
+    # ⛔⛔ "THE ENGINE NEVER PLAYED IT" IS AN ANSWER, NOT A MISSING SECTION. A
+    # chained press can land inside the first move's recovery and be refused, and
+    # a report that simply omitted the chain would leave a reader thinking the
+    # probe had not run. Measured on the admiral: a jab requested on tick 8, with
+    # the first jab still playing until 17, produced no second jab at all.
+    second, second_tick = order[1] if len(order) > 1 else (None, None)
 
-    def ticks_of(move: str) -> list[int]:
-        return [
-            tick
-            for tick, frame in enumerate(frames)
-            if ((_body(frame, take, "subject") or {}).get("move_state") or {}).get("id") == move
-        ]
+    def ticks_of(_move: str, start: int) -> list[int]:
+        """The ticks of ONE INSTANCE: from its first tick until the subject
+        stops playing it.
 
-    def live_ticks(move: str) -> list[int]:
-        window = set(ticks_of(move))
+        ⛔ NOT "every tick with this id". A jab chained into a jab shares an id,
+        and scoping by id alone would credit the first instance's contact to the
+        second.
+        """
+        window = []
+        for tick in range(start, len(frames)):
+            subject = _body(frames[tick], take, "subject")
+            playing = ((subject or {}).get("move_state") or {}).get("id")
+            if playing is None or (window and playing != _move):
+                break
+            if playing == _move:
+                window.append(tick)
+        return window
+
+    def live_ticks(move: str, start: int) -> list[int]:
+        window = set(ticks_of(move, start))
         return [
             tick
             for tick in window
@@ -321,12 +346,12 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
             )
         ]
 
-    def contact_ticks(move: str) -> list[int]:
-        window = set(ticks_of(move))
+    def contact_ticks(move: str, start: int) -> list[int]:
+        window = set(ticks_of(move, start))
         return [c["tick"] for c in contacts if c["tick"] in window]
 
-    def reaches(move: str) -> bool:
-        for tick in live_ticks(move):
+    def reaches(move: str, start: int) -> bool:
+        for tick in live_ticks(move, start):
             target = _body(frames[tick], take, "target")
             hurt = (target or {}).get("hurtboxes") or []
             mine = [
@@ -337,7 +362,7 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
                 return True
         return False
 
-    a_contact = contact_ticks(first)
+    a_contact = contact_ticks(first, first_tick)
     # When the target's reduced-authority window ran out. A B that lands after
     # this is a fresh engagement, not a follow-up — the distinction the reader
     # is here for.
@@ -349,8 +374,8 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
                 hitstun_ends = tick
                 break
 
-    b_live = live_ticks(second)
-    b_contact = contact_ticks(second)
+    b_live = live_ticks(second, second_tick) if second else []
+    b_contact = contact_ticks(second, second_tick) if second else []
     return {
         "first": {
             "move": first,
@@ -358,24 +383,30 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
             "first_contact_tick": a_contact[0] if a_contact else None,
         },
         "second": {
+            # What was ASKED for, and what CAME OUT. A press is a request; if
+            # the engine played something else, both names are here.
+            "requested_verb": requested.get("verb"),
             "move": second,
-            # What the SCENARIO asked for, when it asked deliberately.
-            "requested_tick": (take.get("chain") or {}).get("at"),
-            # When the engine let it start, which is the fact a cancel window
-            # decides and the one nobody can read off an authored table.
+            "requested_tick": requested.get("at"),
+            # When the engine let it start — the fact a cancel window decides,
+            # and the one nobody can read off an authored table. `None` means it
+            # never started.
             "accepted_tick": second_tick,
+            "accepted": second is not None,
             "first_live_tick": b_live[0] if b_live else None,
             "first_contact_tick": b_contact[0] if b_contact else None,
             # ⛔ REACH IS GEOMETRY; the contact beside it is the runtime's.
-            "geometry_reached_target": reaches(second),
+            "geometry_reached_target": reaches(second, second_tick) if second else False,
         },
         "target_hitstun_ended_tick": hitstun_ends,
-        "gap_ticks": (second_tick - a_contact[0]) if a_contact else None,
-        "gap_s": round((second_tick - a_contact[0]) * tick_s, 4) if a_contact else None,
+        "gap_ticks": (second_tick - a_contact[0]) if (a_contact and second_tick) else None,
+        "gap_s": (
+            round((second_tick - a_contact[0]) * tick_s, 4) if (a_contact and second_tick) else None
+        ),
         # ⛔ NOT A COMBO VERDICT. Whether the target could have escaped depends on
         # a ruleset this observatory does not model.
         "second_started_within_hitstun": (
-            hitstun_ends is not None and second_tick <= hitstun_ends
+            hitstun_ends is not None and second_tick is not None and second_tick <= hitstun_ends
         ),
     }
 
@@ -640,22 +671,49 @@ def summary(doc: dict) -> str:
     chain = m.get("move_chain")
     if chain:
         lines += ["", "## Move chain", ""]
-        lines += [
+        second = chain["second"]
+        lines.append(
             f"- A `{chain['first']['move']}` first contact: tick "
-            f"{_fmt(chain['first']['first_contact_tick'])}",
-            f"- B `{chain['second']['move']}` requested at "
-            f"{_fmt(chain['second']['requested_tick'])}, ACCEPTED at "
-            f"{_fmt(chain['second']['accepted_tick'])}"
-            f" ({_fmt(chain['gap_ticks'])} ticks / {_fmt(chain['gap_s'])}s after A connected)",
-            f"- B first live volume: tick {_fmt(chain['second']['first_live_tick'])}"
-            f" · first contact: tick {_fmt(chain['second']['first_contact_tick'])}",
-            f"- B geometry reached the target: "
-            f"{'yes' if chain['second']['geometry_reached_target'] else 'no'}",
-            f"- target hitstun ended: tick {_fmt(chain['target_hitstun_ended_tick'])}"
-            f" — B started {'INSIDE' if chain['second_started_within_hitstun'] else 'AFTER'} it",
+            f"{_fmt(chain['first']['first_contact_tick'])}"
+        )
+        if not second["accepted"]:
+            lines += [
+                f"- B `{_fmt(second['requested_verb'])}` was requested on tick "
+                f"{_fmt(second['requested_tick'])} and the engine NEVER PLAYED IT",
+                "  — the press landed where no move could start: inside A's own "
+                "playback, a spent recovery, or a posture gate. Sweep "
+                "`--chain-at` to find the window.",
+            ]
+        else:
+            lines += [
+                f"- B `{second['move']}` requested at {_fmt(second['requested_tick'])}, "
+                f"ACCEPTED at {_fmt(second['accepted_tick'])}"
+                f" ({_fmt(chain['gap_ticks'])} ticks / {_fmt(chain['gap_s'])}s after A connected)",
+                f"- B first live volume: tick {_fmt(second['first_live_tick'])}"
+                f" · first contact: tick {_fmt(second['first_contact_tick'])}",
+                f"- B geometry reached the target: "
+                f"{'yes' if second['geometry_reached_target'] else 'no'}",
+                f"- target hitstun ended: tick {_fmt(chain['target_hitstun_ended_tick'])}"
+                f" — B started "
+                f"{'INSIDE' if chain['second_started_within_hitstun'] else 'AFTER'} it",
+            ]
+            if second["requested_tick"] is not None and second["accepted_tick"] is not None:
+                held = second["accepted_tick"] - second["requested_tick"]
+                if held > 0:
+                    lines.append(
+                        f"  — the press was BUFFERED for {held} tick(s) before the "
+                        f"engine started it; the request is not the acceptance."
+                    )
+            if second["geometry_reached_target"] and second["first_contact_tick"] is None:
+                lines.append(
+                    "  — ⚠ B's box overlapped the target's and the runtime "
+                    "resolved NO hit. The overlap is a broad-phase AABB test; "
+                    "the exact shapes may not have met, or a rule refused it."
+                )
+        lines.append(
             "- ⚠ these are FACTS, not a combo verdict. Whether the target could "
-            "have escaped depends on a ruleset this report does not model.",
-        ]
+            "have escaped depends on a ruleset this report does not model."
+        )
     if m.get("consequence_chain"):
         lines += ["", "## What each contact did", ""]
         for link in m["consequence_chain"]:

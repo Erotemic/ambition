@@ -306,6 +306,37 @@ pub fn action_frame(verb: &Verb, action_tick: usize, facing: f32) -> ControlFram
     }
 }
 
+/// Drive `first`, then request `second` from action tick `at`.
+///
+/// ⭐⭐ THE SCHEDULE IS STILL A PURE FUNCTION OF THE ACTION TICK, and it has to
+/// be. A chain probe asks "if B is requested on tick N, what does the engine
+/// do?" — so N is an INPUT, not something the driver discovers mid-run. A
+/// schedule that waited for A to connect before pressing B would make the press
+/// depend on the outcome it is measuring, and two runs of it could press on
+/// different ticks for reasons the recording does not show.
+///
+/// ⛔ `at` IS WHEN B IS REQUESTED, NOT WHEN IT HAPPENS. The engine decides
+/// whether a cancel window is open; the gap between the request and the
+/// acceptance is the measurement, and reporting only the request would describe
+/// the driver rather than the game. Sweep `at` to find the window.
+///
+/// Both halves come from [`Verb::frame`] through [`action_frame`], so a chain
+/// presses exactly what a single take presses — including the smash charge's
+/// hold and release, measured against B's own clock.
+pub fn chained_frame(
+    first: &Verb,
+    second: &Verb,
+    at: usize,
+    action_tick: usize,
+    facing: f32,
+) -> ControlFrame {
+    if action_tick < at {
+        action_frame(first, action_tick, facing)
+    } else {
+        action_frame(second, action_tick - at, facing)
+    }
+}
+
 /// What seat zero is, in the four facts every driver asks about.
 ///
 /// ⭐⭐ ONE QUERY, AND THE SUBJECT'S ABSENCE IS A CASE. `moveset_takes` read
@@ -748,6 +779,38 @@ mod tests {
     /// differently and a 12-frame run performed a different move from a 24-frame
     /// one. Nothing in this signature can see how many pictures were asked for,
     /// and this is the test that keeps it that way.
+    /// ⛔ A CHAIN IS TWO SCHEDULES, EACH ON ITS OWN CLOCK. B's press edge is at
+    /// ITS tick zero, not at the absolute tick — a smash chained in at 40 must
+    /// charge for its own 37 ticks and release, exactly as it would alone.
+    #[test]
+    fn a_chained_press_runs_the_second_verb_on_its_own_clock() {
+        let jab = verb_named("attack").expect("the jab is a verb");
+        let smash = verb_named("smash_forward").expect("the forward smash is a verb");
+
+        // Before the hand-off, the frames are the first verb's, verbatim.
+        for tick in [0usize, 1, 9] {
+            assert_eq!(
+                chained_frame(jab, smash, 10, tick, 1.0),
+                action_frame(jab, tick, 1.0)
+            );
+        }
+        // At the hand-off, the SECOND verb's press edge — its tick zero.
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10, 1.0),
+            action_frame(smash, 0, 1.0)
+        );
+        // And its release lands HOLD_TICKS after the hand-off, not after zero.
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10 + HOLD_TICKS, 1.0),
+            action_frame(smash, HOLD_TICKS, 1.0)
+        );
+        assert_eq!(
+            chained_frame(jab, smash, 10, 10 + HOLD_TICKS, 1.0),
+            ControlFrame::default(),
+            "a charge only pays out when the button comes up"
+        );
+    }
+
     #[test]
     fn the_schedule_depends_only_on_the_action_tick() {
         let verb = verb_named("smash_forward").expect("the table has an f-smash");

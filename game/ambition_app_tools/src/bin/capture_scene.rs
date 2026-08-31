@@ -773,26 +773,11 @@ fn force_combat_overlay(
     if !config.combat_overlay {
         return;
     }
-    // The gizmo pass is gated on the debug flag AND the gizmo toggle AND the
-    // per-view field; all three are off in a plain build, and missing any one of
-    // them produces a photograph of a swing with no volume on it.
-    if let Some(dev_state) = dev_state.as_mut() {
-        if !dev_state.debug {
-            dev_state.debug = true;
-        }
-    }
-    if let Some(developer) = developer.as_mut() {
-        if !developer.gizmos_enabled {
-            developer.gizmos_enabled = true;
-        }
-        if developer.debug_view_mode
-            != ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat
-        {
-            developer.apply_debug_view_mode(
-                ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat,
-                false,
-            );
-        }
+    // The three gates the gizmo pass reads live in `force_combat_overlay`, so a
+    // tool asking for combat geometry cannot satisfy two of them and photograph
+    // a swing with no volume on it.
+    if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
+        ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer);
     }
 }
 

@@ -129,6 +129,33 @@ impl DeveloperRuntimeState {
     }
 }
 
+/// Turn the COMBAT overlay on, everywhere it is gated.
+///
+/// ⛔⛔ THE GIZMO PASS IS GATED ON THREE SEPARATE THINGS — the debug flag, the
+/// gizmo toggle, and the per-view fields — and all three are off in a plain
+/// build. Missing any one of them produces a photograph of a swing with no
+/// volume on it, which reads as "the move has no hitbox" rather than "the
+/// overlay is off". Every tool that wants combat geometry in a picture asks for
+/// it here, so the count of gates lives in one place.
+///
+/// Idempotent: safe to call every frame, which is what a capture tool must do —
+/// settings load and the developer-tools default both write this state, so a
+/// startup-only write is a race against whichever of them runs last.
+pub fn force_combat_overlay(
+    state: &mut DeveloperRuntimeState,
+    tools: &mut dev_tools::DeveloperTools,
+) {
+    if !state.debug {
+        state.debug = true;
+    }
+    if !tools.gizmos_enabled {
+        tools.gizmos_enabled = true;
+    }
+    if tools.debug_view_mode != dev_tools::DebugViewMode::Combat {
+        tools.apply_debug_view_mode(dev_tools::DebugViewMode::Combat, false);
+    }
+}
+
 #[cfg(test)]
 mod developer_runtime_state_tests {
     use super::*;

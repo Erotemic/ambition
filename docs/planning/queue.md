@@ -633,17 +633,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   in a gap frame, and everything driven on that frame silently does nothing.
   ⚠ AND THE 191 OTHER TESTS in that target still only run under `--lib`.
 
-- ▢ **D-OILER-CONFIG — a review config publishes as a module target, and the
-  renderer suite has been red about it.** Found 2026-08-31 while sweeping D129:
+- ✔ **D-OILER-CONFIG — CLOSED 2026-08-31. The suite is green and no art was
+  wrong.** Found 2026-08-31 while sweeping D129:
   `tools/ambition_sprite2d_renderer/tests/test_cli_batch_publish.py::
   test_default_adapter_configs_reference_registered_generators` fails on a CLEAN
   tree — `configs/review/oiler.yaml` publishes as `oiler`, which is a module
   target, but renders with the `toon` generator, so two renderers would write the
   same sheet and the last to run wins. The checker's own message names the fix
-  (delete the config, publish by target name); what it needs first is a decision
-  about whether the review config is wanted. ⚠ `oiler_vfx` also appears in the
-  D129 clipping population at 1 frame; whether that is related is unmeasured.
-  Suite is otherwise 692 green.
+  (delete the config, publish by target name), and the decision it seemed to need
+  — *"is the review config wanted"* — was answered by comparing the two: the
+  MODULE already carries the config's `authoring_description`, its
+  `gameplay_description` and all three barks, VERBATIM. It superseded the concept
+  sheet on 2026-08-22 and the config outlived that by a month. Deleted; nothing
+  was lost.
+  ⭐ AND NO ART WAS WRONG, measured rather than assumed: regenerating `oiler`
+  with `--force` gives a byte-identical sheet (`md5 84462285d041` before and
+  after), so the module's render was already the shipped one on this checkout.
+  The collision was a LATENT hazard — one that resolves differently depending on
+  which target a full run publishes last — not an active corruption. ⚠ so
+  `oiler_vfx`'s 1 clipped frame in the D129 population is unrelated to it.
+  Renderer suite 693 passed, 0 failed (was 692/1).
 
 - ▢ **D-REPLAY-NOSUBJECT — a subjectless replay ADMITS without owning the
   lifecycle slot, and the type's own doc says it must.** ⭐ GPT review 2026-08-31
@@ -739,8 +748,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `MoveScenario` value object is still the right end state; what is closed is
   every place the CURRENT fields leaked.
 
-- ▢ **D-PORTAL-INTERACT-SEAT — portal Interact arbitration is still a singleton
-  under a per-body road.** ⭐ GPT review 2026-08-31, source-read. `portal/
+- ◐ **D-PORTAL-INTERACT-SEAT — the arbitration is per-body now; the LAYERING is
+  what remains.** ⭐ GPT review 2026-08-31, source-read. `portal/
   input_adapter.rs` loops over driven bodies but asks
   `Option<Res<NearestInteractable>>` — one resource computed from ONE
   `ControlledSubject` in `ambition_sim_view` — whether an ordinary interaction

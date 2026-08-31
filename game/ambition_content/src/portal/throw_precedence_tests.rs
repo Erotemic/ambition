@@ -168,3 +168,117 @@ fn a_body_holding_both_throws_the_item_and_keeps_the_gun() {
          throwable is in hand, and refusing must not also consume the gesture"
     );
 }
+
+/// Seat one's portal toggle is decided by SEAT ONE's surroundings.
+///
+/// ⛔⛔ IT WAS DECIDED BY SEAT ZERO'S. The adapter loops over every driven body
+/// and asked the singleton `NearestInteractable.0` — one answer computed from
+/// one `ControlledSubject` — whether an ordinary interaction had claimed the
+/// press. Found by the 2026-08-31 GPT review. Both failures are real:
+/// seat zero near a chest SUPPRESSED seat one's toggle, and seat zero standing
+/// clear let seat one both toggle and interact.
+///
+/// ⚠ THE ANSWER IS STILL A PREDICTION, and the test pins that shape rather than
+/// pretending otherwise: this adapter runs in `PlayerSimulation` and the
+/// interaction road spends the press later in `FeatureInteraction`, so the claim
+/// cannot be read — only anticipated from the same reach test.
+#[test]
+fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
+    use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};
+
+    fn toggles_for(near_zero: bool, near_one: bool) -> Vec<Entity> {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<FirePortalGun>();
+        app.add_message::<TogglePortalGun>();
+        app.add_message::<DropPortalGun>();
+        app.add_message::<PickUpPortalGun>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
+
+        // BOTH seats press Interact on the same tick.
+        let mut slots = SlotControls::default();
+        let mut frame = ambition_platformer2d_core::ControlFrame::default();
+        frame.interact_pressed = true;
+        slots.set(PlayerSlot::PRIMARY, frame);
+        slots.set(PlayerSlot(1), frame);
+        app.insert_resource(slots);
+
+        let spawn = |app: &mut App, slot: u8, x: f32| {
+            app.world_mut()
+                .spawn((
+                    PlayerEntity,
+                    DrivingParticipant(PlayerSlot(slot)),
+                    BodyKinematics {
+                        pos: Vec2::new(x, 100.0),
+                        vel: Vec2::ZERO,
+                        size: Vec2::new(24.0, 40.0),
+                        facing: 1.0,
+                    },
+                    ambition_platformer2d_core::BodyBaseSize {
+                        base_size: Vec2::new(24.0, 40.0),
+                    },
+                    ambition_characters::brain::ActionSet::default(),
+                    ActorControl::default(),
+                    PortalGun {
+                        active: true,
+                        ..PortalGun::default()
+                    },
+                ))
+                .id()
+        };
+        let zero = spawn(&mut app, 0, 100.0);
+        let one = spawn(&mut app, 1, 900.0);
+        app.insert_resource(ControlledSubject(Some(zero)));
+
+        // The proximity answer, staged per body — the fact the adapter reads.
+        let mut by_body = std::collections::HashMap::new();
+        if near_zero {
+            by_body.insert(zero, InteractVariant::Open);
+        }
+        if near_one {
+            by_body.insert(one, InteractVariant::Open);
+        }
+        // `.0` is seat zero's, exactly as the producer computes it.
+        let seat_zero = if near_zero {
+            InteractVariant::Open
+        } else {
+            InteractVariant::None
+        };
+        app.insert_resource(NearestInteractable(seat_zero, by_body));
+
+        app.add_systems(Update, portal_input_adapter_system);
+        app.update();
+
+        let world = app.world_mut();
+        let messages = world.resource::<Messages<TogglePortalGun>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).map(|t| t.body).collect()
+    }
+
+    let (zero_near, one_clear) = (true, false);
+    let toggles = toggles_for(zero_near, one_clear);
+    assert!(
+        toggles.len() == 1,
+        "seat zero is at a chest and seat one is in open ground: exactly one \
+         toggle should come out, and it is seat one's. Got {} — seat zero's \
+         surroundings decided seat one's press",
+        toggles.len()
+    );
+
+    // ⛔ THE OTHER DIRECTION, which the singleton got wrong the opposite way:
+    // seat zero clear, seat one AT the chest. Seat one must NOT toggle.
+    let toggles = toggles_for(false, true);
+    assert_eq!(
+        toggles.len(),
+        1,
+        "seat zero is clear and seat one is at a chest: seat zero toggles, seat \
+         one's press belongs to the interaction"
+    );
+
+    // ⛔ AND THE PREMISE. With nobody near anything, both seats toggle — or the
+    // assertions above pass because the adapter emits nothing at all.
+    assert_eq!(toggles_for(false, false).len(), 2);
+    // …and with both at a chest, neither does.
+    assert_eq!(toggles_for(true, true).len(), 0);
+}

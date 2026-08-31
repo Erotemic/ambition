@@ -115,9 +115,22 @@ pub fn portal_input_adapter_system(
         // Color toggle: Interact, but only when no genuine interactable (door / NPC /
         // switch) claims the press — matching the HUD label.
         if control.interact_pressed {
+            // ⛔⛔ THIS BODY'S REACH, NOT SEAT ZERO'S. It asked the singleton
+            // `NearestInteractable.0` — one answer computed from ONE controlled
+            // subject — inside a loop over every driven body. With two people
+            // playing, seat zero standing near a chest suppressed seat one's
+            // toggle, and seat zero standing clear let seat one both toggle AND
+            // interact.
+            //
+            // ⚠ IT IS STILL A PREDICTION, and that is a property of the phase
+            // rather than a shortcut: this adapter runs in `PlayerSimulation`
+            // and the interaction road SPENDS the press later, in
+            // `FeatureInteraction`, so the claim cannot be read — only
+            // anticipated. Both use the same `strict_intersects` reach, which is
+            // what keeps the anticipation right.
             let claimed = nearest
                 .as_deref()
-                .is_some_and(|n| !matches!(n.0, InteractVariant::None));
+                .is_some_and(|n| !matches!(n.for_body(subject), InteractVariant::None));
             if !claimed {
                 toggle.write(TogglePortalGun { body: subject });
             }

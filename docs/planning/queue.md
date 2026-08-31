@@ -735,11 +735,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
   interact. ⚠ ALSO THE WRONG DIRECTION: a gameplay input decision consulting a
   presentation read-model. ⭐ this is the same class as the nine abilities
   converted to `DrivenBodies` on 2026-08-31 — the conversion has a layer left
-  under it. ▢ THE FIX NEEDS A NEW FACT: the gameplay road computes its reach per
-  subject inline (`interact.rs`, `reach_aabb = subject_kin.aabb()`) and publishes
-  no per-body claim, so the adapter has nothing to read; duplicating the search
-  in content would be a second authority on *"did an interaction claim this
-  press"*.
+  under it.
+  ✔ CLOSED 2026-08-31. `NearestInteractable` carries a per-body map beside seat
+  zero's answer, the producer classifies every DRIVEN body through one extracted
+  `variant_in_reach`, and the adapter asks `for_body(subject)`. Guarded by
+  `one_seats_surroundings_do_not_decide_another_seats_toggle` — all four
+  combinations, including the premise that with nobody near anything BOTH seats
+  toggle — red when the singleton read is restored.
+  ⛔⛔ AND THE FIRST TWO DESIGNS WERE WRONG, both ruled out by measuring the
+  SCHEDULE rather than the code. (a) *"Read the per-body interact BUFFER"*: the
+  gameplay road spends the press with `consume_interact(subject)`, which is the
+  claim itself — but it runs in `FeatureInteraction` and this adapter runs in
+  `PlayerSimulation`, so the claim does not exist yet. (b) *"Publish the claim
+  from `interact.rs`"*: same phase problem, plus that road only searches when a
+  press is already buffered. ⇒ the adapter's answer is necessarily a PREDICTION,
+  and the fix is to make the prediction per-body rather than to replace it. Both
+  sides use the same `strict_intersects` reach, which is what keeps the
+  anticipation honest.
+  ⚠ THE LAYERING CONCERN THE REVIEW RAISED IS UNFIXED and is now the whole of
+  what is left here: a gameplay input decision still reads an
+  `ambition_sim_view` resource. Moving it needs the claim to exist in
+  `PlayerSimulation`, which is a schedule question, not a rename.
   ✔ THE SMALLER SIBLING IS CLOSED 2026-08-31. `inventory_adapter`'s drop and
   pickup read `.next()`, so two seats acting on one tick were serialized across
   updates — the second landing in a world the first had changed. Both iterate

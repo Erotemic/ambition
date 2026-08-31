@@ -1672,7 +1672,7 @@ fn legality_of(
     };
     if pb
         .spec
-        .cancel_permits(pb.t, pb.landed_hit, &[verb_name, move_id])
+        .cancel_permits(pb.t, pb.contact(), &[verb_name, move_id])
     {
         ActionLegality::Now
     } else {

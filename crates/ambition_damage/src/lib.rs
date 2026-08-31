@@ -451,6 +451,10 @@ pub struct BodyDeathWriters<'w> {
     /// screen freeze exists. Every real composition registers it in
     /// `SimCoreResourcesPlugin`, so the degradation never reaches a game.
     pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
+    /// The strikes a GUARD ate, for the simulation — a move asking whether IT
+    /// connected reads this beside `resolved` and never infers a block from a
+    /// missing connect. `Option` for the same reason as `resolved`.
+    pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector. Rides
     /// this bundle rather than a new parameter because it is written from the
     /// same two places, at the same moment, from the same value.
@@ -630,6 +634,14 @@ pub(crate) fn handle_player_damage_events(
                 },
             );
             banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
+            // ⭐ AND THE SIMULATION IS TOLD, not just the player. A move's own
+            // `OnHit` cancel used to confirm on a blocked strike because the only
+            // channel it could read meant OVERLAP; the block is decided HERE.
+            publish_blocked_hit(
+                death_writers.blocked.as_mut(),
+                player_entity,
+                damage.attacker,
+            );
             false
         }
         // A3: a worn armor row (mushroom-analog) absorbed the hit. No HP change,
@@ -923,6 +935,23 @@ fn publish_reaction(
 /// ⛔ UNCONDITIONAL, and that is why it is not folded into `publish_reaction`
 /// beside it: that one is `#[cfg(feature = "causal")]` and compiles to nothing in
 /// a shipping build. An instrument may vanish; a beat may not.
+/// Say that a guard consumed this strike.
+///
+/// ⛔ THE COUNTERPART OF [`publish_resolved_hit`], AND THE REASON BOTH EXIST: a
+/// consumer asking *"did my move connect"* cannot tell a block from a
+/// not-yet-resolved overlap by absence, because the actor road resolves on the
+/// overlap frame and the player road on the next one. Each outcome says its own
+/// name.
+pub fn publish_blocked_hit(
+    blocked: Option<&mut MessageWriter<'_, ambition_combat::hitbox::BlockedBodyHit>>,
+    victim: bevy::prelude::Entity,
+    attacker: Option<bevy::prelude::Entity>,
+) {
+    if let Some(blocked) = blocked {
+        blocked.write(ambition_combat::hitbox::BlockedBodyHit { victim, attacker });
+    }
+}
+
 pub fn publish_resolved_hit(
     resolved: Option<&mut MessageWriter<'_, ambition_combat::hitbox::ResolvedBodyHit>>,
     victim: bevy::prelude::Entity,

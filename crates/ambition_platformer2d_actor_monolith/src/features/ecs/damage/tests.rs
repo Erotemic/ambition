@@ -30,6 +30,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
     app.add_message::<ambition_combat::hitbox::ResolvedBodyHit>();
+    app.add_message::<ambition_combat::hitbox::BlockedBodyHit>();
 }
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {

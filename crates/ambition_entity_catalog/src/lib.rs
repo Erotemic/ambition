@@ -207,19 +207,45 @@ pub enum WindowTag {
 pub const CANCEL_CLASS_NAMES: [&str; 6] =
     ["any_attack", "attack", "special", "ranged", "jump", "dash"];
 
+/// What one USE of a move has done to a body so far.
+///
+/// ⭐⭐ THREE FACTS, NOT ONE BOOL, because a strike has three outcomes and the
+/// old `landed_hit: bool` could only name two. It meant OVERLAP — which is what
+/// the hitbox sweep publishes — so a move an ordinary held guard blocked
+/// reported the same thing as one that connected, `OnHit` confirmed on it, and
+/// the move wore itself out on the stale queue.
+///
+/// ⚠ `overlapped` WITHOUT either of the others is a hit still being resolved:
+/// the actor road decides on the overlap frame, the player road on the next one.
+/// A consumer that wants a decision must read `connected` or `blocked`, never
+/// the absence of one.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MoveContact {
+    /// The move's volume overlapped a hurtbox. The staling fact — a move that
+    /// hits a shield has been used.
+    pub overlapped: bool,
+    /// The overlap RESOLVED to a connect: damage or knockback reached a body.
+    pub connected: bool,
+    /// The overlap resolved to a BLOCK: a guard consumed it.
+    pub blocked: bool,
+}
+
 /// When a [`WindowTag::Cancelable`] escape is legal (CM4).
 ///
-/// ⚠ `OnBlock` STILL DOES NOT EXIST, and the reason has changed. This said the
-/// victim-shield-contact fact *"lands with CM6 (shield-stun)"*; shield-stun
-/// SHIPPED (`body_clusters.rs`), so that deferral is spent. What blocks the
-/// variant now is the same thing that makes `OnHit` fire on a guarded strike:
-/// `mark_move_playback_landed_hits` reads `LandedBodyHit`, which means OVERLAP,
-/// and nothing tells a move it was BLOCKED. `ResolvedBodyHit` means CONNECT and
-/// now carries its attacker, and a block never reaches it — so the channel
-/// exists; pointing the marker at it is a FEEL ruling about the connect-frame
-/// cancel window. Queue row D-CANCEL-ONBLOCK. ⛔ adding the variant before that
-/// would parse and then silently never fire — the authoring trap this note was
-/// always about.
+/// ✔ `OnBlock` EXISTS AS OF 2026-08-31, and the two deferrals that held it are
+/// both spent. The first said the victim-shield-contact fact *"lands with CM6
+/// (shield-stun)"* — shield-stun shipped. The second, written this morning, said
+/// nothing tells a move it was BLOCKED: `BlockedBodyHit` does now, published by
+/// the damage resolver where the block is decided.
+///
+/// ⭐ THE FEEL RULING THE ROW ASKED FOR, made and recorded: neither *"delay the
+/// marker"* nor *"retract on block"*. The overlap marker keeps its slot and
+/// keeps STALING on the overlap — a move that hits a shield has been used — and
+/// the two RESOLVED facts arrive on their own channels, so nothing is written
+/// and then taken back. The connect-frame cancel window survives intact on the
+/// actor road every match fighter takes, because that road resolves on the
+/// overlap frame; against a player victim an `OnHit` cancel opens one frame
+/// later than it used to, and that is the whole cost.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelCondition {
     /// Any time the window is open.
@@ -228,9 +254,19 @@ pub enum CancelCondition {
     /// Only after this move CONNECTED with a victim (combo confirm — jab
     /// chains into jab2 on hit).
     OnHit,
-    /// Only while the move has NOT connected (whiff escape — bail out of a
-    /// missed heavy's recovery).
+    /// Only while the move touched NOTHING (whiff escape — bail out of a
+    /// missed heavy's recovery). ⚠ a BLOCKED move is not a whiff: it touched
+    /// something, and connected with nothing.
     OnWhiff,
+    /// Only after a GUARD ate this move (shield pressure — the safe-on-block
+    /// follow-up the genre is built around).
+    ///
+    /// ⭐ AUTHORABLE SINCE 2026-08-31, and the note this replaces was right to
+    /// refuse it before then: with only an OVERLAP fact to read, `OnHit` fired
+    /// on a blocked strike and `OnBlock` would have had nothing of its own to
+    /// ask. `BlockedBodyHit` is the positive fact the damage resolver now
+    /// publishes.
+    OnBlock,
 }
 
 impl CancelCondition {
@@ -240,11 +276,16 @@ impl CancelCondition {
     /// [`MoveSpec::cancel_successors`] both ask it, and a chain that answered
     /// it differently from the permission would nominate a successor the
     /// cancel then refused.
-    pub fn permits(self, landed_hit: bool) -> bool {
+    pub fn permits(self, contact: MoveContact) -> bool {
         match self {
             Self::Always => true,
-            Self::OnHit => landed_hit,
-            Self::OnWhiff => !landed_hit,
+            Self::OnHit => contact.connected,
+            // ⛔ THE ABSENCE OF AN OVERLAP, not the absence of a connect. A move
+            // a guard ate touched something; letting it take the whiff escape
+            // would hand the attacker a free out from the one outcome the genre
+            // punishes.
+            Self::OnWhiff => !contact.overlapped,
+            Self::OnBlock => contact.blocked,
         }
     }
 }
@@ -1421,13 +1462,13 @@ impl MoveSpec {
     /// A follow-up press inside that window takes the nomination instead of
     /// restarting the move that is playing, which is the whole of a jab chain
     /// and needs no successor field of its own.
-    pub fn cancel_successors(&self, t: f32, landed_hit: bool) -> impl Iterator<Item = &str> {
+    pub fn cancel_successors(&self, t: f32, contact: MoveContact) -> impl Iterator<Item = &str> {
         self.windows
             .iter()
             .filter(move |w| w.start_s <= t && t < w.end_s)
             .filter_map(move |w| match &w.tag {
                 WindowTag::Cancelable { into, condition } => {
-                    condition.permits(landed_hit).then_some(into)
+                    condition.permits(contact).then_some(into)
                 }
                 _ => None,
             })
@@ -1570,12 +1611,12 @@ impl MoveSpec {
     /// answers membership. An empty `cancels` timeline (no `Cancelable`
     /// window) refuses everything — the pre-CM4 status quo, which is the
     /// parity pin.
-    pub fn cancel_permits(&self, t: f32, landed_hit: bool, names: &[&str]) -> bool {
+    pub fn cancel_permits(&self, t: f32, contact: MoveContact, names: &[&str]) -> bool {
         self.windows.iter().any(|w| match &w.tag {
             WindowTag::Cancelable { into, condition } => {
                 w.start_s <= t
                     && t < w.end_s
-                    && condition.permits(landed_hit)
+                    && condition.permits(contact)
                     && into.iter().any(|entry| names.contains(&entry.as_str()))
             }
             _ => false,

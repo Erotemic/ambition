@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v143
+ggrs-rollback-schema-v144
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -303,6 +303,7 @@ message.actor_action	message-clear	ActorActionMessage	clear abandoned-future mes
 message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
 message.attacks_clanked	message-clear	AttacksClanked	clear abandoned-future message buffer in LoadWorld::Mapping
+message.blocked_body_hit	message-clear	BlockedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_teleported	message-clear	BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
 message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future message buffer in LoadWorld::Mapping

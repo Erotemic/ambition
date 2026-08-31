@@ -393,6 +393,16 @@ pub(crate) fn apply_actor_hit(
                 color: [0.78, 0.90, 1.0, 0.90],
                 kind: ParticleKind::Spark,
             });
+            // ⭐ THE FACT THE ATTACKER'S MOVE NEEDS. It publishes no
+            // `ResolvedBodyHit` here — a block is not a connect — and a consumer
+            // cannot read that absence as "blocked", because on the player road
+            // the resolution arrives a frame later and absence would also mean
+            // "not decided yet". So the block says its own name.
+            ambition_damage::publish_blocked_hit(
+                writers.blocked.as_mut(),
+                actor_entity,
+                event.attacker,
+            );
             return true;
         }
         if let ambition_damage::BodyHitResolution::WalletShielded { spent } = resolution {

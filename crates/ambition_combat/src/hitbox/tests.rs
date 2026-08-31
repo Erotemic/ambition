@@ -1697,28 +1697,28 @@ fn an_authored_autolink_reaches_the_hit_payload_with_the_attackers_velocity() {
     );
 }
 
-/// ⛔⛔ AN ORDINARY BLOCK STILL COUNTS AS A CONNECTION, so a blocked move
-/// confirms an `OnHit` cancel and wears itself out on the stale queue.
+/// ⭐ AN ORDINARY BLOCK IS AN OVERLAP AND NOT A CONNECTION, which is the whole
+/// of D-CANCEL-ONBLOCK.
 ///
 /// The parry arm above asserts the negation case — a CAUGHT parry writes no
-/// `LandedBodyHit` — and reads as if the guard question were settled. It is not:
+/// `LandedBodyHit` — and read as if the guard question were settled. It was not:
 /// a parry is a negation and an ordinary block is not, and this is the arm
-/// nobody wrote.
+/// nobody had written.
 ///
-/// ⭐ THE TYPE'S OWN DOC ALREADY NAMES THE BUG. `LandedBodyHit` *"MEANS
-/// OVERLAP"* and `ResolvedBodyHit` *"MEANS CONNECT"*, and it says outright that
-/// *"a consumer that wants a CONNECT must say so"*. `mark_move_playback_landed_hits`
-/// — the one thing that decides whether a move confirmed — consumes the OVERLAP
-/// channel, and the block is decided later, in the damage resolver.
-///
-/// ⚠ THIS TEST DOCUMENTS THE DEFECT RATHER THAN FORBIDDING IT. Fixing it means
-/// carrying the attacker and the resolution on the RESOLVED channel and pointing
-/// the marker at that, which is queue row D-CANCEL-ONBLOCK; asserting the
-/// corrected behaviour here today would just be a red test with no fix behind
-/// it. When that lands, this assertion inverts and the `⛔` above becomes the
+/// ⛔⛔ THIS ARM USED TO ASSERT THE DEFECT. Until 2026-08-31 it said *"an
+/// ordinary block still counts as a connection, so a blocked move confirms an
+/// `OnHit` cancel and wears itself out on the stale queue"*, and documented that
+/// rather than forbidding it, because fixing it needed a channel that did not
+/// exist. It exists now (`ResolvedBodyHit` carries its attacker; `BlockedBodyHit`
+/// says the block by name), so the assertion inverts and the `⛔` above is the
 /// receipt.
+///
+/// ⭐ AND THE `LandedBodyHit` IS STILL WRITTEN, deliberately. The overlap is
+/// real, it is what STALES the move — a move that hits a shield has been used —
+/// and it is what `OnWhiff` asks about. What changed is that the OVERLAP is no
+/// longer mistaken for the VERDICT.
 #[test]
-fn a_blocked_strike_is_still_recorded_as_a_connection() {
+fn a_blocked_strike_is_an_overlap_and_not_a_connection() {
     let guarding = ae::BodyShieldState {
         active: true,
         // No parry window: an ordinary held guard, which BLOCKS rather than
@@ -1731,8 +1731,9 @@ fn a_blocked_strike_is_still_recorded_as_a_connection() {
 
     assert!(
         !app.world().resource::<CapturedLandedHits>().0.is_empty(),
-        "the premise changed: a blocked strike no longer writes a \
-         `LandedBodyHit`. If that was deliberate, D-CANCEL-ONBLOCK is done and \
-         this arm should now assert the opposite"
+        "a blocked strike stopped writing a `LandedBodyHit`. That is the OVERLAP \
+         channel and the overlap really happened: it is what stales the move and \
+         what `OnWhiff` asks about, so losing it hands a blocked attacker the \
+         whiff escape"
     );
 }

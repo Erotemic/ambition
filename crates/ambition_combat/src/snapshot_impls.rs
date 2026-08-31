@@ -117,7 +117,7 @@ impl SnapshotState for crate::components::BodyEnvelope {
 /// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame
 /// where no candidate exists, and a chasing brain aims at it. So `pos` rewinds and
 /// `entity` does not.
-/// The blob is `(move id, facing, t, landed_hit)`; the `MoveSpec` comes back out of the
+/// The blob is `(move id, facing, t, the three contact facts)`; the `MoveSpec` comes back out of the
 /// entity's own `ActorMoveset`, which a patched entity still carries.
 ///
 /// What survives from that story is why the cache is safe to restore: a strike
@@ -141,6 +141,13 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         put_f32(out, self.facing);
         put_f32(out, self.t);
         put_bool(out, self.landed_hit);
+        // ⛔ THE TWO RESOLVED FACTS ARE STATE TOO, and they arrive on a LATER
+        // system than the overlap. Two peers whose in-flight move disagrees
+        // about whether it connected or was blocked take different cancels out
+        // of the same recovery — which is a divergence a restore that carried
+        // only the overlap could not see.
+        put_bool(out, self.connected_hit);
+        put_bool(out, self.blocked_hit);
         let mut targets: Vec<&str> = self.hit_targets.iter().map(String::as_str).collect();
         targets.sort_unstable();
         put_u32(out, targets.len() as u32);

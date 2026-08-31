@@ -103,7 +103,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// tilt. `AttackStrengthHint` is `Auto`/`Tilt`/`Smash` and encodes as one byte.
 /// A peer reading the old bool would round `Tilt` onto whichever value it
 /// aliased, so the two cannot share a stream.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 143;
+/// ⛔ v144: `MovePlayback` gained TWO CONTACT FACTS in its checksum projection.
+/// `landed_hit` means OVERLAP — the hitbox sweep's channel — so an ordinary held
+/// guard set it and the move's `OnHit` cancel confirmed on a blocked strike.
+/// `connected_hit` and `blocked_hit` are the damage road's verdict, and they are
+/// state: two peers whose in-flight move disagrees about whether it connected or
+/// was blocked take DIFFERENT cancels out of the same recovery. A message
+/// (`BlockedBodyHit`) also entered the cleared-on-rollback set.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 144;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

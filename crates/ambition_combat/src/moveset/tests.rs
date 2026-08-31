@@ -2590,6 +2590,119 @@ fn cancel_window(into: &[&str], condition: CancelCondition) -> MoveWindow {
     }
 }
 
+/// D-CANCEL-ONBLOCK'S ACCEPTANCE: a blocked move does NOT confirm an `OnHit`
+/// cancel, and an `OnBlock` window does.
+///
+/// ⭐⭐ THE THREE OUTCOMES, ASKED OF THE SAME THREE CONDITIONS. Until 2026-08-31
+/// there was one bool, it meant OVERLAP, and a blocked strike therefore read as
+/// a hit: `OnHit` confirmed, the move wore itself out on the stale queue, and
+/// `OnBlock` could not exist because it had nothing of its own to ask.
+///
+/// ⛔ THE BLOCKED ROW IS THE POINT. It must permit NEITHER `OnHit` NOR `OnWhiff`
+/// — a guarded move touched something and connected with nothing — which is
+/// exactly why `OnWhiff` could never have stood in for the missing variant.
+#[test]
+fn the_three_contact_outcomes_permit_three_different_cancels() {
+    use ambition_entity_catalog::MoveContact;
+
+    let whiffed = MoveContact::default();
+    let connected = MoveContact {
+        overlapped: true,
+        connected: true,
+        blocked: false,
+    };
+    let blocked = MoveContact {
+        overlapped: true,
+        connected: false,
+        blocked: true,
+    };
+
+    for (name, contact, on_hit, on_whiff, on_block) in [
+        ("whiff", whiffed, false, true, false),
+        ("connect", connected, true, false, false),
+        ("block", blocked, false, false, true),
+    ] {
+        assert_eq!(
+            CancelCondition::OnHit.permits(contact),
+            on_hit,
+            "`OnHit` on a {name}"
+        );
+        assert_eq!(
+            CancelCondition::OnWhiff.permits(contact),
+            on_whiff,
+            "`OnWhiff` on a {name} — a blocked move touched something, so it is \
+             not a whiff and must not get the whiff escape"
+        );
+        assert_eq!(
+            CancelCondition::OnBlock.permits(contact),
+            on_block,
+            "`OnBlock` on a {name}"
+        );
+        assert!(
+            CancelCondition::Always.permits(contact),
+            "`Always` on a {name}"
+        );
+    }
+}
+
+/// …and the playback LEARNS those outcomes from the damage road's own channels.
+///
+/// ⛔ THE OVERLAP AND THE VERDICT ARRIVE ON DIFFERENT SYSTEMS, on purpose:
+/// `mark_move_playback_landed_hits` runs immediately after `apply_hitbox_damage`
+/// so the overlap marks its own frame, and the block is not known until the
+/// damage road drains those events. This is the second half.
+#[test]
+fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
+    use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+
+    let mut app = App::new();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.add_systems(Update, mark_move_playback_resolved_hits);
+
+    let struck = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let guarded = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let untouched = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let victim = app.world_mut().spawn_empty().id();
+
+    app.world_mut().write_message(ResolvedBodyHit {
+        victim,
+        attacker: Some(struck),
+        hitlag_seconds: 0.05,
+        source: crate::HitSource::Melee,
+    });
+    app.world_mut().write_message(BlockedBodyHit {
+        victim,
+        attacker: Some(guarded),
+    });
+    // ⛔ AND ONE WITH NO ATTACKER — a hazard or the blast zone. It must reach no
+    // playback at all rather than the first one the query yields.
+    app.world_mut().write_message(ResolvedBodyHit {
+        victim,
+        attacker: None,
+        hitlag_seconds: 0.0,
+        source: crate::HitSource::Hazard,
+    });
+    app.update();
+
+    let contact = |e| app.world().get::<MovePlayback>(e).unwrap().contact();
+    assert!(
+        contact(struck).connected,
+        "the connect did not reach its move"
+    );
+    assert!(!contact(struck).blocked);
+    assert!(contact(guarded).blocked, "the block did not reach its move");
+    assert!(
+        !contact(guarded).connected,
+        "a BLOCKED strike reported a connect, which is the defect this row is \
+         about: its `OnHit` cancel would confirm"
+    );
+    assert!(
+        !contact(untouched).connected && !contact(untouched).blocked,
+        "an attacker-less resolution reached a playback it has nothing to do with"
+    );
+}
+
 /// PARITY PIN: with no `Cancelable` window authored, a verb press during a
 /// playing move is rejected exactly as before CM4 — the playback keeps
 /// playing the same move.
@@ -2640,9 +2753,14 @@ fn cancel_window_gates_on_the_into_list() {
 }
 
 /// `OnHit` opens only after the move CONNECTED (the combo confirm); a whiff
-/// stays locked, and setting the landed fact unlocks the same press.
+/// stays locked, and so does an OVERLAP a guard ate.
+///
+/// ⛔⛔ THE MIDDLE ARM IS NEW, 2026-08-31, AND IT IS THE DEFECT THIS TEST USED TO
+/// AGREE WITH. It set `landed_hit` — the OVERLAP — and expected the combo to
+/// open, which is exactly what let an ordinary held guard confirm an `OnHit`
+/// cancel. The overlap alone must now leave the window shut.
 #[test]
-fn on_hit_cancel_requires_the_landed_fact() {
+fn on_hit_cancel_requires_a_connect_not_an_overlap() {
     let mut app = trigger_app();
     let body = spawn_mover(
         &mut app,
@@ -2655,10 +2773,26 @@ fn on_hit_cancel_requires_the_landed_fact() {
         "first",
         "whiffing: OnHit stays locked"
     );
-    app.world_mut()
-        .get_mut::<MovePlayback>(body)
-        .unwrap()
-        .landed_hit = true;
+    // The strike OVERLAPPED and a guard ate it: touched, not connected.
+    {
+        let mut pb = app.world_mut().get_mut::<MovePlayback>(body).unwrap();
+        pb.landed_hit = true;
+        pb.blocked_hit = true;
+    }
+    app.update();
+    assert_eq!(
+        app.world().get::<MovePlayback>(body).unwrap().spec.id,
+        "first",
+        "a BLOCKED strike opened the combo. `landed_hit` means OVERLAP, and the \
+         guard is what `connected_hit` exists to tell apart"
+    );
+
+    // …and the connect does open it.
+    {
+        let mut pb = app.world_mut().get_mut::<MovePlayback>(body).unwrap();
+        pb.blocked_hit = false;
+        pb.connected_hit = true;
+    }
     app.update();
     assert_eq!(
         app.world().get::<MovePlayback>(body).unwrap().spec.id,

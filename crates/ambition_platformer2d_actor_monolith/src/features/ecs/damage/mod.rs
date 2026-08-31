@@ -92,6 +92,10 @@ pub struct FeatureHitWriters<'w, 's> {
     /// The hit's RESULT, for the simulation — the match freeze reads it.
     /// `Option` for the reason spelled out on the player-side twin.
     pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
+    /// The strikes a GUARD ate, for the simulation — a move asking whether IT
+    /// connected reads this beside `resolved` and never infers a block from a
+    /// missing connect. `Option` for the same reason as `resolved`.
+    pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector.
     /// `Option` for the reason spelled out on the player-side twin: this is read
     /// by an instrument and by nothing else, so a composition that never

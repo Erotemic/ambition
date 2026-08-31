@@ -430,56 +430,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `fda65a386`), D204/D205 (shipped), or anything in
   `awaiting-maintainer-decision.md`.
 
-- ▢ **D-CANCEL-ONBLOCK — a blocked move confirms an `OnHit` cancel, and the
-  channel it reads is the wrong one.** ⭐ PINNED 2026-08-31 by
-  `a_blocked_strike_is_still_recorded_as_a_connection`: an ordinary held guard
-  blocks the strike and the attacker still gets a `LandedBodyHit`, so
-  `mark_move_playback_landed_hits` sets `landed_hit = true` — the move confirms
-  its on-hit cancel and wears itself out on the stale queue. ⛔ THE TYPE'S OWN
-  DOC NAMES IT: `LandedBodyHit` *"MEANS OVERLAP"*, `ResolvedBodyHit` *"MEANS
-  CONNECT"*, and *"a consumer that wants a CONNECT must say so"* — the marker
-  consumes the overlap channel, and the block is decided later, in the damage
-  resolver. ⛔⛔ AND THE PLUMBING IS NOT ONE EDIT, which is why this is its own
-  row: `ResolvedBodyHit` carries no attacker, and `publish_resolved_hit` is
-  called from the PLAYER road only (`ambition_damage/src/lib.rs:692,785`) — the
-  actor road every match fighter takes publishes nothing. So the resolved channel
-  must become universal and attacker-bearing before the marker can read it.
-  ⛔⛔ AND THE SCHEDULE IS THE REAL CONSTRAINT, found 2026-08-31:
-  `mark_move_playback_landed_hits` runs IMMEDIATELY after `apply_hitbox_damage`,
-  and its slot carries the reason — *"so this frame's overlaps mark this frame —
-  an OnHit cancel window opens on the connect frame"*. The block is decided later,
-  when the damage road drains those `HitEvent`s (same frame for an actor victim,
-  NEXT frame for a player one). So the two honest shapes are: **delay the
-  marker** past the damage road, which costs the connect-frame cancel window it
-  was placed there to buy; or **retract on block**, which leaves the OnHit window
-  open for the frames between overlap and resolution. ⚠ A THIRD SHAPE IS A TRAP:
-  having the marker ask the victim's shield state directly would be a second
-  authority on "was this blocked", which is the class this repo keeps finding.
-  Whoever takes this is making a FEEL ruling, not just plumbing. ⭐ ONLY THEN does
-  `CancelCondition::OnBlock` become authorable, which is what the parity
-  inventory §1 row asks for; they must also delete the stale deferral note at
-  `entity_catalog/src/lib.rs:212`, which still claims the victim-shield-contact
-  fact *"lands with CM6"* — shieldstun shipped (`body_clusters.rs:1620`).
-  Acceptance: a blocked move does NOT confirm an `OnHit` cancel (the pinned test
-  inverts), an `OnBlock` window does, and both on the actor road.
-  ⭐ THE PLUMBING HALF IS CLOSED 2026-08-31, and re-measuring corrected this row
-  twice. ⛔ *"`publish_resolved_hit` is called from the PLAYER road only … the
-  actor road every match fighter takes publishes nothing"* WAS WRONG:
-  `damage/actor_hit.rs` has published beside the reaction all along. ⭐ AND THE
-  CHANNEL ALREADY DISCRIMINATES A BLOCK — the `Blocked` arm `return`s well
-  before the publish, so a guarded strike writes no `ResolvedBodyHit` at all;
-  that is now pinned by `a_blocked_hit_publishes_no_resolved_connect_and_a_
-  landed_one_names_its_attacker`, red under both poisons (drop the attacker;
-  publish from the blocked arm). What was genuinely missing was the ATTACKER,
-  and `ResolvedBodyHit` now carries `attacker: Option<Entity>` from both roads.
-  ⇒ ▢ WHAT REMAINS IS THE FEEL RULING AND ONLY THAT: point
-  `mark_move_playback_landed_hits` at the resolved channel by DELAYING it past
-  the damage road (loses the connect-frame cancel window its slot was chosen to
-  buy) or by RETRACTING on block (leaves the OnHit window open between overlap
-  and resolution). ⚠ still a trap: asking the victim's shield state directly is
-  a second authority on "was this blocked". The stale `entity_catalog` deferral
-  note is refreshed — shield-stun shipped, so the reason it gives is now the
-  marker's channel rather than CM6. Owner:
+- ✔ **D-CANCEL-ONBLOCK — CLOSED 2026-08-31.** A blocked move confirmed an
+  `OnHit` cancel because `mark_move_playback_landed_hits` read `LandedBodyHit`,
+  whose own doc says it *"MEANS OVERLAP"*, and the block is decided later in the
+  damage resolver.
+  ⭐ THE FEEL RULING, made rather than deferred, and it is NEITHER of the two
+  shapes this row named. Not *"delay the marker"* (that loses the connect-frame
+  cancel window on every hit) and not *"retract on block"* (that would have to
+  unwind the stale entry it already recorded). Instead the OVERLAP keeps its
+  early slot and its staling — a move that hits a shield has been used — and the
+  damage road's VERDICT arrives on its own channels afterwards, so nothing is
+  written and taken back. `MoveContact { overlapped, connected, blocked }`
+  replaces the one bool; `OnHit` reads `connected`, `OnWhiff` reads
+  `!overlapped` (a blocked move touched something and is not a whiff), and
+  `CancelCondition::OnBlock` exists and reads `blocked`.
+  ⚠ THE COST, stated: against an ACTOR victim — the road every match fighter
+  takes — the resolution lands on the overlap frame, so the connect-frame window
+  is unchanged. Against a PLAYER victim it lands the next frame, so an `OnHit`
+  cancel opens one frame later than it used to.
+  ⭐ `BlockedBodyHit` is a POSITIVE fact from the resolver's own `Blocked` arm,
+  not an inference from a missing connect: the two roads resolve on different
+  frames, so absence means both "blocked" and "not decided yet". The trap this
+  row named — a consumer reading the victim's shield state — is still a trap and
+  is still avoided.
+  Schema 143→144 (`MovePlayback`'s projection gained both facts; they are state,
+  because two peers disagreeing about them take different cancels out of one
+  recovery). The stale `entity_catalog` deferral note is replaced by the ruling.
+  Pinned by `a_blocked_strike_is_an_overlap_and_not_a_connection` (inverted, as
+  this row asked), `the_three_contact_outcomes_permit_three_different_cancels`
+  and `a_playback_learns_connect_and_block_from_the_resolvers_own_channels`.
+  ▢ WHAT IS LEFT IS AUTHORING: no move authors an `OnBlock` window yet, which is
+  content work for whoever wants a safe-on-block follow-up. Owner:
   [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and

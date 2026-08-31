@@ -341,6 +341,14 @@ impl Plugin for CombatSchedulePlugin {
                 // report. No combat lands in any non-`Playing` mode now.
                 ambition_platformer2d_actor_monolith::features::apply_feature_hit_events
                     .in_set(GameplayGated),
+                // …and the attacker's move learns what that resolution DECIDED.
+                // ⛔ AFTER the actor road, not beside the overlap marker: a block
+                // is decided when the damage road drains the hit events, which is
+                // here. The overlap keeps its early slot (and its staling); only
+                // the connect/block verdict waits.
+                ambition_combat::moveset::mark_move_playback_resolved_hits
+                    .after(ambition_platformer2d_actor_monolith::features::apply_feature_hit_events)
+                    .in_set(GameplayGated),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
                 // to slot in at exactly this point — AFTER the feature-hit resolution so it
                 // observes this frame's alive-flag transitions, BEFORE the mount/rider bookkeeping.

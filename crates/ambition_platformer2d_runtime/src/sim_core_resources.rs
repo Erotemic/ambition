@@ -54,6 +54,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // registered beside one of them panics the other, which is a crash
             // this repository has already shipped once.
             .add_message::<ambition_combat::hitbox::ResolvedBodyHit>()
+            .add_message::<ambition_combat::hitbox::BlockedBodyHit>()
             // S4: the stocks loop. A KO of a body whose death a RULESET owns,
             // and the count that was spent for it.
             .add_message::<ambition_combat::stocks::BodyKnockedOut>()

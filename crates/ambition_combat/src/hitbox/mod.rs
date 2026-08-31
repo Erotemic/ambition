@@ -96,6 +96,29 @@ pub struct ResolvedBodyHit {
     pub source: crate::HitSource,
 }
 
+/// A strike a GUARD consumed.
+///
+/// ⭐⭐ THE POSITIVE FACT, because the negative one is a timing guess. A block is
+/// "overlapped and did not connect", and a consumer could try to derive it from
+/// [`LandedBodyHit`] plus the absence of a [`ResolvedBodyHit`] — but the two
+/// roads resolve on different frames (an actor victim the same frame the
+/// overlap is seen, a player victim the next one), so absence means "blocked"
+/// and "not decided yet" and nothing distinguishes them. The resolver knows, so
+/// the resolver says.
+///
+/// ⛔ ONE AUTHORITY. This is written where `BodyHitResolution::Blocked` is
+/// decided and nowhere else — a consumer that instead read the victim's shield
+/// state would be a second opinion on a question the damage road already
+/// answers, which is the class this repo keeps finding.
+#[derive(bevy::prelude::Message, Debug, Clone, Copy, PartialEq)]
+pub struct BlockedBodyHit {
+    /// The body whose guard ate it.
+    pub victim: bevy::prelude::Entity,
+    /// Whose strike it was, where the road knows. `None` for a resolution with
+    /// no striker.
+    pub attacker: Option<bevy::prelude::Entity>,
+}
+
 /// Resolve a live hitbox's unit-bearing payload for one victim.
 ///
 /// Feel multipliers pass through unchanged. Launch-speed growth is resolved against the victim's

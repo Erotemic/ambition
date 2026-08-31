@@ -284,6 +284,11 @@ where
         OWNER,
         "message.resolved_body_hit",
     );
+    // The other half of the resolver's answer, cleared for the same reason.
+    registrar.clear_message_on_rollback::<crate::hitbox::BlockedBodyHit>(
+        OWNER,
+        "message.blocked_body_hit",
+    );
     registrar.clear_message_on_rollback::<crate::events::HitEvent>(OWNER, "message.hit_event");
     registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(
         OWNER,

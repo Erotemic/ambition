@@ -227,10 +227,30 @@ pub struct MovePlayback {
     pub was_grounded: bool,
     /// Seconds of the OWNER'S proper time since move start.
     pub t: f32,
-    /// CM4: this move CONNECTED with a victim. Set by the hit-resolution side
-    /// (`mark_move_playback_landed_hits` + the volume resolver) and read by the
-    /// cancel conditions (`OnHit`/`OnWhiff`) — the combo-confirm fact.
+    /// CM4: this move OVERLAPPED a victim. Set by the hit-resolution side
+    /// (`mark_move_playback_landed_hits` + the volume resolver).
+    ///
+    /// ⛔⛔ OVERLAP, NOT CONNECT, and the name lied about that until 2026-08-31.
+    /// `LandedBodyHit`'s own doc says it *"MEANS OVERLAP"*; the block is decided
+    /// later, in the damage resolver. So this said `true` for a strike an
+    /// ordinary held guard ate, an `OnHit` cancel confirmed on it, and the move
+    /// wore itself out on the stale queue. It is still the right fact for
+    /// STALING — a move that hits a shield is used — and for `OnWhiff`, which
+    /// asks whether the move touched anything at all.
     pub landed_hit: bool,
+    /// This move RESOLVED to a connect: damage or knockback reached a body.
+    ///
+    /// The `OnHit` fact. Set from `ResolvedBodyHit`, which the damage resolver
+    /// publishes only after a guard has had its say — the same frame the overlap
+    /// is seen on the actor road every match fighter takes, the next frame for a
+    /// player victim.
+    pub connected_hit: bool,
+    /// This move was BLOCKED: a guard consumed it.
+    ///
+    /// The `OnBlock` fact, from `BlockedBodyHit`. ⚠ a blocked move is neither a
+    /// hit NOR a whiff — it touched something and connected with nothing — which
+    /// is exactly why `OnWhiff` could never stand in for this.
+    pub blocked_hit: bool,
     /// Live hitbox entity per entered-but-not-exited Active window index.
     ///
     /// A CACHE, not the authority. Its authority is `(t, window)`: the box exists
@@ -579,6 +599,19 @@ pub fn cancel_move_playback(
 }
 
 impl MovePlayback {
+    /// The three facts a cancel condition asks about, as one value.
+    ///
+    /// ⛔ ALWAYS THIS, never `landed_hit` alone: the bool means OVERLAP, and a
+    /// blocked strike sets it. Reading it as "connected" is the defect
+    /// `CancelCondition::OnBlock`'s note describes.
+    pub fn contact(&self) -> ambition_entity_catalog::MoveContact {
+        ambition_entity_catalog::MoveContact {
+            overlapped: self.landed_hit,
+            connected: self.connected_hit,
+            blocked: self.blocked_hit,
+        }
+    }
+
     pub fn new(spec: MoveSpec, facing: f32) -> Self {
         Self::new_at(spec, facing, 0.0)
     }
@@ -616,6 +649,8 @@ impl MovePlayback {
             was_grounded: true,
             t: t0,
             landed_hit: false,
+            connected_hit: false,
+            blocked_hit: false,
             live_boxes: Vec::new(),
             fired,
             hit_targets: Vec::new(),
@@ -3079,7 +3114,7 @@ pub fn trigger_moveset_moves(
                 None
             };
             if let Some(name) = loco {
-                if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[name]) {
+                if pb.spec.cancel_permits(pb.t, pb.contact(), &[name]) {
                     cancel_move_playback(&mut commands, entity, &mut pb, MoveEnd::Interrupted);
                     continue;
                 }
@@ -3128,7 +3163,7 @@ pub fn trigger_moveset_moves(
             let successor = (neutral_repress || held_string)
                 .then(|| {
                     pb.spec
-                        .cancel_successors(pb.t, pb.landed_hit)
+                        .cancel_successors(pb.t, pb.contact())
                         .find(|id| *id != pb.spec.id.as_str())
                         .and_then(|id| moveset.0.move_by_id(id))
                         .cloned()
@@ -3167,7 +3202,7 @@ pub fn trigger_moveset_moves(
             }
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
-            if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
+            if !pb.spec.cancel_permits(pb.t, pb.contact(), &names) {
                 continue;
             }
             // Tear down exactly as natural completion does — LITERALLY the same
@@ -3532,6 +3567,52 @@ pub fn mark_move_playback_landed_hits(
             if let Some(mut queue) = queue {
                 queue.record(crate::stale::stale_move_hash(&pb.spec.id));
             }
+        }
+    }
+}
+
+/// Record what the damage road DECIDED about this move's strikes.
+///
+/// ⭐⭐ THE SECOND HALF OF THE CONTACT FACT, and the reason it is a separate
+/// system: `mark_move_playback_landed_hits` runs immediately after
+/// `apply_hitbox_damage` so an overlap marks the frame it happens — the slot
+/// that buys the connect-frame cancel window. The block is not known yet at that
+/// point; it is decided later, when the damage road drains those `HitEvent`s. So
+/// the overlap keeps its early slot and its staling, and the DECISION lands here,
+/// after `apply_feature_hit_events`.
+///
+/// ⛔ NOTHING IS WRITTEN AND TAKEN BACK. The alternative shapes both cost
+/// something real — delaying the overlap marker loses the connect-frame window
+/// for every hit, and retracting `landed_hit` on a block would have to unwind the
+/// stale entry it already recorded. Two facts on two channels cost neither.
+///
+/// ⚠ THE TIMING IS NOT THE SAME ON BOTH ROADS. An actor victim resolves on the
+/// overlap frame, so a fighter's `OnHit` cancel opens exactly when it always
+/// did; a player victim resolves on the NEXT frame, so against a player the
+/// window opens one frame later than it used to. That is the whole cost of
+/// asking a true question instead of a cheap one.
+pub fn mark_move_playback_resolved_hits(
+    mut connects: MessageReader<crate::hitbox::ResolvedBodyHit>,
+    mut blocks: MessageReader<crate::hitbox::BlockedBodyHit>,
+    mut playbacks: Query<&mut MovePlayback>,
+) {
+    for connect in connects.read() {
+        // ⛔ `HitSource` is not filtered here on purpose. A move's playback is
+        // only ever the attacker of its own strike, so a hazard or a blast zone
+        // — which name no attacker — cannot reach a playback at all.
+        let Some(attacker) = connect.attacker else {
+            continue;
+        };
+        if let Ok(mut pb) = playbacks.get_mut(attacker) {
+            pb.connected_hit = true;
+        }
+    }
+    for block in blocks.read() {
+        let Some(attacker) = block.attacker else {
+            continue;
+        };
+        if let Ok(mut pb) = playbacks.get_mut(attacker) {
+            pb.blocked_hit = true;
         }
     }
 }

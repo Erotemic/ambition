@@ -521,6 +521,43 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Re-run the current target, start with player-visible/selectable characters that
   still fail, and fix the authored canvas/pose/geometry rather than weakening the
   guard. Do not infer a roster-wide scale rule from one character's repair.
+  ⭐ RE-SWEPT 2026-08-31, POPULATION-COMPLETE — every one of the 209 discovered
+  targets rendered through its OWN road (`Target.render_sheet`), reading the
+  build-time guard's own warning: **38 targets, 405 frames**, and every one is a
+  `module` target — all 100 config-driven targets are clean. ⛔⛔ A FIRST PASS
+  MEASURED 42 OF 209 and looked plausible: it reimplemented the loop over
+  `module.ROWS` + `module.render_frame`, which 116 targets do not export. A
+  sample is not the population.
+  ✔ `perfect_cellular_automaton` — the 2026-08-26 note's "the one that matters
+  (53 frames)" — is CLEAN, 0 of 913. That claim is spent.
+  ✔ `carl_stargan` (8 frames) FIXED, and it was a real cut: the shared scientist
+  `roll` drops the body 38-42px below `ground_y` at the tuck and only his canvas
+  had no room, because he restated the rig frame as his published frame while
+  `patent_clerk` and `noether` both add `RIG_RENDER_PADDING`.
+  ⚠ AND THE GUARD CRIES WOLF ON FLUSH-STANDING PIXEL ART — measured, not
+  assumed. The Mary-O family (41 frames across six forms of the playable
+  protagonist) reports `bottom` because `bottom_center_canvas` seats a 24x32
+  logical sprite flush on the frame's last row and a flat pixel-art foot is not
+  a taper; re-rendering with logical headroom finds at most TWO raster rows of
+  ink beyond the boundary. ⛔ do NOT inflate those canvases — it moves every
+  Mary-O sprite's ground contact to silence a false positive. `pirate_admiral`
+  (2 frames) is the same class at the top edge: his plume touches row 0 on ALL
+  six idle frames and the guard fires on the two where it is 7px wide instead of
+  0. ⇒ the remaining 35 targets are a POPULATION, not a defect list; the open
+  work is an instrument that separates "drawn flush to a fitted frame" from
+  "severed", not 35 canvas edits.
+
+- ▢ **D-OILER-CONFIG — a review config publishes as a module target, and the
+  renderer suite has been red about it.** Found 2026-08-31 while sweeping D129:
+  `tools/ambition_sprite2d_renderer/tests/test_cli_batch_publish.py::
+  test_default_adapter_configs_reference_registered_generators` fails on a CLEAN
+  tree — `configs/review/oiler.yaml` publishes as `oiler`, which is a module
+  target, but renders with the `toon` generator, so two renderers would write the
+  same sheet and the last to run wins. The checker's own message names the fix
+  (delete the config, publish by target name); what it needs first is a decision
+  about whether the review config is wanted. ⚠ `oiler_vfx` also appears in the
+  D129 clipping population at 1 frame; whether that is related is unmeasured.
+  Suite is otherwise 692 green.
 
 ## External measurements / human-gated work
 

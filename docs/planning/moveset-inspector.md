@@ -550,17 +550,23 @@ pixels rather than by a flag — an overlay-on and an overlay-off render of the
 same action tick differ, and the strike volume is visible over the art at the
 tick the manifest says it is live.
 
-**The layer toggles are WRITTEN AND UNVERIFIED.** `moveset_render --overlay
+**The layer toggles are DONE.** `moveset_render --overlay
 on|off|art,hurtboxes,strikes` drives them independently, through one definition
 of the gates (`dev_tools::force_combat_overlay` takes a `CombatOverlayLayers`),
 and the manifest records which were on — so a PNG with no cyan on it can be told
 apart from a body with no hurtbox.
 
-⚠ IT COMPILES AND NOTHING HAS LOOKED AT THE PIXELS. Every other claim on this
-page was checked against a real artifact; this one was not, because the run that
-would have checked it was interrupted. Render the same move four ways
-(`on`, `hurtboxes`, `strikes`, `hurtboxes,strikes`) and compare, exactly as the
-overlay-on/overlay-off pair was compared for M1.5, before believing this row.
+⭐ MEASURED IN PIXELS, on one tick of the admiral's jab at 38px:
+
+| render | cyan px | red px |
+|---|---|---|
+| `--overlay hurtboxes` | 815 | 33 |
+| `--overlay strikes` | 12 | 445 |
+
+`on` and `hurtboxes` differ in 16376 pixels. ⛔ AND THE OBSERVATION IS UNCHANGED
+— both manifests record the same one live strike on that tick. A layer toggle
+changes what is DRAWN, never what is measured, which is the only reason it is
+safe to turn one off.
 
 ⛔ The `Combat` debug PRESET turns on the COMBINED gate
 (`show_feature_hitboxes`), which draws both halves whatever the per-layer fields

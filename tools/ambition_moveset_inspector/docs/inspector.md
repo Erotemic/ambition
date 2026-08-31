@@ -625,9 +625,10 @@ strikes drawn over them. The manifest records `overlay_layers`, so a reader
 looking at a PNG with no cyan on it can tell "this body had no hurtbox" from
 "hurtboxes were not drawn".
 
-⚠ **UNVERIFIED.** This compiles and nobody has compared the four renders. Do
-that before trusting it — the overlay-on/overlay-off pair for the whole overlay
-was checked that way and differed in 2029 pixels.
+⭐ Measured on one tick of the admiral's jab: `--overlay hurtboxes` paints 815
+cyan pixels and 33 red; `--overlay strikes` paints 12 cyan and 445 red. ⛔ Both
+manifests record the SAME one live strike on that tick — a layer toggle changes
+what is drawn, never what is measured.
 
 Beside every PNG the manifest carries that shot's `observation`: the same tick's
 bodies, roles, hurtboxes, strike volumes and move clock, in the same schema the

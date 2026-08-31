@@ -643,17 +643,36 @@ The full frame corpus can still be available when needed.
 
 # Milestone M5 — Consequence tracing
 
-**Half of it arrived with M1** and is worth naming so the rest is not rebuilt:
-every observed body carries `damage_taken`, `hitstun_s`, `hitlag_s`,
-`landing_lag_s`, `jump_squat_s` and `velocity` every tick, and `contacts` names
-the strike and the victim. `moveset_report.py` already reports launch speed and
-target displacement after the first contact, so a per-tick consequence chain is
-derivable from the artifact today.
+**The derivable half is DONE.** `moveset_report.py` publishes a
+`consequence_chain`: for each runtime-resolved contact, what the victim's own
+published state did across it. Measured on the admiral's forward smash —
 
-⛔ What is NOT derivable, and is the actual remaining work: WHY a hit resolved
-the way it did — ignored, blocked, armored, wallet-shielded, damaged. That
-vocabulary lives in `ambition_damage::BodyHitResolved` under the `causal`
-feature, and consuming it is the M5 slice.
+```text
+tick 47 (0.7833s): strike smash_forward/w1/v0 → seat1 (target)
+    damage taken: 0 → 22
+    hitstun: 0 → 0.336
+    hitlag: 0 → 0.105
+    velocity: [0.0, 0.0] → [193.6, -81.3]
+    displacement over the next 12 ticks: 0 → 15.252
+```
+
+⛔ Every number is DIFFERENCED from what the runtime published, never recomputed
+from a knockback formula — a second implementation of the launch rule is exactly
+what this program exists to remove.
+
+⛔⛔ AND IT SAYS WHAT IT CANNOT ANSWER. This is WHAT changed, not WHY. The
+resolution vocabulary — ignored / blocked / armored / wallet-shielded / damaged —
+is the engine's own and travels on `ambition_damage::BodyHitResolved` behind the
+`causal` feature, alongside `BodyReactionApplied`. Consuming those is the
+remaining M5 slice, and the road is already built: the monolith's `causal.rs`
+turns both into facts with a cause chain, `clear_message_on_rollback` keeps them
+honest across a rewind, and `ambition_platformer2d::causal` is the SDK surface —
+a recorder installs `CausalPlugin`, sets `RecordingPolicy::only([domains::DAMAGE,
+domains::MOVESET])`, and exports `log.facts()` joined to the take's frames by sim
+tick. ⚠ The take does not record an absolute `sim_tick` per frame yet; that join
+key is the one missing piece.
+
+Status effects, VFX and SFX are untouched.
 
 ## Goal
 

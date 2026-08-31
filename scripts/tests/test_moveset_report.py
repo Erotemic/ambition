@@ -168,6 +168,47 @@ def test_the_report_records_the_premise_it_was_measured_under() -> None:
     assert scenario["target_behavior"] == "passive"
 
 
+def test_the_chain_says_what_the_contact_did_and_never_why() -> None:
+    """⛔ WHAT CHANGED IS DERIVABLE; WHY IS NOT.
+
+    Damage, hitstun, hitlag and velocity are facts the runtime published about
+    the victim, differenced across the contact. The RESOLUTION — ignored,
+    blocked, armored, wallet-shielded, damaged — is the engine's own vocabulary
+    and travels on a feature-gated channel; a report that guessed it from a
+    damage delta would be inventing the one fact the engine already announces.
+    """
+    take = _take(contact_at=4)
+    # The victim reacts on the contact tick.
+    for tick, frame in enumerate(take["frames"]):
+        target = frame["bodies"][1]
+        target["damage_taken"] = 12 if tick >= 4 else 0
+        target["hitstun_s"] = 0.3 if tick >= 4 else 0.0
+        target["velocity"] = [120.0, -40.0] if tick >= 4 else [0.0, 0.0]
+
+    chain = tool.report(take)["measurements"]["consequence_chain"]
+    assert len(chain) == 1 and chain[0]["tick"] == 4
+    changed = {step["what"]: (step["before"], step["after"]) for step in chain[0]["steps"]}
+    assert changed["damage taken"] == (0, 12)
+    assert changed["hitstun"] == (0.0, 0.3)
+    assert changed["velocity"] == ([0.0, 0.0], [120.0, -40.0])
+
+    text = tool.summary(tool.report(take))
+    assert "What each contact did" in text
+    assert "WHAT changed, not WHY" in text, (
+        "the report must say what it cannot answer, or a reader assumes it did"
+    )
+
+
+def test_a_contact_that_changed_nothing_reports_no_steps() -> None:
+    """A hit the victim absorbed with no published change is a real observation,
+    and inventing a step for it would be a lie about the tick."""
+    chain = tool.report(_take(contact_at=4))["measurements"]["consequence_chain"]
+    assert len(chain) == 1
+    # The fixture's target never changes damage/hitstun/velocity, so the only
+    # step is the displacement window — and it is zero.
+    assert all(step["after"] == 0.0 for step in chain[0]["steps"]), chain[0]["steps"]
+
+
 def test_a_summon_is_a_spawn_even_though_it_is_a_body() -> None:
     """⛔⛔ THE SHARK IS THE THING PEOPLE OPEN THIS VIEW TO WATCH.
 

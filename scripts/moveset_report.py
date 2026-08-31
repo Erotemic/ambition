@@ -208,6 +208,7 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
     return {
         "frames": len(frames),
         "sim_hz": sim_hz,
+        "consequence_chain": _chain(take, frames, contacts, tick_s),
         "startup": _window("Startup"),
         "active": _window("Active"),
         "recovery": _window("Recovery"),
@@ -275,6 +276,110 @@ def provenance(take: dict, source: Path | None, bundle: dict | None) -> dict:
         "resolved_move": take.get("intended_move"),
         "verb": take.get("verb"),
     }
+
+
+def _chain(take: dict, frames: list, contacts: list, tick_s: float) -> list:
+    """What each contact DID, tick by tick, from the victim's own published state.
+
+    ⭐⭐ THE QUESTION IS CAUSAL, NOT POSITIONAL. "The target ended up over there"
+    is not an answer; "on tick 3 it took 4 damage, gained 0.088s of hitstun and
+    left at (44.6, -32.2)" is. Every number here is one the runtime published
+    about the victim, differenced across the contact rather than recomputed from
+    a knockback formula — a second implementation of the launch rule would be
+    exactly the kind of thing this whole program exists to remove.
+
+    ⛔ IT REPORTS WHAT CHANGED, NOT WHY. The resolution vocabulary — ignored,
+    blocked, armored, wallet-shielded, damaged — lives in
+    `ambition_damage::BodyHitResolved` behind the `causal` feature, and a report
+    that guessed at it from a damage delta would be inventing the one fact the
+    engine already announces.
+    """
+    if not contacts:
+        return []
+
+    def victim_at(tick: int, victim_id: str | None, victim_role: str | None) -> dict | None:
+        """The victim's row on a tick, by identity — and by ROLE when the
+        recording carries no identity for it.
+
+        ⛔ THE FALLBACK IS THE CONTACT'S OWN ROLE, not "the target". A contact
+        names whom it struck; assuming the target would attribute a hit on a
+        summon to the fighter standing behind it.
+        """
+        if tick < 0 or tick >= len(frames):
+            return None
+        bodies = frames[tick].get("bodies") or []
+        if victim_id:
+            for body in bodies:
+                if body.get("id") == victim_id:
+                    return body
+        if victim_role:
+            for body in bodies:
+                if _role(body, take) == victim_role:
+                    return body
+        return None
+
+    chain = []
+    for contact in contacts:
+        tick = contact["tick"]
+        before = victim_at(tick - 1, contact.get("victim"), contact.get("victim_role"))
+        at = victim_at(tick, contact.get("victim"), contact.get("victim_role"))
+        if at is None:
+            continue
+        steps = []
+
+        def delta(name: str, key: str, digits: int = 3):
+            was = (before or {}).get(key)
+            now = at.get(key)
+            if now is None or was is None or was == now:
+                return
+            steps.append(
+                {
+                    "tick": tick,
+                    "what": name,
+                    "before": round(was, digits) if isinstance(was, float) else was,
+                    "after": round(now, digits) if isinstance(now, float) else now,
+                }
+            )
+
+        delta("damage taken", "damage_taken")
+        delta("hitstun", "hitstun_s")
+        delta("hitlag", "hitlag_s")
+        if before and before.get("velocity") != at.get("velocity"):
+            steps.append(
+                {
+                    "tick": tick,
+                    "what": "velocity",
+                    "before": [round(v, 1) for v in (before.get("velocity") or [])],
+                    "after": [round(v, 1) for v in (at.get("velocity") or [])],
+                }
+            )
+        # Where the victim ended up, once the freeze it bought has run out.
+        settled = victim_at(
+            min(tick + 12, len(frames) - 1), contact.get("victim"), contact.get("victim_role")
+        )
+        if settled and at.get("pos") and settled.get("pos"):
+            moved = (
+                (settled["pos"][0] - at["pos"][0]) ** 2 + (settled["pos"][1] - at["pos"][1]) ** 2
+            ) ** 0.5
+            steps.append(
+                {
+                    "tick": min(tick + 12, len(frames) - 1),
+                    "what": "displacement over the next 12 ticks",
+                    "before": 0.0,
+                    "after": round(moved, 3),
+                }
+            )
+        chain.append(
+            {
+                "tick": tick,
+                "time_s": round(tick * tick_s, 4),
+                "strike": contact.get("strike"),
+                "victim": contact.get("victim"),
+                "victim_role": contact.get("victim_role"),
+                "steps": steps,
+            }
+        )
+    return chain
 
 
 def report(
@@ -374,6 +479,22 @@ def summary(doc: dict) -> str:
         f"- target launch speed after first contact: {_fmt(m['target_launch_speed'])}",
         f"- target displacement after contact: {_fmt(m['target_displacement_after_contact'])} px",
     ]
+    if m.get("consequence_chain"):
+        lines += ["", "## What each contact did", ""]
+        for link in m["consequence_chain"]:
+            lines.append(
+                f"- tick {link['tick']} ({link['time_s']}s): `{_fmt(link['strike'])}` "
+                f"→ `{_fmt(link['victim'])}` ({_fmt(link['victim_role'])})"
+            )
+            for step in link["steps"]:
+                lines.append(
+                    f"    - {step['what']}: {_fmt(step['before'])} → {_fmt(step['after'])}"
+                )
+        lines.append(
+            "- ⚠ WHAT changed, not WHY. ignored / blocked / armored / "
+            "wallet-shielded / damaged is the runtime's own vocabulary and it "
+            "travels on `BodyHitResolved`, behind the `causal` feature."
+        )
     if m["spawns"]:
         lines += ["", "## Spawns", ""]
         for spawn in m["spawns"]:

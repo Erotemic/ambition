@@ -277,6 +277,47 @@ goblin (control, 1 page)          1    2,185,530   1.000
   ⛔ **so the "invisible to the incremental regen" corollary is moot too** — it
   was reasoning about why a defect that does not exist had not been fixed.
 
+  ⛔⛔ **CAUSE SIX, ELIMINATED 2026-08-31 — AND IT WAS THE ONE THIS REPORT NAMED
+  AS ITS OWN NEXT STEP.** The note below says *"the next hypothesis has to be
+  about WHICH TIER each road asks for at the moment it draws"*. Measured, and a
+  tier difference cannot produce this symptom: every tier carries the SAME
+  CONTENT.
+
+```text
+tier             pages  total px   anims  rects
+sprites              7   115.58M     123    898
+sprites_0_5x         2    29.15M     123    898   0.252x area
+sprites_0_25x        1     7.47M     123    898   0.065x area
+sprites_potato       1     0.53M     123    898   0.0046x area
+```
+
+  ⇒ 123 animations and 898 frame rects at every tier, and the areas are exactly
+  the reductions claimed (0.5² and 0.25²). ⚠ **the two things that look alarming
+  are packing artifacts**: the reduced sheets have FEWER PAGES (a smaller sheet
+  fits in fewer 4096-px pages), and `sprites_0_5x/noether_spritesheet.png` is
+  15.4MB against the canonical 6.7MB because a denser pack compresses worse.
+  ⇒ a road drawing the reduced tier would show a BLURRIER Emmy, never a
+  DIFFERENT one. `character_sprite_tier`'s `None → Full` fallback is still a real
+  fork between roads, but it cannot be this fork.
+
+  ⊙ **SO THE REMAINING SPACE IS TWO FILES, AND IT IS PER-MACHINE.** The select
+  screen draws the PORTRAIT sheet (`select_screen.rs` — *"character portraits
+  resolve through the catalog's existing portrait reference"*,
+  `noether_portraits.png`); the match draws the SPRITESHEET
+  (`noether_spritesheet.png`). The renderer's `_publish_target` renders and
+  installs BOTH in one call, so a full publish cannot leave them disagreeing —
+  but a partial or interrupted one can, and **these assets are generated and
+  gitignored**, so their state is whatever your checkout last rendered. On this
+  machine both carry the same second (`2026-08-22 19:54`).
+
+  ⭐ **THE CHEAPEST FALSIFIER LEFT IS YOURS, and it is one command:**
+  `ls -l crates/ambition_platformer2d_actor_monolith/assets/sprites/noether_{portraits,spritesheet}.png`
+  — if the two timestamps differ in YOUR checkout, this is a stale local asset
+  and `./scripts/regen/sprites.sh --target noether --force` is the whole fix. If
+  they match and you still see two Emmys, the cause is in the code and this note
+  has narrowed it to how those two products are BUILT from one rig, not to which
+  file either road picks.
+
   ⊙ **WHICH LEAVES THE REPORT OPEN WITH A CLEAN SLATE, and three causes now
   eliminated rather than one added**: (1) the tiers are real reductions; (2) the
   three asset roots agree byte-for-byte — `crates/…/assets`,

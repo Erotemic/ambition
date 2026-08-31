@@ -228,6 +228,32 @@ Move vertically: the domain owns its state/messages/plugin, the actor kernel
 exposes the body/action hooks it needs, and the old actor-side implementation is
 deleted. Do not replace one central switch with another.
 
+⭐⭐ **AND THE ITEMS HALF IS DEFENDED TOO — measured 2026-08-31 before opening
+it.** `src/items/` is 6580 lines against `ambition_items`' 1975, which reads like
+a domain sitting in the wrong crate. It is not:
+
+* 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test
+  modules — about **4.4k lines of production code**, not 6.6k;
+* `ambition_items` already owns what the doc asks a domain to own — the 24-slot
+  catalog, owned-item state, the shop, and the `item_catalog` content schema;
+* the kernel's half says what it is in its own first paragraph: *"The
+  pickup/throw/projectile steppers stay here because they mutate actor bodies,
+  gravity, portals, abilities, and hit events."*
+
+⇒ **a stepper that mutates bodies belongs with bodies.** Moving it is not a move:
+this frontier's own instruction — *"the domain owns its state/messages/plugin,
+the actor kernel exposes the body/action hooks it needs"* — means DESIGNING those
+hooks first, generic enough that an item crate can drive a pickup without naming
+gravity, portals, abilities and hit events. That is a design slice with a real
+budget, and nothing above measures it.
+
+⛔ **So three of this doc's frontiers have now been checked and only one was
+work.** Developer dependencies: done. Presentation: no renderer anywhere, a
+mirage. Items: defended, and a carve needs a hook design first. A future slice
+should start from the SEAM it intends to add, not from a line count — the top of
+this document already says a line count is a proxy, and these three are what that
+warning looks like in practice.
+
 ### Encounter/conversation/world orchestration
 
 The actor kernel should emit/consume small semantic facts. Room, encounter,

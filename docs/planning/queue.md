@@ -444,6 +444,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `fda65a386`), D204/D205 (shipped), or anything in
   `awaiting-maintainer-decision.md`.
 
+- ▢ **D-CANCEL-ONBLOCK — a blocked move confirms an `OnHit` cancel, and the
+  channel it reads is the wrong one.** ⭐ PINNED 2026-08-31 by
+  `a_blocked_strike_is_still_recorded_as_a_connection`: an ordinary held guard
+  blocks the strike and the attacker still gets a `LandedBodyHit`, so
+  `mark_move_playback_landed_hits` sets `landed_hit = true` — the move confirms
+  its on-hit cancel and wears itself out on the stale queue. ⛔ THE TYPE'S OWN
+  DOC NAMES IT: `LandedBodyHit` *"MEANS OVERLAP"*, `ResolvedBodyHit` *"MEANS
+  CONNECT"*, and *"a consumer that wants a CONNECT must say so"* — the marker
+  consumes the overlap channel, and the block is decided later, in the damage
+  resolver. ⛔⛔ AND THE PLUMBING IS NOT ONE EDIT, which is why this is its own
+  row: `ResolvedBodyHit` carries no attacker, and `publish_resolved_hit` is
+  called from the PLAYER road only (`ambition_damage/src/lib.rs:692,785`) — the
+  actor road every match fighter takes publishes nothing. So the resolved channel
+  must become universal and attacker-bearing before the marker can read it.
+  ⭐ ONLY THEN does `CancelCondition::OnBlock` become authorable, which is what
+  the parity inventory §1 row asks for; whoever lands it must also delete the
+  stale deferral note at `entity_catalog/src/lib.rs:212`, which still claims the
+  victim-shield-contact fact *"lands with CM6"* — shieldstun shipped
+  (`body_clusters.rs:1620`). Acceptance: a blocked move does NOT confirm an
+  `OnHit` cancel (the pinned test inverts), an `OnBlock` window does, and both on
+  the actor road. Owner:
+  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
+
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
   MSAA.** The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;
   both DPI/framebuffer cap and MSAA changed together. Run an interleaved A/B on

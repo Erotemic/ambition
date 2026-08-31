@@ -48,7 +48,10 @@ use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-#[cfg(feature = "kaleidoscope_menu")]
+// ⚠ NOT gated on `kaleidoscope_menu`. `SystemMenuBinding::model`,
+// `reset_all_settings`, `is_value_setting` and `apply_system_option_step` are
+// compiled without that feature and all name these types; the narrower gate
+// made every one of them unresolvable in the web composition.
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,

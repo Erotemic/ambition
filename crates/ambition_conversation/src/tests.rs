@@ -108,7 +108,7 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
     let mut state: bevy::ecs::system::SystemState<super::DialogueDispatch> =
         bevy::ecs::system::SystemState::new(app.world_mut());
     {
-        let mut dialogue = state.get_mut(app.world_mut());
+        let mut dialogue = state.get_mut(app.world_mut()).expect("dialogue params");
         let speaker = dialogue
             .speaker_id(initiator, None, None)
             .expect("a body with no authored identity speaks as the character it wears");

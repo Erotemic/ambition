@@ -513,21 +513,21 @@ pub fn add_headless_foundation(app: &mut App) {
 /// their concrete simulation schedules.
 pub fn serialize_frame_schedules(app: &mut App) {
     use bevy::app::{First, Last, PostUpdate, PreUpdate, Update};
-    use bevy::ecs::schedule::ExecutorKind;
+    use bevy::ecs::schedule::SingleThreadedExecutor;
     app.edit_schedule(First, |s| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
+        s.set_executor(SingleThreadedExecutor::new());
     });
     app.edit_schedule(PreUpdate, |s| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
+        s.set_executor(SingleThreadedExecutor::new());
     });
     app.edit_schedule(Update, |s| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
+        s.set_executor(SingleThreadedExecutor::new());
     });
     app.edit_schedule(PostUpdate, |s| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
+        s.set_executor(SingleThreadedExecutor::new());
     });
     app.edit_schedule(Last, |s| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
+        s.set_executor(SingleThreadedExecutor::new());
     });
 }
 

@@ -10,7 +10,7 @@ It assumes:
 - you have access to the companion course [`how-to-learn-enough-rust-to-understand-how-to-code-in-this-game.md`](./how-to-learn-enough-rust-to-understand-how-to-code-in-this-game.md);
 - you want to understand Bevy as an execution model, not merely memorize component/query syntax.
 
-Ambition currently pins Bevy 0.18.1. Bevy changes quickly, so use the exact version in the workspace's `Cargo.lock` when checking external examples.
+Ambition currently pins Bevy 0.19.1. Bevy changes quickly, so use the exact version in the workspace's `Cargo.lock` when checking external examples.
 
 The goal is to make these parts of Ambition legible:
 
@@ -1881,7 +1881,7 @@ Look up:
 - asset-loader traits;
 - platform backend configuration;
 - feature names;
-- exact Bevy 0.18.1 method names.
+- exact Bevy 0.19.1 method names.
 
 The skill is not memorizing all of Bevy. It is knowing where execution, authority, and lifecycle are represented.
 
@@ -1955,7 +1955,7 @@ Source entrypoints:
 External references to keep locally bookmarked:
 
 - the official Bevy migration guides for the pinned release;
-- docs.rs for Bevy 0.18.1;
+- docs.rs for Bevy 0.19.1;
 - Bevy's official examples at the matching version;
 - the Rust course beside this document;
 - `Cargo.lock` when examples disagree about API versions.

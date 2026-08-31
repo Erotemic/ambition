@@ -24,10 +24,7 @@ fn record_line(event: On<PresentLine>, mut lines: ResMut<PresentedLines>) {
 
 /// Build an app running `source`, whose dialogue vocabulary is exactly
 /// `installers`.
-pub fn app_running(
-    source: &str,
-    installers: &[ambition_dialog::YarnBindingInstaller],
-) -> App {
+pub fn app_running(source: &str, installers: &[ambition_dialog::YarnBindingInstaller]) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(AssetPlugin {
@@ -71,7 +68,9 @@ fn runner_entity(app: &mut App) -> Entity {
         .clone();
     let mut system_state: bevy::ecs::system::SystemState<(Commands, Res<YarnProject>)> =
         bevy::ecs::system::SystemState::new(app.world_mut());
-    let (mut commands, project) = system_state.get_mut(app.world_mut());
+    let (mut commands, project) = system_state
+        .get_mut(app.world_mut())
+        .expect("yarn harness params");
     let mut runner = project.create_dialogue_runner(&mut commands);
     for install in &installers {
         install(&mut commands, &mut runner, &mirror);

@@ -227,12 +227,15 @@ fn no_system_sits_in_the_phase_without_a_named_set() {
     let direct_systems: Vec<String> = graph
         .hierarchy()
         .graph()
-        .neighbors_directed(NodeId::Set(parent_key), bevy::ecs::schedule::graph::Direction::Outgoing)
+        .neighbors_directed(
+            NodeId::Set(parent_key),
+            bevy::ecs::schedule::graph::Direction::Outgoing,
+        )
         .filter_map(|node| match node {
             NodeId::System(key) => graph
                 .systems
                 .get(key)
-                .map(|system| format!("{}", system.system.name())),
+                .map(|system| format!("{}", system.system().name())),
             NodeId::Set(_) => None,
         })
         .collect();

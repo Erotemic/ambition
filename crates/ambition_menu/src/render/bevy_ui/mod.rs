@@ -199,8 +199,19 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
 /// uses flex so tabs share the panel width evenly. Font handle used by all menu surfaces. The
 /// renderer-agnostic menu crate does not own an asset path; the host supplies the resolved
 /// handle. `None` uses Bevy's default font.
+/// ⭐ A SOURCE, NOT A FACE. This carried a `Handle<Font>` until Bevy 0.19, which
+/// meant the menu crate was handed ONE FILE — so "the menu font" and "the regular
+/// weight" were the same fact and a menu could not ask for semibold at all. A
+/// [`FontSource`](bevy::text::FontSource) is a family (or a generic category),
+/// and the weight rides on the `TextFont` beside it, so the host publishes a
+/// TYPEFACE and the menu chooses within it.
+///
+/// The renderer-agnostic menu crate still owns no path, no filename and now no
+/// family name either: the host resolves it through
+/// `ambition_render::ui_fonts::UiFonts`. `None` means nothing was resolved and
+/// Bevy's built-in font is used — see the module note on why that is a decision.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
-pub struct MenuFont(pub Option<bevy::prelude::Handle<bevy::text::Font>>);
+pub struct MenuFont(pub Option<bevy::text::FontSource>);
 
 pub fn spawn_bevy_ui_menu<PageId, Action>(
     commands: &mut Commands,
@@ -236,7 +247,7 @@ pub fn spawn_bevy_ui_menu_with_font<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
     assets: Option<&AssetServer>,
-    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
+    font: Option<&bevy::text::FontSource>,
 ) -> Entity
 where
     PageId: Clone + Send + Sync + 'static,
@@ -347,7 +358,7 @@ where
                                 // no `TextFont` still GETS one (required
                                 // component), and that one is the ASCII subset.
                                 TextFont {
-                                    font: font.cloned().unwrap_or_default(),
+                                    font: font.cloned().unwrap_or_default().into(),
                                     ..default()
                                 },
                                 TextColor(label_color),
@@ -857,8 +868,11 @@ pub fn resolve_menu_text_size(
 
     for (fraction, mut font) in &mut text {
         let pixels = fraction.pixels_at(height);
-        if (font.font_size - pixels).abs() > f32::EPSILON {
-            font.font_size = pixels;
+        // Read-compare-write: a `Mut` deref marks the component changed for the
+        // rest of the frame, so the no-op case must not touch it. This system is
+        // the only writer of these sizes, so every value it finds is a `Px`.
+        if !matches!(font.font_size, FontSize::Px(px) if (px - pixels).abs() <= f32::EPSILON) {
+            font.font_size = FontSize::Px(pixels);
         }
     }
 }

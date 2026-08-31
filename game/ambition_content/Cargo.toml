@@ -90,14 +90,14 @@ ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_persistence = { path = "../../crates/ambition_persistence" }
 ambition_interaction = { path = "../../crates/ambition_interaction" }
 ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
-bevy_yarnspinner = { version = "0.8", optional = true }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+bevy_yarnspinner = { version = "0.9", optional = true }
 # Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
 # avian2d `PhysicsPlugins`, which collides with Ambition's `AmbitionPhysicsPlugin`
 # ("plugin already added" panic when the falling_sand feature is on). Ambition
 # bridges particles into its own movement world (project_particles_to_movement_world),
 # not avian rigid bodies, so it only needs render/movement/reactions.
-bevy_falling_sand = { version = "0.7.0", optional = true, default-features = false, features = [
+bevy_falling_sand = { version = "0.8", optional = true, default-features = false, features = [
     "render",
     "movement",
     "reactions",
@@ -117,7 +117,7 @@ insta = { version = "1", features = ["ron"] }
 # The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
 # `yarn_compile` guard test — compiles the authored sources the way the
 # game's asset loader would at startup.
-yarnspinner = "0.8"
+yarnspinner = "0.9"
 
 # ONE aggregated integration-test binary instead of 6. See tests/content_it.rs.
 [[test]]

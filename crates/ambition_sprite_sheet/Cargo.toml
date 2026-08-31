@@ -20,7 +20,7 @@ static_core_assets = ["ambition_asset_manager/static_core_assets"]
 [dependencies]
 # ECS surface only (Resource / Component / App via prelude) + logging macros.
 # No render/audio/windowing — this crate stays reusable and headless.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "2d_bevy_render",
 ] }
 

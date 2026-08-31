@@ -8,7 +8,7 @@
 //! [`GgrsRollbackRegistrar`].
 
 use bevy::{
-    ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings},
+    ecs::schedule::{LogLevel, ScheduleBuildSettings, SingleThreadedExecutor},
     prelude::*,
 };
 use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
@@ -101,7 +101,7 @@ impl Plugin for AmbitionRollbackPlugin {
         );
 
         app.edit_schedule(GgrsSchedule, |schedule| {
-            schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+            schedule.set_executor(SingleThreadedExecutor::new());
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Ignore,
                 ..default()

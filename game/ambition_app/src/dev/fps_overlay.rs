@@ -111,7 +111,7 @@ fn spawn_fps_overlay(
     let font = ui_fonts
         .map(|fonts| fonts.text_font(12.0, UiFontWeight::Monospace))
         .unwrap_or(TextFont {
-            font_size: 12.0,
+            font_size: FontSize::Px(12.0),
             ..default()
         });
     commands.spawn((

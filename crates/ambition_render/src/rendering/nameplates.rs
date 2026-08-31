@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_platformer2d_core::config::{WORLD_Z_PLAYER, world_to_bevy};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -486,7 +486,7 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
     ui_fonts
         .map(|fonts| fonts.text_font(font_size, UiFontWeight::Semibold))
         .unwrap_or(TextFont {
-            font_size,
+            font_size: FontSize::Px(font_size),
             ..default()
         })
 }

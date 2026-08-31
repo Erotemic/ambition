@@ -29,7 +29,7 @@ capture = ["ambition_platformer2d/capture"]
 # harness stays below the product shell.
 ambition_platformer2d = { path = "../ambition_platformer2d" }
 # Bevy App/World/Time — the sim the harness owns and steps.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 # The observation artifact's own format. `combat_observation` is the ONE place a
 # recorded tick becomes JSON; a tool that serialized it itself would be the
 # second answer that module exists to prevent.
@@ -40,4 +40,4 @@ serde_json = "1"
 # harness using only the reusable engine surface — proving a sim runs through the
 # harness WITHOUT linking `ambition_app` (the product shell).
 ambition_platformer2d = { path = "../ambition_platformer2d" }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

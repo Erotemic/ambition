@@ -5,6 +5,10 @@
 # outside the root one above. ⛔ they are also outside the repository gate — see
 # `fixtures/minimal_game/src/minimal_experience.rs` for the eight days that cost.
 fixtures/*/target/
+# `examples/capability_demo` and `examples/portal_tutorial` are separate
+# workspaces for the same reason, and were missing from this list until the
+# Bevy 0.19 port actually built them.
+examples/*/target/
 
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
 game/ambition_app/web/pkg/

@@ -12,10 +12,11 @@ use bevy_ggrs::{
     ComponentSnapshotPlugin, LoadWorld, LoadWorldSystems, ResourceSnapshotPlugin, RollbackApp,
 };
 
-use ambition_platformer2d_core::snapshot::{
-    cursor_checksum, resolved_checksum, state_checksum, SnapshotCursor, SnapshotResolve, SnapshotState,
-};
 use crate::CanonicalCodecStrategy;
+use ambition_platformer2d_core::snapshot::{
+    cursor_checksum, resolved_checksum, state_checksum, SnapshotCursor, SnapshotResolve,
+    SnapshotState,
+};
 use ambition_platformer2d_runtime::rollback::{
     descriptor, descriptor_owned, record_descriptor, RollbackEntryKind,
     RollbackRegistrationDescriptor,
@@ -85,7 +86,7 @@ pub(crate) fn install_resource_clone_checksum<T>(
     detail: String,
     checksum: for<'a> fn(&'a T) -> u64,
 ) where
-    T: Resource + Clone,
+    T: Resource<Mutability = Mutable> + Clone,
 {
     if should_install_backend(
         app,
@@ -226,7 +227,7 @@ pub trait AmbitionRollbackApp {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState;
+        T: Resource<Mutability = Mutable> + SnapshotState;
 
     /// Canonical snapshot for a resource that legitimately COMES AND GOES.
     ///
@@ -249,15 +250,15 @@ pub trait AmbitionRollbackApp {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState;
+        T: Resource<Mutability = Mutable> + SnapshotState;
 
     fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: Resource + Clone + SnapshotCursor;
+        T: Resource<Mutability = Mutable> + Clone + SnapshotCursor;
 
     fn rollback_resource_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: Resource + Clone;
+        T: Resource<Mutability = Mutable> + Clone;
 
     /// Clone-snapshot a RESOURCE holding entity references, probed through their
     /// stable sim identities. The resource twin of
@@ -269,7 +270,7 @@ pub trait AmbitionRollbackApp {
         referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
     ) -> &mut Self
     where
-        T: Resource + Clone;
+        T: Resource<Mutability = Mutable> + Clone;
 
     /// The same, plus the fields the entity set cannot see.
     ///
@@ -291,7 +292,7 @@ pub trait AmbitionRollbackApp {
         facts: fn(&T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone;
+        T: Resource<Mutability = Mutable> + Clone;
 
     fn rollback_resource_clone_checksum<T>(
         &mut self,
@@ -301,7 +302,7 @@ pub trait AmbitionRollbackApp {
         checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone;
+        T: Resource<Mutability = Mutable> + Clone;
 
     fn rollback_map_entities<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
@@ -313,7 +314,7 @@ pub trait AmbitionRollbackApp {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + bevy::ecs::entity::MapEntities;
+        T: Resource<Mutability = Mutable> + bevy::ecs::entity::MapEntities;
 
     fn require_rollback<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
@@ -423,16 +424,12 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ComponentCanonical,
                 "bevy_ggrs canonical codec snapshot + identical canonical checksum projection",
             ),
-        )
-        {
+        ) {
             self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_component(self, state_checksum::<T>);
             record_probe(
                 self,
-                crate::ChecksumProbe::new(
-                    std::any::type_name::<T>(),
-                    crate::census_state::<T>,
-                ),
+                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_state::<T>),
             );
         }
         self
@@ -450,16 +447,12 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ComponentCloneCursor,
                 "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection",
             ),
-        )
-        {
+        ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, cursor_checksum::<T>);
             record_probe(
                 self,
-                crate::ChecksumProbe::new(
-                    std::any::type_name::<T>(),
-                    crate::census_cursor::<T>,
-                ),
+                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_cursor::<T>),
             );
         }
         self
@@ -481,16 +474,12 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ComponentCloneResolved,
                 "bevy_ggrs clone snapshot + canonical authored-reference checksum projection",
             ),
-        )
-        {
+        ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, resolved_checksum::<T>);
             record_probe(
                 self,
-                crate::ChecksumProbe::new(
-                    std::any::type_name::<T>(),
-                    crate::census_resolved::<T>,
-                ),
+                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_resolved::<T>),
             );
         }
         self
@@ -696,13 +685,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        install_component_clone_checksum::<T>(
-            self,
-            owner,
-            name,
-            detail.to_string(),
-            checksum,
-        );
+        install_component_clone_checksum::<T>(self, owner, name, detail.to_string(), checksum);
         self
     }
 
@@ -712,7 +695,7 @@ impl AmbitionRollbackApp for App {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState,
+        T: Resource<Mutability = Mutable> + SnapshotState,
     {
         if should_install_backend(
             self,
@@ -722,8 +705,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ResourceCanonical,
                 "bevy_ggrs canonical codec snapshot + identical canonical checksum projection",
             ),
-        )
-        {
+        ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_resource(self, state_checksum::<T>);
             record_probe(
@@ -743,7 +725,7 @@ impl AmbitionRollbackApp for App {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + SnapshotState,
+        T: Resource<Mutability = Mutable> + SnapshotState,
     {
         if should_install_backend(
             self,
@@ -753,8 +735,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ResourceCanonical,
                 "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
             ),
-        )
-        {
+        ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             // Ambition's own checksum system rather than `RollbackApp::checksum_resource`,
             // which installs the `Res<T>` one.
@@ -794,7 +775,7 @@ impl AmbitionRollbackApp for App {
 
     fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: Resource + Clone + SnapshotCursor,
+        T: Resource<Mutability = Mutable> + Clone + SnapshotCursor,
     {
         if should_install_backend(
             self,
@@ -804,8 +785,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ResourceCloneCursor,
                 "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection",
             ),
-        )
-        {
+        ) {
             RollbackApp::rollback_resource_with_clone::<T>(self);
             RollbackApp::checksum_resource(self, cursor_checksum::<T>);
             record_probe(
@@ -821,7 +801,7 @@ impl AmbitionRollbackApp for App {
 
     fn rollback_resource_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         if should_install_backend(
             self,
@@ -856,7 +836,7 @@ impl AmbitionRollbackApp for App {
         referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         if should_install_backend(
             self,
@@ -890,7 +870,7 @@ impl AmbitionRollbackApp for App {
         facts: fn(&T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         if should_install_backend(
             self,
@@ -929,7 +909,7 @@ impl AmbitionRollbackApp for App {
         checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: Resource + Clone,
+        T: Resource<Mutability = Mutable> + Clone,
     {
         install_resource_clone_checksum::<T>(self, owner, name, detail.to_string(), checksum);
         self
@@ -947,8 +927,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::EntityMapping,
                 "bevy_ggrs LoadWorld entity-reference remapping",
             ),
-        )
-        {
+        ) {
             RollbackApp::update_component_with_map_entities::<T>(self);
         }
         self
@@ -960,7 +939,7 @@ impl AmbitionRollbackApp for App {
         name: &'static str,
     ) -> &mut Self
     where
-        T: Resource + bevy::ecs::entity::MapEntities,
+        T: Resource<Mutability = Mutable> + bevy::ecs::entity::MapEntities,
     {
         if should_install_backend(
             self,
@@ -970,8 +949,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::ResourceEntityMapping,
                 "bevy_ggrs LoadWorld resource entity-reference remapping",
             ),
-        )
-        {
+        ) {
             RollbackApp::update_resource_with_map_entities::<T>(self);
         }
         self
@@ -989,8 +967,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::RequiredRollback,
                 "component presence automatically installs bevy_ggrs::Rollback",
             ),
-        )
-        {
+        ) {
             RollbackApp::require_rollback::<T>(self);
         }
         self
@@ -1008,8 +985,7 @@ impl AmbitionRollbackApp for App {
                 RollbackEntryKind::MessageClear,
                 "clear abandoned-future message buffer in LoadWorld::Mapping",
             ),
-        )
-        {
+        ) {
             self.add_systems(
                 LoadWorld,
                 clear_message_channel::<T>.in_set(LoadWorldSystems::Mapping),

@@ -194,7 +194,7 @@ pub fn spawn_declared_hud(
             .as_deref()
             .map(|fonts| fonts.text_font(spec.font_size, crate::ui_fonts::UiFontWeight::Semibold))
             .unwrap_or(TextFont {
-                font_size: spec.font_size,
+                font_size: FontSize::Px(spec.font_size),
                 ..default()
             });
         commands.spawn_session_scoped(
@@ -285,7 +285,7 @@ pub fn spawn_declared_hud(
                             DeclaredHudStockCount(spec.id.clone()),
                             Text::new(String::new()),
                             TextFont {
-                                font_size: STOCK_ICON_PX,
+                                font_size: FontSize::Px(STOCK_ICON_PX),
                                 ..default()
                             },
                             TextColor(Color::srgba(r, g, b, a)),
@@ -301,7 +301,7 @@ pub fn spawn_declared_hud(
                 DeclaredHudSlot(spec.id.clone(), spec.font_size),
                 DeclaredHudSpec(spec.clone()),
                 Text::new(String::new()),
-                bevy::text::TextLayout::new_with_justify(if spec.centered {
+                bevy::text::TextLayout::justify(if spec.centered {
                     bevy::text::Justify::Center
                 } else {
                     bevy::text::Justify::Left
@@ -523,8 +523,11 @@ pub fn update_declared_hud(
             .unwrap_or(0.0);
         let base = slot.1;
         let wanted = base * (1.0 + emphasis * HUD_PUNCH_GAIN);
-        if (font.font_size - wanted).abs() > 0.01 {
-            font.font_size = wanted;
+        // Read-compare-write: a `Mut` deref marks the component changed for the
+        // frame, so the settled case must not touch it. This pass is the only
+        // writer of HUD sizes, so every value it finds is a `Px`.
+        if !matches!(font.font_size, FontSize::Px(px) if (px - wanted).abs() <= 0.01) {
+            font.font_size = FontSize::Px(wanted);
         }
     }
 }
@@ -943,7 +946,7 @@ mod punch_tests {
                 DeclaredHudSlot(HudSlotId::new("p1"), 16.0),
                 Text::new(String::new()),
                 TextFont {
-                    font_size: 16.0,
+                    font_size: FontSize::Px(16.0),
                     ..Default::default()
                 },
             ))
@@ -951,10 +954,18 @@ mod punch_tests {
         for _ in 0..frames {
             app.update();
         }
-        app.world()
+        // The assertions below are about a NUMBER of pixels, so unwrap the unit
+        // here rather than making every comparison carry it. This pass only ever
+        // writes `Px`; a different variant means the punch stopped owning the size.
+        match app
+            .world()
             .get::<TextFont>(node)
             .expect("still a node")
             .font_size
+        {
+            FontSize::Px(px) => px,
+            other => panic!("the HUD punch wrote a non-pixel font size: {other:?}"),
+        }
     }
 
     /// ⛔⛔ THE PUNCH MUST NOT COMPOUND, and this is the whole reason the node

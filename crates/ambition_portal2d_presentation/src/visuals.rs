@@ -76,7 +76,7 @@ pub fn sync_portal_disorientation_indicator(
         PortalDisorientIndicator,
         Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
         TextFont {
-            font_size: 18.0,
+            font_size: FontSize::Px(18.0),
             ..default()
         },
         TextColor(Color::srgb(0.74, 0.92, 1.0)),
@@ -415,7 +415,7 @@ pub fn sync_portal_visuals(
             PortalVisual,
             Text2d::new(portal.channel.name()),
             TextFont {
-                font_size: 12.0,
+                font_size: FontSize::Px(12.0),
                 ..default()
             },
             TextColor(core),

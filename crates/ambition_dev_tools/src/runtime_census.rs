@@ -336,6 +336,10 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
 /// means these numbers are not reproducible across a rewind and must never gate
 /// behaviour. The shipped local session runs `check_distance: 0` and never
 /// rewinds at all.
+/// ⛔ WALL CLOCK, so NOT ON WASM — the same rule every other census in this
+/// file follows. `std::time::Instant::now()` panics in a browser, and this
+/// file's `Instant` import is already `cfg(not(wasm32))` for that reason.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Default)]
 pub struct SimPhaseCensus {
     /// When the previous boundary fired, or `None` before the first.
@@ -346,6 +350,7 @@ pub struct SimPhaseCensus {
     ticks: u32,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl SimPhaseCensus {
     fn with_names(names: Vec<&'static str>) -> Self {
         Self {
@@ -376,6 +381,7 @@ impl SimPhaseCensus {
 }
 
 /// The boundary system for one sim phase.
+#[cfg(not(target_arch = "wasm32"))]
 fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
     move |mut census: ResMut<SimPhaseCensus>| census.close(index)
 }
@@ -389,6 +395,7 @@ fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
 /// schedule and render included. Measured 2026-08-29: it reported
 /// `PlayerInput=3.96ms` inside a sim tick that the main-phase census put at
 /// 1.98ms TOTAL. A bucket larger than the thing containing it is the tell.
+#[cfg(not(target_arch = "wasm32"))]
 fn open_sim_phase_window(mut census: ResMut<SimPhaseCensus>) {
     census.open();
 }
@@ -459,6 +466,7 @@ pub fn report_sim_schedule_membership(
 /// one; `SimSchedule` is what a non-rollback host binds.
 const SIM_SCHEDULE_NAMES: &[&str] = &["GgrsSchedule", "SimSchedule"];
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<SimPhaseCensus>) {
     let Some(at) = census.due() else {
         return;
@@ -914,6 +922,7 @@ pub fn report_schedule_phase_census(
 /// chain's membership, and a phase added there without a line here is simply
 /// unattributed — its time lands in whichever neighbour closes next, which is
 /// the honest failure mode for a boundary instrument but is a failure mode.
+#[cfg(not(target_arch = "wasm32"))]
 fn install_sim_phase_boundaries(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::{
         Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _,
@@ -1014,6 +1023,10 @@ fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
 #[derive(Resource, Default)]
 pub struct SchedulePhaseCensus;
 
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+pub struct SimPhaseCensus;
+
 /// Register the census clock and the sim-side censuses.
 ///
 /// Sim-side means headless too: a VM with no GPU still gets entity, body, and
@@ -1061,6 +1074,7 @@ impl Plugin for RuntimeCensusPlugin {
         // ⛔ THE BOUNDARIES ARE NOT REGISTERED WHEN THE CENSUS IS OFF. They run
         // inside the SIM schedule — the hottest schedule in the app — and an
         // instrument must not join the population it measures when nobody asked.
+        #[cfg(not(target_arch = "wasm32"))]
         if enabled {
             install_sim_phase_boundaries(app);
             // ⛔⛔ THE REPORTER GOES HERE, NOT IN THE UNCONDITIONAL LIST. It takes

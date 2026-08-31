@@ -150,7 +150,7 @@ fn the_generic_presentation_face_places_world_labels() {
             .spawn((
                 Text2d::new("PLACEMENT PROBE"),
                 TextFont {
-                    font_size: 12.0,
+                    font_size: FontSize::Px(12.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),

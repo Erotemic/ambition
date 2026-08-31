@@ -21,7 +21,7 @@ ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" 
 ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 ambition_portal2d = { path = "../../crates/ambition_portal2d" }
 ambition_portal2d_presentation = { path = "../../crates/ambition_portal2d_presentation" }
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "default_app",
     "default_platform",
     "2d_bevy_render",

@@ -37,7 +37,7 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # Bevy's renderer, so classifying the adapter at the render seam adds a name,
 # not a dependency. `default-features = false` because Cargo unions features
 # and Bevy already asks for the ones the renderer needs.
-wgpu = { version = "27", default-features = false }
+wgpu = { version = "29", default-features = false }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }
@@ -64,7 +64,7 @@ ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", o
 # bevy_ui nodes, and text. `ui_api` matches the sandbox baseline; the render
 # features (`2d_bevy_render`, `ui_bevy_render`, `scene`, `png`) are what a
 # headless sandbox drops — this crate always needs them because it draws.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "ui_api",
     "2d_bevy_render",
     "ui_bevy_render",

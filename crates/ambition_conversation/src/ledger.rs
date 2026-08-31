@@ -37,11 +37,10 @@ struct StampedNarrativeInput<M> {
 /// of what arrived from outside, and rewinding an input erases it. The
 /// `two_narrative_ends_in_one_window_both_replay` test fails rather than passing
 /// quietly if it ever becomes rollback state.
+#[derive(Resource)]
 pub struct NarrativeInputLedger<M: Message> {
     records: Vec<StampedNarrativeInput<M>>,
 }
-
-impl<M: Message> Resource for NarrativeInputLedger<M> {}
 
 impl<M: Message> Default for NarrativeInputLedger<M> {
     fn default() -> Self {

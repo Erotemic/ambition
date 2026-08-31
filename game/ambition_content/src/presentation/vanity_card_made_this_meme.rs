@@ -292,7 +292,7 @@ fn spawn_vanity_card(
                             .spawn((
                                 Text::new(""),
                                 TextFont {
-                                    font_size: 18.0,
+                                    font_size: FontSize::Px(18.0),
                                     ..default()
                                 },
                                 TextColor(TEXT_INK),

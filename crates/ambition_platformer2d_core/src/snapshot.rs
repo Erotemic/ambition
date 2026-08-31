@@ -376,11 +376,7 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support rollback_component_resolved for {name}")
     }
 
-    fn rollback_component_clone<T>(
-        &mut self,
-        _owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_component_clone<T>(&mut self, _owner: &'static str, name: &'static str) -> &mut Self
     where
         T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
     {
@@ -493,7 +489,7 @@ pub trait RollbackRegistrar {
         name: &'static str,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + SnapshotState,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + SnapshotState,
     {
         panic!("RollbackRegistrar does not support rollback_resource_canonical for {name}")
     }
@@ -504,18 +500,14 @@ pub trait RollbackRegistrar {
         name: &'static str,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + SnapshotState,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + SnapshotState,
     {
         panic!("RollbackRegistrar does not support rollback_resource_optional_canonical for {name}")
     }
 
-    fn rollback_resource_clone<T>(
-        &mut self,
-        _owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_resource_clone<T>(&mut self, _owner: &'static str, name: &'static str) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + Clone,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone,
     {
         panic!("RollbackRegistrar does not support rollback_resource_clone for {name}")
     }
@@ -527,7 +519,7 @@ pub trait RollbackRegistrar {
         _referenced: fn(&T) -> Vec<bevy_ecs::entity::Entity>,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + Clone,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone,
     {
         panic!("RollbackRegistrar does not support rollback_resource_clone_entity_set for {name}")
     }
@@ -540,7 +532,7 @@ pub trait RollbackRegistrar {
         _facts: fn(&T) -> u64,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + Clone,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone,
     {
         panic!("RollbackRegistrar does not support rollback_resource_clone_entity_set_probed for {name}")
     }
@@ -557,7 +549,7 @@ pub trait RollbackRegistrar {
         checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + Clone;
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone;
 
     /// Resource twin of
     /// [`Self::rollback_component_clone_checksum_with_schema_detail`].
@@ -569,18 +561,14 @@ pub trait RollbackRegistrar {
         _checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + Clone,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone,
     {
         panic!(
             "RollbackRegistrar does not support rollback_resource_clone_checksum_with_schema_detail for {name}"
         )
     }
 
-    fn rollback_map_entities<T>(
-        &mut self,
-        _owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn rollback_map_entities<T>(&mut self, _owner: &'static str, name: &'static str) -> &mut Self
     where
         T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
             + bevy_ecs::entity::MapEntities,
@@ -594,16 +582,13 @@ pub trait RollbackRegistrar {
         name: &'static str,
     ) -> &mut Self
     where
-        T: bevy_ecs::resource::Resource + bevy_ecs::entity::MapEntities,
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable>
+            + bevy_ecs::entity::MapEntities,
     {
         panic!("RollbackRegistrar does not support rollback_resource_map_entities for {name}")
     }
 
-    fn require_rollback<T>(
-        &mut self,
-        _owner: &'static str,
-        name: &'static str,
-    ) -> &mut Self
+    fn require_rollback<T>(&mut self, _owner: &'static str, name: &'static str) -> &mut Self
     where
         T: bevy_ecs::component::Component,
     {
@@ -670,7 +655,9 @@ pub trait RollbackRegistrar {
     where
         T: bevy_ecs::resource::Resource + SnapshotState,
     {
-        panic!("RollbackRegistrar does not support declare_rollback_derived_resource_state for {name}")
+        panic!(
+            "RollbackRegistrar does not support declare_rollback_derived_resource_state for {name}"
+        )
     }
 
     fn declare_dynamic_anchor<T>(
@@ -690,10 +677,9 @@ pub trait RollbackRegistrar {
 mod rollback_registrar_default_method_tests {
     use super::RollbackRegistrar;
 
-    #[derive(Clone)]
+    // Bevy 0.19: `Resource: Component`, and only the derive can emit both.
+    #[derive(Clone, bevy_ecs::resource::Resource)]
     struct DummyResource;
-
-    impl bevy_ecs::resource::Resource for DummyResource {}
 
     struct CapturingRegistrar {
         called: bool,
@@ -708,7 +694,7 @@ mod rollback_registrar_default_method_tests {
             _checksum: for<'a> fn(&'a T) -> u64,
         ) -> &mut Self
         where
-            T: bevy_ecs::resource::Resource + Clone,
+            T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + Clone,
         {
             self.called = true;
             self

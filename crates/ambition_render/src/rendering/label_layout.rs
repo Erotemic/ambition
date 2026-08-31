@@ -476,6 +476,20 @@ pub(crate) fn resolve_label_layout(
     }
 }
 
+/// The pixel size a label's font asks for.
+///
+/// The fallback measurement below works in logical pixels and this pass has no
+/// viewport, so a viewport-relative or rem-relative `FontSize` cannot be
+/// resolved here. Nothing writes one today — every Ambition label size is
+/// authored in pixels — and this is the seam that would have to learn the
+/// viewport if one ever did, rather than silently measuring zero.
+pub(crate) fn label_font_px(font: &TextFont) -> f32 {
+    match font.font_size {
+        FontSize::Px(px) => px,
+        other => other.eval(Vec2::ZERO, bevy::text::RemSize::default().0),
+    }
+}
+
 /// Measure a label. Prefers what Bevy's text pipeline actually laid out; falls
 /// back to a per-character estimate on the first frame of a label's life, when
 /// no layout has run yet.
@@ -551,13 +565,25 @@ fn font_weight_for(family: WorldLabelFamily) -> UiFontWeight {
     }
 }
 
-/// Keep every world label on its family's typeface.
+/// Put every world label on its family's typeface.
 ///
-/// A separate system from placement on purpose — and it runs every frame
-/// rather than once at spawn, which fixes a race the spawn-time resolution
-/// could not: fonts load asynchronously, so a label spawned before its font
-/// arrived kept Bevy's fallback forever. Assignment is guarded on inequality
-/// because writing `TextFont` re-runs text layout.
+/// ⛔ THIS IS THE ASSIGNMENT, NOT A REPAIR, and the distinction was worth
+/// re-establishing under Bevy 0.19. Room signage (`rendering::primitives`) spawns
+/// its labels with a SIZE and no source, because a room load has no `UiFonts` in
+/// scope; this pass is the only thing that ever gives them a face. Nameplates do
+/// resolve at spawn, and for them this is a confirmation that costs one
+/// comparison.
+///
+/// ⭐ THE OTHER HALF OF ITS OLD JOB IS THE ENGINE'S NOW. It also ran every frame
+/// because fonts load asynchronously and a label spawned before its font arrived
+/// kept Bevy's fallback forever. Since 0.19 the source is a FAMILY, and
+/// `load_font_assets_into_font_collection` marks every `TextFont` changed whose
+/// family newly resolves — so the arrival race is handled upstream and this pass
+/// no longer has to win it. `a_label_spawned_before_its_font_still_ends_up_on_it`
+/// is what says so.
+///
+/// Assignment stays guarded on inequality: writing `TextFont` re-runs text layout,
+/// and a `Mut` deref marks it changed whether or not the value moved.
 pub fn apply_world_label_fonts(
     ui_fonts: Option<Res<UiFonts>>,
     mut labels: Query<(&WorldLabel, &mut TextFont)>,
@@ -566,11 +592,16 @@ pub fn apply_world_label_fonts(
         return;
     };
     for (label, mut font) in &mut labels {
-        let wanted = fonts
-            .text_font(font.font_size, font_weight_for(label.family))
-            .font;
-        if font.font != wanted {
-            font.font = wanted;
+        // ⛔ THE FAMILY AND THE WEIGHT ARE ONE FACT. When this carried a handle,
+        // the handle WAS the face and copying `.font` was the whole answer. A
+        // family plus a weight is two halves of one request, and assigning the
+        // family alone silently draws every plate at regular — which looks like
+        // a taste decision rather than a bug. Caught by
+        // `a_label_spawned_before_its_font_still_ends_up_on_it`.
+        let wanted = fonts.text_font(font.font_size, font_weight_for(label.family));
+        if font.font != wanted.font || font.weight != wanted.weight {
+            font.font = wanted.font;
+            font.weight = wanted.weight;
         }
     }
 }
@@ -664,7 +695,7 @@ pub fn layout_world_labels(
                 size: label_size(
                     layout.map(|layout| layout.size),
                     text.as_str(),
-                    font.font_size,
+                    label_font_px(font),
                     &settings,
                 ),
                 owner_opacity: label.owner_opacity,
@@ -875,6 +906,69 @@ pub(crate) fn with_opacity(color: Color, opacity: f32) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐ THE ASYNC-ARRIVAL CASE, WHICH IS THE ONE THAT BROKE.
+    ///
+    /// Room signage spawns with a size and no font: a room load has no `UiFonts`
+    /// in scope, and the resource itself only appears once the catalog has
+    /// resolved the bundled files. So the real sequence is *label first, font
+    /// second*, and a label that missed its font kept Bevy's fallback — which is
+    /// the missing-glyph class, not a cosmetic one.
+    ///
+    /// ⛔ THE FIRST PASS MUST LEAVE IT ALONE. Naming a family before the asset
+    /// exists is not harmless: an unresolvable `FontSource::Family` does not
+    /// error, so it would silently claim a face that is not there.
+    #[test]
+    fn a_label_spawned_before_its_font_still_ends_up_on_it() {
+        use crate::ui_fonts::{UiFonts, PRODUCT_FAMILY};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_systems(Update, apply_world_label_fonts);
+
+        // A plate, spawned while nothing has loaded.
+        let plate = app
+            .world_mut()
+            .spawn((
+                WorldLabel::new("sign", WorldLabelFamily::Fixture, Vec3::ZERO),
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                    ..default()
+                },
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().get::<TextFont>(plate).unwrap().font,
+            FontSource::default(),
+            "with no fonts loaded the pass must not name a family"
+        );
+
+        // The catalog resolves and the fonts arrive.
+        app.world_mut().insert_resource(UiFonts {
+            regular: Some(Handle::default()),
+            semibold: Some(Handle::default()),
+            mono: Some(Handle::default()),
+        });
+        app.update();
+
+        let font = app.world().get::<TextFont>(plate).unwrap();
+        assert_eq!(
+            font.font,
+            FontSource::Family(PRODUCT_FAMILY.into()),
+            "a label that outlived the font load must end up on the product face"
+        );
+        assert_eq!(
+            font.weight,
+            FontWeight::SEMIBOLD,
+            "a plate is a NAME read at a glance, so it takes the semibold weight"
+        );
+        assert_eq!(
+            font.font_size,
+            FontSize::Px(12.0),
+            "the pass owns the FACE and must not touch the size the spawner chose"
+        );
+    }
 
     fn settings() -> WorldLabelLayoutSettings {
         WorldLabelLayoutSettings {
@@ -1174,7 +1268,7 @@ mod tests {
                 .spawn((
                     Text2d::new("abcdefghij"),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: FontSize::Px(12.0),
                         ..default()
                     },
                     TextColor(Color::WHITE),
@@ -1344,7 +1438,7 @@ mod tests {
                 .spawn((
                     Text2d::new("abcdefghij"),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: FontSize::Px(12.0),
                         ..default()
                     },
                     TextColor(Color::WHITE),

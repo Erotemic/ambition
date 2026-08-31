@@ -12,7 +12,13 @@
 /// `load_save_at_startup` puts the bytes in the world before anything is built —
 /// and it should be able to say so without naming an implementation crate. This
 /// is the SDK gap `sim-harness-names-only-the-public-sdk` predicts by name.
+///
+/// ⛔ GATED, because `ambition_persistence` is an OPTIONAL capability of this
+/// facade and an ungated `pub use` of an optional crate is a compile error for
+/// any game that did not ask for it. `minimal_game` is the fixture that says so.
+#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence::save::AmbitionGameSave;
+#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence::save_data::AmbitionGameSaveData;
 pub use ambition_platformer2d_runtime::{
     ContentDiagnostic, ContentEpoch, ContentFingerprint, ContentFingerprintSchemaVersion,

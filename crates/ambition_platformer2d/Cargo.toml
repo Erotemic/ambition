@@ -199,7 +199,7 @@ ambition_touch_input = { path = "../ambition_touch_input", optional = true }
 ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
 ambition_vfx = { path = "../ambition_vfx", optional = true }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
     "bevy_image",
     "bevy_state",

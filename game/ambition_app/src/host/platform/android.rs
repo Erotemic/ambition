@@ -33,17 +33,28 @@ use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 // of it, so gating this `use` would gate the only part of this module a desktop test can reach.
 use ambition_platformer2d::platformer::schedule::GameMode;
 
-// Bevy's CosmicFontSystem is initialized with an empty fontdb (no system fonts loaded). On
-// Android, /system/fonts/ holds Roboto etc., which fontdb won't find on its own.
-#[cfg(target_os = "android")]
-fn seed_android_system_fonts(mut font_system: ResMut<bevy::text::CosmicFontSystem>) {
-    font_system.0.db_mut().load_fonts_dir("/system/fonts");
-    bevy::log::info!(
-        target: "ambition_platformer2d::android_platform",
-        "android: seeded fontdb with {} face(s) from /system/fonts",
-        font_system.0.db().faces().count()
-    );
-}
+// ⭐ THE ANDROID FONT SEEDING IS THE ENGINE'S JOB NOW, and it is a better job.
+//
+// Under Bevy 0.18 this module ran a startup system that reached into
+// `bevy::text::CosmicFontSystem` and called `load_fonts_dir("/system/fonts")`,
+// because cosmic-text's `fontdb` explicitly no-ops `load_system_fonts()` on
+// Android and would otherwise panic with "no default font found".
+//
+// Bevy 0.19 replaced cosmic-text with Parley/fontique, and `CosmicFontSystem`
+// does not exist to reach into. Fontique 0.9 ships a real Android system source
+// (`fontique::backend::android`) that scans `$ANDROID_ROOT/fonts` — the same
+// directory — AND parses the platform's `fonts.xml` to map generic families
+// (sans-serif -> Roboto Flex / Roboto / Noto Sans, emoji -> Noto Color Emoji,
+// and so on), which the hand-rolled directory load never did. It is enabled by
+// bevy's `system_font_discovery` feature, which this app turns on for the
+// `android_platform` composition ONLY.
+//
+// ⛔ NOT ON DESKTOP. Shipped product typography is the bundled Inter/JetBrains
+// faces resolved through the asset catalog, and it must not vary with whatever
+// a player has installed; on Linux the same feature would also drag in
+// fontconfig. System discovery is here for FALLBACK GLYPH COVERAGE on a
+// platform that ships no bundled fallback, which is what the old workaround was
+// for too.
 
 /// Bevy plugin for Android-only setup.
 ///
@@ -56,7 +67,6 @@ impl Plugin for AndroidPlatformPlugin {
         #[cfg(target_os = "android")]
         {
             _app.init_resource::<AndroidSuspendState>();
-            _app.add_systems(Startup, seed_android_system_fonts);
             _app.add_systems(PreUpdate, detect_android_suspend_state);
             _app.add_systems(Update, apply_android_suspend_to_game_mode);
             #[cfg(feature = "audio")]

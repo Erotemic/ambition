@@ -638,7 +638,7 @@ fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
         commands.spawn((
             Text::new("Ambition"),
             TextFont {
-                font_size: fraction.reference_pixels(),
+                font_size: FontSize::Px(fraction.reference_pixels()),
                 ..default()
             },
             fraction,
@@ -648,10 +648,10 @@ fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
     app.update();
 
     let mut query = app.world_mut().query::<&TextFont>();
-    let sizes: Vec<f32> = query.iter(app.world()).map(|font| font.font_size).collect();
+    let sizes: Vec<FontSize> = query.iter(app.world()).map(|font| font.font_size).collect();
     assert_eq!(
         sizes,
-        vec![fraction.pixels_at(WINDOW_HEIGHT)],
+        vec![FontSize::Px(fraction.pixels_at(WINDOW_HEIGHT))],
         "the node still carries its {:.1}px reference size at the end of the frame \
          it was spawned in — that size is what the player sees flash",
         fraction.reference_pixels(),

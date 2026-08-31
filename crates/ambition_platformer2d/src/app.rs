@@ -1673,10 +1673,10 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
                 .disable::<bevy::core_pipeline::CorePipelinePlugin>()
                 .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
                 .set(RenderPlugin {
-                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                    render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                         backends: None,
                         ..Default::default()
-                    }),
+                    })),
                     ..Default::default()
                 })
                 .disable::<bevy::winit::WinitPlugin>();

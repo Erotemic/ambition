@@ -72,7 +72,7 @@ pub fn sync_boss_health_bar_overlay(
             .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
             .unwrap_or(TextFont {
-                font_size,
+                font_size: FontSize::Px(font_size),
                 ..default()
             })
     };
@@ -318,7 +318,7 @@ fn spawn_health_overlay(
         (
             Text2d::new(text),
             TextFont {
-                font_size: 11.0,
+                font_size: FontSize::Px(11.0),
                 ..default()
             },
             TextColor(Color::srgba(0.96, 0.98, 1.0, 0.98)),

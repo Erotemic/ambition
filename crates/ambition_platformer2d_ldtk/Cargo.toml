@@ -21,9 +21,9 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # register into the app's sim schedule (`SimSchedule`) rather than name `Update`.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world", default-features = false }
-bevy = { version = "0.18.1", default-features = false }
-bevy_asset_loader = { version = "0.26", optional = true }
-bevy_ecs_ldtk = { version = "0.14", optional = true }
+bevy = { version = "0.19.1", default-features = false }
+bevy_asset_loader = { version = "0.27", optional = true }
+bevy_ecs_ldtk = { version = "0.15", optional = true }
 ron = { workspace = true }
 serde = { workspace = true }
 serde_json = "1"

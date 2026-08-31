@@ -1255,7 +1255,8 @@ pub fn prepare_the_match(
     let centre = geometry.0.spawn;
     let home_body = home_body.map_or(
         crate::avatar::starting_character::InitialBodyPolicy::NoInitialBody,
-        |policy| policy.clone(),
+        // Bevy 0.19: `Ref::clone` clones the CHANGE-DETECTION HANDLE, not the value.
+        |policy| policy.as_ref().clone(),
     );
     // Preparation runs in `Update`, which follows the frame's simulation, so the
     // earliest tick this plan can be acted on is the NEXT one. Naming it is what

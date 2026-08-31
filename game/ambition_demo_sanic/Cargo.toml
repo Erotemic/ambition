@@ -15,4 +15,4 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # dev/journals/code_smells.md). The oracle's real claim is therefore: a downstream
 # game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE. It still holds — this file is
 # the proof.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

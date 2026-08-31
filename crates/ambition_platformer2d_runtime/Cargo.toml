@@ -72,9 +72,9 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # monolith this crate already depends on, so it adds no graph depth.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_character_sprites = { path = "../ambition_character_sprites" }
-bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_common_assets = { version = "0.17", features = ["ron"] }
 blake3 = "1"
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     # add_headless_foundation: asset/image registries + states for a
     # windowless engine app (bevy_ecs_ldtk touches Image handles).
     "bevy_asset",

@@ -1010,6 +1010,8 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
                 x: 0.0,
                 y: -1.0,
                 window: Entity::PLACEHOLDER,
+                // bevy 0.19: a mouse wheel always reports `Moved`.
+                phase: bevy::input::touch::TouchPhase::Moved,
             });
         app.update();
     }
@@ -1033,6 +1035,8 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
                 x: 0.0,
                 y: -1.0,
                 window: Entity::PLACEHOLDER,
+                // bevy 0.19: a mouse wheel always reports `Moved`.
+                phase: bevy::input::touch::TouchPhase::Moved,
             });
         app.update();
     }
@@ -1058,6 +1062,8 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
             x: 0.0,
             y: -1.0,
             window: Entity::PLACEHOLDER,
+            // bevy 0.19: a mouse wheel always reports `Moved`.
+            phase: bevy::input::touch::TouchPhase::Moved,
         });
     app.update();
     assert_eq!(grid_window_start(&app), Some(1), "wheel set an override");

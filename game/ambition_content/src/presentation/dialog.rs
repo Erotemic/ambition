@@ -510,7 +510,7 @@ fn sync_ambition_dialog_ui(
             .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
             .unwrap_or(TextFont {
-                font_size,
+                font_size: FontSize::Px(font_size),
                 ..default()
             })
     };
@@ -760,7 +760,7 @@ fn spawn_portrait(
                     Text::new(monogram.to_string()),
                     dialog_font(profile.speaker_font_size + 12.0, UiFontWeight::Semibold),
                     TextColor(Color::srgb(1.0, 0.96, 0.82)),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     AmbitionDialogPortraitMonogram,
                     Name::new("Dialogue Portrait Placeholder"),
                 ));

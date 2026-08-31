@@ -46,7 +46,7 @@ ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer
 # Only if you `#[derive(Component)]` or `#[derive(Resource)]` yourself — the
 # derive macros resolve `::bevy_ecs` through YOUR manifest and a re-export does
 # not satisfy that. Otherwise `ambition_platformer2d::bevy` is enough.
-bevy = "0.18"
+bevy = "0.19"
 
 # Toolchain: rustc/cargo 1.95.0 or newer. `edition = "2021"` is fine.
 #
@@ -60,12 +60,15 @@ bevy = "0.18"
 debug = 0
 
 # ⚠ REQUIRED WHEN YOU SELECT ROLLBACK (the default `all_capabilities` does).
-# Ambition's GGRS backend uses a fork with a backported `GgrsFrameTiming`
-# accessor. Cargo patch tables do NOT cross a workspace boundary, so a rollback
-# consumer must repeat this entry. A `default-features = false` fixed-step game
-# that does not select `rollback` does not link bevy_ggrs and needs no patch.
+# Ambition's GGRS backend needs `GgrsFrameTiming`, which was merged UPSTREAM as
+# gschup/bevy_ggrs#134 but landed AFTER the v0.22.0 release, so the crates.io
+# crate does not have it yet. Cargo patch tables do NOT cross a workspace
+# boundary, so a rollback consumer must repeat this entry. A
+# `default-features = false` fixed-step game that does not select `rollback`
+# does not link bevy_ggrs and needs no patch. Drop this entry once a bevy_ggrs
+# release contains #134.
 [patch.crates-io]
-bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }
 ```
 
 **And a `.cargo/config.toml`**, for the same reason the patch table is needed —

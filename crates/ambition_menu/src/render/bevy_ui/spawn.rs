@@ -1,4 +1,3 @@
-
 use super::*;
 /// Background panels sort by size, like the cube's DEPTH_BACKGROUND / LARGE_PANEL /
 /// CARD bands: a near-full-page panel is the furthest back, a small card nearer.
@@ -18,7 +17,7 @@ pub(super) fn spawn_node<Action>(
     node: &MenuNode<Action>,
     focused: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
-    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
+    font: Option<&bevy::text::FontSource>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -44,12 +43,14 @@ pub(super) fn spawn_node<Action>(
                 Text::new(text.clone()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    font_size: FontSize::Px(
+                        crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    ),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
-                TextLayout::new_with_justify(to_justify(*align)),
+                TextLayout::justify(to_justify(*align)),
                 ZIndex(LAYER_TEXT),
                 Name::new("text"),
             ));
@@ -69,12 +70,14 @@ pub(super) fn spawn_node<Action>(
                 Text::new(String::new()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    font_size: FontSize::Px(
+                        crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    ),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
-                TextLayout::new_with_justify(to_justify(*align)),
+                TextLayout::justify(to_justify(*align)),
                 crate::MenuDynamicText { slot: *slot },
                 crate::MenuDynamicTextContent(String::new()),
                 ZIndex(LAYER_TEXT),
@@ -145,7 +148,7 @@ fn spawn_control<Action>(
     thumb: Option<ScrollThumb>,
     focused_key: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
-    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
+    font: Option<&bevy::text::FontSource>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {

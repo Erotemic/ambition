@@ -22,4 +22,4 @@ visible = [
 
 [dependencies]
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "relativity"] }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

@@ -93,7 +93,7 @@ def key_frames(take: dict, columns: int) -> list[tuple[int, dict, str]]:
     if m.get("first_contact_tick") is not None:
         note(m["first_contact_tick"], "FIRST CONTACT")
     if m.get("max_reach_tick") is not None:
-        note(m["max_reach_tick"], f"max reach {m['max_reach_px']:g}px")
+        note(m["max_reach_tick"], f"max reach {m['aabb_reach_bound_px']:g}px")
     for spawn in m.get("spawns") or []:
         note(spawn["tick"], f"{spawn['kind']} spawned")
     if active:

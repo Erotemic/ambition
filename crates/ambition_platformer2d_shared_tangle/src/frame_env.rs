@@ -171,7 +171,7 @@ mod tests {
     fn resolve_in(app: &mut App, body: Aabb, response: f32) -> MotionFrame {
         let mut state: bevy::ecs::system::SystemState<FrameEnv> =
             bevy::ecs::system::SystemState::new(app.world_mut());
-        let env = state.get(app.world());
+        let env = state.get(app.world()).expect("frame env params");
         env.resolve(body, response)
     }
 

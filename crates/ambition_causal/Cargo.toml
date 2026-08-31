@@ -11,7 +11,7 @@ description = "Structured causal facts and the tick explainer. Domains publish t
 # `bevy_ecs` ONLY, and only for the `Resource` impl on the log. The crate
 # stays free of Bevy's renderer, its app, and every domain type — the property
 # that lets any domain publish facts without depending on any other domain.
-bevy_ecs = { version = "0.18.1", optional = true }
+bevy_ecs = { version = "0.19.1", optional = true }
 
 [features]
 # Make the log a Bevy `Resource`, so a system can publish through

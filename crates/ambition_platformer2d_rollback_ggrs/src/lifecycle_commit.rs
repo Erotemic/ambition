@@ -420,7 +420,12 @@ fn commit_transition(
         ambition_platformer2d_runtime::room_transition::RoomTransitionApplication,
     > = bevy::ecs::system::SystemState::new(world);
     let outcome = {
-        let mut application = state.get_mut(world);
+        // Bevy 0.19 moved SystemParam validation into the fetch, so `get_mut`
+        // reports it instead of panicking inside. The paragraph above is the
+        // argument that it cannot fail here, so the panic stays where 0.18 put it.
+        let mut application = state
+            .get_mut(world)
+            .expect("RoomTransitionApplication params are the ones RoomTransitionPlugin installs");
         // ⛔ THE TWO `None`s AGAIN. An intent that names NO subject is a bodyless
         // rebuild and applies with `None`. An intent that names one whose body is
         // gone is `SubjectGone` — a void crossing the caller drops. Collapsing
@@ -709,7 +714,9 @@ mod tests {
         let mut state: bevy::ecs::system::SystemState<
             ambition_platformer2d_runtime::room_transition::TransitBodies,
         > = bevy::ecs::system::SystemState::new(&mut world);
-        let bodies = state.get_mut(&mut world);
+        let bodies = state
+            .get_mut(&mut world)
+            .expect("TransitBodies is pure queries");
 
         assert_eq!(
             bodies.subject_entity(&SimId::placement("triggerer")),

@@ -16,4 +16,4 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_time = { path = "../ambition_time" }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

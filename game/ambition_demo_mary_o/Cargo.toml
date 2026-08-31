@@ -12,4 +12,4 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # bevy's derive macros through `ambition_platformer2d::bevy` — they resolve `bevy_ecs` through
 # the CONSUMER's manifest, so a re-export does not satisfy them. The E9 oracle's
 # real claim: a downstream game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

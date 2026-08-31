@@ -1002,7 +1002,7 @@ fn fade_kaleidoscope_materials(
         // Blend): PostUpdate runs after them, so a republish-while-open settles the
         // new planes with no one-frame flicker.
         if cur_mode != target_mode || (cur_alpha - target_alpha).abs() > 1.0e-4 {
-            if let Some(mat) = materials.get_mut(&material.0) {
+            if let Some(mut mat) = materials.get_mut(&material.0) {
                 mat.alpha_mode = target_mode;
                 mat.base_color.set_alpha(target_alpha);
             }

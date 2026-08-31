@@ -41,6 +41,7 @@ pub enum ExternalEffectSet {
 /// `app_it::effect_quarantine::rewinding_does_not_change_what_presentation_observes`
 /// measures, so registering this for rollback fails that test rather than
 /// passing quietly.
+#[derive(Resource)]
 pub struct ExternalEffectJournal<M: Message> {
     pending: BTreeMap<i32, Vec<M>>,
     /// Which session's timeline `pending` describes. A different generation
@@ -54,8 +55,6 @@ pub struct ExternalEffectJournal<M: Message> {
     /// rather than a clear.
     lifted: Option<Messages<M>>,
 }
-
-impl<M: Message> Resource for ExternalEffectJournal<M> {}
 
 impl<M: Message> Default for ExternalEffectJournal<M> {
     fn default() -> Self {

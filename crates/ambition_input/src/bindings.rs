@@ -243,7 +243,8 @@ fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
 /// string [`action_name`] publishes and a settings file stores — and the resolution runs
 /// through `Reflect`, which the action enum already derives.
 pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
-    use bevy::reflect::{DynamicEnum, DynamicVariant, FromReflect, TypeInfo, Typed, VariantInfo};
+    use bevy::reflect::enums::{DynamicEnum, DynamicVariant, VariantInfo};
+    use bevy::reflect::{FromReflect, TypeInfo, Typed};
     let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
         return None;
     };

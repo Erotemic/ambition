@@ -226,7 +226,7 @@ pub(super) fn spawn_world_label(
         (
             Text2d::new(text.to_string()),
             TextFont {
-                font_size,
+                font_size: FontSize::Px(font_size),
                 ..default()
             },
             TextColor(WORLD_LABEL_COLOR),

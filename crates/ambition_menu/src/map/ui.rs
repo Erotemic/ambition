@@ -99,7 +99,7 @@ pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnSco
         .spawn((
             Text::new("MAP"),
             TextFont {
-                font_size: 22.0,
+                font_size: FontSize::Px(22.0),
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -110,7 +110,7 @@ pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnSco
         .spawn((
             Text::new("0 rooms visited"),
             TextFont {
-                font_size: 14.0,
+                font_size: FontSize::Px(14.0),
                 ..default()
             },
             TextColor(Color::srgba(0.78, 0.86, 0.96, 0.9)),
@@ -358,7 +358,7 @@ fn reconcile_label(
                 for child in children.iter() {
                     if let Ok((mut text, mut font)) = labels.get_mut(child) {
                         **text = label.text.clone();
-                        font.font_size = label.font_size;
+                        font.font_size = FontSize::Px(label.font_size);
                         room_box.current_label = Some(label.text.clone());
                         room_box.current_font_size = label.font_size;
                         return;
@@ -370,7 +370,7 @@ fn reconcile_label(
                 .spawn((
                     Text::new(label.text.clone()),
                     TextFont {
-                        font_size: label.font_size,
+                        font_size: FontSize::Px(label.font_size),
                         ..default()
                     },
                     TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
@@ -424,7 +424,7 @@ fn spawn_room_box(
             parent.spawn((
                 Text::new(text),
                 TextFont {
-                    font_size,
+                    font_size: FontSize::Px(font_size),
                     ..default()
                 },
                 TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),

@@ -29,7 +29,7 @@ input = ["dep:leafwing-input-manager"]
 # off so this input layer stays a thin sibling. (leafwing pulls a wider
 # surface transitively when the `input` feature is on, but this crate must
 # also compile WITHOUT leafwing for sim-only builds.)
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_input_focus",
     # `gamepad` (light: just turns on `bevy_input/gamepad`) lets the
     # active-input detector read connected pads to flip `ActiveInputKind`
@@ -41,14 +41,14 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # on — which would also drag in `bevy_image`/`bevy_a11y`. Depending on the
 # already-built `bevy_window` crate directly keeps this layer thin while giving
 # the active-input detector the `CursorMoved` message it needs.
-bevy_window = { version = "0.18.1", default-features = false }
+bevy_window = { version = "0.19.1", default-features = false }
 # Same direct-dep reason as `bevy_window`, for a different missing capability:
 # a persisted binding OVERRIDE stores a `KeyCode`/`GamepadButton`, and those
 # derive `Serialize`/`Deserialize` only under `bevy_input`'s `serialize`
 # feature — which the `bevy` facade has no way to turn on from here. The
 # alternative was a key-NAME string plus a reverse lookup table, i.e. exactly
 # the hand-maintained second table this layer spent three commits deleting.
-bevy_input = { version = "0.18.1", default-features = false, features = [
+bevy_input = { version = "0.19.1", default-features = false, features = [
     "serialize",
 ] }
 # The content-free ability vocabulary, for `ControlSlot`. A DOWNWARD edge to a
@@ -56,7 +56,7 @@ bevy_input = { version = "0.18.1", default-features = false, features = [
 # slot is driven by, and that correspondence has to live somewhere both the
 # prompt and the touch overlay can reach.
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-leafwing-input-manager = { version = "0.20", optional = true }
+leafwing-input-manager = { version = "0.21", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side
 # device input into the engine-owned `ControlFrame`, so it depends DOWN on the

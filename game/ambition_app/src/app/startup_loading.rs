@@ -168,7 +168,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
     // an asynchronously loaded product font would make the loading screen
     // itself pop in late, defeating its immediate-response purpose.
     let font = |size: f32, _weight: UiFontWeight| TextFont {
-        font_size: size,
+        font_size: FontSize::Px(size),
         ..default()
     };
 

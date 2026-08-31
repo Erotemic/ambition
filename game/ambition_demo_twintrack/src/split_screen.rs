@@ -320,7 +320,7 @@ fn spawn_split_observer_panes(
             PaneElement::Title,
             Text2d::new(""),
             TextFont {
-                font_size: 22.0,
+                font_size: FontSize::Px(22.0),
                 ..default()
             },
             TextColor(Color::srgb(0.86, 0.94, 1.0)),
@@ -334,7 +334,7 @@ fn spawn_split_observer_panes(
             PaneElement::WaitingNotice,
             Text2d::new("WAITING FOR THE FIRST FLASH PAIR\nTO REACH THIS OBSERVER"),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
             TextColor(Color::srgb(0.70, 0.78, 0.92)),
@@ -368,7 +368,7 @@ fn spawn_split_observer_panes(
                 PaneElement::BeaconLabel(beacon),
                 Text2d::new(beacon.label()),
                 TextFont {
-                    font_size: 16.0,
+                    font_size: FontSize::Px(16.0),
                     ..default()
                 },
                 TextColor(color),
@@ -391,7 +391,7 @@ fn spawn_split_observer_panes(
             PaneElement::ObserverLabel,
             Text2d::new(""),
             TextFont {
-                font_size: 14.0,
+                font_size: FontSize::Px(14.0),
                 ..default()
             },
             TextColor(Color::srgb(0.55, 1.0, 0.92)),
@@ -417,7 +417,7 @@ fn spawn_split_observer_panes(
                 PaneElement::Fixture,
                 Text2d::new(row.caption()),
                 TextFont {
-                    font_size: 15.0,
+                    font_size: FontSize::Px(15.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.76, 0.86, 1.0)),
@@ -430,7 +430,7 @@ fn spawn_split_observer_panes(
                 PaneElement::Fixture,
                 Text2d::new("<-- EARLIER          LATER -->"),
                 TextFont {
-                    font_size: 12.0,
+                    font_size: FontSize::Px(12.0),
                     ..default()
                 },
                 TextColor(Color::srgba(0.66, 0.76, 0.90, 0.85)),
@@ -443,7 +443,7 @@ fn spawn_split_observer_panes(
                 PaneElement::StripVerdict(row),
                 Text2d::new(""),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
                 TextColor(NEUTRAL_TEXT),
@@ -472,7 +472,7 @@ fn spawn_split_observer_panes(
             PaneElement::Fixture,
             Text2d::new("THE PULSE, IN MY FRAME"),
             TextFont {
-                font_size: 13.0,
+                font_size: FontSize::Px(13.0),
                 ..default()
             },
             TextColor(Color::srgb(0.76, 0.86, 1.0)),
@@ -512,13 +512,13 @@ fn spawn_split_observer_panes(
             PaneElement::PulseReadout,
             Text2d::new(""),
             TextFont {
-                font_size: 13.0,
+                font_size: FontSize::Px(13.0),
                 ..default()
             },
             // left-justified on purpose: the readout is a THREE-COLUMN table
             // whose whole job is letting a viewer compare the same column
             // across two panes, and a centred block breaks the columns.
-            bevy::text::TextLayout::new_with_justify(bevy::text::Justify::Left),
+            bevy::text::TextLayout::justify(bevy::text::Justify::Left),
             TextColor(NEUTRAL_TEXT),
             Transform::from_translation(PULSE_READOUT_CENTER.extend(7.0)),
             layer.clone(),

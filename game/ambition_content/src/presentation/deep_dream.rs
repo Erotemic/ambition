@@ -309,7 +309,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             Visibility::Visible
         };
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
-        if let Some(material) = materials.get_mut(&material_handle.0) {
+        if let Some(mut material) = materials.get_mut(&material_handle.0) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
             material.color_texture = source_sprite.image.clone();

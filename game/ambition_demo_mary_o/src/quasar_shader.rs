@@ -373,7 +373,7 @@ fn sync_quasar_overlays(
         };
 
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
-        if let Some(material) = materials.get_mut(&material_handle.0) {
+        if let Some(mut material) = materials.get_mut(&material_handle.0) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(
                 *elapsed,

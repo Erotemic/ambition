@@ -790,7 +790,7 @@ pub fn spawn_speech_bubble(
         (
             Text2d::new(bubble_text.clone()),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..font.clone()
             },
             // width only. `TextBounds`' own doc says characters outside
@@ -803,7 +803,7 @@ pub fn spawn_speech_bubble(
             },
             // Wrapped lines centre under each other, so the bubble stays a
             // block over its speaker rather than a left-aligned ladder.
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
             TextColor(text_color),
             Name::new(format!("Speech bubble: {text}")),
         ),
@@ -830,7 +830,7 @@ pub fn spawn_speech_bubble(
                 parent.spawn((
                     Text2d::new(bubble_text.clone()),
                     TextFont {
-                        font_size: 18.0,
+                        font_size: FontSize::Px(18.0),
                         ..font.clone()
                     },
                     // the shadow must wrap EXACTLY as the line it shadows;
@@ -839,7 +839,7 @@ pub fn spawn_speech_bubble(
                         width: Some(SPEECH_BUBBLE_MAX_WIDTH),
                         height: None,
                     },
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     // Painted every frame by the placement pass along with the
                     // line it shadows; this is only the first frame's value.
                     TextColor(outline_color),
@@ -1403,7 +1403,7 @@ mod tests {
             self.app.world_mut().spawn((
                 Text2d::new(name.to_string()),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: FontSize::Px(18.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -1436,7 +1436,12 @@ mod tests {
                         text.as_str().to_string(),
                         LabelBox {
                             center: transform.translation.truncate(),
-                            half: label_size(None, text.as_str(), font.font_size, &settings) * 0.5,
+                            half: label_size(
+                                None,
+                                text.as_str(),
+                                crate::rendering::label_layout::label_font_px(font),
+                                &settings,
+                            ) * 0.5,
                         },
                     )
                 })

@@ -9,7 +9,7 @@ description = "Ambition saved-shape and settings persistence model."
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_input = { path = "../ambition_input" }
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_log", "bevy_window"] }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log", "bevy_window"] }
 ron = { workspace = true }
 serde = { workspace = true }
 

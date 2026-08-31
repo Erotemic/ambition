@@ -18,14 +18,13 @@ use ambition_portal2d_presentation::{
     PortalBodyView, PortalPresentationPlugin, PortalPresentationSet, PortalSceneBody,
     PortalWorldFrame,
 };
-use bevy::window::WindowResolution;
 use bevy::prelude::ButtonInput;
 use bevy::prelude::KeyCode;
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
 use KeyCode::*;
 
 //use bevy::keyboard::{ArrowDown, ArrowLeft, ArrowRight, ArrowUp, KeyA, KeyD, KeyS, KeyW};
-
 
 const WORLD_SIZE: Vec2 = Vec2::new(960.0, 540.0);
 const BODY_START: Vec2 = Vec2::new(600.0, 270.0);
@@ -171,7 +170,7 @@ fn setup(mut commands: Commands, mut frame: ResMut<PortalWorldFrame>) {
              No LDtk, gun, or full game host is involved.",
         ),
         TextFont {
-            font_size: 22.0,
+            font_size: FontSize::Px(22.0),
             ..default()
         },
         TextColor(Color::srgb(0.82, 0.86, 0.94)),
@@ -183,31 +182,29 @@ fn mirror_sim_dt(time: Res<Time>, mut sim_dt: ResMut<SimDt>) {
     sim_dt.dt = time.delta_secs().min(1.0 / 20.0);
 }
 
-fn move_body(sim_dt: Res<SimDt>,
-     keyboard: Res<ButtonInput<KeyCode>>,
-     mut body: Single<&mut BodyKinematics, With<TutorialBody>>
-    ) {
-    
+fn move_body(
+    sim_dt: Res<SimDt>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut body: Single<&mut BodyKinematics, With<TutorialBody>>,
+) {
+    let mut direction = Vec2::ZERO;
 
+    if keyboard.any_pressed([KeyA, ArrowLeft]) {
+        direction.x -= 180.0;
+    }
+    if keyboard.any_pressed([KeyD, ArrowRight]) {
+        direction.x += 180.0;
+    }
+    if keyboard.any_pressed([KeyW, ArrowUp]) {
+        direction.y += 180.0;
+    }
+    if keyboard.any_pressed([KeyS, ArrowDown]) {
+        direction.y -= 180.0;
+    }
 
-let mut direction = Vec2::ZERO;
+    let direction = direction.normalize_or_zero();
 
-if keyboard.any_pressed([KeyA, ArrowLeft]) {
-    direction.x -= 180.0;
-}
-if keyboard.any_pressed([KeyD, ArrowRight]) {
-    direction.x += 180.0;
-}
-if keyboard.any_pressed([KeyW, ArrowUp]) {
-    direction.y += 180.0;
-}
-if keyboard.any_pressed([KeyS, ArrowDown]) {
-    direction.y -= 180.0;
-}
-
-let direction = direction.normalize_or_zero();
-
-//body.vel;
+    //body.vel;
     //body.pos += vel * sim_dt.dt;
     body.pos += direction * BODY_SPEED * sim_dt.dt;
 }
@@ -225,13 +222,7 @@ fn observe_body(
     transform.translation = frame.to_render(kin.pos, 20.0);
 }
 
-fn spawn_rect(
-    commands: &mut Commands,
-    center: Vec2,
-    size: Vec2,
-    color: Color,
-    z: f32,
-) {
+fn spawn_rect(commands: &mut Commands, center: Vec2, size: Vec2, color: Color, z: f32) {
     commands.spawn((
         Sprite::from_color(color, size),
         Transform::from_translation(world_to_render(center, z)),

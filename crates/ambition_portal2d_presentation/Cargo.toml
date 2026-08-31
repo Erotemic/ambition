@@ -25,7 +25,7 @@ effect_view_cones = []
 # sprites + Mesh2d/ColorMaterial (view cones), cameras + render-to-texture
 # (`bevy_image`/`bevy_asset`), and `bevy_text` for the portal channel labels.
 # Still no audio / windowing / scene / picking — narrower than `default`.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "2d_bevy_render",
     "bevy_asset",
     "bevy_image",
@@ -51,4 +51,4 @@ ambition_portal2d = { path = "../ambition_portal2d" }
 [dev-dependencies]
 # Parse + validate the embedded WGSL in `cargo test` (same naga wgpu uses at
 # runtime), so a shader syntax error fails CI instead of the first real launch.
-naga = { version = "27.0.3", features = ["wgsl-in"] }
+naga = { version = "29.0.4", features = ["wgsl-in"] }

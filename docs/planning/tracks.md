@@ -177,6 +177,42 @@ actual product requirement.
   directions are recorded in
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
+## Bevy 0.19 follow-ups, ranked
+
+The port to Bevy 0.19.1 landed the engine bump and the typography rework. These
+are the remaining 0.19 capabilities worth Ambition's attention, most valuable
+first. ⛔ None is a reason on its own to reopen a subsystem — each names the
+Ambition pain it would remove.
+
+- ▢ **`FontSize::Vh` for the menu height fractions.** `MenuTextHeightFraction`
+  exists because `MenuNode::Text` sizes are authored as a PERCENTAGE OF VIEWPORT
+  HEIGHT, and a per-frame system converts each against the live window and writes
+  `TextFont`. 0.19's `FontSize::Vh` is that unit natively, which deletes the
+  conversion pass, the resize race and the "which unit is this?" ambiguity that
+  once drew the launcher title five pixels tall. Highest-value because it removes
+  a whole custom mechanism, not because it adds one.
+- ▢ **Text gizmos for developer ASCII overlays.** 0.19 ships debug text gizmos on
+  a stroke font. Several dev overlays (`fps_overlay`, `gamepad_probe`,
+  `rollback_observatory`, `debug_overlay`) draw ASCII only and currently pull the
+  bundled monospace face through `UiFonts`; gizmos would drop the asset dependency
+  from paths that never ship. ⛔ Developer-only — never dialogue, nameplates or
+  product UI.
+- ▢ **`Rem` sizing for UI accessibility scaling.** `FontSize::Rem` plus the
+  `RemSize` resource is a global UI text scale for free. Wants a concrete
+  accessibility or Steam-Deck legibility requirement first; do not convert
+  existing fixed sizes speculatively.
+- ▢ **Resources-as-components for singleton authorities.** `Resource: Component`
+  means observers and component hooks now work on singletons. Possibly useful for
+  authorities that currently need a follow-up call to stay coherent. ⛔ Rollback
+  ownership and deterministic ordering outrank the ergonomics; `IsResource` also
+  now leaks resources into broad `EntityMut` queries, which is a hazard before it
+  is a feature.
+- ▢ **Upstream text entry.** 0.19 has first-party text editing. Note it where
+  Ambition would otherwise hand-roll an input field; nothing today needs one.
+- ▢ **BSN for large declarative spawn trees.** Watch it for menus/presentation.
+  Not a migration target: the runtime content that would benefit is exactly the
+  content a scene format would freeze.
+
 ## Combat, AI and behavior reservoir
 
 - ▢ **Boss animation vocabulary fold.** Converge remaining boss animation/frame

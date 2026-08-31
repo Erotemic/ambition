@@ -49,8 +49,8 @@ ambition_time = { path = "../ambition_time" }
 # `ui_api` (+ `x11`, which `ui_api`'s winit needs to compile a crate in
 # isolation) mirrors `ambition_dialog` and the monolith's base bevy dep so
 # feature unification stays headless.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "ui_api",
     "x11",
 ] }
-bevy_yarnspinner = { version = "0.8", optional = true }
+bevy_yarnspinner = { version = "0.9", optional = true }

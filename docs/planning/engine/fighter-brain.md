@@ -72,9 +72,19 @@ decisions were byte-identical between the two arms for their first 22 ticks — 
 divergence was never on the recovery road at all. It was in Neutral/Advantage,
 where the veto emptied the modelled options and an unjudged one took over.
 
-Level 1 is a separate case: disabling rollout does not rescue it, and its long
-reaction delay relative to the fixture fall time is one of the profile-level
-variables the rig can isolate.
+Level 1 is a separate case, and its reaction delay is NOT the reason.
+
+⛔ **MEASURED AND FALSIFIED 2026-08-31.** `--reaction-ms` at 500, 300, 150 and
+**0** gives byte-identical outcomes on seed 0 (`5.9s : 10.4s`, 0%/0%, unfought).
+The trace changes at 0 — the 100-200px per-decision position jumps that are
+perception staleness disappear — so the override lands and the outcome simply
+does not depend on it.
+
+⭐ **THE LIVE LEAD is a perception gap:** seat 0 reports `floor_edge=None` for the
+entire bout while seat 1 reports `floor_edge=Some(108.0)`. A body that cannot see
+where the floor ends cannot avoid walking off it, and l1's last decision is
+`x=254 vx=270 ground=true emit_x=1.0` — alive, on the ground, walking. Queue row
+`D-FIGHTER-L1`.
 
 ## F1 — DONE. The trace named it; here is what to reuse
 

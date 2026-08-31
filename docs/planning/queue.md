@@ -381,17 +381,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D-FIGHTER-L1 — level 1 fails the same recovery scenario, and rollout is not
-  why.** `ladder_rig --sweep-below --seeds 45` reports l1 `unfought 45/45` with
-  rollout ON and OFF alike, before and after the D-FIGHTER-L6 fix — so the l6
-  diagnosis does not touch it and never did. l1's profile is the floor's slowest
-  rung: `reaction_ms 500`, `apm_cap 120`, `execution_noise 0.45`, no rollout
-  (`FighterBrainProfile::for_level`). The trace instrument is now good enough to
-  answer this the same way l6 was answered: `AMBITION_FIGHTER_TRACE=1` and read
-  `offered`/`chose`/`emit_x` from the first `situation=Recovery` line.
-  Acceptance: the first wrong authority named from a trace, not a sweep — and a
-  statement of whether "the slowest rung cannot recover" is a DEFECT or the
-  intended floor. Owner: [`engine/fighter-brain.md`](engine/fighter-brain.md).
+- ▢ **D-FIGHTER-L1 — reaction time is NOT the cause, and the live lead is a
+  perception gap.** ⛔ THE OWNER DOC'S HYPOTHESIS IS FALSIFIED. `fighter-brain.md`
+  said l1's *"long reaction delay relative to the fixture fall time"* was the
+  variable to isolate; `ladder_rig --sweep-below --seeds 1 --reaction-ms N` at
+  N = 500, 300, 150 and **0** gives byte-identical outcomes (`5.9s : 10.4s`,
+  0%/0%, unfought). The trace DOES change at 0 (the 100-200px per-decision
+  position jumps — perception staleness — vanish), so the override lands; the
+  outcome simply does not depend on it. ⭐ THE LIVE LEAD, from the same trace:
+  **seat 0 reports `floor_edge=None` for the entire bout while seat 1 reports
+  `floor_edge=Some(108.0)`.** A body that cannot perceive where the floor ends
+  cannot avoid walking off it, and l1's last decision is `x=254 vx=270
+  ground=true emit_x=1.0` — alive, on the ground, walking — and then nothing.
+  Next: find why `floor_edge_distance()` is `None` for that body and whether it
+  is a perception, placement or stage-knowledge gap. ⚠ NOT the cause and now
+  fixed anyway: the l5 partner, once its opponent died, held
+  `chose=Some(Approach) emit_x=0.0` forever — a foe-relative verb offered with no
+  foe. Owner: [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

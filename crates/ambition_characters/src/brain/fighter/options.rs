@@ -12,7 +12,6 @@ use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate};
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 
-
 use super::situation::{is_punishable, Situation};
 use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 
@@ -589,8 +588,32 @@ fn movement_options(
         .unwrap_or(0.0);
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
+    // ⛔⛔ A FOE-RELATIVE VERB WITH NO FOE IS AN OPTION THE EMITTER CANNOT ACT
+    // ON. `apply_movement` builds Approach/Retreat/Dash from the direction to
+    // `nearest_hostile()` and emits a ZERO stick when there is none — so the
+    // brain chose "approach", pressed nothing, and the trace read
+    // `chose=Some(Approach) emit_x=0.0` for as long as the body stood there.
+    //
+    // ⭐ THE ARGUMENT IS ALREADY IN THIS FILE, one verb over: Jump was offered
+    // unconditionally until a body with an empty jump budget was "handed an
+    // option pressing does nothing for", and the note there says why that is
+    // worse than a wasted press — L3 rolls the verb, the line goes nowhere, and
+    // *nowhere scores as safe*. Same rule, the verb it was not applied to.
+    //
+    // ⭐ MEASURED, seed 0 of `ladder_rig --sweep-below`, the l5 partner after its
+    // opponent died: `offered=[Approach, Retreat, Jump] chose=Some(Approach)
+    // emit_x=0.0`, unchanged for the rest of the bout.
+    let has_foe = toward_foe != 0.0;
     let mut out = Vec::new();
     let mut push = |verb: MovementVerb, score: f32| {
+        if !has_foe
+            && matches!(
+                verb,
+                MovementVerb::Approach | MovementVerb::Retreat | MovementVerb::Dash
+            )
+        {
+            return;
+        }
         // The ledge penalty is applied HERE, at the one place every verb is
         // scored, rather than at each `push` site. A per-situation penalty is
         // the kind that gets added to three arms and forgotten in the fourth —

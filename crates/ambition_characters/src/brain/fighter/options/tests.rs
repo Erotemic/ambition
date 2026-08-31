@@ -1279,3 +1279,56 @@ fn recovery_does_not_offer_a_lift_the_body_cannot_begin() {
         "the strongest lift cannot be started and was still offered"
     );
 }
+
+/// ⛔⛔ A FOE-RELATIVE VERB WITH NO FOE IS AN OPTION THE EMITTER CANNOT ACT ON.
+///
+/// `apply_movement` builds Approach/Retreat/Dash from the direction to
+/// `nearest_hostile()` and emits a ZERO stick when there is none — so the brain
+/// chose *"approach"*, pressed nothing, and kept choosing it. Measured on seed 0
+/// of `ladder_rig --sweep-below`: the l5 partner, after its opponent died, held
+/// `offered=[Approach, Retreat, Jump] chose=Some(Approach) emit_x=0.0` for the
+/// rest of the bout.
+///
+/// ⭐ THE SAME ARGUMENT THE FILE ALREADY MAKES ABOUT `Jump`, which was offered
+/// unconditionally until a body with an empty jump budget was handed "an option
+/// pressing does nothing for" — L3 rolls the verb, the line goes nowhere, and
+/// nowhere scores as SAFE.
+#[test]
+fn a_body_with_no_foe_is_offered_no_foe_relative_verb() {
+    let mut view = view_with(300.0, 380.0);
+    view.actors.clear();
+
+    let kit: [AttackCandidate; 0] = [];
+    let weights = UtilityWeights::default();
+    let options = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &weights,
+    );
+    let verbs: Vec<_> = options.movement.iter().map(|m| m.verb).collect();
+    for verb in [
+        MovementVerb::Approach,
+        MovementVerb::Retreat,
+        MovementVerb::Dash,
+    ] {
+        assert!(
+            !verbs.contains(&verb),
+            "{verb:?} needs a foe to point at, and there is none: {verbs:?}"
+        );
+    }
+
+    // ⛔ THE PREMISE: with a foe, they ARE offered. Otherwise this passes on a
+    // generator that offers nothing at all.
+    let with_foe = generate_options(
+        Perceived::cheating(&view_with(300.0, 380.0)),
+        Situation::Neutral,
+        &kit,
+        &weights,
+    );
+    let with_foe: Vec<_> = with_foe.movement.iter().map(|m| m.verb).collect();
+    assert!(
+        with_foe.contains(&MovementVerb::Approach),
+        "a body WITH a foe must still be offered Approach: {with_foe:?}"
+    );
+}

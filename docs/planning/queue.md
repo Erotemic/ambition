@@ -406,20 +406,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is 1-2 solids on a stage that has more. Owner:
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-- ▢ **D-BRAIN-PLATFORM-FLOOR — a fighter riding a moving platform perceives no
-  floor.** `WorldView::supporting_floor`, `floor_below` and `ground_below` each
-  spell `Solid | OneWay` inline, and `platforms/mod.rs` inserts moving platforms
-  as blink-passable blocks (*"solid for normal collision, but blink-passable for
-  upgraded blink pathing"*). So `on_ground` is true and `supported` is false, and
-  every ledge question in the brain — `floor_ahead`, `floor_edge_distance`, the
-  walks-off penalty, the recovery route search — reads through the false one.
-  Measured on `ladder_rig --sweep-below`: `ground=true terrain=[BlinkWall]
-  supported=false` on 6 of 6 grounded decisions. ⛔⛔ THE ONE-LINE FIX IS
-  MEASURED WRONG ON ITS OWN: adding `BlinkWall` to the three filters regresses
-  D-FIGHTER-L6 back to `unfought 1/1`, its exact pre-fix numbers. The two
-  interact, so the acceptance is a single measurement of BOTH: the platform is
-  perceived as ground AND the `--sweep-below` ladder does not regress. Do not
-  ship the filter change alone. Owner:
+- ▢ **D-BRAIN-PLATFORM-FLOOR — the floor the fighter cannot see is the RESPAWN
+  platform, and it is defined as "wherever I am".** ⭐ IDENTIFIED 2026-08-31 by
+  probing the perceived block's name: it is `"Respawn platform"`
+  (`ambition_demo_smash/src/lib.rs:1662`), contributed to the collision world as
+  a `BlinkWall` — `WorldView::supporting_floor`, `floor_below` and `ground_below`
+  each spell `Solid | OneWay` inline, so a fighter standing on it reports
+  `ground=true supported=false floor_edge=None`, and every ledge question in the
+  brain reads through the false one. ⛔⛔ AND THE ONE-LINE FIX BACKFIRES FOR A
+  REASON WORTH KNOWING. The platform is REBUILT EVERY TICK at the protected
+  fighter's own position (`Vec2::new(kin.pos.x, kin.pos.y + DROP_PX)`) — it calls
+  itself stationary, and from the outside it tracks the body exactly. So making
+  `BlinkWall` standable hands the rollout a 96px floor re-centred on the body
+  every tick: **`floor_edge` is a CONSTANT 48.0 across 200px of travel**, every
+  verb is judged to walk off it, and everything is vetoed every tick — l6
+  regresses to `unfought 1/1`, its exact pre-fix numbers (measured twice). ⭐ THE
+  STATEMENT THAT MATTERS: a floor defined as *"wherever I am"* makes every ledge
+  question CIRCULAR — the answer cannot change whatever the body does — which is
+  why it poisons the ROLLOUT specifically, the one consumer that asks *"where
+  will I BE"*. ⭐ SO THE FIX IS AT THE PLATFORM, not the filter: a respawn grace
+  affordance should either not participate in floor perception at all, or be a
+  real block placed ONCE at the respawn point rather than teleported under the
+  body. Acceptance: a fighter on the respawn platform perceives a floor, the
+  perceived edge CHANGES as it walks, and `--sweep-below` does not regress. ⚠ A
+  second smell, unchased: `terrain` is 1-2 solids on a stage that has more. Owner:
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the

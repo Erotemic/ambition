@@ -100,15 +100,26 @@ three floor filters is the obvious move. It **regresses l6 back to `unfought
 1/1`, its exact pre-fix numbers**, and does not change l1. Reverted; do not
 re-derive it. A coherent reading of the source is not a measurement.
 
-⭐ **THE BLINK WALL IS A MOVING PLATFORM.** `ambition_platformer2d_world`'s
-`platforms/mod.rs` inserts them as blink-passable blocks — *"solid for normal
-collision, but blink-passable for upgraded blink pathing"* — which is why the
-96×12 solid tracks the body's `x` tick for tick: the body is RIDING it.
+⭐ **THE BLINK WALL IS THE RESPAWN PLATFORM**, identified by probing the
+perceived block's name. `ambition_demo_smash` publishes it as a
+`MovingPlatformState` (`lib.rs:1662`), and `platforms/mod.rs` inserts platforms
+as blink-passable blocks — *"solid for normal collision, but blink-passable for
+upgraded blink pathing"*.
 
-So the true statement is **a fighter riding a moving platform perceives no
-floor**, and that is a defect independently of level 1. What is NOT known is why
-telling the brain about it makes level 6 worse. The two changes interact; measure
-them together.
+⛔⛔ **AND IT IS REBUILT EVERY TICK AT THE PROTECTED FIGHTER'S OWN POSITION**
+(`Vec2::new(kin.pos.x, kin.pos.y + DROP_PX)`). It calls itself stationary — zero
+sweep, zero speed — and from the outside it tracks the body exactly. That is why
+`floor_edge` comes out a **CONSTANT 48.0 across 200px of travel** the moment the
+block becomes standable: the body is always in the middle of its own floor.
+
+⭐ **A FLOOR DEFINED AS "WHEREVER I AM" MAKES EVERY LEDGE QUESTION CIRCULAR** —
+the answer cannot change whatever the body does. That is why it poisons the
+ROLLOUT specifically, the one consumer whose whole job is asking *"where will I
+BE"*: every verb is judged to walk off, everything is vetoed every tick, and
+level 6 falls back to the least-bad line on every decision.
+
+So the fix is at the PLATFORM, not at the filter. Queue row
+`D-BRAIN-PLATFORM-FLOOR`.
 
 Queue row `D-FIGHTER-L1`.
 

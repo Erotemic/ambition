@@ -3403,7 +3403,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 });
             // THE REPERTOIRE, ON THE CHARACTER.
             //
-            // this is what stops the seat needing `smash_fighter_kit()`: a definition that authors
+            // this is what stops the seat needing a generic floor: a definition that authors
             // its own moveset says something more specific than anything derivable from an
             // action-set preset, and preparation uses it verbatim. George is the one fighter this
             // demo owns, and he is the one who gets authored.

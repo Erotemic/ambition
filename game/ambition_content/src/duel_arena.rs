@@ -56,10 +56,15 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
     [
         SpawnActorRequest {
             id: DUEL_PCA_ID.to_string(),
-            // Display name MUST match the character-catalog `display_name` — the
-            // sprite sheet AND the authored hitbox metadata both resolve from it
-            // (`character_id_for_display_name`). "Perfect Cellular Automaton" →
-            // the PCA sheet; a mismatch falls back to a generic placeholder.
+            // A LABEL, and nothing downstream reads it. This asked to be kept in
+            // sync with the catalog `display_name` under a MUST, on the ground
+            // that the sheet and the authored hitbox both resolved from it.
+            // ⭐ MEASURED FALSE (2026-08-31), twice over: a request naming a
+            // `character` reaches `ActorClusterSeed::new_character_in`, which
+            // takes `display_name` off the CHARACTER's blueprint and is never
+            // handed this string; and the sheet binder + hitbox resolver both
+            // key on `sprite_character_id`, which `character` below states.
+            // Pinned by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`.
             name: "Perfect Cellular Automaton".to_string(),
             pos: center + ae::Vec2::new(-75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
@@ -76,10 +81,9 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
         },
         SpawnActorRequest {
             id: DUEL_ROBOT_ID.to_string(),
-            // The duellist is the player's PREVIOUS build, not its current one. Display name MUST
-            // match the catalog `display_name` — sprite AND authored hitbox metadata both resolve
-            // from it (`character_id_for_display_name`); a mismatch silently falls back to a
-            // placeholder.
+            // The duellist is the player's PREVIOUS build, not its current one.
+            // As above: a label, superseded by the `character` this request
+            // names, which is what actually decides both art and hitbox.
             name: "Player Robot v2".to_string(),
             pos: center + ae::Vec2::new(75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),

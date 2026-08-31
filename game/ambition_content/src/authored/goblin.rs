@@ -31,12 +31,11 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         })
         // `BrainProfileRef` resolves it against this definition's own provider.
         .with_autonomous_profile_named("medium_striker")
-        // AND ITS OWN MOVES. Every
-        // seated fighter whose character says nothing takes
-        // `smash_fighter_kit()` — one generic swipe — and that floor's
-        // goal is DELETION, one adopter at a time. The goblin is the
-        // third character in the game to state a table and the first
-        // ENEMY to.
+        // AND ITS OWN MOVES. A seated fighter whose character said nothing fell
+        // back to one generic swipe, and that floor's goal was DELETION, one
+        // adopter at a time. The goblin was the third character to state a table
+        // and the first ENEMY to; as of 2026-08-31 every id on the Smash roster
+        // states one, so the fallback has no adopters left (see `select.rs`).
         .with_moveset(crate::goblin_moveset::goblin_moveset());
     definition.vitals.max_health = Some(5);
     definition

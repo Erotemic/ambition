@@ -588,8 +588,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is smaller: `canonical_height` is read by nothing in gameplay, because the
   scaling its doc claimed happens at authoring time and the OUTPUT is what gets
   stored. Its doc now says so; the field stays, because `moveset_export` reports
-  it and that is what a record is for. ▢ NO NEXT CANDIDATE NAMED — re-census
-  before migrating another field. ⛔ NOT a residual: eleven grid fighters on the
+  it and that is what a record is for.
+  ⭐⭐ AND THE HEADLINE ANSWER, MEASURED 2026-08-31: **the generic repertoire
+  floor has ZERO adopters.** `select.rs` said two seated fighters author no
+  repertoire and that seating them raised the floor's count "from three to five".
+  Both author one now, and so does every other id on the roster — the three with
+  no `authored/<id>.rs` (`player_robot_v3`, `mary_o_tall`, `sanic`) author theirs
+  from their own demo crates. So on the Smash roster the character-authoring
+  boundary IS load-bearing, which is what this row was asking. ⚠ this does not
+  retire `SMASH_FIGHTER_KIT`: it is an `AbilitySet` and stays live as an ability
+  GRANT — a different job from the repertoire fallback the comments described,
+  and the two were being conflated by name.
+  ✔ ALSO CLOSED, a second false contract found by the same census: `duel_arena`
+  told maintainers its two fighters' `name` MUST track the catalog `display_name`
+  because the sheet and the authored hitbox both resolved from it. Measured, and
+  false twice — `new_character_in` takes `display_name` off the CHARACTER's
+  blueprint and is never handed the request's string, while the sheet binder and
+  `authored_attack_volume_resolver` both key on `sprite_character_id` (the hitbox
+  resolver has no name road at all; its `None` arm falls to the PLAYER's hitbox).
+  ⇒ `SpawnActorRequest.name` is INERT for any request naming a character. Pinned
+  by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`,
+  which is attributable because its catalog is EMPTY and could join nothing.
+  Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
+  `character_id_for_display_name`); all seven now name what is really there.
+  ▢ NO NEXT CANDIDATE NAMED — re-census before migrating another field. ⛔ NOT a residual: eleven grid fighters on the
   actor baseline is a MISSING author, not a duplicate one.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).

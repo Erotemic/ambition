@@ -646,8 +646,10 @@ pub fn declare_registered_characters(
 /// An ACTOR that resolved a character identity needs that art too.
 ///
 /// That system watches `WornCharacter` — the identity a body PUTS ON. An `EnemySpawn` wears
-/// nothing: it resolves its character through the display-name join (`ActorClusterSeed` →
-/// `catalog.id_for_display_name`) and carries the answer on `ActorConfig::sprite_character_id`.
+/// nothing: it carries its character on `ActorConfig::sprite_character_id` instead. A spawn that
+/// NAMES a character has that id stated onto the config by `ActorClusterSeed::new_character_in`;
+/// only the archetype road, which names none, still reaches for the display-name join
+/// (`catalog.id_for_display_name`).
 /// So a room full of authored enemies declared their characters, resolved them correctly, and
 /// never asked for the art.
 ///

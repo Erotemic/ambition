@@ -3634,3 +3634,58 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
          not measuring the character"
     );
 }
+
+/// A staged actor that names a CHARACTER takes that character's label and art
+/// identity — its request's own `name` reaches neither.
+///
+/// ⭐ MEASURED, and it corrects a comment rather than confirming one.
+/// `game/ambition_content/src/duel_arena.rs` asked its two fighters to keep
+/// `name` in sync with the character catalog's `display_name` under a "MUST",
+/// on the stated ground that the sprite sheet and the authored hitbox metadata
+/// both resolve from it. Neither half survived measurement:
+///
+/// * `new_character_in` destructures `display_name` out of the
+///   `CharacterBodyBlueprint` — the CHARACTER's answer. The request's `name`
+///   is never passed to that road at all, so it cannot be the label. (Only the
+///   peaceful road, which takes no character, forwards a request's `name`.)
+/// * the sheet binder prefers `sprite_character_id`
+///   (`an_actor_binds_the_sheet_of_its_character_id_not_its_display_name`), and
+///   `authored_attack_volume_resolver` branches on that id with NO name road —
+///   its `None` arm falls to the PLAYER's hitbox, not to a name lookup.
+///
+/// ⛔ THE CATALOG HERE IS EMPTY, which is what makes the answer attributable: an
+/// empty catalog can join no display name, so an id that still arrives was
+/// STATED. The request authors `name: "test_walker"` and that string appears
+/// nowhere below.
+#[test]
+fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let mut app = commit(plan);
+
+    let rows: Vec<(String, Option<String>)> = app
+        .world_mut()
+        .query::<&ambition_combat::actor_tuning::ActorConfig>()
+        .iter(app.world())
+        .filter(|c| c.id.starts_with("duel_"))
+        .map(|c| (c.name.clone(), c.sprite_character_id.clone()))
+        .collect();
+
+    assert_eq!(rows.len(), 2, "both staged fighters spawned");
+    for (name, sprite_character_id) in rows {
+        assert_ne!(
+            name, "test_walker",
+            "the request's own `name` reached the body; a caller keeping that \
+             string in sync with the character catalog would be maintaining a \
+             field the character road drops"
+        );
+        assert_eq!(name, "medium_striker", "the character supplies the label");
+        assert_eq!(
+            sprite_character_id.as_deref(),
+            Some("medium_striker"),
+            "the art identity is STATED by the request's character, not joined \
+             from a display name — this catalog is empty and could join nothing"
+        );
+    }
+}

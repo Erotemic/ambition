@@ -40,9 +40,18 @@ pub const SMASH_ROSTER: &[&str] = &[
     "perfect_cellular_automaton",
     "goblin",
     "npc_emmy_noether",
-    // neither authors a repertoire yet, so both take the generic fighter floor from
-    // `smash_fighter_kit()` — which is scaffolding whose adopter count is supposed to be FALLING
-    // (redirect P6/§8). Seating them raises it from three to five.
+    // ⭐ RE-MEASURED 2026-08-31, and this sentence was wrong on both counts. It
+    // said neither authors a repertoire and that seating them raised the generic
+    // floor's adopter count "from three to five". Both author one now
+    // (`authored/npc_carl_stargan.rs`, `authored/special_patent_clerk.rs`), and
+    // so does every other id on this roster — the three with no `authored/<id>.rs`
+    // (`player_robot_v3`, `mary_o_tall`, `sanic`) author theirs from their own
+    // demo crates. THE COUNT IS ZERO, which is the number redirect P6/§8 was
+    // driving it toward.
+    // ⚠ `SMASH_FIGHTER_KIT` itself is NOT dead: it is an `AbilitySet` and is still
+    // live as an ability GRANT (`lib.rs`). What has no adopters left is the
+    // separate idea this comment described — a seated fighter falling back to a
+    // generic REPERTOIRE because its character states none.
     "npc_carl_stargan",
     "special_patent_clerk",
     // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the

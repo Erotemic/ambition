@@ -1,5 +1,5 @@
-//! THE PIRATE ADMIRAL'S CUTLASS. The second adopter removed from
-//! `smash_fighter_kit()` (P3.24), and the character was already telling us
+//! THE PIRATE ADMIRAL'S CUTLASS. The second fighter taken off the generic
+//! repertoire floor (P3.24), and the character was already telling us
 //! what its moves are: its row says `default_action_set: "pirate_pistol"`,
 //! the roster comment beside its id reads "pistol + cutlass", and its
 //! sprite is authored at `collision_scale: 1.6` — the largest of the three

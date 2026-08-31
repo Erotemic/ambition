@@ -604,8 +604,9 @@ impl NpcActorSpawnPlan {
             Some(kit) => kit,
             //  it is what a body that authored NO kit fights with once
             // provoked. A Hall NPC authors `peaceful`, so without this it would
-            // have nothing to swing — which is the same reason Smash grants
-            // `smash_fighter_kit()`, and the reason both are one concept.
+            // have nothing to swing — the same gap Smash's generic fighter floor
+            // filled for a seat whose character stated no repertoire, and the
+            // reason both are one concept.
             None => super::brain_builders::default_fighting_kit(),
         };
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(

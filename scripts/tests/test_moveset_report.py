@@ -518,3 +518,96 @@ def test_two_spacings_are_two_scenarios() -> None:
     drifted["requested_spacing"] = 40.0
     drifted["spacing_at_press"] = 41.7
     assert tool.compare(tool.report(near), tool.report(drifted))["comparable"]
+
+
+def _gapless_self_cancel() -> dict:
+    """A jab cancelled into a FRESH jab with no idle tick between them.
+
+    ⛔⛔ THE CASE THE ENGINE SUPPORTS AND THE REPORT COULD NOT SEE. A self-cancel
+    replaces `MovePlayback("jab")` with a new one in the SAME update — the
+    runtime pins the clock reset — so the recording shows `jab` on every tick and
+    an id comparison finds ONE move. The instance is what separates them.
+    """
+    take = _take(contact_at=4)
+    take["chain"] = {"verb": "attack", "label": "Jab", "at": 5}
+    frames = take["frames"]
+    for _ in range(12):
+        frames.append(json.loads(json.dumps(frames[-1])))
+    for tick, frame in enumerate(frames):
+        subject = frame["bodies"][0]
+        # Instance 0 until tick 8, instance 1 from tick 8 — no gap, same id.
+        second = tick >= 8
+        subject["move_state"] = {
+            "id": "jab",
+            "phase": "Active" if second else "Recovery",
+            "elapsed_s": 0.05 if second else 0.20,
+            "duration_s": 0.30,
+            "attack_facing": 1.0,
+            "landed_hit": False,
+            "instance": 1 if second else 0,
+        }
+    return take
+
+
+def test_a_gapless_self_cancel_is_two_move_instances() -> None:
+    """⛔⛔ REPRODUCED BY THE 2026-08-31 REVIEW: the second jab reported
+    `accepted: false`, because instances were discovered with
+    `move and move != previous` and both uses share the id.
+
+    ⭐ AND THE SECOND HALF THE REVIEW DID NOT REACH: `ticks_of` scoped an
+    instance by walking until the ID changed, so the two uses were ONE window
+    and the first's contact was credited to the second. Its own comment claimed
+    to handle exactly this. Both are fixed by the same runtime fact.
+    """
+    doc = tool.report(_gapless_self_cancel())["measurements"]["move_chain"]
+    assert doc is not None, "the chain probe saw no second move at all"
+    assert doc["second"]["accepted"], (
+        "a gapless `jab → jab` reported the second use as never accepted"
+    )
+    assert doc["second"]["accepted_tick"] == 8
+
+    # ⛔⛔ AND THE SCOPING, WHICH ONLY BITES WHEN THE FIRST USE MISSES.
+    # `ticks_of` walks FORWARD, so the second instance is already protected from
+    # the first's contact by its own start tick. The direction that goes wrong is
+    # the FIRST instance's window running ON past the boundary — and that is
+    # invisible while the first use also has a contact of its own, because the
+    # earlier one wins. So the fixture gives the first use NOTHING: a jab that
+    # whiffed, cancelled into a jab that hit.
+    #
+    # ⚠ THREE VERSIONS OF THIS ASSERTION PASSED WITHOUT THE FIX before this one.
+    # An arm that cannot fail is worse than no arm.
+    take = _gapless_self_cancel()
+    for tick, frame in enumerate(take["frames"]):
+        frame["contacts"] = (
+            [
+                {
+                    "strike": "s2",
+                    "owner_id": "subject",
+                    "owner_role": "subject_owned",
+                    "victim": "t1",
+                    "victim_role": "target",
+                }
+            ]
+            if tick == 10
+            else []
+        )
+    doc = tool.report(take)["measurements"]["move_chain"]
+    assert doc["second"]["first_contact_tick"] == 10
+    assert doc["first"]["first_contact_tick"] is None, (
+        "the first use WHIFFED and was credited with the second use's contact — "
+        "its window ran on past the instance boundary"
+    )
+
+
+def test_a_take_without_instances_still_measures() -> None:
+    """⚠ A RECORDING FROM BEFORE THE ENGINE PUBLISHED THE INSTANCE still reads,
+    with the old hole and no pretence otherwise: without the fact there is
+    nothing to separate two adjacent uses of one move, and inventing a boundary
+    would be worse than missing one."""
+    take = _gapless_self_cancel()
+    for frame in take["frames"]:
+        frame["bodies"][0]["move_state"].pop("instance", None)
+    doc = tool.report(take)["measurements"]["move_chain"]
+    # One continuous move: the probe reports no second, which is all the data
+    # supports.
+    assert doc is None or not doc["second"]["accepted"]

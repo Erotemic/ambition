@@ -36,6 +36,14 @@ pub struct CombatMoveView {
     /// Has this move already connected? Drives cancels, and explains why a
     /// follow-up did or did not become available.
     pub landed_hit: bool,
+    /// WHICH USE of this move this is — see `MovePlayback::instance`.
+    ///
+    /// ⭐ AN OBSERVER CANNOT TELL ONE USE FROM THE NEXT BY ID. A self-cancel
+    /// replaces `jab` with a fresh `jab` in the same update, and a reader
+    /// comparing ids across ticks sees one continuous move: it reports the
+    /// second press as never accepted, and credits the first use's contact to
+    /// the second.
+    pub instance: u32,
 }
 
 /// WHERE a body's damageable geometry came from.
@@ -247,6 +255,7 @@ pub fn rebuild_combat_geometry_view(
                 duration_s: pb.spec.duration_s,
                 attack_facing: pb.facing,
                 landed_hit: pb.landed_hit,
+                instance: pb.instance,
             }),
         });
     }

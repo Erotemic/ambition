@@ -148,6 +148,12 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         // only the overlap could not see.
         put_bool(out, self.connected_hit);
         put_bool(out, self.blocked_hit);
+        // ⛔ WHICH USE THIS IS, and it is state: a self-cancel replaces a
+        // playback with a fresh one of the SAME move, so two peers agreeing on
+        // the id and the clock can still disagree about whether this is the
+        // first jab or the second — which is a different move for staling, for
+        // hit-once memory and for anything reading the instance.
+        put_u32(out, self.instance);
         let mut targets: Vec<&str> = self.hit_targets.iter().map(String::as_str).collect();
         targets.sort_unstable();
         put_u32(out, targets.len() as u32);

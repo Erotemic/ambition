@@ -770,8 +770,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `two_seats_grabbing_one_gun_produce_exactly_one_gun`, red under both poisons
   (serve one intent; drop the claimed set).
 
-- ▢ **D-MOVE-INSTANCE — a same-id move restart is invisible to the chain
-  probe.** ⭐ GPT review 2026-08-31, REPRODUCED: `moveset_report.py` discovers
+- ✔ **D-MOVE-INSTANCE — CLOSED 2026-08-31, and it was two defects.** ⭐ GPT review 2026-08-31, REPRODUCED: `moveset_report.py` discovers
   instances with `move and move != previous`, so a self-cancel that replaces
   `MovePlayback("jab")` with a fresh one in the SAME update reports
   `accepted: false`. The runtime supports exactly that
@@ -787,15 +786,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
   when there is a gap. ⇒ `live_ticks`, `contact_ticks` and `reaches` all inherit
   it, so `first_contact_tick` and `aabb_bounds_reached_target` for B are wrong in
   the same case, not just `accepted`.
-  ⇒ ONE FIX SERVES BOTH: publish a monotonic playback INSTANCE from runtime
-  observation and never infer boundaries from a textual move id.
-  ⚠ COSTED HERE: `MovePlayback` gains an `instance: u32` set from the playback it
-  REPLACES (no new counter component — the site that inserts the new playback can
-  read the old one), `CombatMoveView` exposes it, the recorder records it, and
-  the report scopes on it. `MovePlayback` is checksum-projected, so this is a
-  schema bump. ⛔ do NOT derive the instance from `elapsed_s` going backwards: a
-  looping move's clock does that too, and the report would split one instance in
-  half every lap.
+  ✔ ONE FIX SERVED BOTH. `MovePlayback::instance` is set from the playback it
+  REPLACES — no counter component, because the site that inserts the new playback
+  is the only one that can see both uses — `CombatMoveView` exposes it, the
+  recorder records it, and the report both DISCOVERS on `(id, instance)` and
+  SCOPES `ticks_of` by it. Schema 144→145; the instance is checksummed because
+  two peers agreeing on the id and the clock can still disagree about which use
+  this is. A take from before the field falls back to the id, with the old hole
+  and a test that says so.
+  ⛔⛔ AND THREE VERSIONS OF THE SCOPING ASSERTION PASSED WITHOUT THE FIX, which
+  is recorded in the test because it is the reusable part: `ticks_of` walks
+  FORWARD, so the second instance is already protected by its own start tick, and
+  a first use that ALSO has a contact hides the merge behind "the earlier one
+  wins". The arm only bites when the first use WHIFFS — a jab that missed,
+  cancelled into a jab that hit.
+  ⛔ ruled out in writing: do NOT derive the instance from `elapsed_s` going
+  backwards. A looping move's clock does that every lap and would split one
+  instance in half instead of joining two.
 
 - ◐ **D-REPORT-GEOMETRY — the TANGENT RULE and the NAMES are fixed; the exact
   geometry is still owed.** ⭐ GPT review 2026-08-31, REPRODUCED: two boxes whose

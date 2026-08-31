@@ -110,7 +110,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// state: two peers whose in-flight move disagrees about whether it connected or
 /// was blocked take DIFFERENT cancels out of the same recovery. A message
 /// (`BlockedBodyHit`) also entered the cleared-on-rollback set.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 144;
+/// ⛔ v145: `MovePlayback` carries an INSTANCE. A self-cancel replaces a
+/// playback with a fresh one of the same move in the same update, so two peers
+/// agreeing on the move id and its clock could still disagree about whether this
+/// is the first jab or the second — which is a different move to staling, to
+/// hit-once memory, and to anything reading the instance. Seeded from the
+/// playback it replaces, so it needs no counter of its own.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 145;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

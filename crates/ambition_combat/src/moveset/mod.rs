@@ -245,6 +245,22 @@ pub struct MovePlayback {
     /// is seen on the actor road every match fighter takes, the next frame for a
     /// player victim.
     pub connected_hit: bool,
+    /// WHICH USE of this move this is, on this body.
+    ///
+    /// ⭐⭐ A MOVE ID IS NOT AN INSTANCE. A self-cancel replaces a playback with a
+    /// FRESH one of the same move in the same update — `jab → jab` with no tick
+    /// between them — and an observer comparing ids sees one continuous move.
+    /// That made the inspector report the second jab as never accepted, and made
+    /// it credit the FIRST instance's contact to the second.
+    ///
+    /// ⛔ MONOTONIC PER BODY, seeded from the playback this one REPLACED. It
+    /// needs no separate counter and no global: all a reader has to distinguish
+    /// is one use from the one before it. A move started on a body that was
+    /// playing nothing begins at zero.
+    ///
+    /// ⚠ NOT DERIVABLE FROM THE CLOCK. `elapsed_s` running backwards looks like a
+    /// restart and is also what a LOOPED move does every lap.
+    pub instance: u32,
     /// This move was BLOCKED: a guard consumed it.
     ///
     /// The `OnBlock` fact, from `BlockedBodyHit`. ⚠ a blocked move is neither a
@@ -599,6 +615,16 @@ pub fn cancel_move_playback(
 }
 
 impl MovePlayback {
+    /// Continue this body's instance count: the use after `previous`.
+    ///
+    /// ⛔ CALLED WHERE THE PLAYBACK IS INSERTED, because that is the only place
+    /// that can see both the outgoing use and the incoming one. `None` is a move
+    /// started on a body that was playing nothing.
+    pub fn succeeding(mut self, previous: Option<u32>) -> Self {
+        self.instance = previous.map_or(0, |prev| prev.wrapping_add(1));
+        self
+    }
+
     /// The three facts a cancel condition asks about, as one value.
     ///
     /// ⛔ ALWAYS THIS, never `landed_hit` alone: the bool means OVERLAP, and a
@@ -649,6 +675,7 @@ impl MovePlayback {
             was_grounded: true,
             t: t0,
             landed_hit: false,
+            instance: 0,
             connected_hit: false,
             blocked_hit: false,
             live_boxes: Vec::new(),
@@ -2254,6 +2281,10 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// melee cluster or no ranged action, which is every move that fires
     /// nothing.
     weapon: Option<(&'a mut BodyMelee, f32)>,
+    /// The instance number of the playback this move REPLACES, when it replaces
+    /// one. See [`MovePlayback::instance`] — an observer that cannot tell one use
+    /// of a move from the next reads a self-cancel as one continuous move.
+    replacing: Option<u32>,
     /// Seconds this body has BANKED for the move about to start, when it banked
     /// them for THIS move. See [`StoredMoveCharge`].
     banked_charge: Option<f32>,
@@ -2276,6 +2307,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     let StartingMove {
         commands,
         entity,
+        replacing,
         spec,
         facing,
         aim,
@@ -2335,6 +2367,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     );
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
+            .succeeding(replacing)
             .with_aim(aim)
             .with_aimed_stick(aimed_stick)
             .with_attack_intent(attack_intent)
@@ -3266,6 +3299,10 @@ pub fn trigger_moveset_moves(
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
+                // THE USE THIS ONE REPLACES — a self-cancel puts a fresh
+                // playback of the SAME move here, and only the instance tells
+                // an observer they are two.
+                replacing: Some(pb.instance),
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
@@ -3369,6 +3406,8 @@ pub fn trigger_moveset_moves(
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
+                // Nothing was playing: this body's first use in the chain.
+                replacing: None,
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),

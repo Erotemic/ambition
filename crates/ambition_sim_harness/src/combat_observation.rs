@@ -307,6 +307,10 @@ impl CombatObservation {
                         // disagree explains a strike on the far side.
                         "attack_facing": state.attack_facing,
                         "landed_hit": state.landed_hit,
+                        // ⛔ WHICH USE. Without it a reader distinguishes move
+                        // instances by ID, and a self-cancel — `jab` replaced by
+                        // a fresh `jab` in one update — reads as one move.
+                        "instance": state.instance,
                     })),
                 }),
             })

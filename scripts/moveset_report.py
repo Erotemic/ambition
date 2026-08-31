@@ -312,13 +312,19 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
     # — which is exactly the chain a jab combo is made of. The comparison is
     # against the PREVIOUS TICK, including its absence.
     order: list[tuple[str, int]] = []
-    previous: str | None = None
+    previous: tuple[str, int | None] | None = None
     for tick, frame in enumerate(frames):
         subject = _body(frame, take, "subject")
-        move = ((subject or {}).get("move_state") or {}).get("id")
-        if move and move != previous:
+        state = (subject or {}).get("move_state") or {}
+        move = state.get("id")
+        # ⭐ THE INSTANCE, WHEN THE RECORDING CARRIES ONE. A self-cancel replaces
+        # `jab` with a fresh `jab` in ONE update, so an id comparison sees one
+        # continuous move and the second press vanishes. `None` is a take from
+        # before the engine published it, where the id is all there is.
+        key = (move, state.get("instance")) if move else None
+        if move and key != previous:
             order.append((move, tick))
-        previous = move
+        previous = key
     requested = take.get("chain") or {}
     if len(order) < 2 and not requested:
         return None
@@ -334,17 +340,31 @@ def _move_chain(take: dict, frames: list, contacts: list, tick_s: float) -> dict
 
     def ticks_of(_move: str, start: int) -> list[int]:
         """The ticks of ONE INSTANCE: from its first tick until the subject
-        stops playing it.
+        stops playing THAT USE.
 
-        ⛔ NOT "every tick with this id". A jab chained into a jab shares an id,
-        and scoping by id alone would credit the first instance's contact to the
-        second.
+        ⛔⛔ NOT "every tick with this id", and until 2026-08-31 that is what this
+        was whenever the two uses were adjacent. Walking until the ID changes
+        gives ONE window spanning a gapless `jab → jab`, so the first use's
+        contact was credited to the second — which is exactly what this comment
+        already claimed it avoided. It avoided it only when an idle tick
+        separated them.
+
+        ⭐ SCOPED BY INSTANCE where the recording carries one; a take from before
+        the engine published it falls back to the id, with the old hole and no
+        pretence otherwise.
         """
+        def state_at(tick: int) -> dict:
+            subject = _body(frames[tick], take, "subject")
+            return (subject or {}).get("move_state") or {}
+
+        instance = state_at(start).get("instance")
         window = []
         for tick in range(start, len(frames)):
-            subject = _body(frames[tick], take, "subject")
-            playing = ((subject or {}).get("move_state") or {}).get("id")
+            state = state_at(tick)
+            playing = state.get("id")
             if playing is None or (window and playing != _move):
+                break
+            if instance is not None and state.get("instance") != instance:
                 break
             if playing == _move:
                 window.append(tick)

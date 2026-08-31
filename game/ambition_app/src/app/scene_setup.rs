@@ -216,7 +216,13 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
                 ambition_platformer2d::game_shell::FrontendPresentationKind::HostCamera,
             ),
             main_camera_layers,
-            ambition_platformer2d::render::screen_effects::ScreenEffectSettings::default(),
+            // ⭐ ELIGIBLE, NOT ENROLLED. This says the main camera is the one the
+            // screen filter belongs on; `sync_screen_effect_settings_from_video_settings`
+            // adds the `ScreenEffectSettings` that actually enrols it, and only
+            // while some effect is turned up. Spawning the settings here instead
+            // made every default frame pay for a fullscreen pass that returns
+            // the pixel it read.
+            ambition_platformer2d::render::screen_effects::ScreenEffectCamera,
             Name::new("Main Camera"),
         ))
         .id();

@@ -732,6 +732,48 @@ every `OffscreenGpu` user is a tool binary — and a first one would bring adapt
 availability and ~40s of runtime into the gates. The check is a documented,
 repeatable tool invocation instead: see `docs/recipes/headless-room-verification.md`.
 
+## ✔ The no-op pass no longer runs (2026-08-31)
+
+Answering this section's one question — *can any Ambition custom code disappear
+without adding another fullscreen pass?* — the answer is **no**, and the combined
+shader is left alone. Bevy's built-in vignette and lens distortion would each be
+another pass; splitting one combined pass into three to use newer APIs would buy
+API modernity with GPU work.
+
+The other half of the section is done. `FullscreenMaterialPlugin` uses component
+PRESENCE as the enable: without `ScreenEffectSettings`,
+`prepare_fullscreen_material_pipelines` drops the pipeline id, the bind-group
+preparation drops the bind group, and `fullscreen_material_system`'s view query
+does not match — so the pass and the `post_process_write` ping-pong it forces do
+not happen at all. Eligibility moved to a `ScreenEffectCamera` marker (which
+nothing removes), and `sync_screen_effect_settings_from_video_settings` now adds
+and removes the settings component.
+
+⛔⛔ THE DEFAULT CONFIGURATION WAS PAYING FOR A COPY. `default_shader_strength()`
+is **0.0**, so the shader's very first statement — `if global_strength <= 0.001 {
+return sample_screen(in.uv); }` — was the branch every shipped frame took. A
+full-screen read and a full-screen write to return the pixel it read.
+
+⭐ PROVED PIXEL-IDENTICAL, which is the only claim that matters for a change that
+removes a pass. Same two captures as above, before and after:
+
+| arm | before | after |
+|---|---|---|
+| no effect | `30372c4b715e7f699aae56a3617407e0` | **same** |
+| `--screen-effect crt,vignette` | `e7e2ec88957e1a4d1ff7a02b0ea991a3` | **same** |
+
+⛔ NO FRAME-TIME CLAIM IS MADE. What is established is the MECHANISM (from Bevy's
+own source, and it is Bevy's documented enable) and that the picture is
+unchanged. The MAGNITUDE is unmeasured: the only GPU here is `llvmpipe`, where a
+saved fullscreen pass is worth far more than on the hardware a player has, so a
+number taken here would flatter the change. Measure it on real hardware before
+quoting one.
+
+Three unit tests carry the behaviour: enrol/retract across off → on → off, a
+marked-camera-only guard, and a Potato-tier arm. Each of the last two carries a
+PREMISE GUARD, and they earned it — `strength` is a second gate whose default is
+0.0, so the first drafts asserted an absence the settings alone produced.
+
 ## Original plan
 
 Bevy 0.19 now provides built-in vignette and lens-distortion effects.
@@ -875,7 +917,7 @@ Complete:
 Complete:
 
 * ✔ `MenuTextHeightFraction` → `FontSize::Vh` (2026-08-31);
-* ▢ no-op screen-effects pass avoided if practical;
+* ✔ no-op screen-effects pass avoided (2026-08-31);
 * ▢ render recovery installed.
 
 ## Checkpoint 5 — persistence decision

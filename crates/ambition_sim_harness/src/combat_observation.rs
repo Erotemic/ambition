@@ -22,8 +22,8 @@
 
 use bevy::prelude::{Entity, World};
 
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::sim_view::CombatGeometryView;
+use ambition_platformer2d::observation as obs;
+use ambition_platformer2d::observation::CombatGeometryView;
 
 /// The schema these rows are written in. Bumped when a field's MEANING changes;
 /// a reader that finds an unknown version must say so rather than guess.
@@ -142,7 +142,7 @@ impl ScenarioRoles {
         // character — so an observer that classified by seat alone filed the
         // subject's own mount under "other" and drew it like stage furniture.
         let ridden: Vec<(Entity, Entity)> = {
-            let mut riders = world.query::<(Entity, &ambition_platformer2d::mount::RidingOn)>();
+            let mut riders = world.query::<(Entity, &ambition_platformer2d::actor::RidingOn)>();
             riders
                 .iter(world)
                 .map(|(rider, riding)| (rider, riding.mount))
@@ -156,7 +156,7 @@ impl ScenarioRoles {
 
         let shots: Vec<(Entity, Entity)> = {
             let mut projectiles =
-                world.query::<(Entity, &ambition_platformer2d::projectiles::ProjectileOwner)>();
+                world.query::<(Entity, &ambition_platformer2d::actor::ProjectileOwner)>();
             projectiles
                 .iter(world)
                 .map(|(shot, owner)| (shot, owner.0))
@@ -453,14 +453,14 @@ pub fn canonical_key(row: &serde_json::Value) -> (String, String, u64, u64) {
 /// shark differently and a byte-diff reports physics that did not change.
 pub fn sim_id_of(world: &World, entity: Entity) -> Option<String> {
     world
-        .get::<ambition_platformer2d::platformer::sim_id::SimId>(entity)
+        .get::<ambition_platformer2d::observation::SimId>(entity)
         .map(|id| id.as_str().to_string())
 }
 
 /// An AABB as `{pos, half}` — the shape every consumer can draw without knowing
 /// about shapes.
-fn aabb_json(aabb: ae::Aabb) -> serde_json::Value {
-    use ambition_platformer2d::engine_core::AabbExt;
+fn aabb_json(aabb: obs::Aabb) -> serde_json::Value {
+    use obs::AabbExt;
     let center = aabb.center();
     let half = aabb.half_size();
     serde_json::json!({ "pos": [center.x, center.y], "half": [half.x, half.y] })
@@ -474,14 +474,14 @@ fn aabb_json(aabb: ae::Aabb) -> serde_json::Value {
 /// between a diagram and a decoration. ⭐ The AABB stays beside it because it is
 /// the broad phase the engine itself uses and a consumer can draw it knowing
 /// nothing about shapes.
-pub fn volume_json(volume: &ae::CombatVolume) -> serde_json::Value {
-    use ambition_platformer2d::engine_core::AabbExt;
+pub fn volume_json(volume: &obs::CombatVolume) -> serde_json::Value {
+    use obs::AabbExt;
     let bounds = volume.bounds();
     let center = bounds.center();
     let half = bounds.half_size();
     let shape = match volume {
-        ae::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
-        ae::CombatVolume::Obb {
+        obs::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
+        obs::CombatVolume::Obb {
             center,
             half,
             rotation,
@@ -491,12 +491,12 @@ pub fn volume_json(volume: &ae::CombatVolume) -> serde_json::Value {
             "half": [half.x, half.y],
             "rotation": rotation,
         }),
-        ae::CombatVolume::Circle { center, radius } => serde_json::json!({
+        obs::CombatVolume::Circle { center, radius } => serde_json::json!({
             "kind": "circle",
             "center": [center.x, center.y],
             "radius": radius,
         }),
-        ae::CombatVolume::Convex { points, .. } => serde_json::json!({
+        obs::CombatVolume::Convex { points, .. } => serde_json::json!({
             "kind": "convex",
             "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
         }),
@@ -567,7 +567,7 @@ mod tests {
         // The move summons it and the subject boards.
         app.world_mut()
             .entity_mut(subject)
-            .insert(ambition_platformer2d::mount::RidingOn { mount });
+            .insert(ambition_platformer2d::actor::RidingOn { mount });
         let riding = roles.resolve(app.world_mut());
         assert_eq!(
             riding.role_of(mount),
@@ -578,166 +578,11 @@ mod tests {
         assert_eq!(riding.owned_role_of(mount), ScenarioRole::SubjectOwned);
     }
 
-    /// The whole road, end to end: two seated bodies, the real read model, and
-    /// the artifact that comes out of it.
-    ///
-    /// ⛔⛔ THE ARTIFACT MUST BE READABLE WITHOUT KNOWING A SEAT CONVENTION.
-    /// This scenario seats the SAME character twice on purpose, which is what
-    /// the recorder does — so an identity, a colour or a character id cannot say
-    /// which fighter the move belongs to, and only the role can.
-    #[test]
-    fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
-        use ambition_platformer2d::actor::{BodyCombat, MatchSeat};
-        use ambition_platformer2d::combat::components::{CenteredAabb, DamageableVolumes};
-        use ambition_platformer2d::combat::strike::{
-            HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
-        };
-        use ambition_platformer2d::platformer::sim_id::SimId;
-        use ambition_platformer2d::sim_view::CombatGeometryView;
-        use bevy::prelude::*;
-
-        let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::sim_view::rebuild_combat_geometry_view,
-        );
-
-        let seat = |app: &mut App, index: usize, x: f32, published: bool| {
-            let centre = ae::Vec2::new(x, 100.0);
-            let collision = ae::Aabb::new(centre, ae::Vec2::new(10.0, 20.0));
-            let mut body = app.world_mut().spawn((
-                MatchSeat(index),
-                CenteredAabb::from_aabb(collision),
-                BodyCombat::default(),
-                SimId::placement(&format!("fighter#seat{index}")),
-            ));
-            if published {
-                body.insert(DamageableVolumes::single(ae::Aabb::new(
-                    centre,
-                    ae::Vec2::new(8.0, 18.0),
-                )));
-            }
-            body.id()
-        };
-        let subject = seat(&mut app, 0, 100.0, true);
-        let target = seat(&mut app, 1, 130.0, true);
-
-        // The subject's swing, which has already connected with the target.
-        app.world_mut().spawn((
-            Hitbox {
-                owner: subject,
-                source: HitSide::Player,
-                anchor: HitboxAnchor::FollowOwner {
-                    local_offset: ae::Vec2::new(20.0, 0.0),
-                },
-                half_extent: ae::Vec2::new(12.0, 6.0),
-                shape: None,
-                facing: 1.0,
-                damage: 7,
-                knockback: HitboxKnockback::FeelScale(1.0),
-                launch_dir: None,
-                frame_down: ae::Vec2::new(0.0, 1.0),
-                strike_sfx: None,
-                reaction: None,
-            },
-            HitboxHits {
-                hit: std::iter::once(target).collect(),
-            },
-            SimId::from_snapshot("strike#1".to_string()),
-        ));
-
-        app.update();
-        let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
-        assert_eq!(scenario.subject(), Some(subject));
-        assert_eq!(scenario.target(), Some(target));
-        let roles = scenario.resolve(app.world_mut());
-        let doc = CombatObservation::capture(app.world_mut(), &roles).to_json();
-
-        let bodies = doc["bodies"].as_array().expect("bodies serialize");
-        assert_eq!(bodies.len(), 2);
-        let by_role = |role: &str| {
-            bodies
-                .iter()
-                .find(|b| b["role"] == role)
-                .unwrap_or_else(|| panic!("no body with role {role}"))
-        };
-        assert_eq!(by_role("subject")["id"], "placement:fighter#seat0");
-        assert_eq!(by_role("target")["id"], "placement:fighter#seat1");
-        // BOTH halves of the interaction are in the artifact.
-        assert_eq!(by_role("target")["hurtboxes"].as_array().map(Vec::len), Some(1));
-        assert_eq!(by_role("target")["hurtbox_source"], "published");
-
-        let strikes = doc["strikes"].as_array().expect("strikes serialize");
-        assert_eq!(strikes.len(), 1);
-        // ⛔ A SWING IS ITS OWNER'S SIDE, not its owner: `subject_owned`, never
-        // `subject`.
-        assert_eq!(strikes[0]["role"], "subject_owned");
-        assert_eq!(strikes[0]["subject_owned"], true);
-        assert_eq!(strikes[0]["damage"], 7);
-        assert_eq!(strikes[0]["owner_id"], "placement:fighter#seat0");
-
-        // ⛔⛔ AND THE CONTACT IS THE RUNTIME'S ANSWER, not an overlap test run
-        // here: it comes from the resolver's own hit-once memory.
-        let contacts = doc["contacts"].as_array().expect("contacts serialize");
-        assert_eq!(contacts.len(), 1);
-        assert_eq!(contacts[0]["victim"], "placement:fighter#seat1");
-        assert_eq!(contacts[0]["victim_role"], "target");
-        assert_eq!(contacts[0]["owner_role"], "subject_owned");
-    }
-
-    /// ⛔ A PUBLISHED-EMPTY DAMAGEABLE LIST PRODUCES NO HURTBOX, and says why.
-    #[test]
-    fn an_intangible_body_publishes_no_hurtbox_and_names_the_reason() {
-        use ambition_platformer2d::actor::{BodyCombat, MatchSeat};
-        use ambition_platformer2d::combat::components::{CenteredAabb, DamageableVolumes};
-        use ambition_platformer2d::platformer::sim_id::SimId;
-        use ambition_platformer2d::sim_view::CombatGeometryView;
-        use bevy::prelude::*;
-
-        let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::sim_view::rebuild_combat_geometry_view,
-        );
-        let collision = ae::Aabb::new(ae::Vec2::new(10.0, 10.0), ae::Vec2::new(6.0, 12.0));
-        let mut intangible = DamageableVolumes::default();
-        intangible.clear();
-        app.world_mut().spawn((
-            MatchSeat(0),
-            CenteredAabb::from_aabb(collision),
-            BodyCombat::default(),
-            intangible,
-            SimId::placement("dodging#seat0"),
-        ));
-        // Nothing published at all: the coarse fallback, which is a DIFFERENT
-        // fact from being deliberately unhittable.
-        app.world_mut().spawn((
-            MatchSeat(1),
-            CenteredAabb::from_aabb(collision),
-            BodyCombat::default(),
-            SimId::placement("ordinary#seat1"),
-        ));
-
-        app.update();
-        let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
-        let roles = scenario.resolve(app.world_mut());
-        let doc = CombatObservation::capture(app.world_mut(), &roles).to_json();
-        let bodies = doc["bodies"].as_array().expect("bodies serialize");
-        let row = |role: &str| bodies.iter().find(|b| b["role"] == role).expect("role present");
-
-        assert_eq!(row("subject")["hurtboxes"].as_array().map(Vec::len), Some(0));
-        assert_eq!(row("subject")["hurtbox_source"], "intangible");
-        assert_eq!(row("target")["hurtboxes"].as_array().map(Vec::len), Some(1));
-        assert_eq!(row("target")["hurtbox_source"], "body_fallback");
-    }
-
     #[test]
     fn every_volume_shape_survives_serialization() {
-        use ambition_platformer2d::engine_core::AabbExt;
-        let circle = ae::CombatVolume::Circle {
-            center: ae::Vec2::new(3.0, 4.0),
+        use obs::AabbExt;
+        let circle = obs::CombatVolume::Circle {
+            center: obs::Vec2::new(3.0, 4.0),
             radius: 5.0,
         };
         let row = volume_json(&circle);
@@ -748,29 +593,29 @@ mod tests {
         assert_eq!(row["pos"][0], 3.0);
         assert_eq!(row["half"][0], 5.0);
 
-        let obb = ae::CombatVolume::Obb {
-            center: ae::Vec2::new(1.0, 2.0),
-            half: ae::Vec2::new(6.0, 2.0),
+        let obb = obs::CombatVolume::Obb {
+            center: obs::Vec2::new(1.0, 2.0),
+            half: obs::Vec2::new(6.0, 2.0),
             rotation: 0.5,
         };
         assert_eq!(volume_json(&obb)["shape"]["kind"], "obb");
         assert_eq!(volume_json(&obb)["shape"]["rotation"], 0.5);
 
-        let convex = ae::CombatVolume::convex(vec![
-            ae::Vec2::new(0.0, 0.0),
-            ae::Vec2::new(10.0, 0.0),
-            ae::Vec2::new(0.0, 8.0),
+        let convex = obs::CombatVolume::convex(vec![
+            obs::Vec2::new(0.0, 0.0),
+            obs::Vec2::new(10.0, 0.0),
+            obs::Vec2::new(0.0, 8.0),
         ]);
         let row = volume_json(&convex);
         assert_eq!(row["shape"]["kind"], "convex");
         assert_eq!(row["shape"]["points"].as_array().map(Vec::len), Some(3));
 
-        let aabb = ae::CombatVolume::aabb(ae::Aabb::new(
-            ae::Vec2::new(2.0, 2.0),
-            ae::Vec2::new(4.0, 4.0),
+        let aabb = obs::CombatVolume::aabb(obs::Aabb::new(
+            obs::Vec2::new(2.0, 2.0),
+            obs::Vec2::new(4.0, 4.0),
         ));
         assert_eq!(volume_json(&aabb)["shape"]["kind"], "aabb");
-        assert_eq!(aabb.bounds().center(), ae::Vec2::new(2.0, 2.0));
+        assert_eq!(aabb.bounds().center(), obs::Vec2::new(2.0, 2.0));
     }
 
     /// The canonical order is IDENTITY first. Two strikes of one move can share

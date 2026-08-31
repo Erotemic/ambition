@@ -35,8 +35,8 @@ moveset_render — render a fighter performing one move, one PNG per simulation 
 
 USAGE:
     moveset_render --character ID --verb VERB [--target ID] [--target-behavior WHICH]
-                   [--out DIR] [--frames N] [--stride K] [--combat-overlay on|off]
-                   [--adapter auto|hardware|software]
+                   [--spacing PX] [--out DIR] [--frames N] [--stride K]
+                   [--combat-overlay on|off] [--adapter auto|hardware|software]
 
 OPTIONS:
     --character ID   catalog id of the fighter

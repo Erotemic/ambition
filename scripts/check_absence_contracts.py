@@ -974,6 +974,15 @@ MODULE_ALLOWLISTS: list[dict] = [
             "character",
             "engine",
             "item",
+            # ⭐ WHAT AN OBSERVER READS IS AN SDK CONCEPT, added 2026-08-30 when
+            # the harness took the combat observation in. It is NOT a crate
+            # mirror — the crate is `ambition_sim_view` — and it is the same
+            # widening `capture` got: the rule is "no implementation topology",
+            # and naming the CAPABILITY is exactly what the rule asks for. The
+            # gap it closes was five crate-shaped paths (`engine_core`,
+            # `sim_view`, `mount`, `projectiles`, `platformer::sim_id`) reached
+            # for one question the engine already answers.
+            "observation",
             "participant",
             "rollback",
             "session",

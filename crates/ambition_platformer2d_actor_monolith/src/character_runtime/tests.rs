@@ -1154,9 +1154,19 @@ fn a_roster_demands_its_cast_before_any_body_is_spawned() {
     app.insert_resource(roster);
     app.update();
 
+    // ⛔ COUNT NON-RESOURCE ENTITIES, NOT ENTITIES. Bevy 0.19 stores every
+    // resource AS A COMPONENT on its own entity, so `entities().len()` here is
+    // 16 — the resources this App initialised — and has nothing to do with
+    // whether a body was spawned. `IsResource` is the marker Bevy added to
+    // separate the two populations, and the control this test rests on is about
+    // the second one.
+    let spawned = app
+        .world_mut()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::Without<bevy::ecs::resource::IsResource>>()
+        .iter(app.world())
+        .count();
     assert_eq!(
-        app.world().entities().len(),
-        0,
+        spawned, 0,
         "the point of this test is that NOTHING is spawned — if a body exists, \
          the spawn-keyed demand system could be the one satisfying it"
     );
@@ -1179,7 +1189,10 @@ fn without_a_roster_nothing_is_demanded() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<CharacterLoadDemand>().pending().count(),
+        app.world()
+            .resource::<CharacterLoadDemand>()
+            .pending()
+            .count(),
         0,
         "demand appeared from nowhere, so the roster test proves nothing"
     );
@@ -1214,7 +1227,11 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
 
     let second = demand.take_bounded(1);
     let third = demand.take_bounded(1);
-    assert_eq!(demand.pending().count(), 0, "everything is eventually taken");
+    assert_eq!(
+        demand.pending().count(),
+        0,
+        "everything is eventually taken"
+    );
 
     let mut all: Vec<String> = first.into_iter().chain(second).chain(third).collect();
     all.sort();
@@ -1241,7 +1258,11 @@ fn an_unbounded_or_undersized_take_drains_completely() {
     assert_eq!(demand.pending().count(), 0);
 
     demand.request("noether");
-    assert_eq!(demand.take_bounded(0).len(), 1, "a zero limit means unbounded");
+    assert_eq!(
+        demand.take_bounded(0).len(),
+        1,
+        "a zero limit means unbounded"
+    );
     assert_eq!(demand.pending().count(), 0);
 }
 
@@ -1265,7 +1286,12 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
 
     // `activated_on: Some(0)` with a tick of 0 and the default ruleset's zero
     // countdown puts the match past its opening on the first observed frame.
-    app.insert_resource(super::seating::ActiveMatch::activated(1, None, None, Some(0)));
+    app.insert_resource(super::seating::ActiveMatch::activated(
+        1,
+        None,
+        None,
+        Some(0),
+    ));
     app.insert_resource(super::prepared_match::PreparedMatch::for_test_published_by(
         None,
     ));

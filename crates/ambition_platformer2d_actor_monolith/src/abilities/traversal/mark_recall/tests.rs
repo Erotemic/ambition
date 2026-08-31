@@ -132,3 +132,54 @@ fn a_different_held_item_never_marks() {
         "Attack while holding a different item sets no mark",
     );
 }
+
+/// ⭐⭐ EACH DRIVEN BODY MARKS AND RECALLS TO ITS OWN MARK.
+/// Same singular-`ControlledSubject` defect as the blink; and the mark is
+/// per-body state, so a shared road that acted on one subject also meant one
+/// seat's recall could never find the other's mark.
+#[test]
+fn two_driven_bodies_each_recall_to_their_own_mark() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(
+        &mut app,
+        MARK_RECALL_ID,
+        0,
+        "seat_a",
+        ae::Vec2::new(100.0, 100.0),
+    );
+    let b = spawn_seated_body_holding(
+        &mut app,
+        MARK_RECALL_ID,
+        1,
+        "seat_b",
+        ae::Vec2::new(900.0, 100.0),
+    );
+    // Both mark where they stand.
+    for body in [a, b] {
+        press(&mut app, body, true, false);
+    }
+    app.update();
+    // Walk both somewhere else, then both recall.
+    for body in [a, b] {
+        press(&mut app, body, false, false);
+        app.world_mut().get_mut::<BodyKinematics>(body).unwrap().pos = ae::Vec2::new(500.0, 400.0);
+    }
+    app.update();
+    for body in [a, b] {
+        press(&mut app, body, false, true);
+    }
+    app.update();
+
+    assert_eq!(
+        player_pos(&app, a),
+        ae::Vec2::new(100.0, 100.0),
+        "seat a recalled to the wrong mark (or did not recall)"
+    );
+    assert_eq!(
+        player_pos(&app, b),
+        ae::Vec2::new(900.0, 100.0),
+        "seat b recalled to the wrong mark (or did not recall)"
+    );
+}

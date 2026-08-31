@@ -135,3 +135,40 @@ fn beam_geometry_is_c4_equivariant_for_local_aim() {
         }
     }
 }
+
+/// ⭐⭐ A SECOND DRIVEN BODY FIRES ITS OWN BEAM, anchored to ITS position.
+/// Same singular-`ControlledSubject` defect as the volley.
+#[test]
+fn two_driven_bodies_each_fire_their_own_beam() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(&mut app, BEAM_ID, 0, "seat_a", ae::Vec2::new(100.0, 100.0));
+    let b = spawn_seated_body_holding(&mut app, BEAM_ID, 1, "seat_b", ae::Vec2::new(900.0, 100.0));
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+
+    let boxes = hitboxes(&mut app);
+    let owners: Vec<_> = boxes.iter().map(|hitbox| hitbox.owner).collect();
+    assert!(owners.contains(&a), "seat a fired no beam: {owners:?}");
+    assert!(owners.contains(&b), "seat b fired no beam: {owners:?}");
+    // ⭐ AND EACH LANCE IS WHERE ITS OWN BODY IS. One seat firing twice would
+    // satisfy a count; two lances at 100 and 900 could not come from one body.
+    let centers: Vec<f32> = boxes
+        .iter()
+        .filter_map(|hitbox| match hitbox.anchor {
+            HitboxAnchor::World { center } => Some(center.x),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        centers.iter().any(|&x| x > 100.0 && x < 500.0) && centers.iter().any(|&x| x > 900.0),
+        "each beam should reach forward of its OWN body; got {centers:?}"
+    );
+}

@@ -1984,6 +1984,13 @@ pub fn fire_held_ranged_system(
                 traveled: 0.0,
                 explode_half,
             },
+            // ⭐ THE FIRER, CARRIED BY THE SHOT. `held_projectile_step` used to
+            // attribute every bolt in flight to the PRIMARY PLAYER, so a second
+            // seat's kills were credited to seat zero — and with nobody in the
+            // primary slot, to nobody at all. The same component the ECS
+            // projectile road already uses: rollback-registered, entity-remapped
+            // on restore, probed through the owner's stable `SimId`.
+            ambition_projectiles::ProjectileOwner(subject),
             Name::new("Held ranged shot"),
         ));
         // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
@@ -2023,15 +2030,17 @@ pub fn held_projectile_step(
     // the boss cluster query below (which reads `BodyKinematics` via
     // `BossClusterRef`) — a held bolt is never a feature-sim entity (B0001).
     mut projectiles: Query<
-        (Entity, &mut BodyKinematics, &mut HeldProjectile),
+        (
+            Entity,
+            &mut BodyKinematics,
+            &mut HeldProjectile,
+            // The firer, stamped at the fire site. `Option` because a fixture may
+            // stage a bolt with no firer at all, and an unowned bolt is an
+            // honest `attacker: None` rather than a reason to drop it.
+            Option<&ambition_projectiles::ProjectileOwner>,
+        ),
         Without<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
-    // SLOT-0 SCOPE, NOT BY DESIGN — a held-bolt fold candidate the S5/S6 fold
-    // did not reach. A held projectile belongs to whichever body picked it up, so
-    // this should key off `ControlledSubject` like `blink`/`grapple` do. Left as-is
-    // because retargeting a thrown bolt's owner changes hit attribution (feel), and
-    // that never ships blind. Tracked in refactor-chain.md R6.
-    player: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     ecs_breakables: Query<
         (
@@ -2087,8 +2096,9 @@ pub fn held_projectile_step(
         &world.0,
         &overlay.portal_carves,
     );
-    let attacker = player.single().ok();
-    for (entity, mut kin, mut proj) in &mut projectiles {
+    for (entity, mut kin, mut proj, owner) in &mut projectiles {
+        // Whoever FIRED this bolt, not whoever holds the primary slot.
+        let attacker = owner.map(|owner| owner.0);
         let pos = kin.pos;
         let vel = kin.vel;
         // Damage check against actors / bosses / breakables via the shared

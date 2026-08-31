@@ -98,3 +98,59 @@ fn volley_origin_is_c4_equivariant_for_local_aim() {
         );
     }
 }
+
+/// ⭐⭐ A SECOND DRIVEN BODY FIRES ITS OWN VOLLEY.
+///
+/// ⛔⛔ THIS ABILITY READ `ControlledSubject`, WHICH IS ONE ENTITY. On a couch
+/// stage the second seat's gauntlet did nothing at all, and with nobody
+/// possessing anything (`ControlledSubject(None)`) NEITHER seat fired — the same
+/// singular-subject defect `fire_held_ranged_system` was already fixed for.
+///
+/// The assertion is ATTRIBUTION, not a count: each seat's bolts must be owned by
+/// the body that fired them, because ownership is what a kill is credited
+/// through.
+#[test]
+fn two_driven_bodies_each_fire_their_own_volley() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(
+        &mut app,
+        VOLLEY_ID,
+        0,
+        "seat_a",
+        ae::Vec2::new(100.0, 100.0),
+    );
+    let b = spawn_seated_body_holding(
+        &mut app,
+        VOLLEY_ID,
+        1,
+        "seat_b",
+        ae::Vec2::new(400.0, 100.0),
+    );
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+
+    let owners: Vec<_> = app
+        .world_mut()
+        .query::<&ambition_projectiles::ProjectileOwner>()
+        .iter(app.world())
+        .map(|o| o.0)
+        .collect();
+    assert_eq!(
+        owners.iter().filter(|&&o| o == a).count(),
+        VOLLEY_SHOT_COUNT,
+        "seat a's fan is missing or misattributed: {owners:?}"
+    );
+    assert_eq!(
+        owners.iter().filter(|&&o| o == b).count(),
+        VOLLEY_SHOT_COUNT,
+        "seat b's fan is missing or misattributed: {owners:?}"
+    );
+}

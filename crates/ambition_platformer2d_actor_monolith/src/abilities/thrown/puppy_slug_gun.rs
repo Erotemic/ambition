@@ -20,7 +20,6 @@ use ambition_combat::components::{ActorAggression, ActorFaction};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopedEntity, SessionSpawnScope};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
 /// future system can manage them).
@@ -48,8 +47,10 @@ const SLUG_ARCHETYPE: &str = "npc_puppy_slug";
 /// no melee/ranged verb, so this is the only thing `Attack` does while it's held.
 pub fn fire_puppy_slug_gun_system(
     mut commands: Commands,
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never fired.
+    driven: crate::items::pickup::DrivenBodies,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
@@ -75,74 +76,79 @@ pub fn fire_puppy_slug_gun_system(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((control, kin, held, owner)) = players.get(subject) else {
-        return;
-    };
-    let c = control.0;
-    // Plain Attack summons; Shield+Attack is reserved for throwing the gun away
-    // (handled by `throw_held_item_system`), so don't also summon then.
-    if !c.melee_pressed || c.shield_held {
-        return;
+    // ⛔⛔ A QUERY CANNOT SEE THIS TICK'S `Commands` SPAWNS, and every driven
+    // body reads the cap on the same tick. Without this running tally, N seats
+    // pressing Attack together each saw the same pre-tick count and every one of
+    // them summoned — the cap exceeded by exactly the number of extra seats.
+    let mut summoned_this_tick = 0usize;
+    for subject in driven.entities() {
+        let Ok((control, kin, held, owner)) = players.get(subject) else {
+            continue;
+        };
+        let c = control.0;
+        // Plain Attack summons; Shield+Attack is reserved for throwing the gun away
+        // (handled by `throw_held_item_system`), so don't also summon then.
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != PUPPY_SLUG_GUN_ID {
+            continue;
+        }
+        if allies.iter().count() + summoned_this_tick >= MAX_ALLIES {
+            continue;
+        }
+        // ⛔ THE PAIR IS ONE VALUE. A summoner with no identity mints neither half,
+        // so "dynamic, parent unknown" stays unspellable — the same rule the thrown
+        // item mint follows.
+        let minted = summoner_identity
+            .get_mut(subject)
+            .ok()
+            .map(|(id, mut counter)| {
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, counter.next())
+            });
+        let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+        let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
+        let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
+        let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
+        let entity = crate::features::spawn_runtime_minion(
+            &mut commands,
+            &character_catalog,
+            &authored_sheets,
+            prepared.as_deref().unwrap_or(&empty_cast),
+            session_scope,
+            minted
+                .as_ref()
+                .map(|id| id.as_str().to_string())
+                .unwrap_or_else(|| "puppy_slug_ally".to_string()),
+            // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
+            // — the character-sprite table is keyed by display_name and silently falls
+            // back to the goblin sheet on a miss, so "Puppy Slug (ally)" rendered a
+            // goblin (with the puppy-slug shader, which keys off the archetype). The
+            // ally-ness is carried by `ActorFaction::Player` + `PuppySlugAlly`, not the
+            // name. See the sprite-keying refactor in TODO.md.
+            "Puppy Slug",
+            spawn_pos,
+            ae::Vec2::new(14.0, 12.0),
+            SLUG_ARCHETYPE,
+            // Synthetic "encounter" so room reset cleans summons up alongside other
+            // feature entities; no real boss owns them.
+            "player_summon",
+            // Player-allied + passive: damages the player's enemies via the faction
+            // matrix, never the player, and just wanders (no targeting).
+            ActorFaction::Player,
+            ActorAggression::passive(),
+        );
+        commands.entity(entity).insert(PuppySlugAlly);
+        summoned_this_tick += 1;
+        // The GUN is the caster's, not the summoned slug's.
+        sfx.write_for(
+            subject,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+                pos: kin.pos,
+            },
+        );
     }
-    if held.spec.id != PUPPY_SLUG_GUN_ID {
-        return;
-    }
-    if allies.iter().count() >= MAX_ALLIES {
-        return;
-    }
-    // ⛔ THE PAIR IS ONE VALUE. A summoner with no identity mints neither half,
-    // so "dynamic, parent unknown" stays unspellable — the same rule the thrown
-    // item mint follows.
-    let minted = summoner_identity
-        .get_mut(subject)
-        .ok()
-        .map(|(id, mut counter)| {
-            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, counter.next())
-        });
-    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
-    let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
-    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
-    let entity = crate::features::spawn_runtime_minion(
-        &mut commands,
-        &character_catalog,
-        &authored_sheets,
-        prepared.as_deref().unwrap_or(&empty_cast),
-        session_scope,
-        minted
-            .as_ref()
-            .map(|id| id.as_str().to_string())
-            .unwrap_or_else(|| "puppy_slug_ally".to_string()),
-        // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
-        // — the character-sprite table is keyed by display_name and silently falls
-        // back to the goblin sheet on a miss, so "Puppy Slug (ally)" rendered a
-        // goblin (with the puppy-slug shader, which keys off the archetype). The
-        // ally-ness is carried by `ActorFaction::Player` + `PuppySlugAlly`, not the
-        // name. See the sprite-keying refactor in TODO.md.
-        "Puppy Slug",
-        spawn_pos,
-        ae::Vec2::new(14.0, 12.0),
-        SLUG_ARCHETYPE,
-        // Synthetic "encounter" so room reset cleans summons up alongside other
-        // feature entities; no real boss owns them.
-        "player_summon",
-        // Player-allied + passive: damages the player's enemies via the faction
-        // matrix, never the player, and just wanders (no targeting).
-        ActorFaction::Player,
-        ActorAggression::passive(),
-    );
-    commands.entity(entity).insert(PuppySlugAlly);
-    // The GUN is the caster's, not the summoned slug's.
-    sfx.write_for(
-        subject,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-            pos: kin.pos,
-        },
-    );
 }
 
 #[cfg(test)]
@@ -226,6 +232,90 @@ mod tests {
         spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.update();
         assert_eq!(ally_count(&mut app), 0);
+    }
+    /// ⭐⭐ A SECOND DRIVEN BODY SUMMONS ITS OWN SLUG.
+    /// Same singular-`ControlledSubject` defect as the volley.
+    #[test]
+    fn two_driven_bodies_each_summon_their_own_slug() {
+        use crate::abilities::test_support::spawn_seated_body_holding;
+        let mut app = test_app();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+        let a = spawn_seated_body_holding(
+            &mut app,
+            PUPPY_SLUG_GUN_ID,
+            0,
+            "seat_a",
+            ae::Vec2::new(100.0, 100.0),
+        );
+        let b = spawn_seated_body_holding(
+            &mut app,
+            PUPPY_SLUG_GUN_ID,
+            1,
+            "seat_b",
+            ae::Vec2::new(900.0, 100.0),
+        );
+        for body in [a, b] {
+            app.world_mut()
+                .get_mut::<ActorControl>(body)
+                .unwrap()
+                .0
+                .melee_pressed = true;
+        }
+        app.update();
+
+        assert_eq!(ally_count(&mut app), 2, "one slug per summoning seat");
+        // Each slug stands beside ITS OWN summoner, so the positions are what
+        // says two bodies cast rather than one body casting twice.
+        let xs: Vec<f32> = app
+            .world_mut()
+            .query_filtered::<&BodyKinematics, With<PuppySlugAlly>>()
+            .iter(app.world())
+            .map(|kin| kin.pos.x)
+            .collect();
+        assert!(
+            xs.iter().any(|&x| x < 500.0) && xs.iter().any(|&x| x > 500.0),
+            "each slug should spawn beside its OWN summoner; got {xs:?}"
+        );
+    }
+
+    /// ⛔⛔ THE CAP IS COUNTED FROM A QUERY, AND A QUERY CANNOT SEE THIS TICK'S
+    /// `Commands` SPAWNS. Looping over driven bodies made that reachable: with
+    /// `MAX_ALLIES` seats pressing Attack on one tick, every one of them read the
+    /// same pre-tick count of zero and summoned, so the cap was exceeded by the
+    /// number of extra seats. The system has to count what IT has already
+    /// summoned this tick.
+    #[test]
+    fn the_summon_cap_counts_this_ticks_summons_too() {
+        use crate::abilities::test_support::spawn_seated_body_holding;
+        let mut app = test_app();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+        // One more seat than the cap allows, all firing on the same tick.
+        let seats: Vec<_> = (0..=MAX_ALLIES)
+            .map(|i| {
+                spawn_seated_body_holding(
+                    &mut app,
+                    PUPPY_SLUG_GUN_ID,
+                    i as u8,
+                    &format!("seat_{i}"),
+                    ae::Vec2::new(100.0 * i as f32, 100.0),
+                )
+            })
+            .collect();
+        for body in seats {
+            app.world_mut()
+                .get_mut::<ActorControl>(body)
+                .unwrap()
+                .0
+                .melee_pressed = true;
+        }
+        app.update();
+
+        assert_eq!(
+            ally_count(&mut app),
+            MAX_ALLIES,
+            "{} seats summoned on one tick and the cap is {MAX_ALLIES}",
+            MAX_ALLIES + 1
+        );
     }
 }
 

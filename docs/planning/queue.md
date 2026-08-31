@@ -170,14 +170,35 @@ The one unresolved developer-policy choice from the session-ownership work is in
   not exist and cannot be written from authored data today; that is recorded in
   the deferral test's own header.
 
-- ▢ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
-  Review evidence still shows held ranged shots attributed through the primary
-  slot and custom held-item abilities using singular `ControlledSubject` while
-  generic pickup/throw/fire already iterate driven bodies. Converge on one
-  per-body request/ownership road; prefer the shared projectile request seam over
-  a parallel held-shot simulation. Acceptance: two independently driven bodies
-  can use their held/ranged actions in the same tick with correct owner/seat/body
-  attribution. Owner:
+- ✔ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
+  Nine held-item abilities read `Res<ControlledSubject>` — one entity by
+  construction — so a couch's second seat and a possessed body never acted:
+  `ranged/{volley, meteor, beam, vortex}`, `thrown/puppy_slug_gun` and
+  `traversal/{grapple, dive, blink, mark_recall}`. All nine now loop
+  `DrivenBodies` (the possessed subject ∪ seated bodies, ordered by `SimId`), and
+  every per-body exit is a `continue`. The held bolt carries
+  `ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
+  component the ECS projectile road uses — so `held_projectile_step` credits a
+  hit to whoever fired it instead of `Query<Entity, PrimaryPlayerOnly>`. Looping
+  exposed one new defect and it is fixed: the summon cap counted a query, which
+  cannot see this tick's `Commands` spawns, so N seats firing together each read
+  the same pre-tick count and every one of them summoned. Ten guards, each proven
+  RED by poisoning `DrivenBodies::entities()` back to the single subject (9) and
+  the bolt's attacker back to the primary slot (1). NOT in scope and NOT changed:
+  presentation readers (the portal eye, the drawn gun, control prompts, camera)
+  where one viewpoint is correct — see D-CONTROL-INTERACT for the rest.
+
+- ▢ **D-CONTROL-INTERACT — the press-gated WORLD verbs are still singular.**
+  D-CONTROL-ITEM converged the held/ranged half; the interaction half was left
+  because it is a different question, not because it is done.
+  `features/ecs/interact.rs`, `features/ecs/chests.rs`, `shrine.rs` and
+  `avatar/systems.rs` still resolve one `ControlledSubject`, so a second seat
+  cannot open a chest, talk, or pray. The
+  portal gun is a THIRD shape and needs its input road first: `FirePortalGun` is
+  a seatless gesture message, so `resolve_portal_fire_intent` has nothing to key
+  a body off even if it looped — the gesture has to carry a seat before the
+  resolver can. Acceptance: two driven bodies each open their own chest in one
+  tick; and a stated decision (with its reason) for the portal gesture. Owner:
   [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 
 - ▢ **D-FIGHTER-L6 — diagnose the confirmed rollout regression with a decision

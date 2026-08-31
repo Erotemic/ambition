@@ -243,7 +243,9 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
         ))
         .id();
-    app.insert_resource(ControlledSubject(Some(actor)));
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(actor)),
+    );
     app.update();
 
     assert_eq!(
@@ -275,4 +277,37 @@ fn no_blink_without_attack_or_with_a_different_item() {
         .melee_pressed = true;
     app2.update();
     assert_eq!(player_pos(&app2, player2), ae::Vec2::new(300.0, 300.0));
+}
+
+/// ⭐⭐ A SECOND DRIVEN BODY BLINKS TOO.
+///
+/// ⛔⛔ THIS ABILITY READ `ControlledSubject`, WHICH IS ONE ENTITY, so a couch's
+/// second seat holding the blink item stood still — and with nobody possessing
+/// anything, NEITHER body moved. Same defect the item verbs
+/// (pickup/throw/fire) were already fixed for.
+#[test]
+fn two_driven_bodies_each_blink_from_their_own_position() {
+    use crate::abilities::test_support::spawn_seated_body_holding;
+    let mut app = test_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let a = spawn_seated_body_holding(&mut app, BLINK_ID, 0, "seat_a", ae::Vec2::new(300.0, 300.0));
+    let b = spawn_seated_body_holding(&mut app, BLINK_ID, 1, "seat_b", ae::Vec2::new(900.0, 300.0));
+    for body in [a, b] {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+    }
+    app.update();
+    assert_eq!(
+        player_pos(&app, a),
+        ae::Vec2::new(300.0 + BLINK_DISTANCE, 300.0),
+        "seat a did not blink"
+    );
+    assert_eq!(
+        player_pos(&app, b),
+        ae::Vec2::new(900.0 + BLINK_DISTANCE, 300.0),
+        "seat b did not blink"
+    );
 }

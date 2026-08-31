@@ -24,7 +24,6 @@ use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 /// Held-item id of the meteor gauntlet.
@@ -83,8 +82,10 @@ fn meteor_strike_origins(
 /// `Player`-faction projectiles onto the zone ahead. Plain Attack only — `Shield
 /// + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never fired.
+    driven: crate::items::pickup::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -96,56 +97,55 @@ pub fn fire_meteor_system(
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
-    else {
-        return;
-    };
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
-    }
-    if held.spec.id != METEOR_ID {
-        return;
-    }
-    if !mana.meter.try_spend(METEOR_MANA_COST) {
-        return;
-    }
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let gravity_dir = resolved_frame.down();
-    let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
-    for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
-        projectiles.write(ProjectileSpawnRequest::open(
-            // The firing actor owns every meteor, so a kill attributes back to
-            // the player (materialization stamps `ProjectileOwner` from this entity).
+    for subject in driven.entities() {
+        let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+        else {
+            continue;
+        };
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != METEOR_ID {
+            continue;
+        }
+        if !mana.meter.try_spend(METEOR_MANA_COST) {
+            continue;
+        }
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let gravity_dir = resolved_frame.down();
+        let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
+        for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
+            projectiles.write(ProjectileSpawnRequest::open(
+                // The firing actor owns every meteor, so a kill attributes back to
+                // the player (materialization stamps `ProjectileOwner` from this entity).
+                entity,
+                ProjectileSpawn {
+                    origin,
+                    // Straight toward local feet/down; gravity accelerates it in the same frame.
+                    dir: gravity_dir,
+                    speed: METEOR_SPEED,
+                    damage: METEOR_DAMAGE,
+                    max_lifetime: METEOR_LIFETIME,
+                    half_extent: METEOR_HALF,
+                    gravity: METEOR_GRAVITY,
+                    visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    boomerang_return_s: None,
+                },
+                ProjectileStart::StepThisTick,
+            ));
+        }
+        sfx.write_for(
             entity,
-            ProjectileSpawn {
-                origin,
-                // Straight toward local feet/down; gravity accelerates it in the same frame.
-                dir: gravity_dir,
-                speed: METEOR_SPEED,
-                damage: METEOR_DAMAGE,
-                max_lifetime: METEOR_LIFETIME,
-                half_extent: METEOR_HALF,
-                gravity: METEOR_GRAVITY,
-                visual_id: String::new(),
-                // Straight volley: this ability authors no bounce.
-                bounces: 0,
-                bounce_on_world_contact: false,
-                boomerang_return_s: None,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: kin.pos,
             },
-            ProjectileStart::StepThisTick,
-        ));
+        );
     }
-    sfx.write_for(
-        entity,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
-        },
-    );
 }
 
 #[cfg(test)]

@@ -56,21 +56,39 @@ generic-body integration difference. Re-measure HEAD before changing it. Merge
 paths only when they express the same body semantic; do not erase legitimate
 home-avatar presentation or shell policy for naming symmetry.
 
-### K2 — per-driven-body item/projectile control
+### K2 — per-driven-body item/projectile control — DONE for the ITEM half
 
-Review evidence still identifies two related control-authority leaks:
+Both leaks this section named are closed:
 
-- held ranged shots attributed through slot-zero/primary-player state rather than
-  the body/participant that actually fired;
-- custom held-item abilities dispatched through one `ControlledSubject` while
-  generic pickup/throw/fire already iterate multiple driven bodies.
+- held ranged shots no longer attribute through slot-zero. A held bolt carries
+  `ProjectileOwner(firer)` — the rollback-registered, entity-remapped component
+  the ECS projectile road already uses — and `held_projectile_step` credits the
+  hit to it instead of `Query<Entity, PrimaryPlayerOnly>`;
+- nine held-item abilities (`ranged/{volley, meteor, beam, vortex}`,
+  `thrown/puppy_slug_gun`, `traversal/{grapple, dive, blink, mark_recall}`) loop
+  `DrivenBodies` instead of resolving one `ControlledSubject`.
 
-The target is one per-driven-body ability/projectile request path. Prefer folding
-held ranged fire into the shared projectile request/ownership seam over growing a
-parallel held-shot simulation.
+⛔⛔ CONVERTING A SINGLE-SUBJECT SYSTEM INTO A LOOP IS NOT MECHANICAL. Two
+classes of defect come with it, and both were live here:
 
-This is a real multi-seat correctness/customer issue and is stronger residual
-pressure than generic cleanup of every `PrimaryPlayer` occurrence.
+- **a per-body exit written as `return` ends the SYSTEM.** Seat zero is idle on
+  most ticks, so the first seat's early exit silences every seat after it —
+  which is what `fire_held_ranged_system` was already fixed for once.
+- **a per-tick BUDGET read from a query cannot see this tick's `Commands`
+  spawns.** The puppy-slug summon cap was counted that way, so N seats firing on
+  one tick each read the same pre-tick count and every one of them summoned. A
+  budget shared across the loop has to be tallied inside it.
+
+The fold of held shots into `ProjectileSpawnRequest` — deleting the parallel
+held-shot simulation entirely — is still open and still preferred; it is a
+second world-collision implementation and a second place anti-tunnelling must be
+fixed, not just an attribution question.
+
+What is NOT converged, deliberately: the press-gated WORLD verbs (chests,
+interact, shrine, avatar) and the portal gun, whose `FirePortalGun` gesture
+carries no seat for a resolver to key off. See D-CONTROL-INTERACT in
+`../queue.md`. Presentation readers — the portal eye, the drawn gun, control
+prompts, the camera — stay singular because a view has one viewpoint (K3).
 
 ### K3 — preserve separate identities where they mean different things
 

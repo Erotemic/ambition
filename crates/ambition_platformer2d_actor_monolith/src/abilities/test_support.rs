@@ -87,3 +87,46 @@ pub(crate) fn spawn_primary_player_holding_at(
     app.insert_resource(ControlledSubject(Some(entity)));
     entity
 }
+
+/// A SECOND driven body holding `held_item_id` — one that nobody possesses.
+///
+/// ⭐⭐ THE POPULATION AN ABILITY ACTS ON IS `DrivenBodies`, NOT ONE SUBJECT.
+/// `ControlledSubject` is singular by construction, so a couch's second seat and
+/// a possessed body are invisible to it. This spawns the other half of that
+/// union: a body carrying [`DrivingParticipant`] and a stable `SimId` (the
+/// rewind-reproducible order `DrivenBodies` sorts by), with no `PrimaryPlayer`
+/// and no claim on the controlled slot.
+///
+/// The caller inserts `ControlledSubject(None)` itself — leaving the resource out
+/// makes `DrivenBodies` panic, and an ability test that panics on a missing
+/// resource is not measuring the ability.
+pub(crate) fn spawn_seated_body_holding(
+    app: &mut App,
+    held_item_id: &str,
+    slot: u8,
+    sim: &str,
+    pos: ae::Vec2,
+) -> Entity {
+    let spec = held_item_by_id(held_item_id).unwrap();
+    app.world_mut()
+        .spawn((
+            BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            ActorControl::default(),
+            ActionSet::default(),
+            HeldItem::new(spec),
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot(slot),
+            ),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+            ambition_platformer2d_core::movement::MotionModel::default(),
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
+            ),
+        ))
+        .id()
+}

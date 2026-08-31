@@ -25,7 +25,6 @@ use crate::features::HeldItem;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
@@ -80,8 +79,10 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never fired.
+    driven: crate::items::pickup::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -93,50 +94,49 @@ pub fn fire_beam_system(
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((entity, control, held, kin, resolved_frame, mut mana)) = players.get_mut(subject)
-    else {
-        return;
-    };
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
+    for subject in driven.entities() {
+        let Ok((entity, control, held, kin, resolved_frame, mut mana)) = players.get_mut(subject)
+        else {
+            continue;
+        };
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
+        }
+        if held.spec.id != BEAM_ID {
+            continue;
+        }
+        // Costs mana — out of mana, no beam (the sandbox's fast regen tops it back up).
+        if !mana.meter.try_spend(BEAM_MANA_COST) {
+            continue;
+        }
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let frame = resolved_frame.basis();
+        let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
+        let (offset_local, half_local) = beam_geometry(aim, kin.facing);
+        let offset = frame.to_world(offset_local);
+        let half_extent = frame.to_world_half(half_local);
+        effects.write(ambition_vfx::EffectRequest {
+            owner: entity,
+            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
+                center: kin.pos + offset,
+                faction: ambition_vfx::HitSide::Player,
+                half_extent,
+                damage: BEAM_DAMAGE,
+                knockback: BEAM_KNOCKBACK,
+                lifetime_s: BEAM_LIFETIME_S,
+                name: Some("Focus Beam"),
+            }),
+        });
+        // G1: the beam is this body's ability, so it speaks in this body's voice.
+        sfx.write_for(
+            entity,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: kin.pos,
+            },
+        );
     }
-    if held.spec.id != BEAM_ID {
-        return;
-    }
-    // Costs mana — out of mana, no beam (the sandbox's fast regen tops it back up).
-    if !mana.meter.try_spend(BEAM_MANA_COST) {
-        return;
-    }
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let frame = resolved_frame.basis();
-    let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
-    let (offset_local, half_local) = beam_geometry(aim, kin.facing);
-    let offset = frame.to_world(offset_local);
-    let half_extent = frame.to_world_half(half_local);
-    effects.write(ambition_vfx::EffectRequest {
-        owner: entity,
-        effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-            center: kin.pos + offset,
-            faction: ambition_vfx::HitSide::Player,
-            half_extent,
-            damage: BEAM_DAMAGE,
-            knockback: BEAM_KNOCKBACK,
-            lifetime_s: BEAM_LIFETIME_S,
-            name: Some("Focus Beam"),
-        }),
-    });
-    // G1: the beam is this body's ability, so it speaks in this body's voice.
-    sfx.write_for(
-        entity,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
-        },
-    );
 }
 
 #[cfg(test)]

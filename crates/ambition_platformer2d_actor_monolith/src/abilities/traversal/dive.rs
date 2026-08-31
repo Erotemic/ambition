@@ -27,7 +27,6 @@ use crate::features::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// Held-item id of the dive gauntlet.
 pub const DIVE_ID: &str = "dive";
@@ -85,8 +84,10 @@ fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_dive_system(
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
-    controlled: Res<ControlledSubject>,
+    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
+    // `ControlledSubject` is singular by construction, so a possessed body or a
+    // second seat holding the same item simply never acted.
+    driven: crate::items::pickup::DrivenBodies,
     mut players: Query<(
         Entity,
         &ActorControl,
@@ -101,118 +102,119 @@ pub fn fire_dive_system(
     // that never added the engine's schedule plugin still dives.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    let Some(subject) = controlled.0 else {
-        return;
-    };
-    let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held)) =
-        players.get_mut(subject)
-    else {
-        return;
-    };
-    let mut clusters = cluster_item.as_clusters_mut();
-    let c = control.0;
-    if !c.melee_pressed || c.shield_held {
-        return;
-    }
-    if held.spec.id != DIVE_ID {
-        return;
-    }
-    if !clusters.mana.meter.try_spend(DIVE_MANA_COST) {
-        return;
-    }
-    // The body's per-tick resolved frame (ADR 0024 frame law).
-    let frame = resolved_frame.basis();
-    let facing = clusters.kinematics.facing;
-    let local_aim = crate::items::pickup::ability_aim_local(&c, facing);
-    let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
-    let dir = frame.to_world(local_dir).normalize_or_zero();
-    let from = clusters.kinematics.pos;
-    // Stop a body-half short of the wall so the lunge never embeds. The pull-back
-    // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
-    // vertical dive, not half-width -- the same direction-aware clamp the blink
-    // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
-    let half = clusters.kinematics.size * 0.5;
-    let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    // One composited collision view, shared by the clamp raycast and the embed
-    // safety net, so the lunge is stopped by moving platforms / ECS solids too.
-    let collision = world.solids();
-    let mut target = match collision.as_ref().and_then(|w| {
-        ambition_platformer2d_core::cast::raycast_solids(
-            &**w,
-            from,
-            dir,
-            DIVE_LUNGE + margin,
-            false,
-        )
-    }) {
-        Some((hit, _normal)) => hit - dir * margin,
-        None => from + dir * DIVE_LUNGE,
-    };
-    // Safety net: if the landing AABB still overlaps a solid (a corner / grazing
-    // the center-ray missed), fall back to the start instead of embedding.
-    if let Some(w) = collision.as_ref() {
-        let landing = ae::Aabb::new(target, half);
-        let embeds = w.blocks.iter().any(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && landing.strict_intersects(b.aabb)
-        });
-        if embeds {
-            target = from;
+    for subject in driven.entities() {
+        let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held)) =
+            players.get_mut(subject)
+        else {
+            continue;
+        };
+        let mut clusters = cluster_item.as_clusters_mut();
+        let c = control.0;
+        if !c.melee_pressed || c.shield_held {
+            continue;
         }
+        if held.spec.id != DIVE_ID {
+            continue;
+        }
+        if !clusters.mana.meter.try_spend(DIVE_MANA_COST) {
+            continue;
+        }
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let frame = resolved_frame.basis();
+        let facing = clusters.kinematics.facing;
+        let local_aim = crate::items::pickup::ability_aim_local(&c, facing);
+        let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
+        let dir = frame.to_world(local_dir).normalize_or_zero();
+        let from = clusters.kinematics.pos;
+        // Stop a body-half short of the wall so the lunge never embeds. The pull-back
+        // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
+        // vertical dive, not half-width -- the same direction-aware clamp the blink
+        // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
+        let half = clusters.kinematics.size * 0.5;
+        let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
+        // One composited collision view, shared by the clamp raycast and the embed
+        // safety net, so the lunge is stopped by moving platforms / ECS solids too.
+        let collision = world.solids();
+        let mut target = match collision.as_ref().and_then(|w| {
+            ambition_platformer2d_core::cast::raycast_solids(
+                &**w,
+                from,
+                dir,
+                DIVE_LUNGE + margin,
+                false,
+            )
+        }) {
+            Some((hit, _normal)) => hit - dir * margin,
+            None => from + dir * DIVE_LUNGE,
+        };
+        // Safety net: if the landing AABB still overlaps a solid (a corner / grazing
+        // the center-ray missed), fall back to the start instead of embedding.
+        if let Some(w) = collision.as_ref() {
+            let landing = ae::Aabb::new(target, half);
+            let embeds = w.blocks.iter().any(|b| {
+                matches!(
+                    b.kind,
+                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+                ) && landing.strict_intersects(b.aabb)
+            });
+            if embeds {
+                target = from;
+            }
+        }
+        // THE discrete-transit authority: arrive with momentum kept, departure
+        // contacts and any attachment reconciled (ADR 0024 authority model).
+        ae::movement::transit_body(
+            &mut motion_model,
+            &mut clusters,
+            target,
+            ae::movement::TransitVelocity::Keep,
+        );
+        // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
+        // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
+        // mid-dive is a death, not a dive.
+        if let Some(log) = class_b.as_mut() {
+            log.record(player, ClassBRemap::ScriptedTeleport);
+        }
+        if local_dir.x.abs() > 0.001 {
+            clusters.kinematics.facing = local_dir.x.signum();
+        }
+        // The dash corridor cuts everything between start and landing — a one-shot
+        // PlayerSlash volume (spares the player, shoves enemies along the dash).
+        //
+        // so the shove is 1.4× what shipped: that is the authored number finally being used,
+        // not a new one, and it is a constant above if it wants tuning.
+        let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
+        let corridor_center = corridor.center();
+        hits.write(ambition_combat::events::HitEvent {
+            strike_sfx: None,
+            volume: corridor,
+            damage: DIVE_DAMAGE,
+            source: ambition_combat::events::HitSource::Melee,
+            attacker: Some(player),
+            target: ambition_combat::events::HitTarget::Volume,
+            mode: ambition_combat::events::HitMode::Knockback,
+            knockback: Some(ambition_combat::events::HitKnockback {
+                // An ordinary hit: it stuns.
+                reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+                dir: local_dir.x.signum(),
+                magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(
+                    DIVE_KNOCKBACK,
+                ),
+                source_pos: corridor_center,
+                impact_pos: corridor_center,
+                launch_dir: None,
+                follow: None,
+            }),
+            ignored_targets: Vec::new(),
+        });
+        sfx.write_for(
+            player,
+            ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_BLINK,
+                pos: target,
+            },
+        );
     }
-    // THE discrete-transit authority: arrive with momentum kept, departure
-    // contacts and any attachment reconciled (ADR 0024 authority model).
-    ae::movement::transit_body(
-        &mut motion_model,
-        &mut clusters,
-        target,
-        ae::movement::TransitVelocity::Keep,
-    );
-    // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
-    // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
-    // mid-dive is a death, not a dive.
-    if let Some(log) = class_b.as_mut() {
-        log.record(player, ClassBRemap::ScriptedTeleport);
-    }
-    if local_dir.x.abs() > 0.001 {
-        clusters.kinematics.facing = local_dir.x.signum();
-    }
-    // The dash corridor cuts everything between start and landing — a one-shot
-    // PlayerSlash volume (spares the player, shoves enemies along the dash).
-    //
-    // so the shove is 1.4× what shipped: that is the authored number finally being used,
-    // not a new one, and it is a constant above if it wants tuning.
-    let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
-    let corridor_center = corridor.center();
-    hits.write(ambition_combat::events::HitEvent {
-        strike_sfx: None,
-        volume: corridor,
-        damage: DIVE_DAMAGE,
-        source: ambition_combat::events::HitSource::Melee,
-        attacker: Some(player),
-        target: ambition_combat::events::HitTarget::Volume,
-        mode: ambition_combat::events::HitMode::Knockback,
-        knockback: Some(ambition_combat::events::HitKnockback {
-            // An ordinary hit: it stuns.
-            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
-            dir: local_dir.x.signum(),
-            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
-            source_pos: corridor_center,
-            impact_pos: corridor_center,
-            launch_dir: None,
-            follow: None,
-        }),
-        ignored_targets: Vec::new(),
-    });
-    sfx.write_for(
-        player,
-        ambition_sfx::SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_BLINK,
-            pos: target,
-        },
-    );
 }
 
 #[cfg(test)]

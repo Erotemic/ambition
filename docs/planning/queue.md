@@ -686,8 +686,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   commit, retires attempt residue, REBUILDS the room, and admits with
   `subject: None`; poison the pending slot and none of it happens.
 
-- ▢ **D-SCENARIO-IDENTITY — the moveset inspector has no canonical scenario, so
-  two different experiments can be shown side by side.** ⭐ GPT review
+- ◐ **D-SCENARIO-IDENTITY — the REPORT half is closed; the transport, cache and
+  render halves are not.** ⭐ GPT review
   2026-08-31, and this half was REPRODUCED by the reviewer running the committed
   Python: reports from takes at **40px and 80px requested spacing return
   `comparable = True`**. Four independent leaks: the HTTP server
@@ -697,10 +697,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   truncates spacing (`__at{int(spacing)}`, so 40.1 and 40.9 collide) and never
   validates the stored manifest against the request; and
   `moveset_report.compare()` builds identity from subject/target/behavior/verb/
-  label only. ⇒ a take recorded against a live CPU opponent can be displayed
-  beside a passive-target GPU render. Proposed: one serializable `MoveScenario`
+  label only.
+  ✔ THE REPRODUCED HALF IS FIXED 2026-08-31: the report's `scenario` now carries
+  `requested_spacing` and `chain`, so `compare()` — which decides comparability
+  by whole-dict equality on that object — stops calling two different
+  experiments the same one. ⚠ `requested_spacing`, NOT `spacing_at_press`: the
+  REQUEST is what makes two recordings the same experiment, and what the bodies
+  actually reached is a measurement, or a rig that settled a pixel differently
+  would declare every pair incomparable. Guarded by
+  `two_spacings_are_two_scenarios` — the 40/80 case, a chained-vs-single case,
+  the premise that identical takes still compare, and the drifted-settle case.
+  23/23.
+  ▢ WHAT REMAINS is everything upstream of the report, and it is the larger
+  half: the HTTP server still forwards neither `--target-behavior` nor chain, the
+  cache key still truncates spacing to an int and never validates the stored
+  manifest against the request, and the browser never checks a rendered image's
+  manifest scenario against the selected take. ⇒ one serializable `MoveScenario`
   authority that recorder, renderer, transport, cache key and report comparison
-  all consume, with "not renderable yet" as the honest answer for chain.
+  all consume, with *"this scenario is not renderable yet"* as the honest answer
+  for chain rather than rendering a different one.
 
 - ▢ **D-PORTAL-INTERACT-SEAT — portal Interact arbitration is still a singleton
   under a per-body road.** ⭐ GPT review 2026-08-31, source-read. `portal/

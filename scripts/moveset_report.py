@@ -621,6 +621,20 @@ def report(
             "target_behavior": take.get("target_behavior"),
             "verb": take.get("verb"),
             "label": take.get("label"),
+            # ⛔⛔ THE SPACING AND THE CHAIN ARE PART OF THE SCENARIO, and leaving
+            # them out made `compare()` call two DIFFERENT experiments the same
+            # one. Reproduced 2026-08-31: takes at 40px and 80px requested
+            # spacing returned `comparable = True`, so a reader diffing them read
+            # "the move's reach changed" out of "I stood somewhere else".
+            #
+            # ⚠ `requested_spacing`, not `spacing_at_press`. The REQUEST is what
+            # makes two recordings the same experiment; what the bodies actually
+            # reached is a MEASUREMENT and belongs with the others, or a rig that
+            # settled a pixel differently would declare every pair incomparable.
+            "requested_spacing": take.get("requested_spacing"),
+            # A chained A→B take and a single-move take of A are not the same
+            # scenario even when every other field matches.
+            "chain": take.get("chain"),
         },
         # ⛔ WHAT THE RECORDING COULD SEE, carried so a reader never has to
         # guess which kind of "nothing" an empty `causal` array is. `None` is a

@@ -474,3 +474,47 @@ def test_touching_boxes_are_not_an_overlap_because_the_runtime_says_so() -> None
             f"`{name}` is back: a bounds measurement under a name that claims the "
             "engine's geometry is how this instrument started lying"
         )
+
+
+def test_two_spacings_are_two_scenarios() -> None:
+    """⛔⛔ REPRODUCED BY THE 2026-08-31 REVIEW: reports from takes at 40px and
+    80px requested spacing returned `comparable = True`.
+
+    `compare()` decides comparability by whole-dict equality on the report's
+    `scenario`, and that dict omitted the two inputs a reader is most likely to
+    have changed between recordings. A diff of two DIFFERENT experiments is not a
+    diff of a change — it reads "this move's reach moved" out of "I stood
+    somewhere else", which is exactly the persuasive-but-wrong evidence a tool
+    like this exists to prevent.
+
+    ⭐ THE CHAIN ARM MATTERS AS MUCH. A chained A→B take and a single-move take of
+    A differ in what the body was DOING, and every timing number below depends on
+    it.
+    """
+    near = _take(contact_at=4)
+    near["requested_spacing"] = 40.0
+    far = _take(contact_at=4)
+    far["requested_spacing"] = 80.0
+    diff = tool.compare(tool.report(near), tool.report(far))
+    assert not diff["comparable"], (
+        "40px and 80px compared as the same scenario; a reach delta from this "
+        "pair would be read as a change in the MOVE"
+    )
+
+    chained = _take(contact_at=4)
+    chained["requested_spacing"] = 40.0
+    chained["chain"] = {"verb": "attack_side", "label": "ftilt", "at": 6}
+    assert not tool.compare(tool.report(near), tool.report(chained))["comparable"]
+
+    # ⛔ THE PREMISE. Identical takes must still compare, or the assertions above
+    # pass because nothing is ever comparable.
+    same = _take(contact_at=4)
+    same["requested_spacing"] = 40.0
+    assert tool.compare(tool.report(near), tool.report(same))["comparable"]
+
+    # ⚠ …and what the bodies REACHED is a measurement, not the scenario: a rig
+    # that settled a pixel differently must not declare the pair incomparable.
+    drifted = _take(contact_at=4)
+    drifted["requested_spacing"] = 40.0
+    drifted["spacing_at_press"] = 41.7
+    assert tool.compare(tool.report(near), tool.report(drifted))["comparable"]

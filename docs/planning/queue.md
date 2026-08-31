@@ -535,7 +535,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   developer state, and `ambition_time` depends only on
   `ambition_platformer2d_core`. `debug_slowmo_scale` moved with the rung onto
   `DeveloperRuntimeState`. ⚠ WHAT IS LEFT is the two `profiling::phase_mark`
-  calls in `audio/plugin` — instrumentation, not an authority.
+  calls in `audio/plugin` — instrumentation, not an authority — and ⛔ THE ROW'S
+  OWN CLAIM THAT THEY *"CAN GO ANYWHERE"* IS FALSE, tested 2026-08-31. They
+  BRACKET `load_music_cues` inside the audio plugin's `Startup` chain, so moving
+  them means the dev crate ordering systems around a named system in the actor
+  kernel — and `engine.ambition_dev_tools-source-purity` FORBIDS
+  `ambition_platformer2d_actor_monolith` in that crate's source. Bracketing a
+  SystemSet instead has the same problem: the set would live in the monolith.
+  ⇒ THE ONLY WAYS TO REMOVE THIS EDGE ARE TO DELETE THE MEASUREMENT OR TO MOVE
+  `phase_mark` DOWN, and both are carving for a NUMBER, which this row's first
+  paragraph forbids. ✔ SO THE DEV_TOOLS SLICE IS DONE: the kernel holds no
+  developer AUTHORITY, and a plugin asking a profiler to time its own startup is
+  a legitimate use of a developer tool. Pick a different dependency for the next
+  D33 slice.
   Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 

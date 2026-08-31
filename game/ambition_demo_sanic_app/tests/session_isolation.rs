@@ -10,13 +10,13 @@ use bevy::prelude::*;
 
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::encounter::EncounterRegistry;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition_platformer2d::platformer::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopedEntity,
 };
 use ambition_platformer2d::platformer::markers::ControlledSubject;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::collision::MovingPlatformSet;
 use ambition_platformer2d::world::platforms::MovingPlatformState;
 
@@ -177,4 +177,205 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         app.world().resource::<MovingPlatformSet>().0.is_empty(),
         "session B inherited session A's moving-platform state"
     );
+}
+
+/// The occurrence ledger and its three checkpoint baselines die with the world
+/// they describe.
+///
+/// ⭐ WHAT WAS ALREADY TRUE, MEASURED FIRST. Session B does NOT inherit these
+/// rows even without the resets this case pins, and the mechanism is the one
+/// `retirement_clears_the_save_applied_latch` already documents: retirement
+/// clears `SaveRestored`, so B re-runs its restore, and `adopt_rows` REPLACES
+/// rather than merges — an empty file empties all four. Verified 2026-08-31 by
+/// poisoning all four resets and dropping the launcher assertions below: the
+/// post-relaunch arm stayed green. The planning row that sent me here was
+/// written off a schedule reading and was wrong about the consequence.
+///
+/// ⛔ SO THE ASSERTION THAT IS ACTUALLY LOAD-BEARING IS THE LAUNCHER ONE, and
+/// that is why it comes first. Between retirement and B's restore, these four
+/// resources still described a world that no longer exists — dangling in exactly
+/// the way the module doc calls hygiene. Each of the four resets is red on that
+/// assertion when poisoned alone.
+///
+/// ⭐ AND IT BUYS ONE THING BEYOND HYGIENE: the correctness no longer rests on
+/// the SAVE road running. A composition with no durable horizon re-runs no
+/// restore, so nothing would have rewritten these; and
+/// `adopt_the_occurrence_ledger_at_activation` — which now seeds the ledger
+/// BEFORE the first room is built — runs `.after` this reset, so the two are one
+/// ordered pair rather than two opinions.
+///
+/// ⚠ THE POST-RELAUNCH ASSERTION IS NOT ATTRIBUTABLE to these resets. It is kept
+/// because it states the contract a reader cares about, not because it covers
+/// this change.
+///
+/// ⭐ SEEDED, LIKE EVERY OTHER MIRROR IN THIS FILE. The Sanic demo authors no
+/// occurrence-bearing object of its own, and the question is not how a row gets
+/// written — it is whether a row SURVIVES a session boundary it has no business
+/// crossing.
+#[test]
+fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
+    use ambition_platformer2d::platformer::lifecycle::{
+        AuthoredOccurrences, OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+
+    let mut app = build_demo_app();
+    settle(&mut app);
+    let scope_a = live_scope(&app).expect("a session is live during gameplay");
+
+    // A row session A could plausibly have written: an object it carried into
+    // some room and put down.
+    let probe = SimId::placement("session_isolation_ledger_probe");
+    app.world_mut()
+        .resource_mut::<AuthoredOccurrences>()
+        .adopt_rows(
+            [(
+                probe.clone(),
+                OccurrenceWhereabouts::Placed {
+                    room: "somewhere_in_session_a".to_owned(),
+                    at: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        );
+    // ⭐ AND THE THREE CHECKPOINT COPIES OF THE SAME FACTS. They describe the
+    // same one world and carry the same defect, so they get the same answer and
+    // the same arm — a baseline from the previous session is a baseline for a
+    // world that no longer exists.
+    {
+        let world = app.world_mut();
+        let ledger = world.resource::<AuthoredOccurrences>().clone();
+        world
+            .resource_mut::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .adopt(ledger);
+        world
+            .resource_mut::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+            .adopt(
+                [(
+                    probe.clone(),
+                    SimId::placement("session_isolation_custodian"),
+                )]
+                .into_iter()
+                .collect(),
+            );
+        world
+            .resource_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .adopt(
+                [(
+                    probe.clone(),
+                    ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemDescription {
+                        origin: ambition_platformer2d::platformer::construction::SpawnOrigin::Dynamic {
+                            parent: SimId::placement("session_isolation_spawner"),
+                            sequence: 0,
+                        },
+                        held_item: "axe".to_owned(),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            );
+    }
+
+    // ⛔ THE PREMISE: every seed has to be readable, or "gone later" is vacuous.
+    assert!(
+        ledger_ids(&app).contains(&probe.as_str().to_owned()),
+        "the fixture failed to seed the ledger it is about to ask a session \
+         boundary to clear"
+    );
+    assert!(
+        !app.world()
+            .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .remembered()
+            .is_empty(),
+        "the fixture failed to seed the occurrence baseline"
+    );
+    assert!(
+        !app.world()
+            .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+            .is_empty(),
+        "the fixture failed to seed the custody baseline"
+    );
+    assert!(
+        !app.world()
+            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .is_empty(),
+        "the fixture failed to seed the minted-item baseline"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_launcher".to_owned()));
+
+    // ⭐ THE DIRECT ASSERTION. At the launcher, with A retired and B not yet
+    // activated, nothing may still describe A's world.
+    assert!(
+        ledger_ids(&app).is_empty(),
+        "the occurrence ledger still describes the retired session's world at \
+         the launcher: {:?}",
+        ledger_ids(&app)
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .remembered()
+            .is_empty(),
+        "the occurrence BASELINE still describes the retired session's world"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+            .is_empty(),
+        "the custody BASELINE still says who was holding what in the retired \
+         session"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .is_empty(),
+        "the minted-item BASELINE still says how to rebuild the retired \
+         session's runtime mints"
+    );
+
+    // ⛔⛔ AND THE FILE IS A SECOND ROAD, WHICH IS NOT A DEFECT. The durable
+    // mirror wrote the seeded row into `AmbitionGameSave` while A was live —
+    // legitimately, because that is what "continue" is for — and a load adopts
+    // the file's rows at activation. Measured: at this point the live ledger is
+    // empty and the file holds the row, so leaving it there would test the SAVE
+    // road and call it the resource road. Emptying it is what isolates the
+    // question this case is about.
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .0
+        .occurrences
+        .clear();
+
+    app.world_mut()
+        .write_message(ShellLauncherCommand::LaunchSelected);
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_gameplay".to_owned()));
+    let scope_b = live_scope(&app).expect("a fresh session is live after relaunch");
+    assert_ne!(
+        scope_a, scope_b,
+        "relaunch reused the retired session scope, so there is no second \
+         session here to inherit anything"
+    );
+
+    assert!(
+        !ledger_ids(&app).contains(&probe.as_str().to_owned()),
+        "session B is standing in a world session A's ledger still describes. A \
+         row saying an object is lying in one of A's rooms SUPPRESSES that \
+         object when B builds it, so an inherited ledger deletes things from \
+         the next session's world. Ledger was {:?}",
+        ledger_ids(&app)
+    );
+}
+
+/// Every identity the live occurrence ledger holds a row for.
+fn ledger_ids(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .rows()
+        .map(|(id, _)| id.as_str().to_owned())
+        .collect()
 }

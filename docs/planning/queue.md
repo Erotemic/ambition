@@ -52,13 +52,26 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   says so where the `Local`s are. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
-- ▢ **D-RESTORE-LEDGER-SCOPE — `AuthoredOccurrences` is app-level, not
-  session-scoped.** It is absent from `SessionScopedResources`, so a second
-  gameplay session in one process inherits the first's ledger. Noticed while
-  moving adoption to the activation edge; not measured. Acceptance: two sessions
-  in one process, the second with an empty save, and the second does not see the
-  first's rows. Owner:
-  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+✔ **D-RESTORE-LEDGER-SCOPE — the ledger is session-scoped now, and the row was
+WRONG about the consequence.** ⛔ THE ROW WAS WRITTEN OFF A SCHEDULE READING AND
+NOT MEASURED, and its stated acceptance — "two sessions in one process, the
+second with an empty save, and the second does not see the first's rows" —
+ALREADY HELD at HEAD. Measured 2026-08-31 by poisoning all four resets: the
+post-relaunch arm stayed green, because retirement clears `SaveRestored`, session
+B re-runs its restore, and `adopt_rows` REPLACES rather than merges — an empty
+file empties all four. `retirement_clears_the_save_applied_latch` documents
+exactly that and was right. ⭐ WHAT WAS ACTUALLY WRONG is narrower and is fixed:
+between retirement and B's restore, `AuthoredOccurrences`, `OccurrenceBaseline`,
+`CustodyBaseline` and `MintedItemBaseline` still described a world that no longer
+exists, and none of them was declared session-scoped. All four are now in
+`SessionScopedResources`, so the correctness stops resting on the SAVE road
+running at all — which matters because
+`adopt_the_occurrence_ledger_at_activation` runs `.after` this reset, making the
+two an ordered pair rather than two opinions. Guarded at both edges
+(`session/teardown/tests.rs`) and at the launcher window
+(`session_isolation.rs`), each of the four red when poisoned alone. ⚠ The
+post-relaunch assertion is kept for the contract it states and is explicitly
+marked as NOT attributable to this change.
 
 ✔ **D-RESTORE-COLLISION — the two checkpoint roads collide, and it is benign.**
 `restore_checkpoint_on_session_start` records a transition to the checkpoint's

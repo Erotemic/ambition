@@ -30,6 +30,12 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<SwitchActivationQueue>();
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
+    // The occurrence ledger and its three checkpoint copies. Session-scoped for
+    // the same reason as the rest: each is a statement about ONE live world.
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>();
+    app.init_resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>();
     app.add_systems(
         Update,
         (
@@ -72,7 +78,79 @@ fn app_with_populated_mirrors() -> App {
     app.world_mut()
         .resource_mut::<crate::session::durable_horizon::SaveRestored>()
         .0 = true;
+    // ...and its world had somewhere to put things.
+    {
+        let world = app.world_mut();
+        world
+            .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>()
+            .adopt_rows(
+                [(
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("session_a_item"),
+                    ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
+                        room: "session_a_room".to_owned(),
+                        at: ambition_platformer2d_core::Vec2::new(10.0, 20.0),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            );
+        let ledger = world
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>()
+            .clone();
+        world
+            .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>()
+            .adopt(ledger);
+        world
+            .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>()
+            .adopt(
+                [(
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("session_a_item"),
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("session_a_hand"),
+                )]
+                .into_iter()
+                .collect(),
+            );
+        world
+            .resource_mut::<crate::items::pickup::minted_horizon::MintedItemBaseline>()
+            .adopt(
+                [(
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("session_a_mint"),
+                    crate::items::pickup::minted_horizon::MintedItemDescription {
+                        origin:
+                            ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+                                parent: ambition_platformer2d_shared_tangle::sim_id::SimId::placement(
+                                    "session_a_spawner",
+                                ),
+                                sequence: 0,
+                            },
+                        held_item: "axe".to_owned(),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            );
+    }
     app
+}
+
+/// Every ledger that describes ONE live world is empty.
+fn the_four_ledgers_are_empty(app: &App) -> bool {
+    app.world()
+        .resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>()
+        .is_empty()
+        && app
+            .world()
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>()
+            .remembered()
+            .is_empty()
+        && app
+            .world()
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>()
+            .is_empty()
+        && app
+            .world()
+            .resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>()
+            .is_empty()
 }
 
 /// The save-applied latch dies with the world it describes.
@@ -133,6 +211,11 @@ fn retirement_clears_every_session_scoped_mirror() {
         .primary()
         .buffered());
     assert_eq!(app.world().resource::<SwitchActivationQueue>().0.len(), 1);
+    assert!(
+        !the_four_ledgers_are_empty(&app),
+        "the fixture seeded no world-describing ledger, so clearing them below \
+         proves nothing"
+    );
 
     // Retire the scope; the mirrors reset the same frame.
     app.world_mut()
@@ -167,6 +250,12 @@ fn retirement_clears_every_session_scoped_mirror() {
     assert!(
         app.world().resource::<SwitchActivationQueue>().0.is_empty(),
         "pending switch activation carried across teardown"
+    );
+    assert!(
+        the_four_ledgers_are_empty(&app),
+        "a ledger describing the retired session's world survived teardown: it \
+         says where objects are and who was holding them in a world that no \
+         longer exists"
     );
 }
 
@@ -245,6 +334,15 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
     assert!(
         app.world().resource::<SwitchActivationQueue>().0.is_empty(),
         "a switch activation produced in A was about to be delivered into B"
+    );
+    assert!(
+        the_four_ledgers_are_empty(&app),
+        "session B is about to build its first room against a ledger describing \
+         A's world. A row saying an object is lying in one of A's rooms \
+         SUPPRESSES that object where B authors it — the inherited ledger \
+         deletes things from B's world. ⭐ This is the edge that matters: \
+         `adopt_the_occurrence_ledger_at_activation` runs AFTER this reset, so a \
+         LOAD re-seeds the cleared ledger from its own file on this same edge"
     );
     assert!(
         !app.world()

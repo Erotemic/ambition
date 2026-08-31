@@ -86,6 +86,24 @@ pub struct SessionScopedResources<'w> {
     /// Whether the loaded save has been applied to the current world.
     /// Retirement resets the latch so the next session restores into its fresh world.
     save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
+    /// ⛔⛔ WHERE THE OCCURRENCES **THIS WORLD** HAS MINTED ACTUALLY ARE. The
+    /// ledger is a statement about ONE live world, and it was app-level: session
+    /// B's first room construction read session A's rows. A row saying an object
+    /// is lying in room X SUPPRESSES that object when X is built, so an
+    /// inherited ledger deletes things from the next session's world.
+    ///
+    /// ⭐ The activation edge is what makes this safe, and the order matters:
+    /// `adopt_the_occurrence_ledger_at_activation` runs AFTER this reset, so a
+    /// LOAD re-seeds the cleared ledger from its own file on the same edge.
+    occurrences: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    /// The checkpoint copies of the same three facts. They describe the same one
+    /// world, so they carry the same defect and get the same answer — a
+    /// checkpoint baseline from the previous session is a baseline for a world
+    /// that no longer exists.
+    occurrence_baseline:
+        ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
+    custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
+    minted_baseline: ResMut<'w, crate::items::pickup::minted_horizon::MintedItemBaseline>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -130,6 +148,14 @@ fn reset(mut resources: SessionScopedResources) {
     *resources.slot_interactions = SlotInteractionState::default();
     *resources.switch_activations = SwitchActivationQueue::default();
     *resources.save_restored = crate::session::durable_horizon::SaveRestored::default();
+    *resources.occurrences =
+        ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
+    *resources.occurrence_baseline =
+        ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline::default();
+    *resources.custody_baseline =
+        ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
+    *resources.minted_baseline =
+        crate::items::pickup::minted_horizon::MintedItemBaseline::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

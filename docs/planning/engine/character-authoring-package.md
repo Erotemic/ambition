@@ -107,11 +107,17 @@ targets. Three residuals name all five parts:
   than override. Guard: `george_carries_the_knockback_weight_his_own_facet_
   authors` in `game/ambition_app/tests/smash_in_the_host.rs`, red under both
   poisons (strip the RON field; cut the facet out of registration).
-- ▢ **Mary-O `sheet_target`** (`game/ambition_demo_mary_o/src/powerups.rs:1090`)
-  re-derives a character's sheet from its id at runtime, when the same pairing is
-  already authored three other ways and the engine owns the join
-  (`ambition_sprite_sheet::character::catalog_join`). One caller, so a cheap
-  ratchet.
+- ✔ **Mary-O `sheet_target` — CLOSED 2026-08-31.** It re-derived a character's
+  sheet from its id at runtime when the same pairing was already authored three
+  other ways. `clip_seconds` now asks
+  `ambition_sprite_sheet::character::catalog_join::sheet_for_character_id_from_data`,
+  and the transformation beat follows the catalog row: point the spark form's
+  row at another manifest and the beat changes, which is the assertion the old
+  table could not have moved. ⚠ the system's catalog and sheets are
+  `Option<Res<_>>` — the absence means *"no sheet to read"*, the case the beat
+  already answered with its fallback, and
+  `every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo` is what keeps
+  that from becoming a silent veto in the shipped demo.
 - ▢ **The display-name join** (`character_runtime/mod.rs`'s
   `canonical_character_id` falling through to `id_for_display_name`) is a real
   A3 residual, but content deliberately rides it and room/roster tokens

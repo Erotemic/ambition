@@ -954,6 +954,18 @@ pub fn sync_grown_form(
         With<PrimaryPlayer>,
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    // ⭐ THE CATALOG IS WHERE THE FORM'S SHEET IS AUTHORED. The beat's length is
+    // read off the art, and WHICH art is a question this demo already answered
+    // in its own catalog rows — see `transform_beat_policy`.
+    //
+    // ⚠ OPTIONAL, and it means exactly ONE thing rather than two: with no
+    // catalog there is no sheet to read, which is the case `clip_seconds` has
+    // always answered with `UNREADABLE_CLIP_SECS`. A narrow fixture that swaps
+    // her form without staging a roster gets the fallback beat, the same as a
+    // form whose manifest was never baked. ⛔ it is NOT a second way to decide
+    // the beat's length.
+    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
+    authored: Option<bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>>,
     mut commands: bevy::prelude::Commands,
 ) {
     let Ok((body, mut worn_char, kin, worn)) = players.single_mut() else {
@@ -997,7 +1009,13 @@ pub fn sync_grown_form(
     // The transformation MOMENT, in BOTH directions. The shrink clip is about the form, so it gets
     // the same beat the growth does. Same shape as the cue above: the transition picks it.
     commands.entity(body).try_insert((
-        transform_beat_policy(target_id, power_tier(&previous_id), power_tier(target_id)),
+        transform_beat_policy(
+            catalog.as_deref(),
+            authored.as_deref(),
+            target_id,
+            power_tier(&previous_id),
+            power_tier(target_id),
+        ),
         ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
     ));
     worn_char.0 = target_id.into();
@@ -1023,6 +1041,8 @@ pub fn sync_grown_form(
 /// has to cover that or the clip is cut short by exactly the dilation it asked
 /// for.
 fn transform_beat_policy(
+    catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
+    authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     target_id: &str,
     from_tier: u8,
     to_tier: u8,
@@ -1038,7 +1058,7 @@ fn transform_beat_policy(
         1.0
     };
     ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
-        duration: clip_seconds(target_id, anim) / clock_scale,
+        duration: clip_seconds(catalog, authored, target_id, anim) / clock_scale,
         anim,
         clock_scale,
         untouchable: true,
@@ -1073,26 +1093,23 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
 /// Resolved through the sheet's anim set exactly as the drawing will be, so a
 /// form that never drew the clip answers with the length of whatever it falls
 /// back to — the beat then lasts as long as what the player actually sees.
-fn clip_seconds(character_id: &str, anim: CharacterAnim) -> f32 {
-    use ambition_platformer2d::sprite_sheet::character::{try_load_spec_for_target, SheetTuning};
-    try_load_spec_for_target(sheet_target(character_id), &SheetTuning::default())
-        .map(|spec| spec.clip_seconds(anim))
-        .filter(|secs| *secs > 0.0)
-        .unwrap_or(UNREADABLE_CLIP_SECS)
-}
-
-/// The sheet manifest target behind each form's catalog row.
-///
-/// `WornCharacter` carries the CATALOG id, which is not the sheet's name; the
-/// demo authored both halves of this pairing in its character catalog (`lib.rs`,
-/// `spritesheet:` / `manifest:`), so stating it here is reaching the same
-/// authoring decision from the sim rather than inventing a second one.
-fn sheet_target(character_id: &str) -> &'static str {
-    match character_id {
-        SPARK_CHARACTER_ID => FIRE_SHEET_TARGET,
-        TALL_CHARACTER_ID => TALL_SHEET_TARGET,
-        _ => SMALL_SHEET_TARGET,
-    }
+fn clip_seconds(
+    catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
+    authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
+    character_id: &str,
+    anim: CharacterAnim,
+) -> f32 {
+    let (Some(catalog), Some(authored)) = (catalog, authored) else {
+        return UNREADABLE_CLIP_SECS;
+    };
+    ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(
+        authored,
+        catalog.data(),
+        character_id,
+    )
+    .map(|spec| spec.clip_seconds(anim))
+    .filter(|secs| *secs > 0.0)
+    .unwrap_or(UNREADABLE_CLIP_SECS)
 }
 
 /// The top of the power ladder — arriving HERE is the same-size transformation
@@ -1216,6 +1233,58 @@ mod tests {
     use ambition_platformer2d::characters::equipment::{
         apply_equipment_grants, resolved_ranged, WornEquipment,
     };
+
+    /// THE TRANSFORMATION BEAT READS THE SHEET THE CATALOG NAMES.
+    ///
+    /// ⭐⭐ THE CLAIM IS PROVENANCE, SO A VALUE ASSERTION ALONE WOULD PROVE
+    /// NOTHING. Until 2026-08-31 `clip_seconds` resolved the sheet through a
+    /// `match character_id` in this file — a fourth statement of a pairing the
+    /// demo had already authored three ways (the catalog row's `manifest:`, the
+    /// registration's `.with_sheet(...)`, and `PreparedCharacterDefinition.sheet`)
+    /// — and it answered with the SAME number the catalog would have given. Both
+    /// trees pass "the fire beat is 0.68s".
+    ///
+    /// ⛔ SO THE LOAD-BEARING HALF IS THE SECOND ONE: point a form's catalog row
+    /// at a DIFFERENT manifest and the beat has to change. Under the old table
+    /// the catalog had no vote at all and this could not move.
+    #[test]
+    fn a_forms_beat_is_as_long_as_the_sheet_its_catalog_row_names() {
+        use ambition_platformer2d::character::{AuthoredSheets, CharacterCatalog};
+        use ambition_platformer2d::characters::actor::character_catalog::parse_catalog;
+
+        let authored = AuthoredSheets::default();
+        let catalog = CharacterCatalog::from_data(parse_catalog(&crate::mary_o_catalog_ron()));
+        let anim = transition_anim(0, FIRE_TIER);
+
+        // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
+        // `UNREADABLE_CLIP_SECS`, and every assertion below would then be
+        // comparing one fallback against another.
+        let authored_beat = clip_seconds(Some(&catalog), Some(&authored), SPARK_CHARACTER_ID, anim);
+        assert_ne!(
+            authored_beat, UNREADABLE_CLIP_SECS,
+            "the spark form's sheet did not resolve at all, so this test is \
+             comparing the fallback against itself"
+        );
+
+        // The catalog says `mary_o_v2_fire`. Say `mary_o_v2` instead — the SMALL
+        // form's sheet, which times its rows differently — and the beat must
+        // follow the row rather than the id.
+        let rerouted = CharacterCatalog::from_data(parse_catalog(
+            // The fire sheet's name appears only in the spark form's row, so
+            // this reroutes exactly that row and leaves the other two alone.
+            &crate::mary_o_catalog_ron()
+                .replace("mary_o_v2_fire_spritesheet", "mary_o_v2_spritesheet"),
+        ));
+        let small_beat = clip_seconds(Some(&catalog), Some(&authored), MARY_O_CHARACTER_ID, anim);
+        let rerouted_beat =
+            clip_seconds(Some(&rerouted), Some(&authored), SPARK_CHARACTER_ID, anim);
+        assert_eq!(
+            rerouted_beat, small_beat,
+            "the spark form's catalog row was pointed at the small form's sheet \
+             and its beat did not follow. Something is still deriving the sheet \
+             from the character id instead of asking where it is authored"
+        );
+    }
 
     /// The star wand absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure

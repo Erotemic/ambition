@@ -524,9 +524,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   composed through `MatchRules`) and are not targets. ✔ FIRST SLICE CLOSED: the
   Smash demo's `smash_reading_of_character` — a `match definition.id` writing
   `Vitals::knockback_weight` for a character it does not own — is deleted, and
-  George states his own 1.35 in `smash_fighter.ron`. ▢ NEXT, in order: Mary-O's
-  `sheet_target` (`powerups.rs:1090`) re-derives a sheet from an id at runtime
-  when the engine already owns the join; then the `canonical_height` /
+  George states his own 1.35 in `smash_fighter.ron`. ✔ SECOND SLICE CLOSED
+  2026-08-31: Mary-O's `sheet_target` — a `match character_id` restating a
+  pairing the demo had already authored three other ways — is deleted;
+  `clip_seconds` asks `sheet_for_character_id_from_data`, the join the engine
+  already owns. ⚠ its resources are `Option<Res<_>>` so a narrow fixture can
+  still swap her form, and an app-level guard
+  (`every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo`) is what stops
+  that option becoming a silent veto. ▢ NEXT: the `canonical_height` /
   `standing_height` pair, which is a DELETION (one of the two has no gameplay
   reader) rather than a migration. ⛔ NOT a residual: eleven grid fighters on the
   actor baseline is a MISSING author, not a duplicate one.

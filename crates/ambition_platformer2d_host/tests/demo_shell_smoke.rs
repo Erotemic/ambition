@@ -116,7 +116,7 @@ fn fixture_setup(
         ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            editable_abilities: &editable_abilities,
+            fallback_abilities: editable_abilities.as_engine(),
             tuning: &tuning,
             initial_body: &initial_body,
             character_catalog: &character_catalog,

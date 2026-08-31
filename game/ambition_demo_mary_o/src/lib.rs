@@ -988,7 +988,7 @@ const MARY_O_CLASSIC_AXIS_TUNING: &str = r#"(
 /// Assemble the demo catalog, substituting the one authored movement profile
 /// into every Mary-O form. `str::replace` rather than `format!` because the RON
 /// is full of braces that would all need escaping.
-fn mary_o_catalog_ron() -> String {
+pub(crate) fn mary_o_catalog_ron() -> String {
     MARY_O_CATALOG_RON_TEMPLATE.replace("$CLASSIC_AXIS_TUNING", MARY_O_CLASSIC_AXIS_TUNING)
 }
 

@@ -270,6 +270,36 @@ provenance: the source recording, its timestamp, and all three schema versions),
 `summary.md`, `trace.jsonl` (one line per tick, for the question the report did
 not anticipate) and `filmstrip.svg`.
 
+### What can this move cancel into?
+
+The Fighter view's move panel shows every `Cancelable` window: its frame range,
+its condition (`always` / `onhit` / `onwhiff`), the AUTHORED rule, and the moves
+that rule actually admits for this fighter.
+
+Measured on the pirate admiral's `ranged`:
+
+```text
+Cancels (always)   0–14f → jab, tilt_forward, tilt_up, tilt_down,
+                           smash_forward, smash_up, smash_down,
+                           air_neutral, air_forward, air_back, air_up,
+                           air_down, pirate_admiral_dash_attack, attack
+                   [authored: attack, smash, any_attack]
+```
+
+⛔⛔ **THE EXPORTER RESOLVES IT, NOT THE BROWSER.**
+`MovesetContract::cancel_targets` matches on the same verb-class names the
+trigger road matches on (`cancel_names_for`, beside `CANCEL_CLASS_NAMES` in the
+catalog). Teaching the browser that vocabulary would be a second copy of it, and
+two copies that must agree are one copy plus a bug — the same rule this whole
+tool is built on.
+
+⚠ A rule that resolves to NO move is shown as such rather than hidden: it names
+moves this fighter does not have.
+
+⚠ This is the AUTHORED graph — which moves a rule NAMES. Whether a cancel is
+reachable in play is a different question, and the A → B probe below is what
+measures it: a window being open is not the same as a press arriving inside it.
+
 ### Does A chain into B?
 
 ```bash

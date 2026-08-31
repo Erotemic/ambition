@@ -2801,7 +2801,7 @@ pub fn trigger_moveset_moves(
                         ),
                     )
                     .cloned(),
-                &[SPECIAL_VERB][..],
+                ambition_entity_catalog::cancel_names_for(SPECIAL_VERB, false),
                 ProposedVerb::Special,
             );
             // ⭐⭐ B-REVERSE AND WAVEBOUNCE, AS TWO SETTINGS OF ONE RULE. A
@@ -2972,11 +2972,12 @@ pub fn trigger_moveset_moves(
             };
             // a running attack answers to the ATTACK family whatever gesture
             // asked for it — the cancel namespace follows the move that ran.
-            let verb_names: &[&str] = if base_verb == SMASH_VERB && !running_attack {
-                &[SMASH_VERB, ATTACK_VERB, "any_attack"]
-            } else {
-                &[ATTACK_VERB, "any_attack"]
-            };
+            //
+            // ⭐ THE LIST LIVES WITH THE VOCABULARY. `cancel_names_for` is beside
+            // `CANCEL_CLASS_NAMES` in the catalog, so the exporter that shows a
+            // cancel GRAPH resolves it with the same names this road matches on
+            // — two lists that must agree are one list plus a bug.
+            let verb_names = ambition_entity_catalog::cancel_names_for(base_verb, running_attack);
             // THIS USE IS A SMASH. Recorded here and nowhere else: the same
             // resolution that chose the smash verb is what makes the use
             // chargeable, so a move borrowed by another verb — or a running

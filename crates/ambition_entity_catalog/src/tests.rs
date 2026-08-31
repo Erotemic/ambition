@@ -1559,6 +1559,121 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
 /// was an obligation on a file that would never hear about it. Missing one is
 /// not a red test: it is one dead button in a match.
 ///
+/// ⛔⛔ THE INVERSE MUST AGREE WITH THE COMPOSER, or the two vocabularies drift.
+///
+/// Every id `directional_verb_chain` builds has to reduce to the base it was
+/// built from — including the aerial forms, whose `_air_forward` would reduce to
+/// `attack_air` under a naive "strip the last suffix" rule.
+#[test]
+fn every_composed_verb_id_reduces_to_the_base_it_was_built_from() {
+    use crate::{base_verb_of, dash_stance_verb, directional_verb_chain, AttackDir};
+
+    for base in ["attack", "smash", "special", "grab"] {
+        for dir in [
+            AttackDir::Neutral,
+            AttackDir::Forward,
+            AttackDir::Back,
+            AttackDir::Up,
+            AttackDir::Down,
+        ] {
+            for grounded in [true, false] {
+                for verb in directional_verb_chain(base, dir, grounded) {
+                    assert_eq!(
+                        base_verb_of(&verb),
+                        base,
+                        "{verb} was built from {base} and must reduce to it"
+                    );
+                }
+            }
+        }
+        assert_eq!(base_verb_of(&dash_stance_verb(base)), base);
+    }
+    // An id built from no known suffix is its own base.
+    assert_eq!(base_verb_of("taunt"), "taunt");
+}
+
+/// ⛔ A BROAD RULE MEANS THE CHARACTER'S OWN MOVES, and only this table knows
+/// which those are.
+#[test]
+fn a_broad_cancel_rule_resolves_into_the_moves_it_admits() {
+    use crate::MovesetContract;
+
+    // `bare_move` is this file's own fixture: the smallest real `MoveSpec`.
+    let move_named = |id: &str| bare_move(id, None);
+    let contract = MovesetContract {
+        verbs: [
+            ("attack", "jab"),
+            ("attack_forward", "ftilt"),
+            ("smash_forward", "fsmash"),
+            ("special", "shark"),
+            ("grab", "grab_move"),
+            ("grab_dash", "running_grab"),
+            ("capture_throw_forward", "fthrow"),
+            ("taunt", "taunt_move"),
+            ("ranged", "shot"),
+        ]
+        .into_iter()
+        .map(|(verb, mv)| (verb.to_string(), mv.to_string()))
+        .collect(),
+        moves: vec![
+            move_named("jab"),
+            move_named("ftilt"),
+            move_named("fsmash"),
+            move_named("shark"),
+            move_named("grab_move"),
+            move_named("running_grab"),
+            move_named("fthrow"),
+            move_named("taunt_move"),
+            move_named("shot"),
+            // Bound to no verb at all: reachable only by name.
+            move_named("jab2"),
+        ],
+    };
+    let ids = |into: &[&str]| {
+        contract
+            .cancel_targets(&into.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+            .iter()
+            .map(|mv| mv.id.clone())
+            .collect::<Vec<_>>()
+    };
+
+    // The attack family, which a smash belongs to.
+    assert_eq!(ids(&["any_attack"]), vec!["jab", "ftilt", "fsmash"]);
+    // ⛔ AND A SPECIAL IS NOT IN IT. `cancel_names_for` gives a special its own
+    // namespace and nothing else, so `any_attack` must not sweep it up.
+    assert!(!ids(&["any_attack"]).contains(&"shark".to_string()));
+    assert_eq!(ids(&["special"]), vec!["shark"]);
+    // `smash` is narrower than `attack`.
+    assert_eq!(ids(&["smash"]), vec!["fsmash"]);
+    assert_eq!(ids(&["attack"]), vec!["jab", "ftilt", "fsmash"]);
+    // ⛔⛔ AND `any_attack` DOES NOT SWEEP UP EVERYTHING ELSE. A grab, a throw, a
+    // taunt and a ranged shot each pass exactly ONE name on the trigger road —
+    // their own — so a fall-through that lumped them into the attack family
+    // would let a cancel window turn a swing into a throw. Measured on a real
+    // export before this was total: the admiral's `ranged` cancel resolved into
+    // 23 moves, including every grab, pummel, throw and the taunt.
+    for outsider in ["grab_move", "fthrow", "taunt_move", "shot"] {
+        assert!(
+            !ids(&["any_attack", "attack", "smash"]).contains(&outsider.to_string()),
+            "{outsider} is not in the attack family"
+        );
+    }
+    // Each of them answers to its own FULL verb, not a reduced base.
+    // ⛔ A RUNNING GRAB ANSWERS TO `grab`. `grab_dash` is the grab road's
+    // running stance, and it passes `[GRAB_VERB]` like the standing one — so the
+    // base reduction is right HERE and wrong for a capture verb.
+    assert_eq!(ids(&["grab"]), vec!["grab_move", "running_grab"]);
+    assert_eq!(ids(&["capture_throw_forward"]), vec!["fthrow"]);
+    assert_eq!(ids(&["ranged"]), vec!["shot"]);
+    // ⛔ `capture_throw` is the BASE of the throw's verb and names nothing: the
+    // capture road passes the full verb.
+    assert!(ids(&["capture_throw"]).is_empty());
+    // A literal move id admits exactly that move, bound or not.
+    assert_eq!(ids(&["jab2"]), vec!["jab2"]);
+    // And a list is a union.
+    assert_eq!(ids(&["special", "jab2"]), vec!["shark", "jab2"]);
+}
+
 /// ⛔ THE VERB-CLASS ARM IS THE ONE THAT CONSTRAINS. `"any_attack"` is a cancel
 /// CLASS, not a move this table defines, and a rename that touched it would
 /// silently unhook every cancel window that names one.

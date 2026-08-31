@@ -1,8 +1,8 @@
 # Combat Inspection and Moveset Observatory
 
-Status: **OPEN** — M1, M2, M4, M5 and M7 closed; M6's empirical probe closed and
-its authored cancel graph open; M3's overlay closed and its agreement
-measurements open. Nine of ten exit criteria hold; see the table.
+Status: **OPEN** — M1, M2, M4, M5, M6 and M7 closed. What remains is M3's
+art/geometry AGREEMENT measurements, which need the render to expose its camera
+transform. Ten of ten exit criteria hold; see the table.
 
 ## Purpose
 
@@ -745,12 +745,28 @@ hit, which the report says in those words rather than calling it a combo.
 that omitted the chain when B did not come out would leave a reader thinking the
 probe had not run.
 
-⚠ **Still open**: the AUTHORED action graph — cancel rules, timing windows, and
-`any_attack` resolved into actual candidate moves. That is a bundle question
-(`moveset_export` already exports cancel information) rather than a runtime one,
-so it needs no new simulation.
+**The authored action graph is DONE too.** `moveset_export` resolves every
+`Cancelable` window's rule into the moves it admits FOR THAT FIGHTER
+(`cancel_into_resolved` beside the authored `cancel_into`), and the Fighter view
+shows both with the window's frame range and condition.
 
-This depends on trustworthy single-move inspection.
+⛔⛔ **THE EXPORTER RESOLVES IT, NOT THE BROWSER.**
+`MovesetContract::cancel_targets` matches on `cancel_names_for` — the same
+verb-class list the trigger road matches on, which moved to the catalog beside
+`CANCEL_CLASS_NAMES` so there is one copy rather than two that must agree.
+
+⛔⛔ **AND THE NAMESPACE HAD TO BE TOTAL, NOT A FALL-THROUGH.** The first version
+treated everything that was not a special as attack-family, and a real export
+showed what that costs: the admiral's `ranged` cancel resolved into **23 moves,
+including every grab, pummel, throw and the taunt**. On the trigger road a grab
+passes `[grab]`, a capture action passes its own FULL verb
+(`capture_throw_forward`, which is not `base_verb_of` of it), and taunt and
+`ranged` pass one name each — so `cancel_names_for` now answers for every arm and
+returns EMPTY to mean "this verb answers to its own name". Found by looking at
+exported data, not by reading the code.
+
+⚠ The plan's original instruction — *do not begin here; this depends on
+trustworthy single-move inspection* — was right, and is why this closed last.
 
 ## Authored action graph
 
@@ -1055,7 +1071,7 @@ Do not spend this first slice on:
 
 # Exit criteria
 
-Eight of ten hold. Status, so the remaining two are the whole question:
+All ten hold. Status, so what remains is legible as the incremental work it is:
 
 | # | criterion | status |
 |---|---|---|
@@ -1067,8 +1083,8 @@ Eight of ten hold. Status, so the remaining two are the whole question:
 | 6 | agents generate and consume a compact artifact noninteractively | ✔ `moveset_takes --verbs`, `moveset_report.py`, SVG sheets |
 | 7 | before/after behavioural comparison | ✔ `--against` |
 | 8 | the browser consumes the same semantic artifacts | ✔ it draws the recorded observation; it derives no geometry |
-| 9 | representative move-chain inspection | ✔ the empirical A→B probe, with the buffered-acceptance case measured. ⚠ the authored cancel GRAPH is still unexposed |
-| 10 | the major remaining work is UX/coverage/performance, not observability | ✔ what is left needs no new observability: the cancel graph is already in the bundle, and M3's agreement measurements need the render's camera transform |
+| 9 | representative move-chain inspection | ✔ both halves: the authored cancel graph, resolved per fighter, and the empirical A→B probe with the buffered-acceptance case measured |
+| 10 | the major remaining work is UX/coverage/performance, not observability | ✔ the one architectural gap left is M3's: the render does not publish the camera transform, so art-versus-geometry AGREEMENT cannot be measured in pixels |
 
 This architecture program can leave active planning when:
 

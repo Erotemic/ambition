@@ -552,7 +552,12 @@ function renderMoveDetail(c, m) {
       el("div", {
         class: `win ${winClass(w.tag)}`,
         title: `${w.tag} ${f1(w.start_f)}–${f1(w.end_f)}f` +
-               (w.cancel_into.length ? ` → ${w.cancel_into.join(", ")}` : "") +
+               (w.cancel_into.length
+                 ? ` → ${w.cancel_into.join(", ")}` +
+                   ((w.cancel_into_resolved || []).length
+                     ? ` = ${w.cancel_into_resolved.join(", ")}`
+                     : "")
+                 : "") +
                (w.motion_scale !== 1 ? ` · motion ×${f2(w.motion_scale)}` : ""),
         style: `left:${(w.start_s / total) * 100}%;width:${((w.end_s - w.start_s) / total) * 100}%`,
       })
@@ -614,6 +619,31 @@ function renderMoveDetail(c, m) {
         : `${int(d.projectile_speed)} px/s`);
     }
     if (d.projectile_size_charged) row("Shot size", `×${f2(d.projectile_size_charged)} charged`);
+  }
+
+  /* ⭐⭐ THE AUTHORED CANCEL GRAPH, RESOLVED. `["attack", "smash",
+   * "any_attack"]` is what somebody wrote; the question a reader has is WHICH
+   * MOVES that is, and the answer is this character's own repertoire.
+   *
+   * ⛔ THE EXPORTER RESOLVES IT, NOT THIS FILE. `MovesetContract::cancel_targets`
+   * matches on the same verb-class names the trigger road matches on; teaching
+   * the browser that vocabulary would be a second copy of it, and two copies
+   * that must agree are one copy plus a bug. */
+  const cancels = (m.windows || []).filter((w) => (w.cancel_into || []).length);
+  if (cancels.length) {
+    for (const w of cancels) {
+      const when = w.tag.split(":")[1] || "always";
+      const resolved = w.cancel_into_resolved || [];
+      row(
+        `Cancels (${when})`,
+        `${f1(w.start_f)}–${f1(w.end_f)}f → ` +
+          (resolved.length
+            ? `${resolved.join(", ")}   [authored: ${w.cancel_into.join(", ")}]`
+            : /* A rule that resolves to nothing names moves this fighter does
+               * not have — worth seeing rather than hiding. */
+              `${w.cancel_into.join(", ")} — resolves to NO move this fighter has`)
+      );
+    }
   }
 
   const canvas = el("canvas", { class: "hitboxes", width: 420, height: 300 });

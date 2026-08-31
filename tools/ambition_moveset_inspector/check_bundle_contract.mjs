@@ -72,9 +72,19 @@ for (const c of bundle.characters ?? []) {
     if ((m.verbs ?? []).length) boundCount += 1;
     for (const w of m.windows ?? []) {
       need(w, `${mAt}.window`, [
-        "tag", "cancel_into", "start_s", "end_s", "start_f", "end_f",
-        "motion_scale", "sustain_effect", "volumes",
+        "tag", "cancel_into", "cancel_into_resolved", "start_s", "end_s",
+        "start_f", "end_f", "motion_scale", "sustain_effect", "volumes",
       ]);
+      /* ⛔ A RULE THAT RESOLVES TO NOTHING is a rule naming moves this fighter
+       * does not have — legitimate, and worth SEEING. What is not legitimate is
+       * a resolution naming a move the character does not define. */
+      for (const target of w.cancel_into_resolved ?? []) {
+        if (!(c.moves ?? []).some((mv) => mv.id === target)) {
+          problems.push(
+            `${mAt}.cancel_into_resolved names ${target}, which ${c.id} does not define`
+          );
+        }
+      }
       for (const v of w.volumes ?? []) {
         need(v, `${mAt}.volume`, [
           "offset", "half_extents", "radius", "damage", "knockback",

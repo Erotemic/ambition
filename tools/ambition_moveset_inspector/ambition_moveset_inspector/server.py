@@ -115,7 +115,14 @@ def _built_at(path: Path) -> str | None:
     return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
 
 
-def render_animation(character: str, verb: str, frames: int, stride: int) -> tuple[int, dict]:
+def render_animation(
+    character: str,
+    verb: str,
+    frames: int,
+    stride: int,
+    target: str | None = None,
+    spacing: float | None = None,
+) -> tuple[int, dict]:
     """Render one fighter PERFORMING ONE MOVE, through the real engine.
 
     ⭐⭐ CHARACTER **AND VERB**. This took only a character and photographed a
@@ -137,10 +144,25 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
         return 400, {"error": "character must be a plain catalog id"}
     if not safe_verb or safe_verb != verb:
         return 400, {"error": "verb must be a plain repertoire verb"}
+    safe_target = None
+    if target:
+        safe_target = "".join(ch for ch in target if ch.isalnum() or ch in "_-")
+        if safe_target != target:
+            return 400, {"error": "target must be a plain catalog id"}
 
     # ⭐ CACHED BY WHAT WAS ASKED FOR — character AND verb AND shape. Caching by
     # character alone served the up-B's frames for a jab.
-    out_dir = RENDERS / f"{safe}__{safe_verb}"
+    #
+    # ⛔⛔ AND BY THE SCENARIO, for the same reason. A render taken from across
+    # the stage and a take recorded at 40px are two different fights, and the
+    # browser shows them SIDE BY SIDE — so a cache key that ignored the target
+    # and the spacing would serve one as evidence for the other.
+    scenario = ""
+    if safe_target and safe_target != safe:
+        scenario += f"__vs_{safe_target}"
+    if spacing is not None:
+        scenario += f"__at{int(spacing)}"
+    out_dir = RENDERS / f"{safe}__{safe_verb}{scenario}"
     manifest = out_dir / "manifest.json"
     binary = find_renderer()
 
@@ -203,7 +225,10 @@ def render_animation(character: str, verb: str, frames: int, stride: int) -> tup
                 "--out", str(out_dir),
                 "--frames", str(frames),
                 "--stride", str(stride),
-            ],
+            ]
+            # The scenario, so the picture is of the fight the take recorded.
+            + (["--target", safe_target] if safe_target else [])
+            + (["--spacing", str(spacing)] if spacing is not None else []),
             cwd=str(REPO),
             capture_output=True,
             text=True,
@@ -308,11 +333,17 @@ def inspector_status() -> dict:
             doc = json.loads(takes_path.read_text())
             rows = doc.get("takes") if isinstance(doc, dict) else doc
             bodies = art = shapes = boxes = 0
+            # ⭐ THE OTHER HALF OF THE INTERACTION, counted. A recording with
+            # strikes and no damageable geometry cannot answer why an attack
+            # missed, and looks identical to one that can.
+            hurt = roles = 0
             for take in rows or []:
                 for frame in take.get("frames") or []:
                     for body in frame.get("bodies") or []:
                         bodies += 1
                         art += 1 if body.get("art") else 0
+                        hurt += 1 if body.get("hurtbox_source") else 0
+                        roles += 1 if body.get("role") else 0
                     for hit in frame.get("hitboxes") or []:
                         boxes += 1
                         shapes += 1 if hit.get("shape") else 0
@@ -320,14 +351,23 @@ def inspector_status() -> dict:
                 takes=len(rows or []),
                 bodies=bodies,
                 with_art=art,
+                with_hurtboxes=hurt,
+                with_role=roles,
                 hitboxes=boxes,
                 with_shape=shapes,
+                schema=doc.get("schema") if isinstance(doc, dict) else None,
             )
             stale = []
             if bodies and not art:
                 stale.append("no sprite art (bodies carry no `art`)")
             if boxes and not shapes:
                 stale.append("no hitbox geometry (strikes carry no `shape`)")
+            if bodies and not hurt:
+                stale.append(
+                    "no damageable geometry (bodies carry no `hurtbox_source`)"
+                )
+            if bodies and not roles:
+                stale.append("no scenario roles (bodies carry no `role`)")
             if stale:
                 takes_meta["stale"] = (
                     "recorded before this build: "
@@ -472,7 +512,20 @@ class InspectorHandler(SimpleHTTPRequestHandler):
                 return self._json(400, {"error": "character and verb are required"})
             frames = min(int((query.get("frames") or ["24"])[0]), 120)
             stride = min(int((query.get("stride") or ["2"])[0]), 30)
-            return self._json(*render_animation(character, verb, frames, stride))
+            target = (query.get("target") or [""])[0] or None
+            # ⛔ THE SCENARIO TRAVELS WITH THE REQUEST. The browser shows this
+            # picture beside a recorded take; if the two were staged differently
+            # they are two fights presented as one.
+            raw_spacing = (query.get("spacing") or [""])[0]
+            try:
+                spacing = float(raw_spacing) if raw_spacing else None
+            except ValueError:
+                return self._json(400, {"error": "spacing must be a number of pixels"})
+            if spacing is not None and not 0.0 <= spacing <= 2000.0:
+                return self._json(400, {"error": "spacing must be between 0 and 2000 px"})
+            return self._json(
+                *render_animation(character, verb, frames, stride, target, spacing)
+            )
         if parsed.path == "/api/review":
             subject = (parse_qs(parsed.query).get("subject") or [""])[0]
             if not subject:

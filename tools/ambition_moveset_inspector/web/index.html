@@ -77,6 +77,7 @@
       <select id="take-pick"></select>
       <button class="ghost" id="take-play">Play</button>
       <button class="ghost on" id="take-art">Art</button>
+      <button class="ghost on" id="take-hurt">Hurtboxes</button>
       <input type="range" id="take-scrub" min="0" max="0" value="0" style="flex:1;min-width:220px">
       <span class="note mono" id="take-frame"></span>
       <span class="note" id="take-source">sprites: derived</span>
@@ -92,10 +93,13 @@
         <h2>Diagnostic take</h2>
         <canvas class="hitboxes" id="take-canvas" width="1000" height="560"></canvas>
         <div class="legend">
-          <span><i style="background:var(--active)"></i>live hitbox</span>
-          <span><i style="background:var(--accent)"></i>fighter</span>
+          <span><i style="background:var(--active)"></i>strike volume</span>
+          <span><i style="background:#49c8d8"></i>hurtbox</span>
+          <span><i style="background:#6fb3ff"></i>SUBJECT</span>
+          <span><i style="background:#e8a33d"></i>TARGET</span>
+          <span><i style="background:#47b78a"></i>subject's summon</span>
           <span><i style="background:#7d8598"></i>other bodies</span>
-          <span><i style="background:var(--invuln)"></i>projectile / summon</span>
+          <span><i style="background:var(--invuln)"></i>projectile</span>
         </div>
       </div>
       <div class="panel"><h2>Frame</h2><div id="take-facts" class="kv"></div></div>

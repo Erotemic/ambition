@@ -95,6 +95,45 @@ def test_a_cache_drawn_by_the_current_binary_is_served(sandbox):
     assert "stale" not in doc
 
 
+def test_a_different_scenario_is_not_served_from_another_scenarios_cache(sandbox):
+    """⛔⛔ THE CACHE KEY IS THE WHOLE REQUEST, AND THIS TOOL HAS BEEN BITTEN.
+
+    Caching by character alone once served the up-B's frames for a jab. The
+    scenario is the same class of mistake one layer along: a render staged from
+    across the stage and one staged at 40px are different fights, and the browser
+    shows the result BESIDE a recorded take. A stub renderer that writes no
+    manifest makes the miss visible — a cache hit would answer 200.
+    """
+    tmp_path, renders = sandbox
+    _binary(tmp_path / "target" / "debug" / "moveset_render", 1_000)
+    _cache(renders, renderer_mtime=1_000)
+
+    # The scenario the cache was written for is served.
+    status, _ = server.render_animation("npc_pirate_admiral", "special_up", 24, 2)
+    assert status == 200
+
+    # A different spacing is a different fight, so it is a MISS.
+    status, doc = server.render_animation(
+        "npc_pirate_admiral", "special_up", 24, 2, None, 40.0
+    )
+    assert status == 503, "a spacing change must not be answered from the old cache"
+
+    # So is a different target.
+    status, _ = server.render_animation(
+        "npc_pirate_admiral", "special_up", 24, 2, "projectile_polygon", None
+    )
+    assert status == 503, "a target change must not be answered from the old cache"
+
+
+def test_a_scenario_id_that_is_not_a_plain_catalog_id_is_refused(sandbox):
+    tmp_path, renders = sandbox
+    _binary(tmp_path / "target" / "debug" / "moveset_render", 1_000)
+    status, doc = server.render_animation(
+        "npc_pirate_admiral", "special_up", 24, 2, "../../etc/passwd", None
+    )
+    assert status == 400 and "target" in doc["error"]
+
+
 def test_a_cache_older_than_the_binary_is_not_served(sandbox):
     """⛔⛔ The regression this exists for: the picture survives the binary.
 

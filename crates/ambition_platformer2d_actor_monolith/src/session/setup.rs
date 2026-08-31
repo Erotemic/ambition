@@ -12,7 +12,6 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
@@ -35,7 +34,15 @@ pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
 pub struct SimulationSetup<'a> {
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
-    pub editable_abilities: &'a EditableAbilitySet,
+    /// The session's shared fallback capability set — what a character that
+    /// authors no kit of its own gets.
+    ///
+    /// ⛔⛔ AN ENGINE VALUE, NOT THE DEV-TOOLS MIRROR. This was
+    /// `&EditableAbilitySet`, so a LIVE-EDITABLE DEVELOPER TYPE sat in the
+    /// production construction path and the simulation kernel depended upward on
+    /// `ambition_dev_tools` to build a world. Who edits the set is the caller's
+    /// business; what construction needs is the set.
+    pub fallback_abilities: ae::AbilitySet,
     pub tuning: &'a ae::ActiveMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
@@ -106,7 +113,7 @@ pub fn simulation_world(
     let SimulationSetup {
         world,
         room_set,
-        editable_abilities,
+        fallback_abilities,
         tuning,
         initial_body,
         character_catalog,
@@ -169,12 +176,12 @@ pub fn simulation_world(
     // Capability set travels WITH the worn character when the row authors one
     // (the per-character analogue of the motion model below): a restricted-kit
     // demo character — classic run + jump — declares it in the catalog instead of
-    // forcing the whole multi-game host onto the shared `EditableAbilitySet`. A
+    // forcing the whole multi-game host onto the session's shared set. A
     // row without an authored set keeps that shared sandbox set, so Ambition's own
     // protagonist is untouched.
     let base_abilities = character_catalog
         .ability_set(starting_character.effective_id(default_character_id))
-        .unwrap_or_else(|| editable_abilities.as_engine());
+        .unwrap_or(fallback_abilities);
     let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,

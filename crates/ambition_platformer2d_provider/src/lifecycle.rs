@@ -1214,7 +1214,9 @@ impl PlatformerSessionBuilder<'_, '_> {
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
                 world: &live_world.geometry,
                 room_set: &live_world.room_set,
-                editable_abilities: &self.editable_abilities,
+                // The CALLER converts: who edits the set is a developer
+                // facility, and construction needs only the set.
+                fallback_abilities: self.editable_abilities.as_engine(),
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
                 character_catalog: &self.character_catalog,

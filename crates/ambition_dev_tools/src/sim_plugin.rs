@@ -33,6 +33,20 @@ impl Plugin for DevToolsSimPlugin {
         app.init_resource::<crate::dev_tools::EditablePlayerStats>();
         app.init_resource::<crate::dev_tools::EditableMovementTuning>();
         app.init_resource::<crate::dev_tools::EditableAbilitySet>();
+        // ⭐ THE WORLD-SOURCE WATCHER IS THIS CRATE'S, and it now says so. Its
+        // resource and its `Update` system were registered by the ACTOR KERNEL's
+        // feature plugin, which is a simulation package registering a developer
+        // facility — the "anti-god rule" one line up, applied to the one row that
+        // had escaped it. Default = watcher disabled; the visible app pre-inserts
+        // its resolved value before the engine group, and `init_resource` never
+        // clobbers.
+        app.init_resource::<crate::WorldSourceHotReload>();
+        // ⛔⛔ `Update`, NOT THE SIMULATION. It does a BLOCKING `fs::metadata` —
+        // measured at up to 3.9ms on virtiofs — so on the sim schedule a
+        // dev-tooling stat sat inside the deterministic tick. It also reads
+        // wall-clock `Res<Time>` and keeps its debounce in a `Local`, neither of
+        // which rewinds. Every reader is a MENU system in `Update` already.
+        app.add_systems(bevy::app::Update, crate::poll_world_source_changes);
         let sim = app.sim_schedule();
         app.add_systems(
             sim,

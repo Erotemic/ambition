@@ -478,15 +478,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   3, and the FACADE every game depends on names all four directly. So removing
   the monolith's edge to any of them cannot shrink a product's closure, and
   footprint is retired as a rationale for these four; carve them for ownership
-  and compile isolation or not at all. ⭐ THE READY SLICE is `ambition_dev_tools`:
-  the doc's own frontier says developer tools are a poor reason for the
-  simulation kernel to depend upward, and the monolith has only SEVEN production
-  references — `DeveloperRuntimeState` (`time/time_control`, `control/input_systems`),
-  `profiling::phase_mark` ×2 (`audio/plugin`), the world-source hot-reload pair
-  (`features/mod.rs`), and `EditableAbilitySet` (`session/setup.rs`). ⛔ THE LAST
-  ONE IS THE LOAD-BEARING ONE and decides the slice's size: a live-editable dev
-  type is threaded into the production construction path, so the ability set
-  needs a non-dev home before the edge can go. Owner:
+  and compile isolation or not at all. ⭐ SLICE TAKEN 2026-08-31 on
+  `ambition_dev_tools`, the doc's own frontier (developer tools are a poor reason
+  for the simulation kernel to depend upward). Two authorities moved:
+  **construction now takes an engine `AbilitySet` instead of
+  `&EditableAbilitySet`** — a LIVE-EDITABLE DEVELOPER TYPE was sitting in the
+  production construction path, and who edits the set is the caller's business
+  (four call sites convert with `.as_engine()`); and the **world-source
+  hot-reload watcher moved to `DevToolsSimPlugin`**, resource and system
+  together, carrying the reasons it runs in `Update` rather than the sim.
+  ⛔ THE EDGE REMAINS, reported rather than claimed gone: four production
+  references are left — `DeveloperRuntimeState` in `time/time_control` and
+  `control/input_systems`, and `profiling::phase_mark` ×2 in `audio/plugin`. The
+  phase marks are instrumentation and can go anywhere; the
+  `DeveloperRuntimeState` pair are the kernel reading and writing dev state, and
+  moving them means the dev crate owns those systems. That is the next slice.
+  Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real

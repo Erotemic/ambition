@@ -1046,7 +1046,9 @@ fn sanic_setup(
         ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            editable_abilities: &editable_abilities,
+            // The CALLER converts: who edits the set is a developer
+            // facility, and construction needs only the set.
+            fallback_abilities: editable_abilities.as_engine(),
             tuning: &tuning,
             initial_body: &initial_body,
             character_catalog: &character_catalog,

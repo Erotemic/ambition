@@ -765,30 +765,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         );
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
-        // Hot-reload watcher state read by `poll_world_source_changes` below.
-        // Default = watcher disabled; the visible app pre-inserts its resolved
-        // value before the engine group (init never clobbers).
-        app.init_resource::<ambition_dev_tools::WorldSourceHotReload>();
-        // ⛔⛔ THE WATCHER RUNS IN `Update`, NOT IN THE SIMULATION, AND IT USED TO
-        // RUN IN `WorldPrep`. It does a BLOCKING `fs::metadata` — measured at up
-        // to 3.9ms on virtiofs — so a dev-tooling stat was sitting inside the
-        // sim's largest phase, on the deterministic tick, where a slow mount
-        // turns it into a frame hitch.
-        //
-        // It also has no business being there on determinism grounds: it reads
-        // wall-clock `Res<Time>` and keeps its debounce in a `Local`, neither of
-        // which rewinds. Under a session that actually rolls back it would
-        // re-stat the file per re-simulated tick. `check_distance: 0` means that
-        // is latent today, not live — which is exactly when it is cheap to fix.
-        //
-        // ⭐ Every reader of `WorldSourceHotReload` is a MENU system in `Update`
-        // already, so this moves the writer to its readers' schedule. The
-        // watcher now also polls while the simulation is paused, which is what a
-        // hot-reload watcher should do.
-        app.add_systems(
-            bevy::app::Update,
-            ambition_dev_tools::poll_world_source_changes,
-        );
+        // ⭐ THE WORLD-SOURCE HOT-RELOAD WATCHER MOVED OUT, resource and system
+        // together, to `ambition_dev_tools::DevToolsSimPlugin` — the crate that
+        // owns it. A simulation package registering a developer facility is the
+        // dependency-direction defect this campaign is about; the reasons the
+        // watcher runs in `Update` rather than the sim moved with it.
         app.add_systems(
             sim,
             (

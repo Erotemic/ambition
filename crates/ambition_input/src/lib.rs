@@ -57,6 +57,7 @@ pub use actions::Platformer2dInputActionMonolith;
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
+pub use ambition_platformer2d_core::AttackStrengthHint;
 pub use ambition_platformer2d_core::ControlFrame;
 /// Which local source drives which control channel — the map that keeps a
 /// lobby's sparse source numbers out of the rollback host's dense handles.

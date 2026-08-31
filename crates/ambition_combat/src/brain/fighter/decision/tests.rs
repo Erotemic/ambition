@@ -715,8 +715,9 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
 
     assert!(out.melee_pressed, "the press never came out");
-    assert!(
-        out.melee_strong_hint,
+    assert_eq!(
+        out.melee_strength_hint,
+        ambition_platformer2d_core::AttackStrengthHint::Smash,
         "the SMASH verb arrived as a plain attack, so `move_for_directional_verb` \
          resolves the jab the brain scored against"
     );
@@ -788,10 +789,14 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
             false,
             false,
             false,
-            false,
+            ambition_platformer2d_core::AttackStrengthHint::Auto,
         );
         // Tick two: the button closes.
-        let strong = matches!(binding.verb, AttackVerb::Smash);
+        let strong = if matches!(binding.verb, AttackVerb::Smash) {
+            ambition_platformer2d_core::AttackStrengthHint::Smash
+        } else {
+            ambition_platformer2d_core::AttackStrengthHint::Auto
+        };
         resolve_attack_gesture(
             &mut state,
             tuning,
@@ -867,7 +872,7 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
         false,
         false,
         false,
-        false,
+        ambition_platformer2d_core::AttackStrengthHint::Auto,
     );
     let smashed = resolve_attack_gesture(
         &mut state,
@@ -878,10 +883,10 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
         true,
         false,
         false,
-        // the hint is FALSE on purpose: what is being shown is that the
+        // the hint is `Auto` on purpose: what is being shown is that the
         // deflection ALONE decides, which is exactly why the tilt deflection
         // above has to be below the threshold.
-        false,
+        ambition_platformer2d_core::AttackStrengthHint::Auto,
     )
     .pressed
     .expect("a press was requested");

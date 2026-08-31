@@ -618,7 +618,18 @@ impl SnapshotState for crate::control::ActorControl {
         put_bool(out, f.melee_pressed);
         put_bool(out, f.melee_held);
         put_bool(out, f.melee_released);
-        put_bool(out, f.melee_strong_hint);
+        // ⛔ A BYTE, NOT A BOOL, and this is the schema change: the strength
+        // hint became three-valued (`Auto`/`Tilt`/`Smash`) so a tilt-stick can
+        // force a tilt at full deflection. Encoding it as the old bool would
+        // round `Tilt` to whichever of the two it happened to alias.
+        put_u8(
+            out,
+            match f.melee_strength_hint {
+                ae::AttackStrengthHint::Auto => 0,
+                ae::AttackStrengthHint::Tilt => 1,
+                ae::AttackStrengthHint::Smash => 2,
+            },
+        );
         match &f.fire {
             None => put_bool(out, false),
             Some(fire) => {
@@ -682,7 +693,15 @@ impl SnapshotState for crate::control::ActorControl {
         let melee_pressed = r.bool()?;
         let melee_held = r.bool()?;
         let melee_released = r.bool()?;
-        let melee_strong_hint = r.bool()?;
+        let melee_strength_hint = match r.u8()? {
+            0 => ae::AttackStrengthHint::Auto,
+            1 => ae::AttackStrengthHint::Tilt,
+            2 => ae::AttackStrengthHint::Smash,
+            // ⛔ REFUSE rather than default. A byte this codec did not write is
+            // a stream from another schema, and silently reading it as `Auto`
+            // would desync one peer's tilt into another's smash.
+            _ => return None,
+        };
         let fire = if r.bool()? {
             Some(ActorFireRequest {
                 dir: r.vec2()?,
@@ -709,7 +728,7 @@ impl SnapshotState for crate::control::ActorControl {
             melee_pressed,
             melee_held,
             melee_released,
-            melee_strong_hint,
+            melee_strength_hint,
             fire,
             attack_axis,
             jump_pressed: flags[0],

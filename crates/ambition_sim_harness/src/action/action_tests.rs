@@ -79,7 +79,10 @@ fn strong_attack_hint_crosses_the_agent_seam() {
     }
     .into();
     assert!(cf.attack_pressed);
-    assert!(cf.attack_strong_hint);
+    assert_eq!(
+        cf.attack_strength_hint,
+        ambition_platformer2d::sim::AttackStrengthHint::Smash
+    );
 }
 
 #[test]

@@ -267,7 +267,7 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
         ("smash", |f| {
             f.attack_pressed = true;
             f.attack_held = true;
-            f.attack_strong_hint = true;
+            f.attack_strength_hint = ambition_platformer2d::sim::AttackStrengthHint::Smash;
         }),
         ("special", |f| f.special_pressed = true),
         ("pogo", |f| f.pogo_pressed = true),

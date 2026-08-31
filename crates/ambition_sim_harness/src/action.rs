@@ -146,7 +146,15 @@ impl From<AgentAction> for ControlFrame {
             attack_pressed: a.attack,
             attack_held: a.attack_held,
             attack_released: a.attack_released,
-            attack_strong_hint: a.attack_strong,
+            // A scripted action says strong-or-not; the interpreter's three-valued
+            // hint reads that as `Smash` or "you decide". Nothing in the harness
+            // vocabulary asks to force a TILT yet — a right-stick mode is what
+            // would (parity inventory §9).
+            attack_strength_hint: if a.attack_strong {
+                ambition_platformer2d::sim::AttackStrengthHint::Smash
+            } else {
+                ambition_platformer2d::sim::AttackStrengthHint::Auto
+            },
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,

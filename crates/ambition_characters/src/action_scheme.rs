@@ -117,7 +117,7 @@ fn clear_attack(control: &mut ActorControlFrame) {
     control.melee_pressed = false;
     control.melee_held = false;
     control.melee_released = false;
-    control.melee_strong_hint = false;
+    control.melee_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Auto;
     control.pogo_pressed = false;
     control.attack_axis = ambition_platformer2d_core::LocalAxes::ZERO;
 }

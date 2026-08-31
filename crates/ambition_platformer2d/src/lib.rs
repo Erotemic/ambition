@@ -500,6 +500,7 @@ pub mod sim {
     pub use ambition_platformer2d_runtime::SimTick;
 
     /// One frame of input, and the one seam that delivers it.
+    pub use ambition_input::AttackStrengthHint;
     pub use ambition_input::ControlFrame;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_control_frame;

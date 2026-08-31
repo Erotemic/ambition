@@ -387,7 +387,7 @@ fn posture(grounded: bool) -> AttackPosture {
 
 /// Advance one body's interpreter by one simulation tick.
 ///
-/// `strong_hint` is device-independent. A C-stick adapter, dedicated smash key,
+/// `hint` is device-independent. A C-stick adapter, dedicated smash key,
 /// replay, remote peer, or RL policy may set it; the accumulated flick history
 /// remains body-local and is never streamed as resolved state.
 pub fn resolve_attack_gesture(
@@ -399,7 +399,7 @@ pub fn resolve_attack_gesture(
     pressed: bool,
     held: bool,
     released: bool,
-    strong_hint: bool,
+    hint: ae::AttackStrengthHint,
 ) -> ResolvedAttackGesture {
     if let Some(mut flick) = state.recent_flick {
         flick.age_ticks = flick.age_ticks.saturating_add(1);
@@ -428,10 +428,28 @@ pub fn resolve_attack_gesture(
             .is_some_and(|flick| flick.direction == direction);
         let base = AttackGestureIntent {
             direction,
-            strength: if strong_hint || recent_matches {
-                AttackStrength::Smash
-            } else {
-                AttackStrength::Tilt
+            // ⭐⭐ AN EXPLICIT HINT OVERRULES THE STICK, IN BOTH DIRECTIONS.
+            // This was `strong_hint || recent_matches`, which could only ever
+            // ADD a smash: a tilt-stick pushed to full deflection armed a flick
+            // on the way out, the flick matched the press direction, and the
+            // interpreter returned Smash however the device asked. A full
+            // deflection could not be a tilt.
+            //
+            // ⛔ AND THE WORKAROUND WOULD HAVE BEEN WORSE. Without this arm a
+            // right-stick adapter has to spoof stick history — deflect just
+            // enough to name a direction and not enough to arm the flick — which
+            // throws away how hard the player actually pushed and makes the
+            // adapter re-implement the interpreter's own thresholds.
+            strength: match hint {
+                ae::AttackStrengthHint::Tilt => AttackStrength::Tilt,
+                ae::AttackStrengthHint::Smash => AttackStrength::Smash,
+                ae::AttackStrengthHint::Auto => {
+                    if recent_matches {
+                        AttackStrength::Smash
+                    } else {
+                        AttackStrength::Tilt
+                    }
+                }
             },
             posture: posture(grounded),
             phase: AttackInputPhase::Press,
@@ -470,9 +488,81 @@ mod tests {
         released: bool,
         strong: bool,
     ) -> ResolvedAttackGesture {
+        let hint = if strong {
+            ae::AttackStrengthHint::Smash
+        } else {
+            ae::AttackStrengthHint::Auto
+        };
         resolve_attack_gesture(
-            state, tuning, axis, facing, true, pressed, held, released, strong,
+            state, tuning, axis, facing, true, pressed, held, released, hint,
         )
+    }
+
+    /// A FULL DEFLECTION CAN BE A TILT, and until 2026-08-31 it could not.
+    ///
+    /// ⭐⭐ THIS IS THE WHOLE POINT OF THE THREE-VALUED HINT. The old
+    /// `strong_hint: bool` was one-way — `strong_hint || recent_matches` — so it
+    /// could only ever ADD a smash. A right-stick tilt mode exists to throw
+    /// tilts at full deflection, and the deflection itself armed a flick that
+    /// matched the press direction, so the interpreter returned `Smash` however
+    /// the device asked.
+    ///
+    /// ⛔ THE ARMS ARE THE POINT, not the values. Both presses here use the SAME
+    /// hard deflection and the SAME flick history; only the hint differs. An
+    /// arm that tilted by pushing less would be measuring the flick threshold
+    /// and agreeing with the bug.
+    #[test]
+    fn an_explicit_hint_overrules_the_stick_in_both_directions() {
+        let tuning = AttackGestureTuning::default();
+        // Past `flick_threshold`: on `Auto` this is unambiguously a smash.
+        let hard = ae::LocalAxes::new(0.95, 0.0);
+
+        let mut press_with = |hint: ae::AttackStrengthHint| {
+            let mut state = AttackGestureState::default();
+            // Tick one arms the flick, tick two presses — the two-tick gesture a
+            // person actually makes.
+            resolve_attack_gesture(
+                &mut state, tuning, hard, 1.0, true, false, false, false, hint,
+            );
+            resolve_attack_gesture(
+                &mut state, tuning, hard, 1.0, true, true, false, false, hint,
+            )
+            .pressed
+            .expect("a press was requested")
+        };
+
+        // ⛔ THE PREMISE. If the deflection did not read as a smash on its own,
+        // the `Tilt` arm below would pass without overruling anything.
+        assert_eq!(
+            press_with(ae::AttackStrengthHint::Auto).strength,
+            AttackStrength::Smash,
+            "a full deflection no longer reads as a smash on its own, so this \
+             fixture is not measuring an override"
+        );
+        assert_eq!(
+            press_with(ae::AttackStrengthHint::Tilt).strength,
+            AttackStrength::Tilt,
+            "a TILT hint did not survive a full deflection — which is the defect \
+             the one-way bool had: a tilt-stick could never throw a tilt"
+        );
+
+        // And the direction that always worked still does: no flick at all, and
+        // the hint alone makes it a smash.
+        let mut state = AttackGestureState::default();
+        let soft = resolve_attack_gesture(
+            &mut state,
+            tuning,
+            ae::LocalAxes::ZERO,
+            1.0,
+            true,
+            true,
+            false,
+            false,
+            ae::AttackStrengthHint::Smash,
+        )
+        .pressed
+        .expect("a press was requested");
+        assert_eq!(soft.strength, AttackStrength::Smash);
     }
 
     #[test]
@@ -700,7 +790,7 @@ mod special_turn_edge_tests {
             false,
             false,
             false,
-            false,
+            ae::AttackStrengthHint::Auto,
         );
         assert!(
             state.recent_flick.is_none(),
@@ -722,7 +812,7 @@ mod special_turn_edge_tests {
             false,
             false,
             false,
-            false,
+            ae::AttackStrengthHint::Auto,
         );
         assert!(
             state.recent_flick.is_some(),

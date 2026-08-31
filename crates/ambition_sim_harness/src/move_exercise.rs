@@ -84,7 +84,7 @@ impl Verb {
                 frame.attack_held = true;
                 // ⛔⛔ THE GESTURE THAT TELLS A TILT FROM A SMASH. Without it
                 // every "smash" records the TILT, which looks like working data.
-                frame.attack_strong_hint = true;
+                frame.attack_strength_hint = ambition_platformer2d::sim::AttackStrengthHint::Smash;
             }
             Button::Special => {
                 frame.special_pressed = edge;

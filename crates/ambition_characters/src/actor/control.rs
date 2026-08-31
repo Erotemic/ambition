@@ -14,7 +14,8 @@
 //! - integration code reads only the frame, not the brain implementation.
 
 use ambition_platformer2d_core::{
-    AccelerationFrame, GameplayFramePolicy, InputState, LocalAxes, Vec2, WorldVec2,
+    AccelerationFrame, AttackStrengthHint, GameplayFramePolicy, InputState, LocalAxes, Vec2,
+    WorldVec2,
 };
 
 /// The body→controller half of the intent-in seam.
@@ -223,10 +224,14 @@ pub struct ActorControlFrame {
     pub melee_held: bool,
     /// Falling edge: the melee/attack button was released this tick.
     pub melee_released: bool,
-    /// Device-independent strong-attack hint for the sim-side gesture
-    /// interpreter. Brains/replays/RL may set this directly; characters never
-    /// own its timing thresholds.
-    pub melee_strong_hint: bool,
+    /// Device-independent strength hint for the sim-side gesture interpreter —
+    /// see [`AttackStrengthHint`]. Brains/replays/RL may set this directly;
+    /// characters never own its timing thresholds.
+    ///
+    /// ⛔ WAS A ONE-WAY BOOL. It could force a Smash and nothing could force a
+    /// Tilt, so a tilt-stick's full deflection armed a flick and came out Smash
+    /// regardless.
+    pub melee_strength_hint: AttackStrengthHint,
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,
@@ -533,7 +538,7 @@ impl ActorControlFrame {
         self.melee_pressed
             || self.melee_held
             || self.melee_released
-            || self.melee_strong_hint
+            || self.melee_strength_hint != AttackStrengthHint::Auto
             // The dedicated pogo button is a melee-swing trigger (the air-down
             // variant), so a pogo-only frame genuinely wants an action — omitting it
             // made any `resolve()`/processing gated on this drop the pogo swing.
@@ -571,7 +576,7 @@ impl ActorControlFrame {
         self.special_pressed = false;
         self.melee_pressed = false;
         self.melee_released = false;
-        self.melee_strong_hint = false;
+        self.melee_strength_hint = AttackStrengthHint::Auto;
         self.fire = None;
         self.pogo_pressed = false;
         self.fast_fall_pressed = false;
@@ -606,7 +611,7 @@ mod tests {
         frame.jump_pressed = true;
         frame.burst_pressed = true;
         frame.melee_pressed = true;
-        frame.melee_strong_hint = true;
+        frame.melee_strength_hint = AttackStrengthHint::Smash;
         frame.shield_held = true;
         let input = frame.to_input_state();
         assert_eq!(input.axes.x, 0.6, "locomotion.x → local x");
@@ -657,7 +662,7 @@ mod tests {
         assert!(!frame.melee_pressed);
         assert!(!frame.melee_held);
         assert!(!frame.melee_released);
-        assert!(!frame.melee_strong_hint);
+        assert_eq!(frame.melee_strength_hint, AttackStrengthHint::Auto);
         assert!(frame.fire.is_none());
         assert_eq!(frame.attack_axis, LocalAxes::ZERO);
         assert!(!frame.jump_pressed);
@@ -713,8 +718,8 @@ mod tests {
         h.jump_released = true;
         assert_ne!(baseline, h, "jump_released should be in PartialEq");
         let mut i = baseline;
-        i.melee_strong_hint = true;
-        assert_ne!(baseline, i, "melee_strong_hint should be in PartialEq");
+        i.melee_strength_hint = AttackStrengthHint::Smash;
+        assert_ne!(baseline, i, "melee_strength_hint should be in PartialEq");
     }
 
     #[test]
@@ -764,8 +769,11 @@ mod tests {
         frame.melee_pressed = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
-        frame.melee_strong_hint = true;
-        assert!(frame.wants_any_action(), "strong hint should count");
+        frame.melee_strength_hint = AttackStrengthHint::Smash;
+        assert!(
+            frame.wants_any_action(),
+            "an explicit strength hint should count"
+        );
         let mut frame = ActorControlFrame::neutral();
         frame.jump_pressed = true;
         assert!(frame.wants_any_action(), "jump_pressed should count");
@@ -795,12 +803,12 @@ mod tests {
         frame.melee_pressed = true;
         frame.melee_held = true;
         frame.melee_released = true;
-        frame.melee_strong_hint = true;
+        frame.melee_strength_hint = AttackStrengthHint::Smash;
         frame.clear_edges();
         assert!(!frame.melee_pressed);
         assert!(frame.melee_held);
         assert!(!frame.melee_released);
-        assert!(!frame.melee_strong_hint);
+        assert_eq!(frame.melee_strength_hint, AttackStrengthHint::Auto);
     }
 
     #[test]

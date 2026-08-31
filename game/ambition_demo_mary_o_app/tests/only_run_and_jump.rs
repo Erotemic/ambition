@@ -90,7 +90,7 @@ fn triggerable_swings(app: &mut App, body: Entity) -> Vec<String> {
         ("smash", |f| {
             f.attack_pressed = true;
             f.attack_held = true;
-            f.attack_strong_hint = true;
+            f.attack_strength_hint = ambition_platformer2d::sim::AttackStrengthHint::Smash;
         }),
         ("special", |f| f.special_pressed = true),
         ("pogo", |f| f.pogo_pressed = true),

@@ -139,7 +139,7 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 attack_pressed: bool_field(controls, "attack_pressed"),
                 attack_held: bool_field(controls, "attack_held"),
                 attack_released: bool_field(controls, "attack_released"),
-                attack_strong_hint: bool_field(controls, "attack_strong_hint"),
+                attack_strong_hint: strong_hint_field(controls),
                 pogo_pressed: bool_field(controls, "pogo_pressed"),
                 fly_toggle_pressed: bool_field(controls, "fly_toggle_pressed"),
                 interact_pressed: bool_field(controls, "interact_pressed"),
@@ -161,6 +161,29 @@ fn f32_field(value: &serde_json::Value, key: &str) -> f32 {
 
 fn bool_field(value: &serde_json::Value, key: &str) -> bool {
     value.get(key).and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
+/// Was this recorded press a SMASH, across both trace generations?
+///
+/// ⭐ TWO KEYS, ONE QUESTION. Traces recorded before 2026-08-31 carry
+/// `attack_strong_hint: bool`; the field became `attack_strength_hint`, a
+/// three-valued `AttackStrengthHint`, when a right-stick tilt mode needed a way
+/// to force a TILT at full deflection. Reading only the new key would make every
+/// archived trace replay with no smashes in it and report a clean divergence-free
+/// run, which is the worst failure this tool has.
+///
+/// ⚠ `Tilt` COLLAPSES TO `false` HERE, and that is a real loss: the harness
+/// `Action` this feeds is still strong-or-not, so a replayed tilt-stick press
+/// becomes "let the stick decide". Nothing records one yet — no device produces
+/// the hint — and widening `Action` is the slice that would fix it.
+fn strong_hint_field(controls: &serde_json::Value) -> bool {
+    if let Some(hint) = controls
+        .get("attack_strength_hint")
+        .and_then(|v| v.as_str())
+    {
+        return hint == "Smash";
+    }
+    bool_field(controls, "attack_strong_hint")
 }
 
 fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {

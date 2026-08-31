@@ -1757,7 +1757,11 @@ fn trigger_gesture_move(include_smash: bool, strong: bool) -> String {
     // Above the directional deadzone but below the flick threshold, so this is
     // a tilt unless the explicit device-independent strong hint is present.
     frame.attack_axis = ae::LocalAxes::new(0.6, 0.0);
-    frame.melee_strong_hint = strong;
+    frame.melee_strength_hint = if strong {
+        ambition_platformer2d_core::AttackStrengthHint::Smash
+    } else {
+        ambition_platformer2d_core::AttackStrengthHint::Auto
+    };
     let body = app
         .world_mut()
         .spawn((
@@ -4032,14 +4036,14 @@ fn press_smash(app: &mut App, body: Entity, hold: bool) {
     set_frame(app, body, |f| {
         f.attack_axis = ae::LocalAxes::X;
         f.melee_pressed = true;
-        f.melee_strong_hint = true;
+        f.melee_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Smash;
         f.melee_held = hold;
         f.melee_released = !hold;
     });
     app.update();
     set_frame(app, body, |f| {
         f.melee_pressed = false;
-        f.melee_strong_hint = false;
+        f.melee_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Auto;
         f.melee_released = false;
     });
 }
@@ -6108,7 +6112,7 @@ fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does()
 ///
 /// ```text
 ///   fighter brain, in Advantage      (the opponent is in hitstun)
-///        ↓ melee_pressed + melee_strong_hint
+///        ↓ melee_pressed + melee_strength_hint
 ///   resolve_attack_gestures           → AttackStrength::Smash
 ///        ↓
 ///   trigger_moveset_moves             → MovePlayback, charged_by_gesture
@@ -6207,7 +6211,8 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     let mut rooted_ticks = 0usize;
     for _ in 0..240 {
         tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
-        pressed_smash |= out.melee_pressed && out.melee_strong_hint;
+        pressed_smash |= out.melee_pressed
+            && out.melee_strength_hint == ambition_platformer2d_core::AttackStrengthHint::Smash;
         let published = out.clone();
         set_frame(&mut app, body, move |f| *f = published.clone());
         app.update();

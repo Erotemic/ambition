@@ -97,7 +97,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// about. Unreachable today because a confirmed transition rebases GGRS onto a
 /// new frame zero; registered anyway, because a correctness that holds only
 /// because some other layer rebases moves when the rebase does.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 142;
+/// ⛔ v143: `ActorControl`'s strength hint became a BYTE. It was a bool that
+/// could only ever ADD a smash, so a right-stick tilt mode's full deflection
+/// armed a flick and came out Smash anyway — a full deflection could not be a
+/// tilt. `AttackStrengthHint` is `Auto`/`Tilt`/`Smash` and encodes as one byte.
+/// A peer reading the old bool would round `Tilt` onto whichever value it
+/// aliased, so the two cannot share a stream.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 143;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

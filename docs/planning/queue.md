@@ -420,9 +420,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `ambition_characters` and the line is `:707`. ⛔ NEXT CANDIDATES, in order:
   `CancelCondition::OnBlock` (inventory §1 — its stated blocker, "shield contact
   lands with CM6", is itself stale: shieldstun shipped, and the deferral note at
-  `entity_catalog/src/lib.rs:212` must be deleted by whoever takes it), then the
-  `Auto`/`Tilt`/`Smash` strength hint (§9 — a full deflection can never be a
-  tilt today). ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
+  `entity_catalog/src/lib.rs:212` — refreshed 2026-08-31, and D-CANCEL-ONBLOCK's
+  plumbing is now closed, leaving only its FEEL ruling), and ✔ SLICE TAKEN
+  2026-08-31: the `Auto`/`Tilt`/`Smash` strength hint (§9) — a full deflection
+  could never be a tilt, because `strong_hint || recent_matches` could only ever
+  ADD a smash. `AttackStrengthHint` replaces the bool from `ControlFrame` to the
+  gesture resolver (schema 142→143); ▢ the DEVICE half is open — no adapter emits
+  `Tilt` yet, which is `ambition_input` work touching no sim code. ⛔ DO NOT PICK: D203's hitbox premise (measured and REFUTED by
   `fda65a386`), D204/D205 (shipped), or anything in
   `awaiting-maintainer-decision.md`.
 

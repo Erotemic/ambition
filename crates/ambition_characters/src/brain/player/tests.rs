@@ -63,13 +63,16 @@ fn attack_pressed_routes_to_melee_intent() {
 fn strong_attack_hint_routes_without_device_specific_state() {
     let input = input_with(|c| {
         c.attack_pressed = true;
-        c.attack_strong_hint = true;
+        c.attack_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Smash;
     });
     let s = BrainSnapshot::idle();
     let mut out = crate::actor::control::ActorControlFrame::default();
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(out.melee_pressed);
-    assert!(out.melee_strong_hint);
+    assert_eq!(
+        out.melee_strength_hint,
+        ambition_platformer2d_core::AttackStrengthHint::Smash
+    );
 }
 
 #[test]

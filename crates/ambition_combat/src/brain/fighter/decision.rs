@@ -772,11 +772,14 @@ fn press_the_chosen_attack(
     match binding.verb {
         AttackVerb::Basic => {
             frame.melee_pressed = true;
-            frame.melee_strong_hint = false;
+            // ⛔ `Auto`, not `Tilt`: a CPU's basic attack asks the interpreter to
+            // read its own stick as a person's would. Forcing `Tilt` here would
+            // delete the fighter brain's ability to smash by flicking.
+            frame.melee_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Auto;
         }
         AttackVerb::Smash => {
             frame.melee_pressed = true;
-            frame.melee_strong_hint = true;
+            frame.melee_strength_hint = ambition_platformer2d_core::AttackStrengthHint::Smash;
         }
         AttackVerb::Special => {
             frame.special_pressed = true;

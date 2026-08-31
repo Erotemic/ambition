@@ -12,6 +12,52 @@ use bevy_ecs::prelude::Resource;
 
 use crate::RawDirectionEdges;
 
+/// What a device asks the attack interpreter to make of this press.
+///
+/// ⭐⭐ THREE-VALUED BECAUSE THE OLD BOOL WAS ONE-WAY. `attack_strong_hint` could
+/// force a Smash and nothing could force a Tilt, so on a tilt-stick — a
+/// right-stick mode whose whole purpose is throwing tilts at full deflection —
+/// the deflection itself registered as a flick and the interpreter returned
+/// Smash anyway. A full deflection could never be a tilt.
+///
+/// ⛔ THE ALTERNATIVE WAS SPOOFING STICK HISTORY, and it is the reason this is a
+/// hint rather than a device trick: a right-stick adapter that wanted a tilt
+/// would have had to feed the interpreter a deflection small enough not to arm
+/// the flick, which throws away the direction the player actually pushed.
+///
+/// Device-independent. A C-stick adapter, a dedicated key, a replay, a remote
+/// peer or an RL policy may set it; the multi-tick flick history stays sim-side
+/// and is never streamed as resolved state.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub enum AttackStrengthHint {
+    /// Let the interpreter decide from the stick's own flick history. What every
+    /// ordinary attack button asks for.
+    #[default]
+    Auto,
+    /// This press is a TILT however hard the stick is pushed.
+    Tilt,
+    /// This press is a SMASH even with no flick behind it.
+    Smash,
+}
+
+impl AttackStrengthHint {
+    /// Fold two samples of one tick.
+    ///
+    /// ⭐ AN EXPLICIT HINT BEATS `Auto`, and `Smash` beats `Tilt` — which is the
+    /// old `|` on the bool this replaced, extended rather than reinterpreted. A
+    /// tick that saw both sticks is a tick the player pressed both, and the
+    /// stronger reading is the one that cannot be recovered by pressing again.
+    pub fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Smash, _) | (_, Self::Smash) => Self::Smash,
+            (Self::Tilt, _) | (_, Self::Tilt) => Self::Tilt,
+            (Self::Auto, Self::Auto) => Self::Auto,
+        }
+    }
+}
+
 /// Per-frame snapshot of semantic controller input feeding actor brains.
 ///
 /// This is intentionally device-free: there are no keyboards, gamepads,
@@ -77,10 +123,9 @@ pub struct ControlFrame {
     pub attack_held: bool,
     /// Attack button falling edge.
     pub attack_released: bool,
-    /// Device-independent request to classify this attack press as strong.
-    /// A dedicated smash key, C-stick adapter, replay, remote peer, or RL
-    /// policy may set it; the multi-tick flick history stays sim-side.
-    pub attack_strong_hint: bool,
+    /// What this press asks the attack interpreter to make of it — see
+    /// [`AttackStrengthHint`].
+    pub attack_strength_hint: AttackStrengthHint,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -181,7 +226,7 @@ impl ControlFrame {
             special_pressed: self.special_pressed | sample.special_pressed,
             attack_pressed: self.attack_pressed | sample.attack_pressed,
             attack_released: self.attack_released | sample.attack_released,
-            attack_strong_hint: self.attack_strong_hint | sample.attack_strong_hint,
+            attack_strength_hint: self.attack_strength_hint.merge(sample.attack_strength_hint),
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
@@ -277,7 +322,7 @@ impl ControlFrameLatch {
 
 #[cfg(test)]
 mod latch_tests {
-    use super::{ControlFrame, ControlFrameLatch};
+    use super::{AttackStrengthHint, ControlFrame, ControlFrameLatch};
 
     /// A tap that opens and closes between two ticks must still reach the sim.
     #[test]
@@ -305,7 +350,7 @@ mod latch_tests {
         latch.accumulate(ControlFrame {
             attack_pressed: true,
             attack_held: true,
-            attack_strong_hint: true,
+            attack_strength_hint: AttackStrengthHint::Smash,
             ..ControlFrame::default()
         });
         latch.accumulate(ControlFrame {
@@ -316,13 +361,13 @@ mod latch_tests {
         let tick = latch.take();
         assert!(tick.attack_pressed);
         assert!(tick.attack_released);
-        assert!(tick.attack_strong_hint);
+        assert_eq!(tick.attack_strength_hint, AttackStrengthHint::Smash);
         assert!(!tick.attack_held);
 
         let next = latch.take();
         assert!(!next.attack_pressed);
         assert!(!next.attack_released);
-        assert!(!next.attack_strong_hint);
+        assert_eq!(next.attack_strength_hint, AttackStrengthHint::Auto);
         assert!(!next.attack_held);
     }
 

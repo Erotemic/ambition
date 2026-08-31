@@ -171,7 +171,16 @@ pub fn read_gameplay_control_frame_with_settings(
         attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack),
         attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
         attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
-        attack_strong_hint: actions.pressed(&Platformer2dInputActionMonolith::StrongAttack),
+        // ⚠ ONLY `Smash` IS BOUND TODAY. The hint is three-valued so a
+        // right-stick tilt mode can force `Tilt` at full deflection (parity
+        // inventory §9); no device produces that yet, and an unbound hint is
+        // `Auto` — the interpreter reading the stick, which is what every
+        // ordinary attack button asks for.
+        attack_strength_hint: if actions.pressed(&Platformer2dInputActionMonolith::StrongAttack) {
+            ambition_platformer2d_core::AttackStrengthHint::Smash
+        } else {
+            ambition_platformer2d_core::AttackStrengthHint::Auto
+        },
         pogo_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Pogo),
         fly_toggle_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Utility),
         interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),

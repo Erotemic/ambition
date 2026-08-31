@@ -2329,7 +2329,7 @@ fn seat_positions(app: &mut App) -> Vec<f32> {
 /// cannot move at all.
 ///
 /// Real keys through the real host input stack — the flick that makes the press
-/// a smash is the genuine two-tick gesture, not `attack_strong_hint` set by hand.
+/// a smash is the genuine two-tick gesture, not `attack_strength_hint` set by hand.
 #[test]
 fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
     /// Ticks to watch after the press. The authored startup is shorter than

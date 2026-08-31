@@ -1842,7 +1842,7 @@ pub fn resolve_attack_gestures(
             frame.melee_pressed,
             frame.melee_held,
             frame.melee_released,
-            frame.melee_strong_hint,
+            frame.melee_strength_hint,
         );
     }
 }

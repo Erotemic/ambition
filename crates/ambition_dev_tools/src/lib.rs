@@ -110,7 +110,50 @@ pub fn sync_live_player_dev_edits_system(
 pub struct DeveloperRuntimeState {
     pub debug: bool,
     pub slowmo: bool,
+    /// How far slow-motion slows the sim clock when [`Self::slowmo`] is on.
+    ///
+    /// ⛔ THIS LIVED IN `Platformer2dFeelTuningMonolith` until 2026-08-31, whose
+    /// own module doc says those values *"are gameplay parameters rather than
+    /// developer-tool state"*. Nothing but the developer rung ever read it. A
+    /// comment stating a rule is a rule to check.
+    pub slowmo_scale: f32,
     pub preset_flash: f32,
+}
+
+/// Ask the clock to slow while developer slow-motion is on.
+///
+/// ⭐⭐ THE DEV CRATE ASKS; THE KERNEL NO LONGER LOOKS. This was rung 4 of the
+/// actor kernel's five-rung time-scale ladder — twice, counting the
+/// no-primary-player path — and it was the last thing making a SIMULATION
+/// package read developer state. The seam to invert it was already built:
+/// `ClockRequester::DevTool` exists, `RegimePolicy` already grants it in `Solo`
+/// and denies it in `RLDeterministic` and `Cinematic`, and
+/// `apply_clock_scale_requests` reduces by `min` so nothing depends on schedule
+/// or query order.
+///
+/// ⚠ `min` IS NOT THE LADDER, and the difference is real: under the ladder
+/// bullet-time's 0.5 outranked slow-motion's 0.25 because blink sat at rung 2;
+/// now the STRONGEST SLOWDOWN wins and slow-motion does. That is the right
+/// reading for a debugging override — a developer who asked the world to crawl
+/// and got half speed because the player was aiming a blink has been told
+/// "no" by a priority table they cannot see.
+///
+/// ⛔ EVERY FRAME, not on the toggle's edge. Every other rung writes a request
+/// every frame and the reduction is per-frame, so a one-shot write would be
+/// overwritten by the kernel's own `default` rung on the next tick.
+pub fn request_developer_slow_motion(
+    dev_state: bevy::prelude::Res<DeveloperRuntimeState>,
+    mut writer: bevy::prelude::MessageWriter<ambition_time::time_control::ClockScaleRequest>,
+) {
+    if !dev_state.slowmo {
+        return;
+    }
+    writer.write(ambition_time::time_control::ClockScaleRequest {
+        domain: ambition_time::ClockDomain::SimClock,
+        scale: dev_state.slowmo_scale,
+        requester: ambition_time::time_control::ClockRequester::DevTool,
+        reason: "dev_slowmo",
+    });
 }
 
 /// Wind down the HUD's preset flash.
@@ -143,6 +186,8 @@ impl Default for DeveloperRuntimeState {
         Self {
             debug: false,
             slowmo: false,
+            // The value it carried in the feel table.
+            slowmo_scale: 0.25,
             preset_flash: 1.2,
         }
     }

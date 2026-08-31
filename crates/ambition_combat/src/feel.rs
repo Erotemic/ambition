@@ -11,7 +11,6 @@ use bevy::prelude::*;
 pub struct Platformer2dFeelTuningMonolith {
     pub bullet_time_scale: f32,
     pub blink_hold_slow_scale: f32,
-    pub debug_slowmo_scale: f32,
     pub time_ramp_down_rate: f32,
     pub time_ramp_up_rate: f32,
     pub down_double_tap_window: f32,
@@ -101,7 +100,6 @@ impl Default for Platformer2dFeelTuningMonolith {
         Self {
             bullet_time_scale: 0.125,
             blink_hold_slow_scale: 0.35,
-            debug_slowmo_scale: 0.25,
             time_ramp_down_rate: 5.0,
             time_ramp_up_rate: 14.0,
             down_double_tap_window: 0.24,
@@ -159,7 +157,6 @@ mod tests {
         // Time-domain scales between (0, 1] (slow-mo etc.).
         assert!(f.bullet_time_scale > 0.0 && f.bullet_time_scale <= 1.0);
         assert!(f.blink_hold_slow_scale > 0.0 && f.blink_hold_slow_scale <= 1.0);
-        assert!(f.debug_slowmo_scale > 0.0 && f.debug_slowmo_scale <= 1.0);
         // Hitstun control scale is also < 1 (player loses authority briefly).
         assert!(f.hitstun_control_scale >= 0.0 && f.hitstun_control_scale < 1.0);
         // Time windows / cooldowns are positive.

@@ -604,10 +604,10 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_dev_tools"]
 watch_paths = ["crates/ambition_dev_tools/Cargo.toml"]
-rationale = "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out"
+rationale = "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out. ambition_time was added 2026-08-31 for the clock seam: developer slow-motion PUBLISHES a ClockScaleRequest instead of the simulation kernel reading DeveloperRuntimeState, which is the edge this list exists to protect. ambition_time depends only on ambition_platformer2d_core, so it is foundation rather than sim"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_persistence"]
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_persistence", "ambition_time"]
 manifest = "crates/ambition_dev_tools/Cargo.toml"
 
 [[policy]]

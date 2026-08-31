@@ -96,6 +96,47 @@ is promising something arithmetic forbids. Re-run
 `grep -rl "^<dep>" crates/*/Cargo.toml game/*/Cargo.toml` before citing any
 single-path claim; it is cheaper than `cargo tree` and it is what went stale.
 
+### ✔ `ambition_dev_tools`: the kernel no longer reads or writes developer state
+
+Closed 2026-08-31, in two slices, and carved for OWNERSHIP rather than footprint
+(the table above forbids the footprint claim). Four production references
+remained after the first slice; two are gone and two are instrumentation:
+
+- **the WRITE.** `cleanup_timers_system` decayed `dev_state.preset_flash`, a
+  developer HUD timer, and that one line was the only reason the control module
+  held a `ResMut<DeveloperRuntimeState>`. Now
+  `ambition_dev_tools::decay_developer_presentation_flash`, in the SAME schedule
+  — its old home ran in `PresentationSync` so presentation timers decay while
+  gameplay is suspended, and `Update` counts a different clock under rollback.
+- **the READ.** `update_time_scale_requests` read `dev_state.slowmo` at rung 4 of
+  a five-rung ladder, twice. ⭐ THE INVERSION WAS ALREADY BUILT AND UNUSED:
+  `ClockRequester::DevTool` exists, `RegimePolicy` grants it in `Solo` and denies
+  it in `RLDeterministic`/`Cinematic`, and `apply_clock_scale_requests` reduces by
+  `min`. The dev crate publishes its own `ClockScaleRequest`; the ladder lost both
+  rungs. ⚠ `min` IS NOT A LADDER: bullet-time used to outrank slow-motion by
+  sitting at rung 2, and now the stronger slowdown wins. Stated, not hidden.
+- `debug_slowmo_scale` moved with the rung. It was a developer number in
+  `Platformer2dFeelTuningMonolith`, whose own module doc says those values *"are
+  gameplay parameters rather than developer-tool state"*, and nothing but that
+  rung read it.
+- ▢ **What is left is two `profiling::phase_mark` calls in `audio/plugin`** —
+  instrumentation, which can live anywhere, and not an authority the kernel holds.
+
+⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
+`engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the
+reason in its rationale: the dep exists so the SIMULATION stops reading developer
+state, and `ambition_time` depends only on `ambition_platformer2d_core`, so it is
+foundation rather than sim. ⛔ a carve that needs an allowlist widened should say
+what the widening buys, in the allowlist.
+
+⛔ **AND REGISTRATION NEEDED AN APP-LEVEL GUARD BOTH TIMES.** A moved system's
+behaviour can be proven in its new crate; that anything RUNS it cannot be —
+`DevToolsSimPlugin`'s siblings need resources `ambition_dev_tools` does not
+depend on, so its schedule will not run in a bare `App`, and bevy names every
+system `<Enable the debug feature to see the name>` without a feature that crate
+will not enable for a test. Both guards live in `app_it` and both go red when the
+system is unregistered.
+
 ## What recent carves taught
 
 Several completed slices established rules that should guide future ones:

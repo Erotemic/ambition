@@ -71,5 +71,11 @@ impl Plugin for DevToolsSimPlugin {
         // package winding down a developer timer — and the only thing that kept
         // a `ResMut<DeveloperRuntimeState>` in the kernel's control module.
         app.add_systems(sim, crate::decay_developer_presentation_flash);
+        // ⭐ AND THE SLOW-MOTION REQUEST, for the same reason: the toggle is this
+        // crate's, so the ASK is this crate's. It was rung 4 of the actor
+        // kernel's time-scale ladder, which made a simulation package read
+        // developer state; `apply_clock_scale_requests` reduces by `min`, so
+        // this needs no ordering against the kernel's own request.
+        app.add_systems(sim, crate::request_developer_slow_motion);
     }
 }

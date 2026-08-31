@@ -499,6 +499,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_time",
  "bevy",
  "ron 0.11.0",
  "serde",

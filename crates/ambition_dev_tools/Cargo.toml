@@ -19,6 +19,10 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # platform_paths::data_dir_root for the developer.ron on-disk location.
 ambition_persistence = { path = "../ambition_persistence" }
+# ⭐ The clock seam, for `request_developer_slow_motion`. Foundational —
+# `ambition_time` depends on `ambition_platformer2d_core` and nothing else — and
+# it is what lets the SIMULATION kernel stop reading developer state.
+ambition_time = { path = "../ambition_time" }
 # Reflect + Resource + ECS + logging. No windowing/UI — the overlays are app-side.
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
 serde = { workspace = true }

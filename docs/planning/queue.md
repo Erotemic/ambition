@@ -526,25 +526,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
   unregistered; a crate-local test cannot prove registration because
   `DevToolsSimPlugin`'s siblings need resources `ambition_dev_tools` does not
   depend on.
-  ▢ THE READ REMAINS, and it is a DECISION rather than a move — measured
-  2026-08-31. `update_time_scale_requests` reads `dev_state.slowmo` at rung 4 of
+  ✔ AND THE READ IS GONE TOO, same day — the decision taken and stated rather
+  than deferred. `update_time_scale_requests` reads `dev_state.slowmo` at rung 4 of
   a 5-rung priority ladder (twice: the main ladder and the no-primary-player
   path), so moving the SYSTEM would move the whole ladder out of the kernel,
   which is wrong. ⭐ THE INVERSION IS ALREADY BUILT: `ClockScaleRequest` carries a
   `ClockRequester::DevTool` variant that `RegimePolicy` already grants in `Solo`
   and denies in `RLDeterministic`/`Cinematic`, and `apply_clock_scale_requests`
-  reduces by `min` — order-independent. So the dev crate can publish its own
-  request and the kernel can drop both rungs. ⛔ TWO THINGS TO DECIDE FIRST:
-  (a) `min` is not the ladder — today blink's 0.5 beats dev's 0.25 because blink
-  is rung 2; afterwards the strongest slowdown wins and dev's would; and
-  (b) `ambition_dev_tools` has an explicit dependency ALLOWLIST in
-  `engine.ambition_dev_tools-manifest-allow` (core, characters, shared_tangle,
-  persistence) that `ambition_time` is not on. ⚠ and `debug_slowmo_scale` is a
-  DEVELOPER number living in `Platformer2dFeelTuningMonolith`, whose own module
-  doc says those values *"are gameplay parameters rather than developer-tool
-  state"* — nothing but the dev rung reads it, so it should move with the rung.
-  ⚠ the two `profiling::phase_mark` calls in `audio/plugin` are untouched
-  instrumentation.
+  reduces by `min` — order-independent. So the dev crate publishes its own
+  request and the kernel dropped both rungs. ⛔ TWO CHOICES MADE, both recorded
+  where they bite: (a) `min` IS NOT THE LADDER — bullet-time's 0.5 used to
+  outrank slow-motion's 0.25 by sitting at rung 2, and now the stronger slowdown
+  wins, which is the right reading for a debugging override; and (b)
+  `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the
+  reason in its own rationale — the dep exists so the SIMULATION stops reading
+  developer state, and `ambition_time` depends only on
+  `ambition_platformer2d_core`. `debug_slowmo_scale` moved with the rung onto
+  `DeveloperRuntimeState`. ⚠ WHAT IS LEFT is the two `profiling::phase_mark`
+  calls in `audio/plugin` — instrumentation, not an authority.
   Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 

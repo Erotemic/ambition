@@ -5,10 +5,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_dev_tools::DeveloperRuntimeState;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_time::time_control::{
     ClockRequester, ClockResetRequest, ClockScaleRequest, RequestedClockScale,
 };
@@ -27,9 +26,18 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 ///    the "bullet_blink" verb)
 /// 3. blink hold active → blink_hold_slow_scale  (Player —
 ///    "blink_hold_slow")
-/// 4. dev_state.slowmo → debug_slowmo_scale  (DevTool —
-///    inspector-driven)
-/// 5. otherwise → 1.0  (Engine — restoring real-time pace)
+/// 4. otherwise → 1.0  (Engine — restoring real-time pace)
+///
+/// ⛔ THE DEVELOPER RUNG LEFT, 2026-08-31. It sat between 3 and 5 and read
+/// `ambition_dev_tools::DeveloperRuntimeState` — a simulation package looking at
+/// developer state, the last such read in this kernel. Slow-motion publishes its
+/// own `ClockScaleRequest` now
+/// (`ambition_dev_tools::request_developer_slow_motion`), and
+/// `apply_clock_scale_requests` reduces every granted request by `min`.
+///
+/// ⚠ SO THIS IS NO LONGER A TOTAL ORDER over slow-downs, and one pair changed:
+/// bullet-time (rung 2) used to outrank slow-motion, and now the stronger
+/// slowdown wins. Inside this function the ladder is still a ladder.
 ///
 /// ADR 0011 §"Two time-control operations" note: in SP, the
 /// "slow sim" (Operation 1) and "boost player proper time"
@@ -45,7 +53,6 @@ pub fn emit_player_time_intent_system(
         (&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat),
         With<PrimaryPlayer>,
     >,
-    dev_state: Res<DeveloperRuntimeState>,
     feel: Res<Platformer2dFeelTuningMonolith>,
     // The MATCH's freeze, which belongs to nobody's seat. See rung zero below.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
@@ -97,22 +104,19 @@ pub fn emit_player_time_intent_system(
     // Reading the two off one early return made the second one unreachable
     // exactly where it was the only thing left to say.
     let Ok((facts, combat)) = primary.single() else {
-        //  the dev rung survives, because the inspector's slow-motion is not
-        // slot zero's either — it belongs to whoever is looking at the world.
-        let (scale, reason) = if dev_state.slowmo {
-            (feel.debug_slowmo_scale, "dev_slowmo")
-        } else {
-            (1.0, "default")
-        };
+        //  the developer rung USED to survive here, because the inspector's
+        // slow-motion is not slot zero's either — it belongs to whoever is
+        // looking at the world. It still does not belong to slot zero, and that
+        // is now expressed by the dev crate publishing its own request rather
+        // than by this ladder carrying a copy of the rule:
+        // `ambition_dev_tools::request_developer_slow_motion`. A world with no
+        // primary player still slows for a developer, because nothing about that
+        // ever went through here.
         writer.write(ClockScaleRequest {
             domain: ClockDomain::SimClock,
-            scale,
-            requester: if dev_state.slowmo {
-                ClockRequester::DevTool
-            } else {
-                ClockRequester::Engine
-            },
-            reason,
+            scale: 1.0,
+            requester: ClockRequester::Engine,
+            reason: "default",
         });
         return;
     };
@@ -131,12 +135,6 @@ pub fn emit_player_time_intent_system(
             feel.blink_hold_slow_scale,
             ClockRequester::Player(ClockObserver::PRIMARY),
             "blink_hold_slow",
-        )
-    } else if dev_state.slowmo {
-        (
-            feel.debug_slowmo_scale,
-            ClockRequester::DevTool,
-            "dev_slowmo",
         )
     } else {
         (1.0, ClockRequester::Engine, "default")

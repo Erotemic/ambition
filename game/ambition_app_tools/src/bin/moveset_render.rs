@@ -22,6 +22,7 @@
 //! decides. The manifest carries the intended move and the observed ones, and a
 //! mismatch is reported rather than cached under the name that was asked for.
 
+use ambition_platformer2d::dev_tools::CombatOverlayLayers;
 use ambition_sim_harness::combat_observation::{CombatObservation, ScenarioRoles};
 use ambition_sim_harness::move_exercise;
 
@@ -46,8 +47,14 @@ OPTIONS:
     --target ID      who the move is performed against  [default: the fighter]
     --target-behavior WHICH
                      passive | cpu                      [default: passive]
+    --overlay LAYERS on | off | a comma list of art,hurtboxes,strikes
+                     [default: on = all three]
+                     ⭐ INDEPENDENT, because the questions are. Whether a volume
+                     sits inside the sprite needs the art; where exactly it
+                     reaches is easier without it; why it missed wants the
+                     hurtboxes without the strikes drawn on top of them.
     --combat-overlay WHICH
-                     on | off                           [default: on]
+                     an alias for --overlay                [default: on]
                      `on` draws the engine's own combat geometry — hurtboxes,
                      live strike volumes, the move readout — over the real
                      rendered art, from the SAME execution. That is the whole
@@ -78,12 +85,17 @@ NOTES:
 ///
 /// The three gates the gizmo pass reads are `ambition_dev_tools`'
 /// business, not this binary's — see `force_combat_overlay` there.
+/// The layers this run asked for, so the forcing system does not re-parse them.
+#[derive(bevy::prelude::Resource, Clone, Copy)]
+struct RequestedOverlayLayers(CombatOverlayLayers);
+
 fn force_combat_overlay(
+    requested: Res<RequestedOverlayLayers>,
     mut dev_state: Option<ResMut<ambition_platformer2d::dev_tools::DeveloperRuntimeState>>,
     mut developer: Option<ResMut<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
 ) {
     if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
-        ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer);
+        ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer, requested.0);
     }
 }
 
@@ -117,6 +129,7 @@ fn main() {
                     | "--target"
                     | "--target-behavior"
                     | "--combat-overlay"
+                    | "--overlay"
                     | "--spacing"
             )
         })
@@ -180,14 +193,37 @@ fn main() {
             }
         },
     };
-    let combat_overlay = match arg("--combat-overlay").as_deref() {
-        None | Some("on") => true,
-        Some("off") => false,
-        Some(word) => {
-            eprintln!("moveset_render: unknown --combat-overlay '{word}'; expected on or off");
-            std::process::exit(2);
+    // ⛔ ONE FLAG, TWO SPELLINGS. `--combat-overlay on|off` is what this binary
+    // shipped with; `--overlay` is the same switch with layer names. A second
+    // meaning for either would be a second answer to "what is drawn".
+    let asked = arg("--overlay").or_else(|| arg("--combat-overlay"));
+    let layers = match asked.as_deref() {
+        None | Some("on") => Some(CombatOverlayLayers::default()),
+        Some("off") | Some("none") => None,
+        Some(list) => {
+            let mut chosen = CombatOverlayLayers {
+                art: false,
+                hurtboxes: false,
+                strikes: false,
+            };
+            for name in list.split(',').map(str::trim) {
+                match name {
+                    "art" => chosen.art = true,
+                    "hurtboxes" | "hurt" => chosen.hurtboxes = true,
+                    "strikes" | "hitboxes" => chosen.strikes = true,
+                    other => {
+                        eprintln!(
+                            "moveset_render: unknown overlay layer '{other}'; expected \
+                             on, off, or a comma list of art,hurtboxes,strikes"
+                        );
+                        std::process::exit(2);
+                    }
+                }
+            }
+            Some(chosen)
         }
     };
+    let combat_overlay = layers.is_some();
     let size = UVec2::new(480, 360);
 
     // ⛔ BEFORE THE APP IS BUILT. Bevy reads the adapter environment when it
@@ -219,7 +255,8 @@ fn main() {
         true,
         |_app| {},
     );
-    if combat_overlay {
+    if let Some(layers) = layers {
+        app.insert_resource(RequestedOverlayLayers(layers));
         // ⭐⭐ THE ART AND THE GEOMETRY IN ONE IMAGE, FROM ONE EXECUTION. The
         // engine already draws `CombatGeometryView` over its own presentation —
         // that is the production developer overlay — so the picture a reader
@@ -554,6 +591,11 @@ fn main() {
         // no boxes must be able to tell "this move has no hitbox" from "the
         // overlay was off".
         "combat_overlay": combat_overlay,
+        // WHICH LAYERS are on the pixels, so a reader looking at a PNG with no
+        // cyan on it can tell "no hurtbox" from "hurtboxes were not drawn".
+        "overlay_layers": layers.map(|l| serde_json::json!({
+            "art": l.art, "hurtboxes": l.hurtboxes, "strikes": l.strikes,
+        })),
         "requested_spacing": spacing,
         // ⛔ ASKED FOR AND REACHED ARE TWO NUMBERS. A move that could not close
         // the gap is a finding, not a footnote.

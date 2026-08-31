@@ -603,12 +603,31 @@ do not shrink the picker to two.
 
 ## The move renderer (`moveset_render`)
 
-It draws the engine's own combat overlay over the real art by default
-(`--combat-overlay off` turns it off), so one PNG carries the actual rendered
-character, the actual target, the actual VFX **and** the actual runtime volumes —
-from ONE execution, with no browser-side transform between two coordinate
-systems. Nothing in the tool draws a box; the production
-`draw_combat_geometry_view` does.
+It draws the engine's own combat overlay over the real art by default, so one
+PNG carries the actual rendered character, the actual target, the actual VFX
+**and** the actual runtime volumes — from ONE execution, with no browser-side
+transform between two coordinate systems. Nothing in the tool draws a box; the
+production `draw_combat_geometry_view` does.
+
+The layers are independent, because the questions are:
+
+```bash
+--overlay on                  # art + hurtboxes + strikes (the default)
+--overlay off                 # the plain render
+--overlay hurtboxes           # why did this MISS?
+--overlay strikes             # how far does this REACH?
+--overlay hurtboxes,strikes   # geometry alone, no sprite under it
+```
+
+Whether a volume sits inside the sprite needs the art; where it reaches is
+easier to read without it; why an attack missed wants the hurtboxes without the
+strikes drawn over them. The manifest records `overlay_layers`, so a reader
+looking at a PNG with no cyan on it can tell "this body had no hurtbox" from
+"hurtboxes were not drawn".
+
+⚠ **UNVERIFIED.** This compiles and nobody has compared the four renders. Do
+that before trusting it — the overlay-on/overlay-off pair for the whole overlay
+was checked that way and differed in 2029 pixels.
 
 Beside every PNG the manifest carries that shot's `observation`: the same tick's
 bodies, roles, hurtboxes, strike volumes and move clock, in the same schema the

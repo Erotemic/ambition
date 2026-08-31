@@ -129,6 +129,34 @@ impl DeveloperRuntimeState {
     }
 }
 
+/// Which layers of the combat overlay to draw.
+///
+/// ⭐⭐ THE LAYERS ARE INDEPENDENT BECAUSE THE QUESTIONS ARE. "Is this volume
+/// inside the sprite?" needs the art; "where exactly does this reach?" is easier
+/// with the art off; "why did this miss?" wants the hurtboxes without the
+/// strikes on top of them. A single on/off switch answers one of the three.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CombatOverlayLayers {
+    /// The rendered character art. Off draws the world grid instead, which is
+    /// what `hide_sprites` has always meant.
+    pub art: bool,
+    /// The coarse collision envelope and the effective hurtboxes.
+    pub hurtboxes: bool,
+    /// Live strike volumes and the move/timing readout.
+    pub strikes: bool,
+}
+
+impl Default for CombatOverlayLayers {
+    /// Everything: the preset a tool asking for "the combat overlay" means.
+    fn default() -> Self {
+        Self {
+            art: true,
+            hurtboxes: true,
+            strikes: true,
+        }
+    }
+}
+
 /// Turn the COMBAT overlay on, everywhere it is gated.
 ///
 /// ⛔⛔ THE GIZMO PASS IS GATED ON THREE SEPARATE THINGS — the debug flag, the
@@ -144,6 +172,7 @@ impl DeveloperRuntimeState {
 pub fn force_combat_overlay(
     state: &mut DeveloperRuntimeState,
     tools: &mut dev_tools::DeveloperTools,
+    layers: CombatOverlayLayers,
 ) {
     if !state.debug {
         state.debug = true;
@@ -154,6 +183,15 @@ pub fn force_combat_overlay(
     if tools.debug_view_mode != dev_tools::DebugViewMode::Combat {
         tools.apply_debug_view_mode(dev_tools::DebugViewMode::Combat, false);
     }
+    // ⛔ THE PRESET TURNS ON THE *COMBINED* GATE, and that one draws both halves
+    // whatever the per-layer fields say — so asking for hurtboxes alone requires
+    // clearing it. `draw_combat_geometry_view` reads
+    // `show_player_hitbox || show_feature_hitboxes` for the hurt half and
+    // `show_combat_preview || show_feature_hitboxes` for the strikes.
+    tools.show_feature_hitboxes = false;
+    tools.show_player_hitbox = layers.hurtboxes;
+    tools.show_combat_preview = layers.strikes;
+    tools.hide_sprites = !layers.art;
 }
 
 #[cfg(test)]

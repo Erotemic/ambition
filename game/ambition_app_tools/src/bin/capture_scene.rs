@@ -777,7 +777,11 @@ fn force_combat_overlay(
     // tool asking for combat geometry cannot satisfy two of them and photograph
     // a swing with no volume on it.
     if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
-        ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer);
+        ambition_platformer2d::dev_tools::force_combat_overlay(
+            dev_state,
+            developer,
+            Default::default(),
+        );
     }
 }
 

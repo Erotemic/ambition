@@ -550,10 +550,28 @@ pixels rather than by a flag — an overlay-on and an overlay-off render of the
 same action tick differ, and the strike volume is visible over the art at the
 tick the manifest says it is live.
 
-**Still open**: the per-layer toggles (art / hitboxes / hurtboxes / trajectories
-independently) and the agreement MEASUREMENTS (visual weapon tip versus attack
-extent, a volume mostly inside the body, VFX centre versus contact point). Those
-need the render to expose its camera transform, which it does not yet.
+**The layer toggles are WRITTEN AND UNVERIFIED.** `moveset_render --overlay
+on|off|art,hurtboxes,strikes` drives them independently, through one definition
+of the gates (`dev_tools::force_combat_overlay` takes a `CombatOverlayLayers`),
+and the manifest records which were on — so a PNG with no cyan on it can be told
+apart from a body with no hurtbox.
+
+⚠ IT COMPILES AND NOTHING HAS LOOKED AT THE PIXELS. Every other claim on this
+page was checked against a real artifact; this one was not, because the run that
+would have checked it was interrupted. Render the same move four ways
+(`on`, `hurtboxes`, `strikes`, `hurtboxes,strikes`) and compare, exactly as the
+overlay-on/overlay-off pair was compared for M1.5, before believing this row.
+
+⛔ The `Combat` debug PRESET turns on the COMBINED gate
+(`show_feature_hitboxes`), which draws both halves whatever the per-layer fields
+say — so asking for one layer means clearing it. That is why the toggles could
+not be had by setting two booleans.
+
+**Still open**: `trajectories`, `contact markers` and `VFX` have no independent
+gate in the overlay, and the agreement MEASUREMENTS (visual weapon tip versus
+attack extent, a volume mostly inside the body, VFX centre versus contact point)
+need the render to publish its camera transform, which it does not. That
+transform is the one architectural gap left in this whole program.
 
 ## Goal
 

@@ -19,7 +19,8 @@
 //! that needed it are gone.
 
 use bevy::dev_tools::fps_overlay::{
-    FpsOverlayConfig, FpsOverlayPlugin as BevyFpsOverlayPlugin, FPS_OVERLAY_ZINDEX,
+    FpsOverlayConfig, FpsOverlayPlugin as BevyFpsOverlayPlugin, FrameTimeGraphConfig,
+    FPS_OVERLAY_ZINDEX,
 };
 use bevy::prelude::*;
 
@@ -40,6 +41,19 @@ const FPS_OVERLAY_MARGIN: f32 = 8.0;
 /// viewport it is a quarter of the screen height.
 const FPS_OVERLAY_FONT_PX: f32 = 12.0;
 
+/// The counter's drop shadow.
+///
+/// ⛔⛔ THE COUNTER IS DRAWN OVER A GAME, NOT OVER A KNOWN COLOUR. Light rooms,
+/// the white loading surface and pale menu panels all put near-white text on a
+/// near-white ground, and the counter simply disappeared. A shadow fixes that
+/// everywhere at once, which a background colour only does by covering the very
+/// thing the developer is looking at.
+///
+/// ⭐ ONE PIXEL, NOT UPSTREAM'S FOUR. `TextShadow::default()` offsets by 4px,
+/// which is a third of a 12px glyph — at this size it reads as a second,
+/// blurred counter rather than as an edge.
+const FPS_OVERLAY_SHADOW_OFFSET: f32 = 1.0;
+
 /// Ambition's wiring around [`BevyFpsOverlayPlugin`].
 pub struct FpsOverlayPlugin;
 
@@ -57,6 +71,22 @@ impl Plugin for FpsOverlayPlugin {
                 // starting visible is what the player who never opens the
                 // settings menu gets.
                 enabled: true,
+                // ⭐ THE GRAPH STAYS ON, DELIBERATELY. The campaign's A1 suggested
+                // compact text normally and the graph only under F1; Jon,
+                // 2026-08-31: *"we want it on all the time because its extremely
+                // useful while we are still developing"*. Stated explicitly
+                // rather than inherited from `..default()` — it happened to be
+                // upstream's default too, and a policy that matches a default by
+                // accident is one nobody notices when the default moves.
+                //
+                // ⚠ It does not exist on the WebGL build at all: upstream spawns
+                // the graph node under `#[cfg(not(all(wasm32, not(webgpu))))]`.
+                // Browser builds get the text and no graph, and that is not a
+                // regression to chase.
+                frame_time_graph_config: FrameTimeGraphConfig {
+                    enabled: true,
+                    ..default()
+                },
                 ..default()
             },
         })
@@ -66,6 +96,7 @@ impl Plugin for FpsOverlayPlugin {
             (
                 sync_fps_overlay_from_settings,
                 toggle_fps_overlay_from_hotkey,
+                shadow_the_fps_text,
                 place_fps_overlay,
             ),
         );
@@ -110,6 +141,41 @@ fn toggle_fps_overlay_from_hotkey(
         .any(|action| *action == DeveloperAction::ToggleFpsOverlay)
     {
         settings.video.show_fps = !settings.video.show_fps;
+    }
+}
+
+/// Give the counter a drop shadow so it survives a light background.
+///
+/// ⛔ UPSTREAM HAS NO HOOK FOR THIS. `FpsOverlayConfig` carries `text_color` and
+/// `text_config` and nothing else about presentation — no background, no
+/// shadow — and `customize_overlay` rewrites exactly those two on every config
+/// change. `TextShadow` is a separate component on the text entity, so it is
+/// ours to attach and upstream's restyle pass leaves it alone.
+///
+/// ⭐ FOUND BY THE Z-INDEX, THEN BY THE HIERARCHY. Upstream's `FpsText` marker is
+/// private; what IS public is `FPS_OVERLAY_ZINDEX` on the root, and the text is
+/// a direct child of it. `Without<TextShadow>` makes this a one-shot: it stops
+/// matching the moment the shadow is on, so the steady-state cost is an empty
+/// query.
+fn shadow_the_fps_text(
+    mut commands: Commands,
+    roots: Query<(&GlobalZIndex, &Children)>,
+    undressed: Query<(), (With<Text>, Without<TextShadow>)>,
+) {
+    for (z, children) in &roots {
+        if z.0 != FPS_OVERLAY_ZINDEX {
+            continue;
+        }
+        for child in children.iter() {
+            if undressed.get(child).is_ok() {
+                commands.entity(child).insert(TextShadow {
+                    offset: Vec2::splat(FPS_OVERLAY_SHADOW_OFFSET),
+                    // Near-opaque black: the shadow is doing the contrast work,
+                    // so a translucent one reintroduces the problem it solves.
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.9),
+                });
+            }
+        }
     }
 }
 

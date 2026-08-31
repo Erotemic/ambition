@@ -1165,3 +1165,67 @@ fn the_fps_counter_draws_in_front_of_the_launcher() {
          overlay — something in the launcher draws over the counter"
     );
 }
+
+/// The FPS counter carries a drop shadow, so it survives a light background.
+///
+/// ⛔ UPSTREAM CANNOT BE ASKED FOR THIS. `FpsOverlayConfig` exposes `text_color`
+/// and `text_config` and nothing else about presentation, and `customize_overlay`
+/// rewrites exactly those two whenever the config changes. The shadow is a
+/// separate component Ambition attaches, which is precisely why it needs a test:
+/// nothing upstream would fail if it stopped being attached, and a counter that
+/// is merely hard to read on pale rooms does not announce itself.
+#[test]
+fn the_fps_counter_has_a_shadow_to_read_against_pale_ground() {
+    use bevy::dev_tools::fps_overlay::FPS_OVERLAY_ZINDEX;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let overlay_root = {
+        let mut roots = app.world_mut().query::<(Entity, &GlobalZIndex)>();
+        roots
+            .iter(app.world())
+            .find(|(_, z)| z.0 == FPS_OVERLAY_ZINDEX)
+            .map(|(entity, _)| entity)
+            .expect("the FPS overlay root is composed in every visible host")
+    };
+    let children: Vec<Entity> = app
+        .world()
+        .entity(overlay_root)
+        .get::<Children>()
+        .map(|children| children.iter().collect())
+        .unwrap_or_default();
+
+    // ⭐ THE PREMISE: there IS a text child to dress. Without this the assertion
+    // below passes on an overlay that spawned nothing.
+    let texts: Vec<Entity> = children
+        .iter()
+        .copied()
+        .filter(|child| app.world().entity(*child).contains::<Text>())
+        .collect();
+    assert!(
+        !texts.is_empty(),
+        "the FPS overlay root has no text child, so there is nothing to shadow"
+    );
+
+    for text in texts {
+        let shadow = app
+            .world()
+            .entity(text)
+            .get::<TextShadow>()
+            .copied()
+            .expect("the counter's text carries a shadow");
+        assert!(
+            shadow.offset.x > 0.0 && shadow.offset.y > 0.0,
+            "a zero offset hides the shadow directly behind the glyphs, which is \
+             the one configuration that does nothing"
+        );
+        assert!(
+            shadow.offset.x <= 2.0,
+            "the shadow is offset {}px against a {}px glyph; past a couple of \
+             pixels it reads as a second blurred counter, not an edge",
+            shadow.offset.x,
+            12.0,
+        );
+    }
+}

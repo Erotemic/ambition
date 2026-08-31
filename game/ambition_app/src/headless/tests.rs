@@ -67,6 +67,14 @@ fn run_headless_runs_multiple_ticks() {
 /// ⚠ SO IT SCANS A WINDOW, and the window is the assertion: an unbounded loop
 /// would hang on a genuinely silent reset, and reading one frame is what went
 /// stale. If the boundary moves further out, this fails with the count it saw.
+///
+/// ⛔⛔ AND SCANNING THE WINDOW DID NOT FIX IT — measured 2026-08-31: ZERO SFX
+/// cues of ANY kind cross this channel in forty frames of this fixture, so the
+/// fault is upstream of the window. Five causes are eliminated in
+/// D-SFX-RESET-RED, including one bad inference of mine: the absence of the
+/// resolver's *"no controlled body"* `info!` line proved nothing, because this
+/// fixture installs no `LogPlugin`. ⛔ do not "fix" this by asserting the count
+/// it currently produces.
 #[test]
 fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     let mut app = initialized_sandbox_sim_app();

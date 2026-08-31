@@ -633,13 +633,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   **0 on every frame**, so nothing is written and then aged out; nothing is
   written at all.
   ⇒ IN A QUIET SANDBOX THE RESET IS THE ONLY EXPECTED CUE (nobody moves, nobody
-  fights), so the suspect is `return_the_replay_subject_to_spawn`, which reaches
-  `reset_sandbox` — the one `SfxMessage::Reset` writer on this road — only past
-  TWO early returns: no `subject` on the admitted message, or **no body whose
-  `SimId` matches it**. The admission log proves a subject exists, so the body
-  lookup is the one to instrument. ⚠ note the function's own comment already
-  records a previous instance of exactly this shape: requiring a component the
-  subject may not carry *"made the reset silently skip it entirely"*.
+  fights), so the road is `return_the_replay_subject_to_spawn` → `reset_sandbox`,
+  the one `SfxMessage::Reset` writer here, reachable only past TWO early returns:
+  no `subject` on the admitted message, or no body whose `SimId` matches it.
+  ⛔⛔ AND I READ THE LOG WRONG — RETRACTED IN PLACE. I wrote that *"the
+  admission log proves a subject exists"* because no *"admitted with no
+  controlled body"* line appeared. **It could not have appeared**: that line is
+  `bevy::log::info!` and the headless fixture installs no `LogPlugin`, while the
+  `world-event` line beside it prints unconditionally and fires on BOTH branches.
+  ⚠ THE ABSENCE OF A LOG IS NOT EVIDENCE WHEN THE LOGGER IS NOT INSTALLED.
+  (5) Instrumented instead: the body population is not the problem — 21 `SimId`s,
+  **2** carrying the whole `MotionModel` + `BodyCombat` + `BodyAnimFacts` set the
+  query requires, and **1 `PrimaryPlayer`**, on every frame. So a subject is
+  resolvable and a matching body exists. ⇒ WHAT IS LEFT is to instrument the two
+  guards themselves rather than their inputs: print inside
+  `return_the_replay_subject_to_spawn`. ⚠ the function's own comment records a
+  previous instance of exactly this shape — requiring a component the subject may
+  not carry *"made the reset silently skip it entirely"* — so a THIRD required
+  component (`BodyMelee`, `BodyClusterQueryData`) not probed here is the standing
+  suspect.
   ⚠ AND THE 191 OTHER TESTS in that target have never been run in this rhythm
   either. They pass today, and nothing was watching.
 

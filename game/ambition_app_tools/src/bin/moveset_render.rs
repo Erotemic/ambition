@@ -599,8 +599,14 @@ fn render_pair(
             >();
             (staged, q.iter(world).count())
         };
+        // ⛔⛔ AND IT IS THE FIGHTER WE ASKED FOR. `staged > 0` is satisfied by
+        // the OUTGOING cast the instant a new roster is published — the old
+        // fighters are still standing, unheld, in a live session — so a batch
+        // could settle, press and photograph the previous match. A single-shot
+        // process never saw it because its stage starts empty.
         if staged > 0
             && held == 0
+            && move_exercise::seat_character(app, 0).as_deref() == Some(character)
             && ambition_platformer2d::rollback::session_is_active(app.world())
         {
             live = true;
@@ -615,7 +621,15 @@ fn render_pair(
         // sent the reader looking for a missing GPU or a broken session.
         let (staged, held) = staging_census(app);
         let rollback_session = ambition_platformer2d::rollback::session_is_active(app.world());
-        let why = if staged == 0 {
+        let seated = move_exercise::seat_character(app, 0);
+        let why = if staged > 0 && seated.as_deref() != Some(character) {
+            format!(
+                "the stage never became '{character}' — after 1200 updates seat zero \
+                 still wears {seated:?}. The roster was published and the route asked \
+                 for, so this is the match transition not completing rather than a \
+                 character the grid does not carry."
+            )
+        } else if staged == 0 {
             format!(
                 "'{character}' seated nobody — the match staged 0 fighters, so this is \
                  almost certainly a character id the smash grid does not carry rather \

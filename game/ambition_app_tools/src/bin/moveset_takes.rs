@@ -688,9 +688,15 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
     // EMPTY STAGE in that character's name. The 240 stay as a ceiling rather
     // than the answer, and the common case got faster: the loop ends the moment
     // the subject is there.
+    // ⛔⛤ AND IT IS THE FIGHTER WE ASKED FOR. `subject(app).is_some()` is
+    // satisfied by the OUTGOING cast the instant a new roster is published — the
+    // previous match's bodies are still standing in a live session — so the
+    // FIRST take of a new character could settle, press and record the previous
+    // character under this one's name. Every take re-seats, so a run that
+    // records several fighters crosses this boundary once per character.
     for _ in 0..240 {
         app.update();
-        if move_exercise::subject(app).is_some() {
+        if move_exercise::seat_character(app, 0).as_deref() == Some(character) {
             return true;
         }
     }

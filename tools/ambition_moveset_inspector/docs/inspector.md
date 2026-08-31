@@ -601,6 +601,92 @@ synthesised bundles and asserts the thing that was wrong for a long time: a
 bundle of five fighters offers five with zero takes recorded, and two recordings
 do not shrink the picker to two.
 
+## Generating the whole corpus, with or without a GPU
+
+```bash
+python3 scripts/moveset_visualizations.py --out /tmp/moveset_viz
+```
+
+Two paths, one command, and the pick is stated on stdout and in `index.json`:
+
+- **engine render** — needs a WGPU adapter (Lavapipe counts). Real art with the
+  real runtime volumes over it.
+- **diagnostic sheets** — need nothing at all. Same geometry, as SVG, and they
+  diff as text.
+
+The sheets are drawn either way because they are free; the pixels are drawn when
+an adapter exists. `--no-gpu` forces the second path. The verdict comes from
+`scripts/render_capability_doctor.py`, which the Status page already uses — one
+detector, not two.
+
+⛔ IT DOES NOT RECORD TAKES. The diagnostic path reads a `takes.json` and
+recording the grid is a ~27 minute job of its own, so a missing recording is
+reported with the command that makes one rather than run behind your back.
+
+## Why the corpus is fast now, and what was actually slow
+
+⛔⛔ **THE PIXELS WERE NEVER THE COST.** Measured on this VM with the arms
+interleaved (run-to-run noise here is ±0.7s, so a single pair of runs proves
+nothing):
+
+| frames rendered | mean wall |
+|---|---|
+| 1 | 3.21s |
+| 32 | 3.33s |
+
+31 extra frames cost 0.12s — about **4ms a frame** at 480×360 on llvmpipe. A
+lower resolution would save around 1% and was the first thing everybody
+reached for, including me.
+
+⭐⭐ **THE COST WAS THE APP BOOT, PAID ONCE PER MOVE.** `moveset_render` renders
+many pairs in ONE app now (`--characters`, `--verbs`), the way `moveset_takes`
+always has:
+
+| | per render |
+|---|---|
+| one process per move | 3.20s |
+| batched, 19 verbs of ONE fighter | **0.57s** |
+| batched, the whole grid | **1.02s** |
+
+⚠ The two batched numbers differ because a character CHANGE costs more than a
+verb change — a new roster loads new sheets. Quoting the one-fighter figure for
+a grid would have under-promised it by half.
+
+**Measured end to end: 399 renders in 411.6s — 6.9 minutes, 0 failures**, against
+~21 minutes before. The binary-load theory was wrong too, by the way: the 816MB
+debug binary starts in 0.01s.
+
+⭐ The corpus writes `<character>__<verb>/` — the layout the inspector server
+already caches by — and each manifest stamps the binary that drew it
+(`renderer_mtime`), so an overnight run IS the browser's cache and still goes
+stale honestly when the renderer moves on:
+
+```bash
+python3 scripts/moveset_visualizations.py \
+    --out tools/ambition_moveset_inspector/data
+```
+
+⭐ And a grid is an INSTRUMENT, not just pictures. This one reported 396 of 399
+reaching their intended move, and named the three that did not:
+`npc_pirate_admiral special_air_down` and `npc_oiler special_air_down` UNBOUND,
+and `pugnacious_polygon attack` MISSED — a press that played something other
+than the move it is bound to.
+
+⛔⛔ **A BATCH RE-SEATS EVERY PAIR, AND THAT IS NOT NEGOTIABLE.**
+`afford_recovery` refuses a recovery whose airtime already spent one, so a move
+rendered after another one in the same match can photograph a move that produced
+nothing — the recorder learned this as three separate false findings. Batching
+trades an app boot for a re-seat; it does not trade away the isolation. The
+verdicts prove it: a batched sweep of the admiral reports 18 of 19 reached and
+`special_air_down` UNBOUND, which is exactly what `moveset_takes` reports.
+
+⚠ **BATCHED AND SINGLE-SHOT PIXELS ARE NOT BYTE-COMPARABLE.** Two single-shot
+runs are byte-IDENTICAL, so the renderer is deterministic; the same pair drawn
+inside a batch differs on 0.26% of pixels by at most 6/255 — presentation state
+carried across the re-seat, not a different fight (manifests, ticks and moves
+match exactly). The manifest records `batched`, so a visual diff can compare
+like with like instead of chasing it. Regenerate both sides the same way.
+
 ## The move renderer (`moveset_render`)
 
 It draws the engine's own combat overlay over the real art by default, so one

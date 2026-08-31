@@ -169,6 +169,17 @@ actual product requirement.
 - ▢ **Cross-compile persona audit.** Check one host-buildable target/persona at a
   time. Android remains prerequisite-gated on the NDK/toolchain; do not call a
   missing toolchain a product defect.
+- ▢ **The Bevy 0.19 Android FONT path is TYPECHECKED, NOT RUN.** The port deleted
+  the hand-rolled `seed_android_system_fonts` (`CosmicFontSystem` is gone) and
+  turned on Bevy's `system_font_discovery` for the `android_platform` feature
+  instead, which is 0.19's own answer now that fontique owns fallback. ⛔ NOBODY
+  HAS SEEN IT RESOLVE A GLYPH: `aarch64-linux-android` cannot even link here —
+  `ANDROID_NDK_HOME` points at a directory that does not exist, so
+  `android-activity`'s build script dies looking for `clang++`. This is the one
+  0.19 change whose whole job is to find fonts the HOST does not have, so a
+  desktop green says nothing about it. Closing it needs a device: launch, read
+  logcat, confirm menu and dialogue text render rather than falling back to
+  boxes. ⛔ Until then never write "verified on Android" for it.
 - ▢ **Asset residency/materialization followups.** Add ownership/budget policy
   from measured resident-memory or hitch pressure. Owner:
   [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).

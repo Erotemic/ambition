@@ -894,49 +894,7 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
         PersistedOccurrence, PersistedWhereabouts,
     };
 
-    let mut played = fixed_60hz_room_sim(DURABLE_ROOM);
-    for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
-        played.step(base());
-    }
-    let empty_file = played.world().resource::<AmbitionGameSave>().data().clone();
-
-    let relocatable = {
-        let mut q = played.world_mut().query::<(
-            &SimId,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
-        )>();
-        let world = played.world();
-        let mut ids: Vec<String> = q
-            .iter(world)
-            .map(|(id, _)| id.as_str().to_string())
-            .collect();
-        ids.sort();
-        ids.into_iter().next().unwrap_or_else(|| {
-            panic!(
-                "'{DURABLE_ROOM}' authors no occurrence-bearing object, so this case \
-                 has nothing to relocate"
-            )
-        })
-    };
-    let neighbour = {
-        let world = played.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let room_set = q
-            .iter(world)
-            .next()
-            .expect("the session has an active room set");
-        room_set
-            .active_loading_zones()
-            .iter()
-            .filter_map(|zone| {
-                room_set
-                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
-                    .and_then(|t| room_set.rooms.get(t.target_room))
-                    .map(|room| room.id.clone())
-            })
-            .find(|id| id != DURABLE_ROOM)
-            .unwrap_or_else(|| panic!("'{DURABLE_ROOM}' has no authored exit"))
-    };
+    let (relocatable, neighbour, empty_file) = relocatable_occurrence();
 
     let mut relocated_file = empty_file.clone();
     relocated_file.occurrences = vec![PersistedOccurrence::new(
@@ -1066,6 +1024,161 @@ fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
     );
 }
 
+/// Case 8c: a save carrying BOTH a cross-room checkpoint and an occurrence row
+/// lands BOTH.
+///
+/// ⛔⛔ TWO CHECKPOINT ROADS WANT THE SAME ONE-SLOT LIFECYCLE COMMIT, and the
+/// collision is real: `restore_checkpoint_on_session_start` records a transition
+/// to the checkpoint's room on the first tick a body exists;
+/// `resume_at_checkpoint_on_reset` records one too, from the `ResetToCheckpoint`
+/// the durable chain writes when the file carries rows. The slot is
+/// EARLIEST-STICKY, so the second gets `AlreadyPending`, writes no
+/// `RoomReplayAdmitted`, and the reset message is drained either way.
+///
+/// ⭐ MEASURED, AND IT IS BENIGN FOR THIS SHAPE. Both roads ask for the SAME
+/// destination and arrival, so whichever wins takes the session to the same
+/// place; the only thing the loser drops is the replay announcement, whose
+/// consumer is the attempt-residue sweep, and a session start has no previous
+/// attempt to sweep. Poisoning EITHER road alone leaves this green — they are
+/// redundant, not cooperating.
+///
+/// ⛔ SO THE POISON THAT REDDENS IT IS BOTH AT ONCE, and that is what makes this
+/// a guard rather than a check that cannot fail: it pins the end-to-end
+/// contract, which two roads happen to implement. Verified 2026-08-31 —
+/// poisoning `routed_for` and the `ResetToCheckpoint` read together fails on the
+/// active-room assertion.
+///
+/// ⛔ AND THE ROW MUST BE ABOUT THE ROOM WE RESUME INTO. The first version of
+/// this case relocated an object of the room the session OPENS in, which the
+/// destination never authors — so the suppression was guaranteed by arithmetic
+/// and all three poisons left it green.
+#[test]
+fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
+    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedCheckpoint, PersistedOccurrence, PersistedWhereabouts,
+    };
+
+    // ⛔⛔ THE ROW MUST BE ABOUT THE ROOM WE RESUME INTO, not the one we open in.
+    // A row naming an object the destination never authors is suppressed by
+    // arithmetic rather than by the ledger, and the first version of this case
+    // stayed green with BOTH legs poisoned because of exactly that.
+    let (_, _, empty_file) = relocatable_occurrence();
+    let (resume_room, resumed_object) = another_room_with_an_object();
+
+    // The checkpoint names the NEIGHBOUR — a different room from the one the
+    // session opens in — which is the only shape that makes
+    // `restore_checkpoint_on_session_start` take the slot at all.
+    let mut file = empty_file;
+    file.checkpoint = Some(PersistedCheckpoint::new(resume_room.clone(), 200, 200));
+    file.occurrences = vec![PersistedOccurrence::new(
+        resumed_object.clone(),
+        PersistedWhereabouts::Placed {
+            room: DURABLE_ROOM.to_string(),
+            x: 200,
+            y: 200,
+        },
+    )];
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(DURABLE_ROOM).with_save(file),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world().resource::<SaveRestored>().0,
+        "the load never landed"
+    );
+    assert_eq!(
+        active_room(&mut sim),
+        resume_room,
+        "the checkpoint names '{resume_room}', so that is where the session must \
+         resume — whichever road won the one lifecycle slot"
+    );
+    // ⭐ AND THE LEDGER ROW SURVIVED THE COLLISION. `resumed_object` is one of
+    // the RESUME room's own authored objects, and the file says it is lying back
+    // in the room the session opened in — so the room we resumed into must not
+    // author it.
+    assert!(
+        !live_ids(&mut sim).contains(&resumed_object),
+        "resuming into '{resume_room}' authored `{resumed_object}`, which the \
+         file says is lying in '{DURABLE_ROOM}'"
+    );
+
+    // ⛔ THE PREMISE: with an empty file the resume room DOES author it, so the
+    // suppression above is the ledger's doing and not the room's.
+    let mut plain = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(&resume_room).with_save(Default::default()),
+    )
+    .expect("the harness boots with a save file");
+    for _ in 0..AFTER_LOAD {
+        plain.step(base());
+    }
+    assert!(
+        live_ids(&mut plain).contains(&resumed_object),
+        "'{resume_room}' does not author `{resumed_object}` even with an empty \
+         file, so suppressing it proves nothing"
+    );
+}
+
+/// A room OTHER than [`DURABLE_ROOM`] that authors an occurrence-bearing object,
+/// and that object.
+///
+/// ⛔ SEARCHED, not hard-coded. The obvious candidate — the first room
+/// `DURABLE_ROOM` has an exit to — turned out to author no such object, and a
+/// case built on it would have asserted a suppression that arithmetic already
+/// guaranteed.
+fn another_room_with_an_object() -> (String, String) {
+    let mut scout = fixed_60hz_room_sim(DURABLE_ROOM);
+    let rooms: Vec<String> = {
+        let world = scout.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        q.iter(world)
+            .next()
+            .expect("the session has an active room set")
+            .rooms
+            .iter()
+            .map(|room| room.id.clone())
+            .filter(|id| id != DURABLE_ROOM)
+            .collect()
+    };
+    for room in rooms {
+        let mut sim = fixed_60hz_room_sim(&room);
+        for _ in 0..BEFORE_LOAD {
+            sim.step(base());
+        }
+        let mut q = sim.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let world = sim.world();
+        let mut ids: Vec<String> = q
+            .iter(world)
+            .map(|(id, _)| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        if let Some(object) = ids.into_iter().next() {
+            return (room, object);
+        }
+    }
+    panic!("no room besides '{DURABLE_ROOM}' authors an occurrence-bearing object");
+}
+
+/// The id of the room the session is standing in.
+fn active_room(sim: &mut Platformer2dSimHarness) -> String {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+    q.iter(world)
+        .next()
+        .expect("the session has an active room set")
+        .active_spec()
+        .id
+        .clone()
+}
+
 /// Every `SimId` alive in the world right now.
 fn live_ids(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
     let mut q = sim.world_mut().query::<&SimId>();
@@ -1083,9 +1196,21 @@ fn relocatable_occurrence() -> (
     String,
     ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
 ) {
+    relocatable_occurrence_in(DURABLE_ROOM)
+}
+
+/// [`relocatable_occurrence`] for any room, so a case can ask about the room it
+/// RESUMES into rather than the one it opens in.
+fn relocatable_occurrence_in(
+    room: &str,
+) -> (
+    String,
+    String,
+    ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) {
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
 
-    let mut played = fixed_60hz_room_sim(DURABLE_ROOM);
+    let mut played = fixed_60hz_room_sim(room);
     for _ in 0..(BEFORE_LOAD + AFTER_LOAD) {
         played.step(base());
     }
@@ -1104,7 +1229,7 @@ fn relocatable_occurrence() -> (
         ids.sort();
         ids.into_iter().next().unwrap_or_else(|| {
             panic!(
-                "'{DURABLE_ROOM}' authors no occurrence-bearing object, so this case \
+                "'{room}' authors no occurrence-bearing object, so this case \
                  has nothing to relocate"
             )
         })
@@ -1123,10 +1248,10 @@ fn relocatable_occurrence() -> (
                 room_set
                     .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
                     .and_then(|t| room_set.rooms.get(t.target_room))
-                    .map(|room| room.id.clone())
+                    .map(|spec| spec.id.clone())
             })
-            .find(|id| id != DURABLE_ROOM)
-            .unwrap_or_else(|| panic!("'{DURABLE_ROOM}' has no authored exit"))
+            .find(|id| id.as_str() != room)
+            .unwrap_or_else(|| panic!("'{room}' has no authored exit"))
     };
     (relocatable, neighbour, empty_file)
 }

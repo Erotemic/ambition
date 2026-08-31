@@ -41,21 +41,15 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
-- ▢ **D-RESTORE-COLLISION — two checkpoint roads want the same one-slot
-  lifecycle commit.** `shrine::restore_checkpoint_on_session_start` runs in
-  `PlayerSimulation` on the first tick a body exists and, when the checkpoint
-  names a different room, records a `LifecycleIntent::Transition`. The slot is
-  earliest-sticky, so on a save carrying BOTH a cross-room checkpoint and
-  occurrence rows, `resume_at_checkpoint_on_reset` gets `AlreadyPending`, writes
-  no `RoomReplayAdmitted`, and the `ResetToCheckpoint` message is drained
-  unconditionally — the durable correction is dropped. Read from the schedule,
-  NOT yet driven: write the arm first. ⚠ Same file, same pair of systems:
-  `restore_checkpoint_on_session_start` keeps its once-per-session memory in two
-  `Local`s on a SIM system, which do not rewind. Unreachable today only because a
-  confirmed transition rebases GGRS onto a new frame zero, which is a
-  correctness that moves when the rebase does. Acceptance: a save with a
-  cross-room checkpoint and a relocated occurrence lands both, and the two
-  memories are rollback state or are shown not to need to be. Owner:
+- ▢ **D-RESTORE-SIM-LOCAL — `restore_checkpoint_on_session_start` keeps its
+  once-per-session memory in two `Local`s on a SIM system.** `applied_for` and
+  `routed_for` do not rewind, so a resimulation that crossed the routing frame
+  would re-request or skip the resume. Unreachable today only because a confirmed
+  transition rebases GGRS onto a new frame zero, which is a correctness that
+  moves when the rebase does — the same argument, and the same verdict, as the
+  Mary-O room memory in `rollback_room_memory.rs`. Acceptance: the memory is
+  rollback state, or a test shows the rebase makes divergence unreachable and
+  says so where the `Local`s are. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 - ▢ **D-RESTORE-LEDGER-SCOPE — `AuthoredOccurrences` is app-level, not
@@ -65,6 +59,23 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   in one process, the second with an empty save, and the second does not see the
   first's rows. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
+
+✔ **D-RESTORE-COLLISION — the two checkpoint roads collide, and it is benign.**
+`restore_checkpoint_on_session_start` records a transition to the checkpoint's
+room on the first tick a body exists; `resume_at_checkpoint_on_reset` records one
+too, from the `ResetToCheckpoint` the durable chain writes. The slot is
+earliest-sticky, so the second gets `AlreadyPending`, writes no
+`RoomReplayAdmitted`, and the reset message is drained either way. ⭐ MEASURED:
+both roads ask for the SAME destination and arrival, and the only thing the loser
+drops is the replay announcement, whose consumer is the attempt-residue sweep —
+and a session start has no previous attempt. Poisoning EITHER road alone leaves
+the arm green; poisoning BOTH reddens it, which is what makes
+`a_save_with_a_checkpoint_and_an_occurrence_lands_both` a guard of the end-to-end
+contract rather than a check that cannot fail. ⛔ The first version of that arm
+was VACUOUS and all three poisons passed: it relocated an object of the room the
+session OPENS in, which the destination never authors, so the suppression was
+guaranteed by arithmetic. The row now relocates one of the RESUME room's own
+objects. ⚠ NOT closed by this: the two `Local`s — see D-RESTORE-SIM-LOCAL.
 
 ✔ **D-RESTORE-INTERIM — a load builds its first room right, instead of building
 it wrong and correcting it.** Activation passed `continuity: None` with the

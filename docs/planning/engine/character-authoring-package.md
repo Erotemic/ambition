@@ -128,16 +128,22 @@ fourteen grid fighters play on the actor baseline because they author no fighter
 body. That is a *missing author*, not a duplicate authority, and it is a product
 call.
 
-⚠ **A THIRD residual, and it is a DELETION rather than a migration: two fields
-hold one fact.** `Vitals::canonical_height` is authored (`demo_mary_o`,
-`player_robot_lineage`) and **read by nothing in gameplay** — measured
-2026-08-31, the only non-test reader in the tree is a JSON dump in
-`moveset_export`. The height that actually sizes a body is the catalog row's
-`standing_height`, read at `ambition_sprite_sheet::character::catalog_join` and
-`character_sprites::assets`. Its one real effect is as an *input* to
-`world_per_pixel_for_height` at the authoring site. Two independent live truths
-for one character fact is the second falsifier below; the fix is to decide which
-field survives, not to move a value.
+⛔⛔ **A THIRD residual — RETRACTED IN PLACE 2026-08-31, THE SAME DAY IT WAS
+FILED.** It read *"two fields hold one fact… two independent live truths for one
+character fact is the second falsifier below"*. **That was wrong, and the
+correction is more useful than the claim.** `Vitals::canonical_height` and the
+catalog row's `standing_height` have **DISJOINT POPULATIONS**: 18 catalog rows
+author a standing height, and neither caller of `with_canonical_height`
+(`player_robot_lineage`, Mary-O's three forms) is among them. Two mechanisms used
+by different characters, not two truths about one.
+
+⭐ **What IS true, and it is smaller:** `canonical_height` is read by nothing in
+gameplay — measured, the only non-test reader in the tree is `moveset_export`'s
+JSON dump. The scaling its doc claimed happens at AUTHORING time through
+`world_per_pixel_for_height`, whose OUTPUT is what gets stored
+(`BodySource::SpriteAuthored`). So it is a record of an authoring input, and the
+fix was to make its doc say so rather than to delete a field a tool reports.
+⛔ do not re-file this as a migration; the falsifier does not fire.
 
 ⛔ **Two names cited in comments do not exist.** `character_id_for_display_name`
 (cited at `game/ambition_content/src/duel_arena.rs:61,81`) is really

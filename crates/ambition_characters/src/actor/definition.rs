@@ -28,9 +28,24 @@ pub struct Vitals {
     /// This is independent of [`Self::mass`], which controls mount-pair physics.
     /// `None` preserves the body or roster value.
     pub knockback_weight: Option<f32>,
-    /// Standing height in world pixels, used to scale sprite-authored geometry
-    /// consistently across characters. `None` preserves the construction-time
-    /// size. `collision_scale` remains independent crop/footprint compensation.
+    /// The standing height an author BUILT THIS DEFINITION FROM, in world
+    /// pixels. `collision_scale` remains independent crop/footprint compensation.
+    ///
+    /// ⛔⛔ A RECORD, NOT A RUNTIME AUTHORITY, and this doc said otherwise until
+    /// 2026-08-31. It read *"used to scale sprite-authored geometry consistently
+    /// across characters"*, which is true of
+    /// [`world_per_pixel_for_height`] and false of this field: the two callers
+    /// that set it (`player_robot_lineage`, Mary-O's forms) compute the scale
+    /// from it at AUTHORING time and store the OUTPUT on
+    /// `BodySource::SpriteAuthored`. Measured: outside tests, nothing in
+    /// gameplay reads this field — the only reader in the tree is
+    /// `moveset_export`'s JSON dump, which is what a record is for.
+    ///
+    /// ⚠ NOT a duplicate of the catalog row's `standing_height` either, which IS
+    /// read (`ambition_sprite_sheet::character::catalog_join`) and sizes 18
+    /// characters. The two populations are DISJOINT: neither caller of
+    /// `with_canonical_height` appears among the catalog rows that author a
+    /// standing height. Two mechanisms, not two live truths for one fact.
     pub canonical_height: Option<f32>,
 }
 

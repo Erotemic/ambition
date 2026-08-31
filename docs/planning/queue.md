@@ -564,9 +564,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   already owns. ⚠ its resources are `Option<Res<_>>` so a narrow fixture can
   still swap her form, and an app-level guard
   (`every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo`) is what stops
-  that option becoming a silent veto. ▢ NEXT: the `canonical_height` /
-  `standing_height` pair, which is a DELETION (one of the two has no gameplay
-  reader) rather than a migration. ⛔ NOT a residual: eleven grid fighters on the
+  that option becoming a silent veto. ⛔ AND THE THIRD CANDIDATE IS RETRACTED, same day it was filed:
+  the `canonical_height` / `standing_height` pair is NOT two live truths for one
+  fact — their populations are DISJOINT (18 catalog rows author a standing
+  height; neither caller of `with_canonical_height` is among them). What is true
+  is smaller: `canonical_height` is read by nothing in gameplay, because the
+  scaling its doc claimed happens at authoring time and the OUTPUT is what gets
+  stored. Its doc now says so; the field stays, because `moveset_export` reports
+  it and that is what a record is for. ▢ NO NEXT CANDIDATE NAMED — re-census
+  before migrating another field. ⛔ NOT a residual: eleven grid fighters on the
   actor baseline is a MISSING author, not a duplicate one.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).

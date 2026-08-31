@@ -698,6 +698,42 @@ Do not let settings migration block the diagnostics work.
 
 # G. Small post-processing audit
 
+## ✔ The migrated pass is MEASURED WORKING on a real GPU (2026-08-31)
+
+The port rewrote `screen_effects.rs` from a hand-maintained render-graph node onto
+`FullscreenMaterialPlugin`, and nothing tested it — a clean compile cannot catch a
+shader that fails to load, wrong bindings or a pass that never executes.
+
+Three arms of `capture_scene hall_of_characters player 640x360 --warmup 60`, on
+`llvmpipe`, `AMBITION_QUALITY_PROFILE=ultra`:
+
+| arm | md5 |
+|---|---|
+| no effect | `30372c4b715e7f699aae56a3617407e0` |
+| `--screen-effect crt,vignette` | `e7e2ec88957e1a4d1ff7a02b0ea991a3` |
+| the same again | `e7e2ec88957e1a4d1ff7a02b0ea991a3` |
+
+100% of pixels changed, mean absolute difference 46/255, and the corner-to-centre
+luminance ratio fell 0.609 → 0.053 — which is the vignette's OWN signature, not
+merely "different". The picture shows scanlines, the RGB mask, barrel curvature
+and chroma split. The third arm is the determinism control: a repeat is
+byte-identical, so arm 2's difference is the effect and not capture noise.
+
+⛔⛔ THE FIRST TWO ATTEMPTS MEASURED NOTHING, and both looked like a finding.
+Screen effects are `UserSettings.video.shaders` state and a windowless host
+inserts `PersistenceRoot::isolated()`, so a hand-written `settings.ron` is never
+read; and the quality budget scales screen shaders to ZERO on the Potato tier,
+which is what `llvmpipe` gets seeded to. `capture_scene --screen-effect` exists
+because of that, and it prints a refusal when the tier would zero the shaders
+rather than returning a plausible frame.
+
+⛔ NO GPU TEST WAS ADDED. Nothing in this repository's suite touches a GPU —
+every `OffscreenGpu` user is a tool binary — and a first one would bring adapter
+availability and ~40s of runtime into the gates. The check is a documented,
+repeatable tool invocation instead: see `docs/recipes/headless-room-verification.md`.
+
+## Original plan
+
 Bevy 0.19 now provides built-in vignette and lens-distortion effects.
 
 Ambition currently has one combined fullscreen shader covering:

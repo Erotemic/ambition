@@ -83,6 +83,20 @@ struct SceneCaptureConfig {
     /// what comes back is a configuration a player can reach. Implies
     /// `--dev-overlays`.
     combat_overlay: bool,
+    /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
+    ///
+    /// ⛔⛔ WITHOUT THIS FLAG A CAPTURE CANNOT SEE THE POST-PROCESS AT ALL, and
+    /// it looks like it can. The effects are `UserSettings.video.shaders` state,
+    /// every strength is zero by default, and a windowless host inserts
+    /// `PersistenceRoot::isolated()` — a fresh temp directory — so a hand-written
+    /// `settings.ron` in the player's data dir is not read either. Two captures
+    /// taken that way come back BYTE-IDENTICAL and read as "the post-process is
+    /// broken"; measured 2026-08-31, that is what they mean by "nothing asked
+    /// for an effect".
+    ///
+    /// ⭐ The same fields the settings menu writes — not a capture-only
+    /// rendering path — so what comes back is a look a player can reach.
+    screen_effects: Vec<ScreenEffect>,
     /// Input to deliver after reaching the route and before the shutter —
     /// key taps and glass taps (`--press touch:167x523,touch:167x523`).
     ///
@@ -190,6 +204,12 @@ OPTIONS:
     --include-ui        keep the game's UI in the shot
     --dev-overlays      stop silencing the developer chrome
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --screen-effect E   force screen post-process effects on, comma separated:
+                        crt, grain, vignette, robot, underwater, deep_dream.
+                        ⛔ PAIR IT WITH `AMBITION_QUALITY_PROFILE=ultra`: the
+                        Potato tier scales screen shaders to zero, and Potato is
+                        what a software rasteriser gets seeded to. The tool says
+                        so rather than photographing nothing quietly.
     --fit-room          frame the whole room instead of a point
     -h, --help          print this and exit
 
@@ -318,6 +338,7 @@ fn install_room_capture(app: &mut App) {
         (
             silence_dev_overlays,
             force_combat_overlay,
+            force_screen_effects,
             apply_capture_snapshot
                 .after(camera_follow)
                 .before(sync_parallax_layers),
@@ -463,6 +484,7 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut dev_overlays = false;
         let mut combat_overlay = false;
+        let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame, which is the tool this has always been.
         let mut frames: usize = 1;
         let mut stride: u32 = 1;
@@ -491,6 +513,18 @@ impl SceneCaptureConfig {
                 "--dev-overlays" => {
                     dev_overlays = true;
                     1
+                }
+                "--screen-effect" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--screen-effect requires a value".to_string());
+                    };
+                    for name in value.split(',').filter(|name| !name.trim().is_empty()) {
+                        let effect = ScreenEffect::parse(name)?;
+                        if !screen_effects.contains(&effect) {
+                            screen_effects.push(effect);
+                        }
+                    }
+                    2
                 }
                 "--include-ui" => {
                     include_ui = true;
@@ -642,6 +676,7 @@ impl SceneCaptureConfig {
                 follow_player: false,
                 dev_overlays,
                 combat_overlay,
+                screen_effects,
                 press,
                 route: Some(route),
             });
@@ -684,6 +719,7 @@ impl SceneCaptureConfig {
             character,
             dev_overlays,
             combat_overlay,
+            screen_effects,
             follow_player,
             route: None,
             press,
@@ -759,6 +795,96 @@ fn silence_dev_overlays(
     }
 }
 
+/// One screen post-process effect, as `--screen-effect` names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScreenEffect {
+    Crt,
+    Grain,
+    Vignette,
+    Robot,
+    Underwater,
+    DeepDream,
+}
+
+impl ScreenEffect {
+    fn parse(name: &str) -> Result<Self, String> {
+        match name.trim().to_ascii_lowercase().as_str() {
+            "crt" => Ok(Self::Crt),
+            "grain" | "film_grain" => Ok(Self::Grain),
+            "vignette" => Ok(Self::Vignette),
+            "robot" | "robot_death" => Ok(Self::Robot),
+            "underwater" => Ok(Self::Underwater),
+            "deep_dream" | "deepdream" => Ok(Self::DeepDream),
+            other => Err(format!(
+                "unknown screen effect '{other}'; expected one of \
+                 crt, grain, vignette, robot, underwater, deep_dream"
+            )),
+        }
+    }
+
+    /// Write this effect at full strength into the settings the shader reads.
+    fn force(
+        self,
+        shaders: &mut ambition_platformer2d::persistence::settings::ScreenShaderSettings,
+    ) {
+        match self {
+            Self::Crt => shaders.crt_strength = 1.0,
+            Self::Grain => shaders.film_grain_strength = 1.0,
+            Self::Vignette => shaders.vignette_strength = 1.0,
+            Self::Robot => shaders.robot_death_strength = 1.0,
+            Self::Underwater => shaders.underwater_strength = 1.0,
+            Self::DeepDream => shaders.deep_dream_strength = 1.0,
+        }
+    }
+}
+
+/// Force the asked-for screen effects on, every frame, and SAY SO when the
+/// visual-quality budget is about to scale them back to nothing.
+///
+/// ⛔⛔ THE WARNING IS THE POINT, and it is here because its absence cost two
+/// captures and an hour. `sync_screen_effect_settings_from_video_settings`
+/// clamps the global strength to `quality.budget.shaders.screen_shader_scale`,
+/// which is **0.0 on the Potato tier** — and Potato is what this machine's
+/// software rasteriser (`llvmpipe`) gets seeded to on a first run. So the honest
+/// arms of a post-process comparison came back byte-identical while every
+/// setting said the effect was on. An instrument that cannot deliver what it was
+/// asked for must say so rather than return a plausible frame.
+///
+/// Every frame, like `force_combat_overlay`, because the settings load and the
+/// quality seed both write this state and a Startup-only write races them.
+fn force_screen_effects(
+    config: Res<SceneCaptureConfig>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
+    mut settings: ResMut<ambition_platformer2d::persistence::settings::UserSettings>,
+    mut warned: Local<bool>,
+) {
+    if config.screen_effects.is_empty() {
+        return;
+    }
+    let mut wanted = settings.video.shaders.clone();
+    wanted.strength = 1.0;
+    for effect in &config.screen_effects {
+        effect.force(&mut wanted);
+    }
+    if settings.video.shaders != wanted {
+        settings.video.shaders = wanted;
+    }
+    if !*warned {
+        if let Some(quality) = quality.as_ref() {
+            let scale = quality.budget.shaders.screen_shader_scale;
+            if scale <= 0.001 {
+                *warned = true;
+                eprintln!(
+                    "capture_scene: ⛔ the {:?} visual-quality tier scales screen \
+                     shaders to {scale:.2}, so --screen-effect will photograph \
+                     NOTHING. Re-run with AMBITION_QUALITY_PROFILE=ultra.",
+                    quality.profile
+                );
+            }
+        }
+    }
+}
+
 /// Force the COMBAT debug preset on, every frame, when `--combat-overlay` asked.
 ///
 /// Every frame rather than once at startup because the settings load and the
@@ -820,6 +946,7 @@ fn install_route_capture(app: &mut App, route_id: String) {
         (
             silence_dev_overlays,
             force_combat_overlay,
+            force_screen_effects,
             go_to_route,
             adopt_route_cameras,
             request_capture,
@@ -1396,10 +1523,7 @@ fn finish_after_capture(
         println!(
             "capture_scene: wrote {} frame(s) as {}.NNNN.{} ({}x{} px, stride {})",
             config.frames,
-            config
-                .output
-                .with_extension("")
-                .display(),
+            config.output.with_extension("").display(),
             config
                 .output
                 .extension()
@@ -1479,7 +1603,10 @@ fn save_readback_to_disk(
             .with_file_name(format!("{stem}.{:04}.{ext}", runtime.shot))
     };
     if let Err(error) = image.save(&path) {
-        eprintln!("capture_scene: failed to save '{}': {error}", path.display());
+        eprintln!(
+            "capture_scene: failed to save '{}': {error}",
+            path.display()
+        );
         runtime.failed = true;
         runtime.completed = true;
         commands.write_message(AppExit::from_code(1));

@@ -92,7 +92,7 @@ need a screenshot.
 
 ```bash
 cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WxH] \
-    [--warmup N] [--combat-overlay] [--press KEYS] [--character ID] [--route ID]
+    [--warmup N] [--combat-overlay] [--screen-effect E] [--press KEYS] [--character ID] [--route ID]
 ```
 
 This runs the actual presentation plugins, so it is the only path that shows
@@ -111,6 +111,17 @@ sprite ART. Two flags matter for combat work:
   mystery). The exploration form — `capture_scene <room> player --character
   <id>` — puts the same body under EXPLORATION rules, which is the wrong game to
   judge a fighter's move in.
+- `--screen-effect crt,vignette` forces the fullscreen post-process on, and
+  ⛔⛔ **WITHOUT IT A POST-PROCESS CAPTURE PHOTOGRAPHS NOTHING AND LOOKS LIKE A
+  BUG.** Every screen-shader strength is zero by default, and a windowless host
+  inserts `PersistenceRoot::isolated()` — a fresh temp directory — so writing a
+  `settings.ron` into the player's data dir does not reach it either. Measured
+  2026-08-31: two arms taken that way came back BYTE-IDENTICAL, which reads as
+  "the post-process is dead" and means "nothing asked for an effect".
+  ⛔ **PAIR IT WITH `AMBITION_QUALITY_PROFILE=ultra`**: the visual-quality budget
+  scales screen shaders by tier and the Potato tier scales them to ZERO, which is
+  what a software rasteriser (`llvmpipe` here) gets seeded to on a first run. The
+  tool now prints a refusal rather than a plausible frame when that happens.
 - `--press` drives input, and takes `hold:KEY` / `release:KEY` as well as taps.
   Every tilt and aerial is *a direction held while attack is pressed*, so
   `--press up,x` taps Up, releases it, and then attacks — resolving forward.

@@ -79,6 +79,11 @@ pub fn register_rollback_state(
         "content.falling_sand_projection_report",
         "wholly overwritten each tick by the projection that runs before any reader; a rewind reproduces it from the restored particles",
     );
+    registrar.declare_rollback_derived_resource::<FallingSandTypeIds>(
+        "ambition_content",
+        "content.falling_sand_type_ids",
+        "a name->id map built once at Startup from the ParticleType entities this room spawns; it is IDENTITY, not state, and never changes after that frame, so a rewind has nothing to restore",
+    );
 }
 
 pub struct FallingSandRoomPlugin;

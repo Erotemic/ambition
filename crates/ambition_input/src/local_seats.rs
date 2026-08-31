@@ -1193,17 +1193,28 @@ mod tests {
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
 
-        // Burn an index, then free it, so the pad that connects SECOND can be
-        // allocated a lower index than the pad that connected first.
-        let scratch = app.world_mut().spawn_empty().id();
-        let scratch_two = app.world_mut().spawn_empty().id();
+        // RESERVE the low index up front rather than hoping a despawn recycles
+        // one. Under Bevy 0.18 this burned two scratch entities, despawned them
+        // and trusted the next spawn to take a freed index. Bevy 0.19's
+        // allocator buffers freed entities in a 128-slot LOCAL list that only
+        // flushes into the shared free list when it fills, so two despawns
+        // recycle nothing inside a test and the premise guard below fired
+        // instead (got index 13 then 14). `alloc` hands out an id that is valid
+        // but not yet spawned, and `spawn_at` spawns it later — which is the
+        // documented way to enforce a property about a group's entity indices.
+        let low_index = app.world().entity_allocator().alloc();
         let first_pad = app.world_mut().spawn(Gamepad::default()).id();
         app.update();
-        app.world_mut().entity_mut(scratch).despawn();
-        app.world_mut().entity_mut(scratch_two).despawn();
-        let second_pad = app.world_mut().spawn(Gamepad::default()).id();
+        let second_pad = app
+            .world_mut()
+            .spawn_at(low_index, Gamepad::default())
+            .expect("the reserved index is free")
+            .id();
         app.update();
 
+        // ⛔ THE PREMISE STAYS A GUARD even though the fixture now constructs it:
+        // it is what says this test is still about a RECYCLED, LOWER index, and
+        // it is what caught the allocator change in the first place.
         assert!(
             second_pad.index() < first_pad.index(),
             "this test is only meaningful when the second controller really did \

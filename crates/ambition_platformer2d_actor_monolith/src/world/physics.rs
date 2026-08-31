@@ -123,13 +123,26 @@ impl Plugin for AmbitionPhysicsPlugin {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             .add_plugins(PhysicsPlugins::default())
-            // Avian's per-plugin `register_physics_diagnostics` guard can skip
-            // the resource init in some compositions (observed in the
-            // no-window render recipe); explicit init is idempotent and keeps
-            // `collect_collision_pairs`/solver from failing validation.
+            // ⛔⛔ AVIAN REGISTERS THESE IN `Plugin::finish`, AND `App::update()`
+            // NEVER CALLS `finish()` — only `App::run()` does. So every
+            // composition driven by an update loop (the whole test suite, the
+            // no-window render recipe, the headless hosts) reaches avian's
+            // systems with the diagnostics resources ABSENT, and a system taking
+            // `ResMut<...Diagnostics>` fails param validation with "Resource does
+            // not exist" — which Bevy 0.19 turns into a panic that unwinds the
+            // whole fixed-main schedule. Explicit init is idempotent and is the
+            // only thing standing between that and a dozen unrelated red tests.
+            //
+            // ⚠ THIS LIST GOES STALE ON AN AVIAN BUMP. avian 0.7 added a fourth
+            // (`ColliderTreeDiagnostics`, for the new collider-tree broad phase)
+            // and the symptom was twelve app tests failing inside
+            // `update_moved_collider_aabbs`, none of which is about physics. If
+            // an avian upgrade reddens tests with that message, the fix is
+            // another line here: grep avian for `register_physics_diagnostics`.
             .init_resource::<avian2d::collision::CollisionDiagnostics>()
             .init_resource::<avian2d::dynamics::solver::SolverDiagnostics>()
             .init_resource::<avian2d::spatial_query::SpatialQueryDiagnostics>()
+            .init_resource::<avian2d::collider_tree::ColliderTreeDiagnostics>()
             .add_systems(
                 Update,
                 (

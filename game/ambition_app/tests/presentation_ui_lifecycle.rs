@@ -389,9 +389,15 @@ fn a_transformed_parent_reaches_its_childs_occupancy() {
 fn hiding_a_parent_withdraws_its_childs_occupancy() {
     let mut app = app(ae::Vec2::new(1600.0, 900.0));
     // The real propagation pass, which `MinimalPlugins` does not include.
-    // `VisibilityPlugin` also runs mesh-bounds systems that hard-require
-    // `Assets<Mesh>`; this app draws no meshes but must still satisfy them.
+    // `VisibilityPlugin` also runs mesh-bounds systems that hard-require mesh
+    // ASSETS; this app draws no meshes but must still satisfy them, because a
+    // `Res<Assets<_>>` that does not exist is a param-validation error and Bevy
+    // 0.19's default handler turns that into a panic that kills the schedule.
+    // ⚠ Bevy 0.19 added `update_skinned_mesh_bounds` to the same plugin, so the
+    // list grew by one; both assets belong to `MeshPlugin`, which this
+    // composition deliberately does not install.
     app.init_asset::<bevy::mesh::Mesh>();
+    app.init_asset::<bevy::mesh::skinning::SkinnedMeshInverseBindposes>();
     app.add_plugins(bevy::camera::visibility::VisibilityPlugin);
 
     let child = app

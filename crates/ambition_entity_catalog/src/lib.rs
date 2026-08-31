@@ -209,9 +209,17 @@ pub const CANCEL_CLASS_NAMES: [&str; 6] =
 
 /// When a [`WindowTag::Cancelable`] escape is legal (CM4).
 ///
-/// `OnBlock` deliberately does NOT exist yet: the victim-shield-contact fact
-/// lands with CM6 (shield-stun); adding the variant now would parse and then
-/// silently never fire — an authoring trap.
+/// ⚠ `OnBlock` STILL DOES NOT EXIST, and the reason has changed. This said the
+/// victim-shield-contact fact *"lands with CM6 (shield-stun)"*; shield-stun
+/// SHIPPED (`body_clusters.rs`), so that deferral is spent. What blocks the
+/// variant now is the same thing that makes `OnHit` fire on a guarded strike:
+/// `mark_move_playback_landed_hits` reads `LandedBodyHit`, which means OVERLAP,
+/// and nothing tells a move it was BLOCKED. `ResolvedBodyHit` means CONNECT and
+/// now carries its attacker, and a block never reaches it — so the channel
+/// exists; pointing the marker at it is a FEEL ruling about the connect-frame
+/// cancel window. Queue row D-CANCEL-ONBLOCK. ⛔ adding the variant before that
+/// would parse and then silently never fire — the authoring trap this note was
+/// always about.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelCondition {
     /// Any time the window is open.

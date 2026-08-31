@@ -29,6 +29,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
+    app.add_message::<ambition_combat::hitbox::ResolvedBodyHit>();
 }
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
@@ -1277,6 +1278,77 @@ fn a_raised_shield_does_not_guard_the_back() {
         actor_hp(&app, actor),
         3,
         "a hit from behind the guard still lands — the block is directional"
+    );
+}
+
+/// WHAT THE RESOLVED CHANNEL SAYS THAT THE OVERLAP CHANNEL CANNOT: a block.
+///
+/// ⭐⭐ THIS IS THE HALF OF D-CANCEL-ONBLOCK THAT NEEDS NO FEEL RULING.
+/// `mark_move_playback_landed_hits` confirms a move's `OnHit` cancel off
+/// `LandedBodyHit`, which the type's own doc says *"MEANS OVERLAP"* — so an
+/// ordinary held guard confirms the cancel and the move wears itself out
+/// (`a_blocked_strike_is_still_recorded_as_a_connection`, in the hitbox suite,
+/// pins that). The channel it should read is `ResolvedBodyHit`, and this states
+/// the two properties that make that possible.
+///
+/// ⛔ THE QUEUE ROW WAS WRONG ABOUT THE PLUMBING, measured 2026-08-31: it said
+/// *"`publish_resolved_hit` is called from the PLAYER road only … the actor road
+/// every match fighter takes publishes nothing"*. The actor road HAS published
+/// since `actor_hit.rs`, and its `Blocked` arm returns before the publish — so
+/// the channel already discriminates a block. What was genuinely missing is the
+/// ATTACKER, without which a move cannot ask whether IT connected, and that is
+/// what the second assertion below is for.
+///
+/// ⚠ WHAT THIS DOES NOT SETTLE: pointing the marker at this channel is a feel
+/// ruling (delay the marker past the damage road and lose the connect-frame
+/// cancel window, or retract on block and leave the window open in between).
+/// See D-CANCEL-ONBLOCK.
+#[test]
+fn a_blocked_hit_publishes_no_resolved_connect_and_a_landed_one_names_its_attacker() {
+    fn resolved(app: &mut App) -> Vec<ambition_combat::hitbox::ResolvedBodyHit> {
+        let world = app.world_mut();
+        let messages =
+            world.resource::<bevy::prelude::Messages<ambition_combat::hitbox::ResolvedBodyHit>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).cloned().collect()
+    }
+
+    // ⛔ THE PREMISE FIRST. A fixture whose hit never lands would satisfy the
+    // blocked arm by doing nothing at all.
+    let mut app = shield_test_app();
+    let open = spawn_shielding_actor(&mut app, false);
+    let attacker = app.world_mut().spawn_empty().id();
+    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    hit.attacker = Some(attacker);
+    app.world_mut().write_message(hit.clone());
+    app.update();
+    let landed = resolved(&mut app);
+    assert_eq!(
+        landed.len(),
+        1,
+        "an unguarded actor took the hit and the resolver published no connect,          so the blocked arm below would pass on an empty channel: {landed:?}"
+    );
+    assert_eq!(landed[0].victim, open, "{landed:?}");
+    assert_eq!(
+        landed[0].attacker,
+        Some(attacker),
+        "the resolved connect must name WHO landed it, or a move cannot ask          whether ITS strike connected and has to read the overlap instead —          which is the D-CANCEL-ONBLOCK defect: {landed:?}"
+    );
+
+    // AND THE BLOCK. Same hit, same side, guard up.
+    let mut app = shield_test_app();
+    let guarded = spawn_shielding_actor(&mut app, true);
+    app.world_mut().write_message(hit);
+    app.update();
+    assert_eq!(
+        actor_hp(&app, guarded),
+        5,
+        "the guard did not block, so this arm is not measuring a block"
+    );
+    let blocked = resolved(&mut app);
+    assert!(
+        blocked.is_empty(),
+        "a BLOCKED strike published a resolved connect. `ResolvedBodyHit` is the          channel that means CONNECT, and if a block reaches it there is no          channel left that can tell a move it was guarded: {blocked:?}"
     );
 }
 

@@ -692,6 +692,7 @@ pub(crate) fn handle_player_damage_events(
                     publish_resolved_hit(
                         death_writers.resolved.as_mut(),
                         player_entity,
+                        damage.attacker,
                         combat.hitstop_timer,
                         damage.source.clone(),
                     );
@@ -785,6 +786,7 @@ pub(crate) fn handle_player_damage_events(
                 publish_resolved_hit(
                     death_writers.resolved.as_mut(),
                     player_entity,
+                    damage.attacker,
                     combat.hitstop_timer,
                     damage.source.clone(),
                 );
@@ -924,12 +926,14 @@ fn publish_reaction(
 pub fn publish_resolved_hit(
     resolved: Option<&mut MessageWriter<'_, ambition_combat::hitbox::ResolvedBodyHit>>,
     victim: bevy::prelude::Entity,
+    attacker: Option<bevy::prelude::Entity>,
     hitlag_seconds: f32,
     source: ambition_combat::HitSource,
 ) {
     if let Some(resolved) = resolved {
         resolved.write(ambition_combat::hitbox::ResolvedBodyHit {
             victim,
+            attacker,
             hitlag_seconds,
             source,
         });

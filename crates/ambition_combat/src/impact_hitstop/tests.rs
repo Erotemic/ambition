@@ -29,6 +29,9 @@ fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
     let victim = app.world_mut().spawn_empty().id();
     app.world_mut().write_message(ResolvedBodyHit {
         victim,
+        // The hitstop consumer does not ask WHO landed it — a connect freezes
+        // the match whoever threw it — so this fixture states the absence.
+        attacker: None,
         hitlag_seconds: hitlag,
         source,
     });

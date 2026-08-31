@@ -66,6 +66,19 @@ pub struct LandedBodyHit {
 pub struct ResolvedBodyHit {
     /// The body that took it.
     pub victim: bevy::prelude::Entity,
+    /// WHO LANDED IT, where the road knows.
+    ///
+    /// ⭐⭐ THIS IS WHAT MAKES THE CHANNEL USABLE BY THE ATTACKER'S OWN MOVE.
+    /// `LandedBodyHit` carries an attacker and means OVERLAP; this one meant
+    /// CONNECT and named only the victim, so a consumer asking *"did MY move
+    /// connect"* had no channel that could answer and read the overlap instead —
+    /// which is why an ordinary held guard confirms an `OnHit` cancel today
+    /// (queue row D-CANCEL-ONBLOCK).
+    ///
+    /// `None` for a resolution with no striker: the blast zone, a hazard, a
+    /// stage. ⛔ NOT "unknown" — a road that knows its attacker must say so, and
+    /// a `None` here is a claim that nothing struck this body.
+    pub attacker: Option<bevy::prelude::Entity>,
     /// The hitlag this connect earned, in seconds — the resolver's own answer,
     /// carried rather than re-read off the victim, because WHEN it is readable
     /// differs by road and that is the whole bug.

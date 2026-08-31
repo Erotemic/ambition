@@ -457,7 +457,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `entity_catalog/src/lib.rs:212`, which still claims the victim-shield-contact
   fact *"lands with CM6"* — shieldstun shipped (`body_clusters.rs:1620`).
   Acceptance: a blocked move does NOT confirm an `OnHit` cancel (the pinned test
-  inverts), an `OnBlock` window does, and both on the actor road. Owner:
+  inverts), an `OnBlock` window does, and both on the actor road.
+  ⭐ THE PLUMBING HALF IS CLOSED 2026-08-31, and re-measuring corrected this row
+  twice. ⛔ *"`publish_resolved_hit` is called from the PLAYER road only … the
+  actor road every match fighter takes publishes nothing"* WAS WRONG:
+  `damage/actor_hit.rs` has published beside the reaction all along. ⭐ AND THE
+  CHANNEL ALREADY DISCRIMINATES A BLOCK — the `Blocked` arm `return`s well
+  before the publish, so a guarded strike writes no `ResolvedBodyHit` at all;
+  that is now pinned by `a_blocked_hit_publishes_no_resolved_connect_and_a_
+  landed_one_names_its_attacker`, red under both poisons (drop the attacker;
+  publish from the blocked arm). What was genuinely missing was the ATTACKER,
+  and `ResolvedBodyHit` now carries `attacker: Option<Entity>` from both roads.
+  ⇒ ▢ WHAT REMAINS IS THE FEEL RULING AND ONLY THAT: point
+  `mark_move_playback_landed_hits` at the resolved channel by DELAYING it past
+  the damage road (loses the connect-frame cancel window its slot was chosen to
+  buy) or by RETRACTING on block (leaves the OnHit window open between overlap
+  and resolution). ⚠ still a trap: asking the victim's shield state directly is
+  a second authority on "was this blocked". The stale `entity_catalog` deferral
+  note is refreshed — shield-stun shipped, so the reason it gives is now the
+  marker's channel rather than CM6. Owner:
   [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and

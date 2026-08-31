@@ -491,6 +491,7 @@ pub(crate) fn apply_actor_hit(
             ambition_damage::publish_resolved_hit(
                 writers.resolved.as_mut(),
                 actor_entity,
+                event.attacker,
                 combat.hitstop_timer,
                 event.source.clone(),
             );

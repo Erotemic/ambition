@@ -645,6 +645,99 @@ The one unresolved developer-policy choice from the session-ownership work is in
   D129 clipping population at 1 frame; whether that is related is unmeasured.
   Suite is otherwise 692 green.
 
+- ▢ **D-REPLAY-NOSUBJECT — a subjectless replay ADMITS without owning the
+  lifecycle slot, and the type's own doc says it must.** ⭐ GPT review 2026-08-31
+  (baseline `9aec2f04`, HEAD `04dff7366`), and VERIFIED HERE against the source:
+  `RoomReplayAdmitted`'s doc says *"the lifecycle operation owns the one
+  pending-commit slot, and the room WILL be rebuilt"* and that `None` is *"a room
+  rebuild with nobody in it"*. `admit_room_replay`'s `None` arm instead
+  constructs `Admission::Admitted` LOCALLY — no `pending.record` — logs
+  *"clearing the attempt, not rebuilding"*, and writes the message anyway. Every
+  consequence that hangs off it (attempt-residue retirement, gravity reset,
+  portal policy) then runs for an operation that never acquired ownership.
+  ⛔ THE CAUSE IS VOCABULARY: `LifecycleIntent` has exactly ONE variant and
+  `RoomTransitionIntent::subject` is a required `SimId`, so a bodyless replay
+  cannot express an intent at all.
+  ⭐ AND IT IS REACHABLE IN AN ORDINARY COMPOSITION, measured here the same day
+  while closing D-SFX-RESET-RED: `ControlledSubject` is `None` for one frame
+  after `settle_until_session_world` returns, so any headless or tooling
+  composition pressing reset in that window takes this arm.
+  ▢ The review proposes a `ReconstituteRoom { room, subject: Option<SimId> }`
+  intent so every replay follows one sequence. ⚠ TREAT THAT AS A HYPOTHESIS —
+  the reviewer could not run cargo. Acceptance: a bodyless replay acquires a
+  commit, retires attempt residue, REBUILDS the room, and admits with
+  `subject: None`; poison the pending slot and none of it happens.
+
+- ▢ **D-SCENARIO-IDENTITY — the moveset inspector has no canonical scenario, so
+  two different experiments can be shown side by side.** ⭐ GPT review
+  2026-08-31, and this half was REPRODUCED by the reviewer running the committed
+  Python: reports from takes at **40px and 80px requested spacing return
+  `comparable = True`**. Four independent leaks: the HTTP server
+  (`server.py:118-125`) accepts only `character/verb/frames/stride/target/spacing`
+  and never forwards `--target-behavior`, which the renderer defaults to passive;
+  chain state is recorded in the take and passed to nothing; the cache key
+  truncates spacing (`__at{int(spacing)}`, so 40.1 and 40.9 collide) and never
+  validates the stored manifest against the request; and
+  `moveset_report.compare()` builds identity from subject/target/behavior/verb/
+  label only. ⇒ a take recorded against a live CPU opponent can be displayed
+  beside a passive-target GPU render. Proposed: one serializable `MoveScenario`
+  authority that recorder, renderer, transport, cache key and report comparison
+  all consume, with "not renderable yet" as the honest answer for chain.
+
+- ▢ **D-PORTAL-INTERACT-SEAT — portal Interact arbitration is still a singleton
+  under a per-body road.** ⭐ GPT review 2026-08-31, source-read. `portal/
+  input_adapter.rs` loops over driven bodies but asks
+  `Option<Res<NearestInteractable>>` — one resource computed from ONE
+  `ControlledSubject` in `ambition_sim_view` — whether an ordinary interaction
+  claimed the button. So seat zero standing near a chest suppresses seat one's
+  portal toggle, and seat zero standing clear lets seat one both toggle AND
+  interact. ⚠ ALSO THE WRONG DIRECTION: a gameplay input decision consulting a
+  presentation read-model. Smaller sibling: `inventory_adapter.rs` drop/pickup
+  read `.next()` instead of iterating every body-tagged intent. ⭐ this is the
+  same class as the nine abilities converted to `DrivenBodies` on 2026-08-31 —
+  the conversion has a layer left under it.
+
+- ▢ **D-MOVE-INSTANCE — a same-id move restart is invisible to the chain
+  probe.** ⭐ GPT review 2026-08-31, REPRODUCED: `moveset_report.py` discovers
+  instances with `move and move != previous`, so a self-cancel that replaces
+  `MovePlayback("jab")` with a fresh one in the SAME update reports
+  `accepted: false`. The runtime supports exactly that
+  (`moveset/tests.rs` pins the clock reset), and the report's own fixture forces
+  `jab → None → jab`, so it never tests the real case. ⇒ publish a monotonic
+  per-body playback GENERATION from runtime observation; never infer instance
+  boundaries from a textual move id.
+
+- ▢ **D-REPORT-GEOMETRY — the report reduces exact volumes to AABBs and uses the
+  wrong tangent rule.** ⭐ GPT review 2026-08-31, REPRODUCED: two boxes whose
+  edges meet exactly report `overlap = True` in `moveset_report.py`, while
+  `CombatVolume`'s runtime `strict_intersects` returns false. The raw
+  observation layer is correct — it preserves exact circles/OBBs/convex — and
+  `moveset_report.py:58-72` flattens every volume to bounds before computing
+  `overlap_ticks`, `max_reach_px` and `geometry_reached_target`, whose names
+  claim more than a broad phase supports. ⇒ publish the exact facts from RUST
+  using the same authority gameplay uses; keep the cheap bounds only under names
+  that say `aabb_`.
+
+- ⊙ **GPT review 2026-08-31, TWO ITEMS ANSWERED BY COMMITS IT COULD NOT SEE.**
+  Its HEAD was `04dff7366`; the following landed after it. (1) Its P3 *"explicit
+  `Tilt` exists through the wire vocabulary but no real device adapter emits
+  it"* — the device half shipped in `66bccd961`:
+  `ControlSettings::right_stick_mode`, a hysteretic flick, and a Controls row.
+  ⚠ its sibling observation stands and is recorded there: the harness `Action`
+  and `trace_replay` are still strong-or-not, so a recorded tilt collapses to
+  `Auto`. (2) Its P3 GPU-shutter gap is unchanged and correctly graded — it says
+  itself it reproduced no mismatched PNG.
+  ⚠ AND THE RUST FINDINGS ABOVE ARE SOURCE-READ: the reviewer had no `cargo`.
+  Its Python/JS findings ARE reproduced and are the stronger evidence.
+
+- ▢ **D-CAUSAL-CAPABILITY — `causal: []` means two different things.** ⭐ GPT
+  review 2026-08-31, source-read. `ambition_app_tools` defaults the `causal`
+  feature OFF and `moveset_takes` always writes `"causal": []`, so "the recorder
+  was not built" is indistinguishable from "the recorder ran and saw nothing" —
+  and `moveset_report.py` reads the empty array as the former. ⇒ write an
+  explicit `capabilities: { causal_resolution: bool }` on the artifact and pin
+  both states.
+
 ## External measurements / human-gated work
 
 These are live but should not cause an autonomous agent to invent data or a

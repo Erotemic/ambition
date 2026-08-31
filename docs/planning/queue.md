@@ -41,6 +41,31 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D199 — the projectile's solid test is swept and policy-aware now.** Of the
+row's three asks, two were already closed (victim ordering and wall occlusion are
+guarded; the swept-versus-hurt-volume half is deliberately deferred behind an
+EXECUTABLE measurement, `projectile_speed_stays_under_the_swept_threshold.rs`).
+The first ask is done: `step_projectiles`' anti-tunnelling step cast
+`raycast_solids` along the shot's CENTRE LINE, so a box clipping a block's CORNER
+— centre line beside it, endpoint clear — was a hit nothing in the road could
+see. It is `ae::cast::body_sweep` now, the engine's one body-vs-world swept entry
+point, which was already sitting beside the raycast unused by this caller. ⭐ AND
+THE CAST WAS POLICY-BLIND: `include_one_way = false` unconditionally, which is
+right for a `Bouncing` shot (a fireball crosses a one-way from below by design)
+and wrong for `ExpireOnContact`, whose contract is that ANY solid / blink-wall /
+one-way contact is expiry — so a fast straight shot flew through a platform its
+own policy says should have killed it. The predicate asks the shot. Three arms:
+the corner clip and the one-way tunnel, each red under the poison for ITS OWN
+half (a point-sized sweep; a policy-blind predicate), plus a contrast case — a
+bouncing shot flying ALONG a one-way still passes through — green before and
+after, which is what keeps the fix from becoming "one-ways stop everything".
+⚠ The snap lands a hair INSIDE the hit block rather than exactly tangent, because
+`time_of_impact` puts the box merely touching and every policy below reads
+`strict_intersects`, which is false for a touch. ⚠ The guard for the OTHER input
+to the deferred inequality — a hurt volume authored below ~11px — still does not
+exist and still cannot be written from authored data; that stays recorded in the
+deferral test's own header.
+
 ✔ **D-RESTORE-SIM-LOCAL — the once-per-session resume memory was two `Local`s on
 a SIM system.** `restore_checkpoint_on_session_start` runs in `PlayerSimulation`,
 and a `Local` does not rewind: a rollback crossing the frame it routed on would
@@ -258,28 +283,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D199 — the projectile's SOLID collision is a centre-line ray; the victim
-  half is already guarded and deferred.** Re-measured 2026-08-30, and the row as
-  written overstates what is left. Of its three asks: the victim-ordering and
-  wall-occlusion halves ARE guarded
-  (`projectile/tests/collision.rs` — `a_shot_reaching_two_bodies_hits_the_nearer_one...`
-  and `a_shot_does_not_damage_a_victim_standing_behind_a_wall`); and the
-  swept-versus-hurt-volume half is deliberately DEFERRED on a measurement that is
-  itself executable —
-  `projectile_speed_stays_under_the_swept_threshold.rs` fails the day content
-  authors a shot past ~1680 px/s, against a current fastest of 640. What remains
-  is the first ask alone: `ae::cast::raycast_solids` tests the shot's CENTRE LINE
-  against solids (`projectile/systems.rs`, the occlusion cast and the endpoint
-  snap), so a finite shot box can clip a corner the centre line misses, and the
-  cast bypasses the collision-policy distinctions ordinary movement honours. The
-  swept primitive already exists beside it (`core::cast::body_sweep`,
-  `aabb_path_contacts`) and is unused by this road. Acceptance: the shot's solid
-  test is swept and policy-aware, with an edge/corner case the centre-line probe
-  misses and a contrast case for intentionally passable geometry. ⚠ The guard for
-  the OTHER input to that inequality — a hurt volume authored below ~11px — does
-  not exist and cannot be written from authored data today; that is recorded in
-  the deferral test's own header.
 
 - ▢ **D-CONTROL-INTERACT — the press-gated WORLD verbs are still singular.**
   D-CONTROL-ITEM converged the held/ranged half; the interaction half was left

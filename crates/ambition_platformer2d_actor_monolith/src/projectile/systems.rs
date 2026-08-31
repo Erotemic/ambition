@@ -830,29 +830,62 @@ pub fn step_projectiles(
         // have seen at a slower speed, and every policy below it — bounce,
         // expire, one-way passthrough — behaves unchanged.
         //
-        // ⚠ SOLIDS ONLY, matching the damage check above: a one-way is passable
-        // from below by design, and pulling a shot back onto one would convert a
-        // legal passthrough into a bounce.
+        // ⭐⭐ A SWEPT BOX, NOT THE CENTRE LINE, and it asks the SHOT'S OWN
+        // POLICY which blocks count (D199).
+        //
+        // ⛔ THE RAY WAS NOT THE SHOT. A shot is a box, so a box that clips a
+        // block's CORNER along its leg — while the centre line passes beside it
+        // and the endpoint lands clear — was a hit nothing in this road could
+        // see. `body_sweep` is the engine's one body-vs-world swept entry point
+        // and was already sitting beside the raycast, unused by this caller.
+        //
+        // ⛔ AND THE POLICY WAS HARD-CODED TO `include_one_way = false`. That is
+        // right for a `Bouncing` shot — a fireball crosses a one-way from below
+        // by design, and pulling it back onto one would convert a legal
+        // passthrough into a bounce — and WRONG for `ExpireOnContact`, whose
+        // contract is that any solid / blink-wall / one-way contact is expiry. A
+        // fast straight shot flew through a platform its own policy says should
+        // have killed it.
+        //
         // ⚠ Only when the endpoint is NOT already touching something — otherwise
-        // this would move a shot that the existing test can already resolve.
+        // this would move a shot the endpoint test can already resolve.
         {
             // The same leg the victim ordering above reasons about, recomputed
             // here because that one is scoped to the victim block.
             let leg_start = kin.pos - kin.vel * dt;
             let leg = kin.pos - leg_start;
-            let leg_len = leg.length();
-            let endpoint_box = kin.aabb();
-            let already_touching = collision_world.blocks.iter().any(|block| {
-                matches!(
+            let blocks_this_shot = |block: &ae::Block| match world_hit {
+                ambition_projectiles::WorldHitPolicy::Bouncing => matches!(
                     block.kind,
                     ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-                ) && block.aabb.strict_intersects(endpoint_box)
-            });
-            if !already_touching && leg_len > f32::EPSILON {
-                if let Some((hit, _normal)) =
-                    ae::cast::raycast_solids(&*collision_world, leg_start, leg, leg_len, false)
-                {
-                    kin.pos = hit;
+                ),
+                ambition_projectiles::WorldHitPolicy::ExpireOnContact => matches!(
+                    block.kind,
+                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+                ),
+            };
+            let endpoint_box = kin.aabb();
+            let already_touching = collision_world
+                .blocks
+                .iter()
+                .any(|block| blocks_this_shot(block) && block.aabb.strict_intersects(endpoint_box));
+            if !already_touching && leg != ae::Vec2::ZERO {
+                let half = kin.size * 0.5;
+                if let Some(hit) = ae::cast::body_sweep(
+                    &collision_world,
+                    ae::Aabb::new(leg_start, half),
+                    leg,
+                    blocks_this_shot,
+                ) {
+                    // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact`
+                    // puts the box touching the block, and `strict_intersects`
+                    // — which every policy below reads — is false for a touch.
+                    // Nudging toward the hit block's centre works for a corner
+                    // clip too, where the leg direction is tangential and
+                    // nudging ALONG it would not overlap anything.
+                    let contact = leg_start + leg * hit.time_of_impact;
+                    let inward = (hit.block.aabb.center() - contact).normalize_or_zero();
+                    kin.pos = contact + inward * 0.5;
                 }
             }
         }

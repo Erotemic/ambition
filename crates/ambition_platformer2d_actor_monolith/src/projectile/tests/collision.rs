@@ -464,3 +464,147 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
         survivors.len()
     );
 }
+
+/// ⛔⛔ THE SHOT'S SOLID TEST IS ITS CENTRE LINE, AND A SHOT IS A BOX (D199).
+///
+/// The anti-tunnelling step casts `raycast_solids` along the leg and snaps
+/// `kin.pos` to the hit so the END-position box test finds the block. A ray is
+/// not the shot, so a box that clips a block's CORNER along its path — while the
+/// centre line passes beside it and the endpoint lands clear — is a hit nothing
+/// in the road can see.
+///
+/// The geometry is chosen so all three probes disagree:
+///
+/// ```text
+/// centre line x=500                 never reaches the block's x∈[510,560]
+/// endpoint box  (500,272)±(16,12)   y∈[260,284], clear of the block's y∈[330,350]
+/// SWEPT box     (500,400)→(500,272) x∈[510,516] × y∈[330,350] — a corner clip
+/// ```
+#[test]
+fn a_shot_clipping_a_block_corner_along_its_path_hits_it() {
+    let world = ae::World::new(
+        "corner_clip",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::solid(
+            "ledge",
+            ae::Vec2::new(510.0, 330.0),
+            ae::Vec2::new(50.0, 20.0),
+        )],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    {
+        let spec = ProjectileKind::Hadouken.spec(
+            ae::Vec2::new(500.0, 400.0),
+            ae::Vec2::new(0.0, -1.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(500.0, 400.0);
+        // Fast enough that one leg carries the box past the ledge entirely.
+        body.kin.vel = ae::Vec2::new(0.0, -8000.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert!(
+        bodies.is_empty(),
+        "the shot's box swept through the ledge's corner and nothing stopped it: \
+         {} still in flight at {:?}",
+        bodies.len(),
+        bodies.iter().map(|b| b.kin.pos).collect::<Vec<_>>()
+    );
+}
+
+/// ⛔⛔ AND THE CAST IGNORED THE SHOT'S OWN COLLISION POLICY.
+///
+/// The anti-tunnelling cast passed `include_one_way = false` unconditionally.
+/// That is right for a `Bouncing` shot — a fireball crosses a one-way from below
+/// by design — and wrong for `ExpireOnContact`, whose whole contract is that ANY
+/// solid / blink-wall / one-way contact is expiry. So a fast straight shot flew
+/// through a one-way platform its own policy says should have killed it.
+#[test]
+fn an_expire_on_contact_shot_does_not_tunnel_through_a_one_way() {
+    let world = ae::World::new(
+        "one_way_tunnel",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::one_way(
+            "platform",
+            ae::Vec2::new(400.0, 340.0),
+            ae::Vec2::new(300.0, 8.0),
+        )],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    {
+        let spec = ProjectileKind::Hadouken.spec(
+            ae::Vec2::new(500.0, 300.0),
+            ae::Vec2::new(0.0, 1.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(500.0, 300.0);
+        body.kin.vel = ae::Vec2::new(0.0, 8000.0);
+        // The policy this case is about, stated rather than inherited: no
+        // authored kind carries it today, and the held-bolt road that does is a
+        // different stepper.
+        body.game.world_hit = ambition_projectiles::WorldHitPolicy::ExpireOnContact;
+        body.game.gravity = 0.0;
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert!(
+        bodies.is_empty(),
+        "an ExpireOnContact shot crossed a one-way platform in one leg: {:?}",
+        bodies.iter().map(|b| b.kin.pos).collect::<Vec<_>>()
+    );
+}
+
+/// ⛔ THE CONTRAST, so the fix above cannot become "one-ways stop everything".
+///
+/// A `Bouncing` shot crossing a one-way HORIZONTALLY must still pass through —
+/// the authored behaviour `resolve_world_collision` documents, and the reason
+/// the cast excluded one-ways in the first place. Green before the swept
+/// conversion and green after; that is the point of it.
+#[test]
+fn a_bouncing_shot_still_crosses_a_one_way_platform_sideways() {
+    let world = ae::World::new(
+        "one_way_sideways",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::one_way(
+            "platform",
+            ae::Vec2::new(400.0, 340.0),
+            ae::Vec2::new(300.0, 8.0),
+        )],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    {
+        let spec = ProjectileKind::Hadouken.spec(
+            ae::Vec2::new(420.0, 344.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(420.0, 344.0);
+        body.kin.vel = ae::Vec2::new(1200.0, 0.0);
+        body.game.gravity = 0.0;
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(
+        bodies.len(),
+        1,
+        "a bouncing shot flying ALONG a one-way must pass through it"
+    );
+    assert!(
+        bodies[0].kin.pos.x > 420.0,
+        "it should still be travelling: {:?}",
+        bodies[0].kin.pos
+    );
+}

@@ -83,7 +83,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// encoder type, same projection, so `schema_dump()` was byte-identical and
 /// every ledger stayed green. That is the class this constant exists for. A
 /// codec body is part of the wire format even when the registry row is not.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 140;
+/// ⛔ v141: `InputStreamRecorder` LEFT the snapshot. It was
+/// `rollback_resource_clone`, so every GGRS save cloned the whole recorded
+/// input history and saving frame N cost N. It was only registered because
+/// `InputStream::push` was append-only and a resimulated tick recorded itself
+/// twice; `push` is tick-addressed now, so a rewind rewrites its own tail and
+/// the recorder reproduces its state instead of being restored to it. A peer
+/// that snapshots the recorder and one that does not cannot agree about a
+/// snapshot, so this is a wire change even though it only REMOVES bytes.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 141;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

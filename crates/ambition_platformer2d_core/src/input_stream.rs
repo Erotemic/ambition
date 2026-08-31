@@ -105,13 +105,42 @@ impl InputStream {
         }
     }
 
-    /// Append one tick's slots. The caller is the sim, so the tick is whatever
-    /// `SimTick` says; [`Self::validate`] is what catches a caller that lied.
+    /// Record one tick's slots AT that tick. The caller is the sim, so the tick
+    /// is whatever `SimTick` says; [`Self::validate`] is what catches a caller
+    /// that lied.
+    ///
+    /// ⭐⭐ TICK-ADDRESSED, NOT APPEND-ONLY, and that is what lets the recording
+    /// live OUTSIDE rollback state. A rollback host resimulates ticks it has
+    /// already run, so a plain `push` recorded each of them twice and the stream
+    /// only stayed contiguous because the whole growing `Vec` was cloned into
+    /// every GGRS snapshot — which made frame N cost N to save. Recording a tick
+    /// the stream has already passed DISCARDS the abandoned tail and rewrites
+    /// from there, which is exactly what a rewind means: the confirmed prefix is
+    /// history and does not move, and only the speculative tail is rewritten.
+    ///
+    /// A resimulation that re-records the same tick with the same input is a
+    /// no-op by construction, so the common case costs one comparison.
     pub fn push(&mut self, tick: u64, slots: impl IntoIterator<Item = ControlFrame>) {
-        self.frames.push(InputStreamFrame {
+        let frame = InputStreamFrame {
             tick,
             slots: slots.into_iter().collect(),
-        });
+        };
+        match self.frames.first().map(|first| first.tick) {
+            // Recording a tick BEFORE the stream starts is not a rewind — it is
+            // a different session in the same recorder. Start over rather than
+            // author a stream `validate` will reject.
+            Some(start) if tick < start => self.frames.clear(),
+            Some(start) => {
+                let offset = tick - start;
+                if let Ok(offset) = usize::try_from(offset) {
+                    if offset < self.frames.len() {
+                        self.frames.truncate(offset);
+                    }
+                }
+            }
+            None => {}
+        }
+        self.frames.push(frame);
     }
 
     /// The first recorded tick, if any.
@@ -324,5 +353,60 @@ mod tests {
         assert_eq!(frames.len(), 3);
         assert!(frames[1].jump_pressed);
         assert!(!frames[0].jump_pressed);
+    }
+
+    /// ⭐⭐ RE-RECORDING A TICK THE STREAM HAS ALREADY PASSED REWRITES FROM
+    /// THERE. This is what a rollback host does on every rewind, and an
+    /// append-only `push` answered it with a duplicate tick — a stream
+    /// `validate` rejects, and the reason the whole growing `Vec` had to be
+    /// cloned into every GGRS snapshot to stay correct.
+    #[test]
+    fn re_recording_a_passed_tick_rewrites_the_tail_instead_of_duplicating_it() {
+        let mut stream = InputStream::recording_at(60);
+        for tick in 0..5u64 {
+            let mut frame = ControlFrame::default();
+            frame.axis_x = tick as f32;
+            stream.push(tick, [frame]);
+        }
+        assert_eq!(stream.len(), 5);
+
+        // A rewind to tick 2, then a resimulation with DIFFERENT input.
+        for tick in 2..5u64 {
+            let mut frame = ControlFrame::default();
+            frame.axis_x = -(tick as f32);
+            stream.push(tick, [frame]);
+        }
+
+        assert_eq!(
+            stream.len(),
+            5,
+            "the resimulation re-recorded three ticks it had already passed"
+        );
+        assert_eq!(stream.validate(), Ok(()), "the stream must stay contiguous");
+        assert_eq!(
+            stream.control(1, 0).axis_x,
+            1.0,
+            "the CONFIRMED prefix is history and does not move"
+        );
+        assert_eq!(
+            stream.control(4, 0).axis_x,
+            -4.0,
+            "the resimulated tail is what the resimulation recorded"
+        );
+    }
+
+    /// A rewind that reaches further back than the recording exists for is not a
+    /// rewind at all — a re-armed recorder in the same session. Starting over
+    /// beats authoring a stream whose every reader fails `validate`.
+    #[test]
+    fn recording_a_tick_before_the_stream_starts_starts_over() {
+        let mut stream = InputStream::recording_at(60);
+        for tick in 10..13u64 {
+            stream.push(tick, [ControlFrame::default()]);
+        }
+        stream.push(4, [ControlFrame::default()]);
+        assert_eq!(stream.start_tick(), Some(4));
+        assert_eq!(stream.len(), 1);
+        assert_eq!(stream.validate(), Ok(()));
     }
 }

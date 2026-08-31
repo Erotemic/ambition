@@ -53,6 +53,44 @@ Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
   activation so the temporary population never exists. Owner:
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
+✔ **D-INPUT-RECORDER — the input recorder was quadratic rollback state.**
+`InputStreamRecorder` was `rollback_resource_clone`, so every GGRS save cloned
+the WHOLE recorded input history and saving frame N cost N. It was registered
+for a reason: `InputStream::push` was append-only, so a resimulated tick
+recorded itself a second time and only the restore kept the stream contiguous.
+⭐ `push` IS TICK-ADDRESSED NOW — re-recording a tick the stream has already
+passed discards the abandoned tail and rewrites from there, which is what a
+rewind MEANS. The recorder reproduces its own correct state from the
+resimulation, so it is `declare_rollback_derived_resource` and carries no
+snapshot bytes at all; the confirmed prefix, which is the part that grows, never
+moves. Guarded by `input_stream_under_rollback.rs`: the same script through an
+eager host and a `check_distance: 4` sync-test host produces the same recording
+(RED by poisoning `push` back to append-only), plus an arm asserting the
+registration is `Derived` — because restoring the stream is ALSO a way to keep
+it contiguous, just the expensive way, and the behavioural test alone could not
+tell them apart. ⚠ The two hosts do not start on the same `SimTick`, so the
+comparison is on the recorded SEQUENCE, not absolute tick numbers.
+`GGRS_ROLLBACK_SCHEMA_VERSION` 140 → 141: a peer that snapshots the recorder
+and one that does not cannot agree, so removing bytes is still a wire change.
+
+✔ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
+Nine held-item abilities read `Res<ControlledSubject>` — one entity by
+construction — so a couch's second seat and a possessed body never acted:
+`ranged/{volley, meteor, beam, vortex}`, `thrown/puppy_slug_gun` and
+`traversal/{grapple, dive, blink, mark_recall}`. All nine now loop
+`DrivenBodies` (the possessed subject ∪ seated bodies, ordered by `SimId`), and
+every per-body exit is a `continue`. The held bolt carries
+`ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
+component the ECS projectile road uses — so `held_projectile_step` credits a
+hit to whoever fired it instead of `Query<Entity, PrimaryPlayerOnly>`. Looping
+exposed one new defect and it is fixed: the summon cap counted a query, which
+cannot see this tick's `Commands` spawns, so N seats firing together each read
+the same pre-tick count and every one of them summoned. Ten guards, each proven
+RED by poisoning `DrivenBodies::entities()` back to the single subject (9) and
+the bolt's attacker back to the primary slot (1). NOT in scope and NOT changed:
+presentation readers (the portal eye, the drawn gun, control prompts, camera)
+where one viewpoint is correct — see D-CONTROL-INTERACT for the rest.
+
 ✔ **D-PORTAL-POLICY — the portal map convention is a threaded value, not a
 process global.** `PORTAL_MAP_ROTATION: AtomicBool` in `shared_tangle::math` is
 deleted along with the per-frame system that mirrored `PortalTuning::convention`
@@ -170,24 +208,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
   not exist and cannot be written from authored data today; that is recorded in
   the deferral test's own header.
 
-- ✔ **D-CONTROL-ITEM — make held ranged/custom item actions per driven body.**
-  Nine held-item abilities read `Res<ControlledSubject>` — one entity by
-  construction — so a couch's second seat and a possessed body never acted:
-  `ranged/{volley, meteor, beam, vortex}`, `thrown/puppy_slug_gun` and
-  `traversal/{grapple, dive, blink, mark_recall}`. All nine now loop
-  `DrivenBodies` (the possessed subject ∪ seated bodies, ordered by `SimId`), and
-  every per-body exit is a `continue`. The held bolt carries
-  `ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
-  component the ECS projectile road uses — so `held_projectile_step` credits a
-  hit to whoever fired it instead of `Query<Entity, PrimaryPlayerOnly>`. Looping
-  exposed one new defect and it is fixed: the summon cap counted a query, which
-  cannot see this tick's `Commands` spawns, so N seats firing together each read
-  the same pre-tick count and every one of them summoned. Ten guards, each proven
-  RED by poisoning `DrivenBodies::entities()` back to the single subject (9) and
-  the bolt's attacker back to the primary slot (1). NOT in scope and NOT changed:
-  presentation readers (the portal eye, the drawn gun, control prompts, camera)
-  where one viewpoint is correct — see D-CONTROL-INTERACT for the rest.
-
 - ▢ **D-CONTROL-INTERACT — the press-gated WORLD verbs are still singular.**
   D-CONTROL-ITEM converged the held/ranged half; the interaction half was left
   because it is a different question, not because it is done.
@@ -247,14 +267,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Re-run the current target, start with player-visible/selectable characters that
   still fail, and fix the authored canvas/pose/geometry rather than weakening the
   guard. Do not infer a roster-wide scale rule from one character's repair.
-
-- ▢ **D-INPUT-RECORDER — remove quadratic rollback copying from
-  `InputStreamRecorder`.** The recorder owns a growing history `Vec` that is
-  cloned into rollback state, making later frames copy the whole prior stream.
-  Keep finalized recording outside speculative rollback and rewind only the
-  cursor/unconfirmed tail needed to reproduce state. Acceptance: equivalent
-  recorded output across rewind with bounded per-frame snapshot growth. Owner:
-  [`engine/netcode.md`](engine/netcode.md).
 
 - ▢ **D-TRAP-HOLD — make `UntilPressedAgain` use the semantic timeline-hold
   action set it claims.** Current behavior describes "any action press except

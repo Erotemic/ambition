@@ -109,10 +109,26 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         // with the domain-owned declarations at the top of this function) performs the
         // registration through the floor's `RollbackRegistrar` vocabulary.  it
         // carries a VALUE projection, not a presence probe — see that function.
-        .rollback_resource_clone::<crate::InputStreamRecorder>(
-            ENGINE,
-            "resource.input_stream_recorder",
-        );
+        ;
+
+    // ⛔⛔ NOT SNAPSHOTTED, AND THAT IS THE POINT. This used to be
+    // `rollback_resource_clone`, which cloned the WHOLE recorded input history
+    // into every GGRS save — so saving frame N cost N, and a recorded session
+    // paid for its own length quadratically.
+    //
+    // It was registered because `InputStream::push` was append-only, so a
+    // resimulated tick recorded itself a second time and only the restore kept
+    // the stream contiguous. `push` is tick-ADDRESSED now: re-recording a tick
+    // the stream has already passed discards the abandoned tail and rewrites
+    // from there. That is what a rewind means, so the recorder reproduces its
+    // own correct state from the resimulation instead of being restored to it —
+    // and the confirmed prefix, which is the part that grows, never moves.
+    registrar.declare_rollback_derived_resource::<crate::InputStreamRecorder>(
+        ENGINE,
+        "derived.input_stream_recorder",
+        "tick-addressed recording: a resimulation rewrites its own tail, so the \
+         stream needs no restore — and snapshotting it made frame N cost N",
+    );
 
     // ⭐ CORE BODY STATE IS NOT HERE ANY MORE — fifteen body-cluster components,
     // declared by `ambition_platformer2d_core` beside the types themselves.

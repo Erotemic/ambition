@@ -19,7 +19,11 @@ use bevy::prelude::*;
 pub fn open_ecs_chests(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // ⭐ EVERY DRIVEN BODY. The gesture half was already per-body —
+    // `ActingParticipant` keys the buffered interact off the body's OWN driving
+    // slot — and only the subject was singular, so a couch's second seat could
+    // stand on a chest and press interact forever.
+    driven: crate::items::pickup::DrivenBodies,
     // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.
     // Slot 0 was the wrong source the moment a body other than the home avatar
     // can be driven: a possessed actor's chest open spent the home seat's press.
@@ -72,20 +76,21 @@ pub fn open_ecs_chests(
     // so the player's reach-and-open animation feels uniform across
     // every interactable kind.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    let Some(subject) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.iter().next())
-    else {
-        return;
-    };
-    if !acting.buffered_interact(subject) {
-        return;
+    // ⚠ THE FALLBACK IS THE STARTUP FRAME and nothing else: before a seat is
+    // attached there is no driven body at all, and the primary avatar is the
+    // subject every single-player fixture expects.
+    let mut subjects = driven.entities();
+    if subjects.is_empty() {
+        subjects.extend(primary.iter().next());
     }
-    let Ok(subject_kin) = bodies.get(subject) else {
-        return;
-    };
-    let reach_aabb = subject_kin.aabb();
-    {
+    for subject in subjects {
+        if !acting.buffered_interact(subject) {
+            continue;
+        }
+        let Ok(subject_kin) = bodies.get(subject) else {
+            continue;
+        };
+        let reach_aabb = subject_kin.aabb();
         for (entity, id, name, aabb, chest, opened, falling) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;

@@ -44,7 +44,11 @@ pub fn interact_ecs_actors_and_switches(
     mut dialogue: DialogueDispatch,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // ⭐ EVERY DRIVEN BODY. The gesture half was already per-body —
+    // `ActingParticipant` keys the buffered interact off the body's OWN driving
+    // slot — and only the subject was singular, so a couch's second seat could
+    // stand on a switch and press interact forever.
+    driven: crate::items::pickup::DrivenBodies,
     // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY,
     // not to slot 0. Under possession those are different controllers, and
     // reading slot 0 meant a possessed body's interaction spent — and was gated
@@ -109,140 +113,150 @@ pub fn interact_ecs_actors_and_switches(
     // The body actually doing the interacting: the controlled subject (the body
     // holding the primary seat), falling back to the primary player itself for
     // the startup frame before the subject resolver has run.
-    let Some(subject) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.iter().next())
-    else {
-        return;
-    };
-    if !acting.buffered_interact(subject) {
-        return;
+    // ⚠ THE FALLBACK IS THE STARTUP FRAME and nothing else: before a seat is
+    // attached there is no driven body at all, and the primary avatar is the
+    // subject every single-player fixture expects.
+    let mut subjects = driven.entities();
+    if subjects.is_empty() {
+        subjects.extend(primary.iter().next());
     }
-    let Ok(subject_kin) = bodies.get(subject) else {
-        return;
-    };
-    let reach_aabb = subject_kin.aabb();
-    // WHO is doing the talking. A possessed body speaks as the character it IS;
-    // the home avatar speaks as the character it WEARS; a body that is neither
-    // speaks as its placement. Ids, never display names — a name is a
-    // localization artifact and two characters can share one.
-    // A gameplay body without an authored identity is not a valid dialogue
-    // speaker. Do not silently substitute a process-global default: that
-    // would make dialogue authority depend on whichever provider initialized
-    // first in this process. A speaker-less body skips dialogue but still
-    // works switches below.
-    let speaker_id = dialogue.speaker_id(
-        subject,
-        interactions.get(subject).ok(),
-        identities.get(subject).ok(),
-    );
-    for (actor_entity, aabb, disposition, identity, interaction_payload, health, out_of_play) in
-        &actors
-    {
-        let Some(speaker_id) = speaker_id.as_deref() else {
-            break;
+    for subject in subjects {
+        if !acting.buffered_interact(subject) {
+            continue;
+        }
+        let Ok(subject_kin) = bodies.get(subject) else {
+            continue;
         };
-        // A hostile actor gates dialogue off; a dead one is an intangible corpse
-        // and cannot be talked to.
-        if disposition.is_hostile()
-            || ambition_combat::util::body_is_untouchable(health, out_of_play)
-        {
-            continue;
-        }
-        let interactable = &interaction_payload.interactable;
-        if !aabb.aabb().strict_intersects(reach_aabb) {
-            continue;
-        }
-        let request =
-            super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
-        let listener_id =
-            ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
-
-        // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
-        // has anything to say — a self-conversation needs an authored `__self`
-        // branch — and what the conversation IS are both answered there; this
-        // system owns the INTERACTION facts (a body, a reach box, a buffered
-        // press) and the world-side consequences below.
-        //
-        // `continue`, not `return`: another body in reach may still be talkable, and the
-        // buffered press has not been consumed. An interaction that does not happen must leave
-        // no trace — no banner, no flags, no quest pump, no mode flip. WHOSE conversation
-        // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
-        // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
-        let input_owner = dialogue.driving_slot(subject).map_or(
-            ambition_conversation::ConversationInputOwner::Primary,
-            |slot| {
-                ambition_conversation::ConversationInputOwner::Participant(
-                    crate::participant_seat::participant_of(slot),
-                )
-            },
-        );
-        if !dialogue.open_between(
+        let reach_aabb = subject_kin.aabb();
+        // WHO is doing the talking. A possessed body speaks as the character it IS;
+        // the home avatar speaks as the character it WEARS; a body that is neither
+        // speaks as its placement. Ids, never display names — a name is a
+        // localization artifact and two characters can share one.
+        // A gameplay body without an authored identity is not a valid dialogue
+        // speaker. Do not silently substitute a process-global default: that
+        // would make dialogue authority depend on whichever provider initialized
+        // first in this process. A speaker-less body skips dialogue but still
+        // works switches below.
+        let speaker_id = dialogue.speaker_id(
             subject,
-            actor_entity,
-            &request.dialogue_id,
-            &request.npc_name,
-            speaker_id,
-            listener_id,
-            input_owner,
-        ) {
-            continue;
-        }
+            interactions.get(subject).ok(),
+            identities.get(subject).ok(),
+        );
+        for (actor_entity, aabb, disposition, identity, interaction_payload, health, out_of_play) in
+            &actors
+        {
+            let Some(speaker_id) = speaker_id.as_deref() else {
+                break;
+            };
+            // A hostile actor gates dialogue off; a dead one is an intangible corpse
+            // and cannot be talked to.
+            if disposition.is_hostile()
+                || ambition_combat::util::body_is_untouchable(health, out_of_play)
+            {
+                continue;
+            }
+            let interactable = &interaction_payload.interactable;
+            if !aabb.aabb().strict_intersects(reach_aabb) {
+                continue;
+            }
+            let request = super::super::npcs::npc_dialogue_request(
+                interactable,
+                &identity.name,
+                &identity.id,
+            );
+            let listener_id =
+                ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
 
-        acting.consume_interact(subject);
-        pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
-        banner.show(
-            super::super::npcs::npc_message(interactable, &identity.name, false),
-            2.6,
-        );
-        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-            ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
-            "npc_interact",
-        );
-        next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
-        quest_advance.write(QuestAdvanceRequested(
-            ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
-        ));
-        set_flag.write(SetFlagRequested {
-            id: "met_any_hub_npc".into(),
-            on: true,
-        });
-        set_flag.write(SetFlagRequested {
-            id: format!("npc_{}_talked", request.dialogue_id),
-            on: true,
-        });
-        vfx.write(VfxMessage::Burst {
-            pos: aabb.center,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        // Dialogue is a global mode flip; a talk consumes the interact and skips
-        // the switch loop this tick.
-        return;
-    }
-    for (_id, name, aabb, switch, mut on) in &mut switches {
-        if !aabb.aabb().strict_intersects(reach_aabb) {
-            continue;
+            // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
+            // has anything to say — a self-conversation needs an authored `__self`
+            // branch — and what the conversation IS are both answered there; this
+            // system owns the INTERACTION facts (a body, a reach box, a buffered
+            // press) and the world-side consequences below.
+            //
+            // `continue`, not `return`: another body in reach may still be talkable, and the
+            // buffered press has not been consumed. An interaction that does not happen must leave
+            // no trace — no banner, no flags, no quest pump, no mode flip. WHOSE conversation
+            // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
+            // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
+            let input_owner = dialogue.driving_slot(subject).map_or(
+                ambition_conversation::ConversationInputOwner::Primary,
+                |slot| {
+                    ambition_conversation::ConversationInputOwner::Participant(
+                        crate::participant_seat::participant_of(slot),
+                    )
+                },
+            );
+            if !dialogue.open_between(
+                subject,
+                actor_entity,
+                &request.dialogue_id,
+                &request.npc_name,
+                speaker_id,
+                listener_id,
+                input_owner,
+            ) {
+                continue;
+            }
+
+            acting.consume_interact(subject);
+            pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
+            banner.show(
+                super::super::npcs::npc_message(interactable, &identity.name, false),
+                2.6,
+            );
+            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
+                "npc_interact",
+            );
+            next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
+            quest_advance.write(QuestAdvanceRequested(
+                ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
+            ));
+            set_flag.write(SetFlagRequested {
+                id: "met_any_hub_npc".into(),
+                on: true,
+            });
+            set_flag.write(SetFlagRequested {
+                id: format!("npc_{}_talked", request.dialogue_id),
+                on: true,
+            });
+            vfx.write(VfxMessage::Burst {
+                pos: aabb.center,
+                count: 16,
+                speed: 230.0,
+                color: [0.84, 0.95, 1.0, 0.82],
+                kind: ParticleKind::Spark,
+            });
+            // ⭐ Dialogue is a GLOBAL mode flip, so this `return` ends the SYSTEM and
+            // not just this body's turn — two bodies cannot both open a conversation
+            // on one tick, and the second would be flipping a mode the first already
+            // flipped. Unlike the switch loop below, that is the right scope.
+            return;
         }
-        acting.consume_interact(subject);
-        pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
-        banner.show(format!("activated {}", name.0.as_str()), 2.6);
-        on.0 = true;
-        switch_activated.write(SwitchActivated {
-            activation: switch.activation.clone(),
-            pos: aabb.center,
-        });
-        vfx.write(VfxMessage::Burst {
-            pos: aabb.center,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        // Switch activation is per-target; once we flip one we stop.
-        return;
+        for (_id, name, aabb, switch, mut on) in &mut switches {
+            if !aabb.aabb().strict_intersects(reach_aabb) {
+                continue;
+            }
+            acting.consume_interact(subject);
+            pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
+            banner.show(format!("activated {}", name.0.as_str()), 2.6);
+            on.0 = true;
+            switch_activated.write(SwitchActivated {
+                activation: switch.activation.clone(),
+                pos: aabb.center,
+            });
+            vfx.write(VfxMessage::Burst {
+                pos: aabb.center,
+                count: 16,
+                speed: 230.0,
+                color: [0.84, 0.95, 1.0, 0.82],
+                kind: ParticleKind::Spark,
+            });
+            // ⛔ Switch activation is per-target and PER BODY: `break`, not `return`.
+            // As a `return` this ended the SYSTEM, so seat a flipping its switch
+            // stopped seat b flipping a different one.
+            break;
+        }
     }
 }
 

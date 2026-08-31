@@ -1401,7 +1401,11 @@ pub fn unequip_portal_gun(
 /// something both timelines agree on.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct DrivenBodies<'w, 's> {
-    controlled: Res<'w, ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    /// ⚠ `Option`: a composition with no possession road registers no
+    /// `ControlledSubject`, and "nobody is driving a possessed body here" is an
+    /// ordinary answer rather than a reason to panic the app. The seat half
+    /// below still answers on its own.
+    controlled: Option<Res<'w, ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     seats: Query<
         'w,
         's,
@@ -1426,7 +1430,7 @@ impl DrivenBodies<'_, '_> {
         // The possessed subject first: a body somebody is DRIVING outranks a
         // seat it may also occupy, and putting it first keeps the single-subject
         // adventure road byte-identical to what it was.
-        if let Some(subject) = self.controlled.0 {
+        if let Some(subject) = self.controlled.as_deref().and_then(|held| held.0) {
             out.push(subject);
         }
         for (_, entity) in seated {

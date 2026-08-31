@@ -48,7 +48,10 @@ pub struct HealShrine {
 /// principle / §4 of the restructuring blueprint). Falls back to the primary
 /// player for the startup frame before the subject resolver has run.
 pub fn heal_save_shrine_system(
-    controlled: Option<Res<ControlledSubject>>,
+    // ⭐ EVERY DRIVEN BODY HEALS. A shrine heals the body that touched it, and
+    // "the body that touched it" was one entity by construction — so a couch's
+    // second seat could stand in the shrine and press interact forever.
+    driven: crate::items::pickup::DrivenBodies,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -81,68 +84,89 @@ pub fn heal_save_shrine_system(
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    let Some(subject) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok())
-    else {
-        return;
-    };
-    let Ok((control, kin, mut health, mut mana)) = bodies.get_mut(subject) else {
-        return;
-    };
-    if !control.0.interact_pressed {
-        return;
+    // ⚠ THE FALLBACK IS THE STARTUP FRAME and nothing else.
+    let mut subjects = driven.entities();
+    if subjects.is_empty() {
+        subjects.extend(primary.single().ok());
     }
-    let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    let touching = shrines
-        .iter()
-        .any(|s| player_aabb.strict_intersects(ae::Aabb::new(s.pos, s.half_extent)));
-    if !touching {
-        return;
-    }
-    health.reset(); // health to full
-    mana.meter.refill_full(); // mana to full
-
-    // THE CHECKPOINT.
+    // ⛔⛔ THE CHECKPOINT IS ONE FACT AND THE HEAL IS N. Two seats resting on the
+    // same tick heal two bodies and must not write two checkpoints — the second
+    // would silently overwrite the first. It is written by the FIRST body in
+    // `driven.entities()`' rewind-stable order that actually rests, so the value
+    // does not depend on query order.
     //
-    // Written for the PRIMARY player's session, not the possessed subject's body:
-    // the checkpoint is where this player resumes, and a possessed actor's
-    // position is not where the player will be standing next session. The heal
-    // above is the subject's; the checkpoint is the session's.
-    if let Some(room_set) = room_set.as_deref() {
-        let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
-            room_set.active_spec().id.clone(),
-            kin.pos.x.round() as i32,
-            kin.pos.y.round() as i32,
-        );
-        // Assign only on a real change, so resting twice at the same shrine does
-        // not churn the file.
-        if save.data().checkpoint.as_ref() != Some(&checkpoint) {
-            save.data_mut().checkpoint = Some(checkpoint);
+    // ⚠ WHICH BODY SHOULD OWN IT IS AN OPEN QUESTION, and this preserves today's
+    // answer rather than deciding it: the comment below has long claimed the
+    // checkpoint is "the PRIMARY player's session, not the possessed subject's
+    // body" while the code has always written the RESTING body's position — so a
+    // checkpoint taken while possessing resumes the primary avatar somewhere it
+    // never stood. See D-SHRINE-CHECKPOINT-OWNER in `docs/planning/queue.md`;
+    // changing it is a save-compatibility ruling, not a side effect of a
+    // multi-seat conversion.
+    let mut checkpoint_written = false;
+    for subject in subjects {
+        let Ok((control, kin, mut health, mut mana)) = bodies.get_mut(subject) else {
+            continue;
+        };
+        if !control.0.interact_pressed {
+            continue;
         }
+        let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let touching = shrines
+            .iter()
+            .any(|s| player_aabb.strict_intersects(ae::Aabb::new(s.pos, s.half_extent)));
+        if !touching {
+            continue;
+        }
+        health.reset(); // health to full
+        mana.meter.refill_full(); // mana to full
+        if checkpoint_written {
+            // Healed, and the session already has its checkpoint for this tick.
+            continue;
+        }
+        checkpoint_written = true;
+
+        // THE CHECKPOINT.
+        //
+        // Written for the PRIMARY player's session, not the possessed subject's body:
+        // the checkpoint is where this player resumes, and a possessed actor's
+        // position is not where the player will be standing next session. The heal
+        // above is the subject's; the checkpoint is the session's.
+        if let Some(room_set) = room_set.as_deref() {
+            let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
+                room_set.active_spec().id.clone(),
+                kin.pos.x.round() as i32,
+                kin.pos.y.round() as i32,
+            );
+            // Assign only on a real change, so resting twice at the same shrine does
+            // not churn the file.
+            if save.data().checkpoint.as_ref() != Some(&checkpoint) {
+                save.data_mut().checkpoint = Some(checkpoint);
+            }
+        }
+        // RAISED UNCONDITIONALLY, and NOT inside the change guard above.
+        // Resting twice at the same shrine writes the same position, so that guard
+        // is right about the FILE and would be badly wrong about the horizon: the
+        // second rest is a real checkpoint at which the player may be carrying
+        // something they were not carrying at the first. Suppressing it would leave
+        // the baseline describing the earlier visit, and a later death would take
+        // back an object the player had legitimately banked.
+        //
+        // raised even when there is no room set, for the same reason the heal
+        // above is: a composition with no rooms still has hands.
+        if let Some(committed) = committed.as_mut() {
+            committed.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted);
+        }
+        activation.remaining = 0.78;
+        sfx.write(ambition_sfx::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+            pos: kin.pos,
+        });
+        bevy::log::info!(
+            target: "ambition_platformer2d::shrine",
+            "shrine: healed to full + checkpoint recorded"
+        );
     }
-    // RAISED UNCONDITIONALLY, and NOT inside the change guard above.
-    // Resting twice at the same shrine writes the same position, so that guard
-    // is right about the FILE and would be badly wrong about the horizon: the
-    // second rest is a real checkpoint at which the player may be carrying
-    // something they were not carrying at the first. Suppressing it would leave
-    // the baseline describing the earlier visit, and a later death would take
-    // back an object the player had legitimately banked.
-    //
-    // raised even when there is no room set, for the same reason the heal
-    // above is: a composition with no rooms still has hands.
-    if let Some(committed) = committed.as_mut() {
-        committed.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted);
-    }
-    activation.remaining = 0.78;
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-        pos: kin.pos,
-    });
-    bevy::log::info!(
-        target: "ambition_platformer2d::shrine",
-        "shrine: healed to full + checkpoint recorded"
-    );
 }
 
 /// Resume where the player last rested.

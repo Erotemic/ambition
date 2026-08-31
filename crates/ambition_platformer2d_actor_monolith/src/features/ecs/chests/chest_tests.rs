@@ -187,3 +187,86 @@ fn an_empty_chest_pays_nothing() {
         "a chest authored with no reward paid one out anyway"
     );
 }
+
+/// ⭐⭐ TWO DRIVEN BODIES EACH OPEN THEIR OWN CHEST, IN ONE TICK.
+///
+/// ⛔⛔ THIS SYSTEM RESOLVED ONE `ControlledSubject`, which is one entity by
+/// construction — so on a couch stage the second seat could stand on a chest and
+/// press interact forever. The gesture half was already per-body
+/// (`ActingParticipant` keys the buffered interact off the body's own driving
+/// slot); only the SUBJECT was singular, which is the same shape the item verbs
+/// had.
+///
+/// ⛔ THE REWARD IS PART OF THE ASSERTION. "Both chests opened" would also hold
+/// if one body opened both, so each wallet has to show its own payout.
+#[test]
+fn two_driven_bodies_each_open_their_own_chest() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+    let mut app = app();
+    app.insert_resource(ControlledSubject(None));
+    // Both seats are holding an interact.
+    {
+        let mut gestures = app.world_mut().resource_mut::<SlotInteractionState>();
+        gestures.primary_mut().interact_buffer_timer = 0.5;
+        if let Some(second) = gestures.get_mut(PlayerSlot(1)) {
+            second.interact_buffer_timer = 0.5;
+        }
+    }
+
+    let seated = |app: &mut App, slot: u8, sim: &str, pos: ae::Vec2| -> Entity {
+        app.world_mut()
+            .spawn((
+                BodyKinematics {
+                    pos,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                BodyBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                },
+                BodyAnimFacts::default(),
+                ambition_characters::actor::BodyWallet::default(),
+                DrivingParticipant(PlayerSlot(slot)),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+            ))
+            .id()
+    };
+
+    let a = seated(&mut app, 0, "seat_a", ae::Vec2::new(100.0, 100.0));
+    let b = seated(&mut app, 1, "seat_b", ae::Vec2::new(900.0, 100.0));
+    let chest_a = chest_holding(
+        &mut app,
+        "chest_a",
+        ae::Vec2::new(100.0, 100.0),
+        Some(ambition_interaction::PickupKind::Currency { amount: 7 }),
+    );
+    let chest_b = chest_holding(
+        &mut app,
+        "chest_b",
+        ae::Vec2::new(900.0, 100.0),
+        Some(ambition_interaction::PickupKind::Currency { amount: 7 }),
+    );
+
+    app.update();
+
+    assert!(
+        app.world().get::<Opened>(chest_a).is_some(),
+        "seat a's chest stayed shut"
+    );
+    assert!(
+        app.world().get::<Opened>(chest_b).is_some(),
+        "seat b's chest stayed shut"
+    );
+    for (body, who) in [(a, "a"), (b, "b")] {
+        let wallet = app
+            .world()
+            .get::<ambition_characters::actor::BodyWallet>(body)
+            .expect("the body has a wallet");
+        assert!(
+            wallet.balance > 0,
+            "seat {who} opened a chest and somebody else was paid for it"
+        );
+    }
+}

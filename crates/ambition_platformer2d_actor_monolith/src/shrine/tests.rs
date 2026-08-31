@@ -402,3 +402,74 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
         "the resume transition was recorded repeatedly"
     );
 }
+
+/// ⭐⭐ TWO DRIVEN BODIES RESTING AT ONE SHRINE BOTH HEAL — and the session
+/// still gets exactly ONE checkpoint.
+///
+/// ⛔⛔ THE HEAL RESOLVED ONE `ControlledSubject`, so a couch's second seat could
+/// stand in the shrine and press interact forever.
+///
+/// ⛔ AND THE CHECKPOINT IS NOT N. Two seats resting on the same tick heal two
+/// bodies; writing two checkpoints would mean the second silently overwrote the
+/// first. It is written by the first body in the rewind-stable driven order that
+/// actually rests, so the value does not depend on query order.
+#[test]
+fn two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ShrineActivationPulse>();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    app.add_systems(Update, heal_save_shrine_system);
+
+    let seated = |app: &mut App, slot: u8, sim: &str| -> Entity {
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorControl::default(),
+                BodyKinematics {
+                    pos: Vec2::new(100.0, 100.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                BodyBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
+                },
+                BodyHealth::new(ambition_characters::actor::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: Default::default(),
+                }),
+                BodyMana::default(),
+                DrivingParticipant(PlayerSlot(slot)),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+            ))
+            .id();
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .interact_pressed = true;
+        body
+    };
+    let a = seated(&mut app, 0, "seat_a");
+    let b = seated(&mut app, 1, "seat_b");
+    app.world_mut().spawn(HealShrine {
+        pos: Vec2::new(100.0, 100.0),
+        half_extent: Vec2::new(22.0, 40.0),
+    });
+
+    app.update();
+
+    for (body, who) in [(a, "a"), (b, "b")] {
+        let health = *app.world().get::<BodyHealth>(body).unwrap();
+        assert_eq!(
+            health.current(),
+            health.max(),
+            "seat {who} rested at the shrine and was not healed"
+        );
+    }
+}

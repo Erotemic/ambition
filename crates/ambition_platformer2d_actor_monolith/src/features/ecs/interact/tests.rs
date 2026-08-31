@@ -1,8 +1,8 @@
 use super::*;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, NextState, Update};
 
 fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) -> Entity {
@@ -601,5 +601,49 @@ fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
         app.world().get::<SwitchOn>(switch).unwrap().0,
         "seat 1's own press did not work its own switch either, so the assertion \
          above proved nothing about WHOSE press was read"
+    );
+}
+
+/// ⭐⭐ TWO DRIVEN BODIES EACH FLIP THEIR OWN SWITCH, IN ONE TICK.
+///
+/// ⛔⛔ THIS SYSTEM RESOLVED ONE `ControlledSubject`, so on a couch stage the
+/// second seat could stand on a switch and press interact forever. The gesture
+/// half was already per-body — `ActingParticipant` keys the buffered interact
+/// off the body's own driving slot — and only the SUBJECT was singular.
+///
+/// ⛔ AND THE SWITCH LOOP'S `return` ENDED THE SYSTEM. "Once we flip one we
+/// stop" is right PER BODY and wrong for the population: seat a flipping its
+/// switch would have stopped seat b flipping a different one. It is a `break`
+/// out of the switch loop now.
+#[test]
+fn two_driven_bodies_each_flip_their_own_switch() {
+    use ambition_characters::control::{PlayerSlot, SlotInteractionState};
+
+    let mut app = interaction_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    {
+        let mut gestures = app
+            .world_mut()
+            .get_resource_or_insert_with(SlotInteractionState::default);
+        gestures.primary_mut().interact_buffer_timer = 0.5;
+        if let Some(second) = gestures.get_mut(PlayerSlot(1)) {
+            second.interact_buffer_timer = 0.5;
+        }
+    }
+
+    let _a = spawn_driven_body(&mut app, ae::Vec2::new(100.0, 100.0), 0);
+    let _b = spawn_driven_body(&mut app, ae::Vec2::new(900.0, 100.0), 1);
+    let switch_a = spawn_switch(&mut app, "switch_a", ae::Vec2::new(100.0, 100.0));
+    let switch_b = spawn_switch(&mut app, "switch_b", ae::Vec2::new(900.0, 100.0));
+
+    app.update();
+
+    assert!(
+        app.world().get::<SwitchOn>(switch_a).is_some_and(|on| on.0),
+        "seat a's switch stayed off"
+    );
+    assert!(
+        app.world().get::<SwitchOn>(switch_b).is_some_and(|on| on.0),
+        "seat b's switch stayed off"
     );
 }

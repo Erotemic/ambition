@@ -2,9 +2,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use super::events::PlayerHealRequested;
-use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{tick_player_brain, BrainSnapshot};
 use ambition_characters::control::ActorControl;
@@ -12,6 +10,8 @@ use ambition_characters::control::ScriptedControl;
 use ambition_characters::control::{DrivingParticipant, SlotControls};
 use ambition_combat::components::ActorPose;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Blank scripted bodies after brain production and before control consumers.
 ///
@@ -184,11 +184,17 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 /// field so we don't change `BodyMana::default` (and any test that relies on
 /// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
 ///
-/// Refills the *controlled subject's* mana — the body actually spending it on charge attacks / the
-/// fireball — so possessing an actor regenerates that actor's meter, not the vacated home avatar's.
+/// Refills every DRIVEN body's mana — the bodies actually spending it on charge
+/// attacks and held abilities — so possessing an actor regenerates that actor's
+/// meter, not the vacated home avatar's, and a couch's second seat regenerates
+/// at all.
+///
+/// ⛔⛔ IT REFILLED ONE `ControlledSubject`, which is one entity by construction.
+/// Seat one spent mana on a gauntlet it could never get back — a slow leak
+/// rather than a dead verb, which is why it outlived the verbs' own fix.
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    driven: crate::items::pickup::DrivenBodies,
     mut manas: Query<&mut ambition_platformer2d_core::BodyMana>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
@@ -196,15 +202,15 @@ pub fn regen_player_mana(
     if dt <= 0.0 {
         return;
     }
-    let Some(subject) = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok())
-    else {
-        return;
-    };
-    if let Ok(mut mana) = manas.get_mut(subject) {
-        mana.meter.refill(MANA_REGEN_PER_SEC * dt);
+    // ⚠ THE FALLBACK IS THE STARTUP FRAME and nothing else.
+    let mut subjects = driven.entities();
+    if subjects.is_empty() {
+        subjects.extend(primary.single().ok());
+    }
+    for subject in subjects {
+        if let Ok(mut mana) = manas.get_mut(subject) {
+            mana.meter.refill(MANA_REGEN_PER_SEC * dt);
+        }
     }
 }
 

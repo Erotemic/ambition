@@ -84,11 +84,26 @@ held-shot simulation entirely — is still open and still preferred; it is a
 second world-collision implementation and a second place anti-tunnelling must be
 fixed, not just an attribution question.
 
-What is NOT converged, deliberately: the press-gated WORLD verbs (chests,
-interact, shrine, avatar) and the portal gun, whose `FirePortalGun` gesture
-carries no seat for a resolver to key off. See D-CONTROL-INTERACT in
-`../queue.md`. Presentation readers — the portal eye, the drawn gun, control
-prompts, the camera — stay singular because a view has one viewpoint (K3).
+The press-gated WORLD verbs followed (D-CONTROL-INTERACT): `open_ecs_chests`,
+`interact_ecs_actors_and_switches`, `heal_save_shrine_system` and
+`regen_player_mana`. Two more lessons came out of that half:
+
+- **a `return` that is right at ONE scope is wrong at another.** The switch
+  loop's "once we flip one we stop" is correct per body and ends the SYSTEM as
+  written; dialogue's identical-looking `return` is CORRECT, because a
+  conversation is a global mode flip and two bodies cannot both open one. The
+  question is never "loop or not" — it is what the exit is the exit FROM.
+- **an N-body verb can still carry a 1-body fact.** A shrine heals every resting
+  body and writes ONE checkpoint. Which body owns that fact is a real question
+  (D-SHRINE-CHECKPOINT-OWNER: the comment and the code have long disagreed), and
+  a multi-seat conversion is not the place to decide it — so it picks the first
+  body in the rewind-stable order and says so.
+
+Still NOT converged, deliberately: the portal gun, whose `FirePortalGun` gesture
+carries no seat for a resolver to key off — that is a change to the GESTURE, not
+the resolver (D-PORTAL-GESTURE-SEAT). Presentation readers — the portal eye, the
+drawn gun, control prompts, the camera — stay singular because a view has one
+viewpoint (K3).
 
 ### K3 — preserve separate identities where they mean different things
 

@@ -547,3 +547,63 @@ fn a_scripted_sequence_silences_a_possessed_body() {
     );
     assert!(!control.jump_pressed, "the jump edge survived the blanking");
 }
+
+/// ⭐⭐ EVERY DRIVEN BODY REGENERATES, not just the possessed subject.
+///
+/// ⛔⛔ THIS REFILLED ONE `ControlledSubject`. Seat one spent mana on a gauntlet
+/// it could never get back — a slow leak rather than a dead verb, which is why
+/// it outlived the verbs' own fix.
+#[test]
+fn two_driven_bodies_each_regenerate_their_own_mana() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 0.5,
+        scaled_dt: 0.5,
+    });
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    app.add_systems(Update, regen_player_mana);
+
+    let drained = |app: &mut App, slot: u8, sim: &str| -> Entity {
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_core::BodyMana::default(),
+                DrivingParticipant(PlayerSlot(slot)),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+            ))
+            .id();
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::BodyMana>(body)
+            .unwrap()
+            .meter
+            .try_spend(40.0);
+        body
+    };
+    let a = drained(&mut app, 0, "seat_a");
+    let b = drained(&mut app, 1, "seat_b");
+    let before = |app: &App, body: Entity| {
+        app.world()
+            .get::<ambition_platformer2d_core::BodyMana>(body)
+            .unwrap()
+            .meter
+            .current
+    };
+    let (a_before, b_before) = (before(&app, a), before(&app, b));
+    // ⛔ THE PREMISE: a full meter cannot be seen to refill.
+    assert!(
+        a_before < 100.0 && b_before < 100.0,
+        "the fixture spent no mana"
+    );
+
+    app.update();
+
+    for (body, was, who) in [(a, a_before, "a"), (b, b_before, "b")] {
+        assert!(
+            before(&app, body) > was,
+            "seat {who}'s mana did not regenerate: {was} -> {}",
+            before(&app, body)
+        );
+    }
+}

@@ -41,6 +41,26 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D-CONTROL-INTERACT — the press-gated WORLD verbs are per driven body now.**
+`open_ecs_chests`, `interact_ecs_actors_and_switches`, `heal_save_shrine_system`
+and `regen_player_mana` each resolved one `ControlledSubject`, so a couch's
+second seat could stand on a chest, a switch or a shrine and press interact
+forever. ⭐ THE GESTURE HALF WAS ALREADY RIGHT — `ActingParticipant` keys the
+buffered interact off the body's OWN driving slot — so only the subject was
+singular, and the conversion is the same one D-CONTROL-ITEM made nine times.
+⛔ THE SWITCH LOOP'S `return` ENDED THE SYSTEM: "once we flip one we stop" is
+right PER BODY and wrong for the population, so seat a flipping its switch
+stopped seat b flipping a different one. It is a `break` now. ⭐ DIALOGUE KEEPS
+ITS `return`, because a conversation is a GLOBAL mode flip and two bodies cannot
+both open one on a tick — the right scope, stated where it is. ⚠ THE SHRINE'S
+CHECKPOINT IS ONE FACT AND ITS HEAL IS N: every resting body heals, and the
+checkpoint is written by the first body in the rewind-stable driven order that
+rests, so the value does not depend on query order. Four guards, all red under
+the `DrivenBodies` poison. The portal gun is deliberately NOT converted and the
+reason is stated in `fire_adapter.rs`: see D-PORTAL-GESTURE-SEAT. Presentation
+readers (the portal eye, the drawn gun, sim-view facts, the camera) stay singular
+because a view has one viewpoint.
+
 ✔ **D199 — the projectile's solid test is swept and policy-aware now.** Of the
 row's three asks, two were already closed (victim ordering and wall occlusion are
 guarded; the swept-versus-hurt-volume half is deliberately deferred behind an
@@ -284,18 +304,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **D-CONTROL-INTERACT — the press-gated WORLD verbs are still singular.**
-  D-CONTROL-ITEM converged the held/ranged half; the interaction half was left
-  because it is a different question, not because it is done.
-  `features/ecs/interact.rs`, `features/ecs/chests.rs`, `shrine.rs` and
-  `avatar/systems.rs` still resolve one `ControlledSubject`, so a second seat
-  cannot open a chest, talk, or pray. The
-  portal gun is a THIRD shape and needs its input road first: `FirePortalGun` is
-  a seatless gesture message, so `resolve_portal_fire_intent` has nothing to key
-  a body off even if it looped — the gesture has to carry a seat before the
-  resolver can. Acceptance: two driven bodies each open their own chest in one
-  tick; and a stated decision (with its reason) for the portal gesture. Owner:
+- ▢ **D-PORTAL-GESTURE-SEAT — the portal fire gesture carries no seat.**
+  `FirePortalGun` carries an aim and nothing else, so `resolve_portal_fire_intent`
+  cannot be made per-body the way the other press-gated verbs were: a resolver
+  looping every driven body would have to guess whose press it was, and would
+  fire N shots for one. The change belongs to the GESTURE and to the input
+  adapter that writes it (`game/ambition_content/src/portal/input_adapter.rs`),
+  not to the resolver. Acceptance: the gesture names the seat that made it, and
+  two seats each holding a portal gun place their own portals from one tick's
+  presses. Owner:
   [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
+
+- ▢ **D-SHRINE-CHECKPOINT-OWNER — a comment states a rule the code does not
+  follow.** `heal_save_shrine_system` says the checkpoint is written "for the
+  PRIMARY player's session, not the possessed subject's body" and then writes the
+  RESTING body's `kin.pos`. Its consumer, `restore_checkpoint_on_session_start`,
+  places the PRIMARY avatar there — so a checkpoint taken while possessing
+  resumes the avatar somewhere it never stood. Read from the source, NOT driven;
+  no test covers the possession case either way. Acceptance: an arm that rests
+  while possessing and says where the next session starts, then whichever of the
+  two rules is chosen, with the other's comment deleted. ⚠ It is a
+  save-compatibility ruling, which is why the multi-seat conversion preserved
+  today's behaviour rather than deciding it. Owner:
+  [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 - ▢ **D-FIGHTER-L6 — diagnose the confirmed rollout regression with a decision
   trace, not another sweep.** The controlled A/B already established the signal:

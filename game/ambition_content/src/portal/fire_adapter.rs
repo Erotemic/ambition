@@ -15,7 +15,22 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
-/// from the body HOLDING the gun — the controlled subject. Origin = that body's
+/// from the body HOLDING the gun — the controlled subject.
+///
+/// ⛔⛔ DELIBERATELY SINGULAR, AND THE REASON IS UPSTREAM OF THIS FILE.
+/// D-CONTROL-INTERACT converged the other press-gated verbs onto `DrivenBodies`,
+/// and this one is NOT the same shape: `FirePortalGun` carries an aim and
+/// nothing else. It names no seat and no body, so a resolver that looped every
+/// driven body would have to guess which of them the press belonged to — and
+/// would fire N portal shots for one press. Making this per-body is a change to
+/// the GESTURE (it must carry the seat that made it), not to the resolver, and
+/// the input adapter that writes it is the place that knows.
+///
+/// ⭐ THE OTHER TWO PORTAL READERS ARE CORRECTLY SINGULAR and stay that way:
+/// `sync_portal_viewer`'s eye and `tag_portal_affordance_body`'s drawn gun are
+/// PRESENTATION, and a view has one viewpoint.
+///
+/// Recorded as D-PORTAL-GESTURE-SEAT in `docs/planning/queue.md`. Origin = that body's
 /// position, dir = the gesture's aim, channel = the held gun's `next_color`. If the
 /// controlled body isn't holding a `PortalGun`, no intent is emitted (no fallback to
 /// the home avatar). Gun-active gating lives here so the generic intent is only

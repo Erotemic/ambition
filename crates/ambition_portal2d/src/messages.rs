@@ -14,6 +14,19 @@ pub struct FirePortalGun {
     /// World-space aim direction for the shot (need not be normalized; the
     /// resolver normalizes and ignores a zero vector).
     pub aim: Vec2,
+    /// The body whose press this is.
+    ///
+    /// ⭐⭐ THE GESTURE NAMES ITS BODY, and every gun gesture below does the
+    /// same. It used to carry an aim and nothing else, so the resolver had to
+    /// re-derive the firer from `ControlledSubject` — one entity by construction
+    /// — and a couch's second seat holding a portal gun could not fire. A
+    /// resolver that instead looped every driven body would have had to GUESS
+    /// whose press it was, and would have fired one shot per body for one press.
+    ///
+    /// ⚠ An `Entity` in a message is safe HERE and only here: these four are
+    /// `clear_message_on_rollback`, so they are produced and consumed inside one
+    /// tick and never cross a rollback boundary.
+    pub body: Entity,
 }
 
 /// Host-neutral request to fire a portal shot from `origin` along `dir` for `channel`.
@@ -31,15 +44,24 @@ pub struct PortalFireIntent {
 /// Compatibility intent: toggle which color the held portal gun will place
 /// next. The host has already decided this gesture belongs to the gun.
 #[derive(Message, Clone, Copy, Debug)]
-pub struct TogglePortalGun;
+pub struct TogglePortalGun {
+    /// The body whose press this is — see [`FirePortalGun::body`].
+    pub body: Entity,
+}
 
 /// Compatibility intent to drop the held portal gun as a world pickup.
 #[derive(Message, Clone, Copy, Debug)]
-pub struct DropPortalGun;
+pub struct DropPortalGun {
+    /// The body whose press this is — see [`FirePortalGun::body`].
+    pub body: Entity,
+}
 
 /// Compatibility intent to acquire an overlapping portal-gun pickup.
 #[derive(Message, Clone, Copy, Debug)]
-pub struct PickUpPortalGun;
+pub struct PickUpPortalGun {
+    /// The body whose press this is — see [`FirePortalGun::body`].
+    pub body: Entity,
+}
 
 /// Portal-owned reset intent: clear placed portals and body transit cooldowns.
 #[derive(Message, Clone, Copy, Debug)]

@@ -1,5 +1,5 @@
-
 use super::*;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::arm_portal_pickups;
 
 fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
@@ -57,7 +57,8 @@ fn picking_up_the_portal_gun_activates_it() {
     });
     assert!(app.world().get::<PortalGun>(player).is_none());
 
-    app.world_mut().write_message(PickUpPortalGun);
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
     app.update();
     assert!(
         app.world()
@@ -123,7 +124,8 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     });
 
     // TAKE custody.
-    app.world_mut().write_message(PickUpPortalGun);
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
     app.update();
     assert!(
         app.world().get::<PortalGun>(player).is_some(),
@@ -136,7 +138,8 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     );
 
     // RELEASE custody: both ends move, or the transfer is not one.
-    app.world_mut().write_message(DropPortalGun);
+    app.world_mut()
+        .write_message(DropPortalGun { body: player });
     app.update();
     assert!(
         app.world().get::<PortalGun>(player).is_none(),
@@ -174,7 +177,8 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
 
     // Drop intent drops the gun.
-    app.world_mut().write_message(DropPortalGun);
+    app.world_mut()
+        .write_message(DropPortalGun { body: player });
     app.update();
     assert!(
         app.world().get::<PortalGun>(player).is_none(),
@@ -197,7 +201,8 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
 
     // Immediately a pickup intent while overlapping — the freshly-dropped
     // pickup is still arming, so it must NOT be re-grabbed (the bug).
-    app.world_mut().write_message(PickUpPortalGun);
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
     app.update();
     assert!(
         app.world().get::<PortalGun>(player).is_none(),
@@ -208,7 +213,8 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     for _ in 0..30 {
         app.update();
     }
-    app.world_mut().write_message(PickUpPortalGun);
+    app.world_mut()
+        .write_message(PickUpPortalGun { body: player });
     app.update();
     assert!(
         app.world().get::<PortalGun>(player).is_some(),

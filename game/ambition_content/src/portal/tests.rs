@@ -123,14 +123,20 @@ fn set_control(app: &mut App, attack: bool, interact: bool) {
 /// Emit a `FirePortalGun` intent for the primary player, resolving aim the same
 /// way the input adapter does (facing-ahead, since these tests set no stick).
 fn fire_portal(app: &mut App) {
-    let facing = {
+    // The gesture names its body now, so the fixture has to name one too — the
+    // primary player, which is who these tests are about.
+    let (body, facing) = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
-        q.iter(app.world()).next().map_or(1.0, |k| k.facing)
+            .query_filtered::<(Entity, &BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>(
+            );
+        q.iter(app.world())
+            .next()
+            .map_or((Entity::PLACEHOLDER, 1.0), |(entity, k)| (entity, k.facing))
     };
     app.world_mut().write_message(FirePortalGun {
         aim: Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0),
+        body,
     });
 }
 

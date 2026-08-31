@@ -42,14 +42,17 @@ pub fn portal_toggle_system(
     mut toggles: MessageReader<TogglePortalGun>,
     mut guns: Query<&mut PortalGun>,
 ) {
-    if toggles.read().next().is_none() {
-        return;
-    }
-    let Ok(mut gun) = guns.single_mut() else {
-        return;
-    };
-    if gun.active {
-        gun.next_color = gun.next_color.advance();
+    // ⭐ THE GUN THE PRESS WAS MADE ON. This was `guns.single_mut()`, which is a
+    // claim that exactly one gun exists in the world — true for one seat and
+    // false the moment a second body holds one, where it would silently refuse
+    // to toggle either.
+    for toggle in toggles.read() {
+        let Ok(mut gun) = guns.get_mut(toggle.body) else {
+            continue;
+        };
+        if gun.active {
+            gun.next_color = gun.next_color.advance();
+        }
     }
 }
 

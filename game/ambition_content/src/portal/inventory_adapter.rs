@@ -19,15 +19,13 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
 use ambition_items::{Item, OwnedItems};
+use ambition_platformer2d::actor::SpawnScopedExt;
 use ambition_platformer2d_actor_monolith::features::HeldItem;
 use ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet;
-use ambition_platformer2d::actor::SpawnScopedExt;
 #[cfg(test)]
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
@@ -53,7 +51,6 @@ pub use ambition_platformer2d_actor_monolith::items::pickup::{
 pub fn drop_portal_gun_system(
     mut drops: MessageReader<DropPortalGun>,
     mut commands: Commands,
-    controlled: Option<Res<ControlledSubject>>,
     mut holders: Query<
         (
             &BodyKinematics,
@@ -63,19 +60,16 @@ pub fn drop_portal_gun_system(
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,
-    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut owned: Option<ResMut<OwnedItems>>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    if drops.read().next().is_none() {
-        return;
-    }
-    let Some(player) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_fallback.single().ok())
-    else {
+    // ⭐ THE BODY WHOSE PRESS IT WAS. This read "did anybody drop?" and then
+    // re-derived the dropper from `ControlledSubject`, so a second seat's drop
+    // gesture dropped the FIRST seat's gun.
+    let Some(drop) = drops.read().next().copied() else {
         return;
     };
+    let player = drop.body;
     let Ok((kin, mut action_set, stashed, mut actor_control)) = holders.get_mut(player) else {
         return;
     };
@@ -113,7 +107,6 @@ pub fn drop_portal_gun_system(
 pub fn pickup_portal_gun_system(
     mut picks: MessageReader<PickUpPortalGun>,
     mut commands: Commands,
-    controlled: Option<Res<ControlledSubject>>,
     // The controlled body attempts the pickup. `Has` flags gate on ITS state: it
     // can't grab a gun it already holds, nor while holding a ground item.
     mut bodies: Query<(
@@ -122,21 +115,16 @@ pub fn pickup_portal_gun_system(
         Has<PortalGun>,
         Has<HeldItem>,
     )>,
-    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<OwnedItems>>,
     mut equipped: MessageWriter<PortalGunEquipped>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    if picks.read().next().is_none() {
-        return;
-    }
-    let Some(player) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_fallback.single().ok())
-    else {
+    // ⭐ THE BODY WHOSE PRESS IT WAS — see `drop_portal_gun_system`.
+    let Some(pick) = picks.read().next().copied() else {
         return;
     };
+    let player = pick.body;
     let Ok((kin, mut action_set, has_gun, has_held)) = bodies.get_mut(player) else {
         return;
     };

@@ -41,6 +41,24 @@ across timelines of that same gameplay session, foreign-session confirmation is
 `Unavailable`, and session-mirrored resources are re-established on activation.
 Guarded by shell lifecycle and session-ownership tests. Durable rule: ADR 0027.
 
+✔ **D-PORTAL-GESTURE-SEAT — every gun gesture names its body now.**
+`FirePortalGun` carried an aim and nothing else, so the adapter resolved one
+`ControlledSubject` and the resolver re-derived the firer the same way: a second
+seat holding a portal gun made a press that reached nothing, and a resolver that
+had simply looped driven bodies would have had to GUESS whose press it was and
+fired one shot per body for one press. ⭐ THE FIX IS IN THE GESTURE, as the row
+said: all four intents — fire, toggle, drop, pickup — carry `body: Entity`, the
+adapter emits one per driven body ordered by `SimId`, and each consumer acts on
+the body named rather than on a subject it re-derives. ⛔ `portal_toggle_system`
+was `guns.single_mut()`, which is a claim that exactly one gun exists in the
+world — true for one seat and silently refusing to toggle either the moment a
+second body holds one. ⚠ An `Entity` in a message is safe HERE and only here:
+all four are `clear_message_on_rollback`, so they are produced and consumed
+inside one tick and never cross a rollback boundary. Guarded by
+`two_driven_bodies_each_fire_their_own_portal_gun`, which asserts two intents
+AND their origins (two shots from one body would satisfy a count), red under
+each half poisoned separately.
+
 ✔ **D-FIGHTER-L6 — the rollout read its own silence as safety.** Reproduced at
 HEAD on seed 0 before touching anything (l6 `unfought 1/1` with rollout on,
 `both survive` with it off), then traced. ⭐ THE TRACE SAID IT IN ONE LINE, two
@@ -347,17 +365,6 @@ The one unresolved developer-policy choice from the session-ownership work is in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §37.
 
 ## Current execution order
-
-- ▢ **D-PORTAL-GESTURE-SEAT — the portal fire gesture carries no seat.**
-  `FirePortalGun` carries an aim and nothing else, so `resolve_portal_fire_intent`
-  cannot be made per-body the way the other press-gated verbs were: a resolver
-  looping every driven body would have to guess whose press it was, and would
-  fire N shots for one. The change belongs to the GESTURE and to the input
-  adapter that writes it (`game/ambition_content/src/portal/input_adapter.rs`),
-  not to the resolver. Acceptance: the gesture names the seat that made it, and
-  two seats each holding a portal gun place their own portals from one tick's
-  presses. Owner:
-  [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 
 - ▢ **D-SHRINE-CHECKPOINT-OWNER — a comment states a rule the code does not
   follow.** `heal_save_shrine_system` says the checkpoint is written "for the

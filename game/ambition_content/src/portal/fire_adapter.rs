@@ -10,70 +10,61 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
 /// from the body HOLDING the gun — the controlled subject.
 ///
-/// ⛔⛔ DELIBERATELY SINGULAR, AND THE REASON IS UPSTREAM OF THIS FILE.
-/// D-CONTROL-INTERACT converged the other press-gated verbs onto `DrivenBodies`,
-/// and this one is NOT the same shape: `FirePortalGun` carries an aim and
-/// nothing else. It names no seat and no body, so a resolver that looped every
-/// driven body would have to guess which of them the press belonged to — and
-/// would fire N portal shots for one press. Making this per-body is a change to
-/// the GESTURE (it must carry the seat that made it), not to the resolver, and
-/// the input adapter that writes it is the place that knows.
+/// ⭐⭐ THE GESTURE NAMES ITS BODY, so this resolver has nothing to re-derive.
+/// It used to read `ControlledSubject` — one entity by construction — while
+/// `FirePortalGun` carried an aim and nothing else, so a second seat holding a
+/// gun made a press that reached nothing. Looping driven bodies here would have
+/// been the WRONG fix: with a seatless gesture the resolver would have had to
+/// guess whose press it was, and would have fired one shot per body for one
+/// press. The change belonged to the gesture (D-PORTAL-GESTURE-SEAT).
 ///
 /// ⭐ THE OTHER TWO PORTAL READERS ARE CORRECTLY SINGULAR and stay that way:
 /// `sync_portal_viewer`'s eye and `tag_portal_affordance_body`'s drawn gun are
-/// PRESENTATION, and a view has one viewpoint.
-///
-/// Recorded as D-PORTAL-GESTURE-SEAT in `docs/planning/queue.md`. Origin = that body's
+/// PRESENTATION, and a view has one viewpoint. Origin = that body's
 /// position, dir = the gesture's aim, channel = the held gun's `next_color`. If the
 /// controlled body isn't holding a `PortalGun`, no intent is emitted (no fallback to
 /// the home avatar). Gun-active gating lives here so the generic intent is only
 /// emitted for a genuine, armed fire. A zero aim is dropped by the core fire system.
 pub fn resolve_portal_fire_intent(
     mut fires: MessageReader<FirePortalGun>,
-    controlled: Option<Res<ControlledSubject>>,
     mut holders: Query<(
         &BodyKinematics,
         &PortalGun,
         &mut ambition_characters::control::ActorControl,
     )>,
-    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut intents: MessageWriter<PortalFireIntent>,
 ) {
-    let Some(fire) = fires.read().last().copied() else {
-        return;
-    };
-    let Some(subject) = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_fallback.single().ok())
-    else {
-        return;
-    };
-    let Ok((kin, gun, mut actor_control)) = holders.get_mut(subject) else {
-        return;
-    };
-    if !gun.active {
-        return;
+    // ⭐ EVERY GESTURE, EACH FROM ITS OWN BODY. This read `.last()` — one
+    // gesture per tick — and then re-derived the firer from `ControlledSubject`.
+    // Two seats each holding a gun made two presses and one shot came out, from
+    // whichever body the singular resolver happened to name.
+    for fire in fires.read() {
+        let Ok((kin, gun, mut actor_control)) = holders.get_mut(fire.body) else {
+            continue;
+        };
+        if !gun.active {
+            continue;
+        }
+        intents.write(PortalFireIntent {
+            origin: kin.pos,
+            dir: fire.aim,
+            channel: gun.next_color.channel(),
+        });
+        // The gun answered the press, so the wearer's jab must not answer it too.
+        actor_control.0.melee_pressed = false;
     }
-    intents.write(PortalFireIntent {
-        origin: kin.pos,
-        dir: fire.aim,
-        channel: gun.next_color.channel(),
-    });
-    // The gun answered the press, so the wearer's jab must not answer it too.
-    actor_control.0.melee_pressed = false;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ambition_platformer2d_core::BodyBaseSize;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
     #[derive(Resource, Default)]
     struct CapturedOrigin(Option<Vec2>);
@@ -134,10 +125,8 @@ mod tests {
                 ambition_characters::control::ActorControl::default(),
             ))
             .id();
-        app.world_mut()
-            .insert_resource(ControlledSubject(Some(holder)));
-
         app.world_mut().write_message(FirePortalGun {
+            body: holder,
             aim: Vec2::new(1.0, 0.0),
         });
         app.update();
@@ -181,9 +170,8 @@ mod tests {
                     control,
                 ))
                 .id();
-            app.world_mut()
-                .insert_resource(ControlledSubject(Some(holder)));
             app.world_mut().write_message(FirePortalGun {
+                body: holder,
                 aim: Vec2::new(1.0, 0.0),
             });
             app.update();

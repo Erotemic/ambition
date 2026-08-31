@@ -23,7 +23,6 @@ use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// A healing / save-point shrine the player can `Interact` with.
 #[derive(Component, Clone, Copy, Debug)]
@@ -58,8 +57,8 @@ pub fn heal_save_shrine_system(
         &mut BodyHealth,
         &mut BodyMana,
     )>,
-    // SLOT-0 BY DESIGN: a shrine heals the body that touched it (via
-    // `ControlledSubject`, above) but ALSO writes a CHECKPOINT to the save. The
+    // SLOT-0 BY DESIGN: a shrine heals every DRIVEN body that touched it (the
+    // loop below) but ALSO writes a CHECKPOINT to the save. The
     // checkpoint is a session fact owned by the local player, not by whatever body
     // slot 0 happens to be driving — hence the second, primary-scoped query.
     primary: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,

@@ -24,7 +24,9 @@
 
 use bevy::camera::visibility::{RenderLayers, ViewVisibility};
 use bevy::camera::RenderTarget;
-use bevy::diagnostic::DiagnosticsStore;
+use bevy::diagnostic::{
+    Diagnostic, DiagnosticPath, Diagnostics, DiagnosticsStore, RegisterDiagnostic,
+};
 use bevy::prelude::*;
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
@@ -144,6 +146,96 @@ fn layers_token(layers: Option<&RenderLayers>) -> String {
 /// sprites still has under a dozen of these, so a per-row line at 1 Hz is
 /// cheaper than the rollup it feeds.
 #[allow(clippy::type_complexity)]
+/// How many cameras exist at all.
+pub const CAMERAS: DiagnosticPath = DiagnosticPath::const_new("ambition/render/cameras");
+
+/// How many ACTIVE cameras render the world.
+///
+/// ⭐ THE NUMBER THAT ANSWERS "why is this frame expensive". A scene with four
+/// world-rendering cameras draws the world four times, and that is invisible in
+/// a frame time on its own.
+pub const WORLD_DRAWS: DiagnosticPath = DiagnosticPath::const_new("ambition/render/world_draws");
+
+/// How many ACTIVE cameras draw into an offscreen image rather than the display.
+pub const OFFSCREEN_TARGETS: DiagnosticPath =
+    DiagnosticPath::const_new("ambition/render/offscreen_targets");
+
+/// Register the render-population diagnostics and keep them fed.
+///
+/// ⛔ NOT GATED ON `AMBITION_PROFILE_CENSUS`, for the same reason the ECS
+/// publisher is not: that variable gates a stderr printer on a clock, and F1 is
+/// something a developer turns on without restarting the game. The cost is a
+/// walk of the camera list — a population of single digits — once per frame.
+pub struct RenderDiagnosticsPublishPlugin;
+
+impl Plugin for RenderDiagnosticsPublishPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_diagnostic(Diagnostic::new(CAMERAS).with_suffix(" cameras"))
+            .register_diagnostic(Diagnostic::new(WORLD_DRAWS).with_suffix(" world draws"))
+            .register_diagnostic(Diagnostic::new(OFFSCREEN_TARGETS).with_suffix(" offscreen"))
+            .add_systems(Update, publish_view_diagnostics);
+    }
+}
+
+/// ⭐ THE RULE IS SHARED, THE ITERATION IS NOT. This walks the cameras itself
+/// rather than reusing `report_view_census`'s loop, because that function's loop
+/// is inseparable from the per-camera row it prints. What matters is that both
+/// ask the SAME QUESTION through the same `classify_camera` — the classification
+/// is single-sourced, so the two populations cannot drift into disagreeing about
+/// what "renders the world" means. A second copy of the RULE would be the defect
+/// worth avoiding; a second `for` loop over four cameras is not.
+fn publish_view_diagnostics(
+    mut diagnostics: Diagnostics,
+    cameras: Query<(
+        Entity,
+        &Camera,
+        Option<&RenderTarget>,
+        Option<&PresentsView>,
+        Has<MainCamera>,
+        Has<FrontHudCamera>,
+    )>,
+    #[cfg(feature = "portal_render")] portal_rigs: Query<
+        (),
+        With<ambition_portal2d_presentation::PortalViewRig>,
+    >,
+) {
+    let mut total = 0usize;
+    let mut world_rendering = 0usize;
+    let mut offscreen = 0usize;
+    for (entity, camera, target, presents, is_main, is_hud) in &cameras {
+        total += 1;
+        if !camera.is_active {
+            // An inactive camera still costs its extract; it does not cost a
+            // pass, and these two paths are about PASSES.
+            continue;
+        }
+        let draws_offscreen = target_is_image(target);
+        #[cfg(feature = "portal_render")]
+        let is_portal_rig = portal_rigs.get(entity).is_ok();
+        #[cfg(not(feature = "portal_render"))]
+        let is_portal_rig = {
+            let _ = entity;
+            false
+        };
+        let role = classify_camera(
+            is_portal_rig,
+            is_hud,
+            is_main,
+            presents.is_some(),
+            draws_offscreen,
+        );
+        if role.renders_world() {
+            world_rendering += 1;
+        }
+        if draws_offscreen {
+            offscreen += 1;
+        }
+    }
+    diagnostics.add_measurement(&CAMERAS, || total as f64);
+    diagnostics.add_measurement(&WORLD_DRAWS, || world_rendering as f64);
+    diagnostics.add_measurement(&OFFSCREEN_TARGETS, || offscreen as f64);
+}
+
 pub fn report_view_census(
     census: Res<RuntimeCensus>,
     cameras: Query<(
@@ -554,12 +646,14 @@ pub fn report_asset_census(
             // and never used, which is the reading that matters. Caught by
             // running it: a `capture_scene` of an ordinary room shows no HUD and
             // reported 0/0, the instrument's silence wearing a number.
-            hud_images
-                .as_ref()
-                .map_or_else(|| "unavailable".to_string(), |c| c.hits_and_loads().0.to_string()),
-            hud_images
-                .as_ref()
-                .map_or_else(|| "unavailable".to_string(), |c| c.hits_and_loads().1.to_string()),
+            hud_images.as_ref().map_or_else(
+                || "unavailable".to_string(),
+                |c| c.hits_and_loads().0.to_string()
+            ),
+            hud_images.as_ref().map_or_else(
+                || "unavailable".to_string(),
+                |c| c.hits_and_loads().1.to_string()
+            ),
         ),
         None => eprintln!(
             "[census] assets t={at:.3} decoded_images=unavailable images_resident={}",

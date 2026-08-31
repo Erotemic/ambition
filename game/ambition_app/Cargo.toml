@@ -170,7 +170,13 @@ ambition_causal = { path = "../../crates/ambition_causal", optional = true }
 # Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
 # + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
-bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+# ⭐ `bevy_dev_tools` IS NOT A DEV-ONLY DEPENDENCY HERE, and that is deliberate:
+# it owns `fps_overlay` (the FPS counter is a shipped, persisted player setting)
+# and `diagnostics_overlay` (the F1 numeric panel). ⭐ IT COSTS NO NEW SUBGRAPH —
+# measured 2026-08-31, every one of its 24 dependencies including `bevy_pbr` is
+# already in all three personas (`bevy_gizmos_render` pulls `bevy_pbr` into the
+# shipping web build), so this adds one leaf crate, not a renderer.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "bevy_dev_tools"] }
 bevy_common_assets = { version = "0.17", features = ["ron"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
 bevy_asset_loader = { version = "0.27", optional = true }

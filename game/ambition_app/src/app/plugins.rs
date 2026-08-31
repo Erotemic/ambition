@@ -521,11 +521,26 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .after(setup_simulation_system)
                 .after(ui_fonts::UiFontsLoaded),
         )
+        // ⛔⛔ F1 IS NOT A SESSION FACT, AND IT USED TO BE GATED LIKE ONE.
+        // `handle_debug_hotkeys` reads only `DeveloperRuntimeState` and
+        // `DeveloperTools` — two HOST resources — but it sat in the chain below
+        // under `session_world_exists`, so pressing F1 on the launcher, the
+        // title screen or a loading screen changed nothing, and the debug mode a
+        // developer thought they had turned on before entering a game was never
+        // on. The producer was never gated: `emit_developer_actions` runs in
+        // `PreUpdate` unconditionally, so the message was always there and only
+        // the consumer refused to hear it.
+        //
+        // ⭐ ORDERED, NOT MERELY UNGATED. It still runs before the session
+        // handlers, because both it and `handle_ldtk_hot_reload` write
+        // `DeveloperRuntimeState` and the chain used to decide that between
+        // them; an edge across a `run_if` boundary is honoured whether or not
+        // the gated system runs.
+        .add_systems(Update, handle_debug_hotkeys.before(handle_ldtk_hot_reload))
         .add_systems(
             Update,
             (
                 handle_ldtk_hot_reload,
-                handle_debug_hotkeys,
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
                 ambition_platformer2d::menu::map::handle_map_menu_hotkeys,
             )

@@ -4,6 +4,7 @@
 #[cfg(feature = "frame_pacing")]
 pub mod framepace;
 pub mod platform;
+pub mod render_recovery;
 // `windowing` (display-mode vocabulary) stays in the machinery lib
 // (`ambition_platformer2d::actors::host::windowing`) — the settings model reads it.
 pub use ambition_platformer2d::windowed_host as windowing;

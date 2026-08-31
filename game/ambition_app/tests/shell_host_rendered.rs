@@ -538,6 +538,12 @@ fn play_owned_sfx(
     play_owned_sfx_from(app, source, request)
 }
 
+/// How long [`play_owned_sfx_from`] waits for a request to be played.
+///
+/// Only the "nothing should play" arm ever runs this out; a real playback lands
+/// on the first update.
+const PLAYBACK_SETTLE_FRAMES: usize = 120;
+
 fn play_owned_sfx_from(
     app: &mut App,
     source: ambition_platformer2d::sfx::PresentationSourceId,
@@ -553,12 +559,51 @@ fn play_owned_sfx_from(
             source,
             request,
         });
-    app.update();
-    app.update();
-    app.world()
+    // ⛔⛔ READ THE RECORD THAT CHANGED, NOT THE LATCH AFTER A FIXED COUNT.
+    // `last_played` is a LATCH, and this used to run exactly two updates and
+    // then read it. Traced per update 2026-08-31: a request's record appears on
+    // the FIRST update after the message and IS NOT STILL THERE ON THE SECOND —
+    // so the old read was one frame too late and returned an OLDER record. It
+    // did not fail; it answered with the previous cue, and the caller asserted
+    // against that. A crossover-audio test therefore reported
+    // `presentation_source == "ambition"`: not a routing bug, not an
+    // authorization bug, a stale latch read one frame late.
+    //
+    // ⛔ AND THE FRAME BUDGET IS NOT WHAT FIXES IT — that was checked, because a
+    // green test plus a plausible story is how a wrong explanation gets written
+    // down permanently. Poisoning the bound to TWO still passes. The operative
+    // change is comparing against the record this call came in with.
+    //
+    // ⚠ Two updates was enough for the schedule as it stood, which is why this
+    // only surfaced when the campaign added systems to `Update`; eight EMPTY
+    // ones reproduce it. Every catalog, bank and audio owner the caller reads is
+    // already correct at frame ZERO and never moves — traced. The COUNT was the
+    // only variable, which is exactly what a fixed frame budget hides.
+    let before = app
+        .world()
         .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .last_played
-        .clone()
+        .clone();
+    for _ in 0..PLAYBACK_SETTLE_FRAMES {
+        app.update();
+        let now = app
+            .world()
+            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
+            .last_played
+            .clone();
+        if now != before {
+            return now;
+        }
+    }
+    // ⭐ THE BOUND EXISTS FOR THE OTHER ARM. This test also asserts that STALE
+    // work is REJECTED — a request that must never play. That arm is the one
+    // that runs the loop out, and a generous bound makes "nothing played" a
+    // stronger claim than the old two frames did.
+    //
+    // Deliberately the pre-existing record rather than a panic: a caller that
+    // EXPECTS no playback reads it unchanged, and this helper must not decide
+    // that for them.
+    before
 }
 
 /// Frontend and gameplay contexts share one exact ownership mechanism while
@@ -590,6 +635,9 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
+    // ⛔ SIX FRAMES WAS A GUESS THAT HELD UNTIL THE SCHEDULE MOVED. See
+    // `play_owned_sfx_from`: the fragility was never here, it was in assuming a
+    // request is played within a fixed number of updates.
     settle(&mut app);
     let ambition_dash = play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO })
         .expect("Ambition resolves its Dash source");
@@ -1035,5 +1083,85 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
     assert!(
         toggled,
         "walked the whole title-screen menu without finding a row that mutes"
+    );
+}
+
+/// The FPS counter is drawn IN FRONT OF the launcher, not merely present.
+///
+/// ⛔⛔ "AN FPS ENTITY EXISTS" IS NOT THE PROPERTY. The counter's whole job is to
+/// be readable while something else is on screen, and the launcher is an opaque
+/// full-screen UI: a counter that exists behind it is a counter nobody can read.
+/// The old hand-rolled overlay had no `GlobalZIndex` at all and got away with it
+/// by accident of spawn order.
+///
+/// ⭐ IT ASKS BEVY'S OWN ANSWER. `UiStack.uinodes` is the computed back-to-front
+/// draw order — the list the UI renderer walks — so "last entry" IS "frontmost",
+/// not a proxy for it. Asserting a z-index number instead would re-derive bevy's
+/// sorting rule in the test and agree with itself.
+#[test]
+fn the_fps_counter_draws_in_front_of_the_launcher() {
+    use bevy::dev_tools::fps_overlay::FPS_OVERLAY_ZINDEX;
+    use bevy::ui::UiStack;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let stack = app.world().resource::<UiStack>().uinodes.clone();
+
+    // ⭐ THE PREMISE, and it is not decoration: an empty or one-node stack would
+    // make "the overlay is last" true and meaningless.
+    let launcher_nodes = {
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<Entity, With<BasicShellUiRoot>>();
+        roots.iter(app.world()).count()
+    };
+    assert!(
+        launcher_nodes > 0,
+        "the launcher composed no UI root, so there is nothing for the counter \
+         to be in front of"
+    );
+    assert!(
+        stack.len() > 2,
+        "the UI stack holds {} node(s); with the launcher on screen this should \
+         be the whole composition, and a near-empty stack makes the assertion \
+         below vacuous",
+        stack.len()
+    );
+
+    // The overlay's own root: upstream's markers are private, but the z-index
+    // constant is public and is the one thing the root is guaranteed to carry.
+    let overlay_root = {
+        let mut roots = app.world_mut().query::<(Entity, &GlobalZIndex)>();
+        roots
+            .iter(app.world())
+            .find(|(_, z)| z.0 == FPS_OVERLAY_ZINDEX)
+            .map(|(entity, _)| entity)
+            .expect("the FPS overlay root is composed in every visible host")
+    };
+
+    let mut parents = app.world_mut().query::<(Entity, &ChildOf)>();
+    let parent_of: std::collections::HashMap<Entity, Entity> =
+        parents.iter(app.world()).map(|(e, c)| (e, c.0)).collect();
+    let under_overlay = |mut entity: Entity| -> bool {
+        for _ in 0..8 {
+            if entity == overlay_root {
+                return true;
+            }
+            match parent_of.get(&entity) {
+                Some(parent) => entity = *parent,
+                None => return false,
+            }
+        }
+        false
+    };
+
+    let frontmost = *stack
+        .last()
+        .expect("the stack is non-empty, asserted above");
+    assert!(
+        under_overlay(frontmost),
+        "the frontmost UI node is {frontmost:?}, which is not part of the FPS \
+         overlay — something in the launcher draws over the counter"
     );
 }

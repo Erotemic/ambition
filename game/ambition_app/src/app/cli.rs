@@ -791,6 +791,13 @@ pub fn build_visible_app_with(
         });
     match render {
         VisibleRenderMode::Windowed => {
+            // ⛔ THE WINDOWED HOST IS THE ONLY ONE THAT GETS A RECOVERY POLICY.
+            // `NoWindow` has no render app to lose. `OffscreenGpu` is a capture
+            // tool, and its right answer to a dead device is to fail the run
+            // loudly rather than quietly rebuild one and hand back a picture of
+            // something else. See `host::render_recovery` for what each error
+            // category means and why `Ignore` appears nowhere.
+            crate::host::render_recovery::install_render_recovery(&mut app);
             app.add_plugins(plugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "Ambition - Tangent Space Sandbox (Bevy)".into(),

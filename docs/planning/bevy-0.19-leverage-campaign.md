@@ -1,6 +1,33 @@
 # Bevy 0.19.1 leverage campaign
 
-## Status
+## Status — ✔ COMPLETE 2026-08-31
+
+Every section is closed. A (A1–A5), B, C, D, E and G were implemented; F was
+SPIKED AND DECLINED on its own decision gate, which is a completed section and
+not a skipped one. H was optional throughout and stays optional — H2 (`Rem`
+scaling) is now cheap to reach because A1 put the typography on upstream's
+config, and H1 (`render_debug`) is unlocked because `bevy_dev_tools` is in the
+build; neither is a campaign obligation.
+
+The campaign said it should "leave behind fewer custom mechanisms than it starts
+with". It did:
+
+```text
+gone   MenuTextHeightFraction + its per-frame conversion, installer and marker
+gone   FpsOverlayState, the FPS text spawn, its formatter, its visibility system,
+       and the hand-rolled min/mean/max window statistics
+gone   DebugOverlayLabel and the per-frame Text2d spawn/despawn of debug labels
+gone   the fullscreen post-process pass on every default frame
+new    ScreenEffectCamera (a marker), EcsPopulation (a system param),
+       host::render_recovery (a policy), dev::diagnostics_panel (a view)
+```
+
+⛔ TWO OF THIS DOCUMENT'S OWN CLAIMS WERE WRONG, and both were caught by checking
+rather than believing: gizmo text is WORLD-space, not screen-space (section B),
+and Bevy's FPS overlay cannot satisfy this campaign's own web requirement
+unaided (section A1). A campaign brief is a hypothesis, not a specification.
+
+## Original status
 
 Ambition has completed the Bevy 0.19.1 migration.
 
@@ -69,7 +96,38 @@ The host-level diagnostic UI must not disappear because no gameplay session curr
 
 ---
 
-# A1. Replace the custom FPS UI with Bevy's FPS overlay
+# A1. Replace the custom FPS UI with Bevy's FPS overlay  ✔ DONE 2026-08-31
+
+Landed on `bevy::dev_tools::fps_overlay`. Deleted: `FpsOverlayState`, the spawn,
+the text formatter, the visibility system, and the hand-rolled min/mean/max
+window statistics. Kept the two things that are Ambition's rather than Bevy's —
+which setting decides it (`UserSettings::video.show_fps`, still the only
+authority, still persisted, still independent of `VisualQualityProfile`) and
+WHERE it sits (under the touch Menu/Back row, read from
+`ResolvedGameplayPresentation`; the counter used to spend every phone session
+underneath the action cluster).
+
+⛔⛔ AND UPSTREAM CANNOT MEET THIS SECTION'S OWN WEB REQUIREMENT ON ITS OWN. Bevy
+spawns the `FrameTimeGraph` node under
+`#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]`; Ambition's
+web persona is `bevy/webgl2`; and `toggle_display` takes
+`Single<&mut Node, With<FrameTimeGraph>>`, which returns `skipped` when nothing
+matches. So on the shipping browser build `FpsOverlayConfig.enabled` would be a
+setting that does nothing. Ambition therefore adopts the overlay AND owns
+visibility on the root node, which covers every platform and wins over
+upstream's per-text toggle rather than fighting it.
+
+⭐ `bevy_dev_tools` COSTS NO NEW SUBGRAPH, measured rather than feared: it
+depends on `bevy_pbr`, but `bevy_pbr` is already in all three personas via
+`bevy_gizmos_render`. One leaf crate, not a renderer — and the same feature
+carries `diagnostics_overlay`, which A3 needs.
+
+⭐ THE ACCEPTANCE TEST ASKS BEVY'S OWN ANSWER. `the_fps_counter_draws_in_front_of_the_launcher`
+reads `UiStack.uinodes` — the computed back-to-front draw order — so "last entry"
+IS "frontmost" rather than a z-index number re-derived in the test.
+Poison-verified: pointing it at the back of the stack fails it.
+
+## Original plan
 
 Current implementation:
 
@@ -174,7 +232,27 @@ If the graph is too intrusive in practice, keep it F1-only.
 
 ---
 
-# A2. Make F1 a host-level diagnostics toggle
+# A2. Make F1 a host-level diagnostics toggle  ✔ DONE 2026-08-31
+
+`handle_debug_hotkeys` is out of the session gate. It reads only
+`DeveloperRuntimeState` and `DeveloperTools` — two HOST resources — but sat in a
+`.chain()` under `session_world_exists` beside three systems that genuinely need
+a session (LDtk reload, the trace hotkey, the map menu). It keeps an explicit
+`.before(handle_ldtk_hot_reload)` edge, because both write
+`DeveloperRuntimeState` and the chain used to decide that between them.
+
+⛔⛔ THE PRODUCER WAS NEVER GATED, WHICH IS WHY THE FAILURE WAS SILENT.
+`emit_developer_actions` runs in `PreUpdate` unconditionally, so the message was
+always being written and only the consumer refused to hear it: no log, no
+warning, F1 simply did nothing on the launcher, the title screen or a loading
+screen.
+
+⭐ The regression test states its premise first, and that premise EARNED itself:
+the first draft booted the direct/test bypass, whose own guard caught that it
+DOES carry a gameplay session — a state in which the test would have passed
+against the gate it exists to pin.
+
+## Original plan
 
 Current F1 handling eventually reaches:
 
@@ -216,7 +294,29 @@ F1 should therefore work before entering a game and continue to refer to the sam
 
 ---
 
-# A3. Use `DiagnosticsOverlayPlugin` for the F1 numeric panel
+# A3. Use `DiagnosticsOverlayPlugin` for the F1 numeric panel  ✔ DONE 2026-08-31
+
+`dev/diagnostics_panel.rs` installs `DiagnosticsOverlayPlugin` and spawns three
+windows while `DeveloperRuntimeState.debug` is on: **Frame** (FPS, frame time),
+**Ambition** (the ECS and render populations below) and, on desktop, **Host**
+(process CPU and memory).
+
+⭐ NOTHING IN THE PANEL COUNTS ANYTHING. Every value is a `DiagnosticPath`
+published by the subsystem that already knew the fact, so the panel and the
+periodic `[census]` row cannot become two answers with one name.
+
+⭐ TWO ENTITY NUMBERS, NAMED — `ambition/ecs/scene_entities` and
+`ambition/ecs/resource_entities` — exactly as this section demands, because one
+number called "entities" would carry Bevy 0.19's resources-are-entities
+ambiguity into every note taken from the panel.
+
+⛔ SYSTEM INFORMATION IS DESKTOP-ONLY AND SAYS SO. `SystemInformationDiagnosticsPlugin`
+rides `bevy/sysinfo_plugin`, which `default_platform` carries and which
+Ambition's `android_platform` and `web_platform` sets EXCLUDE deliberately. The
+overlay renders an unregistered path as `Missing`, which is the honest answer;
+no substitute is synthesized.
+
+## Original plan
 
 Add Bevy's new:
 
@@ -282,7 +382,39 @@ The semantic names must make the distinction clear.
 
 ---
 
-# A4. Turn Ambition's existing censuses into diagnostics
+# A4. Turn Ambition's existing censuses into diagnostics  ✔ DONE 2026-08-31 (the selected subset)
+
+Published, from the crate that owns each fact:
+
+```text
+ambition/ecs/scene_entities        ambition_dev_tools::runtime_census (EcsPopulation)
+ambition/ecs/resource_entities     ambition_dev_tools::runtime_census (EcsPopulation)
+ambition/ecs/bodies                ambition_dev_tools::runtime_census (EcsPopulation)
+ambition/render/cameras            ambition_render::runtime_census
+ambition/render/world_draws        ambition_render::runtime_census
+ambition/render/offscreen_targets  ambition_render::runtime_census
+```
+
+⭐ THE ECS PUBLISHER SHARES `EcsPopulation` WITH THE CENSUS PRINTER, and a test
+pins that they agree — it samples the param and the store in the same frame, then
+MOVES the population and re-checks, so a publisher wired to a constant fails.
+
+⭐ THE RENDER PUBLISHER SHARES THE RULE, NOT THE LOOP. `report_view_census`'s
+iteration is inseparable from the per-camera row it prints, so the publisher
+walks the cameras itself — but through the same `classify_camera`, so the two can
+never disagree about what "renders the world" means. A second copy of the RULE
+would be the defect; a second `for` over four cameras is not.
+
+⛔ NEITHER PUBLISHER IS GATED ON `AMBITION_PROFILE_CENSUS`, and that is the
+point: that variable gates a stderr printer on a clock nobody asked for, while F1
+is something a developer turns on WITHOUT restarting the game with an environment
+variable set.
+
+⛔ THE REST OF THE CENSUS WAS NOT CONVERTED, per this section's own instruction.
+Portal, asset-decode and rollback paths remain census rows; convert them when a
+question needs them, not because they exist.
+
+## Original plan
 
 Ambition already measures considerably more than the FPS overlay exposes.
 
@@ -358,7 +490,23 @@ Do not try to convert every census field during this campaign. Select the values
 
 ---
 
-# A5. Surface Bevy render-pass diagnostics
+# A5. Surface Bevy render-pass diagnostics  ✔ ANSWERED 2026-08-31 — nothing to publish
+
+⭐ THE MEASUREMENTS ALREADY EXIST IN THE STORE. `RenderDiagnosticsPlugin`
+publishes `render/.../elapsed_cpu` and `render/.../elapsed_gpu` itself —
+`report_render_pass_census` reads them out of `DiagnosticsStore` rather than
+computing them. So this section is a SELECTION problem, not a publishing one, and
+no new measurement was added.
+
+⛔ AND THE SELECTION IS DELIBERATELY NOT A WALL. This section warns against a
+giant dynamically-changing list, and the panel takes named paths, so adding a
+render span to it is a one-line, deliberate act rather than a glob. The paths are
+backend-dependent by nature: an unregistered one renders as `Missing`, which is
+the required "measurement unavailable" and never a zero. GPU timestamps in
+particular are unavailable on backends that do not support them, and that must
+keep reading as unavailable rather than as no GPU cost.
+
+## Original plan
 
 `PresentationCensusPlugin` already conditionally installs:
 
@@ -393,7 +541,45 @@ No GPU timestamp support means "measurement unavailable", not zero GPU cost.
 
 ---
 
-# B. Replace F1 label entities with text gizmos
+# B. Replace F1 label entities with text gizmos  ✔ DONE 2026-08-31
+
+`render_debug_overlay_labels` draws `Gizmos::text_2d` instead of despawning and
+respawning a `Text2d` entity per label per frame. Gone with the entities: the
+spawn churn, the despawn sweep, the `DebugOverlayLabel` marker, the lifetime
+bookkeeping, and — the one that mattered — the dependency of F1 world labels on
+the PRODUCT font stack. A developer overlay should not be able to fail because a
+typeface has not finished loading. The one-frame `DebugOverlayLabels` scratch
+buffer stays, which this section explicitly permits.
+
+⛔ THIS SECTION'S LEGIBILITY CLAIM IS WRONG, AND CHECKING IT SAVED A REGRESSION.
+It says gizmo text size is expressed in screen-space pixels. It is not:
+`text_sections_2d` scales the glyph outline by `font_size / SIMPLEX_CAP_HEIGHT`
+and then puts every point through `isometry * point` — a WORLD-space isometry —
+so `font_size` is world units exactly as `Text2d`'s was.
+
+⭐ MEASURED, not just read, because a coherent source reading is not a
+measurement. The same scene captured at two camera zooms (960x540 both,
+`--combat-overlay`, point focus vs `--fit-room`):
+
+| | `player` label | player collision box |
+|---|---|---|
+| near | 45 x 13 px | 50 x 52 px |
+| fit-room | 10 x 1 px | 8 x 11 px |
+| shrink | **4.5x** | **4.7x** |
+
+The label scaled with the world by the same factor as the geometry. Screen-space
+sizing would have left it 45x13 while the box shrank to 8x11.
+`DEBUG_LABEL_FONT_PX = 7.0` therefore carries over unchanged. Had the claim been
+believed, the constant would have been "converted" and every label resized.
+
+⚠ THE GRAIN OF TRUTH: gizmo LINE WIDTH *is* screen-space pixels, which is why
+the far label measures 10px wide but only 1px tall — the glyph geometry shrank
+and the stroke thickness did not. At extreme zoom-out the labels degrade to a
+smear, exactly as the `Text2d` ones did. Upstream invites the confusion too: the
+doc comment on the 3D `text_sections` says "the size of the text in pixels",
+while the 2D one says only "the size of the text".
+
+## Original plan
 
 Bevy 0.19.1 added world-space debug text through `Gizmos::text` / `text_2d` using a built-in stroke font.
 
@@ -608,7 +794,41 @@ A large grep-based prohibition is probably too coarse. Pin semantic consumers in
 
 ---
 
-# E. Add explicit render recovery
+# E. Add explicit render recovery  ✔ DONE 2026-08-31
+
+`host::render_recovery` installs an explicit `RenderErrorHandler` on the WINDOWED
+host only — `NoWindow` has no render app to lose, and `OffscreenGpu` is a capture
+tool whose right answer to a dead device is to fail the run loudly rather than
+quietly rebuild one and hand back a picture of something else.
+
+| category | response |
+|---|---|
+| `DeviceLost` | recover, bounded at 2 attempts per run, then stop |
+| `OutOfMemory` | stop rendering — recovering would re-allocate exactly what did not fit |
+| `Validation` | quit; wgpu says the engine used it wrongly, and that will not fix itself |
+| `Internal` | quit loudly |
+
+⛔⛔ THE DEFAULT WAS "QUIT ON EVERYTHING", INCLUDING `DeviceLost` — routinely a
+driver reset or a laptop waking from sleep, and the one category a game can
+survive. Upstream's own comment calls it "overzealous". Inheriting it was a
+decision nobody had made.
+
+⛔ `Ignore` APPEARS NOWHERE. It is the one policy that re-runs the frame that
+just failed, which is the shape upstream warns can produce hazardous rapid
+flashing. Recovery is COUNTED instead, in a main-world resource — the render
+world is torn down by the very recovery that would reset a tally living there.
+
+⭐ THE POLICY IS A PURE FUNCTION, so its test needs no GPU: `response_for` takes
+the error category and the recoveries-so-far. Forcing a real device loss needs a
+cooperative backend, and a policy nobody can check is a policy nobody checks.
+
+⭐ NO CATCH-ALL ARM, AND THE COMPILER SETTLED IT. The first draft had
+`_ => Quit` arguing that a wgpu upgrade could add a category; the arm was
+unreachable, because `ErrorType` is not `#[non_exhaustive]`. Exhaustiveness is
+the stronger guard: a new wgpu category now breaks the build, which is a person
+reading it and deciding, instead of a silent default.
+
+## Original plan
 
 Bevy 0.19.1 exposes typed render failures through:
 
@@ -654,7 +874,46 @@ An actual forced device-loss test is optional if the backend makes it impractica
 
 ---
 
-# F. Evaluate `SettingsPlugin`, but do not force a migration
+# F. Evaluate `SettingsPlugin`, but do not force a migration  ✔ SPIKED 2026-08-31 — DO NOT MIGRATE
+
+Spiked against `bevy-settings 0.19.1` (1053 + 137 + 90 lines, read in full). The
+decision gate says migrate only if the Bevy mechanism preserves Ambition's
+important semantics AND deletes a meaningful amount of code. It does neither.
+
+| requirement | bevy-settings | verdict |
+|---|---|---|
+| existing RON compatibility | **TOML** (`settings.toml`) | ⛔ every existing `settings.ron` is orphaned |
+| schema evolution / defaulting | reflection + `ReflectDefault` | ⛔ cannot express "legacy `crt: bool` → `crt_strength: f32`", which `ScreenShaderSettings` does today during clamping |
+| `clamp_all()` normalization | none; reflected values applied directly | ⛔ needs an adapter pass |
+| test-specific `PersistenceRoot` | **none** — `SettingsStore::new` derives `base_path` from `preferences_dir()` and takes only `app_name` | ⛔⛔ FATAL, see below |
+| atomic / crash-resistant save | temp file + rename | ✔ same as Ambition's |
+| deferred / debounced writes | `SaveSettingsDeferred` | ✔ |
+| synchronous save on exit | `SaveSettingsSync::IfChanged` | ✔ |
+| desktop / Android paths | platform preferences dir | ✔ |
+| **web persistence** | `store_wasm.rs`, browser local storage | ✔ the one thing Ambition lacks |
+
+⛔⛔ THE TEST-ISOLATION ROW IS THE ONE THAT ENDS IT. `PersistenceRoot::isolated()`
+exists because every `app_it` test shared three mutable files with every other
+test, every worktree and every concurrent session on the machine — a headless
+acceptance run could overwrite a real save. bevy-settings offers no root
+override at all: the base path IS the user's preferences directory, and the only
+input is `app_name`. Smuggling a unique name in still writes under the player's
+config dir. Adopting it would delete a capability this repository added
+deliberately, to fix a defect it had already been bitten by.
+
+⛔ AND IT WOULD NOT DELETE CODE, IT WOULD ADD ADAPTERS: a RON→TOML importer, a
+post-load `clamp_all` pass, a legacy-field migration the reflection path cannot
+express, and `Reflect` on the whole `UserSettings` tree (which is serde-shaped
+today). That is precisely the "pile of adapters" the gate names.
+
+⭐ THE PRIZE IS SEPARABLE, AND THAT IS THE FOLLOW-UP. Browser persistence is
+`store_wasm.rs` — **90 lines** over `window().local_storage()`, keyed
+`{app_name}-{filename}`. Ambition can add a wasm arm to its OWN persistence
+behind the existing `PersistenceRoot` seam and get web settings without adopting
+TOML, reflection, or losing test isolation. That is a small, self-contained
+follow-up and it is where the value in this section actually is.
+
+## Original plan
 
 Bevy 0.19.1 now has first-party persistent app settings.
 
@@ -918,7 +1177,7 @@ Complete:
 
 * ✔ `MenuTextHeightFraction` → `FontSize::Vh` (2026-08-31);
 * ✔ no-op screen-effects pass avoided (2026-08-31);
-* ▢ render recovery installed.
+* ✔ render recovery installed (2026-08-31).
 
 ## Checkpoint 5 — persistence decision
 

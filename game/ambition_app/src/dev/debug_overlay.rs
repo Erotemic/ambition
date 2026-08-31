@@ -41,36 +41,45 @@ pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
     w2, white_dim, with_alpha, yellow,
 };
 
-/// Marker for the pooled `Text2d` entities that render debug-box labels.
-#[derive(Component)]
-pub struct DebugOverlayLabel;
-
-/// Materialize the per-frame [`DebugOverlayLabels`] buffer (filled by the
-/// overlay draw calls) as world-space `Text2d`. Despawns last frame's labels
-/// and respawns this frame's — debug-only and a handful of labels, so the spawn
-/// churn is negligible and avoids pool bookkeeping. Empties the buffer every
-/// frame, so toggling the overlay off (no pushes) clears the labels next frame.
+/// Draw the per-frame [`DebugOverlayLabels`] buffer as TEXT GIZMOS.
+///
+/// ⛔⛔ THIS USED TO DESPAWN AND RESPAWN AN ENTITY PER LABEL, EVERY FRAME. The
+/// labels are immediate-mode facts — "this box is the hurtbox" — drawn beside
+/// gizmo lines that are already immediate-mode, and the only reason they were
+/// retained `Text2d` entities is that Bevy had no way to draw text without one.
+/// 0.19 does. What goes with the entities: the spawn churn, the despawn sweep,
+/// the `DebugOverlayLabel` marker, the lifetime bookkeeping, and — the one that
+/// mattered — the dependency of F1 world labels on the PRODUCT font stack.
+/// A developer overlay should not be able to fail because a typeface has not
+/// finished loading.
+///
+/// ⭐ THE SIZE CONSTANT SURVIVES UNCHANGED, and that was checked rather than
+/// assumed: `Gizmos::text_2d` takes an `Isometry2d` in WORLD space, so its
+/// `font_size` is world units exactly as `Text2d`'s was. Labels keep scaling
+/// with camera zoom, which is the behaviour the boss-fight zoom was tuned at.
+///
+/// ⭐ The stroke font is ASCII-only, which is correct here — these strings are
+/// `hurtbox`, `contact`, `collision`. Player-facing text stays on the real
+/// typography stack.
+///
+/// Still drains the buffer every frame, so toggling the overlay off (no pushes)
+/// clears the labels on the next frame exactly as before.
 pub(crate) fn render_debug_overlay_labels(
-    mut commands: Commands,
+    mut gizmos: Gizmos,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
-    existing: Query<Entity, With<DebugOverlayLabel>>,
 ) {
-    for entity in &existing {
-        commands.entity(entity).despawn();
-    }
     for label in labels.0.drain(..) {
-        commands.spawn((
-            Text2d::new(label.text),
-            TextFont {
-                font_size: FontSize::Px(DEBUG_LABEL_FONT_PX),
-                ..default()
-            },
-            TextColor(label.color),
-            Transform::from_translation(world_to_bevy(&world.0, label.world_pos, DEBUG_LABEL_Z)),
-            DebugOverlayLabel,
-            Name::new("Debug box label"),
-        ));
+        let at = world_to_bevy(&world.0, label.world_pos, DEBUG_LABEL_Z);
+        gizmos.text_2d(
+            at.truncate(),
+            &label.text,
+            DEBUG_LABEL_FONT_PX,
+            // Centred: the anchor the box-corner offsets in `label_box` were
+            // chosen against, so the fan-out for overlapping boxes is preserved.
+            Vec2::ZERO,
+            label.color,
+        );
     }
 }
 

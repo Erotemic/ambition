@@ -1,28 +1,26 @@
-//! Lightweight FPS / frame-time overlay.
+//! The FPS / frame-time counter, on Bevy's overlay.
 //!
-//! Wraps Bevy's built-in [`FrameTimeDiagnosticsPlugin`] in a small
-//! Bevy plugin that spawns a `Text` node and refreshes it with the
-//! running FPS + rolling frame-time average. It sits under the
-//! Menu/Back row where there is one, and in a corner where there is
-//! not — see [`position_fps_overlay`].
+//! ⭐ THE OVERLAY ITSELF IS UPSTREAM'S. `bevy::dev_tools::fps_overlay` owns the
+//! node, the text, the smoothing and the frame-time graph; this module owns the
+//! three things that are Ambition's and not Bevy's: WHICH SETTING decides it,
+//! WHERE it sits, and WHETHER it is visible on a platform where upstream's own
+//! toggle cannot run.
 //!
-//! Visible by default on every platform — desktop, browser,
-//! Android. Toggle via the Video settings page → "FPS Overlay" row
-//! (persisted across sessions via `ambition_platformer2d::persistence::settings::persistence`), or
-//! press `F6` for an in-session keyboard toggle that mutates the same
-//! setting.
+//! Visible by default on every platform — desktop, browser, Android. Toggle via
+//! the Video settings page → "FPS Overlay" row (persisted by
+//! `ambition_platformer2d::persistence::settings::persistence`), or press `F6`,
+//! which writes the same setting.
 //!
 //! ## Source of truth
 //!
-//! [`UserSettings::video::show_fps`] is the canonical flag and is what
-//! lands on disk. [`FpsOverlayState`] is a runtime mirror so the
-//! overlay systems don't have to query `UserSettings` every frame.
-//! [`sync_fps_overlay_state_from_settings`] copies the value from
-//! settings → state when the user changes it from the menu;
-//! [`toggle_fps_overlay_from_hotkey`] writes back to settings so the keyboard
-//! toggle persists too.
+//! [`UserSettings::video::show_fps`] is the canonical flag and is what lands on
+//! disk. There is no runtime mirror any more: the old `FpsOverlayState` existed
+//! only to spare the overlay systems a `UserSettings` lookup, and the systems
+//! that needed it are gone.
 
-use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::dev_tools::fps_overlay::{
+    FpsOverlayConfig, FpsOverlayPlugin as BevyFpsOverlayPlugin, FPS_OVERLAY_ZINDEX,
+};
 use bevy::prelude::*;
 
 use ambition_platformer2d::persistence::settings::UserSettings;
@@ -30,131 +28,123 @@ use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::presentation::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 
-const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
-
 /// Gap between the Menu/Back row and the counter tucked under it.
 const FPS_OVERLAY_GAP: f32 = 6.0;
 
 /// Inset from the corner when there is no on-screen control row to sit under.
 const FPS_OVERLAY_MARGIN: f32 = 8.0;
 
-/// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
-/// [`sync_fps_overlay_state_from_settings`] when the persisted flag
-/// changes; the overlay systems read this resource instead of querying
-/// `UserSettings` directly each frame.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct FpsOverlayState {
-    pub visible: bool,
-}
+/// The counter's type size, in logical pixels.
+///
+/// Upstream's default is 32px, which is a demo size — on a 640x360 phone
+/// viewport it is a quarter of the screen height.
+const FPS_OVERLAY_FONT_PX: f32 = 12.0;
 
-impl Default for FpsOverlayState {
-    fn default() -> Self {
-        // Visible everywhere by default. The Video settings row
-        // overrides this once `UserSettings` is loaded; this default
-        // is for the brief window between resource init and the first
-        // settings sync.
-        Self { visible: true }
-    }
-}
-
-/// Tag on the overlay `Text` entity so `update_fps_overlay_text` can
-/// `query_mut` exactly it.
-#[derive(Component)]
-struct FpsOverlayText;
-
-/// Bevy plugin for the FPS overlay. Adds:
-/// - `FrameTimeDiagnosticsPlugin::default()` (registers the FPS +
-///   FRAME_TIME diagnostics if not already present),
-/// - the [`FpsOverlayState`] resource,
-/// - `spawn_fps_overlay` (Startup),
-/// - `toggle_fps_overlay_from_hotkey` + `update_fps_overlay_text` +
-///   `update_fps_overlay_visibility` (Update).
+/// Ambition's wiring around [`BevyFpsOverlayPlugin`].
 pub struct FpsOverlayPlugin;
 
 impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut App) {
-        // `FrameTimeDiagnosticsPlugin` is safe to add twice — Bevy
-        // dedupes via plugin name. Insert defensively in case the
-        // consumer registered diagnostics elsewhere.
-        if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
-            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
-        }
-        app.add_message::<DeveloperAction>()
-            .init_resource::<FpsOverlayState>()
-            .add_systems(Startup, spawn_fps_overlay)
-            .add_systems(
-                Update,
-                (
-                    sync_fps_overlay_state_from_settings,
-                    toggle_fps_overlay_from_hotkey,
-                    update_fps_overlay_text,
-                    update_fps_overlay_visibility,
-                    position_fps_overlay,
-                ),
-            );
+        app.add_plugins(BevyFpsOverlayPlugin {
+            config: FpsOverlayConfig {
+                text_config: TextFont {
+                    font_size: FontSize::Px(FPS_OVERLAY_FONT_PX),
+                    ..default()
+                },
+                text_color: Color::srgba(0.82, 0.95, 1.0, 0.88),
+                // The counter is opt-OUT. `sync_fps_overlay_from_settings`
+                // corrects this on the first frame `UserSettings` is loaded;
+                // starting visible is what the player who never opens the
+                // settings menu gets.
+                enabled: true,
+                ..default()
+            },
+        })
+        .add_message::<DeveloperAction>()
+        .add_systems(
+            Update,
+            (
+                sync_fps_overlay_from_settings,
+                toggle_fps_overlay_from_hotkey,
+                place_fps_overlay,
+            ),
+        );
     }
 }
 
-/// Spawn the overlay `Text` node. Runs once at Startup. The text body is
-/// updated each frame by [`update_fps_overlay_text`]; we spawn an empty `Text`
-/// here so the node exists from frame zero (otherwise the first second is
-/// blank).
+/// Push the authoritative setting into upstream's config, and the product font
+/// in behind it once the faces have loaded.
 ///
-/// The corner set here is only where it STARTS: [`position_fps_overlay`] moves
-/// it under the Menu/Back row on the first frame a layout is published, and
-/// leaves it here when none ever is.
-fn spawn_fps_overlay(
-    mut commands: Commands,
-    state: Res<FpsOverlayState>,
-    ui_fonts: Option<Res<UiFonts>>,
+/// ⛔ THE COMPARISON BEFORE EACH WRITE IS LOAD-BEARING. Bevy runs
+/// `toggle_display` and `customize_overlay` on `resource_changed::<FpsOverlayConfig>`,
+/// so an unconditional assignment would re-run both every frame forever — a
+/// full text restyle per frame to write the value that was already there.
+fn sync_fps_overlay_from_settings(
+    settings: Res<UserSettings>,
+    fonts: Option<Res<UiFonts>>,
+    mut config: ResMut<FpsOverlayConfig>,
 ) {
-    let font = ui_fonts
-        .map(|fonts| fonts.text_font(12.0, UiFontWeight::Monospace))
-        .unwrap_or(TextFont {
-            font_size: FontSize::Px(12.0),
-            ..default()
-        });
-    commands.spawn((
-        Text::new(""),
-        font,
-        TextColor(Color::srgba(0.82, 0.95, 1.0, 0.88)),
-        Node {
-            position_type: PositionType::Absolute,
-            right: Val::Px(FPS_OVERLAY_MARGIN),
-            bottom: Val::Px(FPS_OVERLAY_MARGIN),
-            ..default()
-        },
-        // Initial visibility matches the resource default.
-        if state.visible {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        },
-        Name::new("FPS Overlay"),
-        FpsOverlayText,
-    ));
+    if config.enabled != settings.video.show_fps {
+        config.enabled = settings.video.show_fps;
+    }
+    // ⭐ MONOSPACE, AND THE REASON IS THE READING: a counter whose digits change
+    // width jitters on every frame it updates. `UiFonts` arrives with the asset
+    // load, so this is a correction rather than a construction.
+    if let Some(fonts) = fonts {
+        let wanted = fonts.text_font(FPS_OVERLAY_FONT_PX, UiFontWeight::Monospace);
+        if config.text_config.font != wanted.font || config.text_config.weight != wanted.weight {
+            config.text_config.font = wanted.font;
+            config.text_config.weight = wanted.weight;
+        }
+    }
 }
 
-/// Tuck the counter under the Menu/Back row instead of leaving it in a corner.
+/// The developer action (F6) toggles the counter by writing the SETTING, so the
+/// keyboard toggle persists exactly like the menu row does.
+fn toggle_fps_overlay_from_hotkey(
+    mut actions: MessageReader<DeveloperAction>,
+    mut settings: ResMut<UserSettings>,
+) {
+    if actions
+        .read()
+        .any(|action| *action == DeveloperAction::ToggleFpsOverlay)
+    {
+        settings.video.show_fps = !settings.video.show_fps;
+    }
+}
+
+/// Tuck the counter under the Menu/Back row instead of leaving it in a corner,
+/// and own its visibility.
 ///
-/// The bottom-right corner is where the action cluster goes on a touch device,
-/// so the counter spent every phone session sitting underneath the buttons —
-/// present, updating, and unreadable.
+/// ⛔⛔ THE VISIBILITY HALF IS NOT REDUNDANT WITH UPSTREAM, AND THE PLATFORM
+/// THAT PROVES IT IS THE WEB. Bevy's `toggle_display` takes
+/// `Single<&mut Node, With<FrameTimeGraph>>` — and the graph node is spawned
+/// under `#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]`.
+/// Ambition's web persona is `bevy/webgl2`, so on the shipping browser build
+/// that node DOES NOT EXIST, `Single` returns `skipped`, and `toggle_display`
+/// never runs. `FpsOverlayConfig.enabled` would be a setting that does nothing
+/// in a browser — which is precisely the requirement ("apply on desktop, web
+/// and Android") the upstream implementation cannot meet on its own.
 ///
-/// the row's rectangle is READ, not re-derived. `ResolvedGameplayPresentation`
-/// says of itself that no camera, HUD, touch or pointer system should
-/// independently recalculate margins, and a hardcoded top offset would be
-/// exactly that: the row moves with the safe-area insets and with its own
-/// resolved scale, so a constant would be right on one device and wrong on the
-/// next. `ScreenRect` is logical pixels — the same space `Val::Px` is in, which
-/// is why no scale factor appears here (`set_node_rect` in the touch overlay
-/// assigns from these rects the same way).
+/// Setting `display` on the ROOT node covers every platform, and it wins over
+/// upstream's per-text toggle rather than fighting it: a hidden root hides the
+/// text and the graph whatever their own `display` says.
+///
+/// ⭐ THE POSITION IS READ, NOT RE-DERIVED. The bottom-right corner is where the
+/// action cluster goes on a touch device, so the counter spent every phone
+/// session sitting underneath the buttons — present, updating, unreadable.
+/// `ResolvedGameplayPresentation` says of itself that no camera, HUD, touch or
+/// pointer system should independently recalculate margins: the row moves with
+/// the safe-area insets and with its own resolved scale, so a constant would be
+/// right on one device and wrong on the next. `ScreenRect` is logical pixels —
+/// the space `Val::Px` is in — which is why no scale factor appears here.
 ///
 /// With no row published — a keyboard session publishes no touch footprint —
 /// there is nothing to sit under and the counter keeps its corner.
-fn position_fps_overlay(
+fn place_fps_overlay(
+    settings: Res<UserSettings>,
     presentation: Option<Res<ResolvedGameplayPresentation>>,
-    mut overlays: Query<&mut Node, With<FpsOverlayText>>,
+    mut overlays: Query<(&mut Node, &GlobalZIndex)>,
 ) {
     let menu_row = presentation
         .as_deref()
@@ -175,150 +165,32 @@ fn position_fps_overlay(
             Val::Px(FPS_OVERLAY_MARGIN),
         ),
     };
+    let display = if settings.video.show_fps {
+        Display::DEFAULT
+    } else {
+        Display::None
+    };
 
-    for mut node in &mut overlays {
+    for (mut node, z) in &mut overlays {
+        // ⭐ THE Z-INDEX IS THE IDENTITY. Upstream's `FpsText` marker is private,
+        // and the root node carries no marker at all — but `FPS_OVERLAY_ZINDEX`
+        // is public and is the one thing the overlay root is guaranteed to have.
+        if z.0 != FPS_OVERLAY_ZINDEX {
+            continue;
+        }
         // Compared before writing: `Node` is change-detected and this runs every
         // frame, so assigning unconditionally would dirty UI layout forever over
-        // a value that only moves on a resize or a rotation.
+        // values that only move on a resize, a rotation or a settings change.
         if node.left != left || node.top != top || node.right != right || node.bottom != bottom {
             node.left = left;
             node.top = top;
             node.right = right;
             node.bottom = bottom;
         }
-    }
-}
-
-/// The canonical developer action (F6 by default) toggles the FPS overlay by writing to
-/// [`UserSettings::video::show_fps`]. The next
-/// `sync_fps_overlay_state_from_settings` tick mirrors the change into
-/// `FpsOverlayState`, and `ambition_platformer2d::persistence::settings::persistence` autosaves the
-/// new value so the toggle survives a restart.
-fn toggle_fps_overlay_from_hotkey(
-    mut actions: MessageReader<DeveloperAction>,
-    mut settings: ResMut<UserSettings>,
-) {
-    if actions
-        .read()
-        .any(|action| *action == DeveloperAction::ToggleFpsOverlay)
-    {
-        settings.video.show_fps = !settings.video.show_fps;
-    }
-}
-
-/// Mirror `UserSettings::video::show_fps` into `FpsOverlayState`. Runs
-/// every Update; the cost is `Res::is_changed` change-detection on
-/// `UserSettings` + a single boolean write.
-fn sync_fps_overlay_state_from_settings(
-    settings: Res<UserSettings>,
-    mut state: ResMut<FpsOverlayState>,
-) {
-    if settings.is_changed() && state.visible != settings.video.show_fps {
-        state.visible = settings.video.show_fps;
-    }
-}
-
-/// Min/mean/max of a diagnostic's history window. The window size is
-/// whatever `FrameTimeDiagnosticsPlugin` is configured with (Bevy's
-/// default is ~120 samples = ~2 s at 60 Hz), so the stats reflect
-/// recent gameplay rather than the entire session.
-///
-/// Returns `None` when the diagnostic has no samples yet — the
-/// overlay falls back to showing dashes in that brief startup
-/// window. Tested via `window_stats_from_iter` against a fixture
-/// iterator so we don't have to construct a real `Diagnostic`.
-fn window_stats_from_iter(values: impl IntoIterator<Item = f64>) -> Option<(f64, f64, f64)> {
-    let mut count = 0_u32;
-    let mut sum = 0.0_f64;
-    let mut min = f64::INFINITY;
-    let mut max = f64::NEG_INFINITY;
-    for v in values {
-        count += 1;
-        sum += v;
-        if v < min {
-            min = v;
-        }
-        if v > max {
-            max = v;
+        if node.display != display {
+            node.display = display;
         }
     }
-    if count == 0 {
-        None
-    } else {
-        Some((min, sum / f64::from(count), max))
-    }
-}
-
-/// Pull min/mean/max out of a Bevy diagnostic's history window.
-/// Thin wrapper over [`window_stats_from_iter`] that dereferences
-/// the `&f64` items the diagnostic exposes.
-fn window_stats(diagnostic: &bevy::diagnostic::Diagnostic) -> Option<(f64, f64, f64)> {
-    window_stats_from_iter(diagnostic.values().copied())
-}
-
-/// Read `FPS` + `FRAME_TIME` from the diagnostics store and write the
-/// overlay's two-line summary. Format:
-///
-/// ```text
-/// FPS    60.0  min 58  max 62
-/// frame  16.6  min 16.0  max 17.2 ms
-/// ```
-///
-/// The middle column is the moving-window mean over the diagnostic
-/// history (≈2 s by default); `min` / `max` show the worst- and
-/// best-case sample in the same window so a single hitched frame
-/// shows up as an outlier without polluting the mean.
-fn update_fps_overlay_text(
-    time: Res<Time>,
-    state: Res<FpsOverlayState>,
-    diagnostics: Res<DiagnosticsStore>,
-    mut elapsed: Local<f32>,
-    mut query: Query<&mut Text, With<FpsOverlayText>>,
-) {
-    if !state.visible {
-        return;
-    }
-    *elapsed += time.delta_secs();
-    if *elapsed < FPS_OVERLAY_REFRESH_SECONDS && !state.is_changed() {
-        return;
-    }
-    *elapsed = 0.0;
-    let Ok(mut text) = query.single_mut() else {
-        return;
-    };
-    let fps_line = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(window_stats)
-        .map(|(min, mean, max)| format!("FPS    {mean:>5.1}  min {min:>3.0}  max {max:>3.0}"))
-        .unwrap_or_else(|| "FPS    --     min  --   max  --".to_owned());
-    let frame_line = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(window_stats)
-        .map(|(min, mean, max)| format!("frame  {mean:>5.1}  min {min:>4.1} max {max:>4.1} ms"))
-        .unwrap_or_else(|| "frame  --     min  --   max  --   ms".to_owned());
-    let next = format!("{fps_line}\n{frame_line}");
-    if text.as_str() != next.as_str() {
-        text.0 = next;
-    }
-}
-
-/// Sync the overlay entity's `Visibility` with `FpsOverlayState`.
-/// Runs every frame; the cost is a single query + write.
-fn update_fps_overlay_visibility(
-    state: Res<FpsOverlayState>,
-    mut query: Query<&mut Visibility, With<FpsOverlayText>>,
-) {
-    if !state.is_changed() {
-        return;
-    }
-    let Ok(mut vis) = query.single_mut() else {
-        return;
-    };
-    *vis = if state.visible {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    };
 }
 
 #[cfg(test)]
@@ -326,53 +198,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_state_visible_on_every_platform() {
-        // The FPS overlay is opt-out, not opt-in. The Video settings
-        // page lets the user hide it; the default is `true` so the
-        // counter shows up the moment the user runs the game without
-        // touching settings.
-        assert!(FpsOverlayState::default().visible);
-    }
-
-    #[test]
     fn default_video_settings_show_fps_is_true() {
         let settings = UserSettings::default();
         assert!(
             settings.video.show_fps,
-            "VideoSettings::show_fps default must be true so the overlay shows out of the box",
-        );
-    }
-
-    /// Empty history → no stats.
-    #[test]
-    fn window_stats_returns_none_when_empty() {
-        assert_eq!(window_stats_from_iter(Vec::<f64>::new()), None);
-    }
-
-    /// Min / mean / max across a small fixture window. Spot-checks
-    /// the math without needing to construct a Bevy `Diagnostic`.
-    #[test]
-    fn window_stats_computes_min_mean_max() {
-        let stats = window_stats_from_iter([60.0, 58.0, 62.0, 60.0]).unwrap();
-        assert_eq!(stats.0, 58.0, "min");
-        assert!((stats.1 - 60.0).abs() < 0.001, "mean ≈ 60");
-        assert_eq!(stats.2, 62.0, "max");
-    }
-
-    #[test]
-    fn window_stats_exposes_outliers_without_burying_mean() {
-        // 99 nominal samples + 1 hitch.
-        let mut values: Vec<f64> = vec![60.0; 99];
-        values.push(15.0);
-        let (min, mean, max) = window_stats_from_iter(values).unwrap();
-        assert_eq!(min, 15.0, "outlier visible as min");
-        assert_eq!(max, 60.0);
-        // Mean stays close to the nominal — outlier only shifts it
-        // by ~0.45 over 100 samples.
-        assert!(
-            (mean - 59.55).abs() < 0.01,
-            "mean lightly dragged by hitch; got {}",
-            mean,
+            "VideoSettings::show_fps default must be true so the counter shows out of the box",
         );
     }
 }

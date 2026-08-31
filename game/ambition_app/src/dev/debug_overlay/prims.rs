@@ -1,21 +1,23 @@
 //! Debug-overlay drawing toolkit — the app-side remainder.
 //!
-//! What stays here is the LABEL machinery — world-space `Text2d` identities for the debug boxes
-//! — which the shared shapes-only layer deliberately does not carry.
+//! What stays here is the LABEL machinery — world-space identities for the debug boxes — which
+//! the shared shapes-only layer deliberately does not carry.
 
 use super::*;
 
 // ───────────────────────────── debug box labels ─────────────────────────────
 //
-// Gizmos draw lines, not text, so each debug box's *identity* (which color is
-// the hurtbox vs the contact zone vs the collision envelope) is invisible. The
-// label layer fixes that: draw calls push a `DebugLabel` per box, and
-// `render_debug_overlay_labels` materializes them as world-space `Text2d`.
+// A debug box's *identity* (which colour is the hurtbox vs the contact zone vs
+// the collision envelope) is invisible from its outline alone. The label layer
+// fixes that: draw calls push a `DebugLabel` per box, and
+// `render_debug_overlay_labels` draws them as TEXT GIZMOS on Bevy 0.19's stroke
+// font — no entity, no font asset, no lifetime.
 
 /// Font size (world units) for every debug-box label. THIS IS THE SIZE KNOB
 /// — bump it up for bigger text, down for smaller, no other change needed.
-/// Labels are world-space `Text2d`, so the size scales with camera zoom (this
-/// default reads well at the usual boss-fight zoom).
+/// ⭐ Text gizmos take a WORLD-space isometry, so this stayed world units across
+/// the 0.19 move off `Text2d` and still scales with camera zoom (this default
+/// reads well at the usual boss-fight zoom).
 pub const DEBUG_LABEL_FONT_PX: f32 = 7.0;
 
 /// Bevy Z for label text — well above gameplay sprites (player=20, fx=30) so

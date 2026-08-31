@@ -13,12 +13,12 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
+use ambition_app::app::shell_host;
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, ActiveShellSequence, ShellLauncherState,
     ShellRouter, ShellSequenceCommand,
 };
-use ambition_app::app::shell_host;
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// The real startup composition, stepped on a PINNED timestep.
 ///
@@ -385,10 +385,72 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
 /// `startup_naturally_auto_advances_on_the_shipping_timeline` above, against the real host.
 #[test]
 fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
-    let total = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
+    let total =
+        ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
     let run_in = shell_host::ambition_startup_duration();
     assert!(
         run_in > total,
         "the run-in ({run_in:?}) must budget for the card ({total:?}) plus the engine card",
+    );
+}
+
+/// F1 changes the debug mode on the LAUNCHER, where there is no session.
+///
+/// ⛔⛔ IT DID NOT, AND THE FAILURE WAS SILENT. `handle_debug_hotkeys` reads only
+/// `DeveloperRuntimeState` and `DeveloperTools` — two HOST resources — but it
+/// was installed inside a `.chain()` gated by `session_world_exists`, beside
+/// three systems that genuinely do need a session (LDtk reload, the trace
+/// hotkey, the map menu). So pressing F1 on the launcher, the title screen or a
+/// loading screen changed nothing at all, and the debug mode a developer thought
+/// they had switched on before entering a game was never on.
+///
+/// ⭐ THE PRODUCER WAS NEVER GATED. `emit_developer_actions` runs in `PreUpdate`
+/// unconditionally, so the message was always being written and only the
+/// consumer refused to hear it — which is why nothing logged, nothing warned,
+/// and the key simply did nothing.
+///
+/// ⭐ THE PREMISE IS ASSERTED FIRST: with a session present this would pass even
+/// against the gated version, so the test states that there is no session before
+/// it claims anything about the toggle.
+#[test]
+fn f1_toggles_the_debug_mode_with_no_gameplay_session() {
+    use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
+    use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+
+    // ⭐ THE STARTUP ROUTE, NOT THE DIRECT BYPASS. The first draft of this used
+    // `build_visible_app(.., false)` and its own premise guard caught that that
+    // boot DOES carry a gameplay session — so the assertion below would have
+    // been about a state this test is not about, and would have passed against
+    // the very gate it exists to pin. This module's opening paragraph already
+    // says the startup route is the one with no session.
+    let mut app = startup_app();
+    settle(&mut app);
+
+    assert!(
+        no_gameplay_session(&app),
+        "premise: this test is about the state where NO session exists, and a \
+         session here would make it pass against the defect it pins"
+    );
+    let before = app.world().resource::<DeveloperRuntimeState>().debug;
+
+    app.world_mut()
+        .write_message(DeveloperAction::ToggleDebugOverlay);
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<DeveloperRuntimeState>().debug,
+        !before,
+        "F1 must reach the host debug state without a gameplay session; it is a \
+         HOST diagnostic toggle, not a session one"
+    );
+
+    // And back, so the test pins a TOGGLE rather than a one-way latch.
+    app.world_mut()
+        .write_message(DeveloperAction::ToggleDebugOverlay);
+    app.update();
+    assert_eq!(
+        app.world().resource::<DeveloperRuntimeState>().debug,
+        before,
+        "the second press must undo the first"
     );
 }

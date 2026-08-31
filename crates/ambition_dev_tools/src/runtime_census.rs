@@ -23,6 +23,7 @@
 //! enabled census is under the run-to-run spread of retired instructions —
 //! see `docs/recipes/profiling.md`.
 
+use bevy::diagnostic::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
 use bevy::ecs::archetype::Archetypes;
 use bevy::ecs::component::Components;
 use bevy::ecs::entity::Entities;
@@ -140,6 +141,50 @@ pub fn advance_runtime_census(mut census: ResMut<RuntimeCensus>) {
 
 #[cfg(target_arch = "wasm32")]
 pub fn advance_runtime_census(_census: ResMut<RuntimeCensus>) {}
+
+/// Scene entities — everything a resource is not.
+///
+/// ⛔⛔ THE NAME IS THE POINT. Bevy 0.19 made a resource an entity, so "entity
+/// count" is now ambiguous in a way it never used to be. Publishing one number
+/// called `entities` would carry that ambiguity into every dashboard and note
+/// taken from it; two paths whose names SAY which population they are cannot.
+pub const SCENE_ENTITIES: DiagnosticPath = DiagnosticPath::const_new("ambition/ecs/scene_entities");
+
+/// Entities that exist only to hold a resource value. See [`SCENE_ENTITIES`].
+pub const RESOURCE_ENTITIES: DiagnosticPath =
+    DiagnosticPath::const_new("ambition/ecs/resource_entities");
+
+/// Bodies the physics world is stepping.
+pub const BODIES: DiagnosticPath = DiagnosticPath::const_new("ambition/ecs/bodies");
+
+/// Register Ambition's ECS diagnostics and keep them fed.
+///
+/// ⭐ ONE MEASUREMENT, TWO CONSUMERS. This publishes from [`EcsPopulation`] —
+/// the same system param `report_ecs_census` prints from — so the periodic log
+/// row and the F1 panel cannot disagree about how many entities there are.
+/// The alternative, a second count inside the overlay, is how two numbers with
+/// one name get born.
+///
+/// ⛔ IT IS NOT GATED ON `AMBITION_PROFILE_CENSUS`. The census printer is, and
+/// should be: it writes to stderr on a clock nobody asked for. This publishes
+/// into `DiagnosticsStore`, which is what the F1 panel reads, and F1 is a thing
+/// a developer turns on WITHOUT setting an environment variable and restarting.
+pub struct EcsDiagnosticsPlugin;
+
+impl Plugin for EcsDiagnosticsPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_diagnostic(Diagnostic::new(SCENE_ENTITIES).with_suffix(" entities"))
+            .register_diagnostic(Diagnostic::new(RESOURCE_ENTITIES).with_suffix(" resources"))
+            .register_diagnostic(Diagnostic::new(BODIES).with_suffix(" bodies"))
+            .add_systems(Update, publish_ecs_diagnostics);
+    }
+}
+
+fn publish_ecs_diagnostics(mut diagnostics: Diagnostics, population: EcsPopulation) {
+    diagnostics.add_measurement(&SCENE_ENTITIES, || population.scene_entities() as f64);
+    diagnostics.add_measurement(&RESOURCE_ENTITIES, || population.resource_entities() as f64);
+    diagnostics.add_measurement(&BODIES, || population.bodies() as f64);
+}
 
 /// The four entity populations the ECS census counts, as one reusable param.
 ///
@@ -1160,6 +1205,70 @@ impl Plugin for RuntimeCensusPlugin {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// The panel and the log row read the SAME number.
+    ///
+    /// ⭐⭐ THIS IS THE ONE PROPERTY THE DIAGNOSTICS WORK IS FOR. The campaign's
+    /// architecture is one measurement with several consumers; the failure it
+    /// prevents is two counts with one name, which is unattributable the moment
+    /// they disagree. Both the census printer and the diagnostics publisher take
+    /// [`EcsPopulation`], so this asserts the published value equals what the
+    /// param reports in the same frame.
+    ///
+    /// ⛔ AND IT MOVES THE POPULATION, because a publisher that always wrote a
+    /// constant would satisfy a single-sample check.
+    #[test]
+    fn the_published_entity_counts_are_the_ones_the_census_param_reports() {
+        #[derive(Resource, Default)]
+        struct Sampled((usize, usize));
+
+        fn sample(population: EcsPopulation, mut out: ResMut<Sampled>) {
+            out.0 = (population.scene_entities(), population.resource_entities());
+        }
+
+        fn published(app: &App) -> (f64, f64) {
+            let store = app.world().resource::<bevy::diagnostic::DiagnosticsStore>();
+            let read = |path| {
+                store
+                    .get(path)
+                    .and_then(|d| d.value())
+                    .expect("the diagnostic is registered and has been measured")
+            };
+            (read(&SCENE_ENTITIES), read(&RESOURCE_ENTITIES))
+        }
+
+        let mut app = App::new();
+        app.init_resource::<Sampled>();
+        app.add_plugins(bevy::diagnostic::DiagnosticsPlugin);
+        app.add_plugins(EcsDiagnosticsPlugin);
+        app.add_systems(Update, sample);
+
+        app.update();
+        let (scene, resources) = app.world().resource::<Sampled>().0;
+        assert_eq!(
+            published(&app),
+            (scene as f64, resources as f64),
+            "the published values must be the param's own"
+        );
+
+        // Move BOTH populations, then re-read: a publisher wired to a constant
+        // agrees with the first sample and not with this one.
+        app.world_mut().spawn_empty();
+        app.world_mut().spawn_empty();
+        app.init_resource::<Sampled>();
+        app.update();
+        let (scene_after, resources_after) = app.world().resource::<Sampled>().0;
+        assert_eq!(
+            scene_after,
+            scene + 2,
+            "premise: the two spawns must have moved the scene population"
+        );
+        assert_eq!(
+            published(&app),
+            (scene_after as f64, resources_after as f64),
+            "the published values must still be the param's own after it moved"
+        );
+    }
 
     /// The scene count must not move when a RESOURCE is added.
     ///

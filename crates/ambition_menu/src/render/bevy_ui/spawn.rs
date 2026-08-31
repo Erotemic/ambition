@@ -17,7 +17,7 @@ pub(super) fn spawn_node<Action>(
     node: &MenuNode<Action>,
     focused: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
-    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
+    font: Option<&bevy::text::FontSource>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -46,7 +46,7 @@ pub(super) fn spawn_node<Action>(
                     font_size: FontSize::Px(
                         crate::MenuTextHeightFraction(*size).reference_pixels(),
                     ),
-                    font: font.cloned().unwrap_or_default().into(),
+                    font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
@@ -73,7 +73,7 @@ pub(super) fn spawn_node<Action>(
                     font_size: FontSize::Px(
                         crate::MenuTextHeightFraction(*size).reference_pixels(),
                     ),
-                    font: font.cloned().unwrap_or_default().into(),
+                    font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
@@ -148,7 +148,7 @@ fn spawn_control<Action>(
     thumb: Option<ScrollThumb>,
     focused_key: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
-    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
+    font: Option<&bevy::text::FontSource>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -227,7 +227,7 @@ fn spawn_control<Action>(
                 // as a required component, and that resolves the built-in ASCII-only
                 // `FiraMono-subset.ttf`.
                 TextFont {
-                    font: font.cloned().unwrap_or_default().into(),
+                    font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 TextColor(label_color),

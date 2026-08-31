@@ -353,12 +353,12 @@ fn render_basic_shell(
     if frame.text.is_empty() && frame.image_path.is_none() {
         return;
     }
-    // Startup cards render AUTHORED prose, so they need the same font the
+    // Startup cards render AUTHORED prose, so they need the same typeface the
     // launcher below gets. Left at `TextFont::default()` they resolved Bevy's
-    // built-in `FiraMono-subset.ttf`, the handle that drew hollow boxes for
-    // `·` and `—` in every menu until `MenuFont` existed. `None` still means
-    // that handle; see `ambition_menu::render::bevy_ui::MenuFont`, which
-    // records what about it is proven and what is not.
+    // built-in `FiraMono-subset.ttf`, which drew hollow boxes for `·` and `—`
+    // in every menu until `MenuFont` existed. `None` still means that font; see
+    // `ambition_menu::render::bevy_ui::MenuFont`, which records what about it is
+    // proven and what is not.
     let card_font = menu_font
         .as_deref()
         .and_then(|font| font.0.clone())

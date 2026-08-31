@@ -733,7 +733,8 @@ fn publish_menu_font(
     current: Option<bevy::prelude::Res<ambition_menu::render::bevy_ui::MenuFont>>,
 ) {
     let Some(fonts) = fonts else { return };
-    let wanted = fonts.regular.clone();
+    // The SEMANTIC request, not a handle: `UiFonts` owns which family that is.
+    let wanted = fonts.font_source(ambition_render::ui_fonts::UiFontWeight::Regular);
     if current.map(|current| current.0.clone()) == Some(wanted.clone()) {
         return;
     }

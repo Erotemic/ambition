@@ -74,7 +74,7 @@ fn explicit_edge_flags_are_forwarded() {
 fn strong_attack_hint_crosses_the_agent_seam() {
     let cf: ControlFrame = AgentAction {
         attack: true,
-        attack_strong: true,
+        attack_strength: ambition_platformer2d::sim::AttackStrengthHint::Smash,
         ..Default::default()
     }
     .into();

@@ -154,10 +154,14 @@ pub fn read_gameplay_control_frame_with_settings(
     // the authored strength in that direction, and the same hysteresis the
     // burst trigger uses stops a stick held out from re-firing every frame.
     //
-    // ⛔ THE DIRECTION STILL RIDES `aim_x`/`aim_y`, deliberately: the brain
-    // already resolves that pair into the body's local frame for the projectile
-    // aim, so a C-stick attack needs no second resolution and cannot disagree
-    // with one.
+    // ⛔⛔ THE DIRECTION RIDES ITS OWN PAIR, and the version that reused
+    // `aim_x`/`aim_y` was WRONG ACROSS THE LATCH. Those are LEVELS — newest
+    // device sample wins — while the press, the strength and
+    // `attack_from_aim_stick` are EDGES. A flick that recentered before the sim
+    // tick therefore delivered an armed C-stick attack with the aim already back
+    // at zero, and `attack_axis` fell through to the MOVEMENT axis: flick right
+    // while running left and the attack came out LEFT. `attack_aim_x/y` is the
+    // same value latched WITH the edge it qualifies.
     //
     // ⚠ AND THE STICK STOPS AIMING, which is the whole reason this is a MODE. A
     // player whose right stick throws attacks is not aiming a blink with it.
@@ -195,11 +199,12 @@ pub fn read_gameplay_control_frame_with_settings(
             || stick_attack.is_some(),
         attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
         attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
-        // ⚠ ONLY `Smash` IS BOUND TODAY. The hint is three-valued so a
-        // right-stick tilt mode can force `Tilt` at full deflection (parity
-        // inventory §9); no device produces that yet, and an unbound hint is
-        // `Auto` — the interpreter reading the stick, which is what every
-        // ordinary attack button asks for.
+        // ⭐ ALL THREE ARE BOUND. `RightStickMode::TiltAttack`/`SmashAttack`
+        // make the right stick force `Tilt` or `Smash` at deflection (parity
+        // inventory §9) — this comment said "no device produces that yet" until
+        // 2026-08-31, one commit after the mode shipped in this same function.
+        // An unbound hint is `Auto`, the interpreter reading the stick, which is
+        // what every ordinary attack button asks for.
         // ⭐ THE STICK OUTRANKS THE BUTTON when both speak on one frame, because
         // the stick's whole purpose is to force a strength the interpreter would
         // not have chosen. A `StrongAttack` press with no stick flick still means
@@ -213,6 +218,15 @@ pub fn read_gameplay_control_frame_with_settings(
             },
         ),
         attack_from_aim_stick: stick_attack.is_some(),
+        // The flick's OWN direction, captured on the frame it happened. Zero
+        // unless this frame carries a C-stick press, so the latch has nothing to
+        // preserve for an ordinary attack.
+        attack_aim_x: if stick_attack.is_some() {
+            aim_x_raw
+        } else {
+            0.0
+        },
+        attack_aim_y: if stick_attack.is_some() { -aim_y } else { 0.0 },
         pogo_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Pogo),
         fly_toggle_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Utility),
         interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),

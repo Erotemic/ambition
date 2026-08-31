@@ -48,3 +48,29 @@ def test_a_cached_manifest_from_another_scenario_is_not_a_hit() -> None:
     assert server._same_scenario_value(None, None)
     assert not server._same_scenario_value(None, "goblin")
     assert not server._same_scenario_value(40.0, None)
+
+
+def test_a_mirror_match_is_still_a_scenario() -> None:
+    """⛔⛔ A TARGET THAT EQUALS THE SUBJECT IS STILL A TARGET.
+
+    The recorder DEFAULTS to a mirror match, so `--target-behavior cpu` with no
+    explicit `--target` is an ordinary, supported scenario: George vs George,
+    CPU. The key skipped the whole scenario clause whenever `target ==
+    character`, so a CPU mirror and a passive mirror shared one cache directory
+    and the CPU take was shown beside a render of a target standing still.
+
+    ⭐ REPRODUCED FROM THE 2026-08-31 review before the fix: both keys were
+    `george__jab__at40_000`.
+
+    ⚠ The `None` case is genuinely different and stays collapsed — no opponent
+    has nothing to behave — which is why omission must never be how a mirror is
+    expressed.
+    """
+    passive = server.scenario_key("george", "jab", "george", 40.0, "passive")
+    cpu = server.scenario_key("george", "jab", "george", 40.0, "cpu")
+    assert passive != cpu, (
+        "a CPU mirror and a passive mirror share a cache directory, so one is "
+        "served as evidence for the other"
+    )
+    # …and the mirror is not the same experiment as having no opponent at all.
+    assert passive != server.scenario_key("george", "jab", None, 40.0, "passive")

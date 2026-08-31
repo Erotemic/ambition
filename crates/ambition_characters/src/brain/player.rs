@@ -70,6 +70,8 @@ pub fn tick_player_brain_from_control(
         attack_released: _,
         attack_strength_hint: _,
         attack_from_aim_stick: _,
+        attack_aim_x: _,
+        attack_aim_y: _,
         pogo_pressed: _,
         fast_fall_pressed: _,
         fly_toggle_pressed: _,
@@ -196,11 +198,32 @@ pub fn tick_player_brain_from_control(
     // stick keeps meaning WALK on the frame a C-stick attack is thrown, which is
     // the entire point of having a second stick.
     //
-    // ⛔ ONLY WHEN THE ADAPTER SAYS SO. `local_aim` is non-zero whenever the
-    // right stick is deflected at all, including while it is aiming a blink, so
+    // ⛔ ONLY WHEN THE ADAPTER SAYS SO. The aim is non-zero whenever the right
+    // stick is deflected at all, including while it is aiming a blink, so
     // reading it unconditionally would point every attack at the aim.
-    out.attack_axis = if c.attack_from_aim_stick && local_aim != ae::Vec2::ZERO {
-        ae::LocalAxes::from_vec(local_aim)
+    //
+    // ⛔⛔ AND IT READS THE PRESS'S OWN DIRECTION, not the aim LEVEL. This used
+    // to resolve `local_aim`, which is `aim_x`/`aim_y` — a level the latch
+    // replaces with the newest device sample. A flick that recentered before the
+    // sim tick arrived with the press intact and the aim at zero, so this fell
+    // through to `local_axis` and threw the attack in the MOVEMENT direction:
+    // flick right while running left, swing left. `attack_aim_x/y` is latched
+    // with the edge, so it still holds the flick.
+    let local_attack_aim = {
+        let raw = ae::Vec2::new(c.attack_aim_x, c.attack_aim_y);
+        if raw.length() > 0.1 {
+            frame
+                .resolve_input(
+                    snapshot.aim_frame_mode,
+                    ambition_platformer2d_core::ScreenAxes::new(c.attack_aim_x, c.attack_aim_y),
+                )
+                .vec()
+        } else {
+            ae::Vec2::ZERO
+        }
+    };
+    out.attack_axis = if c.attack_from_aim_stick && local_attack_aim != ae::Vec2::ZERO {
+        ae::LocalAxes::from_vec(local_attack_aim)
     } else {
         local_axis
     };

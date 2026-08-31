@@ -41,8 +41,23 @@ pub struct AgentAction {
     pub attack: bool,
     pub attack_held: bool,
     pub attack_released: bool,
-    /// Device-independent strong-attack hint (dedicated smash key / C-stick).
-    pub attack_strong: bool,
+    /// Device-independent attack STRENGTH, three-valued like the control frame's.
+    ///
+    /// ⛔⛔ IT WAS A BOOL, and the bool could not say `Tilt`. A right-stick tilt
+    /// mode forces a tilt at full deflection — a real device setting since
+    /// 2026-08-31 — and `trace_replay` translated every recorded `Tilt` through
+    /// this field into `Auto`, where a full stick deflection resolves back to
+    /// `Smash`. A replay that changes the move is not a behaviour-preserving
+    /// replay.
+    pub attack_strength: ambition_platformer2d::sim::AttackStrengthHint,
+    /// Was this press aimed by the SECOND stick? With it, `attack_aim` points the
+    /// attack; without it the movement axis does. A scripted action normally
+    /// leaves this `false` and steers with the movement axis — trace replay is
+    /// what needs to say otherwise.
+    pub attack_from_aim_stick: bool,
+    /// The C-stick direction that press was thrown in, screen axes. Meaningless
+    /// unless `attack_from_aim_stick`.
+    pub attack_aim: (f32, f32),
     /// Signature special (`Platformer2dInputActionMonolith::Special`). A dedicated slot since the
     /// `special_pressed = blink_pressed` alias was retired: pressing `blink` no
     /// longer fires a body's special, so an agent/scripted driver sets THIS to
@@ -146,19 +161,16 @@ impl From<AgentAction> for ControlFrame {
             attack_pressed: a.attack,
             attack_held: a.attack_held,
             attack_released: a.attack_released,
-            // A scripted action says strong-or-not; the interpreter's three-valued
-            // hint reads that as `Smash` or "you decide". Nothing in the harness
-            // vocabulary asks to force a TILT yet — a right-stick mode is what
-            // would (parity inventory §9).
-            attack_strength_hint: if a.attack_strong {
-                ambition_platformer2d::sim::AttackStrengthHint::Smash
-            } else {
-                ambition_platformer2d::sim::AttackStrengthHint::Auto
-            },
-            // ⛔ A SCRIPTED ACTION HAS NO SECOND STICK. It says which
-            // direction it wants through the movement axis, so an attack from it
-            // is aimed by that — which is what `false` means here.
-            attack_from_aim_stick: false,
+            // ⭐ CARRIED, NOT TRANSLATED. This narrowed a three-valued hint
+            // through a bool and back, so `Tilt` came out `Auto` — and `Auto` at
+            // full deflection resolves to `Smash`, silently turning a replayed
+            // tilt into a smash.
+            attack_strength_hint: a.attack_strength,
+            // A scripted action usually has no second stick and steers with the
+            // movement axis; a REPLAY of a C-stick press does, and says so.
+            attack_from_aim_stick: a.attack_from_aim_stick,
+            attack_aim_x: a.attack_aim.0,
+            attack_aim_y: a.attack_aim.1,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,

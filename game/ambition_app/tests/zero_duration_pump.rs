@@ -61,10 +61,64 @@ fn a_zero_duration_pump_costs_no_simulation_and_the_canonical_period_resumes() {
             break;
         }
     }
-    assert!(live, "no live rollback session, so nothing below is about a running sim");
+    assert!(
+        live,
+        "no live rollback session, so nothing below is about a running sim"
+    );
 
     // ── THE PUMP COSTS NOTHING ──
+    //
+    // ⛔⛔ AND "NOTHING" MEANS THE WORLD, NOT ONLY THE CLOCK. `capture.rs` says
+    // it in its own words — *"Frozen time is not a frozen WORLD"* — and this
+    // test used to check `SimTick` alone. A zero-duration `Update` system that
+    // moved a body would leave the tick pinned and still make the PNG a picture
+    // of a DIFFERENT world state than the semantic observation sampled before
+    // the pumps. The 2026-08-31 review graded that gap P3 for want of a
+    // reproduced image; this is the measurement that would reproduce one.
+    //
+    // ⛔ IT ASKS WHERE THINGS ARE, NOT WHICH ENTITIES THEY ARE. The first
+    // version of this keyed each position by `Entity`, and it went red — but on
+    // IDENTITY, not on appearance: four entities despawn and respawn during the
+    // pumps at BYTE-IDENTICAL positions (the same four `[0, 11813, -18000] …`
+    // rows arrive under new indices). Nothing moved; a per-entity compare simply
+    // could not say so. A camera cannot see an entity id, so the multiset of
+    // drawn positions is the question — and it is still the one that catches a
+    // zero-time system nudging a transform.
+    // ⛔ AND THE OBVIOUS POISON IS INERT, which is worth knowing before someone
+    // trusts a clean run of it: a system added to `Update` that nudges SEAT
+    // transforms changes nothing here, because presentation re-syncs a body's
+    // transform from `SimView` every frame and the seat heals itself before
+    // `GlobalTransform` propagates. Only a mutation that survives that sync can
+    // be drawn — poisoned in `Last`, where it reddens as it should. That is also
+    // the honest scope of this guard: a value the renderer overwrites was never
+    // going to reach a PNG.
+    let visual_state = |app: &mut App| -> Vec<[i64; 3]> {
+        let world = app.world_mut();
+        let mut q = world.query::<&GlobalTransform>();
+        let mut rows: Vec<[i64; 3]> = q
+            .iter(world)
+            .map(|t| {
+                let v = t.translation();
+                // Quantised: an f32 that round-trips through the transform
+                // propagation can wobble in its last bit without anything
+                // MOVING, and a bitwise compare would call that a change.
+                [
+                    (v.x * 1000.0).round() as i64,
+                    (v.y * 1000.0).round() as i64,
+                    (v.z * 1000.0).round() as i64,
+                ]
+            })
+            .collect();
+        rows.sort();
+        rows
+    };
     let frozen_at = sim_tick(&app);
+    let world_before_pumps = visual_state(&mut app);
+    assert!(
+        !world_before_pumps.is_empty(),
+        "premise: nothing is drawable, so a comparison of drawable state would \
+         pass no matter what the pumps did"
+    );
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::ZERO,
     ));
@@ -78,6 +132,18 @@ fn a_zero_duration_pump_costs_no_simulation_and_the_canonical_period_resumes() {
              can name the exact tick it was taken on"
         );
     }
+
+    // ⛔⛔ THE SHUTTER'S SUBJECT DID NOT MOVE. Everything the renderer would
+    // extract is where the semantic observation left it, so the picture and the
+    // facts beside it describe ONE execution rather than two that share a tick
+    // number.
+    assert_eq!(
+        visual_state(&mut app),
+        world_before_pumps,
+        "a zero-duration pump moved drawable state while `SimTick` stayed put — \
+         so the PNG is of a different world than the observation sampled before \
+         the pumps, and the two are presented as the same moment"
+    );
 
     // ── AND THE CANONICAL PERIOD RESUMES, EXACTLY ONE TICK ──
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(canonical));

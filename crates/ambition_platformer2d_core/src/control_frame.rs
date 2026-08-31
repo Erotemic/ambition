@@ -140,6 +140,24 @@ pub struct ControlFrame {
     /// ⚠ MEANINGLESS WITHOUT `attack_pressed`. It qualifies a press; a frame
     /// with no press carries `false` and says nothing.
     pub attack_from_aim_stick: bool,
+    /// The direction the C-stick was flicked, in SCREEN axes — the press's own
+    /// direction, carried WITH the press.
+    ///
+    /// ⛔⛔ NOT `aim_x`/`aim_y`, AND THAT IS THE WHOLE POINT. The aim pair is a
+    /// LEVEL: `merge_sample` takes the newest sample, so a stick already back at
+    /// rest by the next device frame zeroed it — while `attack_pressed`,
+    /// `attack_strength_hint` and `attack_from_aim_stick` are EDGES and survived.
+    /// The press arrived armed and pointing nowhere, and `attack_axis` then fell
+    /// back to the MOVEMENT axis: a flick right while running left threw the
+    /// attack LEFT. A direction that qualifies an edge has to be latched like
+    /// one.
+    ///
+    /// ⚠ MEANINGLESS WITHOUT `attack_from_aim_stick`, which is what says a press
+    /// took its direction from this pair rather than from the movement stick.
+    pub attack_aim_x: f32,
+    /// See [`Self::attack_aim_x`]. Screen axes, so +Y is DOWN like every other
+    /// axis pair on this frame.
+    pub attack_aim_y: f32,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -242,6 +260,20 @@ impl ControlFrame {
             attack_released: self.attack_released | sample.attack_released,
             attack_strength_hint: self.attack_strength_hint.merge(sample.attack_strength_hint),
             attack_from_aim_stick: self.attack_from_aim_stick | sample.attack_from_aim_stick,
+            // ⭐ THE DIRECTION RIDES ITS EDGE. Captured from the sample that
+            // carries the C-stick press and never overwritten by a later
+            // neutral one — the newest PRESS wins, which is the same rule
+            // `attack_strength_hint` follows, not the newest SAMPLE.
+            attack_aim_x: if sample.attack_from_aim_stick {
+                sample.attack_aim_x
+            } else {
+                self.attack_aim_x
+            },
+            attack_aim_y: if sample.attack_from_aim_stick {
+                sample.attack_aim_y
+            } else {
+                self.attack_aim_y
+            },
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
@@ -384,6 +416,55 @@ mod latch_tests {
         assert!(!next.attack_released);
         assert_eq!(next.attack_strength_hint, AttackStrengthHint::Auto);
         assert!(!next.attack_held);
+    }
+
+    /// ⛔⛔ A C-STICK FLICK THAT RECENTERS BEFORE THE TICK KEEPS ITS PRESS AND
+    /// MUST KEEP ITS DIRECTION.
+    ///
+    /// The press, the strength and `attack_from_aim_stick` are EDGES and survive
+    /// the recenter. The direction rode `aim_x`/`aim_y`, which are LEVELS —
+    /// latest sample wins — so a stick already back at rest by the next device
+    /// sample delivered an armed C-stick attack pointing NOWHERE.
+    ///
+    /// ⭐ THE LEFT STICK IS HELD THE OTHER WAY ON PURPOSE. With the aim zeroed,
+    /// `player::attack_axis` falls back to the movement axis, so the failure is
+    /// not "an attack with no direction" — it is an attack thrown in the
+    /// OPPOSITE direction to the one the player flicked. A fixture with a
+    /// neutral left stick would have measured a much smaller bug.
+    #[test]
+    fn a_sub_tick_c_stick_flick_keeps_the_direction_it_was_flicked() {
+        let mut latch = ControlFrameLatch::default();
+        // Running left, flick the C-stick RIGHT.
+        latch.accumulate(ControlFrame {
+            axis_x: -1.0,
+            aim_x: 1.0,
+            attack_pressed: true,
+            attack_from_aim_stick: true,
+            attack_aim_x: 1.0,
+            attack_strength_hint: AttackStrengthHint::Tilt,
+            ..ControlFrame::default()
+        });
+        // The stick is already back at rest by the next device sample; the left
+        // stick is still held left.
+        latch.accumulate(ControlFrame {
+            axis_x: -1.0,
+            ..ControlFrame::default()
+        });
+
+        let tick = latch.take();
+        assert!(tick.attack_pressed, "the press edge survives");
+        assert!(
+            tick.attack_from_aim_stick,
+            "and it is still a C-stick attack"
+        );
+        assert_eq!(tick.attack_strength_hint, AttackStrengthHint::Tilt);
+        assert_eq!(
+            (tick.attack_aim_x, tick.attack_aim_y),
+            (1.0, 0.0),
+            "the flick pointed RIGHT; a C-stick press must carry its own \
+             direction, because the aim LEVEL is back at rest and the movement \
+             axis points the other way"
+        );
     }
 
     /// Levels are the latest sample, never an OR.

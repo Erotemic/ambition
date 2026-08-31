@@ -29,7 +29,11 @@ pub fn base() -> AgentAction {
         attack: false,
         attack_held: false,
         attack_released: false,
-        attack_strong: false,
+        attack_strength: Default::default(),
+        // A scripted action steers its attack with the movement axis; only a
+        // C-stick replay says otherwise.
+        attack_from_aim_stick: false,
+        attack_aim: (0.0, 0.0),
         special: false,
         special_held: false,
         blink: false,

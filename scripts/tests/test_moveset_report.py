@@ -100,7 +100,7 @@ def test_overlap_is_reported_separately_from_a_resolved_hit() -> None:
     missed = tool.report(_take(contact_at=None))["measurements"]
 
     # The GEOMETRY is identical in both takes...
-    assert hit["aabb_overlap_ticks"] == missed["aabb_overlap_ticks"] > 0
+    assert hit["target_overlap_ticks"] == missed["target_overlap_ticks"] > 0
     # ...and only one of them says the runtime resolved a hit.
     assert len(hit["contacts"]) == 1 and hit["first_contact_tick"] == 4
     assert missed["contacts"] == [] and missed["first_contact_tick"] is None
@@ -115,7 +115,7 @@ def test_the_summary_flags_an_overlap_that_resolved_nothing() -> None:
 
 def test_an_intangible_target_can_be_overlapped_and_never_hit() -> None:
     m = tool.report(_take(contact_at=None, target_hurt=False))["measurements"]
-    assert m["aabb_overlap_ticks"] == 0, "a body with no damageable volume cannot be overlapped"
+    assert m["target_overlap_ticks"] == 0, "a body with no damageable volume cannot be overlapped"
     assert m["contacts"] == []
 
 
@@ -470,7 +470,7 @@ def test_touching_boxes_are_not_an_overlap_because_the_runtime_says_so() -> None
     # …and the derived names carry their own provenance.
     take = _take(contact_at=4)
     m = tool.report(take)["measurements"]
-    for name in ("aabb_overlap_ticks", "first_aabb_overlap_tick", "aabb_reach_bound_px"):
+    for name in ("target_overlap_ticks", "first_target_overlap_tick", "aabb_reach_bound_px"):
         assert name in m, f"{name} is missing — a broad-phase field must say so"
     for name in ("overlap_ticks", "max_reach_px", "geometry_reached_target"):
         assert name not in m, (
@@ -637,10 +637,15 @@ def test_the_engines_exact_overlap_outranks_the_bounds_approximation() -> None:
             # …and an engine answer that says they do not.
             box["overlaps"] = []
     m = tool.report(take)["measurements"]
-    assert m["aabb_overlap_ticks"] == 0, (
+    assert m["target_overlap_ticks"] == 0, (
         "the report preferred its own bounds arithmetic over the engine's exact "
         "answer — which is the disagreement this field exists to end"
     )
+    # AND IT MUST SAY WHICH ROAD IT TOOK. This assertion — zero overlap
+    # ticks for a fixture whose BOXES overlap — used to sit under a field named
+    # `aabb_overlap_ticks`, so the test itself proved the field was not measuring
+    # what its name claimed. A number and its provenance travel together now.
+    assert m["target_overlap_source"] == "runtime_exact"
 
     # ⛔ THE PREMISE, both halves. With the engine saying YES the count is
     # non-zero, and with the field ABSENT the bounds fallback still measures —
@@ -650,14 +655,21 @@ def test_the_engines_exact_overlap_outranks_the_bounds_approximation() -> None:
         for box in frame.get("hitboxes") or []:
             box["pos"] = list(frame["bodies"][1]["hurtboxes"][0]["pos"])
             box["overlaps"] = [frame["bodies"][1]["id"]]
-    assert tool.report(yes)["measurements"]["aabb_overlap_ticks"] > 0
+    yes_m = tool.report(yes)["measurements"]
+    assert yes_m["target_overlap_ticks"] > 0
+    assert yes_m["target_overlap_source"] == "runtime_exact"
 
     legacy = _take(contact_at=None)
     for frame in legacy["frames"]:
         for box in frame.get("hitboxes") or []:
             box["pos"] = list(frame["bodies"][1]["hurtboxes"][0]["pos"])
             box.pop("overlaps", None)
-    assert tool.report(legacy)["measurements"]["aabb_overlap_ticks"] > 0, (
+    legacy_m = tool.report(legacy)["measurements"]
+    assert legacy_m["target_overlap_ticks"] > 0, (
         "a take from before the engine published `overlaps` stopped measuring at "
         "all, rather than falling back to bounds"
     )
+    # ⭐ AND THE FALLBACK SAYS SO, which is the half that makes the exact number
+    # trustworthy: a reader can tell an engine answer from an approximation
+    # without knowing when the take was recorded.
+    assert legacy_m["target_overlap_source"] == "aabb_fallback"

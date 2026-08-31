@@ -60,6 +60,17 @@ pub struct ControlFrameTrace {
     pub attack_held: bool,
     pub attack_released: bool,
     pub attack_strength_hint: ambition_platformer2d_core::AttackStrengthHint,
+    /// ⭐ THE C-STICK FACTS, so a replay is the same input and not an
+    /// approximation of it. A press aimed by the right stick points where the
+    /// stick went; a trace that dropped this replayed it pointing wherever the
+    /// body happened to be running. `serde` defaults keep every archived trace
+    /// readable — an old one simply has no C-stick press to describe.
+    #[serde(default)]
+    pub attack_from_aim_stick: bool,
+    #[serde(default)]
+    pub attack_aim_x: f32,
+    #[serde(default)]
+    pub attack_aim_y: f32,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     pub interact_pressed: bool,
@@ -88,6 +99,9 @@ impl From<ControlFrame> for ControlFrameTrace {
             attack_held: c.attack_held,
             attack_released: c.attack_released,
             attack_strength_hint: c.attack_strength_hint,
+            attack_from_aim_stick: c.attack_from_aim_stick,
+            attack_aim_x: c.attack_aim_x,
+            attack_aim_y: c.attack_aim_y,
             pogo_pressed: c.pogo_pressed,
             fly_toggle_pressed: c.fly_toggle_pressed,
             interact_pressed: c.interact_pressed,

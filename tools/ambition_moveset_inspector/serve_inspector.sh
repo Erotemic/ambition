@@ -19,9 +19,14 @@
 # anything into the repo's environment.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo="$(cd "$here/../.." && pwd)"
+if ! repo="$(git -C "$here" rev-parse --show-toplevel 2>/dev/null)"; then
+  echo "[inspector] error: could not find the Ambition git repository from $here" >&2
+  exit 2
+fi
 
 export_bundle=1
+build_tools=0
+
 # ⛔⛔ AN INFORMATIONAL FLAG DOES NO WORK BEFORE IT ANSWERS. `--help` and
 # `--report` used to pay for the whole startup first: the binary provenance
 # block, and then `moveset_export`, which BOOTS THE COMPOSED APP — a second of
@@ -47,8 +52,13 @@ done
 
 args=()
 for arg in "$@"; do
-  if [[ "$arg" == "--no-export" ]]; then export_bundle=0; else args+=("$arg"); fi
+  case "$arg" in
+    --no-export) export_bundle=0 ;;
+    --build)     build_tools=1 ;;
+    *)           args+=("$arg") ;;
+  esac
 done
+
 
 if [[ "$informational" == 1 ]]; then
   cd "$here"
@@ -57,6 +67,16 @@ if [[ "$informational" == 1 ]]; then
   else
     exec python3 -m ambition_moveset_inspector.server "${args[@]}"
   fi
+fi
+
+if (( build_tools )); then
+  echo "[inspector] building required tools..."
+  cargo build \
+    --manifest-path "$repo/Cargo.toml" \
+    -p ambition_app_tools \
+    --bin moveset_export \
+    --bin moveset_takes \
+    --bin moveset_render
 fi
 
 # The same lookup the server uses for the renderer, and the same convention
@@ -110,11 +130,11 @@ report_bin() {
 # does not run is worse than none, because it costs the reader a round trip to
 # find out.
 echo "[inspector] this tool never builds; refresh a binary yourself with:"
-echo "[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin capture_scene"
+echo "[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin moveset_render"
 
 report_bin moveset_export "serving whatever bundle is already on disk" || true
 report_bin moveset_takes  "there will be no recorded takes to look at"  || true
-report_bin capture_scene  "Engine Takes will use CPU-derived sprites"   || true
+report_bin moveset_render "Engine Takes will use CPU-derived sprites"   || true
 
 # ⛔⛔ AND A DEBUG REFRESH DOES NOT REPLACE A RELEASE BINARY. `find_bin` prefers
 # `release/`, so following the line above builds `debug/` and this script goes on

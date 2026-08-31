@@ -30,7 +30,10 @@ struct RecordedControls {
     attack_pressed: bool,
     attack_held: bool,
     attack_released: bool,
-    attack_strong_hint: bool,
+    attack_strength: ambition_platformer2d::sim::AttackStrengthHint,
+    attack_from_aim_stick: bool,
+    attack_aim_x: f32,
+    attack_aim_y: f32,
     pogo_pressed: bool,
     fly_toggle_pressed: bool,
     interact_pressed: bool,
@@ -68,7 +71,9 @@ impl From<RecordedControls> for AgentAction {
             attack: c.attack_pressed,
             attack_held: c.attack_held,
             attack_released: c.attack_released,
-            attack_strong: c.attack_strong_hint,
+            attack_strength: c.attack_strength,
+            attack_from_aim_stick: c.attack_from_aim_stick,
+            attack_aim: (c.attack_aim_x, c.attack_aim_y),
             // Recorded traces predate the dedicated Special slot; a replay carries
             // no special edge, and nothing holding it: a replayed trace that
             // charged a neutral special would have recorded the hold.
@@ -139,7 +144,10 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 attack_pressed: bool_field(controls, "attack_pressed"),
                 attack_held: bool_field(controls, "attack_held"),
                 attack_released: bool_field(controls, "attack_released"),
-                attack_strong_hint: strong_hint_field(controls),
+                attack_strength: strength_hint_field(controls),
+                attack_from_aim_stick: bool_field(controls, "attack_from_aim_stick"),
+                attack_aim_x: f32_field(controls, "attack_aim_x"),
+                attack_aim_y: f32_field(controls, "attack_aim_y"),
                 pogo_pressed: bool_field(controls, "pogo_pressed"),
                 fly_toggle_pressed: bool_field(controls, "fly_toggle_pressed"),
                 interact_pressed: bool_field(controls, "interact_pressed"),
@@ -163,27 +171,43 @@ fn bool_field(value: &serde_json::Value, key: &str) -> bool {
     value.get(key).and_then(|v| v.as_bool()).unwrap_or(false)
 }
 
-/// Was this recorded press a SMASH, across both trace generations?
+/// What strength did this recorded press ask for, across both trace generations?
 ///
 /// ⭐ TWO KEYS, ONE QUESTION. Traces recorded before 2026-08-31 carry
 /// `attack_strong_hint: bool`; the field became `attack_strength_hint`, a
 /// three-valued `AttackStrengthHint`, when a right-stick tilt mode needed a way
 /// to force a TILT at full deflection. Reading only the new key would make every
-/// archived trace replay with no smashes in it and report a clean divergence-free
-/// run, which is the worst failure this tool has.
+/// archived trace replay with no smashes in it and report a clean
+/// divergence-free run, which is the worst failure this tool has.
 ///
-/// ⚠ `Tilt` COLLAPSES TO `false` HERE, and that is a real loss: the harness
-/// `Action` this feeds is still strong-or-not, so a replayed tilt-stick press
-/// becomes "let the stick decide". Nothing records one yet — no device produces
-/// the hint — and widening `Action` is the slice that would fix it.
-fn strong_hint_field(controls: &serde_json::Value) -> bool {
+/// ⛔⛔ `Tilt` USED TO COLLAPSE TO `false` HERE, and the note explaining that
+/// away said *"nothing records one yet — no device produces the hint"*. That
+/// stopped being true in the same 21-commit range that wrote it:
+/// `RightStickMode::TiltAttack` is a shipped device setting. A recorded `Tilt`
+/// became `Auto`, and `Auto` at full stick deflection resolves back to `Smash` —
+/// so the replay silently played a DIFFERENT MOVE than the trace recorded. The
+/// harness action is three-valued now and this returns the value itself.
+fn strength_hint_field(
+    controls: &serde_json::Value,
+) -> ambition_platformer2d::sim::AttackStrengthHint {
+    use ambition_platformer2d::sim::AttackStrengthHint as Hint;
     if let Some(hint) = controls
         .get("attack_strength_hint")
         .and_then(|v| v.as_str())
     {
-        return hint == "Smash";
+        return match hint {
+            "Smash" => Hint::Smash,
+            "Tilt" => Hint::Tilt,
+            _ => Hint::Auto,
+        };
     }
-    bool_field(controls, "attack_strong_hint")
+    // The archived shape: one bool that could only ever mean "smash or you
+    // decide".
+    if bool_field(controls, "attack_strong_hint") {
+        Hint::Smash
+    } else {
+        Hint::Auto
+    }
 }
 
 fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
@@ -298,5 +322,75 @@ fn main() {
     if let Err(e) = replay(&path, tolerance) {
         eprintln!("trace_replay: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::sim::AttackStrengthHint as Hint;
+
+    /// ⛔⛔ A RECORDED TILT MUST REPLAY AS A TILT.
+    ///
+    /// The strength travelled through a `bool`, so `Tilt` arrived as `Auto` —
+    /// and `Auto` at full stick deflection resolves to `Smash`. A replay that
+    /// plays a different move than the trace recorded is worse than no replay,
+    /// because it reports a clean run.
+    ///
+    /// ⭐ REACHABLE SINCE `RightStickMode::TiltAttack` SHIPPED. The comment that
+    /// dismissed this said "no device produces the hint"; one does.
+    #[test]
+    fn a_recorded_tilt_replays_as_a_tilt() {
+        let tilt = serde_json::json!({ "attack_strength_hint": "Tilt" });
+        assert_eq!(strength_hint_field(&tilt), Hint::Tilt);
+        let smash = serde_json::json!({ "attack_strength_hint": "Smash" });
+        assert_eq!(strength_hint_field(&smash), Hint::Smash);
+        let auto = serde_json::json!({ "attack_strength_hint": "Auto" });
+        assert_eq!(strength_hint_field(&auto), Hint::Auto);
+    }
+
+    /// …and an ARCHIVED trace, whose only vocabulary was one bool, still reads.
+    ///
+    /// ⛔ THE PREMISE HALF: reading only the new key would make every archived
+    /// smash replay as `Auto` and report a divergence-free run.
+    #[test]
+    fn an_archived_bool_trace_still_says_smash() {
+        let old_smash = serde_json::json!({ "attack_strong_hint": true });
+        assert_eq!(strength_hint_field(&old_smash), Hint::Smash);
+        let old_plain = serde_json::json!({ "attack_strong_hint": false });
+        assert_eq!(strength_hint_field(&old_plain), Hint::Auto);
+        // An old trace never recorded a tilt, so `Auto` is the honest answer —
+        // not a guess dressed up as one.
+        assert_eq!(strength_hint_field(&serde_json::json!({})), Hint::Auto);
+    }
+
+    /// The C-stick direction survives the trace, so a replayed right-stick
+    /// attack points where the stick went rather than where the body was running.
+    #[test]
+    fn a_recorded_c_stick_press_replays_with_its_own_direction() {
+        let controls = serde_json::json!({
+            "attack_pressed": true,
+            "attack_strength_hint": "Tilt",
+            "attack_from_aim_stick": true,
+            "attack_aim_x": 1.0,
+            "attack_aim_y": 0.0,
+            "axis_x": -1.0,
+        });
+        let recorded = RecordedControls {
+            attack_pressed: bool_field(&controls, "attack_pressed"),
+            attack_strength: strength_hint_field(&controls),
+            attack_from_aim_stick: bool_field(&controls, "attack_from_aim_stick"),
+            attack_aim_x: f32_field(&controls, "attack_aim_x"),
+            attack_aim_y: f32_field(&controls, "attack_aim_y"),
+            axis_x: f32_field(&controls, "axis_x"),
+            ..RecordedControls::default()
+        };
+        let action = AgentAction::from(recorded);
+        assert_eq!(action.attack_strength, Hint::Tilt);
+        assert!(action.attack_from_aim_stick);
+        assert_eq!(action.attack_aim, (1.0, 0.0));
+        // ⛔ AND THE MOVEMENT AXIS POINTS THE OTHER WAY, which is what the
+        // direction has to beat: without it the replayed attack comes out left.
+        assert!(action.move_x < 0.0);
     }
 }

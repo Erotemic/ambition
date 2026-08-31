@@ -84,7 +84,13 @@ function renderedFramesFor(character, verb, scenario = {}) {
    * with the request. */
   if (!character || !verb) return null;
   const params = new URLSearchParams({ character, verb, frames: "24", stride: "2" });
-  if (scenario.target && scenario.target !== character) params.set("target", scenario.target);
+  /* ⛔⛔ A MIRROR TARGET IS STILL SENT. This omitted the target whenever it
+   * equalled the subject, and the server then dropped `target_behavior` with it
+   * — so a George-vs-George CPU take, which is what the recorder produces BY
+   * DEFAULT, was shown beside a render of George standing passively. Omission
+   * meant "no opponent" to this line and "mirror opponent" to `moveset_render`,
+   * and the two layers disagreed silently. Say the scenario literally. */
+  if (scenario.target) params.set("target", scenario.target);
   if (scenario.spacing !== null && scenario.spacing !== undefined) {
     params.set("spacing", String(scenario.spacing));
   }
@@ -1414,6 +1420,25 @@ function syncEngineRender(take, frameIndex) {
   const nothing = (text) => { img.removeAttribute("src"); img.hidden = true; note.textContent = text; };
   const verb = takeVerb(take);
   if (!verb) return nothing("this take names no verb, so there is nothing to render");
+  /* ⛔⛔ A CHAIN TAKE IS NOT RENDERABLE, AND SAYING SO IS THE FIX.
+   *
+   * A chain take records A→B: the second move is thrown out of the first, at the
+   * first's own recovery. `moveset_render` has no `--chain` argument at all, so
+   * the best it can do is stage B on its own from neutral — a different
+   * experiment with the same labels, which is exactly the "two fights shown as
+   * one" this panel exists to prevent.
+   *
+   * ⇒ REFUSE rather than approximate. The note names the missing capability so
+   * the next person adds `--chain` instead of wondering why the pictures
+   * disagree with the take. */
+  if (take.chain) {
+    const label = take.chain.label || take.chain.verb || "a follow-up";
+    return nothing(
+      `NOT RENDERABLE YET — this take is a CHAIN (${label}), and the engine ` +
+      `renderer stages one move from neutral: it has no way to throw the second ` +
+      `move out of the first's recovery. Anything drawn here would be a ` +
+      `different fight wearing this take's name. Showing the diagnostic take only.`);
+  }
   /* The scenario the TAKE was recorded in, so both panels show one fight. */
   const doc = renderedFramesFor(take.character, verb, {
     target: take.target,

@@ -94,6 +94,8 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
     phases: dict[str, list[int]] = {}
     active_ticks: list[int] = []
     overlap_ticks: list[int] = []
+    # Which road answered the overlap question — see `target_overlap_source`.
+    overlap_sources: set[str] = set()
     contact_ticks: list[int] = []
     contacts: list[dict] = []
     spawns: list[dict] = []
@@ -154,9 +156,12 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         target_id = (target or {}).get("id")
         exact = [row.get("overlaps") for row in mine if "overlaps" in row]
         if exact and target_id is not None:
+            overlap_sources.add("runtime_exact")
             if any(target_id in (victims or []) for victims in exact):
                 overlap_ticks.append(tick)
         else:
+            if mine:
+                overlap_sources.add("aabb_fallback")
             hurt = (target or {}).get("hurtboxes") or []
             if mine and hurt and any(_overlaps(v, h) for v in mine for h in hurt):
                 overlap_ticks.append(tick)
@@ -262,9 +267,21 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         "aabb_reach_bound_px": round(reach, 3) if active_ticks else None,
         "max_reach_tick": reach_tick,
         "attack_extents": {k: (round(v, 3) if v is not None else None) for k, v in extents.items()},
-        # GEOMETRY, said so in the name.
-        "aabb_overlap_ticks": len(overlap_ticks),
-        "first_aabb_overlap_tick": overlap_ticks[0] if overlap_ticks else None,
+        # ⛔⛔ NOT NAMED `aabb_` ANY MORE, AND THAT WAS A REAL LIE. These counted
+        # the engine's EXACT `CombatVolume::intersects` answer whenever the take
+        # carried one, while calling themselves an AABB measurement — the
+        # committed regression test asserted `aabb_overlap_ticks == 0` for a
+        # recording whose BOXES overlap, which is the field denying its own name.
+        # `target_overlap_source` says which road produced the number so a reader
+        # never has to guess, and `aabb_reach_bound_px` above keeps its name
+        # because it really is a bounds measurement.
+        "target_overlap_ticks": len(overlap_ticks),
+        "first_target_overlap_tick": overlap_ticks[0] if overlap_ticks else None,
+        "target_overlap_source": (
+            "mixed"
+            if len(overlap_sources) > 1
+            else next(iter(overlap_sources), None)
+        ),
         # THE RUNTIME'S ANSWER.
         "contacts": contacts,
         "first_contact_tick": first_contact,
@@ -741,12 +758,19 @@ def summary(doc: dict) -> str:
         # ⛔⛔ THE TWO CLAIMS, SIDE BY SIDE AND NAMED. Geometry says where things
         # were; the runtime says what connected. Reporting one as the other is
         # how a tool starts lying confidently.
-        f"- geometric overlap with the target: {m['aabb_overlap_ticks']} tick(s)"
-        f" (first at {_fmt(m['first_aabb_overlap_tick'])}) — MEASURED FROM BOXES",
+        f"- geometric overlap with the target: {m['target_overlap_ticks']} tick(s)"
+        f" (first at {_fmt(m['first_target_overlap_tick'])})"
+        + {
+            "runtime_exact": " — EXACT, the engine's own `CombatVolume::intersects`",
+            "aabb_fallback": " — MEASURED FROM BOXES (this take predates the"
+            " engine publishing exact overlap; a non-AABB volume can read as an"
+            " overlap here while the SHAPES miss)",
+            "mixed": " — MIXED SOURCES across ticks; read `target_overlap_source`",
+        }.get(m.get("target_overlap_source"), ""),
         f"- runtime-resolved contacts: {len(m['contacts'])}"
         f" (first at {_fmt(m['first_contact_tick'])}) — THE ENGINE'S OWN ANSWER",
     ]
-    if m["aabb_overlap_ticks"] and not m["contacts"]:
+    if m["target_overlap_ticks"] and not m["contacts"]:
         lines.append(
             "- ⚠ the strike and the target's hurtbox overlapped and the runtime "
             "resolved NO hit: intangibility, team, shield, or a strike that had "
@@ -872,7 +896,8 @@ COMPARED = [
     ("aabb reach bound px", lambda m: m.get("aabb_reach_bound_px")),
     ("first contact", lambda m: m.get("first_contact_tick")),
     ("contacts", lambda m: len(m.get("contacts") or [])),
-    ("aabb overlap ticks", lambda m: m.get("aabb_overlap_ticks")),
+    ("target overlap ticks", lambda m: m.get("target_overlap_ticks")),
+    ("target overlap source", lambda m: m.get("target_overlap_source")),
     ("launch speed", lambda m: m.get("target_launch_speed")),
     ("travel before active", lambda m: m.get("subject_travel_before_active")),
 ]

@@ -710,6 +710,70 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `oiler_vfx`'s 1 clipped frame in the D129 population is unrelated to it.
   Renderer suite 693 passed, 0 failed (was 692/1).
 
+- ✔ **GPT REVIEW #2 (2026-08-31, HEAD `861cd3d95`) — every finding addressed.**
+  ⚠ ITS P1 #1 WAS ALREADY FIXED when the review was written: it snapshots one
+  commit before `dfdc5112f`, which closed D-REPLAY-NOSUBJECT exactly as
+  recommended. Nothing to do; noted so a later reader does not reopen it.
+  ✔ **P1 — the C-stick lost its DIRECTION across the latch.** Mine, from the same
+  day's device work. `attack_pressed` / `attack_strength_hint` /
+  `attack_from_aim_stick` are EDGES and survive a sub-tick flick; the direction
+  rode `aim_x`/`aim_y`, which are LEVELS — newest sample wins. A stick already
+  back at rest by the next device frame delivered an armed C-stick attack aimed
+  nowhere, and `attack_axis` then fell through to the MOVEMENT axis: flick right
+  while running left, swing LEFT. `ControlFrame::attack_aim_x/y` is the same
+  value latched WITH its edge, resolved through the body's aim frame. ⭐ NO WIRE
+  COST — `ControlFrame` is not snapshot state, and the sim-visible `attack_axis`
+  it feeds already was. Pinned at the latch AND on the real adapter→latch path
+  (`a_flick_that_recenters_before_the_tick_still_attacks_where_it_pointed`), with
+  the left stick held the OTHER WAY so the failure reads as a wrong direction
+  rather than a missing one. Poisoned red.
+  ✔ **P1 — a CPU mirror scenario rendered as a passive one.** Reproduced first:
+  `scenario_key("george","jab","george",40,"passive")` and the `cpu` one both
+  returned `george__jab__at40_000`. THREE layers used omission to mean two
+  different things — the browser dropped `target` when it equalled the subject,
+  the server gated `--target-behavior` on that target, and `moveset_render` reads
+  an absent target as a MIRROR, not as "no opponent". All three now say the
+  scenario literally; only a genuinely absent target is absent.
+  ✔ **P1 — a chain take no longer gets a single-move render.** `moveset_render`
+  has no `--chain`, so the panel REFUSES and names the missing capability instead
+  of staging move B from neutral beside an A→B take.
+  ✔ **P2 — `PortalAimHint` was written by every seat.** It is a SINGLETON, drawn
+  for the one `PortalAffordanceBody` sourced from `ControlledSubject`, and the
+  per-body gameplay loop wrote it N times: the last seat won, so seat zero's gun
+  pointed where seat one aimed. Now written only for the presented subject
+  (falling back to the single startup body). The gameplay above stays per-body —
+  it was correct.
+  ✔ **P2 — the report called exact geometry an AABB measurement.** The committed
+  test asserted `aabb_overlap_ticks == 0` for a fixture whose BOXES overlap,
+  which is a field denying its own name. Renamed to `target_overlap_ticks` /
+  `first_target_overlap_tick` with a `target_overlap_source`
+  (`runtime_exact` / `aabb_fallback` / `mixed`); `aabb_reach_bound_px` keeps its
+  name because it really is a bounds measurement. Both facts and the provenance
+  are asserted now.
+  ✔ **P2 — `trace_replay` collapsed `Tilt` to `Auto`.** And `Auto` at full
+  deflection resolves back to `Smash`, so the replay played a DIFFERENT MOVE than
+  the trace recorded. The note excusing it said *"no device produces the hint"* —
+  false since `RightStickMode::TiltAttack` shipped hours earlier. `AgentAction`
+  carries the three-valued hint plus the C-stick source and direction; the trace
+  model records them (serde-defaulted, so archived traces still read).
+  ✔ **P3 — the GPU shutter now measures the WORLD, not only the clock.**
+  `capture.rs` says *"frozen time is not a frozen WORLD"* and the guard checked
+  `SimTick` alone. It now compares the multiset of drawn positions across the
+  pumps. ⛔ TWO INSTRUMENT LESSONS: keying by `Entity` went red on IDENTITY, not
+  appearance — four entities despawn and respawn at byte-identical positions
+  every pump — and a poison in `Update` is INERT, because presentation re-syncs a
+  seat's transform from `SimView` before propagation. Poisoned in `Last`, where
+  it reddens.
+  ▢ **P3 — portal interaction authority still lives in the view layer**, which
+  this queue already tracks as D-PORTAL-INTERACT-SEAT. Unchanged: the adapter
+  runs in `PlayerSimulation` and the interaction road spends the press in
+  `FeatureInteraction`, so the claim is anticipated rather than read. Both sides
+  use the same reach, and the review found no behavioural disagreement. Moving
+  the authority is a schedule question, not a patch.
+  Gates: app_it 533/533; core 536; input 139 (`--features input`); characters
+  395; content 302; sim_harness 36; gameplay_trace 13; app_tools 8; python 30;
+  takes discovery 19/19; doc links 271/864.
+
 - ✔ **D-REPLAY-NOSUBJECT — CLOSED 2026-08-31 (rollback schema v146). A
   subjectless replay now OWNS the slot it admits on.** ⭐ GPT review 2026-08-31
   (baseline `9aec2f04`, HEAD `04dff7366`), and VERIFIED HERE against the source:

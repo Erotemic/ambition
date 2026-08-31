@@ -87,7 +87,10 @@ pub fn portal_input_adapter_system(
     //
     // ⚠ The fallback is the STARTUP frame and nothing else.
     let mut subjects: Vec<Entity> = Vec::new();
-    if let Some(subject) = controlled.as_deref().and_then(|held| held.0) {
+    // ⛔ HELD SEPARATELY, because ONE thing here is not per-body: the held-gun
+    // presentation. See the `PortalAimHint` write below.
+    let presented_subject = controlled.as_deref().and_then(|held| held.0);
+    if let Some(subject) = presented_subject {
         subjects.push(subject);
     }
     // Ordered by stable identity, never by query order: a resimulation must
@@ -105,6 +108,10 @@ pub fn portal_input_adapter_system(
     if subjects.is_empty() {
         subjects.extend(primary_fallback.single().ok());
     }
+    // The body whose gun is DRAWN: the controlled subject, or — on the startup
+    // frame before one resolves — the single fallback body, which is the only
+    // one there is. Never "whichever seat the loop visited last".
+    let presented_subject = presented_subject.or_else(|| subjects.first().copied());
     for subject in subjects {
         let Ok((driver, kin, gun)) = holders.get(subject) else {
             continue;
@@ -139,9 +146,23 @@ pub fn portal_input_adapter_system(
         // (`sync_portal_mode_indicator`), so portal presentation reads this hint
         // instead of `ControlFrame`. Render-only: the `PortalAimHint` resource exists
         // exclusively behind `portal_render`.
+        //
+        // ⛔⛔ THE CONTROLLED SUBJECT'S AIM ONLY, AND THIS IS INSIDE A LOOP OVER
+        // EVERY DRIVEN BODY. `PortalAimHint` is a SINGLETON, and the gun it
+        // describes is drawn for exactly one body — the `PortalAffordanceBody`
+        // sourced from `ControlledSubject`, read back with `carriers.single()`.
+        // Writing it once per seat meant the LAST seat in the loop won: with two
+        // people playing, seat zero's gun pointed wherever seat one was aiming.
+        //
+        // ⭐ THE GAMEPLAY ABOVE IS CORRECTLY PER-BODY; this one line is
+        // presentation, and presentation here has ONE viewer. If every seat ever
+        // gets a drawn gun, this becomes per-body state keyed by
+        // `PortalAffordanceBody` — not a singleton written N times.
         #[cfg(feature = "portal_render")]
-        if let Some(aim_hint) = aim_hint.as_deref_mut() {
-            aim_hint.aim = pick_aim(control, kin.facing);
+        if Some(subject) == presented_subject {
+            if let Some(aim_hint) = aim_hint.as_deref_mut() {
+                aim_hint.aim = pick_aim(control, kin.facing);
+            }
         }
         let holding_gun = gun.is_some();
 

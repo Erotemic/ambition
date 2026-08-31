@@ -137,9 +137,16 @@ def scenario_key(
     ⚠ THE BEHAVIOUR RIDES WITH THE TARGET IT DESCRIBES. A scenario with no
     opponent has nothing to behave, and putting `__passive` in that key would
     make two identical solo renders look like different experiments.
+
+    ⛔⛔ AND A MIRROR IS STILL A SCENARIO. This read `target != character`, so
+    George-vs-George contributed NOTHING — not even its behaviour — and a CPU
+    mirror and a passive mirror shared one directory. The recorder DEFAULTS to a
+    mirror match, so that is the ordinary case, not an exotic one. Omission is
+    never how a scenario says something; only a genuinely absent target is
+    absent.
     """
     scenario = ""
-    if target and target != character:
+    if target:
         scenario += f"__vs_{target}__{target_behavior}"
     if spacing is not None:
         scenario += "__at" + f"{spacing:.3f}".replace(".", "_")
@@ -304,7 +311,11 @@ def render_animation(
             # The scenario, so the picture is of the fight the take recorded.
             + (["--target", safe_target] if safe_target else [])
             + (["--spacing", str(spacing)] if spacing is not None else [])
-            + (["--target-behavior", target_behavior] if safe_target else []),
+            # ⛔ NOT GATED ON `safe_target`. `moveset_render`'s missing-target
+            # default is a MIRROR opponent, not "no opponent" — so a mirror
+            # scenario that omitted the target also silently dropped its
+            # behaviour and rendered a passive stand-in for a CPU take.
+            + (["--target-behavior", target_behavior] if target_behavior else []),
             cwd=str(REPO),
             capture_output=True,
             text=True,

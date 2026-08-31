@@ -341,6 +341,63 @@ mod the_attack_stick {
         assert_eq!(flick.attack_strength_hint, AttackStrengthHint::Smash);
     }
 
+    /// ⛔⛔ THE FLICK RECENTERS BEFORE THE SIM TICK, AND THE DIRECTION MUST
+    /// SURVIVE IT — the production path, adapter → latch, not the adapter alone.
+    ///
+    /// Every other C-stick test here reads ONE device frame, where the aim level
+    /// still holds the flick. That is the moment the bug cannot appear. A real
+    /// flick is fast: the stick is often back at rest by the next device sample,
+    /// while the sim tick has not run yet. The press, the strength and
+    /// `attack_from_aim_stick` are EDGES and survive; `aim_x`/`aim_y` are LEVELS
+    /// and do not — so the direction had to become part of the press.
+    ///
+    /// ⭐ THE LEFT STICK IS HELD THE OTHER WAY, because that is what makes the
+    /// failure visible as a WRONG direction rather than a missing one:
+    /// `player::attack_axis` falls back to the movement axis when the attack aim
+    /// is zero, so the pre-fix behaviour was an attack thrown at the player's
+    /// back.
+    #[test]
+    fn a_flick_that_recenters_before_the_tick_still_attacks_where_it_pointed() {
+        use ambition_platformer2d_core::ControlFrameLatch;
+
+        let mut running_left = aiming(bevy::math::Vec2::new(1.0, 0.0));
+        running_left.set_axis_pair(&Action::Move, bevy::math::Vec2::new(-1.0, 0.0));
+        let (flick, edges) = read_gameplay_control_frame_with_settings(
+            &running_left,
+            filters(RightStickMode::TiltAttack),
+            GameplayEdgeState::default(),
+        );
+
+        // The very next device sample: right stick back at rest, still running left.
+        let mut centered = aiming(bevy::math::Vec2::ZERO);
+        centered.set_axis_pair(&Action::Move, bevy::math::Vec2::new(-1.0, 0.0));
+        let (recentered, _) = read_gameplay_control_frame_with_settings(
+            &centered,
+            filters(RightStickMode::TiltAttack),
+            edges,
+        );
+
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(flick);
+        latch.accumulate(recentered);
+        let tick = latch.take();
+
+        assert!(tick.attack_pressed, "the sub-tick flick lost its press");
+        assert!(tick.attack_from_aim_stick);
+        assert_eq!(tick.attack_strength_hint, AttackStrengthHint::Tilt);
+        assert!(
+            tick.aim_x.abs() < 0.01,
+            "premise check: the aim LEVEL must be back at rest, or this arm is \
+             measuring the easy case the other tests already cover"
+        );
+        assert!(
+            tick.attack_aim_x > 0.5,
+            "the flick pointed RIGHT and the tick must still know it; the aim \
+             level is at rest and the movement axis points LEFT, so without the \
+             press carrying its own direction this attack comes out backwards"
+        );
+    }
+
     /// ⛔ THE HYSTERESIS. A stick held out is one attack, not one per frame —
     /// the same rule the burst trigger has, and without it leaning on the stick
     /// is a machine gun.

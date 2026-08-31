@@ -9,46 +9,24 @@ cast, without loading the game.
 tools/ambition_moveset_inspector/serve_inspector.sh --open
 ```
 
-Serves the UI at <http://127.0.0.1:8777>. Pass `--no-export` to look at the
-bundle already on disk.
+Serves the UI at <http://127.0.0.1:8777>. Pass `--no-export` to serve the
+bundle already on disk. Building is explicit rather than automatic:
 
-⛔⛔ NOTHING HERE INVOKES CARGO. The wrapper used to `cargo run` the exporter on
-every start, which takes the cargo build LOCK — so opening the inspector could
-block, or be blocked by, an agent building on another branch. It runs binaries
-that already exist, and prints the build command and each binary's provenance
-every time, whether or not anything is missing:
-
-```text
-[inspector] this tool never builds; refresh a binary yourself with:
-[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin moveset_render
-[inspector] moveset_export  <target>/debug/moveset_export  (built 2026-08-27 17:04, 2h old)
-[inspector] moveset_takes   NOT BUILT — there will be no recorded takes to look at
-[inspector]                   cargo build -p ambition_app_tools --bin moveset_takes
+```bash
+tools/ambition_moveset_inspector/serve_inspector.sh --build --open
 ```
 
-⛔ AND THE COMMAND IS COPY-PASTEABLE, which it was not: it printed a brace
-expansion, and `--bin {a,b,c}` expands to `--bin a b c` while cargo takes ONE
-value per `--bin` — *"error: unexpected argument 'moveset_takes' found"*. A
-suggested command that does not run costs the reader a round trip to discover.
+`--build` refreshes exactly the three binaries this inspector uses:
+`moveset_export`, `moveset_takes`, and `moveset_render`. It pins the process to
+the debug binaries that command just produced, so an older release binary cannot
+win discovery. Without `--build`, the wrapper and Python server both choose an
+explicit `AMBITION_MOVESET_*` override when present, otherwise the newest
+executable under `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}`.
 
-⭐ THE BUILD COMMAND IS NOT ONLY A FAILURE MESSAGE. Somebody refreshing a binary
-that already exists needs the same line as somebody who has none, and the age is
-what tells them whether they should.
-
-The renderer's own path and build time also ride back with its frames, so the
-Engine Takes label reads `sprites: rendered by the engine (moveset_render built
-2026-08-27 18:35)` and its tooltip is the binary's full path.
-
-Missing binaries are never fatal. No exporter means the bundle already on disk is
-served; no renderer means the CPU fallback; no `moveset_takes` means there are no
-takes to look at yet.
-
-⚠ THE COST OF NEVER BUILDING is that a binary can be older than the source it was
-built from. The exporter's path and build time are printed when it runs, so a
-stale answer is at least a visible one.
-
-Binaries are looked for in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}`,
-the convention `scripts/profile_desktop.sh` already uses.
+The wrapper prints the chosen path and build age for every binary. A missing
+renderer is a visible GPU-evidence failure; a missing `moveset_takes` binary
+prevents generating a new semantic take but does not remove prepared fighters or
+moves from discovery.
 
 ## What it reads
 
@@ -63,22 +41,30 @@ asserts every field the UI reads is present; run it after changing either side.
 
 ## The five views
 
-- **Roster** — every fighter with a real moveset, filterable, grid-only by default.
-- **Fighter** — the moveset as a sortable frame-data table, plus per-move
-  timeline, hitbox diagram and the body's own numbers.
-- **Compare** — one slot across the whole roster. Cells more than two median
-  absolute deviations from the roster median for that slot are flagged high or
-  low. This is the view that answers *"is this move out of line"*.
-- **Status** — what this server has, where it looked for it, how old each piece
-  is, whether the recorded takes carry the fields this build DRAWS, and the build
-  command for every binary whether or not it is present. Open this FIRST when
-  something is missing: it answers "is it trying", "does it know
-  where it is" and "what do I run" without reading a terminal.
-- **Engine takes** — recorded playback of the real simulation **in the real art**:
-  the fighter's own sprite, animated by the move that is playing, with its live
-  hitboxes over the top and anything its move spawned drawn beside it. Recorded
-  by `moveset_takes`; absent until it has been run. The `Art` button turns the
-  sprites off when a volume is easier to read on its own.
+- **Roster** — every prepared fighter with a moveset, filterable, grid-only by default.
+- **Fighter** — prepared repertoire table plus a selected-move runtime diagnostic.
+  Startup/active/recovery, active gaps, travel, overlap/contact facts, spawns,
+  reach bounds, exact hit/hurt geometry, and the frame scrubber all come from the
+  canonical runtime take. Prepared damage/knockback/cancel information remains
+  separately labelled as specification data.
+- **Compare** — one prepared slot across the roster for broad balance comparison.
+- **Engine takes** — the same canonical runtime take used by Fighter, with the
+  shared exact geometry renderer and an optional matching GPU render beside it.
+  If a scenario-addressed take is missing, selecting the move generates it rather
+  than stopping at “no recorded take.”
+- **Status** — server/binary/data provenance and cache state.
+
+Both runtime views use one scenario object: subject, explicit target, target
+behavior, verb, spacing, optional chain schedule, and the shared hold policy.
+A mirror is represented as `target == subject`; omission is normalized at the
+server boundary. CPU and passive mirrors therefore have different scenario and
+cache identities.
+
+Interactive takes live under `data/takes/by-scenario/<scenario+hash>/evidence.json`.
+The full `takes.json` corpus can still be generated in bulk. A row is promoted
+to current interactive evidence only when both the scenario and recorded source/
+generator provenance can be revalidated; otherwise the server regenerates it
+when `moveset_takes` is available, or labels the matching corpus row stale.
 
 ## How the art gets there
 
@@ -95,7 +81,8 @@ can drift.
 
 ## What is REAL here and what is RECONSTRUCTED
 
-Worth stating plainly, because "recorded from the engine" is easy to over-claim.
+This distinction is part of the evidence contract; "recorded from the engine"
+does not apply to every visual detail.
 
 REAL — observed from a running composed host:
 
@@ -206,44 +193,27 @@ derivation here.
 
 ## The engine render (GPU, on demand)
 
-The derived frame cursor is the FALLBACK now, not the only answer.
+`moveset_render` is the only GPU binary. The browser does not invent a second
+render scenario: it POSTs the same canonical scenario document used to obtain the
+runtime take. Chain scenarios are rejected until `moveset_render` can reproduce
+the chain exactly.
 
-ONE binary: **`moveset_render`**. Nothing else in the tool needs a GPU.
+Render coverage is derived from the runtime take length. With a 150-tick take and
+stride 2, the browser requests coverage through action tick 149, producing 75
+sampled images at ticks 0, 2, …, 148. An unsampled tick such as 41 displays “No
+GPU sample for action tick 41”; it does not retain tick 40's image.
 
-⛔⛔ **THIS SECTION DESCRIBED `capture_scene` UNTIL 2026-08-29, AND THAT TOOL
-PHOTOGRAPHS A FIGHTER STANDING.** The `/api/render` route took a character alone
-and cached one picture of somebody doing nothing, so every move of a fighter
-shared it. `moveset_render` performs the requested move and captures exact ticks;
-the section below this one owns the details, and the two must not describe two
-different architectures again. ⚠ a doc that names a superseded binary sends the
-next reader to build the wrong thing.
+Cached manifests carry the canonical scenario, scenario hash, source identity,
+renderer path/build timestamp, and sampled `action_tick` for every PNG. The
+browser refuses a manifest whose scenario differs from the take it is showing.
+`Regenerate Render` bypasses the current scenario cache. `Regenerate All`
+regenerates the semantic take first, then GPU evidence for that take's horizon.
 
 ```bash
-# you build it; the tool never will
 cargo build -p ambition_app_tools --bin moveset_render
-
-# and it is useful by hand
 target/debug/moveset_render --character projectile_polygon --verb attack \
     --out /tmp/a --frames 24 --stride 2
 ```
-
-The server looks for it in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}/`
-— the same convention `scripts/profile_desktop.sh` uses — and when it cannot find
-it, the `503` names every path it tried.
-
-⚠ For completeness, the two binaries the REST of the inspector needs, neither of
-which wants a GPU: `moveset_export` (the bundle; `serve_inspector.sh` runs it for
-you) and `moveset_takes` (the recorded takes; run it yourself for the fighters
-you care about).
-
-`--frames N` is how many pictures to take; `--stride K` advances K simulation
-ticks between them, and every PNG is named for the exact `SimTick` it was
-captured on.
-
-The inspector asks `/api/render?character=<id>&verb=<verb>` once per
-character-and-verb per session and caches under `data/renders/<id>/`. Engine
-Takes then draws the engine's own picture with the hitboxes over it, and the
-label beside the scrubber reads `sprites: rendered by the engine`.
 
 ## Numbers, without reading 150 ticks of geometry
 
@@ -257,13 +227,12 @@ causal read) from what the runtime published: authored window ticks, first live
 volume, max reach from the body origin, attack extents, travel before and during
 the active window, spawns, launch speed, and both kinds of contact claim.
 
-⛔⛔ **`overlap_ticks` AND `contacts` ARE TWO DIFFERENT CLAIMS AND NEVER ONE.**
-The first is this script measuring rectangles; the second is the runtime's own
-hit-once memory. They disagree whenever the victim was intangible, on the same
-team, shielded, or already struck by that strike — and a report that merged them
-would be confidently wrong in exactly the cases somebody opens it to
-investigate. Measured on the admiral's jab at 38px: **5 ticks of overlap, one
-resolved contact**, because a jab hits once.
+**Geometry overlap and resolver contact are separate claims.**
+`target_overlap_*` uses the engine-published exact `CombatVolume::intersects`
+answer when present and records its source. `aabb_overlap_*` independently keeps
+the broad-phase bounds measurement. Old takes without exact overlap data use an
+explicit `aabb_fallback`. Resolver contacts remain a third fact: what gameplay
+actually accepted after overlap, team/intangibility/hit-once and other rules.
 
 With `--out` it writes the whole bundle — `report.json` (the authority, carrying
 provenance: the source recording, its timestamp, and all three schema versions),
@@ -542,25 +511,23 @@ Not any more, and the reason it used to happen is worth keeping: the picker
 listed the fighters found in `takes.json`, so a fighter existed in this view only
 once somebody had recorded a bulk take for it.
 
-**The roster now comes from the prepared bundle and the takes are a cache.**
-Every prepared fighter is selectable immediately, every move it binds is
-selectable, and what the cache does or does not hold is shown as status:
+**The roster now comes from the prepared bundle and bulk takes are only a cache source.**
+Every prepared fighter and bound move is selectable immediately. A missing
+scenario-addressed take enters `loading -> generating -> ready`: `/api/take`
+runs `moveset_takes` for that one canonical subject/target/behavior/verb/spacing
+scenario, derives the report, and caches the evidence under its scenario hash.
+The bulk `takes.json` corpus remains useful for overnight coverage but is no
+longer an interactive prerequisite.
 
 ```text
-PIRATE ADMIRAL · 19 takes      <- recorded
-PROJECTILE POLYGON · not recorded
+PIRATE ADMIRAL · 19 bulk takes
+PROJECTILE POLYGON · generate on select
 ```
 
-A move with no recording still opens: the diagnostic canvas says so plainly and
-the engine-render panel beside it still photographs the move on demand, because
-`/api/render` drives one character and one verb and needs no take at all.
-
-Record one when you want the per-tick geometry:
-
-```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- \
-    --characters npc_pirate_admiral,projectile_polygon
-```
+After the take is ready, the GPU request uses its action-tick horizon. With a
+stride greater than one, unsampled action ticks explicitly show that no GPU
+sample exists; the panel never leaves an earlier image painted as the current
+tick.
 
 The fighter picker follows the fighter you were reading in the Fighter view when
 you switch tabs. Status names coverage too.
@@ -576,7 +543,7 @@ cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid
 read three booleans.) Every take settles a real match between presses and there
 are 19 verbs. This is a background job, not a click — which is why the default
 records one fighter and the take view shows coverage (`21 prepared · 2
-recorded`) rather than pretending every fighter has evidence behind it.
+recorded`) while interactive selection can still generate one scenario at a time.
 
 ## Checks
 
@@ -584,6 +551,7 @@ recorded`) rather than pretending every fighter has evidence behind it.
 node tools/ambition_moveset_inspector/check_bundle_contract.mjs   # the data
 node tools/ambition_moveset_inspector/check_draw_path.mjs         # the drawing
 node tools/ambition_moveset_inspector/check_takes_discovery.mjs   # who is listed
+node tools/ambition_moveset_inspector/check_runtime_contract.mjs  # runtime/scenario/sync invariants
 ```
 
 ⛔⛔ `node --check` SAYS A FILE PARSES, NOT THAT ITS IDENTIFIERS RESOLVE. A call

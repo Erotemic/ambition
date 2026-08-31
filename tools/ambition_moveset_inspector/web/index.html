@@ -34,12 +34,17 @@
   <section class="view" id="view-fighter">
     <div class="controls">
       <select id="fighter-pick"></select>
+      <label class="note">Target</label><select id="fighter-target"></select>
+      <label class="note">Behavior</label>
+      <select id="fighter-behavior"><option value="passive">passive</option><option value="cpu">cpu</option></select>
+      <label class="note">Spacing</label><input id="fighter-spacing" type="number" min="0" max="2000" step="1" value="40" style="width:84px">
       <span class="note" id="fighter-note"></span>
     </div>
-    <div class="cols">
+    <div class="cols fighter-cols">
       <div>
         <div class="panel">
           <h2>Moveset</h2>
+          <p class="note">Prepared/exported authoring summary. Select a move for runtime-measured timing and geometry.</p>
           <div class="scroll"><table id="moves"></table></div>
         </div>
       </div>
@@ -78,19 +83,29 @@
       <button class="ghost" id="take-play">Play</button>
       <button class="ghost on" id="take-art">Art</button>
       <button class="ghost on" id="take-hurt">Hurtboxes</button>
+      <label class="note">Target</label><select id="take-target"></select>
+      <label class="note">Behavior</label>
+      <select id="take-behavior"><option value="passive">passive</option><option value="cpu">cpu</option></select>
+      <label class="note">Spacing</label><input id="take-spacing" type="number" min="0" max="2000" step="1" value="40" style="width:84px">
+      <button class="ghost" id="regen-take">Regenerate Take</button>
+      <button class="ghost" id="regen-render">Regenerate Render</button>
+      <button class="act" id="regen-all">Regenerate All</button>
       <input type="range" id="take-scrub" min="0" max="0" value="0" style="flex:1;min-width:220px">
       <span class="note mono" id="take-frame"></span>
       <span class="note" id="take-source">sprites: derived</span>
       <span class="note" id="take-loaded"></span>
+      <span class="note" id="take-evidence-state">idle</span>
     </div>
     <div class="cols takes-cols">
       <div class="panel" id="engine-render-panel">
         <h2>Engine render</h2>
+        <div class="evidence-overlay" id="render-loading" hidden></div>
         <img id="engine-render" alt="the engine's own picture of this move" style="width:100%;image-rendering:pixelated">
         <p class="note" id="engine-render-note">select a move to render it</p>
       </div>
-      <div class="panel">
+      <div class="panel evidence-shell">
         <h2>Diagnostic take</h2>
+        <div class="evidence-overlay" id="take-loading" hidden></div>
         <canvas class="hitboxes" id="take-canvas" width="1000" height="560"></canvas>
         <div class="legend">
           <span><i style="background:var(--active)"></i>strike volume</span>

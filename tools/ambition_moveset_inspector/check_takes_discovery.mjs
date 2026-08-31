@@ -41,7 +41,7 @@ globalThis.fetch = async () => ({ json: async () => ({}) });
 
 const api = new Function(
   `${src.replace(/\nboot\(\);\s*$/, "\n")}\n` +
-  "return { takeRoster, takeSlotsFor, roleOf, renderTakeOptions, drawTake," +
+  "return { takeRoster, takeSlotsFor, roleOf, renderTakeOptions, drawTake, drawRuntimeDiagnostic," +
   " get state(){return state}, set BUNDLE(v){BUNDLE=v}, set TAKES(v){TAKES=v} };"
 )();
 
@@ -121,23 +121,22 @@ check("and it lands on one of that fighter's moves",
   api.state.takeVerb === "attack", String(api.state.takeVerb));
 check("with no take behind it", api.state.take === null, String(api.state.take));
 
-/* And a RECORDED move still loads its frames. (Step 5 replaced the recording
- * set; put the two-fighter one back.) */
+/* A recorded move remains discoverable, but selection does not bind the UI to
+ * the bulk-corpus index. The canonical scenario API decides whether that corpus
+ * row is reusable or a new one-move take must be generated. */
 api.TAKES = { takes: [take("alpha", "attack"), take("beta", "smash_forward")] };
 api.state.takeFighter = "alpha";
 api.state.takeVerb = null;
 threw = null;
 try { api.renderTakeOptions(); } catch (e) { threw = e; }
-check("selecting a recorded fighter loads its take", threw === null && api.state.take === 0,
+check("selecting a recorded fighter leaves bulk corpus non-authoritative", threw === null && api.state.take === null,
   threw ? threw.message : String(api.state.take));
 
 /* ⛔ AND A TAKE WITH NO VIEW RECTANGLE STILL DRAWS. `view[2]` on an absent
  * rectangle throws, and a throw in the draw path kills the playback timer. */
-api.TAKES = { takes: [{ ...take("alpha", "attack"), view: undefined }] };
-api.state.takeFighter = "alpha";
-api.state.takeVerb = null;
+const legacyNoView = { ...take("alpha", "attack"), view: undefined };
 threw = null;
-try { api.renderTakeOptions(); } catch (e) { threw = e; }
+try { api.drawRuntimeDiagnostic(node(), legacyNoView, 0); } catch (e) { threw = e; }
 check("a take with no view rectangle draws instead of throwing", threw === null,
   threw && threw.message);
 

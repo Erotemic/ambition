@@ -1,11 +1,10 @@
 "use strict";
 /* Ambition moveset balance inspector.
  *
- * Reads the bundle `moveset_export` writes and answers the questions a balance
- * pass asks: what does this move cost, what does it buy, and is it in line with
- * the rest of the cast. Nothing here re-derives frame data — the exporter did
- * that against the composed host, and a second implementation would be a second
- * thing to keep true.
+ * The prepared `moveset_export` bundle supplies roster and authoring context.
+ * Selected-move timing and geometry come from a canonical runtime take produced
+ * by the composed simulation; the browser only presents those observations and
+ * server-derived measurements rather than reimplementing combat.
  */
 
 /* The genre's slot order. A moveset table sorted alphabetically by move id is
@@ -72,134 +71,355 @@ function takesCarryArt() {
 }
 
 const RENDERS = new Map();
-function renderedFramesFor(character, verb, scenario = {}) {
-  /* ⛔⛔ KEYED ON CHARACTER **AND VERB**. This asked for a character alone, and
-   * the endpoint photographed a fighter STANDING — so every move of a fighter
-   * shared one cache entry of somebody doing nothing. A move renderer that
-   * ignores which move was selected is the bug this whole campaign was about.
-   *
-   * ⛔⛔ AND ON THE SCENARIO. This panel sits BESIDE the diagnostic canvas, and a
-   * render staged from across the stage next to a take recorded at 40px is two
-   * different fights presented as one. The take's own target and spacing travel
-   * with the request. */
-  if (!character || !verb) return null;
-  const params = new URLSearchParams({ character, verb, frames: "24", stride: "2" });
-  /* ⛔⛔ A MIRROR TARGET IS STILL SENT. This omitted the target whenever it
-   * equalled the subject, and the server then dropped `target_behavior` with it
-   * — so a George-vs-George CPU take, which is what the recorder produces BY
-   * DEFAULT, was shown beside a render of George standing passively. Omission
-   * meant "no opponent" to this line and "mirror opponent" to `moveset_render`,
-   * and the two layers disagreed silently. Say the scenario literally. */
-  if (scenario.target) params.set("target", scenario.target);
-  if (scenario.spacing !== null && scenario.spacing !== undefined) {
-    params.set("spacing", String(scenario.spacing));
-  }
-  /* ⛔⛔ AND WHETHER THE OPPONENT FIGHTS BACK. The renderer defaults a missing
-   * behaviour to PASSIVE, so a take recorded against a live CPU opponent was
-   * shown beside a render of a target standing still — the same class of "two
-   * fights presented as one" the target and spacing above exist to prevent. */
-  if (scenario.behavior) params.set("target_behavior", String(scenario.behavior));
-  const key = `${character}/${verb}/${params.get("target") || ""}/` +
-    `${params.get("spacing") || ""}/${params.get("target_behavior") || ""}`;
-  const have = RENDERS.get(key);
-  if (have !== undefined) return have;
-  RENDERS.set(key, null);
-  fetch(`/api/render?${params}`)
-    .then((r) => r.json())
-    .then((doc) => {
-      if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
-        /* Remember the refusal so the page does not re-ask on every redraw. */
-        /* ⛔ THE COMPOSITE KEY, like every other write here. This stored the
-         * refusal under `character` alone while lookups use `character/verb`,
-         * so a failure was never found again and the page re-asked the endpoint
-         * on every redraw — a failed GPU render re-spawning the renderer once a
-         * frame. */
-        RENDERS.set(key, {
-          available: false,
-          reason: doc && doc.reason,
-          hint: doc && doc.hint,
-        });
-        renderStatus(key);
-        /* ⛔ AND REPAINT. The panel is showing "rendering…" and the answer has
-         * arrived; without this it keeps saying that until something else
-         * happens to redraw. */
-        if (state.view === "takes") drawTake();
-        return;
-      }
-      const images = doc.urls.map((u) => {
-        const img = new Image();
-        img.src = u;
-        img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
-        return img;
-      });
-      RENDERS.set(key, {
-        ...doc,
-        available: true,
-        images,
-        stride: doc.stride,
-        renderer: doc.renderer,
-        built: doc.renderer_built,
-      });
-      renderStatus(key);
-      /* ⛔⛔ REPAINT ON THE MANIFEST, NOT ONLY ON AN IMAGE `load`. A cached image
-       * can be `complete` before its listener is attached, so the load event
-       * never fires and the panel keeps saying "rendering…" with every frame
-       * already in the page. The manifest arriving IS the moment there is
-       * something to draw. */
-      if (state.view === "takes") drawTake();
-    })
-    .catch((error) => {
-      RENDERS.set(key, { available: false, reason: String(error) });
-      renderStatus(key);
-      if (state.view === "takes") drawTake();
-    });
-  return null;
+const TAKE_EVIDENCE = new Map();
+const TAKE_PENDING = new Map();
+
+function stableScenarioDocument(raw) {
+  const subject = raw.subject || raw.character;
+  return {
+    subject,
+    target: raw.target || subject,
+    target_behavior: raw.target_behavior || raw.behavior || "passive",
+    verb: raw.verb,
+    spacing: raw.spacing === undefined ? null : raw.spacing,
+    chain: raw.chain || null,
+    hold_policy: raw.hold_policy || "move_exercise_default",
+  };
 }
 
-/* Say WHICH picture is on screen. A view that silently swaps between engine
- * frames and a CPU approximation is a view whose fidelity nobody can trust. */
-function renderStatus(key) {
+function scenarioKey(raw) {
+  return JSON.stringify(stableScenarioDocument(raw));
+}
+
+function sameScenario(left, right) {
+  return scenarioKey(left) === scenarioKey(right);
+}
+
+function canonicalScenario(subject, verb, chain = null) {
+  const target = state.scenarioTarget && state.scenarioTarget !== "__mirror__"
+    ? state.scenarioTarget
+    : subject;
+  return stableScenarioDocument({
+    subject,
+    target,
+    target_behavior: state.scenarioBehavior || "passive",
+    verb,
+    spacing: state.scenarioSpacing,
+    chain,
+  });
+}
+
+function evidenceRecord(scenario) {
+  return TAKE_EVIDENCE.get(scenarioKey(scenario)) || null;
+}
+
+function repaintEvidenceUsers() {
+  if (state.view === "fighter" && state.fighter && state.move) {
+    const c = fighterById(state.fighter);
+    const m = c && c.moves.find((row) => row.id === state.move);
+    if (c && m) renderMoveDetail(c, m);
+  }
+  if (state.view === "takes") drawTake();
+}
+
+async function requestTakeEvidence(scenario, { force = false } = {}) {
+  const key = scenarioKey(scenario);
+  const existing = TAKE_EVIDENCE.get(key);
+  if (!force && existing && existing.state === "ready") return existing.doc;
+  if (!force && TAKE_PENDING.has(key)) return TAKE_PENDING.get(key);
+
+  TAKE_EVIDENCE.set(key, { state: "loading", scenario, message: "Loading runtime evidence…" });
+  repaintEvidenceUsers();
+  const slow = setTimeout(() => {
+    const row = TAKE_EVIDENCE.get(key);
+    if (row && row.state === "loading") {
+      TAKE_EVIDENCE.set(key, { ...row, state: "generating", message: "Generating runtime take…" });
+      repaintEvidenceUsers();
+    }
+  }, 250);
+
+  const pending = fetch("/api/take", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario, force }),
+  })
+    .then(async (response) => {
+      const doc = await response.json();
+      if (!response.ok || !doc || !doc.take) {
+        const error = new Error(doc.reason || doc.error || `moveset_takes exited via HTTP ${response.status}`);
+        error.detail = doc;
+        throw error;
+      }
+      if (!sameScenario(doc.scenario, scenario)) {
+        const error = new Error("generated take scenario does not match the selected scenario");
+        error.detail = { asked: scenario, received: doc.scenario };
+        throw error;
+      }
+      TAKE_EVIDENCE.set(key, { state: "ready", scenario, doc });
+      return doc;
+    })
+    .catch((error) => {
+      TAKE_EVIDENCE.set(key, {
+        state: "error",
+        scenario,
+        message: error.message,
+        detail: error.detail || null,
+      });
+      throw error;
+    })
+    .finally(() => {
+      clearTimeout(slow);
+      TAKE_PENDING.delete(key);
+      repaintEvidenceUsers();
+    });
+  TAKE_PENDING.set(key, pending);
+  return pending;
+}
+
+function renderRequestKey(scenario, takeLength, stride) {
+  return `${scenarioKey(scenario)}|through=${Math.max(0, takeLength - 1)}|stride=${stride}`;
+}
+
+async function requestRenderEvidence(scenario, takeLength, { force = false, stride = 2 } = {}) {
+  const key = renderRequestKey(scenario, takeLength, stride);
+  const existing = RENDERS.get(key);
+  if (!force && existing && existing.state === "ready") return existing.doc;
+  if (!force && existing && existing.promise) return existing.promise;
+
+  RENDERS.set(key, { state: "rendering", scenario, message: "Rendering engine frames…" });
+  repaintEvidenceUsers();
+  const promise = fetch("/api/render", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      scenario,
+      stride,
+      through_tick: Math.max(0, takeLength - 1),
+      force,
+    }),
+  })
+    .then(async (response) => {
+      const doc = await response.json();
+      if (!response.ok || !doc || !doc.available) {
+        const error = new Error(doc.reason || doc.error || `moveset_render failed via HTTP ${response.status}`);
+        error.detail = doc;
+        throw error;
+      }
+      if (!sameScenario(doc.scenario, scenario)) {
+        const error = new Error("GPU manifest scenario does not match the selected runtime take");
+        error.detail = { asked: scenario, received: doc.scenario };
+        throw error;
+      }
+      const images = (doc.urls || []).map((url) => {
+        const image = new Image();
+        image.src = url;
+        image.addEventListener("load", repaintEvidenceUsers);
+        return image;
+      });
+      RENDERS.set(key, { state: "ready", scenario, doc: { ...doc, images } });
+      return { ...doc, images };
+    })
+    .catch((error) => {
+      RENDERS.set(key, {
+        state: error.detail && error.detail.state === "unsupported" ? "unsupported" : "error",
+        scenario,
+        message: error.message,
+        detail: error.detail || null,
+      });
+      throw error;
+    })
+    .finally(repaintEvidenceUsers);
+  RENDERS.set(key, { state: "rendering", scenario, message: "Rendering engine frames…", promise });
+  return promise;
+}
+
+function renderedFramesFor(scenario, takeLength, options = {}) {
+  if (!scenario || !scenario.subject || !scenario.verb || !takeLength) return null;
+  const stride = options.stride || 2;
+  const key = renderRequestKey(scenario, takeLength, stride);
+  const have = RENDERS.get(key);
+  if (!have) {
+    requestRenderEvidence(scenario, takeLength, options).catch(() => {});
+    return null;
+  }
+  return have;
+}
+
+let PLAYBACK_TIMER = null;
+let PLAYBACK_TOKEN = 0;
+
+function readyRenderFor(scenario, takeLength, stride = 2) {
+  const record = RENDERS.get(renderRequestKey(scenario, takeLength, stride));
+  if (!record || record.state !== "ready" || !record.doc || !sameScenario(record.doc.scenario, scenario)) return null;
+  return record.doc;
+}
+
+function sampledPlaybackTicks(scenario, takeLength, stride = 2) {
+  const doc = readyRenderFor(scenario, takeLength, stride);
+  if (!doc) return null;
+  const ticks = (doc.shots || [])
+    .filter((shot, index) => Number.isInteger(shot.action_tick) && (doc.urls || [])[index])
+    .map((shot) => shot.action_tick)
+    .filter((tick) => tick >= 0 && tick < takeLength);
+  return ticks.length ? ticks : null;
+}
+
+function nextPlaybackTick(current, scenario, takeLength, stride = 2) {
+  const sampled = sampledPlaybackTicks(scenario, takeLength, stride);
+  if (sampled) return sampled.find((tick) => tick > current) ?? sampled[0];
+  return (current + 1) % Math.max(1, takeLength);
+}
+
+function playbackDelayMs(scenario, takeLength, stride = 2) {
+  const sampled = sampledPlaybackTicks(scenario, takeLength, stride);
+  const tickStep = sampled && sampled.length > 1
+    ? Math.max(1, sampled[1] - sampled[0])
+    : 1;
+  const hz = Number((BUNDLE && BUNDLE.sim_hz) || 60);
+  return Math.max(8, (1000 * tickStep) / Math.max(1, hz));
+}
+
+function cancelPlayback({ repaint = false } = {}) {
+  PLAYBACK_TOKEN += 1;
+  if (PLAYBACK_TIMER !== null) clearTimeout(PLAYBACK_TIMER);
+  PLAYBACK_TIMER = null;
+  const changed = state.playing || state.fighterPlaying;
+  state.playing = false;
+  state.fighterPlaying = false;
+  const takePlay = $("#take-play");
+  if (takePlay) {
+    takePlay.classList.remove("on");
+    takePlay.textContent = "Play";
+  }
+  if (repaint && changed) repaintEvidenceUsers();
+}
+
+function runTakePlayback() {
+  cancelPlayback();
+  state.playing = true;
+  const button = $("#take-play");
+  if (button) { button.classList.add("on"); button.textContent = "Pause"; }
+  const token = ++PLAYBACK_TOKEN;
+  const step = () => {
+    if (token !== PLAYBACK_TOKEN || !state.playing || !state.takeFighter || !state.takeVerb) return;
+    const scenario = canonicalScenario(state.takeFighter, state.takeVerb);
+    const record = evidenceRecord(scenario);
+    if (!record || record.state !== "ready") { cancelPlayback(); return; }
+    const take = record.doc.take;
+    state.takeFrame = nextPlaybackTick(state.takeFrame, scenario, take.frames.length, 2);
+    drawTake();
+    PLAYBACK_TIMER = setTimeout(step, playbackDelayMs(scenario, take.frames.length, 2));
+  };
+  PLAYBACK_TIMER = setTimeout(step, 0);
+}
+
+function runFighterPlayback(c, m, scenario, take, totalTicks) {
+  cancelPlayback();
+  state.fighterPlaying = true;
+  const token = ++PLAYBACK_TOKEN;
+  const step = () => {
+    if (token !== PLAYBACK_TOKEN || !state.fighterPlaying || state.view !== "fighter" || state.fighter !== c.id || state.move !== m.id) return;
+    state.fighterFrame = nextPlaybackTick(state.fighterFrame, scenario, take.frames.length, 2);
+    updateFighterFrameView(c, m, scenario, take, totalTicks);
+    PLAYBACK_TIMER = setTimeout(step, playbackDelayMs(scenario, take.frames.length, 2));
+  };
+  PLAYBACK_TIMER = setTimeout(step, 0);
+}
+
+function renderStatus(record) {
   const node = $("#take-source");
   if (!node) return;
-  /* ⛔⛔ A RECORDING WITH NO ART MAKES THE ART BUTTON LOOK BROKEN. Pressing it
-   * toggles between sprites and boxes, and with nothing to toggle TO the page
-   * simply redraws the same picture — which reads as a dead control rather than
-   * as missing data. Say so where the button is. */
-  if (TAKES && !takesCarryArt()) {
-    node.textContent = "sprites: none in this recording — re-run moveset_takes";
-    node.title = "cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>";
+  if (!record) {
+    node.textContent = "engine render: idle";
     return;
   }
-  const have = RENDERS.get(key);
-  if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
-  /* WHICH BINARY DREW THIS, AND WHEN IT WAS BUILT. Nothing in this tool builds,
-   * so that stamp is the only thing separating a current picture from one taken
-   * before an hour of engine changes. On the unavailable path, the build command
-   * is the useful half — a reason without a remedy is just a complaint. */
-  /* ⛔ AVAILABLE IS NOT THE SAME AS SHOWN. A mismatched or unbound render is a
-   * perfectly available manifest that the panel REFUSES to display, and this
-   * said "rendered by the engine" beside a panel saying UNBOUND. */
-  const refused = have.available && (have.mismatch || have.outcome === "unbound"
-    || have.outcome === "missed" || have.outcome === "not_prepared");
-  node.textContent = refused
-    ? `sprites: derived — the engine render is ${have.outcome || "a mismatch"} for this verb`
-    : have.available
-      ? `sprites: rendered by the engine${have.built ? ` (moveset_render built ${have.built})` : ""}`
-      : `sprites: derived — ${have.reason || "engine render unavailable"}`;
-  node.title = refused ? (have.reason || "") : have.available ? (have.renderer || "") : (have.hint || "");
+  if (record.state === "rendering") {
+    node.textContent = "engine render: rendering current scenario";
+    return;
+  }
+  if (record.state === "ready") {
+    const doc = record.doc;
+    node.textContent = `engine render: current · ${doc.renderer || "moveset_render"}` +
+      (doc.renderer_built ? ` built ${doc.renderer_built}` : "");
+    return;
+  }
+  node.textContent = `engine render: ${record.state} · ${record.message || "unavailable"}`;
 }
 
 const SHEETS = new Map();
+const PORTRAIT_IMAGES = new Map();
+
+function artUrl(path) {
+  let clean = String(path || "").replace(/\\/g, "/").replace(/^\.\//, "");
+  // `/art/` is rooted at the engine's `assets/sprites` directory. Catalog
+  // portrait references are asset-relative (`sprites/foo.png`), while sheet
+  // atlas records carry bare filenames. Normalize both onto that one route.
+  if (clean.startsWith("sprites/")) clean = clean.slice("sprites/".length);
+  return `/art/${clean.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function portraitImage(path) {
+  const key = String(path || "");
+  if (!key) return null;
+  if (PORTRAIT_IMAGES.has(key)) return PORTRAIT_IMAGES.get(key);
+  const image = new Image();
+  image.src = artUrl(key);
+  PORTRAIT_IMAGES.set(key, image);
+  return image;
+}
+
+function portraitFallback(c) {
+  const label = (c.display_name || c.id || "?").trim();
+  const initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  return el("span", { class: "roster-portrait-fallback", "aria-hidden": "true" }, initials || "?");
+}
+
+function rosterPortrait(c) {
+  const art = c && c.portrait_art;
+  const frame = art && art.frame;
+  const fallback = portraitFallback(c || {});
+  const shell = el("div", {
+    class: "roster-portrait-shell",
+    title: art ? `portrait · ${art.clip || "still"}` : "portrait not available",
+  }, fallback);
+  if (!art || !art.image || !Array.isArray(frame) || frame.length !== 4) return shell;
+  const [sx, sy, sw, sh] = frame.map(Number);
+  if (![sx, sy, sw, sh].every(Number.isFinite) || sw <= 0 || sh <= 0) return shell;
+
+  const canvas = el("canvas", { class: "roster-portrait", width: "120", height: "144", hidden: "" });
+  shell.prepend(canvas);
+  const image = portraitImage(art.image);
+  const draw = () => {
+    if (!image || !image.complete || !image.naturalWidth) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / sw, canvas.height / sh);
+    const dw = sw * scale;
+    const dh = sh * scale;
+    const dx = (canvas.width - dw) / 2;
+    const dy = (canvas.height - dh) / 2;
+    ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+    canvas.hidden = false;
+    fallback.hidden = true;
+  };
+  if (image) {
+    image.addEventListener("load", draw);
+    image.addEventListener("error", () => { shell.title = `portrait image unavailable · ${art.image}`; });
+    draw();
+  }
+  return shell;
+}
+
 function sheetImage(key) {
   if (SHEETS.has(key)) return SHEETS.get(key);
   const meta = BUNDLE && BUNDLE.sheets && BUNDLE.sheets[key];
   if (!meta) { SHEETS.set(key, null); return null; }
   const pages = (meta.images && meta.images.length ? meta.images : [meta.image]).map((name) => {
     const img = new Image();
-    img.src = `/art/${name}`;
+    img.src = artUrl(name);
     /* A redraw when the bytes land, or the first frame a sheet appears on stays
      * a box until something else happens to repaint. */
-    img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
+    img.addEventListener("load", repaintEvidenceUsers);
     return img;
   });
   const entry = { meta, pages };
@@ -335,15 +555,15 @@ let state = {
   /* Which fighter's takes are listed. Seeded from `fighter` on entry so the
    * view follows the reader rather than starting over. */
   takeFighter: null,
-  /* Which MOVE is selected — a verb from prepared content, which exists whether
-   * or not a recording of it does. `take` is the cached recording for it, or
-   * null: the fighter and the move come from the bundle, the frames from the
-   * cache. */
+  /* Which MOVE is selected — a verb from prepared content. Runtime frames live
+   * in TAKE_EVIDENCE under the canonical scenario; `take` remains only as a
+   * compatibility slot for older discovery helpers. */
   takeVerb: null,
   /* Whether the cyan damageable volumes are drawn. */
   takeHurt: true,
   takeFrame: 0,
   playing: false,
+  fighterPlaying: false,
   /* ⛔⛔ WHICH VIEW IS ON SCREEN, and it was READ IN TWO PLACES AND WRITTEN IN
    * NONE. Both the sprite-sheet loader and the engine-render loader redraw with
    * `if (state.view === "takes") drawTake()`, and against a field nothing ever
@@ -352,7 +572,11 @@ let state = {
    * with all 24 PNGs already loaded in the page, and a sheet that finished late
    * left boxes where its art should have been. Nothing but a browser could find
    * this: every endpoint was correct and every file was served. */
-  view: "fighter",
+  view: "roster",
+  scenarioTarget: "__mirror__",
+  scenarioBehavior: "passive",
+  scenarioSpacing: 40,
+  fighterFrame: 0,
 };
 
 /* ---------- small helpers ---------- */
@@ -396,6 +620,49 @@ function fighterById(id) {
   return BUNDLE.characters.find((c) => c.id === id) || null;
 }
 
+function populateScenarioTargetControls() {
+  for (const id of ["fighter-target", "take-target"]) {
+    const select = $(`#${id}`);
+    if (!select) continue;
+    select.replaceChildren(
+      el("option", { value: "__mirror__" }, "mirror subject"),
+      ...BUNDLE.characters.map((c) => el("option", { value: c.id }, c.display_name || c.id)),
+    );
+    select.value = state.scenarioTarget;
+  }
+}
+
+function syncScenarioControls() {
+  for (const prefix of ["fighter", "take"]) {
+    const target = $(`#${prefix}-target`);
+    const behavior = $(`#${prefix}-behavior`);
+    const spacing = $(`#${prefix}-spacing`);
+    if (target) target.value = state.scenarioTarget;
+    if (behavior) behavior.value = state.scenarioBehavior;
+    if (spacing) spacing.value = state.scenarioSpacing === null ? "" : String(state.scenarioSpacing);
+  }
+}
+
+function scenarioInputsChanged(prefix) {
+  cancelPlayback();
+  const target = $(`#${prefix}-target`);
+  const behavior = $(`#${prefix}-behavior`);
+  const spacing = $(`#${prefix}-spacing`);
+  state.scenarioTarget = (target && target.value) || "__mirror__";
+  state.scenarioBehavior = (behavior && behavior.value) || "passive";
+  const parsed = spacing && spacing.value !== "" ? Number(spacing.value) : null;
+  state.scenarioSpacing = Number.isFinite(parsed) ? parsed : null;
+  state.takeFrame = 0;
+  state.fighterFrame = 0;
+  syncScenarioControls();
+  if (state.fighter && state.move) {
+    const c = fighterById(state.fighter);
+    const m = c && c.moves.find((row) => row.id === state.move);
+    if (c && m) renderMoveDetail(c, m);
+  }
+  if (state.takeFighter && state.takeVerb) drawTake();
+}
+
 /* ---------- roster ---------- */
 function renderRoster() {
   const q = $("#roster-search").value.trim().toLowerCase();
@@ -408,17 +675,20 @@ function renderRoster() {
       el(
         "div",
         { class: "card", onclick: () => openFighter(c.id) },
-        el("h3", {}, c.display_name || c.id,
-           c.on_smash_grid ? el("span", { class: "badge" }, "grid")
-                           : el("span", { class: "badge off" }, "off-grid")),
-        el("div", { class: "id" }, c.id),
-        el(
-          "div",
-          { class: "facts" },
-          el("span", {}, "HP ", el("b", {}, int(c.vitals.max_health))),
-          el("span", {}, int(c.moves.length), " moves"),
-          c.locomotion ? el("span", {}, "run ", el("b", {}, int(c.locomotion.run_speed))) : null,
-          el("span", {}, "provider ", el("b", {}, c.provider || "—"))
+        rosterPortrait(c),
+        el("div", { class: "card-copy" },
+          el("h3", {}, c.display_name || c.id,
+             c.on_smash_grid ? el("span", { class: "badge" }, "grid")
+                             : el("span", { class: "badge off" }, "off-grid")),
+          el("div", { class: "id" }, c.id),
+          el(
+            "div",
+            { class: "facts" },
+            el("span", {}, "HP ", el("b", {}, int(c.vitals.max_health))),
+            el("span", {}, int(c.moves.length), " moves"),
+            c.locomotion ? el("span", {}, "run ", el("b", {}, int(c.locomotion.run_speed))) : null,
+            el("span", {}, "provider ", el("b", {}, c.provider || "—"))
+          )
         )
       )
     )
@@ -428,6 +698,7 @@ function renderRoster() {
 
 /* ---------- fighter ---------- */
 function openFighter(id) {
+  cancelPlayback();
   state.fighter = id;
   state.move = null;
   showView("fighter");
@@ -530,7 +801,7 @@ function renderMoveTable(c) {
   const body = el("tbody", {}, ...rows.map((m) =>
     el("tr", {
       class: state.move === m.id ? "sel" : "",
-      onclick: () => { state.move = m.id; renderMoveTable(c); renderMoveDetail(c, m); renderReview(); },
+      onclick: () => { cancelPlayback(); state.move = m.id; state.fighterFrame = 0; renderMoveTable(c); renderMoveDetail(c, m); renderReview(); },
     }, ...MOVE_COLUMNS.map(([key, , get, fmt, cls]) => {
       const raw = Number(get(m));
       const cell = el("td", { class: cls || "mono bar" }, fmt(m));
@@ -554,333 +825,261 @@ function winClass(tag) {
   return WIN_CLASS[tag] || (tag.startsWith("cancelable") ? "cancel" : "recovery");
 }
 
+function provenanceBadge(text) {
+  return el("span", { class: "provenance" }, text);
+}
+
+function windowsText(rows) {
+  if (!rows || !rows.length) return "—";
+  return rows.map((row) => row.first_tick === row.last_tick
+    ? `${row.first_tick}`
+    : `${row.first_tick}–${row.last_tick}`).join(", ");
+}
+
+function ufdBand(label, windows, totalTicks, frame) {
+  return el("div", { class: "ufd-row" },
+    el("span", { class: "ufd-label" }, label),
+    el("div", { class: "ufd-track" },
+      ...(windows || []).map((row) => el("span", {
+        class: `ufd-window ${label.toLowerCase().replaceAll(" ", "-")}`,
+        title: `${label}: action ticks ${row.first_tick}–${row.last_tick}`,
+        style: `left:${(row.first_tick / totalTicks) * 100}%;width:${Math.max(0.8, ((row.last_tick - row.first_tick + 1) / totalTicks) * 100)}%`,
+      })),
+      el("span", { class: "ufd-playhead", "data-fighter-playhead": "", style: `left:${(frame / totalTicks) * 100}%` })
+    )
+  );
+}
+
+function runtimeMoveDurationTicks(take) {
+  const hz = Number((BUNDLE && BUNDLE.sim_hz) || 60);
+  for (const frame of take.frames || []) {
+    const body = (frame.bodies || []).find((row) => roleOf(row, take) === "subject");
+    const move = body && body.move_state;
+    if (move && (!take.intended_move || move.id === take.intended_move) && Number.isFinite(Number(move.duration_s))) {
+      return Math.max(1, Math.round(Number(move.duration_s) * hz));
+    }
+  }
+  return null;
+}
+
+function runtimeExtent(report, take) {
+  const candidates = [runtimeMoveDurationTicks(take), 1];
+  for (const key of ["startup", "active", "recovery", "invuln", "armor"]) {
+    const row = report[key];
+    if (row) candidates.push(row.last_tick + 1);
+  }
+  for (const row of report.live_volume_windows || []) candidates.push(row.last_tick + 1);
+  return Math.max(...candidates.filter((x) => Number.isFinite(x)));
+}
+
+function updateFighterFrameView(c, m, scenario, take, totalTicks) {
+  const lastFrame = Math.max(0, (take.frames || []).length - 1);
+  state.fighterFrame = Math.min(Math.max(0, state.fighterFrame), lastFrame);
+  const scrub = $("#fighter-runtime-scrub");
+  if (scrub) scrub.value = String(state.fighterFrame);
+  const currentFrame = (take.frames || [])[state.fighterFrame];
+  const currentSubject = currentFrame && (currentFrame.bodies || []).find((body) => roleOf(body, take) === "subject");
+  const currentMove = currentSubject && currentSubject.move_state;
+  const frameLabel = $("#fighter-runtime-frame");
+  if (frameLabel) {
+    frameLabel.textContent = `action tick ${state.fighterFrame} / ${lastFrame}` +
+      (currentMove && currentMove.phase ? ` · ${currentMove.phase}` : "");
+  }
+  for (const playhead of document.querySelectorAll("[data-fighter-playhead]")) {
+    playhead.style.left = `${(state.fighterFrame / totalTicks) * 100}%`;
+  }
+  const canvas = $("#fighter-runtime-canvas");
+  if (canvas) drawRuntimeDiagnostic(canvas, take, state.fighterFrame, { showArt: true, showHurt: true });
+  const img = $("#fighter-engine-render");
+  const note = $("#fighter-engine-note");
+  const overlay = $("#fighter-engine-overlay");
+  if (img && note && overlay) syncEngineRender(take, state.fighterFrame, scenario, { img, note, overlay });
+}
+
 function renderMoveDetail(c, m) {
   $("#move-title").textContent = `${m.display_name || m.id} · ${SLOT_LABEL.get(slotOf(m)) || "unbound"}`;
   const host = $("#move-detail");
-  const total = Math.max(m.duration_s, 0.0001);
+  const verb = slotOf(m) || (m.verbs || [])[0];
+  if (!verb) {
+    host.replaceChildren(el("p", { class: "note err" }, "This prepared move has no repertoire verb, so no canonical runtime scenario can drive it."));
+    return;
+  }
+  const scenario = canonicalScenario(c.id, verb);
+  const record = evidenceRecord(scenario);
 
-  const bar = el("div", { class: "timeline" },
-    ...m.windows.map((w) =>
-      el("div", {
-        class: `win ${winClass(w.tag)}`,
-        title: `${w.tag} ${f1(w.start_f)}–${f1(w.end_f)}f` +
-               (w.cancel_into.length
-                 ? ` → ${w.cancel_into.join(", ")}` +
-                   ((w.cancel_into_resolved || []).length
-                     ? ` = ${w.cancel_into_resolved.join(", ")}`
-                     : "")
-                 : "") +
-               (w.motion_scale !== 1 ? ` · motion ×${f2(w.motion_scale)}` : ""),
-        style: `left:${(w.start_s / total) * 100}%;width:${((w.end_s - w.start_s) / total) * 100}%`,
-      })
-    ),
-    ...m.events.map((e) =>
-      el("div", {
-        class: "ev",
-        title: `${f1(e.at_f)}f ${e.kind}${e.detail ? " " + e.detail : ""}`,
-        style: `left:${(e.at_s / total) * 100}%`,
-      })
+  const controls = el("div", { class: "controls compact" },
+    el("button", {
+      class: "ghost",
+      onclick: () => requestTakeEvidence(scenario, { force: true }).catch(() => {}),
+    }, "Regenerate Take"),
+    el("button", {
+      class: "ghost",
+      onclick: async () => {
+        const current = evidenceRecord(scenario);
+        if (current && current.state === "ready") {
+          await requestRenderEvidence(scenario, current.doc.take.frames.length, { force: true, stride: 2 }).catch(() => {});
+        }
+      },
+    }, "Regenerate Render"),
+    el("button", {
+      class: "act",
+      onclick: async () => {
+        const doc = await requestTakeEvidence(scenario, { force: true }).catch(() => null);
+        if (doc) await requestRenderEvidence(scenario, doc.take.frames.length, { force: true, stride: 2 }).catch(() => {});
+      },
+    }, "Regenerate All"),
+    el("span", { class: "note mono" },
+      `${scenario.subject} vs ${scenario.target} · ${scenario.target_behavior} · ` +
+      `${scenario.spacing === null ? "default spacing" : `${scenario.spacing}px`}`)
+  );
+
+  if (!record) {
+    host.replaceChildren(
+      controls,
+      el("div", { class: "evidence-shell" },
+        el("div", { class: "evidence-overlay static" },
+          el("span", { class: "spinner" }), el("strong", {}, "Loading runtime evidence…")))
+    );
+    requestTakeEvidence(scenario).catch(() => {});
+    return;
+  }
+  if (record.state !== "ready") {
+    host.replaceChildren(
+      controls,
+      el("div", { class: "evidence-shell" },
+        ["loading", "generating"].includes(record.state)
+          ? el("div", { class: "evidence-overlay static" },
+              el("span", { class: "spinner" }), el("strong", {}, record.message || "Generating runtime take…"))
+          : diagnosticErrorNode(record, () => requestTakeEvidence(scenario, { force: true }).catch(() => {})))
+    );
+    return;
+  }
+
+  const evidence = record.doc;
+  const take = evidence.take;
+  const report = evidence.report.measurements || evidence.report;
+  const lastFrame = Math.max(0, (take.frames || []).length - 1);
+  state.fighterFrame = Math.min(state.fighterFrame, lastFrame);
+  const totalTicks = runtimeExtent(report, take);
+
+  const cancelText = (m.windows || []).filter((w) => (w.cancel_into || []).length).map((w) =>
+    `${f1(w.start_f)}–${f1(w.end_f)} → ${(w.cancel_into_resolved || w.cancel_into || []).join(", ")}`).join(" · ") || "—";
+  const resolverOutcomes = (report.consequence_chain || [])
+    .filter((link) => link.resolution)
+    .map((link) => `${link.resolution}@${link.tick}`);
+  const kv = el("dl", { class: "kv runtime-kv" });
+  const row = (label, value, provenance) => kv.append(
+    el("dt", {}, label),
+    el("dd", {}, value, provenance ? provenanceBadge(provenance) : null)
+  );
+  row("Startup", report.startup ? `${report.startup.ticks} tick(s) · ${report.startup.first_tick}–${report.startup.last_tick}` : "—", "runtime measured");
+  row("First active", report.first_active_tick ?? "—", "runtime observation");
+  row("Active windows", windowsText(report.live_volume_windows), "runtime observation");
+  row("Active gaps", windowsText(report.live_volume_gaps), "derived runtime");
+  row("Recovery", report.recovery ? `${report.recovery.ticks} tick(s) · ${report.recovery.first_tick}–${report.recovery.last_tick}` : "—", "runtime measured");
+  row("Move duration", runtimeMoveDurationTicks(take) ?? "—", "runtime observation");
+  row("Invulnerable", report.invuln ? `${report.invuln.first_tick}–${report.invuln.last_tick}` : "—", "runtime measured");
+  row("Travel before active", report.subject_travel_before_active === null ? "—" : `${report.subject_travel_before_active}px`, "derived runtime");
+  row("Travel during active", report.subject_travel_during_active === null ? "—" : `${report.subject_travel_during_active}px`, "derived runtime");
+  row("Reach bound", report.aabb_reach_bound_px === null ? "—" : `${report.aabb_reach_bound_px}px`, "runtime shape bounds");
+  row("Exact target overlap", `${report.target_overlap_ticks || 0} tick(s)`, report.target_overlap_source || "unavailable");
+  row("AABB overlap", `${report.aabb_overlap_ticks || 0} tick(s)`, report.aabb_overlap_source || "unavailable");
+  row("Contacts", (report.contacts || []).length, "resolver fact");
+  row("First contact", report.first_contact_tick ?? "—", "resolver fact");
+  row("Resolver outcomes", resolverOutcomes.length ? resolverOutcomes.join(", ") : "—", "causal resolver fact");
+  row("Launch speed", report.target_launch_speed === null ? "—" : report.target_launch_speed, "runtime observation");
+  row("Spawns", (report.spawns || []).length ? (report.spawns || []).map((x) => `${x.kind}@${x.tick}`).join(", ") : "—", "runtime observation");
+  row("Damage", int(m.derived.max_damage), "prepared spec");
+  row("Knockback", int(m.derived.max_knockback), "prepared spec");
+  row("Cancel opportunities", cancelText, "prepared spec");
+
+  const timeline = el("div", { class: "ufd-timeline" },
+    ufdBand("Startup", report.startup ? [report.startup] : [], totalTicks, state.fighterFrame),
+    ufdBand("Active", report.live_volume_windows || [], totalTicks, state.fighterFrame),
+    ufdBand("Recovery", report.recovery ? [report.recovery] : [], totalTicks, state.fighterFrame),
+    ufdBand("Invuln", report.invuln ? [report.invuln] : [], totalTicks, state.fighterFrame)
+  );
+
+  const canvas = el("canvas", { id: "fighter-runtime-canvas", class: "hitboxes fighter-runtime-canvas", width: 760, height: 430, "data-height": "430" });
+  const scrub = el("input", {
+    id: "fighter-runtime-scrub", type: "range", min: "0", max: String(lastFrame), value: String(state.fighterFrame),
+    oninput: (event) => {
+      cancelPlayback();
+      state.fighterFrame = Number(event.target.value);
+      updateFighterFrameView(c, m, scenario, take, totalTicks);
+    },
+  });
+  const play = el("button", {
+    class: `ghost${state.fighterPlaying ? " on" : ""}`,
+    onclick: () => {
+      if (state.fighterPlaying) {
+        cancelPlayback();
+        renderMoveDetail(c, m);
+      } else {
+        runFighterPlayback(c, m, scenario, take, totalTicks);
+        renderMoveDetail(c, m);
+      }
+    },
+  }, state.fighterPlaying ? "Pause" : "Play");
+  const currentFrame = (take.frames || [])[state.fighterFrame];
+  const currentSubject = currentFrame && (currentFrame.bodies || []).find((body) => roleOf(body, take) === "subject");
+  const currentMove = currentSubject && currentSubject.move_state;
+  const frameLabel = el("span", { id: "fighter-runtime-frame", class: "note mono" },
+    `action tick ${state.fighterFrame} / ${lastFrame}` +
+    (currentMove && currentMove.phase ? ` · ${currentMove.phase}` : ""));
+
+  const authored = el("details", { class: "prepared-reference" },
+    el("summary", {}, "Prepared authoring reference"),
+    el("p", { class: "note" }, "These values come from prepared/exported specification data; they are not the runtime geometry or measured timing above."),
+    el("dl", { class: "kv" },
+      el("dt", {}, "Authored startup"), el("dd", {}, `${f1(m.derived.startup_f)} f `, provenanceBadge("prepared spec")),
+      el("dt", {}, "Authored active"), el("dd", {}, `${f1(m.derived.active_f)} f `, provenanceBadge("prepared spec")),
+      el("dt", {}, "Authored endlag"), el("dd", {}, `${f1(m.derived.endlag_f)} f `, provenanceBadge("prepared spec")),
+      el("dt", {}, "Authored total"), el("dd", {}, `${f1(m.duration_f)} f `, provenanceBadge("prepared spec")),
+      el("dt", {}, "Cancel spec"), el("dd", {}, cancelText)
     )
   );
 
-  const ticks = [];
-  for (let f = 0; f <= m.duration_f; f += 5) {
-    ticks.push(el("span", { style: `left:${(f / m.duration_f) * 100}%` }, String(f)));
-  }
-
-  const kv = el("dl", { class: "kv" });
-  const row = (k, v) => { kv.append(el("dt", {}, k), el("dd", {}, v)); };
-  row("Clip", m.clip);
-  row("Startup", `${f1(m.derived.startup_f)} f`);
-  row("Active", `${f1(m.derived.active_f)} f`);
-  row("Endlag", `${f1(m.derived.endlag_f)} f`);
-  row("Total", `${f1(m.duration_f)} f`);
-  row("Damage", `${int(m.derived.max_damage)}${m.derived.sum_damage !== m.derived.max_damage ? ` (${m.derived.sum_damage} all hits)` : ""}`);
-  if (m.smash_charge_mult > 1) row("Charged", `×${f2(m.smash_charge_mult)} → ${int(m.derived.max_damage_charged)}`);
-  if (m.charge) row("Holds", `${f2(m.charge.max_hold_s)}s on ${m.charge.gesture}`);
-  row("Knockback", int(m.derived.max_knockback));
-  row("Reach", `${int(m.derived.reach)} × ${int(m.derived.vertical_reach)} px`);
-  row("Posture", m.gates.grounded === null ? "either" : m.gates.grounded ? "grounded" : "airborne");
-  if (m.gates.recovery !== "none") row("Recovery", m.gates.recovery.replace(/_/g, " "));
-  if (m.gates.forbidden_while_held) row("While held", "forbidden");
-  if (m.gates.roots_steering) row("Steering", "rooted");
-  if (m.landing_lag_s !== null) row("Landing lag", `${f1(m.landing_lag_s * BUNDLE.sim_hz)} f`);
-  if (m.autocancel_after_s !== null) row("Autocancel", `${f1(m.autocancel_after_s * BUNDLE.sim_hz)} f`);
-  if (m.start_impulse) row("Start impulse", `(${int(m.start_impulse[0])}, ${int(m.start_impulse[1])})`);
-  if (m.repeat) row("Loops", `${f2(m.repeat.from_s)}–${f2(m.repeat.to_s)}s, max ${f2(m.repeat.max_s)}s`);
-  /* THE SHOT, AS ITS OWN OFFENCE. A pure ranged attack has no body hitbox, so
-   * every melee row above it reads 0 — and "Fires: the body's ranged action"
-   * left a move that hits for 14 looking harmless. The numbers are reported
-   * BESIDE the body's, never folded into them: a projectile is not a melee
-   * hitbox, and a balance view that conflated them would be lying about reach,
-   * about trades, and about what a shield is for. */
-  if (m.derived.fires_projectile) {
-    const d = m.derived;
-    row("Fires", d.projectile_source === "equipped"
-      ? "an equipped weapon"
-      : "the body's ranged action");
-    if (d.fire_f !== null && d.fire_f !== undefined) row("Fire frame", `${f1(d.fire_f)} f`);
-    if (d.projectile_damage !== null && d.projectile_damage !== undefined) {
-      row("Shot damage", d.projectile_damage_charged
-        ? `${int(d.projectile_damage)} → ${int(d.projectile_damage_charged)} charged`
-        : int(d.projectile_damage));
-    }
-    if (d.projectile_speed !== null && d.projectile_speed !== undefined) {
-      row("Shot speed", d.projectile_speed_charged
-        ? `${int(d.projectile_speed)} → ${int(d.projectile_speed_charged)} px/s charged`
-        : `${int(d.projectile_speed)} px/s`);
-    }
-    if (d.projectile_size_charged) row("Shot size", `×${f2(d.projectile_size_charged)} charged`);
-  }
-
-  /* ⭐⭐ THE AUTHORED CANCEL GRAPH, RESOLVED. `["attack", "smash",
-   * "any_attack"]` is what somebody wrote; the question a reader has is WHICH
-   * MOVES that is, and the answer is this character's own repertoire.
-   *
-   * ⛔ THE EXPORTER RESOLVES IT, NOT THIS FILE. `MovesetContract::cancel_targets`
-   * matches on the same verb-class names the trigger road matches on; teaching
-   * the browser that vocabulary would be a second copy of it, and two copies
-   * that must agree are one copy plus a bug. */
-  const cancels = (m.windows || []).filter((w) => (w.cancel_into || []).length);
-  if (cancels.length) {
-    for (const w of cancels) {
-      const when = w.tag.split(":")[1] || "always";
-      const resolved = w.cancel_into_resolved || [];
-      row(
-        `Cancels (${when})`,
-        `${f1(w.start_f)}–${f1(w.end_f)}f → ` +
-          (resolved.length
-            ? `${resolved.join(", ")}   [authored: ${w.cancel_into.join(", ")}]`
-            : /* A rule that resolves to nothing names moves this fighter does
-               * not have — worth seeing rather than hiding. */
-              `${w.cancel_into.join(", ")} — resolves to NO move this fighter has`)
-      );
-    }
-  }
-
-  const canvas = el("canvas", { class: "hitboxes", width: 420, height: 300 });
-
-  const events = m.events.length
-    ? el("div", { class: "note", style: "margin-top:8px" },
-        "Events: ",
-        m.events.map((e) => `${f1(e.at_f)}f ${e.kind}${e.detail ? ` ${e.detail}` : ""}`).join(" · "))
-    : null;
+  const gpuImg = el("img", {
+    id: "fighter-engine-render",
+    class: "fighter-engine-render",
+    alt: "matching real-engine render for this runtime scenario",
+    hidden: "",
+  });
+  const gpuNote = el("p", { id: "fighter-engine-note", class: "note" }, "GPU rendering starts after the runtime take is ready.");
+  const gpuOverlay = el("div", { id: "fighter-engine-overlay", class: "evidence-overlay", hidden: "" });
+  const geometryPanel = el("div", { class: "fighter-diagnostic" },
+    el("h3", {}, "Runtime diagnostic"),
+    canvas,
+    el("div", { class: "legend" },
+      el("span", {}, el("i", { style: "background:var(--active)" }), "attack geometry"),
+      el("span", {}, el("i", { style: "background:#49c8d8" }), "effective hurt geometry"),
+      el("span", {}, el("i", { style: "background:#47b78a" }), "subject-owned summon"))
+  );
+  const gpuPanel = el("div", { class: "fighter-gpu evidence-shell" },
+    el("h3", {}, "Matching engine render"),
+    gpuOverlay,
+    gpuImg,
+    gpuNote
+  );
+  const stateBadge = evidence.stale
+    ? provenanceBadge(`stale: ${evidence.stale}`)
+    : provenanceBadge(evidence.cache_source === "scenario_cache" ? "cached current take" : "runtime take");
 
   host.replaceChildren(
-    bar,
-    el("div", { class: "ruler" }, ...ticks),
-    el("div", { class: "legend" },
-      el("span", {}, el("i", { style: "background:var(--startup)" }), "startup"),
-      el("span", {}, el("i", { style: "background:var(--active)" }), "active"),
-      el("span", {}, el("i", { style: "background:var(--recovery)" }), "recovery"),
-      el("span", {}, el("i", { style: "background:var(--invuln)" }), "invuln"),
-      el("span", {}, el("i", { style: "background:var(--armor)" }), "armor"),
-      el("span", {}, el("i", { style: "background:var(--cancel)" }), "cancelable")),
+    controls,
+    el("div", { class: "runtime-heading" },
+      el("strong", {}, "Runtime frame data"),
+      stateBadge),
+    evidence.stale ? el("p", { class: "note err" }, `Runtime take is stale: ${evidence.stale}`) : null,
+    timeline,
     kv,
-    canvas,
-    events
+    el("div", { class: "controls compact fighter-playback" }, play, scrub, frameLabel),
+    el("div", { class: "fighter-evidence-grid" }, geometryPanel, gpuPanel),
+    authored
   );
-  drawHitboxes(canvas, c, m);
-}
-
-/* Body-local hitboxes, drawn against the fighter's own silhouette.
- *
- * ⛔ `+y` IS GRAVITY-DOWN in every authored offset, which is the opposite of a
- * canvas's own y only in sign convention — the catalog's `+y` and the canvas's
- * `+y` both point down the screen, so no flip is applied. A flip here would put
- * every up-tilt under the fighter's feet. */
-function drawHitboxes(canvas, c, m) {
-  const ctx = canvas.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 420;
-  canvas.width = cssW * dpr;
-  canvas.height = 300 * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, cssW, 300);
-
-  const volumes = m.windows.flatMap((w) => w.volumes.map((v) => ({ v, w })));
-  /* The fighter's own box. Nothing authors an explicit body today, so this is
-   * the genre's standing silhouette scaled by the authored height when there is
-   * one — a reference to judge reach against, labelled as such rather than
-   * presented as measured geometry. */
-  const bodyH = c.vitals.canonical_height || 64;
-  const bodyHalf = [bodyH * 0.28, bodyH * 0.5];
-
-  let maxX = bodyHalf[0], maxY = bodyHalf[1];
-  for (const { v } of volumes) {
-    maxX = Math.max(maxX, Math.abs(v.offset[0]) + v.half_extents[0]);
-    maxY = Math.max(maxY, Math.abs(v.offset[1]) + v.half_extents[1]);
-  }
-  const pad = 16;
-  const scale = Math.min((cssW / 2 - pad) / (maxX || 1), (300 / 2 - pad) / (maxY || 1));
-  const ox = cssW / 2, oy = 150;
-  const X = (x) => ox + x * scale;
-  const Y = (y) => oy + y * scale;
-
-  /* ground line at the fighter's feet */
-  ctx.strokeStyle = "#2a3040";
-  ctx.beginPath();
-  ctx.moveTo(0, Y(bodyHalf[1]));
-  ctx.lineTo(cssW, Y(bodyHalf[1]));
-  ctx.stroke();
-
-  ctx.strokeStyle = "#6fb3ff";
-  ctx.fillStyle = "rgba(111,179,255,.10)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.rect(X(-bodyHalf[0]), Y(-bodyHalf[1]), bodyHalf[0] * 2 * scale, bodyHalf[1] * 2 * scale);
-  ctx.fill();
-  ctx.stroke();
-
-  /* facing arrow, so "+x = facing" is visible rather than remembered */
-  ctx.strokeStyle = "#98a0b3";
-  ctx.beginPath();
-  ctx.moveTo(X(0), Y(bodyHalf[1] + 10));
-  ctx.lineTo(X(maxX * 0.35), Y(bodyHalf[1] + 10));
-  ctx.lineTo(X(maxX * 0.28), Y(bodyHalf[1] + 6));
-  ctx.stroke();
-
-  for (const { v, w } of volumes) {
-    const active = w.tag === "active";
-    ctx.strokeStyle = active ? "#e2564a" : "#8a5f5a";
-    ctx.fillStyle = active ? "rgba(226,86,74,.22)" : "rgba(138,95,90,.12)";
-    ctx.lineWidth = active ? 1.5 : 1;
-    if (v.radius !== null && v.radius !== undefined) {
-      ctx.beginPath();
-      ctx.arc(X(v.offset[0]), Y(v.offset[1]), v.radius * scale, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-    } else {
-      const x = X(v.offset[0] - v.half_extents[0]);
-      const y = Y(v.offset[1] - v.half_extents[1]);
-      ctx.beginPath();
-      ctx.rect(x, y, v.half_extents[0] * 2 * scale, v.half_extents[1] * 2 * scale);
-      ctx.fill(); ctx.stroke();
-    }
-    /* the launch angle this box commits to */
-    if (v.launch_dir) {
-      const len = 26;
-      const n = Math.hypot(v.launch_dir[0], v.launch_dir[1]) || 1;
-      ctx.strokeStyle = "#e6c14a";
-      ctx.beginPath();
-      ctx.moveTo(X(v.offset[0]), Y(v.offset[1]));
-      ctx.lineTo(X(v.offset[0]) + (v.launch_dir[0] / n) * len, Y(v.offset[1]) + (v.launch_dir[1] / n) * len);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#e6e9f0";
-    ctx.font = "11px ui-monospace, monospace";
-    ctx.fillText(`${v.damage}`, X(v.offset[0]) + 3, Y(v.offset[1]) - 3);
-  }
-
-  ctx.fillStyle = "#98a0b3";
-  ctx.font = "10px ui-monospace, monospace";
-  ctx.fillText(`${Math.round(1 / scale * 10) / 10} px/unit · body is a ${Math.round(bodyH)}px reference`, 6, 292);
-}
-
-/* ---------- compare ---------- */
-function median(xs) {
-  const v = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
-  if (!v.length) return null;
-  const mid = v.length >> 1;
-  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
-}
-
-const COMPARE_COLUMNS = [
-  ["fighter", "Fighter", (r) => r.c.display_name || r.c.id, null],
-  ["move", "Move", (r) => r.m.display_name || r.m.id, null],
-  ["startup", "Startup f", (r) => r.m.derived.startup_f, f1],
-  ["active", "Active f", (r) => r.m.derived.active_f, f1],
-  ["endlag", "Endlag f", (r) => r.m.derived.endlag_f, f1],
-  ["total", "Total f", (r) => r.m.duration_f, f1],
-  ["damage", "Dmg", (r) => r.m.derived.max_damage, int],
-  ["charged", "Dmg×", (r) => r.m.derived.max_damage_charged, int],
-  ["kb", "KB", (r) => r.m.derived.max_knockback, int],
-  /* The compare view's whole job is "is this slot out of line", and a roster
-   * whose ranged fighters all read 0 damage answers that wrong for every one
-   * of them. */
-  ["shot", "Shot", (r) => r.m.derived.projectile_damage, int],
-  ["shotf", "Fire f", (r) => r.m.derived.fire_f, f1],
-  ["growth", "Growth", (r) => {
-    const gs = r.m.windows.flatMap((w) => w.volumes.map((v) => v.knockback_growth))
-      .filter((g) => g !== null && g !== undefined);
-    return gs.length ? Math.max(...gs) : null;
-  }, f2],
-  ["reach", "Reach", (r) => r.m.derived.reach, int],
-  ["hp", "HP", (r) => r.c.vitals.max_health, int],
-];
-
-function renderCompare() {
-  const rows = [];
-  for (const c of fighters(state.compareGridOnly)) {
-    const moveId = c.verbs[state.slot];
-    if (!moveId) continue;
-    const m = c.moves.find((x) => x.id === moveId);
-    if (m) rows.push({ c, m });
-  }
-
-  /* Flag a cell against the roster's own middle for this slot. A median, not a
-   * mean: one 5x outlier drags a mean until nothing else reads as unusual, and
-   * finding that outlier is the whole point of the view. */
-  const stats = {};
-  for (const [key, , get] of COMPARE_COLUMNS) {
-    /* ⛔⛔ FILTER ABSENCE BEFORE CONVERTING, because `Number(null)` is 0 and
-     * `Number.isFinite(0)` is true. A row the table draws as an em dash was
-     * contributing a ZERO to this median, pulling it down and making genuinely
-     * small values read as ordinary. Projectile-only moves currently have a
-     * null startup, so this is not hypothetical (GPT 5.6, 2026-08-27). */
-    const vals = rows
-      .map(get)
-      .filter((v) => v !== null && v !== undefined)
-      .map(Number)
-      .filter(Number.isFinite);
-    const med = median(vals);
-    const spread = med === null ? null
-      : median(vals.map((v) => Math.abs(v - med))) || (med * 0.15) || 1;
-    stats[key] = { med, spread, max: Math.max(...vals, 0) };
-  }
-
-  const col = COMPARE_COLUMNS.find((x) => x[0] === state.compareSort.key) || COMPARE_COLUMNS[0];
-  rows.sort((a, b) => {
-    let av = col[2](a), bv = col[2](b);
-    if (av === null || av === undefined) av = -Infinity;
-    if (bv === null || bv === undefined) bv = -Infinity;
-    const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
-    return state.compareSort.asc ? cmp : -cmp;
-  });
-
-  const head = el("tr", {}, ...COMPARE_COLUMNS.map(([key, label]) =>
-    el("th", {
-      class: state.compareSort.key === key ? `sorted ${state.compareSort.asc ? "asc" : ""}` : "",
-      onclick: () => {
-        if (state.compareSort.key === key) state.compareSort.asc = !state.compareSort.asc;
-        else state.compareSort = { key, asc: key === "fighter" || key === "move" };
-        renderCompare();
-      },
-    }, label)
-  ));
-
-  const body = el("tbody", {}, ...rows.map((r) =>
-    el("tr", { onclick: () => { openFighter(r.c.id); state.move = r.m.id; renderFighter(); renderMoveDetail(r.c, r.m); } },
-      ...COMPARE_COLUMNS.map(([key, , get, fmt]) => {
-        const raw = get(r);
-        /* Absent is ABSENT, not zero — see the median above. Without this a
-         * cell showing an em dash still took a hot/cold class and drew a
-         * zero-width bar, both computed from a value it does not have. */
-        const num = raw === null || raw === undefined ? NaN : Number(raw);
-        const s = stats[key];
-        let cls = fmt ? "mono bar" : "";
-        if (fmt && s && s.med !== null && Number.isFinite(num) && s.spread > 0) {
-          const z = (num - s.med) / s.spread;
-          if (z > 2) cls += " hot";
-          else if (z < -2) cls += " cold";
-        }
-        const cell = el("td", { class: cls }, fmt ? fmt(raw) : String(raw));
-        if (fmt && s && s.max > 0 && Number.isFinite(num)) {
-          cell.prepend(el("span", { style: `width:${Math.max(0, (num / s.max) * 100)}%` }));
-        }
-        return cell;
-      }))
-  ));
-  $("#compare").replaceChildren(el("thead", {}, head), body);
+  drawRuntimeDiagnostic(canvas, take, state.fighterFrame, { showArt: true, showHurt: true });
+  syncEngineRender(take, state.fighterFrame, scenario, { img: gpuImg, note: gpuNote, overlay: gpuOverlay });
 }
 
 /* ---------- reviews ---------- */
@@ -1025,8 +1224,8 @@ const ROLE_LABEL = {
  * this view only once somebody had recorded it — "There are 2 fighters now, why
  * not them all?" was not a missing-data question, it was the picker asking the
  * wrong source. The bundle says who EXISTS; the takes say what has been
- * RECORDED, and a missing recording is missing evidence rather than a missing
- * fighter. */
+ * CACHED IN BULK, and a missing bulk entry is a generation state rather than a
+ * missing fighter or a dead end. */
 function takeRoster() {
   const recorded = new Map();
   ((TAKES && TAKES.takes) || []).forEach((t, i) => {
@@ -1049,12 +1248,9 @@ function takeRoster() {
   return rows;
 }
 
-/* This fighter's supported moves, from the PREPARED repertoire, each with the
- * recording the cache holds for it — or none.
- *
- * ⭐ A MOVE WITH NO TAKE IS STILL SELECTABLE. The engine render is produced on
- * demand per character+verb and needs no recording at all, so an unrecorded
- * fighter is inspectable the moment it is prepared. */
+/* This fighter's supported moves come from the PREPARED repertoire. Bulk-corpus
+ * take indexes are only optional cache hints; selection resolves or generates a
+ * scenario-addressed runtime take through `/api/take`. */
 function takeSlotsFor(character) {
   const recorded = new Map();
   ((TAKES && TAKES.takes) || []).forEach((t, i) => {
@@ -1095,9 +1291,8 @@ function renderTakeList() {
       `${roster.length} prepared · ${withTakes.length} recorded` +
       (TAKES ? ` · ${TAKES.takes.length} takes` : " · no takes file");
     note.title = missing.length
-      ? `not recorded: ${missing.join(", ")}\n\n` +
-        "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid"
-      : "every prepared fighter is recorded";
+      ? `no bulk cache: ${missing.join(", ")}\n\nSelecting a move generates its canonical runtime take on demand.`
+      : "every prepared fighter also has a bulk-corpus take";
   }
   /* Follow the fighter the reader was already looking at. Arriving from the
    * Fighter view and being shown somebody else is the tool losing their place. */
@@ -1111,7 +1306,7 @@ function renderTakeList() {
       el(
         "option",
         { value: r.id, ...(r.id === state.takeFighter ? { selected: "" } : {}) },
-        `${r.name}${r.takes.length ? ` · ${r.takes.length} takes` : " · not recorded"}`
+        `${r.name}${r.takes.length ? ` · ${r.takes.length} bulk takes` : " · generate on select"}`
       )
     )
   );
@@ -1138,8 +1333,8 @@ function renderTakeOptions() {
         { value: s.verb, ...(s.verb === state.takeVerb ? { selected: "" } : {}) },
         `${s.label}${
           s.take === null
-            ? " · not recorded"
-            : ` (${TAKES.takes[s.take].frames.length}f)`
+            ? " · generate on select"
+            : ` · bulk ${TAKES.takes[s.take].frames.length}f`
         }`
       )
     )
@@ -1149,186 +1344,200 @@ function renderTakeOptions() {
 
 /* Show one move of the selected fighter, recorded or not. */
 function selectVerb(verb) {
+  cancelPlayback();
   state.takeVerb = verb;
-  const slot = takeSlotsFor(state.takeFighter).find((s) => s.verb === verb);
-  state.take = slot && slot.take !== null ? slot.take : null;
+  state.take = null; // the interactive scenario cache, not the bulk corpus, is authoritative
   state.takeFrame = 0;
   const scrub = $("#take-scrub");
-  const frames = state.take === null ? 0 : TAKES.takes[state.take].frames.length;
-  scrub.max = String(Math.max(frames - 1, 0));
+  scrub.max = "0";
   scrub.value = "0";
   drawTake();
 }
 
-function drawTake() {
-  const canvas = $("#take-canvas");
-  if (!canvas) return;
-  const t = state.take === null || !TAKES ? null : TAKES.takes[state.take];
-  const frame = t ? t.frames[state.takeFrame] : null;
-  /* ⭐ AN UNRECORDED MOVE IS STILL A MOVE. The diagnostic canvas needs a take;
-   * the engine render does not, so the panel beside it can still photograph
-   * this move on demand and the reader is told which half is missing. */
-  if (!frame) {
-    drawNoTake(canvas);
-    syncEngineRender({ character: state.takeFighter, verb: state.takeVerb }, 0);
-    $("#take-frame").textContent = "—";
-    $("#take-facts").replaceChildren(
-      el("p", { class: "note" },
-        `no recording for ${state.takeFighter} · ${state.takeVerb || "—"}. `,
-        el("span", { class: "mono" },
-          `cargo run -p ambition_app_tools --bin moveset_takes -- --characters ${state.takeFighter}`))
-    );
-    return;
-  }
+function setEvidenceOverlay(selector, stateName, message) {
+  const node = typeof selector === "string" ? $(selector) : selector;
+  if (!node) return;
+  const active = ["loading", "generating", "rendering"].includes(stateName);
+  node.hidden = !active;
+  node.replaceChildren(
+    active ? el("span", { class: "spinner", "aria-hidden": "true" }) : null,
+    active ? el("strong", {}, message || stateName) : null
+  );
+}
+
+function diagnosticErrorNode(record, retry) {
+  const detail = record && record.detail;
+  return el("div", { class: "diagnostic-error" },
+    el("strong", { class: "err" }, record.message || "Diagnostic generation failed"),
+    detail ? el("details", {},
+      el("summary", {}, "Show output"),
+      el("pre", { class: "mono" }, JSON.stringify(detail, null, 2))) : null,
+    retry ? el("button", { class: "ghost", onclick: retry }, "Retry") : null);
+}
+
+/* One geometry authority for both the Fighter and Engine Takes views. Every
+ * shape comes from the runtime CombatObservation carried by a take. */
+function drawRuntimeDiagnostic(canvas, take, frameIndex, { showArt = true, showHurt = true } = {}) {
+  const frame = take && (take.frames || [])[frameIndex];
+  if (!frame) return null;
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 1000;
-  const cssH = 560;
-  canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+  const cssH = Number(canvas.dataset.height || 560);
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = "#0f1116";
   ctx.fillRect(0, 0, cssW, cssH);
 
-  /* The take carries the stage rectangle it was recorded in, so the view is the
-   * same across every take rather than a per-frame autoscale that makes a
-   * fighter look stationary while the world slides. */
-  /* ⛔ A TAKE WITH NO VIEW STILL DRAWS. `view[2]` on an absent rectangle throws,
-   * and a throw here kills the playback timer — the failure `check_draw_path`
-   * exists for. The recorder's own fallback for a take it could not measure is
-   * this same rectangle. */
-  const view = t.view && t.view.length === 4 ? t.view : [-320, -240, 320, 240];
+  const view = take.view && take.view.length === 4 ? take.view : [-320, -240, 320, 240];
   const scale = Math.min(cssW / (view[2] - view[0]), cssH / (view[3] - view[1]));
   const X = (x) => (x - view[0]) * scale;
   const Y = (y) => (y - view[1]) * scale;
 
-  /* ⛔⛔ THE ENGINE RENDER IS NOT COMPOSITED HERE, AND THE ATTEMPT WAS WRONG.
-   * `/api/render` photographs a fighter standing in `hall_of_characters`: a
-   * whole-room shot, in the CAMERA's coordinate space, of a scene that is not
-   * this take. Drawing it as the canvas background and then overlaying hitboxes
-   * computed in the TAKE's world coordinates put two unrelated spaces on one
-   * picture — so the strike landed nowhere near the fighter and the whole thing
-   * read as "a room with a box on it". A view that draws a wrong picture is
-   * worse than one that draws none, because it is believed.
-   *
-   * ⭐ THE RENDER COMES BACK when it is driven PER MOVE and reports the camera
-   * transform it was taken with, which are the two things that would let a
-   * hitbox be placed on it. Until then the derived sprites below are drawn in
-   * the take's own space, which is at least self-consistent. */
-
-  /* ⭐⭐ THE ENGINE'S OWN PICTURE, IN ITS OWN PANEL. It is NOT composited onto
-   * this canvas: the render is a whole-scene shot in the CAMERA's space and the
-   * boxes below are in the TAKE's world space, and drawing one over the other
-   * put a strike nowhere near its fighter — the thing Jon saw as "a room with a
-   * hitbox drawn randomly on it". Side by side gives the real art AND accurate
-   * diagnostics without conflating two coordinate systems.
-   *
-   * ⭐ SYNCHRONISED BY `action_tick`, not by absolute `sim_tick`. The recorded
-   * take and the GPU run are separate sessions with no shared origin; what they
-   * share is how far into the EXERCISE each frame is. */
-  syncEngineRender(t, state.takeFrame);
-
-  /* platforms */
   ctx.fillStyle = "#232733";
-  for (const p of t.platforms || []) {
-    ctx.fillRect(X(p[0] - p[2]), Y(p[1] - p[3]), p[2] * 2 * scale, p[3] * 2 * scale);
+  for (const platform of take.platforms || []) {
+    ctx.fillRect(
+      X(platform[0] - platform[2]),
+      Y(platform[1] - platform[3]),
+      platform[2] * 2 * scale,
+      platform[3] * 2 * scale,
+    );
   }
 
-  for (const b of frame.bodies) {
-    const role = roleOf(b, t);
+  const cursor = rowCursorsFor(take)[frameIndex];
+  for (const body of frame.bodies || []) {
+    const role = roleOf(body, take);
     const subject = role === "subject";
-    /* ART FIRST, then the box over it. The box is a diagnostic and has to stay
-     * legible on top of the sprite; drawing it under would hide the very
-     * alignment somebody opened this view to check. */
-    const cursor = rowCursorsFor(t)[state.takeFrame];
-    const ticksOnRow = cursor ? cursor.get(b.id || `${b.label}#${b.seat ?? "-"}`) : 0;
-    const drew = state.takeArt !== false && drawBodyArt(ctx, b, X, Y, scale, ticksOnRow);
+    const ticksOnRow = cursor ? cursor.get(body.id || `${body.label}#${body.seat ?? "-"}`) : 0;
+    const drew = showArt && drawBodyArt(ctx, body, X, Y, scale, ticksOnRow);
     ctx.strokeStyle = ROLE_COLOR[role] || ROLE_COLOR.other;
-    /* An unfilled box once the art is under it: a translucent wash over a sprite
-     * is a tint on the character, which is a lie about how it looks in game. */
-    ctx.fillStyle = drew ? "transparent" : subject ? "rgba(111,179,255,.16)" : "rgba(125,133,152,.12)";
+    ctx.fillStyle = drew ? "transparent" : subject
+      ? "rgba(111,179,255,.16)"
+      : "rgba(125,133,152,.12)";
     ctx.lineWidth = subject ? 2 : 1;
     ctx.beginPath();
-    ctx.rect(X(b.pos[0] - b.half[0]), Y(b.pos[1] - b.half[1]), b.half[0] * 2 * scale, b.half[1] * 2 * scale);
+    ctx.rect(
+      X(body.pos[0] - body.half[0]),
+      Y(body.pos[1] - body.half[1]),
+      body.half[0] * 2 * scale,
+      body.half[1] * 2 * scale,
+    );
     if (!drew) ctx.fill();
     ctx.stroke();
 
-    /* ⭐⭐ DAMAGEABLE GEOMETRY, WHICH IS HALF THE INTERACTION. An attack volume
-     * drawn alone cannot say whether apparent contact is real: the box may be
-     * passing through a frame in which this body is intangible, or through a
-     * silhouette much narrower than the sprite. Cyan, and from the same runtime
-     * view the production overlay draws. */
-    if (state.takeHurt !== false) {
+    if (showHurt) {
       ctx.strokeStyle = "#49c8d8";
       ctx.fillStyle = "rgba(73,200,216,.12)";
       ctx.lineWidth = 1;
-      for (const hurt of b.hurtboxes || []) drawHitboxShape(ctx, hurt, X, Y, scale);
-      /* ⛔ AN EMPTY LIST IS A DECISION, NOT A GAP — and it is invisible unless
-       * the view says so. `intangible` is a body nothing can hit this frame. */
-      if (b.hurtbox_source === "intangible") {
+      for (const hurt of body.hurtboxes || []) drawHitboxShape(ctx, hurt, X, Y, scale);
+      if (body.hurtbox_source === "intangible") {
         ctx.fillStyle = "#49c8d8";
         ctx.font = "10px ui-monospace, monospace";
-        ctx.fillText("INTANGIBLE", X(b.pos[0] - b.half[0]), Y(b.pos[1] + b.half[1]) + 12);
+        ctx.fillText("INTANGIBLE", X(body.pos[0] - body.half[0]), Y(body.pos[1] + body.half[1]) + 12);
       }
     }
 
-    /* ⭐⭐ THE ROLE, IN WORDS, ON THE PICTURE. The scenario may seat one
-     * character twice; a colour cannot tell them apart and a seat index is a
-     * convention the reader has to be taught. */
     const tag = ROLE_LABEL[role];
     ctx.font = "10px ui-monospace, monospace";
-    const top = Y(b.pos[1] - b.half[1]);
+    const top = Y(body.pos[1] - body.half[1]);
     if (tag) {
       ctx.fillStyle = ROLE_COLOR[role] || ROLE_COLOR.other;
-      ctx.fillText(tag, X(b.pos[0] - b.half[0]), top - 14);
+      ctx.fillText(tag, X(body.pos[0] - body.half[0]), top - 14);
     }
-    if (b.label) {
+    if (body.label) {
       ctx.fillStyle = "#98a0b3";
-      ctx.fillText(b.label, X(b.pos[0] - b.half[0]), top - 3);
+      ctx.fillText(body.label, X(body.pos[0] - body.half[0]), top - 3);
     }
   }
 
-  /* Hit volumes. The SUBJECT's are solid red; the opponent's are dimmed — the
-   * take deliberately runs a live CPU, so a box on screen is not necessarily
-   * the move's, and drawing them identically is what let the recorder's counts
-   * be misread for so long. */
   ctx.lineWidth = 1.5;
-  for (const h of frame.hitboxes || []) {
-    const mine = roleOf(h, t) === "subject_owned";
+  for (const hit of frame.hitboxes || []) {
+    const mine = roleOf(hit, take) === "subject_owned";
     ctx.strokeStyle = mine ? "#e2564a" : "rgba(226,86,74,.35)";
     ctx.fillStyle = mine ? "rgba(226,86,74,.22)" : "rgba(226,86,74,.07)";
-    drawHitboxShape(ctx, h, X, Y, scale);
+    drawHitboxShape(ctx, hit, X, Y, scale);
   }
 
-  /* ⛔⛔ PROJECTILES WERE RECORDED AND NEVER DRAWN. The take carries
-   * `frame.projectiles` and the inspector's own documentation promises "the
-   * fighter, its live hitboxes, its projectiles, and anything its move spawned"
-   * — so a ranged move played back as a fighter standing still doing nothing
-   * (GPT 5.6, 2026-08-27). A shot is drawn as its body plus a velocity whisker,
-   * because where it is going is the half a still frame cannot show. */
-  for (const s of frame.projectiles || []) {
-    const mine = roleOf(s, t) === "subject_owned";
+  for (const shot of frame.projectiles || []) {
+    const mine = roleOf(shot, take) === "subject_owned";
     ctx.strokeStyle = mine ? "#e8c15a" : "rgba(232,193,90,.35)";
     ctx.fillStyle = mine ? "rgba(232,193,90,.30)" : "rgba(232,193,90,.08)";
     ctx.beginPath();
-    ctx.rect(X(s.pos[0] - s.half[0]), Y(s.pos[1] - s.half[1]), s.half[0] * 2 * scale, s.half[1] * 2 * scale);
-    ctx.fill(); ctx.stroke();
-    if (s.vel && (s.vel[0] || s.vel[1])) {
-      /* A tenth of a second of travel: long enough to read direction, short
-       * enough not to leave the shot behind on a fast one. */
+    ctx.rect(
+      X(shot.pos[0] - shot.half[0]),
+      Y(shot.pos[1] - shot.half[1]),
+      shot.half[0] * 2 * scale,
+      shot.half[1] * 2 * scale,
+    );
+    ctx.fill();
+    ctx.stroke();
+    if (shot.vel && (shot.vel[0] || shot.vel[1])) {
       ctx.beginPath();
-      ctx.moveTo(X(s.pos[0]), Y(s.pos[1]));
-      ctx.lineTo(X(s.pos[0] + s.vel[0] * 0.1), Y(s.pos[1] + s.vel[1] * 0.1));
+      ctx.moveTo(X(shot.pos[0]), Y(shot.pos[1]));
+      ctx.lineTo(X(shot.pos[0] + shot.vel[0] * 0.1), Y(shot.pos[1] + shot.vel[1] * 0.1));
       ctx.stroke();
     }
   }
-
-  $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
-  takeFacts(t, frame);
+  return frame;
 }
 
-/* Say that there is no recording, ON the canvas. A blank black rectangle reads
- * as a broken viewer; a sentence reads as a missing artifact. */
-function drawNoTake(canvas) {
+function drawTake() {
+  const canvas = $("#take-canvas");
+  if (!canvas || !state.takeFighter || !state.takeVerb) return;
+  const scenario = canonicalScenario(state.takeFighter, state.takeVerb);
+  const record = evidenceRecord(scenario);
+  const evidenceState = $("#take-evidence-state");
+  if (!record) {
+    if (evidenceState) { evidenceState.className = "note"; evidenceState.textContent = "loading cached data"; }
+    drawNoTake(canvas, "Loading runtime diagnostic…");
+    setEvidenceOverlay("#take-loading", "loading", "Loading runtime evidence…");
+    if (state.view === "takes") requestTakeEvidence(scenario).catch(() => {});
+    $("#take-frame").textContent = "—";
+    $("#take-facts").replaceChildren(el("p", { class: "note" }, "Resolving the canonical scenario…"));
+    syncEngineRender(null, 0, scenario);
+    return;
+  }
+  if (record.state !== "ready") {
+    const message = record.message || (record.state === "error" ? "Diagnostic generation failed" : "Generating runtime take…");
+    if (evidenceState) { evidenceState.className = record.state === "error" ? "note err" : "note"; evidenceState.textContent = record.state === "error" ? "error" : record.state; }
+    drawNoTake(canvas, message);
+    setEvidenceOverlay("#take-loading", record.state, message);
+    $("#take-frame").textContent = "—";
+    $("#take-facts").replaceChildren(
+      record.state === "error"
+        ? diagnosticErrorNode(record, () => requestTakeEvidence(scenario, { force: true }).catch(() => {}))
+        : el("p", { class: "note" }, message)
+    );
+    syncEngineRender(null, 0, scenario);
+    return;
+  }
+
+  setEvidenceOverlay("#take-loading", "ready", "");
+  if (evidenceState) {
+    evidenceState.textContent = record.doc.stale
+      ? `stale · ${record.doc.stale}`
+      : `ready · ${record.doc.cache_source || "runtime"}`;
+    evidenceState.className = record.doc.stale ? "note err" : "note ok";
+  }
+  const take = record.doc.take;
+  const scrub = $("#take-scrub");
+  const last = Math.max(0, (take.frames || []).length - 1);
+  state.takeFrame = Math.min(state.takeFrame, last);
+  scrub.max = String(last);
+  scrub.value = String(state.takeFrame);
+  const frame = drawRuntimeDiagnostic(canvas, take, state.takeFrame, {
+    showArt: state.takeArt !== false,
+    showHurt: state.takeHurt !== false,
+  });
+  $("#take-frame").textContent = `${state.takeFrame} / ${last}`;
+  if (frame) takeFacts(take, frame);
+  syncEngineRender(take, state.takeFrame, scenario);
+}
+
+/* Put transient/missing diagnostic state ON the canvas. A blank black rectangle
+ * reads as a broken viewer; an explicit state label says what is happening. */
+function drawNoTake(canvas, message = "No runtime take is available") {
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 1000;
@@ -1340,8 +1549,7 @@ function drawNoTake(canvas) {
   ctx.fillRect(0, 0, cssW, cssH);
   ctx.fillStyle = "#7d8598";
   ctx.font = "13px ui-monospace, monospace";
-  ctx.fillText("no recorded take for this move — the engine render panel still works",
-               16, cssH / 2);
+  ctx.fillText(message, 16, cssH / 2);
 }
 
 /* The frame's own numbers. Extracted because BOTH draw paths — the engine's
@@ -1411,82 +1619,87 @@ function takeFacts(t, frame) {
  * than the verb asked for, showing it here would label one move with another's
  * name — the single worst thing a reference tool can do. The panel says so and
  * the diagnostic canvas beside it carries on. */
-function syncEngineRender(take, frameIndex) {
-  const img = $("#engine-render");
-  const note = $("#engine-render-note");
+function syncEngineRender(take, frameIndex, scenario, elements = null) {
+  const img = elements?.img || $("#engine-render");
+  const note = elements?.note || $("#engine-render-note");
+  const overlay = elements?.overlay || "#render-loading";
   if (!img || !note) return;
-  /* An image with no `src` is a BROKEN IMAGE ICON in every browser, which reads
-   * as "this failed to load" rather than "there is nothing to show yet". */
-  const nothing = (text) => { img.removeAttribute("src"); img.hidden = true; note.textContent = text; };
-  const verb = takeVerb(take);
-  if (!verb) return nothing("this take names no verb, so there is nothing to render");
-  /* ⛔⛔ A CHAIN TAKE IS NOT RENDERABLE, AND SAYING SO IS THE FIX.
-   *
-   * A chain take records A→B: the second move is thrown out of the first, at the
-   * first's own recovery. `moveset_render` has no `--chain` argument at all, so
-   * the best it can do is stage B on its own from neutral — a different
-   * experiment with the same labels, which is exactly the "two fights shown as
-   * one" this panel exists to prevent.
-   *
-   * ⇒ REFUSE rather than approximate. The note names the missing capability so
-   * the next person adds `--chain` instead of wondering why the pictures
-   * disagree with the take. */
-  if (take.chain) {
-    const label = take.chain.label || take.chain.verb || "a follow-up";
-    return nothing(
-      `NOT RENDERABLE YET — this take is a CHAIN (${label}), and the engine ` +
-      `renderer stages one move from neutral: it has no way to throw the second ` +
-      `move out of the first's recovery. Anything drawn here would be a ` +
-      `different fight wearing this take's name. Showing the diagnostic take only.`);
+  const nothing = (text) => {
+    img.removeAttribute("src");
+    img.hidden = true;
+    note.textContent = text;
+  };
+
+  if (!scenario || !scenario.verb) {
+    setEvidenceOverlay(overlay, "ready", "");
+    return nothing("select a move to render it");
   }
-  /* The scenario the TAKE was recorded in, so both panels show one fight. */
-  const doc = renderedFramesFor(take.character, verb, {
-    target: take.target,
-    spacing: take.requested_spacing,
-    behavior: take.target_behavior,
-  });
-  if (!doc) return nothing(`rendering ${verb}…`);
-  if (!doc.available) {
-    return nothing(`engine render unavailable — ${doc.reason || "no renderer"}` +
-      (doc.hint ? ` · ${doc.hint}` : ""));
+  if (scenario.chain) {
+    setEvidenceOverlay(overlay, "ready", "");
+    return nothing("GPU rendering is not available for this chain scenario.");
   }
-  /* ⛔⛔ FOUR WAYS A RENDER CAN FAIL TO BE THIS MOVE, and showing the pictures
-   * for any of them labels one move with another's name — the single worst thing
-   * a reference tool can do. `outcome` is the renderer's own word for which one
-   * it was; `mismatch` is kept for a manifest recorded before it existed. */
+  if (!take || !(take.frames || []).length) {
+    setEvidenceOverlay(overlay, "ready", "");
+    return nothing("GPU rendering starts after the canonical runtime take is ready.");
+  }
+
+  const record = renderedFramesFor(scenario, take.frames.length, { stride: 2 });
+  if (!elements) renderStatus(record);
+  if (!record || record.state === "rendering") {
+    setEvidenceOverlay(overlay, "rendering", "Rendering engine frames…");
+    return nothing(`Rendering engine frames… 0 / ${Math.ceil(take.frames.length / 2)}`);
+  }
+  setEvidenceOverlay(overlay, "ready", "");
+  if (record.state !== "ready") {
+    const text = record.message || "engine render unavailable";
+    note.replaceChildren(
+      diagnosticErrorNode(record, () => requestRenderEvidence(
+        scenario, take.frames.length, { force: true, stride: 2 }).catch(() => {}))
+    );
+    img.removeAttribute("src");
+    img.hidden = true;
+    return;
+  }
+
+  const doc = record.doc;
+  if (!sameScenario(doc.scenario, scenario)) {
+    return nothing("MISMATCH — GPU evidence belongs to a different scenario and was refused.");
+  }
   if (doc.outcome === "not_prepared") {
-    return nothing(
-      `NOT PREPARED — the posture ${verb} needs could not be established, so the ` +
-      `engine answered a different button. Showing the diagnostic take only.`);
+    return nothing(`NOT PREPARED — ${scenario.verb} could not be staged in the requested posture.`);
   }
-  if (doc.outcome === "unbound") {
-    return nothing(`UNBOUND — ${doc.reason || `${take.character} binds no move to ${verb}`}`);
-  }
+  if (doc.outcome === "unbound") return nothing(`UNBOUND — ${doc.reason || scenario.verb}`);
   if (doc.mismatch || doc.outcome === "missed") {
     return nothing(`MISMATCH — ${doc.reason || "the engine played another move"}`);
   }
-  /* Nearest shot at or before this action tick: the take records every tick and
-   * the render samples by stride, so most take frames have no exact shot. */
+
+  /* A sampled render is evidence for its own action tick only. With stride 2,
+   * tick 17 does not borrow tick 16's picture and tick 149 does not freeze on
+   * tick 148. The UI says exactly which ticks have images. */
   const shots = doc.shots || [];
-  let pick = shots[0];
-  for (const shot of shots) {
-    if (shot.action_tick <= frameIndex) pick = shot; else break;
+  const index = shots.findIndex((shot) => shot.action_tick === frameIndex);
+  if (index < 0) {
+    const nearest = shots.reduce((best, shot) => {
+      if (!best) return shot;
+      return Math.abs(shot.action_tick - frameIndex) < Math.abs(best.action_tick - frameIndex)
+        ? shot : best;
+    }, null);
+    return nothing(
+      `No GPU sample for action tick ${frameIndex}` +
+      (doc.stride > 1 ? ` · stride ${doc.stride}` : "") +
+      (nearest ? ` · nearest sampled tick ${nearest.action_tick}` : "")
+    );
   }
-  if (!pick) return nothing("this render took no pictures");
-  const url = (doc.urls || [])[shots.indexOf(pick)];
-  if (url && img.getAttribute("src") !== url) img.setAttribute("src", url);
+  const pick = shots[index];
+  const url = (doc.urls || [])[index];
+  if (!url) return nothing(`GPU manifest has no image URL for action tick ${frameIndex}`);
+  if (img.getAttribute("src") !== url) img.setAttribute("src", url);
   img.hidden = false;
   note.textContent =
     `${doc.renderer || "moveset_render"} · ${pick.file} · action tick ${pick.action_tick}` +
     ` · sim tick ${pick.sim_tick}` +
     (doc.renderer_built ? ` · built ${doc.renderer_built}` : "") +
-    /* ⛔ A RUN THAT NEVER REACHED THE RELEASE photographed a charge that never
-     * paid out, and a viewer scrubbing its last frame would read that as the
-     * whole move. */
-    (doc.release_reached === false
-      ? ` · ⚠ stopped at action tick ${doc.last_action_tick} of ${doc.hold_ticks}, before the release`
-      : "") +
-    (doc.cached_only ? " · ⚠ CACHED, no renderer on this machine" : "");
+    (doc.cached_only ? " · CACHED ONLY" : "");
 }
 
 /* Which repertoire verb this take drove. The recorder files takes under the
@@ -1541,7 +1754,8 @@ async function renderStatusView() {
         `${doc.takes.with_hurtboxes ?? 0}/${doc.takes.bodies} with hurtboxes, ` +
         `${doc.takes.with_role ?? 0}/${doc.takes.bodies} with a role, ` +
         `${doc.takes.with_shape}/${doc.takes.hitboxes} strikes with geometry`
-      : "none yet — run moveset_takes"],
+      : "no bulk corpus (interactive scenarios can still generate on demand)"],
+    ["Scenario take cache", `${doc.cached_scenarios || 0} cached scenario(s)`],
     ["Cached renders", (doc.cached_renders || []).length ? doc.cached_renders.join(", ") : "none yet"],
   ], [
     b.exists && !b.sheets
@@ -1563,7 +1777,7 @@ async function renderStatusView() {
     ], info.found ? "" : name === "moveset_render"
       ? "Without it, Engine Takes shows the diagnostic canvas alone and says why."
       : name === "moveset_takes"
-        ? "Without it there are no recorded takes to look at."
+        ? "Without it, prepared moves remain discoverable but a missing interactive runtime take cannot be generated."
         : "Without it the bundle already on disk is served as-is.");
   }
 
@@ -1572,6 +1786,7 @@ async function renderStatusView() {
 
 /* ---------- shell ---------- */
 function showView(name) {
+  if (state.view !== name) cancelPlayback();
   state.view = name;
   for (const b of document.querySelectorAll("nav.tabs button")) b.classList.toggle("on", b.dataset.view === name);
   for (const v of document.querySelectorAll(".view")) v.classList.toggle("on", v.id === `view-${name}`);
@@ -1612,6 +1827,13 @@ async function boot() {
   $("#fighter-pick").replaceChildren(...BUNDLE.characters.map((c) =>
     el("option", { value: c.id }, `${c.display_name || c.id}${c.on_smash_grid ? "" : " (off-grid)"}`)));
   $("#fighter-pick").addEventListener("change", (e) => openFighter(e.target.value));
+  populateScenarioTargetControls();
+  syncScenarioControls();
+  for (const prefix of ["fighter", "take"]) {
+    for (const suffix of ["target", "behavior", "spacing"]) {
+      $(`#${prefix}-${suffix}`).addEventListener("change", () => scenarioInputsChanged(prefix));
+    }
+  }
 
   const bound = new Set(BUNDLE.characters.flatMap((c) => Object.keys(c.verbs)));
   $("#slot-pick").replaceChildren(...SLOTS.filter(([v]) => bound.has(v)).map(([v, label]) =>
@@ -1637,7 +1859,25 @@ async function boot() {
     state.takeFighter = e.target.value;
     renderTakeOptions();
   });
-  $("#take-scrub").addEventListener("input", (e) => { state.takeFrame = Number(e.target.value); drawTake(); });
+  $("#take-scrub").addEventListener("input", (e) => { cancelPlayback(); state.takeFrame = Number(e.target.value); drawTake(); });
+  $("#regen-take").addEventListener("click", () => {
+    if (!state.takeFighter || !state.takeVerb) return;
+    requestTakeEvidence(canonicalScenario(state.takeFighter, state.takeVerb), { force: true }).catch(() => {});
+  });
+  $("#regen-render").addEventListener("click", () => {
+    if (!state.takeFighter || !state.takeVerb) return;
+    const scenario = canonicalScenario(state.takeFighter, state.takeVerb);
+    const record = evidenceRecord(scenario);
+    if (record && record.state === "ready") {
+      requestRenderEvidence(scenario, record.doc.take.frames.length, { force: true, stride: 2 }).catch(() => {});
+    }
+  });
+  $("#regen-all").addEventListener("click", async () => {
+    if (!state.takeFighter || !state.takeVerb) return;
+    const scenario = canonicalScenario(state.takeFighter, state.takeVerb);
+    const doc = await requestTakeEvidence(scenario, { force: true }).catch(() => null);
+    if (doc) await requestRenderEvidence(scenario, doc.take.frames.length, { force: true, stride: 2 }).catch(() => {});
+  });
   /* The art can be turned off. A hitbox that sits behind a big sprite is hard to
    * read, and "where exactly is this volume" is a question the boxes answer
    * better alone — so this view can be either instrument. */
@@ -1655,18 +1895,9 @@ async function boot() {
     e.target.classList.toggle("on", state.takeArt !== false);
     drawTake();
   });
-  $("#take-play").addEventListener("click", (e) => {
-    state.playing = !state.playing;
-    e.target.classList.toggle("on", state.playing);
-    const step = () => {
-      if (!state.playing || !TAKES || state.take === null) return;
-      const t = TAKES.takes[state.take];
-      state.takeFrame = (state.takeFrame + 1) % t.frames.length;
-      $("#take-scrub").value = String(state.takeFrame);
-      drawTake();
-      setTimeout(step, 1000 / 30);
-    };
-    step();
+  $("#take-play").addEventListener("click", () => {
+    if (state.playing) cancelPlayback();
+    else runTakePlayback();
   });
 
   state.fighter = (BUNDLE.characters.find((c) => c.on_smash_grid) || BUNDLE.characters[0])?.id || null;

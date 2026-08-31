@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # Serve the moveset inspector.
 #
-# ⛔⛔ THIS SCRIPT NEVER INVOKES CARGO. It used to `cargo run` the exporter on
-# every start, which takes the cargo build lock — so looking at frame data could
-# block, or be blocked by, an agent building on another branch. Jon, 2026-08-27:
-# *"I don't want it to force a build if an agent is working on the main branch."*
-# It runs binaries that already exist and tells you the command when one does not.
+# This script does not build by default. `--build` is the explicit opt-in path
+# for refreshing all three binaries the inspector depends on before serving.
 #
 #   --no-export   serve the bundle already on disk, without re-exporting
 #
@@ -69,27 +66,50 @@ if [[ "$informational" == 1 ]]; then
   fi
 fi
 
-if (( build_tools )); then
-  echo "[inspector] building required tools..."
-  cargo build \
-    --manifest-path "$repo/Cargo.toml" \
-    -p ambition_app_tools \
-    --bin moveset_export \
-    --bin moveset_takes \
-    --bin moveset_render
+target_root="${CARGO_TARGET_DIR:-target}"
+if [[ "$target_root" != /* ]]; then
+  target_root="$repo/$target_root"
 fi
 
-# The same lookup the server uses for the renderer, and the same convention
-# `scripts/profile_desktop.sh` uses: honour CARGO_TARGET_DIR, prefer release.
-target_root="${CARGO_TARGET_DIR:-$repo/target}"
+if (( build_tools )); then
+  echo "[inspector] building required tools..."
+  (
+    cd "$repo"
+    cargo build \
+      --manifest-path "$repo/Cargo.toml" \
+      -p ambition_app_tools \
+      --bin moveset_export \
+      --bin moveset_takes \
+      --bin moveset_render
+  )
+  # Cargo's default build above is DEBUG. Pin the server and exporter to the
+  # exact files just produced so an older release binary cannot win discovery.
+  export AMBITION_MOVESET_EXPORT="$target_root/debug/moveset_export"
+  export AMBITION_MOVESET_TAKES="$target_root/debug/moveset_takes"
+  export AMBITION_MOVESET_RENDER="$target_root/debug/moveset_render"
+fi
+
+# The same freshness rule the Python server uses: explicit overrides first,
+# otherwise the newest executable among release/debug.
 find_bin() {
+  local name="$1" env_name override best="" best_stamp=-1 path stamp profile
+  env_name="AMBITION_${name^^}"
+  override="${!env_name:-}"
+  if [[ -n "$override" && -x "$override" ]]; then
+    printf '%s' "$override"
+    return 0
+  fi
   for profile in release debug; do
-    if [[ -x "$target_root/$profile/$1" ]]; then
-      printf '%s' "$target_root/$profile/$1"
-      return 0
+    path="$target_root/$profile/$name"
+    [[ -x "$path" ]] || continue
+    stamp="$(stat -c %Y "$path")"
+    if (( stamp > best_stamp )); then
+      best="$path"
+      best_stamp="$stamp"
     fi
   done
-  return 1
+  [[ -n "$best" ]] || return 1
+  printf '%s' "$best"
 }
 
 # ⭐⭐ ONE LINE PER BINARY, ALWAYS. Printing the build command only when
@@ -98,14 +118,9 @@ find_bin() {
 # how old that binary is IS the provenance of everything on screen. Jon:
 # *"It should show what the build command is, and the mtime or other info of the
 # binary it will use."*
-# Set when any binary in use came out of `release/`, because `find_bin` PREFERS
-# release and the refresh command below builds DEBUG.
-uses_release=0
-
 report_bin() {
   local name="$1" lost="$2" path age
   if path="$(find_bin "$name")"; then
-    case "$path" in */release/*) uses_release=1 ;; esac
     age="$(( ( $(date +%s) - $(stat -c %Y "$path") ) / 60 ))"
     if (( age < 60 )); then age="${age}m old"
     elif (( age < 2880 )); then age="$(( age / 60 ))h old"
@@ -129,22 +144,16 @@ report_bin() {
 # 2026-08-29: *"the line it prints is not executable."* A suggested command that
 # does not run is worse than none, because it costs the reader a round trip to
 # find out.
-echo "[inspector] this tool never builds; refresh a binary yourself with:"
+if (( build_tools )); then
+  echo "[inspector] --build refreshed the required debug binaries."
+else
+  echo "[inspector] refresh binaries explicitly with --build, or run:"
+fi
 echo "[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin moveset_render"
 
 report_bin moveset_export "serving whatever bundle is already on disk" || true
-report_bin moveset_takes  "there will be no recorded takes to look at"  || true
+report_bin moveset_takes  "new interactive runtime takes cannot be generated"  || true
 report_bin moveset_render "Engine Takes will use CPU-derived sprites"   || true
-
-# ⛔⛔ AND A DEBUG REFRESH DOES NOT REPLACE A RELEASE BINARY. `find_bin` prefers
-# `release/`, so following the line above builds `debug/` and this script goes on
-# using the OLD release binary — the refresh appears to do nothing, twice, before
-# anybody looks at a path. Measured 2026-08-29: a successful build left
-# `moveset_takes` reporting 46h old and `capture_scene` 11d old.
-if (( uses_release )); then
-  echo "[inspector] ⚠ a binary above came from release/, which this script PREFERS —"
-  echo "[inspector]   add --release to the command above, or that refresh will not be used."
-fi
 
 if [[ "$export_bundle" == 1 ]]; then
   if exporter="$(find_bin moveset_export)"; then

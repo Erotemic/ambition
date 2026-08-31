@@ -606,12 +606,38 @@ fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
     by_move
 }
 
+fn portrait_json(
+    id: &str,
+    prepared: &ambition_platformer2d::characters::prepared::PreparedCharacterDefinition,
+    catalog: &ambition_platformer2d::character::CharacterCatalog,
+    portraits: &ambition_platformer2d::sprite_sheet::PortraitSheetRegistry,
+) -> Option<serde_json::Value> {
+    let reference = ambition_platformer2d::character::portrait_for_declared_character(
+        Some(portraits),
+        catalog,
+        prepared.portrait.as_deref(),
+        id,
+    )?;
+    let (clip, frame) = portraits.resolve_still(
+        &reference.manifest,
+        None,
+        Some(&reference.still_clip),
+    )?;
+    Some(serde_json::json!({
+        "image": reference.image,
+        "manifest": reference.manifest,
+        "clip": clip,
+        "frame": [frame.x, frame.y, frame.w, frame.h],
+    }))
+}
+
 fn character_json(
     id: &str,
     prepared: &ambition_platformer2d::characters::prepared::PreparedCharacterDefinition,
     catalog: Option<
         &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry,
     >,
+    portrait_art: Option<serde_json::Value>,
     on_grid: bool,
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
@@ -654,7 +680,11 @@ fn character_json(
         "on_smash_grid": on_grid,
         "description": catalog.map(|e| e.gameplay_description.clone()),
         "spritesheet": catalog.map(|e| e.spritesheet.clone()),
+        // `portrait` is the authored logical target. `portrait_art` is the
+        // resolved still frame the shipped select screen would draw, including
+        // its crop inside the independently published portrait sheet.
         "portrait": prepared.portrait.clone(),
+        "portrait_art": portrait_art,
         "vitals": {
             "max_health": prepared.vitals.max_health,
             "mass": prepared.vitals.mass,
@@ -778,6 +808,10 @@ fn main() {
         .expect("the composed host has an assembled character catalog");
     let grid = ambition_demo_smash::select::SmashRoster::assemble(registry);
     let on_grid: Vec<String> = grid.ids().map(|id| id.to_string()).collect();
+    // The select screen resolves still portraits through this same baked
+    // registry. Build it once for the export rather than reparsing every
+    // portrait manifest once per fighter.
+    let portraits = ambition_platformer2d::sprite_sheet::baked_portrait_registry();
 
     let mut characters = Vec::new();
     for (id, prepared) in registry.iter() {
@@ -798,6 +832,7 @@ fn main() {
             id,
             prepared,
             catalog.get(id),
+            portrait_json(id, prepared, catalog, &portraits),
             on_grid.iter().any(|g| g == id),
         ));
     }

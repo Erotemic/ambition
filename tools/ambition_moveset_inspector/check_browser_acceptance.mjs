@@ -64,7 +64,11 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1680, height: 1000 } });
 
 const renderCalls = [];
-page.on('request', (r) => { if (r.url().includes('/api/render')) renderCalls.push(r.url()); });
+const takeCalls = [];
+page.on('request', (r) => {
+  if (r.url().includes('/api/render')) renderCalls.push({ url: r.url(), body: r.postDataJSON?.() });
+  if (r.url().includes('/api/take')) takeCalls.push({ url: r.url(), body: r.postDataJSON?.() });
+});
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 /* `/api/review?subject=…` answers 404 for "no review written yet", which is the
@@ -92,10 +96,10 @@ const upb = options.find((o) => /Up B/.test(o.t));
 check('the Up-B take is offered', !!upb, upb && upb.t);
 await page.selectOption('#take-pick', upb.v);
 
-/* The engine render is produced on demand; the first ask can take minutes. */
+/* Missing evidence generates on demand: first the take, then matching GPU coverage. */
 await page.waitForFunction(() => {
-  const n = document.querySelector('#engine-render-note');
-  return n && !/^rendering/.test(n.textContent);
+  const img = document.querySelector('#engine-render');
+  return img && !img.hidden && img.getAttribute('src');
 }, null, { timeout: 20 * 60 * 1000 });
 
 const shot0 = {
@@ -146,72 +150,80 @@ console.log('after scrub:', after.note);
 check('scrubbing changes the engine image', after.src !== before.src, `${before.src} -> ${after.src}`);
 check('scrubbing changes the diagnostic canvas', after.canvas !== before.canvas);
 const tickOf = (s) => Number((s.match(/action tick (\d+)/) || [])[1]);
-check('the engine shot is the nearest at or before the take frame',
-  tickOf(after.note) <= 40 && tickOf(after.note) > tickOf(shot0.note),
-  `action tick ${tickOf(after.note)} for take frame 40`);
+check('the engine shot matches the diagnostic action tick exactly',
+  tickOf(after.note) === 40, `action tick ${tickOf(after.note)} for take frame 40`);
 await page.screenshot({ path: `${SHOTS}/02-upb-frame40.png` });
 
-/* ---- the shark: does any rendered frame carry it? ---- */
-const doc = await page.evaluate(async () =>
-  (await (await fetch('/api/render?character=npc_pirate_admiral&verb=special_up&frames=24&stride=2')).json()));
-console.log('manifest:', JSON.stringify({
-  intended: doc.intended_move, observed: doc.observed_moves, outcome: doc.outcome,
-  prepared: doc.prepared, reached: doc.reached_intended_move, release: doc.release_reached,
-  last: doc.last_action_tick, hold: doc.hold_ticks, pumps: doc.zero_time_pumps,
-  ticks: (doc.shots || []).map((s) => s.sim_tick),
-}));
+/* With stride 2, action tick 41 has no engine image. It must never borrow 40. */
+await page.$eval('#take-scrub', (s) => { s.value = '41'; s.dispatchEvent(new Event('input')); });
+await page.waitForTimeout(150);
+const odd = {
+  src: await page.getAttribute('#engine-render', 'src'),
+  note: await page.textContent('#engine-render-note'),
+  hidden: await page.$eval('#engine-render', (i) => i.hidden),
+};
+check('an unsampled action tick paints no stale GPU frame', odd.hidden && !odd.src, odd.src || odd.note);
+check('the unsampled action tick is explicit', /No GPU sample for action tick 41/.test(odd.note), odd.note);
+await page.$eval('#take-scrub', (s) => { s.value = '40'; s.dispatchEvent(new Event('input')); });
+await page.waitForTimeout(100);
+
+/* ---- render coverage follows the runtime take horizon ---- */
+const doc = await page.evaluate(async () => {
+  const through = Number(document.querySelector('#take-scrub').max);
+  const response = await fetch('/api/render', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      scenario: {
+        subject: 'npc_pirate_admiral', target: 'npc_pirate_admiral',
+        target_behavior: 'passive', verb: 'special_up', spacing: 40,
+        chain: null, hold_policy: 'move_exercise_default',
+      },
+      stride: 2, through_tick: through,
+    }),
+  });
+  return response.json();
+});
+const horizon = await page.$eval('#take-scrub', (s) => Number(s.max));
+const lastSample = (doc.shots || []).at(-1)?.action_tick;
+check('GPU render coverage spans the diagnostic horizon',
+  lastSample >= horizon - 1, `last sampled ${lastSample}, diagnostic last ${horizon}`);
+check('the manifest preserves the canonical scenario',
+  doc.scenario?.subject === 'npc_pirate_admiral' &&
+  doc.scenario?.target === 'npc_pirate_admiral' &&
+  doc.scenario?.target_behavior === 'passive' && doc.scenario?.spacing === 40,
+  JSON.stringify(doc.scenario));
 check('the render reached the intended move', doc.reached_intended_move === true, doc.outcome);
-check('the render was prepared airborne', doc.prepared === true);
-check('the run crossed the release', doc.release_reached === true,
-  `last action tick ${doc.last_action_tick} of ${doc.hold_ticks}`);
+
+/* Regenerate Take is a real operation with a visible loading state. */
+const takeCallsBefore = takeCalls.length;
+await page.click('#regen-take');
+await page.waitForFunction(() => !document.querySelector('#take-loading').hidden, null, { timeout: 3000 });
+check('Regenerate Take visibly enters a loading/generating state',
+  await page.$eval('#take-loading', (n) => !n.hidden));
+await page.waitForFunction(() => document.querySelector('#take-loading').hidden, null, { timeout: 5 * 60 * 1000 });
+check('Regenerate Take executes the one-scenario endpoint', takeCalls.length > takeCallsBefore);
 
 /* ---- play does not re-spawn the renderer ---- */
 const callsBefore = renderCalls.length;
 const frameOf = () => page.$eval('#take-scrub', (s) => Number(s.value));
 const playFrom = await frameOf();
-const playSrc = await page.getAttribute('#engine-render', 'src');
+const playNote = await page.textContent('#engine-render-note');
 await page.click('#take-play');
 await page.waitForTimeout(4000);
 const playTo = await frameOf();
-const playSrcAfter = await page.getAttribute('#engine-render', 'src');
+const playNoteAfter = await page.textContent('#engine-render-note');
 await page.click('#take-play');
 /* Play WRAPS at the end of the take (`(frame + 1) % length`), so four seconds
  * at 30fps from frame 40 of 150 lands back near the beginning. "It moved" is
  * the claim; "the number got bigger" is not. */
 check('play advances the take', playTo !== playFrom, `frame ${playFrom} -> ${playTo} of 150`);
-check('play advances the engine panel too', playSrcAfter !== playSrc, `${playSrc} -> ${playSrcAfter}`);
+check('play advances the engine synchronization state too', playNoteAfter !== playNote, `${playNote} -> ${playNoteAfter}`);
 check('play does not re-request the renderer', renderCalls.length === callsBefore,
   `${renderCalls.length - callsBefore} extra request(s)`);
 await page.screenshot({ path: `${SHOTS}/03-after-play.png` });
 
-/* ---- the mismatch / unbound case ---- */
-const air = options.find((o) => /Down B \(air\)/.test(o.t));
-check('the unbound take is offered', !!air, air && air.t);
-await page.selectOption('#take-pick', air.v);
-await page.waitForFunction(() => {
-  const n = document.querySelector('#engine-render-note');
-  return n && !/^rendering/.test(n.textContent);
-}, null, { timeout: 20 * 60 * 1000 });
-const mism = {
-  src: await page.getAttribute('#engine-render', 'src'),
-  note: await page.textContent('#engine-render-note'),
-  hidden: await page.$eval('#engine-render', (i) => i.hidden),
-};
-console.log('unbound note:', mism.note);
-/* ⛔ MEASURED AS PAINT, NOT AS A PROPERTY. `img.hidden` was true while a CSS
- * rule in this very stylesheet kept `display: block`, so the broken-image icon
- * and its alt text were on screen above the refusal. */
-const mismBox = await page.$eval('#engine-render', (i) => {
-  const r = i.getBoundingClientRect();
-  return { w: r.width, h: r.height, display: getComputedStyle(i).display };
-});
-check('the unbound case shows NO image', !mism.src && mism.hidden, mism.src || 'no src');
-check('and nothing is painted where it would be',
-  mismBox.w === 0 && mismBox.h === 0, `${mismBox.w}x${mismBox.h}, display:${mismBox.display}`);
-check('the unbound case says so', /UNBOUND|MISMATCH/.test(mism.note), mism.note);
-check('the unbound case names what the engine played', /heave_to/.test(mism.note));
-check('the diagnostic canvas is still drawn', (await canvasHash()) !== before.canvas);
-await page.screenshot({ path: `${SHOTS}/04-unbound.png` });
+/* A chain render refusal is pinned by the server contract test; this browser
+ * suite stays on a production renderable move so it can test paint/sync. */
 
 /* ---- the status view still answers ---- */
 await page.click('nav.tabs button[data-view="status"]');

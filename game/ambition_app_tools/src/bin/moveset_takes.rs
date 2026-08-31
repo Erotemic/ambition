@@ -1355,6 +1355,10 @@ fn main() {
                 // BY CONSTRUCTION, so `opponent_output: 0` below is a fact about
                 // the scenario rather than evidence of a clean recording.
                 "target_behavior": behavior.as_str(),
+                // The scheduling policy is simulation-defining scenario input.
+                // Publish its name so reports/cache identity do not have to infer
+                // which shared move_exercise schedule produced this take.
+                "hold_policy": "move_exercise_default",
                 // ⛔ THE SPACING ASKED FOR AND THE SPACING REACHED. A move that
                 // could not close the gap is a finding; a take that reported
                 // only the request would hide it.

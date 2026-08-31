@@ -49,6 +49,15 @@ def test_nothing_built_is_none(tmp_path):
     assert server._newest([tmp_path / "release" / "nope", tmp_path / "debug" / "nope"]) is None
 
 
+def test_relative_cargo_target_dir_is_repo_relative(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "REPO", tmp_path)
+    monkeypatch.setenv("CARGO_TARGET_DIR", "build-cache")
+    assert server.binary_candidates("moveset_render") == [
+        tmp_path / "build-cache" / "release" / "moveset_render",
+        tmp_path / "build-cache" / "debug" / "moveset_render",
+    ]
+
+
 def test_an_explicit_override_wins_outright(tmp_path, monkeypatch):
     chosen = _binary(tmp_path / "elsewhere" / "moveset_render", 1)
     monkeypatch.setenv("AMBITION_MOVESET_RENDER", str(chosen))
@@ -68,8 +77,19 @@ def sandbox(tmp_path, monkeypatch):
     return tmp_path, renders
 
 
-def _cache(renders: Path, *, renderer_mtime: float | None, frames: int = 24) -> Path:
-    out = renders / "npc_pirate_admiral__special_up"
+def _cache(
+    renders: Path,
+    *,
+    renderer_mtime: float | None,
+    frames: int = 24,
+    scenario: server.CombatScenario | None = None,
+    source_identity: str | None = None,
+) -> Path:
+    scenario = scenario or server.CombatScenario.from_mapping({
+        "subject": "npc_pirate_admiral",
+        "verb": "special_up",
+    })
+    out = renders / scenario.cache_name()
     out.mkdir(parents=True, exist_ok=True)
     doc = {
         "available": True,
@@ -78,6 +98,12 @@ def _cache(renders: Path, *, renderer_mtime: float | None, frames: int = 24) -> 
         "reached_intended_move": True,
         "shots": [{"file": "frame.0000.png", "sim_tick": 31, "action_tick": 0}],
         "renderer_built": "2026-08-01 09:00",
+        "scenario": scenario.document(),
+        "scenario_id": scenario.identity(),
+        "source_identity": source_identity or server._repository_identity(),
+        "target": scenario.target,
+        "target_behavior": scenario.target_behavior,
+        "requested_spacing": scenario.spacing,
     }
     if renderer_mtime is not None:
         doc["renderer_mtime"] = renderer_mtime
@@ -149,8 +175,8 @@ def test_a_cache_older_than_the_binary_is_not_served(sandbox):
     assert doc["available"] is False
 
 
-def test_a_cache_with_no_provenance_is_not_served_as_current(sandbox):
-    """A manifest recorded before the stamp existed cannot prove its own age."""
+def test_a_cache_with_no_renderer_provenance_is_not_served_as_current(sandbox):
+    """A manifest without the renderer stamp cannot prove which binary drew it."""
     tmp_path, renders = sandbox
     _binary(tmp_path / "target" / "debug" / "moveset_render", 9_000)
     _cache(renders, renderer_mtime=None)

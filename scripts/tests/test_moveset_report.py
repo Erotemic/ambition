@@ -646,6 +646,12 @@ def test_the_engines_exact_overlap_outranks_the_bounds_approximation() -> None:
     # `aabb_overlap_ticks`, so the test itself proved the field was not measuring
     # what its name claimed. A number and its provenance travel together now.
     assert m["target_overlap_source"] == "runtime_exact"
+    assert m["aabb_overlap_ticks"] > 0, (
+        "the independent broad-phase measurement disappeared; this fixture is "
+        "specifically AABB-overlap / exact-shape-miss"
+    )
+    assert m["first_aabb_overlap_tick"] is not None
+    assert m["aabb_overlap_source"] == "runtime_shape_bounds"
 
     # ⛔ THE PREMISE, both halves. With the engine saying YES the count is
     # non-zero, and with the field ABSENT the bounds fallback still measures —
@@ -673,3 +679,4 @@ def test_the_engines_exact_overlap_outranks_the_bounds_approximation() -> None:
     # trustworthy: a reader can tell an engine answer from an approximation
     # without knowing when the take was recorded.
     assert legacy_m["target_overlap_source"] == "aabb_fallback"
+    assert legacy_m["target_overlap_ticks"] == legacy_m["aabb_overlap_ticks"]

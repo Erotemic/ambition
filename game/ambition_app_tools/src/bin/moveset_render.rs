@@ -880,6 +880,7 @@ fn render_pair(
         "observed_after_capture": after_capture.iter().cloned().collect::<Vec<_>>(),
         "reached_intended_move": verdict.reached(),
         "outcome": verdict.as_str(),
+        "hold_policy": "move_exercise_default",
         "hold_ticks": move_exercise::HOLD_TICKS,
         // What this RUN did, as opposed to what the schedule says. A capture
         // horizon shorter than the release is legitimate; claiming the charge

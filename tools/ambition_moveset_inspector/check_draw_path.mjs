@@ -15,9 +15,16 @@
  *
  *     node tools/ambition_moveset_inspector/check_draw_path.mjs
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 const root = "tools/ambition_moveset_inspector";
 const src = readFileSync(`${root}/web/app.js`, "utf8");
+const bundlePath = `${root}/data/moveset_bundle.json`;
+const takesPath = `${root}/data/takes/takes.json`;
+if (!existsSync(bundlePath) || !existsSync(takesPath)) {
+  console.error("[draw-path] SKIPPED - generated bundle/takes are not present.");
+  console.error("  run moveset_export and moveset_takes, then rerun this check.");
+  process.exit(2);
+}
 
 // Minimal DOM/canvas stubs: enough for the draw path, loud about anything else.
 const ctx = new Proxy({}, { get: (_, k) => (k === "canvas" ? {} : () => {}), set: () => true });
@@ -43,18 +50,17 @@ globalThis.WeakMap = WeakMap;
 
 // Load app.js without running boot().
 const mod = src.replace(/\nboot\(\);\s*$/, "\n");
-const run = new Function(`${mod}\nreturn { drawTake, get state(){return state}, set BUNDLE(v){BUNDLE=v}, set TAKES(v){TAKES=v}, get TAKES(){return TAKES} };`);
+const run = new Function(`${mod}\nreturn { drawRuntimeDiagnostic, set BUNDLE(v){BUNDLE=v} };`);
 const api = run();
-api.BUNDLE = JSON.parse(readFileSync(`${root}/data/moveset_bundle.json`, "utf8"));
-api.TAKES = JSON.parse(readFileSync(`${root}/data/takes/takes.json`, "utf8"));
+api.BUNDLE = JSON.parse(readFileSync(bundlePath, "utf8"));
+const takes = JSON.parse(readFileSync(takesPath, "utf8"));
+const canvas = node();
 
 let checked = 0, failed = 0;
-for (let ti = 0; ti < api.TAKES.takes.length; ti++) {
-  api.state.take = ti;
-  const t = api.TAKES.takes[ti];
+for (let ti = 0; ti < takes.takes.length; ti++) {
+  const t = takes.takes[ti];
   for (let f = 0; f < t.frames.length; f++) {
-    api.state.takeFrame = f;
-    try { api.drawTake(); checked++; }
+    try { api.drawRuntimeDiagnostic(canvas, t, f); checked++; }
     catch (e) {
       failed++;
       if (failed <= 3) console.log(`THROW take ${ti} "${t.label}" (${t.character}) frame ${f}: ${e.message}`);
@@ -66,4 +72,4 @@ if (failed) {
   console.error(`[draw-path] FAIL — ${failed} take(s) threw after ${checked} good frames`);
   process.exit(1);
 }
-console.log(`[draw-path] PASS — drew ${checked} frames across ${api.TAKES.takes.length} takes`);
+console.log(`[draw-path] PASS — drew ${checked} frames across ${takes.takes.length} takes through the shared runtime renderer`);

@@ -94,6 +94,8 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
     phases: dict[str, list[int]] = {}
     active_ticks: list[int] = []
     overlap_ticks: list[int] = []
+    aabb_overlap_ticks: list[int] = []
+    aabb_overlap_available = False
     # Which road answered the overlap question — see `target_overlap_source`.
     overlap_sources: set[str] = set()
     contact_ticks: list[int] = []
@@ -154,6 +156,11 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         # recording that cannot identify its own target falls back to geometry
         # rather than answering about somebody else.
         target_id = (target or {}).get("id")
+        hurt = (target or {}).get("hurtboxes") or []
+        if mine and target is not None:
+            aabb_overlap_available = True
+        if mine and hurt and any(_overlaps(v, h) for v in mine for h in hurt):
+            aabb_overlap_ticks.append(tick)
         exact = [row.get("overlaps") for row in mine if "overlaps" in row]
         if exact and target_id is not None:
             overlap_sources.add("runtime_exact")
@@ -162,8 +169,7 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         else:
             if mine:
                 overlap_sources.add("aabb_fallback")
-            hurt = (target or {}).get("hurtboxes") or []
-            if mine and hurt and any(_overlaps(v, h) for v in mine for h in hurt):
+            if tick in aabb_overlap_ticks:
                 overlap_ticks.append(tick)
 
         # THE RUNTIME'S OWN ANSWER: what actually connected.
@@ -216,6 +222,32 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
             return None
         return {"first_tick": ticks[0], "last_tick": ticks[-1], "ticks": len(ticks)}
 
+    def _runs(ticks: list[int]) -> list[dict]:
+        if not ticks:
+            return []
+        out: list[dict] = []
+        start = previous = ticks[0]
+        for tick in ticks[1:]:
+            if tick != previous + 1:
+                out.append(
+                    {"first_tick": start, "last_tick": previous, "ticks": previous - start + 1}
+                )
+                start = tick
+            previous = tick
+        out.append({"first_tick": start, "last_tick": previous, "ticks": previous - start + 1})
+        return out
+
+    def _gaps(runs: list[dict]) -> list[dict]:
+        return [
+            {
+                "first_tick": left["last_tick"] + 1,
+                "last_tick": right["first_tick"] - 1,
+                "ticks": right["first_tick"] - left["last_tick"] - 1,
+            }
+            for left, right in zip(runs, runs[1:])
+            if right["first_tick"] > left["last_tick"] + 1
+        ]
+
     def _travel(path: list[tuple[int, float, float]], lo: int | None, hi: int | None) -> float | None:
         if lo is None or hi is None:
             return None
@@ -229,6 +261,7 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
 
     first_active = active_ticks[0] if active_ticks else None
     first_contact = contact_ticks[0] if contact_ticks else None
+    active_runs = _runs(active_ticks)
 
     # ⭐ WHAT THE CONTACT DID TO THE TARGET, from the target's own published
     # velocity. Not a knockback formula re-run here — the number the runtime
@@ -259,6 +292,8 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
         # — a move may author several, and a window may author none.
         "first_active_tick": first_active,
         "live_volume_ticks": len(active_ticks),
+        "live_volume_windows": active_runs,
+        "live_volume_gaps": _gaps(active_runs),
         "max_live_volumes": max(
             (len([h for h in (f.get("hitboxes") or []) if _role(h, take) == "subject_owned"])
              for f in frames),
@@ -282,6 +317,12 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
             if len(overlap_sources) > 1
             else next(iter(overlap_sources), None)
         ),
+        # Independently preserve the broad-phase question. It is useful when it
+        # disagrees with exact runtime geometry, but it must never masquerade as
+        # that geometry again.
+        "aabb_overlap_ticks": len(aabb_overlap_ticks),
+        "first_aabb_overlap_tick": aabb_overlap_ticks[0] if aabb_overlap_ticks else None,
+        "aabb_overlap_source": "runtime_shape_bounds" if aabb_overlap_available else None,
         # THE RUNTIME'S ANSWER.
         "contacts": contacts,
         "first_contact_tick": first_contact,
@@ -677,6 +718,7 @@ def report(
             # passive one are two measurements, and every number below depends on
             # which this was.
             "target_behavior": take.get("target_behavior"),
+            "hold_policy": take.get("hold_policy") or "move_exercise_default",
             "verb": take.get("verb"),
             "label": take.get("label"),
             # ⛔⛔ THE SPACING AND THE CHAIN ARE PART OF THE SCENARIO, and leaving
@@ -767,6 +809,9 @@ def summary(doc: dict) -> str:
             " overlap here while the SHAPES miss)",
             "mixed": " — MIXED SOURCES across ticks; read `target_overlap_source`",
         }.get(m.get("target_overlap_source"), ""),
+        f"- AABB broad-phase overlap: {m['aabb_overlap_ticks']} tick(s)"
+        f" (first at {_fmt(m['first_aabb_overlap_tick'])})"
+        " — bounds of the runtime shapes, reported independently",
         f"- runtime-resolved contacts: {len(m['contacts'])}"
         f" (first at {_fmt(m['first_contact_tick'])}) — THE ENGINE'S OWN ANSWER",
     ]
@@ -898,6 +943,7 @@ COMPARED = [
     ("contacts", lambda m: len(m.get("contacts") or [])),
     ("target overlap ticks", lambda m: m.get("target_overlap_ticks")),
     ("target overlap source", lambda m: m.get("target_overlap_source")),
+    ("aabb overlap ticks", lambda m: m.get("aabb_overlap_ticks")),
     ("launch speed", lambda m: m.get("target_launch_speed")),
     ("travel before active", lambda m: m.get("subject_travel_before_active")),
 ]

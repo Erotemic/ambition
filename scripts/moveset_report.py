@@ -136,9 +136,30 @@ def measure(take: dict, sim_hz: float = DEFAULT_SIM_HZ) -> dict:
                     reach, reach_tick = far, tick
 
         # GEOMETRY: where a strike and a hurtbox were in the same place.
-        hurt = (target or {}).get("hurtboxes") or []
-        if mine and hurt and any(_overlaps(v, h) for v in mine for h in hurt):
-            overlap_ticks.append(tick)
+        #
+        # ⭐⭐ THE ENGINE'S OWN ANSWER WHEN THE RECORDING CARRIES ONE. A strike
+        # row's `overlaps` is computed in Rust with `CombatVolume::intersects` —
+        # the call gameplay resolves hits with — so a circle, an OBB or a convex
+        # shape is exact and two boxes whose edges touch are a MISS.
+        #
+        # ⛔ THE FALLBACK IS BOUNDS, and it is a different question. A take from
+        # before `overlaps` existed can only be measured that way, and for a
+        # non-AABB volume the bounds can overlap while the SHAPES miss — which is
+        # why every field derived from it is named `aabb_`.
+        # ⚠ AND ONLY WHEN THE TARGET HAS AN ID TO MATCH. `overlaps` names victims
+        # by `SimId`, which is `None` for a body that has none — so with a
+        # nameless target a `None` entry would match ANY nameless body. A
+        # recording that cannot identify its own target falls back to geometry
+        # rather than answering about somebody else.
+        target_id = (target or {}).get("id")
+        exact = [row.get("overlaps") for row in mine if "overlaps" in row]
+        if exact and target_id is not None:
+            if any(target_id in (victims or []) for victims in exact):
+                overlap_ticks.append(tick)
+        else:
+            hurt = (target or {}).get("hurtboxes") or []
+            if mine and hurt and any(_overlaps(v, h) for v in mine for h in hurt):
+                overlap_ticks.append(tick)
 
         # THE RUNTIME'S OWN ANSWER: what actually connected.
         for row in frame.get("contacts") or []:

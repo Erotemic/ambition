@@ -26,6 +26,9 @@ _spec.loader.exec_module(tool)
 def _body(role: str, x: float, phase: str | None = None, hurt: bool = True, vel=(0.0, 0.0)) -> dict:
     return {
         "role": role,
+        # A `SimId`, because `overlaps` names its victims by one and a nameless
+        # body cannot be told from another nameless body.
+        "id": f"sim:{role}",
         "pos": [x, 100.0],
         "half": [10.0, 20.0],
         "velocity": list(vel),
@@ -611,3 +614,50 @@ def test_a_take_without_instances_still_measures() -> None:
     # One continuous move: the probe reports no second, which is all the data
     # supports.
     assert doc is None or not doc["second"]["accepted"]
+
+
+def test_the_engines_exact_overlap_outranks_the_bounds_approximation() -> None:
+    """⭐⭐ THE SHAPE, NOT THE BOX, WHEN THE RECORDING CARRIES ONE.
+
+    A circle or an OBB whose BOUNDS overlap while the shapes miss is the case
+    Python cannot answer — `_bounds` flattens every volume, and the review found
+    the report claiming contact the engine denied. `CombatVolume::intersects`
+    answers it in Rust, and a strike row's `overlaps` carries that answer.
+
+    ⛔ THE FIXTURE IS THE DISAGREEING CASE ON PURPOSE: bounds that overlap, and
+    an engine answer of "no". If the report preferred its own arithmetic the two
+    would differ, and the whole point of publishing the exact fact is that it
+    wins.
+    """
+    take = _take(contact_at=None)
+    for frame in take["frames"]:
+        for box in frame.get("hitboxes") or []:
+            # Bounds that DO overlap the target's hurtbox…
+            box["pos"] = list(frame["bodies"][1]["hurtboxes"][0]["pos"])
+            # …and an engine answer that says they do not.
+            box["overlaps"] = []
+    m = tool.report(take)["measurements"]
+    assert m["aabb_overlap_ticks"] == 0, (
+        "the report preferred its own bounds arithmetic over the engine's exact "
+        "answer — which is the disagreement this field exists to end"
+    )
+
+    # ⛔ THE PREMISE, both halves. With the engine saying YES the count is
+    # non-zero, and with the field ABSENT the bounds fallback still measures —
+    # a take recorded before `overlaps` existed must not silently read as a miss.
+    yes = _take(contact_at=None)
+    for frame in yes["frames"]:
+        for box in frame.get("hitboxes") or []:
+            box["pos"] = list(frame["bodies"][1]["hurtboxes"][0]["pos"])
+            box["overlaps"] = [frame["bodies"][1]["id"]]
+    assert tool.report(yes)["measurements"]["aabb_overlap_ticks"] > 0
+
+    legacy = _take(contact_at=None)
+    for frame in legacy["frames"]:
+        for box in frame.get("hitboxes") or []:
+            box["pos"] = list(frame["bodies"][1]["hurtboxes"][0]["pos"])
+            box.pop("overlaps", None)
+    assert tool.report(legacy)["measurements"]["aabb_overlap_ticks"] > 0, (
+        "a take from before the engine published `overlaps` stopped measuring at "
+        "all, rather than falling back to bounds"
+    )

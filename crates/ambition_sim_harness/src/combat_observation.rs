@@ -368,6 +368,27 @@ impl CombatObservation {
                     serde_json::json!(strike.anchored_to_body),
                 );
                 object.insert(
+                    // ⭐⭐ WHOSE HURTBOX THIS STRIKE IS INSIDE, RIGHT NOW, BY THE
+                    // ENGINE'S OWN GEOMETRY. `CombatVolume::intersects` — the
+                    // same call gameplay resolves hits with — so a circle, an
+                    // OBB or a convex shape answers exactly, and two boxes whose
+                    // edges merely touch answer NO.
+                    //
+                    // ⛔ THIS EXISTS BECAUSE A READER OTHERWISE RE-DERIVES IT
+                    // FROM BOUNDS. `moveset_report.py` did, and its AABB
+                    // approximation disagreed with the runtime in one direction:
+                    // it claimed contact the engine denied, which reads as "the
+                    // strike was on the target and the engine ignored it".
+                    //
+                    // ⚠ NOT `hit`, and the difference is the whole point of
+                    // publishing both. This is where things ARE; `hit` is what
+                    // the runtime RESOLVED, and they differ whenever the victim
+                    // was intangible, shielded, already struck by this volume,
+                    // or on the same team.
+                    "overlaps".to_string(),
+                    serde_json::json!(overlapping_victims(world, &view, strike)),
+                );
+                object.insert(
                     // Whom this strike has already connected with. Its FIRST
                     // appearance across consecutive ticks is the contact tick,
                     // exactly, with no threshold to tune.
@@ -437,6 +458,34 @@ impl CombatObservation {
             "contacts": self.contacts.clone(),
         })
     }
+}
+
+/// Whose hurtboxes one strike is inside RIGHT NOW, by the engine's own geometry.
+///
+/// ⭐ `CombatVolume::intersects` is the call gameplay resolves hits with, so a
+/// circle, an OBB or a convex shape answers exactly and two boxes whose edges
+/// merely touch answer NO — the strict platformer contract that type's own doc
+/// states.
+///
+/// Sorted, because it is a SET: the same victims in either order are the same
+/// observation, and an unstable order would show up as a diff in a recording.
+fn overlapping_victims(
+    world: &bevy::prelude::World,
+    view: &CombatGeometryView,
+    strike: &obs::CombatStrikeGeometryView,
+) -> Vec<Option<String>> {
+    let mut victims: Vec<Option<String>> = view
+        .bodies
+        .iter()
+        .filter(|body| {
+            body.hurtboxes
+                .iter()
+                .any(|hurt| strike.volume.intersects(hurt))
+        })
+        .map(|body| sim_id_of(world, body.body))
+        .collect();
+    victims.sort();
+    victims
 }
 
 /// The sort key that makes a recording diffable: identity first, geometry only

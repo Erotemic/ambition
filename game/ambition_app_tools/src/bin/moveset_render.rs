@@ -22,6 +22,7 @@
 //! decides. The manifest carries the intended move and the observed ones, and a
 //! mismatch is reported rather than cached under the name that was asked for.
 
+use ambition_sim_harness::combat_observation::{CombatObservation, ScenarioRoles};
 use ambition_sim_harness::move_exercise;
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
@@ -33,12 +34,25 @@ const USAGE: &str = "\
 moveset_render — render a fighter performing one move, one PNG per simulation tick.
 
 USAGE:
-    moveset_render --character ID --verb VERB [--out DIR] [--frames N] [--stride K]
+    moveset_render --character ID --verb VERB [--target ID] [--target-behavior WHICH]
+                   [--out DIR] [--frames N] [--stride K] [--combat-overlay on|off]
                    [--adapter auto|hardware|software]
 
 OPTIONS:
     --character ID   catalog id of the fighter
     --verb VERB      repertoire verb to perform (see below)
+    --spacing PX     walk the subject to within PX of the target before the press
+                     [default: the match's own seat placement]
+    --target ID      who the move is performed against  [default: the fighter]
+    --target-behavior WHICH
+                     passive | cpu                      [default: passive]
+    --combat-overlay WHICH
+                     on | off                           [default: on]
+                     `on` draws the engine's own combat geometry — hurtboxes,
+                     live strike volumes, the move readout — over the real
+                     rendered art, from the SAME execution. That is the whole
+                     point of this binary: one picture, one simulation, no
+                     second coordinate system.
     --out DIR        directory for the PNGs and manifest.json  [default: /tmp/moveset_render]
     --frames N       how many pictures                          [default: 24]
     --stride K       simulation ticks between pictures          [default: 1]
@@ -54,7 +68,24 @@ NOTES:
     records the intended move against what the engine actually played. A press
     is a request; if the move that came out is not the one asked for, that is
     reported rather than cached under the requested name.
+
+    The manifest also carries the SEMANTIC geometry of every shot — hurtboxes,
+    strike volumes, roles, the move clock — sampled before the shutter, so a
+    reader knows exactly what the picture shows without measuring pixels.
 ";
+
+/// Hold the combat overlay on for the whole run.
+///
+/// The three gates the gizmo pass reads are `ambition_dev_tools`'
+/// business, not this binary's — see `force_combat_overlay` there.
+fn force_combat_overlay(
+    mut dev_state: Option<ResMut<ambition_platformer2d::dev_tools::DeveloperRuntimeState>>,
+    mut developer: Option<ResMut<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
+) {
+    if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
+        ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer);
+    }
+}
 
 fn sim_tick(app: &App) -> u64 {
     app.world()
@@ -77,7 +108,16 @@ fn main() {
         .find(|a| {
             !matches!(
                 a.as_str(),
-                "--character" | "--verb" | "--out" | "--frames" | "--stride" | "--adapter"
+                "--character"
+                    | "--verb"
+                    | "--out"
+                    | "--frames"
+                    | "--stride"
+                    | "--adapter"
+                    | "--target"
+                    | "--target-behavior"
+                    | "--combat-overlay"
+                    | "--spacing"
             )
         })
     {
@@ -116,6 +156,38 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(1)
         .max(1);
+    // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one the
+    // recorder makes: the two tools must stage the same scenario or their
+    // pictures describe different fights.
+    let target = arg("--target").unwrap_or_else(|| character.clone());
+    let passive_target = match arg("--target-behavior").as_deref() {
+        None | Some("passive") => true,
+        Some("cpu") => false,
+        Some(word) => {
+            eprintln!(
+                "moveset_render: unknown --target-behavior '{word}'; expected passive or cpu"
+            );
+            std::process::exit(2);
+        }
+    };
+    let spacing: Option<f32> = match arg("--spacing") {
+        None => None,
+        Some(word) => match word.parse::<f32>() {
+            Ok(px) if px >= 0.0 => Some(px),
+            _ => {
+                eprintln!("moveset_render: --spacing wants a non-negative number of pixels");
+                std::process::exit(2);
+            }
+        },
+    };
+    let combat_overlay = match arg("--combat-overlay").as_deref() {
+        None | Some("on") => true,
+        Some("off") => false,
+        Some(word) => {
+            eprintln!("moveset_render: unknown --combat-overlay '{word}'; expected on or off");
+            std::process::exit(2);
+        }
+    };
     let size = UVec2::new(480, 360);
 
     // ⛔ BEFORE THE APP IS BUILT. Bevy reads the adapter environment when it
@@ -147,6 +219,18 @@ fn main() {
         true,
         |_app| {},
     );
+    if combat_overlay {
+        // ⭐⭐ THE ART AND THE GEOMETRY IN ONE IMAGE, FROM ONE EXECUTION. The
+        // engine already draws `CombatGeometryView` over its own presentation —
+        // that is the production developer overlay — so the picture a reader
+        // gets here is the real renderer's, with the real runtime's volumes on
+        // it. Nothing in this tool draws a box.
+        //
+        // ⛔ FORCED EVERY FRAME, not once at startup: the settings load and the
+        // developer-tools default both write this state, so a startup-only
+        // write is a race against whichever runs last.
+        app.add_systems(Update, force_combat_overlay);
+    }
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
             ambition_platformer2d::engine_core::Vec2::new(size.x as f32, size.y as f32),
@@ -173,11 +257,18 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
+    // ⛔⛔ THE TARGET IS A SEAT WITH A STAND-STILL BRAIN, not a frozen body. A
+    // live opponent walks into the strike being photographed, so the pictures
+    // stop being about the move.
+    let roster = if passive_target {
+        ambition_demo_smash::smash_roster_with_passive_targets([
             character.as_str(),
-            character.as_str(),
-        ]));
+            target.as_str(),
+        ])
+    } else {
+        ambition_demo_smash::smash_roster([character.as_str(), target.as_str()])
+    };
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
@@ -270,13 +361,25 @@ fn main() {
         std::process::exit(1);
     }
     let quiet = move_exercise::settle(&mut app);
+    // ⛔ SPACING BEFORE POSTURE, exactly as the recorder does it: walking closes
+    // the gap on the ground, and an aerial verb takes off from where it arrived.
+    // The two tools must stage ONE scenario or their pictures describe different
+    // fights.
+    let closed = spacing.map(|px| move_exercise::approach(&mut app, px));
     let prepared = quiet && move_exercise::prepare(&mut app, verb);
 
     // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own
     // verb binding. Without it the only question a driver can ask is "did ANY
     // move play", which calls the known back-air-resolves-as-forward-air case a
     // success and files the forward air under `attack_air_back`.
+    // ⛔ AT THE PRESS, WHICH IS WHERE THE NAME SAYS. Read after the run it is the
+    // gap at the END, and a connect LAUNCHES the target — so a press thrown at 33
+    // px would be reported as 70.
+    let spacing_at_press = move_exercise::gap_to_seat(&mut app, 1).map(f32::abs);
     let intended = move_exercise::intended_move(&mut app, &character, verb.verb);
+    // ⛔⛔ AFTER STAGING. Roles are entity identities and the cast is spawned by
+    // the route; asking before it is asking an empty stage who the subject is.
+    let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
 
     // ── PERFORM, AND PHOTOGRAPH ON EXACT TICKS ──
     //
@@ -317,6 +420,16 @@ fn main() {
         let shot_grounded = at_shutter.as_ref().and_then(|s| s.grounded);
         let shot_pose = at_shutter.as_ref().and_then(|s| s.pose);
         let shot_clip = at_shutter.and_then(|s| s.clip.clone());
+        // ⭐⭐ AND THE GEOMETRY THE PICTURE SHOWS, IN NUMBERS. The overlay draws
+        // it; this is the same tick's volumes, roles and move clock written
+        // down, so a reader — or an agent that cannot see the PNG at all — knows
+        // exactly what is in the frame instead of measuring pixels.
+        //
+        // ⛔ SAMPLED BEFORE THE SHUTTER, for the same reason `move` and
+        // `grounded` are: the pump loop runs `Update` at zero duration, and
+        // whatever a later pump does is not what the picture shows.
+        let roles = scenario.resolve(app.world_mut());
+        let observation = CombatObservation::capture(app.world_mut(), &roles).to_json();
         if let Some(id) = shot_move.clone() {
             observed.insert(id);
         }
@@ -361,6 +474,9 @@ fn main() {
             // reader is actually looking at. Without it "is that an airborne
             // up-B?" is answered by squinting at a 480x360 PNG.
             "grounded": shot_grounded,
+            // The same tick's combat truth, in the one schema every recorder
+            // writes: bodies with roles and hurtboxes, live strikes, move clock.
+            "observation": observation,
         }));
 
         // Advance the rest of the stride on the same schedule.
@@ -429,6 +545,21 @@ fn main() {
         "character": character,
         "verb": verb.verb,
         "verb_label": verb.label,
+        // ⭐ WHO WAS IN THE SCENARIO, in the recorder's vocabulary. The two
+        // tools stage the same fight and now say so in the same words.
+        "subject": character,
+        "target": target,
+        "target_behavior": if passive_target { "passive" } else { "cpu" },
+        // ⛔ WHETHER THE PICTURES CARRY GEOMETRY. A reader looking at a PNG with
+        // no boxes must be able to tell "this move has no hitbox" from "the
+        // overlay was off".
+        "combat_overlay": combat_overlay,
+        "requested_spacing": spacing,
+        // ⛔ ASKED FOR AND REACHED ARE TWO NUMBERS. A move that could not close
+        // the gap is a finding, not a footnote.
+        "spacing_closed": closed,
+        "spacing_at_press": spacing_at_press,
+        "observation_schema": ambition_sim_harness::OBSERVATION_SCHEMA,
         "prepared": prepared,
         "settled": quiet,
         // What the body was doing on the press tick, which is the posture the

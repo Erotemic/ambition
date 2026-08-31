@@ -403,6 +403,30 @@ pub fn subject(app: &mut App) -> Option<Subject> {
         })
 }
 
+/// WHICH CHARACTER is wearing a seat, if anybody is.
+///
+/// ⛔⛔ "SOMEBODY IS STAGED" IS NOT "THE FIGHTER I ASKED FOR IS STAGED", and the
+/// difference only becomes visible when one app stages more than one match. A
+/// readiness wait that counts seats is satisfied by the OUTGOING cast the
+/// instant a new roster is published — the old fighters are still standing, they
+/// are not held, and their session is still active — so a driver can settle,
+/// press, and photograph the wrong match while the one it asked for is still
+/// arriving.
+///
+/// A single-shot process never saw this: its stage starts empty, so a seat count
+/// could only mean the cast it just asked for. Batching made a latent weakness
+/// live.
+pub fn seat_character(app: &mut App, seat: usize) -> Option<String> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::character::WornCharacter,
+    )>();
+    q.iter(world)
+        .find(|(at, _)| at.0 == seat)
+        .map(|(_, worn)| worn.id().to_string())
+}
+
 /// Seat 0's facing, the axis a directional press is resolved against.
 pub fn facing_of(app: &mut App) -> f32 {
     subject(app).map_or(1.0, |s| s.facing)

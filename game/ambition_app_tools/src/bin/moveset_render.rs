@@ -121,7 +121,9 @@ fn main() {
             !matches!(
                 a.as_str(),
                 "--character"
+                    | "--characters"
                     | "--verb"
+                    | "--verbs"
                     | "--out"
                     | "--frames"
                     | "--stride"
@@ -138,27 +140,50 @@ fn main() {
         print!("{USAGE}");
         std::process::exit(2);
     }
-    let Some(character) = arg("--character") else {
-        eprintln!("moveset_render: --character is required\n");
+    // ⭐⭐ WHICH VERBS, AND HOW MANY FIGHTERS. One pair keeps the old spelling;
+    // `--characters`/`--verbs` render many in ONE app, which is the whole point
+    // — the pixels are 4ms a frame and the app boot is two seconds, measured, so
+    // a grid rendered one process per move pays the boot 399 times.
+    let verbs: Vec<&'static move_exercise::Verb> = match arg("--verbs")
+        .or_else(|| arg("--verb"))
+        .as_deref()
+    {
+        None => {
+            eprintln!("moveset_render: --verb or --verbs is required\n");
+            print!("{USAGE}");
+            std::process::exit(2);
+        }
+        Some("all") => VERBS.iter().collect(),
+        Some(list) => list
+            .split(',')
+            .map(str::trim)
+            .map(|name| match verb_named(name) {
+                Some(verb) => verb,
+                None => {
+                    // ⛔ NAME WHAT IS SUPPORTED. A capture-state move (a pummel,
+                    // a throw) needs a grabbed opponent, which this exercise
+                    // cannot set up — so it is absent rather than silently
+                    // producing a mismatch.
+                    eprintln!(
+                        "moveset_render: '{name}' is not a verb this exercise can perform.\n\
+                         known: {}\n",
+                        VERBS.iter().map(|v| v.verb).collect::<Vec<_>>().join(", ")
+                    );
+                    std::process::exit(2);
+                }
+            })
+            .collect(),
+    };
+    let asked_characters = arg("--characters").or_else(|| arg("--character"));
+    if asked_characters.is_none() {
+        eprintln!("moveset_render: --character or --characters is required\n");
         print!("{USAGE}");
         std::process::exit(2);
-    };
-    let Some(verb_name) = arg("--verb") else {
-        eprintln!("moveset_render: --verb is required\n");
-        print!("{USAGE}");
-        std::process::exit(2);
-    };
-    let Some(verb) = verb_named(&verb_name) else {
-        // ⛔ NAME WHAT IS SUPPORTED. A capture-state move (a pummel, a throw)
-        // needs a grabbed opponent, which this exercise cannot set up — so it is
-        // absent rather than silently producing a mismatch.
-        eprintln!(
-            "moveset_render: '{verb_name}' is not a verb this exercise can perform.\n\
-             known: {}\n",
-            VERBS.iter().map(|v| v.verb).collect::<Vec<_>>().join(", ")
-        );
-        std::process::exit(2);
-    };
+    }
+    // ⛔ A BATCH IS A DIRECTORY OF DIRECTORIES. One pair keeps writing straight
+    // into `--out`, because that is the layout the inspector server caches by
+    // and a single render must stay a drop-in for it.
+    let batching = arg("--characters").is_some() || arg("--verbs").is_some() || verbs.len() > 1;
     let out_dir =
         std::path::PathBuf::from(arg("--out").unwrap_or_else(|| "/tmp/moveset_render".to_string()));
     let frames: usize = arg("--frames")
@@ -172,7 +197,7 @@ fn main() {
     // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one the
     // recorder makes: the two tools must stage the same scenario or their
     // pictures describe different fights.
-    let target = arg("--target").unwrap_or_else(|| character.clone());
+    let asked_target = arg("--target");
     let passive_target = match arg("--target-behavior").as_deref() {
         None | Some("passive") => true,
         Some("cpu") => false,
@@ -243,12 +268,6 @@ fn main() {
     };
     adapter.apply();
 
-    std::fs::create_dir_all(&out_dir).expect("the output directory is creatable");
-    for stale in std::fs::read_dir(&out_dir).into_iter().flatten().flatten() {
-        if stale.path().extension().is_some_and(|e| e == "png") {
-            let _ = std::fs::remove_file(stale.path());
-        }
-    }
 
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
@@ -294,16 +313,266 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
+
+    // ⭐⭐ THE ROSTER IS RESOLVED AFTER THE APP EXISTS, because `grid` means "the
+    // set this composition can seat" and only the prepared registry knows it.
+    let characters: Vec<String> = match asked_characters.as_deref() {
+        Some("grid") | Some("all") => {
+            let registry = app
+                .world()
+                .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+                .expect("the composed host has a prepared-character registry");
+            ambition_demo_smash::select::SmashRoster::assemble(registry)
+                .ids()
+                .map(|id| id.to_string())
+                .collect()
+        }
+        Some(list) => list.split(',').map(|x| x.trim().to_string()).collect(),
+        None => unreachable!("checked above"),
+    };
+
+    // ⛔ SAY HOW LONG THIS WILL TAKE. A grid is hundreds of renders and a tool
+    // that goes quiet for twenty minutes without saying so reads as hung.
+    let pairs = characters.len() * verbs.len();
+    if pairs > 1 {
+        eprintln!(
+            "[moveset-render] {pairs} render(s): {} character(s) x {} verb(s)",
+            characters.len(),
+            verbs.len()
+        );
+    }
+
+    let started = std::time::Instant::now();
+    let mut index: Vec<serde_json::Value> = Vec::new();
+    let mut failures = 0usize;
+    for character in &characters {
+        for verb in &verbs {
+            // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one
+            // the recorder makes: the two tools must stage the same scenario or
+            // their pictures describe different fights.
+            let target = asked_target.clone().unwrap_or_else(|| character.clone());
+            // One pair writes straight into `--out`; a batch gets the layout the
+            // inspector server already caches by, so an overnight corpus IS the
+            // browser's cache.
+            let pair_dir = if batching {
+                out_dir.join(format!("{character}__{}", verb.verb))
+            } else {
+                out_dir.clone()
+            };
+            std::fs::create_dir_all(&pair_dir).expect("the output directory is creatable");
+            // ⛔⛔ THE STALE PNGs GO FIRST. A run that renders fewer frames than
+            // the last one would otherwise leave the tail of the previous move
+            // in the directory, and the manifest names only what IT wrote — so
+            // the extra pictures would be served as part of this move.
+            for stale in std::fs::read_dir(&pair_dir).into_iter().flatten().flatten() {
+                if stale.path().extension().is_some_and(|e| e == "png") {
+                    let _ = std::fs::remove_file(stale.path());
+                }
+            }
+            let request = PairRequest {
+                character,
+                verb,
+                target: &target,
+                passive_target,
+                spacing,
+                frames,
+                stride,
+                combat_overlay,
+                layers,
+                adapter,
+                out_dir: pair_dir.clone(),
+                batched: batching,
+            };
+            match render_pair(&mut app, &camera, &request) {
+                Ok(manifest) => {
+                    println!(
+                        "[render] {character:<24} {:<16} {} frame(s){}",
+                        verb.verb,
+                        manifest["frames"],
+                        if manifest["reached_intended_move"] == serde_json::json!(true) {
+                            String::new()
+                        } else {
+                            format!(
+                                " {}: intended {}, engine played {}",
+                                manifest["outcome"].as_str().unwrap_or("?").to_uppercase(),
+                                manifest["intended_move"],
+                                manifest["observed_moves"]
+                            )
+                        }
+                    );
+                    index.push(serde_json::json!({
+                        "character": character,
+                        "verb": verb.verb,
+                        "dir": pair_dir.file_name().and_then(|n| n.to_str()),
+                        "frames": manifest["frames"],
+                        "outcome": manifest["outcome"],
+                        "reached_intended_move": manifest["reached_intended_move"],
+                    }));
+                }
+                Err(why) => {
+                    // ⛔⛔ ONE BAD PAIR IS NOT A BAD RUN. A grid that aborted on
+                    // the first fighter the host cannot seat would throw away
+                    // the other 398 renders, and the reason it could not is a
+                    // FINDING — it is recorded and the run carries on.
+                    failures += 1;
+                    println!("[render] {character:<24} {:<16} FAILED - {why}", verb.verb);
+                    index.push(serde_json::json!({
+                        "character": character,
+                        "verb": verb.verb,
+                        "dir": pair_dir.file_name().and_then(|n| n.to_str()),
+                        "failed": why,
+                    }));
+                }
+            }
+        }
+    }
+
+    if batching {
+        let elapsed = started.elapsed().as_secs_f32();
+        let doc = serde_json::json!({
+            "schema": "ambition.moveset_render_index.v1",
+            "renders": index,
+            "failures": failures,
+            "seconds": elapsed,
+            // The cost per pair, so the next person planning a corpus does not
+            // have to time it themselves.
+            "seconds_per_render": if pairs > 0 { elapsed / pairs as f32 } else { 0.0 },
+            "renderer_built": renderer_built(),
+        });
+        std::fs::write(
+            out_dir.join("index.json"),
+            serde_json::to_string_pretty(&doc).expect("the index serializes"),
+        )
+        .expect("the index is writable");
+        println!(
+            "[moveset-render] {} render(s), {failures} failed, {elapsed:.1}s ({:.2}s each) -> {}",
+            index.len(),
+            elapsed / pairs.max(1) as f32,
+            out_dir.display()
+        );
+    }
+    if failures > 0 && !batching {
+        std::process::exit(1);
+    }
+}
+
+/// One (character, verb) render: what to stage and where to put it.
+struct PairRequest<'a> {
+    character: &'a str,
+    verb: &'static move_exercise::Verb,
+    target: &'a str,
+    passive_target: bool,
+    spacing: Option<f32>,
+    frames: usize,
+    stride: u64,
+    combat_overlay: bool,
+    layers: Option<CombatOverlayLayers>,
+    adapter: AdapterPreference,
+    out_dir: std::path::PathBuf,
+    /// Whether this pair shared its app with others — see the manifest field.
+    batched: bool,
+}
+
+/// How many fighters are staged, and how many the ceremony still holds.
+fn staging_census(app: &mut App) -> (usize, usize) {
+    let world = app.world_mut();
+    let mut all = world.query::<&ambition_platformer2d::actor::MatchSeat>();
+    let staged = all.iter(world).count();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::actor::MatchSeat,
+        With<ambition_platformer2d::characters::control::ScriptedControl>,
+    >();
+    (staged, q.iter(world).count())
+}
+
+/// The mtime of the binary drawing these pictures, as a unix timestamp.
+///
+/// ⭐ THE PICTURE IS STAMPED BY THE BINARY THAT DREW IT, not by whichever one is
+/// on disk when somebody serves it. That is what lets an offline corpus be
+/// served later and still be refused once the renderer moves on.
+fn renderer_mtime() -> Option<f64> {
+    let built = std::env::current_exe().ok()?.metadata().ok()?.modified().ok()?;
+    Some(built.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs_f64())
+}
+
+/// The same instant, readable.
+fn renderer_built() -> Option<String> {
+    let secs = renderer_mtime()? as i64;
+    let days = secs / 86_400;
+    // A civil date without pulling in a date crate for one provenance string.
+    let (mut y, mut d) = (1970i64, days);
+    loop {
+        let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+        let len = if leap { 366 } else { 365 };
+        if d < len {
+            break;
+        }
+        d -= len;
+        y += 1;
+    }
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let months = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let mut m = 0;
+    while m < 12 && d >= months[m] {
+        d -= months[m];
+        m += 1;
+    }
+    Some(format!(
+        "{y:04}-{:02}-{:02} {:02}:{:02}",
+        m + 1,
+        d + 1,
+        (secs % 86_400) / 3600,
+        (secs % 3600) / 60
+    ))
+}
+
+/// Stage one pair, drive it, and photograph it.
+///
+/// ⛔⛤ IT RE-SEATS EVERY TIME, and that is not optional. `afford_recovery`
+/// refuses a recovery whose airtime already spent one, so a move rendered after
+/// another one in the same match can photograph a move that produced nothing —
+/// the recorder learned this as three separate false findings before the
+/// ordering was the thing that got measured. A batch trades an app boot for a
+/// re-seat; it does not trade away the isolation.
+fn render_pair(
+    app: &mut App,
+    camera: &DeterministicCaptureSession,
+    req: &PairRequest,
+) -> Result<serde_json::Value, String> {
+    let character = req.character;
+    let verb = req.verb;
+    let target = req.target;
+    let passive_target = req.passive_target;
+    let spacing = req.spacing;
+    let frames = req.frames;
+    let stride = req.stride;
+    let combat_overlay = req.combat_overlay;
+    let layers = req.layers;
+    let adapter = req.adapter;
+    let out_dir = &req.out_dir;
     // ⛔⛔ THE TARGET IS A SEAT WITH A STAND-STILL BRAIN, not a frozen body. A
     // live opponent walks into the strike being photographed, so the pictures
     // stop being about the move.
     let roster = if passive_target {
         ambition_demo_smash::smash_roster_with_passive_targets([
-            character.as_str(),
-            target.as_str(),
+            character,
+            target,
         ])
     } else {
-        ambition_demo_smash::smash_roster([character.as_str(), target.as_str()])
+        ambition_demo_smash::smash_roster([character, target])
     };
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -330,8 +599,14 @@ fn main() {
             >();
             (staged, q.iter(world).count())
         };
+        // ⛔⛔ AND IT IS THE FIGHTER WE ASKED FOR. `staged > 0` is satisfied by
+        // the OUTGOING cast the instant a new roster is published — the old
+        // fighters are still standing, unheld, in a live session — so a batch
+        // could settle, press and photograph the previous match. A single-shot
+        // process never saw it because its stage starts empty.
         if staged > 0
             && held == 0
+            && move_exercise::seat_character(app, 0).as_deref() == Some(character)
             && ambition_platformer2d::rollback::session_is_active(app.world())
         {
             live = true;
@@ -339,48 +614,43 @@ fn main() {
         }
     }
     if !live {
-        // ⛔⛔ NAME THE CONDITION THAT FAILED, NOT THE LAST ONE IN THE `&&`.
+        // ⛔⛤ NAME THE CONDITION THAT FAILED, NOT THE LAST ONE IN THE `&&`.
         // This said *"no live rollback session"* whichever of the three was
         // false, and the common failure is the FIRST one: a character id that is
         // not on the smash grid seats nobody, so `staged` stays 0 and the message
-        // sent the reader (and a 2026-08-29 review) looking for a missing GPU or
-        // a broken session. ⇒ the loop above already distinguishes the three;
-        // the report has to as well. The comment on that loop learned this exact
-        // lesson one layer down and the message repeated it one layer up.
-        let (staged, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&ambition_platformer2d::actor::MatchSeat>();
-            let staged = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &ambition_platformer2d::actor::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
-            >();
-            (staged, q.iter(world).count())
-        };
+        // sent the reader looking for a missing GPU or a broken session.
+        let (staged, held) = staging_census(app);
         let rollback_session = ambition_platformer2d::rollback::session_is_active(app.world());
-        if staged == 0 {
-            eprintln!(
-                "moveset_render: '{character}' seated nobody — the match staged 0 \
-                 fighters, so this is almost certainly a character id the smash \
-                 grid does not carry rather than anything about rendering.\n\
-                 \x20 seatable ids: run `moveset_export` and read `characters[].id` \
-                 from its bundle."
-            );
+        let seated = move_exercise::seat_character(app, 0);
+        let why = if staged > 0 && seated.as_deref() != Some(character) {
+            format!(
+                "the stage never became '{character}' — after 1200 updates seat zero \
+                 still wears {seated:?}. The roster was published and the route asked \
+                 for, so this is the match transition not completing rather than a \
+                 character the grid does not carry."
+            )
+        } else if staged == 0 {
+            format!(
+                "'{character}' seated nobody — the match staged 0 fighters, so this is \
+                 almost certainly a character id the smash grid does not carry rather \
+                 than anything about rendering. Seatable ids: run `moveset_export` and \
+                 read `characters[].id` from its bundle."
+            )
         } else if held > 0 {
-            eprintln!(
-                "moveset_render: '{character}' is seated ({staged}) but the opening \
-                 ceremony still holds {held} of the cast under ScriptedControl \
-                 after 1200 updates — a press driven now would be discarded."
-            );
+            format!(
+                "'{character}' is seated ({staged}) but the opening ceremony still holds \
+                 {held} of the cast under ScriptedControl after 1200 updates — a press \
+                 driven now would be discarded."
+            )
         } else if !rollback_session {
-            eprintln!(
-                "moveset_render: '{character}' is seated and free, but no rollback \
-                 session became active in 1200 updates."
-            );
+            format!(
+                "'{character}' is seated and free, but no rollback session became active \
+                 in 1200 updates."
+            )
         } else {
-            eprintln!("moveset_render: '{character}' never became drivable");
-        }
-        std::process::exit(1);
+            format!("'{character}' never became drivable")
+        };
+        return Err(why);
     }
 
     // ── SETTLE, THEN PREPARE ──
@@ -393,17 +663,16 @@ fn main() {
     // `prepared: true` and every photograph showed a GROUNDED up-B, which is the
     // one posture this whole campaign exists to look past. The recorder settles
     // first and always did; only the renderer had half the algorithm.
-    if move_exercise::subject(&mut app).is_none() {
-        eprintln!("moveset_render: nobody reached seat zero for '{character}'");
-        std::process::exit(1);
+    if move_exercise::subject(app).is_none() {
+        return Err(format!("nobody reached seat zero for '{character}'"));
     }
-    let quiet = move_exercise::settle(&mut app);
+    let quiet = move_exercise::settle(app);
     // ⛔ SPACING BEFORE POSTURE, exactly as the recorder does it: walking closes
     // the gap on the ground, and an aerial verb takes off from where it arrived.
     // The two tools must stage ONE scenario or their pictures describe different
     // fights.
-    let closed = spacing.map(|px| move_exercise::approach(&mut app, px));
-    let prepared = quiet && move_exercise::prepare(&mut app, verb);
+    let closed = spacing.map(|px| move_exercise::approach(app, px));
+    let prepared = quiet && move_exercise::prepare(app, verb);
 
     // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own
     // verb binding. Without it the only question a driver can ask is "did ANY
@@ -412,8 +681,8 @@ fn main() {
     // ⛔ AT THE PRESS, WHICH IS WHERE THE NAME SAYS. Read after the run it is the
     // gap at the END, and a connect LAUNCHES the target — so a press thrown at 33
     // px would be reported as 70.
-    let spacing_at_press = move_exercise::gap_to_seat(&mut app, 1).map(f32::abs);
-    let intended = move_exercise::intended_move(&mut app, &character, verb.verb);
+    let spacing_at_press = move_exercise::gap_to_seat(app, 1).map(f32::abs);
+    let intended = move_exercise::intended_move(app, character, verb.verb);
     // ⛔⛔ AFTER STAGING. Roles are entity identities and the cast is spawned by
     // the route; asking before it is asking an empty stage who the subject is.
     let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
@@ -426,7 +695,7 @@ fn main() {
     // a 12-frame run ~6, and the recorder's own exercise ~37. Asking for more
     // pictures charged the smash differently — the two tools were photographing
     // different moves and neither said so.
-    let facing = move_exercise::facing_of(&mut app);
+    let facing = move_exercise::facing_of(app);
     let mut observed: std::collections::BTreeSet<String> = Default::default();
     let mut shots: Vec<serde_json::Value> = Vec::new();
     let mut pumps_total = 0usize;
@@ -434,10 +703,10 @@ fn main() {
 
     for shot in 0..frames {
         move_exercise::step(
-            &mut app,
+            app,
             move_exercise::action_frame(verb, action_tick, facing),
         );
-        let tick = sim_tick(&app);
+        let tick = sim_tick(app);
         let at_action = action_tick;
         action_tick += 1;
 
@@ -452,7 +721,7 @@ fn main() {
         // `grounded` described the world after N passes of the render service
         // loop while claiming to describe `sim_tick`. Whatever a later pump does
         // is not what the picture shows.
-        let at_shutter = move_exercise::subject(&mut app);
+        let at_shutter = move_exercise::subject(app);
         let shot_move = at_shutter.as_ref().and_then(|s| s.playing.clone());
         let shot_grounded = at_shutter.as_ref().and_then(|s| s.grounded);
         let shot_pose = at_shutter.as_ref().and_then(|s| s.pose);
@@ -475,13 +744,10 @@ fn main() {
         // with zero-duration pumps, refuse the frame if the fixed clock moved.
         // Extracted 2026-08-29 — it was the only reusable thing in this binary
         // and it was not reusable.
-        let captured = match camera.capture(&mut app, out_dir.join(format!("frame.{shot:04}.png")))
+        let captured = match camera.capture(app, out_dir.join(format!("frame.{shot:04}.png")))
         {
             Ok(frame) => frame,
-            Err(error) => {
-                eprintln!("moveset_render: shot {shot}: {error}");
-                std::process::exit(1);
-            }
+            Err(error) => return Err(format!("shot {shot}: {error}")),
         };
         debug_assert_eq!(captured.sim_tick, tick, "the session photographs the tick it was given");
         pumps_total += captured.pumps;
@@ -519,11 +785,11 @@ fn main() {
         // Advance the rest of the stride on the same schedule.
         for _ in 1..stride {
             move_exercise::step(
-                &mut app,
+                app,
                 move_exercise::action_frame(verb, action_tick, facing),
             );
             action_tick += 1;
-            if let Some(id) = move_exercise::playing_move(&mut app) {
+            if let Some(id) = move_exercise::playing_move(app) {
                 observed.insert(id);
             }
         }
@@ -539,11 +805,11 @@ fn main() {
     let mut after_capture: std::collections::BTreeSet<String> = Default::default();
     while !move_exercise::released_by(action_tick) {
         move_exercise::step(
-            &mut app,
+            app,
             move_exercise::action_frame(verb, action_tick, facing),
         );
         action_tick += 1;
-        if let Some(id) = move_exercise::playing_move(&mut app) {
+        if let Some(id) = move_exercise::playing_move(app) {
             after_capture.insert(id.clone());
             observed.insert(id);
         }
@@ -624,6 +890,18 @@ fn main() {
         "stride": stride,
         "shots": shots,
         "renderer": "moveset_render",
+        // ⛔⛔ WHICH MODE DREW IT, because the pixels are not byte-comparable
+        // across the two. Measured on the admiral's up-B: two single-shot runs
+        // are byte-IDENTICAL, and the same pair rendered inside a batch differs
+        // on 0.26% of pixels by at most 6/255 — presentation carried across the
+        // re-seat, not a different fight (the manifests, ticks and moves match
+        // exactly). Diff a batched corpus against a batched one.
+        "batched": req.batched,
+        // When the binary that drew this was built, so a cache can tell a
+        // current picture from one taken before an hour of engine changes
+        // WITHOUT asking whatever binary happens to be on disk now.
+        "renderer_built": renderer_built(),
+        "renderer_mtime": renderer_mtime(),
         // ⭐ THE ADAPTER THAT DREW THESE PIXELS, beside the one that was asked
         // for. Two runs whose PNGs differ are not comparable unless both say the
         // same thing here, and `auto` means the machine decided.
@@ -635,24 +913,7 @@ fn main() {
         out_dir.join("manifest.json"),
         serde_json::to_string_pretty(&manifest).expect("the manifest serializes"),
     )
-    .expect("the manifest is writable");
+    .map_err(|error| format!("the manifest is not writable: {error}"))?;
+    Ok(manifest)
 
-    println!(
-        "[moveset-render] {character} {} -> {} frame(s) in {}, intended {:?}, observed {:?}, {} zero-time pump(s)",
-        verb.verb,
-        manifest["frames"],
-        out_dir.display(),
-        intended,
-        observed,
-        pumps_total,
-    );
-    if !verdict.reached() {
-        println!(
-            "[moveset-render] {}: `{}` is bound to {:?}, prepared={prepared}, and the engine played {:?}",
-            verdict.as_str().to_uppercase(),
-            verb.verb,
-            intended,
-            observed
-        );
-    }
 }

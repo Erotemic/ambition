@@ -68,16 +68,41 @@ fn run_headless_runs_multiple_ticks() {
 /// would hang on a genuinely silent reset, and reading one frame is what went
 /// stale. If the boundary moves further out, this fails with the count it saw.
 ///
-/// ⛔⛔ AND SCANNING THE WINDOW DID NOT FIX IT — measured 2026-08-31: ZERO SFX
-/// cues of ANY kind cross this channel in forty frames of this fixture, so the
-/// fault is upstream of the window. Five causes are eliminated in
-/// D-SFX-RESET-RED, including one bad inference of mine: the absence of the
-/// resolver's *"no controlled body"* `info!` line proved nothing, because this
-/// fixture installs no `LogPlugin`. ⛔ do not "fix" this by asserting the count
-/// it currently produces.
+/// ⛔⛔ AND THE WINDOW WAS NEVER THE PROBLEM. Instrumented 2026-08-31 inside
+/// `admit_room_replay`: `ControlledSubject` is present and holds **`None`**, so
+/// the admission carries NO SUBJECT, takes its *"no body, no crossing to
+/// describe"* arm, and resets nothing — no body moved, no cue written, zero SFX
+/// messages of any kind in forty frames.
+///
+/// ⭐⭐ AND THE ENGINE IS RIGHT; THE FIXTURE PRESSED ONE FRAME TOO EARLY.
+/// `ControlledSubject` is resolved from `DrivingParticipant`, and
+/// `settle_until_session_world` stops as soon as a session WORLD exists — one
+/// frame before the resolver has run. See the `app.update()` below and the truth
+/// table beside it.
+///
+/// ⛔ do not "fix" a future failure here by asserting the count it happens to
+/// produce, and do not loosen it to "the replay was admitted": the admission is
+/// exactly the half that kept working while nothing was reset.
 #[test]
 fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     let mut app = initialized_sandbox_sim_app();
+
+    // ⭐⭐ ONE MORE FRAME BEFORE THE PRESS, and it is the whole fix.
+    // `settle_until_session_world` stops as soon as a session WORLD exists,
+    // which is one frame before the session is DRIVABLE:
+    // `resolve_controlled_subject` has not yet copied the seat's
+    // `DrivingParticipant` into `ControlledSubject`. The reset resolves its
+    // subject from that resource, so a press on the gap frame finds `None`,
+    // takes the replay's "no body, no crossing to describe" arm, and resets
+    // nothing — silently, because the branch's own `info!` needs a `LogPlugin`
+    // this fixture does not install.
+    //
+    // ⛔ MEASURED AS A TRUTH TABLE, because the obvious repair was the wrong
+    // one. Staging a `DrivingParticipant` by hand does NOT fix it without this
+    // line (the resolver still has not run), and this line fixes it WITHOUT the
+    // staging (a body was already seated). The missing thing was a frame, not a
+    // seat.
+    app.update();
 
     // Inject a "press reset" frame on the sim/presentation input seam.
     drive_control_frame(

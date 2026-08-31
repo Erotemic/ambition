@@ -601,59 +601,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
   work is an instrument that separates "drawn flush to a fitted frame" from
   "severed", not 35 canvas edits.
 
-- ▢ **D-SFX-RESET-RED — `ambition_app`'s own lib suite has a long-red test, and
-  no gate I run covers it.** Found 2026-08-31 while gating an unrelated slice:
-  `headless::tests::sim_emits_sfx_reset_when_control_frame_requests_reset` fails
-  on a CLEAN tree — *"expected at least one SfxMessage::Reset emitted by the sim;
-  got 0"* — verified by reverting that session's 14 changed files and re-running.
-  ⛔ THE INTERESTING HALF IS WHY IT WAS INVISIBLE: every gate in the working
-  rhythm is `cargo test -p ambition_app --test app_it` (533 green), which is the
-  INTEGRATION target and does not build `src/`'s own `#[cfg(test)]` modules.
-  `cargo test -p ambition_app --lib` is 191/192.
-  ⭐ MEASURED FURTHER THE SAME DAY, and the first two hypotheses are both dead.
-  (1) NOT A TIMING WINDOW: the test read ONE frame and its own doc claimed the
-  cue was *"synchronous"*, which went stale when a same-room replay became a
-  canonical room REBUILD committing at a confirmed lifecycle boundary — but
-  scanning 30 frames finds it too. (2) NOT THE RESET SPECIFICALLY: **ZERO SFX
-  messages of ANY kind cross `Messages<OwnedSfxMessage>` in 40 frames of that
-  fixture.** The replay IS admitted (`room-replay admitted reason=Manual` in the
-  world log, and no *"admitted with no controlled body"* line), so a subject
-  exists and the intent is recorded. ⇒ the open question is whether
-  `initialized_sandbox_sim_app` composes anything that WRITES that channel at
-  all — which would mean the test has proved nothing since the composition
-  changed, rather than the reset having gone silent. ⚠ THE TEST IS LEFT RED ON
-  PURPOSE and now reports BOTH counts, because a red test naming a real gap
-  beats an `#[ignore]` nobody reads. ⛔ do not "fix" it by asserting the count it
-  currently produces.
-  ⭐⭐ AND TWO MORE ELIMINATIONS, so the next person starts from a NAMED
-  suspect rather than a symptom. (3) NOT THE WRONG RESOURCE: writing an
-  `OwnedSfxMessage` straight into the world the test reads is visible to it
-  (`len=1 current=1`), so reader and writer are the same channel. (4) NOT A
-  BUFFER-SWAP ARTIFACT: `Messages::len()` — which counts BOTH buffers — is
-  **0 on every frame**, so nothing is written and then aged out; nothing is
-  written at all.
-  ⇒ IN A QUIET SANDBOX THE RESET IS THE ONLY EXPECTED CUE (nobody moves, nobody
-  fights), so the road is `return_the_replay_subject_to_spawn` → `reset_sandbox`,
-  the one `SfxMessage::Reset` writer here, reachable only past TWO early returns:
-  no `subject` on the admitted message, or no body whose `SimId` matches it.
-  ⛔⛔ AND I READ THE LOG WRONG — RETRACTED IN PLACE. I wrote that *"the
-  admission log proves a subject exists"* because no *"admitted with no
-  controlled body"* line appeared. **It could not have appeared**: that line is
-  `bevy::log::info!` and the headless fixture installs no `LogPlugin`, while the
-  `world-event` line beside it prints unconditionally and fires on BOTH branches.
-  ⚠ THE ABSENCE OF A LOG IS NOT EVIDENCE WHEN THE LOGGER IS NOT INSTALLED.
-  (5) Instrumented instead: the body population is not the problem — 21 `SimId`s,
-  **2** carrying the whole `MotionModel` + `BodyCombat` + `BodyAnimFacts` set the
-  query requires, and **1 `PrimaryPlayer`**, on every frame. So a subject is
-  resolvable and a matching body exists. ⇒ WHAT IS LEFT is to instrument the two
-  guards themselves rather than their inputs: print inside
-  `return_the_replay_subject_to_spawn`. ⚠ the function's own comment records a
-  previous instance of exactly this shape — requiring a component the subject may
-  not carry *"made the reset silently skip it entirely"* — so a THIRD required
-  component (`BodyMelee`, `BodyClusterQueryData`) not probed here is the standing
-  suspect.
-  ⚠ AND THE 191 OTHER TESTS in that target have never been run in this rhythm
-  either. They pass today, and nothing was watching.
+- ✔ **D-SFX-RESET-RED — CLOSED 2026-08-31, and the fixture pressed one frame too
+  early.** `ambition_app`'s own lib suite had a long-red test that no gate in
+  this rhythm covered: every gate runs `--test app_it`, the INTEGRATION target,
+  which does not build `src/`'s `#[cfg(test)]` modules. `--lib` was 191/192 and
+  is 192/192.
+  ⭐ THE CAUSE: `settle_until_session_world` stops as soon as a session WORLD
+  exists, which is one frame before the session is DRIVABLE —
+  `resolve_controlled_subject` has not yet copied the seat's
+  `DrivingParticipant` into `ControlledSubject`. The reset resolves its subject
+  from that resource, so a press on the gap frame found `None`, took the
+  replay's *"no body, no crossing to describe"* arm and reset nothing. One
+  `app.update()` before the press fixes it.
+  ⛔⛔ AND THE OBVIOUS REPAIR WAS THE WRONG ONE, which is why this took a TRUTH
+  TABLE rather than a fix: staging a `DrivingParticipant` by hand does NOT work
+  without the extra frame (the resolver still has not run), and the extra frame
+  works WITHOUT the staging (a body was already seated). The missing thing was a
+  FRAME, not a SEAT — and a plausible fix that passes for the wrong reason would
+  have hidden that.
+  ⛔ FOUR WRONG HYPOTHESES BEFORE IT, all recorded rather than tidied away: the
+  timing window (the test read ONE frame and its doc claimed the cue was
+  "synchronous"); the reset specifically (ZERO cues of any kind); the wrong
+  resource (a direct write IS visible); a buffer-swap artifact (`len()` counts
+  both buffers and was 0). ⛔⛔ plus one bad INFERENCE of mine — I read the
+  absence of the resolver's *"no controlled body"* `info!` as evidence a subject
+  existed. It could not have printed: this fixture installs no `LogPlugin`, and
+  the `world_log` line beside it prints unconditionally on BOTH branches. **The
+  absence of a log is not evidence when the logger is not installed.**
+  ⚠ THE GENERAL HAZARD, worth carrying: a settle helper whose stopping condition
+  is WEAKER than "the thing you are about to drive is drivable" hands back an app
+  in a gap frame, and everything driven on that frame silently does nothing.
+  ⚠ AND THE 191 OTHER TESTS in that target still only run under `--lib`.
 
 - ▢ **D-OILER-CONFIG — a review config publishes as a module target, and the
   renderer suite has been red about it.** Found 2026-08-31 while sweeping D129:

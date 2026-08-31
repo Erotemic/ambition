@@ -14,7 +14,7 @@ crate-type = ["rlib"]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # ECS surface only (Component / Message / Commands / Entity / Name via prelude).
 # No render/audio/windowing — this crate stays reusable and headless.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_geometry = { path = "../ambition_geometry" }

@@ -6,4 +6,4 @@ edition = "2021"
 # `bevy_math` directly rather than through `ambition_geometry`, on that
 # crate's own advice: anything that needs only the maths types should skip it.
 [dependencies]
-bevy_math = { version = "0.18.1", features = ["serialize"] }
+bevy_math = { version = "0.19.1", features = ["serialize"] }

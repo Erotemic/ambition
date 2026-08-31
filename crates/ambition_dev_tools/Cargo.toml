@@ -24,6 +24,6 @@ ambition_persistence = { path = "../ambition_persistence" }
 # it is what lets the SIMULATION kernel stop reading developer state.
 ambition_time = { path = "../ambition_time" }
 # Reflect + Resource + ECS + logging. No windowing/UI — the overlays are app-side.
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 serde = { workspace = true }
 ron = { workspace = true }

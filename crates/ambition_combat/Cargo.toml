@@ -43,7 +43,7 @@ ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ron = { workspace = true, optional = true }
 serde = { workspace = true }
 # One Resource derive (the slot registry); ECS surface only.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 [features]
 # The authored-content schema this capability owns.

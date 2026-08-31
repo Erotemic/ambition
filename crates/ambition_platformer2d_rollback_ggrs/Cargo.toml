@@ -21,8 +21,8 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
 ambition_load = { path = "../ambition_load" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
-bevy_ggrs = "0.21"
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy_ggrs = "0.22"
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
     "bevy_image",
     "bevy_state",

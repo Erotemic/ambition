@@ -21,7 +21,7 @@ serde = { workspace = true }
 # `bevy_color` for the channel display tints (`PortalChannelColor::display`) and
 # `bevy_log` for the portal trace logs. No render / audio / window / asset
 # features — the mechanic stays headless; those are the host's adapters.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_color",
     "bevy_log",
 ] }

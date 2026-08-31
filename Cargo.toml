@@ -239,11 +239,13 @@ codegen-units = 256
 # Pinned by `rev`, never by branch: a branch would drift silently under
 # `cargo update` and make builds unreproducible.
 [patch.crates-io]
-# Backports a first-class `GgrsFrameTiming` accessor (timestep / overstep / overstep_fraction)
-# onto the v0.21.0 line so presentation can read the intra-tick phase under rollback via a
-# supported API — no reaching into driver internals. Branched from the v0.21.0 tag so it stays
-# semver-compatible with the `bevy_ggrs = "0.21"` requirement AND on bevy 0.18 — upstream main
-# carries the same commit at 0.22 / bevy 0.19, which we are not on. Consumer is tagged
-# FORK(ggrs-frame-timing). RETIRE when the accessor ships in a released bevy_ggrs: drop this
-# entry, bump the requirement, use the released API.
-bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }
+# The `GgrsFrameTiming` accessor (timestep / overstep / overstep_fraction) presentation reads to
+# find the intra-tick phase under rollback. Ambition's own fork is RETIRED: the work was merged
+# UPSTREAM as gschup/bevy_ggrs#134, and this rev IS that merge commit, so the pin now tracks the
+# canonical repository rather than a private branch. It is still a pin because the merge landed
+# AFTER the v0.22.0 release — `bevy_ggrs = "0.22"` from crates.io has no `GgrsFrameTiming`.
+# Consumer is tagged FORK(ggrs-frame-timing).
+# RETIRE when a bevy_ggrs release contains #134: drop this entry and keep the version requirement.
+# ⚠ Upstream at this rev takes `ggrs` from its git main rather than the v0.13.0 release, so
+# `ggrs` is pinned by Cargo.lock rather than by a requirement here; `cargo update -p ggrs` moves it.
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

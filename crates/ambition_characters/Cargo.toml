@@ -40,7 +40,7 @@ ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # load per decision — the same cost the `AMBITION_FIGHTER_TRACE` env check it
 # replaces already paid.
 ambition_causal = { path = "../ambition_causal", optional = true }
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 ron = { workspace = true }
 serde = { workspace = true }
 

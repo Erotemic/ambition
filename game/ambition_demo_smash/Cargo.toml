@@ -14,4 +14,4 @@ serde = { workspace = true }
 # fails to compile HERE, which is the point. A game that never validates its content still must
 # not — that is why the feature exists.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }

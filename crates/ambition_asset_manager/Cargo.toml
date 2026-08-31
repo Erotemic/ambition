@@ -39,7 +39,7 @@ thiserror = { workspace = true }
 # `AssetServer`, `Handle`, `App`, `Plugin`, `Resource`. Consumers
 # already pull the larger Bevy feature set; we don't double-include
 # rendering / audio just to expose a plugin trait.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
     "bevy_state",
 ], optional = true }

@@ -170,15 +170,15 @@ ambition_causal = { path = "../../crates/ambition_causal", optional = true }
 # Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
 # + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
-bevy_common_assets = { version = "0.15", features = ["ron"] }
-bevy_yarnspinner = { version = "0.8", optional = true }
-bevy_asset_loader = { version = "0.26", optional = true }
-bevy_ecs_ldtk = { version = "0.14", optional = true }
-bevy-inspector-egui = { version = "0.36", optional = true }
-bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
-bevy_framepace = { version = "0.21", default-features = false, optional = true }
-leafwing-input-manager = { version = "0.20", optional = true }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+bevy_common_assets = { version = "0.17", features = ["ron"] }
+bevy_yarnspinner = { version = "0.9", optional = true }
+bevy_asset_loader = { version = "0.27", optional = true }
+bevy_ecs_ldtk = { version = "0.15", optional = true }
+bevy-inspector-egui = { version = "0.37", optional = true }
+bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"], optional = true }
+bevy_framepace = { version = "0.22", default-features = false, optional = true }
+leafwing-input-manager = { version = "0.21", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { workspace = true }

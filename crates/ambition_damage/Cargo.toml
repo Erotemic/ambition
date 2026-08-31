@@ -8,7 +8,7 @@ edition = "2021"
 # `ambition_mount`.
 
 [dependencies]
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

@@ -22,8 +22,8 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # composites onto the authored room (R3). Content-free vocabulary; this crate
 # depends on nothing but `engine_core` itself, so the edge stays downward.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-bevy_app = { version = "0.18.1", default-features = false }
-bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_app = { version = "0.19.1", default-features = false }
+bevy_ecs = { version = "0.19.1", default-features = false }
 petgraph = "0.8"
 ron = { workspace = true }
 serde = { workspace = true }

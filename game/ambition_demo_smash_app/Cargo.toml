@@ -41,7 +41,7 @@ capture = ["ambition_platformer2d/capture"]
 # A demo app depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 # ONE aggregated integration-test binary instead of 2. See tests/smash_it.rs.
 [[test]]

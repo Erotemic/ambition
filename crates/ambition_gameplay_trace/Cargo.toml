@@ -11,7 +11,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 # Resource derive on GameplayTraceBuffer (ECS surface only — no render/audio).
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 # Geometry (Vec2) used by the player-snapshot fields.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

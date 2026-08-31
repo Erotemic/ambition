@@ -19,7 +19,7 @@ ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 ron = { workspace = true }
 serde = { workspace = true }
 

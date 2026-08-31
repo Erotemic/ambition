@@ -12,7 +12,7 @@ crate-type = ["rlib"]
 [dependencies]
 # ⛔ NARROW ON PURPOSE. Query / Component / Commands / MessageWriter and nothing
 # else — this crate draws nothing, loads nothing and knows no content.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 # The movement kernel's body vocabulary: BodyKinematics, ActorSurfaceState,
 # BodyGroundState, CenteredAabb, and `movement::constrain_body_pose` — the
 # saddle pin is an external-constraint authority (ADR 0024), not a bare write.

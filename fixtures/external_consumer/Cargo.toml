@@ -60,12 +60,12 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
     # cost of naming the facade, so this consumer must ask for what it uses.
     "rollback",
 ] }
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 # `[patch]` DOES NOT CROSS A WORKSPACE BOUNDARY, and this fixture is its
-# own workspace. The engine's `bevy_ggrs` is a fork that backports a
-# `GgrsFrameTiming` accessor onto the v0.21.0 line, patched in at the repo root.
-# A separate workspace resolves the bare `bevy_ggrs = "0.21"` requirement from
+# own workspace. The engine pins `bevy_ggrs` to the upstream commit that merged
+# the `GgrsFrameTiming` accessor (#134), patched in at the repo root.
+# A separate workspace resolves the bare `bevy_ggrs = "0.22"` requirement from
 # crates.io instead, and the released crate has no such type — so
 # `ambition_platformer2d_rollback_ggrs`, which this consumer links through the
 # facade's `rollback` feature, fails to compile with
@@ -81,6 +81,6 @@ bevy = { version = "0.18.1", default-features = false }
 #  the patch is repeated here rather than inherited, because there is no
 # mechanism to inherit it. RETIRE this WITH the root entry, in the same change:
 # two copies of one decision are a fork, and the root's comment already names
-# the retirement condition (the accessor shipping in a released `bevy_ggrs`).
+# the retirement condition (#134 shipping in a released `bevy_ggrs`).
 [patch.crates-io]
-bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

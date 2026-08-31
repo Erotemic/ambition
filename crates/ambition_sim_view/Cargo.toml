@@ -46,6 +46,6 @@ ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_character_sprites = { path = "../ambition_character_sprites" }
 ambition_input = { path = "../ambition_input", features = ["input"] }
-leafwing-input-manager = "0.20"
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
-bevy_math = "0.18"
+leafwing-input-manager = "0.21"
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
+bevy_math = "0.19.1"

@@ -54,7 +54,7 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features 
 # source file in `src/bin/support/`. `capture` is opt-in on the harness so a test
 # or RL driver keeps paying for no renderer; a picture-taking tool asks for it.
 ambition_sim_harness = { path = "../../crates/ambition_sim_harness", features = ["capture"] }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 # `capture_scene` stages real rooms and `preview_vanity_card` plays a real shell
 # segment, so both reach the content crate directly rather than through the app.
 ambition_content = { path = "../ambition_content" }

@@ -21,7 +21,7 @@ kaleidoscope_menu = []
 # `default-features = false` is load-bearing for the WHOLE workspace: this crate
 # is a normal dep of ambition_platformer2d_actor_monolith and ambition_platformer2d_runtime, so Cargo feature
 # unification pushes whatever it asks for into every build of every app —
-# headless, web, Android, CI included. Plain `bevy = "0.18.1"` means
+# headless, web, Android, CI included. Plain `bevy = "0.19.1"` means
 # `default = [2d, 3d, ui]`, i.e. pbr/gltf/animation/audio/gilrs/hdr/ktx2/
 # reflect_auto_register/winit compiled into all of them, silently nullifying the
 # trimmed feature sets every other manifest carefully declares.
@@ -29,7 +29,7 @@ kaleidoscope_menu = []
 # crate's flat grid renderer needs (Node/Button/Interaction/Text/ImageNode)
 # WITHOUT `default_app`, which would drag in bevy_winit and force every consumer
 # to pick a windowing backend. Same choice `ambition_ui_nav` made.
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_ui",
     # `bevy_picking` (the pointer vocabulary) is needed by the ALWAYS-compiled
     # part of this crate — `ScrollbarDragState.pressed_by` is a `PointerId` in

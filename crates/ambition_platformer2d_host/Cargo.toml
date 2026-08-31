@@ -25,7 +25,7 @@ ambition_sim_view = { path = "../ambition_sim_view" }
 # existed transitively through `ambition_render`; naming it is what lets this
 # crate install the plugin rather than assume somebody else did.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-bevy = { version = "0.18.1", default-features = false, features = [
+bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
     "bevy_image",
     "bevy_input_focus",
@@ -36,7 +36,7 @@ bevy = { version = "0.18.1", default-features = false, features = [
     # is the trap this workspace has already been bitten by.
     "bevy_ui",
 ] }
-leafwing-input-manager = { version = "0.20", optional = true }
+leafwing-input-manager = { version = "0.21", optional = true }
 
 [features]
 default = []

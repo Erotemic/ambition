@@ -33,5 +33,5 @@ ambition_persistence = { path = "../ambition_persistence" }
 # ambition_platformer2d_actor_monolith's base bevy dep so feature unification stays headless.
 # `x11` only affects isolated test/check builds of this crate: `ui_api` pulls
 # winit, which needs a display backend to compile at all (mirrors ambition_audio).
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "x11"] }
-bevy_yarnspinner = { version = "0.8", optional = true }
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }
+bevy_yarnspinner = { version = "0.9", optional = true }

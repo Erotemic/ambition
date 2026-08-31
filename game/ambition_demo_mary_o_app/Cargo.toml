@@ -37,10 +37,10 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
 # manifest). The shell needs none, but `App`/`Update` come from here.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 # The windowed shell's audio face (jump SFX + music) uses the Kira backend, exactly
 # like the Sanic demo shell. Optional: the sim-only bin and exit-3 test never link it.
-bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg"], optional = true }
+bevy_kira_audio = { version = "0.26", default-features = false, features = ["ogg"], optional = true }
 
 # ONE aggregated integration-test binary instead of 11. See tests/mary_o_it.rs.
 [[test]]

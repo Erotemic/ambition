@@ -27,7 +27,7 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # ECS surface only (App / Plugin / Commands / Query / Res) — no render, no
 # windowing. The posed-body pass is a SIM system.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
 
 [dev-dependencies]
 # `DamageKind`, named by the `AttackSpec` literals in the picker's tests. A

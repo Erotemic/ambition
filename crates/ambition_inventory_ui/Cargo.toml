@@ -16,4 +16,4 @@ crate-type = ["rlib"]
 # claim is this crate's own fact, not a re-export it happens to reach.
 ambition_input = { path = "../ambition_input" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }

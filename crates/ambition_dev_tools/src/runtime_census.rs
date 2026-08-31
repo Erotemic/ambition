@@ -26,6 +26,7 @@
 use bevy::ecs::archetype::Archetypes;
 use bevy::ecs::component::Components;
 use bevy::ecs::entity::Entities;
+use bevy::ecs::resource::IsResource;
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::BodyKinematics;
@@ -140,6 +141,44 @@ pub fn advance_runtime_census(mut census: ResMut<RuntimeCensus>) {
 #[cfg(target_arch = "wasm32")]
 pub fn advance_runtime_census(_census: ResMut<RuntimeCensus>) {}
 
+/// The four entity populations the ECS census counts, as one reusable param.
+///
+/// ⛔⛔ THIS TYPE EXISTS SO THE `Without<IsResource>` CANNOT BE FORGOTTEN. Under
+/// Bevy 0.19 a resource IS an entity, so the obvious spelling of "how many
+/// entities are there" — `Query<()>` — silently answers "scene content plus
+/// every registered resource". Anything that wants a scene-entity count asks
+/// this param rather than writing its own query, and the guard test below
+/// drives THIS type rather than a hand-copied one.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct EcsPopulation<'w, 's> {
+    scene: Query<'w, 's, (), Without<IsResource>>,
+    resources: Query<'w, 's, (), With<IsResource>>,
+    bodies: Query<'w, 's, (), With<BodyKinematics>>,
+    players: Query<'w, 's, (), With<PlayerEntity>>,
+}
+
+impl EcsPopulation<'_, '_> {
+    /// Entities that are scene content: everything a resource is not.
+    pub fn scene_entities(&self) -> usize {
+        self.scene.iter().count()
+    }
+
+    /// Entities that exist only to hold a resource value.
+    pub fn resource_entities(&self) -> usize {
+        self.resources.iter().count()
+    }
+
+    /// Bodies the physics world is stepping.
+    pub fn bodies(&self) -> usize {
+        self.bodies.iter().count()
+    }
+
+    /// Bodies a seated player is driving.
+    pub fn players(&self) -> usize {
+        self.players.iter().count()
+    }
+}
+
 /// Whole-world ECS scale, and the two populations that make it grow: bodies
 /// and player bodies.
 ///
@@ -151,31 +190,40 @@ pub fn report_ecs_census(
     entities: &Entities,
     archetypes: &Archetypes,
     components: &Components,
-    bodies: Query<(), With<BodyKinematics>>,
-    players: Query<(), With<PlayerEntity>>,
-    live: Query<()>,
+    population: EcsPopulation,
 ) {
     let Some(at) = census.due() else {
         return;
     };
-    // ⛔⛔ `entities` AND `live` ARE DIFFERENT QUESTIONS, AND THE FIRST ONE
-    // MISLEADS. `Entities::len()` counts ALLOCATED entity slots, which land on
-    // round powers of two — measured 2026-08-29, four structurally different
-    // rooms all reported exactly 2048 or exactly 4096 while their real content
-    // (`Transform` 703 vs 1379) was nothing like a power of two. Three separate
-    // entries in the performance notebook quote a "2048-entity" scene that does
-    // not exist. `live` iterates, so it is the number of entities that are
-    // actually there. ⇒ READ `live`; `entities` is kept only because their
-    // DIFFERENCE is the reservation slack, and a large gap is itself a finding.
+    // ⛔⛔ `entities`, `live` AND `resources` ARE THREE DIFFERENT QUESTIONS, AND
+    // THE FIRST ONE MISLEADS. `Entities::len()` counts ALLOCATED entity slots,
+    // which land on round powers of two — measured 2026-08-29, four
+    // structurally different rooms all reported exactly 2048 or exactly 4096
+    // while their real content (`Transform` 703 vs 1379) was nothing like a
+    // power of two. Three separate entries in the performance notebook quote a
+    // "2048-entity" scene that does not exist. `live` iterates, so it is the
+    // number of entities that are actually there.
+    //
+    // ⛔⛔ AND SINCE BEVY 0.19 "ACTUALLY THERE" NEEDS `Without<IsResource>`.
+    // Resources became components on singleton entities, so an unfiltered
+    // `Query<()>` counts every registered resource as scene content — a bare
+    // App reads 16 before anything is spawned, and a full session's resource
+    // count is in the hundreds. That is a constant offset, which is the worst
+    // kind: it never looks like a bug, it just makes every scene bigger than it
+    // is. `resources` is reported BESIDE `live` rather than folded into it
+    // because the count is real engine population — it is simply not scene.
+    // ⇒ READ `live`; `entities - live - resources` is the reservation slack,
+    // and a large gap is itself a finding.
     eprintln!(
-        "[census] ecs t={at:.3} entities={} live={} archetypes={} components={} bodies={} \
-         players={}",
+        "[census] ecs t={at:.3} entities={} live={} resources={} archetypes={} components={} \
+         bodies={} players={}",
         entities.len(),
-        live.iter().count(),
+        population.scene_entities(),
+        population.resource_entities(),
         archetypes.len(),
         components.len(),
-        bodies.iter().count(),
-        players.iter().count(),
+        population.bodies(),
+        population.players(),
     );
 }
 
@@ -1112,6 +1160,69 @@ impl Plugin for RuntimeCensusPlugin {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// The scene count must not move when a RESOURCE is added.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS SHIPPED. Until 2026-08-31 this census read an
+    /// unfiltered `Query<()>` and called the answer "the number of entities
+    /// that are actually there". Under Bevy 0.18 that was true. Under 0.19 a
+    /// resource is an entity, so the row reported scene content plus every
+    /// registered resource — a constant, invisible inflation of every
+    /// performance note taken from it.
+    ///
+    /// The two arms are what make this a measurement rather than an assertion:
+    /// spawning a resource must move `resource_entities` and must NOT move
+    /// `scene_entities`, and spawning an ordinary entity must do the opposite.
+    /// A test that only checked the first would pass against a query that
+    /// counted nothing at all.
+    #[test]
+    fn a_resource_is_not_scene_content() {
+        #[derive(Resource, Default)]
+        struct OnlyForThisTest;
+
+        fn sample(population: EcsPopulation, mut out: ResMut<Sampled>) {
+            out.0 = (population.scene_entities(), population.resource_entities());
+        }
+
+        #[derive(Resource, Default)]
+        struct Sampled((usize, usize));
+
+        let mut app = App::new();
+        app.init_resource::<Sampled>();
+        app.add_systems(Update, sample);
+        app.update();
+        let (scene_before, resources_before) = app.world().resource::<Sampled>().0;
+
+        // A RESOURCE: `resources` moves, `scene` does not.
+        app.init_resource::<OnlyForThisTest>();
+        app.update();
+        let (scene_after_resource, resources_after_resource) = app.world().resource::<Sampled>().0;
+        assert_eq!(
+            scene_after_resource, scene_before,
+            "a resource is not scene content, but the scene count moved \
+             {scene_before} -> {scene_after_resource}"
+        );
+        assert_eq!(
+            resources_after_resource,
+            resources_before + 1,
+            "the resource population must see the resource this test just added"
+        );
+
+        // AN ENTITY: `scene` moves, `resources` does not. Without this arm a
+        // query matching nothing would pass the assertion above.
+        app.world_mut().spawn_empty();
+        app.update();
+        let (scene_after_entity, resources_after_entity) = app.world().resource::<Sampled>().0;
+        assert_eq!(
+            scene_after_entity,
+            scene_after_resource + 1,
+            "the scene population must see the entity this test just spawned"
+        );
+        assert_eq!(
+            resources_after_entity, resources_after_resource,
+            "an ordinary entity is not a resource"
+        );
+    }
 
     #[test]
     fn the_gate_is_off_without_the_environment_variable() {

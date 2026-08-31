@@ -119,7 +119,7 @@ render_targets schedules sim_phases views
 |---|---|---|
 | `phases_trust` / `phases_warning` | **`phases_trust`** on a windowless run | `phases_warning` ⇒ a render backend exists and PHASE SPLITS ARE INVALID |
 | `measured_window_live_cast=` | **100%** at `--ticks 3000` | below 95% ⇒ the run outlived the match; means are dragged down and rates diluted |
-| `live=` beside `entities=` | tracks real population (~1300 in a match) | ⛔ `entities=` alone is ALLOCATED SLOTS and lands on powers of two — READ `live` |
+| `live=` beside `entities=` and `resources=` | tracks real population (~1300 in a match) | ⛔ `entities=` alone is ALLOCATED SLOTS and lands on powers of two — READ `live`. Since Bevy 0.19 a RESOURCE IS AN ENTITY too, so `resources=` is split out and `live=` excludes it; a pre-0.19 note quoting `live` includes the resource singletons |
 | `ROSTER MISMATCH` / `POPULATION CHANGED` | **absent** | present ⇒ the roster is not what you asked for, or the cast changed mid-measurement; arms are not comparable |
 
 ⛔ `unavailable=<reason>` on any row means that instrument could not answer —
@@ -276,7 +276,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
-[census] ecs            t=12.000 entities=8123 archetypes=412 components=1904 bodies=7 players=1
+[census] ecs            t=12.000 entities=8123 live=1312 resources=407 archetypes=412 components=1904 bodies=7 players=1
 [census] schedules      t=12.000 schedules=14 systems=1183 Update=822 PostUpdate=15 PreUpdate=9 StateTransition=8 First=4
 [census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
 [census] camera         t=12.000 entity=64v1 role=main_gameplay active=true target=primary_window size=1920x1080 viewport=full order=0 layers=0 presents_view= name="Main Camera"

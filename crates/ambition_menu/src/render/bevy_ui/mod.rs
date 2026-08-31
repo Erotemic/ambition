@@ -774,7 +774,11 @@ pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
 where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
-    install_bevy_ui_menu_text_scaling(app);
+    // ⭐ NO TEXT-SIZE INSTALLER. Menu text sizes are authored as a percentage
+    // of viewport height and spawned as `FontSize::Vh`, which the engine
+    // resolves against the live UI render target; the seam a host used to have
+    // to remember (and whose omission was invisible until somebody resized a
+    // window) no longer exists.
     install_bevy_ui_menu_restyle(app);
     app.add_message::<crate::MenuActionActivated<Action>>()
         .add_message::<crate::MenuActionPreviewed<Action>>()
@@ -851,32 +855,6 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
     }
 }
 
-/// Convert menu text height fractions to pixel font sizes. This runs in
-/// `PostUpdate` before [`UiSystems::Content`] so newly rebuilt text is corrected
-/// before layout/measurement and never presents a reference-size frame. Without
-/// a primary window, the reference viewport height is used.
-pub fn resolve_menu_text_size(
-    windows: Query<&bevy::window::Window, With<bevy::window::PrimaryWindow>>,
-    mut text: Query<(&crate::MenuTextHeightFraction, &mut TextFont)>,
-) {
-    let height = windows
-        .iter()
-        .next()
-        .map(|window| window.resolution.height())
-        .filter(|height| *height > 0.0)
-        .unwrap_or(crate::MENU_REFERENCE_VIEWPORT_HEIGHT);
-
-    for (fraction, mut font) in &mut text {
-        let pixels = fraction.pixels_at(height);
-        // Read-compare-write: a `Mut` deref marks the component changed for the
-        // rest of the frame, so the no-op case must not touch it. This system is
-        // the only writer of these sizes, so every value it finds is a `Px`.
-        if !matches!(font.font_size, FontSize::Px(px) if (px - pixels).abs() <= f32::EPSILON) {
-            font.font_size = FontSize::Px(pixels);
-        }
-    }
-}
-
 /// Install pointer/touch activation for the flat renderer's tab buttons.
 ///
 /// This is separate from [`install_bevy_ui_menu_actions`] because an App may
@@ -886,32 +864,6 @@ pub fn install_bevy_ui_menu_tabs(app: &mut App) {
     app.add_message::<crate::MenuTabActivated>().add_systems(
         Update,
         publish_bevy_ui_menu_tabs.in_set(BevyUiMenuInteractionSet),
-    );
-}
-
-/// Marker for "this App already resolves menu text sizes".
-#[derive(bevy::prelude::Resource, Default)]
-struct MenuTextScalingInstalled;
-
-/// Install the text-size resolver, once per App.
-///
-/// Called from [`install_bevy_ui_menu_actions`] rather than left for hosts to
-/// remember, because forgetting it is silent: every menu renders at the
-/// reference size and looks fine at 1080p. A seam whose omission is invisible
-/// until somebody resizes a window is a seam that will be omitted.
-///
-/// It must run exactly once however many action types an App renders, and
-/// `add_systems` does not dedupe — hence the marker rather than a comment
-/// asking callers to be careful.
-pub fn install_bevy_ui_menu_text_scaling(app: &mut App) {
-    if app.world().contains_resource::<MenuTextScalingInstalled>() {
-        return;
-    }
-    app.init_resource::<MenuTextScalingInstalled>().add_systems(
-        bevy::prelude::PostUpdate,
-        // See `resolve_menu_text_size` for why the schedule is load-bearing. Ordering against a
-        // set no plugin populated (a headless App without `UiPlugin`) is a no-op, not an error.
-        resolve_menu_text_size.before(bevy::ui::UiSystems::Content),
     );
 }
 

@@ -746,18 +746,17 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// and it may never identify a text node by its STRING alone.
 /// `"Ambition"` is on this screen TWICE and always was: it is the title of the
 /// launcher AND the label of the first game in the roster, which is the game
-/// called Ambition. The title is a `MenuNode::Text` (60.5px, carries
-/// [`MenuTextHeightFraction`]); the row label is a control's child (20.0px,
-/// Bevy's `TextFont` default, no fraction — `spawn_control` sets the font HANDLE
-/// and nothing else). A global `find(label == "Ambition")` therefore returns
-/// whichever of the two the query's archetype order reaches first, which is not
-/// a property of the launcher at all — display text is not identity.
-///
-/// [`MenuTextHeightFraction`]: ambition_platformer2d::menu::MenuTextHeightFraction
+/// called Ambition. The title is a `MenuNode::Text`, authored as a PERCENTAGE
+/// of viewport height and spawned as `FontSize::Vh`; the row label is a
+/// control's child (Bevy's `TextFont` default, `FontSize::Px(20.0)` —
+/// `spawn_control` sets the font HANDLE and nothing else). A global
+/// `find(label == "Ambition")` therefore returns whichever of the two the
+/// query's archetype order reaches first, which is not a property of the
+/// launcher at all — display text is not identity. THE UNIT IS THE ROLE: a
+/// `Vh` size is one of the menu's own typographic nodes, a `Px` one is a
+/// control's label.
 #[test]
 fn the_title_screen_says_choose_game_and_is_readable() {
-    use ambition_platformer2d::menu::MenuTextHeightFraction;
-
     let mut app = rendered_app();
     settle(&mut app);
 
@@ -790,13 +789,11 @@ fn the_title_screen_says_choose_game_and_is_readable() {
         false
     };
 
-    let mut texts = app
-        .world_mut()
-        .query::<(Entity, &Text, &TextFont, Option<&MenuTextHeightFraction>)>();
-    let rendered: Vec<(String, FontSize, bool)> = texts
+    let mut texts = app.world_mut().query::<(Entity, &Text, &TextFont)>();
+    let rendered: Vec<(String, FontSize)> = texts
         .iter(app.world())
         .filter(|(entity, ..)| under_launcher(*entity))
-        .map(|(_, text, font, fraction)| (text.0.clone(), font.font_size, fraction.is_some()))
+        .map(|(_, text, font)| (text.0.clone(), font.font_size))
         .collect();
     assert!(
         !rendered.is_empty(),
@@ -805,14 +802,24 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 
     assert!(
-        rendered.iter().any(|(label, ..)| label == "Choose Game"),
+        rendered.iter().any(|(label, _)| label == "Choose Game"),
         "the game-select screen still heads itself with a verb: {:?}",
-        rendered.iter().map(|(l, ..)| l).collect::<Vec<_>>()
+        rendered.iter().map(|(l, _)| l).collect::<Vec<_>>()
     );
     assert!(
-        !rendered.iter().any(|(label, ..)| label == "Play"),
+        !rendered.iter().any(|(label, _)| label == "Play"),
         "'Play' is still on the select screen; it belongs on the confirm button"
     );
+
+    // ⛔ THE VIEWPORT IS STATED HERE, BY THIS TEST, and it has to be: this
+    // harness is `VisibleRenderMode::NoWindow`, which composes no window and no
+    // render app at all, so the UI render target measures 0x0 and `Vh` resolves
+    // to nothing. 1080 is the height the launcher's sizes were eyeballed at, so
+    // it is the number that makes the assertions below mean what their authors
+    // intended. It is a TEST's reference frame, not the engine's: a real build
+    // resolves against the live UI target.
+    const REFERENCE_VIEWPORT: bevy::math::Vec2 = bevy::math::Vec2::new(1920.0, 1080.0);
+    let rem = app.world().resource::<bevy::text::RemSize>().0;
 
     // Assert the LAUNCHER's own text roles by role, not a global min/max over every text node.
     //
@@ -821,8 +828,13 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     let typography_sized = |matches: &dyn Fn(&str) -> bool, wanted: &str| -> f32 {
         let hits: Vec<FontSize> = rendered
             .iter()
-            .filter(|(label, _, has_fraction)| *has_fraction && matches(label))
-            .map(|(_, size, _)| *size)
+            // "NOT Px", not "is Vh": a control's label is Bevy's `TextFont`
+            // default, `FontSize::Px(20.0)`, and the menu's own typographic
+            // nodes are the ones authored in a viewport unit. Asking for `Vh`
+            // by name would let a wrong axis leave the population silently
+            // rather than fail on its resolved size.
+            .filter(|(label, size)| !matches!(size, FontSize::Px(_)) && matches(label))
+            .map(|(_, size)| *size)
             .collect();
         assert_eq!(
             hits.len(),
@@ -831,13 +843,10 @@ fn the_title_screen_says_choose_game_and_is_readable() {
              {}: {rendered:?}",
             hits.len()
         );
-        // The assertions below are about a NUMBER of pixels. `resolve_menu_text_size`
-        // converts the authored height fraction against the live window and writes
-        // pixels, so anything else here means that conversion stopped happening.
-        match hits[0] {
-            FontSize::Px(px) => px,
-            other => panic!("{wanted} was sized in {other:?}, not resolved pixels"),
-        }
+        // Resolved through the engine's own `eval` — the same call Bevy's text
+        // pipeline makes — so what this asserts is the number of pixels a player
+        // on a 1080-tall display sees, not the authored percentage.
+        hits[0].eval(REFERENCE_VIEWPORT, rem)
     };
 
     // The title. It rendered at FIVE PIXELS, and the cause was not the launcher:
@@ -846,8 +855,8 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     // Lunex's `Rh` (percent of height); `bevy_ui` assigned it to
     // `TextFont::font_size` (pixels). Every call site in the tree was authored
     // as a percentage, so every heading the flat renderer drew was two to five
-    // pixels tall. `MenuTextHeightFraction` makes the percentage the meaning and
-    // `resolve_menu_text_size` converts it against the live window.
+    // pixels tall. `FontSize::Vh` is that percentage, spelled in the engine's
+    // own vocabulary, so there is no longer a conversion to get wrong.
     let title = typography_sized(&|label| label == "Ambition", "the title");
     assert!(
         title >= 32.0,

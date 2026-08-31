@@ -610,51 +610,110 @@ fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
     assert_eq!(left.left, Val::Percent(12.0));
 }
 
-/// The size a menu is SPAWNED at is never the size it is presented at, and
-/// the gap has to close inside one frame.
+/// The authored percentage reaches the engine as a VIEWPORT unit, and follows
+/// the viewport when it changes.
 ///
-/// This asserts the closing, not the schedule: one update, spawned and
-/// corrected, whatever set it ends up in.
+/// ⛔⛔ THE DEFECT THIS DESCENDS FROM RENDERED THE LAUNCHER TITLE FIVE PIXELS
+/// TALL. `MenuNode::Text`'s `size` is a percentage of viewport height; this
+/// backend once assigned it straight to `TextFont::font_size`, which is pixels.
+/// The repair was a `MenuTextHeightFraction` component plus a `PostUpdate`
+/// system that converted it against the primary window every frame. Bevy 0.19's
+/// `FontSize::Vh` IS that unit, so the component, the conversion pass, the
+/// once-only installer, its marker resource and the schedule constraint are all
+/// gone — and this test is what keeps the meaning after them.
+///
+/// ⭐ IT RUNS NO SYSTEM OF OURS. The only Ambition code exercised is the spawn;
+/// the resolution is `ComputedUiRenderTargetInfo` propagated by Bevy's own
+/// `propagate_ui_target_cameras` and `FontSize::eval`, which is the call Bevy's
+/// text pipeline makes. If that pairing ever stops meaning "percent of the UI
+/// target's height", this fails.
+///
+/// ⭐ AND IT MEASURES TWICE. One viewport proves the arithmetic; a SECOND,
+/// taller one proves the size actually tracks the target rather than having
+/// been baked at spawn — which is the whole reason the unit is a percentage.
 #[test]
-fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
+fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
+    use bevy::camera::{Camera, ComputedCameraValues, RenderTargetInfo};
     use bevy::prelude::*;
-    use bevy::window::{PrimaryWindow, Window, WindowResolution};
+    use bevy::ui::{IsDefaultUiCamera, UiScale};
 
-    const WINDOW_HEIGHT: f32 = 720.0;
-    let fraction = crate::MenuTextHeightFraction(5.0);
+    /// The authored size of the sample page's one `MenuNode::Text`.
+    const AUTHORED_PERCENT: f32 = 5.0;
 
-    let mut app = App::new();
-    install_bevy_ui_menu_text_scaling(&mut app);
-    app.world_mut().spawn((
-        Window {
-            resolution: WindowResolution::new(1280, WINDOW_HEIGHT as u32),
+    // A UI camera whose render target is a stated size, with no window and no
+    // render app: `ComputedCameraValues` is public precisely so a headless test
+    // can state one. This mirrors `bevy_ui`'s own `propagate_ui_target_cameras`
+    // tests.
+    fn target(app: &mut App, camera: Entity, physical_height: u32) {
+        app.world_mut()
+            .entity_mut(camera)
+            .get_mut::<Camera>()
+            .expect("the camera keeps its Camera component")
+            .computed = ComputedCameraValues {
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(1920, physical_height),
+                scale_factor: 1.0,
+            }),
             ..default()
-        },
-        PrimaryWindow,
+        };
+    }
+
+    fn text_sizes(app: &mut App) -> Vec<f32> {
+        let rem = app.world().resource::<bevy::text::RemSize>().0;
+        let mut query = app
+            .world_mut()
+            .query::<(&TextFont, &bevy::ui::ComputedUiRenderTargetInfo)>();
+        query
+            .iter(app.world())
+            // ⛔ "NOT Px", not "is Vh". A control's label carries Bevy's
+            // `TextFont` default, `FontSize::Px(20.0)`; the menu's own
+            // typographic nodes are the ones authored in a viewport unit. Asking
+            // for `Vh` specifically would make a WRONG AXIS (`Vw`) vanish from
+            // the population instead of failing on its value.
+            .filter(|(font, _)| !matches!(font.font_size, FontSize::Px(_)))
+            .map(|(font, target)| font.font_size.eval(target.logical_size(), rem))
+            .collect()
+    }
+
+    let mut app = build_app();
+    app.add_plugins((
+        bevy::asset::AssetPlugin::default(),
+        bevy::image::ImagePlugin::default(),
+        // `UiPlugin` schedules `ui_focus_system`, which reads mouse buttons.
+        bevy::input::InputPlugin,
+        // ... and, under this crate's `bevy_picking` feature, `UiPickingPlugin`.
+        bevy::picking::PickingPlugin,
+        bevy::picking::input::PointerInputPlugin,
+        bevy::window::WindowPlugin::default(),
+        bevy::text::TextPlugin,
+        bevy::ui::UiPlugin::default(),
     ));
-    // Spawned from a system, in `Update`, exactly like every real menu rebuild:
-    // the entity does not exist until this frame's commands are applied.
-    app.add_systems(Update, move |mut commands: Commands| {
-        commands.spawn((
-            Text::new("Ambition"),
-            TextFont {
-                font_size: FontSize::Px(fraction.reference_pixels()),
-                ..default()
-            },
-            fraction,
-        ));
-    });
+    app.init_resource::<UiScale>();
+    // `update_image_content_size_system` reads it; no plugin here registers it.
+    app.init_asset::<bevy::image::TextureAtlasLayout>();
+    let camera = app.world_mut().spawn((Camera2d, IsDefaultUiCamera)).id();
 
+    // The real spawn path, exactly as every other test in this file uses it.
+    spawn_view(&mut app, 0, None);
+
+    target(&mut app, camera, 1080);
     app.update();
-
-    let mut query = app.world_mut().query::<&TextFont>();
-    let sizes: Vec<FontSize> = query.iter(app.world()).map(|font| font.font_size).collect();
     assert_eq!(
-        sizes,
-        vec![FontSize::Px(fraction.pixels_at(WINDOW_HEIGHT))],
-        "the node still carries its {:.1}px reference size at the end of the frame \
-         it was spawned in — that size is what the player sees flash",
-        fraction.reference_pixels(),
+        text_sizes(&mut app),
+        vec![AUTHORED_PERCENT / 100.0 * 1080.0],
+        "the sample page's one text node is authored at {AUTHORED_PERCENT}% of \
+         viewport height, so on a 1080-tall target it must resolve to {:.1}px",
+        AUTHORED_PERCENT / 100.0 * 1080.0
+    );
+
+    // The SECOND viewport. Nothing respawns; only the target changes.
+    target(&mut app, camera, 2160);
+    app.update();
+    assert_eq!(
+        text_sizes(&mut app),
+        vec![AUTHORED_PERCENT / 100.0 * 2160.0],
+        "the size did not follow the viewport, which is the only reason the \
+         authored unit is a percentage rather than a number of pixels"
     );
 }
 

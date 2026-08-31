@@ -471,7 +471,39 @@ Labels should remain associated with their boxes and remain readable.
 
 ---
 
-# C. Delete `MenuTextHeightFraction`
+# C. Delete `MenuTextHeightFraction`  ✔ DONE 2026-08-31
+
+Landed. `MenuNode::Text`/`DynamicText`'s `size` is spawned as `FontSize::Vh`
+directly, and the unit is now documented on the FIELD — the place the original
+five-pixel bug came from having no documented unit at all. Deleted:
+`MenuTextHeightFraction`, `MENU_REFERENCE_VIEWPORT_HEIGHT`,
+`resolve_menu_text_size`, `install_bevy_ui_menu_text_scaling`, its
+`MenuTextScalingInstalled` marker, the `before(UiSystems::Content)` constraint
+that existed only for it, and the three unit tests of the conversion arithmetic.
+
+⭐ THE ENGINE RESOLVES AGAINST THE UI RENDER TARGET, NOT THE PRIMARY WINDOW, and
+for Ambition those are the same thing: menu UI resolves to the order-9
+`FrontHudCamera` (`IsDefaultUiCamera`), which carries no viewport override.
+Split-screen viewports are set on the GAMEPLAY cameras only. Verified by reading
+`host_presentation_scaffold` and `gameplay_presentation`.
+
+⛔ ONE BEHAVIOUR DID CHANGE, and it only ever affected tests: with no window the
+old system fell back to a 1080 reference height, so a windowless composition drew
+legible text. `Vh` against a 0x0 target is 0px, which Bevy warns about and skips.
+`VisibleRenderMode::NoWindow` composes no window AND no render app, so nothing
+was being presented there anyway — measured, every UI target in that harness
+reads 0x0. The launcher legibility test now states its own reference viewport
+and resolves through `FontSize::eval`, which is the call Bevy's text pipeline
+makes.
+
+The acceptance test (`menu_text_is_sized_as_a_percentage_of_the_live_viewport`)
+compares TWO viewport heights and runs no system of Ambition's own. Poisoning the
+spawn back to `Px` fails it; poisoning it to the wrong axis (`Vw`) fails it on
+the value, because the role filter asks for "not `Px`" rather than "is `Vh`".
+
+---
+
+## Original plan
 
 This is the cleanest non-diagnostic 0.19 cleanup.
 
@@ -507,7 +539,28 @@ Acceptance should compare at multiple window sizes and prove the menu scales as 
 
 ---
 
-# D. Harden resources-as-components semantics
+# D. Harden resources-as-components semantics  ✔ DONE 2026-08-31 (the census; the campaign's broader sweep stands)
+
+The `runtime_census` defect is fixed. The four populations moved behind one
+`EcsPopulation` system param so the `Without<IsResource>` cannot be forgotten by
+the next reader who wants an entity count, and `resources=` is reported BESIDE
+`live=` rather than folded into it. The regression the section asks for exists
+and has both arms — adding a resource must move `resources` and not `live`, and
+spawning an entity must do the opposite — and is poison-verified.
+
+The sweep found no second production defect: the four other `Query<()>` and the
+one `Query<Entity>` in the tree are all `get(known_entity)` existence checks,
+where a resource entity can never be the argument. The one `entities().len()`
+use in a test is a before/after delta, which a constant offset cancels.
+
+⛔ NO GREP PROHIBITION WAS ADDED, per this section's own last line: the five
+legitimate uses would each need a waiver, and the discriminator that actually
+matters is not the query TYPE but whether it is ITERATED. `EcsPopulation` is the
+semantic pin instead.
+
+---
+
+## Original plan
 
 Bevy 0.19 makes resources components stored on singleton resource entities.
 
@@ -785,9 +838,9 @@ Complete:
 
 Complete:
 
-* `MenuTextHeightFraction` → `FontSize::Vh`;
-* no-op screen-effects pass avoided if practical;
-* render recovery installed.
+* ✔ `MenuTextHeightFraction` → `FontSize::Vh` (2026-08-31);
+* ▢ no-op screen-effects pass avoided if practical;
+* ▢ render recovery installed.
 
 ## Checkpoint 5 — persistence decision
 
@@ -900,7 +953,7 @@ game/ambition_app/src/dev/debug_overlay.rs
 game/ambition_app/src/dev/debug_overlay/prims.rs
     font-dependent debug-label presentation
 
-ambition_menu
+ambition_menu                                   ✔ REMOVED 2026-08-31
     MenuTextHeightFraction
     viewport-height -> pixel conversion system
 ```

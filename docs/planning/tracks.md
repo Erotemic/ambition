@@ -184,13 +184,15 @@ are the remaining 0.19 capabilities worth Ambition's attention, most valuable
 first. ⛔ None is a reason on its own to reopen a subsystem — each names the
 Ambition pain it would remove.
 
-- ▢ **`FontSize::Vh` for the menu height fractions.** `MenuTextHeightFraction`
-  exists because `MenuNode::Text` sizes are authored as a PERCENTAGE OF VIEWPORT
-  HEIGHT, and a per-frame system converts each against the live window and writes
-  `TextFont`. 0.19's `FontSize::Vh` is that unit natively, which deletes the
-  conversion pass, the resize race and the "which unit is this?" ambiguity that
-  once drew the launcher title five pixels tall. Highest-value because it removes
-  a whole custom mechanism, not because it adds one.
+- ✔ **`FontSize::Vh` for the menu height fractions.** DONE 2026-08-31 (campaign
+  section C). `MenuTextHeightFraction`, its per-frame conversion system, the
+  once-only installer and its marker resource are deleted; `MenuNode::Text`'s
+  `size` is spawned straight as `FontSize::Vh` and the unit is documented on the
+  field itself. The engine resolves against the UI render target, which for
+  Ambition is the order-9 default UI camera with no viewport override — i.e. the
+  window, exactly what the deleted system read.
+- ✔ **The ECS census counted resources as scene content.** DONE 2026-08-31
+  (campaign section D). See `runtime_census::EcsPopulation`.
 - ▢ **Text gizmos for developer ASCII overlays.** 0.19 ships debug text gizmos on
   a stroke font. Several dev overlays (`fps_overlay`, `gamepad_probe`,
   `rollback_observatory`, `debug_overlay`) draw ASCII only and currently pull the

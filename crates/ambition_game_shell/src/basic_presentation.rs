@@ -484,9 +484,10 @@ fn spawn_launcher_menu(
         MenuColor::rgba(0.015, 0.020, 0.055, 0.98),
     );
     // Sizes are PERCENTAGES OF VIEWPORT HEIGHT, like the `x`/`y` beside them —
-    // see `MenuTextHeightFraction`. These three were always authored that way
-    // and were always right; the `bevy_ui` backend was reading them as pixels
-    // and drawing this title FIVE PIXELS tall.
+    // see `MenuNode::Text`. These three were always authored that way and were
+    // always right; the `bevy_ui` backend was reading them as pixels and
+    // drawing this title FIVE PIXELS tall. It now spawns them as
+    // `FontSize::Vh`, which is that unit, so the engine resolves them.
     page.text(
         50.0,
         8.0,

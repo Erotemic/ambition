@@ -433,8 +433,8 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     // No UI-widget-framework plugin is installed here, and there is no `add_ui_plugins` to
-    // call. This app's UI is plain Bevy UI plus the typography Ambition owns (`MenuFont`,
-    // `MenuTextHeightFraction`, `resolve_menu_text_size`). See the note on the `ui` feature in
+    // call. This app's UI is plain Bevy UI plus the typography Ambition owns (`MenuFont`, and
+    // menu text sizes authored as `FontSize::Vh`). See the note on the `ui` feature in
     // `Cargo.toml` for what that feature still buys. Input bindings/bridge live in
     // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5). The engine owns it
     // now: `sync_primary_recipe_from_settings` + `ambition_input::rebuild_maps_from_recipes` in
@@ -759,8 +759,8 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
 // Ambition's UI is plain Bevy UI, and no widget framework is installed here.
-// Typography is owned by `ambition_menu` — `MenuFont`,
-// `MenuTextHeightFraction`, `resolve_menu_text_size`.
+// Typography is owned by `ambition_menu` — `MenuFont`, and menu text sizes
+// authored as a percentage of viewport height and spawned as `FontSize::Vh`.
 //
 // The leafwing input bindings + the device→ControlFrame bridge live in
 // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5); the dev

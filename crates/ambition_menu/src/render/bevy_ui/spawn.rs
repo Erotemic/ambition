@@ -43,13 +43,12 @@ pub(super) fn spawn_node<Action>(
                 Text::new(text.clone()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: FontSize::Px(
-                        crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    ),
+                    // ⭐ `MenuNode::Text`'s `size` IS A PERCENTAGE OF VIEWPORT
+                    // HEIGHT, and `Vh` is that unit — see `MenuNode::Text`.
+                    font_size: FontSize::Vh(*size),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
-                crate::MenuTextHeightFraction(*size),
                 TextLayout::justify(to_justify(*align)),
                 ZIndex(LAYER_TEXT),
                 Name::new("text"),
@@ -70,13 +69,12 @@ pub(super) fn spawn_node<Action>(
                 Text::new(String::new()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: FontSize::Px(
-                        crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    ),
+                    // ⭐ `MenuNode::Text`'s `size` IS A PERCENTAGE OF VIEWPORT
+                    // HEIGHT, and `Vh` is that unit — see `MenuNode::Text`.
+                    font_size: FontSize::Vh(*size),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
-                crate::MenuTextHeightFraction(*size),
                 TextLayout::justify(to_justify(*align)),
                 crate::MenuDynamicText { slot: *slot },
                 crate::MenuDynamicTextContent(String::new()),

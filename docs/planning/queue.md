@@ -744,9 +744,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `MovePlayback("jab")` with a fresh one in the SAME update reports
   `accepted: false`. The runtime supports exactly that
   (`moveset/tests.rs` pins the clock reset), and the report's own fixture forces
-  `jab → None → jab`, so it never tests the real case. ⇒ publish a monotonic
-  per-body playback GENERATION from runtime observation; never infer instance
-  boundaries from a textual move id.
+  `jab → None → jab`, so it never tests the real case.
+  ⛔⛔ AND THE SAME DEFECT IS ONE LAYER DOWN, WHICH THE REVIEW DID NOT REACH —
+  found here 2026-08-31 while costing the fix. `ticks_of(move, start)` scopes an
+  instance by walking until the id CHANGES, so a gapless `jab → jab` gives ONE
+  window spanning both, and the first instance's contact is credited to the
+  second. Its own comment claims otherwise in as many words: *"NOT 'every tick
+  with this id'. A jab chained into a jab shares an id, and scoping by id alone
+  would credit the first instance's contact to the second."* It only avoids that
+  when there is a gap. ⇒ `live_ticks`, `contact_ticks` and `reaches` all inherit
+  it, so `first_contact_tick` and `aabb_bounds_reached_target` for B are wrong in
+  the same case, not just `accepted`.
+  ⇒ ONE FIX SERVES BOTH: publish a monotonic playback INSTANCE from runtime
+  observation and never infer boundaries from a textual move id.
+  ⚠ COSTED HERE: `MovePlayback` gains an `instance: u32` set from the playback it
+  REPLACES (no new counter component — the site that inserts the new playback can
+  read the old one), `CombatMoveView` exposes it, the recorder records it, and
+  the report scopes on it. `MovePlayback` is checksum-projected, so this is a
+  schema bump. ⛔ do NOT derive the instance from `elapsed_s` going backwards: a
+  looping move's clock does that too, and the report would split one instance in
+  half every lap.
 
 - ◐ **D-REPORT-GEOMETRY — the TANGENT RULE and the NAMES are fixed; the exact
   geometry is still owed.** ⭐ GPT review 2026-08-31, REPRODUCED: two boxes whose

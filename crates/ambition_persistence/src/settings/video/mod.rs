@@ -624,9 +624,12 @@ pub struct VideoSettings {
     pub colorblind: ColorblindMode,
     /// Whether the FPS / frame-time overlay is shown. ON by default
     /// on every platform — useful for diagnosing perf issues across
-    /// browser and desktop. Toggle via the Video page or `F3`. The
-    /// overlay is wired by `crate::dev::fps_overlay::FpsOverlayPlugin`,
-    /// which mirrors this flag into `FpsOverlayState::visible`.
+    /// browser and desktop. Toggle via the Video page or `F6`.
+    ///
+    /// ⭐ THIS FLAG IS THE OVERLAY'S ONLY AUTHORITY. The app wires it in
+    /// `dev::fps_overlay`, which drives Bevy's own `FpsOverlayPlugin` directly
+    /// from this value; there is no second visibility flag to keep in step. The
+    /// hotkey writes HERE rather than to the overlay, so a toggle persists.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,
     /// Frame-rate cap (battery saver). `Auto` paces to the display refresh; the

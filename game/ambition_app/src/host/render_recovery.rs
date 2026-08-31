@@ -41,6 +41,36 @@ pub const MAX_DEVICE_LOST_RECOVERIES: u32 = 2;
 pub struct RenderRecoveryLedger {
     /// Device-loss recoveries attempted so far in this run.
     pub device_lost_recoveries: u32,
+    /// The category this host has already declared TERMINAL and said so about.
+    ///
+    /// ⛔⛔ WITHOUT THIS, A TERMINAL ERROR IS AN INFINITE LOG. Bevy's
+    /// `RenderErrorPolicy::StopRendering` is documented to KEEP THE ERROR STATE
+    /// and "continue polling the `RenderErrorHandler` every frame until some
+    /// other policy is returned" — and a terminal decision by definition never
+    /// returns another policy. So `decide` is called again on the next frame,
+    /// and the next, with the same preserved error; every side effect it
+    /// performs (an `error!` line, an `AppExit` message) repeats at frame rate
+    /// for as long as the process lives.
+    ///
+    /// ⭐ KEYED ON THE CATEGORY, NOT A BARE `bool`. Being re-polled with the
+    /// SAME error is the noise; a genuinely DIFFERENT category arriving after a
+    /// stop is news, and gets its one line.
+    pub terminal_reported: Option<ErrorType>,
+}
+
+impl RenderRecoveryLedger {
+    /// Is this terminal error NEW news, or the same one being re-polled?
+    ///
+    /// Pure, and separate from [`decide`], for the same reason [`response_for`]
+    /// is: the defect it guards is about being called twice, and a test should
+    /// be able to call it twice without a GPU.
+    fn take_terminal_report(&mut self, error: ErrorType) -> bool {
+        if self.terminal_reported == Some(error) {
+            return false;
+        }
+        self.terminal_reported = Some(error);
+        true
+    }
 }
 
 /// Install Ambition's render-error policy.
@@ -98,6 +128,18 @@ pub fn response_for(error: ErrorType, recoveries_so_far: u32) -> RenderResponse 
     }
 }
 
+/// Is this the FIRST poll that has reported this terminal category?
+///
+/// ⛔ A HOST WITH NO LEDGER STILL REPORTS. `install_render_recovery` always
+/// inserts one, so this is unreachable in the shipped app; if it ever is
+/// reachable, a terminal failure that says nothing is the worse of the two
+/// failures, so the missing-ledger case is loud rather than silent.
+fn report_once(world: &mut World, error: ErrorType) -> bool {
+    world
+        .get_resource_mut::<RenderRecoveryLedger>()
+        .is_none_or(|mut ledger| ledger.take_terminal_report(error))
+}
+
 /// Bridge the pure policy to Bevy's handler signature.
 fn decide(
     error: &RenderError,
@@ -127,22 +169,30 @@ fn decide(
             RenderErrorPolicy::Recover(RenderCreation::default())
         }
         RenderResponse::StopRendering => {
-            error!(
-                target: "ambition_app::render_recovery",
-                "rendering stopped after a {:?} render error ({}); the app is still running, \
-                 and this is deliberate — retrying would re-run the frame that failed",
-                error.ty, error.description,
-            );
+            if report_once(main_world, error.ty) {
+                error!(
+                    target: "ambition_app::render_recovery",
+                    "rendering stopped after a {:?} render error ({}); the app is still running, \
+                     and this is deliberate — retrying would re-run the frame that failed. \
+                     Bevy will re-poll this handler every frame; it will stay quiet",
+                    error.ty, error.description,
+                );
+            }
             RenderErrorPolicy::StopRendering
         }
         RenderResponse::Quit => {
-            error!(
-                target: "ambition_app::render_recovery",
-                "quitting after a {:?} render error ({}); this category means the engine used \
-                 the GPU incorrectly, so it will not resolve by trying again",
-                error.ty, error.description,
-            );
-            main_world.write_message(AppExit::error());
+            if report_once(main_world, error.ty) {
+                error!(
+                    target: "ambition_app::render_recovery",
+                    "quitting after a {:?} render error ({}); this category means the engine used \
+                     the GPU incorrectly, so it will not resolve by trying again",
+                    error.ty, error.description,
+                );
+                // ⛔ ONE EXIT MESSAGE. Bevy re-polls this handler on every frame
+                // between the decision and the actual shutdown, and each of
+                // those polls would otherwise queue another `AppExit`.
+                main_world.write_message(AppExit::error());
+            }
             RenderErrorPolicy::StopRendering
         }
     }
@@ -215,5 +265,105 @@ mod tests {
             0,
             "a run starts with its whole budget"
         );
+    }
+
+    /// A terminal error re-polled every frame reports ONCE.
+    ///
+    /// ⛔⛔ THIS IS THE ARM `response_for` CANNOT PROVIDE, AND THE REASON THE
+    /// DEFECT SURVIVED A GREEN POLICY TEST. `response_for` is a pure function of
+    /// (category, count): calling it a thousand times is calling it once. The
+    /// defect lives in `decide`'s SIDE EFFECTS under Bevy's documented contract
+    /// that `StopRendering` keeps the error and re-polls the handler every
+    /// frame — so the test has to be about the second call, not the first.
+    ///
+    /// `AppExit` is the observable half: the `Quit` path used to queue one exit
+    /// message per frame for the whole interval between the decision and the
+    /// shutdown.
+    #[test]
+    fn a_terminal_error_repolled_every_frame_is_reported_once() {
+        fn poll(main: &mut World, render: &mut World, ty: ErrorType) -> RenderErrorPolicy {
+            decide(
+                &RenderError {
+                    ty,
+                    description: "a test".to_string(),
+                    source: None,
+                },
+                main,
+                render,
+            )
+        }
+        fn exits(world: &mut World) -> usize {
+            world
+                .get_resource::<Messages<AppExit>>()
+                .map(|messages| messages.iter_current_update_messages().count())
+                .unwrap_or(0)
+        }
+
+        let mut main = World::new();
+        let mut render = World::new();
+        main.init_resource::<RenderRecoveryLedger>();
+        main.init_resource::<Messages<AppExit>>();
+
+        // A category that QUITS, polled the way Bevy polls it.
+        assert!(matches!(
+            poll(&mut main, &mut render, ErrorType::Validation),
+            RenderErrorPolicy::StopRendering
+        ));
+        assert_eq!(
+            exits(&mut main),
+            1,
+            "premise: the first poll of a quitting category must ask to exit"
+        );
+        for _ in 0..30 {
+            poll(&mut main, &mut render, ErrorType::Validation);
+        }
+        assert_eq!(
+            exits(&mut main),
+            1,
+            "thirty more polls of the SAME preserved error must add no exits"
+        );
+        assert_eq!(
+            main.resource::<RenderRecoveryLedger>().terminal_reported,
+            Some(ErrorType::Validation),
+            "the ledger is what remembers that it was already said"
+        );
+
+        // A DIFFERENT category after a stop is news, and gets its one report.
+        poll(&mut main, &mut render, ErrorType::Internal);
+        assert_eq!(
+            exits(&mut main),
+            2,
+            "a different terminal category is new information, not the same \
+             error being re-polled"
+        );
+    }
+
+    /// Exhausting the recovery budget is terminal, and terminal means quiet.
+    ///
+    /// The device-lost road reaches `StopRendering` by a different route than
+    /// `OutOfMemory` does — through the budget rather than straight off the
+    /// category — so it gets its own arm.
+    #[test]
+    fn an_exhausted_device_lost_budget_stops_reporting_too() {
+        let mut ledger = RenderRecoveryLedger {
+            device_lost_recoveries: MAX_DEVICE_LOST_RECOVERIES,
+            terminal_reported: None,
+        };
+        assert_eq!(
+            response_for(ErrorType::DeviceLost, ledger.device_lost_recoveries),
+            RenderResponse::StopRendering,
+            "premise: the budget must actually be exhausted, or the arms below \
+             are testing the recovery road"
+        );
+        assert!(
+            ledger.take_terminal_report(ErrorType::DeviceLost),
+            "the first poll after the budget runs out must say so"
+        );
+        for _ in 0..10 {
+            assert!(
+                !ledger.take_terminal_report(ErrorType::DeviceLost),
+                "every later poll of the same preserved device loss must be quiet"
+            );
+        }
     }
 }

@@ -29,10 +29,15 @@ use bevy::ecs::component::Components;
 use bevy::ecs::entity::Entities;
 use bevy::ecs::resource::IsResource;
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
+use std::time::Duration;
+// ⛔ THE `cfg` BELONGS TO `Instant` ALONE. Keep any unconditional import ABOVE
+// it: an attribute drifts onto whatever item follows, and a `Duration` that
+// silently vanished on wasm would break the build only on the web.
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -176,9 +181,24 @@ impl Plugin for EcsDiagnosticsPlugin {
         app.register_diagnostic(Diagnostic::new(SCENE_ENTITIES).with_suffix(" entities"))
             .register_diagnostic(Diagnostic::new(RESOURCE_ENTITIES).with_suffix(" resources"))
             .register_diagnostic(Diagnostic::new(BODIES).with_suffix(" bodies"))
-            .add_systems(Update, publish_ecs_diagnostics);
+            .add_systems(
+                Update,
+                publish_ecs_diagnostics.run_if(on_timer(ECS_DIAGNOSTIC_SAMPLE_PERIOD)),
+            );
     }
 }
+
+/// How often the ECS populations are re-counted for the diagnostics store.
+///
+/// ⭐ THE PATHS STAY REGISTERED; ONLY THE SAMPLING IS PACED. F1 can therefore be
+/// opened at any moment without a restart, and still shows a number within a
+/// quarter second of the truth — which is finer than a human reading a dashboard
+/// can perceive, and finer than the overlay's own refresh.
+///
+/// ⛔ A DASHBOARD DOES NOT GET TO BILL THE FRAME LOOP FOR FRESHNESS NOBODY CAN
+/// SEE. `Query::count()` below already makes one sample cheap; this bounds the
+/// cost against a world that grows more archetypes than today's.
+const ECS_DIAGNOSTIC_SAMPLE_PERIOD: Duration = Duration::from_millis(250);
 
 fn publish_ecs_diagnostics(mut diagnostics: Diagnostics, population: EcsPopulation) {
     diagnostics.add_measurement(&SCENE_ENTITIES, || population.scene_entities() as f64);
@@ -202,25 +222,30 @@ pub struct EcsPopulation<'w, 's> {
     players: Query<'w, 's, (), With<PlayerEntity>>,
 }
 
+/// ⭐ EVERY COUNT HERE IS `Query::count()`, NOT `iter().count()`. All four
+/// queries take no data (`()`) and filter only with `With`/`Without`, so both
+/// halves are ARCHETYPAL and Bevy answers from archetype and table sizes without
+/// visiting an entity. `iter().count()` forfeits that and walks the world — for
+/// the scene population that is every entity in the game, on every sample.
 impl EcsPopulation<'_, '_> {
     /// Entities that are scene content: everything a resource is not.
     pub fn scene_entities(&self) -> usize {
-        self.scene.iter().count()
+        self.scene.count()
     }
 
     /// Entities that exist only to hold a resource value.
     pub fn resource_entities(&self) -> usize {
-        self.resources.iter().count()
+        self.resources.count()
     }
 
     /// Bodies the physics world is stepping.
     pub fn bodies(&self) -> usize {
-        self.bodies.iter().count()
+        self.bodies.count()
     }
 
     /// Bodies a seated player is driving.
     pub fn players(&self) -> usize {
-        self.players.iter().count()
+        self.players.count()
     }
 }
 
@@ -1239,10 +1264,23 @@ mod tests {
 
         let mut app = App::new();
         app.init_resource::<Sampled>();
+        app.add_plugins(bevy::time::TimePlugin);
         app.add_plugins(bevy::diagnostic::DiagnosticsPlugin);
         app.add_plugins(EcsDiagnosticsPlugin);
         app.add_systems(Update, sample);
+        // The publisher is PACED (see ECS_DIAGNOSTIC_SAMPLE_PERIOD), so a test
+        // about WHAT it publishes has to hand it enough clock to publish at all.
+        // One update per period keeps this test's "publish every update" shape.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            ECS_DIAGNOSTIC_SAMPLE_PERIOD,
+        ));
 
+        // ⛔ THE FIRST `update()` HAS A ZERO DELTA. `Time<Real>` has no previous
+        // instant to subtract on the first pass, so even `ManualDuration` reports
+        // 0ns there and no timed run condition fires. Every update after it
+        // advances by a full period, so one priming frame buys "publishes on
+        // every update" for the rest of the test.
+        app.update();
         app.update();
         let (scene, resources) = app.world().resource::<Sampled>().0;
         assert_eq!(
@@ -1267,6 +1305,55 @@ mod tests {
             published(&app),
             (scene_after as f64, resources_after as f64),
             "the published values must still be the param's own after it moved"
+        );
+    }
+
+    /// The ECS populations are counted on a CADENCE, not on every frame.
+    ///
+    /// ⛔ THIS IS A COST GUARD, NOT A FEATURE. `publish_ecs_diagnostics` used to
+    /// sit bare in `Update`, so a panel nobody had opened billed the frame loop
+    /// for three world counts on every visible frame. Deleting the run condition
+    /// makes this test red on its first assertion.
+    ///
+    /// The arms STRADDLE the period deliberately: many short frames must not
+    /// publish, and one frame past the period must.
+    #[test]
+    fn the_ecs_populations_are_sampled_on_a_cadence_not_every_frame() {
+        fn published(app: &App) -> Option<f64> {
+            app.world()
+                .resource::<bevy::diagnostic::DiagnosticsStore>()
+                .get(&SCENE_ENTITIES)
+                .and_then(|d| d.value())
+        }
+
+        let short = ECS_DIAGNOSTIC_SAMPLE_PERIOD / 10;
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.add_plugins(bevy::diagnostic::DiagnosticsPlugin);
+        app.add_plugins(EcsDiagnosticsPlugin);
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(short));
+
+        // ⛔ THE FIRST `update()` ADVANCES THE CLOCK BY ZERO — `Time<Real>` has
+        // no previous instant to subtract on the first pass — so ten frames buy
+        // only nine tenths of a period. That off-by-one is exactly the kind of
+        // thing that makes a cadence test pass for the wrong reason, so the
+        // arms are counted from it rather than around it.
+        for _ in 0..10 {
+            app.update();
+        }
+        assert_eq!(
+            published(&app),
+            None,
+            "ten frames worth nine tenths of a sample period must not have \
+             counted the world"
+        );
+
+        // The eleventh brings the total to a full period, and crosses it.
+        app.update();
+        assert!(
+            published(&app).is_some(),
+            "premise: crossing the sample period must publish, or the arm above \
+             is only measuring a publisher that never runs"
         );
     }
 

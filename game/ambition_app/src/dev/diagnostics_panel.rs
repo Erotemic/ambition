@@ -11,12 +11,17 @@
 //! ⛔ A MISSING PATH RENDERS AS `Missing`, AND THAT IS THE FEATURE. Bevy's
 //! overlay says so rather than showing a zero, which is exactly the distinction
 //! this repository insists on elsewhere: a zero from an instrument that never
-//! reports that category is not a measurement. Two paths here are legitimately
-//! absent on some platforms and MUST read as missing rather than as nothing
-//! happening — see [`AmbitionDiagnosticsPanelPlugin`].
+//! reports that category is not a measurement. Several paths here are
+//! legitimately absent — the host CPU/memory pair off desktop, every render-pass
+//! timing outside profiling mode — and MUST read as missing rather than as
+//! nothing happening. See [`AmbitionDiagnosticsPanelPlugin`] and
+//! [`render_pass_rows`].
 
-use bevy::dev_tools::diagnostics_overlay::{DiagnosticsOverlay, DiagnosticsOverlayPlugin};
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::dev_tools::diagnostics_overlay::{
+    DiagnosticsOverlay, DiagnosticsOverlayItem, DiagnosticsOverlayPlugin,
+    DiagnosticsOverlayStatistic,
+};
+use bevy::diagnostic::{DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
 // ⭐ THROUGH THE RE-EXPORTS, like every other app-side reader. `ambition_app`
@@ -27,7 +32,7 @@ use ambition_platformer2d::dev_tools::runtime_census::{BODIES, RESOURCE_ENTITIES
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::render::runtime_census::{CAMERAS, OFFSCREEN_TARGETS, WORLD_DRAWS};
 
-/// Marks the windows this module owns, so F1 can retire exactly them.
+/// Marks the window this module owns, so F1 can retire exactly it.
 #[derive(Component)]
 struct AmbitionDiagnosticsWindow;
 
@@ -69,6 +74,7 @@ impl Plugin for AmbitionDiagnosticsPanelPlugin {
 fn follow_the_debug_toggle(
     mut commands: Commands,
     dev_state: Res<DeveloperRuntimeState>,
+    store: Res<DiagnosticsStore>,
     windows: Query<Entity, With<AmbitionDiagnosticsWindow>>,
 ) {
     if !dev_state.is_changed() {
@@ -81,45 +87,234 @@ fn follow_the_debug_toggle(
     if dev_state.debug {
         commands.spawn((
             AmbitionDiagnosticsWindow,
-            DiagnosticsOverlay::new(
-                "Frame",
-                vec![
-                    FrameTimeDiagnosticsPlugin::FPS.into(),
-                    FrameTimeDiagnosticsPlugin::FRAME_TIME.into(),
-                ],
-            ),
-        ));
-        commands.spawn((
-            AmbitionDiagnosticsWindow,
-            // ⭐ TWO ENTITY NUMBERS, NAMED. One number called "entities" would
-            // carry Bevy 0.19's resources-are-entities ambiguity into every note
-            // taken from this panel.
-            DiagnosticsOverlay::new(
-                "Ambition",
-                vec![
-                    SCENE_ENTITIES.into(),
-                    RESOURCE_ENTITIES.into(),
-                    BODIES.into(),
-                    CAMERAS.into(),
-                    WORLD_DRAWS.into(),
-                    OFFSCREEN_TARGETS.into(),
-                ],
-            ),
-        ));
-        #[cfg(feature = "desktop_platform")]
-        commands.spawn((
-            AmbitionDiagnosticsWindow,
-            DiagnosticsOverlay::new(
-                "Host",
-                vec![
-                    bevy::diagnostic::SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE.into(),
-                    bevy::diagnostic::SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE.into(),
-                ],
-            ),
+            DiagnosticsOverlay::new("Ambition", panel_items(&store)),
         ));
     } else {
         for window in &windows {
             commands.entity(window).despawn();
         }
+    }
+}
+
+/// Everything F1 shows, in the order it shows it.
+///
+/// ⛔ ONE WINDOW, NOT THREE. Until 2026-08-31 this spawned three
+/// `DiagnosticsOverlay` entities — Frame, Ambition, Host. Bevy's `build_overlay`
+/// observer gives EVERY overlay the same initial `top`/`left`, and nothing
+/// staggers them, so all three landed exactly on top of each other: F1 showed
+/// one panel with two hidden underneath, findable only by dragging the top one
+/// off them. Staggering would also have worked; one window for ten numbers is
+/// the better shape, and each row is labelled with its full diagnostic path, so
+/// the prefix already says which subsystem answered.
+///
+/// ⭐ SEPARATE FROM THE SPAWN so the guard test below can assert on the SAME
+/// list the panel shows. A test that rebuilt the list itself would agree with
+/// whatever it was written against, not with what F1 renders.
+fn panel_items(store: &DiagnosticsStore) -> Vec<DiagnosticsOverlayItem> {
+    let mut items = vec![
+        FrameTimeDiagnosticsPlugin::FPS.into(),
+        FrameTimeDiagnosticsPlugin::FRAME_TIME.into(),
+        // ⭐ TWO ENTITY NUMBERS, NAMED. One row called "entities" would carry
+        // Bevy 0.19's resources-are-entities ambiguity into every note anyone
+        // takes from this panel.
+        count_of(SCENE_ENTITIES),
+        count_of(RESOURCE_ENTITIES),
+        count_of(BODIES),
+        count_of(CAMERAS),
+        count_of(WORLD_DRAWS),
+        count_of(OFFSCREEN_TARGETS),
+    ];
+    #[cfg(feature = "desktop_platform")]
+    items.extend([
+        bevy::diagnostic::SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE.into(),
+        bevy::diagnostic::SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE.into(),
+    ]);
+    items.extend(render_pass_rows(store));
+    items
+}
+
+/// The render-pass timings, when this run has any.
+///
+/// ⭐ DISCOVERED, NOT HAND-LISTED. The pass names are Bevy render-graph node
+/// names — a 2026-08-31 profile bundle recorded `main_transparent_pass_2d`,
+/// `ui`, `msaa_writeback` and `upscaling` on this composition — and a hand-kept
+/// list of those goes stale the moment a pass is renamed or added, silently, as
+/// a row that reads `Missing` forever. Reading the store instead shows exactly
+/// the passes THIS build measures.
+///
+/// ⛔ AN ORDINARY RUN SHOWS NONE OF THESE, AND THAT IS THE HONEST ANSWER. Bevy's
+/// `RenderDiagnosticsPlugin` is what registers them, and Ambition installs it
+/// only under `AMBITION_PROFILE_CENSUS`: it adds GPU timestamp and
+/// pipeline-statistics queries to every pass, which a dev overlay has no
+/// business imposing on a normal session. The campaign's A5 asked "which render
+/// pass is expensive" — this is where F1 answers it when the measurement exists,
+/// and `render_diagnostics.csv` in a profile bundle is the fuller answer.
+fn render_pass_rows(store: &DiagnosticsStore) -> Vec<DiagnosticsOverlayItem> {
+    let mut paths: Vec<DiagnosticPath> = store
+        .iter()
+        .map(|diagnostic| diagnostic.path())
+        .filter(|path| {
+            let path = path.as_str();
+            path.starts_with("render/")
+                && (path.ends_with("/elapsed_gpu") || path.ends_with("/elapsed_cpu"))
+        })
+        .cloned()
+        .collect();
+    // ⛔ THE STORE'S ITERATION ORDER IS A HASH MAP'S. Sorting keeps a row in the
+    // same place between two runs of the same build, which is what makes the
+    // panel readable at a glance rather than a shuffle to re-scan every launch.
+    paths.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    paths.into_iter().map(Into::into).collect()
+}
+
+/// A POPULATION row: the latest count, with no decimal point.
+///
+/// ⛔⛔ `DiagnosticPath::into()` IS WRONG FOR A COUNT, AND SILENTLY SO. Bevy's
+/// `From<DiagnosticPath>` picks `Smoothed` — an exponential moving average — at
+/// four decimal places. That is right for FPS and frame time and nonsense for a
+/// population: after two bodies despawn the panel reads `7.3842 bodies` and
+/// keeps lagging the truth for as long as the EMA takes to settle.
+///
+/// ⛔ THE PUBLISHER'S OWN TEST CANNOT CATCH THIS. `runtime_census`'s test reads
+/// `Diagnostic::value()` and proves the published number is right; the panel
+/// then renders a DIFFERENT statistic of the same diagnostic. The value being
+/// correct and the display being wrong are compatible, which is why the guard
+/// for this lives here, next to the choice.
+fn count_of(path: DiagnosticPath) -> DiagnosticsOverlayItem {
+    DiagnosticsOverlayItem {
+        path,
+        statistic: DiagnosticsOverlayStatistic::Value,
+        precision: 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every POPULATION row reads the latest count, not a smoothed average.
+    ///
+    /// ⛔ THIS IS THE ARM THE PUBLISHER'S TEST CANNOT PROVIDE. `runtime_census`
+    /// proves `Diagnostic::value()` is the true population; this proves the
+    /// panel asks for `value()` rather than `smoothed()`. Reverting any
+    /// `count_of` here to a bare `.into()` makes this red — which is the whole
+    /// point, since `.into()` compiles and renders a plausible-looking number.
+    #[test]
+    fn the_population_rows_show_the_count_and_not_a_smoothed_average() {
+        let counts = [
+            SCENE_ENTITIES,
+            RESOURCE_ENTITIES,
+            BODIES,
+            CAMERAS,
+            WORLD_DRAWS,
+            OFFSCREEN_TARGETS,
+        ];
+        let items = panel_items(&DiagnosticsStore::default());
+        for path in counts {
+            let item = items
+                .iter()
+                .find(|item| item.path == path)
+                .unwrap_or_else(|| panic!("{path} must be on the panel at all"));
+            assert_eq!(
+                item.statistic,
+                DiagnosticsOverlayStatistic::Value,
+                "{path} is a population: an EMA of it lags the truth and prints \
+                 fractional entities"
+            );
+            assert_eq!(item.precision, 0, "{path} counts whole things");
+        }
+    }
+
+    /// Timing rows keep the smoothing; they are the reason it exists.
+    ///
+    /// Premise guard: without this, the test above would still pass if someone
+    /// "fixed" the panel by making EVERY row a raw value, which would make the
+    /// FPS readout flicker with every frame's noise.
+    #[test]
+    fn the_frame_timing_rows_stay_smoothed() {
+        let items = panel_items(&DiagnosticsStore::default());
+        for path in [
+            FrameTimeDiagnosticsPlugin::FPS,
+            FrameTimeDiagnosticsPlugin::FRAME_TIME,
+        ] {
+            let item = items
+                .iter()
+                .find(|item| item.path == path)
+                .unwrap_or_else(|| panic!("{path} must be on the panel at all"));
+            assert_eq!(
+                item.statistic,
+                DiagnosticsOverlayStatistic::Smoothed,
+                "{path} is a timing signal and wants the EMA"
+            );
+        }
+    }
+
+    /// F1 opens exactly ONE window.
+    ///
+    /// ⛔ THE DEFECT THIS PINS SHIPPED AND WAS INVISIBLE. Three overlays were
+    /// spawned, and Bevy's `build_overlay` observer gives each the same initial
+    /// `top`/`left` — so they stacked perfectly and F1 looked like it worked.
+    /// Nothing in the panel's own tests could tell one window from three,
+    /// because they were all about CONTENT.
+    #[test]
+    fn opening_the_panel_spawns_one_window() {
+        let mut app = App::new();
+        app.init_resource::<DiagnosticsStore>();
+        app.insert_resource(DeveloperRuntimeState {
+            debug: true,
+            ..default()
+        });
+        app.add_systems(Update, follow_the_debug_toggle);
+        app.update();
+
+        let mut windows = app
+            .world_mut()
+            .query_filtered::<Entity, With<AmbitionDiagnosticsWindow>>();
+        assert_eq!(
+            windows.iter(app.world()).count(),
+            1,
+            "two windows would land on top of each other and hide one another"
+        );
+    }
+
+    /// Render-pass rows appear only when this build MEASURES render passes.
+    ///
+    /// ⛔ THE CAMPAIGN'S A5 WAS MARKED DONE ON THE STRENGTH OF THE PATHS
+    /// EXISTING UPSTREAM. They do — but Ambition registers them only under
+    /// `AMBITION_PROFILE_CENSUS`, so ordinary F1 selected none and answered
+    /// none. The two arms here are the two states that fact has.
+    #[test]
+    fn render_pass_rows_follow_whether_the_run_measures_render_passes() {
+        assert!(
+            render_pass_rows(&DiagnosticsStore::default()).is_empty(),
+            "premise: with nothing registered there is nothing to show, and a \
+             row that always reads Missing is worse than no row"
+        );
+
+        // The four passes a 2026-08-31 desktop bundle actually recorded, given
+        // to the store out of order.
+        let mut store = DiagnosticsStore::default();
+        for path in [
+            "render/ui/elapsed_gpu",
+            "render/main_transparent_pass_2d/elapsed_gpu",
+            "render/ui/vertex_shader_invocations",
+            "render/upscaling/elapsed_gpu",
+        ] {
+            store.add(bevy::diagnostic::Diagnostic::new(DiagnosticPath::new(path)));
+        }
+        let shown: Vec<String> = render_pass_rows(&store)
+            .iter()
+            .map(|item| item.path.as_str().to_string())
+            .collect();
+        assert_eq!(
+            shown,
+            vec![
+                "render/main_transparent_pass_2d/elapsed_gpu".to_string(),
+                "render/ui/elapsed_gpu".to_string(),
+                "render/upscaling/elapsed_gpu".to_string(),
+            ],
+            "the timing paths, sorted; `vertex_shader_invocations` is a pipeline \
+             statistic and not what 'which pass is expensive' asks"
+        );
     }
 }

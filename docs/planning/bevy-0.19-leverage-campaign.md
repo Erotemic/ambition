@@ -1,6 +1,28 @@
 # Bevy 0.19.1 leverage campaign
 
-## Status — ✔ COMPLETE 2026-08-31
+## Status — ✔ COMPLETE 2026-08-31 (reviewed and repaired the same day)
+
+⚠ **A REVIEW OF THE FINISHED CAMPAIGN FOUND FIVE THINGS, AND THEY ARE FIXED.**
+Recorded here rather than in each section, because the pattern is the lesson:
+four of the five were in the code this campaign ADDED, not in what it removed,
+and the fifth was a section marked done on the strength of a fact that was true
+but insufficient.
+
+- **A5 was closed without doing it** — the render-pass paths exist upstream, so
+  the section was called a selection problem and then no selection was made. See
+  A5 below; reopened and closed properly.
+- **The F1 panel spawned three overlay windows exactly on top of each other**,
+  because Bevy gives every `DiagnosticsOverlay` the same initial offset and
+  nothing staggers them. One window now.
+- **Every population read as a smoothed float** (`7.3842 bodies`), because
+  `DiagnosticPath::into()` picks an EMA at four decimals. The publisher's own
+  test could not see it: it checks `Diagnostic::value()`, and the panel rendered
+  `smoothed()`.
+- **A terminal render error logged every frame forever.** `StopRendering` is
+  documented to re-poll the handler each frame; the pure policy test could not
+  see it, because a pure function called twice is called once.
+- **The ECS census walked the world on every visible frame**, F1 open or not.
+  Now `Query::count()` (archetypal) on a 250ms cadence.
 
 Every section is closed. A (A1–A5), B, C, D, E and G were implemented; F was
 SPIKED AND DECLINED on its own decision gate, which is a completed section and
@@ -490,21 +512,43 @@ Do not try to convert every census field during this campaign. Select the values
 
 ---
 
-# A5. Surface Bevy render-pass diagnostics  ✔ ANSWERED 2026-08-31 — nothing to publish
+# A5. Surface Bevy render-pass diagnostics  ✔ DONE 2026-08-31 (⚠ REOPENED AND
+# CLOSED PROPERLY THE SAME DAY)
 
-⭐ THE MEASUREMENTS ALREADY EXIST IN THE STORE. `RenderDiagnosticsPlugin`
-publishes `render/.../elapsed_cpu` and `render/.../elapsed_gpu` itself —
-`report_render_pass_census` reads them out of `DiagnosticsStore` rather than
-computing them. So this section is a SELECTION problem, not a publishing one, and
-no new measurement was added.
+⛔⛔ THE FIRST CLOSE WAS WRONG, AND A REVIEW CAUGHT IT. This section was marked
+"ANSWERED — nothing to publish" on the reasoning below: the measurements exist
+upstream, so A5 is a SELECTION problem rather than a publishing one. Both halves
+of that are true. The mistake was stopping there — **the selection was never
+made.** `diagnostics_panel.rs` named no `render/*` path at all, so ordinary F1
+answered neither of A5's two questions. "The paths exist" and "F1 shows them" are
+different claims, and only the first was ever checked.
 
-⛔ AND THE SELECTION IS DELIBERATELY NOT A WALL. This section warns against a
-giant dynamically-changing list, and the panel takes named paths, so adding a
-render span to it is a one-line, deliberate act rather than a glob. The paths are
-backend-dependent by nature: an unregistered one renders as `Missing`, which is
-the required "measurement unavailable" and never a zero. GPU timestamps in
-particular are unavailable on backends that do not support them, and that must
-keep reading as unavailable rather than as no GPU cost.
+⭐ WHAT IT DOES NOW. `render_pass_rows` reads `DiagnosticsStore` at the moment
+the panel opens and takes every registered `render/**/elapsed_cpu` and
+`render/**/elapsed_gpu`, sorted. On a 2026-08-31 desktop bundle that is four
+passes — `main_transparent_pass_2d`, `ui`, `msaa_writeback`, `upscaling` — which
+is the answer to "which pass is expensive", not a wall.
+
+⛔ IT IS DISCOVERED, NOT HAND-LISTED, AND THAT IS A DEPARTURE FROM THE ORIGINAL
+PLAN BELOW. The plan asked for named paths so that adding one is a deliberate
+act. But the names are Bevy render-graph node names: a hand-kept list of them
+goes stale the moment a pass is renamed or added, and it goes stale SILENTLY, as
+a row that reads `Missing` forever and that nobody re-reads. Filtering the store
+to the two timing suffixes keeps the "not a wall" property — pipeline statistics
+like `vertex_shader_invocations` are excluded — without a list to maintain.
+
+⛔ AN ORDINARY RUN STILL SHOWS NONE OF THEM, AND THAT IS THE HONEST ANSWER,
+NOT A GAP. `RenderDiagnosticsPlugin` is what registers those paths, and Ambition
+installs it only under `AMBITION_PROFILE_CENSUS`, because it adds GPU-timestamp
+and pipeline-statistics queries to every pass. Making it unconditional to fill in
+a dashboard would charge every session for a number almost nobody is reading —
+and its cost has not been measured. So render-pass timing remains a
+PROFILING-MODE capability; F1 surfaces it in that mode, and
+`render_diagnostics.csv` in a profile bundle remains the fuller answer (16 paths
+with a time series, against F1's instantaneous 8).
+
+⚠ GPU timestamps are backend-dependent. An unregistered path renders as
+`Missing`, which is the required "measurement unavailable" and never a zero.
 
 ## Original plan
 

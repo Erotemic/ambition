@@ -20,9 +20,6 @@ use super::*;
 /// reads well at the usual boss-fight zoom).
 pub const DEBUG_LABEL_FONT_PX: f32 = 7.0;
 
-/// Bevy Z for label text — well above gameplay sprites (player=20, fx=30) so
-/// labels never hide behind the art they annotate.
-pub(crate) const DEBUG_LABEL_Z: f32 = 200.0;
 
 /// Where a box's label sits relative to its rect. Each debug box *type* gets a
 /// distinct spot so the labels for overlapping boxes (a boss's collision +

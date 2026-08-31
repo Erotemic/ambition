@@ -70,9 +70,16 @@ pub(crate) fn render_debug_overlay_labels(
     mut labels: ResMut<DebugOverlayLabels>,
 ) {
     for label in labels.0.drain(..) {
-        let at = world_to_bevy(&world.0, label.world_pos, DEBUG_LABEL_Z);
+        // ⛔ THE Z IS DISCARDED, AND NOTHING IS LOST. Until the 0.19 move off
+        // `Text2d` these labels were entities at Z=200, picked to clear
+        // gameplay art (player=20, fx=30). A text gizmo takes a 2D position:
+        // `bevy_gizmos_render`'s 2D pipeline queues every gizmo into
+        // `Transparent2d` at `sort_key: FloatOrd(f32::INFINITY)` with
+        // `depth_compare: Always`, so the phase itself puts labels above the art
+        // and the old constant carried nothing. It is gone rather than passed.
+        let at = world_to_bevy(&world.0, label.world_pos, 0.0).truncate();
         gizmos.text_2d(
-            at.truncate(),
+            at,
             &label.text,
             DEBUG_LABEL_FONT_PX,
             // Centred: the anchor the box-corner offsets in `label_box` were

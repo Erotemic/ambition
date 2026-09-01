@@ -1043,14 +1043,26 @@ pub fn report_schedule_phase_census(
 #[cfg(not(target_arch = "wasm32"))]
 fn install_sim_phase_boundaries(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::{
-        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _,
+        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _, WorldPrepSet,
     };
 
     let sim = app.sim_schedule();
     // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first
     // because the umbrella closes only once they all have.
+    // ⛔⛔ `WorldPrep` IS SPLIT, AND THE HALL IS WHY. A windowed capture on
+    // 2026-08-31 walked into `hall_of_characters` and the frame went
+    // 7.91ms -> 10.52ms; 91% of the SIMULATION's share of that was `WorldPrep`
+    // alone, +1.546 ms/tick, while every other phase stayed flat. One number for
+    // a phase containing four sets could say THAT it grew and never WHICH part
+    // of it did — and the two candidates want opposite fixes: the body-contact
+    // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
+    // wants a smaller constant. The sub-sets below are what tells them apart.
     let names = vec![
         "PlayerInput",
+        "WorldPrep.BeforeIntegrate",
+        "WorldPrep.Integrate",
+        "WorldPrep.AfterIntegrate",
+        "WorldPrep.ContactDamage",
         "WorldPrep",
         "PlayerSimulation",
         "RoomTransition",
@@ -1074,22 +1086,35 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
     app.add_systems(sim, open_sim_phase_window.before(Phase::PlayerInput));
     app.add_systems(sim, mark_sim_phase(0).after(Phase::PlayerInput));
-    app.add_systems(sim, mark_sim_phase(1).after(Phase::WorldPrep));
-    app.add_systems(sim, mark_sim_phase(2).after(Phase::PlayerSimulation));
-    app.add_systems(sim, mark_sim_phase(3).after(Phase::RoomTransition));
-    app.add_systems(sim, mark_sim_phase(4).after(Phase::Combat));
-    app.add_systems(sim, mark_sim_phase(5).after(Phase::PresentationSync));
-    app.add_systems(sim, mark_sim_phase(6).after(Phase::FeatureCollection));
-    app.add_systems(sim, mark_sim_phase(7).after(Phase::FeatureInteraction));
-    app.add_systems(sim, mark_sim_phase(8).after(Phase::LdtkRuntimeSpine));
-    app.add_systems(sim, mark_sim_phase(9).after(Phase::EncounterSimulation));
-    app.add_systems(sim, mark_sim_phase(10).after(Phase::Cutscene));
-    app.add_systems(sim, mark_sim_phase(11).after(Phase::GameplayEffects));
-    app.add_systems(sim, mark_sim_phase(12).after(Phase::Progression));
-    app.add_systems(sim, mark_sim_phase(13).after(Phase::ResetProcessing));
-    app.add_systems(sim, mark_sim_phase(14).after(Phase::FeatureViewSync));
-    app.add_systems(sim, mark_sim_phase(15).after(Phase::PresentationVisualSync));
-    app.add_systems(sim, mark_sim_phase(16).after(Phase::Trace));
+    // ⭐ THE SUB-SETS CLOSE BEFORE THEIR UMBRELLA. Each mark bills the span since
+    // the previous one, so bucket 5 (`WorldPrep`) ends up holding only what ran
+    // inside the phase but in NONE of its four sets — which is a real quantity
+    // worth seeing, not a rounding error: `snapshot_body_contact` and the
+    // monolith's own `WorldPrep` systems are exactly that.
+    //
+    // ⚠ `AfterIntegrate` and `ContactDamage` are deliberately NOT chained to each
+    // other (see `WorldPrepSet`), so their marks record the order the schedule
+    // actually resolved, not an order this instrument imposed.
+    app.add_systems(sim, mark_sim_phase(1).after(WorldPrepSet::BeforeIntegrate));
+    app.add_systems(sim, mark_sim_phase(2).after(WorldPrepSet::Integrate));
+    app.add_systems(sim, mark_sim_phase(3).after(WorldPrepSet::AfterIntegrate));
+    app.add_systems(sim, mark_sim_phase(4).after(WorldPrepSet::ContactDamage));
+    app.add_systems(sim, mark_sim_phase(5).after(Phase::WorldPrep));
+    app.add_systems(sim, mark_sim_phase(6).after(Phase::PlayerSimulation));
+    app.add_systems(sim, mark_sim_phase(7).after(Phase::RoomTransition));
+    app.add_systems(sim, mark_sim_phase(8).after(Phase::Combat));
+    app.add_systems(sim, mark_sim_phase(9).after(Phase::PresentationSync));
+    app.add_systems(sim, mark_sim_phase(10).after(Phase::FeatureCollection));
+    app.add_systems(sim, mark_sim_phase(11).after(Phase::FeatureInteraction));
+    app.add_systems(sim, mark_sim_phase(12).after(Phase::LdtkRuntimeSpine));
+    app.add_systems(sim, mark_sim_phase(13).after(Phase::EncounterSimulation));
+    app.add_systems(sim, mark_sim_phase(14).after(Phase::Cutscene));
+    app.add_systems(sim, mark_sim_phase(15).after(Phase::GameplayEffects));
+    app.add_systems(sim, mark_sim_phase(16).after(Phase::Progression));
+    app.add_systems(sim, mark_sim_phase(17).after(Phase::ResetProcessing));
+    app.add_systems(sim, mark_sim_phase(18).after(Phase::FeatureViewSync));
+    app.add_systems(sim, mark_sim_phase(19).after(Phase::PresentationVisualSync));
+    app.add_systems(sim, mark_sim_phase(20).after(Phase::Trace));
 }
 
 #[cfg(not(target_arch = "wasm32"))]

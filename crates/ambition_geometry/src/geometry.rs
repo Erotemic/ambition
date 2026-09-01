@@ -370,6 +370,19 @@ impl AabbExt for Aabb {
 /// Ambition's platformer semantics; parry treats a touching start as a contact
 /// and computes impact geometry for it. This asks parry's question, because it
 /// decides which of the two solvers is allowed to answer.
+/// How many times the general solver ran. Test-only, and it exists to guard the
+/// WIRING rather than the arithmetic: the differential test proves the two
+/// solvers agree, which stays true if a refactor routes every call to the slow
+/// one and quietly restores 10.7% of the process.
+/// ⚠ THREAD-LOCAL, because `cargo test` runs tests in PARALLEL THREADS and the
+/// differential test below calls `parry_sweep` twenty thousand times. A global
+/// counter is bumped by whichever test happens to be running beside this one,
+/// which made the guard fail against its own suite rather than against a defect.
+#[cfg(test)]
+thread_local! {
+    static PARRY_SWEEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// The general solver, kept for the penetrating start and as the ORACLE the fast
 /// path is tested against.
 ///
@@ -379,6 +392,8 @@ impl AabbExt for Aabb {
 /// minimum-translation question rather than a sweep. Deleting this would mean
 /// reimplementing that in the movement kernel from guesswork.
 fn parry_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
+    #[cfg(test)]
+    PARRY_SWEEPS.with(|count| count.set(count.get() + 1));
     let moving_shape = parry_cuboid(lhs);
     let static_shape = parry_cuboid(rhs);
     let options = ShapeCastOptions {
@@ -768,6 +783,69 @@ mod slab_sweep_agrees_with_parry {
             hits > 1_000,
             "only {hits} hits out of {compared}; the generator is not aiming the boxes at \
              each other and the agreement above is mostly two Nones"
+        );
+    }
+}
+
+#[cfg(test)]
+mod the_fast_path_is_actually_used {
+    use super::*;
+
+    fn parry_sweeps() -> usize {
+        PARRY_SWEEPS.with(|count| count.get())
+    }
+
+    /// ⛔⛔ **THE DIFFERENTIAL TEST CANNOT CATCH THIS.** It proves `slab_sweep`
+    /// and `parry_sweep` agree — which stays true if a refactor routes every
+    /// call to the slow one. That reverts a measured 10.7% of the process with
+    /// every test still green, and the only symptom is a number in a journal
+    /// nobody re-runs.
+    ///
+    /// So this asserts the ROUTE, not the answer: a separated pair must be
+    /// answered without the general solver being called at all.
+    #[test]
+    fn a_separated_sweep_never_reaches_the_general_solver() {
+        let before = parry_sweeps();
+
+        // A plain approach, a clean miss, and a graze along a face — the three
+        // shapes the movement kernel asks for constantly.
+        let mover = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(5.0, 5.0));
+        let ahead = Aabb::new(Vec2::new(40.0, 0.0), Vec2::new(5.0, 5.0));
+        let aside = Aabb::new(Vec2::new(0.0, 400.0), Vec2::new(5.0, 5.0));
+
+        assert!(
+            mover.sweep_hit(Vec2::new(60.0, 0.0), ahead).is_some(),
+            "the premise: this approach must actually hit, or 'no parry call' is \
+             trivially true"
+        );
+        assert!(mover.sweep_hit(Vec2::new(60.0, 0.0), aside).is_none());
+        assert!(mover.sweep_hit(Vec2::new(0.0, 60.0), ahead).is_none());
+
+        assert_eq!(
+            parry_sweeps(),
+            before,
+            "a separated sweep reached parry2d's general solver; the closed-form \
+             route is bypassed and the 10.7% is back"
+        );
+    }
+
+    /// Premise guard: the counter must be capable of moving.
+    ///
+    /// Without this, a counter that was never incremented — or a `parry_sweep`
+    /// that had been deleted — would make the arm above pass forever.
+    #[test]
+    fn the_counter_moves_when_the_general_solver_does_run() {
+        let before = parry_sweeps();
+        let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(5.0, 5.0));
+        let b = Aabb::new(Vec2::new(2.0, 0.0), Vec2::new(5.0, 5.0));
+        assert!(
+            starts_overlapping(a, b),
+            "the premise: this pair must be the overlapping case parry owns"
+        );
+        let _ = a.sweep_hit(Vec2::new(10.0, 0.0), b);
+        assert!(
+            parry_sweeps() > before,
+            "the penetrating start must still route to parry"
         );
     }
 }

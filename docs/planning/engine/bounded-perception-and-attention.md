@@ -68,9 +68,19 @@ And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 6
 
 | piece | verdict today |
 |---|---|
-| **spatial index** | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
-| attention budget (top-K) | The viewport already delivers ~14. True, and beside the point: ~14 is the number that is expensive to BUILD, not a number that is cheap to have. |
-| crowd aggregation | Still earns nothing until `kept` itself grows — real crowding, not the hall. |
+| **attention budget (top-K)** | **Worth 10x in the regime it is for.** Measured by driving the tactical extent at fixed population: `kept` 14.4 → 113 takes `Decide` 0.26 → 2.66 ms/tick, at a flat ~23 µs per perceived peer. It wins nothing at the hall's CURRENT sparsity — which is a different statement from "the idea is wrong". |
+| **crowd aggregation** | Same regime, same argument. It is what keeps `kept` bounded once a region actually crowds. |
+| spatial index | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
+
+⭐ **AND THE DESIGN'S PREMISE IS CONFIRMED, not just assumed: cost is LINEAR in
+`kept`** (slope 1.13 across the range, 0.90 across the crowded half). Per-peer
+cost does not rise with crowding, so a budget of K exact actors buys a hard
+ceiling rather than a discount.
+
+⚠ **HOLD `kept` CONSTANT, NOT THE POPULATION.** A room of 200 where each fighter
+attends to 16 costs about what 130 attending to 14 costs today. A room of 200
+where everyone sees everyone is the 10x case — and it arrives through DENSITY
+long before it arrives through headcount.
 
 ⇒ **The cost is 1,873 `PerceivedActor` constructions per tick at ~152 ns each.**
 A design that bounds the count without making construction cheaper moves 8%.

@@ -45,3 +45,4 @@ Use an ADR when a decision:
 - [0031: The public facade is the compatibility boundary, and it is enforced](0031-public-facade-is-the-compatibility-boundary.md) — **Proposed**
 - [0032: Authoring is declarative — content is a value, capability is declared, only the engine lowers into `App`](0032-authoring-is-declarative.md) — **Proposed**
 - [0033: Death is a state the ruleset resolves, not an event the world resolves](0033-death-is-a-state-the-ruleset-resolves.md) — **Accepted**
+- [0034: Perception is bounded by attention, and belief is the only durable part](0034-perception-is-bounded-by-attention.md) — **Proposed**

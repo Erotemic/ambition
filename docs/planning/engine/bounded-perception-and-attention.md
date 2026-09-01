@@ -1,6 +1,8 @@
 # Bounded perception and attention
 
-**Status:** direction set by Jon 2026-09-01, grounded in measurement. Not yet
+**Status:** direction set by Jon 2026-09-01, grounded in measurement. The
+rollback/replay question that blocks the first increment is settled by
+[ADR 0034](../../adr/0034-perception-is-bounded-by-attention.md). Not yet
 scheduled; no code written against it.
 
 ## The rule

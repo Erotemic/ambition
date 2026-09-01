@@ -325,49 +325,80 @@ reachable only through an `autonomous_profile`. A perception-reading arm needs
 one of those wired to the hall, and it is the arm that would finally price the
 attention work.
 
-## ⛔⛔ CORRECTION 2026-09-01: every absolute sim-phase number before this was UNDER-BILLED
+## ⛔⛔ WITHDRAWN, SAME DAY: the mark repair changed NOTHING measurable
 
-The parent sim-phase marks were installed `.after(phase)` with no upper bound, so
-a phase's successor could start before its mark fired and have part of its work
-billed to the previous bucket. Repaired (both edges wherever the schedule
-declares a successor); the same hall arm, 3 reps, re-measured:
+Earlier today this section claimed the one-sided sim-phase marks had been
+under-billing, and put the correction at +19% on `Decide` and +18% on
+`Integrate`. **That was block drift, and the claim is withdrawn.**
 
-```text
-@130 statues            one-sided   bracketed   shift
-WorldPrep.Decision.Decide   0.340      0.405     +19%
-WorldPrep.Integrate         0.253      0.298     +18%
-Decision.Targeting          0.033      0.050     +52%
-Decision.Observe            0.027      0.042     +56%
-```
-
-⇒ **Every absolute per-phase figure in this file taken before 2026-09-01 is low
-by roughly this much**, and the smaller a phase, the larger the relative error —
-a mark that loses a fixed slice of its successor hurts a 0.03 ms bucket far more
-than a 0.4 ms one.
-
-⭐ **THE A/B CONCLUSIONS SURVIVE, because both arms carried the same bias.** The
-three-arm result (statues / brutes / smash), the ceiling probe, and the
-before-and-after of the peer-borrow and `WorldMemory` fixes are all differences
-between arms measured the same way. What must not be quoted from the older
-numbers is an ABSOLUTE cost or a share of a frame budget.
-
-The corrected curve, statues, 3 reps, medians:
+The two numbers came from different blocks with different binaries — the very
+comparison this file's own measurement rules forbid. Re-run as an interleaved
+A/B, both binaries alternating in one session, 5 pairs with the first dropped:
 
 ```text
-population              17       65      130
-Decide               0.034    0.208    0.405
-Integrate            0.056    0.167    0.298
-Targeting            0.012    0.029    0.050
+@130 statues                     pre     post    shift
+WorldPrep.Decision.Decide      0.335    0.336      +0%
+WorldPrep.Integrate            0.249    0.251      +1%
+Combat                         0.113    0.114      +2%
+Decision.Targeting             0.034    0.034      +1%
+Decision.Observe               0.026    0.026      +4%
 ```
 
-`Decide` is 1.95x for the 2x from 65 to 130 — linear at the top of the range —
-and steeper below it (6.1x for 3.8x from 17 to 65), which is the `kept`
-saturation the earlier model named.
+The raw samples say where the fiction came from — one high outlier in a block:
 
-⚠ `Decide` is the phase this campaign's conclusions rest on, and it was ALREADY
-bracketed on both edges before this repair — the actor-decision marks were
-installed with `.after(A).before(B)` from the start. It still moved, because its
-neighbours' marks moved around it.
+```text
+Decide  pre  [0.332, 0.332, 0.338, 0.394]
+        post [0.330, 0.334, 0.337, 0.353]
+```
+
+⇒ **The repair is structural hygiene, not a measurement change.** A one-sided
+mark genuinely CAN bill a successor's work to the previous bucket, and it is
+still worth having both edges — but at this workload the scheduler was not
+actually doing so, and no earlier number needs the 18% correction I published.
+
+⭐ The lesson is one I had already written down and did not apply: compare arms
+in ONE session, interleaved, and drop the first pair. A rebuilt binary measured
+an hour later is a different block, and this workload drifts by ~18% between
+blocks — which is larger than most effects worth chasing here.
+
+## ⭐ THE CURVE, on the repaired instrument (2026-09-01)
+
+Same room, headless, no Tracy, 3 reps per point, medians, 3000 ticks. Population
+set with `AMBITION_ACTOR_POPULATION_CAP`; the mark closes on every run and the
+`!! NEVER CLOSED` warning appears zero times.
+
+```text
+bodies                         2       16       64      130
+WorldPrep.Decision.Decide  0.005    0.022    0.152    0.331
+WorldPrep.Integrate        0.014    0.041    0.128    0.249
+Combat                     0.045    0.057    0.074    0.104
+Decision.Targeting         0.003    0.007    0.017    0.032
+Decision.Observe           0.004    0.007    0.014    0.026
+Decision.Prepare           0.010    0.013    0.016    0.021
+WorldPrep.ContactDamage    0.001    0.002    0.006    0.011
+```
+
+**`Decide` is superlinear in the middle and linear at the top.** 8x the bodies
+from 2 to 16 costs 4.4x; 4x from 16 to 64 costs 6.9x; 2.03x from 64 to 130 costs
+2.18x. That is the `kept`-peer saturation the earlier model named — once a
+viewer's kept set stops growing, each new body adds a constant.
+
+⛔⛔ **AND THE SELF-DOCUMENTED O(n²) SCAN MEASURES LINEAR.**
+`select_actor_targets` documents itself quadratic and its PAIR COUNT is, but
+`Decision.Targeting` grows 0.003 → 0.007 → 0.017 → 0.032: **2.4x for 4x bodies**
+from 16 to 64, and **1.9x for 2.03x** from 64 to 130. Sub-linear, then linear.
+The count is quadratic and the time is not, at every population this room can
+reach.
+
+⇒ Fifth independent reason not to build the spatial index. It would attack
+0.032 ms/tick of a phase that is 0.331, on a term that is not even growing
+quadratically in the range that exists.
+
+⚠ **200 IS NOT REACHABLE IN THIS ROOM.** The hall authors 129 NPCs and the cap
+only removes; there is no knob that adds. A 200-body point needs a room authored
+for it, and the acceptance criterion in
+`bounded-perception-and-attention.md` wants those bodies genuinely tactical
+anyway — so that experiment is owed as a room, not as a flag.
 
 ## Current runtime model
 

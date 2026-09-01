@@ -30,7 +30,10 @@ use bevy::diagnostic::{
 use bevy::prelude::*;
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
-use ambition_platformer2d_shared_tangle::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_platformer2d_shared_tangle::camera_layers::{
+    FrontHudCamera, MainCamera, FRONT_HUD_LAYER, LOCAL_VIEW_RENDER_LAYER_BASE,
+    PARALLAX_BACKGROUND_LAYER,
+};
 use ambition_sim_view::{LocalView, LocalViewId, PresentedForView, PresentsView};
 
 /// What a camera is FOR, as far as the composition can say.
@@ -403,9 +406,21 @@ pub fn report_view_census(
 #[allow(clippy::type_complexity)]
 pub fn report_draw_census(
     census: Res<RuntimeCensus>,
-    sprites: Query<(Option<&ViewVisibility>, &Sprite, &GlobalTransform)>,
+    sprites: Query<(
+        Option<&ViewVisibility>,
+        &Sprite,
+        &GlobalTransform,
+        Option<&RenderLayers>,
+    )>,
     texts: Query<(), With<Text2d>>,
     projections: Query<(), With<PresentedForView>>,
+    // ⭐ TO SIZE THE SPRITES THAT DECLARE NO SIZE. A `Sprite` with
+    // `custom_size: None` draws at its IMAGE's dimensions, and the parallax
+    // backdrop is built exactly that way (`rendering/parallax.rs` sets
+    // `custom_size = None` deliberately). Those are the FULL-SCREEN sprites — the
+    // ones an overdraw investigation most needs — and counting them as zero made
+    // the area column silently exclude its own biggest term.
+    images: Res<Assets<Image>>,
 ) {
     let Some(at) = census.due() else {
         return;
@@ -415,15 +430,39 @@ pub fn report_draw_census(
     let mut area_total = 0.0f32;
     let mut area_max = 0.0f32;
     let mut unsized_visible = 0usize;
-    for (visibility, sprite, transform) in &sprites {
+    // ⭐ AREA SPLIT BY SEMANTIC LAYER, because the aggregate cannot say WHICH
+    // coverage to cut. The weak-GPU work measured ~5.3x transparent overdraw and
+    // the standing plan is to *"attribute transparent screen coverage by semantic
+    // layer before changing rendering architecture"* — this is that attribution.
+    //
+    // ⭐ AND IT IS A COUNT, WHICH IS WHY IT IS TRUSTWORTHY OFFSCREEN. `D-RASTER-3`
+    // forbids substituting a software rasteriser for the weak-GPU TIMING split,
+    // and rightly. Screen area covered is not a timing: it is the same number on
+    // llvmpipe and on an Iris, so it can be gathered anywhere.
+    let mut area_world = 0.0f32;
+    let mut area_hud = 0.0f32;
+    let mut area_parallax = 0.0f32;
+    let mut area_local = 0.0f32;
+    let mut area_other = 0.0f32;
+    for (visibility, sprite, transform, layers) in &sprites {
         sprite_total += 1;
         if !visibility.is_some_and(|visible| visible.get()) {
             continue;
         }
         sprite_visible += 1;
-        let Some(size) = sprite.custom_size else {
-            unsized_visible += 1;
-            continue;
+        let size = match sprite.custom_size {
+            Some(size) => size,
+            // ⚠ STILL COUNTED IN `sprite_area_unsized`, because "we had to ask
+            // the asset for this one" stays part of the reading: an image that
+            // has not finished loading has no size yet, and its area is a zero
+            // this row must not present as a fact.
+            None => {
+                unsized_visible += 1;
+                match images.get(&sprite.image) {
+                    Some(image) => image.size_f32(),
+                    None => continue,
+                }
+            }
         };
         // The drawn quad is the authored size times whatever the transform does
         // to it; `abs` because a mirrored sprite covers the same ground.
@@ -433,11 +472,28 @@ pub fn report_draw_census(
         if area > area_max {
             area_max = area;
         }
+        // The LOWEST layer a sprite draws on names it. A sprite on several is
+        // drawn by several cameras and covers that ground more than once, which
+        // is what overdraw IS — so this is a floor for the multi-layer case, and
+        // `sprite_area` above stays the ungrouped truth to check the split
+        // against.
+        let lowest = layers
+            .map(|l| l.iter().min().unwrap_or(usize::MAX))
+            .unwrap_or(0);
+        match lowest {
+            0 => area_world += area,
+            FRONT_HUD_LAYER => area_hud += area,
+            PARALLAX_BACKGROUND_LAYER => area_parallax += area,
+            n if n >= LOCAL_VIEW_RENDER_LAYER_BASE => area_local += area,
+            _ => area_other += area,
+        }
     }
     eprintln!(
         "[census] draws t={at:.3} sprites={sprite_total} sprites_visible={sprite_visible} \
          text2d={} per_view_projections={} sprite_area={area_total:.0} \
-         sprite_area_max={area_max:.0} sprite_area_unsized={unsized_visible}",
+         sprite_area_max={area_max:.0} sprite_area_unsized={unsized_visible} \
+         area_world={area_world:.0} area_parallax={area_parallax:.0} \
+         area_hud={area_hud:.0} area_local={area_local:.0} area_other={area_other:.0}",
         texts.iter().count(),
         projections.iter().count(),
     );
@@ -753,5 +809,59 @@ mod tests {
         assert!(!CameraRole::Hud.renders_world());
         assert!(!CameraRole::Offscreen.renders_world());
         assert!(!CameraRole::Other.renders_world());
+    }
+}
+
+#[cfg(test)]
+mod draw_area_tests {
+    use super::*;
+
+    /// ⛔⛔ **THE FULL-SCREEN SPRITES CONTRIBUTED ZERO AREA.** `report_draw_census`
+    /// skipped any `Sprite` whose `custom_size` is `None`, counting it only in
+    /// `sprite_area_unsized`. The parallax backdrop is built exactly that way —
+    /// `rendering/parallax.rs` sets `custom_size = None` deliberately, so the
+    /// layer draws at its image's size — which means the biggest single
+    /// contributor to screen coverage was excluded from the coverage number.
+    ///
+    /// That matters because `sprite_area` is the numerator of the overdraw
+    /// question the weak-GPU work is asking, and an overdraw figure that omits
+    /// the backdrop is not a floor, it is the wrong shape.
+    ///
+    /// This pins the arithmetic rather than the census line: an unsized sprite
+    /// contributes its IMAGE's area, scaled by its transform, exactly as a sized
+    /// one contributes its `custom_size`.
+    #[test]
+    fn an_unsized_sprite_covers_its_images_area() {
+        let mut images = Assets::<Image>::default();
+        let image = images.add(Image::default());
+        let size = images.get(&image).expect("just inserted").size_f32();
+        assert!(
+            size.x > 0.0 && size.y > 0.0,
+            "the premise: a default Image has a real size, or this test proves \
+             nothing about sizing from one ({size:?})"
+        );
+
+        // The area a sized sprite of the same dimensions would report.
+        let scale = Vec3::new(2.0, 3.0, 1.0);
+        let expected = (size.x * scale.x).abs() * (size.y * scale.y).abs();
+
+        // And what the census now computes for the unsized one.
+        let sprite = Sprite::from_image(image.clone());
+        assert!(
+            sprite.custom_size.is_none(),
+            "the premise: `Sprite::from_image` is the unsized shape the parallax \
+             backdrop uses"
+        );
+        let measured = images
+            .get(&sprite.image)
+            .map(|i| i.size_f32())
+            .map(|s| (s.x * scale.x).abs() * (s.y * scale.y).abs())
+            .expect("the image is loaded");
+
+        assert_eq!(
+            measured, expected,
+            "an unsized sprite must cover its image's area; skipping it reports \
+             the backdrop as zero coverage"
+        );
     }
 }

@@ -2047,6 +2047,42 @@ pub fn tick_npc_idle_barks(
         if disposition.is_hostile() || combat.hit_flash > 0.0 || !health.alive() {
             continue;
         }
+        // ⛔⛔ THE TIMER DECIDES FIRST, AND IT USED TO DECIDE LAST. Resolving the
+        // line is a catalog join per NPC, and the entry API took a `String`
+        // CLONE of the id just to read a float — both paid every tick, for every
+        // NPC, and thrown away on every tick the bark was not due. A bark fires
+        // about once per 28 seconds in the gallery, so at 130 pedestals that was
+        // ~130 joins and ~130 allocations per tick to answer "not yet".
+        //
+        // `perf` put `CharacterCatalog::bark_line` at 1.19% of the whole process
+        // in a headless hall run — beside `slab_sweep`, for ambient chatter that
+        // draws nothing headless.
+        //
+        // ⚠ FIRST SIGHTING STILL COSTS ONE JOIN, deliberately: an NPC with no
+        // line never got a timer before, and giving every NPC one would grow
+        // this map with entries that can never fire.
+        let Some(timer) = state.timers.get_mut(&config.id) else {
+            if super::super::npcs::npc_ambient_bark_line(
+                catalog,
+                prepared_cast.as_deref(),
+                &interaction.interactable,
+                situation,
+                *state.rotations.get(&config.id).unwrap_or(&0),
+            )
+            .is_none()
+            {
+                continue;
+            }
+            state.timers.insert(
+                config.id.clone(),
+                npc_idle_bark_jitter(&config.id, 0, bark_base_s, bark_span_ms) - dt,
+            );
+            continue;
+        };
+        *timer -= dt;
+        if *timer > 0.0 {
+            continue;
+        }
         let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
         let Some(line) = super::super::npcs::npc_ambient_bark_line(
             catalog,
@@ -2057,14 +2093,6 @@ pub fn tick_npc_idle_barks(
         ) else {
             continue;
         };
-        let timer = state
-            .timers
-            .entry(config.id.clone())
-            .or_insert_with(|| npc_idle_bark_jitter(&config.id, 0, bark_base_s, bark_span_ms));
-        *timer -= dt;
-        if *timer > 0.0 {
-            continue;
-        }
         let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
         vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: anchor,

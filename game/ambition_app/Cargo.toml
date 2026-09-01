@@ -152,7 +152,6 @@ profile = ["ambition_platformer2d/profile"]
 # providers; providers never depend on hosts (each also runs unchanged in its
 # own standalone demo app).
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
-ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d" }
@@ -253,5 +252,11 @@ name = "app_it"
 path = "tests/app_it.rs"
 
 [dev-dependencies]
+# ⭐ A TEST DEPENDENCY, NOT A SHIPPED ONE. Pocket is the FOURTH-PROVIDER
+# ARCHITECTURE PROOF — it is deliberately `unlisted` in the launcher (see
+# `shell_host_lifecycle`) and exists to show a provider can compose, register a
+# character, and decline to declare presentation. That proof is worth keeping and
+# the crate is not worth shipping, so it builds for tests and not for the game.
+ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 insta = { version = "1", features = ["ron"] }
 proptest = "1"

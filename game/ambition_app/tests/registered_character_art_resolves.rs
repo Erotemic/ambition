@@ -49,7 +49,6 @@ fn every_registered_character_resolves_the_art_it_declares() {
             "Mary-O",
             ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID,
         ),
-        ("Pocket", ambition_demo_pocket::POCKET_CHARACTER_ID),
     ] {
         assert!(
             registry.get(character).is_some(),

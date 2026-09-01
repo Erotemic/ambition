@@ -95,7 +95,6 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
         AmbitionExperiencePlugin::new(AmbitionExperienceConfig::default()),
         ambition_demo_sanic::SanicExperiencePlugin,
         ambition_demo_mary_o::MaryOExperiencePlugin,
-        ambition_demo_pocket::PocketExperiencePlugin,
         // The stocks demo. It is the first provider whose launcher row does NOT
         // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
         // demo registers as a frontend route of its own and which then asks the

@@ -5,7 +5,7 @@
 //! required acceptance sequence:
 //!
 //! ```text
-//! launcher → Sanic → launcher → Mary-O → launcher → Pocket → launcher
+//! launcher → Sanic → launcher → Mary-O → launcher
 //!          → Ambition → launcher → Sanic (fresh) → launcher → Exit
 //! ```
 //!
@@ -219,7 +219,7 @@ fn assert_home(app: &mut App, context: &str) {
 }
 
 /// Select the launcher entry at `index` (registration order:
-/// Ambition, Sanic, Mary-O, Pocket, Smash, Versus, Exit) and confirm it.
+/// Ambition, Sanic, Mary-O, Smash, Versus, Exit) and confirm it.
 /// Launcher rows = registered experience entries + built-in host actions (the
 /// Exit row, when the host shows it). Derived, never a literal.
 fn launcher_row_count(app: &App) -> usize {
@@ -488,7 +488,10 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .iter()
         .map(|registration| registration.display_name.clone())
         .collect();
-    for unlisted in ["Pocket", "Versus"] {
+    // ⚠ POCKET LEFT THE SHIPPED COMPOSITION 2026-09-01 (it was already unlisted;
+    // now it is not registered either, and builds only for tests). `Versus` still
+    // carries this property — an experience may be REGISTERED and not offered.
+    for unlisted in ["Versus"] {
         assert!(
             registered.iter().any(|name| name == unlisted),
             "`{unlisted}` must stay REGISTERED while being unlisted; found {registered:?}"
@@ -584,32 +587,6 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     assert_home(&mut app, "after mary-o");
-
-    // ── Pocket fourth-provider proof ───────────────────────────────────
-    //
-    // Not being offered to a player says nothing about whether its session tears down cleanly, and
-    // this walk is the only thing that asks.
-    app.world_mut().write_message(ShellCommand::GoTo(
-        ambition_platformer2d::game_shell::ShellRouteId::new("pocket_gameplay"),
-    ));
-    settle(&mut app);
-    let scope = assert_in_game(
-        &mut app,
-        "pocket_gameplay",
-        "pocket",
-        Some(ambition_demo_pocket::POCKET_CHARACTER_ID),
-        "pocket",
-        "pocket",
-    );
-    fresh(scope, "pocket");
-    assert_eq!(
-        live_room_set(&app).active_spec().id.as_str(),
-        "pocket_room",
-        "pocket: provider-authored world is active"
-    );
-    app.world_mut().write_message(ShellCommand::QuitToHome);
-    settle(&mut app);
-    assert_home(&mut app, "after pocket");
 
     // ── Ambition ───────────────────────────────────────────────────────
     launch_labeled(&mut app, "Ambition");

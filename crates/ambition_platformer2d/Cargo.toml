@@ -52,7 +52,12 @@ default = ["all_capabilities"]
 # unconditional.
 all_capabilities = [
     "rollback",
-    "relativity",
+    # ⛔ `relativity` is NOT here. It is a real capability with a real consumer —
+    # the TwinTrack demo, which names it explicitly alongside
+    # `all_capabilities` — but nothing in the shipped game asks for spacetime,
+    # and listing it here put `ambition_relativity` + `ambition_relativity2d`
+    # into every build that took the default features. Removed 2026-09-01 after
+    # TwinTrack left the launcher.
     # A game asking for EVERY capability has an LDtk world; a movement-only
     # game asks for neither this nor the crate behind it.
     "ldtk",

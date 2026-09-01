@@ -462,14 +462,6 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
 pub struct SimPhaseCensus {
     /// When the previous boundary fired, or `None` before the first.
     last: Option<Instant>,
-    /// An INDEPENDENT clock, for a phase that is not on the serial chain.
-    ///
-    /// ⛔⛔ `close` advances `last`, so a mark for an unordered phase does not
-    /// merely mislabel its own bucket — it STEALS from whichever serial bucket
-    /// closes next, wherever the scheduler happened to run it. `Trace` is
-    /// `.after(CoreSimulation)` and nothing else, so it is timed with its own
-    /// start/end pair that never touches `last`.
-    isolated: Option<Instant>,
     /// Accumulated time attributed to each phase, parallel to `names`.
     totals: Vec<f64>,
     names: Vec<&'static str>,
@@ -481,7 +473,6 @@ impl SimPhaseCensus {
     fn with_names(names: Vec<&'static str>) -> Self {
         Self {
             last: None,
-            isolated: None,
             totals: vec![0.0; names.len()],
             names,
             ticks: 0,
@@ -505,26 +496,6 @@ impl SimPhaseCensus {
     }
 
     /// Close the phase that just ended and open the next.
-    /// Start the independent clock. Does NOT disturb the serial partition.
-    fn open_isolated(&mut self) {
-        self.isolated = Some(Instant::now());
-    }
-
-    /// Bill the independent clock into `index`, leaving `last` alone.
-    ///
-    /// ⚠ THE RESULT OVERLAPS A SERIAL BUCKET. An unordered phase runs somewhere
-    /// inside the chain, so its cost is ALSO inside whichever serial bucket
-    /// contains it. This number is that phase's own wall time; it is not a
-    /// disjoint slice of the frame and must not be summed with the others.
-    fn close_isolated(&mut self, index: usize) {
-        let now = Instant::now();
-        if let Some(start) = self.isolated.take() {
-            if let Some(total) = self.totals.get_mut(index) {
-                *total += now.duration_since(start).as_secs_f64() * 1000.0;
-            }
-        }
-    }
-
     fn close(&mut self, index: usize) {
         let now = Instant::now();
         if let Some(last) = self.last {
@@ -595,26 +566,6 @@ pub fn sim_phase_census_enabled() -> bool {
 /// `pub` so other crates can close buckets for sets only they can name, and the
 /// resource it writes is inserted only when the census is on. A missing census
 /// is a mark with nothing to record, not a reason to stop the game.
-/// Start the independent clock for a phase that is NOT on the serial chain.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn open_isolated_phase() -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
-    move |census: Option<ResMut<SimPhaseCensus>>| {
-        if let Some(mut census) = census {
-            census.open_isolated();
-        }
-    }
-}
-
-/// Bill the independent clock into `index`, without disturbing the partition.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn close_isolated_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
-    move |census: Option<ResMut<SimPhaseCensus>>| {
-        if let Some(mut census) = census {
-            census.close_isolated(index);
-        }
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 pub fn mark_sim_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
     move |census: Option<ResMut<SimPhaseCensus>>| {
@@ -759,7 +710,7 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     // ⛔ The schedule declares no order between these, so their buckets are
     // differences between marks nobody sequenced. Named on the row so a reader
     // cannot mistake the list for a serial partition of the frame.
-    row.push_str(" overlapping=");
+    row.push_str(" unmeasured=");
     for (i, index) in SIM_PHASE_UNORDERED.iter().enumerate() {
         if i > 0 {
             row.push('+');
@@ -1247,11 +1198,15 @@ pub fn report_schedule_phase_census(
 /// the honest failure mode for a boundary instrument but is a failure mode.
 /// The phases the schedule declares NO order between, by bucket index.
 ///
-/// ⛔⛔ NOT A PARTITION MEMBER. `Trace` is `.after(CoreSimulation)` and nothing
-/// else, so the scheduler may run it anywhere after Core. A serial mark there
-/// advances `last` and STEALS from whichever chain bucket closes next, wherever
-/// it happened to land — so it is timed with an independent start/end pair and
-/// its number OVERLAPS a chain bucket rather than partitioning with it.
+/// ⛔⛔ UNMEASURED, NOT MERELY UNORDERED. `Trace` is `.after(CoreSimulation)` and
+/// nothing else, and nothing is declared after it. A serial mark there advances
+/// `last` and steals from whichever chain bucket closes next; an "independent"
+/// pair around it is unbounded on both outer sides and measured **2.317 ms**
+/// against a chain phase of 0.1 — most of the frame. There is no pair of marks
+/// that bounds a phase the schedule does not bound.
+///
+/// ⇒ Its bucket stays ZERO and the census row says `unmeasured=Trace`. Giving it
+/// a number needs spans inside its systems, not a boundary instrument.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_UNORDERED: [usize; 1] = [20];
 
@@ -1488,18 +1443,19 @@ fn install_sim_phase_boundaries(app: &mut App) {
             .before(Phase::PresentationVisualSync),
     );
     app.add_systems(sim, mark_sim_phase(19).after(Phase::PresentationVisualSync));
-    // ⛔⛔ TRACE IS NOT ON THE CHAIN, so it gets an INDEPENDENT clock. It is
-    // `.after(CoreSimulation)` and nothing else, so the scheduler may run it
-    // anywhere after Core — and a serial mark there does not merely mislabel its
-    // own bucket, it advances `last` and STEALS from whichever chain bucket
-    // closes next. Timed with its own start/end pair instead, which never
-    // touches the partition.
+    // ⛔⛔ TRACE IS NOT TIMED, AND CANNOT BE BY THIS INSTRUMENT.
     //
-    // ⚠ The number therefore OVERLAPS a serial bucket rather than partitioning
-    // the frame with it. Trace's cost is also inside whichever chain phase
-    // contains it; do not sum this row with the others.
-    app.add_systems(sim, open_isolated_phase().before(Phase::Trace));
-    app.add_systems(sim, close_isolated_phase(20).after(Phase::Trace));
+    // It is `.after(CoreSimulation)` and nothing else — nothing is declared
+    // after it — so every pair of marks I can place has an unbounded side. A
+    // serial mark steals from whichever chain bucket closes next; an
+    // "independent" pair `open.before(Trace)` / `close.after(Trace)` is
+    // unbounded on BOTH outer sides, which is the very defect this repair was
+    // about. It read **2.317 ms** against a chain phase of 0.1 — it was timing
+    // most of the frame, not Trace.
+    //
+    // ⇒ Bucket 20 stays ZERO and the row says `unmeasured=Trace`. A phase
+    // nothing orders cannot be given a wall-time slice by a boundary
+    // instrument; measuring it needs its own spans, not a mark.
 }
 
 #[cfg(not(target_arch = "wasm32"))]

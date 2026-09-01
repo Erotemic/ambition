@@ -384,7 +384,38 @@ with it; the census row labels it `overlapping=`.
 `ResetProcessing` joined the chain (with a comment explaining why); only `Trace`
 did not.
 
-⇒ **The repair is structural hygiene, not a measurement change.** A one-sided
+### ⭐ RE-MEASURED after the graph repair: the tail was misattributed by a whole phase
+
+Interleaved, both binaries alternating in one session, 4 pairs after dropping the
+first:
+
+```text
+phase                        1-sided tail   bracketed    shift
+WorldPrep.Decision.Decide           0.460       0.459      -0%
+WorldPrep.Integrate                 0.348       0.347      -0%
+Decision.Targeting                  0.065       0.066      +1%
+Decision.Observe                    0.060       0.060       0%
+--- and then the post-Core tail ---
+PresentationVisualSync              0.230       0.000    -100%
+FeatureViewSync                     0.000       0.237       new
+FeatureInteraction                  0.003       0.024    +700%
+FeatureCollection                   0.035       0.090    +157%
+Trace                               0.074       0.000   unmeasured
+```
+
+**The decision pipeline is untouched** — every phase this campaign's conclusions
+rest on moves 0-1%. That is the second independent confirmation that the marker
+work does not disturb them (they were already bracketed on both edges).
+
+**The tail was wrong by a whole phase.** `FeatureViewSync` read 0.000 and its
+0.237 ms was billed to `PresentationVisualSync` — which in a HEADLESS run should
+be near zero, because there is no presentation to sync. It now is. That is the
+third-largest sim phase in the room and it was invisible.
+
+`Trace` now reads 0.000 honestly instead of 0.074 dishonestly.
+
+⇒ **The repair is structural hygiene for the decision pipeline, and a real
+correction for everything after `CoreSimulation`.** A one-sided
 mark genuinely CAN bill a successor's work to the previous bucket, and it is
 still worth having both edges — but at this workload the scheduler was not
 actually doing so, and no earlier number needs the 18% correction I published.

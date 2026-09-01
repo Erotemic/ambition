@@ -486,6 +486,15 @@ impl SimPhaseCensus {
         self.ticks = self.ticks.saturating_add(1);
     }
 
+    /// Whether this window holds enough ticks to be a mean rather than a sample.
+    ///
+    /// See the block comment in `report_sim_phase_census` for what a one-tick
+    /// window cost. The time it accumulated is NOT discarded: the reporter
+    /// returns before the reset, so the partial window folds into the next.
+    fn is_reportable(&self) -> bool {
+        self.ticks >= 2
+    }
+
     /// Close the phase that just ended and open the next.
     fn close(&mut self, index: usize) {
         let now = Instant::now();
@@ -652,6 +661,31 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
         return;
     };
     if phases.ticks == 0 {
+        return;
+    }
+    // ⛔⛔ A WINDOW OF ONE TICK IS NOT A MEASUREMENT, AND EMITTING IT COST A DAY.
+    // The first report after boot covers the fraction of a second between the
+    // census opening and its first due time, which in a starting app is one tick
+    // in a world that has not finished spawning. Every phase in it reads 0.000 —
+    // not because the phases are free, but because almost nothing had run yet.
+    //
+    // ⇒ IT WAS AVERAGED IN, REPEATEDLY, BY THE PERSON WHO WROTE THE ROW ABOVE.
+    // The obvious summary of a run is "the last few windows", and on 2026-09-01
+    // a 1200-tick capture produced about three of them, one of which was this:
+    //
+    //     (0.000 + 0.341 + 0.332) / 3 = 0.224
+    //
+    // That 0.224 was published as the hall's `Decide` cost against a true steady
+    // value of 0.341, and the same bias sat under a population curve, a density
+    // sweep and three A/B decompositions — worst at low populations, where runs
+    // are shortest and the zero is the largest share of the mean.
+    //
+    // ⭐ SO IT IS NOT EMITTED. `ticks=1` is already in the row and a reader could
+    // filter on it; three separate analyses did not. A row that cannot be read
+    // correctly is worse than a row that is absent, because absence is visible.
+    // The window's time is not lost — it is folded into the next one, which is
+    // the reading anyone wanted.
+    if !phases.is_reportable() {
         return;
     }
     let ticks = phases.ticks as f64;
@@ -1814,5 +1848,66 @@ mod mark_without_census_tests {
             census.totals[SIM_PHASE_ACTOR_DECISION] > 0.0,
             "and the bucket was closed with a real span"
         );
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod partial_window_tests {
+    use super::*;
+
+    /// ⛔⛔ **THE ONE-TICK STARTUP WINDOW WAS AVERAGED INTO PUBLISHED NUMBERS.**
+    /// Its phases all read 0.000 — not because they are free, but because almost
+    /// nothing had run between the census opening and its first due time. A
+    /// 1200-tick capture produces about three windows, one of which was that:
+    ///
+    /// ```text
+    /// (0.000 + 0.341 + 0.332) / 3 = 0.224
+    /// ```
+    ///
+    /// 0.224 was published as the hall's `Decide` cost against a true 0.341, and
+    /// the same bias sat under a population curve, a density sweep and three A/B
+    /// decompositions — worst at low populations, where runs are shortest.
+    #[test]
+    fn a_single_tick_window_is_not_a_reportable_mean() {
+        let mut census = SimPhaseCensus::with_names(sim_phase_names());
+        census.open();
+        census.close(0);
+        assert_eq!(census.ticks, 1);
+        assert!(
+            !census.is_reportable(),
+            "one tick is a sample, not a mean; reporting it publishes a zero for \
+             every phase that had not run yet"
+        );
+
+        census.open();
+        census.close(0);
+        assert!(
+            census.is_reportable(),
+            "two ticks is the smallest window that can be averaged"
+        );
+    }
+
+    /// And the suppressed window's time must survive into the next one.
+    ///
+    /// ⭐ THIS IS THE HALF THAT MAKES SUPPRESSION HONEST rather than lossy. The
+    /// reporter returns BEFORE its reset, so a skipped window keeps accumulating
+    /// — if it reset instead, suppressing would silently delete real elapsed
+    /// time from the run.
+    #[test]
+    fn a_suppressed_window_keeps_its_accumulation() {
+        let mut census = SimPhaseCensus::with_names(sim_phase_names());
+        census.open();
+        census.close(0);
+        let after_one = census.totals[0];
+        assert!(after_one > 0.0, "the premise: closing a phase records time");
+
+        census.open();
+        census.close(0);
+        assert!(
+            census.totals[0] > after_one,
+            "the second tick must ADD to the first, not replace it: a suppressed \
+             window that reset would delete elapsed time from the run"
+        );
+        assert_eq!(census.ticks, 2, "and both ticks are counted");
     }
 }

@@ -127,6 +127,36 @@ def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, float]]:
     return stale
 
 
+def absent_variants(source_dir: Path, tier_dir: Path) -> list[Path]:
+    """Source manifests with NO counterpart in `tier_dir` at all.
+
+    ⛔⛔ **`stale_pairs` CANNOT SEE THESE.** It walks the TIER directory, so a
+    manifest that was never published there is never visited — a variant that is
+    ABSENT is invisible to a check whose whole question is "is this file older
+    than its source". Measured 2026-09-01: `performer_spritesheet` has no Half,
+    Quarter or Potato variant, and `actor`/`medic` have no Potato, and this tool
+    reported 166 stale files and said nothing about any of them.
+
+    An absent variant does not draw old art. It draws the FULL-resolution pages
+    to a device that asked for less, which is the failure the tiers exist to
+    prevent.
+
+    ⚠ GAMEPLAY SHEETS ONLY, because that is the only family published at every
+    tier. Measured over the same root: `_spritesheet.ron` is 206 at full and 205
+    at each variant, while `_portraits.ron` is 160 against 9 and `_actor.ron` is
+    192 against 47. Those two are published SELECTIVELY, so their absence is
+    policy and reporting it drowns the real finding — a first cut of this check
+    said 979 files were missing and every one of them was fine.
+    """
+    if not tier_dir.is_dir() or not source_dir.is_dir():
+        return []
+    return [
+        manifest
+        for manifest in sorted(source_dir.rglob("*_spritesheet.ron"))
+        if not (tier_dir / manifest.relative_to(source_dir)).exists()
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -140,10 +170,12 @@ def main() -> int:
 
     checked = 0
     stale: list[tuple[Path, float]] = []
+    absent: list[tuple[str, Path]] = []
     for tier in SPRITE_TIERS:
         tier_dir = root / tier
         checked += tier_dir.is_dir()
         stale.extend(stale_pairs(root / "sprites", tier_dir))
+        absent.extend((tier, m) for m in absent_variants(root / "sprites", tier_dir))
     for tier in PARALLAX_TIERS:
         tier_dir = root / "backgrounds" / tier
         checked += tier_dir.is_dir()
@@ -160,6 +192,23 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    if absent:
+        print(
+            f"{len(absent)} source manifest(s) have NO variant at a tier the game "
+            f"ships.\nA missing variant does not draw old art — it draws the "
+            f"FULL-resolution pages to a device that asked for less, which is the "
+            f"failure the tiers exist to prevent.\n",
+            file=sys.stderr,
+        )
+        for tier, manifest in absent[:20]:
+            print(
+                f"    no {tier:16} for  {manifest.relative_to(root)}",
+                file=sys.stderr,
+            )
+        if len(absent) > 20:
+            print(f"    ... and {len(absent) - 20} more", file=sys.stderr)
+        print("", file=sys.stderr)
 
     if stale:
         print(
@@ -182,6 +231,14 @@ def main() -> int:
         print(
             "\n  fix: ./scripts/regen/quality_variants.sh   (incremental; "
             "rebuilds only what is stale)",
+            file=sys.stderr,
+        )
+        return 1
+
+    if absent:
+        print(
+            "  fix: ./scripts/regen/quality_variants.sh   (publishes the missing "
+            "tiers too)",
             file=sys.stderr,
         )
         return 1

@@ -152,6 +152,22 @@ So a per-use tier still needs a defined answer for a missing variant rather than
 a silent fall back to Full — but the population that needs it is three
 characters, not thirteen sheets.
 
+⛔⛔ **AND THE FRESHNESS CHECKER COULD NOT SEE THEM.**
+`scripts/check_quality_variants_are_fresh.py` walks the TIER directory asking
+"is this file older than its source", so a variant that was never published is
+never visited. It reported **166 stale files and said nothing about the three
+characters that have no variant at all.** Absence now reported alongside
+staleness — gameplay sheets only, because `_portraits.ron` (160 vs 9) and
+`_actor.ron` (192 vs 47) are published selectively and flagging them buried the
+real finding under 979 false ones.
+
+⚠ **166 published tier files are also STALE**, up to 8.4 days behind their
+source art, which the checker's own message explains: the game draws old art at
+Low/Medium/Potato and current art at High, *"which looks like the character
+changing when the quality setting does."* The fix is one incremental command,
+`./scripts/regen/quality_variants.sh` — **not run here**, because regenerating
+~166 binary art files is Jon's call, not a side effect of a performance run.
+
 ⚠ This is a DEMAND measurement — megapixels asked for — not a hitch measurement.
 The frame cost of materializing them is a GPU-upload question and this machine
 rasterises in software; that half still needs real hardware.

@@ -364,20 +364,19 @@ impl AabbExt for Aabb {
     }
 }
 
-/// Whether the two boxes overlap enough that a sweep begins in penetration.
-///
-/// ⚠ NOT `strict_intersects`. That treats edge-touching as separate, which is
-/// Ambition's platformer semantics; parry treats a touching start as a contact
-/// and computes impact geometry for it. This asks parry's question, because it
-/// decides which of the two solvers is allowed to answer.
-/// How many times the general solver ran. Test-only, and it exists to guard the
-/// WIRING rather than the arithmetic: the differential test proves the two
-/// solvers agree, which stays true if a refactor routes every call to the slow
-/// one and quietly restores 10.7% of the process.
-/// ⚠ THREAD-LOCAL, because `cargo test` runs tests in PARALLEL THREADS and the
-/// differential test below calls `parry_sweep` twenty thousand times. A global
-/// counter is bumped by whichever test happens to be running beside this one,
-/// which made the guard fail against its own suite rather than against a defect.
+// How many times the general solver ran. Test-only, and it exists to guard the
+// WIRING rather than the arithmetic: the differential test proves the two
+// solvers agree, which stays true if a refactor routes every call to the slow
+// one and quietly restores 10.7% of the process.
+//
+// ⚠ THREAD-LOCAL, because `cargo test` runs tests in PARALLEL THREADS and the
+// differential test below calls `parry_sweep` twenty thousand times. A global
+// counter is bumped by whichever test happens to be running beside this one,
+// which made the guard fail against its own suite rather than against a defect.
+//
+// ⛔ `//` AND NOT `///`. A doc comment on a macro invocation documents nothing —
+// rustc warns `unused doc comment`, because the docs would have to come out of
+// the expansion. Written as `///` first, and the warning is what said so.
 #[cfg(test)]
 thread_local! {
     static PARRY_SWEEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -422,6 +421,12 @@ fn parry_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
     })
 }
 
+/// Whether the two boxes overlap enough that a sweep begins in penetration.
+///
+/// ⚠ NOT `strict_intersects`. That treats edge-touching as separate, which is
+/// Ambition's platformer semantics; parry treats a touching start as a contact
+/// and computes impact geometry for it. This asks parry's question, because it
+/// decides which of the two solvers is allowed to answer.
 fn starts_overlapping(lhs: Aabb, rhs: Aabb) -> bool {
     lhs.right() >= rhs.left()
         && lhs.left() <= rhs.right()

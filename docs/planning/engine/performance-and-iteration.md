@@ -400,6 +400,35 @@ for it, and the acceptance criterion in
 `bounded-perception-and-attention.md` wants those bodies genuinely tactical
 anyway — so that experiment is owed as a room, not as a flag.
 
+## ⛔ AN INVALID PROBE, recorded because its number looked plausible
+
+To price the per-viewer `String` clone in `build_world_view`
+(`id: p.id.clone()`, paid once per viewer per kept peer — ~1800 allocations a
+tick at 130 bodies), a throwaway probe replaced it with `String::new()` and
+measured interleaved against the real binary.
+
+```text
+Decide   with clone 0.476   without 0.601   +26%
+```
+
+**Removing work made it 26% SLOWER, which is the tell.** Empty ids collapse every
+actor onto one `WorldMemory` key, so the belief store, the membership scan and
+`believed_target` all run a different program. The probe measured a different
+game, not this game minus an allocation. No number from it is usable.
+
+A valid probe has to keep the ids distinct and make the clone cheap — `Arc<str>`
+on **both** `PerceivedActor.id` and `PerceptionPeer.id`, so the per-pair clone
+becomes a refcount bump and the allocation happens once per body per tick
+instead of once per pair. Four production construction sites; the rest are tests.
+
+⇒ **The clone remains unpriced.** Its ceiling is ~1800 → ~130 allocations a
+tick, and the gate in ADR 0034 removes ~93% of the phase it sits in, so it is
+not the next thing to build.
+
+⚠ Note the absolutes: this block read `Decide` 0.476 where an earlier block read
+0.336 on the same binary — **42% block drift**. Interleaving controls for it
+(both arms in one block) and is the only reason the +26% was legible at all.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

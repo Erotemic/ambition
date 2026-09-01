@@ -85,6 +85,64 @@ any scheduling machinery has to.
 ms — but on a HEAVIER hall, and still not a controlled A/B. The rendered A/B the
 paragraph above asks for is still owed.
 
+### ⭐ MEASURED 2026-09-01: the tier is global, and a hall pedestal is 4x oversampled
+
+The doc above says *"a lower quality tier for gallery previews"* attacks the 43%
+before any scheduling machinery has to. Here is the number.
+
+**How large a hall character is actually drawn.** Captured the hall twice at
+1920x1080 through the real render stack, once with `AMBITION_ACTOR_POPULATION_CAP=0`
+and once with `=1`, and differenced the images to isolate exactly one character:
+
+```text
+bbox   298 x 131 px
+```
+
+Controlled for tier, because a sprite drawn at its texture's native size would
+make this measurement circular: the same difference at `ultra` is 133 px and at
+`potato` 131 px, so **drawn size is tier-invariant** and 132 px is geometry.
+
+**What is loaded for it.** `noether`'s ladder, from the sheet manifests:
+
+```text
+Full     496 x 528 per frame     7 pages    115.6 MP
+Half     248 x 264               2 pages     29.2 MP
+Quarter  124 x 132               1 page       7.5 MP     <- matches 132 px 1:1
+Potato    31 x  33               1 page       0.5 MP
+```
+
+⇒ **A pedestal preview drawn 132 px tall loads frames of 496 x 528** — 4x
+linear, 16x areal. Quarter matches the drawn size almost exactly.
+
+**Catalog-wide**, over the actors asset root that the desktop dev build actually
+reads (`actors_desktop_asset_root()` -> the monolith's `assets/`, NOT the content
+root, which ships no variants at all):
+
+```text
+tier       pages   megapixels   vs Full
+Full         229       1329.9      1.0x
+Half         218        352.9      3.8x
+Quarter      216        116.0     11.5x
+Potato       214          6.3    212.7x
+```
+
+⛔⛔ **AND THE TIER IS ONE GLOBAL SETTING.**
+`converge_character_residency_to_active_quality` derives a single `active` tier
+from `UserSettings.video.quality`, defaulting to `Full`. Nothing considers how
+large a thing is drawn, or at what display resolution — so a gallery of 129
+pedestal previews and a full-screen fighter ask for the same pages.
+
+⚠ Two caveats before anyone builds on this. The correct tier is
+**resolution-dependent**: at 4K the same pedestal is ~264 px and Half becomes
+right, which is itself the argument that a global setting is the wrong shape.
+And **13 of 229 sheets have no Quarter twin** (216 vs 229), so a per-use tier
+needs a defined answer for a missing variant rather than a silent fall back to
+Full.
+
+⚠ This is a DEMAND measurement — megapixels asked for — not a hitch measurement.
+The frame cost of materializing them is a GPU-upload question and this machine
+rasterises in software; that half still needs real hardware.
+
 ## Existing architecture to build on
 
 The character path already has much of a residency service in domain-specific

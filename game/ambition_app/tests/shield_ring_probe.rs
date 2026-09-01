@@ -30,7 +30,7 @@ const HALL: &str = "hall_of_characters";
 const BOOT_CAP: usize = 1200;
 
 /// Step one frame, with a sliver of wall clock so the asset threads make
-/// progress — the Hall stages ~144 characters and a body whose sheet never
+/// progress — the Hall stages ~130 bodies and a body whose sheet never
 /// decodes reports a fallback size.
 fn step(app: &mut App) {
     app.update();

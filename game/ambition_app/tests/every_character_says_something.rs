@@ -1,6 +1,7 @@
 //! Nobody in the shipped cast stands mute.
 //!
-//! nothing. The measurement behind this file: 4 of 144 pedestals staged a
+//! nothing. The measurement behind this file, taken when the room held 144
+//! pedestals (it authors 129 `NpcSpawn` placements today): 4 of them staged a
 //! character with no catalog row at all — every one registered by a demo
 //! provider through `register_character`, which until that day could carry art
 //! and a name but not a voice.

@@ -161,7 +161,8 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     assert!(
         staged - before >= MINIMUM_HALL_CAST,
         "the Hall transition staged only {} new character(s) on its first frame \
-         (from {before} to {staged}). The room authors 144 NPCs, so the rest are \
+         (from {before} to {staged}). The room authors 129 NpcSpawn placements, \
+         so the rest are \
          being demanded later — after their actors spawn, in frame, uncovered, \
          which is the defect this file exists to keep closed",
         staged - before,

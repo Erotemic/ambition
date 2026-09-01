@@ -66,6 +66,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 
 | Symptom | Read |
 |---|---|
+| An SFZ instrument renders but sounds silent, wrong-pitched, repeats identically, or changes behavior with keyswitches/CCs; aliases work on one machine but not another | [`music-instrument-validation-2026-09-01.md`](music-instrument-validation-2026-09-01.md) |
 | Adaptive music/director plays two sources at once or module split breaks helper visibility | [`music-director-refactor-lessons-2026-05-11.md`](music-director-refactor-lessons-2026-05-11.md), [`lessons_learned.md`](lessons_learned.md) |
 | Parallax minimal app or visibility scaffold fails due to asset server/module graph/run command assumptions | [`parallax-minimal-app-asset-server-2026-05-12.md`](parallax-minimal-app-asset-server-2026-05-12.md), [`parallax-visibility-and-run-command-2026-05-11.md`](parallax-visibility-and-run-command-2026-05-11.md) |
 

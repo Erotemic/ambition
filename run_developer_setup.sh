@@ -55,11 +55,11 @@ want_profiling=0
 want_audio_libraries=0
 
 # Tracy speaks a versioned wire protocol and REFUSES to connect to a client
-# built against a different version, so the server we build must match the
-# `tracy-client-sys` crate the game links. This default is verified against
-# that crate at build time (see tracy_required_version); it is a fallback for
-# when the crate source has not been fetched yet, not an independent opinion.
-tracy_fallback_version="0.13.1"
+# built against a different version, so the server must match the
+# `tracy-client-sys` crate the game links. That version, and the build that
+# honours it, live in `scripts/setup/install_profiling_tools.sh` — one
+# implementation, because there were two and one of them read the WORD "Major"
+# out of the header instead of the number.
 
 usage() {
     awk '
@@ -290,53 +290,6 @@ ensure_cargo_tool() {
     fi
 }
 
-# Tracy is not packaged for Ubuntu, so it is built from source, pinned to the
-# version the game's own `tracy-client-sys` vendors. Read that version out of
-# the crate rather than trusting a constant here: a Bevy upgrade bumps it, and
-# a mismatched server does not warn -- it just refuses the connection.
-tracy_required_version() {
-    local header
-    # registry/src/<index>/<crate>/tracy/common/TracyVersion.hpp is five levels
-    # down; a shallower cap finds nothing and silently yields the fallback.
-    header="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/src" -maxdepth 6 \
-        -path '*tracy-client-sys-*/tracy/common/TracyVersion.hpp' -print -quit 2>/dev/null || true)"
-    if [ -z "$header" ] || [ ! -f "$header" ]; then
-        printf '%s\n' "$tracy_fallback_version"
-        return 0
-    fi
-    local major minor patch
-    major="$(awk -F'[ =}]+' '/Major/ {print $(NF-1)}' "$header")"
-    minor="$(awk -F'[ =}]+' '/Minor/ {print $(NF-1)}' "$header")"
-    patch="$(awk -F'[ =}]+' '/Patch/ {print $(NF-1)}' "$header")"
-    if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
-        printf '%s\n' "$tracy_fallback_version"
-        return 0
-    fi
-    printf '%s.%s.%s\n' "$major" "$minor" "$patch"
-}
-
-# Build one Tracy CMake sub-project. NO_FILESELECTOR keeps the native file
-# dialog (and with it a hard dbus/GTK dependency) out of the CLI tools, which
-# is what lets them build from build-essential + cmake alone.
-build_tracy_tool() {
-    local src_dir="$1" subproject="$2" binary="$3" dest="$4"
-    local build_dir="$src_dir/build-$subproject"
-    log "building $binary"
-    if ! cmake -B "$build_dir" -S "$src_dir/$subproject" \
-        -DCMAKE_BUILD_TYPE=Release -DNO_FILESELECTOR=ON >/dev/null 2>&1; then
-        warn "cmake configure failed for $binary"
-        return 1
-    fi
-    if ! cmake --build "$build_dir" --parallel "$(nproc 2>/dev/null || echo 4)" >/dev/null 2>&1; then
-        warn "build failed for $binary"
-        return 1
-    fi
-    local built
-    built="$(find "$build_dir" -maxdepth 2 -type f -name "$binary" -perm -u+x -print -quit)"
-    [ -n "$built" ] || { warn "$binary was not produced by its build"; return 1; }
-    install -Dm755 "$built" "$dest/$binary"
-}
-
 ensure_profiling_tools() {
     if [ "$want_profiling" -eq 0 ]; then
         return 0
@@ -349,60 +302,18 @@ ensure_profiling_tools() {
         warn "cargo unavailable; skipping cargo-flamegraph"
     fi
 
-    have cmake || { warn "cmake is unavailable; skipping Tracy (rerun without --skip-system-packages)"; return 0; }
-    have git || { warn "git is unavailable; skipping Tracy"; return 0; }
-
-    local version cache_dir src_dir bin_dir stamp
-    version="$(tracy_required_version)"
-    cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ambition"
-    src_dir="$cache_dir/tracy-$version"
-    bin_dir="$HOME/.local/bin"
-    stamp="$cache_dir/.tracy-$version-installed"
-
-    # Test the installed files, not `have`: when ~/.local/bin is off PATH the
-    # binaries are present but invisible to command -v, and a PATH lookup here
-    # would rebuild Tracy from source on every single setup run.
-    if [ -f "$stamp" ] && [ -x "$bin_dir/tracy-capture" ] && [ -x "$bin_dir/tracy-csvexport" ]; then
-        log "Tracy $version already installed in $bin_dir"
-        return 0
-    fi
-
-    log "installing Tracy $version (matches the tracy-client the game links)"
-    mkdir -p "$cache_dir" "$bin_dir"
-    if [ ! -d "$src_dir/.git" ]; then
-        rm -rf "$src_dir"
-        if ! git clone --depth 1 --branch "v$version" \
-            https://github.com/wolfpld/tracy.git "$src_dir" >/dev/null 2>&1; then
-            warn "could not clone Tracy v$version; skipping (profiling still works via perf)"
-            return 0
-        fi
-    fi
-
-    # The headless pair is the point: tracy-capture records without a GUI and
-    # tracy-csvexport turns the trace into a table, which is the only Tracy
-    # path an agent working from a terminal can actually read.
-    local built_cli=1
-    build_tracy_tool "$src_dir" capture tracy-capture "$bin_dir" || built_cli=0
-    build_tracy_tool "$src_dir" csvexport tracy-csvexport "$bin_dir" || built_cli=0
-
-    # The interactive server, best-effort: it needs a desktop's worth of
-    # libraries, and a failure here must not cost you the CLI tools above.
-    if pkg-config --exists egl wayland-egl wayland-cursor xkbcommon 2>/dev/null; then
-        build_tracy_tool "$src_dir" profiler tracy-profiler "$bin_dir" \
-            || warn "Tracy GUI build failed; the headless capture/export tools are still installed"
-    else
-        log "Tracy GUI deps missing; installed the headless tools only"
-    fi
-
-    if [ "$built_cli" -eq 1 ]; then
-        : > "$stamp"
-        log "Tracy tools installed to $bin_dir"
-        case ":$PATH:" in
-            *":$bin_dir:"*) ;;
-            *) warn "$bin_dir is not on PATH; add it to use tracy-capture" ;;
-        esac
-    else
-        warn "Tracy CLI tools did not build; perf-based profiling is unaffected"
+    # ⭐ ONE IMPLEMENTATION, AND IT IS THE STANDALONE ONE. This used to carry its
+    # own copy of the Tracy build and its own version parse — and that parse read
+    # the WORD "Major" instead of the number, so it asked git for a branch called
+    # `vMajor.Minor.Patch`, failed to clone, and left whatever Tracy was already
+    # there. That is how a 0.13.1 server survived beside a 0.14.0 client and cost
+    # a capture on real hardware its per-system zones.
+    #
+    # It is also the whole reason the standalone script exists: somebody whose
+    # only problem is a mismatched Tracy should not have to run submodule sync,
+    # tool venvs and asset regeneration to fix it.
+    if ! "$repo_root/scripts/setup/install_profiling_tools.sh"; then
+        warn "Tracy tools not installed; perf-based profiling is unaffected"
     fi
 }
 

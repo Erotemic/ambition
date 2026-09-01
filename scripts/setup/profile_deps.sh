@@ -195,36 +195,16 @@ check_tracy() {
     done
     ((have_capture)) || return
 
-    # The version the game will actually speak, read from the vendored header.
-    local header client_version server_version
-    header="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/src" -maxdepth 6 \
-        -path '*tracy-client-sys-*/tracy/common/TracyVersion.hpp' -print -quit 2>/dev/null)"
-    if [[ -z "$header" ]]; then
-        warn "could not find the vendored TracyVersion.hpp; skipping the version match"
-        note "it appears once the profiling build has fetched tracy-client-sys"
+    # ⭐ ONE PARSE, IN ONE PLACE. This file used to carry its own copy, which
+    # read the word "Major" and so reported MISMATCH on every machine —
+    # a warning that always fires is one a reader learns to skip, and that is
+    # how a real 0.14.0-vs-0.13.1 mismatch survived to cost a capture its zones.
+    local client_version
+    if ! client_version="$("$(dirname "${BASH_SOURCE[0]}")/install_profiling_tools.sh" --print-version 2>/dev/null)"; then
+        warn "could not read the vendored Tracy version; skipping the version match"
+        note "it appears once a profiling build has fetched tracy-client-sys"
         return
     fi
-    # ⛔⛔ THIS PARSE WAS BROKEN AND THE CHECK COULD ONLY EVER SAY "MISMATCH".
-    # The old field split (`-F'[ =}]+'`, taking `$(NF-1)`) read the WORD, not the
-    # number: `constexpr int Major = 0;` yielded "Major", so the check reported
-    # "the game links Major.Minor.Patch" and compared that to a real version.
-    # It never matched, so it cried wolf on every correctly-installed machine —
-    # and a warning that always fires is one a reader learns to skip, which is
-    # how a REAL mismatch (client 0.14.0, server 0.13.1) reached a capture on
-    # 2026-09-01 and cost that run its per-system zones.
-    client_version="$(awk '/Major *=/ {gsub(/[^0-9]/,"",$NF); maj=$NF}
-                           /Minor *=/ {gsub(/[^0-9]/,"",$NF); min=$NF}
-                           /Patch *=/ {gsub(/[^0-9]/,"",$NF); pat=$NF}
-                           END {print maj"."min"."pat}' "$header")"
-    if [[ ! "$client_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        warn "could not parse a version out of $header (got '$client_version')"
-        note "the comparison below would be meaningless, so it is skipped"
-        return
-    fi
-    # ⚠ `tracy-capture` prints no version, at all, under any flag. The only
-    # local record of what was BUILT is the source tree
-    # `run_developer_setup.sh` cloned into the cache, so that is what we
-    # compare against — inferred, and said to be inferred.
     local cache_dir built
     cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ambition"
     built="$(ls -d "$cache_dir"/tracy-* 2>/dev/null | sed 's#.*/tracy-##' | sort -V | tail -1)"
@@ -239,7 +219,7 @@ check_tracy() {
         note "  the run loses its per-system zones. The bundle now names the reason"
         note "  (PROTOCOL MISMATCH); before 2026-09-01 it said 'the game never"
         note "  connected', which reads like a game bug and sent readers to the wrong half."
-        note "run: ./run_developer_setup.sh --profile   (it builds the version the crate vendors)"
+        note "run: ./scripts/setup/install_profiling_tools.sh   (Tracy only — no submodules, venvs or asset regen)"
     fi
 }
 

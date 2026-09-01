@@ -72,10 +72,17 @@ And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 6
 | **crowd aggregation** | Same regime, same argument. It is what keeps `kept` bounded once a region actually crowds. |
 | spatial index | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
 
-⭐ **AND THE DESIGN'S PREMISE IS CONFIRMED, not just assumed: cost is LINEAR in
-`kept`** (slope 1.13 across the range, 0.90 across the crowded half). Per-peer
-cost does not rise with crowding, so a budget of K exact actors buys a hard
-ceiling rather than a discount.
+⭐ **AND A BUDGET CAPS A TERM THAT GROWS FASTER THAN THE BUDGET.** Decomposed at
+both extents: the peer-dependent construction grows **×18** while `kept` grows
+×7.85 — **slope 1.40**, with per-build cost rising 10.4 µs → 23.9 µs. Total
+`Decide` reads slope 1.13 only because flat terms dilute it at low `kept`.
+
+⭐ **AND CROWDING IS CONSTRUCTION, NOT COGNITION.** The peer-independent brain
+term grows ×1.7 across the same range and is **4%** of the phase at 4x extent.
+Whatever a brain does with a bigger view, it is not what costs.
+
+⭐ **AND THE SCAN IS FLAT** (×0.91) — it walks the same 129 peers whatever the
+extent. Second independent confirmation that the scan is not the expensive half.
 
 ⚠ **HOLD `kept` CONSTANT, NOT THE POPULATION.** A room of 200 where each fighter
 attends to 16 costs about what 130 attending to 14 costs today. A room of 200

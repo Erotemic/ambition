@@ -142,6 +142,21 @@ pub struct PerceptionBody {
     /// and every component that would explain the stillness is present and
     /// correct.
     pub team: Option<ambition_combat::targeting::MatchTeam>,
+    /// WHICH body is doing the perceiving, so the shared peer snapshot can be
+    /// read in place instead of copied per viewer.
+    ///
+    /// ⛔⛔ THIS FIELD REPLACES A CLONE THAT COST HALF THE HALL'S COGNITION.
+    /// `peers_seen_by` existed to answer one question — "all of them but me" —
+    /// and answered it by allocating a `Vec` and cloning every other
+    /// `PerceptionPeer`, each carrying an owned `String id`. At 130 actors that
+    /// is ~16.8k struct clones with a heap allocation each, every tick, to
+    /// exclude ONE row. Measured 2026-09-01: removing it took
+    /// `WorldPrep.Decision.Decide` from 0.861 ms/tick to 0.482.
+    ///
+    /// `None` means "no viewer identity", which excludes nobody. That is the
+    /// right answer for a fixture that hands in a peer list it built itself, and
+    /// it is what every test in this file does.
+    pub viewer: Option<bevy::prelude::Entity>,
 }
 
 /// A candidate other-body the viewer may perceive. Pre-collected (id +
@@ -511,6 +526,9 @@ pub fn build_world_view(
     // fold a whole room's geometry into one tick's line-of-fire query.
     let actors = peers
         .iter()
+        // A body is not its own peer. This is the whole job `peers_seen_by`
+        // used to do by copying the other 129 rows.
+        .filter(|p| Some(p.entity) != body.viewer)
         .filter(|p| perception.knows_bodies_anywhere() || viewport.contains(p.pos))
         .map(|p| PerceivedActor {
             id: p.id.clone(),
@@ -672,6 +690,11 @@ pub(crate) fn perception_body_for(
         axis_motion.params,
     );
     PerceptionBody {
+        // The identity `build_world_view` uses to skip this body's own row.
+        // Taken from the body's OWN peer row rather than passed separately: it
+        // is the same entity `peers_seen_by` compared against, and a body with
+        // no row in the snapshot has nobody to exclude.
+        viewer: self_peer.map(|peer| peer.entity),
         captured: capture.captured,
         captured_for: capture.captured_for,
         holding_captive: capture.holding_captive,
@@ -782,19 +805,18 @@ impl PerceivedWorld<'_, '_> {
         self.relations.as_deref().unwrap_or(&self.empty_relations)
     }
 
-    /// Every peer this viewer perceives — that is, all of them but itself.
-    pub fn peers_seen_by(&self, viewer: bevy::prelude::Entity) -> Vec<PerceptionPeer> {
+    /// The whole peer snapshot, borrowed.
+    ///
+    /// ⭐ EVERY VIEWER READS THE SAME SLICE. Excluding self is one comparison
+    /// inside `build_world_view` (`PerceptionBody::viewer`), not a per-viewer
+    /// copy of the room. The `peers_seen_by` this replaced returned an owned
+    /// `Vec<PerceptionPeer>` per actor per tick and was measured at half of the
+    /// hall's entire cognition cost.
+    pub fn peers(&self) -> &[PerceptionPeer] {
         self.peers
-            .as_ref()
-            .map(|peers| {
-                peers
-                    .0
-                    .iter()
-                    .filter(|peer| peer.entity != viewer)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
+            .as_deref()
+            .map(|peers| peers.0.as_slice())
+            .unwrap_or(&[])
     }
 
     /// This body's OWN peer row.

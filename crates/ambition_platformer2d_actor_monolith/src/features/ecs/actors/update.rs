@@ -526,9 +526,13 @@ pub fn tick_actor_brains(
                         // future reader must see which term carries that.
                         driver,
                     );
-                    // The other bodies this actor perceives (§A7): the pre-collected
-                    // snapshot minus SELF.
-                    let view_peers = perceived.peers_seen_by(this_actor_entity);
+                    // The other bodies this actor perceives (§A7): the shared
+                    // pre-collected snapshot, BORROWED. Self is excluded by one
+                    // comparison inside `build_world_view` against
+                    // `PerceptionBody::viewer`; this used to be a per-actor
+                    // `Vec` clone of every other row and was measured at half
+                    // the hall's cognition cost.
+                    let view_peers = perceived.peers();
                     // Self's own move phase / i-frames come from the SAME per-tick
                     // snapshot every peer's do — one derivation (`body_phase`), so a
                     // body cannot read itself more precisely than its opponent reads it.

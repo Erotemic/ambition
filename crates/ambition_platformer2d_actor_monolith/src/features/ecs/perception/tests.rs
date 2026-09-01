@@ -2,6 +2,9 @@ use super::*;
 
 fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
     PerceptionBody {
+        // A fixture hands in a peer list it built itself, with no row for the
+        // viewer; there is nobody to exclude.
+        viewer: None,
         captured: false,
         captured_for: 0.0,
         holding_captive: false,
@@ -768,4 +771,96 @@ fn a_different_team_is_hostile_even_on_the_same_faction() {
         "a teammate is not a target, and reading factions instead would make \
          every 2v2 a free-for-all in the brain's eyes"
     );
+}
+
+/// ⛔⛔ **A VIEWER MUST NOT PERCEIVE ITSELF.**
+///
+/// This is the entire job the deleted `peers_seen_by` was doing, and deleting it
+/// is what removed ~16.8k struct-and-`String` clones per tick from the hall.
+/// Every viewer now reads the SAME shared snapshot — which contains its own row
+/// — and self-exclusion is one comparison against `PerceptionBody::viewer`
+/// inside `build_world_view`.
+///
+/// Get it wrong and a body perceives itself as another actor: `nearest_hostile`
+/// can return the viewer, a grudge-holder becomes hostile to itself, and every
+/// distance query has a zero in it. Nothing panics. The brains simply act on a
+/// world with a duplicate of themselves in it.
+mod a_viewer_is_not_its_own_peer {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// Two REAL entities, because `Entity::PLACEHOLDER` is what every other
+    /// fixture in this file uses and a test where viewer and peer are the same
+    /// placeholder cannot tell exclusion from an empty list.
+    fn two_entities() -> (Entity, Entity) {
+        let mut world = World::new();
+        (world.spawn_empty().id(), world.spawn_empty().id())
+    }
+
+    #[test]
+    fn the_viewers_own_row_is_excluded_from_the_shared_snapshot() {
+        let (me, other) = two_entities();
+        let world = arena_world();
+        let relations = FactionRelations::default();
+
+        let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        viewer.viewer = Some(me);
+
+        // The shared snapshot, exactly as `PerceivedWorld::peers()` hands it
+        // over: it contains the viewer.
+        let mut my_row = peer("me", ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        my_row.entity = me;
+        let mut their_row = peer("them", ae::Vec2::new(180.0, 180.0), ActorFaction::Player);
+        their_row.entity = other;
+        let snapshot = vec![my_row, their_row];
+
+        let view = build_world_view(
+            &viewer,
+            &snapshot,
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Omniscient,
+            0.0,
+        );
+
+        assert_eq!(
+            view.actors.len(),
+            1,
+            "the viewer's own row must not reach the brain; got {:?}",
+            view.actors.iter().map(|a| &a.id).collect::<Vec<_>>()
+        );
+        assert_eq!(view.actors[0].id, "them");
+    }
+
+    /// Premise guard: exclusion must remove ONE row, not the population.
+    ///
+    /// Without this, a filter that dropped everything — or a `viewer` that
+    /// matched every peer because they all share `Entity::PLACEHOLDER` — would
+    /// pass the arm above.
+    #[test]
+    fn a_viewer_with_no_row_in_the_snapshot_excludes_nobody() {
+        let (me, other) = two_entities();
+        let world = arena_world();
+        let relations = FactionRelations::default();
+
+        let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+        viewer.viewer = Some(me);
+
+        let mut their_row = peer("them", ae::Vec2::new(180.0, 180.0), ActorFaction::Player);
+        their_row.entity = other;
+
+        let view = build_world_view(
+            &viewer,
+            &[their_row],
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Omniscient,
+            0.0,
+        );
+        assert_eq!(view.actors.len(), 1, "nobody to exclude, so nobody is");
+    }
 }

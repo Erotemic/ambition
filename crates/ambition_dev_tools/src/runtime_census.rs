@@ -707,6 +707,16 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     if let Some(profile) = crate::brain_override::forced_profile() {
         row.push_str(&format!(" brain_profile={profile}"));
     }
+    // ⛔ The schedule declares no order between these, so their buckets are
+    // differences between marks nobody sequenced. Named on the row so a reader
+    // cannot mistake the list for a serial partition of the frame.
+    row.push_str(" unordered=");
+    for (i, index) in SIM_PHASE_UNORDERED.iter().enumerate() {
+        if i > 0 {
+            row.push('+');
+        }
+        row.push_str(phases.names.get(*index).copied().unwrap_or("?"));
+    }
     let mut ranked: Vec<(&'static str, f64)> = phases
         .names
         .iter()
@@ -1162,12 +1172,34 @@ pub fn report_schedule_phase_census(
 /// Stand a boundary system after each top-level sim phase, and after each
 /// sub-phase of `CoreSimulation`.
 ///
-/// ⭐ THE ORDER IS THE CHAIN'S, NOT A LIST I KEEP. `configure_platformer2d_simulation_phases`
-/// already `.chain()`s these, so ordering a marker `.after(phase)` puts it
-/// exactly at that phase's trailing edge. ⛔ The names below still duplicate the
+/// ⛔⛔ **`.after(phase)` DOES NOT PUT A MARK AT THAT PHASE'S TRAILING EDGE**, and
+/// this doc said it did until 2026-09-01. `.after(A)` constrains the mark
+/// against `A` and against nothing else, so `A`'s successor may start before the
+/// mark runs and have part of its work billed to `A`. Every mark that CAN be
+/// bracketed is now `.after(A).before(B)`.
+///
+/// ⚠ AND ONLY SOME CAN. `configure_platformer2d_simulation_phases` `.chain()`s
+/// two groups — the `CoreSimulation` phases and the three `WorldPrep` sets — but
+/// the eleven phases in `GameplaySimulationRoot` are configured with NO
+/// `.chain()` at all. A mark on one of those has no declared neighbour in either
+/// direction, so their buckets are NOT a serial partition and must not be summed
+/// as one. See `SIM_PHASE_UNORDERED`.
+///
+/// ⛔ The names below still duplicate the
 /// chain's membership, and a phase added there without a line here is simply
 /// unattributed — its time lands in whichever neighbour closes next, which is
 /// the honest failure mode for a boundary instrument but is a failure mode.
+/// The phases the schedule declares NO order between, by bucket index.
+///
+/// ⛔⛔ THEIR BUCKETS ARE NOT A PARTITION. `GameplaySimulationRoot` groups these
+/// with `.in_set(...)` and no `.chain()`, so two of them may run in either order
+/// or overlap. "Now minus the previous mark" still produces a number for each,
+/// and that number is a difference between two marks whose order nobody
+/// declared. Reported so a reader cannot sum them into a frame budget.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_UNORDERED: [usize; 11] =
+    [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
 /// The sim-phase bucket names, in index order.
 ///
 /// ⛔⛔ THE INDICES ARE A CROSS-CRATE CONTRACT. `SIM_PHASE_ACTOR_DECISION` is a
@@ -1260,7 +1292,29 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
     // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
     app.add_systems(sim, open_sim_phase_window.before(Phase::PlayerInput));
-    app.add_systems(sim, mark_sim_phase(0).after(Phase::PlayerInput));
+    // ⛔⛔ EACH MARK NEEDS BOTH EDGES, AND THESE HAD ONLY ONE UNTIL 2026-09-01.
+    // `.after(A)` alone says the mark runs after `A`; it says NOTHING about the
+    // mark and `A`'s successor, so the scheduler may start `B` before the mark
+    // fires and bill part of `B` into `A`'s bucket. The actor-decision marks in
+    // `features/mod.rs` already carried this reasoning and both edges; the
+    // parent marks did not, and the comment here claimed `.after(phase)` put a
+    // mark "exactly at that phase's trailing edge". It does not.
+    //
+    // A `.before(next)` is only available where the schedule actually DECLARES a
+    // successor. Two groups here do:
+    //
+    //   PlayerInput -> WorldPrep -> PlayerSimulation -> RoomTransition
+    //                -> Combat -> PresentationSync        (CoreSimulation, chained)
+    //   BeforeIntegrate -> Integrate -> AfterIntegrate    (WorldPrep, chained)
+    //
+    // Everything else is NOT ordered, and a mark there cannot be bracketed —
+    // see `SIM_PHASE_UNORDERED` below.
+    app.add_systems(
+        sim,
+        mark_sim_phase(0)
+            .after(Phase::PlayerInput)
+            .before(Phase::WorldPrep),
+    );
     // ⭐ THE SUB-SETS CLOSE BEFORE THEIR UMBRELLA. Each mark bills the span since
     // the previous one, so bucket 5 (`WorldPrep`) ends up holding only what ran
     // inside the phase but in NONE of its four sets — which is a real quantity
@@ -1270,14 +1324,49 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // ⚠ `AfterIntegrate` and `ContactDamage` are deliberately NOT chained to each
     // other (see `WorldPrepSet`), so their marks record the order the schedule
     // actually resolved, not an order this instrument imposed.
-    app.add_systems(sim, mark_sim_phase(1).after(WorldPrepSet::BeforeIntegrate));
-    app.add_systems(sim, mark_sim_phase(2).after(WorldPrepSet::Integrate));
-    app.add_systems(sim, mark_sim_phase(3).after(WorldPrepSet::AfterIntegrate));
+    app.add_systems(
+        sim,
+        mark_sim_phase(1)
+            .after(WorldPrepSet::BeforeIntegrate)
+            .before(WorldPrepSet::Integrate),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(2)
+            .after(WorldPrepSet::Integrate)
+            .before(WorldPrepSet::AfterIntegrate),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(3)
+            .after(WorldPrepSet::AfterIntegrate)
+            .before(WorldPrepSet::ContactDamage),
+    );
     app.add_systems(sim, mark_sim_phase(4).after(WorldPrepSet::ContactDamage));
-    app.add_systems(sim, mark_sim_phase(5).after(Phase::WorldPrep));
-    app.add_systems(sim, mark_sim_phase(6).after(Phase::PlayerSimulation));
-    app.add_systems(sim, mark_sim_phase(7).after(Phase::RoomTransition));
-    app.add_systems(sim, mark_sim_phase(8).after(Phase::Combat));
+    app.add_systems(
+        sim,
+        mark_sim_phase(5)
+            .after(Phase::WorldPrep)
+            .before(Phase::PlayerSimulation),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(6)
+            .after(Phase::PlayerSimulation)
+            .before(Phase::RoomTransition),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(7)
+            .after(Phase::RoomTransition)
+            .before(Phase::Combat),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(8)
+            .after(Phase::Combat)
+            .before(Phase::PresentationSync),
+    );
     app.add_systems(sim, mark_sim_phase(9).after(Phase::PresentationSync));
     app.add_systems(sim, mark_sim_phase(10).after(Phase::FeatureCollection));
     app.add_systems(sim, mark_sim_phase(11).after(Phase::FeatureInteraction));
@@ -1742,6 +1831,100 @@ mod tests {
         }
         for on in ["1", "true", "yes", "on"] {
             assert!(env_is_truthy(on), "{on:?} must enable the census");
+        }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod sim_phase_bracket_tests {
+    //! Every sim-phase mark that CAN be bracketed must carry both edges.
+    //!
+    //! ⛔⛔ **THE DEFECT THIS PINS SHIPPED IN NINETEEN MARKS AT ONCE**, while the
+    //! actor-decision marks one level down carried the correct reasoning in a
+    //! comment: *"EACH MARK NEEDS BOTH EDGES. `.after(Targeting)` alone has no
+    //! upper bound."* The parent marks were all `.after(phase)` and this file's
+    //! own doc asserted that put them "exactly at that phase's trailing edge".
+    //! It does not: the successor may start before the mark runs, and its work
+    //! is then billed to the previous bucket.
+    //!
+    //! ⚠ A SOURCE guard, not a schedule-graph proof. It cannot tell you the
+    //! `.before` names the RIGHT successor — only that a mark which could be
+    //! bracketed is not left one-sided. The chain it must agree with lives in
+    //! `configure_platformer2d_simulation_phases`.
+
+    const SOURCE: &str = include_str!("runtime_census.rs");
+
+    /// Marks the schedule gives no successor to, and why.
+    ///
+    /// `4` is `WorldPrepSet::ContactDamage`, attached with `.after(AfterIntegrate)`
+    /// and deliberately not chained — *"a LABEL, not a chain position: chaining it
+    /// would add edges nobody chose."* `9` is `PresentationSync`, the last link of
+    /// the `CoreSimulation` chain. `10..=18` are the `GameplaySimulationRoot`
+    /// phases, configured with no `.chain()` at all.
+    fn has_no_declared_successor(index: usize) -> bool {
+        index == 4 || index == 9 || super::SIM_PHASE_UNORDERED.contains(&index)
+    }
+
+    fn installations() -> Vec<(usize, String)> {
+        let mut out = Vec::new();
+        for (at, _) in SOURCE.match_indices("mark_sim_phase(") {
+            let rest = &SOURCE[at..];
+            let open = rest.find('(').unwrap() + 1;
+            let close = rest.find(')').unwrap();
+            let Ok(index) = rest[open..close].trim().parse::<usize>() else {
+                continue;
+            };
+            let end = rest.find(");").map(|e| e + 2).unwrap_or(rest.len().min(400));
+            out.push((index, rest[..end].to_string()));
+        }
+        out
+    }
+
+    #[test]
+    fn every_bracketable_mark_carries_both_edges() {
+        let found = installations();
+        assert!(
+            found.len() >= 19,
+            "expected the parent marks to be found by text; got {} — if the \
+             installation shape changed, this guard stopped guarding",
+            found.len()
+        );
+        for (index, text) in &found {
+            if has_no_declared_successor(*index) {
+                continue;
+            }
+            assert!(text.contains(".after("), "mark {index} lost its lower bound");
+            assert!(
+                text.contains(".before("),
+                "mark {index} is one-sided: `.after(..)` alone lets the next \
+                 phase start before the mark fires, billing its work to the \
+                 previous bucket. Give it `.before(<successor>)`, or add it to \
+                 `has_no_declared_successor` with the reason.\n{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_unbracketable_marks_are_declared_and_not_merely_missing() {
+        // ⛔ PREMISE GUARD. Without this, declaring every index successor-less
+        // would make the test above pass vacuously.
+        let bracketable: Vec<usize> = installations()
+            .into_iter()
+            .map(|(i, _)| i)
+            .filter(|i| !has_no_declared_successor(*i))
+            .collect();
+        assert!(
+            bracketable.len() >= 8,
+            "both real chains' marks must still be bracketed; got {bracketable:?}"
+        );
+    }
+
+    #[test]
+    fn the_unordered_phases_all_name_a_bucket() {
+        assert_eq!(super::SIM_PHASE_UNORDERED.len(), 11);
+        let names = super::sim_phase_names();
+        for index in super::SIM_PHASE_UNORDERED {
+            assert!(index < names.len(), "unordered index {index} names no bucket");
         }
     }
 }

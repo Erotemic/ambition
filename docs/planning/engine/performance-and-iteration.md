@@ -13,6 +13,40 @@ Related focused work:
 - [`project-build-and-distribution.md`](project-build-and-distribution.md)
 - [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
 
+## ⛔⛔ `run_tests.sh` EXITS 0 IN TWO DIFFERENT FAILURE STATES
+
+Found 2026-09-01, both in one session, both after I had already written "lane
+green":
+
+**It exits 0 when it refuses to run.** With the target bindmount missing it
+prints `⛔⛔ TARGET IS ON VIRTIOFS AND NOT SHADOWED`, runs no tests, writes no
+`target/run_tests_status.json`, and exits 0.
+
+**It exits 0 when a job fails.** A completed lane wrote
+`"passed": 3, "failed": ["workspace (default features)"]` and still exited 0.
+
+⇒ **Never conclude a lane is green from its exit code, or from `finished_jobs`.**
+Read the names:
+
+```bash
+python3 -c "import json;d=json.load(open('target/run_tests_status.json'));print(d['passed'], d['failed'])"
+```
+
+An absent status file means it never started; re-run
+`scripts/setup/target_bindmount.sh` first, and expect a cold rebuild because the
+store moves.
+
+### The red it was hiding
+
+`ambition_demo_mary_o::power_loop::every_tier_change_holds_its_arriving_sheets_transition_clip`
+— *"the eight-frame fire transformation is the clip a flat 0.5s cut off"*
+(`power_loop.rs:358`). It compares a requested beat's dilated duration against
+`clip_secs("mary_o_v2_fire", Transform)`.
+
+**Pre-existing, and confirmed so rather than assumed:** it fails at `82cda301f`
+in a clean baseline worktree with submodules initialised. Not caused by the
+perception, census, geometry or knob work.
+
 ## Measurement rules
 
 A number is actionable only with enough context to know what it measured:

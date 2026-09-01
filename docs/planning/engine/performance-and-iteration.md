@@ -50,8 +50,8 @@ population inside one room:
 
 | | slope, 17 → 130 bodies | at n=130 |
 |---|---:|---:|
-| `WorldPrep.Integrate` | 1.32 | 0.637 ms/tick |
-| `ActorDecision.Decide` | 1.64 | 0.415 |
+| `WorldPrep.Integrate` | 0.86 (after) | 0.252 ms/tick |
+| `ActorDecision.Decide` | 1.27 (after) | 0.341 |
 | `ActorDecision.Targeting` | 1.03 | 0.053 |
 
 Cost per body nearly quadruples across that range. The dominant term was
@@ -231,19 +231,43 @@ the current fighter/body/room populations" — **happened**. `hall_of_characters
 is a player-accessible room with 130 authored actors and it is a deliberate
 stress workload. The curve above is the re-measurement this row asked for.
 
-**Closed 2026-09-01.** Two changes, both "stop paying a general-purpose price
-for a special case":
-
-```text
-metric        slope before  slope after   @130 before   @130 after   cut
-Decide             1.64         1.50         0.4123       0.2247     46%
-Integrate          1.32         1.12         0.6365       0.2863     55%
-frame p50          0.51         0.54         3.0700       1.9400     37%
-```
+**Closed 2026-09-01.** Four changes, all "stop paying a general-purpose price for
+a special case":
 
 - **Borrow the peer snapshot** rather than clone the room per actor per tick.
 - **Sweep axis-aligned boxes with the closed form**, not parry's generic GJK —
   which was 10.7% of the whole process, the largest single cost in the profile.
+- **Test view membership against sorted keys** in `WorldMemory::update`, not a
+  linear scan of the view per remembered actor — 12.89% of the process at crowd
+  density.
+- **Look up before inserting** in the same function, so a peer already
+  remembered costs no `String` clone.
+
+The curve, 6000-tick runs with the startup census window excluded, two reps per
+point agreeing within 3%:
+
+```text
+bodies   Decide  Integrate  frame p50
+     9   0.0113     0.0254      0.578
+    18   0.0251     0.0446      0.670
+    34   0.0630     0.0733      0.795
+    66   0.1583     0.1310      1.055
+   130   0.3410     0.2521      1.662
+
+slopes 9 -> 130:   Decide 1.27    Integrate 0.86    frame 0.40
+```
+
+⛔ **THE FIGURES PUBLISHED EARLIER IN THIS ROW WERE MEASURED WRONG.** They
+averaged the census's one-tick startup window, whose every phase reads 0.000, into
+short runs — `(0.000 + 0.341 + 0.332) / 3 = 0.224` was published as `Decide` at
+130 bodies against a true 0.341. The bias was worst at low populations, where
+runs are shortest, so every slope was too STEEP. The row no longer carries them;
+the frame column was never affected (`[census] frame` has no startup window) and
+its headline stands: **3.07 -> 1.66 ms p50 at 130 bodies.**
+
+⭐ `Integrate` is **sublinear** at 0.86 — cost per body falls as the room fills,
+which is what per-tick amortisation looks like: the collision world is rebuilt
+once per tick however many bodies then sweep against it.
 
 `Integrate`'s superlinearity was never a missing broadphase; it was a per-sweep
 constant large enough to look like one. The simulation profile is now flat,

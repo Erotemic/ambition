@@ -37,20 +37,34 @@ preserving both as current guidance.
 
 ## Current runtime model
 
-### Simulation CPU: healthy in measured representative workloads
+### Simulation CPU: linear-ish at two fighters, superlinear in a full room
 
-Representative two-fighter headless profiling put a normal frame around
-**4.3–4.5 ms** on the measured host. A fully attributed sample was approximately:
+At the two-fighter populations this section was written for, a normal headless
+frame is **4.3–4.5 ms** with ~0.83 ms of marked gameplay simulation and ~0.21 ms
+of GGRS driver overhead, spread across hundreds of small systems rather than one
+hot one. That reading still holds **for two fighters**.
 
-- **0.83 ms** marked gameplay simulation;
-- **0.21 ms** GGRS driver overhead;
-- the remainder spread across Bevy/app phases rather than one hot gameplay
-  system.
+**It does not describe a populated room, and as of 2026-09-01 it is measured.**
+`hall_of_characters` at 130 bodies, headless and without Tracy, varying
+population inside one room:
 
-The schedule is broad: hundreds of individually small systems. Fighting versus
-idle and fighter-count experiments produced modest deltas rather than a nonlinear
-simulation bottleneck. The current evidence does not fund a broad simulation CPU
-rewrite.
+| | slope, 17 → 130 bodies | at n=130 |
+|---|---:|---:|
+| `WorldPrep.Integrate` | 1.32 | 0.637 ms/tick |
+| `ActorDecision.Decide` | 1.64 | 0.415 |
+| `ActorDecision.Targeting` | 1.03 | 0.053 |
+
+Cost per body nearly quadruples across that range. The dominant term was
+per-actor perception CONSTRUCTION, not cognition — 130 brains decide in 0.098 ms
+while building what they decide about cost 0.76 ms. Borrowing the shared peer
+snapshot instead of cloning it per actor halved `Decide` and raised headless tick
+throughput 24%; the remainder is bounded only by a bounded representation, which
+is `bounded-perception-and-attention.md`.
+
+⚠ **The shape is superlinear but not n²**, and the reason is a design constraint
+rather than a constant: the actor channel is viewport-clipped, so the cost is
+O(n × visible) and *visible* is set by spatial density. Count is not the
+independent variable.
 
 System count is useful for architecture/composition census. It is not a cost
 model by itself.
@@ -210,11 +224,29 @@ Only after a current startup trace shows a material user-facing cost, identify
 which preparation/plugin/assets dominate it. Do not infer the answer from plugin
 count.
 
-### P2 — throughput scaling
+### ~~P2~~ P1 — throughput scaling: the threshold has been crossed
 
-Re-measure simulation CPU when a real product scenario materially exceeds the
-current fighter/body/room populations. Preserve the headless profiling tools so
-that threshold is cheap to test.
+The condition this row waited on — "a real product scenario materially exceeds
+the current fighter/body/room populations" — **happened**. `hall_of_characters`
+is a player-accessible room with 130 authored actors and it is a deliberate
+stress workload. The curve above is the re-measurement this row asked for.
+
+Open, in priority order:
+
+1. **Bounded perception** (`bounded-perception-and-attention.md`). The remaining
+   per-actor construction is superlinear and no local change touches it.
+2. **`WorldPrep.Integrate` at slope 1.32**, now the largest sim phase at 130
+   bodies. One attribution pass, not a campaign — and *not* an argument for a
+   physics engine until something names the term.
+3. **Windowed `Update` (2.59 ms) and `PostUpdate` (1.71 ms) are unattributed.**
+   The sim is only ~25% of a windowed hall frame, and the capture that showed it
+   is 88.5% CPU in the game binary — so presentation, not the GPU, owns the rest.
+   This needs a host with a display; it cannot be measured headless.
+
+⛔ **Keep the hall cast awake.** Making distant actors dormant is a legitimate
+game policy and it is not this row: applied to the benchmark it deletes the
+workload that finds these defects. See the conflict noted in
+`maintainer-decisions.md`.
 
 ## Standing prohibitions
 

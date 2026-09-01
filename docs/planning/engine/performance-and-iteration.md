@@ -579,6 +579,89 @@ that fixed half is; that needs a different instrument.
 `Combat`'s fixed floor. Neither is the perception architecture, and neither wants
 a spatial index — `Targeting` is 0.030 at 130 and still linear.
 
+## ⭐ MEASURED 2026-09-01 ON REAL HARDWARE (RTX 3090): the sim is not the frame
+
+Jon's windowed capture, `desktop-timeline-run-20260901T172520Z`. i9-11900K, RTX
+3090, Vulkan, 1600x900, quality **Ultra**, 287 sprites (86 visible), ONE world
+camera, 6031 frames.
+
+```text
+frame p50            9.77 ms   (~102 FPS)
+frame p99           17.02 ms
+worst frame        468.75 ms
+```
+
+Against the same production host run headless, with no render backend:
+
+```text
+phase                windowed   headless
+whole frame              9.66       2.40
+RunFixedMainLoop         0.558      0.515   <- the simulation
+PreUpdate                3.154      0.408
+Update                   2.936      0.572
+PostUpdate               1.805      0.513
+```
+
+⭐ **THE SIMULATION IS 0.55 ms — under 6% of the frame — AND IT IS THE SAME
+NUMBER HEADLESS.** It is real work and it is not the problem. Roughly 7.3 ms
+appears only when rendering, on a scene of 287 sprites.
+
+### ⛔⛔ AND THE PHASE SPLIT CANNOT SAY WHERE, WHICH I MISSED FIRST
+
+I read `PreUpdate 3.15 ms` as CPU work and said the GPU was idle. **The game had
+already refused that reading**, in stderr, on every window:
+
+```text
+[census] phases_warning untrustworthy=render_blocking — `[census] phases`
+attributes wall time between markers, so GPU blocking lands in whichever phase
+brackets it. Trust phase splits only from a run with no rendering.
+```
+
+The summary printed the table with no trace of that warning, which is how I read
+past it. Both are fixed: the summary now carries the caveat, and
+`[census] phases_cpu` reports the same split on a CPU clock so `wall - cpu` per
+phase IS the stall. **Neither number below is attributed until a capture with the
+CPU column exists.**
+
+### What is structurally true regardless (counts, not timings)
+
+`PreUpdate` runs **144 systems** windowed against 126 headless. Of them:
+
+```text
+37 x Assets                  one asset_events per registered asset type
+15 x update_instance_states  bevy_kira, one per audio CHANNEL
+ 7 x release_confirmed_effects
+```
+
+We register **14 audio channels, 12 of them music crossfade layers**
+(`MusicLayer0A..5B`), each adding a per-frame system whether music plays or not.
+Candidates, not causes.
+
+### The hitches are the asset campaign, confirmed on real hardware
+
+The 468/466/373 ms frames at t≈19-21s line up with
+`perfect_cellular_automaton_spritesheet` materializing — 7 pages, ~108 MP. That
+is one of the two characters already measured as owning 43% of the session's
+decode work.
+
+### ⛔ THE DECISIVE INSTRUMENT WAS BROKEN, AND SO WAS THE CHECK FOR IT
+
+The capture lost its per-system zones. The bundle said *"the game never
+connected"*; `tracy-capture.log` said `The client you are trying to connect to
+uses incompatible protocol version`. It CONNECTED. The game links Tracy
+**0.14.0** (`tracy-client-sys 0.29.0`, protocol 82); the built server is
+**0.13.1**.
+
+`profile_deps.sh` has a check for exactly this, and it **could only ever report
+MISMATCH** — its parse read the word `Major` instead of the number, so it printed
+"the game links Major.Minor.Patch" and compared that to a real version. A warning
+that fires on every correctly-installed machine is one a reader learns to skip.
+Both fixed.
+
+⇒ **Next capture wants:** `./run_developer_setup.sh --profile` (aligns Tracy),
+then a windowed run. It will carry `phases_cpu`, and Tracy's zones will name the
+systems. Until then, "7.3 ms of rendering" is a total, not an attribution.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

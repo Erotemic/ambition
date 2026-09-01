@@ -150,7 +150,24 @@ is the opposite pole and its evidence is the strongest available:
 pursues from the same memory a skirmisher does — so `needs_target_belief()` is
 true at both upper levels and only `needs_world_view()` separates them.
 
-### Part two, still owed, and it is the risky half
+### Part two: LANDED 2026-09-01, and measured
+
+The gate is wired and the schema baseline moved with it
+(`GGRS_ROLLBACK_SCHEMA_VERSION` 146 → 147, reason recorded beside the other 146).
+
+```text
+authored hall (None x129)   Decide 0.353 -> 0.026   -93%,  wall time -32%
+brutes (TargetBelief x129)  Decide 0.735 -> 0.748    +2%   (the control)
+```
+
+The control arm is what makes this a correctness result and not just a speed
+one: a cast that needs the belief still gets it and still pays for it.
+
+⚠ Only `None` skips the build. `believed_target` derives the belief FROM the
+view, so `TargetBelief` still constructs one — making THAT road cheap is a later
+increment, and it is where the attention work belongs.
+
+### What part two did NOT do
 
 Wiring the gate into `actors/update.rs` so a `None` brain gets no
 `build_world_view` and no `believed_target`. **That is the checksummed-state

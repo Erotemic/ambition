@@ -501,6 +501,50 @@ not the next thing to build.
 0.336 on the same binary — **42% block drift**. Interleaving controls for it
 (both arms in one block) and is the only reason the +26% was legible at all.
 
+## ⭐ LANDED 2026-09-01: ADR 0034 increment 1, measured with its own control
+
+The gate is in. Interleaved against the pre-gate binary, both alternating in one
+session, 4 pairs after dropping the first:
+
+```text
+authored hall cast -- 129 of 129 declare None
+phase                            no gate     gate    shift
+WorldPrep.Decision.Decide          0.353    0.026     -93%
+WorldPrep.Integrate                0.264    0.264      -0%
+WorldPrep.ContactDamage            0.012    0.012      +0%
+census window wall time            6.291    4.287     -32%
+```
+
+**It matches the throwaway probe's ceiling exactly** (0.340 → 0.024 predicted,
+0.353 → 0.026 delivered), which is the outcome that licenses trusting the probe
+method for the next one.
+
+⭐ **AND THE WALL TIME MOVED.** The census window shrank 32%, so this is work
+that LEFT THE PROCESS rather than moving between buckets — the failure mode a
+boundary instrument is most prone to, and the reason to look at a second
+instrument before believing a phase number.
+
+### The control: a cast that NEEDS the belief is untouched
+
+The same room with `AMBITION_ACTOR_BRAIN_OVERRIDE=ambition::melee_brute_striker`,
+whose brains classify `TargetBelief`:
+
+```text
+WorldPrep.Decision.Decide          0.735    0.748      +2%
+Combat                             0.240    0.239      -0%
+```
+
+⇒ The gate DISCRIMINATES; it does not merely delete work. Brains that need a
+belief still get one and still pay for it, and that arm is what separates
+"correctly selective" from "broke perception".
+
+⚠ Several unrelated phases also fell 12-25% on the `None` arm (`PlayerSimulation`,
+`Progression`, `FeatureCollection`). `Integrate` and `ContactDamage` did not move
+at all, so it is not a uniform scaling artefact. Removing 129 world-view
+constructions a tick plausibly relieves allocator and cache pressure elsewhere —
+**plausibly** is the operative word; that mechanism is not measured and should
+not be quoted as one.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

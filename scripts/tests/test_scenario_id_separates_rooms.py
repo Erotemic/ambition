@@ -74,3 +74,52 @@ def test_scenario_id_is_still_a_comparability_field():
     trivially — and rooms would silently merge again.
     """
     assert "scenario.id" in history.COMPARABILITY_FIELDS
+
+
+def label_for(**overrides) -> str:
+    fields = {
+        "scenario.id": "windowed:default",
+        "scenario.version": 1,
+        "scenario.headless": False,
+        "build.cargo_profile": "profiling",
+        "build.features": [],
+        "build.package": "ambition_app",
+        "build.binary": "ambition_game_bin",
+        "host.machine_id": "m",
+        "host.cpu_model": "cpu",
+        "host.logical_cpus": 12,
+        "gpu.rendering": "hardware",
+        "gpu.adapter": "a",
+        "display.resolution": "1600x900",
+        "instruments.tracy": False,
+        "instruments.perf": True,
+        "instruments.census": True,
+        "instruments.census_hz": 1.0,
+    }
+    fields.update(overrides)
+    return history.comparable_label(fields)
+
+
+def test_two_groups_that_differ_never_share_a_label():
+    """⛔⛔ Three groups printed as ONE identical heading in the generated report.
+
+    `windowed:default@v1/profiling/hardware/no-tracy/087907b3...` appeared three
+    times. They differ by whether the Tracy instrumentation was COMPILED IN
+    (`['profile']` vs `[]` — which `no-tracy` does not say, since that flag is
+    about whether Tracy ATTACHED) and by 3200x1800 vs 1600x900, which is exactly
+    the weak-GPU framebuffer-scale experiment.
+
+    A label that cannot distinguish two groups is worse than a hash: the hash at
+    least looks opaque, so nobody trusts it as a name.
+    """
+    assert label_for(**{"display.resolution": "3200x1800"}) != label_for()
+    assert label_for(**{"build.features": ["profile"]}) != label_for()
+
+
+def test_identical_groups_still_share_a_label():
+    """Premise guard: distinguishing must not make every row unique.
+
+    Folding something run-specific into the label would pass the arm above and
+    make the report a list of one-row groups.
+    """
+    assert label_for() == label_for()

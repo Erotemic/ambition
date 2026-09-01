@@ -641,14 +641,34 @@ def comparability(record: dict) -> tuple[str, dict]:
 
 
 def comparable_label(fields: dict) -> str:
-    """A key a human can read in a table without expanding the dict."""
+    """A key a human can read in a table without expanding the dict.
+
+    ⛔⛔ IT USED TO COLLAPSE GROUPS THAT DIFFER ON THE THING UNDER TEST. The label
+    omitted `build.features` and `display.resolution`, so three separate groups
+    printed as one identical string in
+    `docs/planning/engine/runtime-frame-history.md`:
+
+        windowed:default@v1/profiling/hardware/no-tracy/087907b3...   x3
+
+    They differ by `['profile']` vs `[]` — whether the Tracy instrumentation was
+    COMPILED IN, which `no-tracy` above does not say, because that flag reports
+    whether Tracy ATTACHED — and by 3200x1800 vs 1600x900, which is precisely the
+    weak-GPU framebuffer-scale experiment. A reader saw three identical headings
+    and no way to tell which row belonged to which arm.
+
+    ⭐ EVERY FIELD THAT SPLITS A GROUP NOW APPEARS IN ITS NAME. A label that cannot
+    distinguish two groups is worse than a hash: the hash at least LOOKS opaque.
+    """
     scenario = fields.get("scenario.id") or "?"
     version = fields.get("scenario.version")
     where = fields.get("gpu.rendering") or "?"
     tracy = "tracy" if fields.get("instruments.tracy") else "no-tracy"
+    features = "+".join(fields.get("build.features") or []) or "no-features"
+    resolution = fields.get("display.resolution") or "?"
     return (
         f"{scenario}@v{version}/{fields.get('build.cargo_profile') or '?'}"
-        f"/{where}/{tracy}/{fields.get('host.machine_id') or '?'}"
+        f"[{features}]/{where}@{resolution}/{tracy}"
+        f"/{fields.get('host.machine_id') or '?'}"
     )
 
 

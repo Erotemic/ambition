@@ -775,6 +775,18 @@ def build_summary(bundle: Bundle) -> str:
     # ── Frame phase breakdown ────────────────────────────────────────────
     section(lines, "Which phase of the frame owned the time")
     phases = bundle.rows("schedule_phases.csv")
+    # ⛔⛔ THE GAME ALREADY SAYS WHEN THIS TABLE CANNOT BE READ AS CPU WORK, AND
+    # THE TABLE USED TO PRINT ANYWAY. `[census] phases_warning
+    # untrustworthy=render_blocking` goes to stderr on every rendering run:
+    # "phases attributes wall time between markers, so GPU blocking lands in
+    # whichever phase brackets it." A reader who has the summary in front of
+    # them does not have the stderr, and this table's shape — one phase at 32%
+    # — invites exactly the conclusion the warning forbids: that the phase was
+    # BUSY rather than BLOCKED. Measured 2026-09-01 on an RTX 3090 capture,
+    # where PreUpdate read 3.15 ms and could not be told apart from a wait.
+    render_blocked = "untrustworthy=render_blocking" in bundle.read(
+        "game-stderr-stamped.txt"
+    )
     if phases:
         # Column order is schedule order; taking labels off the row keeps this
         # table honest if a phase is ever added to the census.
@@ -798,6 +810,23 @@ def build_summary(bundle: Bundle) -> str:
             for label, value in sorted(per_frame.items(), key=lambda item: -item[1]):
                 share = (value / budget * 100.0) if budget > 0 else 0.0
                 lines.append(f"{value:8.2f} ms  {share:5.1f}%  {label}")
+            if render_blocked:
+                lines += [
+                    "```",
+                    "",
+                    "⛔⛔ **THIS SPLIT IS NOT CPU WORK.** The game emitted "
+                    "`untrustworthy=render_blocking` for this run: the census "
+                    "attributes wall time between markers, so time spent BLOCKED "
+                    "on the GPU lands in whichever phase brackets it. A phase at "
+                    "30% here may be waiting, not working, and nothing in the "
+                    "numbers distinguishes the two.",
+                    "",
+                    "Use it for the frame TOTAL and for comparing one run against "
+                    "another taken the same way. To attribute CPU cost to a phase, "
+                    "take a run with no rendering — or get per-system zones, which "
+                    "need Tracy to actually connect.",
+                    "```text",
+                ]
             lines += [
                 "```",
                 "",

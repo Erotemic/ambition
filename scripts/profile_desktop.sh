@@ -609,8 +609,27 @@ finish_tracy_capture() {
     kill "$capture_pid" 2>/dev/null || true
     wait "$capture_pid" 2>/dev/null || true
     if [[ ! -s "$out_dir/tracy.trace" ]]; then
-        echo "tracy-capture produced no trace (the game never connected)" > "$out_dir/tracy.skipped"
-        log "Tracy produced no trace"
+        # ⛔⛔ SAY WHY, AND tracy-capture ALREADY DID. On 2026-09-01 a capture on
+        # real hardware recorded "the game never connected" while its own
+        # tracy-capture.log said:
+        #
+        #   Connecting to 127.0.0.1:8086...
+        #   The client you are trying to connect to uses incompatible protocol
+        #   version.
+        #
+        # It CONNECTED. The versions differed. A reader chasing "never
+        # connected" looks at the game, the feature flag and the port — none of
+        # which is the problem — and the one line that names it is in a log
+        # nobody opens because the skip file already gave an answer.
+        local why="the game never connected"
+        if [[ -s "$out_dir/tracy-capture.log" ]] \
+            && grep -qi "incompatible protocol version" "$out_dir/tracy-capture.log"; then
+            why="PROTOCOL MISMATCH — tracy-capture and the game's compiled tracy-client are different Tracy versions. The game speaks whatever tracy-client-sys vendors (check TracyVersion.hpp in the vendored copy); install matching Tracy tools."
+        elif [[ -s "$out_dir/tracy-capture.log" ]]; then
+            why="no trace; tracy-capture said: $(tail -n 2 "$out_dir/tracy-capture.log" | tr '\n' ' ')"
+        fi
+        echo "tracy-capture produced no trace ($why)" > "$out_dir/tracy.skipped"
+        log "Tracy produced no trace: $why"
         return 0
     fi
     if ! tracy-csvexport "$out_dir/tracy.trace" > "$out_dir/tracy_zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then

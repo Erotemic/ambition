@@ -171,8 +171,11 @@ check_perf() {
 # ── 3. Tracy, both halves and the version between them ───────────────────────
 # ⚠ THE CLIENT AND THE SERVER MUST BE THE SAME TRACY. The game links whatever
 # `tracy-client-sys` vendors; `tracy-capture` is built separately. A mismatch
-# does not error — the capture simply never connects and the bundle records
-# "the game never connected", which reads like a game bug.
+# does not error — tracy-capture connects and is REFUSED with "incompatible
+# protocol version", and the run silently loses its per-system zones.
+#
+# ⛔ 2026-09-01: this cost a real capture on an RTX 3090 its zone data, and the
+# frame could not be split into CPU work vs GPU blocking as a result.
 check_tracy() {
     head2 "Tracy (per-system attribution)"
     local have_capture=1
@@ -201,7 +204,23 @@ check_tracy() {
         note "it appears once the profiling build has fetched tracy-client-sys"
         return
     fi
-    client_version="$(awk -F'[ =}]+' '/Major/ {maj=$(NF-1)} /Minor/ {min=$(NF-1)} /Patch/ {pat=$(NF-1)} END {print maj"."min"."pat}' "$header")"
+    # ⛔⛔ THIS PARSE WAS BROKEN AND THE CHECK COULD ONLY EVER SAY "MISMATCH".
+    # The old field split (`-F'[ =}]+'`, taking `$(NF-1)`) read the WORD, not the
+    # number: `constexpr int Major = 0;` yielded "Major", so the check reported
+    # "the game links Major.Minor.Patch" and compared that to a real version.
+    # It never matched, so it cried wolf on every correctly-installed machine —
+    # and a warning that always fires is one a reader learns to skip, which is
+    # how a REAL mismatch (client 0.14.0, server 0.13.1) reached a capture on
+    # 2026-09-01 and cost that run its per-system zones.
+    client_version="$(awk '/Major *=/ {gsub(/[^0-9]/,"",$NF); maj=$NF}
+                           /Minor *=/ {gsub(/[^0-9]/,"",$NF); min=$NF}
+                           /Patch *=/ {gsub(/[^0-9]/,"",$NF); pat=$NF}
+                           END {print maj"."min"."pat}' "$header")"
+    if [[ ! "$client_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        warn "could not parse a version out of $header (got '$client_version')"
+        note "the comparison below would be meaningless, so it is skipped"
+        return
+    fi
     # ⚠ `tracy-capture` prints no version, at all, under any flag. The only
     # local record of what was BUILT is the source tree
     # `run_developer_setup.sh` cloned into the cache, so that is what we
@@ -216,8 +235,10 @@ check_tracy() {
         ok "Tracy versions agree on $client_version (client vendored, server built from cache)"
     else
         bad "Tracy MISMATCH: the game links $client_version, the built server is $built"
-        note "⚠ a mismatch does NOT error. tracy-capture simply never connects, and the"
-        note "  bundle records 'the game never connected' — which reads like a game bug."
+        note "⚠ a mismatch does NOT error. tracy-capture connects and is REFUSED, and"
+        note "  the run loses its per-system zones. The bundle now names the reason"
+        note "  (PROTOCOL MISMATCH); before 2026-09-01 it said 'the game never"
+        note "  connected', which reads like a game bug and sent readers to the wrong half."
         note "run: ./run_developer_setup.sh --profile   (it builds the version the crate vendors)"
     fi
 }

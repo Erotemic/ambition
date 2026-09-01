@@ -95,6 +95,14 @@ COMPARABILITY_FIELDS = (
     "quality.parallax_max_layers",
     "quality.msaa_samples",
     "quality.max_scale_factor",
+    # ⛔⛔ A CAPPED OR RE-BRAINED ROOM IS A DIFFERENT WORKLOAD, NOT A RESULT.
+    # `AMBITION_ACTOR_POPULATION_CAP` removes authored actors and
+    # `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every one of them thinks
+    # with. Both were reported on the census row and in NO comparability field,
+    # so a 16-body scaling arm and the shipped 130-body hall hashed to one group
+    # and the ledger called them the same experiment.
+    "workload.actor_cap",
+    "workload.brain_override",
     "instruments.tracy",
     "instruments.perf",
     "instruments.census",
@@ -635,6 +643,26 @@ def profiler_share(bundle: Bundle) -> float | None:
     return round(share, 1) if seen else None
 
 
+def workload_facts(bundle: Bundle) -> dict:
+    """The measurement knobs that change WHAT RAN, read off the sim-phase row.
+
+    Both are absent on an ordinary capture and read `None`, which is what every
+    row recorded before they existed digs to — so adding them re-keys the whole
+    ledger to the same values it already had, rather than orphaning the series.
+
+    ⚠ THE CENSUS ROW ALREADY SAID BOTH. `runtime_census.rs` appends `actor_cap=`
+    precisely so a reader cannot mistake a capped run for the shipped room. It
+    reached prose and never reached the key the ledger GROUPS on, which is the
+    one place the mistake is made silently.
+    """
+    rows = bundle.rows("census_sim_phases.csv")
+    last = rows[-1] if rows else {}
+    return {
+        "actor_cap": last.get("actor_cap"),
+        "brain_override": last.get("brain_override"),
+    }
+
+
 def instrument_facts(bundle: Bundle, meta: dict) -> dict:
     """What was actually observing the run — not what was requested.
 
@@ -708,9 +736,17 @@ def comparable_label(fields: dict) -> str:
     features = "+".join(fields.get("build.features") or []) or "no-features"
     resolution = fields.get("display.resolution") or "?"
     quality = fields.get("quality.profile") or "unrecorded"
+    # Only a run that actually set a knob carries the segment. An ordinary
+    # capture keeps the label it has always had, so the history stays readable.
+    knobs = []
+    if fields.get("workload.actor_cap"):
+        knobs.append(f"cap{fields['workload.actor_cap']}")
+    if fields.get("workload.brain_override"):
+        knobs.append(str(fields["workload.brain_override"]))
+    cast = f"/cast:{'+'.join(knobs)}" if knobs else ""
     return (
         f"{scenario}@v{version}/{fields.get('build.cargo_profile') or '?'}"
-        f"[{features}]/{where}@{resolution}/q:{quality}/{tracy}"
+        f"[{features}]/{where}@{resolution}/q:{quality}{cast}/{tracy}"
         f"/{fields.get('host.machine_id') or '?'}"
     )
 
@@ -838,6 +874,7 @@ def build_record(
         "gpu": gpu_facts(bundle, meta),
         "display": display_facts(bundle, meta),
         "quality": quality_facts(bundle),
+        "workload": workload_facts(bundle),
         "instruments": instrument_facts(bundle, meta),
         "run": {
             "frames": frames,

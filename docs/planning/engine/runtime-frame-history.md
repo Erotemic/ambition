@@ -30,7 +30,7 @@ everything that changes a frame time without the engine changing.
 
 ## sandbox@v1/profiling[profile]/headless@headless/q:unrecorded/tracy/aivm-2404
 
-`02ad8bee0b9720d1`
+`3bc40b838539d587`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -47,7 +47,7 @@ Caveats carried by these rows:
 
 ## sandbox@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/aivm-2404
 
-`a777decc72a030aa`
+`134399aaaf87ac74`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -65,7 +65,7 @@ Caveats carried by these rows:
 
 ## smash-match-2p@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`6740f33b5fdebb45`
+`a8911af31950f95d`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -80,7 +80,7 @@ Oldest to newest in this group:
 
 ### desktop-timeline-run-20260829T041954Z → desktop-timeline-run-20260901T061156Z
 
-- group: `smash-match-2p@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e` (`6740f33b5fdebb45`)
+- group: `smash-match-2p@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e` (`a8911af31950f95d`)
 - commits: `17dc49d0d254` → `88f4ca40e208`
 - measured: 2026-08-29T04:19:54Z → 2026-09-01T06:11:56Z
 - regression threshold: 5%
@@ -111,7 +111,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## smash-match-2p@v1/profiling[profile]/headless@headless/q:unrecorded/tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`86641481bd66fb1c`
+`21392527cd058fca`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -120,7 +120,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/tracy/5776eb09a1ca4e8cb6f7060776c608d1
 
-`891301cfca167ff3`
+`1782d31747413fbc`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -131,7 +131,7 @@ Oldest to newest in this group:
 
 ### desktop-timeline-run-20260829T143608Z → desktop-timeline-run-20260829T171902Z
 
-- group: `windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/tracy/5776eb09a1ca4e8cb6f7060776c608d1` (`891301cfca167ff3`)
+- group: `windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/tracy/5776eb09a1ca4e8cb6f7060776c608d1` (`1782d31747413fbc`)
 - commits: `4bd4a329e7b0` → `8552328d3a32`
 - measured: 2026-08-29T14:36:08Z → 2026-08-29T17:19:02Z
 - regression threshold: 5%
@@ -163,7 +163,7 @@ Oldest to newest in this group:
 
 ## windowed:default@v1/profiling[profile]/hardware@3200x1800/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3
 
-`0b1d62332e24e181`
+`0a1d56ed94056cf5`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -175,7 +175,7 @@ Oldest to newest in this group:
 
 ### desktop-timeline-run-20260829T214154Z → desktop-timeline-run-20260829T220508Z
 
-- group: `windowed:default@v1/profiling[profile]/hardware@3200x1800/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3` (`0b1d62332e24e181`)
+- group: `windowed:default@v1/profiling[profile]/hardware@3200x1800/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3` (`0a1d56ed94056cf5`)
 - commits: `4dd43f8202f6` → `4dd43f8202f6`
 - measured: 2026-08-29T21:41:54Z → 2026-08-29T22:05:08Z
 - regression threshold: 5%
@@ -206,7 +206,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## windowed:default@v1/profiling[no-features]/hardware@1600x900/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3
 
-`73b3add1d722fec7`
+`827d73570d4ca534`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -215,7 +215,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3
 
-`e9701cef572718fc`
+`1b4a7f42b697e3bb`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -226,7 +226,7 @@ Oldest to newest in this group:
 
 ### desktop-timeline-run-20260829T232350Z → desktop-timeline-run-20260829T233357Z
 
-- group: `windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3` (`e9701cef572718fc`)
+- group: `windowed:default@v1/profiling[profile]/hardware@1600x900/q:unrecorded/no-tracy/087907b3a9744438bc0fefc2137d6da3` (`1b4a7f42b697e3bb`)
 - commits: `143d37a96aea` → `143d37a96aea`
 - measured: 2026-08-29T23:23:50Z → 2026-08-29T23:33:57Z
 - regression threshold: 5%
@@ -257,7 +257,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## windowed:default@v1/profiling[profile]/hardware@1440x900/q:unrecorded/no-tracy/5776eb09a1ca4e8cb6f7060776c608d1
 
-`8fa60934249a1c03`
+`688fb8d206f2a4fc`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -269,7 +269,7 @@ Oldest to newest in this group:
 
 ### desktop-timeline-run-20260831T210231Z → desktop-timeline-run-20260831T212831Z
 
-- group: `windowed:default@v1/profiling[profile]/hardware@1440x900/q:unrecorded/no-tracy/5776eb09a1ca4e8cb6f7060776c608d1` (`8fa60934249a1c03`)
+- group: `windowed:default@v1/profiling[profile]/hardware@1440x900/q:unrecorded/no-tracy/5776eb09a1ca4e8cb6f7060776c608d1` (`688fb8d206f2a4fc`)
 - commits: `b20324980c65` → `b20324980c65`
 - measured: 2026-08-31T21:02:31Z → 2026-08-31T21:28:31Z
 - regression threshold: 5%
@@ -301,7 +301,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## sandbox (profiler default)@v1/profiling[profile]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`9dff08c03c737060`
+`af2479b5251f5492`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -310,7 +310,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## sandbox (profiler default)@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`1c7f81753082bd43`
+`621c19994cc6b092`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -319,7 +319,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## caller-specified@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`9a93be6958e5aef1`
+`56c1e86d67503951`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -328,7 +328,7 @@ Not comparable — one side never measured it (an instrument was off, or the row
 
 ## headless:--start-room+hall_of_characters@v1/profiling[no-features]/headless@headless/q:unrecorded/no-tracy/ec9af5ee73e34e07a46bddf870f96f2e
 
-`304248574a4828e8`
+`12e3ca41bf403571`
 
 | measured | commit | frame mean | p99 | max | spikes/1k | systems | exec/frame | record |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |

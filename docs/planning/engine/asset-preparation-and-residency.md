@@ -135,9 +135,22 @@ pedestal previews and a full-screen fighter ask for the same pages.
 ⚠ Two caveats before anyone builds on this. The correct tier is
 **resolution-dependent**: at 4K the same pedestal is ~264 px and Half becomes
 right, which is itself the argument that a global setting is the wrong shape.
-And **13 of 229 sheets have no Quarter twin** (216 vs 229), so a per-use tier
-needs a defined answer for a missing variant rather than a silent fall back to
-Full.
+⚠ **A correction to my own first reading of the variant counts.** 229 Full pages
+against 216 Quarter is NOT 13 missing twins — `noether_spritesheet.2..6` have no
+Quarter counterpart because Quarter fits in ONE page. Page counts falling is the
+tier working. Counted by CHARACTER instead, coverage is nearly complete:
+
+```text
+                characters   no variant at this tier
+sprites (Full)         206   —
+sprites_0_5x           205   performer_spritesheet
+sprites_0_25x          205   performer_spritesheet
+sprites_potato         203   performer, actor, medic
+```
+
+So a per-use tier still needs a defined answer for a missing variant rather than
+a silent fall back to Full — but the population that needs it is three
+characters, not thirteen sheets.
 
 ⚠ This is a DEMAND measurement — megapixels asked for — not a hitch measurement.
 The frame cost of materializing them is a GPU-upload question and this machine

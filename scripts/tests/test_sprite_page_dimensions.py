@@ -137,3 +137,66 @@ def test_the_ultrapack_path_still_caps_its_pages():
     assert worst <= 2048, (
         f"ULTRAPACK page is {worst}px; its tier page_size is meant to cap this at 2048"
     )
+
+
+# ── variant COVERAGE, by character ───────────────────────────────────────────
+#
+# A character with no variant at a tier falls back to Full, silently. That is the
+# failure mode a per-use quality tier would hit — the tier is selected, the pages
+# arrive full-size anyway, and nothing says so.
+#
+# ⛔ COUNT CHARACTERS, NOT PAGES. 229 Full pages against 216 Quarter looks like 13
+# missing twins and is not: `noether_spritesheet.2..6` have no Quarter
+# counterpart because at Quarter the whole character fits in ONE page. Page
+# counts falling IS the tier working. Counted by character, three are genuinely
+# uncovered.
+
+import re as _re  # noqa: E402
+
+ACTORS_ROOT = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+
+# tier -> characters known to have no variant there. Shrinking this is the
+# improvement; a name appearing that is not listed means a character silently
+# lost its variant and now ships Full pages to a device that asked for less.
+UNCOVERED = {
+    "sprites_0_5x": {"performer_spritesheet"},
+    "sprites_0_25x": {"performer_spritesheet"},
+    "sprites_potato": {"performer_spritesheet", "actor_spritesheet", "medic_spritesheet"},
+}
+
+
+def _character_stems(variant: str) -> set[str]:
+    directory = ACTORS_ROOT / variant
+    if not directory.is_dir():
+        return set()
+    return {
+        _re.sub(r"(\.\d+)?\.png$", "", page.name)
+        for page in directory.glob("*spritesheet*.png")
+    }
+
+
+def test_every_character_has_a_variant_at_every_tier_except_the_named_three():
+    full = _character_stems("sprites")
+    assert len(full) > 150, (
+        f"only {len(full)} full-tier characters found — if the asset root moved, "
+        "this guard stopped guarding"
+    )
+    for variant, known in UNCOVERED.items():
+        missing = full - _character_stems(variant)
+        assert missing <= known, (
+            f"{variant}: {sorted(missing - known)} lost their variant. A character "
+            f"with no page at a tier falls back to Full silently, which defeats the "
+            f"tier for whoever selected it."
+        )
+
+
+def test_the_uncovered_list_is_not_quietly_absorbing_everything():
+    """⛔ PREMISE GUARD. Listing every character as uncovered would pass the test
+    above. Coverage is near-total today and must stay that way."""
+    full = _character_stems("sprites")
+    for variant, known in UNCOVERED.items():
+        covered = len(full) - len(known)
+        assert covered >= len(full) - 5, (
+            f"{variant} claims {len(known)} uncovered characters; the tier ladder "
+            f"is supposed to be near-total coverage, not a handful of exceptions"
+        )

@@ -1092,6 +1092,23 @@ product ruling.
   the proof-pulse lifetime, character heights, fighter reach/tumble policy,
   ranged-recharge presentation, persistent foreign-room actor placement and
   dormant windbox/armor customers.
+- **One windowed capture with `FramePaceCap::Off`** (2026-09-01). Every frame
+  number to date was taken under the pacer. Prediction on record so it can be
+  wrong: it will NOT materially change the frame, because the limiter sleeps
+  only ~4 us/frame — it was on but not binding. See
+  [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+- **One capture with `--no-tracy`**, to settle why the capture runs on for
+  minutes after the game is quit. Ruled out already: perf call-graph cost
+  (timeline-run uses none), perf.data size (1.2 MB), and quitting to the launcher
+  rather than the desktop. `TRACY_NO_EXIT` is opt-in and unset, so the client
+  cannot block forever — a bounded flush of queued zones remains possible.
+- **Whether to author a DENSE melee room** — a product call, not an engine one.
+  Bounded attention (ADR 0034 increment 2) cannot be validated without it:
+  `Perception::Sighted`'s viewport already caps kept peers at ~14 (max 21) and
+  holds there when the room doubles, so the written acceptance criterion passes
+  on current code. A sparse room of 200 would satisfy the old wording and measure
+  nothing. See
+  [`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md).
 - **Rendered external-consumer/platform checks:** keep in
   [`tracks.md`](tracks.md) until the necessary GPU/toolchain is available; do not
   report host-prerequisite absence as an engine defect.

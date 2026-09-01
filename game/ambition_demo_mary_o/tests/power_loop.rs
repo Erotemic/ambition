@@ -357,7 +357,29 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     let transform_clip = clip_secs("mary_o_v2_fire", CharacterAnim::Transform);
     assert!(
         transform.duration * transform.clock_scale >= transform_clip - 1e-4,
-        "the eight-frame fire transformation is the clip a flat 0.5s cut off"
+        "the fire transformation is the clip a flat 0.5s cut off: \
+         {:.3}s of wall time at {:.2}x draws {:.3}s of a {:.3}s clip.\n\
+         \n\
+         ⛔ RED SINCE BEFORE 2026-09-01, and 0.450 is not a coincidence: it is \
+         `UNREADABLE_CLIP_SECS`, the fallback `powerups::clip_seconds` returns \
+         when it cannot join a character id to a sheet. So the beat is not \
+         mistimed — it is being authored from the fallback instead of from the \
+         art.\n\
+         \n\
+         The sheet is fine: `sprites/mary_o_v2_fire_spritesheet.ron` has an \
+         11-frame transform at 0.08s = 0.880s, at every quality tier. The TALL \
+         form joins correctly in this same test, so the catalog and sheets are \
+         staged. What fails is \
+         `sheet_for_character_id_from_data(authored, catalog.data(), \"mary_o_fire\")` \
+         returning None (or a zero clip) for the fire form alone.\n\
+         \n\
+         ⚠ The old message said EIGHT frames. The art has eleven — the prose \
+         went stale exactly the way this test's doc warns a copied constant \
+         would.",
+        transform.duration,
+        transform.clock_scale,
+        transform.duration * transform.clock_scale,
+        transform_clip,
     );
     assert!(
         transform_clip > grow_clip,

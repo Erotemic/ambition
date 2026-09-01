@@ -484,7 +484,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
-  MSAA.** The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;
+  MSAA.** ⭐ **The coverage attribution this row wanted first is DONE (2026-09-01):
+  the parallax backdrop is 96% of sprite coverage and gameplay sprites are 0.7x
+  the viewport in total — the lever is the backdrop's layer count and blending,
+  not the actors.** That half needed no hardware, because coverage is a COUNT and
+  a count is the same on any rasteriser; see
+  `journal/2026-09-02-the-overdraw-is-the-backdrop.md`. The timing split below
+  still needs the real device. The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;
   both DPI/framebuffer cap and MSAA changed together. Run an interleaved A/B on
   real weak GPU hardware with the independent `AMBITION_MAX_SCALE_FACTOR` and
   `AMBITION_MSAA` knobs, multiple reps per arm, holding build/features/profile

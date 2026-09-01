@@ -210,6 +210,15 @@ OPTIONS:
                         Potato tier scales screen shaders to zero, and Potato is
                         what a software rasteriser gets seeded to. The tool says
                         so rather than photographing nothing quietly.
+
+⛔⛔ THE PARALLAX BACKDROP GOES THE SAME WAY, AND IT IS 96% OF THE SCREEN.
+    `spawn_parallax_layers` early-returns when the parallax budget is disabled,
+    and Potato disables it — so a capture taken WITHOUT
+    `AMBITION_QUALITY_PROFILE=ultra` on a machine with no GPU is a photograph of
+    the room with its sky missing. Measured 2026-09-01 in `water_world`: total
+    sprite coverage 631,267 px at the default tier against 14,564,876 px at
+    ultra, a 23x difference decided by an environment variable this command line
+    does not mention.
     --fit-room          frame the whole room instead of a point
     -h, --help          print this and exit
 

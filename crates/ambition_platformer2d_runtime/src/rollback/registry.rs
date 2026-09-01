@@ -133,7 +133,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// rollback state), and irreconcilable ACROSS them, which is what a schema
 /// version is for. Saves and replays taken before it decode to a different
 /// world than ones taken after.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 147;
+/// ⛔ v148: TWINTRACK LEFT THE LAUNCHER, and took 27 registrations with it. The
+/// relativity components and the two relativity message buffers were registered
+/// by `TwinTrackExperiencePlugin`, so removing it from the shell's provider list
+/// removes `relativity.*` from the schema entirely. The crate is still compiled
+/// — `ambition_platformer2d`'s `all_capabilities` names the `relativity` feature
+/// — but nothing registers its state any more. A peer that still lists the demo
+/// has 27 entries this one does not, which is a different snapshot layout.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 148;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

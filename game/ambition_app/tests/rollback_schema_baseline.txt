@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v146
+ggrs-rollback-schema-v148
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -338,7 +338,6 @@ message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer i
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.knockout_beat	message-clear	KnockoutBeatRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.landed_body_hit	message-clear	LandedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
-message.light_emission_request_2d	message-clear	LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.mount_died	message-clear	MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
 message.move_event	message-clear	MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.on_hit_effect	message-clear	OnHitEffectMessage	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -370,7 +369,6 @@ message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-fu
 message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.signal_arrival_2d	message-clear	SignalArrival2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -414,27 +412,6 @@ projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec sna
 projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.active_spacetime_2d	component-clone-custom-checksum	ActiveSpacetime2d	provider-authored spacetime model and invariant-speed fingerprint
-relativity.clock_label_2d	component-clone	RelativityClockLabel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-relativity.clock_marker_2d	component-clone	RelativisticClock2d	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-relativity.clock_view_2d	derived	RelativityClockView2d	presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed
-relativity.coordinate_time_2d	component-canonical	SpacetimeCoordinateTime2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_emitter_2d	component-canonical	LightEmitter2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_receiver_2d	component-canonical	LightReceiver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_signal_2d	component-canonical	LightSignal2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_signal_pool_slot_2d	component-canonical	LightSignalPoolSlot2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_observer_2d	component-canonical	RelativisticObserver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_source_2d	component-canonical	OpticalSource2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_view_2d	derived	RelativisticOpticalView2d	observer past-light-cone view rebuilt from canonical bodies and bounded worldline telemetry
-relativity.proper_time_cooldown_2d	component-canonical	ProperTimeCooldown2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.proper_time_elapsed	component-canonical	ProperTimeElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.signal_arrival_history_2d	component-canonical	SignalArrivalHistory2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.signal_view_2d	derived	RelativitySignalView2d	presentation read model rebuilt from signal slots, receivers, emitters, and arrival history
-relativity.state_2d	derived	RelativityState2d	recomputed from canonical body kinematics and the session spacetime
-relativity.target_marker_2d	component-canonical	RelativisticTarget2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.targeting_view_2d	derived	RelativisticTargetingView2d	constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view
-relativity.worldline_history_view_2d	derived	WorldlineHistoryView2d	bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation
-relativity.worldline_tracked_2d	component-clone	WorldlineTracked2d	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.active_match	resource-canonical	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
@@ -487,7 +464,3 @@ scope.session	component-canonical	SessionScopedEntity	bevy_ggrs canonical codec 
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 smash.live_bomb	component-clone	LiveBomb	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-twintrack.character	component-clone	TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-twintrack.experiment	component-canonical	TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-twintrack.laboratory	component-clone	LaboratoryTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-twintrack.traveler	component-clone	TravelerTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

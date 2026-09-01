@@ -25,7 +25,6 @@ desktop_dev = [
     "dev_tools",
     "mobile_touch",
     "rl_sim",
-    "falling_sand",
     "mimalloc_alloc",
 ]
 

@@ -344,7 +344,17 @@ pub(crate) fn lower_interactable_placement(
     // `AMBITION_ACTOR_POPULATION_CAP` is set — see `population_cap`, which owns
     // the policy and the reason. An authored cast is a fixed population, and one
     // population cannot separate O(n) from O(n²).
-    if !ambition_dev_tools::population_cap::admit_actor() {
+    //
+    // ⛔⛔ ONLY NPCs. This used to sit at the top of the function, before the
+    // kind was known, so an "actor cap" of 16 in a room with doors and chests
+    // omitted whichever placements happened to come after the sixteenth — cast
+    // or furniture. The Hall contains nothing but `NpcSpawn`, which is the only
+    // reason its curve measured what it claimed to.
+    if matches!(
+        spec.kind,
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc { .. }
+    ) && !ambition_dev_tools::population_cap::admit_actor(ctx.room_id)
+    {
         return;
     }
     let authored = ambition_platformer2d_world::rooms::Authored {

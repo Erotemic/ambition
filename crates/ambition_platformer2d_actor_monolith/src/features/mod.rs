@@ -337,18 +337,53 @@ fn configure_actor_decision_phases(app: &mut App) {
 /// `Publish` — the two gate sets sit between publication and `BeforeIntegrate`,
 /// so a mark after `Publish` would have left them misattributed exactly as
 /// before, just less of them.
+///
+/// ⭐ MEASURED 2026-09-01, and it is why the six sub-marks below exist. In
+/// `hall_of_characters` at 130 bodies, headless and without Tracy, the span was
+/// **0.958 ms/tick against `BeforeIntegrate`'s 0.037** — 96% of a bucket that had
+/// been read as movement preparation. Splitting it further separates the two
+/// candidates: `Targeting` (`select_actor_targets` documents itself O(n²)) from
+/// `Decide` (`tick_actor_brains` builds a full `WorldView` for every actor,
+/// including the ones authored `stand_still` that read none of it).
 #[cfg(not(target_arch = "wasm32"))]
 fn install_actor_decision_census_boundary(app: &mut App) {
+    use ambition_dev_tools::runtime_census as census;
     use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, WorldPrepSet};
 
     let sim = app.sim_schedule();
+
+    // ⛔⛔ EACH MARK NEEDS BOTH EDGES. `.after(Targeting)` alone has no upper
+    // bound — the sets are chained to each other, not to this system, so a mark
+    // with only a lower bound may legally run after `Decide` and bill five
+    // phases into one bucket. That is the same class of error as the boundary
+    // this file already got wrong once, one level down.
     app.add_systems(
         sim,
-        ambition_dev_tools::runtime_census::mark_sim_phase(
-            ambition_dev_tools::runtime_census::SIM_PHASE_ACTOR_DECISION,
-        )
-        .after(PlayerInputSet::BodyMode)
-        .before(WorldPrepSet::BeforeIntegrate),
+        (
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_TARGETING)
+                .after(ActorDecisionSet::Targeting)
+                .before(ActorDecisionSet::Prepare),
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_PREPARE)
+                .after(ActorDecisionSet::Prepare)
+                .before(ActorDecisionSet::Observe),
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_OBSERVE)
+                .after(ActorDecisionSet::Observe)
+                .before(ActorDecisionSet::StateMaintenance),
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_STATE_MAINTENANCE)
+                .after(ActorDecisionSet::StateMaintenance)
+                .before(ActorDecisionSet::Decide),
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_DECIDE)
+                .after(ActorDecisionSet::Decide)
+                .before(ActorDecisionSet::Publish),
+            census::mark_sim_phase(census::SIM_PHASE_DECISION_PUBLISH)
+                .after(ActorDecisionSet::Publish)
+                .before(PlayerInputSet::ControlGate),
+            // The tail: `ControlGate` and `BodyMode`, which are chained after
+            // `Publish` and before `BeforeIntegrate`.
+            census::mark_sim_phase(census::SIM_PHASE_ACTOR_DECISION)
+                .after(PlayerInputSet::BodyMode)
+                .before(WorldPrepSet::BeforeIntegrate),
+        ),
     );
 }
 

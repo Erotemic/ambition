@@ -509,6 +509,24 @@ impl SimPhaseCensus {
 /// the neighbouring name quietly widen.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_ACTOR_DECISION: usize = 21;
+/// `ActorDecisionSet::Targeting` — `select_actor_targets` and friends.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_TARGETING: usize = 22;
+/// `ActorDecisionSet::Prepare`.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_PREPARE: usize = 23;
+/// `ActorDecisionSet::Observe` — where the per-tick perception snapshot is built.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_OBSERVE: usize = 24;
+/// `ActorDecisionSet::StateMaintenance`.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_STATE_MAINTENANCE: usize = 25;
+/// `ActorDecisionSet::Decide` — `tick_actor_brains`, and `build_world_view` with it.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_DECIDE: usize = 26;
+/// `ActorDecisionSet::Publish`.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_DECISION_PUBLISH: usize = 27;
 
 /// The boundary system for one sim phase.
 #[cfg(not(target_arch = "wasm32"))]
@@ -632,7 +650,7 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
         .is_some_and(|total| *total == 0.0)
     {
         row.push_str(
-            " !! WorldPrep.ActorDecision NEVER CLOSED — WorldPrep.BeforeIntegrate \
+            " !! WorldPrep.Decision.* NEVER CLOSED — WorldPrep.BeforeIntegrate \
              still includes the whole actor decision chain",
         );
     }
@@ -1100,10 +1118,23 @@ fn sim_phase_names() -> Vec<&'static str> {
         // ⛔⛔ APPENDED, AND THE ORDER OF THIS LIST IS NOT THE ORDER OF THE CHAIN.
         // `close(index)` bills "now minus the previous mark" into whichever
         // bucket the mark names, so attribution follows the RUNTIME order of the
-        // marks and an index is only a label. This one is closed from the actor
-        // monolith (see `SIM_PHASE_ACTOR_DECISION`), which is the only crate that
-        // can name `ActorDecisionSet`.
-        "WorldPrep.ActorDecision",
+        // marks and an index is only a label. These seven are closed from the
+        // actor monolith, the only crate that can name `ActorDecisionSet`.
+        //
+        // ⭐ ALL SEVEN OR NONE. They are installed by one function in one crate,
+        // so there is no arrangement where the six decision phases are marked and
+        // the gate tail is not. That is what makes it safe for bucket
+        // `SIM_PHASE_ACTOR_DECISION` to mean the TAIL (`Publish` through
+        // `BodyMode`) rather than the whole prefix: the meaning cannot change
+        // under a partial install, and the NEVER-CLOSED line catches the empty
+        // one.
+        "WorldPrep.Decision.Gate",
+        "WorldPrep.Decision.Targeting",
+        "WorldPrep.Decision.Prepare",
+        "WorldPrep.Decision.Observe",
+        "WorldPrep.Decision.StateMaintenance",
+        "WorldPrep.Decision.Decide",
+        "WorldPrep.Decision.Publish",
     ]
 }
 
@@ -1647,10 +1678,39 @@ mod sim_phase_index_tests {
         let names = sim_phase_names();
         assert_eq!(
             names.get(SIM_PHASE_ACTOR_DECISION).copied(),
-            Some("WorldPrep.ActorDecision"),
+            Some("WorldPrep.Decision.Gate"),
             "the monolith closes bucket {SIM_PHASE_ACTOR_DECISION}; a name inserted \
              above it points that mark at the wrong phase"
         );
+    }
+
+    /// Every decision-phase index names the phase its constant is named for.
+    ///
+    /// ⛔⛔ SIX CONSECUTIVE INDICES IS A TRANSPOSITION WAITING TO HAPPEN, and a
+    /// transposed pair does not fail — it publishes `Targeting`'s milliseconds
+    /// under `Decide`'s name, which is the one thing this whole split exists to
+    /// get right. Two hypotheses are being separated here and they live in those
+    /// two buckets.
+    #[test]
+    fn each_decision_index_names_its_own_phase() {
+        let names = sim_phase_names();
+        for (index, expected) in [
+            (SIM_PHASE_DECISION_TARGETING, "WorldPrep.Decision.Targeting"),
+            (SIM_PHASE_DECISION_PREPARE, "WorldPrep.Decision.Prepare"),
+            (SIM_PHASE_DECISION_OBSERVE, "WorldPrep.Decision.Observe"),
+            (
+                SIM_PHASE_DECISION_STATE_MAINTENANCE,
+                "WorldPrep.Decision.StateMaintenance",
+            ),
+            (SIM_PHASE_DECISION_DECIDE, "WorldPrep.Decision.Decide"),
+            (SIM_PHASE_DECISION_PUBLISH, "WorldPrep.Decision.Publish"),
+        ] {
+            assert_eq!(
+                names.get(index).copied(),
+                Some(expected),
+                "bucket {index} must be {expected}"
+            );
+        }
     }
 
     /// Premise guard: the list must not have been trimmed to make the above pass.
@@ -1659,8 +1719,8 @@ mod sim_phase_index_tests {
         let names = sim_phase_names();
         assert_eq!(
             names.len(),
-            SIM_PHASE_ACTOR_DECISION + 1,
-            "the actor-decision bucket is the last one; a total with no name is \
+            SIM_PHASE_DECISION_PUBLISH + 1,
+            "the last decision bucket is the last one; a total with no name is \
              accumulated and never reported"
         );
         assert_eq!(names[1], "WorldPrep.BeforeIntegrate");

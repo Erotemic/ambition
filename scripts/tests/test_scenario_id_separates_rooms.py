@@ -123,3 +123,66 @@ def test_identical_groups_still_share_a_label():
     make the report a list of one-row groups.
     """
     assert label_for() == label_for()
+
+
+def key_with_quality(**overrides) -> str:
+    fields = {
+        "scenario.id": "windowed:default",
+        "scenario.version": 1,
+        "scenario.headless": False,
+        "build.cargo_profile": "profiling",
+        "build.features": [],
+        "build.package": "ambition_app",
+        "build.binary": "ambition_game_bin",
+        "host.machine_id": "m",
+        "host.cpu_model": "cpu",
+        "host.logical_cpus": 12,
+        "gpu.rendering": "hardware",
+        "gpu.adapter": "a",
+        "display.resolution": "1600x900",
+        "quality.profile": "High",
+        "quality.parallax_max_layers": "unbounded",
+        "quality.msaa_samples": "4",
+        "quality.max_scale_factor": "compositor",
+        "instruments.tracy": False,
+        "instruments.perf": True,
+        "instruments.census": True,
+        "instruments.census_hz": 1.0,
+    }
+    fields.update(overrides)
+    record = {}
+    for path, value in fields.items():
+        head, tail = path.split(".", 1)
+        record.setdefault(head, {})[tail] = value
+    key, _ = history.comparability(record)
+    return key
+
+
+def test_the_quality_tier_splits_the_group():
+    """⛔⛔ The tier changed measured drawn area 23x and was in NO record.
+
+    `potato` draws 631,267 world-units² of sprite in `water_world`; `high` draws
+    14,564,876. Nothing carried the tier — not the bundle metadata, not a census
+    row, not the comparability key — so two captures of one room at two tiers
+    were the same experiment as far as this ledger could tell.
+
+    ⚠ And the tier is not one knob. It resolves parallax layer count, MSAA
+    samples and the DPI cap together, which are the very variables `D-RASTER-3`
+    is trying to separate.
+    """
+    high = key_with_quality()
+    assert key_with_quality(**{"quality.profile": "Potato"}) != high
+    assert key_with_quality(**{"quality.msaa_samples": "1"}) != high
+    assert key_with_quality(**{"quality.parallax_max_layers": "2"}) != high
+    assert key_with_quality(**{"quality.max_scale_factor": "1"}) != high
+
+
+def test_an_unrecorded_tier_still_groups_with_itself():
+    """Premise guard: every row taken before the tier was recorded has `None`.
+
+    Those must stay comparable to each other, or adding this field would orphan
+    the entire existing ledger instead of splitting it.
+    """
+    a = key_with_quality(**{"quality.profile": None, "quality.msaa_samples": None})
+    b = key_with_quality(**{"quality.profile": None, "quality.msaa_samples": None})
+    assert a == b

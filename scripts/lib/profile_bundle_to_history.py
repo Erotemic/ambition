@@ -88,6 +88,13 @@ COMPARABILITY_FIELDS = (
     "gpu.rendering",
     "gpu.adapter",
     "display.resolution",
+    # ⛔ THE TIER IS A DIFFERENT EXPERIMENT, NOT A DIFFERENT RESULT. It decides
+    # parallax layer count, MSAA samples and the DPI cap together, and moving it
+    # changed measured drawn area 23x in one room.
+    "quality.profile",
+    "quality.parallax_max_layers",
+    "quality.msaa_samples",
+    "quality.max_scale_factor",
     "instruments.tracy",
     "instruments.perf",
     "instruments.census",
@@ -501,6 +508,41 @@ def gpu_facts(bundle: Bundle, meta: dict) -> dict:
     }
 
 
+def quality_facts(bundle: Bundle) -> dict:
+    """The visual-quality tier, and the render budgets that follow from it.
+
+    ⛔⛔ **THE BIGGEST SINGLE DETERMINANT OF RENDER COST WAS IN NO RECORD.**
+    Measured 2026-09-01: the same room draws 631,267 world-units² of sprite at
+    `potato` and 14,564,876 at `high` — **23x**, decided by
+    `AMBITION_QUALITY_PROFILE`. Nothing carried it: not the bundle metadata, not
+    a census row, not `comparable_fields`. Two captures of one room at two tiers
+    were, to this ledger, the same experiment.
+
+    ⚠ AND THE TIER CARRIES MSAA AND SCALE WITH IT. `potato` resolves
+    `msaa_samples=1, max_scale_factor=1`; `high` resolves `4` and the
+    compositor's. So a comparison that moved the tier moved the two knobs
+    `D-RASTER-3` is trying to separate, plus the parallax layer count, all at
+    once.
+    """
+    rows = bundle.rows("census_visual_quality.csv")
+    if not rows:
+        return {
+            "profile": None,
+            "parallax_enabled": None,
+            "parallax_max_layers": None,
+            "msaa_samples": None,
+            "max_scale_factor": None,
+        }
+    last = rows[-1]
+    return {
+        "profile": last.get("profile"),
+        "parallax_enabled": last.get("parallax_enabled"),
+        "parallax_max_layers": last.get("parallax_max_layers"),
+        "msaa_samples": last.get("msaa_samples"),
+        "max_scale_factor": last.get("max_scale_factor"),
+    }
+
+
 def display_facts(bundle: Bundle, meta: dict) -> dict:
     """The camera facts the census already writes, lifted so they outlive the bundle.
 
@@ -665,9 +707,10 @@ def comparable_label(fields: dict) -> str:
     tracy = "tracy" if fields.get("instruments.tracy") else "no-tracy"
     features = "+".join(fields.get("build.features") or []) or "no-features"
     resolution = fields.get("display.resolution") or "?"
+    quality = fields.get("quality.profile") or "unrecorded"
     return (
         f"{scenario}@v{version}/{fields.get('build.cargo_profile') or '?'}"
-        f"[{features}]/{where}@{resolution}/{tracy}"
+        f"[{features}]/{where}@{resolution}/q:{quality}/{tracy}"
         f"/{fields.get('host.machine_id') or '?'}"
     )
 
@@ -794,6 +837,7 @@ def build_record(
         "host": host_facts(bundle, meta),
         "gpu": gpu_facts(bundle, meta),
         "display": display_facts(bundle, meta),
+        "quality": quality_facts(bundle),
         "instruments": instrument_facts(bundle, meta),
         "run": {
             "frames": frames,

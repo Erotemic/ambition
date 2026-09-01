@@ -143,6 +143,54 @@ fn layers_token(layers: Option<&RenderLayers>) -> String {
     }
 }
 
+/// The visual-quality tier in force, and the render budgets that follow from it.
+///
+/// ⛔⛔ **THE BIGGEST SINGLE DETERMINANT OF RENDER COST WAS IN NO RECORD AT ALL.**
+/// Measured 2026-09-01 in `water_room`: the SAME room draws 631,267 world-units²
+/// of sprite at `potato` and 14,564,876 at `high` — a **23x** difference decided
+/// by `AMBITION_QUALITY_PROFILE`, which no bundle metadata, no census row and no
+/// `comparable_fields` entry mentioned. Two captures of one room at two tiers
+/// were, to the frame-cost ledger, the same experiment.
+///
+/// ⭐ IT IS ONE ROW AT 1 Hz because the tier is a CONFIGURATION, not a
+/// population: it changes when a setting changes, and a reader comparing two
+/// bundles needs it present, not sampled.
+pub fn report_visual_quality_census(
+    census: Res<RuntimeCensus>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    let Some(quality) = quality else {
+        // ⚠ SAID, NOT SKIPPED. A composition with no quality resource is a real
+        // state — a headless run with no renderer — and an absent row would read
+        // as "the tier did not matter here" rather than "nothing resolved one".
+        eprintln!("[census] visual_quality t={at:.3} profile=none");
+        return;
+    };
+    let budget = &quality.budget;
+    eprintln!(
+        "[census] visual_quality t={at:.3} profile={:?} parallax_enabled={} \
+         parallax_max_layers={} parallax_resolution={:?} msaa_samples={} \
+         max_scale_factor={}",
+        quality.profile,
+        budget.parallax.enabled,
+        budget
+            .parallax
+            .max_layers
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "unbounded".to_string()),
+        budget.parallax.resolution_scale,
+        budget.raster.msaa_samples,
+        budget
+            .raster
+            .max_scale_factor
+            .map(|s| format!("{s}"))
+            .unwrap_or_else(|| "compositor".to_string()),
+    );
+}
+
 /// Per-camera rows plus the rollup that summarizes them.
 ///
 /// The population is cameras, not entities: a scene with a hundred thousand
@@ -741,6 +789,7 @@ impl Plugin for PresentationCensusPlugin {
                 (
                     report_view_census,
                     report_draw_census,
+                    report_visual_quality_census,
                     report_render_target_census,
                     report_render_pass_census,
                     report_asset_census,

@@ -60,6 +60,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | Bevy UI mutable query conflict, `ParamSet` confusion, visibility mutation, or text sync collisions | [`lessons_learned.md`](lessons_learned.md) |
 | Menu controls confuse held axes, edge presses, or semantic frames | [`lessons_learned.md`](lessons_learned.md) |
 | Bevy `add_systems` tuple chain unexpectedly fails on `.chain()` | [`lessons_learned.md`](lessons_learned.md) |
+| The kaleidoscope (OoT cube) menu feels expensive, or you are about to optimize it — what is measured, what is already FALSIFIED, and the open per-frame allocation suspect | [`kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](kaleidoscope-what-churns-and-what-does-not-2026-08-31.md) |
 
 ## Audio / rendering labs
 

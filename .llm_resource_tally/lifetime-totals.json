@@ -1,15 +1,15 @@
 {
   "schema": "llm-resource-tally/v3",
-  "through": "2026-09-01T23:21:49.451428+00:00",
-  "ledger_rows": 6716,
-  "commits_accounted": 6282,
-  "turns": 214954,
+  "through": "2026-09-01T23:46:28.821359+00:00",
+  "ledger_rows": 6722,
+  "commits_accounted": 6285,
+  "turns": 215053,
   "tokens": {
-    "input": 32865875,
-    "cache_write": 592616580,
-    "cache_read": 84833143480,
-    "output": 167744434,
-    "billable_input": 85458625935
+    "input": 32930616,
+    "cache_write": 592690833,
+    "cache_read": 84850687949,
+    "output": 167790315,
+    "billable_input": 85476309398
   },
   "by_model": {
     "claude-opus-4-8": {
@@ -67,24 +67,24 @@
       "output": 210260
     },
     "claude-fable-5-1": {
-      "input": 140,
-      "cache_write": 131661,
-      "cache_read": 6151714,
-      "output": 35353
+      "input": 268,
+      "cache_write": 205914,
+      "cache_read": 17119799,
+      "output": 68897
     },
     "gpt-5.6-sol": {
-      "input": 210974,
+      "input": 275587,
       "cache_write": 0,
-      "cache_read": 6646272,
-      "output": 26692
+      "cache_read": 13222656,
+      "output": 39029
     }
   },
   "by_activity": {
     "unlabeled": {
-      "input": 10709457,
-      "cache_write": 464783917,
-      "cache_read": 70282000426,
-      "output": 121983981
+      "input": 10774198,
+      "cache_write": 464858170,
+      "cache_read": 70299544895,
+      "output": 122029862
     },
     "backfill": {
       "input": 21552517,
@@ -113,16 +113,16 @@
   },
   "by_agent": {
     "claude-code": {
-      "input": 8566319,
-      "cache_write": 592616580,
-      "cache_read": 84179730616,
-      "output": 165641655
+      "input": 8566447,
+      "cache_write": 592690833,
+      "cache_read": 84190698701,
+      "output": 165675199
     },
     "codex": {
-      "input": 24299556,
+      "input": 24364169,
       "cache_write": 0,
-      "cache_read": 653412864,
-      "output": 2102779
+      "cache_read": 659989248,
+      "output": 2115116
     }
   },
   "server_tool_calls": {
@@ -130,7 +130,7 @@
     "web_fetch": 0
   },
   "time": {
-    "wall_clock_s": 9228147.6
+    "wall_clock_s": 9229860.7
   },
   "compaction_signals": {
     "events": 269,

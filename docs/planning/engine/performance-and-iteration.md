@@ -191,6 +191,30 @@ claim it does. And `Targeting` — the sole quadratic — is 0.033-0.036 across 
 three arms: **a busy room does not spend its time searching.** Fourth
 independent reason not to build the spatial index.
 
+### ⛔⛔ AND THERE IS NO FREE VERSION OF THE SKIP — the view has TWO consumers
+
+The obvious move from the numbers above is "skip `build_world_view` for a brain
+that cannot receive one; `world_view` is a local, not a component, so it changes
+no checksummed state." **That is wrong, and `actors/update.rs:551-577` is where
+it fails.** The view is built once and consumed twice:
+
+```rust
+let world_view = build_world_view(...);
+// 1. maintains ROLLBACK STATE for every body, whatever its brain
+believed_target(perception_policy, &world_view, perception_memory.as_deref_mut(), dt)
+// 2. the brain, which for 129 of 129 hall bodies cannot receive it
+tick_brain_with_actions(..., Some(&world_view), ...)
+```
+
+`believed_target` writes `PerceptionMemory` — `rollback_component_canonical`,
+`"actor.perception_memory"` — and sets `snapshot.target_pos`. So the 88% is not
+work the engine does *only* for the brain: it is work the engine does on the
+body's behalf, whose results are then read by nobody in the authored hall.
+
+⇒ Skipping it necessarily changes a canonically checksummed value, which is
+exactly what ADR 0034 says and exactly why that ADR exists. There is no
+performance-only version of this change. Do not go looking for one.
+
 ⚠ The smash arm is idle by construction, not by design: flat `Integrate` and
 `Combat` say those bodies never engaged. It prices the READ, not a fight. A room
 of 129 mutually hostile fighters would move all three numbers at once and is a

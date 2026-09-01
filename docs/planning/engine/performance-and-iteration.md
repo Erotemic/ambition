@@ -545,6 +545,40 @@ constructions a tick plausibly relieves allocator and cache pressure elsewhere �
 **plausibly** is the operative word; that mechanism is not measured and should
 not be quoted as one.
 
+## ⭐ THE CURVE AFTER THE GATE: the decision pipeline is no longer the many-actor cost
+
+Same room, headless, no Tracy, 3 reps per point, medians, 3000 ticks, on the
+build with ADR 0034 increment 1 landed.
+
+```text
+bodies                         2       16       64      130
+WorldPrep.Integrate        0.014    0.039    0.129    0.249   <- now the largest
+Combat                     0.045    0.051    0.071    0.093
+Decision.Targeting         0.004    0.006    0.015    0.030
+WorldPrep.Decision.Decide  0.003    0.005    0.012    0.023   <- was 0.331
+Decision.Observe           0.004    0.007    0.014    0.023
+WorldPrep.ContactDamage    0.001    0.002    0.006    0.011
+```
+
+**`Decide` fell out of the top of the table.** It was 0.331 at 130 bodies and is
+0.023 — and its slope collapsed with it: 65x the bodies from 2 to 130 now costs
+7.7x, where before the same span was steeply superlinear. The campaign that
+opened on "the decision pipeline is the many-actor cost" has closed it.
+
+⭐ **`Integrate` IS THE NEW HEADLINE, AND IT IS LINEAR.** 0.249 ms/tick at 130,
+roughly 10x `Decide`, and it grows 2.8x / 3.3x / 1.93x against population steps
+of 8x / 4x / 2.03x — linear in bodies, slightly sublinear at the top. There is no
+quadratic term in it to attack; it is a per-body constant, which is a
+constant-factor problem rather than an architectural one.
+
+⚠ `Combat` is 0.093 at 130 and 0.045 at TWO — nearly half of it is fixed cost
+that does not care how many bodies exist. A population sweep cannot tell you what
+that fixed half is; that needs a different instrument.
+
+⇒ **What the curve now names, in order:** `Integrate`'s per-body constant, then
+`Combat`'s fixed floor. Neither is the perception architecture, and neither wants
+a spatial index — `Targeting` is 0.030 at 130 and still linear.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

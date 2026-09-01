@@ -70,7 +70,12 @@ And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 6
 |---|---|
 | **attention budget (top-K)** | **Worth 10x in the regime it is for.** Measured by driving the tactical extent at fixed population: `kept` 14.4 → 113 takes `Decide` 0.26 → 2.66 ms/tick, at a flat ~23 µs per perceived peer. It wins nothing at the hall's CURRENT sparsity — which is a different statement from "the idea is wrong". |
 | **crowd aggregation** | Same regime, same argument. It is what keeps `kept` bounded once a region actually crowds. |
-| spatial index | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
+| spatial index | Worth **8-10% today, and it COMPOUNDS.** The scan is the only term measured to grow quadratically — ×4.18 against a predicted ×4.03 — so its share rises with population: ~7% at 65 bodies, ~10% at 130, ~25% at 260. Not urgent; the one piece whose value grows. |
+
+⚠ **THE TWO PIECES DO NOT COMPETE FOR THE SAME MILLISECONDS.** The attention
+budget caps a term that is linear in `kept`; the spatial index caps the term that
+is quadratic in POPULATION. Density and headcount are different axes and each has
+its own defect.
 
 ⚠ **CORRECTED 2026-09-01: the slope-1.40 term was `WorldMemory`, not
 construction.** Its quadratic membership test sat inside the same probe bucket as

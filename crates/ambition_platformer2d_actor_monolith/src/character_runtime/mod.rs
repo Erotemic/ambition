@@ -230,9 +230,34 @@ impl CharacterLoadDemand {
 ///
 /// ⚠ The sweep that justified `1` (0 → 31 simultaneous decodes/1049ms, 1 → 14/
 /// 222ms) was measured on the GALLERY, which is covered by a loading foreground;
-/// it never showed a win on an uncovered frame. So this is a hedge against the
-/// burst, not a measured win on the frame that hitches — the honest measurement
-/// is still owed, and it needs a windowed capture rather than a headless one.
+/// it never showed a win on an uncovered frame.
+///
+/// ⭐ RE-SWEPT 2026-09-01, AFTER THE STAGING/LOADS SPLIT, through
+/// `capture_scene --fit-room` — an OFFSCREEN GPU capture, so the render-world
+/// extract this bound exists to spread actually runs. One binary, arms selected
+/// at runtime, three interleaved reps each after the machine settled:
+///
+/// ```text
+/// bound      total spike time per load burst      run-to-run spread
+///   0 (off)      807, 699, 680  -> 729 ms                17%
+///   1            593, 594, 592  -> 593 ms                 0.3%
+/// ```
+///
+/// ⇒ **19% less spike time, and 64x tighter.** The stability is the better half
+/// of that result: an unbounded burst lands differently every run, and a hitch
+/// you cannot reproduce is one you cannot tell you have fixed.
+///
+/// ⛔ WORST-FRAME IS BIMODAL AND CANNOT SEPARATE THE ARMS. The same bound
+/// produced 49 ms and 275 ms on consecutive runs. Total spike time over the
+/// burst is the statistic that holds still; a max over a handful of frames is
+/// not, and the earlier `222.3 / 393.1` pair should be read with that in mind.
+///
+/// ⚠ `2` and `4` remain unseparated from `1` (645/802 and 653/635) — the
+/// original comment's caveat survives its re-measurement.
+///
+/// ⚠ STILL NOT THE OWED MEASUREMENT. This is an offscreen software rasteriser on
+/// a COVERED transition. What is still missing is a windowed capture of an
+/// UNCOVERED frame, which is the case the bound is actually for.
 const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
 
 /// Why a demanded character has no art.

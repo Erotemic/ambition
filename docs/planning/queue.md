@@ -485,9 +485,11 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 - ▢ **D-RASTER-3 — split the weak-GPU improvement between framebuffer scale and
   MSAA.** ⭐ **The coverage attribution this row wanted first is DONE (2026-09-01):
-  the parallax backdrop is 96% of sprite coverage and gameplay sprites are 0.7x
-  the viewport in total — the lever is the backdrop's layer count and blending,
-  not the actors.** That half needed no hardware, because coverage is a COUNT and
+  four backdrop sprites hold 96% of all drawn sprite AREA and fifty-seven gameplay
+  sprites hold 4% — the lever is the backdrop's layer count and blending, not the
+  actors.** ⚠ World units, not pixels: `report_draw_census` cannot convert to
+  screen coverage without the per-view projections, so this is a ratio and not a
+  fill multiple. That half needed no hardware, because drawn area is a COUNT and
   a count is the same on any rasteriser; see
   `journal/2026-09-02-the-overdraw-is-the-backdrop.md`. The timing split below
   still needs the real device. The valid matched result is **51.045 ms -> 20.101 ms p50, about 2.54x**;

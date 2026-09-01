@@ -430,8 +430,13 @@ pub fn report_draw_census(
     //
     // ⭐ AND IT IS A COUNT, WHICH IS WHY IT IS TRUSTWORTHY OFFSCREEN. `D-RASTER-3`
     // forbids substituting a software rasteriser for the weak-GPU TIMING split,
-    // and rightly. Screen area covered is not a timing: it is the same number on
-    // llvmpipe and on an Iris, so it can be gathered anywhere.
+    // and rightly. Drawn area is not a timing: it is the same number on llvmpipe
+    // and on an Iris, so it can be gathered anywhere.
+    //
+    // ⛔ THESE ARE WORLD UNITS, LIKE `sprite_area` ITSELF — see this function's
+    // doc comment. A layer's share of the total is the reading; dividing any of
+    // them by a pixel count is not, and was published as "15.8x coverage" once
+    // before being withdrawn.
     let mut area_world = 0.0f32;
     let mut area_hud = 0.0f32;
     let mut area_parallax = 0.0f32;

@@ -57,20 +57,32 @@ and concluded "the spatial index is the whole win" without measuring the TIME. A
 count that grows quadratically is not automatically the expensive one. Measured
 at 130 bodies:
 
+Re-measured 2026-09-01 on 6000-tick runs with the census's startup window
+excluded (the earlier figures here averaged a `ticks=1` window whose every phase
+reads 0.000, understating short runs by up to a third):
+
 ```text
-scan over discarded candidates   0.032 ms/tick    8%
-building and using the ~14 kept  0.285           69%
-brain, self view, projectiles    0.098           24%
+term         @65      @130   growth   predicted from loop bounds   share of phase
+builds+use  0.1183  0.2314    1.96x     1.97x  = n x kept(n)            66%
+scan        0.0100  0.0416    4.16x     4.03x  = n x (n-1)              12%
+fixed       0.0437  0.0797    1.82x     2.00x                           23%
 ```
 
+⭐ **EVERY TERM MATCHES THE SHAPE PREDICTED FROM ITS LOOP BOUNDS**, and per-build
+cost is FLAT — 125 ns at 65 bodies, 124 ns at 130. An earlier reading of these
+numbers had it rising with population and proposed a gather-locality explanation;
+that was the startup window, and it is withdrawn.
+
 And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 65,
-130 — so `builds = n × kept(n)` grows **linearly** once the room fills.
+130 — so `builds = n × kept(n)` grows **linearly** once the room fills. That is
+also why the phase reads slope 1.27 over 9 → 130 but **1.04 over 65 → 130**: it
+is superlinear only where `kept` is still rising.
 
 | piece | verdict today |
 |---|---|
 | **attention budget (top-K)** | **Worth 10x in the regime it is for.** Measured by driving the tactical extent at fixed population: `kept` 14.4 → 113 takes `Decide` 0.26 → 2.66 ms/tick, at a flat ~23 µs per perceived peer. It wins nothing at the hall's CURRENT sparsity — which is a different statement from "the idea is wrong". |
 | **crowd aggregation** | Same regime, same argument. It is what keeps `kept` bounded once a region actually crowds. |
-| spatial index | Worth **8-10% today, and it COMPOUNDS.** The scan is the only term measured to grow quadratically — ×4.18 against a predicted ×4.03 — so its share rises with population: ~7% at 65 bodies, ~10% at 130, ~25% at 260. Not urgent; the one piece whose value grows. |
+| spatial index | Worth **12% of the phase today, and it COMPOUNDS.** The scan is the ONLY term measured to grow quadratically — ×4.16 against a predicted ×4.03, confirmed by prediction rather than fitting — so its share rises with population while every other term's shrinks: ~6% at 65 bodies, ~12% at 130, ~25% at 260. **It is now the only remaining structural term in `Decide`.** |
 
 ⚠ **THE TWO PIECES DO NOT COMPETE FOR THE SAME MILLISECONDS.** The attention
 budget caps a term that is linear in `kept`; the spatial index caps the term that
@@ -84,6 +96,17 @@ and `Decide` at `kept`=113 fell 2.66 → 1.99 ms/tick.
 
 ⇒ A budget still caps the cost; it caps a **linear** term rather than a
 superlinear one. The 10x remains: `kept` 14 → 113 is 0.24 → 1.99 ms/tick.
+
+⚠ Those two density figures, and the `2.66`/`0.26` pair above them, come from
+1200-tick runs and are **understated** for the same startup-window reason. The
+RATIO between them is what the argument rests on and it is unaffected; the
+absolute millisecond values are a floor.
+
+⛔ **AND NOTHING ELSE IN `Decide` IS A LEAD.** Construction is linear at constant
+per-unit cost, so a narrower `PerceivedActor`, a cheaper actor identity, or
+better gather locality would each buy a proportional slice of a linear term — not
+a shape change. The struct-width ratchet in `ambition_characters` is a regression
+guard, not a lead.
 
 ⭐ **AND CROWDING IS CONSTRUCTION, NOT COGNITION.** The peer-independent brain
 term grows ×1.7 across the same range and is **4%** of the phase at 4x extent.

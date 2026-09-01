@@ -415,7 +415,20 @@ build_effective_run_args() {
         if caller_chose_a_scenario \
             "${launcher_args[@]+"${launcher_args[@]}"}" \
             "${game_args[@]+"${game_args[@]}"}"; then
-            headless_scenario="caller-specified"
+            # ⛔⛔ NOT A LITERAL. `caller-specified` was the same string for
+            # EVERY custom headless run, and `scenario.id` is a comparability
+            # field — so a hall capture and a goblin-encounter capture landed in
+            # one group and `perf_history.py compare` would subtract one from the
+            # other and call the difference a regression. The refusal that tool
+            # is built around ("two records whose comparability fields differ
+            # must not be subtracted") cannot fire on a field that does not
+            # record the difference.
+            #
+            # ⭐ The windowed path already derived its id from the passthrough
+            # (`windowed:<args>`); this mirrors it.
+            headless_scenario="headless:$(
+                printf '%s+'                     "${launcher_args[@]+"${launcher_args[@]}"}"                     "${game_args[@]+"${game_args[@]}"}"                     | sed 's/+$//'
+            )"
         else
             effective_run_args+=("$default_headless_scenario")
             headless_scenario="$default_headless_scenario (profiler default)"

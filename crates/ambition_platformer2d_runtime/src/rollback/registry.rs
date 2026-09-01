@@ -123,7 +123,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// reconstitution instead of refusing it. A peer on v145 meets tag 5, finds no
 /// arm, and refuses the snapshot — which is correct, because it has no executor
 /// for the operation.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 146;
+/// ⛔ v147: A brain DECLARES the perception it needs (ADR 0034), and a brain
+/// that needs none stops maintaining `actor.perception_memory`. The wire FORMAT
+/// is unchanged — this is a VALUE change, and that is exactly why it needs a
+/// version. Two peers on either side of it compute different remembered sets
+/// from the same inputs: the old build tracks every peer a `StandStill` body can
+/// see, the new one leaves that body's store empty because nothing reads it.
+/// Deterministic on both sides (the gate reads `StateMachineCfg`, which is
+/// rollback state), and irreconcilable ACROSS them, which is what a schema
+/// version is for. Saves and replays taken before it decode to a different
+/// world than ones taken after.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 147;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -81,6 +81,16 @@ impl Brain {
     /// Construct a `Brain::StateMachine(StandStill)`. Used by spawn
     /// sites that want a no-op AI brain (sandbags, dialogue-only
     /// NPCs).
+    /// What perception this brain needs supplied (ADR 0034).
+    ///
+    /// ⚠ A possessed body's brain is masked by a transient controller, but the
+    /// CONFIG this reads is rollback state either way, so two peers gate
+    /// identically.
+    pub fn perception_requirement(&self) -> crate::perception::PerceptionRequirement {
+        let Self::StateMachine(sm) = self;
+        sm.perception_requirement()
+    }
+
     pub fn stand_still() -> Self {
         Self::StateMachine(StateMachineCfg::StandStill)
     }

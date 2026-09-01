@@ -548,7 +548,26 @@ pub fn tick_actor_brains(
                     // axis-swept — a crawler genuinely has no air-dodge window —
                     // and NOT a reading of an absent component, which ADR 0024 §1
                     // forbids and the query above now makes unrepresentable.
-                    let world_view = super::super::perception::build_world_view(
+                    // ⭐ ADR 0034 INCREMENT 1: the brain declares what it needs.
+                    //
+                    // ⛔⛔ THIS CHANGES CHECKSUMMED STATE, ON PURPOSE. A `None`
+                    // brain stops maintaining `PerceptionMemory`, so its
+                    // remembered set stays empty where it used to track peers
+                    // the brain could never read. Deterministic — the gate reads
+                    // `StateMachineCfg`, which is rollback state — but the VALUE
+                    // moves, which is why `GGRS_ROLLBACK_SCHEMA_VERSION` moved
+                    // with it.
+                    //
+                    // ⚠ ONLY `None` SKIPS THE BUILD. `believed_target` derives
+                    // the belief FROM the view, so `TargetBelief` still needs one
+                    // constructed; making that road cheap is a later increment,
+                    // not this one. At `hall_of_characters` the saving is the
+                    // whole authored cast: 129 of 129 declare `None`.
+                    let perception_need = brain_ref.perception_requirement();
+                    let world_view = if perception_need.needs_world_view()
+                        || perception_need.needs_target_belief()
+                    {
+                        super::super::perception::build_world_view(
                         &super::super::perception::perception_body_for(
                             &body,
                             self_faction,
@@ -566,16 +585,25 @@ pub fn tick_actor_brains(
                         relations,
                         perception_policy,
                         sim_now,
-                    );
+                        )
+                    } else {
+                        ambition_characters::perception::WorldView::default()
+                    };
                     // Sight and memory answer together; an `Omniscient` body
                     // already carries the global `ActorTarget` and is not
                     // overridden. Perceiving nobody is a real answer (idle).
-                    if let Some(believed) = super::super::perception::believed_target(
+                    if let Some(believed) = perception_need
+                        .needs_target_belief()
+                        .then(|| {
+                            super::super::perception::believed_target(
                         perception_policy,
                         &world_view,
-                        perception_memory.as_deref_mut(),
-                        dt,
-                    ) {
+                                perception_memory.as_deref_mut(),
+                                dt,
+                            )
+                        })
+                        .flatten()
+                    {
                         match believed {
                             Some(pos) => {
                                 snapshot.target_pos = pos;

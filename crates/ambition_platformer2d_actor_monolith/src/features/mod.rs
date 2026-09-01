@@ -314,7 +314,46 @@ fn configure_actor_decision_phases(app: &mut App) {
             .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
+
+    install_actor_decision_census_boundary(app);
 }
+
+/// Close the census bucket that owns everything this file schedules.
+///
+/// ⛔⛔ **WITHOUT THIS, ALL OF IT BILLED TO `WorldPrep.BeforeIntegrate`.** Every
+/// set configured above is `in_set(WorldPrep)` and `before(BeforeIntegrate)`, and
+/// the sim-phase census's first `WorldPrep` mark closes AFTER `BeforeIntegrate`.
+/// A boundary instrument attributes "now minus the previous mark", so the six
+/// decision sets plus `ControlGate` and `BodyMode` all landed in a bucket named
+/// after a set none of them belong to. A windowed Hall capture on 2026-08-31
+/// read 1.214 ms/tick there and it was taken for movement preparation.
+///
+/// ⭐ THE MARK IS INSTALLED HERE BECAUSE ONLY THIS CRATE CAN NAME THE SETS.
+/// `ambition_dev_tools` depends on `shared_tangle`, not on the monolith, so it
+/// cannot order a system after `ActorDecisionSet::Publish`; the dependency edge
+/// runs the other way, and this crate already has it.
+///
+/// ⚠ THE SPAN IS `Targeting` THROUGH `BodyMode`, not `Targeting` through
+/// `Publish` — the two gate sets sit between publication and `BeforeIntegrate`,
+/// so a mark after `Publish` would have left them misattributed exactly as
+/// before, just less of them.
+#[cfg(not(target_arch = "wasm32"))]
+fn install_actor_decision_census_boundary(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, WorldPrepSet};
+
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        ambition_dev_tools::runtime_census::mark_sim_phase(
+            ambition_dev_tools::runtime_census::SIM_PHASE_ACTOR_DECISION,
+        )
+        .after(PlayerInputSet::BodyMode)
+        .before(WorldPrepSet::BeforeIntegrate),
+    );
+}
+
+#[cfg(target_arch = "wasm32")]
+fn install_actor_decision_census_boundary(_app: &mut App) {}
 
 #[cfg(test)]
 mod actor_decision_phase_tests {

@@ -498,9 +498,21 @@ impl SimPhaseCensus {
     }
 }
 
+/// The bucket the actor decision chain closes, from the actor monolith.
+///
+/// ⛔ IT IS AN INDEX INTO A LIST IN ANOTHER CRATE, which is not a shape to copy.
+/// It is here because `ambition_dev_tools` cannot name `ActorDecisionSet` —
+/// it depends on `shared_tangle`, not on the monolith, and the edge only runs
+/// the other way. The alternative was a runtime registration API whose
+/// correctness depends on plugin BUILD ORDER, which is the more fragile of the
+/// two. `report_sim_phase_census` reports an unclosed bucket rather than letting
+/// the neighbouring name quietly widen.
+#[cfg(not(target_arch = "wasm32"))]
+pub const SIM_PHASE_ACTOR_DECISION: usize = 21;
+
 /// The boundary system for one sim phase.
 #[cfg(not(target_arch = "wasm32"))]
-fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
+pub fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
     move |mut census: ResMut<SimPhaseCensus>| census.close(index)
 }
 
@@ -608,6 +620,21 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     });
     for (name, per_tick) in ranked {
         row.push_str(&format!(" {name}={per_tick:.3}"));
+    }
+    // ⛔⛔ AN UNCLOSED BUCKET WIDENS ITS NEIGHBOUR SILENTLY, which is exactly how
+    // `WorldPrep.BeforeIntegrate` came to mean the whole prefix through it.
+    // Ticks ran and this bucket took literally none of them, so the mark is not
+    // installed — say it on the row a reader is about to quote, not in a comment
+    // they will not open.
+    if phases
+        .totals
+        .get(SIM_PHASE_ACTOR_DECISION)
+        .is_some_and(|total| *total == 0.0)
+    {
+        row.push_str(
+            " !! WorldPrep.ActorDecision NEVER CLOSED — WorldPrep.BeforeIntegrate \
+             still includes the whole actor decision chain",
+        );
     }
     eprintln!("{row}");
     phases.totals.iter_mut().for_each(|total| *total = 0.0);
@@ -1040,24 +1067,15 @@ pub fn report_schedule_phase_census(
 /// chain's membership, and a phase added there without a line here is simply
 /// unattributed — its time lands in whichever neighbour closes next, which is
 /// the honest failure mode for a boundary instrument but is a failure mode.
+/// The sim-phase bucket names, in index order.
+///
+/// ⛔⛔ THE INDICES ARE A CROSS-CRATE CONTRACT. `SIM_PHASE_ACTOR_DECISION` is a
+/// bare `usize` the actor monolith passes back to `mark_sim_phase`, so inserting
+/// a name ANYWHERE above it silently re-points that mark at another bucket. The
+/// test below is what makes that a build failure instead of a plausible number.
 #[cfg(not(target_arch = "wasm32"))]
-fn install_sim_phase_boundaries(app: &mut App) {
-    use ambition_platformer2d_shared_tangle::schedule::{
-        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _, WorldPrepSet,
-    };
-
-    let sim = app.sim_schedule();
-    // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first
-    // because the umbrella closes only once they all have.
-    // ⛔⛔ `WorldPrep` IS SPLIT, AND THE HALL IS WHY. A windowed capture on
-    // 2026-08-31 walked into `hall_of_characters` and the frame went
-    // 7.91ms -> 10.52ms; 91% of the SIMULATION's share of that was `WorldPrep`
-    // alone, +1.546 ms/tick, while every other phase stayed flat. One number for
-    // a phase containing four sets could say THAT it grew and never WHICH part
-    // of it did — and the two candidates want opposite fixes: the body-contact
-    // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
-    // wants a smaller constant. The sub-sets below are what tells them apart.
-    let names = vec![
+fn sim_phase_names() -> Vec<&'static str> {
+    vec![
         "PlayerInput",
         "WorldPrep.BeforeIntegrate",
         "WorldPrep.Integrate",
@@ -1079,8 +1097,51 @@ fn install_sim_phase_boundaries(app: &mut App) {
         "FeatureViewSync",
         "PresentationVisualSync",
         "Trace",
-    ];
-    app.insert_resource(SimPhaseCensus::with_names(names));
+        // ⛔⛔ APPENDED, AND THE ORDER OF THIS LIST IS NOT THE ORDER OF THE CHAIN.
+        // `close(index)` bills "now minus the previous mark" into whichever
+        // bucket the mark names, so attribution follows the RUNTIME order of the
+        // marks and an index is only a label. This one is closed from the actor
+        // monolith (see `SIM_PHASE_ACTOR_DECISION`), which is the only crate that
+        // can name `ActorDecisionSet`.
+        "WorldPrep.ActorDecision",
+    ]
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn install_sim_phase_boundaries(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::schedule::{
+        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _, WorldPrepSet,
+    };
+
+    let sim = app.sim_schedule();
+    // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first
+    // because the umbrella closes only once they all have.
+    // ⛔⛔ AND `WorldPrep.BeforeIntegrate` MEANT THE WHOLE PREFIX BEFORE IT.
+    // The failure mode two paragraphs down — "a phase added there without a line
+    // here is simply unattributed; its time lands in whichever neighbour closes
+    // next" — is one this instrument walked straight into on 2026-08-31. The
+    // actor decision chain (`ActorDecisionSet::Targeting` through `Publish`) is
+    // `in_set(Phase::WorldPrep)` and `before(WorldPrepSet::BeforeIntegrate)`, so
+    // with no mark between `PlayerInput` and `BeforeIntegrate` all six of its
+    // sets billed into bucket 1 under a name that says otherwise. The 1.214
+    // ms/tick that name carried was read as a movement-prep cost and used to
+    // rule a physics engine in or out; it is a prefix, and most of it may be
+    // cognition.
+    //
+    // ⇒ bucket `SIM_PHASE_ACTOR_DECISION` closes after `Publish`, so bucket 1
+    // means what it says. `report_sim_phase_census` says so out loud when that
+    // mark never fired, because a bucket silently changing meaning depending on
+    // which plugins are installed is the defect, not the fix.
+    //
+    // ⛔⛔ `WorldPrep` IS SPLIT, AND THE HALL IS WHY. A windowed capture on
+    // 2026-08-31 walked into `hall_of_characters` and the frame went
+    // 7.91ms -> 10.52ms; 91% of the SIMULATION's share of that was `WorldPrep`
+    // alone, +1.546 ms/tick, while every other phase stayed flat. One number for
+    // a phase containing four sets could say THAT it grew and never WHICH part
+    // of it did — and the two candidates want opposite fixes: the body-contact
+    // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
+    // wants a smaller constant. The sub-sets below are what tells them apart.
+    app.insert_resource(SimPhaseCensus::with_names(sim_phase_names()));
 
     // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
     // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
@@ -1568,5 +1629,40 @@ mod tests {
         for on in ["1", "true", "yes", "on"] {
             assert!(env_is_truthy(on), "{on:?} must enable the census");
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod sim_phase_index_tests {
+    use super::*;
+
+    /// ⛔⛔ **A CROSS-CRATE INDEX WITH NOTHING HOLDING IT.**
+    /// `SIM_PHASE_ACTOR_DECISION` is a bare `usize` that the actor monolith
+    /// hands back to `mark_sim_phase`. Inserting a name above it re-points that
+    /// mark at a neighbouring bucket, and nothing would fail — the census would
+    /// simply publish cognition time under some other phase's name, which is the
+    /// precise defect this bucket was added to end.
+    #[test]
+    fn the_actor_decision_index_still_names_the_actor_decision_bucket() {
+        let names = sim_phase_names();
+        assert_eq!(
+            names.get(SIM_PHASE_ACTOR_DECISION).copied(),
+            Some("WorldPrep.ActorDecision"),
+            "the monolith closes bucket {SIM_PHASE_ACTOR_DECISION}; a name inserted \
+             above it points that mark at the wrong phase"
+        );
+    }
+
+    /// Premise guard: the list must not have been trimmed to make the above pass.
+    #[test]
+    fn every_marked_bucket_has_a_name() {
+        let names = sim_phase_names();
+        assert_eq!(
+            names.len(),
+            SIM_PHASE_ACTOR_DECISION + 1,
+            "the actor-decision bucket is the last one; a total with no name is \
+             accumulated and never reported"
+        );
+        assert_eq!(names[1], "WorldPrep.BeforeIntegrate");
     }
 }

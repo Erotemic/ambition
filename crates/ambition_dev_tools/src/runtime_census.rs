@@ -624,6 +624,13 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     }
     let ticks = phases.ticks as f64;
     let mut row = format!("[census] sim_phases t={at:.3} ticks={}", phases.ticks);
+    // ⛔⛔ A CAPPED RUN IS NOT THE SHIPPED ROOM. `AMBITION_ACTOR_POPULATION_CAP`
+    // removes authored actors to make a scaling curve possible, and a row taken
+    // under it describes a room nobody plays. Say so ON THE ROW — a reader
+    // quoting a number will not go looking for the environment it was taken in.
+    if let Some(cap) = crate::population_cap::active_cap() {
+        row.push_str(&format!(" actor_cap={cap}"));
+    }
     let mut ranked: Vec<(&'static str, f64)> = phases
         .names
         .iter()

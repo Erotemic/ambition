@@ -340,6 +340,13 @@ pub(crate) fn lower_interactable_placement(
     let PlacementSchema::Interactable(spec) = &record.schema else {
         return;
     };
+    // ⭐ THE SCALING-CURVE KNOB, and it is inert unless
+    // `AMBITION_ACTOR_POPULATION_CAP` is set — see `population_cap`, which owns
+    // the policy and the reason. An authored cast is a fixed population, and one
+    // population cannot separate O(n) from O(n²).
+    if !ambition_dev_tools::population_cap::admit_actor() {
+        return;
+    }
     let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),

@@ -232,15 +232,6 @@ pub(crate) mod tests {
         pub(crate) refuse: bool,
     }
 
-    impl MapStore {
-        /// Seed the store the way a previous browser session would have.
-        pub(crate) fn with(path: &Path, body: &str) -> Self {
-            let store = Self::default();
-            write_into(&store, path, body).expect("a fresh map accepts a write");
-            store
-        }
-    }
-
     impl KeyValueStore for MapStore {
         fn get(&self, key: &str) -> Result<Option<String>, String> {
             if self.refuse {

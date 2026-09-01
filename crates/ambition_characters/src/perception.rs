@@ -701,10 +701,28 @@ impl WorldMemory {
     pub fn update(&mut self, view: &WorldView, dt: f32) {
         let now = view.sim_time;
         let decay = 0.5_f32.powf((dt / Self::DECAY_HALF_LIFE_S).max(0.0));
+        // ⛔⛔ THIS MEMBERSHIP TEST WAS A LINEAR SCAN OF THE WHOLE VIEW, PER
+        // REMEMBERED ACTOR. `view.actors.iter().any(|a| &a.id == id)` is
+        // O(remembered x seen) with a `String` comparison inside, and both terms
+        // are the crowd size: at 113 perceived peers that is ~12,800 string
+        // compares per actor per tick, ~1.6 MILLION across 130 actors. Measured
+        // 2026-09-01 with the tactical extent widened to simulate a crowded
+        // room, `WorldMemory::update` was the single largest symbol in the whole
+        // profile at 12.89%, with the `BTreeMap` work beneath it at 4.09%.
+        //
+        // ⭐ SORTED BORROWED KEYS, NOT A HASH SET. The ids are borrowed from the
+        // view, so this clones no `String`s; and it is sorted rather than hashed
+        // because ADR 0023 keeps this type on `BTreeMap` for determinism, and
+        // reaching for a `HashSet` here would put process-seeded iteration back
+        // into the one function that was deliberately kept free of it — even
+        // though only membership is asked. A sorted slice cannot regress that way.
+        let mut seen: Vec<&str> = view.actors.iter().map(|a| a.id.as_str()).collect();
+        seen.sort_unstable();
+
         // Decay the unseen. (Iterating then inserting below is two disjoint
         // phases, so there's no borrow conflict.)
         for (id, mem) in self.actors.iter_mut() {
-            if !view.actors.iter().any(|a| &a.id == id) {
+            if seen.binary_search(&id.as_str()).is_err() {
                 mem.confidence *= decay;
                 // Dead-reckon the last-known position by its last-known velocity
                 // so a pursuing brain heads where the target was going, not where

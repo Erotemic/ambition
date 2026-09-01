@@ -1006,8 +1006,13 @@ write_perf_reports() {
     # owns the machine" (renderer vs game code vs kernel) in one read, and they
     # must be produced HERE, on the capture host: re-deriving them later on
     # another machine resolves symbols against the wrong binaries.
+    # ⛔⛔ `--no-children` OR THE ROWS DO NOT PARTITION. `perf report` defaults to
+    # INCLUSIVE accounting: a sample is credited to every shared object on its
+    # call stack. `desktop-perf-run-20260901T003332Z` therefore printed 216.4%
+    # game binary plus 22.8% kernel under a heading a reader takes for a
+    # breakdown. Self time is what "where did the native time go" means.
     run_timed_report "$out_dir" perf-report-by-dso \
-        perf report -i "$data_file" --stdio --sort dso --call-graph none --percent-limit 0 --no-inline --no-source
+        perf report -i "$data_file" --stdio --no-children --sort dso --call-graph none --percent-limit 0 --no-inline --no-source
     run_timed_report "$out_dir" perf-report-by-thread \
         perf report -i "$data_file" --stdio --sort comm --call-graph none --percent-limit 0 --no-inline --no-source
 

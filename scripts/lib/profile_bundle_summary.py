@@ -37,6 +37,8 @@ DSO_BUCKETS = [
 
 # perf truncates COMM to 15 characters, so every needle here must match within
 # that prefix ("Tracy Symbol Wo", not "Tracy Symbol Worker").
+COMPILER_THREADS = "compiler / codegen / linker"
+LAUNCHER_THREADS = "build launcher (cargo, shell)"
 THREAD_BUCKETS = [
     ("profiler (Tracy)", ("tracy",)),
     # ⛔⛔ THE COMPILER IS MOSTLY NOT CALLED `rustc`. A cargo build spawns one
@@ -52,19 +54,38 @@ THREAD_BUCKETS = [
     # ⚠ Needles are matched as substrings against a COMM that perf truncates to
     # 15 characters. These were taken from real thread names in that bundle, not
     # guessed: `ld.mold`, `lto cgu.00`, `opt cgu.15`, `rustc`, `cargo`, `clang`.
-    (
-        "build tooling",
-        (
-            "cargo", "rustc", "bash", "dirname", "sh",
-            "cgu.", "mold", "ld.", "lld", "clang", "collect2", "cc1",
-        ),
-    ),
+    # ⛔⛔ AND `cargo` IS NOT A COMPILE. Splitting these apart is the second half
+    # of the same repair. `desktop-perf-run-20260901T003332Z` is 88.0% game and
+    # 9.4% "build tooling" with ZERO compiler workers in its thread table: that
+    # 9.4% is the `cargo run` launcher waiting on a child that had nothing to do.
+    # Folded together, the trust verdict had to guess whether a COMPILE ran from
+    # a number that also counts a launcher — and it guessed by asking whether the
+    # combined bucket out-cost the game, which calls a real 20%-compiler capture
+    # clean and a 9%-launcher capture suspicious. Only the CODEGEN bucket dilutes
+    # a native profile, so only it decides.
+    (COMPILER_THREADS, ("rustc", "cgu.", "mold", "ld.", "lld", "clang", "collect2", "cc1")),
+    # ⚠ `sh` USED TO BE A NEEDLE HERE and matched any COMM containing those two
+    # letters. Removed: `cargo`, `bash` and `dirname` are the launcher threads
+    # this repository's captures actually show.
+    (LAUNCHER_THREADS, ("cargo", "bash", "dirname")),
     # `pw-data-loop` is PipeWire's realtime thread; the truncated COMM never
     # contains "pipewire", which is why audio read as 0.2% on a bundle whose
     # audio thread was sampled the whole run.
     ("audio", ("pipewire", "pw-", "pulse", "alsa", "spa-")),
 ]
 GAME_THREADS = "the game itself"
+
+# ⭐ THE FLOOR IS ABOUT DILUTION, NOT ABOUT PURITY. Cycles spent in codegen are
+# cycles the native percentages below are divided by, so a 20% compile moves
+# every game symbol's share by a fifth. Under ~1% the shift is smaller than the
+# run-to-run spread of `perf` sampling itself, and calling that contaminated
+# would mark every capture untrustworthy and teach the reader to skip the
+# verdict.
+COMPILE_CONTAMINATION_FLOOR = 1.0
+
+# Above this, a DSO table is INCLUSIVE (`--children`) and its rows overlap. Self
+# time sums to ~100% with rounding; a partition cannot reach 110.
+INCLUSIVE_ACCOUNTING_CEILING = 110.0
 
 
 class Bundle:
@@ -135,32 +156,66 @@ TRUST_CLEAN = "clean"
 TRUST_COMPILE = "compile-contaminated"
 TRUST_PROFILER = "profiler-contaminated"
 TRUST_BOTH = "compile- and profiler-contaminated"
+TRUST_NO_GAME = "not a profile of the game"
+
+# ⛔⛔ THE HOLE THE COMPILER-BUCKET REPAIR OPENED, CAUGHT BY RE-RUNNING EVERY
+# BUNDLE. The old rule `build_share > game_share` was wrong about what it MEANT,
+# but it accidentally covered one case the replacement does not:
+# `desktop-timeline-run-20260829T020516Z` is 94.4% `cargo` and 5.6% `bash` — the
+# game contributed ZERO samples. Judged on the codegen bucket alone that capture
+# is 0.0% compiler and reads CLEAN, which is the most wrong a verdict can be:
+# there is no game in it to quote.
+#
+# ⇒ a native profile is quotable only when the GAME DOMINATES the capture,
+# whatever the rest of the cycles turn out to be. This asks that directly rather
+# than inferring it from a contaminant somebody thought to bucket — and it is
+# checked LAST, so a capture whose missing game HAS a named cause still gets
+# told which one.
+GAME_SHARE_FLOOR = 50.0
 
 
-def native_profile_trust(build_share, game_share, profiler_share):
+def native_profile_trust(compiler_share, game_share, profiler_share):
     """Whether the native symbol/DSO attribution below stands.
 
-    A build that out-costs the game has diluted every percentage in the native
-    profile; a profiler over a quarter of the capture has done the same with its
-    own code. They are independent, so all four combinations are real.
+    Codegen inside the capture dilutes every percentage in the native profile; a
+    profiler over a quarter of the capture has done the same with its own code.
+    They are independent, so all four combinations are real.
+
+    ⛔⛔ THE FIRST ARGUMENT IS THE COMPILER BUCKET, NOT "build tooling". It used
+    to be the combined bucket, tested as `build_share > game_share`, and that
+    rule is wrong in both directions: a capture that is 70% game and 20% rustc
+    reads CLEAN, and one that is 88% game and 9% idle `cargo` launcher reads
+    suspicious. `game_share` survives only so the prose can quote it.
     """
-    compiled = build_share > game_share
+    compiled = compiler_share >= COMPILE_CONTAMINATION_FLOOR
     profiled = profiler_share >= 25.0
+    # ⭐ A NAMED CONTAMINANT WINS, because it is the ACTIONABLE answer. A capture
+    # that is 92% codegen also fails the game-share floor, and calling that "not
+    # a profile of the game" would be true and useless — the reader needs to be
+    # sent to `warm-build.status`, not told the obvious. The floor below is the
+    # FALLBACK: the game is missing and nothing this classifier buckets explains
+    # where it went.
     if compiled and profiled:
         return TRUST_BOTH
     if compiled:
         return TRUST_COMPILE
     if profiled:
         return TRUST_PROFILER
+    if game_share < GAME_SHARE_FLOOR:
+        return TRUST_NO_GAME
     return TRUST_CLEAN
 
 
-def native_profile_trust_lines(trust, build_share, game_share, profiler_share, headless):
+def native_profile_trust_lines(
+    trust, compiler_share, game_share, profiler_share, headless, launcher_share=0.0
+):
     """The ONE verdict, plus whatever detail the state earns."""
     lines = [
         "```text",
         f"profiler (Tracy) overhead : {profiler_share:4.1f}%",
-        f"compile inside the capture: {build_share:4.1f}%   (the game itself: {game_share:.1f}%)",
+        f"codegen inside the capture: {compiler_share:4.1f}%   (rustc / LLVM / linker threads)",
+        f"build launcher            : {launcher_share:4.1f}%   (cargo and shell; NOT a compile)",
+        f"the game itself           : {game_share:4.1f}%",
         f"native attribution        : {trust.upper()}",
         "```",
         "",
@@ -178,19 +233,54 @@ def native_profile_trust_lines(trust, build_share, game_share, profiler_share, h
     lines += [
         f"⚠⚠ **The native profile below is {trust.upper()} and must not be quoted.**",
         "",
-        "⭐ Everything keyed to GAME TIME is unaffected — `frame_times.csv`,",
-        "`frame_spikes.csv`, `runtime_census.csv` and the image censuses come from the",
-        "game's own stderr census, not from `perf` samples.",
-        "",
     ]
+    if trust == TRUST_NO_GAME:
+        lines += [
+            f"Only {game_share:.1f}% of sampled cycles are the game's own threads. Every",
+            "percentage below is a share of a capture the game barely appears in, so there",
+            "is no ranking here to correct — there is nothing to rank. Check that the run",
+            "actually launched and that `perf` followed the child process.",
+            "",
+        ]
+
+    # ⛔⛔ WHAT SURVIVES DEPENDS ON WHICH CONTAMINANT. This paragraph used to be
+    # unconditional, so a profiler-contaminated report said "everything keyed to
+    # GAME TIME is unaffected" and then, eleven lines later, "every frame time
+    # here is inflated too". Both were printed for the same capture. A compile
+    # and a profiler are not the same kind of contaminant and cannot share one
+    # sentence about what is left standing:
+    #
+    #   a compile  — ran BESIDE the game, mostly BEFORE `exec`. It dilutes the
+    #                sampled percentages and nothing else. The game's own census
+    #                really is untouched.
+    #   a profiler — ran INSIDE the process, competing for the same cores. It
+    #                inflates the very frame times the census records.
+    if trust == TRUST_COMPILE:
+        lines += [
+            "⭐ Everything keyed to GAME TIME is unaffected — `frame_times.csv`,",
+            "`frame_spikes.csv`, `runtime_census.csv` and the image censuses come from the",
+            "game's own stderr census, not from `perf` samples, and a compile competes for",
+            "cores mostly before the game starts.",
+            "",
+        ]
+    else:
+        lines += [
+            "⚠ The game's own census is NOT a way around this. `frame_times.csv`,",
+            "`frame_spikes.csv` and `runtime_census.csv` are recorded by a process the",
+            "profiler is running inside, so they carry the same inflation the native",
+            "profile does. Only RATIOS between them survive.",
+            "",
+        ]
+
     if trust in (TRUST_COMPILE, TRUST_BOTH):
         lines += [
-            f"**A compile ran inside this capture** — {build_share:.0f}% of sampled cycles",
-            f"against the game's own {game_share:.0f}%. Check `warm-build.status` and the gap",
-            "between `wall_s` and `game_s` in `frame_spikes.csv`: a first frame tens of",
-            "seconds into the capture is the build. If the warm build ran and the launch",
-            "rebuilt anyway, the two are asking cargo for different fingerprints — see the",
-            "`build_env` rows in `run_game.sh --print-plan`.",
+            f"**A compile ran inside this capture** — {compiler_share:.0f}% of sampled cycles in",
+            f"rustc, LLVM codegen and linker threads, against the game's own {game_share:.0f}%.",
+            "Check `warm-build.status` and the gap between `wall_s` and `game_s` in",
+            "`frame_spikes.csv`: a first frame tens of seconds into the capture is the",
+            "build. If the warm build ran and the launch rebuilt anyway, the two are",
+            "asking cargo for different fingerprints — see the `build_env` rows in",
+            "`run_game.sh --print-plan`.",
             "",
         ]
     if trust in (TRUST_PROFILER, TRUST_BOTH):
@@ -756,17 +846,19 @@ def build_summary(bundle: Bundle) -> str:
         if tally:
             profiler_share = tally.get("profiler (Tracy)", 0.0)
             game_share = tally.get(GAME_THREADS, 0.0)
-            build_share = tally.get("build tooling", 0.0)
+            compiler_share = tally.get(COMPILER_THREADS, 0.0)
+            launcher_share = tally.get(LAUNCHER_THREADS, 0.0)
             lines += ["```text"]
             for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
                 lines.append(f"{percent:6.1f}%  {label}")
             lines += ["```", ""]
             lines += native_profile_trust_lines(
-                native_profile_trust(build_share, game_share, profiler_share),
-                build_share,
+                native_profile_trust(compiler_share, game_share, profiler_share),
+                compiler_share,
                 game_share,
                 profiler_share,
                 headless,
+                launcher_share,
             )
     elif bundle.exists("tracy.trace"):
         lines += [
@@ -802,12 +894,35 @@ def build_summary(bundle: Bundle) -> str:
             lines += ["```text"]
             for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
                 lines.append(f"{percent:6.1f}%  {label}")
+            lines += ["```", ""]
+            total = sum(tally.values())
+            if total > INCLUSIVE_ACCOUNTING_CEILING:
+                # ⛔⛔ THESE ROWS DO NOT PARTITION THE CAPTURE. `perf report`
+                # defaults to `--children`, which credits every frame on the
+                # stack, so a sample inside the game calling into the kernel is
+                # counted by BOTH. `desktop-perf-run-20260901T003332Z` printed
+                # 216.4% game plus 22.8% kernel under a heading that reads like a
+                # breakdown. Say so rather than let a reader subtract them.
+                lines += [
+                    f"⚠⚠ **These rows sum to {total:.0f}%, so they are not a breakdown.**",
+                    "",
+                    "This report was written with `perf report`'s default INCLUSIVE accounting: a",
+                    "sample is credited to every shared object on its call stack, so the game",
+                    "binary and the kernel it called both own the same cycles.",
+                    "",
+                    "Read each row as \"cycles that passed through here\", never as a share of",
+                    "the capture, and never subtract one from another. Captures written after",
+                    "2026-08-31 pass `--no-children` and do partition; this bundle predates it.",
+                    "",
+                ]
+            else:
+                lines += [
+                    "From `perf-report-by-dso.txt`, SELF time (`--no-children`), so the rows",
+                    "partition the capture. If the top bucket is not the game binary, ranking",
+                    "game symbols is ranking the wrong machine layer.",
+                    "",
+                ]
             lines += [
-                "```",
-                "",
-                "From `perf-report-by-dso.txt`. If the top bucket is not the game binary,",
-                "ranking game symbols is ranking the wrong machine layer.",
-                "",
                 "This split is by SHARED OBJECT, not by thread: statically linked",
                 "profiler, allocator, and runtime code all report as the game binary.",
                 "Read it together with the observer-effect section above.",

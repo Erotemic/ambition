@@ -213,6 +213,42 @@ SmashBot          the same TacticalView, plus expensive rollout over it
 The rich fighter still gets rich information. It does not get **unbounded**
 information proportional to room population.
 
+## ⛔⛔ THE FIRST INCREMENT TOUCHES CHECKSUMMED ROLLBACK STATE
+
+The obvious first step — let a brain **declare what it needs** (`None` /
+`TargetBelief` / `TacticalWorld`) and build only that — is not a local
+optimisation, because two of the things it would skip are rollback state:
+
+```text
+PerceptionMemory   rollback_component_canonical, "actor.perception_memory"
+Perception         rollback_component_canonical, "actor.perception"
+```
+
+A `StandStill` brain that stops building a view also stops calling
+`WorldMemory::update`, so its remembered set stays empty instead of tracking the
+peers it can see. That is **deterministic** — the gate would read
+`StateMachineCfg`, which is itself rollback state — so it does not desync. But it
+changes the VALUE of a canonically checksummed component, which means:
+
+- every save and replay made before the change decodes to a different world than
+  one made after it;
+- the schema baseline moves, and `snapshot_impls.rs` already records what that
+  costs: *"a rewind that leaves [`GameplayElapsed`] running makes every memory
+  look older than it is — which is exactly how `gnu_ton_arena` diverged on
+  `perception_memory` and nothing else."* This component has desynced a match
+  before, on a subtler change than deleting its updates.
+
+⇒ **Do not build the declaration as a performance tweak.** It is a wire-format
+and replay-compatibility decision that happens to be fast, and it wants the
+treatment `ADR 0023` gives that class rather than a benchmark and a merge.
+
+⭐ **AND THE MEASUREMENT SAYS IT IS NOT URGENT.** With the three fixes landed
+2026-09-01, `Decide` at the hall's real density is **0.234 ms/tick**, and the
+peer-independent remainder — what a `None` brain would still pay — is 0.039. The
+whole declaration is worth ~0.2 ms of a 1.78 ms headless frame **today**. Its
+value is the seam it establishes for the attention budget, not the milliseconds,
+and that is an argument for building it carefully rather than quickly.
+
 ## Determinism
 
 Fixed cells; the sim's existing coordinate representation; stable `SimId`

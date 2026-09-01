@@ -13,6 +13,13 @@ bevy = { version = "0.19.1", default-features = false, features = ["bevy_log", "
 ron = { workspace = true }
 serde = { workspace = true }
 
+# ⛔ WASM ONLY, so native pays nothing for it. `store.rs` needs `localStorage`
+# to give the web build any persistence at all; before 2026-08-31 the four
+# systems that read and write settings and saves were `cfg(not(wasm32))` and the
+# browser silently forgot everything on reload.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window", "Storage"] }
+
 [dev-dependencies]
 serde_json = "1"
 tempfile = "3"

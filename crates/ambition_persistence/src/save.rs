@@ -14,6 +14,9 @@
 //! go through a temp + rename so a crash mid-write can't corrupt the
 //! live file.
 
+// ⭐ THE NATIVE ROAD ONLY: `install_save`'s temp-file dance and the tests.
+// The browser road goes through `crate::store`, which has no filesystem.
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -109,7 +112,7 @@ impl LoadedSave {
 }
 
 pub fn load_save(path: &Path) -> LoadedSave {
-    let bytes = match fs::read_to_string(path) {
+    let bytes = match crate::store::read(path) {
         Ok(s) => s,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return LoadedSave::fresh();
@@ -189,15 +192,38 @@ pub fn load_save(path: &Path) -> LoadedSave {
     }
 }
 
-/// If replacing the destination by rename is not supported, move the old file aside first and
-/// restore it if installing the new file fails. A failed save must leave either the old or the
-/// new file intact.
+/// Write the save, replacing whatever is there.
+///
+/// ⛔⛔ A FAILED SAVE MUST LEAVE EITHER THE OLD OR THE NEW STATE INTACT, never
+/// neither. That rule is the whole point of this function; how it is KEPT
+/// differs by platform, so the two roads are whole functions rather than one
+/// function wearing `#[cfg]`s on its statements. (The first draft did the
+/// latter, and the wasm build caught it immediately: `tmp` was defined under a
+/// `cfg` and used outside one.)
 pub fn write_save(path: &Path, save: &AmbitionGameSaveData) -> std::io::Result<()> {
+    let body = ron::ser::to_string_pretty(save, ron::ser::PrettyConfig::default())
+        .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
+    install_save(path, &body)
+}
+
+/// ⭐ THE KEY/VALUE ROAD NEEDS NO DANCE. A `localStorage` set is ONE synchronous
+/// call: it either replaced the value or it returned an error and left the old
+/// one alone. There is no half-written state to keep a backup against, and no
+/// `rename` to install one with — so the rule above is kept by the store itself.
+#[cfg(target_arch = "wasm32")]
+fn install_save(path: &Path, body: &str) -> std::io::Result<()> {
+    crate::store::write(path, body)
+}
+
+/// ⭐ THE FILESYSTEM ROAD NEEDS THE DANCE, because a write is many syscalls and a
+/// crash between them leaves a truncated file. Write to a temp name, then
+/// install by rename; if the rename cannot replace the destination, move the old
+/// file aside first and put it back if installing the new one fails.
+#[cfg(not(target_arch = "wasm32"))]
+fn install_save(path: &Path, body: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let body = ron::ser::to_string_pretty(save, ron::ser::PrettyConfig::default())
-        .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
     let tmp = path.with_extension("ron.tmp");
     fs::write(&tmp, body)?;
     match fs::rename(&tmp, path) {
@@ -237,7 +263,6 @@ impl Default for SaveFileWritable {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn load_save_at_startup(
     mut save: ResMut<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
@@ -299,7 +324,6 @@ pub struct LastPersistedSave(
 /// Under a rollback session it means the autosave waits for a moment with no outstanding
 /// predictions rather than racing them; if that moment never comes, not autosaving is the
 /// correct outcome, not a missed one.
-#[cfg(not(target_arch = "wasm32"))]
 pub fn autosave_sandbox_save(
     save: Res<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
@@ -325,17 +349,6 @@ pub fn autosave_sandbox_save(
         ),
     }
 }
-
-/// Wasm (browser) no-op for save loading. First-pass web build does not
-/// persist the sandbox save; the in-memory `Res<AmbitionGameSave>` still
-/// works for the session. Browser persistence (IndexedDB / LocalStorage
-/// behind `web-sys`) is a follow-up.
-#[cfg(target_arch = "wasm32")]
-pub fn load_save_at_startup(_save: ResMut<AmbitionGameSave>, _last: ResMut<LastPersistedSave>) {}
-
-/// Wasm (browser) no-op for save writing. See [`load_save_at_startup`].
-#[cfg(target_arch = "wasm32")]
-pub fn autosave_sandbox_save(_save: Res<AmbitionGameSave>, _last: ResMut<LastPersistedSave>) {}
 
 #[cfg(test)]
 mod tests {

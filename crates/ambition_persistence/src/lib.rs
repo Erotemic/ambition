@@ -8,6 +8,7 @@ pub mod host;
 pub mod quest;
 mod rollback_registration;
 pub mod save;
+pub mod store;
 
 pub use rollback_registration::register_rollback_state;
 

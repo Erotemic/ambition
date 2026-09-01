@@ -10,12 +10,10 @@
 //! and a corrupt file logs a warning and falls back to defaults. The
 //! goal is that the user can always launch the sandbox.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// `info` belongs to the native loader only; the wasm arm is a no-op.
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::log::info;
 use bevy::log::warn;
 use bevy::prelude::*;
 
@@ -39,7 +37,7 @@ pub fn settings_path_under(root: &Path) -> PathBuf {
 /// missing or unreadable; logs a warning on parse failure and returns
 /// defaults.
 pub fn load_settings(path: &Path) -> UserSettings {
-    let bytes = match fs::read_to_string(path) {
+    let bytes = match crate::store::read(path) {
         Ok(s) => s,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return UserSettings::default();
@@ -74,11 +72,25 @@ pub fn load_settings(path: &Path) -> UserSettings {
 /// corrupt the live file. Returns the IO error on failure so the caller
 /// can decide whether to surface it (most callers log + continue).
 pub fn save_settings(path: &Path, settings: &UserSettings) -> std::io::Result<()> {
+    let body = ron::ser::to_string_pretty(settings, ron::ser::PrettyConfig::default())
+        .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
+    install_settings(path, &body)
+}
+
+/// ⭐ ONE SYNCHRONOUS CALL, SO NOTHING TO MAKE ATOMIC. See `save::install_save`
+/// for the same split and the same reason.
+#[cfg(target_arch = "wasm32")]
+fn install_settings(path: &Path, body: &str) -> std::io::Result<()> {
+    crate::store::write(path, body)
+}
+
+/// ⭐ TEMP FILE PLUS RENAME, because a filesystem write is many syscalls and a
+/// crash between them leaves a truncated settings file.
+#[cfg(not(target_arch = "wasm32"))]
+fn install_settings(path: &Path, body: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let body = ron::ser::to_string_pretty(settings, ron::ser::PrettyConfig::default())
-        .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
     let tmp = path.with_extension("ron.tmp");
     fs::write(&tmp, body)?;
     fs::rename(&tmp, path)?;
@@ -89,13 +101,12 @@ pub fn save_settings(path: &Path, settings: &UserSettings) -> std::io::Result<()
 /// disk if a file exists. The default `UserSettings` is already
 /// inserted in `init_sandbox_resources`, so this only overrides when
 /// a file is found.
-#[cfg(not(target_arch = "wasm32"))]
 fn load_existing_settings(
     path: &Path,
     settings: &mut UserSettings,
     last: &mut LastPersistedSettings,
 ) -> bool {
-    if !path.exists() {
+    if !crate::store::exists(path) {
         return false;
     }
     *settings = load_settings(path);
@@ -106,7 +117,6 @@ fn load_existing_settings(
     true
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn load_settings_at_startup(
     mut settings: ResMut<UserSettings>,
     mut last: ResMut<LastPersistedSettings>,
@@ -154,7 +164,6 @@ pub struct LastPersistedSettings(
 /// If a simulation system ever writes `UserSettings`, this reasoning expires
 /// and the confirmation gate becomes required — the settings would then be
 /// speculative like anything else the sim touches.
-#[cfg(not(target_arch = "wasm32"))]
 pub fn save_settings_on_change(
     settings: Res<UserSettings>,
     mut last: ResMut<LastPersistedSettings>,
@@ -172,21 +181,6 @@ pub fn save_settings_on_change(
             path.display()
         ),
     }
-}
-
-/// Wasm (browser) no-op for settings loading. First-pass web build does
-/// not persist user settings; the in-memory `Res<UserSettings>` keeps
-/// the defaults for the session. Browser persistence is a follow-up.
-#[cfg(target_arch = "wasm32")]
-pub fn load_settings_at_startup(
-    _settings: ResMut<UserSettings>,
-    _last: ResMut<LastPersistedSettings>,
-) {
-}
-
-/// Wasm (browser) no-op for settings writing. See [`load_settings_at_startup`].
-#[cfg(target_arch = "wasm32")]
-pub fn save_settings_on_change(_settings: Res<UserSettings>, _last: ResMut<LastPersistedSettings>) {
 }
 
 #[cfg(test)]

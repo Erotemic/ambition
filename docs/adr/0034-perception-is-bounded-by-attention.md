@@ -124,6 +124,46 @@ written into it is a replay-compatibility change.**
   tracking peers it never reads. That is a visible change to a checksummed
   value, and it is intended.
 
+## Increment 1, part one: LANDED 2026-09-01 (the seam, not the gate)
+
+`PerceptionRequirement { None, TargetBelief, TacticalWorld }` and an exhaustive
+`StateMachineCfg::perception_requirement()`. **Nothing is wired**: no behaviour
+change, no state change, no phase cost moved. It exists so the second half has
+one authority to ask.
+
+```text
+None           StandStill, Wanderer, PlayerDemo
+TargetBelief   Patrol, MeleeBrute, Skirmisher, Sniper, ChargeCrash, Aerial,
+               BossPattern
+TacticalWorld  Smash, Fighter
+```
+
+⛔⛔ **THE MAPPING IS BY WHAT AN ARM READS, NOT BY ITS SIGNATURE.** `MeleeBrute`
+never sees a `WorldView` and never names `target_pos`; it steers through
+`to_character_ai_snapshot`, whose `player_pos` IS the target delta. A rule that
+classified on "does this tick function take `&WorldView`" would file it under
+`None` and stop every brute in the game being told where its foe is. `StandStill`
+is the opposite pole and its evidence is the strongest available:
+`tick_stand_still(out)` takes no snapshot at all.
+
+⭐ `TacticalWorld` needs the belief TOO — a fighter that loses sight of a foe
+pursues from the same memory a skirmisher does — so `needs_target_belief()` is
+true at both upper levels and only `needs_world_view()` separates them.
+
+### Part two, still owed, and it is the risky half
+
+Wiring the gate into `actors/update.rs` so a `None` brain gets no
+`build_world_view` and no `believed_target`. **That is the checksummed-state
+change** and it carries the schema baseline move with it. It is not started.
+
+Its acceptance is behavioural, not a millisecond count:
+
+```text
+None           neutral behaviour unchanged; PerceptionMemory stays empty
+TargetBelief   acquires a visible foe; keeps/decays a lost one per the contract
+TacticalWorld  Smash/Fighter behaviour and memory unchanged
+```
+
 ## Current implications for agents
 
 - ⛔ Do not gate perception construction as a performance change. It moves the

@@ -350,6 +350,16 @@ fn install_actor_decision_census_boundary(app: &mut App) {
     use ambition_dev_tools::runtime_census as census;
     use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, WorldPrepSet};
 
+    // ⛔⛔ NOT WHEN THE CENSUS IS OFF. These run inside the sim schedule, the
+    // hottest in the app, and registering them unconditionally panicked every
+    // run with the census disabled -- which is every run a player makes -- on a
+    // resource `RuntimeCensusPlugin` only inserts when asked. `mark_sim_phase`
+    // now tolerates the absence too; this keeps seven no-op systems out of the
+    // tick regardless.
+    if !census::sim_phase_census_enabled() {
+        return;
+    }
+
     let sim = app.sim_schedule();
 
     // ⛔⛔ EACH MARK NEEDS BOTH EDGES. `.after(Targeting)` alone has no upper

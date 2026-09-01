@@ -528,10 +528,42 @@ pub const SIM_PHASE_DECISION_DECIDE: usize = 26;
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_DECISION_PUBLISH: usize = 27;
 
-/// The boundary system for one sim phase.
+/// Whether the sim-phase census is installed at all, for a crate that registers
+/// its own boundary marks.
+///
+/// ⛔⛔ THE MARKS ARE NOT INSTALLED WHEN THE CENSUS IS OFF, and a caller outside
+/// this crate cannot see the `if enabled` in `RuntimeCensusPlugin::build` that
+/// says so. `install_actor_decision_census_boundary` in the actor monolith
+/// registered seven marks unconditionally and every run with the census OFF —
+/// which is every run a player makes — panicked in `mark_sim_phase` with
+/// "Resource does not exist". The warning against exactly this was already
+/// written here, on the reporter, where the crate that needed it could not read
+/// it.
+///
+/// ⇒ TWO defences, because they answer different questions. This one keeps a
+/// mark out of the hottest schedule in the app when nobody asked for it. The
+/// `Option` on [`mark_sim_phase`] makes forgetting to ask a no-op rather than a
+/// crash.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn mark_sim_phase(index: usize) -> impl FnMut(ResMut<SimPhaseCensus>) {
-    move |mut census: ResMut<SimPhaseCensus>| census.close(index)
+pub fn sim_phase_census_enabled() -> bool {
+    std::env::var(CENSUS_ENV)
+        .map(|value| env_is_truthy(&value))
+        .unwrap_or(false)
+}
+
+/// The boundary system for one sim phase.
+///
+/// ⚠ `Option`, and it is load-bearing rather than defensive: this function is
+/// `pub` so other crates can close buckets for sets only they can name, and the
+/// resource it writes is inserted only when the census is on. A missing census
+/// is a mark with nothing to record, not a reason to stop the game.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn mark_sim_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
+    move |census: Option<ResMut<SimPhaseCensus>>| {
+        if let Some(mut census) = census {
+            census.close(index);
+        }
+    }
 }
 
 /// OPEN the window, attributing nothing.
@@ -1731,5 +1763,56 @@ mod sim_phase_index_tests {
              accumulated and never reported"
         );
         assert_eq!(names[1], "WorldPrep.BeforeIntegrate");
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod mark_without_census_tests {
+    use super::*;
+
+    /// ⛔⛔ **A MARK WITHOUT A CENSUS MUST NOT STOP THE GAME.**
+    ///
+    /// `mark_sim_phase` is `pub` so a crate that owns a set this one cannot name
+    /// can close its own bucket. That crate cannot see the `if enabled` guard in
+    /// `RuntimeCensusPlugin::build`, and the actor monolith duly registered seven
+    /// marks unconditionally: every run with `AMBITION_PROFILE_CENSUS` unset —
+    /// every run a player makes — panicked with "Resource does not exist".
+    ///
+    /// The `Option` is what makes that impossible rather than merely documented.
+    #[test]
+    fn a_mark_runs_harmlessly_with_no_census_resource() {
+        let mut app = App::new();
+        app.add_systems(Update, mark_sim_phase(SIM_PHASE_ACTOR_DECISION));
+        assert!(
+            !app.world().contains_resource::<SimPhaseCensus>(),
+            "the premise: this App never installed the census"
+        );
+        app.update();
+        app.update();
+    }
+
+    /// Premise guard: with a census present the mark still records.
+    ///
+    /// Without this, `mark_sim_phase` could have been emptied out entirely and
+    /// the arm above would still pass.
+    #[test]
+    fn a_mark_still_closes_its_bucket_when_the_census_is_there() {
+        let mut app = App::new();
+        app.insert_resource(SimPhaseCensus::with_names(sim_phase_names()));
+        app.add_systems(
+            Update,
+            (
+                open_sim_phase_window,
+                mark_sim_phase(SIM_PHASE_ACTOR_DECISION),
+            )
+                .chain(),
+        );
+        app.update();
+        let census = app.world().resource::<SimPhaseCensus>();
+        assert_eq!(census.ticks, 1, "the window opened");
+        assert!(
+            census.totals[SIM_PHASE_ACTOR_DECISION] > 0.0,
+            "and the bucket was closed with a real span"
+        );
     }
 }

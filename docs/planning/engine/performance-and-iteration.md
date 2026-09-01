@@ -266,10 +266,21 @@ Open, in priority order:
    rasteriser, so the render share is an upper bound.
 
    Two separate campaigns fall out, and they were being conflated:
-   - **the fixed ~6.9 ms** caps the baseline frame rate. No simulation work
-     touches it. This is the presentation/render campaign.
-   - **the marginal ~2.4 ms** caps POPULATION, and is the half already cut in
-     half today.
+   - **the marginal ~2.4 ms** caps POPULATION, is 66% simulation, and is the
+     half already cut in half today. A profile still finds structure here.
+   - **the fixed ~6.9 ms** caps the baseline frame rate — and **has no hot
+     spot.** Measured: 55.5% of that run is this host's software rasteriser,
+     and inside the game's own code it takes **197 symbols to reach half**, with
+     the largest at **0.99%**. ⛔ Do not open a "make the baseline faster"
+     campaign expecting something to optimise; halving the biggest symbol buys
+     0.5% of a frame. The only levers on a diffuse cost are structural — fewer
+     systems, fewer entities, less per frame — which is a composition question,
+     not a profiling one.
+
+     ⚠ Diffuse at the SYMBOL level is not diffuse at the SYSTEM level, and Bevy
+     0.19 has no per-system profiler to tell them apart. And none of this
+     touches real-GPU rendering: the weak-GPU transparent-overdraw lead (~5.3x)
+     is separate and still live.
 2. **Bounded perception** (`bounded-perception-and-attention.md`) — re-read its
    measured section first. Bounding the COUNT of perceived actors is worth ~8%;
    `kept` already saturates at ~14 and the cost is per-item construction. The

@@ -78,18 +78,26 @@ pub(crate) fn kaleidoscope_pointer_move(
     };
     if let Ok(control) = controls.get(move_.entity) {
         if let Some(action) = control.action {
-            let model = SystemMenuModel::build(
-                &settings,
-                &snapshot.radio_snapshot(),
-                &snapshot.dev_snapshot(),
-            );
-            let next = focus_for_action(
-                action,
-                active_page,
-                &model,
-                system_nav.open_entry,
-                quality_confirm.pending(),
-            );
+            // A hover fires on EVERY mouse move across a control, so the settings IR
+            // is built only for the actions that actually read it (a System row's
+            // index). Hovering the Items/Map/Quest faces now costs nothing:
+            // `SystemMenuModel::build` walks the whole settings IR and allocates a
+            // `String` per label, description and value, and both snapshots clone
+            // their lists.
+            let next = match focus_without_system_model(action, active_page) {
+                Some(focus) => focus,
+                None => focus_for_action(
+                    action,
+                    active_page,
+                    &SystemMenuModel::build(
+                        &settings,
+                        &snapshot.radio_snapshot(),
+                        &snapshot.dev_snapshot(),
+                    ),
+                    system_nav.open_entry,
+                    quality_confirm.pending(),
+                ),
+            };
             if cursor.last_pointer_focus == Some(next) {
                 return;
             }
@@ -141,14 +149,18 @@ pub(crate) fn kaleidoscope_pointer_release(
         return;
     };
     if let Some(active_page) = pages.active {
-        let model = system.model(&settings);
-        let next = focus_for_action(
-            action,
-            active_page,
-            &model,
-            system_nav.open_entry,
-            quality_confirm.pending(),
-        );
+        // Same rule as the hover path: build the settings IR only for the actions
+        // whose focus is a System ROW INDEX.
+        let next = match focus_without_system_model(action, active_page) {
+            Some(focus) => focus,
+            None => focus_for_action(
+                action,
+                active_page,
+                &system.model(&settings),
+                system_nav.open_entry,
+                quality_confirm.pending(),
+            ),
+        };
         cursor.focus = next;
         cursor.owner = FocusSource::Pointer;
         cursor.last_pointer_focus = Some(next);

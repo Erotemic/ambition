@@ -126,8 +126,14 @@ pub(crate) fn fade_kaleidoscope_scrim(
     mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
 ) {
     let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
+    let want = Color::srgba(0.0, 0.0, 0.0, alpha);
     for mut bg in &mut scrim {
-        bg.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
+        // Compared before writing: `BackgroundColor` is change-detected, and the
+        // fold sits settled for most of the frames this system runs — an
+        // unconditional assignment dirties the UI node every one of them.
+        if bg.0 != want {
+            bg.0 = want;
+        }
     }
 }
 

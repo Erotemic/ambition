@@ -186,6 +186,31 @@ pub struct CubeFace {
     pub half_height: f32,
 }
 
+/// Everything a live face's children were built from, kept on the face so
+/// [`rebuild_cube_faces`] can ask "would rebuilding this face draw anything
+/// different?" and leave it alone when the answer is no.
+///
+/// The published [`ActiveMenuPages`] carries ONE `version` counter for every page,
+/// so any change anywhere — one item picked up, one System row scrolled — used to
+/// invalidate all four faces. This component is what narrows that to the faces
+/// whose own content actually moved: it holds the complete input set of a face
+/// spawn, so equality here means the respawn would be a no-op.
+///
+/// The `config`-derived geometry is deliberately NOT stored: `rebuild_cube_faces`
+/// forces a full rebuild when [`KaleidoscopeMenuConfig`] changes, which is rarer
+/// and cheaper to handle than keeping a copy of it on every face.
+#[derive(Component, PartialEq)]
+pub struct RenderedFace<PageId, Action> {
+    /// The page model `render_page_model` was called with.
+    pub model: MenuPageModel<PageId, Action>,
+    /// Whether it was rendered as the ACTIVE face (baked into depth + control markers).
+    pub active: bool,
+    /// The face's index on the ring, and the ring size — together these fix the
+    /// face's angle and transform.
+    pub index: usize,
+    pub page_count: usize,
+}
+
 /// Caps how much a single hitchy frame (e.g. the host un-pausing the game on close) can advance the
 /// exponential ease, so the fold can never collapse into one frame and snap shut. See
 /// [`animate_cube_ring`].
@@ -319,7 +344,10 @@ fn seed_text3d_android_fonts(mut renderer: ResMut<TextRenderer>) {
 impl<PageId, Action> Plugin for KaleidoscopeMenuPlugin<PageId, Action>
 where
     PageId: Clone + PartialEq + Send + Sync + 'static,
-    Action: Clone + Send + Sync + 'static,
+    // `PartialEq` on the host's action type is what lets `rebuild_cube_faces`
+    // compare a published page against the face already drawing it, so only the
+    // faces whose content moved get rebuilt.
+    Action: Clone + PartialEq + Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiLunexPlugins)
@@ -400,9 +428,9 @@ where
         }
         // Feature B: cross-fade the whole cube (faces/controls/text/icons) with the
         // open/close fold `amount`, so it fades in/out like the scrim instead of
-        // popping. Runs in PostUpdate AFTER `sync_control_focus_visuals` (which can
-        // swap a control's material handle this frame) so the fade always lands on
-        // the live material; ordered after the animate step (Update) that advances
+        // popping. Runs in PostUpdate AFTER `sync_control_focus_visuals` (which
+        // recolors a control's material in place this frame) so the fade always lands
+        // the alpha on top of it; ordered after the animate step (Update) that advances
         // `amount`. Cheap: it only mutates the base-color alpha on existing assets.
         app.add_systems(
             PostUpdate,
@@ -626,14 +654,28 @@ fn cube_3d_picking(
 /// focus and pointer hover are VISIBLE.
 ///
 /// Non-generic (keyed off [`KaleidoscopeControlStyle`]) so it doesn't need the host's
-/// `Action`. Only changed states write a new material handle (cheap, idempotent).
+/// `Action`.
+///
+/// The recolor happens IN PLACE on the control's existing material. It used to
+/// `materials.add(..)` a fresh `StandardMaterial` and swap the handle, which meant
+/// every cursor step created and dropped an asset — and a GPU bind group — per
+/// control it touched. `spawn_control` gives each control its own handle, so
+/// nothing else aliases the asset being written.
+///
+/// Division of labour: this system owns the control's RGB, and
+/// [`fade_kaleidoscope_materials`] owns its alpha and `alpha_mode` (solid control
+/// planes end up `Opaque` at their design alpha — Fix 3's z-fight rule). So this
+/// writes RGB only and republishes `KaleidoscopeFade::base_alpha`; the fade runs
+/// later the SAME frame (PostUpdate) and lands the rest. ⚠ That handoff is why the
+/// fade's `touched` filter watches `Changed<MenuVisualState>`: with no handle swap
+/// there is no `Changed<MeshMaterial3d>` to wake it.
 pub fn sync_control_focus_visuals(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut controls: Query<
         (
             &KaleidoscopeControlStyle,
             &MenuVisualState,
-            &mut MeshMaterial3d<StandardMaterial>,
+            &MeshMaterial3d<StandardMaterial>,
             // Feature B: keep this control's recorded design alpha in sync with its
             // recoloured (focused/hover) material so `fade_kaleidoscope_materials`
             // fades the new highlight colour at the right base alpha.
@@ -642,7 +684,7 @@ pub fn sync_control_focus_visuals(
         Changed<MenuVisualState>,
     >,
 ) {
-    for (style, vis, mut material, fade) in &mut controls {
+    for (style, vis, material, fade) in &mut controls {
         let highlight = vis.focused || vis.selected || vis.hovered;
         let color = if style.disabled {
             disabled_control_color()
@@ -650,18 +692,33 @@ pub fn sync_control_focus_visuals(
             control_color(style.kind, highlight, style.important)
         };
         let base_alpha = color.alpha();
+        // A control with no `KaleidoscopeFade` has no one driving its alpha, so this
+        // system writes the design alpha itself rather than leaving it at whatever
+        // the last state used. `spawn_control` always attaches one; this is the
+        // honest answer for a control spawned by something that does not.
+        let faded = fade.is_some();
         if let Some(mut fade) = fade {
             fade.base_alpha = base_alpha;
         }
-        // Blend (not Opaque) so `fade_kaleidoscope_materials` can fade the control
-        // in/out with the open fold (Feature B).
-        *material = MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: fade_color(color, base_alpha),
-            alpha_mode: AlphaMode::Blend,
-            cull_mode: None,
-            unlit: true,
-            ..default()
-        }));
+        // Read first and compare, so an unchanged colour never marks the asset
+        // changed — a bare `get_mut` costs a re-extract and a GPU re-upload.
+        let want = color.to_srgba();
+        let Some(current) = materials.get(&material.0).map(|m| m.base_color.to_srgba()) else {
+            continue;
+        };
+        // The alpha channel belongs to the fade when there is one; preserve what it
+        // last wrote instead of stomping it back to the design value every frame.
+        let alpha = if faded { current.alpha } else { base_alpha };
+        if current.red == want.red
+            && current.green == want.green
+            && current.blue == want.blue
+            && current.alpha == alpha
+        {
+            continue;
+        }
+        if let Some(mut asset) = materials.get_mut(&material.0) {
+            asset.base_color = Color::srgba(want.red, want.green, want.blue, alpha);
+        }
     }
 }
 
@@ -702,7 +759,8 @@ where
     last_version != Some(pages.version) || last_active != pages.active.as_ref()
 }
 
-/// Rebuild the ring's faces whenever the host's published pages change.
+/// Rebuild the ring's faces whenever the host's published pages change — and only
+/// the faces that would draw something different.
 pub fn rebuild_cube_faces<PageId, Action>(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -710,13 +768,13 @@ pub fn rebuild_cube_faces<PageId, Action>(
     config: Res<KaleidoscopeMenuConfig>,
     pages: Option<Res<ActiveMenuPages<PageId, Action>>>,
     ring_query: Query<Entity, With<MenuRing>>,
-    faces: Query<Entity, With<AmbitionMenuPage<PageId>>>,
+    faces: Query<(Entity, Option<&RenderedFace<PageId, Action>>), With<AmbitionMenuPage<PageId>>>,
     mut last_version: Local<Option<u64>>,
     mut last_active: Local<Option<PageId>>,
     mut dirty: Local<bool>,
 ) where
     PageId: Clone + PartialEq + Send + Sync + 'static,
-    Action: Clone + Send + Sync + 'static,
+    Action: Clone + PartialEq + Send + Sync + 'static,
 {
     let Some(pages) = pages else {
         return;
@@ -732,33 +790,73 @@ pub fn rebuild_cube_faces<PageId, Action>(
     if !*dirty && !renderer_page_identity_changed(*last_version, last_active.as_ref(), &pages) {
         return;
     }
-    let version_changed = *last_version != Some(pages.version);
-    let active_changed = last_active.as_ref() != pages.active.as_ref();
-    debug!(
-        target: "ambition_platformer2d::kaleidoscope_rebuild",
-        "rebuilding cube faces version={} version_changed={} active_changed={} page_count={}",
-        pages.version,
-        version_changed,
-        active_changed,
-        pages.pages.len(),
-    );
-    *dirty = false;
-    *last_version = Some(pages.version);
-    *last_active = pages.active.clone();
-
-    for face in &faces {
-        commands.entity(face).despawn();
-    }
     let Ok(ring) = ring_query.single() else {
         warn!("cube: ring entity not found yet — deferring face rebuild");
         *dirty = true;
         return;
     };
+    *dirty = false;
+    *last_version = Some(pages.version);
+    *last_active = pages.active.clone();
+
     let geo = config.geometry;
-    let n = pages.pages.len().max(1) as f32;
+    let page_count = pages.pages.len();
+    let n = page_count.max(1) as f32;
     let flip = config.inside_x_flip;
+    // Every face's geometry and styling is read out of the config at spawn time, so
+    // a config change invalidates all of them at once. It is not part of the
+    // per-face key: this is the rare path, and paying for it wholesale keeps the
+    // key to the one thing that changes often, the page's own content.
+    let config_changed = config.is_changed();
+
+    // Decide, per PUBLISHED page, whether a live face already draws exactly it.
+    // `RenderedFace` holds the complete input set of a face spawn, so equality
+    // means respawning would reproduce the same children — a page turn touches the
+    // two faces whose `active` flag moved, and a content change touches one.
+    let mut reuse: Vec<Option<Entity>> = vec![None; page_count];
+    let mut retired: Vec<Entity> = Vec::new();
+    for (entity, rendered) in &faces {
+        // A face with no `RenderedFace` cannot be proven current, so it is retired
+        // and rebuilt rather than trusted — the honest answer to "I don't know".
+        let keep = match (config_changed, rendered) {
+            (false, Some(rendered)) => pages
+                .pages
+                .iter()
+                .position(|model| model.id == rendered.model.id)
+                .filter(|&i| {
+                    let active = pages.active.as_ref() == Some(&pages.pages[i].id);
+                    rendered.model == pages.pages[i]
+                        && rendered.active == active
+                        && rendered.index == i
+                        && rendered.page_count == page_count
+                }),
+            _ => None,
+        };
+        match keep {
+            // `is_none()` also retires a duplicate face claiming a page another
+            // face already holds; the ring must never carry two of one page.
+            Some(i) if reuse[i].is_none() => reuse[i] = Some(entity),
+            _ => retired.push(entity),
+        }
+    }
+    for face in &retired {
+        commands.entity(*face).despawn();
+    }
+    debug!(
+        target: "ambition_platformer2d::kaleidoscope_rebuild",
+        "rebuilding cube faces version={} page_count={} rebuilt={} reused={} config_changed={}",
+        pages.version,
+        page_count,
+        page_count - reuse.iter().filter(|slot| slot.is_some()).count(),
+        reuse.iter().filter(|slot| slot.is_some()).count(),
+        config_changed,
+    );
+
     commands.entity(ring).with_children(|ring| {
         for (i, model) in pages.pages.iter().enumerate() {
+            if reuse[i].is_some() {
+                continue;
+            }
             let active = pages.active.as_ref() == Some(&model.id);
             let angle = (i as f32) * std::f32::consts::TAU / n;
             let pos = Vec3::new(
@@ -773,6 +871,12 @@ pub fn rebuild_cube_faces<PageId, Action>(
                 AmbitionMenuPage {
                     id: model.id.clone(),
                     active,
+                },
+                RenderedFace {
+                    model: model.clone(),
+                    active,
+                    index: i,
+                    page_count,
                 },
                 CubeFace {
                     index: i,
@@ -952,14 +1056,22 @@ fn fade_kaleidoscope_materials(
     state: Res<KaleidoscopeOpenState>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
-    // Faded planes whose material handle was (re)spawned or swapped THIS frame:
-    // `rebuild_cube_faces` (new planes, always Blend) and `sync_control_focus_visuals`
-    // (focus recolor, new Blend handle). `Changed<MeshMaterial3d>` covers both adds
-    // and replacements.
+    // Faded planes that need this sweep THIS frame. Two causes, and they are not
+    // the same signal:
+    //
+    // * `Changed<MeshMaterial3d>` — a plane `rebuild_cube_faces` just spawned
+    //   (always Blend, and a solid one must be corrected to Opaque here).
+    // * `Changed<MenuVisualState>` — a control `sync_control_focus_visuals` just
+    //   recolored. ⚠ It writes the material IN PLACE, so the handle does NOT change
+    //   and the first filter cannot see it. Without this arm a focus move while the
+    //   fold sits settled would leave the control at the wrong alpha/mode.
     touched: Query<
         (),
         (
-            Changed<MeshMaterial3d<StandardMaterial>>,
+            Or<(
+                Changed<MeshMaterial3d<StandardMaterial>>,
+                Changed<MenuVisualState>,
+            )>,
             With<KaleidoscopeFade>,
         ),
     >,
@@ -997,10 +1109,10 @@ fn fade_kaleidoscope_materials(
         };
         // Only invalidate (and re-extract) the asset when the mode or alpha actually
         // needs to change — avoids thrashing every material every frame while the
-        // menu sits open or shut, and corrects planes freshly (re)spawned THIS frame
-        // by rebuild_cube_faces / sync_control_focus_visuals (which always create
-        // Blend): PostUpdate runs after them, so a republish-while-open settles the
-        // new planes with no one-frame flicker.
+        // menu sits open or shut, and corrects planes freshly spawned THIS frame by
+        // `rebuild_cube_faces` (which always creates Blend) or recolored in place by
+        // `sync_control_focus_visuals`: PostUpdate runs after both, so a republish or
+        // a focus move while open settles with no one-frame flicker.
         if cur_mode != target_mode || (cur_alpha - target_alpha).abs() > 1.0e-4 {
             if let Some(mut mat) = materials.get_mut(&material.0) {
                 mat.alpha_mode = target_mode;
@@ -1228,6 +1340,8 @@ mod fade_tests;
 #[cfg(test)]
 mod fold_ease_tests;
 #[cfg(test)]
+mod per_face_rebuild_tests;
+#[cfg(test)]
 mod rebuild_gate_tests;
 #[cfg(test)]
 mod scrollbar_tests;
@@ -1237,4 +1351,4 @@ mod scrollbar_thumb_tests;
 mod tonemapping_tests;
 
 mod page;
-use page::{apply_dynamic_text, fade_color, render_page_model};
+use page::{apply_dynamic_text, render_page_model};

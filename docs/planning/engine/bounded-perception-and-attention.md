@@ -318,6 +318,44 @@ gating construction changes a canonically checksummed VALUE, and that governs
 saves and replays whether or not a frame pays for it — but it must not be argued
 from a per-frame number, because there isn't one.
 
+## ⭐ MEASURED 2026-09-01: what a cast that NEEDS perception costs, by population
+
+The gate (increment 1) makes `None` cheap. This is the other arm — the hall
+re-brained with `AMBITION_ACTOR_BRAIN_PROFILE=ambition::medium_striker`, whose
+`template: Smash` is one of the two that consume a `WorldView`. Same room,
+headless, 3 reps per point, medians.
+
+```text
+bodies                          2       16       64      130
+Decide, TacticalWorld       0.009    0.033    0.195    0.419
+Decide, None (contrast)     0.003    0.005    0.012    0.023
+```
+
+**18x at 130 bodies.** That difference is the whole cost of supplying perception
+to a cast that reads it, and it is what an attention budget has to bound.
+
+⭐ **AND THE SHAPE IS THE ARGUMENT.** Growth against population:
+
+```text
+ 2 ->  16   pop 8x     cost 3.7x     sublinear  (kept set still small)
+16 ->  64   pop 4x     cost 5.9x     SUPERLINEAR
+64 -> 130   pop 2.03x  cost 2.15x    linear     (kept saturates ~14)
+```
+
+The superlinear band is exactly where each viewer's kept-peer set is still
+growing with the room. It flattens above 64 only because the hall is SPARSE —
+`Perception::Sighted`'s viewport stops admitting more peers once the gallery
+spreads them out.
+
+⛔⛔ **A DENSE ROOM WOULD NOT FLATTEN.** In a melee where fighters are packed
+inside one another's viewports, `kept` keeps rising with population and the
+16→64 behaviour is what continues. So this curve **understates** the problem it
+is measuring: the hall's saturation is a property of its geometry, not a law.
+
+⇒ This is the acceptance criterion's real target. With an attention budget,
+`Decide` should be linear across the WHOLE range with a smaller constant, and the
+superlinear band should disappear rather than merely saturate.
+
 ## Determinism
 
 Fixed cells; the sim's existing coordinate representation; stable `SimId`

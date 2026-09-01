@@ -349,6 +349,12 @@ impl RoomFeatureConstructionPlan {
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
         let paths = room_spec_paths(room);
+        // ⭐ THE MEASUREMENT QUOTA'S TRANSACTION BOUNDARY. `plan_room` runs
+        // exactly once per room build, so opening the budget here gives it a
+        // structural lifetime — a reload of the SAME room gets a fresh quota,
+        // which a room-id-keyed counter did not. Inert unless
+        // `AMBITION_ACTOR_POPULATION_CAP` is set.
+        ambition_dev_tools::population_cap::begin_room_lowering();
         let placements = registry
             .plan_room(&room.id, &paths, &room.placements)
             .map_err(RoomFeatureConstructionError::Placement)?;

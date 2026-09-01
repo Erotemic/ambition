@@ -13,39 +13,43 @@ Related focused work:
 - [`project-build-and-distribution.md`](project-build-and-distribution.md)
 - [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
 
-## ⛔⛔ `run_tests.sh` EXITS 0 IN TWO DIFFERENT FAILURE STATES
+## ⛔⛔ WITHDRAWN: `run_tests.sh` propagates its exit code correctly — I PIPED IT
 
-Found 2026-09-01, both in one session, both after I had already written "lane
-green":
-
-**It exits 0 when it refuses to run.** With the target bindmount missing it
-prints `⛔⛔ TARGET IS ON VIRTIOFS AND NOT SHADOWED`, runs no tests, writes no
-`target/run_tests_status.json`, and exits 0.
-
-**It exits 0 when a job fails.** A completed lane wrote
-`"passed": 3, "failed": ["workspace (default features)"]` and still exited 0.
-
-⇒ **Never conclude a lane is green from its exit code, or from `finished_jobs`.**
-Read the names:
+An earlier version of this section claimed the runner exits 0 both when it
+refuses to run and when a job fails, and told the next reader to distrust it.
+**That is false and the section is withdrawn.**
 
 ```bash
-python3 -c "import json;d=json.load(open('target/run_tests_status.json'));print(d['passed'], d['failed'])"
+run_tests.sh:   "$repo_root/scripts/setup/target_bindmount.sh" --check   # returns 2
+                exec python3 "$repo_root/scripts/run_tests.py" "$@"
+run_tests.py:   return 1 if failed else 0
 ```
 
-An absent status file means it never started; re-run
-`scripts/setup/target_bindmount.sh` first, and expect a cold rebuild because the
-store moves.
+The gate is correct in both states. **I invoked it as
+`./run_tests.sh --rust 2>&1 | tail -20`, and a pipeline reports the exit status
+of its LAST command:**
 
-### The red it was hiding
+```bash
+$ false | tail -1 ; echo $?
+0
+```
+
+So the 0 I read was `tail`'s, twice. The repo's own note about `| grep` voiding
+an exit code says exactly this, and I wrote the warning anyway.
+
+⇒ **The rule is about the invocation, not the runner.** Do not pipe a gate whose
+exit code you intend to read; if you must, check `${PIPESTATUS[0]}`. Reading
+`passed`/`failed` out of `target/run_tests_status.json` is still the most
+informative check, and an absent status file still means the lane never started —
+but the exit code was never lying.
+
+### The red it surfaced anyway
 
 `ambition_demo_mary_o::power_loop::every_tier_change_holds_its_arriving_sheets_transition_clip`
 — *"the eight-frame fire transformation is the clip a flat 0.5s cut off"*
-(`power_loop.rs:358`). It compares a requested beat's dilated duration against
-`clip_secs("mary_o_v2_fire", Transform)`.
-
-**Pre-existing, and confirmed so rather than assumed:** it fails at `82cda301f`
+(`power_loop.rs:358`). **Pre-existing**, confirmed by running it at `82cda301f`
 in a clean baseline worktree with submodules initialised. Not caused by the
-perception, census, geometry or knob work.
+perception, census, geometry or knob work, and still open.
 
 ## Measurement rules
 
@@ -350,6 +354,35 @@ The raw samples say where the fiction came from — one high outlier in a block:
 Decide  pre  [0.332, 0.332, 0.338, 0.394]
         post [0.330, 0.334, 0.337, 0.353]
 ```
+
+### ⛔⛔ AND THE FIRST REPAIR MISREAD THE GRAPH: nine phases ARE chained
+
+Worse than the withdrawn number: the repair declared indices `10..20` unordered
+because I read ONE `configure_sets` block in `schedule.rs`, saw no `.chain()`,
+and generalised. A **second** block chains the whole post-Core run, and the
+file's own doc comment says so:
+
+```text
+CoreSimulation -> FeatureCollection -> FeatureInteraction -> LdtkRuntimeSpine
+  -> EncounterSimulation -> Cutscene -> GameplayEffects -> Progression
+  -> ResetProcessing -> FeatureViewSync,   then PresentationVisualSync after it
+```
+
+So nine of those eleven now carry both edges. **`Trace` is the only genuinely
+unordered phase** (`.after(CoreSimulation)` and nothing else).
+
+⭐ And `Trace` could not be fixed by labelling it. `close(index)` bills
+now-minus-`last` and then ADVANCES `last`, so a serial mark on an unordered phase
+does not merely mislabel its own bucket — it steals from whichever chain bucket
+closes next, wherever the scheduler happened to run it. `Trace` now has an
+independent start/end clock that never touches `last`. Its number is that
+phase's own wall time and **overlaps** a chain bucket rather than partitioning
+with it; the census row labels it `overlapping=`.
+
+⚠ The schedule file's doc comment is itself stale in the other direction: it says
+`ResetProcessing` and `Trace` are both tail consumers outside the chain.
+`ResetProcessing` joined the chain (with a comment explaining why); only `Trace`
+did not.
 
 ⇒ **The repair is structural hygiene, not a measurement change.** A one-sided
 mark genuinely CAN bill a successor's work to the previous bucket, and it is

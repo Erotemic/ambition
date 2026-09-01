@@ -333,6 +333,30 @@ pub(crate) fn lower_hazard_placement(
     );
 }
 
+/// Whether a placement counts against the measurement actor cap.
+///
+/// ⛔⛔ EXHAUSTIVE ON PURPOSE. The check used to sit at the top of
+/// `lower_interactable_placement`, before the kind was known, so a cap of 16 in
+/// a room with doors and chests omitted whichever placements came after the
+/// sixteenth — cast or furniture. The hall contains nothing but `NpcSpawn`,
+/// which is the only reason its curve measured what it claimed to.
+///
+/// A new interaction kind is a compile error here rather than a silent change to
+/// what a scaling experiment is varying.
+pub(crate) fn counts_against_the_actor_cap(
+    kind: &ambition_platformer2d_world::rooms::InteractionKindSpec,
+) -> bool {
+    use ambition_platformer2d_world::rooms::InteractionKindSpec as Kind;
+    match kind {
+        Kind::Npc { .. } => true,
+        Kind::Door { .. }
+        | Kind::Chest
+        | Kind::Pickup
+        | Kind::Breakable
+        | Kind::Custom(_) => false,
+    }
+}
+
 pub(crate) fn lower_interactable_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
     ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
@@ -350,10 +374,8 @@ pub(crate) fn lower_interactable_placement(
     // omitted whichever placements happened to come after the sixteenth — cast
     // or furniture. The Hall contains nothing but `NpcSpawn`, which is the only
     // reason its curve measured what it claimed to.
-    if matches!(
-        spec.kind,
-        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc { .. }
-    ) && !ambition_dev_tools::population_cap::admit_actor(ctx.room_id)
+    if counts_against_the_actor_cap(&spec.kind)
+        && !ambition_dev_tools::population_cap::admit_actor()
     {
         return;
     }
@@ -603,5 +625,86 @@ pub(crate) fn spawn_breakable_into(
     {
         // This feature explicitly contributes WORLD rebound geometry.
         entity.insert(PogoTargetContributor);
+    }
+}
+
+#[cfg(test)]
+mod actor_cap_selects_actors_tests {
+    //! The measurement cap must remove CAST and leave furniture alone.
+    //!
+    //! ⛔⛔ **THE DEFECT THIS PINS SELECTED THE RIGHT THING BY LUCK.**
+    //! `admit_actor()` was called from the top of `lower_interactable_placement`,
+    //! before the placement's kind was known, so an "actor cap" of n omitted
+    //! whichever placements came after the nth — doors and chests included. It
+    //! measured what it claimed to only because `hall_of_characters` contains
+    //! nothing but `NpcSpawn`; any room with furniture would have lost furniture.
+
+    use super::counts_against_the_actor_cap;
+    use ambition_platformer2d_world::rooms::InteractionKindSpec as Kind;
+
+    fn npc() -> Kind {
+        Kind::Npc {
+            character_id: Some("goblin".into()),
+            dialogue_id: None,
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+            brain_override: None,
+        }
+    }
+
+    /// ⛔ ONE TEST: the cap is process-global, so anything reading it races.
+    #[test]
+    fn a_cap_of_one_omits_the_second_npc_and_keeps_every_prop() {
+        ambition_dev_tools::population_cap::force_cap_for_tests(Some(1));
+
+        let room = [
+            ("Door", Kind::Door { target: None }),
+            ("NPC A", npc()),
+            ("NPC B", npc()),
+            ("Chest", Kind::Chest),
+        ];
+        let survivors: Vec<&str> = room
+            .iter()
+            .filter(|(_, kind)| {
+                !counts_against_the_actor_cap(kind)
+                    || ambition_dev_tools::population_cap::admit_actor()
+            })
+            .map(|(name, _)| *name)
+            .collect();
+
+        assert_eq!(
+            survivors,
+            vec!["Door", "NPC A", "Chest"],
+            "a cap of 1 must drop the SECOND NPC and nothing else"
+        );
+
+        // Premise guard: uncapped, the same room loses nobody.
+        ambition_dev_tools::population_cap::force_cap_for_tests(None);
+        let all: Vec<&str> = room
+            .iter()
+            .filter(|(_, kind)| {
+                !counts_against_the_actor_cap(kind)
+                    || ambition_dev_tools::population_cap::admit_actor()
+            })
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(all, vec!["Door", "NPC A", "NPC B", "Chest"]);
+    }
+
+    #[test]
+    fn only_npcs_count_against_it() {
+        assert!(counts_against_the_actor_cap(&npc()));
+        for kind in [
+            Kind::Door { target: None },
+            Kind::Chest,
+            Kind::Pickup,
+            Kind::Breakable,
+            Kind::Custom("switch".into()),
+        ] {
+            assert!(
+                !counts_against_the_actor_cap(&kind),
+                "{kind:?} is furniture; an actor cap must not remove it"
+            );
+        }
     }
 }

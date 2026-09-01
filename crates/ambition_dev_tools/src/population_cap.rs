@@ -18,7 +18,6 @@
 //! is not that, and must not become it.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
 
 /// Cap the number of authored actors admitted per room. Unset means no cap.
 pub const POPULATION_CAP_ENV: &str = "AMBITION_ACTOR_POPULATION_CAP";
@@ -28,19 +27,19 @@ pub const POPULATION_CAP_ENV: &str = "AMBITION_ACTOR_POPULATION_CAP";
 static CAP: AtomicUsize = AtomicUsize::new(usize::MAX);
 static RESOLVED: AtomicUsize = AtomicUsize::new(0);
 
-/// The room currently being lowered, and how many actors it has admitted.
+/// How many actors this room-lowering transaction has admitted.
 ///
-/// ⛔⛔ **THE COUNT USED TO BE PROCESS-GLOBAL AND NOTHING EVER RESET IT.** There
-/// was a `reset()` whose doc said *"so a second room load starts over"*, and it
-/// had zero callers — so a capped process that walked into a second room handed
-/// that room an already-exhausted quota and lowered none of its cast. The Hall
-/// curve was unaffected only because each of its points was a separate process
-/// that entered one room.
+/// ⛔⛔ **ITS LIFETIME IS A TRANSACTION, NOT A NAME.** Two earlier shapes were
+/// wrong. First it was process-global with a `reset()` nobody called, so a
+/// second room inherited an exhausted quota. Then it was keyed on the room ID,
+/// which fixed *that* and still said "until we see a different room" — so
+/// **reloading the same room** (hot reload, reset, rebuild) kept the spent
+/// counter and admitted nobody.
 ///
-/// Keying on the room id makes the reset structural: the quota belongs to a room
-/// lowering, and a different room id IS the new transaction. A `Mutex` is free
-/// here because this runs during room lowering, never per frame.
-static ROOM: Mutex<Option<(String, usize)>> = Mutex::new(None);
+/// [`begin_room_lowering`] is called from the one place that starts a room's
+/// placement transaction, so the lifetime is structural: a quota cannot outlive
+/// the lowering that opened it, whatever the room is called.
+static ADMITTED: AtomicUsize = AtomicUsize::new(0);
 
 fn cap() -> usize {
     // ⛔ READ ONCE. `std::env::var` on every placement would make the knob's own
@@ -69,29 +68,25 @@ fn cap() -> usize {
 /// omitted them once the cap was reached. The Hall happens to contain only
 /// `NpcSpawn` placements, so its curve selected what was intended; any other room
 /// would have lost furniture instead of cast.
-pub fn admit_actor(room: &str) -> bool {
+pub fn admit_actor() -> bool {
     let cap = cap();
     if cap == usize::MAX {
         return true;
     }
-    let mut guard = ROOM.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let admitted = match guard.as_mut() {
-        // A different room is a new lowering transaction, and a new quota.
-        Some((current, count)) if current == room => count,
-        _ => {
-            *guard = Some((room.to_owned(), 0));
-            &mut guard.as_mut().expect("just set").1
-        }
-    };
-    let allowed = *admitted < cap;
-    *admitted += 1;
-    allowed
+    ADMITTED.fetch_add(1, Ordering::Relaxed) < cap
 }
 
-/// Forget the running count, so a fresh lowering starts over. Tests only — the
-/// room key is what resets this in a real run.
+/// Open a room-lowering transaction: this room starts with a full quota.
+///
+/// Called from the monolith's room construction, beside `plan_room`, which runs
+/// exactly once per room build.
+pub fn begin_room_lowering() {
+    ADMITTED.store(0, Ordering::Relaxed);
+}
+
+/// Alias of [`begin_room_lowering`] for tests that read better this way.
 pub fn reset() {
-    *ROOM.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    begin_room_lowering();
 }
 
 /// The cap in force, for the census row. `None` when uncapped.
@@ -100,6 +95,18 @@ pub fn active_cap() -> Option<usize> {
         usize::MAX => None,
         n => Some(n),
     }
+}
+
+/// Force the cap without the environment, for tests in crates that own the
+/// admission seam. `None` restores "uncapped".
+///
+/// ⚠ PROCESS-GLOBAL, like the knob it stands in for. A test using this must not
+/// run beside another that reads the cap.
+#[doc(hidden)]
+pub fn force_cap_for_tests(cap: Option<usize>) {
+    CAP.store(cap.unwrap_or(usize::MAX), Ordering::Relaxed);
+    RESOLVED.store(if cap.is_some() { 1 } else { 0 }, Ordering::Relaxed);
+    begin_room_lowering();
 }
 
 #[cfg(test)]
@@ -142,29 +149,33 @@ mod tests {
         );
         assert_eq!(active_cap(), None);
         for _ in 0..1000 {
-            assert!(admit_actor("any_room"), "an uncapped build refuses nobody");
+            assert!(admit_actor(), "an uncapped build refuses nobody");
         }
 
         force_cap(2);
 
-        // The first room spends its quota in placement order.
-        assert!(admit_actor("hall"), "1st of 2");
-        assert!(admit_actor("hall"), "2nd of 2");
-        assert!(!admit_actor("hall"), "3rd exceeds the cap");
-        assert!(!admit_actor("hall"), "and stays refused");
+        // A transaction spends its quota in placement order.
+        begin_room_lowering();
+        assert!(admit_actor(), "1st of 2");
+        assert!(admit_actor(), "2nd of 2");
+        assert!(!admit_actor(), "3rd exceeds the cap");
+        assert!(!admit_actor(), "and stays refused");
 
-        // ⭐ THE DEFECT: before the room key, this returned false — the second
-        // room inherited an exhausted counter and lowered none of its cast.
-        assert!(
-            admit_actor("goblin_encounter"),
-            "a different room is a new lowering transaction and a fresh quota"
-        );
-        assert!(admit_actor("goblin_encounter"), "2nd of 2 in the new room");
-        assert!(!admit_actor("goblin_encounter"), "then the new room's cap binds");
+        // ⭐ DEFECT ONE: the count was process-global with an uncalled reset, so
+        // the NEXT room inherited an exhausted quota and lowered none of its cast.
+        begin_room_lowering();
+        assert!(admit_actor(), "a new lowering opens a fresh quota");
+        assert!(admit_actor(), "2nd of 2 in the new transaction");
+        assert!(!admit_actor(), "then this transaction's cap binds");
 
-        // Returning to the first room is also a fresh transaction: rooms are
-        // lowered one at a time, so "same id again" means a reload.
-        assert!(admit_actor("hall"), "a reload starts the quota over");
+        // ⭐ DEFECT TWO: keying the quota on the ROOM ID fixed the first defect
+        // and left this one — reloading the SAME room kept the spent counter, so
+        // a hot reload or reset admitted nobody. The lifetime is the transaction,
+        // not the name, and this arm is the one that proves it.
+        begin_room_lowering();
+        assert!(admit_actor(), "RELOADING the same room opens a fresh quota too");
+        assert!(admit_actor(), "2nd of 2 on the reload");
+        assert!(!admit_actor(), "and the cap still binds");
 
         release_cap();
         assert!(active_cap().is_none(), "the knob is left inert for other tests");

@@ -462,6 +462,14 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
 pub struct SimPhaseCensus {
     /// When the previous boundary fired, or `None` before the first.
     last: Option<Instant>,
+    /// An INDEPENDENT clock, for a phase that is not on the serial chain.
+    ///
+    /// ⛔⛔ `close` advances `last`, so a mark for an unordered phase does not
+    /// merely mislabel its own bucket — it STEALS from whichever serial bucket
+    /// closes next, wherever the scheduler happened to run it. `Trace` is
+    /// `.after(CoreSimulation)` and nothing else, so it is timed with its own
+    /// start/end pair that never touches `last`.
+    isolated: Option<Instant>,
     /// Accumulated time attributed to each phase, parallel to `names`.
     totals: Vec<f64>,
     names: Vec<&'static str>,
@@ -473,6 +481,7 @@ impl SimPhaseCensus {
     fn with_names(names: Vec<&'static str>) -> Self {
         Self {
             last: None,
+            isolated: None,
             totals: vec![0.0; names.len()],
             names,
             ticks: 0,
@@ -496,6 +505,26 @@ impl SimPhaseCensus {
     }
 
     /// Close the phase that just ended and open the next.
+    /// Start the independent clock. Does NOT disturb the serial partition.
+    fn open_isolated(&mut self) {
+        self.isolated = Some(Instant::now());
+    }
+
+    /// Bill the independent clock into `index`, leaving `last` alone.
+    ///
+    /// ⚠ THE RESULT OVERLAPS A SERIAL BUCKET. An unordered phase runs somewhere
+    /// inside the chain, so its cost is ALSO inside whichever serial bucket
+    /// contains it. This number is that phase's own wall time; it is not a
+    /// disjoint slice of the frame and must not be summed with the others.
+    fn close_isolated(&mut self, index: usize) {
+        let now = Instant::now();
+        if let Some(start) = self.isolated.take() {
+            if let Some(total) = self.totals.get_mut(index) {
+                *total += now.duration_since(start).as_secs_f64() * 1000.0;
+            }
+        }
+    }
+
     fn close(&mut self, index: usize) {
         let now = Instant::now();
         if let Some(last) = self.last {
@@ -566,6 +595,26 @@ pub fn sim_phase_census_enabled() -> bool {
 /// `pub` so other crates can close buckets for sets only they can name, and the
 /// resource it writes is inserted only when the census is on. A missing census
 /// is a mark with nothing to record, not a reason to stop the game.
+/// Start the independent clock for a phase that is NOT on the serial chain.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn open_isolated_phase() -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
+    move |census: Option<ResMut<SimPhaseCensus>>| {
+        if let Some(mut census) = census {
+            census.open_isolated();
+        }
+    }
+}
+
+/// Bill the independent clock into `index`, without disturbing the partition.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn close_isolated_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
+    move |census: Option<ResMut<SimPhaseCensus>>| {
+        if let Some(mut census) = census {
+            census.close_isolated(index);
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn mark_sim_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
     move |census: Option<ResMut<SimPhaseCensus>>| {
@@ -710,7 +759,7 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     // ⛔ The schedule declares no order between these, so their buckets are
     // differences between marks nobody sequenced. Named on the row so a reader
     // cannot mistake the list for a serial partition of the frame.
-    row.push_str(" unordered=");
+    row.push_str(" overlapping=");
     for (i, index) in SIM_PHASE_UNORDERED.iter().enumerate() {
         if i > 0 {
             row.push('+');
@@ -1178,12 +1227,19 @@ pub fn report_schedule_phase_census(
 /// mark runs and have part of its work billed to `A`. Every mark that CAN be
 /// bracketed is now `.after(A).before(B)`.
 ///
-/// ⚠ AND ONLY SOME CAN. `configure_platformer2d_simulation_phases` `.chain()`s
-/// two groups — the `CoreSimulation` phases and the three `WorldPrep` sets — but
-/// the eleven phases in `GameplaySimulationRoot` are configured with NO
-/// `.chain()` at all. A mark on one of those has no declared neighbour in either
-/// direction, so their buckets are NOT a serial partition and must not be summed
-/// as one. See `SIM_PHASE_UNORDERED`.
+/// ⚠ ALMOST ALL CAN, and my first repair got this wrong. I read one
+/// `configure_sets` block, saw no `.chain()`, and declared eleven phases
+/// unordered. `configure_platformer2d_simulation_phases` chains them in a
+/// SECOND block further down:
+///
+/// ```text
+/// CoreSimulation -> FeatureCollection -> FeatureInteraction -> LdtkRuntimeSpine
+///   -> EncounterSimulation -> Cutscene -> GameplayEffects -> Progression
+///   -> ResetProcessing -> FeatureViewSync,  then PresentationVisualSync after it
+/// ```
+///
+/// ⛔ `Trace` is the ONLY genuinely unordered phase — `.after(CoreSimulation)`
+/// and nothing else. See `SIM_PHASE_UNORDERED`.
 ///
 /// ⛔ The names below still duplicate the
 /// chain's membership, and a phase added there without a line here is simply
@@ -1191,14 +1247,13 @@ pub fn report_schedule_phase_census(
 /// the honest failure mode for a boundary instrument but is a failure mode.
 /// The phases the schedule declares NO order between, by bucket index.
 ///
-/// ⛔⛔ THEIR BUCKETS ARE NOT A PARTITION. `GameplaySimulationRoot` groups these
-/// with `.in_set(...)` and no `.chain()`, so two of them may run in either order
-/// or overlap. "Now minus the previous mark" still produces a number for each,
-/// and that number is a difference between two marks whose order nobody
-/// declared. Reported so a reader cannot sum them into a frame budget.
+/// ⛔⛔ NOT A PARTITION MEMBER. `Trace` is `.after(CoreSimulation)` and nothing
+/// else, so the scheduler may run it anywhere after Core. A serial mark there
+/// advances `last` and STEALS from whichever chain bucket closes next, wherever
+/// it happened to land — so it is timed with an independent start/end pair and
+/// its number OVERLAPS a chain bucket rather than partitioning with it.
 #[cfg(not(target_arch = "wasm32"))]
-pub const SIM_PHASE_UNORDERED: [usize; 11] =
-    [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+pub const SIM_PHASE_UNORDERED: [usize; 1] = [20];
 
 /// The sim-phase bucket names, in index order.
 ///
@@ -1307,8 +1362,13 @@ fn install_sim_phase_boundaries(app: &mut App) {
     //                -> Combat -> PresentationSync        (CoreSimulation, chained)
     //   BeforeIntegrate -> Integrate -> AfterIntegrate    (WorldPrep, chained)
     //
-    // Everything else is NOT ordered, and a mark there cannot be bracketed —
-    // see `SIM_PHASE_UNORDERED` below.
+    // And a THIRD, which my first repair missed by reading only the first
+    // `configure_sets` block in that file:
+    //
+    //   CoreSimulation -> FeatureCollection -> ... -> ResetProcessing
+    //     -> FeatureViewSync -> PresentationVisualSync
+    //
+    // Only `Trace` is genuinely unordered; it gets an independent clock below.
     app.add_systems(
         sim,
         mark_sim_phase(0)
@@ -1367,18 +1427,79 @@ fn install_sim_phase_boundaries(app: &mut App) {
             .after(Phase::Combat)
             .before(Phase::PresentationSync),
     );
-    app.add_systems(sim, mark_sim_phase(9).after(Phase::PresentationSync));
-    app.add_systems(sim, mark_sim_phase(10).after(Phase::FeatureCollection));
-    app.add_systems(sim, mark_sim_phase(11).after(Phase::FeatureInteraction));
-    app.add_systems(sim, mark_sim_phase(12).after(Phase::LdtkRuntimeSpine));
-    app.add_systems(sim, mark_sim_phase(13).after(Phase::EncounterSimulation));
-    app.add_systems(sim, mark_sim_phase(14).after(Phase::Cutscene));
-    app.add_systems(sim, mark_sim_phase(15).after(Phase::GameplayEffects));
-    app.add_systems(sim, mark_sim_phase(16).after(Phase::Progression));
-    app.add_systems(sim, mark_sim_phase(17).after(Phase::ResetProcessing));
-    app.add_systems(sim, mark_sim_phase(18).after(Phase::FeatureViewSync));
+    app.add_systems(
+        sim,
+        mark_sim_phase(9)
+            .after(Phase::PresentationSync)
+            .before(Phase::FeatureCollection),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(10)
+            .after(Phase::FeatureCollection)
+            .before(Phase::FeatureInteraction),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(11)
+            .after(Phase::FeatureInteraction)
+            .before(Phase::LdtkRuntimeSpine),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(12)
+            .after(Phase::LdtkRuntimeSpine)
+            .before(Phase::EncounterSimulation),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(13)
+            .after(Phase::EncounterSimulation)
+            .before(Phase::Cutscene),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(14)
+            .after(Phase::Cutscene)
+            .before(Phase::GameplayEffects),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(15)
+            .after(Phase::GameplayEffects)
+            .before(Phase::Progression),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(16)
+            .after(Phase::Progression)
+            .before(Phase::ResetProcessing),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(17)
+            .after(Phase::ResetProcessing)
+            .before(Phase::FeatureViewSync),
+    );
+    app.add_systems(
+        sim,
+        mark_sim_phase(18)
+            .after(Phase::FeatureViewSync)
+            .before(Phase::PresentationVisualSync),
+    );
     app.add_systems(sim, mark_sim_phase(19).after(Phase::PresentationVisualSync));
-    app.add_systems(sim, mark_sim_phase(20).after(Phase::Trace));
+    // ⛔⛔ TRACE IS NOT ON THE CHAIN, so it gets an INDEPENDENT clock. It is
+    // `.after(CoreSimulation)` and nothing else, so the scheduler may run it
+    // anywhere after Core — and a serial mark there does not merely mislabel its
+    // own bucket, it advances `last` and STEALS from whichever chain bucket
+    // closes next. Timed with its own start/end pair instead, which never
+    // touches the partition.
+    //
+    // ⚠ The number therefore OVERLAPS a serial bucket rather than partitioning
+    // the frame with it. Trace's cost is also inside whichever chain phase
+    // contains it; do not sum this row with the others.
+    app.add_systems(sim, open_isolated_phase().before(Phase::Trace));
+    app.add_systems(sim, close_isolated_phase(20).after(Phase::Trace));
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1862,7 +1983,11 @@ mod sim_phase_bracket_tests {
     /// the `CoreSimulation` chain. `10..=18` are the `GameplaySimulationRoot`
     /// phases, configured with no `.chain()` at all.
     fn has_no_declared_successor(index: usize) -> bool {
-        index == 4 || index == 9 || super::SIM_PHASE_UNORDERED.contains(&index)
+        // 4  = `WorldPrepSet::ContactDamage`, attached `.after(AfterIntegrate)`
+        //      and deliberately not chained.
+        // 19 = `PresentationVisualSync`, the end of the top-level chain.
+        // 20 = `Trace`, which has no serial mark at all — an independent clock.
+        index == 4 || index == 19 || super::SIM_PHASE_UNORDERED.contains(&index)
     }
 
     fn installations() -> Vec<(usize, String)> {
@@ -1920,8 +2045,8 @@ mod sim_phase_bracket_tests {
     }
 
     #[test]
-    fn the_unordered_phases_all_name_a_bucket() {
-        assert_eq!(super::SIM_PHASE_UNORDERED.len(), 11);
+    fn only_trace_is_unordered_and_it_names_a_bucket() {
+        assert_eq!(super::SIM_PHASE_UNORDERED.len(), 1);
         let names = super::sim_phase_names();
         for index in super::SIM_PHASE_UNORDERED {
             assert!(index < names.len(), "unordered index {index} names no bucket");

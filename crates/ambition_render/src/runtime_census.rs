@@ -414,13 +414,6 @@ pub fn report_draw_census(
     )>,
     texts: Query<(), With<Text2d>>,
     projections: Query<(), With<PresentedForView>>,
-    // ⭐ TO SIZE THE SPRITES THAT DECLARE NO SIZE. A `Sprite` with
-    // `custom_size: None` draws at its IMAGE's dimensions, and the parallax
-    // backdrop is built exactly that way (`rendering/parallax.rs` sets
-    // `custom_size = None` deliberately). Those are the FULL-SCREEN sprites — the
-    // ones an overdraw investigation most needs — and counting them as zero made
-    // the area column silently exclude its own biggest term.
-    images: Res<Assets<Image>>,
 ) {
     let Some(at) = census.due() else {
         return;
@@ -450,19 +443,24 @@ pub fn report_draw_census(
             continue;
         }
         sprite_visible += 1;
-        let size = match sprite.custom_size {
-            Some(size) => size,
-            // ⚠ STILL COUNTED IN `sprite_area_unsized`, because "we had to ask
-            // the asset for this one" stays part of the reading: an image that
-            // has not finished loading has no size yet, and its area is a zero
-            // this row must not present as a fact.
-            None => {
-                unsized_visible += 1;
-                match images.get(&sprite.image) {
-                    Some(image) => image.size_f32(),
-                    None => continue,
-                }
-            }
+        // ⛔⛔ AN UNSIZED SPRITE IS NOT AN IMAGE-SIZED SPRITE, AND SIZING IT FROM
+        // THE IMAGE WAS A REGRESSION THIS COMMENT EXISTS TO PREVENT REPEATING.
+        // The parallax backdrop is spawned with `custom_size: None`
+        // deliberately, and `rendering/parallax.rs` says why: *"the panel's
+        // extent is a function of the viewport it is drawn into, and this call
+        // site has no view in scope"*. `sync_parallax_layers` then sizes it
+        // against the owning view's rectangle on the first frame it can resolve
+        // one. So an unsized sprite here is a sprite ON ITS WAY to a size that
+        // is NOT its image's: a 512x512 image filling a 1280x720 viewport covers
+        // 921,600 pixels, not 262,144.
+        //
+        // ⇒ counting it at image size trades a visible zero for a plausible
+        // wrong number, which in an instrument is the worse of the two. It stays
+        // skipped, and `sprite_area_unsized` stays the flag that says the area
+        // columns are a floor this tick.
+        let Some(size) = sprite.custom_size else {
+            unsized_visible += 1;
+            continue;
         };
         // The drawn quad is the authored size times whatever the transform does
         // to it; `abs` because a mirrored sprite covers the same ground.
@@ -809,59 +807,5 @@ mod tests {
         assert!(!CameraRole::Hud.renders_world());
         assert!(!CameraRole::Offscreen.renders_world());
         assert!(!CameraRole::Other.renders_world());
-    }
-}
-
-#[cfg(test)]
-mod draw_area_tests {
-    use super::*;
-
-    /// ⛔⛔ **THE FULL-SCREEN SPRITES CONTRIBUTED ZERO AREA.** `report_draw_census`
-    /// skipped any `Sprite` whose `custom_size` is `None`, counting it only in
-    /// `sprite_area_unsized`. The parallax backdrop is built exactly that way —
-    /// `rendering/parallax.rs` sets `custom_size = None` deliberately, so the
-    /// layer draws at its image's size — which means the biggest single
-    /// contributor to screen coverage was excluded from the coverage number.
-    ///
-    /// That matters because `sprite_area` is the numerator of the overdraw
-    /// question the weak-GPU work is asking, and an overdraw figure that omits
-    /// the backdrop is not a floor, it is the wrong shape.
-    ///
-    /// This pins the arithmetic rather than the census line: an unsized sprite
-    /// contributes its IMAGE's area, scaled by its transform, exactly as a sized
-    /// one contributes its `custom_size`.
-    #[test]
-    fn an_unsized_sprite_covers_its_images_area() {
-        let mut images = Assets::<Image>::default();
-        let image = images.add(Image::default());
-        let size = images.get(&image).expect("just inserted").size_f32();
-        assert!(
-            size.x > 0.0 && size.y > 0.0,
-            "the premise: a default Image has a real size, or this test proves \
-             nothing about sizing from one ({size:?})"
-        );
-
-        // The area a sized sprite of the same dimensions would report.
-        let scale = Vec3::new(2.0, 3.0, 1.0);
-        let expected = (size.x * scale.x).abs() * (size.y * scale.y).abs();
-
-        // And what the census now computes for the unsized one.
-        let sprite = Sprite::from_image(image.clone());
-        assert!(
-            sprite.custom_size.is_none(),
-            "the premise: `Sprite::from_image` is the unsized shape the parallax \
-             backdrop uses"
-        );
-        let measured = images
-            .get(&sprite.image)
-            .map(|i| i.size_f32())
-            .map(|s| (s.x * scale.x).abs() * (s.y * scale.y).abs())
-            .expect("the image is loaded");
-
-        assert_eq!(
-            measured, expected,
-            "an unsized sprite must cover its image's area; skipping it reports \
-             the backdrop as zero coverage"
-        );
     }
 }

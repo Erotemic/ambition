@@ -101,11 +101,18 @@ pub(crate) fn resolve_npc_brain(
     let character_profile = prepared
         .get(cid)
         .and_then(|prepared| prepared.autonomous_profile);
-    if brain_override
-        .as_deref()
-        .map(str::trim)
-        .unwrap_or("")
-        .is_empty()
+    // ⚠ A MEASUREMENT KNOB, UNSET IN EVERY ORDINARY RUN. When set it stands in
+    // for the placement's own override, so it beats the character's profile
+    // exactly as an authored override does — the hall's cast is authored
+    // `stand_still`, and a forced preset that lost to a profile would silently
+    // measure the wrong cast. See `ambition_dev_tools::brain_override`.
+    let forced = ambition_dev_tools::brain_override::forced_preset();
+    if forced.is_none()
+        && brain_override
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
     {
         if let Some(profile) = character_profile {
             let mut config = body.clone();
@@ -119,7 +126,7 @@ pub(crate) fn resolve_npc_brain(
     match resolve_initial_brain(
         catalog,
         cid,
-        brain_override.as_deref(),
+        forced.or(brain_override.as_deref()),
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),

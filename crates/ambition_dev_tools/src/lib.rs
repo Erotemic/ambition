@@ -18,6 +18,7 @@
 //! Presentation UI remains in `ambition_app`; gameplay tracing remains with the
 //! simulation state it samples.
 
+pub mod brain_override;
 pub mod dev_tools;
 /// The authored world file's mtime watch + reload status — the state half of
 /// the Developer page's auto-apply row.

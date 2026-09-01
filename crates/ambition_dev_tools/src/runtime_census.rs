@@ -697,6 +697,13 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     if let Some(cap) = crate::population_cap::active_cap() {
         row.push_str(&format!(" actor_cap={cap}"));
     }
+    // ⛔⛔ AND A RE-BRAINED CAST IS NOT THE AUTHORED ONE EITHER.
+    // `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every body in the room
+    // thinks with, which moves the decision cost far more than removing bodies
+    // does. Same rule: say so ON THE ROW.
+    if let Some(preset) = crate::brain_override::forced_preset() {
+        row.push_str(&format!(" brain_override={preset}"));
+    }
     let mut ranked: Vec<(&'static str, f64)> = phases
         .names
         .iter()

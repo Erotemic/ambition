@@ -151,6 +151,50 @@ The **demand** side — what a room of genuinely tactical brains costs — has n
 been measured, because no such room exists. The acceptance criterion in
 `bounded-perception-and-attention.md` needs one built.
 
+## ⭐ MEASURED 2026-09-01: waking the hall doubles `Decide`, and NONE of it is perception
+
+The first demand-side measurement this campaign has. Same room, same build, same
+host; 3 interleaved reps per arm, medians, 3000 ticks each. The only variable is
+`AMBITION_ACTOR_BRAIN_OVERRIDE=ambition::melee_brute_striker`, which replaces all
+129 authored `stand_still` brains with an active one.
+
+```text
+phase                          statues   brutes    delta
+WorldPrep.Decision.Decide        0.349    0.715    +105%
+Combat                           0.123    0.224     +82%
+WorldPrep.Integrate              0.263    0.333     +27%
+WorldPrep.Decision.Targeting     0.037    0.037       0%   <- the O(n²) scan
+WorldPrep.Decision.Observe       0.029    0.028      -3%
+WorldPrep.Decision.Prepare       0.026    0.028      +8%
+WorldPrep.ContactDamage          0.012    0.012       0%
+```
+
+⭐ **THE SPLIT IS THE RESULT.** Every perception-SUPPLY phase is flat —
+`Targeting`, `Observe`, `Prepare`, `Publish`, `StateMaintenance` — because they
+do the same work whatever the brain then does with it. The whole +105% of
+`Decide` is `tick_actor_brains` itself, and the downstream consequences of bodies
+that now move and fight (`Combat` +82%, `Integrate` +27%).
+
+Two things follow.
+
+**Supply is invariant to demand, which is the argument for the declaration
+gate.** ~0.09 ms/tick of peers, views and targeting is paid identically whether
+129 brains read it or none do. Gating it is not a trade against cognition
+quality; it is subtraction. See ADR 0034.
+
+**The quadratic scan is not what a busy room costs.** `Targeting` did not move at
+all — 0.037 both ways. A room where every actor is actively fighting spends its
+time thinking and colliding, not searching. This is the third independent reason
+not to build the spatial index yet.
+
+⚠ **STILL UNMEASURED, and it is the interesting half.** `melee_brute_striker` is
+answered by `tick_simple_state_machine`, which takes no `WorldView` — so this
+measures brains that ACT, not brains that PERCEIVE. Only `Fighter` and `Smash`
+consume a view, and no authored catalog preset names either; `Fighter` is
+reachable only through an `autonomous_profile`. A perception-reading arm needs
+one of those wired to the hall, and it is the arm that would finally price the
+attention work.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

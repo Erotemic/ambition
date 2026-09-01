@@ -22,6 +22,8 @@ A number is actionable only with enough context to know what it measured:
 - scenario and whether gameplay was actually live;
 - build profile/features and relevant instrumentation;
 - rendered versus headless;
+- ⛔⛔ **which simulation host** — the direct sandbox and the production shared
+  host are different programs, and only one of them rolls back (see below);
 - the exact changed variable(s).
 
 For small A/B effects, interleave arms when practical. Recent repeated headless
@@ -34,6 +36,55 @@ and profiler configuration were still being reconciled.
 
 When later evidence corrects a comparison, replace the old headline instead of
 preserving both as current guidance.
+
+## ⛔⛔ MEASURED 2026-09-01: every hall number in this campaign profiled a host that does not roll back
+
+`--start-room` is not a room selector. `cli_direct_entry()` (`cli.rs:920`)
+returns true for `--direct`, `--start-room` **and** `--room`, and `--headless`
+branches on it:
+
+```text
+cli_direct_entry()  ->  headless::run_headless      the explicit direct sandbox
+otherwise           ->  run_shared_host_headless    the production shared host
+```
+
+So `--headless -- -- --start-room hall_of_characters` — the command this whole
+campaign measured the hall with — silently selected the sandbox. The bundle says
+so itself, and nobody read it:
+
+```text
+desktop-timeline-run-20260901T072436Z, game-stderr-stamped.txt:24
+  ambition_app: running the explicit direct sandbox headlessly (--headless flag)
+```
+
+**The two hosts differ in the thing this campaign is about.** `headless.rs`
+mentions rollback nowhere, and the schedule census of that bundle confirms the
+consequence — 20 schedules, 932 systems, **858 of them in `Update`, and no
+`GgrsSchedule` at all**. The shipped host does not work that way:
+
+> Developer-visible builds run their authoritative simulation through
+> [`rollback::GgrsSchedule`]. During ordinary local play this plugin owns a
+> zero-distance local `SyncTestSession`.
+> — `dev/rollback_observatory.rs:3`
+
+A zero-distance SyncTest still **saves, restores and checksums** every
+registered component of every actor every frame. At the hall's 130 bodies that
+is 130 canonical encodes each of `actor.perception`, `actor.perception_memory`,
+`actor.motion_path`, `actor.surface_state` and the rest — per frame — and no
+measurement in this campaign has ever seen one of them.
+
+⇒ The campaign's frame numbers (3.07 → 1.66 ms, and the 1.94 ms mean on the
+ledger) are real, reproducible, and describe **a host the player never runs**.
+They remain valid for what they measured: the simulation systems themselves,
+which is where the decision-pipeline work happened. They are not a frame budget.
+
+⭐ This also sharpens the bounded-perception case rather than weakening it.
+`PerceptionMemory` is a `BTreeMap` of owned `String`s; in the shipped host its
+size is paid twice per frame — once to think with, once to put on the wire.
+
+**Unmeasured, and the next measurement to take:** the same room through
+`run_shared_host_headless`, censused, to size the save path. `--start-room`
+cannot express it, because that flag is what selects the other host.
 
 ## Current runtime model
 

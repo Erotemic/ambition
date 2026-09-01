@@ -272,6 +272,47 @@ whole declaration is worth ~0.2 ms of a 1.78 ms headless frame **today**. Its
 value is the seam it establishes for the attention budget, not the milliseconds,
 and that is an argument for building it carefully rather than quickly.
 
+### ⭐ CORRECTION 2026-09-01: these are two rollback classes, not one
+
+The section above names `Perception` and `PerceptionMemory` together. They are
+not alike, and the difference decides how much of this is actually a wire
+problem.
+
+**`Perception` is a policy, not a view.** It is the enum
+`Omniscient | Sighted { viewport_half }`, and the ONLY runtime construction of a
+value is `perception.rs:449`, always `Sighted { DEFAULT_VIEWPORT_HALF }`.
+`Omniscient` is reached exclusively through `Default` on an absent component. So
+every `Perception` in the world holds the identical value, and its presence is
+*by construction* the same fact as `PerceptionMemory`'s presence —
+`ensure_perception` inserts both together and gates on `Without<PerceptionMemory>`,
+which its own comment states: *"Missing memory ⟺ missing perception"*.
+
+The doc comment at `perception.rs:22` says *"a per-body override rides in
+`Perception::Sighted` for a character that wants"* one. Nothing overrides it.
+That sentence describes a capability, not a behaviour — treat it as a TODO.
+
+**`PerceptionMemory` is accumulated history** and genuinely durable: it cannot
+be re-derived from the current tick, which is the whole point of a belief store
+that survives losing sight of a foe.
+
+⇒ Gating construction changes the VALUE of the second. It changes nothing about
+the first, whose value is invariant.
+
+### ⛔⛔ AND THE HOST THE COST WAS ARGUED FROM DOES NOT ROLL BACK
+
+The "not urgent" verdict above rests on `Decide` costing 0.234 ms/tick. That
+number came from the **direct sandbox**, which installs no rollback host at all
+— confirmed by the schedule census, no `GgrsSchedule` among 20 schedules. The
+shipped host advances the sim inside `GgrsSchedule` under a zero-distance
+`SyncTestSession`, saving and checksumming every registered component every
+frame. See `performance-and-iteration.md`.
+
+So the cost of 130 unbounded `WorldMemory` maps in the host that ships is
+**unmeasured in both directions**: not in the cognition budget, and not on the
+wire. The "~0.2 ms of a 1.78 ms frame" argument is sound for the sandbox and
+says nothing yet about the game. Do not close this on that number, and do not
+open it on this paragraph either — measure the shared host first.
+
 ## Determinism
 
 Fixed cells; the sim's existing coordinate representation; stable `SimId`

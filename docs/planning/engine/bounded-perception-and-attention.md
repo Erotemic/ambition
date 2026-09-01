@@ -431,6 +431,41 @@ decision cost grows approximately linearly
 > 130 tactical fighter brains must not each construct a 129-actor exact world
 > view.
 
+### ⛔⛔ CORRECTION 2026-09-01: THAT CRITERION IS ALREADY MET, AND PROVES NOTHING
+
+Measured with `[census] perception`, tactical cast, population swept:
+
+```text
+bodies   offered    kept   kept_max
+    64      65.0    14.7         21
+   130     130.0    14.4         21
+```
+
+**No fighter constructs a 129-actor view today.** `Perception::Sighted`'s
+viewport already bounds the kept set at ~14 (max 21), and it stays there when the
+room doubles. The quoted criterion passes on the CURRENT code.
+
+And "decision cost grows approximately linearly" passes too: 64 → 130 costs
+2.15x for 2.03x population.
+
+⚠ The prose above already knew this — *"HOLD `kept` CONSTANT, NOT THE
+POPULATION"* — while this section asked for a population. The population was
+never the variable.
+
+**The criterion that actually tests the work:**
+
+```text
+a room where kept TRACKS population rather than saturating
+  (fighters inside one another's viewports — a melee, not a gallery)
+
+without a budget:  kept rises with population, decide cost rises with it
+with a budget:     kept <= K at every population, cost flattens
+```
+
+⇒ Building a 200-body sparse room would satisfy the old wording and measure
+nothing. The room has to make `kept` grow before a budget can be shown to stop
+it.
+
 ## What must not happen first
 
 ⛔ Do not make dormancy the answer. Distant actors sleeping is a legitimate game

@@ -114,6 +114,18 @@ written into it is a replay-compatibility change.**
    registered. Deriving it keeps the wire flat while the fidelity of the summary
    grows with density.
 
+## ⛔ The acceptance criterion for the NEXT increment was wrong
+
+Measured 2026-09-01: no fighter constructs a 129-actor view today.
+`Perception::Sighted`'s viewport already bounds the kept set at ~14 (max 21) and
+holds it there when the room doubles, so "130 brains must not each construct a
+129-actor view" passes on current code.
+
+The variable is not population, it is DENSITY. The room for increment 2 has to
+make `kept` track population — fighters inside one another's viewports — before a
+budget can be shown to bound it. See
+`bounded-perception-and-attention.md`.
+
 ## Consequences
 
 - The first increment is schedulable: it needs a baseline move, and the baseline

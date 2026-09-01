@@ -291,6 +291,50 @@ reachable only through an `autonomous_profile`. A perception-reading arm needs
 one of those wired to the hall, and it is the arm that would finally price the
 attention work.
 
+## ⛔⛔ CORRECTION 2026-09-01: every absolute sim-phase number before this was UNDER-BILLED
+
+The parent sim-phase marks were installed `.after(phase)` with no upper bound, so
+a phase's successor could start before its mark fired and have part of its work
+billed to the previous bucket. Repaired (both edges wherever the schedule
+declares a successor); the same hall arm, 3 reps, re-measured:
+
+```text
+@130 statues            one-sided   bracketed   shift
+WorldPrep.Decision.Decide   0.340      0.405     +19%
+WorldPrep.Integrate         0.253      0.298     +18%
+Decision.Targeting          0.033      0.050     +52%
+Decision.Observe            0.027      0.042     +56%
+```
+
+⇒ **Every absolute per-phase figure in this file taken before 2026-09-01 is low
+by roughly this much**, and the smaller a phase, the larger the relative error —
+a mark that loses a fixed slice of its successor hurts a 0.03 ms bucket far more
+than a 0.4 ms one.
+
+⭐ **THE A/B CONCLUSIONS SURVIVE, because both arms carried the same bias.** The
+three-arm result (statues / brutes / smash), the ceiling probe, and the
+before-and-after of the peer-borrow and `WorldMemory` fixes are all differences
+between arms measured the same way. What must not be quoted from the older
+numbers is an ABSOLUTE cost or a share of a frame budget.
+
+The corrected curve, statues, 3 reps, medians:
+
+```text
+population              17       65      130
+Decide               0.034    0.208    0.405
+Integrate            0.056    0.167    0.298
+Targeting            0.012    0.029    0.050
+```
+
+`Decide` is 1.95x for the 2x from 65 to 130 — linear at the top of the range —
+and steeper below it (6.1x for 3.8x from 17 to 65), which is the `kept`
+saturation the earlier model named.
+
+⚠ `Decide` is the phase this campaign's conclusions rest on, and it was ALREADY
+bracketed on both edges before this repair — the actor-decision marks were
+installed with `.after(A).before(B)` from the start. It still moved, because its
+neighbours' marks moved around it.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

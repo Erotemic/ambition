@@ -38,7 +38,7 @@ cognition expensive too, but today none of the cost is thinking.
 cheap and leaves the architecture unchanged for the case we actually want: a room
 of genuinely tactical fighters.
 
-## ⭐ MEASURED 2026-09-01: the three pieces are not equally urgent
+## ⭐ MEASURED 2026-09-01: what the hall actually costs
 
 Each hall actor is **offered 129 peers and keeps 14.4**, and that number does not
 move when the cast goes from 65 to 130 (`kept_frac` 0.225 → 0.112; no body in the
@@ -52,15 +52,35 @@ offered          n - 1    GROWS                    the scan is O(n²)
 **The view is already bounded. The scan is not** — 89% of every actor's scan at
 130 bodies is discarded. So:
 
+⛔⛔ **AND THE FIRST VERSION OF THIS SECTION WAS WRONG.** It read those two counts
+and concluded "the spatial index is the whole win" without measuring the TIME. A
+count that grows quadratically is not automatically the expensive one. Measured
+at 130 bodies:
+
+```text
+scan over discarded candidates   0.032 ms/tick    8%
+building and using the ~14 kept  0.285           69%
+brain, self view, projectiles    0.098           24%
+```
+
+And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 65,
+130 — so `builds = n × kept(n)` grows **linearly** once the room fills.
+
 | piece | verdict today |
 |---|---|
-| **spatial index** | **THE WHOLE WIN.** Take the scan from 129 to nearby-cell occupants; output unchanged at ~14. |
-| attention budget (top-K) | The viewport already delivers ~14, which is the K this doc was going to impose. Nothing to win in the hall yet. |
-| crowd aggregation | Earns nothing until `kept` itself grows — i.e. real crowding, not the hall. |
+| **spatial index** | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
+| attention budget (top-K) | The viewport already delivers ~14. True, and beside the point: ~14 is the number that is expensive to BUILD, not a number that is cheap to have. |
+| crowd aggregation | Still earns nothing until `kept` itself grows — real crowding, not the hall. |
 
-⇒ **Build the index first.** The other two are correct and stay in this document;
-they are what makes the design survive density, and the tell that their time has
-come is `kept_frac` climbing back toward 1.0.
+⇒ **The cost is 1,873 `PerceivedActor` constructions per tick at ~152 ns each.**
+A design that bounds the count without making construction cheaper moves 8%.
+
+⚠ **AN OPEN DISCREPANCY BLOCKS ANY 200-ACTOR DECISION.** Past saturation, builds
+grow 1.97× between 65 and 130 bodies while `Decide` grows 3.17×, and an 8% term
+growing 4× cannot close that gap. Something superlinear there is unattributed —
+possibly cache, possibly the brain-tick term. The saturation result says the
+shape should be linear; the slope says it is not. Until one of them is shown
+wrong, no number here sizes this design.
 
 ⚠ This also confirms the doc's central claim from the other side: population
 doubled and `kept` did not move. What sets the work is how many bodies share a

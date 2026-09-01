@@ -331,6 +331,47 @@ def phase_metrics(bundle: Bundle) -> dict | None:
     return phases
 
 
+def sim_phase_metrics(bundle: Bundle) -> dict | None:
+    """Mean milliseconds per TICK in each simulation phase.
+
+    ⭐ THE SERIES THE LEDGER WAS MISSING. `phases_ms` above is the frame's
+    SCHEDULE split — PreUpdate, Update, PostUpdate. The gameplay question is
+    almost always about a sim phase: what does `Decide` cost at this population,
+    is `Integrate` still linear, did `Targeting` ever become the quadratic it
+    documents itself as. Those numbers were being written into planning prose and
+    journals, where nobody can plot them and a remote agent cannot query them at
+    all.
+
+    ⚠ PER TICK, not per frame, and not comparable with `phases_ms`. A frame may
+    run zero or several ticks.
+    """
+    rows = bundle.rows("census_sim_phases.csv")
+    if not rows:
+        return None
+    skip = {"wall_s", "t", "ticks", "actor_cap", "brain_override", "brain_profile",
+            "unmeasured", "views", "offered", "kept", "kept_max"}
+    labels = [key for key in rows[0] if key not in skip]
+    phases = {label: weighted(rows, label, weight="ticks") for label in labels}
+    return {label: value for label, value in phases.items() if value is not None}
+
+
+def perception_metrics(bundle: Bundle) -> dict | None:
+    """What each viewer was offered and what it kept, when the census recorded it.
+
+    `kept` is the quantity an attention budget bounds, and it saturates where the
+    room's geometry stops offering more — so a series of it is how "did the
+    budget do anything" gets answered later, from data rather than memory.
+    """
+    rows = bundle.rows("census_sim_phases.csv")
+    if not rows:
+        return None
+    out = {
+        key: weighted(rows, key, weight="ticks")
+        for key in ("offered", "kept", "kept_max")
+    }
+    return out if any(value is not None for value in out.values()) else None
+
+
 def read_tracy_zones(bundle: Bundle) -> list[dict]:
     """`tracy_zones.csv`, with its unquoted comma-bearing `name` column repaired.
 
@@ -917,6 +958,8 @@ def build_record(
         "frame_ms": frame_metrics(bundle),
         "spikes": spike_metrics(bundle, frames),
         "phases_ms": phase_metrics(bundle),
+        "sim_phases_ms": sim_phase_metrics(bundle),
+        "perception": perception_metrics(bundle),
         "scheduler": scheduler_metrics(bundle, frames),
         "scene": scene_metrics(bundle),
         "provenance": {

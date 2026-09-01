@@ -83,6 +83,22 @@ def load(ledger: Path) -> list[dict]:
             f"⛔ no rows in {ledger}\n"
             "   Record one with: scripts/lib/profile_bundle_to_history.py <bundle-dir>"
         )
+    # ⛔⛔ RE-KEY ON READ. The key stored at ingest is a hash over whatever
+    # `COMPARABILITY_FIELDS` contained THAT DAY, so adding a field silently
+    # splits every existing group away from every new row — and the split is
+    # invisible, because the two groups print the SAME label.
+    #
+    # Measured 2026-09-01: two hall captures whose `comparable_fields` were
+    # byte-identical sat in different groups under one identical heading,
+    # because `workload.brain_profile` was added between them. Recomputing here
+    # means the field set is whatever the CURRENT code says, uniformly, for
+    # every row — which is the only way a series survives its own schema
+    # growing.
+    for row in rows:
+        key, fields = history.comparability(row)
+        row["comparable_key"] = key
+        row["comparable_fields"] = fields
+        row["comparable_label"] = history.comparable_label(fields)
     return rows
 
 
@@ -391,6 +407,58 @@ def cmd_scenario(args) -> int:
     return 0
 
 
+def cmd_phase(args) -> int:
+    """One simulation phase across time, inside each comparability group.
+
+    ⭐ THE QUESTION THE FRAME SERIES COULD NOT ANSWER. `frame_ms` says the frame
+    got slower; it never says which phase did. These numbers were living in
+    planning prose and journals, where they cannot be plotted and a remote agent
+    cannot query them at all.
+    """
+    rows = [row for row in load(args.ledger) if dig(row, "sim_phases_ms")]
+    if not rows:
+        raise Refusal(
+            "no record carries sim-phase data. Rows ingested before "
+            "`sim_phases_ms` existed can be backfilled only while their raw "
+            "bundle is still in profiles/."
+        )
+    if args.phase is None:
+        names = sorted({name for row in rows for name in dig(row, "sim_phases_ms")})
+        print(f"{len(rows)} record(s) carry sim phases. Names:\n")
+        for name in names:
+            print(f"  {name}")
+        return 0
+
+    groups: dict[str, list[dict]] = {}
+    for row in sorted(rows, key=order_key):
+        if dig(row, f"sim_phases_ms.{args.phase}") is not None:
+            groups.setdefault(row.get("comparable_key", "?"), []).append(row)
+    if not groups:
+        raise Refusal(f"no record carries a sim phase named {args.phase!r}")
+
+    print(f"sim phase `{args.phase}`, ms per TICK\n")
+    for members in groups.values():
+        print(f"── {members[0].get('comparable_label')}")
+        print(f"   {'measured':20s} {'commit':>13s} {'bodies':>7s} {'ms/tick':>9s}  record")
+        for row in members:
+            print(
+                f"   {row.get('measured_at') or '?':20s} {row.get('commit', '?'):>13s} "
+                f"{fmt(dig(row, 'scene.bodies')):>7s} "
+                f"{fmt(dig(row, f'sim_phases_ms.{args.phase}')):>9s}  {row.get('record_id')}"
+            )
+        if len(members) > 1:
+            first = dig(members[0], f"sim_phases_ms.{args.phase}")
+            last = dig(members[-1], f"sim_phases_ms.{args.phase}")
+            _, percent = delta(first, last)
+            if percent is not None:
+                print(f"   → moved {percent:+.1f}% across this group")
+        print()
+    # ⚠ Per TICK, and the frame series is per FRAME. A frame may run zero or
+    # several ticks, so these two numbers do not divide into one another.
+    print("⚠ ms per TICK. `frame_ms` is per FRAME; they are not the same denominator.")
+    return 0
+
+
 def cmd_report(args) -> int:
     rows = sorted(load(args.ledger), key=order_key)
     lines = [
@@ -491,6 +559,13 @@ def main(argv: list[str] | None = None) -> int:
     scenario = subs.add_parser("scenario", help="one scenario across time")
     scenario.add_argument("scenario")
 
+    phase = subs.add_parser("phase", help="one simulation phase across time")
+    phase.add_argument(
+        "phase",
+        nargs="?",
+        help="phase name, e.g. Decide or Integrate. Omit to list what is recorded.",
+    )
+    phase.set_defaults(func=cmd_phase)
     report = subs.add_parser("report", help="Markdown over the whole series")
     report.add_argument("-o", "--out", help="write here instead of stdout")
 
@@ -500,6 +575,7 @@ def main(argv: list[str] | None = None) -> int:
         "compare": cmd_compare,
         "latest": cmd_latest,
         "scenario": cmd_scenario,
+        "phase": cmd_phase,
         "report": cmd_report,
     }[args.command](args)
 

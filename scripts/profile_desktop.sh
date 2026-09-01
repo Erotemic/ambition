@@ -675,8 +675,17 @@ finish_tracy_capture() {
     fi
 }
 
+# ⛔⛔ "QUIT THE GAME" MEANT TWO THINGS AND THE HEARTBEAT PICKED THE WRONG ONE.
+# The capture ends when the PROCESS exits. Quitting to the launcher — which is
+# what a player calls quitting the game — leaves the process running, so the
+# heartbeat went on printing "until you quit the game" long after Jon had, on
+# 2026-09-01. Name the condition the script is actually waiting on.
 describe_window() {
-    if [[ -n "$duration" ]]; then printf 'window: %ss' "$duration"; else printf 'until you quit the game'; fi
+    if [[ -n "$duration" ]]; then
+        printf 'window: %ss' "$duration"
+    else
+        printf 'until the game PROCESS exits — close its window; quitting to the launcher does not'
+    fi
 }
 
 make_profile_dir() {
@@ -1200,6 +1209,10 @@ run_instrumented_launch() {
     if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 130 ]]; then
         log "the game exited with status $status; finalizing the artifacts collected so far"
     fi
+    # The heartbeat stops with the game, and what follows can take another half
+    # minute (Tracy waits up to 30s for its client to disconnect). Silence there
+    # reads as a hang, which is the same complaint the heartbeat exists to avoid.
+    log "game exited; finalizing perf.data and Tracy (this can take ~30s)"
     finish_tracy_capture "$out_dir" "$tracy_pid"
 }
 

@@ -59,8 +59,25 @@ them. Of `Decide`'s 0.234 ms/tick the peer-independent remainder is 0.039; the
 other ~0.195 ms is supplied to brains that by construction never receive it.
 
 ⇒ At the hall, `None` is the correct declaration for **129 of 129** bodies.
-That is the argument for increment 1 — not a millisecond count. (And the
-number came from the direct sandbox; see `performance-and-iteration.md`.)
+
+⭐ **AND THE CEILING IS NOW MEASURED, not estimated.** A throwaway probe that
+skips view construction and belief maintenance for brains that cannot consume a
+view — exactly what increment 1 does for a `None` declaration — was run against
+the hall, 3 reps, with the perception-reading arm as a cross-binary control:
+
+```text
+Decide, statues   0.340 -> 0.024 ms/tick   -93%
+Decide, smash     0.377 -> 0.387           +3%  (control, untouched)
+```
+
+**0.316 ms/tick**, about 17% of the ~1.8 ms headless hall frame, and it takes
+the decision phase from the largest sim cost to a rounding error. The control
+moving +3% is what licenses comparing across the two binaries.
+
+⛔ That is the ceiling AND the price in one number: the probe skips
+`believed_target`, so it is the checksummed-state change, measured. It is not
+an argument for landing it quietly. (Numbers from the direct sandbox; see
+`performance-and-iteration.md`.)
 
 **This ADR exists because the change is a wire decision, not because it is
 fast.**

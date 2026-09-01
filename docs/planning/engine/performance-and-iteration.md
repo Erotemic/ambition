@@ -221,6 +221,27 @@ body's behalf, whose results are then read by nobody in the authored hall.
 exactly what ADR 0034 says and exactly why that ADR exists. There is no
 performance-only version of this change. Do not go looking for one.
 
+### ⭐ MEASURED: what the gate would actually buy — `Decide` 0.340 → 0.024
+
+A throwaway probe (applied, measured, reverted; never committed) skipped view
+construction and belief maintenance for brains that cannot consume a view. 3
+reps, and the perception-reading arm is the control, because the probe leaves it
+untouched — so it also tests whether the two binaries are comparable at all:
+
+```text
+Decide, statues   0.340 -> 0.024 ms/tick   -93%
+Decide, smash     0.377 -> 0.387           +3%   (control)
+```
+
+**0.316 ms/tick saved**, ~17% of the ~1.8 ms headless hall frame, turning the
+largest sim phase into a rounding error. This also supersedes the estimated
+0.039 "peer-independent remainder": with construction AND belief maintenance
+gone, the floor measures **0.024**.
+
+⛔ The probe is the checksummed-state change, not a cheaper cousin of it. It
+skips `believed_target`, which is exactly why ADR 0034 exists. The number is
+here so that decision is made against a measurement instead of an estimate.
+
 ⚠ The smash arm is idle by construction, not by design: flat `Integrate` and
 `Combat` say those bodies never engaged. It prices the READ, not a fight. A room
 of 129 mutually hostile fighters would move all three numbers at once and is a

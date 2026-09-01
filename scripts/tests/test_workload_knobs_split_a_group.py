@@ -151,3 +151,40 @@ def test_a_launcher_census_disagreement_refuses_to_ingest():
         hist.workload_facts(
             bundle_with({"actor_cap": "64"}), {"actor_population_cap": "16"}
         )
+
+
+# ── the frame cap ────────────────────────────────────────────────────────────
+#
+# ⛔⛔ **A PACED FRAME IS NOT A FREE ONE, AND NOTHING RECORDED WHICH IT WAS.**
+# `FramePaceCap::Auto` is the DEFAULT — "caps to the display refresh (battery
+# saver); `Off` renders unthrottled" — so every capture taken before 2026-09-01
+# was throttled, and no bundle said so. Tracy put
+# `bevy_framepace::framerate_limiter` at 4.61% of the frame, which is how it was
+# finally noticed.
+#
+# Comparing a capped run against an uncapped one measures the SETTING, not the
+# code, and the ledger's whole job is to refuse that.
+
+
+def with_cap(cap):
+    rec = record()
+    rec["quality"] = {"profile": "Ultra", "frame_cap": cap}
+    return rec
+
+
+def test_a_capped_run_and_an_uncapped_one_are_different_experiments():
+    assert key(with_cap("Auto")) != key(with_cap("Off")), (
+        "a paced frame and an unthrottled one must not share a group"
+    )
+
+
+def test_the_label_names_the_cap_so_two_groups_do_not_print_alike():
+    assert "cap:Auto" in label(with_cap("Auto"))
+    assert "cap:Off" in label(with_cap("Off"))
+
+
+def test_a_capture_that_recorded_no_cap_keeps_its_old_label():
+    """⛔ PREMISE GUARD. Every row written before the census carried a cap has
+    `None` here; stamping a default onto them would rewrite history and split
+    them from each other."""
+    assert "cap:" not in label(record())

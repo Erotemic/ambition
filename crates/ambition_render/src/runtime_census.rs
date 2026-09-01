@@ -158,22 +158,34 @@ fn layers_token(layers: Option<&RenderLayers>) -> String {
 pub fn report_visual_quality_census(
     census: Res<RuntimeCensus>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    // ⛔⛔ THE FRAME CAP DECIDES THE FRAME TIME AND NOTHING RECORDED IT.
+    // `FramePaceCap::Auto` is the DEFAULT — "caps to the display refresh
+    // (battery saver); `Off` renders unthrottled" — so a capture is paced unless
+    // somebody turned it off, and every frame number taken before 2026-09-01 was
+    // taken under a limiter without saying so. Two captures either side of that
+    // switch are not the same experiment, and with nothing on the row the ledger
+    // would group and compare them.
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
 ) {
     let Some(at) = census.due() else {
         return;
     };
+    let frame_cap = settings
+        .as_deref()
+        .map(|settings| format!("{:?}", settings.video.frame_cap))
+        .unwrap_or_else(|| "unrecorded".to_string());
     let Some(quality) = quality else {
         // ⚠ SAID, NOT SKIPPED. A composition with no quality resource is a real
         // state — a headless run with no renderer — and an absent row would read
         // as "the tier did not matter here" rather than "nothing resolved one".
-        eprintln!("[census] visual_quality t={at:.3} profile=none");
+        eprintln!("[census] visual_quality t={at:.3} profile=none frame_cap={frame_cap}");
         return;
     };
     let budget = &quality.budget;
     eprintln!(
         "[census] visual_quality t={at:.3} profile={:?} parallax_enabled={} \
          parallax_max_layers={} parallax_resolution={:?} msaa_samples={} \
-         max_scale_factor={}",
+         max_scale_factor={} frame_cap={}",
         quality.profile,
         budget.parallax.enabled,
         budget
@@ -188,6 +200,7 @@ pub fn report_visual_quality_census(
             .max_scale_factor
             .map(|s| format!("{s}"))
             .unwrap_or_else(|| "compositor".to_string()),
+        frame_cap,
     );
 }
 

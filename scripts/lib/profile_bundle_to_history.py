@@ -95,6 +95,11 @@ COMPARABILITY_FIELDS = (
     "quality.parallax_max_layers",
     "quality.msaa_samples",
     "quality.max_scale_factor",
+    # ⛔⛔ A PACED FRAME IS NOT A FREE ONE. `FramePaceCap::Auto` is the default
+    # and caps to the display refresh, so every capture is throttled unless
+    # somebody turned it off. Comparing a capped run against an uncapped one
+    # measures the setting, not the code.
+    "quality.frame_cap",
     # ⛔⛔ A CAPPED OR RE-BRAINED ROOM IS A DIFFERENT WORKLOAD, NOT A RESULT.
     # `AMBITION_ACTOR_POPULATION_CAP` removes authored actors and
     # `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every one of them thinks
@@ -589,6 +594,7 @@ def quality_facts(bundle: Bundle) -> dict:
         "parallax_enabled": last.get("parallax_enabled"),
         "parallax_max_layers": last.get("parallax_max_layers"),
         "msaa_samples": last.get("msaa_samples"),
+        "frame_cap": last.get("frame_cap"),
         "max_scale_factor": last.get("max_scale_factor"),
     }
 
@@ -806,6 +812,10 @@ def comparable_label(fields: dict) -> str:
     features = "+".join(fields.get("build.features") or []) or "no-features"
     resolution = fields.get("display.resolution") or "?"
     quality = fields.get("quality.profile") or "unrecorded"
+    cap = fields.get("quality.frame_cap")
+    # Only a run that actually recorded a cap says so, so older rows keep the
+    # label they have always had.
+    quality = f"{quality}+cap:{cap}" if cap else quality
     # Only a run that actually set a knob carries the segment. An ordinary
     # capture keeps the label it has always had, so the history stays readable.
     knobs = []

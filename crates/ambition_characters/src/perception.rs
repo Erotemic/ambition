@@ -733,18 +733,33 @@ impl WorldMemory {
         self.actors
             .retain(|_, m| m.confidence >= Self::FORGET_BELOW);
         // Refresh everything in view to full confidence.
+        //
+        // ⛔ `insert` CLONES THE KEY EVERY TICK, INCLUDING THE OVERWHELMING CASE
+        // WHERE IT IS ALREADY THERE. A body in view this tick was almost
+        // certainly in view last tick, so the map already holds its id: the
+        // clone allocates a `String`, the insert re-descends the tree, and both
+        // are thrown away against an existing key. At 113 perceived peers across
+        // 130 actors that is ~14,700 needless `String` allocations per tick, and
+        // `BTreeMap::insert` measured 4.06% of the process beneath them.
+        //
+        // ⭐ A LOOKUP FIRST, SO THE STEADY STATE COSTS NO ALLOCATION. The insert
+        // road survives for the genuinely new — a body seen for the first time —
+        // which is rare per tick and is the only case that needs to own its key.
         for a in &view.actors {
-            self.actors.insert(
-                a.id.clone(),
-                RememberedActor {
-                    pos: a.pos,
-                    vel: a.vel,
-                    faction: a.faction,
-                    hostile_to_self: a.hostile_to_self,
-                    last_seen: now,
-                    confidence: 1.0,
-                },
-            );
+            let fresh = RememberedActor {
+                pos: a.pos,
+                vel: a.vel,
+                faction: a.faction,
+                hostile_to_self: a.hostile_to_self,
+                last_seen: now,
+                confidence: 1.0,
+            };
+            match self.actors.get_mut(&a.id) {
+                Some(remembered) => *remembered = fresh,
+                None => {
+                    self.actors.insert(a.id.clone(), fresh);
+                }
+            }
         }
     }
 

@@ -210,6 +210,108 @@ fn memory_retains_target_after_it_leaves_view() {
     assert_eq!(remembered.faction, ActorFaction::Boss);
 }
 
+/// ⛔⛔ **NOTHING ASSERTED THAT A VISIBLE ACTOR'S MEMORY IS REFRESHED.** The suite
+/// covered "retained after it leaves view" and "forgotten after long absence" —
+/// both about actors that are GONE. An actor still standing there had no test at
+/// all, and `WorldMemory::update`'s refresh loop could be turned into a no-op
+/// with all 395 tests green.
+///
+/// Found by poisoning it while changing that exact loop, which is the only
+/// reason the change was not made on an untested contract.
+///
+/// What it costs when it breaks: a remembered actor keeps its FIRST-SEEN position
+/// for as long as it stays visible, and confidence never returns to 1.0 after a
+/// dip. A pursuing brain walks to where its target used to be while the target is
+/// in plain sight — and nothing panics.
+#[test]
+fn memory_refreshes_an_actor_that_is_still_in_view() {
+    let mut mem = WorldMemory::default();
+    let mut view = WorldView {
+        self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+        viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(300.0)),
+        actors: vec![perceived(
+            "boss",
+            ae::Vec2::new(100.0, 0.0),
+            ActorFaction::Boss,
+            true,
+        )],
+        projectiles: vec![],
+        terrain: vec![],
+        portals: vec![],
+        sim_time: 0.0,
+        ..Default::default()
+    };
+    mem.update(&view, 1.0 / 60.0);
+    assert_eq!(
+        mem.get("boss").map(|m| m.pos),
+        Some(ae::Vec2::new(100.0, 0.0))
+    );
+
+    // It walks, staying in view the whole time.
+    view.actors[0].pos = ae::Vec2::new(160.0, 20.0);
+    view.sim_time = 1.0 / 60.0;
+    mem.update(&view, 1.0 / 60.0);
+
+    let remembered = mem.get("boss").expect("still remembered");
+    assert_eq!(
+        remembered.pos,
+        ae::Vec2::new(160.0, 20.0),
+        "a visible actor's remembered position must follow it; a stale position \
+         sends a pursuing brain to where it used to be"
+    );
+    assert_eq!(
+        remembered.confidence, 1.0,
+        "and seeing it holds confidence at full"
+    );
+}
+
+/// The other half: re-seeing an actor must RESTORE confidence, not leave it decayed.
+///
+/// Premise guard for the arm above — that one would pass on a refresh that
+/// updated position and forgot confidence, which is the half a pursuing brain
+/// ranks its targets by.
+#[test]
+fn re_seeing_a_faded_actor_restores_its_confidence() {
+    let mut mem = WorldMemory::default();
+    let mut view = WorldView {
+        self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+        viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(300.0)),
+        actors: vec![perceived(
+            "boss",
+            ae::Vec2::new(100.0, 0.0),
+            ActorFaction::Boss,
+            true,
+        )],
+        projectiles: vec![],
+        terrain: vec![],
+        portals: vec![],
+        sim_time: 0.0,
+        ..Default::default()
+    };
+    mem.update(&view, 1.0 / 60.0);
+
+    // Out of sight long enough to fade, but not to be forgotten.
+    let mut gone = view.clone();
+    gone.actors.clear();
+    for i in 0..30 {
+        gone.sim_time = (i as f32 + 1.0) / 60.0;
+        mem.update(&gone, 1.0 / 60.0);
+    }
+    let faded = mem.get("boss").expect("not forgotten yet").confidence;
+    assert!(
+        faded < 1.0,
+        "the premise: it has to have FADED for restoring to mean anything ({faded})"
+    );
+
+    view.sim_time = 1.0;
+    mem.update(&view, 1.0 / 60.0);
+    assert_eq!(
+        mem.get("boss").map(|m| m.confidence),
+        Some(1.0),
+        "seeing it again restores full confidence"
+    );
+}
+
 #[test]
 fn memory_forgets_after_long_absence() {
     let mut mem = WorldMemory::default();

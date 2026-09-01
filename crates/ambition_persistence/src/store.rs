@@ -101,19 +101,23 @@ pub fn remove(path: &Path) -> std::io::Result<()> {
     }
 }
 
-/// Whether a persisted document exists.
-pub fn exists(path: &Path) -> bool {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        path.exists()
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        browser_storage()
-            .and_then(|storage| read_from(&storage, path))
-            .is_ok()
-    }
-}
+// ⛔⛔ THERE IS DELIBERATELY NO `exists`. The first draft had one, and both
+// callers used it as a PREFLIGHT: ask whether the document is there, then read
+// it. That shape has two defects and shipped both.
+//
+// The first is that a preflight is easy to write against the WRONG store —
+// `load_save_at_startup` kept `path.exists()`, the NATIVE filesystem, after its
+// read had moved to this module. On the browser that check answers "no" for a
+// save that is sitting in `localStorage`, so a reload started fresh and the
+// first autosave replaced the player's progress with defaults.
+//
+// The second is that a bool cannot carry WHY. `exists` returning `false` folded
+// "nothing stored" together with "storage is blocked", and the save road
+// distinguishes those for a living: one means write, the other means do NOT.
+//
+// ⇒ ONE READ ANSWERS BOTH QUESTIONS. `read` returns `NotFound` for absence and
+// any other kind for a refusal, and the callers carry "was a document there" in
+// the value they already return. See `LoadedSave::present`.
 
 // ── The key/value policy, decided without a browser ────────────────────────
 //
@@ -123,8 +127,13 @@ pub fn exists(path: &Path) -> bool {
 
 /// A flat key/value store: `localStorage`, or a map in a test.
 pub trait KeyValueStore {
-    /// The value at `key`, or `None` when nothing is stored.
-    fn get(&self, key: &str) -> Option<String>;
+    /// The value at `key`; `Ok(None)` when nothing is stored there.
+    ///
+    /// ⛔ `Ok(None)` MEANS ABSENCE AND NOTHING ELSE. A browser can refuse the
+    /// read outright — site data blocked, a cross-origin frame — and that is
+    /// `Err`. Collapsing the two is how a save gets overwritten: absence is the
+    /// one answer that licenses a write.
+    fn get(&self, key: &str) -> Result<Option<String>, String>;
     /// Store `value` at `key`. `Err` carries a human-readable reason.
     fn set(&self, key: &str, value: &str) -> Result<(), String>;
     /// Remove `key`. Absent is not an error.
@@ -133,12 +142,19 @@ pub trait KeyValueStore {
 
 /// [`read`] against any key/value store.
 pub fn read_from(storage: &dyn KeyValueStore, path: &Path) -> std::io::Result<String> {
-    storage.get(&storage_key(path)).ok_or_else(|| {
-        std::io::Error::new(
+    let key = storage_key(path);
+    match storage.get(&key) {
+        Ok(Some(body)) => Ok(body),
+        Ok(None) => Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("no stored value for {}", storage_key(path)),
-        )
-    })
+            format!("no stored value for {key}"),
+        )),
+        // NOT `NotFound`. The store is there and said no; the callers read that
+        // as "a document may exist and I could not see it" and refuse to write.
+        Err(reason) => Err(std::io::Error::other(format!(
+            "could not read {key}: {reason}"
+        ))),
+    }
 }
 
 /// [`write`] against any key/value store.
@@ -166,8 +182,10 @@ struct LocalStorage(web_sys::Storage);
 
 #[cfg(target_arch = "wasm32")]
 impl KeyValueStore for LocalStorage {
-    fn get(&self, key: &str) -> Option<String> {
-        self.0.get_item(key).ok().flatten()
+    fn get(&self, key: &str) -> Result<Option<String>, String> {
+        self.0
+            .get_item(key)
+            .map_err(|error| format!("localStorage refused the read: {error:?}"))
     }
     fn set(&self, key: &str, value: &str) -> Result<(), String> {
         self.0
@@ -197,22 +215,38 @@ fn browser_storage() -> std::io::Result<LocalStorage> {
     Ok(LocalStorage(storage))
 }
 
+/// ⭐ `pub(crate)` SO THE SAVE AND SETTINGS TESTS CAN DRIVE THE SAME MAP. Their
+/// browser road has to be exercised against a key/value store, not against
+/// another temporary directory — a filesystem test cannot fail the way the
+/// browser did.
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::path::PathBuf;
 
     #[derive(Default)]
-    struct MapStore {
-        entries: RefCell<HashMap<String, String>>,
-        refuse: bool,
+    pub(crate) struct MapStore {
+        pub(crate) entries: RefCell<HashMap<String, String>>,
+        pub(crate) refuse: bool,
+    }
+
+    impl MapStore {
+        /// Seed the store the way a previous browser session would have.
+        pub(crate) fn with(path: &Path, body: &str) -> Self {
+            let store = Self::default();
+            write_into(&store, path, body).expect("a fresh map accepts a write");
+            store
+        }
     }
 
     impl KeyValueStore for MapStore {
-        fn get(&self, key: &str) -> Option<String> {
-            self.entries.borrow().get(key).cloned()
+        fn get(&self, key: &str) -> Result<Option<String>, String> {
+            if self.refuse {
+                return Err("site data is blocked".to_string());
+            }
+            Ok(self.entries.borrow().get(key).cloned())
         }
         fn set(&self, key: &str, value: &str) -> Result<(), String> {
             if self.refuse {
@@ -283,6 +317,32 @@ mod tests {
         assert_eq!(
             read_from(&store, path).expect("it is there now"),
             "(hello: 1)"
+        );
+    }
+
+    /// A store that refuses the READ is not an absence.
+    ///
+    /// ⛔⛔ THIS IS THE ARM THAT DECIDES WHETHER A PLAYER KEEPS THEIR SAVE. If a
+    /// blocked `localStorage` read came back as `NotFound`, `load_save` would
+    /// take its `fresh()` road, `SaveFileWritable` would stay true, and the
+    /// first autosave would write defaults over a save that was there all along.
+    #[test]
+    fn a_refused_read_is_not_not_found() {
+        let store = MapStore {
+            refuse: true,
+            ..Default::default()
+        };
+        let error =
+            read_from(&store, Path::new("/root/save.ron")).expect_err("the store refused the read");
+        assert_ne!(
+            error.kind(),
+            std::io::ErrorKind::NotFound,
+            "a refusal must not read as absence; absence is the answer that \
+             licenses writing over the key"
+        );
+        assert!(
+            error.to_string().contains("site data is blocked"),
+            "the reason has to survive to the log line: {error}"
         );
     }
 

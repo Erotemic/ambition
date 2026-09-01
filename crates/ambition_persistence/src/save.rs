@@ -89,30 +89,52 @@ pub struct LoadedSave {
     /// The caller must NOT record it as the persisted shadow — see [`load_save_at_startup`],
     /// where doing exactly that left upgraded files un-upgraded on disk.
     pub upgraded: bool,
+    /// Whether the store held a document at this address at all.
+    ///
+    /// ⛔⛔ THIS FIELD REPLACES A PREFLIGHT THAT ASKED THE WRONG STORE. Startup
+    /// used to run `path.exists()` and return early — the NATIVE filesystem,
+    /// which on the browser build answers "no" for a save sitting in
+    /// `localStorage`. A reload therefore started fresh and the first autosave
+    /// wrote defaults over the player's progress. The read that already
+    /// happened knows the answer; nothing needs to ask a second time.
+    pub present: bool,
 }
 
 impl LoadedSave {
-    /// A save that came from nowhere (no file yet) — fresh, and writable.
+    /// A save that came from nowhere (no document yet) — fresh, and writable.
     fn fresh() -> Self {
         Self {
             data: AmbitionGameSaveData::default(),
             writable: true,
             upgraded: false,
+            present: false,
         }
     }
 
-    /// A file exists and this build cannot safely replace it.
+    /// A document exists and this build cannot safely replace it.
     fn preserve() -> Self {
         Self {
             data: AmbitionGameSaveData::default(),
             writable: false,
             upgraded: false,
+            present: true,
         }
     }
 }
 
 pub fn load_save(path: &Path) -> LoadedSave {
-    let bytes = match crate::store::read(path) {
+    interpret_save(path, crate::store::read(path))
+}
+
+/// [`load_save`] with the read already done, so a test can drive the KEY/VALUE
+/// road instead of a temporary directory.
+///
+/// ⭐ THE BROWSER DEFECT WAS INVISIBLE TO EVERY FILESYSTEM TEST, because on
+/// native the two stores are the same store. Splitting the read out is what lets
+/// `a_stored_browser_save_survives_a_reload` reach the same policy code with a
+/// map underneath it.
+pub fn interpret_save(path: &Path, read: std::io::Result<String>) -> LoadedSave {
+    let bytes = match read {
         Ok(s) => s,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return LoadedSave::fresh();
@@ -135,6 +157,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
                 data: save,
                 writable: true,
                 upgraded: false,
+                present: true,
             },
             SaveCompatibility::Migrated { from } => {
                 info!(
@@ -147,6 +170,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
                     writable: true,
                     // Saying so is what gets them rewritten.
                     upgraded: true,
+                    present: true,
                 }
             }
             SaveCompatibility::FromTheFuture { found } => {
@@ -270,16 +294,34 @@ pub fn load_save_at_startup(
     root: Res<crate::PersistenceRoot>,
 ) {
     let path = save_path_under(&root.0);
-    if !path.exists() {
+    adopt_loaded_save(load_save(&path), &path, &mut save, &mut last, &mut writable);
+}
+
+/// What startup DOES with what it read.
+///
+/// ⭐ A FREE FUNCTION SO THE REGRESSION DRIVES THE REAL DECISION. The browser
+/// bug lived in the two lines above this one; a test that re-implemented this
+/// policy beside it would have agreed with the bug. This is the same code the
+/// system runs, handed a [`LoadedSave`] that came off a key/value map.
+pub fn adopt_loaded_save(
+    loaded: LoadedSave,
+    path: &Path,
+    save: &mut AmbitionGameSave,
+    last: &mut LastPersistedSave,
+    writable: &mut SaveFileWritable,
+) {
+    // Nothing stored yet. Leave every resource at its default — in particular
+    // leave the shadow EMPTY, so the first autosave commits the opening state
+    // rather than deciding the (identical) default is already on disk.
+    if !loaded.present {
         return;
     }
-    let loaded = load_save(&path);
     let upgraded = loaded.upgraded;
     save.0 = loaded.data;
     writable.0 = loaded.writable;
-    // The shadow represents disk state. After an in-memory migration, leave it
+    // The shadow represents stored state. After an in-memory migration, leave it
     // empty so the first autosave commits the upgraded schema.
-    last.0 = if upgraded { None } else { Some(save.0.clone()) };
+    last.persisted = if upgraded { None } else { Some(save.0.clone()) };
     if loaded.writable {
         info!(
             target: "ambition_platformer2d::save",
@@ -311,9 +353,21 @@ pub fn load_save_at_startup(
 #[derive(Resource, Clone, Debug, Default)]
 //  see `LastPersistedSettings`: the type is platform-identical because the wasm
 // no-op systems take it as a parameter; only the native writer reads the value.
-pub struct LastPersistedSave(
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] Option<AmbitionGameSaveData>,
-);
+pub struct LastPersistedSave {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    persisted: Option<AmbitionGameSaveData>,
+    /// The value whose write the store REFUSED, so it is not retried forever.
+    ///
+    /// ⛔⛔ WITHOUT THIS THE WRITER RETRIES EVERY UPDATE. The shadow only
+    /// advances on success, so one refusal — a full disk, a browser with site
+    /// data blocked — leaves `persisted != save` permanently true and the system
+    /// re-serializes, re-writes and re-warns at frame rate for the rest of the
+    /// session. Remembering WHICH value was refused keeps that to one attempt
+    /// per distinct state, so a genuinely transient failure still retries the
+    /// moment anything changes.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    refused: Option<AmbitionGameSaveData>,
+}
 
 /// The confirmation gate is the load-bearing half. A rollback host advances
 /// frames using a guess at what a remote peer did; the world therefore holds
@@ -336,17 +390,28 @@ pub fn autosave_sandbox_save(
     if !writable.0 {
         return;
     }
-    if last.0.as_ref() == Some(&save.0) {
+    if last.persisted.as_ref() == Some(&save.0) {
+        return;
+    }
+    // Already tried this exact state and the store said no. Saying so again
+    // every frame neither persists it nor tells the player anything new.
+    if last.refused.as_ref() == Some(&save.0) {
         return;
     }
     let path = save_path_under(&root.0);
     match write_save(&path, &save.0) {
-        Ok(()) => last.0 = Some(save.0.clone()),
-        Err(error) => warn!(
-            target: "ambition_platformer2d::save",
-            "failed to write save file {}: {error}",
-            path.display()
-        ),
+        Ok(()) => {
+            last.persisted = Some(save.0.clone());
+            last.refused = None;
+        }
+        Err(error) => {
+            last.refused = Some(save.0.clone());
+            warn!(
+                target: "ambition_platformer2d::save",
+                "failed to write save file {}: {error}",
+                path.display()
+            );
+        }
     }
 }
 
@@ -360,6 +425,115 @@ mod tests {
         p.push(format!("ambition_save_{name}_{}", std::process::id()));
         let _ = fs::remove_dir_all(&p);
         p
+    }
+
+    /// ⛔⛔ **A BROWSER RELOAD USED TO REPLACE THE PLAYER'S SAVE WITH DEFAULTS.**
+    ///
+    /// `load_save_at_startup` read the save through `store::read` — which on
+    /// wasm is `localStorage` — but kept a `path.exists()` preflight in front of
+    /// it, which is the NATIVE filesystem. On the browser build there is no such
+    /// file, so startup returned early: `AmbitionGameSave` stayed default,
+    /// `LastPersistedSave` stayed empty, `SaveFileWritable` stayed true, and the
+    /// first autosave wrote the fresh sandbox over real progress.
+    ///
+    /// ⭐ THIS DRIVES THE KEY/VALUE ROAD, not another temp directory. Every save
+    /// test in this file is a filesystem test, and on native the preflight and
+    /// the read consult the SAME store — which is exactly why all of them stayed
+    /// green while the browser lost saves.
+    #[test]
+    fn a_stored_browser_save_survives_a_reload() {
+        let store = crate::store::tests::MapStore::default();
+        let path = Path::new("/browser/ambition/sandbox_save.ron");
+
+        // Session one: a player clears an encounter and it reaches the store.
+        let mut progress = AmbitionGameSaveData::default();
+        progress.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
+        let body = ron::ser::to_string_pretty(&progress, ron::ser::PrettyConfig::default())
+            .expect("the save serializes");
+        crate::store::write_into(&store, path, &body).expect("the store accepted it");
+
+        // Reload: the same startup policy, over the same store.
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        adopt_loaded_save(
+            interpret_save(path, crate::store::read_from(&store, path)),
+            path,
+            &mut save,
+            &mut last,
+            &mut writable,
+        );
+
+        assert_eq!(
+            save.0.encounter("goblin_encounter"),
+            PersistedEncounterState::Cleared,
+            "the stored save must reach the live resource; a startup that cannot \
+             see it starts the player over"
+        );
+        // ⭐ THIS EXACT EQUALITY IS `autosave_sandbox_save`'s EARLY RETURN. The
+        // shadow being merely non-empty is not the contract; being equal to the
+        // live save is what makes the first autosave decline to write, which is
+        // the half of the defect that destroyed progress.
+        assert_eq!(
+            last.persisted.as_ref(),
+            Some(&save.0),
+            "the shadow must equal what was loaded, or the first autosave writes \
+             the fresh session over the stored save"
+        );
+    }
+
+    /// Premise guard: the arm above must not pass by loading everything always.
+    ///
+    /// A first run has to keep the OPPOSITE contract — leave the shadow empty so
+    /// the first autosave actually commits. Deleting the `present` check would
+    /// pass the reload test and break this one.
+    #[test]
+    fn a_first_run_leaves_the_shadow_empty_so_the_first_autosave_commits() {
+        let store = crate::store::tests::MapStore::default();
+        let path = Path::new("/browser/ambition/sandbox_save.ron");
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        adopt_loaded_save(
+            interpret_save(path, crate::store::read_from(&store, path)),
+            path,
+            &mut save,
+            &mut last,
+            &mut writable,
+        );
+        assert!(
+            last.persisted.is_none(),
+            "nothing is stored, so nothing is the persisted shadow"
+        );
+        assert!(writable.0, "and a first run is writable");
+    }
+
+    /// A store that REFUSES the read must not license a write over it.
+    ///
+    /// This is the `Ok(None)` versus `Err` distinction in `store::read_from`,
+    /// carried all the way to the resource that gates the autosave.
+    #[test]
+    fn a_blocked_store_leaves_the_session_unwritable() {
+        let store = crate::store::tests::MapStore {
+            refuse: true,
+            ..Default::default()
+        };
+        let path = Path::new("/browser/ambition/sandbox_save.ron");
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        adopt_loaded_save(
+            interpret_save(path, crate::store::read_from(&store, path)),
+            path,
+            &mut save,
+            &mut last,
+            &mut writable,
+        );
+        assert!(
+            !writable.0,
+            "storage said no, not 'nothing there'; a save may exist behind that \
+             refusal and this session must not write over it"
+        );
     }
 
     #[test]

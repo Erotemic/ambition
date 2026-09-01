@@ -123,7 +123,7 @@ fn loading_an_existing_file_seeds_the_persisted_value_shadow() {
 
     assert_eq!(settings, expected);
     assert_eq!(
-        last.0.as_ref(),
+        last.persisted.as_ref(),
         Some(&expected),
         "the first Update must see that the loaded file is already current"
     );
@@ -221,7 +221,8 @@ fn a_pre_burst_settings_file_keeps_its_saved_preferences() {
     let s = load_settings(&path);
 
     assert_ne!(
-        s, UserSettings::default(),
+        s,
+        UserSettings::default(),
         "the file did not parse at all: `load_settings` swallowed the error and \
          handed back defaults, which is a SILENT wipe of the player's settings"
     );
@@ -288,4 +289,80 @@ fn a_settings_file_predating_a_knob_still_loads_everything_else() {
         crate::settings::RightStickMode::Aim,
         "the absent knob should read as its default"
     );
+}
+
+/// ⛔⛔ **ONE REFUSED WRITE USED TO BECOME A 60 Hz RETRY.** The writer advances
+/// its shadow only on success, so a store that says no — a full disk, a browser
+/// with site data blocked — leaves `persisted != settings` permanently true.
+/// Every Update then re-serialized, re-wrote and re-warned, for the rest of the
+/// session, about a condition that had not changed.
+///
+/// The three arms are the whole contract: it attempts once, it does NOT attempt
+/// again while nothing has changed, and it DOES attempt again the moment
+/// something does — a latch that never lifts would fail a transient outage
+/// closed and silently stop persisting.
+#[test]
+fn a_refused_write_is_attempted_once_and_retried_only_when_the_value_changes() {
+    let _g = crate::lock_data_dir();
+    let root = temp_root("refused_write");
+    std::env::set_var("AMBITION_DATA_DIR", &root);
+    let path = settings_path_under(&root);
+
+    // Block the write: put a regular FILE where the settings DIRECTORY must go,
+    // so `create_dir_all` fails. Nothing about this is browser-specific — it is
+    // the same `Err` road `localStorage` takes when the origin is blocked.
+    fs::create_dir_all(root.parent().unwrap()).unwrap();
+    let blocker = path.parent().unwrap();
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    fs::write(blocker, b"not a directory").unwrap();
+
+    let mut world = World::new();
+    world.init_resource::<UserSettings>();
+    world.init_resource::<LastPersistedSettings>();
+    world.init_resource::<crate::PersistenceRoot>();
+    world.resource_mut::<UserSettings>().audio.master_volume = 0.11;
+
+    world
+        .run_system_cached(save_settings_on_change)
+        .expect("the write pass runs");
+    assert!(
+        world.resource::<LastPersistedSettings>().refused.is_some(),
+        "the store refused; without remembering WHICH value was refused there is \
+         nothing to stop the next Update trying the identical write"
+    );
+    assert!(
+        world
+            .resource::<LastPersistedSettings>()
+            .persisted
+            .is_none(),
+        "and a refusal is not a persist — the shadow must NOT advance"
+    );
+
+    // Clear the obstruction. A writer that retried every Update would now
+    // succeed, which is exactly what makes this observable.
+    fs::remove_file(blocker).unwrap();
+    world
+        .run_system_cached(save_settings_on_change)
+        .expect("the second pass runs");
+    assert!(
+        !path.exists(),
+        "nothing changed, so nothing was owed; a file here means the writer is \
+         retrying a refused write every frame"
+    );
+
+    // Something changed. The latch was about a VALUE, not about the session.
+    world.resource_mut::<UserSettings>().audio.master_volume = 0.22;
+    world
+        .run_system_cached(save_settings_on_change)
+        .expect("the third pass runs");
+    assert!(
+        path.exists(),
+        "a new value must be attempted; a latch that never lifts fails a \
+         transient outage closed and stops persisting for good"
+    );
+    assert_eq!(load_settings(&path).audio.master_volume, 0.22);
+
+    std::env::remove_var("AMBITION_DATA_DIR");
+    let _ = fs::remove_dir_all(&root);
 }

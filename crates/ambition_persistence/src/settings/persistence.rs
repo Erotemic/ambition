@@ -37,10 +37,24 @@ pub fn settings_path_under(root: &Path) -> PathBuf {
 /// missing or unreadable; logs a warning on parse failure and returns
 /// defaults.
 pub fn load_settings(path: &Path) -> UserSettings {
-    let bytes = match crate::store::read(path) {
+    interpret_settings(path, crate::store::read(path)).unwrap_or_default()
+}
+
+/// [`load_settings`] with the read already done: `None` means the store held
+/// NOTHING at this address.
+///
+/// ⛔ `None` IS ABSENCE ONLY. An unreadable or unparseable document returns
+/// `Some(defaults)`, because it is still a document — `load_existing_settings`
+/// then seeds its shadow and the writer leaves the bytes alone until the player
+/// actually changes something.
+///
+/// ⭐ THE READ IS A PARAMETER so the browser road can be tested. See
+/// `interpret_save` for the defect that made this necessary.
+pub fn interpret_settings(path: &Path, read: std::io::Result<String>) -> Option<UserSettings> {
+    let bytes = match read {
         Ok(s) => s,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return UserSettings::default();
+            return None;
         }
         Err(error) => {
             warn!(
@@ -48,13 +62,13 @@ pub fn load_settings(path: &Path) -> UserSettings {
                 "could not read settings file {}: {error}; using defaults",
                 path.display()
             );
-            return UserSettings::default();
+            return Some(UserSettings::default());
         }
     };
     match ron::from_str::<UserSettings>(&bytes) {
         Ok(mut settings) => {
             settings.clamp_all();
-            settings
+            Some(settings)
         }
         Err(error) => {
             warn!(
@@ -62,7 +76,7 @@ pub fn load_settings(path: &Path) -> UserSettings {
                 "could not parse settings file {}: {error}; using defaults",
                 path.display()
             );
-            UserSettings::default()
+            Some(UserSettings::default())
         }
     }
 }
@@ -101,19 +115,36 @@ fn install_settings(path: &Path, body: &str) -> std::io::Result<()> {
 /// disk if a file exists. The default `UserSettings` is already
 /// inserted in `init_sandbox_resources`, so this only overrides when
 /// a file is found.
-fn load_existing_settings(
+pub(crate) fn load_existing_settings(
     path: &Path,
     settings: &mut UserSettings,
     last: &mut LastPersistedSettings,
 ) -> bool {
-    if !crate::store::exists(path) {
+    adopt_loaded_settings(
+        interpret_settings(path, crate::store::read(path)),
+        settings,
+        last,
+    )
+}
+
+/// What startup DOES with what it read. `false` means nothing was stored.
+///
+/// ⭐ ONE READ, NO PREFLIGHT. This used to ask `store::exists` and then read the
+/// same key again — the shape whose save-side twin asked the NATIVE filesystem
+/// on a browser build and lost a player's progress.
+pub(crate) fn adopt_loaded_settings(
+    loaded: Option<UserSettings>,
+    settings: &mut UserSettings,
+    last: &mut LastPersistedSettings,
+) -> bool {
+    let Some(stored) = loaded else {
         return false;
-    }
-    *settings = load_settings(path);
+    };
+    *settings = stored;
     // The file we just loaded is already the persisted value. Seeding the
     // comparison shadow prevents the first Update from rewriting an unchanged
     // file merely because `LastPersistedSettings` started at `None`.
-    last.0 = Some(settings.clone());
+    last.persisted = Some(settings.clone());
     true
 }
 
@@ -140,9 +171,14 @@ pub fn load_settings_at_startup(
 // parameter so the schedule is identical — but only the native writer READS the
 // value. `cfg`-ing the field away would change the type per platform; this says
 // the truth instead: unread here, not unused.
-pub struct LastPersistedSettings(
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] Option<UserSettings>,
-);
+pub struct LastPersistedSettings {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    persisted: Option<UserSettings>,
+    /// The value whose write the store REFUSED. See [`crate::save::LastPersistedSave`]
+    /// for why one refusal must not become a 60 Hz retry.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    refused: Option<UserSettings>,
+}
 
 /// Bevy update system: write `UserSettings` to disk when it no longer matches
 /// what is there.
@@ -169,17 +205,26 @@ pub fn save_settings_on_change(
     mut last: ResMut<LastPersistedSettings>,
     root: Res<crate::PersistenceRoot>,
 ) {
-    if last.0.as_ref() == Some(&*settings) {
+    if last.persisted.as_ref() == Some(&*settings) {
+        return;
+    }
+    if last.refused.as_ref() == Some(&*settings) {
         return;
     }
     let path = settings_path_under(&root.0);
     match save_settings(&path, &settings) {
-        Ok(()) => last.0 = Some(settings.clone()),
-        Err(error) => warn!(
-            target: "ambition_platformer2d::settings",
-            "failed to write settings file {}: {error}",
-            path.display()
-        ),
+        Ok(()) => {
+            last.persisted = Some(settings.clone());
+            last.refused = None;
+        }
+        Err(error) => {
+            last.refused = Some(settings.clone());
+            warn!(
+                target: "ambition_platformer2d::settings",
+                "failed to write settings file {}: {error}",
+                path.display()
+            );
+        }
     }
 }
 

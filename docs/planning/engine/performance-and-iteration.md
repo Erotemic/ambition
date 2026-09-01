@@ -57,7 +57,7 @@ desktop-timeline-run-20260901T072436Z, game-stderr-stamped.txt:24
   ambition_app: running the explicit direct sandbox headlessly (--headless flag)
 ```
 
-**The two hosts differ in the thing this campaign is about.** `headless.rs`
+**The two hosts differ in how they host the simulation.** `headless.rs`
 mentions rollback nowhere, and the schedule census of that bundle confirms the
 consequence — 20 schedules, 932 systems, **858 of them in `Update`, and no
 `GgrsSchedule` at all**. The shipped host does not work that way:
@@ -67,24 +67,53 @@ consequence — 20 schedules, 932 systems, **858 of them in `Update`, and no
 > zero-distance local `SyncTestSession`.
 > — `dev/rollback_observatory.rs:3`
 
-A zero-distance SyncTest still **saves, restores and checksums** every
-registered component of every actor every frame. At the hall's 130 bodies that
-is 130 canonical encodes each of `actor.perception`, `actor.perception_memory`,
-`actor.motion_path`, `actor.surface_state` and the rest — per frame — and no
-measurement in this campaign has ever seen one of them.
+### ⛔ AND THE COST I FIRST ATTRIBUTED TO IT IS NOT THERE — ggrs says so
 
-⇒ The campaign's frame numbers (3.07 → 1.66 ms, and the 1.94 ms mean on the
-ledger) are real, reproducible, and describe **a host the player never runs**.
-They remain valid for what they measured: the simulation systems themselves,
-which is where the decision-pipeline work happened. They are not a frame budget.
+The first version of this section claimed the zero-distance SyncTest still
+**saves and checksums** every registered component every frame, and costed it at
+130 canonical encodes per frame. That is **false**, and the refutation is four
+lines into the dependency:
 
-⭐ This also sharpens the bounded-perception case rather than weakening it.
-`PerceptionMemory` is a `BTreeMap` of owned `String`s; in the shipped host its
-size is paid twice per frame — once to think with, once to put on the wire.
+```rust
+// ggrs-0.13.0/src/sessions/sync_test_session.rs:155
+// we can skip all the saving if the check_distance is 0
+if self.check_distance > 0 {
+```
 
-**Unmeasured, and the next measurement to take:** the same room through
-`run_shared_host_headless`, censused, to size the save path. `--start-room`
-cannot express it, because that flag is what selects the other host.
+`local_session.rs:40` sets `check_distance: 0` for the local session, so
+ordinary play issues **no save requests at all**. The composition comment is
+exact where I read past it: *"rollback stays dormant."* F9 raises the distance
+for one bounded pulse, and only then is anything saved.
+
+⇒ There is no per-frame rollback wire cost in ordinary play, at any population.
+I inferred one from the phrase "SyncTestSession" without reading what the
+session does at the distance it actually runs at. A dependency's own source is
+cheap to check and settles this class of question outright.
+
+### What survives, and what is still open
+
+Established:
+
+- `--start-room` selects a **different program**, and the campaign measured it;
+- that program installs no rollback host — no `GgrsSchedule` among 20 schedules;
+- the shipped one does, on **every** build and platform. `visible_composition.rs:110`
+  is explicit: *"NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM."*
+  ⇒ `rollback_observatory.rs:7`, *"Non-developer release compositions keep their
+  existing simulation host"*, is **stale** — there is no such composition now.
+
+Refuted: the per-frame save cost, above.
+
+Still open, and now the only reason to run the comparison: the two hosts differ
+in schedule structure and in what the shared host composes around the sim
+(startup, launcher, providers, session bridge, host-relative routing). Whether
+that costs anything per frame at hall density is unmeasured. It is a smaller
+question than the one I thought I had, and it is not on the decision-pipeline
+critical path.
+
+**The measurement, when it is worth taking:** `--headless
+--headless-acceptance-cycle` runs the production shared host and enters real
+gameplay routes; census it and compare schedule structure. `--start-room` cannot
+express it, because that flag is what selects the other host.
 
 ## Current runtime model
 

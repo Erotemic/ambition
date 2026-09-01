@@ -298,20 +298,23 @@ that survives losing sight of a foe.
 ⇒ Gating construction changes the VALUE of the second. It changes nothing about
 the first, whose value is invariant.
 
-### ⛔⛔ AND THE HOST THE COST WAS ARGUED FROM DOES NOT ROLL BACK
+### ⭐ AND THE HOST THE VERDICT WAS MEASURED ON IS NOT THE SHIPPED ONE
 
 The "not urgent" verdict above rests on `Decide` costing 0.234 ms/tick. That
 number came from the **direct sandbox**, which installs no rollback host at all
 — confirmed by the schedule census, no `GgrsSchedule` among 20 schedules. The
-shipped host advances the sim inside `GgrsSchedule` under a zero-distance
-`SyncTestSession`, saving and checksumming every registered component every
-frame. See `performance-and-iteration.md`.
+shipped host advances the sim inside `GgrsSchedule` instead.
 
-So the cost of 130 unbounded `WorldMemory` maps in the host that ships is
-**unmeasured in both directions**: not in the cognition budget, and not on the
-wire. The "~0.2 ms of a 1.78 ms frame" argument is sound for the sandbox and
-says nothing yet about the game. Do not close this on that number, and do not
-open it on this paragraph either — measure the shared host first.
+⛔ It does **not** follow that the wire is paid every frame. I claimed that and
+it is wrong: ggrs skips all saving at `check_distance: 0`, which is what a local
+session runs at, so ordinary play saves nothing. See
+`performance-and-iteration.md` for the refutation.
+
+⇒ `PerceptionMemory`'s size is a **cognition** cost, not a per-frame wire cost.
+The replay-compatibility argument at the top of this section stands on its own —
+gating construction changes a canonically checksummed VALUE, and that governs
+saves and replays whether or not a frame pays for it — but it must not be argued
+from a per-frame number, because there isn't one.
 
 ## Determinism
 

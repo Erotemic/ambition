@@ -46,6 +46,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::Colorblind,
     SettingsOptionId::ShowFps,
     SettingsOptionId::FramePacing,
+    SettingsOptionId::Vsync,
     SettingsOptionId::VisualQuality,
     SettingsOptionId::ShaderStrength,
     SettingsOptionId::ShaderCrtStrength,
@@ -114,6 +115,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::Colorblind
         | SettingsOptionId::ShowFps
         | SettingsOptionId::FramePacing
+        | SettingsOptionId::Vsync
         | SettingsOptionId::VisualQuality
         | SettingsOptionId::ShaderStrength
         | SettingsOptionId::ShaderCrtStrength

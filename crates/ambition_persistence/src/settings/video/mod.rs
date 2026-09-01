@@ -70,6 +70,43 @@ impl FlashIntensity {
     }
 }
 
+/// Whether presentation waits for the display's vertical blank. `On` is
+/// `PresentMode::Fifo` (Bevy's default, and what the game always had before this
+/// setting existed): a frame is never shown mid-scan, and the frame rate can
+/// never exceed the display's refresh rate — a frame that misses one refresh
+/// costs a WHOLE extra interval, so at 144 Hz an 8 ms frame shows at 72 fps.
+/// `Off` is `PresentMode::Immediate`: frames present as soon as they are done,
+/// tearing is possible, and the on-screen FPS is the frame's real cost. That
+/// is the mode a frame-time measurement wants; `frame_cap` still applies on top.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VsyncMode {
+    #[default]
+    On,
+    Off,
+}
+
+impl VsyncMode {
+    pub const ALL: [Self; 2] = [Self::On, Self::Off];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::On => "on",
+            Self::Off => "off",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::On => Self::Off,
+            Self::Off => Self::On,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        self.next()
+    }
+}
+
 /// Frame-rate cap (battery saver). Drives `bevy_framepace`'s limiter in visible builds via
 /// `crate::host::framepace`. Default `Auto` (on, paced) for battery life.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -638,6 +675,11 @@ pub struct VideoSettings {
     /// limiter lives in the render app); the value still persists everywhere.
     #[serde(default)]
     pub frame_cap: FramePaceCap,
+    /// V-sync. `On` (Bevy's `Fifo`, the default) caps the frame rate at the
+    /// display refresh; `Off` (`Immediate`) shows the frame's real cost. The
+    /// visible host mirrors it into the primary `Window::present_mode`.
+    #[serde(default)]
+    pub vsync: VsyncMode,
     #[serde(default)]
     pub quality: VisualQualitySettings,
     #[serde(default)]
@@ -655,6 +697,7 @@ impl Default for VideoSettings {
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
             frame_cap: FramePaceCap::default(),
+            vsync: VsyncMode::default(),
             quality: VisualQualitySettings::default(),
             shaders: ScreenShaderSettings::default(),
         }

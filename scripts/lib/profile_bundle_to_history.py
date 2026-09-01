@@ -100,6 +100,7 @@ COMPARABILITY_FIELDS = (
     # somebody turned it off. Comparing a capped run against an uncapped one
     # measures the setting, not the code.
     "quality.frame_cap",
+    "quality.present_mode",
     # ⛔⛔ A CAPPED OR RE-BRAINED ROOM IS A DIFFERENT WORKLOAD, NOT A RESULT.
     # `AMBITION_ACTOR_POPULATION_CAP` removes authored actors and
     # `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every one of them thinks
@@ -595,6 +596,7 @@ def quality_facts(bundle: Bundle) -> dict:
         "parallax_max_layers": last.get("parallax_max_layers"),
         "msaa_samples": last.get("msaa_samples"),
         "frame_cap": last.get("frame_cap"),
+        "present_mode": last.get("present_mode"),
         "max_scale_factor": last.get("max_scale_factor"),
     }
 
@@ -816,6 +818,11 @@ def comparable_label(fields: dict) -> str:
     # Only a run that actually recorded a cap says so, so older rows keep the
     # label they have always had.
     quality = f"{quality}+cap:{cap}" if cap else quality
+    # Fifo is v-sync: under it the frame rate is bounded by the display and a
+    # missed refresh costs a whole interval, so a Fifo capture and an Immediate
+    # one are different experiments even at the same cap.
+    present = fields.get("quality.present_mode")
+    quality = f"{quality}+present:{present}" if present else quality
     # Only a run that actually set a knob carries the segment. An ordinary
     # capture keeps the label it has always had, so the history stays readable.
     knobs = []

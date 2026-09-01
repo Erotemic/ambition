@@ -77,6 +77,7 @@ pub enum SettingsOptionId {
     Colorblind,
     ShowFps,
     FramePacing,
+    Vsync,
     VisualQuality,
     // Shaders (the whole `Video > Shaders` subpage from the pause menu).
     ShaderStrength,

@@ -447,6 +447,9 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]
     app.add_plugins(crate::host::framepace::FramePacePlugin);
+    // V-sync: the Video setting → the primary window's present mode. Not
+    // feature-gated — it is one system that does nothing without a window.
+    app.add_plugins(crate::host::vsync::VsyncPlugin);
 
     // the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and registering it here
     // alone left every non-app composition with no `UiFonts` and a vacuous

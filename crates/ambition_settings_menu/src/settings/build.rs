@@ -1,4 +1,3 @@
-
 use super::*;
 use ambition_persistence::settings::audio::AudioSettings;
 use ambition_persistence::settings::video::CameraZoomPreset;
@@ -12,7 +11,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        VisualQualityProfile,
+        VisualQualityProfile, VsyncMode,
     };
 
     let v = &settings.video;
@@ -110,6 +109,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Cap the frame rate to save battery/heat (auto = display refresh; or 120/60/30/24).",
+                )
+            },
+            {
+                let (i, n) = enum_index(&VsyncMode::ALL, v.vsync);
+                cycle(
+                    SettingsOptionId::Vsync,
+                    "V-Sync",
+                    v.vsync.label(),
+                    i,
+                    n,
+                    "On: never exceed the display refresh, no tearing. Off: show every frame as soon as it is done (uncapped FPS; may tear).",
                 )
             },
             {

@@ -166,10 +166,20 @@ pub fn report_visual_quality_census(
     // switch are not the same experiment, and with nothing on the row the ledger
     // would group and compare them.
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // ⛔⛔ AND THE PRESENT MODE DECIDES IT FIRST. Bevy's default is `Fifo`
+    // (v-sync): under it the frame rate can never exceed the display's refresh
+    // and a frame that misses one refresh costs a whole extra interval, so a
+    // 144 Hz capture reading "72 fps" may be an 8 ms frame. Recorded from the
+    // WINDOW, not the setting — the window is the state the frames were taken in.
+    window: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     let Some(at) = census.due() else {
         return;
     };
+    let present_mode = window
+        .single()
+        .map(|window| format!("{:?}", window.present_mode))
+        .unwrap_or_else(|_| "none".to_string());
     let frame_cap = settings
         .as_deref()
         .map(|settings| format!("{:?}", settings.video.frame_cap))
@@ -178,14 +188,17 @@ pub fn report_visual_quality_census(
         // ⚠ SAID, NOT SKIPPED. A composition with no quality resource is a real
         // state — a headless run with no renderer — and an absent row would read
         // as "the tier did not matter here" rather than "nothing resolved one".
-        eprintln!("[census] visual_quality t={at:.3} profile=none frame_cap={frame_cap}");
+        eprintln!(
+            "[census] visual_quality t={at:.3} profile=none frame_cap={frame_cap} \
+             present_mode={present_mode}"
+        );
         return;
     };
     let budget = &quality.budget;
     eprintln!(
         "[census] visual_quality t={at:.3} profile={:?} parallax_enabled={} \
          parallax_max_layers={} parallax_resolution={:?} msaa_samples={} \
-         max_scale_factor={} frame_cap={}",
+         max_scale_factor={} frame_cap={} present_mode={}",
         quality.profile,
         budget.parallax.enabled,
         budget
@@ -201,6 +214,7 @@ pub fn report_visual_quality_census(
             .map(|s| format!("{s}"))
             .unwrap_or_else(|| "compositor".to_string()),
         frame_cap,
+        present_mode,
     );
 }
 

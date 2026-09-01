@@ -165,6 +165,7 @@ fn shaders_screen_reaches_every_shader_option() {
                     | SettingsOptionId::Colorblind
                     | SettingsOptionId::ShowFps
                     | SettingsOptionId::FramePacing
+                    | SettingsOptionId::Vsync
                     | SettingsOptionId::VisualQuality
             )
         })
@@ -197,10 +198,10 @@ fn shaders_screen_reaches_every_shader_option() {
         ]
     );
     // Each shader option carries a live slider value label (e.g. "0%") so the
-    // cube renders the same control the grid does. (The leading 9 basic Video
-    // rows — 7 basic + FramePacing + VisualQuality — are cycles/toggles, so only
-    // the shader tail is checked.)
-    for o in options.iter().skip(9) {
+    // cube renders the same control the grid does. (The leading 10 basic Video
+    // rows — 7 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
+    // only the shader tail is checked.)
+    for o in options.iter().skip(10) {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }

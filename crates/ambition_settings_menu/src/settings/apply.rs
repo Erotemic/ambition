@@ -1,4 +1,3 @@
-
 use super::*;
 use ambition_persistence::settings::video::CameraZoomPreset;
 use ambition_persistence::settings::UserSettings;
@@ -28,7 +27,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        ScreenShaderSettings, SerializableDisplayMode, VisualQualityProfile,
+        ScreenShaderSettings, SerializableDisplayMode, VisualQualityProfile, VsyncMode,
     };
 
     // Cycle helper: dir<0 -> prev, otherwise next (confirm advances like next).
@@ -69,6 +68,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
         SettingsOptionId::FramePacing => cyc!(settings.video.frame_cap, FramePaceCap),
+        SettingsOptionId::Vsync => cyc!(settings.video.vsync, VsyncMode),
         SettingsOptionId::VisualQuality => {
             cyc!(settings.video.quality.profile, VisualQualityProfile)
         }

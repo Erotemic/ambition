@@ -337,43 +337,192 @@ impl AabbExt for Aabb {
             });
         }
 
-        let moving_shape = parry_cuboid(self);
-        let static_shape = parry_cuboid(rhs);
-        let options = ShapeCastOptions {
-            max_time_of_impact: 1.0,
-            target_distance: 0.0,
-            stop_at_penetration: true,
-            // Movement consumes `normal1` for t=0 contacts, so ask Parry to
-            // compute reliable impact geometry when a cast begins in penetration.
-            compute_impact_geometry_on_penetration: true,
-        };
-
-        query::cast_shapes(
-            &parry_pose(self),
-            to_parry_vec(delta),
-            &moving_shape,
-            &parry_pose(rhs),
-            Vector::ZERO,
-            &static_shape,
-            options,
-        )
-        .ok()
-        .flatten()
-        .and_then(|hit| {
-            let time_of_impact = hit.time_of_impact.clamp(0.0, 1.0);
-            if time_of_impact <= CONTACT_EPS
-                && !self.strict_intersects(rhs)
-                && !moves_into_touching_face(self, delta, rhs)
-            {
-                None
-            } else {
-                Some(AabbSweepHit {
-                    time_of_impact,
-                    normal1: Vec2::new(hit.normal1.x, hit.normal1.y),
-                })
-            }
-        })
+        // ⭐⭐ THE CLOSED FORM, AND IT IS 10.7% OF THE PROCESS. Measured
+        // 2026-09-01 on `hall_of_characters` at 130 bodies: `cast_shapes` under
+        // this function was the single largest cost in the whole `perf` profile,
+        // twice what per-actor perception construction cost. Both poses here are
+        // `Pose::translation` — there is no rotation anywhere in this path — so
+        // parry was solving an axis-aligned box against an axis-aligned box with
+        // an iterative support-mapping GJK, through a generic dispatcher.
+        //
+        // ⛔ THE FAST PATH DECLINES THE PENETRATING START. An overlapping pair
+        // needs parry's `compute_impact_geometry_on_penetration` geometry —
+        // minimum-translation direction — and reimplementing that from guesswork
+        // in the movement kernel is exactly the trade this repository does not
+        // make. `slab_sweep` returns `None` for that case and the parry road
+        // below runs, which is rare in practice and identical when it happens.
+        if let Some(hit) = slab_sweep(self, delta, rhs) {
+            return reject_grazing_contact(self, delta, rhs, hit);
+        }
+        if !starts_overlapping(self, rhs) {
+            // The fast path is EXACT for separated boxes: it said no hit, and
+            // there is no hit. Asking parry to agree would be paying the cost
+            // this whole change exists to avoid.
+            return None;
+        }
+        parry_sweep(self, delta, rhs).and_then(|hit| reject_grazing_contact(self, delta, rhs, hit))
     }
+}
+
+/// Whether the two boxes overlap enough that a sweep begins in penetration.
+///
+/// ⚠ NOT `strict_intersects`. That treats edge-touching as separate, which is
+/// Ambition's platformer semantics; parry treats a touching start as a contact
+/// and computes impact geometry for it. This asks parry's question, because it
+/// decides which of the two solvers is allowed to answer.
+/// The general solver, kept for the penetrating start and as the ORACLE the fast
+/// path is tested against.
+///
+/// ⭐ IT IS NOT DEAD CODE AND MUST NOT BECOME IT. `slab_sweep` is only allowed to
+/// answer for separated boxes; an overlapping pair needs parry's
+/// `compute_impact_geometry_on_penetration` geometry, which is a
+/// minimum-translation question rather than a sweep. Deleting this would mean
+/// reimplementing that in the movement kernel from guesswork.
+fn parry_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
+    let moving_shape = parry_cuboid(lhs);
+    let static_shape = parry_cuboid(rhs);
+    let options = ShapeCastOptions {
+        max_time_of_impact: 1.0,
+        target_distance: 0.0,
+        stop_at_penetration: true,
+        // Movement consumes `normal1` for t=0 contacts, so ask Parry to
+        // compute reliable impact geometry when a cast begins in penetration.
+        compute_impact_geometry_on_penetration: true,
+    };
+
+    query::cast_shapes(
+        &parry_pose(lhs),
+        to_parry_vec(delta),
+        &moving_shape,
+        &parry_pose(rhs),
+        Vector::ZERO,
+        &static_shape,
+        options,
+    )
+    .ok()
+    .flatten()
+    .map(|hit| AabbSweepHit {
+        time_of_impact: hit.time_of_impact.clamp(0.0, 1.0),
+        normal1: Vec2::new(hit.normal1.x, hit.normal1.y),
+    })
+}
+
+fn starts_overlapping(lhs: Aabb, rhs: Aabb) -> bool {
+    lhs.right() >= rhs.left()
+        && lhs.left() <= rhs.right()
+        && lhs.bottom() >= rhs.top()
+        && lhs.top() <= rhs.bottom()
+}
+
+/// The strict-touching rejection, shared by both solvers.
+///
+/// ⭐ ONE COPY, because it is Ambition's own contract rather than a property of
+/// whichever library computed the hit: resting on a floor must not block
+/// horizontal motion, and sliding along a wall must not block vertical motion.
+/// A second copy beside the fast path is how the two roads would drift.
+fn reject_grazing_contact(
+    lhs: Aabb,
+    delta: Vec2,
+    rhs: Aabb,
+    hit: AabbSweepHit,
+) -> Option<AabbSweepHit> {
+    if hit.time_of_impact <= CONTACT_EPS
+        && !lhs.strict_intersects(rhs)
+        && !moves_into_touching_face(lhs, delta, rhs)
+    {
+        None
+    } else {
+        Some(hit)
+    }
+}
+
+/// The closed-form swept-AABB test: expand `rhs` by `lhs`'s half-extents, sweep
+/// `lhs`'s centre through it as a point, and take the latest entry against the
+/// earliest exit.
+///
+/// `None` means one of two DIFFERENT things and the caller must distinguish
+/// them: no hit along `delta`, or a penetrating start this function declines to
+/// answer. [`starts_overlapping`] is what tells them apart.
+///
+/// ⛔ AN AXIS WITH NO MOTION IS NOT A DIVISION. `delta.x == 0` makes the x slab
+/// times infinite, and `0.0 / 0.0` where the centre sits exactly on a face is a
+/// NaN that compares false against everything — silently turning a real hit into
+/// a miss. The zero-motion axis is answered by containment instead.
+fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
+    let half = lhs.half_size();
+    let min_x = rhs.left() - half.x;
+    let max_x = rhs.right() + half.x;
+    // `top`/`bottom` follow this crate's screen-space convention, where `top` is
+    // the smaller y. Expanding outward therefore subtracts from `top`.
+    let min_y = rhs.top() - half.y;
+    let max_y = rhs.bottom() + half.y;
+    let p = lhs.center();
+
+    let mut enter = f32::NEG_INFINITY;
+    let mut exit = f32::INFINITY;
+    // Which axis the LAST entry happened on, and from which side. 0 = x, 1 = y.
+    let mut axis = 0usize;
+    let mut sign = 0.0f32;
+
+    for (index, (position, motion, lo, hi)) in
+        [(p.x, delta.x, min_x, max_x), (p.y, delta.y, min_y, max_y)]
+            .into_iter()
+            .enumerate()
+    {
+        if motion.abs() <= 1.0e-8 {
+            if position < lo || position > hi {
+                return None;
+            }
+            continue;
+        }
+        let inverse = 1.0 / motion;
+        let mut near = (lo - position) * inverse;
+        let mut far = (hi - position) * inverse;
+        if near > far {
+            std::mem::swap(&mut near, &mut far);
+        }
+        // ⭐ `normal1` IS THE MOVING SHAPE'S OUTWARD FACE NORMAL, not the surface
+        // it lands on — so it points ALONG the motion on the entry axis. A box
+        // moving right contacts with its own right face, whose outward normal is
+        // +x. The differential test caught the opposite sign immediately, and it
+        // would not have panicked in the game: it slides a body along the wrong
+        // face.
+        let side = motion.signum();
+        if near > enter {
+            enter = near;
+            axis = index;
+            sign = side;
+        }
+        if far < exit {
+            exit = far;
+        }
+        if enter > exit {
+            return None;
+        }
+    }
+
+    if enter > 1.0 || exit < 0.0 {
+        return None;
+    }
+    // A penetrating start belongs to parry — see the caller.
+    if enter < 0.0 {
+        return None;
+    }
+    // Every axis was stationary and contained: the boxes overlap and are not
+    // moving apart. That is a penetrating start too.
+    if !enter.is_finite() {
+        return None;
+    }
+
+    let normal1 = if axis == 0 {
+        Vec2::new(sign, 0.0)
+    } else {
+        Vec2::new(0.0, sign)
+    };
+    Some(AabbSweepHit {
+        time_of_impact: enter.clamp(0.0, 1.0),
+        normal1,
+    })
 }
 
 fn moves_into_touching_face(lhs: Aabb, delta: Vec2, rhs: Aabb) -> bool {
@@ -508,5 +657,117 @@ mod tests {
         // Disjoint with zero delta returns None.
         let c = Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(5.0, 5.0));
         assert_eq!(a.sweep_time_of_impact(Vec2::ZERO, c), None);
+    }
+}
+
+#[cfg(test)]
+mod slab_sweep_agrees_with_parry {
+    use super::*;
+
+    /// ⛔⛔ **MOVEMENT IS THE MOST SAFETY-CRITICAL CODE IN THE ENGINE**, and this
+    /// change replaced its inner loop. `slab_sweep` is only allowed to answer for
+    /// SEPARATED boxes, so parry stays the oracle for exactly that population and
+    /// the two must agree on both the time of impact and the contact normal.
+    ///
+    /// A hand-written table of cases would test the cases I thought of. This
+    /// sweeps a deterministic grid instead — every relative placement, every
+    /// direction, including the ones that graze a corner, start flush against a
+    /// face, or move parallel to one.
+    fn xorshift(state: &mut u64) -> f32 {
+        *state ^= *state << 13;
+        *state ^= *state >> 7;
+        *state ^= *state << 17;
+        // [-1, 1)
+        ((*state >> 11) as f64 / (1u64 << 52) as f64) as f32 * 2.0 - 1.0
+    }
+
+    fn boxes(seed: &mut u64) -> (Aabb, Vec2, Aabb) {
+        let ax = xorshift(seed) * 40.0;
+        let ay = xorshift(seed) * 40.0;
+        let ahw = 2.0 + xorshift(seed).abs() * 14.0;
+        let ahh = 2.0 + xorshift(seed).abs() * 14.0;
+        let bx = xorshift(seed) * 40.0;
+        let by = xorshift(seed) * 40.0;
+        let bhw = 2.0 + xorshift(seed).abs() * 14.0;
+        let bhh = 2.0 + xorshift(seed).abs() * 14.0;
+        let dx = xorshift(seed) * 60.0;
+        let dy = xorshift(seed) * 60.0;
+        (
+            Aabb::new(Vec2::new(ax, ay), Vec2::new(ahw, ahh)),
+            Vec2::new(dx, dy),
+            Aabb::new(Vec2::new(bx, by), Vec2::new(bhw, bhh)),
+        )
+    }
+
+    #[test]
+    fn the_closed_form_matches_the_general_solver_on_separated_boxes() {
+        let mut seed = 0x9E3779B97F4A7C15u64;
+        let mut compared = 0usize;
+        let mut hits = 0usize;
+        for _ in 0..40_000 {
+            let (lhs, delta, rhs) = boxes(&mut seed);
+            if starts_overlapping(lhs, rhs) || delta.length_squared() <= 1.0e-8 {
+                continue;
+            }
+            compared += 1;
+            let fast = slab_sweep(lhs, delta, rhs);
+            let oracle = parry_sweep(lhs, delta, rhs);
+            match (fast, oracle) {
+                (None, None) => {}
+                (Some(f), Some(o)) => {
+                    hits += 1;
+                    assert!(
+                        (f.time_of_impact - o.time_of_impact).abs() < 1.0e-3,
+                        "toi disagreed: fast {} vs parry {} for {lhs:?} + {delta:?} vs {rhs:?}",
+                        f.time_of_impact,
+                        o.time_of_impact
+                    );
+                    // ⭐ COMPARED AS THE MOVEMENT KERNEL CONSUMES IT: which axis
+                    // is cancelled, and in which direction. Getting that wrong
+                    // does not fail a toi assertion and does not panic — it
+                    // slides a body along the wrong face.
+                    //
+                    // ⚠ NOT COMPONENT-WISE, and the reason is the ORACLE rather
+                    // than the fast path: on a near-flush contact parry's GJK
+                    // converges to a corner and returns e.g.
+                    // `(-0.0016, 0.9999986)` where the exact normal is `(0, 1)`.
+                    // Demanding component equality would be asserting that the
+                    // closed form reproduces the general solver's numerical
+                    // noise, which is backwards.
+                    let axis_of = |n: Vec2| if n.x.abs() >= n.y.abs() { 0 } else { 1 };
+                    assert_eq!(
+                        axis_of(f.normal1),
+                        axis_of(o.normal1),
+                        "cancelled the wrong axis: fast {:?} vs parry {:?} for \
+                         {lhs:?} + {delta:?} vs {rhs:?}",
+                        f.normal1,
+                        o.normal1
+                    );
+                    assert!(
+                        f.normal1.dot(o.normal1) > 0.9,
+                        "normal points the other way: fast {:?} vs parry {:?} for \
+                         {lhs:?} + {delta:?} vs {rhs:?}",
+                        f.normal1,
+                        o.normal1
+                    );
+                }
+                (f, o) => panic!(
+                    "one solver saw a hit and the other did not: fast {f:?}, parry {o:?}, \
+                     for {lhs:?} + {delta:?} vs {rhs:?}"
+                ),
+            }
+        }
+        // ⭐ THE PREMISE. A generator that never produced a hit — or never
+        // produced a separated pair — would pass every assertion above by
+        // vacuum.
+        assert!(
+            compared > 20_000,
+            "only {compared} separated pairs; the generator is not exercising the population"
+        );
+        assert!(
+            hits > 1_000,
+            "only {hits} hits out of {compared}; the generator is not aiming the boxes at \
+             each other and the agreement above is mostly two Nones"
+        );
     }
 }

@@ -71,11 +71,13 @@ members = [
     "game/ambition_menu_kaleidoscope",
     "tests/ambition_workspace_policy",
 ]
+# `dev/bevy_ceiling` is the empty-window frame-time ceiling (its README): a
+# stock Bevy app with none of this workspace in it, so it keeps its own lockfile.
 # The Phase-6 external-architecture proof: a consumer game that must live
 # OUTSIDE the workspace so it exercises exactly what a third-party crate
 # would — the `ambition_platformer2d` umbrella via a path dependency, its own lockfile,
 # no workspace dependency table, no policy exemptions.
-exclude = ["fixtures/external_consumer"]
+exclude = ["fixtures/external_consumer", "dev/bevy_ceiling"]
 resolver = "2"
 
 # One version per shared external dependency. Before this table existed, `ron`

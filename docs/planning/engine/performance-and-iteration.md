@@ -260,9 +260,12 @@ Open, in priority order:
    measured section first. Bounding the COUNT of perceived actors is worth ~8%;
    `kept` already saturates at ~14 and the cost is per-item construction. The
    design is right for density; it is not the next millisecond.
-3. **`getenv` at 1.36% of the process**, unexplained. No frame pointers in the
-   profiling build, so the call graph does not resolve. Cheap if someone can
-   name the caller.
+3. **`getenv` at 1.36% of the process**, unexplained and **not cheap** — do not
+   pick this up expecting a quick win. The profiling profile has no frame
+   pointers (`force-frame-pointers` is not a cargo profile key; see the comment
+   in `Cargo.toml`), and adding them via `RUSTFLAGS` would not help: the
+   unresolved caller sits above `getenv` inside precompiled `std` and glibc,
+   which have none regardless. `-Z build-std` is the actual price.
 
 ⛔ Do NOT reopen: the O(n²) body-contact pairing (dormant, `contact_empty=true`),
 `select_actor_targets` (measured slope 1.03), or `Arc<str>` actor identity

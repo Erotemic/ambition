@@ -328,6 +328,21 @@ And every simulation defect fixed here — the peer clone, the GJK sweep,
 dormancy policy that keeps an all-awake mode for measurement costs nothing and
 one that does not deletes the workload that finds these.
 
+## The measured series
+
+[`runtime-frame-history.md`](runtime-frame-history.md) is generated from
+`dev/ambition_dev_measurements/runtime_frame_cost.jsonl` and is the only place
+frame times may be compared ACROSS runs: it groups by everything that changes a
+frame time without the engine changing — scenario, content version, build
+features, machine, renderer, resolution, instruments — and refuses to subtract
+across groups.
+
+⛔ Do not quote a frame time from a journal entry as a baseline. A journal records
+what one run measured; the ledger records what may be compared to what.
+`scripts/lib/profile_bundle_to_history.py <bundle>` appends, and
+`scripts/perf_history.py report -o docs/planning/engine/runtime-frame-history.md`
+regenerates — a test fails if the committed report has drifted from the ledger.
+
 ## Standing prohibitions
 
 - Do not compare headless simulation timing to rendered weak-GPU timing as though

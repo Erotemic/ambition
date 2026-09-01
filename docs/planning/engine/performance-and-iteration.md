@@ -711,6 +711,62 @@ the launcher; relativity arrived through `platformer2d`'s `all_capabilities`,
 which is the default feature set, and pocket was a registered-but-unlisted
 provider.
 
+## ⭐⭐ MEASURED 2026-09-01 WITH TRACY: the frame is PACED, and the sim is not where I said
+
+First capture with Tracy actually connected (`desktop-timeline-run-20260901T220143Z`,
+7,887 zones). Shares of a Tracy-inflated frame — read the ratios, not the
+absolutes.
+
+```text
+system                                          tot%   mean us
+bevy_render::run_render_schedule                35.54    6316
+bevy_ggrs::schedule_systems::run_ggrs_schedules 23.89    4245
+bevy_render::renderer::render_system            11.77    2092
+bevy_render::render_asset::extract_render_asset  7.67     1363
+bevy_core_pipeline::schedule::camera_driver      7.06     1255
+bevy_framepace::framerate_limiter                4.61      819
+bevy_time::fixed::run_fixed_main_schedule        3.11      554
+```
+
+### ⛔⛔ THE FRAME RATE IS CAPPED ON PURPOSE
+
+`bevy_framepace::framerate_limiter` is 4.61% of the frame, and
+`FramePaceCap::Auto` is the DEFAULT: *"`Auto` caps to the display refresh
+(battery saver); `Off` renders unthrottled."*
+
+⇒ "Why is this not at 200 FPS on a 3090" has an answer before any optimisation:
+**because it is configured not to be.** Every frame number taken so far — 9.77 ms
+p50 uninstrumented, 16.18 ms with Tracy — was taken under a limiter.
+
+⛔ **AND THAT RETRACTS MY "CPU-BOUND" READING.** I concluded from `phases_cpu`
+that the machine is never idle and the frame is CPU-bound. Under a PACER that is
+not a safe inference: a limiter that spins rather than blocks keeps cores busy by
+construction, which is exactly the signature I read as "busy". The honest state is
+**unknown until a capture with `FramePaceCap::Off`**, and that is the next
+measurement, not more analysis.
+
+### And the simulation is ~23%, not 6%
+
+`bevy_ggrs 0.22` runs its update loop in **`PreUpdate`**
+(`schedule: PreUpdate.intern()`), so `schedule{PreUpdate}` at 31.92% CONTAINS
+`GgrsSchedule` at 23.02%. PreUpdate's own non-sim work is the remaining ~8%.
+
+⇒ My earlier "the simulation is under 6% of your frame" was wrong. It read
+`RunFixedMainLoop` (0.558 ms), which is Bevy's fixed-timestep loop — Tracy puts
+`run_fixed_main_schedule` at 3.11% — and **that is not where this game
+simulates.** The production host simulates in `GgrsSchedule`, inside PreUpdate.
+
+⚠ The headless numbers are unaffected: `--start-room` selects the direct sandbox,
+which installs no rollback host at all, so there the sim really is in the phases I
+was reading. The two hosts simulate in different schedules, which is the same trap
+recorded above under `--start-room` selecting a different program.
+
+### Rendering is about half
+
+`sub app{RenderApp}` 35.8% + `sub app{RenderExtractApp}` 16.1%, with
+`extract_render_asset` at 7.67% — the asset-materialization campaign, visible in
+a steady-state frame rather than only in the load hitch.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

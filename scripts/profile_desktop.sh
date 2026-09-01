@@ -1404,7 +1404,7 @@ main() {
             # measurement repo's TRACKED `summaries/` under the same record id
             # the ledger row carries. ⇒ a row can always be read back, even on a
             # machine that never had the bundle.
-            local summaries="$repo_root/dev/ambition_dev_measurements/summaries"
+            summaries="$repo_root/dev/ambition_dev_measurements/summaries"
             if [[ -f "$out_dir/summary.md" ]]; then
                 mkdir -p "$summaries"
                 cp "$out_dir/summary.md" "$summaries/$(basename "$out_dir").md"

@@ -251,11 +251,25 @@ nothing above 2.4%.
 
 Open, in priority order:
 
-1. **Windowed `Update` (2.59 ms) and `PostUpdate` (1.71 ms) are unattributed** —
-   now the largest open question by a wide margin. The sim is only ~25% of a
-   windowed hall frame, and the capture that showed it is 88.5% CPU in the game
-   binary, so presentation rather than the GPU owns the rest. Needs a host with
-   a display; it cannot be measured headless.
+1. ~~Windowed `Update` and `PostUpdate` are unattributed.~~ **Measured
+   2026-09-01, and the framing was wrong.** `capture_scene --fit-room` runs the
+   room through the real render stack offscreen, so this needs no display.
+
+   ```text
+   fixed cost at 3 bodies    6.93 ms      presentation owns nearly all of it
+   marginal for 127 actors   2.43 ms      sim 66%, presentation 34%
+   ```
+
+   ⛔ **"The sim is only ~25% of a windowed frame" is a share of the ABSOLUTE
+   frame**, most of which is fixed and does not change with population. Of what
+   130 actors ADD, the simulation is two thirds — and that is on a software
+   rasteriser, so the render share is an upper bound.
+
+   Two separate campaigns fall out, and they were being conflated:
+   - **the fixed ~6.9 ms** caps the baseline frame rate. No simulation work
+     touches it. This is the presentation/render campaign.
+   - **the marginal ~2.4 ms** caps POPULATION, and is the half already cut in
+     half today.
 2. **Bounded perception** (`bounded-perception-and-attention.md`) — re-read its
    measured section first. Bounding the COUNT of perceived actors is worth ~8%;
    `kept` already saturates at ~14 and the cost is per-item construction. The

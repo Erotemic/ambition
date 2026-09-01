@@ -1073,6 +1073,40 @@ struct FramePhaseMark(usize);
 /// mis-attribute `StateTransition` (inserted by `bevy_state`), `SpawnScene`, and
 /// any schedule a game inserts of its own. Taking the list from the app means
 /// the row describes the schedule the app actually composed.
+/// PROCESS CPU time, in milliseconds, or `None` where we cannot ask.
+///
+/// ⭐ THIS IS WHAT SEPARATES BUSY FROM BLOCKED. `Instant` measures WALL time, so
+/// a phase that spends 3 ms waiting on the GPU and one that spends 3 ms working
+/// are the same number — which made a real RTX 3090 capture unreadable on
+/// 2026-09-01. A CPU clock does not advance while nothing runs, so a phase whose
+/// wall time far exceeds its CPU time was WAITING.
+///
+/// ⛔⛔ PROCESS, NOT THREAD, AND THE FIRST VERSION GOT THIS WRONG.
+/// `CLOCK_THREAD_CPUTIME_ID` is per-thread and Bevy does not run consecutive
+/// mark schedules on one thread, so differencing across a switch invented time —
+/// it read 50.963 ms of "CPU" inside a phase whose wall was 0.558 ms. The
+/// process clock is thread-independent and needs no pairing.
+///
+/// ⚠ IT SUMS EVERY THREAD, so on a multicore machine a busy phase can report
+/// MORE CPU than wall. That is the signal, not a bug: cpu/wall is roughly how
+/// many cores the phase kept busy, and a ratio near zero is a stall.
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+fn process_cpu_ms() -> Option<f64> {
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `ts` is a valid, fully-initialised `timespec` we own, and
+    // `clock_gettime` only writes through the pointer we hand it.
+    let rc = unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts) };
+    (rc == 0).then(|| ts.tv_sec as f64 * 1000.0 + ts.tv_nsec as f64 / 1.0e6)
+}
+
+#[cfg(all(not(unix), not(target_arch = "wasm32")))]
+fn process_cpu_ms() -> Option<f64> {
+    None
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Default)]
 pub struct SchedulePhaseCensus {
@@ -1082,8 +1116,13 @@ pub struct SchedulePhaseCensus {
     /// Index of the phase currently open, or `None` before the first mark.
     current: Option<usize>,
     marked_at: Option<Instant>,
+    /// Main-thread CPU milliseconds at the last mark, when the clock is available.
+    ///
+    marked_cpu: Option<f64>,
     /// Accumulated milliseconds per phase since the last report.
     totals_ms: Vec<f64>,
+    /// Accumulated main-thread CPU milliseconds per phase, parallel to `totals_ms`.
+    cpu_ms: Vec<f64>,
     frames: u32,
 }
 
@@ -1101,19 +1140,28 @@ impl SchedulePhaseCensus {
             current: None,
             marked_at: None,
             totals_ms: vec![0.0; width],
+            marked_cpu: None,
+            cpu_ms: vec![0.0; width],
             frames: 0,
         }
     }
 
     /// Close the open phase and open `phase`.
     fn advance_to(&mut self, phase: usize, now: Instant) {
+        let cpu_now = process_cpu_ms();
         if let (Some(previous), Some(open)) = (self.marked_at, self.current) {
             if let Some(slot) = self.totals_ms.get_mut(open) {
                 *slot += now.duration_since(previous).as_secs_f64() * 1000.0;
             }
+            if let (Some(cpu_now), Some(cpu_prev), Some(slot)) =
+                (cpu_now, self.marked_cpu, self.cpu_ms.get_mut(open))
+            {
+                *slot += (cpu_now - cpu_prev).max(0.0);
+            }
         }
         self.current = Some(phase);
         self.marked_at = Some(now);
+        self.marked_cpu = cpu_now;
     }
 }
 
@@ -1156,8 +1204,24 @@ pub fn report_schedule_phase_census(
         row.push_str(&format!(" {name}={:.3}", total_ms / frames));
     }
     eprintln!("{row}");
+    // ⭐ THE SAME SPLIT ON THE MAIN THREAD'S CPU CLOCK. `phases` above is WALL
+    // time, so a phase BLOCKED on the GPU is indistinguishable from one that is
+    // busy — the reason a rendering capture's split is untrustworthy. A thread
+    // CPU clock does not tick while blocked, so for each phase
+    // `phases - phases_cpu` IS the stall, and `phases_cpu` alone is CPU work
+    // that can be trusted even while rendering.
+    if phases.cpu_ms.iter().any(|ms| *ms > 0.0) {
+        let mut cpu_row = format!("[census] phases_cpu t={at:.3} frames={}", phases.frames);
+        for (name, cpu_ms) in phases.names.iter().zip(&phases.cpu_ms) {
+            cpu_row.push_str(&format!(" {name}={:.3}", cpu_ms / frames));
+        }
+        eprintln!("{cpu_row}");
+    }
     for total in &mut phases.totals_ms {
         *total = 0.0;
+    }
+    for cpu in &mut phases.cpu_ms {
+        *cpu = 0.0;
     }
     phases.frames = 0;
 }

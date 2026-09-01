@@ -27,3 +27,12 @@ ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 serde = { workspace = true }
 ron = { workspace = true }
+
+# ⭐ FOR THE PHASE CENSUS'S CPU CLOCK ONLY. `[census] phases` measures WALL time
+# between marks, so time the main thread spends BLOCKED (on the GPU, on the
+# render thread) lands in whichever phase brackets it — which made a real
+# capture unreadable on 2026-09-01. A thread CPU clock does not tick while
+# blocked, so wall-minus-CPU IS the block. `libc` is already in the tree
+# transitively; this only names it.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

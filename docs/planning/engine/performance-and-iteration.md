@@ -37,6 +37,14 @@ $ false | tail -1 ; echo $?
 So the 0 I read was `tail`'s, twice. The repo's own note about `| grep` voiding
 an exit code says exactly this, and I wrote the warning anyway.
 
+**Confirmed unpiped**, with a lane that had one failing job:
+
+```text
+$ ./run_tests.sh --rust > lane.log 2>&1 ; echo "EXIT: $?"
+EXIT: 1
+passed: 3 | failed: ['workspace (default features)']
+```
+
 ⇒ **The rule is about the invocation, not the runner.** Do not pipe a gate whose
 exit code you intend to read; if you must, check `${PIPESTATUS[0]}`. Reading
 `passed`/`failed` out of `target/run_tests_status.json` is still the most

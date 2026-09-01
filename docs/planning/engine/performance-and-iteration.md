@@ -728,7 +728,27 @@ bevy_framepace::framerate_limiter                4.61      819
 bevy_time::fixed::run_fixed_main_schedule        3.11      554
 ```
 
-### ⛔⛔ THE FRAME RATE IS CAPPED ON PURPOSE
+### ⚠ THE CAP WAS ON — AND MEASURABLY NOT BINDING
+
+Jon confirmed the cap was enabled and has since turned it off. But the
+steady-state window table says it was doing almost nothing:
+
+```text
+framerate_limiter   0.26 ms/s   (~4 us/frame at 60fps)
+```
+
+`framerate_limiter` sleeps `limit - frame_time`. Four microseconds means the
+frame was ALREADY at or past the cap's target, so there was nothing to wait for.
+
+⇒ **PREDICTION, recorded before the uncapped capture so it can be wrong:**
+turning the cap off will NOT materially change the frame. The limiter was
+returning nearly immediately. If the uncapped run is much faster, this reasoning
+is wrong and the 4 us/frame needs explaining.
+
+⚠ My earlier "4.61% of the frame" for the limiter was the session total again —
+the same trap as `extract_render_asset` above, in the same capture.
+
+### THE CAP, as originally read
 
 `bevy_framepace::framerate_limiter` is 4.61% of the frame, and
 `FramePaceCap::Auto` is the DEFAULT: *"`Auto` caps to the display refresh
@@ -761,7 +781,24 @@ which installs no rollback host at all, so there the sim really is in the phases
 was reading. The two hosts simulate in different schedules, which is the same trap
 recorded above under `--start-room` selecting a different program.
 
-### Rendering is about half, and here is where it goes
+### ⭐ STEADY STATE (t>14s), which is a different ranking from the session totals
+
+```text
+zone                    ms/second   ~us/frame
+run_ggrs_schedules         319.91        5332   <- the simulation
+render_system              135.91        2265
+camera_schedule (x4)        75.96        1266
+extract_render_asset         8.02         134
+framerate_limiter            0.26           4
+```
+
+⇒ **On the main thread, the SIMULATION is the largest steady-state consumer**,
+ahead of render submission. The render THREAD runs concurrently (its own zone is
+96.66% of wall), so this ranks main-thread work against itself and does not say
+rendering is cheap — it says the sim is not the small slice the session totals
+made it look.
+
+### Rendering is about half of the session, and here is where it goes
 
 ```text
 sub app{RenderApp}                              35.82
@@ -777,9 +814,21 @@ sub app{RenderExtractApp}                       16.06
 camera_schedule, all four cameras                6.75
 ```
 
-⚠ **`extract_render_asset<GpuImage>` IS 7.67% OF A STEADY-STATE FRAME.** The
-asset campaign has only ever measured it as a LOAD HITCH (~455 ms spikes). It is
-also a per-frame cost, every frame, in a scene that is not loading anything.
+⛔⛔ **WITHDRAWN, WITHIN THE HOUR: `extract_render_asset` IS NOT A STEADY-STATE
+COST.** I read 7.67% off the session total and called it a per-frame cost. The
+per-window table refuses it — the number is entirely the load phase:
+
+```text
+window        total_ms   window        total_ms
+ 9.0-10.0       739.72    14.0-15.0        0.34
+13.0-14.0       804.53    20.0-21.0        0.35
+                          27.0-28.0        0.30
+```
+
+Steady state is **8.02 ms per SECOND — about 134 us a frame.** A session mean
+over 1,785 calls hid a bimodal load/steady split, which is the summary-statistic
+trap this file already records twice. Those 739 ms and 804 ms windows ARE the
+asset hitch, exactly where the campaign says it is, and nowhere else.
 
 ⚠ **THREE CAMERAS RUN EVERY FRAME** (1,784 invocations each) though the camera
 census reports one WORLD camera. Cameras 0, 7 and 9 cost 478 + 274 + 336 µs a

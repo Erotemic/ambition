@@ -51,10 +51,16 @@ ggrs skips the entire save path at `check_distance: 0`
 (`sync_test_session.rs:155`), which is what `local_session.rs:40` configures.
 Ordinary play saves nothing.
 
-The measured cognition cost is also small today: `Decide` is 0.234 ms/tick at
-the hall's 130 bodies, of which the peer-independent remainder is 0.039 — so the
-whole declaration is worth ~0.2 ms. (And that number came from the direct
-sandbox; see `performance-and-iteration.md`.)
+The measured cognition cost is small today, but it is not small *and useful* —
+it is small and **entirely unread**. All 129 hall NPCs carry
+`brain_override: "stand_still"`, and `tick_simple_state_machine` takes no
+`perception` argument at all, so those bodies cannot read the view built for
+them. Of `Decide`'s 0.234 ms/tick the peer-independent remainder is 0.039; the
+other ~0.195 ms is supplied to brains that by construction never receive it.
+
+⇒ At the hall, `None` is the correct declaration for **129 of 129** bodies.
+That is the argument for increment 1 — not a millisecond count. (And the
+number came from the direct sandbox; see `performance-and-iteration.md`.)
 
 **This ADR exists because the change is a wire decision, not because it is
 fast.**

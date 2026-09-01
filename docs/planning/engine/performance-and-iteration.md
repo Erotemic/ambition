@@ -115,6 +115,42 @@ critical path.
 gameplay routes; census it and compare schedule structure. `--start-room` cannot
 express it, because that flag is what selects the other host.
 
+## ⭐ MEASURED 2026-09-01: the hall's decision cost is supplied to brains that provably cannot read it
+
+Counted from the authored spec, `tools/.../specs/hall_of_characters_area.ron`:
+
+```text
+129  type: "NpcSpawn"
+129  brain_override: "stand_still"     <- every one of them
+```
+
+Zero tactical brains. And `stand_still` does not merely ignore the world view —
+it is never handed one. `brain_tick.rs:49`:
+
+```rust
+// The nine ordinary arms answer for themselves
+if tick_simple_state_machine(sm, snapshot, out) {
+    return;
+}
+```
+
+`tick_simple_state_machine` takes **no `perception` argument**. Only the
+`Smash` and `Fighter` arms below it receive a `WorldView`. So the type system,
+not a profile, establishes that all 129 hall bodies have a view built and a
+`WorldMemory` updated for them each tick, and the function that ticks them
+cannot read either.
+
+⇒ Of `Decide`'s 0.234 ms/tick at the hall, the peer-independent remainder is
+0.039. **The other ~0.195 ms is supplied to brains whose tick function never
+receives it.** Not "mostly wasted" — unreadable by construction.
+
+This confirms the standing hypothesis exactly, and it scopes what this campaign
+measured. The decision-pipeline work landed here (the `peers()` borrow, the
+`WorldMemory` sort) optimized the **supply** side, which is real and correct.
+The **demand** side — what a room of genuinely tactical brains costs — has never
+been measured, because no such room exists. The acceptance criterion in
+`bounded-perception-and-attention.md` needs one built.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

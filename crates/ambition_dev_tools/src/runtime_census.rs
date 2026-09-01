@@ -710,6 +710,15 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     // ⛔ The schedule declares no order between these, so their buckets are
     // differences between marks nobody sequenced. Named on the row so a reader
     // cannot mistake the list for a serial partition of the frame.
+    // ⭐ WHAT EACH VIEWER ACTUALLY KEPT. `Decide`'s slope follows this number
+    // rather than the room's population: it grows superlinearly while the kept
+    // set is still growing and flattens when the viewport saturates. Reported
+    // beside the phase it explains.
+    if let Some((views, offered, kept, kept_max)) = crate::perception_census::drain() {
+        row.push_str(&format!(
+            " views={views} offered={offered:.1} kept={kept:.1} kept_max={kept_max}"
+        ));
+    }
     row.push_str(" unmeasured=");
     for (i, index) in SIM_PHASE_UNORDERED.iter().enumerate() {
         if i > 0 {
@@ -1362,6 +1371,7 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
     // wants a smaller constant. The sub-sets below are what tells them apart.
     app.insert_resource(SimPhaseCensus::with_names(sim_phase_names()));
+    crate::perception_census::enable();
 
     // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
     // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.

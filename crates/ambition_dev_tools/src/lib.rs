@@ -24,6 +24,7 @@ pub mod dev_tools;
 /// the Developer page's auto-apply row.
 pub mod hot_reload;
 pub mod persistence;
+pub mod perception_census;
 pub mod population_cap;
 pub mod profiling;
 /// The profiling-only workload censuses and the shared census clock they sample on.

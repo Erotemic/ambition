@@ -356,6 +356,51 @@ is measuring: the hall's saturation is a property of its geometry, not a law.
 `Decide` should be linear across the WHOLE range with a smaller constant, and the
 superlinear band should disappear rather than merely saturate.
 
+## ⛔⛔ MEASURED 2026-09-01: the hall CANNOT demonstrate why attention is needed
+
+`[census] perception` now reports what every viewer was OFFERED and what it
+KEPT, so `kept ≈ 14` stops being a number remembered from a probe nobody can
+re-run. Tactical cast, same room, population swept:
+
+```text
+bodies   offered    kept   kept_max   Decide (3-rep median)
+     2       3.0     2.0          2    0.009
+    16      17.0     5.6          7    0.033
+    64      65.0    14.7         21    0.195
+   130     130.0    14.4         21    0.419
+```
+
+⭐ **KEPT SATURATES.** From 64 to 130 the room doubles what it offers and each
+viewer keeps the same 14.4 (max 21, unchanged). `Perception::Sighted`'s viewport
+is already an attention budget — a crude, geometric one — and in THIS room it
+binds at about fourteen.
+
+⇒ **An explicit budget of K≈16 would change almost nothing here**, and that is
+the honest verdict on the hall as an acceptance room. It cannot show the problem
+because its geometry already solves it.
+
+⚠ AND IT KILLS A CONCLUSION I WAS ABOUT TO DRAW. Seeing kept flat while `Decide`
+still doubled, I reasoned the cost must therefore be the SCAN over offered peers
+— n viewers x n offered — and that a spatial index was needed after all. The
+3-rep numbers refuse it: 64 → 130 is 2.15x cost for 2.03x population, which is
+linear. `cost ≈ n × kept(n)` still fits, kept is flat, so cost is linear. There
+is no quadratic here to remove.
+
+## What this means for the attention work
+
+The value of a bounded representation is **not** in this room and not in the
+current numbers. It is in a room where the viewport does NOT bound the kept set —
+a dense melee, where fighters stand inside one another's viewports and `kept`
+rises with population instead of saturating at 14.
+
+⇒ The acceptance room must be built to make `kept` grow. A sparse gallery of 200
+would still keep ~14 each and prove nothing. The criterion is not "200 bodies",
+it is **"a room where kept tracks population"**, and then showing a budget flattens
+it.
+
+⛔ Until such a room exists, do not justify attention work with a hall
+measurement. The hall says the current design is adequate for the hall.
+
 ## Determinism
 
 Fixed cells; the sim's existing coordinate representation; stable `SimId`

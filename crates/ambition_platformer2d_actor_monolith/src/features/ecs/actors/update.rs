@@ -589,6 +589,24 @@ pub fn tick_actor_brains(
                     } else {
                         ambition_characters::perception::WorldView::default()
                     };
+                    // ⚠ AN INSTRUMENT, OFF BY DEFAULT: one relaxed load when the
+                    // census is not running. `view_peers` is what the room
+                    // OFFERED this viewer; `actors` is what its viewport and
+                    // faction rules KEPT. The gap between the two is what an
+                    // attention budget would bound.
+                    //
+                    // ⛔ ONLY A VIEW THAT WAS ACTUALLY BUILT. A `None` brain now
+                    // gets `WorldView::default()`, and counting those recorded
+                    // 45,795 views of `kept=0` — a mean over bodies that never
+                    // looked, which is not the population the budget is about.
+                    if perception_need.needs_world_view()
+                        || perception_need.needs_target_belief()
+                    {
+                        ambition_dev_tools::perception_census::note_world_view(
+                            view_peers.len(),
+                            world_view.actors.len(),
+                        );
+                    }
                     // Sight and memory answer together; an `Omniscient` body
                     // already carries the global `ActorTarget` and is not
                     // overridden. Perceiving nobody is a real answer (idle).

@@ -312,10 +312,21 @@ Treat that as a reason to stop measuring this workload, not to measure it harder
 (measured 0.04 ms). All three were named by review, all three measured
 negligible.
 
-⛔ **Keep the hall cast awake.** Making distant actors dormant is a legitimate
-game policy and it is not this row: applied to the benchmark it deletes the
-workload that finds these defects. See the conflict noted in
-`maintainer-decisions.md`.
+⚠ **The hall-dormancy decision's condition now has its number.** The 2026-08-08
+row authorises dormancy *"especially if that reduces lag"* and states that the
+condition must be measured. Measured 2026-09-01: the whole 127-actor cast costs
+**+2.98 ms** of a ~10 ms offscreen frame, of which the simulation — the only part
+dormancy removes, since a dormant statue still draws — is **8–18%** depending on
+which instrument attributes it. See
+`journal/2026-09-02-what-hall-dormancy-would-actually-buy.md` in the measurements
+repo; the decision is not this document's to make.
+
+⭐ Two facts belong beside it. The cast is roughly **half** as expensive as it was
+before this campaign, so the condition is being weighed against a moving number.
+And every simulation defect fixed here — the peer clone, the GJK sweep,
+`WorldMemory`'s quadratic — was found by profiling 130 **awake** actors, so a
+dormancy policy that keeps an all-awake mode for measurement costs nothing and
+one that does not deletes the workload that finds these.
 
 ## Standing prohibitions
 

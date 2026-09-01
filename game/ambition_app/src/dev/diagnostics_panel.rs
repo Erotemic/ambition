@@ -8,14 +8,21 @@
 //! log and any future report all read the SAME number. A panel that computed
 //! its own would be a second answer with the same name.
 //!
-//! ⛔ A MISSING PATH RENDERS AS `Missing`, AND THAT IS THE FEATURE. Bevy's
-//! overlay says so rather than showing a zero, which is exactly the distinction
-//! this repository insists on elsewhere: a zero from an instrument that never
-//! reports that category is not a measurement. Several paths here are
-//! legitimately absent — the host CPU/memory pair off desktop, every render-pass
-//! timing outside profiling mode — and MUST read as missing rather than as
-//! nothing happening. See [`AmbitionDiagnosticsPanelPlugin`] and
-//! [`render_pass_rows`].
+//! ⛔ AN ABSENT NUMBER IS NEVER A ZERO HERE, and there are TWO different ways a
+//! number can be absent. They look different on purpose:
+//!
+//! - **A row that is SELECTED but not yet sampled reads `Missing` / `No sample`.**
+//!   Bevy's overlay says so rather than showing a zero, which is the distinction
+//!   this repository insists on elsewhere: a zero from an instrument that never
+//!   reported is not a measurement.
+//! - **A capability this composition does not install has NO ROW AT ALL.** The
+//!   host CPU/memory pair is `#[cfg(feature = "desktop_platform")]`, so off
+//!   desktop it is not compiled in; the render-pass timings are discovered from
+//!   the store, so outside profiling mode there is nothing to discover. A
+//!   permanent `Missing` row for something this build can never report is a
+//!   standing accusation against a working game.
+//!
+//! See [`AmbitionDiagnosticsPanelPlugin`] and [`render_pass_rows`].
 
 use bevy::dev_tools::diagnostics_overlay::{
     DiagnosticsOverlay, DiagnosticsOverlayItem, DiagnosticsOverlayPlugin,
@@ -23,6 +30,8 @@ use bevy::dev_tools::diagnostics_overlay::{
 };
 use bevy::diagnostic::{DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
+use std::time::Duration;
 
 // ⭐ THROUGH THE RE-EXPORTS, like every other app-side reader. `ambition_app`
 // does not name `ambition_dev_tools` or `ambition_render` as its own
@@ -42,9 +51,10 @@ struct AmbitionDiagnosticsWindow;
 /// `SystemInformationDiagnosticsPlugin` rides `bevy/sysinfo_plugin`, which
 /// `default_platform` carries and which Ambition's `android_platform` and
 /// `web_platform` feature sets EXCLUDE on purpose. So CPU and memory appear on
-/// desktop and read `Missing` elsewhere — which is the honest rendering of "this
-/// platform does not report it", and is why no attempt is made to synthesize a
-/// substitute.
+/// desktop and are ABSENT elsewhere — the rows are `#[cfg]`-ed out of
+/// `panel_items`, not shown as `Missing` — because a platform that can never
+/// report them has no unanswered question to display. No substitute is
+/// synthesized either way.
 pub struct AmbitionDiagnosticsPanelPlugin;
 
 impl Plugin for AmbitionDiagnosticsPanelPlugin {
@@ -61,7 +71,16 @@ impl Plugin for AmbitionDiagnosticsPanelPlugin {
             .add_plugins(
                 ambition_platformer2d::render::runtime_census::RenderDiagnosticsPublishPlugin,
             )
-            .add_systems(Update, follow_the_debug_toggle);
+            .add_systems(
+                Update,
+                (
+                    follow_the_debug_toggle,
+                    // ⛔ THE ROW SET IS NOT KNOWN WHEN THE PANEL OPENS. See
+                    // `keep_the_render_rows_current`.
+                    keep_the_render_rows_current
+                        .run_if(on_timer(RENDER_ROW_RECONCILE_PERIOD)),
+                ),
+            );
     }
 }
 
@@ -93,6 +112,59 @@ fn follow_the_debug_toggle(
         for window in &windows {
             commands.entity(window).despawn();
         }
+    }
+}
+
+/// How often an open panel re-asks the store which render passes exist.
+///
+/// ⛔⛔ BEVY REGISTERS RENDER DIAGNOSTIC PATHS LAZILY, AS PASSES RUN. Its
+/// `sync_diagnostics` is literally `if store.get(&path).is_none() {
+/// store.add(..) }` — so the set of `render/**/elapsed_*` paths GROWS during a
+/// session as rendering roads are first taken. A 2026-08-31 bundle records the
+/// growth directly: `render_diagnostics_status.csv` goes `cpu_spans` 0 → 2 → 4
+/// over the first three seconds.
+///
+/// ⇒ a panel that snapshots the row set when F1 opens is permanently missing
+/// every pass that had not run yet, and the only way to see them is to toggle
+/// F1 off and on. That is a stale instrument, and a stale instrument is the
+/// thing this whole campaign exists to stop shipping.
+///
+/// ⭐ ONE SECOND, matching Bevy's own overlay refresh: reconciling faster than
+/// the panel redraws buys nothing a reader can see.
+const RENDER_ROW_RECONCILE_PERIOD: Duration = Duration::from_secs(1);
+
+/// Add render-pass rows to an OPEN panel as their passes first run.
+///
+/// ⭐ READ, COMPARE, THEN WRITE. `Mut<T>` marks the component changed on
+/// `deref_mut`, and Bevy's overlay rebuilds from `items`, so taking `&mut` every
+/// second whether or not anything moved would rebuild every row of the panel on
+/// a timer forever. The comparison below is on an immutable deref; the write
+/// happens only when the set actually differs.
+fn keep_the_render_rows_current(
+    store: Res<DiagnosticsStore>,
+    mut panels: Query<&mut DiagnosticsOverlay, With<AmbitionDiagnosticsWindow>>,
+) {
+    let wanted = render_pass_rows(&store);
+    for mut panel in &mut panels {
+        let showing: Vec<&DiagnosticPath> = panel
+            .items
+            .iter()
+            .map(|item| &item.path)
+            .filter(|path| is_render_timing(path))
+            .collect();
+        if showing.len() == wanted.len()
+            && showing
+                .iter()
+                .zip(wanted.iter())
+                .all(|(shown, want)| **shown == want.path)
+        {
+            continue;
+        }
+        // Replace the whole render block rather than appending, so a row keeps
+        // its place in the sorted order however late its pass first ran.
+        panel.items.retain(|item| !is_render_timing(&item.path));
+        panel.items.extend(wanted.iter().cloned());
+        break;
     }
 }
 
@@ -149,15 +221,26 @@ fn panel_items(store: &DiagnosticsStore) -> Vec<DiagnosticsOverlayItem> {
 /// business imposing on a normal session. The campaign's A5 asked "which render
 /// pass is expensive" — this is where F1 answers it when the measurement exists,
 /// and `render_diagnostics.csv` in a profile bundle is the fuller answer.
+/// Whether a path is one of the render-pass TIMINGS.
+///
+/// ⭐ ONE PREDICATE, TWO CALLERS: the initial discovery and the reconciliation
+/// above. Two copies of this rule is how a row gets added by one and stripped by
+/// the other on the next tick, forever.
+///
+/// ⛔ TIMINGS ONLY. `RenderDiagnosticsPlugin` also publishes pipeline statistics
+/// (`vertex_shader_invocations` and friends) under the same `render/` prefix,
+/// and "which pass is expensive" is not what those answer.
+fn is_render_timing(path: &DiagnosticPath) -> bool {
+    let path = path.as_str();
+    path.starts_with("render/")
+        && (path.ends_with("/elapsed_gpu") || path.ends_with("/elapsed_cpu"))
+}
+
 fn render_pass_rows(store: &DiagnosticsStore) -> Vec<DiagnosticsOverlayItem> {
     let mut paths: Vec<DiagnosticPath> = store
         .iter()
         .map(|diagnostic| diagnostic.path())
-        .filter(|path| {
-            let path = path.as_str();
-            path.starts_with("render/")
-                && (path.ends_with("/elapsed_gpu") || path.ends_with("/elapsed_cpu"))
-        })
+        .filter(|path| is_render_timing(path))
         .cloned()
         .collect();
     // ⛔ THE STORE'S ITERATION ORDER IS A HASH MAP'S. Sorting keeps a row in the
@@ -274,6 +357,89 @@ mod tests {
             windows.iter(app.world()).count(),
             1,
             "two windows would land on top of each other and hide one another"
+        );
+    }
+
+    /// A pass that first runs AFTER F1 opened still reaches the open panel.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS IS A STALE INSTRUMENT. Bevy's
+    /// `sync_diagnostics` registers a render path the first time its pass runs,
+    /// so the row set grows during a session. The panel used to snapshot it at
+    /// spawn, which meant every pass that had not yet run was invisible until
+    /// somebody toggled F1 off and on — and nobody knows to do that, because the
+    /// panel looks complete.
+    ///
+    /// The arms straddle the registration deliberately: absent before, present
+    /// after, with NO despawn in between.
+    #[test]
+    fn a_render_pass_that_appears_later_reaches_the_open_panel() {
+        fn rows(app: &mut App) -> Vec<String> {
+            let mut panels = app
+                .world_mut()
+                .query_filtered::<&DiagnosticsOverlay, With<AmbitionDiagnosticsWindow>>();
+            let panel = panels
+                .iter(app.world())
+                .next()
+                .expect("the panel is open for the whole test");
+            panel
+                .items
+                .iter()
+                .map(|item| item.path.as_str().to_string())
+                .collect()
+        }
+
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.init_resource::<DiagnosticsStore>();
+        app.insert_resource(DeveloperRuntimeState {
+            debug: true,
+            ..default()
+        });
+        app.add_systems(
+            Update,
+            (follow_the_debug_toggle, keep_the_render_rows_current).chain(),
+        );
+        // One reconcile period per update, so every update reconciles. The first
+        // update advances the clock by zero, which is why the panel is opened by
+        // it and the assertions below start from the second.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            RENDER_ROW_RECONCILE_PERIOD,
+        ));
+
+        app.update();
+        let opened = rows(&mut app);
+        assert!(
+            !opened.iter().any(|row| row.starts_with("render/")),
+            "premise: the panel must open with no render row, or this test \
+             cannot tell a late row from an early one: {opened:?}"
+        );
+
+        // The pass runs for the first time; Bevy registers its path.
+        app.world_mut()
+            .resource_mut::<DiagnosticsStore>()
+            .add(bevy::diagnostic::Diagnostic::new(DiagnosticPath::new(
+                "render/main_transparent_pass_2d/elapsed_cpu",
+            )));
+
+        app.update();
+        assert!(
+            rows(&mut app)
+                .iter()
+                .any(|row| row == "render/main_transparent_pass_2d/elapsed_cpu"),
+            "the row must arrive without an F1 toggle; got {:?}",
+            rows(&mut app)
+        );
+
+        // ⭐ AND THE PANEL IS STILL THE SAME ONE. Reconciling by despawning and
+        // respawning would pass the assertion above while throwing away wherever
+        // the developer had dragged the window to.
+        let mut panels = app
+            .world_mut()
+            .query_filtered::<Entity, With<AmbitionDiagnosticsWindow>>();
+        assert_eq!(
+            panels.iter(app.world()).count(),
+            1,
+            "one window throughout, not a replacement"
         );
     }
 

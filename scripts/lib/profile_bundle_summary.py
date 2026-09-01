@@ -113,6 +113,106 @@ def number(row: dict, key: str, default: float = 0.0) -> float:
         return default
 
 
+# ── Whether the native profile below can be quoted ──────────────────────────
+#
+# ⛔⛔ TWO INDEPENDENT PROSE BRANCHES PRODUCED A SELF-CONTRADICTING REPORT. Until
+# 2026-08-31 this section asked two questions and answered them in two `if`s that
+# could not see each other: "did a compile pollute the capture" and "did Tracy".
+# `desktop-timeline-run-20260831T210231Z` therefore printed
+#
+#     The native symbol ranking and the DSO split below must not be quoted.
+#     ... eleven lines later ...
+#     The profiler cost 0% of sampled cycles. Low enough that the
+#     measurements below stand on their own.
+#
+# Both sentences were reached, and only the first was right. The second was only
+# ever about TRACY and was worded as a conclusion about everything.
+#
+# ⇒ the verdict is now a single VALUE. A contradiction has to be written into one
+# function rather than falling out of two that never met.
+
+TRUST_CLEAN = "clean"
+TRUST_COMPILE = "compile-contaminated"
+TRUST_PROFILER = "profiler-contaminated"
+TRUST_BOTH = "compile- and profiler-contaminated"
+
+
+def native_profile_trust(build_share, game_share, profiler_share):
+    """Whether the native symbol/DSO attribution below stands.
+
+    A build that out-costs the game has diluted every percentage in the native
+    profile; a profiler over a quarter of the capture has done the same with its
+    own code. They are independent, so all four combinations are real.
+    """
+    compiled = build_share > game_share
+    profiled = profiler_share >= 25.0
+    if compiled and profiled:
+        return TRUST_BOTH
+    if compiled:
+        return TRUST_COMPILE
+    if profiled:
+        return TRUST_PROFILER
+    return TRUST_CLEAN
+
+
+def native_profile_trust_lines(trust, build_share, game_share, profiler_share, headless):
+    """The ONE verdict, plus whatever detail the state earns."""
+    lines = [
+        "```text",
+        f"profiler (Tracy) overhead : {profiler_share:4.1f}%",
+        f"compile inside the capture: {build_share:4.1f}%   (the game itself: {game_share:.1f}%)",
+        f"native attribution        : {trust.upper()}",
+        "```",
+        "",
+    ]
+    if trust == TRUST_CLEAN:
+        lines += [
+            "Neither the profiler nor a compile took a share worth correcting for, so",
+            "the native symbol ranking and the DSO split below stand on their own.",
+            "",
+        ]
+        return lines
+
+    # ⭐ THE VERDICT COMES FIRST AND IS NEVER SPLIT. Whatever contaminated it, the
+    # reader's question is the same one and gets one answer.
+    lines += [
+        f"⚠⚠ **The native profile below is {trust.upper()} and must not be quoted.**",
+        "",
+        "⭐ Everything keyed to GAME TIME is unaffected — `frame_times.csv`,",
+        "`frame_spikes.csv`, `runtime_census.csv` and the image censuses come from the",
+        "game's own stderr census, not from `perf` samples.",
+        "",
+    ]
+    if trust in (TRUST_COMPILE, TRUST_BOTH):
+        lines += [
+            f"**A compile ran inside this capture** — {build_share:.0f}% of sampled cycles",
+            f"against the game's own {game_share:.0f}%. Check `warm-build.status` and the gap",
+            "between `wall_s` and `game_s` in `frame_spikes.csv`: a first frame tens of",
+            "seconds into the capture is the build. If the warm build ran and the launch",
+            "rebuilt anyway, the two are asking cargo for different fingerprints — see the",
+            "`build_env` rows in `run_game.sh --print-plan`.",
+            "",
+        ]
+    if trust in (TRUST_PROFILER, TRUST_BOTH):
+        lines += [
+            f"**Tracy cost {profiler_share:.0f}% of sampled cycles.** Its symbol-resolution and",
+            "compression threads compete with the game for the same cores, so every frame",
+            "time, zone duration and plugin-build number here is inflated too.",
+            "",
+            "Zone RATIOS remain usable — the instrumentation is uniform across systems.",
+            "Absolute per-frame costs are not. For an honest frame time, re-run:",
+            "",
+            "```bash",
+            "scripts/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
+            "```",
+            "",
+            "which drops `--features profile` (and with it the per-system zones), and",
+            "compare its frame census against this one to size the gap.",
+            "",
+        ]
+    return lines
+
+
 def section(lines: list[str], title: str) -> None:
     lines += [f"## {title}", ""]
 
@@ -661,67 +761,13 @@ def build_summary(bundle: Bundle) -> str:
             for label, percent in sorted(tally.items(), key=lambda item: -item[1]):
                 lines.append(f"{percent:6.1f}%  {label}")
             lines += ["```", ""]
-            # ⛔⛔ A CAPTURE THAT IS MOSTLY A COMPILE MUST SAY SO, LOUDLY, HERE.
-            # Three bundles on 2026-08-31 were 92%, 70% and 51% build tooling and
-            # every one of them printed "low enough that the measurements below
-            # stand on their own" — because that sentence only ever looked at
-            # Tracy. The threshold is the game's own share: a build that out-costs
-            # the game has diluted every percentage in the native profile.
-            if build_share > game_share:
-                lines += [
-                    f"⚠⚠ **{build_share:.0f}% of the sampled cycles are a COMPILE, more than",
-                    f"the game's own {game_share:.0f}%.** A build ran inside this capture.",
-                    "",
-                    "**The native symbol ranking and the DSO split below are diluted by it and",
-                    "must not be quoted.** Everything keyed to game time — `frame_times.csv`,",
-                    "`frame_spikes.csv`, `runtime_census.csv`, the image censuses — comes from",
-                    "the game's own stderr and is unaffected.",
-                    "",
-                    "Check `warm-build.status` and the gap between `wall_s` and `game_s` in",
-                    "`frame_spikes.csv`: a first frame tens of seconds into the capture is the",
-                    "build. If the warm build ran and the launch rebuilt anyway, the two are",
-                    "asking cargo for different fingerprints — see the `build_env` rows in",
-                    "`run_game.sh --print-plan`.",
-                    "",
-                ]
-        if profiler_share >= 25.0:
-            lines += [
-                f"⚠ **The profiler cost {profiler_share:.0f}% of sampled cycles"
-                + (", more than the game itself." if profiler_share >= game_share else ".")
-                + "**",
-                "Tracy's symbol-resolution and compression threads",
-                "compete with the game for the same cores, so **every frame time, zone",
-                "duration, and plugin-build number in this bundle is inflated**, and the",
-                "native symbol table below is largely Tracy's own code.",
-                "",
-                "Zone RATIOS remain usable — the instrumentation is uniform across systems.",
-                "Absolute per-frame costs are not. For an honest frame time, re-run:",
-                "",
-                "```bash",
-                "scripts/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
-                "```",
-                "",
-                "which drops `--features profile` (and with it the per-system zones), and",
-                "compare its frame census against this one to size the gap.",
-                "",
-            ]
-        elif profiler_share:
-            lines += [
-                f"The profiler cost {profiler_share:.0f}% of sampled cycles. Low enough that the",
-                "measurements below stand on their own.",
-                "",
-            ]
-        else:
-            lines += [
-                "No profiler threads were sampled, so nothing but `perf` itself was",
-                "observing the game and the frame times in this bundle are the honest ones.",
-                "⚠ A large `build tooling` share is NOT just `cargo` resolving a warm",
-                "build: it means a real compile ran inside the capture, competing for every",
-                "core. See `warm-build.status` and the gap between `wall_s` and `game_s` in",
-                "`frame_spikes.csv` — if the first frame is tens of seconds in, the native",
-                "symbol ranking below is diluted and should not be quoted.",
-                "",
-            ]
+            lines += native_profile_trust_lines(
+                native_profile_trust(build_share, game_share, profiler_share),
+                build_share,
+                game_share,
+                profiler_share,
+                headless,
+            )
     elif bundle.exists("tracy.trace"):
         lines += [
             "UNKNOWN — no per-thread `perf` report, so the profiler's own cost could not",

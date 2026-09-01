@@ -134,6 +134,22 @@ inherits = "release"
 debug = 1
 strip = "none"
 split-debuginfo = "off"
+# ⚠ THIS PROFILE HAS NO FRAME POINTERS, so `perf --call-graph fp` returns EMPTY
+# stacks and every "who called that" question needs `--call-graph dwarf` — which
+# records fine and then takes longer than ten minutes to REPORT on a 3.8 MB
+# capture. That cost was paid three times on 2026-09-01 chasing the caller of a
+# symbol worth 10.7% of the process.
+#
+# ⛔⛔ AND `force-frame-pointers` IS NOT A CARGO PROFILE KEY. Setting it here is
+# accepted silently as `unused manifest key: profile.profiling.force-frame-pointers`
+# and changes NOTHING — it was tried, it built in 35s because no fingerprint
+# moved, and the `fp` stacks were still empty. It needs `RUSTFLAGS=-C
+# force-frame-pointers=yes`, which re-fingerprints the entire dependency graph.
+#
+# ⇒ NOT DONE, deliberately, and the reason is that it would not have answered the
+# question that prompted it: the unresolved caller was above `getenv`, inside
+# precompiled `std` and glibc, which have no frame pointers whatever this crate
+# is built with. A `-Z build-std` toolchain is the actual price of that answer.
 # Deps keep line tables only. Symbol NAMES live in `.symtab`, which `strip =
 # "none"` preserves either way; full DWARF for bevy + wgpu would add tens of
 # gigabytes to the target directory and buys nothing perf can use.

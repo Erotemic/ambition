@@ -72,10 +72,13 @@ And `kept` **saturates** — 5.00, 5.88, 11.61, 14.63, 14.41 at n = 8, 17, 33, 6
 | **crowd aggregation** | Same regime, same argument. It is what keeps `kept` bounded once a region actually crowds. |
 | spatial index | Worth **8%**. Removes the scan, not the construction. Not the first thing to build. |
 
-⭐ **AND A BUDGET CAPS A TERM THAT GROWS FASTER THAN THE BUDGET.** Decomposed at
-both extents: the peer-dependent construction grows **×18** while `kept` grows
-×7.85 — **slope 1.40**, with per-build cost rising 10.4 µs → 23.9 µs. Total
-`Decide` reads slope 1.13 only because flat terms dilute it at low `kept`.
+⚠ **CORRECTED 2026-09-01: the slope-1.40 term was `WorldMemory`, not
+construction.** Its quadratic membership test sat inside the same probe bucket as
+the builds. Fixed, the density curve is now **slope 1.03 in `kept`** — linear —
+and `Decide` at `kept`=113 fell 2.66 → 1.99 ms/tick.
+
+⇒ A budget still caps the cost; it caps a **linear** term rather than a
+superlinear one. The 10x remains: `kept` 14 → 113 is 0.24 → 1.99 ms/tick.
 
 ⭐ **AND CROWDING IS CONSTRUCTION, NOT COGNITION.** The peer-independent brain
 term grows ×1.7 across the same range and is **4%** of the phase at 4x extent.

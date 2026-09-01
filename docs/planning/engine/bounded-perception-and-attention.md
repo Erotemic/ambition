@@ -38,6 +38,34 @@ cognition expensive too, but today none of the cost is thinking.
 cheap and leaves the architecture unchanged for the case we actually want: a room
 of genuinely tactical fighters.
 
+## ⭐ MEASURED 2026-09-01: the three pieces are not equally urgent
+
+Each hall actor is **offered 129 peers and keeps 14.4**, and that number does not
+move when the cast goes from 65 to 130 (`kept_frac` 0.225 → 0.112; no body in the
+hall is `Omniscient`, so the viewport filter is live for all of them).
+
+```text
+kept per actor   ~14.4   CONSTANT in population   the work is already O(n)
+offered          n - 1    GROWS                    the scan is O(n²)
+```
+
+**The view is already bounded. The scan is not** — 89% of every actor's scan at
+130 bodies is discarded. So:
+
+| piece | verdict today |
+|---|---|
+| **spatial index** | **THE WHOLE WIN.** Take the scan from 129 to nearby-cell occupants; output unchanged at ~14. |
+| attention budget (top-K) | The viewport already delivers ~14, which is the K this doc was going to impose. Nothing to win in the hall yet. |
+| crowd aggregation | Earns nothing until `kept` itself grows — i.e. real crowding, not the hall. |
+
+⇒ **Build the index first.** The other two are correct and stay in this document;
+they are what makes the design survive density, and the tell that their time has
+come is `kept_frac` climbing back toward 1.0.
+
+⚠ This also confirms the doc's central claim from the other side: population
+doubled and `kept` did not move. What sets the work is how many bodies share a
+viewport, and the hall's answer is fourteen.
+
 ## The three resolutions
 
 Each fighter perceives at three fidelities, each with a **semantic budget**:
@@ -107,6 +135,16 @@ target         build index once:            130
 ⚠ **A grid alone does not solve the mob case.** If 100 actors share adjacent
 cells, "query nearby cells" is 100 actors again. Local perception needs its own
 budget: salience-select the top K exact, aggregate the remainder.
+
+## The overflow rule is what a grid alone cannot give
+
+⚠ Restating, because the measurement above makes it concrete: the index removes
+the scan **while the cast is spread out**. Put 100 actors in adjacent cells and
+"query nearby cells" is 100 actors again, `kept` rises with population, and the
+O(n²) term returns wearing a different name. The salience budget plus an
+aggregate remainder is what stops that, and it is not optional — it is the second
+half of the same fix, deferred only because the hall is not yet dense enough to
+need it.
 
 ## This subsumes targeting
 

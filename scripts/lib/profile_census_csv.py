@@ -90,6 +90,9 @@ CSV_NAMES = {
     "portal": "portal_activity.csv",
     "assets": "asset_activity.csv",
     "phases": "schedule_phases.csv",
+    # The same split on a CPU clock. `wall - cpu` per phase is the stall; a
+    # phase whose wall far exceeds its CPU was WAITING, not working.
+    "phases_cpu": "schedule_phases_cpu.csv",
     "config": "census_config.csv",
 }
 

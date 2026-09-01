@@ -261,6 +261,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_time",
  "bevy",
+ "libc",
  "ron 0.11.0",
  "serde",
 ]

@@ -810,6 +810,34 @@ def build_summary(bundle: Bundle) -> str:
             for label, value in sorted(per_frame.items(), key=lambda item: -item[1]):
                 share = (value / budget * 100.0) if budget > 0 else 0.0
                 lines.append(f"{value:8.2f} ms  {share:5.1f}%  {label}")
+            # ⭐ THE CPU CLOCK ANSWERS WHAT THE WALL CLOCK CANNOT. If a phase's
+            # wall time far exceeds the CPU burned inside it, the frame was
+            # WAITING there — which is the whole question a rendering capture
+            # raises and the wall split cannot settle.
+            cpu_rows = bundle.rows("schedule_phases_cpu.csv")
+            if cpu_rows:
+                cpu_totals = {label: 0.0 for label in labels}
+                cpu_frames = 0.0
+                for row in cpu_rows:
+                    weight = number(row, "frames")
+                    cpu_frames += weight
+                    for label in labels:
+                        cpu_totals[label] += number(row, label) * weight
+                if cpu_frames > 0:
+                    lines += [
+                        "```",
+                        "",
+                        "Wall against CPU, per phase. `stall` is wall minus CPU — "
+                        "time the frame spent in that phase with nothing running:",
+                        "",
+                        "```text",
+                        "    wall      cpu    stall   phase",
+                    ]
+                    for label, wall in sorted(per_frame.items(), key=lambda kv: -kv[1]):
+                        cpu = cpu_totals[label] / cpu_frames
+                        lines.append(
+                            f"{wall:8.2f} {cpu:8.2f} {wall - cpu:8.2f}   {label}"
+                        )
             if render_blocked:
                 lines += [
                     "```",

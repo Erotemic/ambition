@@ -1,5 +1,36 @@
 # Performance and iteration — current measured model
 
+## WHERE THIS STANDS — 2026-09-01, end of the perception campaign
+
+**Closed.** The many-actor decision campaign. `Decide` at 130 bodies went
+0.328 → 0.023 ms/tick (−93%) when ADR 0034 increment 1 landed; the hall frame
+went 1.94 → 1.56 ms in one ledger group. The sim profile is now FLAT — nothing
+above 3.3%, ~10% spread over nine collision symbols — which is the real reason
+to stop, more than any single number.
+
+**Open, needs one capture from Jon.** A windowed run with `FramePaceCap::Off`.
+Prediction on record: it will NOT materially change the frame, because the
+limiter was already sleeping only ~4 us/frame. If it does, that reasoning is
+wrong.
+
+**Open, needs a decision from Jon.** Whether to author a DENSE melee room.
+Bounded attention cannot be validated without one: `Perception::Sighted`'s
+viewport already caps kept peers at ~14 (max 21) and holds there when the room
+doubles, so the written acceptance criterion passes on current code. See
+`bounded-perception-and-attention.md`.
+
+**Next by measurement**, once the uncapped capture exists: the steady-state
+main-thread ranking is `run_ggrs_schedules` 320 ms/s, `render_system` 136,
+`camera_schedule` 76. The simulation is the largest main-thread consumer in the
+SHIPPED host — which simulates in `GgrsSchedule` inside `PreUpdate`, NOT in
+`RunFixedMainLoop`, and not in the same schedule as the headless sandbox.
+
+⚠ **Read every number here against its host and its phase.** Two hosts
+(`--start-room` picks the sandbox, no rollback), two clocks (wall absorbs GPU
+blocking, `phases_cpu` does not), and Tracy session totals are bimodal across
+load — each of those produced a published-then-withdrawn conclusion today.
+
+
 **State:** OPEN, but narrow. Optimize measured user-visible or developer costs;
 do not maintain a speculative micro-optimization backlog.
 

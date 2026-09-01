@@ -231,17 +231,43 @@ the current fighter/body/room populations" — **happened**. `hall_of_characters
 is a player-accessible room with 130 authored actors and it is a deliberate
 stress workload. The curve above is the re-measurement this row asked for.
 
+**Closed 2026-09-01.** Two changes, both "stop paying a general-purpose price
+for a special case":
+
+```text
+metric        slope before  slope after   @130 before   @130 after   cut
+Decide             1.64         1.50         0.4123       0.2247     46%
+Integrate          1.32         1.12         0.6365       0.2863     55%
+frame p50          0.51         0.54         3.0700       1.9400     37%
+```
+
+- **Borrow the peer snapshot** rather than clone the room per actor per tick.
+- **Sweep axis-aligned boxes with the closed form**, not parry's generic GJK —
+  which was 10.7% of the whole process, the largest single cost in the profile.
+
+`Integrate`'s superlinearity was never a missing broadphase; it was a per-sweep
+constant large enough to look like one. The simulation profile is now flat,
+nothing above 2.4%.
+
 Open, in priority order:
 
-1. **Bounded perception** (`bounded-perception-and-attention.md`). The remaining
-   per-actor construction is superlinear and no local change touches it.
-2. **`WorldPrep.Integrate` at slope 1.32**, now the largest sim phase at 130
-   bodies. One attribution pass, not a campaign — and *not* an argument for a
-   physics engine until something names the term.
-3. **Windowed `Update` (2.59 ms) and `PostUpdate` (1.71 ms) are unattributed.**
-   The sim is only ~25% of a windowed hall frame, and the capture that showed it
-   is 88.5% CPU in the game binary — so presentation, not the GPU, owns the rest.
-   This needs a host with a display; it cannot be measured headless.
+1. **Windowed `Update` (2.59 ms) and `PostUpdate` (1.71 ms) are unattributed** —
+   now the largest open question by a wide margin. The sim is only ~25% of a
+   windowed hall frame, and the capture that showed it is 88.5% CPU in the game
+   binary, so presentation rather than the GPU owns the rest. Needs a host with
+   a display; it cannot be measured headless.
+2. **Bounded perception** (`bounded-perception-and-attention.md`) — re-read its
+   measured section first. Bounding the COUNT of perceived actors is worth ~8%;
+   `kept` already saturates at ~14 and the cost is per-item construction. The
+   design is right for density; it is not the next millisecond.
+3. **`getenv` at 1.36% of the process**, unexplained. No frame pointers in the
+   profiling build, so the call graph does not resolve. Cheap if someone can
+   name the caller.
+
+⛔ Do NOT reopen: the O(n²) body-contact pairing (dormant, `contact_empty=true`),
+`select_actor_targets` (measured slope 1.03), or `Arc<str>` actor identity
+(measured 0.04 ms). All three were named by review, all three measured
+negligible.
 
 ⛔ **Keep the hall cast awake.** Making distant actors dormant is a legitimate
 game policy and it is not this row: applied to the benchmark it deletes the

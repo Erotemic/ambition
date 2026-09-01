@@ -761,7 +761,34 @@ which installs no rollback host at all, so there the sim really is in the phases
 was reading. The two hosts simulate in different schedules, which is the same trap
 recorded above under `--start-room` selecting a different program.
 
-### Rendering is about half
+### Rendering is about half, and here is where it goes
+
+```text
+sub app{RenderApp}                              35.82
+  schedule{Render}                              35.38
+    system{render_system}                       11.77
+      RenderGraph                               10.73
+    system{camera_driver}                        7.06
+    system{prepare_assets<sprite>}               1.77
+    system{prepare_assets<texture>}              1.74
+sub app{RenderExtractApp}                       16.06
+  schedule{ExtractSchedule}                     12.25
+    system{extract_render_asset<GpuImage>}       7.67
+camera_schedule, all four cameras                6.75
+```
+
+⚠ **`extract_render_asset<GpuImage>` IS 7.67% OF A STEADY-STATE FRAME.** The
+asset campaign has only ever measured it as a LOAD HITCH (~455 ms spikes). It is
+also a per-frame cost, every frame, in a scene that is not loading anything.
+
+⚠ **THREE CAMERAS RUN EVERY FRAME** (1,784 invocations each) though the camera
+census reports one WORLD camera. Cameras 0, 7 and 9 cost 478 + 274 + 336 µs a
+frame between them; camera 8 is intermittent (185 invocations) but expensive when
+it runs (1,082 µs). 6.75% of the frame across four cameras in a 2D game with one
+world view is worth a question, though not yet a defect: a HUD and a UI camera
+are legitimate, and nothing here says they are not.
+
+
 
 `sub app{RenderApp}` 35.8% + `sub app{RenderExtractApp}` 16.1%, with
 `extract_render_asset` at 7.67% — the asset-materialization campaign, visible in

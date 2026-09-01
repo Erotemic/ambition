@@ -266,8 +266,16 @@ Open, in priority order:
    rasteriser, so the render share is an upper bound.
 
    Two separate campaigns fall out, and they were being conflated:
-   - **the marginal ~2.4 ms** caps POPULATION, is 66% simulation, and is the
-     half already cut in half today. A profile still finds structure here.
+   - **the marginal ~2.4 ms** caps POPULATION and is the half already cut in
+     half today.
+
+     ⚠ **Its simulation share is NOT settled.** The phase census says 66%;
+     `perf`, on the same two runs, says the game's own code is 34% and rendering
+     44%. The `perf` number is the better one — the census attributes wall time
+     between markers, so a software rasteriser's CPU work lands inside
+     `PreUpdate` and reads as simulation. On real hardware the rendering share
+     largely disappears and the game's share rises, but that is an inference
+     from a bound, not a measurement, and it needs a display.
    - **the fixed ~6.9 ms** caps the baseline frame rate — and **has no hot
      spot.** Measured: 55.5% of that run is this host's software rasteriser,
      and inside the game's own code it takes **197 symbols to reach half**, with
@@ -291,6 +299,13 @@ Open, in priority order:
    in `Cargo.toml`), and adding them via `RUSTFLAGS` would not help: the
    unresolved caller sits above `getenv` inside precompiled `std` and glibc,
    which have none regardless. `-Z build-std` is the actual price.
+
+⭐ **AND BOTH HALVES ARE NOW DIFFUSE.** After the two fixes above, the top game
+symbol at 130 actors is the allocator at 1.21% and nothing else clears 0.4%.
+There is no third structural win visible to `perf` on this workload. Further
+simulation progress needs either a per-system profiler — which Bevy 0.19 does not
+have — or a composition change: fewer systems, fewer entities, less per frame.
+Treat that as a reason to stop measuring this workload, not to measure it harder.
 
 ⛔ Do NOT reopen: the O(n²) body-contact pairing (dormant, `contact_empty=true`),
 `select_actor_targets` (measured slope 1.03), or `Arc<str>` actor identity

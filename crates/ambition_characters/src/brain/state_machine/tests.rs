@@ -917,3 +917,89 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
     );
     assert!(saw_recover, "it must peel off and Recover after the dive");
 }
+
+// ── ADR 0034 increment 1: what each brain needs supplied ─────────────────────
+
+mod perception_requirement_tests {
+    use super::*;
+    use crate::perception::PerceptionRequirement as Need;
+
+    /// ⛔⛔ **THE CLASSIFICATION MUST NOT BE READ OFF THE TICK SIGNATURE.**
+    /// `MeleeBrute` never sees a `WorldView` and never names `target_pos`, so a
+    /// signature-based rule files it under `None` — and every brute in the game
+    /// stops being told where its foe is. It steers through
+    /// `to_character_ai_snapshot`, whose `player_pos` IS the target delta.
+    #[test]
+    fn a_melee_brute_needs_the_belief_even_though_it_never_sees_a_world_view() {
+        let brute = StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        };
+        assert_eq!(brute.perception_requirement(), Need::TargetBelief);
+        assert!(!brute.perception_requirement().needs_world_view());
+        assert!(brute.perception_requirement().needs_target_belief());
+    }
+
+    /// The case increment 1 exists for, and the evidence is the signature:
+    /// `tick_stand_still(out)` takes no snapshot at all.
+    #[test]
+    fn stand_still_needs_nothing() {
+        let idle = StateMachineCfg::StandStill;
+        assert_eq!(idle.perception_requirement(), Need::None);
+        assert!(!idle.perception_requirement().needs_world_view());
+        assert!(!idle.perception_requirement().needs_target_belief());
+    }
+
+    #[test]
+    fn a_wanderer_steers_by_walls_and_needs_nothing_either() {
+        let wanderer = StateMachineCfg::Wanderer {
+            cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+        };
+        assert_eq!(wanderer.perception_requirement(), Need::None);
+    }
+
+    #[test]
+    fn a_patrol_needs_the_belief() {
+        let patrol = StateMachineCfg::Patrol {
+            cfg: PatrolCfg::NPC_DEFAULT,
+            state: PatrolState::default(),
+        };
+        assert_eq!(patrol.perception_requirement(), Need::TargetBelief);
+    }
+
+    /// ⛔ PREMISE GUARD. Classifying everything as `None` would satisfy any test
+    /// that only checks the cheap arms, and would delete the belief store for
+    /// the whole cast. At least one arm must still demand the full view.
+    #[test]
+    fn the_two_arms_that_take_a_world_view_demand_the_whole_thing() {
+        let smash = StateMachineCfg::Smash {
+            cfg: SmashCfg::STRIKER_DEFAULT,
+            state: SmashState::default(),
+        };
+        assert_eq!(smash.perception_requirement(), Need::TacticalWorld);
+        assert!(smash.perception_requirement().needs_world_view());
+        // ⭐ AND IT STILL NEEDS THE BELIEF: a fighter that loses sight of a foe
+        // pursues from the same memory a skirmisher does.
+        assert!(smash.perception_requirement().needs_target_belief());
+    }
+
+    /// ⛔ THE OTHER PREMISE GUARD. If every arm demanded `TacticalWorld` the
+    /// declaration would buy nothing at all.
+    #[test]
+    fn the_three_levels_are_all_actually_used() {
+        let levels = [
+            StateMachineCfg::StandStill.perception_requirement(),
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            }
+            .perception_requirement(),
+            StateMachineCfg::Smash {
+                cfg: SmashCfg::STRIKER_DEFAULT,
+                state: SmashState::default(),
+            }
+            .perception_requirement(),
+        ];
+        assert_eq!(levels, [Need::None, Need::TargetBelief, Need::TacticalWorld]);
+    }
+}

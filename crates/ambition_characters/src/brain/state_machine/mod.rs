@@ -119,6 +119,50 @@ impl StateMachineCfg {
     }
 }
 
+impl StateMachineCfg {
+    /// What perception this brain needs supplied (ADR 0034, increment 1).
+    ///
+    /// ⛔⛔ EXHAUSTIVE, AND THE ARMS ARE EVIDENCE, NOT TASTE. Each classification
+    /// below is what that arm actually READS, established by grepping the
+    /// capability — `target_pos`, `target_alive`, `target_delta_local`,
+    /// `to_character_ai_snapshot` — rather than the tick function's signature.
+    /// Classifying by signature would have put `MeleeBrute` in `None`: it never
+    /// sees a `WorldView` and never names `target_pos`, and it steers entirely
+    /// by the belief, through `to_character_ai_snapshot`'s
+    /// `player_pos: self.target_delta_local()`.
+    ///
+    /// A new variant is a compile error here rather than a body that silently
+    /// stops being told where its foe is.
+    pub fn perception_requirement(&self) -> crate::perception::PerceptionRequirement {
+        use crate::perception::PerceptionRequirement as Need;
+        match self {
+            // `tick_stand_still(out)` takes no snapshot AT ALL — the strongest
+            // evidence available, and the case increment 1 exists for.
+            Self::StandStill => Need::None,
+            // Steers by wall contact and its own facing; names no target.
+            Self::Wanderer { .. } => Need::None,
+            // A scripted demo puppet: its own clock, no foe.
+            Self::PlayerDemo { .. } => Need::None,
+
+            // Reads the belief directly (`target_pos` / `target_alive`).
+            Self::Patrol { .. }
+            | Self::Skirmisher { .. }
+            | Self::Sniper { .. }
+            | Self::ChargeCrash { .. }
+            | Self::Aerial { .. } => Need::TargetBelief,
+            // Reads it through `to_character_ai_snapshot`.
+            Self::MeleeBrute { .. } => Need::TargetBelief,
+            // `tick.rs` copies `target_pos` into the boss pattern's own snapshot.
+            // A boss is omniscient by POLICY, which is a question about what
+            // fills the belief, not about whether it needs one.
+            Self::BossPattern { .. } => Need::TargetBelief,
+
+            // The only two arms that take a `&WorldView`.
+            Self::Smash { .. } | Self::Fighter { .. } => Need::TacticalWorld,
+        }
+    }
+}
+
 pub fn tick_simple_state_machine(
     sm: &mut StateMachineCfg,
     snapshot: &BrainSnapshot,

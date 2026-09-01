@@ -388,6 +388,47 @@ impl SelfView {
     }
 }
 
+/// How much perception a brain needs supplied to it (ADR 0034, increment 1).
+///
+/// ⭐ **A DECLARATION, NOT AN INFERENCE.** The engine builds a `WorldView` for
+/// every perceiving body and maintains its belief store, unconditionally; at
+/// `hall_of_characters` that is ~88% of the decision phase, spent on 129 bodies
+/// whose brain cannot read a view. This vocabulary is what lets a brain say so.
+///
+/// ⛔⛔ **`None` IS NOT "DOES NOT TAKE `&WorldView`".** Most simple arms never see
+/// a `WorldView` and still steer by `snapshot.target_pos` / `target_alive`,
+/// which `believed_target` fills from the belief store. Classifying by the tick
+/// function's SIGNATURE would put `MeleeBrute` in `None` and break every brute
+/// in the game — it reads the target through `to_character_ai_snapshot`, which
+/// maps `player_pos: self.target_delta_local()`. The mapping is by what an arm
+/// READS, and it is checked by an exhaustive match plus a test per variant.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum PerceptionRequirement {
+    /// Nothing. No view built, no belief maintained, memory stays empty.
+    #[default]
+    None,
+    /// One target belief — enough to acquire, hold and lose a foe.
+    TargetBelief,
+    /// Today's complete view. How THAT stays bounded is a separate question and
+    /// a separate campaign; see `bounded-perception-and-attention.md`.
+    TacticalWorld,
+}
+
+impl PerceptionRequirement {
+    /// Whether a `WorldView` has to be constructed at all.
+    pub fn needs_world_view(self) -> bool {
+        matches!(self, Self::TacticalWorld)
+    }
+
+    /// Whether the belief store has to be maintained this tick.
+    ///
+    /// ⛔ `TacticalWorld` needs it too: a fighter that loses sight of a foe
+    /// pursues from the same memory a skirmisher does.
+    pub fn needs_target_belief(self) -> bool {
+        matches!(self, Self::TargetBelief | Self::TacticalWorld)
+    }
+}
+
 /// Everything a body perceives this tick — the headless, controller-neutral
 /// world-out value (invariant I5). Built per body, any faction.
 #[derive(Clone, Debug, Default)]

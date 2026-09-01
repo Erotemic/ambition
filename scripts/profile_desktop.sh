@@ -858,6 +858,14 @@ write_metadata() {
         # old derivation for every bundle taken before this line existed.
         echo "workload=$workload"
         echo "scenario_id=$scenario_id"
+        # ⛔⛔ WHAT RAN, NOT WHAT THE INSTRUMENT SAW. These knobs change the
+        # workload, so they are its identity; deriving them from the census row
+        # meant `--no-census` silently returned a capped or re-brained run to
+        # the ordinary comparability group. An experiment's identity must not
+        # depend on the instrument used to measure it.
+        echo "actor_population_cap=${AMBITION_ACTOR_POPULATION_CAP:-}"
+        echo "actor_brain_override=${AMBITION_ACTOR_BRAIN_OVERRIDE:-}"
+        echo "actor_brain_profile=${AMBITION_ACTOR_BRAIN_PROFILE:-}"
         echo "smash_fighters=$smash_fighters"
         echo "smash_seconds=$smash_seconds"
         echo "tracy_requested=$want_tracy"

@@ -90,3 +90,64 @@ def test_the_label_names_the_knob_when_set_and_is_unchanged_when_not():
     assert "/cast:cap16" in label(record(actor_cap="16"))
     assert "/cast:cap16+fighter" in label(record(actor_cap="16", brain_override="fighter"))
     assert "/cast:fighter" in label(record(brain_override="fighter"))
+
+
+# ── where the knobs are READ from ────────────────────────────────────────────
+#
+# ⛔⛔ **THE FIELDS ABOVE WERE DERIVED FROM THE CENSUS, AND THE PROFILER HAS A
+# `--no-census` FLAG.** So this was reachable:
+#
+#     AMBITION_ACTOR_POPULATION_CAP=16 scripts/profile_desktop.sh --no-census ...
+#
+# No `census_sim_phases.csv` exists, every knob reads `None`, and the modified
+# workload hashes straight back into the ordinary uncapped group — exactly the
+# history error these fields were added to prevent. An experiment's identity must
+# not depend on the instrument used to measure it.
+
+import tempfile  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+def bundle_with(census_row: dict | None):
+    """A bundle directory that either has a sim-phase census or does not."""
+    tmp = tempfile.mkdtemp()
+    if census_row is not None:
+        cols = ["wall_s", "t", "ticks", *census_row.keys()]
+        vals = ["1.0", "0.5", "100", *census_row.values()]
+        _Path(tmp, "census_sim_phases.csv").write_text(
+            ",".join(cols) + "\n" + ",".join(str(v) for v in vals) + "\n"
+        )
+    return hist.Bundle(tmp)
+
+
+def test_a_no_census_capture_still_carries_the_knobs():
+    facts = hist.workload_facts(
+        bundle_with(None),
+        {"actor_population_cap": "16", "actor_brain_override": "ambition::melee_brute_striker"},
+    )
+    assert facts["actor_cap"] == "16", (
+        "--no-census must not return a capped run to the uncapped group"
+    )
+    assert facts["brain_override"] == "ambition::melee_brute_striker"
+
+
+def test_a_bundle_older_than_the_metadata_falls_back_to_the_census_row():
+    """Premise guard: the census road must keep working for existing bundles."""
+    facts = hist.workload_facts(bundle_with({"actor_cap": "64"}), {})
+    assert facts["actor_cap"] == "64"
+
+
+def test_an_ordinary_capture_records_no_knobs_at_all():
+    """Premise guard: absent must stay absent, or every row re-keys."""
+    facts = hist.workload_facts(bundle_with(None), {})
+    assert facts == {"actor_cap": None, "brain_override": None, "brain_profile": None}
+
+
+def test_a_launcher_census_disagreement_refuses_to_ingest():
+    """The configured process is not the process that ran. That is not a preference."""
+    with pytest.raises(ValueError, match="does not describe the run"):
+        hist.workload_facts(
+            bundle_with({"actor_cap": "64"}), {"actor_population_cap": "16"}
+        )

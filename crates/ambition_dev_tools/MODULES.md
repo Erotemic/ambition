@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`brain_override`](src/brain_override.rs) | A measurement knob: replace the brain every authored actor spawns with. |
 | [`dev_tools`](src/dev_tools/mod.rs) | Developer-facing tuning and inspection tools. |
 | [`hot_reload`](src/hot_reload.rs) | A debounced mtime watch over the authored world file, and the transactional reload it offers the developer controls. |
 | [`persistence`](src/persistence.rs) | Disk persistence for the [`DeveloperTools`] resource (developer.ron). |
@@ -14,7 +15,7 @@
 | [`runtime_census`](src/runtime_census.rs) | Profiling-only workload census: what Ambition asked the engine to do. |
 | [`sim_plugin`](src/sim_plugin.rs) | `DevToolsSimPlugin` — the dev-tools DOMAIN plugin for the simulation App. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

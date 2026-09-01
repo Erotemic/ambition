@@ -644,7 +644,7 @@ def profiler_share(bundle: Bundle) -> float | None:
     return round(share, 1) if seen else None
 
 
-def workload_facts(bundle: Bundle) -> dict:
+def workload_facts(bundle: Bundle, meta: dict) -> dict:
     """The measurement knobs that change WHAT RAN, read off the sim-phase row.
 
     Both are absent on an ordinary capture and read `None`, which is what every
@@ -656,13 +656,40 @@ def workload_facts(bundle: Bundle) -> dict:
     reached prose and never reached the key the ledger GROUPS on, which is the
     one place the mistake is made silently.
     """
+    def clean(value):
+        value = (value or "").strip()
+        return value or None
+
+    # The launcher's own record is authoritative: it knows what it exported.
+    declared = {
+        "actor_cap": clean(meta.get("actor_population_cap")),
+        "brain_override": clean(meta.get("actor_brain_override")),
+        "brain_profile": clean(meta.get("actor_brain_profile")),
+    }
+
+    # The census row is a CROSS-CHECK, and the fallback for every bundle taken
+    # before the launcher recorded these.
     rows = bundle.rows("census_sim_phases.csv")
     last = rows[-1] if rows else {}
-    return {
-        "actor_cap": last.get("actor_cap"),
-        "brain_override": last.get("brain_override"),
-        "brain_profile": last.get("brain_profile"),
+    observed = {
+        "actor_cap": clean(last.get("actor_cap")),
+        "brain_override": clean(last.get("brain_override")),
+        "brain_profile": clean(last.get("brain_profile")),
     }
+
+    facts = {}
+    for key, claimed in declared.items():
+        seen = observed[key]
+        # ⛔ A DISAGREEMENT IS A REAL PROBLEM, not a preference. It means the
+        # process the launcher configured is not the process that ran.
+        if claimed is not None and seen is not None and claimed != seen:
+            raise ValueError(
+                f"workload {key}: the launcher exported {claimed!r} and the game "
+                f"census recorded {seen!r}. The capture does not describe the run "
+                f"it was configured as; do not ingest it."
+            )
+        facts[key] = claimed if claimed is not None else seen
+    return facts
 
 
 def instrument_facts(bundle: Bundle, meta: dict) -> dict:
@@ -878,7 +905,7 @@ def build_record(
         "gpu": gpu_facts(bundle, meta),
         "display": display_facts(bundle, meta),
         "quality": quality_facts(bundle),
-        "workload": workload_facts(bundle),
+        "workload": workload_facts(bundle, meta),
         "instruments": instrument_facts(bundle, meta),
         "run": {
             "frames": frames,

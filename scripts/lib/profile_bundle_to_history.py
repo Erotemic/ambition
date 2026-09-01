@@ -103,6 +103,7 @@ COMPARABILITY_FIELDS = (
     # and the ledger called them the same experiment.
     "workload.actor_cap",
     "workload.brain_override",
+    "workload.brain_profile",
     "instruments.tracy",
     "instruments.perf",
     "instruments.census",
@@ -660,6 +661,7 @@ def workload_facts(bundle: Bundle) -> dict:
     return {
         "actor_cap": last.get("actor_cap"),
         "brain_override": last.get("brain_override"),
+        "brain_profile": last.get("brain_profile"),
     }
 
 
@@ -743,6 +745,8 @@ def comparable_label(fields: dict) -> str:
         knobs.append(f"cap{fields['workload.actor_cap']}")
     if fields.get("workload.brain_override"):
         knobs.append(str(fields["workload.brain_override"]))
+    if fields.get("workload.brain_profile"):
+        knobs.append(str(fields["workload.brain_profile"]))
     cast = f"/cast:{'+'.join(knobs)}" if knobs else ""
     return (
         f"{scenario}@v{version}/{fields.get('build.cargo_profile') or '?'}"

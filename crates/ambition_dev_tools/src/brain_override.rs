@@ -42,6 +42,16 @@ use std::sync::OnceLock;
 pub const BRAIN_OVERRIDE_ENV: &str = "AMBITION_ACTOR_BRAIN_OVERRIDE";
 
 static FORCED: OnceLock<Option<String>> = OnceLock::new();
+static FORCED_PROFILE: OnceLock<Option<String>> = OnceLock::new();
+
+/// Force every authored actor's autonomous PROFILE. Unset means the author decides.
+///
+/// ⭐ THE PRESET ROAD CANNOT REACH THE BRAINS THAT PERCEIVE. Every preset the
+/// catalog names lowers to an arm `tick_simple_state_machine` answers, and that
+/// function takes no `WorldView`. `Fighter` — one of the only two brains that
+/// consume one — is reachable ONLY through a character's autonomous profile, so
+/// pricing perception demand needs this knob and not [`BRAIN_OVERRIDE_ENV`].
+pub const BRAIN_PROFILE_ENV: &str = "AMBITION_ACTOR_BRAIN_PROFILE";
 
 /// The preset every authored actor is forced to, or `None` when the author decides.
 ///
@@ -51,6 +61,18 @@ pub fn forced_preset() -> Option<&'static str> {
     FORCED
         .get_or_init(|| {
             std::env::var(BRAIN_OVERRIDE_ENV)
+                .ok()
+                .map(|raw| raw.trim().to_owned())
+                .filter(|raw| !raw.is_empty())
+        })
+        .as_deref()
+}
+
+/// The autonomous profile every authored actor is forced to, or `None`.
+pub fn forced_profile() -> Option<&'static str> {
+    FORCED_PROFILE
+        .get_or_init(|| {
+            std::env::var(BRAIN_PROFILE_ENV)
                 .ok()
                 .map(|raw| raw.trim().to_owned())
                 .filter(|raw| !raw.is_empty())
@@ -73,5 +95,15 @@ mod tests {
              something else"
         );
         assert_eq!(forced_preset(), None);
+    }
+
+    #[test]
+    fn no_environment_variable_means_no_forced_profile() {
+        assert!(
+            std::env::var(BRAIN_PROFILE_ENV).is_err(),
+            "this test asserts the DEFAULT; setting the variable would test \
+             something else"
+        );
+        assert_eq!(forced_profile(), None);
     }
 }

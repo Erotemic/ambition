@@ -151,6 +151,51 @@ The **demand** side — what a room of genuinely tactical brains costs — has n
 been measured, because no such room exists. The acceptance criterion in
 `bounded-perception-and-attention.md` needs one built.
 
+## ⭐ MEASURED 2026-09-01: 88% of the hall's decision phase builds views nobody reads
+
+Three arms, same room, same build, same host; 3 interleaved reps each, medians,
+3000 ticks. The only variable is which brain all 129 authored NPCs get.
+
+```text
+phase                          statues   brutes    smash    smash Δ
+WorldPrep.Decision.Decide        0.340    0.730    0.377      +11%
+WorldPrep.Integrate              0.253    0.332    0.252        0%
+Combat                           0.115    0.232    0.117       +2%
+WorldPrep.Decision.Targeting     0.034    0.036    0.033       -3%
+WorldPrep.Decision.Observe       0.027    0.031    0.027        0%
+```
+
+- **statues** — the authored cast, all `stand_still`, answered by
+  `tick_simple_state_machine`, which takes no `WorldView`.
+- **brutes** — `ambition::melee_brute_striker`. Also takes no `WorldView`, but
+  it ACTS.
+- **smash** — the `ambition::medium_striker` autonomous profile, whose
+  `template: Smash` is one of the only two arms that CONSUME a `WorldView`.
+
+⭐ **THE THREE NUMBERS ARE THE WHOLE CAMPAIGN.**
+
+**Building the views is the cost.** The peer-independent remainder of `Decide`
+is 0.039, so ~0.30 of the statues' 0.340 — **88%** — is constructing peer lists,
+world views and memory for 129 bodies that cannot read any of it.
+
+**Reading them is nearly free.** Swapping in 129 brains that genuinely consume a
+129-actor view costs **+11%**, and moves nothing else: `Integrate` 0%, `Combat`
++2%. Those bodies do not act on what they read, so this is the read alone.
+
+**Acting is what actually costs.** The brutes read nothing at all and cost
+**+115%**, with the downstream to match — `Integrate` +31%, `Combat` +102%.
+
+⇒ Bounded perception is aimed at the right term: the 88%, which is paid whatever
+the brains do. It will not touch the +115%, and nothing in the campaign should
+claim it does. And `Targeting` — the sole quadratic — is 0.033-0.036 across all
+three arms: **a busy room does not spend its time searching.** Fourth
+independent reason not to build the spatial index.
+
+⚠ The smash arm is idle by construction, not by design: flat `Integrate` and
+`Combat` say those bodies never engaged. It prices the READ, not a fight. A room
+of 129 mutually hostile fighters would move all three numbers at once and is a
+different, harder experiment.
+
 ## ⭐ MEASURED 2026-09-01: waking the hall doubles `Decide`, and NONE of it is perception
 
 The first demand-side measurement this campaign has. Same room, same build, same

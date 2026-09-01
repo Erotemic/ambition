@@ -704,6 +704,9 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     if let Some(preset) = crate::brain_override::forced_preset() {
         row.push_str(&format!(" brain_override={preset}"));
     }
+    if let Some(profile) = crate::brain_override::forced_profile() {
+        row.push_str(&format!(" brain_profile={profile}"));
+    }
     let mut ranked: Vec<(&'static str, f64)> = phases
         .names
         .iter()

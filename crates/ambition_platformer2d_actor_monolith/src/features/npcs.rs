@@ -106,6 +106,24 @@ pub(crate) fn resolve_npc_brain(
     // exactly as an authored override does — the hall's cast is authored
     // `stand_still`, and a forced preset that lost to a profile would silently
     // measure the wrong cast. See `ambition_dev_tools::brain_override`.
+    // ⚠ THE OTHER MEASUREMENT KNOB, and it exists because the preset road cannot
+    // reach a perception-reading brain: every catalog preset lowers to an arm
+    // `tick_simple_state_machine` answers, and that takes no `WorldView`.
+    // `Fighter` is reachable only here. Unknown names panic rather than falling
+    // back, for the same reason a bad preset does.
+    if let Some(name) = ambition_dev_tools::brain_override::forced_profile() {
+        let profile = catalog.autonomous_profile(name).unwrap_or_else(|| {
+            panic!(
+                "AMBITION_ACTOR_BRAIN_PROFILE names unknown autonomous profile `{name}`"
+            )
+        });
+        let mut config = body.clone();
+        config.brain_profile = *profile;
+        return (
+            crate::features::ecs::enemy_default_brain(&config, abilities),
+            Some((BrainBinding::from_character_profile(), authored)),
+        );
+    }
     let forced = ambition_dev_tools::brain_override::forced_preset();
     if forced.is_none()
         && brain_override

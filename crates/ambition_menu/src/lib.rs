@@ -99,7 +99,12 @@ pub enum MenuControlKind {
 /// `Action` is intentionally generic so games can use their own enum instead of
 /// stringly typed callbacks. `Control::icon` is an optional asset path, relative
 /// to Bevy's asset root.
-#[derive(Clone, Debug)]
+/// `PartialEq` is a RENDERER CONTRACT, not a convenience: the kaleidoscope's
+/// `rebuild_cube_faces` compares a freshly published page against the model the
+/// live face was built from, and rebuilds only the faces whose rendered data
+/// actually differs. Value equality here is what makes that comparison mean
+/// "these two faces would draw the same thing".
+#[derive(Clone, Debug, PartialEq)]
 pub enum MenuNode<Action> {
     Panel {
         rect: MenuRect,
@@ -249,7 +254,11 @@ impl<Action> MenuNode<Action> {
 }
 
 /// Full data description for one visible page/face of the cube menu.
-#[derive(Clone, Debug)]
+///
+/// `PartialEq` carries the same renderer contract as [`MenuNode`]'s: two equal
+/// models draw the same face, so a renderer may keep a live face instead of
+/// respawning it.
+#[derive(Clone, Debug, PartialEq)]
 pub struct MenuPageModel<PageId, Action> {
     pub id: PageId,
     pub title: String,

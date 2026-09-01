@@ -1146,12 +1146,20 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 // The fix moves the highlight + detail text in place (no rebuild on a cursor-only move). These
 // tests reproduce the drop and assert the click now dispatches.
 
-/// A faithful stand-in for the lib's `rebuild_cube_faces`: despawn every `AmbitionMenuControl`
+/// A stand-in for the lib's `rebuild_cube_faces`: despawn every `AmbitionMenuControl`
 /// and respawn the actionable controls from `pages.pages`, under the SAME gate the real
 /// renderer uses — a change in the published `version` or `active` page, NEVER
 /// `pages.is_changed()`. The real renderer deliberately ignores Bevy's broad resource change
 /// tick; mirroring that gate here is what lets these tests catch a host republish that forgets
 /// the `version` bump (the "menu never updates on drill-down" break).
+///
+/// ⚠ It deliberately despawns MORE than the renderer does. Past that shared gate the
+/// real `rebuild_cube_faces` compares each published page against the
+/// `RenderedFace` the live face was built from and rebuilds only the faces whose
+/// content moved, so it can leave controls standing that this double destroys.
+/// That asymmetry is the safe direction for these tests: a press/release or focus
+/// path that survives the wholesale respawn here survives the narrower one there.
+/// The per-face narrowing has its own tests in `ambition_menu_kaleidoscope`.
 fn fake_rebuild_cube_faces(
     mut commands: Commands,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,

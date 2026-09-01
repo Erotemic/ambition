@@ -1708,6 +1708,42 @@ pub(crate) fn rotate_sfx(
 /// hover/click and the keyboard cursor share one model. `Equip`/`Use` carry the
 /// item (→ its slot); `ChangePage` is an edge arrow — left vs right is decided by
 /// whether its target is the active page's viewer-left neighbour.
+/// The half of [`focus_for_action`] that needs no settings IR — `Some` when the
+/// action maps to a focus on its own, `None` when the answer is a System ROW INDEX
+/// and only the model can supply it.
+///
+/// This exists so a caller that would otherwise build [`SystemMenuModel`] just to
+/// map a hover can find out first. `SystemMenuModel::build` walks the entire
+/// settings IR and allocates a `String` per label, description and value; the
+/// pointer observers ran it on every `Pointer<Move>` over any control, including
+/// the Items/Map/Quest faces where no System row exists to look up.
+///
+/// The match is EXHAUSTIVE on purpose: a new [`MenuPageAction`] must declare which
+/// side it is on rather than falling into the expensive one by default.
+pub(crate) fn focus_without_system_model(
+    action: MenuPageAction,
+    active_page: MenuPage,
+) -> Option<MenuFocus> {
+    match action {
+        MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
+            Some(MenuFocus::Item(item.index()))
+        }
+        MenuPageAction::ChangePage(target) => Some(if target == active_page.on_viewer_left() {
+            MenuFocus::EdgeLeft
+        } else {
+            MenuFocus::EdgeRight
+        }),
+        MenuPageAction::System(_)
+        | MenuPageAction::SystemStep(_, _)
+        | MenuPageAction::SystemOption(_)
+        | MenuPageAction::SystemAction(_)
+        | MenuPageAction::ConfirmVisualQuality
+        | MenuPageAction::CancelVisualQuality
+        | MenuPageAction::OpenSystemEntry(_)
+        | MenuPageAction::CloseSystemEntry => None,
+    }
+}
+
 pub(crate) fn focus_for_action(
     action: MenuPageAction,
     active_page: MenuPage,
@@ -1715,6 +1751,9 @@ pub(crate) fn focus_for_action(
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
 ) -> MenuFocus {
+    if let Some(focus) = focus_without_system_model(action, active_page) {
+        return focus;
+    }
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (the entry list, or an open entry's
     // screen rows + Back), so hover/click and the keyboard cursor agree on the row.
@@ -1726,13 +1765,11 @@ pub(crate) fn focus_for_action(
         MenuFocus::System(idx)
     };
     match action {
-        MenuPageAction::Equip(item) | MenuPageAction::Use(item) => MenuFocus::Item(item.index()),
-        MenuPageAction::ChangePage(target) => {
-            if target == active_page.on_viewer_left() {
-                MenuFocus::EdgeLeft
-            } else {
-                MenuFocus::EdgeRight
-            }
+        // These three returned above. Repeating their mapping here would make a
+        // second authority on the same question; the exhaustive match in
+        // `focus_without_system_model` is the one that decides.
+        MenuPageAction::Equip(_) | MenuPageAction::Use(_) | MenuPageAction::ChangePage(_) => {
+            unreachable!("focus_without_system_model already answered for {action:?}")
         }
         MenuPageAction::System(option) => system_row(SystemRow::Setting(option)),
         // Fix 2: a ◀ / ▶ step zone lands the cursor on its parent value row.
@@ -2025,7 +2062,16 @@ fn gate_kaleidoscope_menu(
     // frame (see `animate_kaleidoscope_open`). We gate the camera/visibility off the eased
     // AMOUNT (not the binary `show`) so the close-fold animation stays on-screen
     // until the cube has fully folded shut.
-    open_state.target = if show { 1.0 } else { 0.0 };
+    //
+    // Compared before writing, like the camera and ring writes below. This system
+    // runs every frame with no run condition (it has to — it detects the open
+    // EDGE), so an unconditional `ResMut` write would mark `KaleidoscopeOpenState`
+    // changed on every frame of the game's life, for a value that moves twice per
+    // menu visit.
+    let target = if show { 1.0 } else { 0.0 };
+    if open_state.target != target {
+        open_state.target = target;
+    }
     // Hide the camera/ring once the close-fold has decayed past a sizable cutoff
     // (not a near-zero `0.002`) so the slow fold/scrim TAIL is cut and the menu
     // clears snappily. Combined with the lib's faster close decay

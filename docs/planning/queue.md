@@ -499,6 +499,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   constant. Do not substitute lavapipe/software rendering. Owner:
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
+- ▢ **D-CUBE-CHURN — the kaleidoscope rebuilds change-detection state it only
+  reads.** `cache_system_menu` runs every visible frame on every face and builds
+  `DevSnapshot` (a `String` per toggle, and there are 21) plus `RadioSnapshot` (a
+  `String` per station); `republish_kaleidoscope_pages` then CLONES both into a
+  fresh `RebuildKey`, compares it, and usually drops it — order of 40+ String
+  allocations per open frame purely to answer "did anything change?". Separately
+  `kaleidoscope_sync_focus_visuals` calls `focus_for_action` per control per
+  frame, allocating a `Vec<SystemRow>` per System control while
+  `CachedSystemMenu.rows` already holds that exact list. ⚠ Verified in source at
+  the line, magnitude NOT measured — take a count, not a timing (HD 630 at
+  ~45-60 ms/frame buries it). Fix must stay a VALUE comparison: change ticks here
+  are the historical rebuild-every-frame cliff. Read the map first, including
+  what is already FALSIFIED (Lunex is `Changed<>`-filtered; the `UserSettings`
+  clone is a memcpy; `Msaa::Off` recovers nothing):
+  [`../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md).
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or

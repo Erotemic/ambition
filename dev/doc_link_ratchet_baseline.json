@@ -6,7 +6,7 @@
     "ambition_combat": 16,
     "ambition_conversation": 1,
     "ambition_items": 2,
-    "ambition_menu": 1,
+    "ambition_menu": 0,
     "ambition_platformer2d_actor_monolith": 63,
     "ambition_platformer2d_core": 34
   }

@@ -662,6 +662,55 @@ Both fixed.
 then a windowed run. It will carry `phases_cpu`, and Tracy's zones will name the
 systems. Until then, "7.3 ms of rendering" is a total, not an attribution.
 
+## ⭐ MEASURED 2026-09-01, REAL HARDWARE: the frame is CPU-BOUND, not GPU-bound
+
+Two windowed captures on the RTX 3090 carrying the new `[census] phases_cpu`
+row. `CLOCK_PROCESS_CPUTIME_ID` sums every thread, so `cpu/wall` is roughly how
+many cores a phase kept busy — a stall reads near ZERO, not negative.
+
+```text
+phase                wall      cpu   cpu/wall
+PreUpdate           2.676    6.550     2.45
+Update              2.664    3.621     1.36
+PostUpdate          1.636    2.251     1.38
+outside             0.574    1.657     2.89   <- present/vsync WAIT
+RunFixedMainLoop    0.493    1.287     2.61   <- the whole simulation
+TOTAL               8.589   16.303     1.90
+```
+
+⭐ **`outside` IS THE TELL.** That phase is the present/vsync wait — the one
+place a GPU-bound frame parks. It shows **2.89 cores busy**. The machine is never
+idle anywhere in the frame.
+
+⇒ **16.3 ms of CPU is burned per 8.6 ms frame, across ~1.9 cores**, to draw 287
+sprites with one camera. This settles the question the wall-clock split could not
+and that I wrongly answered from it earlier: the GPU is not the constraint.
+
+⚠ **AND IT STILL DOES NOT ATTRIBUTE BY PHASE.** A process clock counts every
+thread, including render work running concurrently with whatever main-world
+phase happens to be open. `PreUpdate 6.55 ms` is 6.55 ms of PROCESS cpu during
+PreUpdate's window, not 6.55 ms of PreUpdate's own systems. Naming the systems
+still needs Tracy zones.
+
+⛔ Tracy still refused both captures — `PROTOCOL MISMATCH`, now named on the
+bundle instead of blamed on the game. Client 0.14.0, server 0.13.1;
+`./run_developer_setup.sh --profile` fixes it.
+
+## ⭐ The shipped build lost four first-party crates
+
+`cargo tree -p ambition_app`, measured against the manifests at `98a9cb015`:
+
+```text
+crates in the shipped app build   547 -> 539
+first-party crates                 62 -> 58
+```
+
+Gone: `ambition_demo_pocket`, `ambition_demo_twintrack`, `ambition_relativity`,
+`ambition_relativity2d`, and `bevy_falling_sand`. None of them was reachable from
+the launcher; relativity arrived through `platformer2d`'s `all_capabilities`,
+which is the default feature set, and pocket was a registered-but-unlisted
+provider.
+
 ## Current runtime model
 
 ### Simulation CPU: linear-ish at two fighters, superlinear in a full room

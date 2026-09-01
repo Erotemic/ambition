@@ -144,6 +144,12 @@ cannot read either.
 0.039. **The other ~0.195 ms is supplied to brains whose tick function never
 receives it.** Not "mostly wasted" — unreadable by construction.
 
+⛔ **"The brains cannot read it" is not "nothing reads it."** The view is also
+consumed by `believed_target`, which maintains `PerceptionMemory` and the
+snapshot target for every body whatever its brain. That is why the skip is not
+free — see *there is no free version of the skip* below before acting on this
+section.
+
 This confirms the standing hypothesis exactly, and it scopes what this campaign
 measured. The decision-pipeline work landed here (the `peers()` borrow, the
 `WorldMemory` sort) optimized the **supply** side, which is real and correct.

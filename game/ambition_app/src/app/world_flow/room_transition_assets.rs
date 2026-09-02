@@ -1765,6 +1765,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
         assert!(
@@ -1839,6 +1842,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
         assert!(readiness.failed.is_empty(), "{:?}", readiness.failed);
@@ -1879,6 +1885,9 @@ mod tests {
                 &asset_server,
                 Some(app.world().resource::<Assets<Image>>()),
                 render_world,
+                // This fixture parameterises the render-world fact and never
+                // stamps a GPU copy, so there is no App-local set to consult.
+                None,
                 &manifest,
             )
         };
@@ -1981,6 +1990,9 @@ mod tests {
             Some(app.world().resource::<Assets<Image>>()),
             // This App builds no render world, so nothing is ever owed a GPU.
             RenderWorldPresent(false),
+            // No render world in this fixture, so no App-local prepared set
+            // either — the GPU term is off and nothing may wait on it.
+            None,
             &manifest,
         );
 

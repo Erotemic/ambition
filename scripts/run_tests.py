@@ -1074,6 +1074,47 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     return 1 if failed else 0
 
 
+#: What `scripts/tests` and the repo's checkers import AT MODULE SCOPE, so a
+#: missing one is a COLLECTION error that takes a whole job down rather than
+#: skipping a test. `scripts/setup/python_tools.sh` installs exactly these.
+SCRIPTS_ENV_MODULES = ("pytest", "numpy", "soundfile", "rich", "yaml", "tree_sitter_rust")
+
+
+def refuse_an_interpreter_that_cannot_run_the_suite(jobs: list[Job]) -> None:
+    """Stop before the Python lane runs on an interpreter that cannot host it.
+
+    ⛔⛔ TWO RED JOBS AT 0.0s IS NOT A DIAGNOSIS. The runner launches the Python
+    suites as `sys.executable -m pytest`, so whichever interpreter started this
+    file decides whether they can run at all — and when it cannot, the report is
+    two failures among twenty greens with no cause named. Reported from another
+    machine 2026-09-02: an in-repo `.venv` from July, predating the per-machine
+    store, resolved ahead of nothing (no store existed yet) and had no pytest.
+    That is the fresh-clone-adjacent state this runner is supposed to survive.
+
+    ⚠ Only refuses when the PLAN actually contains Python jobs; `--rust-alone`
+    runs none and is unaffected.
+    """
+    import importlib.util
+
+    missing = [m for m in SCRIPTS_ENV_MODULES if importlib.util.find_spec(m) is None]
+    if not missing:
+        return
+    python_jobs = [job for job in jobs if job.argv and job.argv[0] == sys.executable]
+    if not python_jobs:
+        return
+    print(
+        f"run_tests: this interpreter cannot run the Python lane.\n"
+        f"  interpreter : {sys.executable}\n"
+        f"  missing     : {', '.join(missing)}\n"
+        f"  affected    : {len(python_jobs)} planned job(s)\n"
+        f"  fix         : scripts/setup/python_tools.sh\n"
+        f"  (an in-repo .venv predating the per-machine venv store is the usual "
+        f"cause; the store wins once it exists.)",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Ambition full test suite runner (pytest-like).",
@@ -1190,6 +1231,8 @@ def main() -> int:
               "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
               "mid-edit, a focused test almost certainly answers your question "
               "faster and just as well.")
+    if not args.list:
+        refuse_an_interpreter_that_cannot_run_the_suite(jobs)
     return run(jobs, args.list, timings_json=args.timings_json,
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,

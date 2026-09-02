@@ -77,9 +77,16 @@ own 43% of the whole session's decode work, at seven sheets of about 4096² each
 ```
 
 ⇒ This is upstream of §3 (pacing) and §4 (budgets): **pacing a demand and
-budgeting a residency are both cheaper when the demand is smaller.** Fewer pages,
-a lower quality tier for gallery previews, or eviction all attack the 43% before
-any scheduling machinery has to.
+budgeting a residency are both cheaper when the demand is smaller.** Fewer pages
+or eviction attack the 43% before any scheduling machinery has to.
+⛔⛔ **THE THIRD LEVER THIS SENTENCE USED TO OFFER — "a lower quality tier for
+gallery previews" — IS RULED OUT, 2026-09-02.** Jon, after an Ultra host capture
+drew the hall from `sprites_0_25x`: *"I DO NOT WANT A LOWER QUALITY TIER FOR
+GALLERY PREVIEWS."* The standing rule is wider than this paragraph: nothing may
+draw fewer pixels than the user's quality setting asks for, for any room, view or
+distance reason, without his explicit yes. ⚠ §3a below and the measurements that
+followed it were built on that lever; they are kept as measurements and marked,
+not deleted. See `maintainer-decisions.md`, 2026-09-02.
 
 ⚠ The worst in-play frame moved the right way against 2026-08-29 — 516 ms → 199
 ms — but on a HEAVIER hall, and still not a controlled A/B. The rendered A/B the

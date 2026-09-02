@@ -123,6 +123,43 @@ pick up a temporary item after C1 → die       → key stays acquired, temporar
 *checkpoint-shaped* rather than *item-shaped*. A `KeyItem` special case satisfies
 lines one and two and fails line three.
 
+## 2026-09-02 — no mechanism may draw fewer pixels than the quality setting asks
+
+Jon, verbatim, after an **Ultra** host capture drew `hall_of_characters` from
+`sprites_0_25x` and he saw blur:
+
+> **"I DO NOT WANT A LOWER QUALITY TIER FOR GALLERY PREVIEWS."**
+
+⚠ Relayed to this session by `ambition-df`, who received it directly and acted on
+it; recorded here rather than left in a chat log because it retires a shipped
+mechanism and a planned one.
+
+**Confidence: High.** The standing rule, which is wider than the two mechanisms
+it settles: **nothing may draw fewer pixels than the user's quality setting asks
+for, for any room, view or distance reason, without Jon's explicit yes.**
+
+What it retires:
+
+- **the room-level sprite tier cap** — `dc3cd0d91`, shipped and recorded as
+  ✔ LANDED in `engine/asset-preparation-and-residency.md` §3a:
+  `room_sprite_tier_cap`, `budget_for_room`, `room_character_tier_bounds`,
+  `PendingRoomTierFloor` and the per-token tier on `CharacterLoadDemand` are
+  removed;
+- **the view-scoped tier** scoped at `c7cabc8e3` — it was filed as a feel
+  question and is **answered NO, not pending**.
+
+⭐ **THE MECHANISM WAS WORKING EXACTLY AS DESIGNED**, which is the part worth
+keeping: the cap did what its tests said, and the idea was still wrong. The
+quality setting is a promise to the player, not a hint, and an engine that
+quietly renegotiates it produces the report Jon filed — he set Ultra and got
+blur, with no setting he could see to explain it.
+
+⚠ **WHAT IS NOT RETIRED IS THE HEADROOM.** "The hall draws 14 of 138 resident
+cast pages" stays true and useful; it licenses decisions about what to keep
+RESIDENT — eviction, budgets, when art is prepared — and never about drawing at
+lower resolution. Read without that distinction, the number points straight back
+at the lever this ruling removed.
+
 ## 2026-08-17 — four rulings given in one handoff
 
 ⭐ Recorded verbatim before any work moved on them. Two of these **close ledger

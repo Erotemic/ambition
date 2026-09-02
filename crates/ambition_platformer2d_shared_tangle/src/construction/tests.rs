@@ -655,7 +655,10 @@ fn relation_registration_order_changes_neither_the_dump_nor_behaviour() {
 // ── Commit ───────────────────────────────────────────────────────────────────
 
 /// Commit a plan into a bare `World` and apply the queued commands, the same
-/// exclusive-world shape `RoomConstructionPlan::apply_to_world` uses.
+/// exclusive-world shape `RoomTransitionApplication::apply` uses. (It used to
+/// name `RoomConstructionPlan::apply_to_world` (cite-ok); `a2b6652e7` -- "one
+/// room-transition application" -- unified the fork and that method went with
+/// it.)
 fn commit(plan: &ConstructionPlan<Toy>, services: &Services) -> (World, ConstructionReceipt) {
     let mut world = World::new();
     let receipt = commit_into(&mut world, plan, services);

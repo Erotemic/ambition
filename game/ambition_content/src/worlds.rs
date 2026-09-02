@@ -44,6 +44,16 @@ static_world_text!(
 );
 static_world_text!(HALL_LDTK_STATIC, "../assets/worlds/hall_of_characters.ldtk");
 
+/// The intro world's embedded text, when `static_map` baked one in.
+///
+/// Exposed for the guard that every intro `NpcSpawn` names a character the
+/// catalog knows — read from the SAME constant the manifest ships, so the test
+/// cannot pass against a different copy of the world than the game loads.
+#[cfg(test)]
+pub(crate) fn intro_ldtk_text() -> Option<&'static str> {
+    INTRO_LDTK_STATIC
+}
+
 /// The game's world declaration. The first row (sandbox) is boot-critical
 /// and hot-reload-watched; the story side-worlds are tolerated missing so
 /// a partial checkout still boots.

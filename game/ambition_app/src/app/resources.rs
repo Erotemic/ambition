@@ -157,8 +157,6 @@ pub fn init_sandbox_resources(app: &mut App) {
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
                     &asset_config.sprite_folder,
-                    &authored_sheets,
-                    &character_catalog,
                 );
             },
         );

@@ -1271,10 +1271,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // Install-once content latches: set exactly once when the intro content
     // plugin installs its fragments, never advanced inside a GGRS frame.
     (
-        "::intro::plugin::IntroSpritesInstalled",
-        "install-once latch",
-    ),
-    (
         "::intro::plugin::IntroPropSpritesInstalled",
         "install-once latch",
     ),

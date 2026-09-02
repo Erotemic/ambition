@@ -1870,16 +1870,26 @@ impl Plugin for MaryORulesPlugin {
         // (re)load, pop wand on a head-bonk, and keep the tall form in sync with
         // wearing the wand. The engine's `collect_world_items` (touch → equip) sits
         // between the bonk and the grow — no demo wiring for it.
-        // BEFORE the engine's collector, which is the whole point: it
-        // equips whatever a body touches, so the only way a Mary-O rule reaches a
-        // loose form item is to consume the redundant one first. Registered on
-        // `Update` beside `collect_world_items` rather than in the sim set, so
-        // the ordering edge is real (a cross-schedule `.before` is silently
-        // vacuous).
+        // BEFORE the engine's collector, which is the whole point: it equips
+        // whatever a body touches, so the only way a Mary-O rule reaches a loose
+        // form item is to consume the redundant one first.
+        //
+        // ⛔ THIS USED TO SAY THE OPPOSITE, AND THE COMMENT WAS THE BUG. It
+        // registered on `Update` "so the ordering edge is real (a cross-schedule
+        // `.before` is silently vacuous)" — but `collect_world_items` is in the
+        // SIM schedule, and the shipped Mary-O host is `fixed_tick()`, so the
+        // collector is in `FixedUpdate` and the `Update` edge ordered NOTHING.
+        // A fire Mary-O overlapping a loose star wand could be demoted by the
+        // collector before the refusal ever ran.
+        //
+        // ⭐ The slot exists for exactly this: same schedule, between motion and
+        // collection, so the edge is a real one.
+        let pre_collect_sim =
+            ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.add_systems(
-            bevy::prelude::Update,
+            pre_collect_sim,
             powerups::refuse_a_weaker_form_pickup
-                .before(ambition_platformer2d::world_items::collect_world_items)
+                .in_set(ambition_platformer2d::platformer::schedule::WorldItemSet::PreCollect)
                 .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
         );
         let powerups = (

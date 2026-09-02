@@ -2,10 +2,17 @@
 
 ## WHERE THIS STANDS — 2026-09-01, end of the perception campaign
 
-**Reopened by an instrument finding, see below:** the Tracy build costs ~2.5x
-per frame, and there is no measurement of the shipped program in the hall.
-Next number wanted: `profile_desktop.sh --no-tracy` with V-Sync Off (a Video
-setting since 2026-09-01), in the hall, on Jon's hardware.
+**Where the day ended (2026-09-01, late).** Three findings changed the frame:
+the Tracy build costs ~2.5x per frame (every absolute schedule time in the
+ledger's Tracy rows is inflated); the game ran under `Fifo` v-sync with nothing
+recording it (now a Video setting, and on the census row); and the shipped
+host's headless frame in the hall is 4.5 ms of which **3.7 ms is a floor that
+does not depend on the cast** — `bevy_ecs` 34%, our crates ~6%, ~2400 system
+runs per frame, no hotspot, not the executor. The decision pipeline is closed
+(1.9 ms/tick, linear). Next number wanted, and the only one that decides the
+next campaign: `profile_desktop.sh --no-tracy` with V-Sync Off, in the hall, on
+Jon's hardware; prediction 120-200 fps. Scripts: `sim_scaling_curve.py`,
+`instrumentation_tax.sh`, `tracy_self_time.py`, `headless_room_frame.sh`.
 
 **Closed.** The many-actor decision campaign. `Decide` at 130 bodies went
 0.328 → 0.023 ms/tick (−93%) when ADR 0034 increment 1 landed; the hall frame

@@ -14,17 +14,24 @@
 #                       tools (llvm-cov, modules, sweep, mark-sweep, nextest).
 #                       Costs ~190 apt packages (hotspot alone pulls the KDE
 #                       Frameworks stack) plus several source builds.
-#   --audio-libraries   the sampled instrument libraries under /data/audio-tools
-#                       plus sfizz. WITHOUT this the music renderer still works
-#                       and every cue still renders — sampled instruments simply
-#                       take the General-MIDI fallback, which is a quality
-#                       difference, not a failure.
-#   --full              both of the above.
+#   --full              the above, plus nothing else — the instrument libraries
+#                       are already part of a default run.
+#
+# ⛔ THE SAMPLED INSTRUMENT LIBRARIES ARE NOT OPTIONAL. They were, behind
+# `--audio-libraries`, on the theory that without them "every cue still
+# renders — a quality difference, not a failure". It is a failure: a default
+# clone rendered the ENTIRE catalogue through General MIDI and reported success,
+# and nothing downstream can tell that audio from the real thing. Two cues
+# (`aether_severance`, `blazingly_fast`) set `render.strict_backends` and could
+# not render at all, which is what finally made it visible. Every library is a
+# public download; `--skip-audio-libraries` opts out for a machine that only
+# needs to compile.
 #
 # Usage:
-#   ./run_developer_setup.sh [--profile] [--audio-libraries] [--full]
+#   ./run_developer_setup.sh [--profile] [--full]
 #       [--skip-system-packages] [--skip-rust] [--skip-submodules]
 #       [--skip-tally] [--skip-python] [--skip-assets] [--skip-cargo-check]
+#       [--skip-audio-libraries]
 #
 # Environment:
 #   AMBITION_TOOL_PYTHON=3.12
@@ -52,7 +59,9 @@ skip_tally=0
 # Opt-in, not opt-out. These were once on by default and the default run spent
 # almost all of its time on them before it ever reached the game.
 want_profiling=0
-want_audio_libraries=0
+# ⛔ DEFAULT ON. See the block at the top of this file: opt-in meant every fresh
+# machine shipped General-MIDI stand-ins for the whole soundtrack.
+want_audio_libraries=1
 
 # Tracy speaks a versioned wire protocol and REFUSES to connect to a client
 # built against a different version, so the server must match the
@@ -93,6 +102,8 @@ while [ "$#" -gt 0 ]; do
         --skip-cargo-check) skip_cargo_check=1 ;;
         --skip-tally) skip_tally=1 ;;
         --profile) want_profiling=1 ;;
+        --skip-audio-libraries) want_audio_libraries=0 ;;
+        # Accepted so an existing invocation does not break; it is the default.
         --audio-libraries) want_audio_libraries=1 ;;
         --full) want_profiling=1; want_audio_libraries=1 ;;
         -h|--help) usage; exit 0 ;;
@@ -142,6 +153,11 @@ install_system_packages() {
         libxrandr-dev
         mesa-vulkan-drivers
         mold
+        # `download_ambition_audio_tools.sh` unpacks the FreePats Upright Piano
+        # from a .7z; without this it warns and that library silently does not
+        # install. It is a required package because the instrument libraries are
+        # a default part of setup.
+        p7zip-full
         pkg-config
         python3-dev
         python3-venv
@@ -547,14 +563,20 @@ ensure_python_tools() {
 # ModuleNotFoundError and the committed navigation data silently went stale.
 # That is the regen-on-a-fresh-clone invariant, so it belongs in setup.
 install_scripts_env() {
-    local venv_dir="$repo_root/.venv"
-    local requested_python
+    local requested_python venv_dir venv_python
     requested_python="$(tool_python_version)"
     # Same creation policy as every tool-local environment: this used to be its
     # own copy of the logic, and being a copy is how it missed both `--clear`
     # and the interpreter-version check the tool venvs have had all along.
     ensure_tool_venv "$repo_root" "$requested_python"
-    log "installing scripts/ dependencies"
+    # ⛔ ASK THE HELPER FOR THE PATH; DO NOT SPELL IT AGAIN. `ensure_tool_venv`
+    # creates this environment in the per-machine store, and a second literal
+    # `$repo_root/.venv` here named a directory nothing had created — so every
+    # fresh clone died on the next line with "No virtual environment ... for
+    # path `.venv/bin/python`", before assets or the desktop check ever ran.
+    venv_dir="$(ambition_tool_venv_dir "$repo_root")"
+    venv_python="$venv_dir/bin/python"
+    log "installing scripts/ dependencies into ${venv_python/#$HOME/~}"
     # `pytest` belongs here for the same reason `tree_sitter_rust` does, and its
     # absence was worse. `scripts/run_tests.py` runs the repo's TWO Python suites
     # as `sys.executable -m pytest` — the goal guard, the test runner, the
@@ -565,11 +587,25 @@ install_scripts_env() {
     # twenty green ones: a suite whose first line is "if the thing that decides
     # whether the suite is honest is broken, that is the answer" could never run
     # the thing that decides it.
-    uv pip install --python "$venv_dir/bin/python" pytest tree_sitter tree_sitter_rust
-    "$venv_dir/bin/python" -c "import tree_sitter_rust" \
-        || fatal "scripts/.venv installed but 'tree_sitter_rust' is not importable"
-    "$venv_dir/bin/python" -c "import pytest" \
-        || fatal "scripts/.venv installed but 'pytest' is not importable — the repo's own Python suites cannot run"
+    # ⚠ EVERY ONE OF THESE IS A COLLECTION ERROR WHEN ABSENT, NOT A SKIPPED TEST.
+    # `scripts/tests` imports the scripts it tests at module scope, so one
+    # missing third-party module takes the whole detached-tools job down at
+    # import time: `numpy` and `soundfile` are `scripts/audio_levels.py`, and
+    # `rich` is the repository's clickable-`file://` output convention, which
+    # `scripts/agent_query.py` — step 2 of the AGENTS.md cold start — needs to
+    # print anything at all.
+    uv pip install --python "$venv_python" \
+        pytest tree_sitter tree_sitter_rust numpy soundfile rich
+    # The moveset inspector is imported directly out of `tools/` by
+    # `scripts/tests/test_moveset_inspector_renderer.py`, so it belongs in THIS
+    # environment rather than one of its own. Installed editable so its
+    # dependencies stay its own to declare (today: pyyaml).
+    uv pip install --python "$venv_python" -e tools/ambition_moveset_inspector
+    local module
+    for module in tree_sitter_rust pytest numpy soundfile rich yaml; do
+        "$venv_python" -c "import $module" \
+            || fatal "$venv_dir installed but '$module' is not importable — the repo's own Python suites cannot run"
+    done
 }
 
 # The sampled instrument libraries, and the sfizz/LV2 hosts that can actually
@@ -707,13 +743,20 @@ regenerate_missing_published_sheets() {
     # Through the renderer's own interpreter: the check asks each target what it
     # DECLARES it installs, which needs the package importable. Without it the
     # script says "cannot check" and succeeds rather than inventing a verdict.
-    local py="python3"
-    if [ -f "$repo_root/scripts/lib/tool_python.sh" ]; then
-        # shellcheck source=/dev/null
-        py="$(. "$repo_root/scripts/lib/tool_python.sh" >/dev/null 2>&1 \
-            && tool_python ambition_sprite2d_renderer 2>/dev/null || echo python3)"
-        [ -x "$py" ] || py="python3"
-    fi
+    #
+    # ⛔ WHICH MADE THIS A FALSE GREEN FOR AS LONG AS IT EXISTED. The call here
+    # was `tool_python ambition_sprite2d_renderer` — a function that is not
+    # defined anywhere, given a bare tool name where the resolver wants a
+    # DIRECTORY. It therefore always fell through to the bare `python3` that
+    # cannot import the renderer, the checker duly reported "cannot check" and
+    # exited 0, and setup logged "every rostered sheet is published" without
+    # having checked one. `[ -x "$py" ]` could not catch it either: that test is
+    # false for the bare name `python3`, so the guard "corrected" a good path to
+    # the same fallback.
+    local py
+    py="$(ambition_select_tool_python \
+        "$repo_root/tools/ambition_sprite2d_renderer" AMBITION_SPRITE_PYTHON)"
+    ambition_python_exists "$py" || py="python3"
 
     local missing
     if missing="$("$py" "$checker" 2>/dev/null)"; then
@@ -736,6 +779,48 @@ regenerate_missing_published_sheets() {
         log "every rostered sheet is published"
     else
         warn "some rostered sheets are still missing; see the list above"
+    fi
+}
+
+# ⛔ `scripts/agent_query.py` IS STEP 2 OF THE COLD START AGENTS.md MANDATES, AND
+# ON A FRESH CLONE IT ANSWERED NOTHING. The `.agent/` packets it queries are
+# generated, not committed — `git ls-files .agent` is two files — so a new
+# checkout got `⚠ index has no generation stamp` and an empty packet from the
+# first command the guide tells an agent to run. Every other kind of generated
+# content in this repo is built by this script; this one was left to a person
+# knowing to run it.
+#
+# Reports rather than fails: `source_navigation.sh` ends with the agent-KB
+# audit, which is repository DOC hygiene (frontmatter keys, stray files, a
+# dangling doc reference) and has nothing to do with whether this checkout is
+# runnable. Setup must not refuse a working environment over it.
+regenerate_source_navigation() {
+    if [ "$skip_assets" -eq 1 ]; then
+        log "skipping generated navigation"
+        return 0
+    fi
+    [ -x "$repo_root/scripts/regen/source_navigation.sh" ] || return 0
+    # The ECS inventory resolves the dependency graph through cargo, and prints
+    # `resolved dependency graph unavailable` and carries on when it cannot —
+    # a quietly poorer index rather than an error.
+    if [ -f "$HOME/.cargo/env" ]; then
+        # shellcheck disable=SC1091
+        . "$HOME/.cargo/env"
+    fi
+    log "regenerating .agent/ navigation"
+    if "$repo_root/scripts/regen/source_navigation.sh" >/dev/null 2>&1; then
+        log "generated navigation is current"
+        return 0
+    fi
+    # The indexes are written before the audit runs, so a non-zero exit here
+    # does not mean they are missing. Say which it was.
+    if [ -d "$repo_root/.agent/index" ]; then
+        warn "navigation regenerated, but the agent-KB audit reported doc-hygiene problems"
+        log "   they do not affect the build:"
+        log "     ./scripts/regen/source_navigation.sh   # what it objects to"
+    else
+        warn "navigation regeneration FAILED; scripts/agent_query.py will answer nothing"
+        log "     ./scripts/regen/source_navigation.sh   # see why"
     fi
 }
 
@@ -854,6 +939,7 @@ ensure_python_tools
 # instruments, so installing them afterwards would render the fallback anyway.
 ensure_audio_libraries
 regenerate_assets
+regenerate_source_navigation
 check_desktop_target
 
 echo
@@ -863,14 +949,13 @@ if [ "$skip_assets" -eq 0 ] && [ "$skip_cargo_check" -eq 0 ]; then
     # Plain `if`s, not `[ ... ] && log`: this is the last statement in the
     # script, and a short-circuit whose test is false would make a successful
     # setup exit non-zero.
-    if [ "$want_profiling" -eq 0 ] || [ "$want_audio_libraries" -eq 0 ]; then
-        log "not installed (each is one argument away):"
-        if [ "$want_profiling" -eq 0 ]; then
-            log "   --profile          profiling + cargo analysis toolchain"
-        fi
-        if [ "$want_audio_libraries" -eq 0 ]; then
-            log "   --audio-libraries  sampled instruments (music uses the GM fallback without them)"
-        fi
+    if [ "$want_profiling" -eq 0 ]; then
+        log "not installed (one argument away):"
+        log "   --profile          profiling + cargo analysis toolchain"
+    fi
+    if [ "$want_audio_libraries" -eq 0 ]; then
+        warn "sampled instruments were SKIPPED; music cues cannot render here"
+        log "   rerun without --skip-audio-libraries before regenerating music"
     fi
 else
     log "selected developer setup phases complete"

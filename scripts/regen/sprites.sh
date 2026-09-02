@@ -1014,16 +1014,29 @@ unit_key() {
         | sha256sum | awk '{print $1}'
 }
 
-# The digests of everything this unit published, in the order the glob yields
-# them. Stored beside the key so freshness can ask whether the files on disk are
-# THE ONES THIS CACHE PRODUCED, rather than whether some file is present.
+# The digests of everything this unit published, in a stable order. Stored
+# beside the key so freshness can ask whether the files on disk are THE ONES
+# THIS CACHE PRODUCED, rather than whether some file is present.
+#
+# ⛔⛔ THE PATHS ARE THE REGISTRY'S TO STATE, NOT THIS SCRIPT'S TO GUESS. This
+# took a `<target>*_spritesheet.png` glob, which describes neither
+# `town_tileset` (installs `town_tileset.png`), nor `gnu_ton_apple` (installs
+# into the `gnu_ton_boss/` subdir), nor `hud_icons` (installs
+# `hud_stock_icon.png`, a name no glob could reach). Reasoning and the one
+# implementation: `scripts/lib/sprite_install_names.py`.
+#
+# Takes the newline-separated install-relative paths the registry declares, and
+# returns non-zero only when NONE of them is on disk.
 sheet_output_digests() {
-    local glob="$1"
-    compgen -G "$glob" >/dev/null 2>&1 || return 1
-    # shellcheck disable=SC2086
-    sha256sum $glob 2>/dev/null \
-        | awk -v root="$sprites_dir/" '{sub(root, "", $2); print $1, $2}' \
-        | sort
+    local records="$1" rel digests=""
+    [ -n "$records" ] || return 1
+    while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        [ -f "$sprites_dir/$rel" ] || continue
+        digests+="$(sha256sum "$sprites_dir/$rel" | awk '{print $1}') $rel"$'\n'
+    done <<< "$records"
+    [ -n "$digests" ] || return 1
+    printf '%s' "$digests" | sort
 }
 
 # Fresh iff the stored key matches AND every published output still hashes to
@@ -1042,14 +1055,14 @@ sheet_output_digests() {
 # were taken on trust. A build that hashes what it reads and not what it wrote
 # cannot tell "I made this" from "something is there".
 sheet_cache_fresh() {
-    local unit="$1" key="$2" glob="$3" stored stored_key stored_digests now_digests
+    local unit="$1" key="$2" records="$3" stored stored_key stored_digests now_digests
     [ "$force_regen" -ne 1 ] || return 1
     [ -f "$sheets_cache_dir/$unit" ] || return 1
     stored="$(cat "$sheets_cache_dir/$unit")"
     stored_key="$(printf '%s\n' "$stored" | head -1)"
     [ "$stored_key" = "$key" ] || return 1
 
-    now_digests="$(sheet_output_digests "$glob")" || return 1
+    now_digests="$(sheet_output_digests "$records")" || return 1
     stored_digests="$(printf '%s\n' "$stored" | tail -n +2)"
     # An entry written before outputs were recorded has no digest block. Treat
     # it as stale rather than trusting it: re-rendering one sheet is cheap and
@@ -1059,12 +1072,27 @@ sheet_cache_fresh() {
     return 0
 }
 
+# ⛔⛔ A TARGET WHOSE OUTPUTS CANNOT BE DIGESTED IS NOT A REASON TO KILL THE RUN.
+# The group's status used to be the `[ -n "$glob" ] && sheet_output_digests ...`
+# conjunction, so an unmatched glob returned 1 out of this function and `set -e`
+# aborted `sprites.sh` where it stood — silently, with no message, after a
+# 19½-minute publish of all 137 targets, leaving the seven targets of the later
+# batches unrendered. Store the key with no digest block instead:
+# `sheet_cache_fresh` already treats that as stale, so the next run re-renders
+# rather than trusting an entry it could not verify.
 sheet_cache_store() {
-    local unit="$1" key="$2" glob="${3-}"
+    local unit="$1" key="$2" records="${3-}" digests=""
     mkdir -p "$sheets_cache_dir"
+    if [ -n "$records" ]; then
+        digests="$(sheet_output_digests "$records" || true)"
+    fi
+    if [ -z "$digests" ]; then
+        echo "  [warn] $unit published nothing this cache can verify; not caching its outputs" >&2
+    fi
     {
         printf '%s\n' "$key"
-        [ -n "$glob" ] && sheet_output_digests "$glob"
+        [ -n "$digests" ] && printf '%s\n' "$digests"
+        :
     } > "$sheets_cache_dir/$unit"
 }
 
@@ -1073,27 +1101,32 @@ sheet_cache_store() {
 # declared portrait products in one Python process and stale targets are then
 # rendered by one `publish-many` process. This preserves per-target cache keys
 # while avoiding one interpreter + discovery pass per character.
-_target_sheet_glob() {
-    local target="$1"
-    case "$target" in
-        gnu_ton_boss|mockingbird_boss)
-            printf '%s\n' "$sprites_dir/$target/${target}*_spritesheet.png"
-            ;;
-        *)
-            printf '%s\n' "$sprites_dir/${target}*_spritesheet.png"
-            ;;
-    esac
-}
-
 publish_cached_batch() {
     local label="$1"
     shift
     local -a candidates=("$@")
     local -a stale=()
-    local target key glob rel records portraits_ok records_ok=1
+    local target key rel records portraits_ok records_ok=1
     local -A portrait_records=()
+    local -A install_records=()
 
     [ "${#candidates[@]}" -gt 0 ] || return 0
+
+    # What each target DECLARES it installs, which is what the output-digest
+    # cache keys on. Resolved unconditionally — a forced run still stores, and
+    # storing needs the same answer freshness does.
+    local install_lines=""
+    if ! install_lines="$(
+        cd "$renderer_dir" && "$python_bin" \
+            "$repo_root/scripts/lib/sprite_install_names.py" "${candidates[@]}"
+    )"; then
+        echo "  warning: could not resolve installed products for batch '$label'; its output digests are not cached" >&2
+        install_lines=""
+    fi
+    while IFS=$'\t' read -r target rel; do
+        [ -n "$target" ] || continue
+        install_records["$target"]="${install_records[$target]-}$rel"$'\n'
+    done <<< "$install_lines"
 
     if [ "$force_regen" -ne 1 ]; then
         if ! records="$(
@@ -1113,10 +1146,9 @@ publish_cached_batch() {
 
     for target in "${candidates[@]}"; do
         key="$(unit_key "$target")"
-        glob="$(_target_sheet_glob "$target")"
         if [ "$records_ok" -eq 1 ] \
             && [ -n "${portrait_records[$target]-}" ] \
-            && sheet_cache_fresh "$target" "$key" "$glob"; then
+            && sheet_cache_fresh "$target" "$key" "${install_records[$target]-}"; then
             portraits_ok=1
             while IFS= read -r rel; do
                 [ -n "$rel" ] || continue
@@ -1141,7 +1173,7 @@ publish_cached_batch() {
         --quiet --dest-root "$sprites_dir" "${stale[@]}"; then
         for target in "${stale[@]}"; do
             sheet_cache_store "$target" "$(unit_key "$target")" \
-                "$(_target_sheet_glob "$target")"
+                "${install_records[$target]-}"
         done
     else
         echo "  [warn] batch '$label' had one or more publish failures; cache keys were not advanced" >&2

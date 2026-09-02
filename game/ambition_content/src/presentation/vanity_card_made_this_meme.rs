@@ -156,7 +156,16 @@ fn spawn_vanity_card(
     let (canvas_w, canvas_h) = card.canvas;
 
     // ONE texture, and one layout naming every part's rect inside it.
-    let sheet: Handle<Image> = assets.load(format!("{ASSET_SOURCE}{}", card.sheet));
+    // ⛔ THROUGH THE STAMPED ROAD, not `assets.load` directly. A bare load lands
+    // in `Assets<Image>` with no demand recorded, so the image-stage ledger
+    // reports it as `demand=unknown` — the census sees the insertion and has
+    // nothing to measure it against, which is the one shape that instrument
+    // cannot explain.
+    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(
+        &assets,
+        "vanity-card",
+        format!("{ASSET_SOURCE}{}", card.sheet),
+    );
     let mut layout = TextureAtlasLayout::new_empty(UVec2::new(1, 1));
     for part in &card.parts {
         layout.add_texture(URect::new(part.x, part.y, part.x + part.w, part.y + part.h));

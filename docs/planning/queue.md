@@ -1249,10 +1249,12 @@ product ruling.
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's
   Linux sampling/context-switch capture on the host; if the exit is instant,
   make it the script's default.
-- **Two asset-campaign knobs to try in the hall on the 3090** (each recorded on
-  the census row and in the ledger label): `AMBITION_RENDER_ASSET_MB_PER_FRAME=64`
-  and `AMBITION_IMAGES_RENDER_WORLD_ONLY=1`. Read the hall-entry spike list,
-  `resident_mb`, and whether any sprite draws blank. See
+- **One asset-campaign knob to try in the hall on the 3090** (recorded on the
+  census row and in the ledger label): `AMBITION_RENDER_ASSET_MB_PER_FRAME=64`.
+  Render-world-only sheets became the default on 2026-09-02 (captures
+  byte-identical, peak RSS −141 MB in the hall at Quarter on llvmpipe);
+  `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` is the A/B. Read the hall-entry spike
+  list, `resident_mb`, and whether any sprite draws blank. See
   [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 - **Whether to author a DENSE melee room** — a product call, not an engine one.
   Bounded attention (ADR 0034 increment 2) cannot be validated without it:

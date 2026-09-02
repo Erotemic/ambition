@@ -33,12 +33,18 @@ use ambition_platformer2d_world::rooms::RoomMetadata;
 /// Bevy's default `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` keeps a CPU
 /// copy of every image and CLONES it into the render world on extract; the
 /// hall at Full tier measured 2.2 GB resident and a 542 ms frame at that clone.
-/// `AMBITION_IMAGES_RENDER_WORLD_ONLY=1` loads these images `RENDER_WORLD`
-/// only: the extract becomes a move and the CPU copy is freed, at the price
-/// that `Assets<Image>::get` returns `None` for them afterwards (readiness
-/// checks already use the asset server's load state, not residency). An
-/// EXPERIMENT KNOB, read once, recorded by the visual-quality census so a
-/// capture says which way it was loaded.
+/// These images load `RENDER_WORLD` only: the extract is a move and the CPU
+/// copy is freed once extracted: Bevy 0.19 `take_gpu_data`s the pixels and
+/// leaves the `Image` in `Assets<Image>` with `data == None` and its size
+/// intact. Every readiness check uses the asset server's load state, not the
+/// pixels (`texture_is_ready`, the room manifest); the image census derives
+/// the byte count from the descriptor when the data is gone; no production
+/// reader indexes a sheet's pixels. Measured 2026-09-02 (hall, Quarter,
+/// llvmpipe `capture_scene`): the
+/// capture is byte-identical either way and peak RSS drops 1533 → 1392 MB.
+/// `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` restores the CPU copy for a
+/// comparison; read once, recorded by the visual-quality census so a capture
+/// says which way it was loaded.
 ///
 /// `source` names the road that demanded it (`"character-sheet"`, `"parallax"`,
 /// `"fx-sheet"`, `"boss-sheet"`) for the [`image_stages`] ledger, which stamps
@@ -67,10 +73,11 @@ pub fn load_sheet_image(
 
 pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONLY";
 
-/// The experiment knob, read once per process.
+/// Whether sheet images skip the main-world copy: on unless the environment
+/// says `0`. Read once per process.
 pub fn images_render_world_only() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var(IMAGES_RENDER_WORLD_ONLY_ENV).is_ok_and(|v| v == "1"))
+    *ON.get_or_init(|| std::env::var(IMAGES_RENDER_WORLD_ONLY_ENV).ok().is_none_or(|v| v != "0"))
 }
 
 pub fn default_asset_profile() -> AssetProfile {

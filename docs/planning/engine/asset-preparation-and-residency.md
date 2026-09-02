@@ -234,32 +234,39 @@ small; the upload pacer / render-world-only knobs below make them smaller.
   RGBA page is 67 MB and always uploads in one frame). The game inserts nothing,
   so the budget is unlimited.
 - The **extract** half (`extract_render_asset<GpuImage>`, the ~455 ms zone on
-  the MAIN thread in the earlier capture) is a CLONE of the decoded bytes,
-  because every sheet is loaded with the default
-  `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` — which also keeps the CPU copy
-  alive, which is where the 2.2 GB comes from. `RENDER_WORLD` alone makes the
-  extract a move and frees the CPU copy — but then `Assets<Image>::get` returns
-  `None` for that sheet, and whoever reads a sheet's pixels or size from the
-  main world (sprite sizing, portraits, the image census) must be found first.
-  Grep `Assets<Image>` readers before flipping it.
+  the MAIN thread in the earlier capture) was a CLONE of the decoded bytes,
+  because every sheet loaded with the default
+  `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` — which also kept the CPU copy
+  alive, which is where the 2.2 GB came from. **Landed 2026-09-02: sheet,
+  parallax, fx, boss and character-page images load `RENDER_WORLD` only by
+  default** (`load_sheet_image`). Bevy 0.19 then `take_gpu_data`s the pixels at
+  extract (a move, not a clone) and leaves the `Image` in `Assets<Image>` with
+  `data == None` and its size intact. The main-world readers were checked
+  first: `texture_is_ready` and the room manifest read the asset server's load
+  state (residency only for handles without one), the image census derives
+  bytes from the descriptor when the data is gone, and the remaining
+  `Assets<Image>` readers are procedural images (portal cones, quasar shader,
+  touch overlay, render targets) that never go through the funnel.
+  Measurement (`capture_scene hall_of_characters player … --warmup 400`,
+  Quarter, llvmpipe): the two captures are **byte-identical** (md5
+  `c0312413be50`) and peak RSS is **1533 MB → 1392 MB**; the 141 MB is the
+  hall's 131 MB of decoded pages plus their extract clone. On the 3090 the
+  same CPU bytes leave the process at every tier (2.2 GB at Full was mostly
+  this copy), and the extract zone becomes a move.
+  `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` restores the CPU copy for an A/B; the
+  visual-quality census row and the profile-history label
+  (`+render-world-only`) record which way a capture was taken, so rows from
+  before 2026-09-02 stay a separate experiment.
 
-**Both are now one environment variable away, so Jon can measure them on the
-3090 without a code change** (each is read once and recorded on the
-`[census] visual_quality` row and in the ledger label, so a capture says which
-way it was taken):
+**The upload pacer is still one environment variable away, so Jon can measure it
+on the 3090 without a code change** (read once and recorded on the
+`[census] visual_quality` row and in the ledger label):
 
 ```sh
 AMBITION_RENDER_ASSET_MB_PER_FRAME=64 scripts/profile_desktop.sh --no-tracy    # +upload:64MB
-AMBITION_IMAGES_RENDER_WORLD_ONLY=1   scripts/profile_desktop.sh --no-tracy    # +render-world-only
+AMBITION_IMAGES_RENDER_WORLD_ONLY=0   scripts/profile_desktop.sh --no-tracy    # the old CPU-copy loading, for an A/B
 ```
 
-The second routes every sheet/parallax/boss-page load through
-`ambition_sprite_sheet::game_assets::load_sheet_image`; the main-world readers
-of `Assets<Image>` were checked first — `texture_is_ready` and the room
-transition's dependency check use the asset server's load state and fall back
-to residency only for handles without one, and the remaining readers are the
-census (an instrument, which will count fewer resident images) and procedural
-images (portal cones, quasar shader, touch overlay) that are not loaded this way.
 What to read after each: the hall-entry spike list, `resident_mb`, and whether
 any sprite draws blank.
 

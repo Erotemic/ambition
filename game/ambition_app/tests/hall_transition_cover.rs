@@ -30,7 +30,11 @@ fn step(app: &mut App) {
     std::thread::sleep(std::time::Duration::from_millis(8));
 }
 
-fn settle_cast(app: &mut App, secs: u64) {
+/// Step until the staged cast has been quiet for 25 steps, or `secs` of wall
+/// clock pass. Returns whether it SETTLED — a caller that ignores `false` turns
+/// a slow machine into a confusing `.expect` three lines later.
+#[must_use]
+fn settle_cast(app: &mut App, secs: u64) -> bool {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
     let mut last = usize::MAX;
     let mut quiet = 0;
@@ -40,13 +44,54 @@ fn settle_cast(app: &mut App, secs: u64) {
         if now == last {
             quiet += 1;
             if quiet >= 25 {
-                break;
+                return true;
             }
         } else {
             last = now;
             quiet = 0;
         }
     }
+    false
+}
+
+/// Step until a session room set EXISTS, then until the staged cast is quiet.
+///
+/// ⛔ A WALL-CLOCK DEADLINE IS NOT A SETTLE. The old fixture stepped for 10 s,
+/// wrote the route, stepped for 20 s more and `.expect`ed a room set; it was
+/// enough while headless decoded nothing and became marginal the day images
+/// decoded for real (22 → 226 resident at the hall entry): under parallel CPU
+/// contention the budget expired before activation and the failure read as
+/// "a session room set" — the subject blamed for the harness giving up. Wait
+/// for the FACT with a backstop large enough that contention can never be
+/// mistaken for a stuck session, and say which one gave up.
+fn wait_for_a_session_room_set(app: &mut App, what: &str) {
+    const BACKSTOP: std::time::Duration = std::time::Duration::from_secs(180);
+    let started = std::time::Instant::now();
+    loop {
+        step(app);
+        let exists = {
+            let mut query = app
+                .world_mut()
+                .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+            query.iter(app.world()).next().is_some()
+        };
+        if exists {
+            break;
+        }
+        assert!(
+            started.elapsed() < BACKSTOP,
+            "HARNESS GAVE UP after {BACKSTOP:?}: no session room set while {what}. This is \
+             the fixture's backstop, not the subject failing — a session that boots at all \
+             does so in well under a second of sim time, so look for a wedged boot (or a \
+             machine so loaded that even the backstop was short)."
+        );
+    }
+    // The cast keeps arriving after activation; give it a quiet moment too,
+    // on the same backstop.
+    assert!(
+        settle_cast(app, BACKSTOP.as_secs()),
+        "HARNESS GAVE UP: the staged cast never went quiet after {what}"
+    );
 }
 
 /// Boot the no-window shipping host, walk the launcher into gameplay, and
@@ -57,12 +102,12 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    settle_cast(&mut app, 10);
+    let _ = settle_cast(&mut app, 10);
 
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
-    settle_cast(&mut app, 20);
+    wait_for_a_session_room_set(&mut app, "the hub was activating");
     let before = staged_cast_len(&app);
 
     // The REAL transition, resolved through the room graph rather than
@@ -449,11 +494,11 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    settle_cast(&mut app, 10);
+    let _ = settle_cast(&mut app, 10);
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
-    settle_cast(&mut app, 20);
+    wait_for_a_session_room_set(&mut app, "the hall was activating as the start room");
     {
         let mut query = app
             .world_mut()
@@ -890,11 +935,11 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    settle_cast(&mut app, 10);
+    let _ = settle_cast(&mut app, 10);
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
-    settle_cast(&mut app, 20);
+    wait_for_a_session_room_set(&mut app, "the hub was activating");
     for _ in 0..120 {
         step(&mut app);
     }

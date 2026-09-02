@@ -623,6 +623,16 @@ fx-sheet 13×9.4MP        entity-sprite 28×0.1MP
 `character-sheet` until the ownership rule landed — and found the same way, by an
 instrument printing a road beside a path: `[image-drawn]
 sprites/entities/door_zone.png … via fx-sheet` is the line that said it out loud.
+✔ **AND THE REST OF THE STAMPS WERE SWEPT THE SAME DAY — no third instance.**
+Every `load_sheet_image` / `note_demand` call site in the workspace, label read
+against what it loads: `portrait` (HUD portraits, select-screen portraits),
+`held-item` (wielded + ground item visuals), `projectile-art`, `parallax`,
+`boss-sheet`, `vanity-card`, `shrine-sheet`, `asset-manifest`, and the
+character/fx dispatcher that takes its road as a parameter. All correct. Two
+mis-stamps have now been found in this system (vfx as `character-sheet`, entity
+icons as `fx-sheet`) and both were found by a readout printing a road beside a
+path, not by reading the call sites — which is the argument for the readouts.
+
 ⭐ THE INSTRUMENT FOUND ITS OWN INPUT'S BUG. A residency census is only as good as
 its stamps, and nothing else in the pipeline would have noticed: the images
 loaded, drew and were freed correctly the whole time. Only the ATTRIBUTION was

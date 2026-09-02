@@ -80,11 +80,16 @@ if [ -f "$audio_tools_env" ]; then
     # shellcheck disable=SC1090
     source "$audio_tools_env"
 else
-    echo "==> instrument libraries: none at ${audio_tools_env%/env.sh}"
-    echo "    sampled instruments will render through the General-MIDI fallback."
-    echo "    install them with:"
-    echo "      tools/ambition_music_renderer/setup.sh                       # sfizz + LV2 hosts"
-    echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools"
+    # ⛔ NOT AN FYI. Rendering without these produces General-MIDI stand-ins
+    # that are indistinguishable downstream from the real cues — same .ogg, same
+    # registry entry, same playback. The renderer refuses for that reason; this
+    # says so up front instead of after the first cue fails.
+    echo "==> instrument libraries: NONE at ${audio_tools_env%/env.sh}" >&2
+    echo "    music cannot be rendered here: every sampled instrument would" >&2
+    echo "    silently become a General-MIDI stand-in." >&2
+    echo "    install them with:" >&2
+    echo "      ./run_developer_setup.sh                                      # installs them by default" >&2
+    echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools" >&2
 fi
 
 echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"

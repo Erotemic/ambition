@@ -1,9 +1,10 @@
 # HEAD orientation
 
-**Reviewed baseline:** `91d5d4a9c48c7bab42b7e9f2d86ca631057d1cfe` —
-`Planning: S2 closed with the Local<T> census` (2026-09-02). The performance
-model below was rewritten at this baseline; other sections were last reviewed
-at `4e5f59cf` (2026-08-30).
+**Reviewed baseline:** `881310ec7` — `I1: the hand is the record of what is
+equipped` (2026-09-02, later the same day). The rollback and item paragraphs
+below were re-verified at this baseline; the performance model was rewritten at
+`91d5d4a9c` (2026-09-02); other sections were last reviewed at `4e5f59cf`
+(2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated
@@ -51,10 +52,14 @@ The current model has separate questions:
 
 Rollback registration is federated by domain and the concrete GGRS backend lives
 in `ambition_platformer2d_rollback_ggrs`; the generic runtime no longer owns a
-census of concrete gameplay component types. The remaining work is correctness
-at runtime-created populations, deterministic selection/composition, and the
-confirmed/external lifecycle boundary (non-rewinding memory closed 2026-09-02:
-S2 in the determinism doc).
+census of concrete gameplay component types. Closed 2026-09-02: non-rewinding
+memory (S2), the three named selection sites (S3 — projectile victims now
+tie-break on `SimId`), and the populated-timeline half of S1
+(`rollback_populated_timeline.rs`: the event-created families resimulate
+identically under BOTH oracles — the session checksum, which is blind to the 47
+probed-only registrations, and `RollbackRestoreAudit`, which is not). The
+remaining work is semantic identity across a rewind (only indirect today), S4–S6,
+and the confirmed/external lifecycle boundary.
 
 See [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
 and [`engine/netcode.md`](engine/netcode.md).
@@ -185,6 +190,16 @@ source decode. The follow-up work on early demand, bounded materialization,
 retained handles, registry preparation, and avoiding unnecessary uploads reduced
 large observed stalls substantially, while also showing that loaded image
 population/residency needs explicit ownership and budgets.
+
+Since 2026-09-02 an image's three stages are one ledger
+(`ambition_asset_manager::image_stages`): demand → insertion → GPU
+preparation, with `[image]` / `[image-gpu]` / `[image-dropped]` lines and
+re-decode / dropped-before-upload counts on the census line. Its first hall
+reading: every sheet the reveal demanded was prepared in ONE render frame
+(the upload half of the hitch, unlimited `RenderAssetBytesPerFrame`), and the
+intro cast's startup preload decodes ~26 MP on every boot that nothing draws.
+The hall-entry fix itself (reveal barrier + gallery tier cap) still awaits its
+host confirmation; the tells are in `queue.md`.
 
 See [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
 and [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).

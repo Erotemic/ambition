@@ -1284,10 +1284,14 @@ product ruling.
   `[image-gpu]` line after it — if one appears after the cover lifts, name the
   file; it came by a road the manifest does not list.
   **Tells added 2026-09-02 evening, same walk:** (a) GAME START — the load
-  screen shows a "Load the first room's art" row and the first `room-loaded`
-  is NOT followed by `[image] … player_robot_v3_spritesheet.png … live=1`
-  nor by the 67-79 ms frame ~0.1 s after it (`aca57e636`; the pre-fix
-  captures `015511Z`/`015909Z`/`020529Z` all have both); the player must never
+  screen shows a "Load the first room's art" row, and the `[image] … f NNN …
+  sprites/player_robot_v3_spritesheet.png` line carries a FRAME STAMP ≤ the
+  first `room-loaded`'s (`[image]` lines print `f` since `<this commit>`;
+  compare frames, not seconds — the census prints in `Last`, after the
+  activation frame's work, so its clock reads later than a `room-loaded` the
+  insertion actually preceded, and headless the two land in the SAME frame);
+  and no 67-79 ms frame ~0.1 s after `room-loaded` (`aca57e636`; the pre-fix
+  captures `015511Z`/`015909Z`/`020529Z` all have it). The player must never
   draw as a rectangle at start. (b) The census row reads
   `images_render_world_only=true` and `resident_mb` is roughly HALF the
   pre-`68d38076e` figure for the same room and tier (the CPU copy is gone);

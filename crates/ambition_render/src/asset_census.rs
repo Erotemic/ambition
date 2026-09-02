@@ -132,8 +132,16 @@ pub fn report_image_census(
     // now — otherwise ends with no `[image-census]` line at all, and the run's
     // resident-by-road answer dies with the process.
     mut exits: MessageReader<bevy::app::AppExit>,
+    // "Live" means a PLAYER is in a world: the game mode allows gameplay AND
+    // a session root exists. The shell host boots in `Playing` with nothing
+    // but the launcher on screen, so mode alone stamped every boot decode
+    // `live=1 — DECODED DURING GAMEPLAY, so it cost a frame`, which read as a
+    // gameplay hitch for art the launcher loads under its own cover.
+    sessions: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
 ) {
-    let live_known = mode.as_ref().map(|mode| mode.get().allows_gameplay());
+    let live_known = mode
+        .as_ref()
+        .map(|mode| mode.get().allows_gameplay() && !sessions.is_empty());
     let during_gameplay = live_known.unwrap_or(false);
     // The render world reports GPU preparation and has no `GameMode`; tell the
     // shared ledger what the main world knows, once per frame.
@@ -237,6 +245,12 @@ pub fn report_image_census(
             // unpredictable summon, a dev spawn). What is never legitimate is
             // not KNOWING.
             let live = u8::from(during_gameplay);
+            // The same frame stamp as `[world-event]`, so "before or after
+            // `room-loaded`" is a comparison of two integers rather than of two
+            // wall clocks: the census runs in `Last`, after a long activation
+            // frame's work, so its time can read AFTER a `room-loaded` that the
+            // insertion in `PreUpdate` of the same frame actually preceded.
+            let frame = ambition_platformer2d_shared_tangle::world_log::frame();
             // ⛔ A RUNTIME-GENERATED IMAGE IS NOT A CONTENT DECODE, AND TELLING
             // SOMEBODY TO "DEMAND IT AT MATCH PREPARATION" IS ADVICE THEY CANNOT
             // TAKE. Caught within an hour of shipping this warning: a headless
@@ -247,20 +261,20 @@ pub fn report_image_census(
             let generated = path == "<runtime-generated>";
             if during_gameplay && generated {
                 eprintln!(
-                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
+                    "[image] {at:8.3}s f{frame:>7} {width}x{height} {megapixels:6.1}MP live={live} {path} \
                      — allocated during gameplay. No asset path, so this is generated \
                      (an atlas or a render target), not content that could have been \
                      demanded earlier."
                 );
             } else if during_gameplay {
                 eprintln!(
-                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
+                    "[image] {at:8.3}s f{frame:>7} {width}x{height} {megapixels:6.1}MP live={live} {path} \
                      {demand} — DECODED DURING GAMEPLAY, so it cost a frame. If a match \
                      needs it, demand it at match preparation."
                 );
             } else {
                 eprintln!(
-                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} {demand}"
+                    "[image] {at:8.3}s f{frame:>7} {width}x{height} {megapixels:6.1}MP live={live} {path} {demand}"
                 );
             }
         }

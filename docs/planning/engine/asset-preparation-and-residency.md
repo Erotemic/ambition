@@ -172,6 +172,55 @@ changing when the quality setting does."* The fix is one incremental command,
 The frame cost of materializing them is a GPU-upload question and this machine
 rasterises in software; that half still needs real hardware.
 
+### ⭐ MEASURED 2026-09-01, REAL HARDWARE: the hall-entry hitch, in frames
+
+Jon's `desktop-timeline-run-20260901T231435Z` (RTX 3090, Ultra, Tracy attached
+— so absolute frame times carry the instrument's tax, but a 500 ms frame is not
+an instrument artefact). The hall loads at wall 24.45 s; the cover lifts at
+24.6 s. What follows:
+
+```text
+wall s   frame ms        images arriving (1 s census windows)
+24.6       132
+25.3       118           27.3 s window:  28 images, 150.7 MP, resident 1119 MB
+25.5       129           32.3 s window:  93 images, 280.2 MP, resident 2240 MB
+25.7       124
+26.3       201
+26.5       191
+26.8       287
+27.3       542   <- the frame the 150 MP window lands in
+27.5       154
+28.2       138
+```
+
+Ten frames over 100 ms in the four seconds AFTER the cover lifts, and the art
+keeps arriving for eight seconds: **430 MP decoded and uploaded while the hall is
+already playable, 2.2 GB of images resident at the end.** The Potato run of the
+same room decoded 92 MP in total. This is the "nasty frame drop entering the
+hall"; it is not the room load (70 ms under the cover), it is the cast's Full
+tier arriving late and all at once.
+
+**Two mechanisms, and the lever for each — to MEASURE, not yet to change:**
+
+- The **upload** half runs in the render world's `prepare_assets<GpuImage>`.
+  Bevy 0.19 ships a pacer for exactly this: insert
+  `RenderAssetBytesPerFrame::new(bytes)` and `GpuImage::byte_len` participates;
+  assets over the budget wait for the next frame (whole assets only — a 4096²
+  RGBA page is 67 MB and always uploads in one frame). The game inserts nothing,
+  so the budget is unlimited.
+- The **extract** half (`extract_render_asset<GpuImage>`, the ~455 ms zone on
+  the MAIN thread in the earlier capture) is a CLONE of the decoded bytes,
+  because every sheet is loaded with the default
+  `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` — which also keeps the CPU copy
+  alive, which is where the 2.2 GB comes from. `RENDER_WORLD` alone makes the
+  extract a move and frees the CPU copy — but then `Assets<Image>::get` returns
+  `None` for that sheet, and whoever reads a sheet's pixels or size from the
+  main world (sprite sizing, portraits, the image census) must be found first.
+  Grep `Assets<Image>` readers before flipping it.
+
+Neither replaces the per-use tier above: at Quarter the same hall asks for
+11.5x fewer megapixels and neither half has 430 MP to move.
+
 ## Existing architecture to build on
 
 The character path already has much of a residency service in domain-specific

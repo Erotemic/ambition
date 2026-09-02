@@ -196,9 +196,14 @@ Poison-verified by adding one: `error[E0433]: cannot find module or crate
 tests keep reaching it, which is what a dev-dependency is for.
 
 ⚠ **AND IT BUYS NO SMALLER CLOSURE, which the table above already forbade
-claiming.** `ambition_dev_tools` has 6 dependents and the facade names it
-directly; nothing downstream drops it. The payoff is ownership and a boundary
-the compiler holds.
+claiming — re-measured after the carve rather than asserted.** Six manifests
+name `ambition_dev_tools`, and after this slice exactly one of them
+(`ambition_platformer2d_actor_monolith`) says `[dev-dependencies]`. The other
+FIVE are production and include the facade every game depends on:
+`ambition_platformer2d`, `ambition_render`, `ambition_sim_view`,
+`ambition_platformer2d_provider`, `ambition_platformer2d_runtime`. ⇒ Nothing
+downstream drops the crate, and the shipped closure is unchanged. The payoff is
+ownership and a boundary the compiler holds.
 
 ⛔⛔ **AND IT WAS THE LAST MISPLACED REGISTRATION — SO THE "NEXT SLICE FROM THE
 DOMAIN FRONTIERS" PLAN POINTS AT NOTHING.** Measured 2026-09-02 late, after this

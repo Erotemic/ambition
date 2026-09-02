@@ -746,7 +746,9 @@ The one unresolved developer-policy choice from the session-ownership work is in
   improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
-  3, and the FACADE every game depends on names all four directly. So removing
+  3, and the FACADE every game depends on names all four directly. ✔ ALL FOUR
+  RE-MEASURED 2026-09-02 late and still exact; ⚠ but `ambition_dev_tools`'s six
+  is now 5 PRODUCTION + 1 dev-only, the dev-only one being the kernel itself. So removing
   the monolith's edge to any of them cannot shrink a product's closure, and
   footprint is retired as a rationale for these four; carve them for ownership
   and compile isolation or not at all. ⭐ SLICE TAKEN 2026-08-31 on

@@ -52,10 +52,13 @@ struct FirstRoomArtJob {
     waited_on_gpu_updates: u32,
 }
 
-/// The jobs in flight, by the transaction that published the session.
+/// The jobs in flight, by the transaction that published the session, and the
+/// ones already answered — a published record outlives its answer by the
+/// frames between `Complete` and activation, and must not be re-asked.
 #[derive(Resource, Default)]
 pub(crate) struct FirstRoomArtJobs {
     by_load: BTreeMap<LoadId, FirstRoomArtJob>,
+    answered: std::collections::BTreeSet<LoadId>,
 }
 
 /// Drive `prepare-first-room-art` for every published, not yet activated
@@ -77,6 +80,7 @@ pub(crate) fn prepare_first_room_art_system(
         .map(|(transaction, _)| transaction.barrier.load_id.clone())
         .collect();
     jobs.by_load.retain(|load_id, _| live.contains(load_id));
+    jobs.answered.retain(|load_id| live.contains(load_id));
 
     let (
         Some(assets),
@@ -106,6 +110,9 @@ pub(crate) fn prepare_first_room_art_system(
 
     for (transaction, prepared) in sessions.published() {
         let load_id = transaction.barrier.load_id.clone();
+        if jobs.answered.contains(&load_id) {
+            continue;
+        }
         let work_id = LoadWorkId::new(PREPARE_FIRST_ROOM_ART_WORK_ID);
         let source = prepared.content.source();
         let job = match jobs.by_load.get_mut(&load_id) {
@@ -131,6 +138,7 @@ pub(crate) fn prepare_first_room_art_system(
                                 .retryable(false),
                             ),
                         });
+                        jobs.answered.insert(load_id);
                         continue;
                     }
                     None => Vec::new(),
@@ -254,6 +262,7 @@ pub(crate) fn prepare_first_room_art_system(
         });
         if done {
             jobs.by_load.remove(&load_id);
+            jobs.answered.insert(load_id);
         }
     }
 }

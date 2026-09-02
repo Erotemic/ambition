@@ -50,7 +50,7 @@ NOT a claim that conflicts are unhandled.
 draft of this table used bare paths, on the reasoning that line numbers rot —
 they do, and three of them rotted inside a single merge earlier the same day.
 The reasoning was still wrong. `scripts/check_planning_citations.py` recognises
-exactly two citation forms: `` `path.rs:123` `` and `` `foo::bar` ``. **A bare
+exactly two citation forms: `` `path.rs:123` `` and `` `foo::bar` ``. **A bare  <!-- cite-ok -->
 `` `path.rs` `` is not a citation to it at all**, so the "safer" form was simply
 unchecked — 31 rows nothing would ever re-verify. With line numbers the table
 adds 31 checked citations (410 → 441) and the checker's own MOVED/FABRICATED
@@ -60,7 +60,7 @@ triage catches the rot instead of me hoping it will not happen.
 nothing reads it.** ⛔ And the intermediate claim this note used to carry — that
 the checker "does not read markdown table cells" — was FALSE and is recorded
 here because it was acted on: poisoning a cell with
-`crates/ambition_input/src/semantic_NOPE.rs:9999` makes the checker report it
+`crates/ambition_input/src/semantic_NOPE.rs:9999` makes the checker report it  <!-- cite-ok -->
 immediately. Tables were never the blind spot; the citation FORM was. ⛔ "no register fn" means
 the type is built some other way (a builder, `From`, deserialisation) and the
 question is not answered by a signature — it is NOT a claim that conflicts are

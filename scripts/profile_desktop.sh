@@ -1189,7 +1189,23 @@ run_instrumented_launch() {
     tracy_pid="$(start_tracy_capture "$out_dir")"
 
     local heartbeat_pid=""
-    ( elapsed=0; while sleep 5; do elapsed=$((elapsed + 5)); log "capturing... ${elapsed}s elapsed ($(describe_window))"; done ) &
+    # ⛔ A CLOSED WINDOW IS NOT AN EXITED PROCESS. On 2026-09-01 the game's last
+    # frame was at 27s and the process exited at 304s; the heartbeat said
+    # "capturing" for those 277s. The game's stderr goes quiet when the window
+    # closes, so the heartbeat watches the stamped log: once it has not grown
+    # for a while, say what is actually happening.
+    ( elapsed=0; quiet=0; stderr_log="$out_dir/game-stderr-stamped.txt"; last_size=-1
+      while sleep 5; do
+          elapsed=$((elapsed + 5))
+          size="$(stat -c %s "$stderr_log" 2>/dev/null || echo 0)"
+          if [[ "$size" == "$last_size" ]]; then quiet=$((quiet + 5)); else quiet=0; fi
+          last_size="$size"
+          if [[ "$quiet" -ge 20 ]]; then
+              log "capturing... ${elapsed}s elapsed; the game has printed nothing for ${quiet}s. If its window is already closed, the PROCESS is still shutting down — with Tracy attached it drains its trace before it exits, which has taken minutes (cause not yet measured; see performance-and-iteration.md). It finishes on its own; Ctrl-C ends the capture now with what was collected."
+          else
+              log "capturing... ${elapsed}s elapsed ($(describe_window))"
+          fi
+      done ) &
     heartbeat_pid=$!
     # A handler (not `trap '' INT`) is deliberate: ignoring INT would be
     # inherited by perf as SIG_IGN, so Ctrl-C would no longer stop the capture.
@@ -1212,7 +1228,7 @@ run_instrumented_launch() {
     # The heartbeat stops with the game, and what follows can take another half
     # minute (Tracy waits up to 30s for its client to disconnect). Silence there
     # reads as a hang, which is the same complaint the heartbeat exists to avoid.
-    log "game exited; finalizing perf.data and Tracy (this can take ~30s)"
+    log "game process exited; finalizing perf.data and the Tracy trace (tracy-capture waits up to 30s for the client to disconnect, then csvexport runs over the trace)"
     finish_tracy_capture "$out_dir" "$tracy_pid"
 }
 

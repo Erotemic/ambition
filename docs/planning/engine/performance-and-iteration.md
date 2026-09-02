@@ -1,5 +1,39 @@
 # Performance and iteration — current measured model
 
+## ⭐⭐ ANSWERED 2026-09-02: the shipped program runs at 250-310 fps
+
+Jon's `desktop-timeline-run-20260902T015909Z`: `profiling` optimisation, NO
+`profile` feature, V-Sync Off (`present_mode=Immediate`), frame cap Off,
+Ultra, RTX 3090, 79 s through eight rooms including a pirate fight.
+
+```text
+room                      frame ms (1 s windows)     fps
+central_hub_complex       3.2-3.4                    ~300
+hall_of_characters        3.9 once the art landed    ~250
+pirate_cove / sky_lookout 3.2-3.6                    ~290
+mockingbird_arena         3.1-3.4                    ~310
+ninja_dojo                3.2-3.7                    ~290
+gravity_lab               3.1-4.6                    220-320
+portal_lab                3.9-4.2                    ~250
+steady-state phase split  PreUpdate 0.70  Update 1.0  PostUpdate 0.8  RunFixedMainLoop 0.33  outside 0.36
+```
+
+The prediction was 120-200 fps and 5-8 ms; it was **pessimistic** — the
+windowed additions cost ~0 over the 3.4 ms headless floor, which is now the
+same number on the 3090 and the VM. So "the game runs under 100 fps" was
+three things stacked: the dev build (opt-level 1), `Fifo` v-sync at 144 Hz
+turning any frame over 6.9 ms into 72 fps, and — when profiling — the Tracy
+build's 2.5x. None of them is the shipped program. **There is no frame-rate
+campaign.** The floor is ~3.4 ms of system count (above), which is half a
+144 Hz budget and nothing on the CPU main thread needs attention for it.
+
+**What IS user-visible, in the same run:** 23 frames over 33 ms in 79 s, and
+nine of them — 355, 207, 199, 155, 137, 107, 97, 94, 89 ms — inside the hall's
+first two seconds, while 126 images / 434 MP arrived (2.15 GB resident after).
+The remaining ones are the boot (504 ms) and portal_lab's entry (123 ms). That
+is the asset campaign, and it is now the ONLY performance campaign:
+[`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
+
 ## WHERE THIS STANDS — 2026-09-01, end of the perception campaign
 
 **Where the day ended (2026-09-01, late).** Three findings changed the frame:

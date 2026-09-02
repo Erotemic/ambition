@@ -827,3 +827,148 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
         unreached
     );
 }
+
+/// Record a transition through `zone` of the active room and step until the
+/// target room is active (or `max` frames pass). Returns the frames it took.
+fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
+    let (target_room, arrival) = {
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        let zone = room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| zone.id == zone_id || zone.name == zone_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "the active room '{}' has no `{zone_id}`",
+                    room_set.active_spec().id
+                )
+            })
+            .clone();
+        let transition = room_set
+            .transition_for_player(
+                zone.aabb,
+                ambition_platformer2d::engine_core::Vec2::ZERO,
+                true,
+            )
+            .expect("the zone resolves to a transition");
+        (
+            room_set.rooms[transition.target_room].id.clone(),
+            transition.arrival,
+        )
+    };
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world).next().expect("a primary avatar").clone()
+    };
+    let _ = app.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(
+            0,
+            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room: target_room.clone(),
+                    arrival,
+                    edge_exit: false,
+                    zone_sfx: None,
+                },
+            ),
+        );
+    for frame in 0..max {
+        step(app);
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let active = query
+            .iter(app.world())
+            .next()
+            .map(|set| set.active_spec().id.clone());
+        let state = app
+            .world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
+        );
+        if active.as_deref() == Some(target_room.as_str()) && state.active.is_none() {
+            return frame;
+        }
+    }
+    panic!("the transition to '{target_room}' did not complete in {max} frames");
+}
+
+/// What the character tables and the image ledger hold right now.
+fn residency_snapshot(app: &App) -> (usize, usize, f64) {
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+    let assets = app.world().resource::<GameAssets>();
+    let realizations = assets.characters.resident_sheets().count();
+    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+    let (pages, mp) = ledger
+        .resident_rows()
+        .filter(|row| row.source == Some("character-sheet"))
+        .fold((0usize, 0.0f64), |(n, mp), row| (n + 1, mp + row.megapixels));
+    (realizations, pages, mp)
+}
+
+/// RESIDENCY GROWTH (asset open work 4, the "measure working-set growth"
+/// half): two hub → hall → hub round trips, and the working set on each
+/// return to the hub must be the SAME — realizations, character pages and
+/// megapixels. A set that grows on the second lap is a retention nobody
+/// owns: a realization the table keeps for a character no room places, or a
+/// page held past its realization (the exit guard above covers the latter).
+#[test]
+fn two_round_trips_through_the_gallery_return_the_same_working_set() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    settle_cast(&mut app, 10);
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    settle_cast(&mut app, 20);
+    for _ in 0..120 {
+        step(&mut app);
+    }
+    let start = residency_snapshot(&app);
+    let mut laps = Vec::new();
+    for lap in 0..2 {
+        let to_hall = transit_through(&mut app, HALL_DOOR_ZONE, 900);
+        for _ in 0..120 {
+            step(&mut app);
+        }
+        let in_hall = residency_snapshot(&app);
+        let to_hub = transit_through(&mut app, "hall_of_characters_entry", 900);
+        for _ in 0..300 {
+            step(&mut app);
+        }
+        let back = residency_snapshot(&app);
+        eprintln!(
+            "[residency-lap {lap}] to hall in {to_hall} frames: {in_hall:?}; back in {to_hub} \
+             frames: {back:?}"
+        );
+        laps.push(back);
+    }
+    eprintln!("[residency] at start {start:?}; after each lap {laps:?}");
+    let (first, second) = (laps[0], laps[1]);
+    assert_eq!(
+        first.0, second.0,
+        "the hub's resident REALIZATIONS grew between the first and second return \
+         ({} → {}): the table keeps a character no room places",
+        first.0, second.0
+    );
+    assert_eq!(
+        first.1, second.1,
+        "the hub's resident character PAGES grew between laps ({} → {})",
+        first.1, second.1
+    );
+    assert!(
+        (first.2 - second.2).abs() < 0.05,
+        "resident character megapixels moved between laps ({:.1} → {:.1})",
+        first.2, second.2
+    );
+}

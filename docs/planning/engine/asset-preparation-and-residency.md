@@ -610,9 +610,20 @@ placed cast and the worn character (their realizations), the one-hop
 neighbours' casts the prefetch realized at THEIR tier (`basement_enemies`
 spawns an "Ai Slop", which is why `npc_ai_slop` comes back at Full — for the
 basement, not for nobody), the fx set, and 24 unrouted UI/prop images (4.5
-MP). ⚠ This is the ownership half of the item; the working-set budget and
-the eviction policy are still open, and the neighbour prefetch is now the
-only road that decodes in the open on purpose.
+MP). ✔ **Working-set GROWTH measured the same evening**
+(`two_round_trips_through_the_gallery_return_the_same_working_set`, headless,
+real decode): hub = 6 realizations / 16 character pages / 13.4 MP; hall =
+139 pages / 44.3 MP at Quarter; back in the hub after each of two laps:
+**6 / 16 / 13.4 MP, identical** — the set returns to baseline, nothing
+accumulates. The price of that boundedness is visible in the same run: the
+second hall entry RE-DECODES the gallery (`RE-DECODE #2` on every hall
+sheet, 44 MP at Quarter, 7 frames under the cover on a warm page cache vs 32
+cold). That is the eviction question stated with numbers: today's policy is
+"retire everything the destination does not place", and a budget policy
+would instead keep the last room's cast resident while the total stays under
+a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
+Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
+prefetch remains the only road that decodes in the open on purpose.
 
 ### 5. Eliminate accidental re-preparation/reload
 

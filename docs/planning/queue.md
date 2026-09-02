@@ -1236,6 +1236,21 @@ product ruling.
   landed, `asset_wait_ms` INCLUDES the upload and the reveal should show no
   `[image-gpu]` line after it — if one appears after the cover lifts, name the
   file; it came by a road the manifest does not list.
+  **Tells added 2026-09-02 evening, same walk:** (a) GAME START — the load
+  screen shows a "Load the first room's art" row and the first `room-loaded`
+  is NOT followed by `[image] … player_robot_v3_spritesheet.png … live=1`
+  nor by the 67-79 ms frame ~0.1 s after it (`aca57e636`; the pre-fix
+  captures `015511Z`/`015909Z`/`020529Z` all have both); the player must never
+  draw as a rectangle at start. (b) The census row reads
+  `images_render_world_only=true` and `resident_mb` is roughly HALF the
+  pre-`68d38076e` figure for the same room and tier (the CPU copy is gone);
+  the history label carries `+render-world-only`. (c) HALL EXIT — no
+  `[image]` line with `live=1` for a hall-only character after `room-loaded
+  central_hub_complex`, and the `[image-census]` after it lists
+  `character-sheet` at roughly the hub's cast, not the gallery's
+  (`124684f56`, 0 orphan pages headless). (d) `[image-census]` prints only on
+  a 5 s window boundary; a fast entry can finish inside one and print nothing
+  — read `[image]`/`[image-gpu]` lines directly when it does.
 - **Four LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
   `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity

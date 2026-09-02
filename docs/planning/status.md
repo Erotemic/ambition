@@ -197,7 +197,15 @@ preparation, with `[image]` / `[image-gpu]` / `[image-dropped]` lines and
 re-decode / dropped-before-upload counts on the census line. Its first hall
 reading: every sheet the reveal demanded was prepared in ONE render frame
 (the upload half of the hitch, unlimited `RenderAssetBytesPerFrame`), and the
-intro cast's startup preload decodes ~26 MP on every boot that nothing draws.
+intro cast's startup preload decoded ~26 MP on every boot that nothing draws.
+⚠ **THAT PRELOAD ROAD IS GONE as of `301a07009` (2026-09-02, after this file's
+stated baseline).** `load_intro_npc_sprites_system` published every intro NPC
+sheet under its DISPLAY NAME while the world authors only `character_id`, so no
+lookup could reach them; the system and the manifest rows it fed are both
+deleted, and `extend_with_intro_sprite_entries` now adds intro PROPS only. ⛔ The
+~26 MP is therefore a number for a road that no longer exists — it has NOT been
+re-measured, so treat it as "was", not as current waste, until a host boot says
+what the figure is now.
 The hall-entry fix itself (reveal barrier + gallery tier cap) still awaits its
 host confirmation; the tells are in `queue.md`.
 

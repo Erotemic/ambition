@@ -450,6 +450,13 @@ readout saying nobody uploaded.
 `demand→draw NNNms via <road>` at the same NOTABLE threshold the other stages
 use, and the census row gains `never drawn N (M MP)`.
 
+⛔⛔ **AND `PROCEDURAL` IS NEVER A FINDING ON THAT ROW.** The stage is stamped
+from `ExtractedSprites`, and a render target, a shader input or a material
+texture is never a sprite — it is written to or sampled, not extracted. Those
+rows are permanently "never drawn" BY CONSTRUCTION, so the 4-6 MP the bucket
+reports in a hall capture is the instrument describing its own blind spot, not an
+asset problem. Only the file-backed roads answer a residency question here.
+
 ⛔⛔ **AND THE ROW PRINTS `-`, NOT `0`, WITHOUT A RENDER WORLD.** With nothing
 extracted, EVERY resident image is "never drawn" — which on a headless road means
 nobody could have drawn anything, not that the pixels were wasted.

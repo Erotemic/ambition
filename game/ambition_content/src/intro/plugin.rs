@@ -116,10 +116,19 @@ impl Plugin for IntroPlugin {
                     >,
                 ),
             );
-        // Intro dialog redirects are handled by the unified
-        // `dialog::redirect_post_quest_dialog` system. Its
-        // ordering (after CoreSimulation, before DialogPresentationSet)
-        // is registered alongside the sandbox dialog systems.
+        // ⚠ THIS COMMENT DESCRIBES MACHINERY THAT NO LONGER EXISTS, and it is
+        // left saying so rather than repointed, because there is nothing to
+        // repoint AT. It read: "Intro dialog redirects are handled by the
+        // unified `dialog::redirect_post_quest_dialog` system" (cite-ok), whose
+        // ordering was after CoreSimulation and before DialogPresentationSet.
+        // Checked 2026-09-02: no `redirect_post_quest_dialog` and no function
+        // named `*redirect*` survives anywhere in `ambition_content`, and
+        // `intro::dialog` exports only `intro_dialogue_ids`.
+        //
+        // ⇒ EITHER post-quest redirects moved to a mechanism nobody recorded, OR
+        // they are gone and the intro quietly lost a behaviour. This block
+        // registers nothing, so a reader cannot tell which from here. Worth one
+        // person's five minutes who knows the dialogue road.
     }
 }
 

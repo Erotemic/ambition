@@ -648,7 +648,16 @@ fn load_sprite_pages(
                 }
             };
             CharacterSpritePage {
-                texture: asset_server.load(page_path),
+                // Through the funnel: the demand instant goes on the stage
+                // ledger, and the render-world-only knob applies to the one
+                // population that actually dominates a room's megapixels.
+                // Readiness reads the asset server's load state, not
+                // `Assets<Image>` (see `inspect_room_asset_manifest`).
+                texture: ambition_sprite_sheet::game_assets::load_sheet_image(
+                    asset_server,
+                    "character-sheet",
+                    page_path,
+                ),
                 layout: layouts.add(spec.build_atlas_for_page(page)),
             }
         })
@@ -1137,11 +1146,23 @@ mod room_tier_tests {
     #[test]
     fn a_gallery_lowers_the_floor_to_quarter_under_a_full_setting() {
         let ultra = budget(VisualQualityProfile::Ultra);
-        assert_eq!(character_sprite_tier(Some(&ultra)), TextureResolutionScale::Full);
+        assert_eq!(
+            character_sprite_tier(Some(&ultra)),
+            TextureResolutionScale::Full
+        );
         let (floor, ceiling) = room_character_tier_bounds(Some(&ultra), Some(&gallery()));
-        assert_eq!((floor, ceiling), (TextureResolutionScale::Quarter, TextureResolutionScale::Full));
+        assert_eq!(
+            (floor, ceiling),
+            (
+                TextureResolutionScale::Quarter,
+                TextureResolutionScale::Full
+            )
+        );
         let realized_with = budget_for_room(&ultra, Some(&gallery()));
-        assert_eq!(realized_with.sprites.effective_scale(), TextureResolutionScale::Quarter);
+        assert_eq!(
+            realized_with.sprites.effective_scale(),
+            TextureResolutionScale::Quarter
+        );
     }
 
     /// A setting already below the cap is the floor: the cap never RAISES a tier.
@@ -1151,7 +1172,9 @@ mod room_tier_tests {
         let (floor, ceiling) = room_character_tier_bounds(Some(&potato), Some(&gallery()));
         assert_eq!(floor, ceiling);
         assert_eq!(
-            budget_for_room(&potato, Some(&gallery())).sprites.effective_scale(),
+            budget_for_room(&potato, Some(&gallery()))
+                .sprites
+                .effective_scale(),
             potato.sprites.effective_scale()
         );
     }

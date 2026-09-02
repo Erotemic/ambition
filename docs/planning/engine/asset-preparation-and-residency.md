@@ -295,6 +295,38 @@ source IO
 A late-asset report should name the requested logical asset, provider/source,
 stage, demand time, completion time and whether gameplay was already live.
 
+✔ **Three of the five stages are on one ledger since 2026-09-02**
+(`ambition_asset_manager::image_stages`, process-global because three worlds
+write it): the DEMAND (stamped in `load_sheet_image` — character pages,
+parallax, fx, boss sheets — and in the manifest catalog's `load_optional`),
+the INSERTION into `Assets<Image>` (the census, main world) and the GPU
+PREPARATION (`stamp_gpu_prepared_images`, render world, after
+`prepare_assets::<GpuImage>`). Readout, on the same clock as `[image]`:
+
+```text
+[image]      0.911s 3006x2462 7.4MP live=1 sprites/bob_spritesheet.png demand→insert 219ms via character-sheet — DECODED DURING GAMEPLAY …
+[image-gpu]  1.404s 7.4MP live=1 sprites/bob_spritesheet.png insert→gpu 493ms demand→insert 219ms via character-sheet
+[image-census] … | gpu +17 (+64.3MP) insert→gpu p50 493ms max 493ms | awaiting gpu 0
+```
+
+What the first run (hall, llvmpipe, `capture_scene`) showed: every sheet the
+reveal demanded was inserted 219–385 ms after its demand and then prepared in
+ONE render frame — seventeen sheets, 64 MP, `insert→gpu 493ms` for all of
+them, because `RenderAssetBytesPerFrame` is unlimited by default. That is the
+upload half of the hitch made visible; `AMBITION_RENDER_ASSET_MB_PER_FRAME`
+spreads it and the census line's `awaiting gpu` shows the backlog it creates.
+Software-rasteriser numbers, so the magnitude is not Jon's; the SHAPE (one
+frame takes the whole batch) is the finding.
+
+Not covered, honestly reported: source IO and decode are one stage here
+(Bevy's loader does both on the IO pool and `Added` fires after); "resident
+use" (first draw) is not stamped; an image demanded by a road that calls
+neither funnel prints `demand=unknown` — in the hall that is exactly one,
+the player's own `game://sprites/player_robot_v3_spritesheet.png`, whose load
+site is still to be found and routed. `[image-gpu]` lines only appear with a
+render world; headless runs show `awaiting gpu` growing instead, which is the
+readout saying nobody uploaded.
+
 ### 2. Demand before first visible use
 
 Where semantic composition already knows the roster/room/UI assets, raise demand

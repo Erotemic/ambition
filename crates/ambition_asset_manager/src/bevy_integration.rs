@@ -91,7 +91,12 @@ impl AmbitionAssetCatalog {
             .resolve(id, profile)
             .unwrap_or_else(|err| panic!("ambition_asset_manager: {err}"));
         let path = resolved.bevy_asset_path()?;
-        Some(asset_server.load(path))
+        let handle: Handle<T> = asset_server.load(path.clone());
+        // Stage 1 of the image ledger for manifest-resolved art (entity
+        // sprites, portraits, the player's own sheet). Recorded untyped; a
+        // non-image row is never consulted.
+        crate::image_stages::note_demand(handle.id().untyped(), "asset-manifest", path);
+        Some(handle)
     }
 
     /// Same as [`Self::load_optional`] but returns a placeholder

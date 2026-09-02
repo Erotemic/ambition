@@ -386,6 +386,9 @@ pub fn add_presentation_plugins(app: &mut App) {
     // render-pass diagnostics. Same gate and same clock as the sim half added
     // by `AmbitionGameSimulationSetupPlugin`.
     app.add_plugins(ambition_platformer2d::render::runtime_census::PresentationCensusPlugin);
+    // The render-world stamp of the image stage ledger (`[image-gpu]` lines);
+    // a no-op without a render world.
+    app.add_plugins(ambition_platformer2d::render::asset_census::ImageStagePlugin);
 }
 
 /// Visible-side resources, registered types, and presentation child

@@ -11,6 +11,7 @@
 //! This answers exactly that, on stderr, so `scripts/profile_desktop.sh` stamps
 //! it into the timeline chunk the decode happened in.
 
+use ambition_sprite_sheet::game_assets::image_stages;
 use bevy::asset::AssetEvent;
 use bevy::image::Image;
 use bevy::prelude::*;
@@ -117,16 +118,25 @@ pub fn report_image_census(
     // ⭐ OPTIONAL, because a composition may have no game mode at all (a capture
     // tool, a headless probe). Absent means "cannot tell", which must read as
     // "do not accuse", not as "not during gameplay".
-    mode: Option<Res<bevy::state::state::State<
-        ambition_platformer2d_shared_tangle::schedule::GameMode,
-    >>>,
+    mode: Option<
+        Res<bevy::state::state::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+    >,
 ) {
-    let during_gameplay = mode.is_some_and(|mode| mode.get().allows_gameplay());
+    let live_known = mode.as_ref().map(|mode| mode.get().allows_gameplay());
+    let during_gameplay = live_known.unwrap_or(false);
+    // The render world reports GPU preparation and has no `GameMode`; tell the
+    // shared ledger what the main world knows, once per frame.
+    image_stages::ledger().set_gameplay_live(live_known);
     for event in events.read() {
-        let AssetEvent::Added { id } = event else {
-            continue;
+        let id = match event {
+            AssetEvent::Added { id } => *id,
+            AssetEvent::Removed { id } | AssetEvent::Unused { id } => {
+                image_stages::ledger().removed(id.untyped());
+                continue;
+            }
+            _ => continue,
         };
-        let Some(image) = images.get(*id) else {
+        let Some(image) = images.get(id) else {
             continue;
         };
         let (width, height) = (image.width(), image.height());
@@ -158,15 +168,29 @@ pub fn report_image_census(
         census.total_bytes += bytes;
         census.window_images += 1;
         census.window_megapixels += megapixels;
+        // Stage 2 of 3 on the ledger (demand is stage 1, GPU preparation is
+        // stage 3, stamped by the render world). Every image, not only the
+        // notable ones: the GPU stamp needs the id awaited.
+        let stages = image_stages::ledger().inserted(
+            id.untyped(),
+            megapixels,
+            live_known,
+            asset_server.get_path(id).map(|path| path.to_string()),
+            Instant::now(),
+        );
 
         if megapixels >= ImageCensus::NOTABLE_MEGAPIXELS {
             let at = census.started_at.elapsed().as_secs_f64();
             // The asset PATH is the whole point: it is the one thing a perf
             // symbol can never tell you, and the only handle you can act on.
             let path = asset_server
-                .get_path(*id)
+                .get_path(id)
                 .map(|path| path.to_string())
                 .unwrap_or_else(|| "<runtime-generated>".to_string());
+            // Which STAGE was late is the question the hall hitch left open:
+            // a decode that finished 600ms after its demand and an upload
+            // that stalled a frame look identical in a frame-time trace.
+            let demand = stages.demand_phrase();
             // ⭐⭐ `live=` IS EMITTED ON BOTH BRANCHES, DELIBERATELY. A reader
             // that sees no marker at all is reading a log from before this
             // existed, and must say "unknown" rather than "none" — an absent
@@ -201,12 +225,12 @@ pub fn report_image_census(
             } else if during_gameplay {
                 eprintln!(
                     "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} \
-                     — DECODED DURING GAMEPLAY, so it cost a frame. If a match needs \
-                     it, demand it at match preparation."
+                     {demand} — DECODED DURING GAMEPLAY, so it cost a frame. If a match \
+                     needs it, demand it at match preparation."
                 );
             } else {
                 eprintln!(
-                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path}"
+                    "[image] {at:8.3}s {width}x{height} {megapixels:6.1}MP live={live} {path} {demand}"
                 );
             }
         }
@@ -218,15 +242,33 @@ pub fn report_image_census(
     }
     // Stay silent through quiet windows: a steady stream of "+0 images" lines
     // would drown the windows that actually decoded something.
-    if census.window_images > 0 {
+    let (gpu_count, gpu_megapixels, gpu_p50, gpu_max, awaiting) = {
+        let mut ledger = image_stages::ledger();
+        let (count, megapixels, p50, max) = ledger.take_gpu_window();
+        (count, megapixels, p50, max, ledger.awaiting_gpu().len())
+    };
+    if census.window_images > 0 || gpu_count > 0 {
         let at = now.duration_since(census.started_at).as_secs_f64();
+        let ms = |d: Option<std::time::Duration>| {
+            d.map_or("-".to_string(), |d| {
+                format!("{:.0}ms", d.as_secs_f64() * 1e3)
+            })
+        };
+        // The GPU half on the same line as the decode half, so a window that
+        // decoded 40MP and uploaded 12MP reads as the backlog it is. `awaiting`
+        // is inserted-but-not-yet-prepared: nonzero at the end of a quiet
+        // window means the upload pacer (or a missing render world) is holding
+        // pixels the main world already paid for.
         eprintln!(
-            "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident",
+            "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident \
+             | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting}",
             census.window_images,
             census.window_megapixels,
             census.total_images,
             census.total_megapixels,
             census.total_bytes as f64 / 1.0e6,
+            ms(gpu_p50),
+            ms(gpu_max),
         );
     }
     census.window_images = 0;
@@ -264,5 +306,94 @@ mod tests {
         let census = ImageCensus::default();
         assert_eq!(census.total_images(), 0);
         assert_eq!(census.total_megapixels(), 0.0);
+    }
+}
+
+/// Stage 3 of the image ledger: the GPU copy exists.
+///
+/// Runs in the RENDER world after Bevy's `prepare_assets::<GpuImage>`, and asks
+/// only about the ids the main world inserted and nobody has yet seen prepared
+/// — a handful at a time, not a walk over every texture. The pacer
+/// (`RenderAssetBytesPerFrame`) defers uploads across frames, and this is the
+/// instrument that shows the deferral: `insert→gpu` grows while `awaiting gpu`
+/// on the census line stays nonzero.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn stamp_gpu_prepared_images(
+    gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
+    started_at: Res<ImageStageClock>,
+) {
+    let mut ledger = image_stages::ledger();
+    if ledger.awaiting_gpu().is_empty() {
+        return;
+    }
+    let prepared: Vec<_> = ledger
+        .awaiting_gpu()
+        .iter()
+        .copied()
+        .filter(|id| {
+            id.try_typed::<Image>()
+                .is_ok_and(|id| gpu_images.get(id).is_some())
+        })
+        .collect();
+    if prepared.is_empty() {
+        return;
+    }
+    let now = Instant::now();
+    let live = ledger.gameplay_live();
+    for id in prepared {
+        let Some(stages) = ledger.gpu_prepared(id, now) else {
+            continue;
+        };
+        if stages.megapixels < ImageCensus::NOTABLE_MEGAPIXELS {
+            continue;
+        }
+        let at = now.duration_since(started_at.0).as_secs_f64();
+        let ms = |d: Option<std::time::Duration>| {
+            d.map_or("-".to_string(), |d| {
+                format!("{:.0}ms", d.as_secs_f64() * 1e3)
+            })
+        };
+        // `live=` mirrors the `[image]` line: a big upload while gameplay is
+        // live is a frame the player felt, whichever stage owned the wait.
+        let live = live.map_or("?".to_string(), |live| u8::from(live).to_string());
+        eprintln!(
+            "[image-gpu] {at:8.3}s {:6.1}MP live={live} {} insert→gpu {} demand→insert {} via {}",
+            stages.megapixels,
+            stages.path.as_deref().unwrap_or("<runtime-generated>"),
+            ms(stages.insert_to_gpu()),
+            ms(stages.demand_to_insert()),
+            stages.source.unwrap_or("?"),
+        );
+    }
+}
+
+/// The census clock, mirrored into the render world so `[image-gpu]` lines sit
+/// on the same timeline as `[image]` lines.
+#[derive(Resource, Clone, Copy)]
+pub struct ImageStageClock(pub Instant);
+
+/// Installs the render-world half of the stage ledger. A no-op when the app
+/// has no render world (`NoWindow`, headless): then nothing is ever prepared
+/// on a GPU, and `awaiting gpu` on the census line correctly grows — that is
+/// the readout saying the pixels were decoded for nobody.
+pub struct ImageStagePlugin;
+
+impl Plugin for ImageStagePlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use bevy::render::{Render, RenderApp, RenderSystems};
+            // One clock for both halves: whichever side initialises the census
+            // first fixes the zero, and the other reads it.
+            app.init_resource::<ImageCensus>();
+            let clock = ImageStageClock(app.world().resource::<ImageCensus>().started_at);
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+            render_app.insert_resource(clock).add_systems(
+                Render,
+                stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
+            );
+        }
     }
 }

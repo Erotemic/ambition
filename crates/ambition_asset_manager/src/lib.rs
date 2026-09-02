@@ -49,6 +49,9 @@ pub use profile::{AssetProfile, AssetSourceProfile};
 pub use resolver::{resolve, resolve_all, AssetResolutionError, ResolvedAsset};
 
 #[cfg(feature = "bevy")]
+pub mod image_stages;
+
+#[cfg(feature = "bevy")]
 pub use bevy_integration::{
     path_for_active, AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
 };

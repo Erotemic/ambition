@@ -39,8 +39,19 @@ use ambition_platformer2d_world::rooms::RoomMetadata;
 /// checks already use the asset server's load state, not residency). An
 /// EXPERIMENT KNOB, read once, recorded by the visual-quality census so a
 /// capture says which way it was loaded.
-pub fn load_sheet_image(asset_server: &AssetServer, path: impl Into<bevy::asset::AssetPath<'static>>) -> Handle<Image> {
-    if images_render_world_only() {
+///
+/// `source` names the road that demanded it (`"character-sheet"`, `"parallax"`,
+/// `"fx-sheet"`, `"boss-sheet"`) for the [`image_stages`] ledger, which stamps
+/// the demand instant here so a late image can report how long after it was
+/// asked for it arrived, and at which stage.
+pub fn load_sheet_image(
+    asset_server: &AssetServer,
+    source: &'static str,
+    path: impl Into<bevy::asset::AssetPath<'static>>,
+) -> Handle<Image> {
+    let path = path.into();
+    let label = path.to_string();
+    let handle = if images_render_world_only() {
         asset_server
             .load_builder()
             .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
@@ -49,7 +60,9 @@ pub fn load_sheet_image(asset_server: &AssetServer, path: impl Into<bevy::asset:
             .load(path)
     } else {
         asset_server.load(path)
-    }
+    };
+    image_stages::note_demand(handle.id().untyped(), source, label);
+    handle
 }
 
 pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONLY";
@@ -145,6 +158,9 @@ impl GameAssetConfig {
 
 mod entity_sprite;
 mod resolvers;
+
+/// The per-image stage ledger the funnel below feeds; see its module docs.
+pub use ambition_asset_manager::image_stages;
 pub use entity_sprite::*;
 pub use resolvers::*;
 
@@ -335,7 +351,10 @@ impl ParallaxLayerSet {
             else {
                 continue;
             };
-            self.handles.insert((theme, layer), load_sheet_image(asset_server, path));
+            self.handles.insert(
+                (theme, layer),
+                load_sheet_image(asset_server, "parallax", path),
+            );
             added += 1;
         }
         added
@@ -458,7 +477,7 @@ pub fn load_entity_sprites(
             missing.push(id.to_string());
             continue;
         };
-        handles.insert(key, load_sheet_image(asset_server, path));
+        handles.insert(key, load_sheet_image(asset_server, "fx-sheet", path));
     }
     // ⚠ WHAT THIS CATCHES IS NARROW, AND SAYING SO IS THE POINT.
     // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or

@@ -974,7 +974,7 @@ fn build_boss_pages(
                 }
             };
             BossSpritePage {
-                texture: crate::game_assets::load_sheet_image(asset_server, page_path),
+                texture: crate::game_assets::load_sheet_image(asset_server, "boss-sheet", page_path),
                 layout: layouts.add(build_atlas_layout(
                     &record.atlas_page(page, spec.frame_sample_inset),
                 )),

@@ -20,11 +20,21 @@
 use bevy::prelude::*;
 
 fn main() {
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // ⛔ THE LOG PLUGIN GOES IN THE COMPOSE HOOK, NOT AFTER. A `NoWindow` build
+    // finishes and cleans up its plugins before returning (so `Plugin::finish`
+    // runs, which `App::update()` never does), and Bevy 0.19 PANICS on
+    // `add_plugins` after that: "Plugins cannot be added after App::cleanup()
+    // or App::finish() has been called." This binary did exactly that and died
+    // on its third line.
     // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
     // subscriber safe here and unsafe in the test binary.
-    app.add_plugins(bevy::log::LogPlugin::default());
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |app| {
+            app.add_plugins(bevy::log::LogPlugin::default());
+        },
+    );
 
     for _ in 0..30 {
         app.update();

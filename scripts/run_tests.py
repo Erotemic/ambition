@@ -559,6 +559,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             [CARGO, "check", "-p", "ambition_app", "--lib",
              "--target", "wasm32-unknown-unknown",
              "--no-default-features", "--features", "web_served_assets"]))
+    elif not only:
+        # ⛔ SAY IT WHERE THE PLAN IS MADE. The LINK branch below has always
+        # warned when the target is missing; this one did not, so a machine
+        # without wasm32 planned no web job, passed everything, and printed a
+        # footer claiming the wasm CHECK ran.
+        print("run_tests: SKIPPING the web build CHECK — the "
+              "wasm32-unknown-unknown target is not installed "
+              "(`rustup target add wasm32-unknown-unknown`). "
+              "The web build is UNCHECKED in this run, and a #[cfg] break on "
+              "that target is invisible to every other job.")
     if not only and everything:
         if wasm_target_installed():
             jobs.append(Job(
@@ -818,8 +828,17 @@ def coverage_notice(
     maintenance_only: bool = False,
     *,
     rust_alone: bool = False,
+    web_check_planned: bool = True,
 ) -> str:
-    """State the intentionally omitted validation lanes out loud."""
+    """State the intentionally omitted validation lanes out loud.
+
+    ⛔ `web_check_planned` is DERIVED FROM THE PLAN, not assumed. This footer
+    said "(the wasm CHECK ran)" unconditionally while the CHECK job is only
+    appended when `wasm_target_installed()`. On a machine without the target the
+    plan silently contains no web job, every job passes, and the run reports
+    that the wasm check ran. The LINK branch below has always warned; the CHECK
+    branch did not.
+    """
     if tool_tests_only:
         return (
             "\n  ⚠ --tool-tests ran detached developer-tool tests only. "
@@ -867,7 +886,15 @@ def coverage_notice(
             "        `cargo test -p <crate> --features ...` compiles them)\n"
             "      - the external-consumer fixtures (own workspace + lockfile, so\n"
             "        an umbrella API break stays invisible to a workspace build)\n"
-            "      - the wasm/web build LINK (the wasm CHECK ran)\n"
+            + (
+                "      - the wasm/web build LINK (the wasm CHECK ran)\n"
+                if web_check_planned
+                else "      - ⛔⛔ the wasm/web build ENTIRELY. The CHECK did not run\n"
+                     "        either: wasm32-unknown-unknown is not installed, so the\n"
+                     "        job was never planned. `rustup target add\n"
+                     "        wasm32-unknown-unknown` — a #[cfg] break on that target\n"
+                     "        is invisible to every other job.\n"
+            ) +
             "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
             "    That is the right trade for a dev cycle and the wrong one before a\n"
             "    release or after touching features, an SDK surface, or the web path."
@@ -888,7 +915,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             print(f"      {' '.join(j.argv)}")
         print(coverage_notice(
             exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
-            rust_alone=rust_alone
+            rust_alone=rust_alone,
+            web_check_planned=any("web build check" in j.name for j in jobs),
         ))
         return 0
 
@@ -974,7 +1002,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             print(f"    - {n}")
     print(timing_report(results))
     notice = coverage_notice(
-        exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+        exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
+        web_check_planned=any("web build check" in j.name for j in jobs),
     )
     if notice:
         print(notice)

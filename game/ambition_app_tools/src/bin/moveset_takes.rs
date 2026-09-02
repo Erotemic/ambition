@@ -995,9 +995,16 @@ fn main() {
         },
     };
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    app.add_plugins(bevy::log::LogPlugin::default());
+    // ⛔ IN THE COMPOSE HOOK: a `NoWindow` build finishes and cleans up its
+    // plugins before returning, and Bevy 0.19 panics on `add_plugins` after
+    // that. See `build_visible_app_with`.
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |app| {
+            app.add_plugins(bevy::log::LogPlugin::default());
+        },
+    );
     // ⭐⭐ THE CLOCK IS OURS FROM HERE. Without this the rollback host advances
     // from a WALL-CLOCK accumulator, so one `app.update()` runs zero, one or
     // several sim ticks depending on how long the previous iteration took —

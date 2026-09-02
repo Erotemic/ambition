@@ -228,6 +228,26 @@ registration is `GAUNTLET_FIREBALL_VISUAL` in `game/ambition_content/src/project
 All three (40–42) were opened by the K2 fold on 2026-09-02; the fold itself is
 landed and none of them blocks it.
 
+### 43. Does a body hanging on a ledge inside a hazard volume die?
+
+Spikes under a ledge lip is an authored shape, and a hanging body's box can
+overlap one. Today it does not die: an active ledge grab consumes the simulation
+frame before the hazard/OOB gate runs, so the gate never judges it.
+
+That was not authored — it is a consequence of where the gate sits. It surfaced
+2026-09-02 when the gate moved to fix an ordering bug and would have started
+judging three populations it never had; the move was constrained back to its
+original population rather than deciding this by accident. See
+[`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) §1.
+
+- **stays immune:** hanging is a committed state, and a body that cannot act
+  cannot be asked to escape; or
+- **dies:** the hazard is a volume and being inside it is being inside it,
+  whatever the body is doing.
+
+⚠ Recorded, not recommended. Whichever way it goes it is a FEEL ruling and wants
+authoring deliberately, not acquiring from a refactor.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### Switch Pro outer stick range

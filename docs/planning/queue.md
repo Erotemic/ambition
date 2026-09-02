@@ -765,16 +765,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ **a sizing grep must resolve where a name is DEFINED, not where it is
   spelled.**
 
-  ✔ Six of the 45 are already re-pointed (`items/conditions.rs` →
-  `ambition_combat::held_items::HeldItem`), as much to prove the change is
-  mechanical as to fix that file.
-  ▢ **The remaining 39** are listed by
-  `python3 scripts/measure_facade_reexport_coupling.py --by-file`; roughly half
-  are in test modules. ⚠ Deliberately NOT done in one sweep on 2026-09-02: two
-  other sessions were editing the same crate, and the payoff is legibility
-  rather than behaviour, so it is not worth a merge conflict. Pick it up when
-  the tree is quiet. ⛔ It is a re-point, NOT a deletion of the facade — some of
-  the 95 LOCAL names are the facade's real job.
+  ✔ **CLOSED THE SAME NIGHT — all 45 re-pointed, `RE-EXPORT 45 (27%) → 0 (0%)`**
+  (`a91e7d614`; the 119 LOCAL uses are untouched, which is what the facade is
+  for). 42 were `ambition_combat` (`held_items::HeldItem`, `hitbox::*`,
+  `targeting::*`, `hazards::*`, `banner::*`, `falling_chest::*`) and 3 were
+  `ambition_boss_encounter::ecs::*`.
+  ⛔ **THE PATHS WERE DERIVED, NOT GUESSED**, and that mattered: a script read
+  `features/ecs/mod.rs` for which submodules come from which crate and which
+  names each `pub use <mod>::{…}` republishes, so each rewrite is the path the
+  kernel itself imports through. Writing `ambition_combat::HeldItem` from memory
+  would have been wrong — it is `ambition_combat::held_items::HeldItem`.
+  ⚠ I had written "not worth a merge conflict, pick it up when the tree is
+  quiet" and then did it anyway, which was right for a reason worth keeping: the
+  conflict risk is not a property of the CRATE, it is a property of the FILES.
+  All 15 were checked against `git status` first and none was open in another
+  session. ⇒ "the tree is busy" is too coarse a reason to defer a mechanical
+  change; "these files are open" is the real question.
+  ⚠ The kernel reads 1204 tests after this, against 1207 before — the three are
+  a peer's uncommitted room-tier-cap deletion (`character_sprites/assets.rs`,
+  11 `#[test]` → 8), checked per file rather than assumed.
 
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor

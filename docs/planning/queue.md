@@ -500,20 +500,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   constant. Do not substitute lavapipe/software rendering. Owner:
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
-- ▢ **D-CUBE-CHURN — the kaleidoscope rebuilds change-detection state it only
-  reads.** `cache_system_menu` runs every visible frame on every face and builds
-  `DevSnapshot` (a `String` per toggle, and there are 21) plus `RadioSnapshot` (a
-  `String` per station); `republish_kaleidoscope_pages` then CLONES both into a
-  fresh `RebuildKey`, compares it, and usually drops it — order of 40+ String
-  allocations per open frame purely to answer "did anything change?". Separately
-  `kaleidoscope_sync_focus_visuals` calls `focus_for_action` per control per
-  frame, allocating a `Vec<SystemRow>` per System control while
-  `CachedSystemMenu.rows` already holds that exact list. ⚠ Verified in source at
-  the line, magnitude NOT measured — take a count, not a timing (HD 630 at
-  ~45-60 ms/frame buries it). Fix must stay a VALUE comparison: change ticks here
-  are the historical rebuild-every-frame cliff. Read the map first, including
-  what is already FALSIFIED (Lunex is `Changed<>`-filtered; the `UserSettings`
-  clone is a memcpy; `Msaa::Off` recovers nothing):
+- ✔ **D-CUBE-CHURN — CLOSED 2026-09-02, by count.** `cache_system_menu` ran
+  every visible frame on every face and, on the System face, BUILT THE WHOLE
+  MODEL every frame (the settings IR plus a string per row); `DevSnapshot` was
+  21 `String`s a frame; `kaleidoscope_sync_focus_visuals` rebuilt a
+  `Vec<SystemRow>` per control per frame. Now: the model rebuilds only when an
+  input's VALUE moves (settings, radio, dev, pending quality, drill state —
+  compared, never tick-checked; a `set_changed()` on `UserSettings` every frame
+  for thirty frames builds it once, `an_idle_system_face_builds_its_model_once`,
+  red at 30 with the gate removed); `DevSnapshot` borrows its labels
+  (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through
+  `focus_for_action_in_rows`. Still per frame and still allocating:
+  `RadioSnapshot`'s `String` per station and the `RebuildKey` clone of it —
+  both small, both a count away if they matter. Read the map for what is
+  FALSIFIED (Lunex is `Changed<>`-filtered; the `UserSettings` clone is a memcpy;
+  `Msaa::Off` recovers nothing):
   [`../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md).
 
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a

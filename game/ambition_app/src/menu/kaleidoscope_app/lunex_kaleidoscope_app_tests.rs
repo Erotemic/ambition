@@ -2474,3 +2474,54 @@ fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
         "the arm is consumed, so the next key press is not a second rebind"
     );
 }
+
+// ---- System model churn ----------------------------------------------------
+
+/// An open System face with nobody touching it builds its model ONCE.
+///
+/// `cache_system_menu` runs every visible frame; the model it builds is the
+/// whole settings IR plus a string per row. The gate is a VALUE comparison of
+/// its inputs (settings, radio, dev, pending quality, drill state), so a dirty
+/// change tick on `UserSettings` — which navigation systems produce every frame
+/// through `ResMut` — must not count as a change, and a real value edit must.
+#[test]
+fn an_idle_system_face_builds_its_model_once() {
+    let mut app = base_kaleidoscope_test_app();
+    app.add_systems(
+        Update,
+        (cache_system_menu, republish_kaleidoscope_pages).chain(),
+    );
+    set_kaleidoscope_visible(&mut app, true);
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::System);
+
+    for _ in 0..30 {
+        app.world_mut().resource_mut::<UserSettings>().set_changed();
+        app.update();
+    }
+    let builds = app.world().resource::<CachedSystemMenu>().model_builds;
+    assert_eq!(
+        builds, 1,
+        "thirty idle frames on the System face built the model {builds} times — \
+         the cache is rebuilding on something other than a value change"
+    );
+
+    // A real settings edit is a change.
+    {
+        let mut settings = app.world_mut().resource_mut::<UserSettings>();
+        settings.video.show_fps = !settings.video.show_fps;
+    }
+    app.update();
+    assert_eq!(
+        app.world().resource::<CachedSystemMenu>().model_builds,
+        2,
+        "a settings VALUE change rebuilds the model exactly once"
+    );
+    app.update();
+    assert_eq!(
+        app.world().resource::<CachedSystemMenu>().model_builds,
+        2,
+        "and the frame after it is idle again"
+    );
+}

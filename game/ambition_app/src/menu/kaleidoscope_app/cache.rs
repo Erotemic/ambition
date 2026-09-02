@@ -21,6 +21,16 @@ pub(crate) struct CachedSystemMenu {
     pub(crate) dev: DevSnapshot,
     /// Pending visual-quality profile, if the Video screen is asking for confirmation.
     pub(crate) quality: Option<VisualQualityProfile>,
+    /// The settings VALUE the cached model was built from. Compared, never
+    /// tick-checked: a `ResMut<UserSettings>` taken by a navigation system
+    /// dirties the tick every frame with the value unchanged.
+    settings: Option<UserSettings>,
+    /// The drill-down the cached rows were built for.
+    open_entry: Option<SystemMenuEntryId>,
+    /// How many times the System model was actually built. An instrument for the
+    /// churn count D-CUBE-CHURN asks for: an open System face with no input must
+    /// hold this at one.
+    pub(crate) model_builds: u64,
 }
 
 /// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
@@ -39,14 +49,31 @@ pub(crate) fn cache_system_menu(
     let dev = snapshot.dev_snapshot();
     let quality = quality_confirm.pending();
     if pages.active == Some(MenuPage::System) {
-        let model = crate::menu::model::system_menu_model_with_pending_quality(
-            &settings, &radio, &dev, quality,
-        );
-        cache.rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
-        cache.model = Some(model);
+        // Rebuild only when an INPUT'S VALUE moved. The model is the full
+        // settings IR plus a string per row, and this system runs every visible
+        // frame; before this gate it was built ~60 times a second on a face
+        // nobody was touching (D-CUBE-CHURN). Values, not change ticks — see
+        // `republish_kaleidoscope_pages` for the tick cliff.
+        let stale = cache.model.is_none()
+            || cache.settings.as_ref() != Some(&*settings)
+            || cache.radio != radio
+            || cache.dev != dev
+            || cache.quality != quality
+            || cache.open_entry != system_nav.open_entry;
+        if stale {
+            let model = crate::menu::model::system_menu_model_with_pending_quality(
+                &settings, &radio, &dev, quality,
+            );
+            cache.rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
+            cache.model = Some(model);
+            cache.settings = Some(settings.clone());
+            cache.open_entry = system_nav.open_entry;
+            cache.model_builds += 1;
+        }
     } else {
         cache.model = None;
         cache.rows.clear();
+        cache.settings = None;
     }
     cache.radio = radio;
     cache.dev = dev;

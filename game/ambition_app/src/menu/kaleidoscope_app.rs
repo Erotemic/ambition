@@ -1754,14 +1754,29 @@ pub(crate) fn focus_for_action(
     if let Some(focus) = focus_without_system_model(action, active_page) {
         return focus;
     }
+    let rows = system_rows_with_quality_prompt(model, open_entry, pending_quality);
+    focus_for_action_in_rows(action, active_page, &rows)
+}
+
+/// [`focus_for_action`] against an already-built System row list.
+///
+/// The per-frame callers (`kaleidoscope_sync_focus_visuals`, once per control)
+/// read `CachedSystemMenu.rows` — the exact list for the live drill state —
+/// instead of rebuilding it per control: that was a `Vec<SystemRow>` allocation
+/// for every System control on every visible frame (D-CUBE-CHURN).
+pub(crate) fn focus_for_action_in_rows(
+    action: MenuPageAction,
+    active_page: MenuPage,
+    rows: &[SystemRow],
+) -> MenuFocus {
+    if let Some(focus) = focus_without_system_model(action, active_page) {
+        return focus;
+    }
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (the entry list, or an open entry's
     // screen rows + Back), so hover/click and the keyboard cursor agree on the row.
     let system_row = |want: SystemRow| {
-        let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
-            .iter()
-            .position(|r| *r == want)
-            .unwrap_or(0);
+        let idx = rows.iter().position(|r| *r == want).unwrap_or(0);
         MenuFocus::System(idx)
     };
     match action {
@@ -1776,14 +1791,14 @@ pub(crate) fn focus_for_action(
         MenuPageAction::SystemStep(option, _) => system_row(SystemRow::Setting(option)),
         MenuPageAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
         MenuPageAction::ConfirmVisualQuality => {
-            let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
+            let idx = rows
                 .iter()
                 .position(|r| matches!(r, SystemRow::QualityApply(_)))
                 .unwrap_or(0);
             MenuFocus::System(idx)
         }
         MenuPageAction::CancelVisualQuality => {
-            let idx = system_rows_with_quality_prompt(model, open_entry, pending_quality)
+            let idx = rows
                 .iter()
                 .position(|r| matches!(r, SystemRow::QualityCancel))
                 .unwrap_or(0);
@@ -2104,7 +2119,6 @@ fn gate_kaleidoscope_menu(
 fn kaleidoscope_sync_focus_visuals(
     cursor: Res<KaleidoscopeCursor>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    system_nav: Res<KaleidoscopeSystemNav>,
     cache: Res<CachedSystemMenu>,
     // Every control across every face, plus whether it sits on the ACTIVE face. The
     // cube spawns all faces at once and a focus key (an edge `>`/`<` button, a row
@@ -2121,24 +2135,18 @@ fn kaleidoscope_sync_focus_visuals(
     let Some(active_page) = pages.active else {
         return;
     };
-    // The System row model is built once per frame by `cache_system_menu`; reuse it
-    // (empty default off the System face, where no System action is ever matched).
-    let fallback = SystemMenuModel::default();
-    let model = cache.model.as_ref().unwrap_or(&fallback);
+    // The System row list is built by `cache_system_menu` when its inputs
+    // change and held in the cache (empty off the System face, where no System
+    // action is ever matched); read it per control rather than rebuilding it.
+    let rows = cache.rows.as_slice();
     for (control, on_active_face, mut vis) in &mut controls {
         let Some(action) = control.action else {
             continue;
         };
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
-        let focused = on_active_face
-            && focus_for_action(
-                action,
-                active_page,
-                model,
-                system_nav.open_entry,
-                cache.quality,
-            ) == cursor.focus;
+        let focused =
+            on_active_face && focus_for_action_in_rows(action, active_page, rows) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {

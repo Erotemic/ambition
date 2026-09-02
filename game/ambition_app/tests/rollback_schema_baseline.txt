@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v148
+ggrs-rollback-schema-v149
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -438,6 +438,7 @@ resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerH
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room the RoomEntered producer last announced
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

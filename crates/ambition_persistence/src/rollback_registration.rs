@@ -40,6 +40,16 @@ where
             "quest identity, progression and pending-advance checksum projection",
             crate::quest::registry::QuestRegistry::checksum,
         )
+        // The room-entry producer's memory. It was a system `Local` — one of the
+        // "~6 systems that pair a non-rewinding edge-detector with these very
+        // resources" the paragraph above names — so a rewind across a room
+        // change could resimulate without the `RoomEntered` push.
+        .rollback_resource_clone_checksum::<crate::quest::registry::LastQuestRoom>(
+            OWNER,
+            "resource.quest_last_room",
+            "the room the RoomEntered producer last announced",
+            crate::quest::registry::LastQuestRoom::checksum,
+        )
         // ⛔ A SAME-TICK HANDSHAKE. The quest advance is announced and consumed
         // inside one tick, so a cursor GGRS did not rewind would let the
         // consumer fire for an advance the resimulation never committed to.

@@ -140,7 +140,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// — `ambition_platformer2d`'s `all_capabilities` names the `relativity` feature
 /// — but nothing registers its state any more. A peer that still lists the demo
 /// has 27 entries this one does not, which is a different snapshot layout.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 148;
+/// ⛔ v149: THE QUEST ROOM-ENTRY MEMORY IS ROLLBACK STATE. `push_room_entered_
+/// quest_events` remembered the previous room in a system `Local`, which a
+/// rewind does not touch, so a resimulation across a room change could skip the
+/// `RoomEntered` push (S2 in the determinism plan; the same defect
+/// `LastCutsceneRoom` closed for cutscenes). It is now `LastQuestRoom`,
+/// registered and checksummed beside `QuestRegistry` — one more entry in the
+/// snapshot layout, so a peer without it disagrees about every snapshot.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 149;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

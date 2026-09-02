@@ -176,6 +176,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).
             .init_resource::<ambition_persistence::quest::QuestRegistry>()
+            .init_resource::<ambition_persistence::quest::LastQuestRoom>()
             .init_resource::<ambition_boss_encounter::BossEncounterRegistry>();
 
         // ── The world-state log ───────────────────────────────────────────

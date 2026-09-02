@@ -880,6 +880,19 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // The tier floor of the room the HOST is loading behind a cover.
+    //
+    // ⭐ PRESENTATION LOADING STATE, NOT SIMULATION STATE. Written by the
+    // host's room-transition contributor while a transition loads and cleared
+    // when none is active; read only by the character-sheet residency
+    // convergence, which decides which decoded PIXELS are resident — nothing a
+    // rewind can disagree about, and the sim never reads a sheet. A rewind
+    // restoring it mid-load would stop the convergence honouring the room
+    // being entered, which is the defect it exists to prevent.
+    (
+        "ambition_platformer2d_actor_monolith::character_runtime::PendingRoomTierFloor",
+        "host loading hint for sheet residency (which pixels are resident), written outside the sim and read by no sim system",
+    ),
     // The authored respawn beat, in SECONDS.
     //
     // ⭐ CONFIG, NOT STATE, and structurally so: the ruleset inserts it once in

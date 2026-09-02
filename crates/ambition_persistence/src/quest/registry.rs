@@ -23,6 +23,33 @@ pub struct QuestRegistry {
     pub initialized: bool,
 }
 
+/// The room `push_room_entered_quest_events` last announced — ROLLBACK STATE,
+/// not a system `Local`.
+///
+/// The producer fires a `RoomEntered` quest event on the frame the active
+/// room's id flips, so it has to remember the previous id; a `Local` remembers
+/// it across a rewind and lets a resimulation skip the push. Same shape and
+/// same reason as `ambition_cutscene::LastCutsceneRoom`. Registered beside
+/// `QuestRegistry` in this crate's rollback declaration.
+#[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct LastQuestRoom(pub Option<String>);
+
+impl LastQuestRoom {
+    /// Checksum projection: the room id, or a distinct byte for "none".
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_str};
+        let mut out = Vec::new();
+        match &self.0 {
+            Some(room) => {
+                put_bool(&mut out, true);
+                put_str(&mut out, room);
+            }
+            None => put_bool(&mut out, false),
+        }
+        checksum_bytes(&out)
+    }
+}
+
 impl QuestRegistry {
     /// Canonical projection of the progression a rewind has to reproduce.
     ///

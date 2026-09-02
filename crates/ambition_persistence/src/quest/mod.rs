@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::save_data::PersistedQuestState;
 
 pub mod registry;
-pub use registry::{apply_quest_advance_events, QuestRegistry};
+pub use registry::{apply_quest_advance_events, LastQuestRoom, QuestRegistry};
 
 /// A single advance event the sandbox emits during gameplay.
 ///

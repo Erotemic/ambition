@@ -68,12 +68,46 @@ answers *what semantic question/request is being made*.
 
 ### O1 — adopt prepared conditions where a real per-tick parser still exists
 
-`gated_lock_walls` remains a concrete candidate: it still assembles condition
-arguments at runtime rather than holding a prepared condition produced at
-content-preparation time.
+⚠ **THIS ROW'S PREMISE WAS STALE AND ITS PRESCRIPTION IMPOSSIBLE; both corrected
+2026-09-02 against the code.** It said `gated_lock_walls` "still assembles
+condition arguments at runtime rather than holding a prepared condition produced
+at content-preparation time". Two things wrong with that:
 
-A promoted slice should delete the runtime validation/parsing road rather than
-introduce another wrapper around it.
+- the per-tick re-mint was already fixed by `68d80d653` (2026-08-26, *"The lock
+  wall holds its question instead of re-minting it every frame"*); the row was
+  last edited 2026-08-30 by a bulk docs pass that did not re-verify it;
+- ⛔ **"produced at content-preparation time" CANNOT HAPPEN HERE.** Preparation
+  needs the `ConditionCatalog`, and a condition's evaluator is a Rust FUNCTION
+  POINTER published through `App::publish_condition`. Content preparation
+  (LDtk → `RoomSpec`) is a data transformation with no `App`, so the catalog
+  cannot exist there. The earliest point where the authored text and the catalog
+  coexist is room load — which is where preparation already happens.
+
+✔ **WHAT WAS ACTUALLY LEFT, AND IS NOW DONE** (acceptance clauses 6 and 7):
+
+- the last per-tick preparation road is deleted. A per-frame `.or_else(prepare)`
+  retry existed to cover a provider publishing AFTER the first room was cached;
+  the cache is now keyed on `ConditionCatalog`'s change tick, so that case is
+  handled once on the edge instead of by re-preparing every wall every tick;
+- ⛔⛔ the silent soft-lock is gone. `prepare_question` ended in `.ok()`, throwing
+  away a `PreparationError` that carries the authored source AND the reason — its
+  own doc says it keeps the source because *"a diagnostic an author cannot act
+  on"* is useless. An unpublished condition therefore produced a wall standing
+  FOREVER, in a room the player cannot finish, with nothing written anywhere. It
+  now reports room, wall id, authored text and reason. Behaviour is unchanged —
+  the wall still stands — what changed is whether anyone can find out.
+
+▢ **WHAT REMAINS, and it is a design question rather than a slice.** Clause 2
+("preparation catches invalid ids/arity/types before runtime") is met for ids and
+arity but NOT for the authored flag name, and cannot be as things stand:
+`world.flag_set`'s only param is `ParamKind::Name`, whose `prepare_one` arm is
+`Ok(AuthoredArg::Name(text.to_string()))` — every string is valid. A MISSPELT
+flag prepares perfectly and then answers `false` forever, which is
+indistinguishable from a flag legitimately unset, and the wall stands with no
+diagnostic. `ParamKind::Reference` does validate (namespace, non-empty body,
+known namespace), so the shape of an answer exists — it needs a registry of
+authorable flag ids to validate against. ⛔ Do not build that registry
+speculatively; it wants a second consumer or a real authored mistake first.
 
 ### O2 — collapse duplicated authored-argument preparation
 

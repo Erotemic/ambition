@@ -135,12 +135,20 @@ pub fn sync_authored_gated_lock_walls(
     // pure function of (project, room) — which is also why it can be declared derived to
     // rollback rather than registered: neither input can change inside a rollback window, since
     // a room transition commits only on a confirmed frame.
+    // ⛔ THE CATALOG IS AN INPUT TO THE CACHE, so a catalog that moved makes it
+    // stale exactly as a changed room does. This is what the per-frame retry
+    // below used to stand in for: a provider that publishes its condition AFTER
+    // the first room was cached left every wall keyed on it unpreparable
+    // forever, and re-preparing on every tick was the workaround. Rebuild once
+    // on the edge instead — the question is asked at the same moment either way,
+    // and the per-tick preparation road goes.
+    let catalog_moved = world.is_resource_changed::<ConditionCatalog>();
     let stale = {
         let cache = world.get_resource::<GatedLockWallCache>();
         cache.is_none_or(|cache| cache.room.as_deref() != Some(active_room_id.as_str()))
     };
     let flag_set = ConditionId::new("world", "flag_set");
-    if rooms_changed || stale {
+    if rooms_changed || stale || catalog_moved {
         let walls = {
             let Some(set) = rooms.iter(world).next() else {
                 return;
@@ -151,7 +159,7 @@ pub fn sync_authored_gated_lock_walls(
         let prepared: Vec<CachedWall> = walls
             .into_iter()
             .map(|wall| CachedWall {
-                question: prepare_question(&catalog, &flag_set, &wall),
+                question: prepare_question(&active_room_id, &catalog, &flag_set, &wall),
                 wall,
             })
             .collect();
@@ -188,13 +196,12 @@ pub fn sync_authored_gated_lock_walls(
             // direction an unanswerable one does, and for the same reason: a gate
             // that opened because nobody could ask its question would open in
             // exactly the situations where the world is least well understood.
-            // Retried here so a provider registering after the first room is
-            // cached is not a wall that stands forever.
-            let Some(question) = cached
-                .question
-                .clone()
-                .or_else(|| prepare_question(&catalog, &flag_set, &cached.wall))
-            else {
+            //
+            // ⭐ NO RE-PREPARATION HERE. The question was prepared when the cache
+            // was built, and the cache rebuilds when the catalog moves, so the
+            // late-provider case the old per-frame retry existed for is handled
+            // on that edge instead of by parsing on every tick for every wall.
+            let Some(question) = cached.question.clone() else {
                 return true;
             };
             !catalog.ask(world, &question).is_satisfied()
@@ -227,14 +234,44 @@ pub fn sync_authored_gated_lock_walls(
 /// one and a per-frame retry would make a warning here a per-frame warning. The
 /// visible symptom of a permanently unpreparable wall is a wall that never opens,
 /// which is the same symptom the unanswerable path has always had.
+/// Prepare one wall's question, REPORTING the authored fault when it cannot be.
+///
+/// ⛔⛔ THE `.ok()` THIS REPLACES WAS A SILENT SOFT-LOCK. `prepare` returns a
+/// `PreparationError` carrying the authored source and the reason — its own doc
+/// says it keeps the source because *"a diagnostic an author cannot act on"* is
+/// useless — and this threw all of it away. A misspelt `gated_by` therefore
+/// produced a wall that stands FOREVER, in a room the player cannot finish, with
+/// nothing written anywhere. That is the worst shape a failure can take here:
+/// the level is wrong, the engine knows exactly why, and nobody is told.
+///
+/// The wall still stands (an unanswerable gate must not open — see the caller),
+/// so this changes no behaviour. It changes whether anyone can find out.
 fn prepare_question(
+    room: &str,
     catalog: &ConditionCatalog,
     flag_set: &ConditionId,
     wall: &GatedLockWall,
 ) -> Option<PreparedCondition> {
-    catalog
-        .prepare(flag_set.clone(), &[wall.gated_by.as_str()])
-        .ok()
+    match catalog.prepare(flag_set.clone(), &[wall.gated_by.as_str()]) {
+        Ok(prepared) => Some(prepared),
+        Err(error) => {
+            // Room, wall and authored text: the three facts an author needs to
+            // find the row in the level. `reason` is the substrate's own words
+            // ("takes 2 arguments, got 1", an unknown id) and is quoted rather
+            // than re-worded.
+            bevy::log::error!(
+                target: "ambition_platformer2d::gated_lock_walls",
+                "room `{room}` wall `{}` is gated by `{}`, which cannot be prepared: {} \
+                 (authored source `{}`). The wall STANDS until this is fixed — a gate \
+                 whose question cannot be asked must not open.",
+                wall.id,
+                wall.gated_by,
+                error.reason(),
+                error.source(),
+            );
+            None
+        }
+    }
 }
 
 #[cfg(test)]

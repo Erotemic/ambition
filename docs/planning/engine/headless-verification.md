@@ -100,6 +100,27 @@ nothing).
 The sibling capture is `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`
 (geometry only, no render stack).
 
+## When a headless app dies naming nothing
+
+⛔⛔ **`Parameter <Enable the debug feature to see the name> failed validation:
+Resource does not exist` NAMES NEITHER THE SYSTEM NOR THE PARAMETER**, and a
+headless composition that pulls in presentation or debug-viz systems is exactly
+where it fires — their parameters are render-stack resources that
+`add_headless_foundation` does not supply.
+
+⇒ Re-run under `RUST_BACKTRACE=1` and read the `run_unsafe<fn(..)>` frame. The
+whole parameter list is spelled out in that type, and it is the only place it
+appears. Without it the message is unactionable, which is how such a failure sits
+open: 2026-09-02 it hid three different systems in succession (a missing
+`Assets<TextureAtlasLayout>`, then `GizmoConfigStore`, then `Assets<Mesh>`), each
+looking identical to the last.
+
+⚠ And the fix is usually NOT to register the resource. A gizmo or mesh system
+with no render stack should be `run_if(resource_exists::<..>)`-guarded so it
+skips — `avatar::trail.rs` is the pattern — because registering render assets
+one at a time into a headless app is fitting the app to the test. See B3 in
+[`project-build-and-distribution.md`](project-build-and-distribution.md).
+
 ## Pointers
 
 - **`crates/ambition_sim_harness/`** owns the reusable headless surface:

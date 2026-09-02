@@ -1141,16 +1141,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
   left:
 
   ```text
-  items/pickup/mod.rs                        1,860 lines
-    impl Plugin block          (53-253)        201 lines   21 refs
-    restore_custody_to_checkpoint (775-1089)   315 lines    2 refs
-    everything else                          1,344 lines    0 refs
+  items/pickup/mod.rs                        1,858 lines
+    impl Plugin block          (51-251)        201 lines   21 refs
+    restore_custody_to_checkpoint (773-1087)   315 lines    2 refs
+    everything else                          1,342 lines    0 refs
   ```
 
   ⛔ **CHECKED IN ALL THREE PATH FORMS, because this row has already been wrong
-  twice by grepping only one.** The 1,344-line remainder contains exactly ONE
+  twice by grepping only one.** The 1,342-line remainder contains exactly ONE
   `crate::` reference — `crate::items`, its own parent module — and ZERO
   `super::` paths. It names nothing outside itself.
+  ⚠ **RE-VERIFIED AFTER THE DAY'S OTHER COMMITS and the figures moved by two
+  lines** (1,860 → 1,858; 1,344 → 1,342), because `ItemPickupSet` left this file
+  for `shared_tangle` and a shorter re-export replaced the enum. The SHAPE — 201
+  plugin lines holding 21 of 23 refs, the checkpoint function holding the other
+  2, the remainder holding none — is unchanged. ⇒ Re-derive the line numbers
+  before cutting; they are the one part of this row that moves under ordinary
+  work.
 
   ⇒ **THE CARVE IS: move 1,344 lines, leave 516.** Ground-item physics, custody,
   pickup, throw, held-item specs and aim are free-standing; the entanglement is a
@@ -1173,8 +1180,9 @@ The one unresolved developer-policy choice from the session-ownership work is in
      `.before`/`.after` edge it carries.** ⛔ This is step one and not step four
      because skipping it is how `world_items` lost `.in_set(PlayerSimulation)`
      and `.after(BodyCustodySettled)` while its comment claimed otherwise.
-  2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT lines 53-253
-     (the plugin) and 775-1068 (`restore_custody_to_checkpoint`), plus
+  2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT the plugin
+     block and `restore_custody_to_checkpoint` — ⚠ bound them by NAME, not by
+     the line numbers above, which have already moved once, plus
      `pickup/conditions.rs` (80 lines, zero `crate::` references) and
      `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single
      kernel reference is `session::durable_horizon::SaveRestored`, a one-field

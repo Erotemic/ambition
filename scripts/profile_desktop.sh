@@ -928,6 +928,20 @@ write_metadata() {
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
         echo "tracy_invariant_tsc_override=${TRACY_NO_INVARIANT_CHECK:-0}"
+        # Tracy's Linux system tracing (context switches + call-stack sampling)
+        # starts only when tracefs is readable by this user; when it does, the
+        # client resolves symbols for every sampled stack before it exits. On
+        # 2026-09-01 the game process outlived its window by 277s on a machine
+        # whose tracefs state was not recorded, and the same run drained in
+        # 0.4s on a VM where it is unreadable. Record the state so the next
+        # bundle can say which machine it was, and whether TRACY_NO_SYS_TRACE
+        # was set to opt out.
+        tracefs_readable=no
+        for tracefs in /sys/kernel/tracing /sys/kernel/debug/tracing; do
+            if [[ -r "$tracefs/events/sched/sched_switch/id" ]]; then tracefs_readable=yes; break; fi
+        done
+        echo "tracy_sys_trace_possible=$tracefs_readable"
+        echo "tracy_no_sys_trace=${TRACY_NO_SYS_TRACE:-unset}"
         echo "tracy_capture=$(command -v tracy-capture 2>/dev/null || echo '<not installed>')"
         echo "tracy_csvexport=$(command -v tracy-csvexport 2>/dev/null || echo '<not installed>')"
     } > "$out_dir/metadata.txt"

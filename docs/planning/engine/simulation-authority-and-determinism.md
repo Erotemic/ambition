@@ -229,8 +229,10 @@ changes the result.
 Re-verified 2026-09-02:
 
 - possession candidates (`abilities/traversal/possession.rs:226`) and the pickup
-  magnet / collector (`features/ecs/pickups.rs`, `items/world_item.rs`) go
-  through `sim_selection::winner_by`, whose final key is `SimId`;
+  magnet / collector (`features/ecs/pickups.rs`, and
+  `crates/ambition_world_items/src/world_item.rs` since `69641a83f` carved the
+  touched collectible out of the kernel) go through `sim_selection::winner_by`,
+  whose final key is `SimId`;
 - ✔ projectile victims: `step_projectiles` ordered its first-wins loop by
   distance-along-the-leg then the victim's position — and two bodies on one
   spawn point tie on all of it, so a stable sort handed the decision back to

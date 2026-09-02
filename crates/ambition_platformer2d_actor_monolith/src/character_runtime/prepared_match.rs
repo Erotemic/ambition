@@ -206,7 +206,8 @@ pub struct MatchRules {
     /// [`MatchParticipantRoster::rules`](super::staging::MatchParticipantRoster::rules),
     /// whose doc holds the reasoning.
     ///
-    /// ⚠ It USED to name `MatchParticipantRoster::fighter_health_pool`, which
+    /// ⚠ It USED to name `MatchParticipantRoster::fighter_health_pool` (cite-ok:
+    /// naming the dead field is the point), which
     /// was one of the eight loose fields that collapsed into the single `rules`
     /// field — the roster's own doc records that collapse, and this pointer
     /// outlived it.

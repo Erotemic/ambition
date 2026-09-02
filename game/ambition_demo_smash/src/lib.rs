@@ -3332,7 +3332,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             //
             // what 100% means is a rule of the MATCH, so
             // `apply_smash_match_rules` declares it and seating applies it to
-            // every seat — see `MatchParticipantRoster::fighter_health_pool`.
+            // every seat — see `MatchParticipantRoster::rules`, which carries
+            // `health_pool` (it was a loose `fighter_health_pool` field until
+            // the eight of them collapsed into `MatchRules`).
             // These three now author what they ARE and nothing about how a
             // stocks match reads them.
             //

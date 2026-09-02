@@ -799,7 +799,11 @@ remain explicit and continue resolving afterward.
 — the one readiness function both the room transition and the direct startup
 cover consult — holds a decoded page as `pending` under the label
 `<page> (gpu upload)` while a render world exists that has not yet prepared
-it (`ImageStageLedger::is_awaiting_gpu`). That converts the upload of a room's
+it (`ImageStageLedger::is_awaiting_gpu` — POSITIVE proof since `8bd19f890`:
+the GPU stamp has landed, not "the id is not in the awaiting list", because
+the insertion stamp runs in `Last` while readiness polls in `Update`, and the
+old reading called every page ready on the frame it landed — the one frame a
+paced upload could slip past the cover). That converts the upload of a room's
 cast from the first frame AFTER the cover lifts (measured: every sheet of the
 hall's reveal in one render frame) into cover time, and it is what makes a
 byte-per-frame upload budget safe to adopt: paced uploads extend the cover by

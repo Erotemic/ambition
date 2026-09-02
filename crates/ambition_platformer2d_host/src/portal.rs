@@ -144,6 +144,16 @@ mod host_adapter {
     /// Load the portal-gun mode sprites at startup into the crate-owned
     /// [`PortalGunArt`] seam — asset PATHS are Ambition content, so loading
     /// stays host-side.
+    ///
+    /// ⚠ THESE TWO REACH `Assets<Image>` WITH NO DEMAND STAMP, deliberately.
+    /// The Hall's `[image-unrouted]` row names them (2026-09-02, alongside the
+    /// LDtk editor-preview tileset), and routing them through
+    /// `ambition_sprite_sheet::game_assets::load_sheet_image` would mean a new
+    /// dependency edge from this crate to the asset ledger — for **0.0 MP** of
+    /// icon art loaded once at startup. The stamp exists so residency can
+    /// attribute megapixels to an owner; two icons that round to zero are not
+    /// worth a crate edge to attribute. Revisit if this crate acquires that
+    /// dependency for another reason, or if these ever become sheets.
     pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
         commands.insert_resource(PortalGunArt {
             blue: assets.load("sprites/props/portal_gun_blue.png"),

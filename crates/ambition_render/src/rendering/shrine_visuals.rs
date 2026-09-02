@@ -273,7 +273,18 @@ fn shrine_visual_source_from_record(
     record: &SheetRecord,
 ) -> ShrineVisualSource {
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
-    let image = asset_server.load("sprites/shrine_spritesheet.png");
+    // ⛔⛔ THROUGH THE FUNNEL, and it took the census to notice. A bare
+    // `asset_server.load` decodes art with NO DEMAND STAMP, so this sheet showed
+    // up in the Hall's `UNROUTED(no demand)` bucket on 2026-09-02 — 0.3 MP of
+    // art the residency census could see arriving and could not attribute to
+    // anybody. `load_sheet_image` stamps the road AND takes the
+    // `RENDER_WORLD`-only path every other sheet takes, so this one stops
+    // keeping a CPU copy alive too.
+    let image = ambition_sprite_sheet::game_assets::load_sheet_image(
+        asset_server,
+        "shrine-sheet",
+        "sprites/shrine_spritesheet.png",
+    );
 
     let mut ledger = BindingLedger::new();
     let idle = row_playback(record, "idle", "shrine visual", &mut ledger);

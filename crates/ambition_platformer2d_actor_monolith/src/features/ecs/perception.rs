@@ -410,6 +410,11 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// policy, and a fixture that wires up no perception simply gets the basic mode.
 pub fn ensure_perception(
     mut commands: bevy::prelude::Commands,
+    // ⭐ A VALUE, NOT AN ENVIRONMENT READ. The developer crate owns the knob's
+    // name and parse and publishes this; D33 removed the actor kernel's three
+    // reads of `ambition_dev_tools` and a fourth would undo it. Absent — which
+    // is every shipped run — means the default below.
+    extent: Option<bevy::prelude::Res<ambition_characters::perception::PerceptionExtentOverride>>,
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
@@ -444,11 +449,12 @@ pub fn ensure_perception(
         ),
     >,
 ) {
+    let viewport_half = extent
+        .map(|extent| extent.or_default(DEFAULT_VIEWPORT_HALF))
+        .unwrap_or(DEFAULT_VIEWPORT_HALF);
     for entity in &bodies {
         commands.entity(entity).insert((
-            Perception::Sighted {
-                viewport_half: DEFAULT_VIEWPORT_HALF,
-            },
+            Perception::Sighted { viewport_half },
             PerceptionMemory::default(),
         ));
     }

@@ -430,6 +430,59 @@ binds at about fourteen.
 the honest verdict on the hall as an acceptance room. It cannot show the problem
 because its geometry already solves it.
 
+## ⭐⭐ MEASURED 2026-09-02: the hall CAN reach the dense regime — by EXTENT, not population
+
+The row above says the hall cannot demonstrate why attention is needed. That is
+true of its POPULATION axis and not of its density axis, and the difference is
+now measurable rather than argued. `scripts/measure_perception_density.sh` pins
+population and sweeps `AMBITION_PERCEPTION_VIEWPORT_HALF`; population 64,
+`ambition::medium_striker`, 600 ticks, hall_bench (the shipped rollback host):
+
+```text
+viewport_half   offered    kept   kept_max
+480x320  (ship)    65.0    14.7         21
+960x640  (2x)      65.0    45.3         60
+1920x1280 (4x)     65.0    64.0         64
+3840x2560 (8x)     65.0    64.0         64
+```
+
+⭐ **`offered` IS FLAT AT 65.0 ACROSS EVERY ARM**, which is the control that makes
+the rest readable: the scan walks every peer whatever the viewport, so nothing
+but `kept` moved and the result is attributable to extent alone. The script
+refuses to interpret a run whose `offered` drifts.
+
+⭐ **AND THE SATURATION AT 64 IS THE POPULATION, NOT A BUDGET.** At 4x extent every
+fighter perceives all the others — a full mesh — and 8x cannot exceed it. So the
+curve is: the shipped viewport is doing real work (65 offered → 14.7 kept, a 4.4x
+cut), one doubling takes it to 45.3, and two doublings remove the geometric
+budget entirely. **That is the regime an explicit K is for, reached inside the
+hall, with the cast and the room unchanged.**
+
+⛔⛔ **THIS IS A COUNT, NOT A COST, AND MUST NOT BE QUOTED AS ONE.** It says how
+many `PerceivedActor`s get built per viewer, not what they cost. The 10x cost
+claim above still rests on timings, and timings on this box are a reading of who
+else is compiling — five identical hall runs the same day gave frame-spike totals
+of 61, 4, 9, 6, 52 while every count was byte-identical. These counts reproduced
+exactly across interleaved reps; the milliseconds want a quiet machine.
+
+⚠ **A CAPPED AND WIDENED RUN IS NOT THE SHIPPED HALL** — both knobs change the
+simulation, and the script prints the pinned population on every row so the two
+experiments cannot be confused.
+
+⛔ **AND THE CAST MUST BE RE-BRAINED OR THERE IS NOTHING TO MEASURE**, which cost
+an hour to find: the hall is authored `stand_still`, increment 1's
+`PerceptionRequirement::None` gate means such a brain never builds a `WorldView`,
+and `perception_census` therefore records ZERO views — the census row carries no
+`kept=` field at all. The first sweep printed "NO CENSUS ROW" for every arm,
+which is the harness correctly refusing to invent data. The gate that made the
+hall cheap is the same gate that makes it unmeasurable without `medium_striker`.
+
+⭐ The knob itself is `PerceptionExtentOverride`, a value in
+`ambition_characters::perception`, published by `ambition_dev_tools` and read by
+`ensure_perception` as a resource — **the same inversion as the population cap,
+deliberately**, because D33 removed the actor kernel's three developer reads and
+an environment read inside `ensure_perception` would have added a fourth.
+
 ⚠ AND IT KILLS A CONCLUSION I WAS ABOUT TO DRAW. Seeing kept flat while `Decide`
 still doubled, I reasoned the cost must therefore be the SCAN over offered peers
 — n viewers x n offered — and that a spatial index was needed after all. The

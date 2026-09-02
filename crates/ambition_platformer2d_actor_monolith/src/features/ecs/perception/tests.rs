@@ -1048,3 +1048,72 @@ fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
          sparse (120px apart): {sparse:?}\n  dense  (4px apart):   {dense:?}"
     );
 }
+
+/// The density knob reaches the bodies it is meant to, and is INERT unset.
+///
+/// ⭐⭐ THE KNOB EXISTS BECAUSE THE ROOM CANNOT ASK THE QUESTION.
+/// `bounded-perception-and-attention.md` measures `kept` saturating at ~14.4
+/// across 65 → 130 bodies and says the hall *"CANNOT demonstrate why attention
+/// is needed — its geometry already solves it"*. Density is the regime the
+/// budget is for, and widening the viewport at fixed population is how an
+/// existing room reaches it.
+///
+/// ⛔ THE INERT ARM IS THE ONE THAT MATTERS. A measurement knob that changed the
+/// shipped default would silently re-tune every actor in the game, and the tell
+/// would be a behaviour change nobody attributed to a benchmark.
+#[test]
+fn the_perception_extent_knob_is_inert_unset_and_reaches_every_body_when_set() {
+    use ambition_characters::perception::PerceptionExtentOverride;
+    use ambition_platformer2d_core::Vec2;
+
+    fn extent_given(published: Option<PerceptionExtentOverride>) -> Vec2 {
+        let mut app = bevy::prelude::App::new();
+        if let Some(published) = published {
+            app.insert_resource(published);
+        }
+        app.add_systems(bevy::prelude::Update, super::ensure_perception);
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_characters::brain::Brain::stand_still(),
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ))
+            .id();
+        app.update();
+        match app
+            .world()
+            .entity(body)
+            .get::<Perception>()
+            .expect("ensure_perception attached a policy")
+        {
+            Perception::Sighted { viewport_half } => *viewport_half,
+            Perception::Omniscient => panic!("ensure_perception grants Sighted"),
+        }
+    }
+
+    // No resource at all — every shipped run.
+    assert_eq!(
+        extent_given(None),
+        DEFAULT_VIEWPORT_HALF,
+        "with nothing published the body must get the shipped viewport"
+    );
+    // Published but empty — the knob installed and not asked for.
+    assert_eq!(
+        extent_given(Some(PerceptionExtentOverride::NONE)),
+        DEFAULT_VIEWPORT_HALF,
+        "an override of None is not an override"
+    );
+    // Asked for.
+    let wide = Vec2::new(1920.0, 1280.0);
+    assert_eq!(
+        extent_given(Some(PerceptionExtentOverride(Some(wide)))),
+        wide,
+        "the published extent must reach the body, or a density sweep measures \
+         the shipped viewport at every point and reports a flat curve"
+    );
+    assert_ne!(
+        wide, DEFAULT_VIEWPORT_HALF,
+        "premise: the wide arm differs from the default, so the assertion above \
+         cannot pass by both being the same number"
+    );
+}

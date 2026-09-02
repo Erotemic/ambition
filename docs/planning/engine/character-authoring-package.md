@@ -128,6 +128,40 @@ fourteen grid fighters play on the actor baseline because they author no fighter
 body. That is a *missing author*, not a duplicate authority, and it is a product
 call.
 
+### Re-censused 2026-09-02 — NO NEW CANDIDATE, and here is what was searched
+
+D166 said *"re-census before migrating another field"*. Done, and the answer is
+that the boundary has no fifth slice waiting: nothing found writes an
+engine-owned character fact for a character it does not author. What was swept,
+so the next person does not repeat it:
+
+- **id-keyed branches** (`match character_id`, `match definition.id`,
+  `match worn.id()`, `match id.as_str()`) across `game/` and `crates/`. The two
+  that touch character facts are legitimate by this document's own rule:
+  `mary_o::powerups::power_tier` is a demo mechanic keyed on identity (the power
+  ladder is Mary-O's product concept, not an engine fact), and
+  `attack_hitbox::authored_attack_volume_resolver` matches `Option`, not an id —
+  `Some(cid)` vs the player fallback, which is dispatch rather than a table.
+- **writes to `definition.vitals` / `.locomotion` / `.movement_tuning`** outside
+  `authored/`. Every hit is a character setting its OWN facts where it is
+  constructed — `sanic::badnik`, `mary_o::plane`, `mary_o::snake`,
+  `player_robot_lineage` — which is authoring. The one demo write to a fact it
+  does not own (`smash_reading_of_character`) was the slice that closed on
+  2026-08-31, and the crate now says so in as many words at its old site.
+- **`ambition_demo_smash/src/lib.rs`'s `definition.movement_tuning = DEFAULT_TUNING`**
+  is the nearest thing to a residual and is already adjudicated above: which
+  baseline a platform fighter's body uses is the product call, and eleven of
+  fourteen fighters not authoring one is a missing author.
+
+⚠ **ONE ASYMMETRY FOUND, AND IT IS NOT A D166 SLICE.** `CharacterDefinition` has
+twenty-two `with_*` builders — abilities, locomotion, mount, contact damage,
+moveset, sheet, hurtboxes, canonical height — and **none for `vitals`**, so every
+character that wants health assigns the public field after `new`. That is an
+ergonomic gap, not a duplicate authority: there is no second road to delete, and
+the five-part test needs one. Recorded here so it is not re-filed as a residual;
+if it is ever worth closing, it closes as a builder addition and not as a
+migration.
+
 ⛔⛔ **A THIRD residual — RETRACTED IN PLACE 2026-08-31, THE SAME DAY IT WAS
 FILED.** It read *"two fields hold one fact… two independent live truths for one
 character fact is the second falsifier below"*. **That was wrong, and the

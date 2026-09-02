@@ -697,7 +697,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   which is attributable because its catalog is EMPTY and could join nothing.
   Seven comments cited two identifiers that do not exist (`smash_fighter_kit()`,
   `character_id_for_display_name`); all seven now name what is really there.
-  ▢ NO NEXT CANDIDATE NAMED — re-census before migrating another field. ⛔ NOT a residual: eleven grid fighters on the
+  ✔ RE-CENSUSED 2026-09-02 AND STILL NO CANDIDATE — the sweep is recorded in the owner doc rather than left as an instruction. Three populations searched (id-keyed branches; writes to `definition.vitals`/`.locomotion`/`.movement_tuning` outside `authored/`; demo writes to facts a demo does not own) and every hit is a character authoring its OWN facts. ⚠ ONE ASYMMETRY, explicitly NOT a slice: `CharacterDefinition` has 22 `with_*` builders and none for `vitals`, so every character assigns the public field — an ergonomic gap with no second road to delete, and the five-part test needs one. ⛔ NOT a residual: eleven grid fighters on the
   actor baseline is a MISSING author, not a duplicate one.
   Owner:
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md).

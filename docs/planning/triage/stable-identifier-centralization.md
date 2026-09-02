@@ -40,6 +40,38 @@
 > versus explicit Rust": which crate owns the ONE copy, and is panic-on-empty the
 > policy the other 31 identifier types should also follow? The classification axes
 > below remain the right way to answer the second half.
+>
+> ### The first half is already decided, by the dependency graph
+>
+> ⭐ **`ambition_load` OWNS IT, and nothing has to be invented to say so** (checked
+> at `9a170b142`):
+>
+> ```text
+> ambition_load              deps: bevy only — NO ambition_* dependency at all
+>   ← ambition_game_shell    already depends on ambition_load
+>     ← ambition_load_presentation  already depends on both
+> ```
+>
+> The three crates that define the macro form a chain, and the one that defines
+> it lowest is the one the other two already import. So consolidation needs **no
+> new crate, no new dependency edge, and no cycle**: give `ambition_load`'s copy
+> `#[macro_export]` (none of the three exports anything today — all three are
+> crate-local `macro_rules!`), delete the other two, and let the eleven types
+> keep their current names.
+>
+> ⚠ **Two things to check while doing it, not before.** `ambition_load` depends
+> on `bevy` with `default-features = false`, while `ambition_load_presentation`'s
+> copy sits in a module that imports `Component`, `Message` and `Resource` — so
+> confirm no derive is being added by proximity rather than by the macro. And the
+> macro body names `fmt::Display`, so an exported version must spell
+> `::core::fmt` rather than rely on each call site's `use std::fmt`.
+>
+> ⛔ **This is a slice, not a licence.** It removes a duplicate mechanism, which
+> [`../decision-principles.md`](../decision-principles.md) names outright —
+> *"prefer the solution that avoids parallel paths, compatibility shims, and
+> duplicate mechanisms"*. It does NOT answer the second half (whether
+> panic-on-empty is right for the other 31 identifier types), and it must not be
+> used to migrate any type that does not already use one of these three copies.
 
 ## Why this is in triage
 

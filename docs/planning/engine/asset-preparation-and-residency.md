@@ -997,6 +997,45 @@ multi-zone walk is the measurement.
 
 ### 5. Eliminate accidental re-preparation/reload
 
+⛔⛔ **FOUR SHEETS' REDUCED TIERS ARE NOT REDUCED — MEASURED 2026-09-02, and it
+is a COST defect, not a quality one.** `sprites_0_5x` and `sprites_0_25x` exist
+so a room or a setting can ask for a cheaper character. Nothing checked that the
+variant IS cheaper. `scripts/measure_tier_variant_scaling.py`:
+
+```text
+sheet        Full MP   0_5x   0_25x     verdict
+actor           9.03   9.03    9.03     identical at every tier
+author          8.36   8.36    8.36     identical at every tier
+medic           7.54   7.54    7.54     identical at every tier
+officer         8.64   8.65    8.65     one pixel taller, not smaller
+```
+
+⇒ **A room asking for those tiers decodes 67.2 MP where the tier promises
+~10.5 MP** — 6.4x, per sheet, at every stage: decode, upload, residency. For
+scale, the whole hall's resident set measures 30.7 MP.
+
+⭐ **WHY IT SURVIVED: THE FAILURE IS INVISIBLE WHERE ANYONE LOOKS.** The art is
+correct — it is simply larger than asked for — so a Quarter room renders
+perfectly and costs Full. Nothing on screen is wrong, and the tier system's own
+accounting believes it saved 16x.
+
+⛔ **IT IS THE OPPOSITE OF THE GALLERY-PREVIEW RULING AND MUST NOT BE READ AS
+CHALLENGING IT.** Jon's rule is that nothing may draw FEWER pixels than the
+setting asks for; these draw MORE. Regenerating the variants removes no pixels
+from any tier that requested them. ▢ Doing it means regenerating committed art
+through the sprite renderer, which is a content change and is not taken here.
+
+⚠ **AND THE QUANTITY DECIDED THE ANSWER.** Measured by one page's dimensions the
+list was SIX, including `noether` and `perfect_cellular_automaton` whose 0_5x
+page is taller than their Full page. Those are multi-page packed atlases that
+repack per tier; measured by total page megapixels across all pages — what
+residency actually pays — they are genuinely smaller and drop out. Six was the
+wrong number for a defensible reason.
+
+⇒ Ratcheted by `test_tier_variants_are_actually_smaller.py`: the four are named
+with their date, a FIFTH fails, and a name that gets fixed must leave the list
+or the guard silently permits its regression. Poison-verified both ways.
+
 ⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
 decoded, uploaded and held resident whole; only the frame rects its baked
 manifest names are ever sampled. `scripts/measure_sheet_occupancy.py` reads

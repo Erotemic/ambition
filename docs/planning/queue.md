@@ -417,7 +417,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   rows were STALE and are corrected in place: wall-tech jump shipped 2026-08-23
   and is re-marked `✔`; the combat action buffer's *"nothing writes them"* prose
   is wrong (four writers, and tests assert them); and the inventory's
-  `options.rs:752` citation is dead — the file moved crate to
+  `options.rs:752` citation is dead <!-- cite-ok --> — the file moved crate to
   `ambition_characters` and the line is `:707`. ⛔ NEXT CANDIDATES, in order:
   `CancelCondition::OnBlock` (inventory §1 — its stated blocker, "shield contact
   lands with CM6", is itself stale: shieldstun shipped, and the deferral note at
@@ -525,7 +525,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   records is undone — and `grid_backend::cursor_focus_key` builds the row list
   ONCE, outside its loop over the page's nodes.
   ⛔ THE NAME IN THIS ROW WAS INVENTED. It read
-  `grid_backend::focus_key_for_cursor`, which `git log -S` says has never existed
+  `grid_backend::focus_key_for_cursor`, which `git log -S` says has never existed  <!-- cite-ok: quoted mistake -->
   in this repository; the function is `cursor_focus_key`, and the same fabricated
   name had also reached a doc comment in `kaleidoscope_app.rs`. A citation nobody
   greps is a citation nobody can check — this one survived a commit message, a

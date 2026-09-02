@@ -585,6 +585,25 @@ record kills both arms, dropping the clear kills only the second.
 not answered. The next host Hall entry will say how many of those 111 were
 retirements rather than first loads, and that is the number this section wants.
 
+⭐ **AND THE THIRD CANDIDATE IS ELIMINATED: PREFETCH SCOPE IS NOT THE CAUSE.**
+The 111 warnings had three candidate explanations — prefetch scope, retired
+realizations, re-decode. Measured 2026-09-02 by
+`hall_transition_cover::every_character_the_hall_places_is_reached_by_its_demand`:
+**every one of the hall's placed characters is reached by a demand.** The test
+asks `CharacterLoadStates::outcome(id).is_none()`, which is the scope question
+exactly — any outcome at all (Ready, pending, even failed) means the demand
+reached it, while `None` means nothing ever asked and no amount of waiting helps.
+Poison-verified with a fabricated id, which it names.
+⚠ The room authors **129 `NpcSpawn` placements with 129 DISTINCT `character_id`s
+and no duplicates** (counted from `hall_of_characters.ldtk`), so the shortfall a
+count could show would be a missing character rather than a deduplicated one.
+⇒ This also settles the "126 newly staged of 129 authored" reading from the
+re-decode census above: with all 129 reached, the three are characters the HUB
+had already staged before the transition, not three the hall failed to ask for.
+⇒ Of the three candidates, scope is out, re-decode is 0 on the headless road
+(~5% of the art, so not yet answered for the host), and retired realizations are
+now distinguishable but need a host run to count.
+
 ### 6. Live quality switching
 
 ✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the

@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
+use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::load_presentation::{
     BasicLoadRoot, LoadForegroundPhase, LoadForegroundState,
@@ -383,7 +383,8 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
         let Some(active) = state.active.as_ref() else {
             // The transition finished. Legal only with nothing left declared.
             assert_eq!(
-                declared, 0,
+                declared,
+                0,
                 "the transition released with {declared} of the hall's {} characters still                  only DECLARED — their art arrives after the reveal, in the open",
                 ids.len()
             );
@@ -714,5 +715,60 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
          place them: {:?}…",
         promoted_for_nobody.len(),
         promoted_for_nobody.iter().take(5).collect::<Vec<_>>()
+    );
+}
+
+/// PREFETCH SCOPE: does the transition's demand reach every character the room
+/// PLACES, or only most of them?
+///
+/// The third of the three candidate causes for the reveal's 111 placeholder
+/// warnings — the other two being retired realizations and re-decodes, both now
+/// instrumented elsewhere. This one is the cheapest to answer and had never been
+/// asked directly: the sibling tests count STAGED characters and assert a
+/// minimum, which cannot distinguish "all 129 were demanded" from "126 were, and
+/// three were never asked for at all".
+///
+/// ⛔ `outcome(id).is_none()` IS THE QUESTION. A character with any outcome —
+/// Ready, pending, even failed — was reached by the demand. `None` means nothing
+/// ever asked, which is a scope hole rather than a slow load, and no amount of
+/// waiting fixes it.
+#[test]
+fn every_character_the_hall_places_is_reached_by_its_demand() {
+    use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
+
+    let (mut app, _before) = boot_and_record_the_hall_transition();
+    let placed = hall_character_ids(&mut app);
+    // The world authors 129 NpcSpawn placements with 129 DISTINCT character_ids
+    // and no duplicates (counted from hall_of_characters.ldtk, 2026-09-02), so a
+    // shortfall here is a missing character rather than a deduplicated one.
+    assert!(
+        placed.len() > 50,
+        "the hall places only {} characters, so this test is measuring nothing",
+        placed.len()
+    );
+
+    // Settle: the loader is rationed to one character per frame, so reaching a
+    // 129-character cast needs at least that many frames even when nothing is
+    // wrong. Waiting generously is correct HERE precisely because the assertion
+    // is about scope rather than speed.
+    for _ in 0..600 {
+        step(&mut app);
+    }
+
+    let unreached: Vec<&String> = {
+        let states = app.world().resource::<CharacterLoadStates>();
+        placed
+            .iter()
+            .filter(|id| states.outcome(id).is_none())
+            .collect()
+    };
+    assert!(
+        unreached.is_empty(),
+        "{} of the hall's {} placed characters were never reached by any demand \
+         after 600 frames — nothing asked for them, so they cannot resolve by \
+         waiting: {:?}",
+        unreached.len(),
+        placed.len(),
+        unreached
     );
 }

@@ -152,6 +152,29 @@ the concept, not only for the identifier — and read the tests, which state
 intent in a way a type signature cannot. Both of these were settled by a test
 name and its assertion message, not by the code they describe.
 
+### ⛔ Before calling something an omission, look for the reason it is a decision
+
+Three times on 2026-09-02 a re-measurement found code "missing" something, and
+twice the absence was deliberate and documented in place. The check costs a
+minute; publishing the wrong one costs somebody a fix aimed at correct code.
+
+| looked like | actually |
+|---|---|
+| `load_prop_sheet_for_target` never consults the quality budget | it hard-codes `Full` **and says why** — "nothing was asked for beyond `Full`" — on a road its docstring scopes to one demo prop |
+| `tests/typography.rs` `include_bytes!` a git-ignored font, breaking a fresh checkout | it mirrors `embed_core_assets!`, which embeds the same faces the same way; a runtime read would stop it testing the path the game uses |
+| a 7.6 MP sheet loaded outside the demand road, "our loader" | `bevy_ecs_ldtk` loading four `.ldtk` editor-preview tilesets — not our loader at all, and already a known queue row |
+
+⭐ **The tell is consistent: a deliberate absence usually SAYS SO in place, or
+mirrors something that does.** `ensure_fx_sheet_loaded` hard-codes `Full` exactly
+like the prop loader and gives no reason — which is what makes it a finding and
+the prop loader not one. The difference is not the behaviour; it is whether
+anybody wrote down that they chose it.
+
+⇒ **So the question to ask of every "X does not do Y" is: is there a comment, a
+sibling, or a scope note that makes Y wrong here?** If yes, the finding is that
+the reason is undiscoverable, not that the code is broken — a much smaller and
+much more accurate claim.
+
 ⇒ **So: when you re-measure a planning file against `HEAD`, leave the receipt** —
 the sha, the date, and what you found, including "nothing had changed". A reader
 who cannot tell whether a claim was checked yesterday or six weeks ago has to

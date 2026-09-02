@@ -463,6 +463,28 @@ readout saying nobody uploaded.
 `demand→draw NNNms via <road>` at the same NOTABLE threshold the other stages
 use, and the census row gains `never drawn N (M MP)`.
 
+⭐⭐ **AND IT NAMES A POP.** `live_at_first_draw` sits beside `live_at_insert` and
+answers a different question: the insert flag says whether the DECODE cost a live
+frame, this says whether the ARRIVAL was seen. They disagree in both directions —
+art decoded under a cover and first drawn minutes later is fine, art decoded live
+but never drawn is waste rather than a pop. `[image-drawn]` says `POP (drawn
+during gameplay, after the cover)` rather than `live=1`, because a hitch log's
+reader should not have to know which way a flag points.
+
+⛔⛔ **AND IT ONLY SAYS THAT WHERE A COVER EXISTED.** `capture_scene` reaches
+`[game-mode] initial playing` at 0.633 s, before the room loads — so on a road
+with no cover every first draw is trivially "during gameplay", and the first hall
+run after this landed reported EIGHTEEN pops that were the harness.
+`saw_covered_frame` (set on the ledger's first not-live frame, never cleared) is
+what separates *"the cover did not cover this"* from *"nothing here has a
+cover"*.
+⚠ With that guard in, the hall capture still reports eighteen — the transition
+DOES suspend gameplay, so the road has a cover and the "no cover" diagnosis was
+wrong. ⛔ That is not a claim that the hall pops: the eighteen are 0.0 MP entity
+tiles first drawn ~0.5 s after `room-loaded`, and whether a player sees that is
+not something an offscreen capture's warmup ordering can settle. **The mechanism
+is what exists; the verdict is a host reading.**
+
 ⛔⛔ **AND `PROCEDURAL` IS NEVER A FINDING ON THAT ROW.** The stage is stamped
 from `ExtractedSprites`, and a render target, a shader input or a material
 texture is never a sprite — it is written to or sampled, not extracted. Those

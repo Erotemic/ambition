@@ -198,6 +198,38 @@ cap             frame   PreUpdate  Update  PostUpdate  RunFixedMainLoop  StateTr
 130 (full)      4.3-4.7   1.68-1.88 0.97-1.11 0.77-0.84   0.48-0.51         0.13
 ```
 
+### ⚠ RE-RUN 2026-09-02, after headless started decoding art
+
+The row above was measured on a composition that **decoded no file-backed art at
+all**: `ImagePlugin` registers the image loader in `Plugin::finish`, which never
+ran under the `app.update()` loop `--headless` uses, so every asset stage after
+"demanded" was measuring an empty population. `124684f56` fixed that. Same
+script, same room, 3000 ticks, uncapped, reps 2-3 (the script's own rep 1 is the
+page-cache warm-up and is shown for completeness):
+
+```text
+                frame   PreUpdate  StateTrans  RunFixedMainLoop  Update  PostUpdate
+2026-09-01 130  4.3-4.7  1.68-1.88    0.13          0.48-0.51    0.97-1.11  0.77-0.84
+2026-09-02 unc  4.7-5.8  1.83-2.15    0.13-0.18     0.53-0.65    1.13-1.33  0.87-1.06
+  (rep1 4.961 / rep2 5.765 / rep3 4.726)
+```
+
+Every phase moved UP. The qualitative reason is not a regression: the binary is
+now doing asset work it previously skipped entirely — decode, the insertion
+stamp, residency accounting and extraction all act on a real population (the
+same hall entry now shows ~201 routed images resident where it showed 0).
+
+⛔⛔ **THIS IS NOT A CONTROLLED A/B AND NOTHING SHOULD BE CREDITED THE DELTA.**
+**156 commits** separate the two rows, 37 of them asset/image-shaped. The
+composition fix is the only change that alters what the program *does* rather
+than how fast it does it, which is why it is named first — but a number produced
+across 156 commits attributes to none of them. ⚠ And the spread is wide:
+4.726-5.765 ms across three reps, 22%, so a difference under ~1 ms between these
+two rows is not a difference at all.
+
+⇒ Recorded to keep the table truthful, NOT as a tuning signal. The measurement
+that would answer "what did decoding cost" is one binary, two arms, interleaved.
+
 **Two readings.** First: the shipped program's main-world frame in the full
 hall is ~4.5 ms on this VM — against Jon's Tracy capture's 19.8 ms (PreUpdate
 8.5, Update 5.4, PostUpdate 3.2, RunFixedMainLoop 1.2), a uniform ~4x across

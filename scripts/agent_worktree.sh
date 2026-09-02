@@ -231,7 +231,14 @@ cmd_seed() {
     src_store="$(store_of "$from")"
     dst_store="$(store_of "$path")"
 
-    for profile in debug release; do
+    # ⭐ `profiling` IS IN THE LIST BECAUSE THE PERF SCRIPTS NEED IT.
+    # `headless_room_frame.sh`, `instrumentation_tax.sh` and their siblings all
+    # build the `profiling` profile, and seeding only debug+release meant a fresh
+    # slot faced a COLD OPTIMIZED BUILD before it could take a single
+    # measurement -- so the measurement got taken in the main tree instead, or
+    # not at all. Each iteration skips a profile the donor does not have, so this
+    # costs nothing when there is nothing to copy.
+    for profile in debug release profiling; do
         [ -d "$from/target/$profile" ] || continue
         dst="$path/target/$profile"
         mkdir -p "$dst"
@@ -306,7 +313,7 @@ cmd_dedupe() {
         [ -d "$path/target" ] || continue
         busy "$path" && die "$path is BUILDING right now — refusing to dedupe under it"
         store="$(store_of "$path")"
-        for profile in debug release; do
+        for profile in debug release profiling; do
             [ -d "$store/$profile/deps" ] && dirs+=("$store/$profile/deps")
         done
     done

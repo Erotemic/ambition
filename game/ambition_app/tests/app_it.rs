@@ -71,6 +71,7 @@ mod gravity_room_reachability;
 mod gravity_symmetry;
 mod gravity_symmetry_room;
 mod hall_barks;
+mod hall_redecode_census;
 mod hall_scale_spread;
 mod hall_transition_cover;
 mod hand_fired_held_shot;

@@ -427,20 +427,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `sprites_0_25x/goblin_spritesheet.png`"*. That reads as an asset-residency leak
   in exactly the subsystem the hall-entry campaign is about, so it will cost
   somebody real hours. The goblin page belongs to a sibling test's App.
-  ⛔⛔ **AND THE OBVIOUS FIX IS NOT AVAILABLE — measured, and it was my own first
-  recommendation.** "Assert over the App's own `Assets<Image>` so the test is
-  immune rather than sequestered" cannot be made to work, because neither key
-  discriminates one App's images from another's:
-  * **by PATH** — two Apps in one process legitimately load the same file, so a
-    sibling's `goblin_spritesheet.png` is indistinguishable from this App's;
-  * **by ASSET ID** — `AssetId::Index { AssetIndex { generation, index } }` is a
-    PER-ARENA index (bevy_asset 0.19.1, `assets.rs`). Each App owns its own
-    `Assets<Image>` arena, so both allocate index 0, 1, 2… and the ids COLLIDE
-    by construction. Adding an id to the ledger row would not help.
-  ⇒ The two real options are therefore: **(a)** `#[ignore]` plus an exact-filter
-  script, as `measure_hall_redecodes.sh` does — correct, cheap, and it removes
-  three asset guards from the suite; or **(b)** give the ledger an App/world
-  SCOPE so a row can be attributed. (b) is the honest fix and is not small.
+  ✔ **FIXED 2026-09-02 at `8fe723cf9`, the per-App way — and this row said that
+  was IMPOSSIBLE.** The correction is worth more than the fix:
+  `common::resident_character_pages` answers residency from **THIS App's**
+  `Assets<Image>` and **this App's** `AssetServer` path, and uses the ledger ONLY
+  as a classifier (was this path demanded on the `character-sheet` road),
+  requiring `row.path == server.get_path(id)`. A sibling's row can share an arena
+  index; it cannot make a page resident here that is not, and the path equality
+  rejects a colliding index carrying a different file.
+  ⛔ **WHAT I GOT WRONG, because the shape recurs**: I checked whether each key
+  discriminates ALONE — path collides (two Apps load the same file), id collides
+  (`AssetId::Index` (cite-ok: bevy_asset's, not ours) is a per-arena
+  `{generation, index}`) — and concluded neither
+  could work. **"Neither A nor B is sufficient" does not imply "A ∧ B is
+  insufficient."** Residency from the App plus classification from the ledger is
+  exactly that conjunction, and it is sound.
   ⭐ **THE LEDGER HAS THIS SHAPE OF PROBLEM TWICE**: `render_world_present` is
   also a process-global `bool` standing in for a per-App fact — set true by
   whichever App installs a render plugin, read for every App thereafter, and

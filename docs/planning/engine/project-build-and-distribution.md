@@ -175,6 +175,21 @@ Do not report an absent NDK/GPU/display as proof that the target's code is broke
 >   indistinguishable from code failure unless you already know the file is not
 >   tracked. It cost a full workspace lane before I recognised it.
 >
+>   ⛔ **AND THE TEST IS NOT THE THING TO FIX**, which is worth saying because it
+>   is the obvious move. `tests/typography.rs` uses `include_bytes!` precisely
+>   because the APP does: `embed_core_assets!`
+>   (`crates/ambition_asset_manager/src/platformer_assets/embedded.rs`) embeds the
+>   same three faces the same way. Converting the test to a runtime read would
+>   stop it mirroring the path the game actually uses, which is the only reason
+>   the test is worth having.
+>
+>   ⚠ Scope, measured rather than assumed: the app's embedding is
+>   `#[cfg(feature = "static_core_assets")]` — NOT a default feature, and denied
+>   by the gate's feature scan — so an ordinary game build never reads these
+>   files. The typography test's `include_bytes!` is unconditional, which is why
+>   `--all-targets` is exactly where a fresh checkout meets this and `--lib` never
+>   does.
+>
 > ⇒ **So B5's rule is honoured where somebody has been bitten and absent where
 > nobody has.** The remedy is the same one the web job already uses: fail with the
 > prerequisite named and the fetch command quoted, rather than with a read error

@@ -827,17 +827,24 @@ def build_summary(bundle: Bundle) -> str:
                     lines += [
                         "```",
                         "",
-                        "Wall against CPU, per phase. `stall` is wall minus CPU — "
-                        "time the frame spent in that phase with nothing running:",
+                        "Wall against CPU, per phase. `cpu/wall` is roughly how "
+                        "many cores the phase kept busy: near zero is a STALL "
+                        "(wall time with nothing running), around one is serial "
+                        "work, above one is parallel work.",
+                        "",
+                        "⛔ NOT `wall - cpu`. The census reads "
+                        "`CLOCK_PROCESS_CPUTIME_ID`, which sums EVERY THREAD, so "
+                        "that difference goes negative on any parallel phase and "
+                        "is not a stall. This table printed it as one until "
+                        "2026-09-02.",
                         "",
                         "```text",
-                        "    wall      cpu    stall   phase",
+                        "    wall      cpu  cpu/wall   phase",
                     ]
                     for label, wall in sorted(per_frame.items(), key=lambda kv: -kv[1]):
                         cpu = cpu_totals[label] / cpu_frames
-                        lines.append(
-                            f"{wall:8.2f} {cpu:8.2f} {wall - cpu:8.2f}   {label}"
-                        )
+                        ratio = f"{cpu / wall:8.2f}" if wall > 0 else "       -"
+                        lines.append(f"{wall:8.2f} {cpu:8.2f} {ratio}   {label}")
             if render_blocked:
                 lines += [
                     "```",

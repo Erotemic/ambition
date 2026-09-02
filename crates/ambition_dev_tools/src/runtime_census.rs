@@ -1143,12 +1143,14 @@ pub struct SchedulePhaseCensus {
     /// Index of the phase currently open, or `None` before the first mark.
     current: Option<usize>,
     marked_at: Option<Instant>,
-    /// Main-thread CPU milliseconds at the last mark, when the clock is available.
+    /// PROCESS CPU milliseconds at the last mark, when the clock is available.
+    /// Every thread, not the main one — see `process_cpu_ms`.
     ///
     marked_cpu: Option<f64>,
     /// Accumulated milliseconds per phase since the last report.
     totals_ms: Vec<f64>,
-    /// Accumulated main-thread CPU milliseconds per phase, parallel to `totals_ms`.
+    /// Accumulated PROCESS CPU milliseconds per phase, parallel to `totals_ms`.
+    /// Summed across every thread, so this can exceed the wall time beside it.
     cpu_ms: Vec<f64>,
     frames: u32,
 }
@@ -1231,12 +1233,19 @@ pub fn report_schedule_phase_census(
         row.push_str(&format!(" {name}={:.3}", total_ms / frames));
     }
     eprintln!("{row}");
-    // ⭐ THE SAME SPLIT ON THE MAIN THREAD'S CPU CLOCK. `phases` above is WALL
-    // time, so a phase BLOCKED on the GPU is indistinguishable from one that is
-    // busy — the reason a rendering capture's split is untrustworthy. A thread
-    // CPU clock does not tick while blocked, so for each phase
-    // `phases - phases_cpu` IS the stall, and `phases_cpu` alone is CPU work
-    // that can be trusted even while rendering.
+    // ⭐ THE SAME SPLIT ON THE PROCESS CPU CLOCK. `phases` above is WALL time,
+    // so a phase BLOCKED on the GPU is indistinguishable from one that is busy —
+    // the reason a rendering capture's split is untrustworthy. A CPU clock does
+    // not tick while nothing runs, so `phases_cpu` is work that can be trusted
+    // even while rendering.
+    //
+    // ⛔⛔ AND `phases - phases_cpu` IS NOT THE STALL. This comment said it was.
+    // `process_cpu_ms` reads `CLOCK_PROCESS_CPUTIME_ID`, which SUMS EVERY
+    // THREAD, so a phase that keeps four cores busy for 2 ms reports 8 ms of CPU
+    // against 2 ms of wall and the difference is NEGATIVE. Read the RATIO:
+    // cpu/wall is roughly how many cores the phase kept busy, and a ratio near
+    // zero is a stall. The subtraction is the stall only where the ratio cannot
+    // exceed one, i.e. genuinely single-threaded work.
     if phases.cpu_ms.iter().any(|ms| *ms > 0.0) {
         let mut cpu_row = format!("[census] phases_cpu t={at:.3} frames={}", phases.frames);
         for (name, cpu_ms) in phases.names.iter().zip(&phases.cpu_ms) {

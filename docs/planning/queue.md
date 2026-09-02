@@ -522,6 +522,70 @@ The one unresolved developer-policy choice from the session-ownership work is in
   change. A test cannot guard a shape it is not able to express; do not credit
   this row with a guard stronger than that.
 
+- ▢ **D33 FOLLOW-UP: THE POPULATION CAP ADMITS AFTER THE PLAN IS FROZEN, so a
+  refused NPC still gets an authoritative root.** Raised by review 2026-09-02
+  and verified against the code. ⛔ **NOT A REGRESSION FROM TONIGHT'S WORK** —
+  the composition-input inversion (the cap as an engine value, published by
+  `ambition_dev_tools`, handed to construction) is right and stays. The process
+  -global counter it replaced refused at the same place, so this is the older
+  defect the inversion did not reach.
+
+  The sequence, each step checked:
+
+  ```text
+  RoomFeatureConstructionPlan::prepare   builds ALL placement requests
+  ConstructionPlan::prepare              requests.sort_by(|a,b| a.sim_id.cmp(&b.sim_id))
+                                         construction/mod.rs — canonical, before any cap
+  spawn/mod.rs                           the frozen set becomes expected_authoritative_ids
+  ActorAdmission                         attached AFTER that, as execution context
+  commit_entity                          `spawn_empty()`, then SimId + provenance +
+                                         transaction ownership on EVERY planned row
+  lower_interactable_placement           `if ... !admission.admit_actor() { return; }`
+                                         spawn_static.rs — the FIRST place the cap acts
+  ```
+
+  ⇒ Consequences, in order of how much they matter to the measurement campaign:
+  - an over-cap NPC is a live identity/provenance/transaction **shell** with no
+    actor or body — so `EcsPopulation::scene_entities()` did NOT fall by the
+    same amount as body count, and any entity-count scaling conclusion from a
+    capped run needs re-reading;
+  - the cohort is chosen in **canonical `SimId` order**, while `ActorAdmission`
+    documents "the first n authored placements". ⚠ **The hall's body-count
+    curves are not thereby void** — the cap really did reduce the body
+    population and the reports name actual body counts — but any explanation
+    that leaned on the selected set being an authored-order PREFIX (the
+    visibility/density wobble story) was reasoning about a cohort it did not
+    measure;
+  - `verify_committed_roster` accepts the shells, because the planned identity
+    IS on the expected root with the expected stamps;
+  - `RoomConstructionPlanId` hashes the `RoomSpec` plus the deterministic dump,
+    and the cap enters neither — so **capped and uncapped runs can share one
+    immutable-plan identity while producing different populations**.
+
+  ⇒ **The fix is to admit on the REQUEST side, before `ConstructionPlan::prepare`
+  freezes and canonicalises**: take up to N qualifying NPC requests in authored
+  placement order, omit the rest entirely, then let the plan sort what remains.
+  A refused NPC then has no row, no root, and no place in the predicted roster,
+  and the plan id differs when the admitted world differs. ⛔ Do NOT fix it by
+  despawning shells after commit, by adding the cap to the plan hash, or by
+  keeping hidden mutable policy behind a frozen plan. Relations need an explicit
+  rule; refusing preparation when a cap would sever a required one is acceptable
+  for the hall workload.
+
+  ⛔ **THE EXISTING TEST CANNOT SEE ANY OF THIS.**
+  `the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota` uses four
+  Hazard rows and a fake lowering that spawns an `Admitted` marker, then counts
+  markers. No `Interactable::Npc`, no planned ids, no check that refused roots
+  are absent. The acceptance wants real NPC placements asserting the refused ids
+  are absent from `planned_ids`, from `expected_authoritative_ids`, from the
+  receipt and from live `SimId`s; that the admitted cohort follows AUTHORED
+  order; and that capped and uncapped plan ids differ.
+
+  ⚠ Minor, same file: `ActorAdmission::admitted()` is documented as the number
+  admitted, but a cap of two followed by one refusal returns three, and the unit
+  test locks that in as "the refusal was counted as an attempt". Pick one meaning
+  and let the name say it.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
@@ -1386,6 +1450,48 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 These are live but should not cause an autonomous agent to invent data or a
 product ruling.
+
+- ⚠ **THE WEB REVEAL DOES NOT WAIT FOR THE GPU — fix written, ON ITS OWN BRANCH
+  `web-gpu-wait` (`2d623308f`), DELIBERATELY NOT MERGED.** Found by review
+  2026-09-02.
+
+  **What is wrong on the web TODAY.** The native barrier holds a decoded image
+  as pending until the render world is seen to prepare it. On wasm the whole of
+  `ImageStagePlugin::build` was `#[cfg(not(target_arch = "wasm32"))]`, so
+  `RenderWorldPresent` was never inserted, `is_gpu_prepared` was a stub
+  returning `false`, `is_awaiting_gpu` was therefore always `false`, and
+  `inspect_room_asset_manifest` read that as SETTLED. **The browser lifts its
+  cover when pixels reach `Assets<Image>`, not when the GPU has them** — exactly
+  the post-reveal upload the barrier exists to move under the cover.
+
+  **What the branch changes.** One conflation: `Instant` is native-only, so
+  gating the TIMING gated the READINESS with it. `ImageStages` gains
+  `gpu_prepared: bool` (the fact, every target) beside the native-only
+  `gpu_prepared_at` (telemetry); `is_gpu_prepared` has one definition again;
+  `gpu_prepared()` takes an optional instant. The GPU stamper and
+  `RenderWorldPresent` install on every target. The clock, the `[image-gpu]`
+  line and the FIRST-DRAW stamp stay native — correctly, for first draw: it is
+  pure telemetry no readiness decision reads.
+
+  ⛔ **THE ONE BROWSER CHECK JON RUNS TO ACCEPT IT** — enter the hall on the web
+  persona and watch the cover: it must visibly HOLD through the upload and then
+  LIFT. **If it never lifts, revert the branch.** That is the failure mode this
+  is held back for, and it is worse for a web player than today's early lift,
+  which is why it is not going in unverified.
+
+  ⛔⛔ **AND IT NAMES TWO MORE CONDITIONALLY-BLIND CHECKS** (the family in
+  `reviewer-guide` terms: correct, unrun, reported as though run):
+  - the **wasm CHECK is TYPE-ONLY**. Every branch here type-checks; a compile
+    check can never see a `#[cfg]` that removes BEHAVIOUR rather than code that
+    fails to build.
+  - the **"web persona BOOTS" job runs the web composition NATIVELY**
+    (`--features visible_web_base`, native target), so it compiles the
+    `not(wasm32)` branch. It proves the web persona composes; it cannot execute
+    the web branch of anything.
+  ⇒ Between them the web path had ZERO behavioural coverage, which is how this
+  survived. Native-side it is guarded and poison-verified — passing `None` for
+  the timestamp is what a clockless target does, so the web case is reachable
+  from a native test — but no test on this machine executes wasm.
 
 - **Switch Pro outer range:** run `Shift+F6` on both machines, push the controller
   to each extreme/corner and compare peak axis magnitude. Only then decide

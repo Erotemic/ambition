@@ -334,7 +334,8 @@ def wasm_target_installed() -> bool:
 
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                everything: bool = False,
-               include_python_tooling: bool = True) -> list[Job]:
+               include_python_tooling: bool = True,
+               include_slow_python_checkers: bool = True) -> list[Job]:
     """Plan the run; the default is the focused backbone.
 
     The exhaustive plan is opt-in. See `docs/recipes/cheapest-sufficient-check.md`.
@@ -355,6 +356,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                 "-m", f"not {DETACHED_TOOL_MARKER}", *PYTEST_TIMING_ARGS,
             ],
         ))
+    # ⭐ TWO CLASSES, NOT ONE. The pytest guard set above is ~44s MEASURED and is
+    # what catches a rollback ratchet, a codec-shape baseline or a stale
+    # MODULES.md drifting. The ones below are slower (no-warnings is a whole
+    # `cargo check --all-targets`) or documentation-shaped. `--rust` keeps the
+    # first class and drops this one; `--rust-alone` drops both.
+    if not only and include_slow_python_checkers:
         post_rust_repo_jobs.extend([
             Job(
                 "no warnings (cargo check --all-targets)",
@@ -728,7 +735,8 @@ def telemetry_envelope() -> dict:
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool, rust_only: bool = False,
                        tool_tests_only: bool = False,
-                       maintenance_only: bool = False) -> Path | None:
+                       maintenance_only: bool = False,
+                       *, rust_alone: bool = False) -> Path | None:
     """Append this run's cost so test-iteration trends can be compared.
 
     The ledger is append-only; individual runs remain available for comparison.
@@ -764,6 +772,7 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "exhaustive": exhaustive,
         "filtered": filtered,
         "rust_only": rust_only,
+        "rust_alone": rust_alone,
         "tool_tests_only": tool_tests_only,
         "maintenance_only": maintenance_only,
         "per_job": timings_payload(results),
@@ -798,6 +807,8 @@ def coverage_notice(
     rust_only: bool = False,
     tool_tests_only: bool = False,
     maintenance_only: bool = False,
+    *,
+    rust_alone: bool = False,
 ) -> str:
     """State the intentionally omitted validation lanes out loud."""
     if tool_tests_only:
@@ -821,9 +832,23 @@ def coverage_notice(
     ]
     if rust_only:
         notices.append(
-            "\n  ⚠ --rust ran the Rust/Cargo lane only. Python repo checkers and "
-            "authoring-tool pytest suites were NOT run. Run without --rust "
-            "for the full repo backbone."
+            "\n  ⚠ --rust: the repo-coupled pytest guard set RAN, but the slower "
+            "Python checkers did not — no-warnings, doc links, planning "
+            "citations.\n      Get them with:  ./run_tests.sh"
+        )
+    if rust_alone:
+        # ⛔ NAME WHAT IS UNGUARDED, NOT JUST WHAT WAS SKIPPED. The old notice
+        # said "Python repo checkers were NOT run", which is true and was read
+        # past for a whole day while a rollback ratchet, a codec-shape baseline
+        # and a stale MODULES.md sat red behind a gate reporting 4/4 green.
+        notices.append(
+            "\n  ⛔⛔ --rust-alone: NO repo-coupled guard ran. Unchecked this run:\n"
+            "      · the rollback stable-name ratchet\n"
+            "      · the rollback codec-shape baseline\n"
+            "      · per-crate MODULES.md currency\n"
+            "      · capability-ships and absence contracts\n"
+            "      Each of those has gone red unnoticed before. ~44s buys them:\n"
+            "      ./run_tests.sh --rust"
         )
     if not exhaustive:
         scope = "this package filter" if filtered else "the default BACKBONE plan"
@@ -845,14 +870,16 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         status_json: str | None = None, exhaustive: bool = False,
         filtered: bool = False, rust_only: bool = False,
         tool_tests_only: bool = False,
-        maintenance_only: bool = False) -> int:
+        maintenance_only: bool = False,
+        rust_alone: bool = False) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
             print(f"  {j.name}")
             print(f"      {' '.join(j.argv)}")
         print(coverage_notice(
-            exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+            exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
+            rust_alone=rust_alone
         ))
         return 0
 
@@ -892,6 +919,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # the headroom fall instead of discovering it at zero.
     base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs),
             "free_gb_at_start": round(free_gb, 1), "rust_only": rust_only,
+            "rust_alone": rust_alone,
             "tool_tests_only": tool_tests_only,
             "maintenance_only": maintenance_only}
     write_status(status, {**base, "state": "running", "finished_jobs": 0})
@@ -950,7 +978,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
 
     # Keep the persistent suite-cost ledger separate from the optional per-run timing export.
     ledger = append_cost_ledger(
-        results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+        results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
+        rust_alone=rust_alone
     )
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
@@ -998,8 +1027,13 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true",
                     help="DEPRECATED no-op: the backbone is the default now")
     ap.add_argument("--rust", action="store_true",
-                    help="run the Rust/Cargo lane only; skip all Python checker "
-                         "and authoring-tool pytest jobs")
+                    help="run the Rust/Cargo lane plus the 43s repo-coupled "
+                         "pytest guard set; skip the slower Python checkers")
+    ap.add_argument("--rust-alone", action="store_true",
+                    help="⛔ run NOTHING but the Rust/Cargo lane. The repo-coupled "
+                         "guard set (rollback ratchets, codec shape, schema "
+                         "baselines) is skipped, and those went red unnoticed for "
+                         "a day the last time that happened. Prefer --rust.")
     ap.add_argument("--tool-tests", action="store_true",
                     help="run detached developer-tool tests only; these are "
                          "excluded from repo-wide validation because ordinary "
@@ -1025,7 +1059,7 @@ def main() -> int:
                     help="args after `--` forwarded to libtest")
     args = ap.parse_args()
 
-    scope_flags = [args.rust, args.tool_tests, args.maintenance]
+    scope_flags = [args.rust, args.rust_alone, args.tool_tests, args.maintenance]
     if sum(bool(flag) for flag in scope_flags) > 1:
         ap.error("--rust, --tool-tests, and --maintenance are mutually exclusive scopes")
     if (args.tool_tests or args.maintenance) and args.package:
@@ -1068,10 +1102,21 @@ def main() -> int:
 
     jobs = build_jobs(args.package, args.heavy, libtest_args,
                       everything=args.run_everything,
-                      include_python_tooling=not args.rust)
+                      include_python_tooling=not args.rust_alone,
+                      include_slow_python_checkers=not (args.rust or args.rust_alone))
     if args.rust:
-        print("run_tests: RUST/CARGO lane requested; Python checker and "
-              "authoring-tool jobs are omitted.")
+        # ⭐ 43.6s MEASURED against a Rust lane of ~894s -- 4.9%, which is noise.
+        # `--rust` used to drop this too, and the rollback ratchet, the codec
+        # shape baseline and a stale MODULES.md all sat red for a day behind a
+        # gate that reported 4/4 green. The cheap guards ride along now.
+        print("run_tests: RUST/CARGO lane + the repo-coupled pytest guard set "
+              "(~44s). The slower Python checkers (no-warnings, doc links, "
+              "planning citations) are omitted; run `./run_tests.sh` for those.")
+    if args.rust_alone:
+        print("run_tests: ⛔ --rust-alone: NOTHING but Rust/Cargo. The repo-coupled "
+              "guard set is NOT running -- rollback ratchets, codec shape and "
+              "schema baselines can go red without this run noticing. "
+              "Run `./run_tests.sh --rust` (adds ~44s) unless you have a reason.")
     if args.run_everything or args.heavy:
         print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-03: "
               "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
@@ -1080,7 +1125,8 @@ def main() -> int:
     return run(jobs, args.list, timings_json=args.timings_json,
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,
-               filtered=bool(args.package), rust_only=args.rust)
+               filtered=bool(args.package), rust_only=args.rust,
+               rust_alone=args.rust_alone)
 
 
 if __name__ == "__main__":

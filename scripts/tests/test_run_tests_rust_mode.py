@@ -18,8 +18,18 @@ def _default_jobs():
 
 
 def _rust_jobs():
+    """`--rust`: the Rust lane PLUS the cheap repo-coupled guard set."""
     return run_tests.build_jobs(
-        [], False, [], everything=False, include_python_tooling=False
+        [], False, [], everything=False, include_python_tooling=True,
+        include_slow_python_checkers=False,
+    )
+
+
+def _rust_alone_jobs():
+    """`--rust-alone`: nothing but Rust/Cargo."""
+    return run_tests.build_jobs(
+        [], False, [], everything=False, include_python_tooling=False,
+        include_slow_python_checkers=False,
     )
 
 
@@ -30,19 +40,98 @@ def _pytest_marker_expression(job):
     return job.argv[marker_indices[1] + 1]
 
 
-def test_rust_lane_omits_python_tooling_and_keeps_rust_backbone():
+def test_rust_lane_keeps_the_cheap_guard_set_and_drops_the_slow_checkers():
+    """⛔⛔ `--rust` USED TO DROP THE GUARD SET, and it cost a day.
+
+    On 2026-09-02 a gate run reported 4/4 green over a tree where the rollback
+    stable-name ratchet, the rollback codec-shape baseline and a crate's
+    MODULES.md were all red. Nothing was swallowed and nothing lied: the run was
+    `--rust`, which omitted the lane those checks live in, and said so in a
+    notice among other notices.
+
+    ⇒ The repo-coupled pytest lane RIDES ALONG with `--rust` now. MEASURED at
+    43.6s against a Rust lane of ~894s -- 4.9%, which is noise against the
+    thing it guards. The slower checkers (a whole `cargo check --all-targets`,
+    doc links, planning citations) still go, because those are the ones `--rust`
+    exists to skip.
+    """
     rust_jobs = _rust_jobs()
-    full_jobs = _default_jobs()
 
     assert any(job.name == "workspace (default features)" for job in rust_jobs)
-    assert any("pytest" in job.argv for job in full_jobs), (
-        "the full backbone no longer contains the Python tooling lane, so this "
-        "test cannot prove --rust removes it"
+    assert any("pytest" in job.argv for job in rust_jobs), (
+        "--rust dropped the repo-coupled guard set again; that is the exact "
+        "hole that let three schema/rollback checks sit red behind a green gate"
     )
-    assert not any("pytest" in job.argv for job in rust_jobs)
+    names = [job.name for job in rust_jobs]
+    assert "no warnings (cargo check --all-targets)" not in names
+    assert "doc links (active KB)" not in names
+    assert "planning citations (reports, does not gate)" not in names
+
+
+def test_the_rust_FLAG_itself_plans_the_guard_set(tmp_path):
+    """⛔⛔ THE KWARG TEST ABOVE CANNOT SEE THE WIRING, and I proved it.
+
+    `test_rust_lane_keeps_the_cheap_guard_set...` calls `build_jobs` with
+    explicit keywords, so it pins the FUNCTION. Poison-verified by restoring the
+    old behaviour at the CALL SITE -- `include_python_tooling=not (args.rust or
+    args.rust_alone)` -- and all twelve tests stayed green. The regression this
+    whole change exists to prevent would have walked straight back in.
+
+    ⇒ This one goes through argument parsing, which is where the mapping lives.
+    `--list` plans without running anything, so it costs a process and no cargo.
+    """
+    import subprocess
+
+    def planned(*flags):
+        """The planned ARGV lines only.
+
+        ⛔ NOT the whole stdout. Asserting `"pytest" in stdout` matched the
+        runner's own NOTICE text ("...the repo-coupled pytest guard set...") and
+        so could not fail: poisoning the wiring dropped the job and the test
+        stayed green. A test that reads the prose is testing the prose.
+        """
+        out = subprocess.run(
+            [sys.executable, str(REPO / "scripts" / "run_tests.py"), "--list", *flags],
+            capture_output=True, text=True, cwd=REPO,
+        )
+        assert out.returncode == 0, out.stderr
+        return [
+            line.strip() for line in out.stdout.splitlines()
+            if line.startswith("      ")
+        ]
+
+    with_rust = planned("--rust")
+    assert any("pytest scripts/tests" in argv for argv in with_rust), (
+        "`--rust` no longer plans the repo-coupled guard set. That is the hole "
+        "that let the rollback ratchet and the codec-shape baseline sit red "
+        "behind a gate reporting 4/4 green."
+    )
+    assert not any("check_no_warnings" in argv for argv in with_rust), (
+        "`--rust` is planning the slow checkers it exists to skip"
+    )
+
+    alone = planned("--rust-alone")
+    assert not any("pytest" in argv for argv in alone), (
+        f"--rust-alone planned a Python job: {alone}"
+    )
+
+
+def test_rust_alone_is_the_shape_that_guards_nothing():
+    """The escape hatch keeps existing -- under a name that says what it costs.
+
+    ⚠ Asserted against `_rust_jobs()` as well as against the default, so this
+    cannot pass by the two shapes silently becoming the same thing.
+    """
+    alone = _rust_alone_jobs()
+    assert any(job.name == "workspace (default features)" for job in alone)
+    assert not any("pytest" in job.argv for job in alone)
     assert not any(
-        Path(job.argv[0]).name.startswith("python") for job in rust_jobs
-    ), rust_jobs
+        Path(job.argv[0]).name.startswith("python") for job in alone
+    ), alone
+    assert len(alone) < len(_rust_jobs()), (
+        "--rust-alone and --rust plan the same jobs, so one of them is not "
+        "doing what its name says"
+    )
 
 
 def test_default_starts_rust_immediately_after_repo_coupled_pytest():

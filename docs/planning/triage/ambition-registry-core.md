@@ -34,6 +34,95 @@
 > as they stand — because the abstraction cannot be designed against 31
 > registries whose current answers nobody has written down.
 
+## The inventory, taken 0b69bf40b (2026-09-02)
+
+This is the deliverable the note above named as a precondition for promotion:
+how all 31 registries currently answer the protocol questions. **No abstraction
+is designed here.**
+
+⚠ **Method, and its limits.** Cells are derived mechanically — the key type from
+the registry's own map field, the conflict protocol from the return type of its
+registration function. Citations are FILE plus SYMBOL rather than `file:line`,
+deliberately: line numbers in this repository went stale inside a single merge
+today, and a symbol survives the edit that moves it.
+
+⛔ **AND THE CITATION CHECKER DOES NOT VALIDATE THIS TABLE.** Verified by poison
+on 2026-09-02: replacing one cell's path with `crates/ambition_input/src/semantic_NOPE.rs`
+left `python3 scripts/check_planning_citations.py` reporting *"410 citations …
+all resolved"*. It does not read markdown table cells. The 28 distinct paths here
+were therefore checked by a separate loop over the table, and all 28 exist — but
+⛔ **nothing re-checks them on your behalf when this file next drifts.** That is
+the same shape as `docs/recipes/checks-that-did-not-run.md`: a checker that is
+correct, that ran, and that never looked at the thing you assumed it did. ⛔ "no register fn" means
+the type is built some other way (a builder, `From`, deserialisation) and the
+question is not answered by a signature — it is NOT a claim that conflicts are
+unhandled.
+
+| registry | file | identity key | registration fn | conflict protocol |
+|---|---|---|---|---|
+| `ActionRegistry` | `crates/ambition_input/src/semantic.rs` | `SemanticActionId` | `register` | Result |
+| `AdaptiveMusicCatalogRegistry` | `crates/ambition_audio/src/music/catalog.rs` | `String` | `register` | Result |
+| `AudioCatalogRegistry` | `crates/ambition_audio/src/catalog.rs` | `String` | `register` | Result |
+| `BossCatalogRegistry` | `crates/ambition_boss_encounter/src/catalog.rs` | `String` | `register` | Result |
+| `CharacterCatalogRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs` | `String` | `register` | Result |
+| `ConstructionRegistry` | `crates/ambition_platformer2d_shared_tangle/src/construction/registry.rs` | `RecipeId (+RelationKind)` | `try_register_recipe` | Result |
+| `PlacementLoweringRegistry` | `crates/ambition_platformer2d_world/src/placements.rs` | `PlacementKind` | `try_register` | Result |
+| `PlatformerAuthoredCatalogRegistry` | `crates/ambition_platformer2d_provider/src/authoring.rs` | `String` | `try_register` | Result |
+| `RollbackRegistry` | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs` | `String` | `try_register` | Result |
+| `SchemaRegistry` | `crates/ambition_content_pack/src/schema.rs` | `SchemaId` | `register` | Result |
+| `SfxBankRegistry` | `crates/ambition_audio/src/catalog.rs` | `String` | `register` | Result |
+| `GameplaySessionRegistry` | `crates/ambition_game_shell/src/session.rs` | `ShellExperienceId` | `register` | bool/Option |
+| `ShellExperienceRegistry` | `crates/ambition_game_shell/src/experience.rs` | `ShellExperienceId` | `register` | bool/Option |
+| `BossEncounterRegistry` | `crates/ambition_boss_encounter/src/registry.rs` | `String` | `-` | no register fn |
+| `BossProfileRegistry` | `crates/ambition_boss_encounter/src/pattern/profile.rs` | `String` | `-` | no register fn |
+| `BossSheetRegistry` | `crates/ambition_sprite_sheet/src/boss.rs` | `String` | `-` | no register fn |
+| `BrainProfileRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs` | `String` | `-` | no register fn |
+| `CombatBanterRegistry` | `crates/ambition_conversation/src/banter.rs` | `String` | `-` | no register fn |
+| `MusicRegistry` | `crates/ambition_audio/src/spec.rs` | `String` | `-` | no register fn |
+| `PortraitSheetRegistry` | `crates/ambition_sprite_sheet/src/portrait.rs` | `String` | `-` | no register fn |
+| `PreparedSessionRegistry` | `crates/ambition_game_shell/src/preparation.rs` | `LoadId` | `-` | no register fn |
+| `QuestRegistry` | `crates/ambition_persistence/src/quest/registry.rs` | `String` | `-` | no register fn |
+| `SfxRegistry` | `crates/ambition_audio/src/spec.rs` | `String` | `-` | no register fn |
+| `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs` | `String` | `-` | no register fn |
+| `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs` | `String` | `insert` | silent |
+| `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs` | `String` | `declare_route` | silent |
+| `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs` | `String` | `register` | silent |
+| `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs` | `String` | `register` | silent |
+| `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs` | `String` | `register` | silent |
+| `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |
+| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs` | `String` | `register` | silent |
+
+### What the inventory says
+
+⭐ **1. Identity: 23 of 31 key on a bare `String`.** Only eight use a typed id —
+`SemanticActionId`, `RecipeId`, `PlacementKind`, `ShellExperienceId`, `LoadId`,
+`CharacterId`, `SchemaId`. The workspace defines **42** `*Id` newtypes, so this
+is not for want of a vocabulary. This is the drift the page predicted, measured.
+
+⭐ **2. Conflict: three protocols coexist.** 11 return `Result<(), …Error>`, 7
+overwrite silently, and 2 return a `bool`/`Option` the caller may discard —
+`GameplaySessionRegistry::register -> bool` and
+`ShellExperienceRegistry::register -> Option<ExperienceRegistration>`. A caller
+moving between two registries cannot carry an expectation with it.
+
+⭐ **3. Function addresses do NOT participate in equality anywhere.** The two
+registries that store real functions — `PlacementLoweringRegistry`
+(`LoweringFn<C>`) and `ConstructionRegistry` — derive `Clone` and `Resource`, not
+`PartialEq`. ⛔ `ConstructionRegistry`'s `fn() -> D` is a `PhantomData` marker,
+not a stored address; an early pass of this inventory flagged it as one.
+
+⭐ **4. And ONE registry already answers all four questions on purpose.**
+`ConstructionRegistry` keys on `RecipeId` in a `BTreeMap` (deterministic order),
+validates non-empty identity through `ConstructionRegistrationError::EmptyIdentity`,
+documents its idempotence rule in prose — *"Re-registering byte-identical
+ownership is idempotent; anything else conflicts"* — and states the fingerprint
+constraint outright: its dump is hashed into the prepared-content fingerprint,
+so *"a fingerprint sensitive to plugin insertion order would be unusable."*
+
+⇒ **So the design input this page was waiting for is not "invent a protocol".
+It is "generalise `ConstructionRegistry`'s, which is already written down, and
+decide what to do about 23 String keys and three conflict conventions."**
+
 ## Problem
 
 Ambition has several independently useful registries whose implementations keep

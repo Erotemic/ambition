@@ -703,7 +703,9 @@ pub(crate) fn perception_body_for(
         vel: body.kin.vel,
         facing: body.kin.facing,
         // FB1: was `body.kin.size` — the FULL size handed to a HALF
-        // extent. `WorldView::reachable` swept a box twice the body.
+        // extent. `WorldView::reachable` swept a box twice the body (cite-ok:
+        // that method was itself deleted later, in `db2dffa3a`; the bug it
+        // records is why this is a half extent).
         half_extent: body.kin.size * 0.5,
         faction,
         gravity_down,

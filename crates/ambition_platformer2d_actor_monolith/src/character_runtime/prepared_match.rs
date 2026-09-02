@@ -721,7 +721,7 @@ pub fn prepare_match(
         // player reads the same value through the same accessors.
         let baseline = super::PhysicalBaseline::of(definition);
         // The box the SEED is built around. A hint, not the answer: for a named
-        // catalog character `ActorClusterSeed::new_in` resizes to the AUTHORED
+        // catalog character `ActorClusterSeed::new_peaceful_npc_in` resizes to the AUTHORED
         // SPRITE's collision — the same resolution a peaceful NPC of that
         // character gets — and the seat has to take that size back, which is
         // what `seat.body_px` below reads.

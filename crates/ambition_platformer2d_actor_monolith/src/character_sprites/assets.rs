@@ -309,7 +309,7 @@ fn sprite_texture_scale(
 /// Iterates the caller's App-local character catalog and, for each entry,
 /// looks up its [`CharacterSheetSpec`] via [`sheet_for_character_id_in`]. Asset
 /// availability gates through
-/// [`Platformer2dAssetCatalog::should_attempt_optional_load`]; missing
+/// [`Platformer2dAssetCatalog::try_path_for_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
 

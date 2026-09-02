@@ -155,6 +155,19 @@ pub enum PlatformerRuntimeSet {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct PresentationSetupSet;
 
+/// Startup-phase slot for audio initialization (channel registration, cue
+/// loading).
+///
+/// ⭐ It exists so INSTRUMENTATION can be attached from outside. The audio
+/// plugin used to bracket its own startup with
+/// `ambition_dev_tools::profiling::phase_mark` calls, which made a simulation
+/// crate depend on a developer tool to describe itself — the last code residue
+/// of the `ambition_dev_tools` carve in `audio/`. A named slot lets the host
+/// bracket the same work with the marks that already live beside every other
+/// one, and the kernel stops naming a profiler.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct AudioInitSet;
+
 /// Startup-phase slot for the host's SIMULATION setup (room geometry,
 /// player spawn, sim registries). The machinery-facing label for "the
 /// world exists now": engine/host systems that must initialize after

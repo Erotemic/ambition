@@ -557,6 +557,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // it was testing for.
                 setup_host_presentation_system.in_set(PresentationSetupSet),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_presentation"),
+                // Audio init's marks, from OUTSIDE the kernel. They used to sit
+                // inside `audio/plugin.rs`, which made a simulation crate name a
+                // profiler to describe itself; the plugin publishes
+                // `AudioInitSet` and the host brackets it here, beside every
+                // other `phase_mark`. Same two names, so existing startup
+                // profiles still compare.
+                ambition_platformer2d::dev_tools::profiling::phase_mark("before_audio_init")
+                    .before(ambition_platformer2d::platformer::schedule::AudioInitSet),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_audio_init")
+                    .after(ambition_platformer2d::platformer::schedule::AudioInitSet),
                 ambition_platformer2d::menu::map::populate_map_rooms,
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )

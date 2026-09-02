@@ -119,8 +119,26 @@ remained after the first slice; two are gone and two are instrumentation:
   `Platformer2dFeelTuningMonolith`, whose own module doc says those values *"are
   gameplay parameters rather than developer-tool state"*, and nothing but that
   rung read it.
-- ▢ **What is left is two `profiling::phase_mark` calls in `audio/plugin`** —
-  instrumentation, which can live anywhere, and not an authority the kernel holds.
+- ✔ **The two `profiling::phase_mark` calls in `audio/plugin` are gone
+  (2026-09-02).** Instrumentation can live anywhere, and a simulation crate
+  naming a profiler to describe itself is the thing this carve is about. The
+  plugin publishes `AudioInitSet`; the host brackets it in `app/plugins.rs`
+  beside every other `phase_mark`, under the same two names so existing startup
+  profiles still compare.
+- ⛔⛔ **BUT "WHAT IS LEFT" WAS WRONG, and the carve is not one step from done.**
+  Counted 2026-09-02: the monolith still reads `ambition_dev_tools` from THREE
+  more production paths, and they are not instrumentation — they are the
+  simulation reading developer state, which is exactly what this carve exists to
+  remove:
+  - `features/npcs.rs:114,127` — `brain_override::forced_profile()` /
+    `forced_preset()`, chosen while building a live brain;
+  - `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`, which
+    decides whether a placement spawns at all;
+  - `features/mod.rs:350` — `runtime_census`, `#[cfg(not(wasm32))]` and gated on
+    the census being on, so it is the mildest of the three.
+  ⇒ The `Cargo.toml` dependency therefore stays, and a row that says the marks
+  were the last residue would have closed this carve on a false premise. Each of
+  the three wants its own decision about who should own the fact.
 
 ⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
 `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the

@@ -71,14 +71,16 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_ambition_audio_channel::<ambition_audio::music::MusicLayer3BChannel>()
             .add_ambition_audio_channel::<ambition_audio::music::MusicLayer4BChannel>()
             .add_ambition_audio_channel::<ambition_audio::music::MusicLayer5BChannel>()
+            // ⭐ NO PROFILING MARKS HERE. They bracketed this one system from
+            // inside the kernel, which made a SIMULATION crate depend on a
+            // developer tool to describe itself. Instrumentation can live
+            // anywhere, so it lives with the rest of it: the host brackets
+            // `AudioInitSet` in `app/plugins.rs`, where every other
+            // `phase_mark` already is.
             .add_systems(
                 Startup,
-                (
-                    ambition_dev_tools::profiling::phase_mark("before_audio_init"),
-                    ambition_audio::music::load_music_cues,
-                    ambition_dev_tools::profiling::phase_mark("after_audio_init"),
-                )
-                    .chain()
+                ambition_audio::music::load_music_cues
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::AudioInitSet)
                     .after(ambition_platformer2d_shared_tangle::schedule::PresentationSetupSet),
             )
             // Deferred music start: polls each Update for (a) user

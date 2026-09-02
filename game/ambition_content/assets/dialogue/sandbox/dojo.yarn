@@ -1,6 +1,6 @@
 title: ninja_duelist
 ---
-Duelist: Close the door gently. The Leader is meditating. ...Good. You managed it. What do you want?
+Duelist: Quiet. The Leader is meditating. Slam the door and I have to kill you. ...Good. You managed it. What do you want?
 -> Heard you're working with pirates now.
     <<jump ninja_duelist__1>>
 -> Any tips for the bird?

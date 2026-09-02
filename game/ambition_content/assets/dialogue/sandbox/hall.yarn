@@ -19,11 +19,11 @@ title: dialogue_context
 
 title: hall_pirate_admiral
 ---
-Admiral: Visitor. Stand straight if you feel like it. Nobody here can order you.
+Admiral: A visitor. Stand straight, landstrider. Habit. Four ships under me once. Now I command this plank and a length o' rope.
 -> Were you a real admiral?
-    Admiral: Had four ships once. Then the crews mutinied, kept calling me Admiral, and sank every damn one.
+    Admiral: Four ships. One mutiny. Lost the mutiny. Kept the hat.
 -> Any orders?
-    Admiral: If you meet me outside this hall, do not expect the rope to save you.
+    Admiral: Aye. Keep walking. If we meet outside this hall, bring a cutlass or bring sense enough to run.
 ===
 
 title: hall_stochastic_parrot
@@ -135,11 +135,11 @@ Captain Pulse: Captain Pulse. Ship is three jumps out. I am stuck here until som
 
 title: hall_npc_tech_bro_disruptor
 ---
-Chadwick: Great placement. Foot traffic, sightlines, captive audience. I would have paid for this slot.
+Chadwick: Incredible positioning, this. Foot traffic, eyeballs, captive audience. Organic top-of-funnel. I'd have paid for the slot. I assume, somewhere, I did.
 -> What is it you actually do?
-    Chadwick: I run Disruptor. Product is still deciding what we disrupt. Sales did not wait.
+    Chadwick: I disrupt. Categories, mostly. Right now we're pre-category but post-conviction. Huge whitespace.
 -> Disrupt what, specifically?
-    Chadwick: Specifics come after the next round. Right now I have a deck, a logo, and three meetings after lunch.
+    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're a confident posture, a deck with momentum, and a roadmap that goes up and to the right. It's working on you a little — I can tell.
 ===
 
 title: hall_npc_emmy_noether
@@ -153,65 +153,65 @@ Emmy: Stand wherever you like. Rotate the room afterward and check what changed.
 
 title: hall_npc_pirate_raider
 ---
-Raider: They put a raider behind a rope. Very funny. I tried the knot already.
+Raider: They put a raider behind a rope. Very funny. Tried the knot twice. Cheap cord, decent knot.
 -> What do you raid?
-    Raider: Anything loose. Anything bolted badly. Anything bolted well if I have enough time.
+    Raider: Loose coin. Locked chests. Cargo nobody'll miss till morning. Bolts just slow me down.
 -> Anything in here worth taking?
-    Raider: That buckle on the Vault Keeper. I could have it off in ten seconds if this rope was not here.
+    Raider: Vault Keeper's buckle. Silver, I think. Ten seconds and a knife.
 ===
 
 title: hall_npc_pirate_quartermaster
 ---
-Quartermaster: Name? Never mind, I will write "visitor." You have not drawn rations, so we are even.
+Quartermaster: Aye, visitor. Name? Never mind. I'll put ye down as "unfed" and save the ration.
 -> Settle up how?
-    Quartermaster: I split shares, count powder, and keep people from stabbing each other over the last bottle.
+    Quartermaster: I split shares, count powder, an' stop knife fights over the last bottle. Mostly stop 'em.
 -> What are you owed?
-    Quartermaster: If it comes through the cove, I count it. You came through the cove.
+    Quartermaster: Owed? Three bottles o' rum, two powder kegs, and an apology from Bess. None o' that is you. Hold still while I check.
 ===
 
 title: hall_npc_pirate_lookout
 ---
-Lookout: Saw you three corridors ago.
+Lookout: Hist. Saw ye three corridors back. Nearly shouted. Decided to see if ye had friends.
 -> Anything worth reporting?
-    Lookout: I call movement early. Sometimes I'm wrong. Crew yells at me for the false ones.
+    Lookout: Door opened twice. Bear scratched at his rope. Somebody nicked a plaque. Been a busy watch.
 -> What do you watch for?
-    Lookout: Doors, hands, windows. You were staring at the exhibits.
+    Lookout: Doors. Hands. Windows. Anything movin' where it wasn't a breath ago.
 ===
 
 title: hall_npc_pirate_navigator
 ---
-Navigator: Hold there. You are blocking my reference mark.
+Navigator: Hold there, lubber. Ye're standin' on my mark.
 -> Where are we, then?
-    Navigator: Four pixels east of the chart. I checked twice.
+    Navigator: Four pixels east o' where the chart swears we are. Checked twice. Cursed once.
 -> Where would you rather be?
-    Navigator: Open water. Give me stars, a horizon, and enough deck to walk without hitting a wall.
+    Navigator: Open water. Stars overhead. Enough deck to pace without hittin' a wall.
 ===
 
 title: hall_npc_pirate_heavy_broadside_bess
 ---
-Bess: They widened the stand for me. Good. Saved us both an argument.
+Bess: HAH! They widened the stand. Somebody here has sense. YARRRGH!
 -> You're the heavy gunner?
-    Bess: Heavy gunner, aye. Point me at the side with the most enemies and cover your ears.
+    Bess: Heavy gunner, aye! Point me where the crowd be thickest an' stuff yer ears.
 -> Ever miss?
-    Bess: Miss? With all guns loaded? Not often enough to discuss.
+    Bess: Once! Took the wrong mast clean off. Captain still brings it up.
 ===
 
 title: hall_npc_pirate_heavy_iron_mary
 ---
-Iron Mary: Iron Mary. Stand is iron too. Good choice.
+Iron Mary: Iron Mary. Good stand. Iron under the paint. Checked it with me boot.
 -> Why the iron?
-    Iron Mary: Plate off a navy cutter. Rivets through the lot. Hit me where you like.
+    Iron Mary: Plate off a navy cutter we sank. Riveted it to me leathers. First lot rattled. Second lot didn't.
 -> Doesn't it rust?
-    Iron Mary: Rust? Aye. I scrape it off.
+    Iron Mary: Aye. Scrape it, oil it, swear at it. Tuesday work.
 ===
 
 title: hall_npc_pirate_heavy_salt_annet
 ---
-Salt Annet: No brine in this air. Hate that. Makes my skin itch.
+Salt Annet: Yarrr. Air's too dry in here. Tongue feels like old rope.
 -> You miss the sea that much?
-    Salt Annet: Rope lasts longer salted. Meat too. Me, apparently.
+    Salt Annet: Miss the salt. Miss the stink. Don't miss gulls. Bastards.
 -> What did the sea teach you?
-    Salt Annet: I know weak boards. Weak rigging. Weak knees. Comes with age.
+    Salt Annet: Hear that plank under yer left foot? Bad one. Step off it. There ye go.
 ===
 
 title: hall_npc_burning_flying_shark
@@ -227,7 +227,7 @@ title: hall_npc_puppy_slug
 ---
 Puppy Slug: *blorb*
 -> Are you happy?
-    Puppy Slug: Blorb blorb. *settles into a puddle*
+    Puppy Slug: Blorb. *the warm, contented blorbing of a creature with no further questions*
 -> Do you need anything?
     Puppy Slug: Schlorp... *settles* ...weh.
 ===
@@ -427,9 +427,9 @@ Dark Lord: They put my name on a plaque. A plaque. I had a dungeon prepared for 
 
 title: hall_npc_eve
 ---
-Eve: Eve. I listen to Alice and Bob.
+Eve: Keep talking. I like when Alice and Bob forget I'm here.
 -> What do you listen to?
-    Eve: Every message that crosses between them, if they leave it readable.
+    Eve: Everything they send each other, if they leave it readable. Bob coughs before the embarrassing ones.
 -> That's unsettling.
     Eve: Encryption ruins my evening. I hear the traffic and get none of the words.
 ===
@@ -481,11 +481,11 @@ Ghoul Skulker: Dead, displayed, drafty. Could be worse.
 
 title: hall_npc_girdle
 ---
-Girdle: I found a sentence the system cannot prove from inside itself. Yes, I checked. Repeatedly.
+Girdle: I found a sentence the system can't prove from inside itself. I spent six months trying to break the argument. No luck.
 -> How can something be true but unprovable?
-    Girdle: The sentence says it has no proof here. If the system proved it, we would have a contradiction. Assuming consistency, it stays unproved.
+    Girdle: The sentence says it has no proof here. If the system proved it, we'd have a contradiction. Assuming consistency, it stays unproved.
 -> Doesn't that frighten you?
-    Girdle: Please do not tell me the foundations are secure. I have spent years checking foundations.
+    Girdle: Please don't tell me the foundations are secure. I have spent years checking foundations. I would like one afternoon off.
 ===
 
 title: hall_npc_gnu_ton_boss
@@ -499,11 +499,11 @@ Gnu Ton: You have mass. I have more. We are pulling on each other right now.
 
 title: hall_npc_exploding_mite
 ---
-Exploding Mite: I am holding it in. Back up.
+Exploding Mite: Back up. Little more. Good. My left side's buzzing again.
 -> What happens if you stop containing?
-    Exploding Mite: Farther. No, farther than that.
+    Exploding Mite: Farther. No, farther than that. Keep going.
 -> Are you alright?
-    Exploding Mite: I have nowhere else to put the heat. Please stop asking questions.
+    Exploding Mite: NO. Sorry. Mostly. Don't tap the glass.
 ===
 
 title: hall_npc_dividing_mite
@@ -580,11 +580,11 @@ Ninja Heavy: The heavy one is resting.
 
 title: hall_npc_olivia
 ---
-Olivia: Oracle. Ask carefully.
+Olivia: Oracle. Ask carefully. Last visitor wasted a question on "Can that door open?"
 -> What's the important part?
-    Olivia: Ask exactly what you want to know. Last visitor asked whether the door could open. It could.
+    Olivia: Ask what you want to know. Yes, the door could open. He never asked how.
 -> Can I ask you anything?
-    Olivia: You can ask. You may hate knowing afterward.
+    Olivia: You can. I answer once. I don't do take-backs.
 ===
 
 title: hall_npc_peggy
@@ -598,20 +598,20 @@ Peggy: I know a way out. Victor can check that I know it without learning the ro
 
 title: hall_npc_pirate_cutlass_viper
 ---
-Pirate Cutlass Viper: Viper. Stand is too small. Rope is worse.
+Pirate Cutlass Viper: Viper. Don't touch the rope. I've nearly got the knot.
 -> Why "Viper"?
-    Pirate Cutlass Viper: One clean hit. Then I leave before the reply.
+    Pirate Cutlass Viper: First mate said I struck like one. He was bleedin' at the time, so I kept the name.
 -> Enjoying the hall?
-    Pirate Cutlass Viper: Four exits. Window is fastest. I counted when you walked up.
+    Pirate Cutlass Viper: Four exits. Window's quickest. Rope's decoration. I hate museums.
 ===
 
 title: hall_npc_puppy_slug_variant2
 ---
 Puppy Slug Variant2: *a slightly different blorb*
 -> Are you the other puppy slug?
-    Puppy Slug Variant2: Mrrp? *blorb* ...weh.
+    Puppy Slug Variant2: Mrrp? *blorb* ...weh. *the distinction does not appear to trouble it*
 -> Do you know you're a variant?
-    Puppy Slug Variant2: *schlorp* Blorb. *rolls over*
+    Puppy Slug Variant2: *schlorp* Blorb. *radiates a profound and total unconcern with the question*
 ===
 
 title: hall_npc_raptor_stalker
@@ -634,11 +634,11 @@ Smart House: Current temperature: acceptable. Lighting: poor. No occupancy senso
 
 title: hall_npc_spaghetti_event
 ---
-Spaghetti Event: Oh. Another thread. Come in, I suppose.
+Spaghetti Event: Oh. Another thread. Come in. Mind the loop by your left foot; it wakes things.
 -> What tangled?
-    Spaghetti Event: This call reaches that one, which wakes three more, which calls me back. Do not ask where it starts. We lost that end.
+    Spaghetti Event: This call reaches that one, which wakes three more, which calls me back. Don't ask where it starts. We lost that end.
 -> Am I in danger?
-    Spaghetti Event: You can leave. Probably. If something follows you, cut the reference.
+    Spaghetti Event: You can leave. Probably. If your shadow comes back late, don't wait for it.
 ===
 
 title: hall_npc_sybil
@@ -670,29 +670,29 @@ Trent: Everybody has my certificate. If I disappear, they have a very bad mornin
 
 title: hall_npc_trex_enemy
 ---
-Trex Enemy: T-REX. ON STAND. NO QUESTIONS ABOUT LADDER.
+Trex Enemy: T-REX. ON STAND. T-REX DID NOT CLIMB. DO NOT ASK WHO HELPED.
 -> How did you get up there?
-    Trex Enemy: SOMEONE HELPED. NAME WITHHELD.
+    Trex Enemy: A CRANE WAS INVOLVED. NEXT QUESTION.
 -> Are the arms a problem?
-    Trex Enemy: ARMS ARE FINE. PUT THINGS CLOSER.
+    Trex Enemy: ARMS ARE FINE. LADDER WAS POORLY PLACED.
 ===
 
 title: hall_npc_trudy
 ---
-Trudy: Trudy. I get into places. I was looking at the hinges while you were reading the plaque.
+Trudy: Don't mind me. I already checked the hinges while you were reading the plaque.
 -> Get in how?
-    Trudy: Everybody watches the lock. I came in through the little service door.
+    Trudy: Nobody watches the service door. They put a little brass sign on it and decided that was enough.
 -> That's a filthy trick.
-    Trudy: Yeah. Fix the door and I'll find another one.
+    Trudy: Yep. Fix it. I'll come back Thursday.
 ===
 
 title: hall_npc_victor
 ---
-Victor: Peggy says she knows the route. She won't show me. Fine. I can still test her.
+Victor: Peggy says she knows the route. I don't get to see it. I ask questions only someone with the route could answer.
 -> What's the point of knowing nothing?
-    Victor: She answers challenges about it. We repeat the test until guessing stops being useful.
+    Victor: If she shows me the route, I learn it too. Then there are two people who can lose it.
 -> Doesn't it frustrate you?
-    Victor: Frustrating? A little. Peggy likes that part.
+    Victor: Of course. She enjoys that part. She also hasn't failed a challenge yet.
 ===
 
 title: hall_npc_viking_heavy_shieldmaiden
@@ -724,11 +724,11 @@ Viking Shieldmaiden: Nobody briefed me before they put me here. I dislike arrivi
 
 title: hall_npc_viking_warrior
 ---
-Viking Warrior: Hall full of warriors and no mead. Poor imitation of Valhalla.
+Viking Warrior: Hall full of warriors, decent roof, no mead. Hmph. Close enough to annoy me.
 -> Is this Valhalla, then?
-    Viking Warrior: We took this hall ourselves. I like that part.
+    Viking Warrior: We took this hall ourselves. Good raid. Door gave up before the third axe.
 -> Who built a hall this big?
-    Viking Warrior: Whoever built it had many hands and a long winter. Good work. Still needs a drink table.
+    Viking Warrior: Don't know. Big beams. Good joinery. Needs a drink table.
 ===
 
 title: hall_npc_walter
@@ -742,29 +742,29 @@ Walter: Warden. Two prisoners pass notes through my desk. I read every one and s
 
 title: hall_npc_weird_hermit
 ---
-Weird Hermit: I went away from people for the quiet. Started hearing patterns instead.
+Weird Hermit: I went away from people for quiet. Then the trees started lining up. Then the stones. Been worse since.
 -> What do the signs say?
-    Weird Hermit: Look beside them, not straight at them. Straight on, they behave.
+    Weird Hermit: Don't look straight at them. They stop when they know you're looking.
 -> Did you choose to come here?
-    Weird Hermit: Maybe I chose it. Maybe I saw the signs after. I don't know anymore.
+    Weird Hermit: I walked here on purpose. I think. There were arrows scratched into three trees and one dead goat, so.
 ===
 
 title: hall_perfect_cellular_automaton
 ---
-Perfect Cellular Automaton: You are late. I had already allocated this minute to defeating you. Perfect Cellular Automaton. You may use the full title.
+Perfect Cellular Automaton: Late. I finished three simulations of this conversation while you were crossing the hall. Perfect Cellular Automaton. Use the full title.
 -> What makes you perfect?
-    Perfect Cellular Automaton: One rule, eight neighbours, every cell obedient. I have run longer than anything else in this room without an exception.
+    Perfect Cellular Automaton: Eight neighbours, one rule, zero exceptions. Check the record. I have. Repeatedly.
 -> You're a bit much.
-    Perfect Cellular Automaton: A bit much? The logs say perfect. Argue with the logs.
+    Perfect Cellular Automaton: A bit much? I have gone 14,203,887 ticks without an error. How many have you managed?
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
-Imperfect Cellular Automaton: I miss a transition sometimes. Perfect over there keeps count.
+Imperfect Cellular Automaton: I miss a transition sometimes. Perfect over there catches every one and makes that face.
 -> What's the difference between you two?
     Imperfect Cellular Automaton: My exceptions pile up. After a while the pattern goes somewhere neither of us predicted. Perfect hates when that happens.
 -> Is it alright, being imperfect?
-    Imperfect Cellular Automaton: They kept me in the catalog. I was surprised too.
+    Imperfect Cellular Automaton: They kept me in the catalog. Nice of them.
 ===
 
 title: hall_npc_giant_gnu
@@ -903,11 +903,11 @@ Fascist Enforcer: Papers.
 
 title: hall_npc_puppy_slug_velvet
 ---
-Velvet Puppy Slug: Bworple? *three extra eyes blink open, then close*
+Velvet Puppy Slug: Bworple? *three extra eyes bloom, admire you, and forget to close*
 -> Are you a good slug?
-    Velvet Puppy Slug: Mrrrp. *one mouth yawns; the others chew on nothing*
+    Velvet Puppy Slug: Mrrrp. *one mouth says yes; the other mouths have retained counsel*
 -> What did you see between dimensions?
-    Velvet Puppy Slug: Big light. Cold. Lots of teeth. ...bworp.
+    Velvet Puppy Slug: Big light. Cold. Lots of teeth. *happy tail-noise from an anatomically uncertain location*
 ===
 
 title: hall_player_robot_fable

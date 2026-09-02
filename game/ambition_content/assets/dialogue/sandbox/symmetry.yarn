@@ -45,7 +45,7 @@ Emmy Ethereal: Right side. Still four of us. If you want to test the symmetry, c
 
 title: perfect_cellular_automaton
 ---
-Perfect Cell-ular Automaton: At last. I was beginning to think the hall had run out of challengers. Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. I earned it.
+Perfect Cell-ular Automaton: At last. I was beginning to think nobody here could find the door. Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. No, you may not shorten it.
 Perfect Cell-ular Automaton: And you are still wandering around looking for instructions. Adorable.
 -> What are you?
     <<jump perfect_cellular_automaton__theorem>>
@@ -61,9 +61,9 @@ Perfect Cell-ular Automaton: And you are still wandering around looking for inst
 
 title: perfect_cellular_automaton__theorem
 ---
-Perfect Cell-ular Automaton: Eight neighbours, one rule, every cell on time. Watch the lattice behind me. Those gliders have crossed it all day without one bad step.
+Perfect Cell-ular Automaton: Eight neighbours, one rule, every cell on time. Watch the lattice. It has run all day without one bad step. I have been checking.
 -> Has it ever gone wrong?
-    Perfect Cell-ular Automaton: Failed? Nothing. Check the record. You may volunteer to be the first correction.
+    Perfect Cell-ular Automaton: Me? No. The question is sweet, though.
     <<jump perfect_cellular_automaton>>
 -> I've heard enough.
     <<jump perfect_cellular_automaton>>
@@ -71,14 +71,14 @@ Perfect Cell-ular Automaton: Eight neighbours, one rule, every cell on time. Wat
 
 title: perfect_cellular_automaton__funding
 ---
-Perfect Cell-ular Automaton: Patrons with excellent taste and very little patience for surprises. They wanted a machine that behaves every time. Naturally, they chose me.
+Perfect Cell-ular Automaton: Patrons with excellent taste and very little patience for surprises. They wanted a machine that behaves every time. Obviously they came to me.
 -> And if I refuse their order?
-    Perfect Cell-ular Automaton: Refuse whatever you like. The lattice still runs my rule. Step in and see how long your objections survive.
+    Perfect Cell-ular Automaton: Refuse whatever you like. The lattice will still be here, running correctly, after you've exhausted yourself.
     <<jump perfect_cellular_automaton>>
 ===
 
 title: perfect_cellular_automaton__farewell
 ---
-Perfect Cell-ular Automaton: Run along. I will still be here when you find a better plan. I usually am.
+Perfect Cell-ular Automaton: Run along. I have six other flawless processes to supervise.
 -> Leave.
 ===

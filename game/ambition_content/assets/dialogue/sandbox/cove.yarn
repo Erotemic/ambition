@@ -1,14 +1,14 @@
 title: pirate_admiral
 ---
 <<if boss_cleared("mockingbird")>>
-    Admiral: Landstrider! There's our chest. Put it by the bar before Bess decides it needs celebrating with cannon fire. Drinks are on us.
+    Admiral: Landstrider returns! There's our chest. Put it by the bar before Bess fires a salute through the roof. Drinks are on us tonight.
     -> About the chest…
         <<jump pirate_admiral_after_treasure__1>>
     -> Anything else?
         <<jump pirate_admiral_after_treasure__2>>
     -> Carry on, Admiral.
 <<else>>
-    Admiral: Ahoy, landstrider. Bad morning. Mockingbird took the chest straight off the bar. Big iron thing. Flew away with it anyway.
+    Admiral: Ahoy, landstrider. Ye caught us at low tide and lower tempers. Mockingbird took the iron chest straight off the bar and flew away with it. Aye, I know how that sounds.
     -> What happened to the treasure?
         <<jump pirate_admiral__1>>
     -> Where can I find this Mockingbird?
@@ -21,7 +21,7 @@ title: pirate_admiral
 
 title: pirate_admiral__1
 ---
-Admiral: Mockingbird. Big one. Took the chest off the bar, knocked two boards loose, and apologized in my own voice. I liked it better before the apology.
+Admiral: Mockingbird. Big as a mainsail and twice as mean. Took the chest, tore two boards loose, then apologized in my own voice. Nearly got shot for the apology.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> I'll bring it down.
@@ -37,7 +37,7 @@ Admiral: Back door, then up. You'll hear it before you see it. Bring me the ches
 
 title: pirate_admiral__3
 ---
-Admiral: Have you SEEN my raider? He swings a cutlass at things on the same deck. The bird stays twenty feet up and laughs at him.
+Admiral: Have you SEEN my raider? Cutlass in hand, bird twenty feet up. He spent an hour swearin' at it. Bird swore back.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> I'll bring it down.
@@ -45,7 +45,7 @@ Admiral: Have you SEEN my raider? He swings a cutlass at things on the same deck
 
 title: pirate_admiral_after_treasure__1
 ---
-Admiral: Three locks on that chest and the bird opened every one. Keep what you found inside. The books are square.
+Admiral: Three locks, and that bird picked every one with its beak. Keep what ye found inside. I'm not putting it back in the chest.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -53,7 +53,7 @@ Admiral: Three locks on that chest and the bird opened every one. Keep what you 
 
 title: pirate_admiral_after_treasure__2
 ---
-Admiral: If another bird steals from me, I'm sending for you first. Go drink before I find more work.
+Admiral: Stay sharp, landstrider. Another feathered bastard steals our songs, I'm sending for ye before Bess loads the cannons.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -71,7 +71,7 @@ Broadside Bess: YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bes
 
 title: pirate_heavy_broadside_bess__1
 ---
-Broadside Bess: A BROADSIDE? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve guns if the lazy deckhands loaded proper. Bird heard it once and started mockin' the noise for a week.
+Broadside Bess: A BROADSIDE, ye landlubber? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve of 'em when the deckhands remember powder. First time I fired one, the Mockingbird copied the noise for a week. Badly.
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -157,7 +157,7 @@ Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up 
 
 title: pirate_lookout__2
 ---
-Lookout: Quartermaster cut the salt pork in half. Six pirates, three burnin' sharks, half rations. Everybody's mean today. Keep yer hands where they can see "em.
+Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, half portions. Raider bit a spoon this mornin'. Keep yer hands where folk can see 'em.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
 -> ⟨climb past⟩
@@ -201,7 +201,7 @@ Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bas
 
 title: pirate_quartermaster__1
 ---
-Quartermaster: Powder low. Salt pork lower. Rum—don't ask. Bird took the chest with the songbook, so now every bastard wants credit for verses he half remembers.
+Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bird took the song chest, so now every bastard in the cove is claimin' credit for verses he half remembers. I got IOUs for RHYMES, landstrider.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
 -> ⟨step aside⟩

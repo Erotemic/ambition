@@ -153,6 +153,33 @@ repository-owned prerequisite/setup scripts and clearly distinguish:
 
 Do not report an absent NDK/GPU/display as proof that the target's code is broken.
 
+> **⚠ TESTED ON A MACHINE WITH ALL THREE ABSENCES, `17de0f816` (2026-09-02) — the
+> distinction holds in two places and FAILS in a third.** The calculex VM has no
+> GPU (`/dev/dri` absent), no display (`XDG_SESSION_TYPE=tty`), and no
+> `ANDROID_NDK_HOME`:
+>
+> - ✔ **Web.** With `wasm32-unknown-unknown` absent, the gate PLANS no web job and
+>   says so: *"SKIPPING the web build CHECK — the wasm32-unknown-unknown target is
+>   not installed … The web build is UNCHECKED in this run."* That is exactly the
+>   distinction B5 asks for, and it is recent — the footer used to claim the CHECK
+>   had run regardless.
+> - ✔ **GPU/display.** A Cpu adapter seeds `Potato` and says it is doing so;
+>   `[census] phases_trust` reports `trustworthy=no_render_backend` and states
+>   that the phase split is still usable. The absence is named, not inferred.
+> - ⛔ **Fonts — THE ONE THAT FAILS.** `cargo check --workspace --all-targets` on
+>   a fresh checkout dies with `error: couldn't read
+>   …/assets/fonts/bundled/JetBrainsMono-Regular.ttf: No such file or directory`
+>   and then `could not compile ambition_render (test "typography")`. The
+>   directory is GIT-IGNORED and fetched by `scripts/grab_font_assets.py`, so this
+>   is a missing PREREQUISITE reported as a compile error in a test target —
+>   indistinguishable from code failure unless you already know the file is not
+>   tracked. It cost a full workspace lane before I recognised it.
+>
+> ⇒ **So B5's rule is honoured where somebody has been bitten and absent where
+> nobody has.** The remedy is the same one the web job already uses: fail with the
+> prerequisite named and the fetch command quoted, rather than with a read error
+> from whichever target happens to open the file first.
+
 ### B6 — packaging/distribution
 
 Keep packaging/release work product-driven, but Engine 1.0 needs at least one

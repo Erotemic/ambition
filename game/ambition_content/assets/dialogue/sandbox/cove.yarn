@@ -1,14 +1,14 @@
 title: pirate_admiral
 ---
 <<if boss_cleared("mockingbird")>>
-    Admiral: Landstrider returns. The bird is feathers and the chest is OURS again — I owe you a hold full of thanks and a small fortune in goods. The cove sleeps tonight without one ear cocked at the sky.
+    Admiral: Landstrider! There's our chest. Put it by the bar before Bess decides it needs celebrating with cannon fire. Drinks are on us.
     -> About the chest…
         <<jump pirate_admiral_after_treasure__1>>
     -> Anything else?
         <<jump pirate_admiral_after_treasure__2>>
     -> Carry on, Admiral.
 <<else>>
-    Admiral: Ahoy, landstrider. You catch us in low tide and lower tempers — a bird made off with our hoard, and the chest it lifted weighed more than the bird does. Riddle me THAT.
+    Admiral: Ahoy, landstrider. Bad morning. Mockingbird took the chest straight off the bar. Big iron thing. Flew away with it anyway.
     -> What happened to the treasure?
         <<jump pirate_admiral__1>>
     -> Where can I find this Mockingbird?
@@ -21,7 +21,7 @@ title: pirate_admiral
 
 title: pirate_admiral__1
 ---
-Admiral: A Mockingbird. Big as a galleon's mainsail, mean as low water. Snatched the iron-bound chest right off the bar. Left us a feather, two splinters, and an apology in a voice that wasn't its own.
+Admiral: Mockingbird. Big one. Took the chest off the bar, knocked two boards loose, and apologized in my own voice. I liked it better before the apology.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> I'll bring it down.
@@ -29,7 +29,7 @@ Admiral: A Mockingbird. Big as a galleon's mainsail, mean as low water. Snatched
 
 title: pirate_admiral__2
 ---
-Admiral: Past the door at the back of the cove. The bird circles in there like it owns the air. Bring it down. Bring the chest back. I don't care which order.
+Admiral: Back door, then up. You'll hear it before you see it. Bring me the chest. If the bird comes down too, better.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> I'll bring it down.
@@ -37,7 +37,7 @@ Admiral: Past the door at the back of the cove. The bird circles in there like i
 
 title: pirate_admiral__3
 ---
-Admiral: Have you SEEN the raider? He fights cutlass-and-cuss, not aerial gunnery. The bird hovers; he swears; the chest doesn't come back. We need somebody who can climb after a flying thing.
+Admiral: Have you SEEN my raider? He swings a cutlass at things on the same deck. The bird stays twenty feet up and laughs at him.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> I'll bring it down.
@@ -45,7 +45,7 @@ Admiral: Have you SEEN the raider? He fights cutlass-and-cuss, not aerial gunner
 
 title: pirate_admiral_after_treasure__1
 ---
-Admiral: Iron-bound, salt-cured, three locks the Mockingbird picked with a beak — proves the bird had hands somewhere a respectable bird shouldn't. Whatever was inside is yours; whatever's in the cove's books is square.
+Admiral: Three locks on that chest and the bird opened every one. Keep what you found inside. The books are square.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -53,7 +53,7 @@ Admiral: Iron-bound, salt-cured, three locks the Mockingbird picked with a beak 
 
 title: pirate_admiral_after_treasure__2
 ---
-Admiral: Stay sharp out there. There's always another bird, another cove, another bar that thinks our shanties belong to them. If something needs hunting, we know where to find you now.
+Admiral: If another bird steals from me, I'm sending for you first. Go drink before I find more work.
 -> Ask another question.
     <<jump pirate_admiral>>
 -> Carry on, Admiral.
@@ -71,7 +71,7 @@ Broadside Bess: YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bes
 
 title: pirate_heavy_broadside_bess__1
 ---
-Broadside Bess: A BROADSIDE, ye landlubber? 'Tis EVERY GUN on the port side firin' at once — boom, boom, boom-boom-boom — twelve cannons singin' the same hymn at the same wave. Yo-ho! When Bess fires a broadside, the SKY apologizes. The Mockingbird heard one once an' has been writin' diss-shanties about us ever since.
+Broadside Bess: A BROADSIDE? Every gun on one side, all at once — BOOM, boom-boom-boom! Twelve guns if the lazy deckhands loaded proper. Bird heard it once and started mockin' the noise for a week.
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -79,7 +79,7 @@ Broadside Bess: A BROADSIDE, ye landlubber? 'Tis EVERY GUN on the port side firi
 
 title: pirate_heavy_broadside_bess__2
 ---
-Broadside Bess: Story is — yarrr — I was THREE crews ago, gunner on the Stormpetrel, an' the captain says 'Bess, ye fire when I say.' I says 'I fire when the SHIP says.' Ship said now. Captain said never. Captain swam back to port. I sailed here. Cove ain't paid me proper since, but the Admiral lets me yell, so we be square.
+Broadside Bess: Three crews back I was gunner on the Stormpetrel. Captain told me to hold fire. Then the ship rolled, I fired, and he went over the rail swearin' my name all the way down. He swam back to port. I kept sailing. YARRRGH.
 -> Aye, another question.
     <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
@@ -87,7 +87,7 @@ Broadside Bess: Story is — yarrr — I was THREE crews ago, gunner on the Stor
 
 title: pirate_heavy_iron_mary
 ---
-Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose yer grip on it. Yarrgh. The Admiral keeps me 'round 'cause when the negotiatin' fails, I'm what the negotiatin' WAS about. Wee skipper, what brings ye to a cove full o' shouters?
+Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose a finger. Admiral keeps me 'round when somethin' needs hittin'. Wee skipper, what brings ye to a cove full o' shouters?
 -> Why 'Iron'?
     <<jump pirate_heavy_iron_mary__1>>
 -> Any tip for the bird?
@@ -97,7 +97,7 @@ Iron Mary: Hmmph. Iron Mary. Don't shake me hand, ye'll lose yer grip on it. Yar
 
 title: pirate_heavy_iron_mary__1
 ---
-Iron Mary: Plate. Rivets. Stubborn. Three reasons. Plate — me whole top half be hammered scrap salvaged off a sunk navy cutter, bolted to me leathers. Rivets — anything that ain't bolted shut, I bolted shut, twice. Stubborn — I'm older than this cove an' younger than the Admiral's grudges, an' that be a long stretch o' stubborn. Yo-ho.
+Iron Mary: This plate came off a navy cutter we sank. Good metal, so I dragged it home and bolted it to me leathers. First lot rattled. Put in twice as many. Hasn't rattled since.
 -> Another, then.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
@@ -105,7 +105,7 @@ Iron Mary: Plate. Rivets. Stubborn. Three reasons. Plate — me whole top half b
 
 title: pirate_heavy_iron_mary__2
 ---
-Iron Mary: Aye. Bird's a mimic. Bird's a thief. Bird's a coward at close range — they always be. If ye can get a hand on it, ye don't NEED a sword. Yer fists, me fists — same arithmetic. But ye ain't got me fists, so bring somethin' heavy. An' don't listen to its voice; it'll wear yours.
+Iron Mary: Get close. That bird hates close. Bring somethin' heavy, and if it starts talkin' in yer voice, keep swingin'.
 -> Another, then.
     <<jump pirate_heavy_iron_mary>>
 -> Carry on.
@@ -113,7 +113,7 @@ Iron Mary: Aye. Bird's a mimic. Bird's a thief. Bird's a coward at close range �
 
 title: pirate_heavy_salt_annet
 ---
-Salt Annet: Yarrrr. Salt in me eyes, salt in me bones, salt in me bloody MORNIN' COFFEE — yo-ho, the cove gives an' the cove takes an' mostly the cove takes salt. Sit a spell, wee skipper. Old Annet's seen yer kind come an' go like tides — most go.
+Salt Annet: Yarrrr. Salt in me eyes again. In me coffee too. Sit a spell, wee skipper, but use the dry end o' the bench unless ye fancy a wet backside.
 -> How long ye been here?
     <<jump pirate_heavy_salt_annet__1>>
 -> Got a shanty for me?
@@ -123,7 +123,7 @@ Salt Annet: Yarrrr. Salt in me eyes, salt in me bones, salt in me bloody MORNIN'
 
 title: pirate_heavy_salt_annet__1
 ---
-Salt Annet: Too long, an' not long enough — yarr. The Admiral was a midshipman when I signed on; now he salutes me with both hands an' I salute him with neither. I've watched three ships rot at this very dock. The bird? The bird be a NEW kind o' weather. An' weather always passes, wee skipper. Always.
+Salt Annet: Signed on when the Admiral still fetched coffee. Three ships have rotted at this dock since. This bird won't get three ships out of me.
 -> One more, ye old salt.
     <<jump pirate_heavy_salt_annet>>
 -> Carry on.
@@ -157,7 +157,7 @@ Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up 
 
 title: pirate_lookout__2
 ---
-Lookout: Short rations, plain an' simple. Quartermaster halved the salt pork. Six pirates an' three on-fire sharks on half-portions? That be a grudge with a heartbeat, an' the riders bark loudest about it. Empty belly makes a sharp cutlass.
+Lookout: Quartermaster cut the salt pork in half. Six pirates, three burnin' sharks, half rations. Everybody's mean today. Keep yer hands where they can see "em.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
 -> ⟨climb past⟩
@@ -191,7 +191,7 @@ Navigator: Easy now — they don't fire on the navigator, see. Mockingbird made 
 
 title: pirate_quartermaster
 ---
-Quartermaster: Aye-aye, landstrider. I be the only soul in this here cove what can spell 'manifest' — th' Admiral signs it, the Raider DEVOURS it. Pray ye don't end up a Raider, savvy?
+Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bastard here what can spell it. Admiral signs. Raider wipes his hands on it.
 -> How's the hold lookin'?
     <<jump pirate_quartermaster__1>>
 -> What's above decks?
@@ -201,7 +201,7 @@ Quartermaster: Aye-aye, landstrider. I be the only soul in this here cove what c
 
 title: pirate_quartermaster__1
 ---
-Quartermaster: Powder: low. Salt pork: lower. Rum: don't ask. Shanties: somehow runnin' a deficit since the bird flew off with the chest — we be tradin' IOUs for verses now, which is as seaworthy as a sieve in a squall.
+Quartermaster: Powder low. Salt pork lower. Rum—don't ask. Bird took the chest with the songbook, so now every bastard wants credit for verses he half remembers.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
 -> ⟨step aside⟩
@@ -225,7 +225,7 @@ title: pirate_raider
         <<jump pirate_raider_after_treasure__2>>
     -> Carry on.
 <<else>>
-    Raider: Oi. Don't ask me about the bird. The Admiral's all 'strategy' and 'resolve' — I'm 'beak twice my size, talons twice my pay'. We had a chest. Now we don't. Connect the dots.
+    Raider: Oi. Bird's got a beak twice my size and I'm still on the same pay. We had a chest this morning. Now we don't.
     -> What was in the chest?
         <<jump pirate_raider__1>>
     -> Got any tips for the bird?
@@ -236,7 +236,7 @@ title: pirate_raider
 
 title: pirate_raider__1
 ---
-Raider: Shanties. Specifically, OURS. The bird heard the cove sing about plunder one too many times and decided to file a counterclaim, in talons. The chest's not gold, it's the SONGS. Don't tell the Admiral I said that.
+Raider: Songs. That's what was in it. Ours. The Admiral calls them records because he thinks that sounds expensive. Don't tell him I told you.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -244,7 +244,7 @@ Raider: Shanties. Specifically, OURS. The bird heard the cove sing about plunder
 
 title: pirate_raider__2
 ---
-Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.
+Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. Ask the navigator. I just hit things.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -252,7 +252,7 @@ Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits som
 
 title: pirate_raider_after_treasure__1
 ---
-Raider: You. Loud. The bird, who's not here. The bar, who's still here. And the chest, which is BACK. We do not toast the chest — the chest toasts itself. That's just respect.
+Raider: We're drinking to you and to the bird being somewhere else. The chest gets a cup too. Don't argue with tradition.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.
@@ -260,7 +260,7 @@ Raider: You. Loud. The bird, who's not here. The bar, who's still here. And the 
 
 title: pirate_raider_after_treasure__2
 ---
-Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / and the chest is the actual ledger of every yo-ho ever filed. ...you don't need the third verse.
+Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / ...ah, hell. I forgot the next bit.
 -> Ask another question.
     <<jump pirate_raider>>
 -> Carry on.

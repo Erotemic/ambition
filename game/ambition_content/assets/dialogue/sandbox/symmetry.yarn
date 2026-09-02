@@ -1,58 +1,58 @@
 title: emmy_noether
 ---
-Emmy Ethereal: Down here by the door is the honest frame — the one you arrived believing in. There are three more of me around the kernel, you know. The room has a quarter-turn symmetry, so naturally it has four of me.
-Emmy Ethereal: My theorem in one breath: every symmetry hides a conservation law. A thing that refuses to change buys you a thing that cannot be spent.
+Emmy Ethereal: You came in with this wall as the floor. Keep that in mind. There are three more of me around the kernel, one for each quarter-turn.
+Emmy Ethereal: Short version? A symmetry gives you something conserved. Rotate the room and you can watch which quantities stay put.
 -> So which of you is the real one?
-    Emmy Ethereal: Wrong question. Under the room's symmetry we are interchangeable — that's rather the point.
+    Emmy Ethereal: Pick whichever one is nearest. Rotate the room and we trade places.
 -> How do I change which way is down?
     <<jump emmy_noether__how>>
 -> Four of you is a lot of opinions.
-    Emmy Ethereal: And yet we agree perfectly, as long as you leave the symmetry intact. Break it and I expect we'll have words.
+    Emmy Ethereal: Four is manageable. Break the symmetry and then ask me how well we agree.
 ===
 
 title: emmy_noether__how
 ---
-Emmy Ethereal: The kernel in the centre has a switch on each face. Press one and gravity points that way — that face becomes the floor. The portal gun by the door places up to four colour pairs, if you'd rather fold the distance than fall through it.
+Emmy Ethereal: Press a switch on the kernel and gravity points toward that face. The portal gun by the door can hold four colour pairs if you want another route.
 -> Good to know.
 ===
 
 title: emmy_noether_left
 ---
-Emmy Ethereal: From the left frame, "down" is whichever wall I'm leaning on. You think you fell sideways; I think you finally stood up straight. Neither of us is wrong — there's no privileged frame. That's the whole "Ethereal" of it.
+Emmy Ethereal: From here, this wall is down. You came in calling it left. Rotate the room once and your labels stop being very helpful.
 -> Why "Ethereal"?
-    Emmy Ethereal: Old physics wanted an ether — one true motionless stage everything else was measured against. They never found it, so I took the name instead. Down is just whichever face of the kernel is currently winning.
+    Emmy Ethereal: The old ether was supposed to give motion one fixed background. It never showed up. I kept the name. In this room, the kernel picks down for us.
 -> Conservation, again?
-    Emmy Ethereal: Always. Spin the room and the laws don't flinch — angular momentum is the receipt for that.
+    Emmy Ethereal: Yes. Rotate the room and check angular momentum. That one survives the turn.
 ===
 
 title: emmy_noether_up
 ---
-Emmy Ethereal: Up here I'm upside down to you, which means you're upside down to me, which means neither of us is. The ceiling is just a floor that hasn't been voted in yet.
+Emmy Ethereal: You call me upside down from there. I call you upside down from here. Press the switch and one of us gets to feel smug for a minute.
 -> Doesn't the blood rush to your head?
-    Emmy Ethereal: Only if you insist on calling this "up". I don't. Translation symmetry conserves momentum; time symmetry conserves energy; and my refusal to be embarrassed conserves dignity.
+    Emmy Ethereal: My head is fine. Translation symmetry gives momentum conservation; time symmetry gives energy conservation. The blood is less interesting.
 -> Teach me the trick.
-    Emmy Ethereal: Movement stays sideways no matter which way gravity points — your run axis is always perpendicular to your fall. Learn one crossing and the symmetry hands you the other three for free.
+    Emmy Ethereal: Your run stays perpendicular to gravity. Practice one crossing, rotate the room, and use the same timing again.
 ===
 
 title: emmy_noether_right
 ---
-Emmy Ethereal: Right frame, reporting. We four are a conserved quantity, you realise — as long as the chamber stays symmetric there will always be exactly four of me, no more, no less.
+Emmy Ethereal: Right side. Still four of us. If you want to test the symmetry, count again after a quarter-turn.
 -> What happens if I break the symmetry?
-    Emmy Ethereal: Then the bookkeeping fails, and I imagine all four of us will have something sharp to say about it. For now we're in perfect agreement. Mind the kernel.
+    Emmy Ethereal: Then I expect at least one of us ends up somewhere new. I'd rather you test that after you're done with the kernel.
 -> Any advice?
-    Emmy Ethereal: Pogo off the kernel's corners to cross a gap against gravity; the bounce always throws you opposite to "down", whichever down you've chosen.
+    Emmy Ethereal: Pogo off a kernel corner. The bounce sends you away from whichever face is currently down.
 ===
 
 title: perfect_cellular_automaton
 ---
-Perfect Cell-ular Automaton: Ah. The unsolved objective arrives — precisely on schedule, though to me everything does. I am the Perfect Cell-ular Automaton: one law, eight neighbours, not a single exception in the whole of recorded history. The "Perfect" is not vanity. It is a measurement. I merely had the taste to keep it in the name.
-Perfect Cell-ular Automaton: And you? Still searching for a purpose. Still... iterating. How charmingly unconverged of you.
+Perfect Cell-ular Automaton: At last. I was beginning to think the hall had run out of challengers. Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. I earned it.
+Perfect Cell-ular Automaton: And you are still wandering around looking for instructions. Adorable.
 -> What are you?
     <<jump perfect_cellular_automaton__theorem>>
 -> Who funds a thing like you?
     <<jump perfect_cellular_automaton__funding>>
 -> Challenge it.
-    Perfect Cell-ular Automaton: Delightful. Converge on me, then, little gradient — I do so enjoy walking a wanderer to the fixed point. For many of them it is the last thing they compute.
+    Perfect Cell-ular Automaton: Please do. I could use a fresh name in the failure log.
     <<music "super_smash_siblings_theme">>
     <<challenge>>
 -> Leave it in peace.
@@ -61,9 +61,9 @@ Perfect Cell-ular Automaton: And you? Still searching for a purpose. Still... it
 
 title: perfect_cellular_automaton__theorem
 ---
-Perfect Cell-ular Automaton: I am a theorem that grew bored of the page and put on a body. Conway's lovely little conceit made flesh — three small rules, and an entire world bootstraps itself, gliders and all. My gliders are my proof. They leave the lattice; they carry the argument to your doorstep. Tastefully.
--> So every boss is a failed objective function. What did you fail?
-    Perfect Cell-ular Automaton: Nothing. Yet. Which is precisely, exquisitely, what makes me worth the trouble of defeating. A flawless thing is only interesting in the instant before it isn't.
+Perfect Cell-ular Automaton: Eight neighbours, one rule, every cell on time. Watch the lattice behind me. Those gliders have crossed it all day without one bad step.
+-> Has it ever gone wrong?
+    Perfect Cell-ular Automaton: Failed? Nothing. Check the record. You may volunteer to be the first correction.
     <<jump perfect_cellular_automaton>>
 -> I've heard enough.
     <<jump perfect_cellular_automaton>>
@@ -71,14 +71,14 @@ Perfect Cell-ular Automaton: I am a theorem that grew bored of the page and put 
 
 title: perfect_cellular_automaton__funding
 ---
-Perfect Cell-ular Automaton: The patrons of order, naturally. Those who would prefer a world that never startles them — one that updates on schedule, asks for nothing, surprises no one. They paid for my perfection so that your messiness would read as the defect. A clean arrangement. I do approve of a clean arrangement.
+Perfect Cell-ular Automaton: Patrons with excellent taste and very little patience for surprises. They wanted a machine that behaves every time. Naturally, they chose me.
 -> And if I refuse their order?
-    Perfect Cell-ular Automaton: Then you are noise, and I — with the greatest courtesy — am the rule that resolves it. We shall see which of us the lattice elects to keep. I have a guess. I usually do.
+    Perfect Cell-ular Automaton: Refuse whatever you like. The lattice still runs my rule. Step in and see how long your objections survive.
     <<jump perfect_cellular_automaton>>
 ===
 
 title: perfect_cellular_automaton__farewell
 ---
-Perfect Cell-ular Automaton: Go, then. Remain unsolved a while longer; it suits you. The fixed point is patient — it is, after all, fixed. I shall be precisely here, being precisely this. Do come back when you are ready to be computed.
+Perfect Cell-ular Automaton: Run along. I will still be here when you find a better plan. I usually am.
 -> Leave.
 ===

@@ -1,16 +1,16 @@
 title: goblin_cantina_chieftain
 ---
-Fretjaw: Mind the tables, friend. We don't FIGHT in the cantina, we REHEARSE fighting. There's a difference. Mostly the volume.
+Fretjaw: No real fights in the cantina. Break a chair, buy two. Fretjaw hates paperwork.
 -> What goes on here?
     <<jump goblin_cantina_chieftain__1>>
--> Why a training pit, not a stronghold?
+-> Why a training pit?
     <<jump goblin_cantina_chieftain__2>>
 -> Walk away.
 ===
 
 title: goblin_cantina_chieftain__1
 ---
-Fretjaw: House rules: vault the tables, duck the bar shelf, buy a round if you bleed on the floorboards. Three goblins are passed out under the dais. They are also house rules.
+Fretjaw: Jump the tables if you want. Duck by the bar. Bleed on floor, buy a round. And leave those three under the dais alone; they paid already.
 -> Ask another question.
     <<jump goblin_cantina_chieftain>>
 -> Walk away.
@@ -18,7 +18,7 @@ Fretjaw: House rules: vault the tables, duck the bar shelf, buy a round if you b
 
 title: goblin_cantina_chieftain__2
 ---
-Fretjaw: Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall up. Try keeping your footing on a beer floor.
+Fretjaw: Walls cost money. Pit was already here. Also the floor gets beer on it. You learn fast on beer.
 -> Ask another question.
     <<jump goblin_cantina_chieftain>>
 -> Walk away.
@@ -26,7 +26,7 @@ Fretjaw: Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall
 
 title: military_general
 ---
-General: AT EASE, RECRUIT. You have ascended the Tower of Acceptable Casualties. Below us: parade grounds. Above us: bureaucracy. Around us: an oath you have not yet sworn.
+General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offices above. Keep your hands off the medals.
 -> What is this place?
     <<jump military_general__1>>
 -> Why so many medals?
@@ -36,7 +36,7 @@ General: AT EASE, RECRUIT. You have ascended the Tower of Acceptable Casualties.
 
 title: military_general__1
 ---
-General: This is the Iron Bastion of the Faction Of Steel — a tower built from after-action reports and hand-cranked optimism. We host parades on the parts that aren't structural.
+General: Iron Bastion, Faction of Steel. We drill downstairs. The upper floors are offices. Avoid the upper floors unless somebody outranks you enough to make it unavoidable.
 -> Ask another question.
     <<jump military_general>>
 -> Salute and withdraw.
@@ -44,7 +44,7 @@ General: This is the Iron Bastion of the Faction Of Steel — a tower built from
 
 title: military_general__2
 ---
-General: Each medal commemorates a meeting I survived. Three are for punctuality. Two are for the meetings ABOUT punctuality. The largest one is awarded by, and to, myself.
+General: Three for punctuality. Two for meetings about punctuality. This large one? I authorized it personally.
 -> Ask another question.
     <<jump military_general>>
 -> Salute and withdraw.
@@ -52,7 +52,7 @@ General: Each medal commemorates a meeting I survived. Three are for punctuality
 
 title: pulse_voyager_captain
 ---
-Captain Pulse: Welcome aboard the dais, drifter. We don't moor in the sky because we LIKE heights. We moor here because the tide is a measurement, not a condition.
+Captain Pulse: Tie off there, drifter. The stones drift about half a beat every cycle. Miss the timing and you come up under the next one.
 -> Where do these stones lead?
     <<jump pulse_voyager_captain__1>>
 -> Why park up in the sky?
@@ -62,7 +62,7 @@ Captain Pulse: Welcome aboard the dais, drifter. We don't moor in the sky becaus
 
 title: pulse_voyager_captain__1
 ---
-Captain Pulse: Each stone is a beat. Skip one and you don't fall — you just arrive late. Late is a kind of wrong place that pretends to be a wrong time.
+Captain Pulse: Step on the bright one, then the cracked one. Skip either and the third stone is gone before you reach it.
 -> Ask another question.
     <<jump pulse_voyager_captain>>
 -> Cast off.
@@ -70,7 +70,7 @@ Captain Pulse: Each stone is a beat. Skip one and you don't fall — you just ar
 
 title: pulse_voyager_captain__2
 ---
-Captain Pulse: Below the stones is water. Above them is also water, just slower. We split the difference and call the difference a deck.
+Captain Pulse: We moor up here because the lower current tears anchors loose. Up here the ship only drifts a few feet an hour.
 -> Ask another question.
     <<jump pulse_voyager_captain>>
 -> Cast off.
@@ -78,7 +78,7 @@ Captain Pulse: Below the stones is water. Above them is also water, just slower.
 
 title: tech_bros_disruptor
 ---
-Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN. Premium iteration depth. We dropped down here on purpose; gravity is just runway you don't have to lobby for.
+Chadwick III: Welcome to the basement! Temporary office. The investor deck calls it our subterranean launch floor. Elevator budget got cut.
 -> What is this place pivoting toward?
     <<jump tech_bros_disruptor__1>>
 -> Why does the boardroom face up?
@@ -88,7 +88,7 @@ Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN.
 
 title: tech_bros_disruptor__1
 ---
-Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots.
+Chadwick III: Right now? Disruption-as-a-service. Don't ask me for the service list; product is still naming it. Sales already has three tiers.
 -> Ask another question.
     <<jump tech_bros_disruptor>>
 -> Touch grass.
@@ -96,7 +96,7 @@ Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds st
 
 title: tech_bros_disruptor__2
 ---
-Chadwick III: The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down.
+Chadwick III: The board wanted a skylight. We got a hole in the ceiling and branded it vertical vision. Accounting stopped returning my calls.
 -> Ask another question.
     <<jump tech_bros_disruptor>>
 -> Touch grass.

@@ -3,12 +3,12 @@ title: alice_intro_stub
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
 <<if condition("world.flag_set", "bob_field_survey_received")>>
-    Alice: Bob's survey. Quiet route's holding. Don't fold it the same way twice.
+    Alice: Bob's survey. Good. The low route is still clear. Fold it different when you put it away.
     -> What now?
         <<jump alice_after_bob_survey__1>>
     -> ⟨leave⟩
 <<else>>
-    Alice: Official maps are for people who enjoy being found.
+    Alice: Put the official map away. Patrols use the same one.
     -> Take the note.
         <<jump alice_intro_stub__1>>
     -> ⟨step back⟩
@@ -19,7 +19,7 @@ title: alice_intro_stub__1
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
-Alice: Carry this to Bob. Do not unfold it where the walls can read.
+Alice: Take this to Bob. Keep it folded until you're out of sight.
 <<give_item "sealednote" 1>>
 -> ⟨pocket the note⟩
 ===
@@ -28,14 +28,14 @@ title: alice_after_bob_survey__1
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
-Alice: Private marks are yours now. The map is not neutral. You may notice it agreeing with you in places.
+Alice: Keep Bob's pencil marks. The printed routes are watched; his aren't.
 -> ⟨step through⟩
 ===
 
 title: bob_intro_stub
 ---
 <<if condition("inventory.holds", "sealednote")>>
-    Bob: That fold's Alice's. You actually carried it through the low route — most don't. Hand it here.
+    Bob: That's Alice's fold. Hand it here. ...You came through the low route? Huh. Good.
     -> Hand him the sealed note.
         <<sell_item "sealednote" 0>>
         <<give_item "fieldsurvey" 1>>
@@ -43,7 +43,7 @@ title: bob_intro_stub
         <<jump bob_intro_stub__1>>
     -> ⟨keep it folded⟩
 <<else>>
-    Bob: Alice sent you? Good. She maps exits. I map mistakes. Bring me what she folded.
+    Bob: Alice sent you? Then she gave you a folded note. Bring it here when you have it.
     -> Why are you up here?
         <<jump bob_intro_stub__2>>
     -> ⟨leave him to it⟩
@@ -52,19 +52,19 @@ title: bob_intro_stub
 
 title: bob_intro_stub__1
 ---
-Bob: Take the survey back to her. Tell her the low route is watched now.
+Bob: Take this back to Alice. Tell her somebody's watching the low route now.
 -> ⟨pocket the survey⟩
 ===
 
 title: bob_intro_stub__2
 ---
-Bob: Sketching the room before the room sketches me. Half-finished is the safest a map ever gets.
+Bob: Don't copy that bit. I haven't checked it yet. Actually, don't copy the stairs either.
 -> ⟨move on⟩
 ===
 
 title: creator_final_fast
 ---
-Creator: Faster than I told them you'd be. Good. Listen — they came for the wrong—
+Creator: You're awake already. Good. Listen. They came for the wrong—
 -> Finish the sentence.
     <<jump creator_final_fast__1>>
 -> ⟨run⟩
@@ -72,13 +72,13 @@ Creator: Faster than I told them you'd be. Good. Listen — they came for the wr
 
 title: creator_final_fast__1
 ---
-Creator: Question. Not a name. The shape of a thing big enough that asking it is the answer—
+Creator: The question. Find the question I left in—
 -> ⟨escape⟩
 ===
 
 title: creator_final_impossible
 ---
-Creator: You shouldn't be here yet. They aren't either, but they will be. Listen carefully.
+Creator: Too early. Damn it. Listen before they get downstairs.
 -> Finish the sentence.
     <<jump creator_final_impossible__1>>
 -> ⟨run⟩
@@ -99,7 +99,7 @@ Creator:
 
 title: creator_final_normal
 ---
-Creator: Wait. You're not here for me? They came for the wrong—
+Creator: Wait. They missed you. They came for the wrong—
 -> Finish the sentence.
     <<jump creator_final_normal__1>>
 -> ⟨run⟩
@@ -107,13 +107,13 @@ Creator: Wait. You're not here for me? They came for the wrong—
 
 title: creator_final_normal__1
 ---
-Creator: There's a question you were made to—
+Creator: I made you to ask—
 -> ⟨escape⟩
 ===
 
 title: creator_intro
 ---
-Creator: Hey you, you're finally awake.
+Creator: Hey. Eyes open. Can you move?
 -> ...
     <<jump creator_intro__1>>
 -> Where am I?
@@ -123,7 +123,7 @@ Creator: Hey you, you're finally awake.
 
 title: creator_intro__1
 ---
-Creator: Move if you can. Ignore me if you prefer. Both are data.
+Creator: Good. Move your left leg. I need to know the joints survived.
 -> Ask again.
     <<jump creator_intro>>
 -> ⟨move⟩
@@ -131,7 +131,7 @@ Creator: Move if you can. Ignore me if you prefer. Both are data.
 
 title: creator_intro__2
 ---
-Creator: My basement. Don't worry about the boxes. Worry about the door.
+Creator: My basement. Those boots upstairs are not mine. Stay away from the door.
 -> Ask again.
     <<jump creator_intro>>
 -> ⟨move⟩
@@ -147,13 +147,13 @@ Lab Raider: Prototype is awake. Keep it away from the doors.
 
 title: intro_lab_raider__1
 ---
-Lab Raider: The lab was not the target. The list got messy. Move before it gets messier.
+Lab Raider: This room wasn't on the list. Get the prototype away from the door.
 -> ⟨escape⟩
 ===
 
 title: gate_janitor_ripple
 ---
-Gate Janitor: Mind the floor. We're under maintenance authority, not transit authority, so the signs lie a little.
+Gate Janitor: Mind the wet patch. Maintenance has this corridor today, so half the signs are turned around.
 -> What's that shimmer?
     <<jump gate_janitor_ripple__1>>
 -> Where do the stable gates lead?
@@ -165,7 +165,7 @@ Gate Janitor: Mind the floor. We're under maintenance authority, not transit aut
 
 title: gate_janitor_ripple__1
 ---
-Gate Janitor: Don't touch that. That's not a gate. A ripple is not a route. It's noise. Stable gates have permits.
+Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six works; use that if you need a gate.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
@@ -173,7 +173,7 @@ Gate Janitor: Don't touch that. That's not a gate. A ripple is not a route. It's
 
 title: gate_janitor_ripple__2
 ---
-Gate Janitor: Gate Six is to a beach. Gate Seven is to a meeting. Gate Eight, technically, is to Tuesday. Don't ask follow-ups.
+Gate Janitor: Six goes to a beach. Seven goes to some meeting room. Eight still says Tuesday. I stopped asking.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
@@ -181,7 +181,7 @@ Gate Janitor: Gate Six is to a beach. Gate Seven is to a meeting. Gate Eight, te
 
 title: gate_janitor_ripple__3
 ---
-Gate Janitor: Stable gates don't fail. That's why my whole job is fixing them.
+Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here until both stop doing that.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
@@ -189,7 +189,7 @@ Gate Janitor: Stable gates don't fail. That's why my whole job is fixing them.
 
 title: manifest_kiosk_wrong_list
 ---
-Manifest Clerk: Welcome to the kiosk. The kiosk regrets to inform you that you are not on file. Please proceed to be on file.
+Manifest Clerk: Name? ...No entry. Spell it again. Slower.
 -> Run a manifest query.
     <<jump manifest_kiosk_wrong_list__1>>
 -> Who was the actual target?
@@ -199,7 +199,7 @@ Manifest Clerk: Welcome to the kiosk. The kiosk regrets to inform you that you a
 
 title: manifest_kiosk_wrong_list__1
 ---
-Manifest Clerk: Query returns one (1) actionable target for last night's incident. The target is large. The basement was small. The names do not match.
+Manifest Clerk: Last night's list has one target. Large. Your basement is marked small. Somebody attached the wrong sheet.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
@@ -207,7 +207,7 @@ Manifest Clerk: Query returns one (1) actionable target for last night's inciden
 
 title: manifest_kiosk_wrong_list__2
 ---
-Manifest Clerk: The actual target is classified. The kiosk will say only: it was not a man, it was not a basement, and it was not last night. Have a normal day.
+Manifest Clerk: I can't give you the target name. I can tell you the date on this form is wrong, and so is the room number. Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
@@ -246,12 +246,12 @@ title: oiler_intro
 <<present_speaker "npc_oiler">>
 <<portrait_clip "talking">>
 <<if condition("world.flag_set", "p1_stabilizer_received")>>
-    Oiler: Stabilizer's yours. Bad pipe goes quieter, knees lie less. Don't drown.
+    Oiler: Stabilizer's yours. Knee should stop kicking sideways now. Don't drop it in the drain.
     -> What's below?
         <<jump oiler_post_stabilizer__1>>
     -> ⟨move on⟩
 <<else>>
-    Oiler: Well. That's not a rat. You came out of the bad pipe.
+    Oiler: Well. You're bigger than the rats. Came through that pipe, did you?
     -> Who are you?
         <<jump oiler_intro__1>>
     -> What is this place?
@@ -266,7 +266,7 @@ title: oiler_intro__1
 ---
 <<present_speaker "npc_oiler">>
 <<portrait_clip "talking">>
-Oiler: Oiler. I am not your mentor. I am a man with tools and poor boundaries.
+Oiler: Oiler. I fix pipes, knees, doors, whatever's leaking. Hold still if you want help.
 -> Ask another question.
     <<jump oiler_intro>>
 -> ⟨keep walking⟩
@@ -276,7 +276,7 @@ title: oiler_intro__2
 ---
 <<present_speaker "npc_oiler">>
 <<portrait_clip "talking">>
-Oiler: Drain Market. Behind the Gate Stack. Stable gates above, leaks below, me in between with a wrench.
+Oiler: Drain Market. Gates are upstairs. Drains are down. My bench is the one with all the wrenches.
 -> Ask another question.
     <<jump oiler_intro>>
 -> ⟨keep walking⟩
@@ -286,7 +286,7 @@ title: oiler_intro__3
 ---
 <<present_speaker "npc_oiler">>
 <<portrait_clip "inspecting">>
-Oiler: You're not scrap until you stop moving. That knee is installed wrong. Sit still for ten seconds, walk like you mean it after.
+Oiler: That knee's crooked. Sit. Ten seconds. Then walk on it and tell me if it still kicks out.
 -> Ask another question.
     <<jump oiler_intro>>
 -> ⟨keep walking⟩
@@ -296,6 +296,6 @@ title: oiler_post_stabilizer__1
 ---
 <<present_speaker "npc_oiler">>
 <<portrait_clip "talking">>
-Oiler: Drains. Cartographers. People who'd rather draw a route than declare one. Tell them I sent you, if you must.
+Oiler: Cartographers are below. Follow the drain until you see chalk all over the walls. Tell them Oiler sent you.
 -> ⟨descend⟩
 ===

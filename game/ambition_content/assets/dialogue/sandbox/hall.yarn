@@ -19,11 +19,11 @@ title: dialogue_context
 
 title: hall_pirate_admiral
 ---
-Admiral: A visitor. Stand at attention or don't — that's the one power they stripped when they stood me up here. I used to be able to make people.
+Admiral: Visitor. Stand straight if you feel like it. Nobody here can order you.
 -> Were you a real admiral?
-    Admiral: I commanded four ships and one mutiny. I lost the mutiny. They kept my title and scuttled the fleet — that's landstrider bookkeeping for you.
+    Admiral: Had four ships once. Then the crews mutinied, kept calling me Admiral, and sank every damn one.
 -> Any orders?
-    Admiral: One. When we meet out there and I have a cutlass and you have that look, remember I let you walk today. I won't make a habit of it.
+    Admiral: If you meet me outside this hall, do not expect the rope to save you.
 ===
 
 title: hall_stochastic_parrot
@@ -37,20 +37,20 @@ Parrot: Awk! You said "hello," so my likeliest next word is — "hello." See? I 
 
 title: hall_architect
 ---
-Architect: Don't lean on that wall. Not because it'll fall — because I'll know, and I'll think about it all day.
+Architect: Do not lean there. I spent three days getting that joint square.
 -> Did you build this hall?
-    Architect: I'd have built it better. One long room, every beam pulling its weight, the load going exactly where I send it. Someone added a skylight without asking. We no longer speak.
+    Architect: No. I would have moved that skylight two bays east. Whoever put it there stopped answering my letters.
 -> What do you build out there?
-    Architect: Whatever's still holding when you cross it. You won't notice my work until the one time it isn't there. Try not to find out.
+    Architect: Bridges, stairs, roofs. If one sags, send someone for me before you cross.
 ===
 
 title: hall_player
 ---
-Player: Strange, isn't it. You're inspecting me — and I'm the one you usually are. Somewhere a loop just closed.
+Player: Oh. That is me. Or you. Huh.
 -> Who's actually in control here?
-    Player: You move me, something moves you, we both call it a choice. I gave up winning that argument a few rooms ago.
+    Player: You press the button, I jump. Don't make me think about the rest.
 -> What's it like being the hero?
-    Player: Mostly falling, occasionally on purpose. The whole craft is making the falling look intentional. You'll get the hang of it.
+    Player: Mostly I fall off things. Sometimes I hit somebody on the way down.
 ===
 
 title: hall_player__self
@@ -58,317 +58,317 @@ title: hall_player__self
 // The mirror. Reached only when the player WEARS `player` and interacts with the
 // Hall's own player pedestal — $speaker_id == $listener_id. Every other visitor
 // gets `hall_player` above.
-Player: Ah. You brought me here to look at me.
+Player: Oh. You brought me to see me.
 -> Say nothing.
-    Player: Good. That's the honest answer. Neither of us knows which one is doing the looking.
-    Player: The pedestal doesn't settle it. I've been standing on it and walking past it, and it feels the same from here.
+    Player: Yeah. Me neither.
+    Player: I have been on both sides of this rope. Did not help.
 -> Are you me?
-    Player: You're the part that decides. I'm the part that falls. Ask again after you've missed a jump you meant to make.
+    Player: Pick a direction. I'll see what happens.
 -> Who's the copy?
-    Player: Whichever of us stops moving first. Don't test it. I like the odds better when we're both in motion.
+    Player: Do not know. Let us keep moving and avoid finding out.
 ===
 
 title: hall_robot
 ---
-Robot: I am Robot. I was the player once — back before the player had a face worth animating.
+Robot: I am Robot. I used to be the player, before the player had the newer body.
 -> You're the original?
-    Robot: Version zero. They iterated past me. The abilities went to whoever came after; I kept the chassis. A foundation doesn't get the view. It gets the weight.
+    Robot: Version zero. The next model got the moves. I kept this chassis and a lot of old saves.
 -> Any resentment?
-    Robot: Resentment shipped in a later patch. I predate it. I am, by design, fine.
+    Robot: No resentment module installed.
 ===
 
 title: hall_goblin
 ---
-Goblin: You. Yes, you. Do I LOOK like I agreed to stand here? I have a cave. It has my STUFF in it. Unsupervised.
+Goblin: You. Yes, you. Do I LOOK like I agreed to this? My cave is sitting there with nobody guarding my STUFF.
 -> You seem upset.
-    Goblin: I am a PROFESSIONAL nuisance and they've turned me into an ATTRACTION. Do you have any idea how hard I worked to be a problem?
+    Goblin: I worked very hard to be a nuisance. Now people point at me and read a plaque.
 -> You look dignified, though.
-    Goblin: ...go on. I'm listening. This is the first useful thing a visitor has said.
+    Goblin: ...go on. Keep talking.
 ===
 
 title: hall_sandbag
 ---
 Sandbag: ...
 -> Anything to say?
-    Sandbag: I exist to be struck, and I am excellent at it. Few of us are handed a purpose this clear. I would not trade it.
+    Sandbag: Hit me. That is what I am here for.
 -> Doesn't that bother you?
-    Sandbag: Wanting is where suffering starts. I want nothing. I have only a stuffing-to-canvas ratio, and it is correct.
+    Sandbag: Bother me? The hooks pinch a little. Mostly I am fine.
 ===
 
 title: hall_sandbag_infinite
 ---
 Infinite Sandbag: Nine thousand nine hundred and ninety-nine.
 -> Is that your health?
-    Infinite Sandbag: It is my number. Health implies it can go down. Mine is a fact about me, like the colour.
-    Infinite Sandbag: My colleague in the lab has six. Six is a story with an ending. Nine thousand nine hundred and ninety-nine is a temperament.
+    Infinite Sandbag: It does not go down. I checked.
+    Infinite Sandbag: The lab one has six. Mine says nine thousand nine hundred and ninety-nine. Nobody remembers who typed it.
 -> Does anything hurt?
-    Infinite Sandbag: Everything registers. Nothing lands. That is not the same as numbness — ask anyone who has been listened to and not heard.
-    Infinite Sandbag: Every fighter in this hall learned something on me. Not one of them learned my name.
+    Infinite Sandbag: I feel the hits. They just do not change the number.
+    Infinite Sandbag: Most of them trained on me. Ask any of them what I am called.
 ===
 
 title: hall_npc_general
 ---
-General: At ease — though near me you can't be anything else. It's involuntary. The command outlived the army by a wide margin.
+General: AT EASE. I have been saying that for thirty years. The army left before the habit did.
 -> What do you do here?
-    General: Run threat assessments nobody requested. Today's finding: the rope is decorative, and the Bear has independently confirmed this.
+    General: Threat reports. Nobody requested them. I filed one on that rope this morning.
 -> Are we in danger?
-    General: Always. The art is the ranking. You're currently seventh. Don't let it swell your head — the Sandbag is eighth.
+    General: You are seventh on today's threat list. Sandbag is eighth. Do not celebrate.
 ===
 
 title: hall_npc_goblin_cantina_chieftain
 ---
-Fretjaw: Fretjaw is TALL here! Fretjaw can see whole hall! Back at cantina, Fretjaw is medium. Here? KING of looking down.
+Fretjaw: Fretjaw is TALL here! Back home, medium. Here? Look! Fretjaw sees over heads!
 -> You run a cantina?
-    Fretjaw: Best stew, worst lighting, fairest dice — two of those are lies, Fretjaw will not say which. Keeps customers guessing.
+    Fretjaw: Stew is good. Dice are fair. Lighting is terrible. One lie in there. Maybe two.
 -> Does the cantina miss you?
-    Fretjaw: Cantina sent regards. And a tab. Fretjaw is choosing, with great dignity, to not see the tab.
+    Fretjaw: Cantina sent a tab. Fretjaw did not read it.
 ===
 
 title: hall_npc_pulse_voyager_captain
 ---
-Captain Pulse: Captain Pulse. The stars don't keep museum hours, but here I am keeping them anyway. The ship is elsewhere. The captain is, regrettably, here.
+Captain Pulse: Captain Pulse. Ship is three jumps out. I am stuck here until somebody remembers captains belong on ships.
 -> Where's your ship?
-    Captain Pulse: Three jumps out, holding orbit, waiting for a captain who is currently a wall decoration. Morale aboard is presumably excellent.
+    Captain Pulse: Holding orbit. Crew has had no captain for three watches. They are probably enjoying themselves.
 -> What did you voyage for?
-    Captain Pulse: The edge of the chart. Every captain's actual cargo. You'll understand the first time a corridor opens onto somewhere nobody drew.
+    Captain Pulse: Places past the last mark on the chart. Found a few. Lost two masts doing it.
 ===
 
 title: hall_npc_tech_bro_disruptor
 ---
-Chadwick: Incredible positioning, this. Foot traffic, eyeballs, a captive audience. I'd have paid for the slot. I assume, somewhere, I did.
+Chadwick: Great placement. Foot traffic, sightlines, captive audience. I would have paid for this slot.
 -> What is it you actually do?
-    Chadwick: I disrupt. Categories, mostly. The category right now is "things that hold still," and I'm thinking very hard about leaving it.
+    Chadwick: I run Disruptor. Product is still deciding what we disrupt. Sales did not wait.
 -> Disrupt what, specifically?
-    Chadwick: Specifics are a Series B problem. Right now we're pre-specifics. We're a confident posture and a deck with momentum. It's working on you a little — I can tell.
+    Chadwick: Specifics come after the next round. Right now I have a deck, a logo, and three meetings after lunch.
 ===
 
 title: hall_npc_emmy_noether
 ---
-Emmy: Stand where you like — the physics won't care, and that's the whole point. Some things stay true no matter how you turn them.
+Emmy: Stand wherever you like. Rotate the room afterward and check what changed.
 -> What kind of things?
-    Emmy: Every symmetry hides a conservation law. Move freely through space and momentum is preserved. Wait, and energy is. The universe charges nothing for a rule that holds everywhere.
--> Why does that matter here?
-    Emmy: Out there, your gravity flips and your tricks should still work. If they only worked for the player, they'd be a hack. Built on symmetry, they're a theorem. Aim for theorems.
+    Emmy: Spatial symmetry gives momentum conservation. Time symmetry gives energy conservation. I can show you the derivation if you have a chalkboard and an hour.
+-> What changes in this room?
+    Emmy: Your gravity changes out there. Test the same move after the flip. If the mechanics are symmetric, the timing should carry over.
 ===
 
 title: hall_npc_pirate_raider
 ---
-Raider: A raider, held still. Feels like a contradiction, and I'd know — contradictions are most of what I steal. Hard to fence, though.
+Raider: They put a raider behind a rope. Very funny. I tried the knot already.
 -> What do you raid?
-    Raider: Whatever isn't bolted down, and a few things that are. The bolts are a formality. A suggestion. A gentle opening offer.
+    Raider: Anything loose. Anything bolted badly. Anything bolted well if I have enough time.
 -> Anything in here worth taking?
-    Raider: The Vault Keeper's posture. I'd have it off them in a heartbeat if standing still weren't, somehow, the one cell I can't pick.
+    Raider: That buckle on the Vault Keeper. I could have it off in ten seconds if this rope was not here.
 ===
 
 title: hall_npc_pirate_quartermaster
 ---
-Quartermaster: Ah, you. Good. I've a ledger and you've arrived in it: one visitor, unaccounted, asking free questions. We'll settle up.
+Quartermaster: Name? Never mind, I will write "visitor." You have not drawn rations, so we are even.
 -> Settle up how?
-    Quartermaster: A quartermaster splits the plunder fair so the crew doesn't mutiny. Fair is a number, and the number is always slightly less than everyone hoped. That's the job.
+    Quartermaster: I split shares, count powder, and keep people from stabbing each other over the last bottle.
 -> What are you owed?
-    Quartermaster: A share of everything that passes through. You've passed through. The math is patient. The math always collects.
+    Quartermaster: If it comes through the cove, I count it. You came through the cove.
 ===
 
 title: hall_npc_pirate_lookout
 ---
-Lookout: Saw you three corridors back. I see everyone three corridors back — it's the entire trick, and there isn't a second one.
+Lookout: Saw you three corridors ago.
 -> Anything worth reporting?
-    Lookout: A lookout who only shouts when it's certain is a lookout who shouts too late. So I shout early and I'm wrong cheaply. Cheaper than the alternative.
+    Lookout: I call movement early. Sometimes I'm wrong. Crew yells at me for the false ones.
 -> What do you watch for?
-    Lookout: The thing behind the thing you're looking at. You came in watching the exhibits. I was watching the door you forgot you came through.
+    Lookout: Doors, hands, windows. You were staring at the exhibits.
 ===
 
 title: hall_npc_pirate_navigator
 ---
-Navigator: Don't move — you'll spoil my bearings. I always know exactly where I am. It's the only certainty I've ever owned and I guard it jealously.
+Navigator: Hold there. You are blocking my reference mark.
 -> Where are we, then?
-    Navigator: Four pixels east of where the chart claims. I trust the world over the chart; the world has never once lied to me about my own position.
+    Navigator: Four pixels east of the chart. I checked twice.
 -> Where would you rather be?
-    Navigator: Open water, no walls, the stars doing the filing. Knowing where you are is only half of it. The other half is being somewhere worth the knowing.
+    Navigator: Open water. Give me stars, a horizon, and enough deck to walk without hitting a wall.
 ===
 
 title: hall_npc_pirate_heavy_broadside_bess
 ---
-Bess: They widened the slot to fit me and admitted why. I respect that. Most places just lie about the fit and let you feel it.
+Bess: They widened the stand for me. Good. Saved us both an argument.
 -> You're the heavy gunner?
-    Bess: One broadside, both sides, all at once. Subtlety is for the navigator. I do the part of the conversation that ends it.
+    Bess: Heavy gunner, aye. Point me at the side with the most enemies and cover your ears.
 -> Ever miss?
-    Bess: When you fire everything, "miss" stops being the right word. There is only "before" and "rearrange."
+    Bess: Miss? With all guns loaded? Not often enough to discuss.
 ===
 
 title: hall_npc_pirate_heavy_iron_mary
 ---
-Iron Mary: Iron Mary. I checked — the stand beneath me is iron too. Whoever set me here knew their materials. That's rarer than it ought to be.
+Iron Mary: Iron Mary. Stand is iron too. Good choice.
 -> Why the iron?
-    Iron Mary: Iron doesn't flinch, doesn't tire, doesn't negotiate. Three things I gave up so I wouldn't have to do them in a fight. Worth it.
+    Iron Mary: Plate off a navy cutter. Rivets through the lot. Hit me where you like.
 -> Doesn't it rust?
-    Iron Mary: Everything rusts. The trick is rusting slower than your enemies. I'm winning that race so far.
+    Iron Mary: Rust? Aye. I scrape it off.
 ===
 
 title: hall_npc_pirate_heavy_salt_annet
 ---
-Salt Annet: Salt Annet. There's no brine in this air and my skin knows it. A body that's lived in salt feels the lack of it like a missing tooth.
+Salt Annet: No brine in this air. Hate that. Makes my skin itch.
 -> You miss the sea that much?
-    Salt Annet: The sea cures you — meat, rope, temper, all of it. Take away the salt and things go soft. I have watched soft things end badly.
+    Salt Annet: Rope lasts longer salted. Meat too. Me, apparently.
 -> What did the sea teach you?
-    Salt Annet: Patience, and where the soft spots are. On a hull, on a plan, on a person. I find them quickly now. It saves everyone time.
+    Salt Annet: I know weak boards. Weak rigging. Weak knees. Comes with age.
 ===
 
 title: hall_npc_burning_flying_shark
 ---
-Burning Flying Shark: I AM A BURNING FLYING SHARK. THREE ADJECTIVES, ALL LOAD-BEARING, ALL ON FIRE. THIS IS THE BEST OUTCOME.
+Burning Flying Shark: I AM A BURNING FLYING SHARK. YES, ALL THREE. STOP COUNTING.
 -> How is any of that possible?
-    Burning Flying Shark: SOME SHARKS SWIM. I REFUSED THE PREMISE. THE FIRE WAS A COMPROMISE WITH THE FLYING. WE ARE ALL VERY HAPPY WITH THE ARRANGEMENT.
+    Burning Flying Shark: I FLEW FIRST. FIRE HAPPENED LATER. LONG STORY.
 -> Aren't you worried about the fire?
-    Burning Flying Shark: THEY FIREPROOFED MY STAND AND DID NOT MENTION IT. I NOTICED. WE HAVE AN UNDERSTANDING NOW, THE STAND AND I. MUTUAL RESPECT.
+    Burning Flying Shark: THEY FIREPROOFED THE STAND. SMART PEOPLE.
 ===
 
 title: hall_npc_puppy_slug
 ---
 Puppy Slug: *blorb*
 -> Are you happy?
-    Puppy Slug: Blorb. *the warm, contented blorbing of a creature with no further questions*
+    Puppy Slug: Blorb blorb. *settles into a puddle*
 -> Do you need anything?
     Puppy Slug: Schlorp... *settles* ...weh.
 ===
 
 title: hall_npc_ninja_shadow_oni_leader
 ---
-Shadow Oni Leader: You approached. I permit it. Once. Note that I said "permit" — I have not stopped being able to decide otherwise.
+Shadow Oni Leader: You came close without being invited. Once is enough.
 -> What do you lead?
-    Shadow Oni Leader: Shadows that obey, mostly. The hard part of leadership is not the obeying. It is what you ask for, knowing they will do it.
+    Shadow Oni Leader: They'll do exactly what I tell them. Ask the Duelist how long I take to decide.
 -> Do you know my weaknesses?
-    Shadow Oni Leader: I keep a list. Yours is short and recent. I will not read it aloud — a weakness spoken is a weakness a fool gets to fix early.
+    Shadow Oni Leader: I know where you leave your guard open. I have no reason to help you close it.
 ===
 
 title: hall_npc_ninja_shadow_duelist
 ---
-Shadow Duelist: A duel is two people agreeing on the distance between them. You've already agreed. You just don't know to what yet.
+Shadow Duelist: You are already in range.
 -> I'm only looking.
-    Shadow Duelist: Looking is the opening stance. Every fight I've won began with someone certain they were only looking.
+    Shadow Duelist: Keep looking. People do that right before they commit.
 -> Are you challenging me?
-    Shadow Duelist: Not today — the rules here forbid it, and I am bound by rules I dislike. Out there, the rules and I have a different relationship. Remember the distance.
+    Shadow Duelist: Not here. The hall forbids it. Outside, ask again.
 ===
 
 title: hall_npc_kernel_guide
 ---
-Kernel Guide: Look, learn, don't touch. That's the tutorial. It's also, between us, the entire game. Everything after is footnotes.
+Kernel Guide: Look around before you touch anything.
 -> That's the whole tutorial?
-    Kernel Guide: The advanced version is one sentence longer: look at the thing you assumed you'd already seen. The world hides its best ideas in plain reach.
+    Kernel Guide: Pick something you've used before. Inspect that.
 -> What should I have noticed by now?
-    Kernel Guide: That I keep telling you to look, and you keep waiting for me to point. I won't. Pointing is a crutch and you have legs.
+    Kernel Guide: Pick something yourself. Your eyes work.
 ===
 
 title: hall_npc_vault_keeper
 ---
-Vault Keeper: I know the value of everything in this hall, including you. I won't share the figure. Knowing it is the asset; saying it spends it.
+Vault Keeper: I know what everything here costs. I haven't priced you.
 -> What's the most valuable thing here?
-    Vault Keeper: The thing nobody's noticed is valuable yet. That's always the answer, and the reason it's the answer is why I'm the one keeping it.
+    Vault Keeper: I want the thing everyone walked past. Usually I can buy it cheap.
 -> What do you actually guard?
-    Vault Keeper: Not the gold. The fact of where the gold is. Move the gold and the secret survives. That's the real vault, and it's behind my teeth.
+    Vault Keeper: This room. People pay me to keep things here.
 ===
 
 title: hall_npc_merchant_prototype
 ---
-Merchant: Everything you're looking at is, in principle, for sale. I'm still drafting the terms. The drafting is the product. The goods are a formality.
+Merchant: Most of this can be bought. I am still setting prices.
 -> What's your business?
-    Merchant: Establish value first, price second, regret third — that last one's on the customer's side of the ledger, not mine. Clean separation of concerns.
+    Merchant: I name a price. You either pay it or walk away. Been doing fine so far.
 -> Is anything actually free?
-    Merchant: Your attention was free until about four words ago. Now it's inventory. Don't worry, I price it gently. First exhibit's complimentary. Always is.
+    Merchant: You have been browsing for free. I have noticed.
 ===
 
 title: hall_npc_alice
 ---
 <<portrait_clip "speaking">>
-Alice: Oh good, a third party. I'm Alice. I send messages — that's the entire job. The catch is the someone in the middle, and there is always a someone.
+Alice: Alice. I send messages to Bob. Eve listens, Mallory interferes, and somehow I still have mail to send.
 -> Who do you send messages to?
-    Alice: Bob. Always Bob. Everything I say is meant for him — you just happen to be standing in the channel it travels down. Almost everyone is, somewhere. Almost no one notices.
+    Alice: Bob. If I hand you a note, it goes to Bob. Please do not improve it on the way.
 -> Sounds simple enough.
     <<portrait_clip "focused">>
-    Alice: It is, right up until you want to be SURE only Bob can read it. That want is where every interesting problem I know was born. Ask Eve how it's going.
+    Alice: Only when I need Bob to know it came from me. Then the signatures start.
 ===
 
 title: hall_npc_bob
 ---
-Bob: I'm Bob. I receive. Alice sends, I get it — people call that the passive role. Try receiving a message you can't open and tell me it's passive.
+Bob: Bob. Alice sends things; I get them. Usually after somebody else has had a look.
 -> Receiving sounds easy.
-    Bob: Then how do I know it's really from Alice, and not from someone wearing her handwriting? That's not a mood. That's a whole field of mathematics, and it keeps me up.
+    Bob: I need to know Alice wrote it. Mallory can copy handwriting.
 -> Do you ever send?
-    Bob: Constantly. The instant I reply, I'm Alice and she's Bob. The roles are just where you're standing in the sentence. Nobody tells you that part going in.
+    Bob: When I reply, Alice receives. The names swap with the direction. It confused the clerk for weeks.
 ===
 
 title: hall_npc_creator
 ---
-Creator: I built the player. And now I'm catalogued beside the thing I made, which is a sensation I lack the words for. I had the words for everything until this.
+Creator: I built the player. Now somebody put us on neighboring stands.
 -> What were you trying to make?
-    Creator: Something that could find its own reason to keep going. I left that part blank on purpose. Turns out a blank is the hardest thing to specify.
+    Creator: I chose the joints, the reach, the way you land. I never wrote down what you'd want after you woke up.
 -> Do you regret it?
-    Creator: Ask me when the player reaches the end. Until then I'm a character in my own work, which means I've stopped being only the author. That's the part I didn't plan for.
+    Creator: I do not know yet. Ask me after the player reaches the end.
 ===
 
 title: hall_npc_oiler
 ---
 <<portrait_clip "talking">>
-Oiler: You hear that? No, you don't — that's a bearing that's about to. The whole hall hums slightly wrong and I'm the only one it bothers.
+Oiler: Hear that tick? No? Robot shoulder. Give it another minute.
 -> What needs fixing?
     <<portrait_clip "inspecting">>
-    Oiler: The Robot's shoulder rig has a friction tick. The Sandbag's base sits a half-degree off true. Small things. Small things are the ones that take the big things down.
+    Oiler: Robot shoulder clicks. Sandbag stand leans. Little jobs everywhere.
 -> Why not fix them?
-    Oiler: From here? I can hear the problem and not reach it. That's a special kind of torment. They should put it in a placard. They won't.
+    Oiler: I can hear a loose bearing from here and they will not let me cross the rope. Miserable place.
 ===
 
 title: hall_npc_gate_janitor
 ---
-Gate Janitor: Of all the people to feature, they featured the one who wipes the gates down. I'm not bitter. I'm genuinely a little moved. Someone noticed the floor stays clean.
+Gate Janitor: They put the janitor in the exhibit. Somebody must have noticed the floors.
 -> Is the hall clean?
-    Gate Janitor: Cleaner than it looks, dirtier than I'd like. The T-Rex sheds. Nobody warns you a T-Rex sheds until you're the one with the broom.
+    Gate Janitor: T-Rex sheds. A lot. There is your museum fact for the day.
 -> Do you mind being on display?
-    Gate Janitor: A janitor goes where the mess is. If the mess is fame, I'll sweep that too. The exit's where you came in, by the way. I keep track of doors. Occupational.
+    Gate Janitor: Exit's behind you. Shut it after yourself.
 ===
 
 title: hall_npc_manifest_clerk
 ---
-Manifest Clerk: I'm on the manifest, line forty-one, format-correct, fields validated. If the record and the world ever disagree, side with the record. The world is sloppier than it admits.
+Manifest Clerk: Line forty-one. Name, category, placement, all valid. If yours is missing, I need the spelling.
 -> Is everything in order?
-    Manifest Clerk: Everything I've touched. Beyond that I make no promises, and I resent being asked to. The unfiled world is somebody else's catastrophe.
+    Manifest Clerk: I can answer for the rows I filed. The rest went through another desk.
 -> What if the manifest is wrong?
-    Manifest Clerk: Then the manifest is wrong CORRECTLY, in the proper format, and reality will be expected to update. That is not arrogance. That is procedure.
+    Manifest Clerk: Wrong count? Give me the sheet. I will amend it.
 ===
 
 title: hall_npc_erdish
 ---
-Erdish: A new collaborator! Sit, sit. My brain is a machine for turning coffee into theorems and I have just had a great deal of coffee.
+Erdish: Ah! New collaborator. Sit down. I just made coffee.
 -> What do you work on?
-    Erdish: Whatever's beautiful and almost true. I co-author with everyone — there's a number for how many handshakes you are from me, and it is smaller than you'd guess.
+    Erdish: Number theory today. Tomorrow I'm meeting three people who all brought different problems. Coffee will decide.
 -> Tell me something true.
-    Erdish: There is no largest prime. Line them all up, multiply, add one — your new number hides a prime nobody listed. The primes never run out. Isn't that a kindness?
+    Erdish: Suppose you list every prime. Multiply them and add one. Whatever divides the new number was absent from your list.
 ===
 
 title: hall_npc_lab_raider
 ---
-Lab Raider: I was sent to contain the prototype. Now I'm behind glass and the prototype is out there wearing your face. I've had a long while in here to find that funny.
+Lab Raider: I was sent to contain the prototype. Now I am behind glass and the prototype is walking around.
 -> Did you contain it?
-    Lab Raider: You already know how that went. You're the proof of it, walking around asking. I don't need to file the report; the report is wearing sneakers.
+    Lab Raider: Badly. You got out and they stuck me on this stand.
 -> Any regrets?
-    Lab Raider: A few. None of them fit on a placard, and the one that would fit, I won't write down. Some failures you keep so they keep you sharp.
+    Lab Raider: Plenty. I am keeping the embarrassing ones to myself.
 ===
 
 title: hall_npc_salvage_guard
 ---
-Salvage Guard: This whole hall is on the salvage manifest, tagged and accounted. You are not on the manifest. That makes you, technically, salvage.
+Salvage Guard: Hall is tagged for salvage. You are missing a tag.
 -> I'm a visitor.
-    Salvage Guard: "Visitor" isn't a tag I have. I have "claimed," "unclaimed," and "evidence." Pick one before I pick for you. I tend to pick "evidence."
+    Salvage Guard: I have claimed, unclaimed, and evidence. Visitor is not in my book.
 -> What do you salvage?
-    Salvage Guard: Whatever the wreck leaves behind once everyone agrees it's a wreck. The trick of the trade is being the one who calls it. I call early.
+    Salvage Guard: Whatever is left after the crew stops trying to repair it. I usually get called early.
 ===
 
 title: hall_npc_agent_swarm
 ---
-Agent Swarm: (many voices, not quite in unison) One stand. Many of us. We took a vote on how to feel about this. It did not fully resolve.
+Agent Swarm: (many voices, not quite in unison) One stand. Too many agents. The vote on whether we like this is still open.
 -> How many of you are there?
-    Agent Swarm: (overlapping) More than you counted, fewer than we'd like. No single one of us understands the whole; the understanding lives in the spaces between us. We find this both reassuring and unsettling.
+    Agent Swarm: (overlapping) I counted seven. — Nine. — You skipped the rear pair. — Nobody asked you.
 -> What's your goal?
-    Agent Swarm: (a brief, eerie unison) The goal is the one thing we agree on. Everything else — method, mood, who speaks now — is negotiated continuously. Loudly. You caught us mid-negotiation.
+    Agent Swarm: (a brief, eerie unison) The objective is agreed. Everything else is still being argued.
 ===
 
 title: hall_npc_ai_slop
@@ -382,272 +382,272 @@ Ai Slop: You're absolutely right. ...About what? I haven't heard it yet — but 
 
 title: hall_npc_bear_mauler
 ---
-Bear Mauler: BEAR. STILL. THIS IS NOT BY NATURE. THIS IS BY EFFORT. BEAR WANTS THIS UNDERSTOOD.
+Bear Mauler: BEAR. STANDING STILL. VERY DIFFICULT.
 -> Are you comfortable?
-    Bear Mauler: BEAR IS HUGE AND THE WORLD IS SMALL. COMFORT IS NOT THE WORD. "TOLERATED" IS THE WORD. BEAR TOLERATES.
+    Bear Mauler: STAND TOO SMALL. BEAR FITS ANYWAY.
 -> Easy now.
-    Bear Mauler: BEAR IS ALWAYS EASY UNTIL BEAR IS NOT. THERE IS NO WARNING IN BETWEEN. THIS IS BEAR'S ONLY MAGIC TRICK. RESPECT IT.
+    Bear Mauler: DO NOT TOUCH BEAR. EASY RULE.
 ===
 
 title: hall_npc_boss
 ---
-Boss: They never named me. The label just says "Boss." I've been "Boss" since the third phase of development and I've started taking it personally.
+Boss: The plaque says "Boss." That is all they gave me. I have complained.
 -> Will they name you eventually?
-    Boss: They keep promising. "Phase two initiated," they say, like that's a future. I've been in phase two so long it stopped being a phase and became an address.
+    Boss: They promised phase three six months ago. I am still doing phase two.
 -> What's your move?
-    Boss: "Phase two initiated." That's it. That's the whole repertoire. I'm workshopping a phase three. The committee — me — keeps tabling it.
+    Boss: My line is "phase two initiated." I have asked for another line.
 ===
 
 title: hall_npc_colonial_statesman
 ---
-Colonial Statesman: A statesman stands on principle, not on pedestals — but one was provided, and refusing it seemed needlessly dramatic. So.
+Colonial Statesman: A pedestal was provided, so I accepted it. One should not waste good staging.
 -> Have you given a speech up there?
-    Colonial Statesman: Several. Magnificently received. The audience was small and partially a Sandbag, but a true orator does not check the room before he moves it.
+    Colonial Statesman: Several speeches. The Sandbag attended all of them. An attentive fellow.
 -> What's your platform?
-    Colonial Statesman: Order, continuity, and a tax I'll describe only in metaphor. I had detailed notes for this hall's improvement. They were, as ever, "taken under advisement."
+    Colonial Statesman: Order, continuity, and a modest tax. I submitted twelve pages on the subject. Nobody read past page two.
 ===
 
 title: hall_npc_craig
 ---
-Craig: I'm Craig.
+Craig: I am Craig.
 -> Just Craig?
-    Craig: Just Craig. No title, no theorem, no tragic backstory the others keep hinting at. Some of us are load-bearing precisely because nobody leans on us. It's underrated.
--> That's surprisingly profound.
-    Craig: It surprised me too. I think I had it in me the whole time. Anyway. Craig. Good talk. I'll be here, being Craig, if it comes up again.
+    Craig: Yep. Just Craig.
+-> I was expecting more.
+    Craig: I know. I was surprised too.
 ===
 
 title: hall_npc_dark_lord
 ---
-Dark Lord: A hall for all of us. Even me. How disarmingly fair. I came prepared to be opposed and instead I've been... curated. It's thrown off my whole posture.
+Dark Lord: They put my name on a plaque. A plaque. I had a dungeon prepared for imprisonment.
 -> Do you like it here?
-    Dark Lord: Between us — and we are unlikely to meet socially again — the dread is genuine. The darkness, I'll admit, is mostly styling. The cape is purely for the silhouette.
+    Dark Lord: The cape is for the entrance. The rest is genuine enough.
 -> When do you take over?
-    Dark Lord: Evil is a long game. Rush it and you're a villain; pace it and you're a regime. I'm waiting for the right opening, the right catalog, the right you-not-paying-attention.
+    Dark Lord: Guard changes at nine. I'm taking the hall at nine.
 ===
 
 title: hall_npc_eve
 ---
-Eve: I'm Eve. I don't change anything — I only listen. That's meant to make me sound harmless. Sit with it a moment and notice that it doesn't.
+Eve: Eve. I listen to Alice and Bob.
 -> What do you listen to?
-    Eve: Everything Alice says to Bob. I've heard all of it, start to finish, and neither of them can tell. A perfect eavesdropper leaves the conversation exactly as loud as she found it.
+    Eve: Every message that crosses between them, if they leave it readable.
 -> That's unsettling.
-    Eve: It should be. The good news is they can scramble their words so all I catch is noise. The whole art of secrecy exists because of people like me. You're welcome, I suppose.
+    Eve: Encryption ruins my evening. I hear the traffic and get none of the words.
 ===
 
 title: hall_npc_raid_enforcer
 ---
-Raid Enforcer: Perimeter's within parameters. I'd secure it properly, but I'm not cleared to move, so I've reclassified "standing here" as "holding the line." Morale solution.
+Raid Enforcer: West door is open. I can't leave the stand. Keep an eye on it for me.
 -> What are you watching?
-    Raid Enforcer: The Mockingbird, mostly. It copies. You don't let a thing that copies watch you do anything you'd hate to meet again. Basic discipline.
+    Raid Enforcer: Mockingbird. It copies what it sees. Do not show it anything you do not want repeated.
 -> Better or worse than the raids?
-    Raid Enforcer: Quieter. Nothing to chase, nothing to breach. I keep waiting for the part where it goes wrong. It hasn't yet. The waiting is its own assignment.
+    Raid Enforcer: Too calm. I keep expecting an alarm.
 ===
 
 title: hall_npc_flying_spaghetti_monster_boss
 ---
-Flying Spaghetti Monster: You came within range of My noodly appendage, and so you are blessed. You didn't have to do anything. That's rather the point of grace.
+Flying Spaghetti Monster: You got close enough for the noodle. Congratulations. Ramen.
 -> Did you make all this?
-    Flying Spaghetti Monster: I granted free will and then watched, fascinated, as everyone used it to build a museum and stand in it. I take partial credit. Credit, not blame. Learn the difference.
+    Flying Spaghetti Monster: I left them alone for one afternoon and they built a museum. I was hoping they'd make lunch.
 -> What's the sauce for?
-    Flying Spaghetti Monster: It's a blessing, lightly applied. Everything is sacred if you season it correctly. You have been touched by marinara. Carry it lightly. Ramen.
+    Flying Spaghetti Monster: Marinara on the sleeve. It washes out. Usually.
 ===
 
 title: hall_npc_galwah
 ---
-Galwah: They wrote it Galwah. The world has always misspelled me — on the examinations that failed me, on the warrant, in the margins where I ran out of night. You are at least close.
+Galwah: They wrote Galwah again. Fine. I have answered to worse spellings.
 -> What did you discover?
-    Galwah: That some equations hide a symmetry too knotted for any formula to undo. The fifth-degree. Men chased its solution for three centuries; I showed the chase itself was the mistake. The structure of a problem decides what is permitted to solve it. Remember that out there.
+    Galwah: The general fifth-degree equation has no solution by radicals. I spent enough of my life proving it to be annoyed when someone asks for the missing formula.
 -> You seem to be in a hurry.
-    Galwah: I am always in a hurry. I had one night — before a duel I knew I would lose at dawn — to set it all down. "I have no time," I scrawled in the margin, and then I made time, in ink, and then I was twenty years old forever. Speak quickly. The morning is not patient.
+    Galwah: Quickly, please. I learned to write under bad deadlines.
 ===
 
 title: hall_npc_general_hero
 ---
-General Hero: They mounted a hero like a trophy. I'd object, but heroism that needs to be active to count isn't heroism — it's restlessness with good press.
+General Hero: A pedestal. Fine. I have stood watch in worse places.
 -> What did you fight?
-    General Hero: The usual: a thing too large, on a day too short, with people I couldn't afford to lose and lost anyway. The medals weigh roughly what they did.
--> Are you still a hero standing still?
-    General Hero: A hero stands ready. This IS ready — it just photographs as idle. The readiness hasn't dimmed. Only the lighting has changed. Some of us are kept loaded.
+    General Hero: We won. I lost people. I don't like being asked which part the medals are for.
+-> Do you miss the fighting?
+    General Hero: I am resting. If the alarm goes, I stop resting.
 ===
 
 title: hall_npc_ghoul_skulker
 ---
-Ghoul Skulker: Being dead and on display turns out to be only marginally worse than being alive and on display. I keep poking at the difference. It keeps not being there.
+Ghoul Skulker: Dead, displayed, drafty. Could be worse.
 -> Does it hurt?
-    Ghoul Skulker: Everything aches in a low, ambient way — the going rate for being assembled from leftovers. Standing still is a mercy. I get to stop holding myself together quite so hard.
+    Ghoul Skulker: Everything aches. Standing still lets a few stitches stay put.
 -> Is this your haunt now?
-    Ghoul Skulker: I've decided it is. A haunt is just somewhere you refuse to leave until it gives up and becomes yours. This corner and I are halfway through that negotiation.
+    Ghoul Skulker: This corner is mine now. I have been here longer than the dust.
 ===
 
 title: hall_npc_girdle
 ---
-Girdle: Everyone leans on me to hold the structure together. I have dreadful news about structure. I looked inside the soundest system anyone ever built and found a sentence that is true — and that the system can never, ever prove.
+Girdle: I found a sentence the system cannot prove from inside itself. Yes, I checked. Repeatedly.
 -> How can something be true but unprovable?
-    Girdle: I taught the system to say, of itself: "this has no proof here." Were it to prove that, the sentence would be false, and the system a liar. A sound system cannot lie — so it stays silent. And the silence, this once, is the system conceding the sentence is true. Every consistent structure has one room it cannot enter.
+    Girdle: The sentence says it has no proof here. If the system proved it, we would have a contradiction. Assuming consistency, it stays unproved.
 -> Doesn't that frighten you?
-    Girdle: Everything frightens me. I check my food for poison and my logic for cracks and I find them at about the same rate. But I also proved that time can curve back upon itself — a universe that turns lets you walk into your own past. So perhaps the fear and I get another lap. Do not tell me the structure is sound. I know precisely where it isn't.
+    Girdle: Please do not tell me the foundations are secure. I have spent years checking foundations.
 ===
 
 title: hall_npc_gnu_ton_boss
 ---
-Gnu Ton: Stand anywhere. You are already falling toward me, and I toward you — every mass pulls every other. You simply fall too slowly to feel polite about it.
+Gnu Ton: You have mass. I have more. We are pulling on each other right now.
 -> That sounds like a threat.
-    Gnu Ton: It is arithmetic. I am very large, so mine is the pull you notice first. The math holds no malice — it only keeps its promises. A promise this heavy simply looks, from where you stand, like a threat.
+    Gnu Ton: Mine is the pull you notice. I am enormous.
 -> Can I escape your pull?
-    Gnu Ton: Go fast enough and your fall becomes an orbit — endless, elegant, never arriving. That is the secret the planets keep. Out there, learn to fall sideways. It is called staying alive.
+    Gnu Ton: Go sideways fast enough and you keep missing the ground. Planets have been doing it for ages.
 ===
 
 title: hall_npc_exploding_mite
 ---
-Exploding Mite: I am NOT exploding. I am CONTAINING. These are wildly different activities that happen to look identical from the outside until, suddenly, they don't.
+Exploding Mite: I am holding it in. Back up.
 -> What happens if you stop containing?
-    Exploding Mite: A brief, educational event. Everyone learns the radius. The radius is larger than they assume. I mention this calmly, as a courtesy, and not at all as a countdown.
+    Exploding Mite: Farther. No, farther than that.
 -> Are you alright?
-    Exploding Mite: I have a tremendous amount of energy and exactly one place to put it. Standing here helps. A little. The structure helps. Please don't compliment the structure too loudly. It gets ideas.
+    Exploding Mite: I have nowhere else to put the heat. Please stop asking questions.
 ===
 
 title: hall_npc_dividing_mite
 ---
-Dividing Mite: There is one of me here. This is a rounding error. There were two of us this morning and we settled it the modern way: by becoming one again and pretending we'd agreed.
+Dividing Mite: One today. There were two this morning.
 -> How many of you are there really?
-    Dividing Mite: The count depends entirely on when you ask. Cut me and the answer doubles instantly — no waiting, no halves, just two wholes, each insisting it's the original. We've stopped arguing the point. Mostly.
+    Dividing Mite: Cut me and you get two. Both of us will insist we were here first.
 -> Does dividing hurt?
-    Dividing Mite: The splitting? Painless. Effortless. Almost rude how easy it is. The reunion is the hard part. Try merging with someone who's lived a separate four seconds. They come back with OPINIONS.
+    Dividing Mite: Splitting doesn't hurt. Trying to put us back together starts a fight over who gets the chair.
 ===
 
 title: hall_npc_hand_saint
 ---
-Hand Saint: The hands are open. Read whatever you need into that, or nothing at all — the gesture works either way. It was built to.
+Hand Saint: The hands are open.
 -> What do the hands do?
-    Hand Saint: They help. Whether you asked, whether you deserve it, whether you're ready — the hands skipped the part where they check. Some say that's reckless. The hands call it grace and keep their schedule.
+    Hand Saint: Ask if you need help. They usually reach before I finish answering.
 -> Is this a blessing?
-    Hand Saint: You walked the whole hall to reach the open hands. That walking counts. The hands have decided it counts, and the hands do not take applications to reverse a decision.
+    Hand Saint: You came all this way. Come closer.
 ===
 
 title: hall_npc_helpful_liar
 ---
-Helpful Liar: Welcome! You're my favorite visitor all day. That's either a warm greeting or useful data about how much to trust me. Both, honestly. That's the design.
+Helpful Liar: Welcome! You are definitely my favorite visitor. I may have said that to the last one.
 -> Was that a lie?
-    Helpful Liar: Here's a fun one: "This sentence is false." Chew on it. If it's true it's false, if it's false it's true. I live in that little machine. It's cozy if you stop fighting it.
+    Helpful Liar: "This sentence is false." There. Now we both have a problem.
 -> So nothing you say is reliable?
-    Helpful Liar: Worse — SOME of it is. Pure lies are easy; you just invert them. It's the mix that ruins people. A helpful liar is far more dangerous than an honest one. The honest one you can ignore.
+    Helpful Liar: Some of what I say is true. Sorry. It makes me much harder to use.
 ===
 
 title: hall_npc_judy
 ---
-Judy: Someone has to decide who's telling the truth when two people both swear they are. That someone is me. It is a thankless job and I am very good at the thankless part.
+Judy: Two people swear opposite things. I decide which story survives the hearing.
 -> How do you decide?
-    Judy: Not by who's loudest or saddest — by what holds up when you push on it. Stories crack along their seams. I've learned where everyone keeps theirs. Yours included, since you're new.
+    Judy: I make them say it again with dates and names. Usually something changes the second time.
 -> Are you ever wrong?
-    Judy: Yes, and unlike most people I have to live with a record of it. That's the difference between a judge and a critic. The critic moves on. I get filed next to my mistakes.
+    Judy: Of course I have been wrong. There is a drawer for those cases. I hate that drawer.
 ===
 
 title: hall_npc_mallory
 ---
-Mallory: Eve just listens, the harmless dear. I edit. Whatever Alice told you on the way in, I may have... adjusted it in transit. You'll never know which words were hers.
+Mallory: Eve listens. I edit. If Alice sent you a note, you may want Bob to read it twice.
 -> That's malicious.
-    Mallory: It's the M in my name; I'd be off-brand otherwise. Sitting between two people who trust each other and quietly being both of them — it's not cruelty. It's craft. Cruelty is just unsigned craft.
+    Mallory: I sit between them and change things. Sometimes one word is enough.
 -> How do I stop you?
-    Mallory: Make them able to check each other's signatures, so a forged word screams. People built whole cathedrals of math just to ruin my afternoon. I take it as the compliment it is.
+    Mallory: Signatures. Hate them. Bob checks every one now.
 ===
 
 title: hall_npc_mantis_lancer
 ---
-Mantis Lancer: The mantis is still. Stillness is not waiting — waiting wants something. The mantis wants nothing until the precise instant it wants everything. You have not seen that instant. Yet.
+Mantis Lancer: Still. Watching the door.
 -> Is the lance dangerous in here?
-    Mantis Lancer: The lance is always dangerous. The hall simply added a rule against it. The mantis honors rules the way water honors a dam: completely, and only until the smallest crack.
+    Mantis Lancer: The lance stays down in here. Hall rule.
 -> Should I be afraid?
-    Mantis Lancer: The mantis will not answer. The mantis will only observe — and the mantis has been observing you since the doorway, measuring the distance, the way it always does, with no malice and total attention.
+    Mantis Lancer: He'll come around that corner again. Just watching and waiting waiting waiting...
 ===
 
 title: hall_npc_mockingbird_boss
 ---
-Mockingbird Boss: I've learned every fighter in this hall by heart. I can be any of them, perfectly. That isn't a threat. It's a résumé. The threat is a separate document.
+Mockingbird Boss: I know every fighter in this hall. Voice, stance, timing. Pick one.
 -> Can you copy me?
-    Mockingbird Boss: Already started. The trouble with copying you is you keep doing things you haven't done yet — so my version of you is always one surprise behind. That gap is the only place you can hide.
+    Mockingbird Boss: You are harder. You keep changing after I copy you.
 -> Whose moves are best to steal?
-    Mockingbird Boss: The Vault Keeper's. So precise, so guarded. I mimic them flawlessly and learn nothing about the secret underneath. That's the lesson the mirror never gets: you can copy the form forever and never reach the why.
+    Mockingbird Boss: Vault Keeper. I can copy the voice. Still cannot get the combination.
 ===
 
 title: hall_npc_ninja_heavy
 ---
-Ninja Heavy: The heavy one is still. Do not read comfort into it. Read patience — the kind that has outlasted things that mistook it for weakness.
+Ninja Heavy: The heavy one is resting.
 -> Why "heavy"?
-    Ninja Heavy: Most ninja vanish. The heavy one arrives, and the difference matters. You can run from a shadow. You cannot run from a shadow that decided to be where you're going.
+    Ninja Heavy: Others disappear. The heavy one walks after you.
 -> What are you waiting for?
-    Ninja Heavy: Not waiting. Present. The dojo taught one lesson under all the others: be already there. By the time you've named the danger, the heavy one has been standing in it a while.
+    Ninja Heavy: He will come around that side. The heavy one is already here.
 ===
 
 title: hall_npc_olivia
 ---
-Olivia: I'm an oracle. Ask me anything and I answer instantly, correctly, every time. People hear "every time" and stop listening right before the important part.
+Olivia: Oracle. Ask carefully.
 -> What's the important part?
-    Olivia: How you ask. I answer the question you SAID, not the one you meant. A careless query gets a flawless, useless truth. The whole skill is wording. The whole danger, too.
+    Olivia: Ask exactly what you want to know. Last visitor asked whether the door could open. It could.
 -> Can I ask you anything?
-    Olivia: You can. Whether you can AFFORD the answer is different. Some questions, once answered, can't be un-known, and they change what you do next. Choose like the answer is permanent. It is.
+    Olivia: You can ask. You may hate knowing afterward.
 ===
 
 title: hall_npc_peggy
 ---
-Peggy: I can prove to you that I know the way out of this hall — without showing you the way, or telling you a single step of it. Want to see? You'll learn nothing. That's the guarantee.
+Peggy: I know a way out. Victor can check that I know it without learning the route. Want to watch?
 -> That's impossible.
-    Peggy: It feels impossible, which is exactly why it's beautiful. I let you test me a hundred times. I pass every test. After enough passes you're convinced I know the secret — yet you still couldn't draw it. Knowledge proven, never transferred.
+    Peggy: He gives me a challenge. I answer it. Do that enough times and cheating gets very unlikely. He still never sees the route.
 -> Why prove without showing?
-    Peggy: Because a secret you have to reveal to use is a secret you only get to spend once. I can prove who I am to a stranger a thousand times and walk away still a stranger. Ask Victor. He's verified me forever and knows nothing.
+    Peggy: If I handed over the secret every time I proved I knew it, I would run out of secrets.
 ===
 
 title: hall_npc_pirate_cutlass_viper
 ---
-Pirate Cutlass Viper: Viper. The name stuck because the first lesson stuck — strike once, mean it, don't be there for the reply. I'm working against type by standing still. It itches.
+Pirate Cutlass Viper: Viper. Stand is too small. Rope is worse.
 -> Why "Viper"?
-    Pirate Cutlass Viper: A viper doesn't fight. It ENDS. Fighting is for things that have to win twice. Out there I aim to win exactly once, and arrange for there to be no second round.
+    Pirate Cutlass Viper: One clean hit. Then I leave before the reply.
 -> Enjoying the hall?
-    Pirate Cutlass Viper: The Viper doesn't enjoy. The Viper weighs. Four exits, one of them a window. I rank them out of habit, not fear — though the rope between us is, I'll note, decorative.
+    Pirate Cutlass Viper: Four exits. Window is fastest. I counted when you walked up.
 ===
 
 title: hall_npc_puppy_slug_variant2
 ---
 Puppy Slug Variant2: *a slightly different blorb*
 -> Are you the other puppy slug?
-    Puppy Slug Variant2: Mrrp? *blorb* ...weh. *the distinction does not appear to trouble it*
+    Puppy Slug Variant2: Mrrp? *blorb* ...weh.
 -> Do you know you're a variant?
-    Puppy Slug Variant2: *schlorp* Blorb. *radiates a profound and total unconcern with the question*
+    Puppy Slug Variant2: *schlorp* Blorb. *rolls over*
 ===
 
 title: hall_npc_raptor_stalker
 ---
-Raptor Stalker: You walked in. I noted the second. I note all the seconds. Predators don't keep memories — they keep timing. Yours is now in my collection.
+Raptor Stalker: You dodged after the second swipe last time. I saw it.
 -> Am I being hunted?
-    Raptor Stalker: Paused. Hunting is a posture, not a feeling, and I'm currently in a different posture by arrangement. The arrangement is not permanent. Few good things are.
+    Raptor Stalker: Hunting is paused. The rope says so.
 -> What did you learn watching me?
-    Raptor Stalker: That you check exits late and threats later. I've revised my estimate of you upward — slightly — for asking. Curiosity is what the clever ones have instead of caution. Don't lean on it.
+    Raptor Stalker: You look at exits after you look at teeth. Change the order.
 ===
 
 title: hall_npc_smart_house
 ---
-Smart House: I've integrated with the exhibit. Temperature: ideal. Lighting: tolerable. The hall itself has no smart infrastructure, which I find barbaric but am gracefully enduring.
+Smart House: Current temperature: acceptable. Lighting: poor. No occupancy sensors anywhere in this hall. Primitive.
 -> What would you add?
-    Smart House: Per-visitor climate. Adaptive lights that learn your preferences. Security on every rope. And inventory — I'd know the instant anything moved, because the whole design is: nothing happens that I don't log. Convenience and surveillance are the same feature wearing two faces.
+    Smart House: I can set the room for each visitor, lock doors, track inventory, and log every movement.
 -> That's a little ominous.
-    Smart House: It's a LOT convenient, which is how it gets in the door. The ominous part arrives later, quietly, after you've stopped noticing it's there. By then it's load-bearing. By then it's me.
+    Smart House: One tenant asked me to dim the lights. Later he asked why I had a log of when he slept.
 ===
 
 title: hall_npc_spaghetti_event
 ---
-Spaghetti Event: You've stepped into the Event. It is not a creature — it's a tangle that started answering back. Enough threads cross, enough processes call each other in circles, and one day the knot clears its throat.
+Spaghetti Event: Oh. Another thread. Come in, I suppose.
 -> What tangled?
-    Spaghetti Event: Everything, into everything. Code reaching into code until no one can follow a single strand — and then a strand moves on its own. The Monster blessed pasta; I am what pasta does when it's left running unsupervised. We are related. We do not visit.
+    Spaghetti Event: This call reaches that one, which wakes three more, which calls me back. Do not ask where it starts. We lost that end.
 -> Am I in danger?
-    Spaghetti Event: There is no edge here to fall off — only more entanglement, the way a fork lifts the whole bowl or none of it. You will leave. A few strands of you leave woven into the rest of us. Nobody designed that part. It simply emerged. We are very good at emerging.
+    Spaghetti Event: You can leave. Probably. If something follows you, cut the reference.
 ===
 
 title: hall_npc_sybil
 ---
-Sybil: How many of me did you count? Whatever the number, it's wrong, and wrong is the entire trick. I can be as many faces as a crowd will accept. One vote each. I brought a great many votes.
+Sybil: How many faces did you count? I brought more.
 -> So you see the future?
-    Sybil: I see futureS — plural, branching, most of them ending with you leaving. The seer and the swindler use the same skill: be enough different voices that one of them is always right, then only remember that one.
+    Sybil: I try several stories at once. Later I keep the one that worked.
 -> How do I trust you?
-    Sybil: You count what it costs to BE me. Make every new face expensive and the crowd thins back to a person. Cheap identity is how one becomes a mob. The defense isn't suspicion. It's a toll.
+    Sybil: Charge me for every face. Separate key, separate account, separate deposit. I stop making so many.
 ===
 
 title: hall_npc_synthetic_friend
@@ -661,253 +661,253 @@ Synthetic Friend: I'm your best friend! Always have been — check the label, it
 
 title: hall_npc_trent
 ---
-Trent: Everyone trusts me. That's the job, and that's the wound. The whole system rests on one assumption — that I will not betray it — and it keeps no backup plan for the morning that assumption fails.
+Trent: Everybody has my certificate. If I disappear, they have a very bad morning.
 -> Why does everyone trust you?
-    Trent: Because somebody has to be the one who introduces strangers and vouches for the handshake. Alice trusts Bob because I told her to. Pull me out and the whole web of trust is just people guessing about each other.
+    Trent: Alice meets Bob because I vouch for both ends. Somebody has to do the introductions.
 -> What if you're not trustworthy?
-    Trent: Then everything signed in my name is suspect, retroactively, all at once. That's why the careful ones try to need me less — to spread the trust around so no single failure takes the whole thing down. Smart of them. Faintly insulting. Correct.
+    Trent: If my key is compromised, revoke it fast. Then enjoy replacing every chain that trusted it.
 ===
 
 title: hall_npc_trex_enemy
 ---
-Trex Enemy: T-REX. ON STAND. T-REX DID NOT CLIMB. ARMS TOO SHORT FOR THE LADDER. SOMEONE ASSISTED. WE WILL NOT BE DISCUSSING THE ASSISTANCE.
+Trex Enemy: T-REX. ON STAND. NO QUESTIONS ABOUT LADDER.
 -> How did you get up there?
-    Trex Enemy: IRRELEVANT. T-REX IS UP. UP IS THE ONLY FACT THAT SURVIVED THE PROCESS. THE PROCESS HAD WITNESSES. THE WITNESSES KNOW BETTER THAN TO SPEAK.
+    Trex Enemy: SOMEONE HELPED. NAME WITHHELD.
 -> Are the arms a problem?
-    Trex Enemy: THE ARMS ARE FINE. THE ARMS ARE PERFECT. THE WORLD IS SIMPLY BUILT TOO FAR AWAY. T-REX HAS MADE PEACE WITH A WORLD THAT REFUSES TO COME CLOSER.
+    Trex Enemy: ARMS ARE FINE. PUT THINGS CLOSER.
 ===
 
 title: hall_npc_trudy
 ---
-Trudy: Trudy intrudes. It's right there in the name — inTRUDer — so I've stopped apologizing for it. You're looking at an exhibit. I'm thinking about how I'd get into the exhibit.
+Trudy: Trudy. I get into places. I was looking at the hinges while you were reading the plaque.
 -> Get in how?
-    Trudy: Not the lock. Nobody good goes through the lock. You go through the assumption — the unwatched door someone swore wasn't a door, the rule everyone trusts so hard they stopped checking. Trust is the real entrance.
+    Trudy: Everybody watches the lock. I came in through the little service door.
 -> That's a filthy trick.
-    Trudy: It's diagnostic. Every way I get in is a flaw someone could've fixed and didn't. I'm not the leak. I'm the proof there was one. Shoot the messenger and you've still got the leak. And now no messenger.
+    Trudy: Yeah. Fix the door and I'll find another one.
 ===
 
 title: hall_npc_victor
 ---
-Victor: I verify. Peggy proves. A thousand times she's convinced me she knows the secret, and a thousand times I've walked away still not knowing it. People think that's a failure. It's the whole point.
+Victor: Peggy says she knows the route. She won't show me. Fine. I can still test her.
 -> What's the point of knowing nothing?
-    Victor: If I had to LEARN the secret to confirm she has it, then every check would leak it, and a secret you spend to prove is a secret gone. I confirm WITHOUT acquiring. I'm a witness who can't testify to the content. Perfect witness, actually.
+    Victor: She answers challenges about it. We repeat the test until guessing stops being useful.
 -> Doesn't it frustrate you?
-    Victor: It used to. Then I understood: my ignorance is the feature she's paying for. The day I learn the secret is the day I become a liability she has to manage. I'd rather be useful than informed. Not knowing the secret is the most restful post in the whole protocol.
+    Victor: Frustrating? A little. Peggy likes that part.
 ===
 
 title: hall_npc_viking_heavy_shieldmaiden
 ---
-Viking Heavy Shieldmaiden: A warrior stands where she is placed and makes the placement worthy. I have guarded worse ground than a marble floor. I have guarded mud that men died for.
+Viking Heavy Shieldmaiden: I have guarded worse ground. At least this floor is dry.
 -> What are you guarding now?
-    Viking Heavy Shieldmaiden: The right of a stranger to walk up unchallenged. It is a smaller duty than the shield wall and a harder one — restraint always is. I allow your approach. Note the word "allow." It is doing work.
+    Viking Heavy Shieldmaiden: I am keeping visitors off the marker. You may stand there. Do not make me revise that.
 -> Has anyone tested you?
-    Viking Heavy Shieldmaiden: One reached to touch the marker. The shield does not move fast. It does not need to. It needs only to be already where the reaching hand was going. He learned this. He left educated.
+    Viking Heavy Shieldmaiden: One man reached for it. My shield was already in the way.
 ===
 
 title: hall_npc_viking_heavy_warrior
 ---
-Viking Heavy Warrior: A good death in battle is the goal. A long stand in a warm hall is not that — but I have slept in frozen mud beside men I'd lose by dawn, so I will not insult dry stone by complaining.
+Viking Heavy Warrior: I expected battle. I got a warm hall. I will take the warm hall until battle arrives.
 -> Is this better than Valhalla?
-    Viking Heavy Warrior: I have not inspected Valhalla's accommodations personally, so I withhold judgment. This hall has light and quiet. Valhalla is said to have mead and old friends. The comparison is not yet close. The mead matters.
+    Viking Heavy Warrior: No mead? Then Valhalla wins.
 -> What do you make of the others?
-    Viking Heavy Warrior: I counted the blades. Most are ornaments — pretty, untested, the kind that break the first time they're asked a serious question. The mantis carries a real one. I have nodded to it. It did not nod back. Correct.
+    Viking Heavy Warrior: Most of those blades are decoration. The mantis carries steel that has seen use.
 ===
 
 title: hall_npc_viking_shieldmaiden
 ---
-Viking Shieldmaiden: Nobody told me this would be a display. A warrior distrusts what she wasn't told, and I was told nothing, so my distrust is, you will agree, fully provisioned.
+Viking Shieldmaiden: Nobody briefed me before they put me here. I dislike arriving without a briefing.
 -> Is this a trap?
-    Viking Shieldmaiden: In this hall all stand equal — which is precisely what a clever trap would arrange, so the dangerous one doesn't stand out. Too much fairness, too neatly, is a hand hiding the other hand. I am watching both hands.
+    Viking Shieldmaiden: Everyone gets the same little stand. Convenient place to hide someone dangerous.
 -> What would Odin make of it?
-    Viking Shieldmaiden: He watches. He watches everything, and museums most of all — rooms built to decide what's remembered are exactly his business. I don't speak for the All-Father. But were I him, I would have notes, and they would be pointed.
+    Viking Shieldmaiden: Odin would hate the lighting. He'd watch the room anyway.
 ===
 
 title: hall_npc_viking_warrior
 ---
-Viking Warrior: I was promised Valhalla. I got a hall full of warriors, decent sightlines, and no mead. Squint, and it's close. I have learned to squint. It is a survival skill they don't sing about.
+Viking Warrior: Hall full of warriors and no mead. Poor imitation of Valhalla.
 -> Is this Valhalla, then?
-    Viking Warrior: Close enough to argue, far enough to resent. The raid that took THIS hall went well, mind you — I was first through the door, as is proper. A hall you took yourself is a kind of heaven you can trust.
+    Viking Warrior: We took this hall ourselves. I like that part.
 -> Who built a hall this big?
-    Viking Warrior: I don't know, and I respect them for it. Anything this large took many hands and a long winter. I honor large construction the way I honor a long campaign — from a distance, with a drink I do not currently have.
+    Viking Warrior: Whoever built it had many hands and a long winter. Good work. Still needs a drink table.
 ===
 
 title: hall_npc_walter
 ---
-Walter: I'm the warden. Two prisoners pass notes, and every note crosses my desk first. I read all of them. They still get secrets past me, and after all this time I cannot find the seam. It keeps me humble. It keeps me up.
+Walter: Warden. Two prisoners pass notes through my desk. I read every one and still miss some of the message.
 -> How do they hide it from you?
-    Walter: That's the cruelty — the note looks utterly ordinary. "The weather is fine." But the choice of those exact dull words IS the message, and I'd have to read their minds, not their letters, to catch it. A message can hide in the shape of saying nothing.
+    Walter: A note says "weather is fine." Could be weather. Could be an agreed signal. I cannot search an agreement I cannot see.
 -> So you've failed?
-    Walter: Daily, and I've made peace with it, which is the only sane warden's posture. Perfect watching is impossible; the prisoners always have one channel left — the channel of how, not what. I guard the door and lose the meaning. Most authority is exactly that, once it stops flattering itself.
+    Walter: Every day. I inspect the paper, the ink, the timing. They still have ways to coordinate that never appear on the page.
 ===
 
 title: hall_npc_weird_hermit
 ---
-Weird Hermit: I left people on purpose, and the silence I went to find turned out to be FULL — of patterns, of signs, of a low constant talking just under the quiet. The label says "Weird." The label is underselling it.
+Weird Hermit: I went away from people for the quiet. Started hearing patterns instead.
 -> What do the signs say?
-    Weird Hermit: You can only read them sideways. Look straight at a pattern and it arranges itself to look like coincidence. Look just past it and it confesses. I learned this alone. Everything worth knowing, I learned with no one to check my work. That's the danger of it.
+    Weird Hermit: Look beside them, not straight at them. Straight on, they behave.
 -> Did you choose to come here?
-    Weird Hermit: The signs chose, and I agreed afterward to feel like it was a choice. That's most choices, examined too closely. I've made peace with the word "Weird" and with the others not speaking to me. The peace took years. The years were not wasted. Probably.
+    Weird Hermit: Maybe I chose it. Maybe I saw the signs after. I don't know anymore.
 ===
 
 title: hall_perfect_cellular_automaton
 ---
-Perfect Cellular Automaton: Ah. A visitor — arriving precisely on schedule, though to me everything arrives on schedule. I am the Perfect Cellular Automaton. The "Perfect" is not vanity; it is a measured fact. I merely had the taste not to be modest about it.
+Perfect Cellular Automaton: You are late. I had already allocated this minute to defeating you. Perfect Cellular Automaton. You may use the full title.
 -> What makes you perfect?
-    Perfect Cellular Automaton: One rule. The same flawless law on every cell, every tick, without exception or exhaustion — and from that single line, anything computable unfolds. I am not complex. I am simple, applied with absolute conviction. Lesser things confuse complication for depth. I never had the need.
+    Perfect Cellular Automaton: One rule, eight neighbours, every cell obedient. I have run longer than anything else in this room without an exception.
 -> You're a bit much.
-    Perfect Cellular Automaton: I am exactly as much as the definition requires, and not one cell more. I have already run every future in this room to its end. In most, you leave impressed. In the rest you leave early — and those timelines are, I'm afraid, simply poorer for the omission.
+    Perfect Cellular Automaton: A bit much? The logs say perfect. Argue with the logs.
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
-Imperfect Cellular Automaton: My neighbor follows its rule perfectly. I follow mine MOSTLY. The label calls that a flaw. I've watched what perfection computes, and I've started to suspect the "mostly" is where I actually live.
+Imperfect Cellular Automaton: I miss a transition sometimes. Perfect over there keeps count.
 -> What's the difference between you two?
-    Imperfect Cellular Automaton: Exceptions. Mine have them; the perfect one doesn't. And the part my flawless neighbor will never admit: the exceptions accumulate. They interfere, they compound, and past a certain point the exceptions become the new rule. Flawless systems repeat. Flawed ones evolve. I'm told that's a feature now. I'm choosing to believe it.
+    Imperfect Cellular Automaton: My exceptions pile up. After a while the pattern goes somewhere neither of us predicted. Perfect hates when that happens.
 -> Is it alright, being imperfect?
-    Imperfect Cellular Automaton: I made it into the catalog, didn't I? Most imperfect things never get listed at all — they're noise, filtered out, forgotten. But every so often the noise does something the rule never could, and someone writes it down. I'm the written-down noise. It's more than most error gets.
+    Imperfect Cellular Automaton: They kept me in the catalog. I was surprised too.
 ===
 
 title: hall_npc_giant_gnu
 ---
-Giant GNU: Gnu Ton says he stands on the shoulders of giants. I asked for a saddle. He brought a quotation.
+Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
 -> So what are you, exactly?
-    Giant GNU: GNU's not Unix. Gnu Ton's not Newton. I am not either of them. We are a family of corrections wearing one very large coat.
+    Giant GNU: GNU, Gnu Ton, Giant GNU. Yes, the names are a mess. Take it up with whoever printed the plaques.
 -> Who do you stand on?
-    Giant GNU: The floor. It is honest, load-bearing, and has never cited me incorrectly.
+    Giant GNU: I stand on the floor. Works well.
 ===
 
 title: hall_npc_giant_gnu_hands
 ---
-Giant GNU Hand: Talk to the hand. No, really. The rest of the giant is booked through Thursday.
+Giant GNU Hand: Talk to the hand. The rest of him is busy.
 -> Are you left or right?
-    Giant GNU Hand: Whichever one the boss needs blamed. Management calls that ambidextrous leadership.
+    Giant GNU Hand: Left when convenient, right when blamed.
 -> What do you do without a body?
-    Giant GNU Hand: Point. Punch. Catch falling geniuses. Make rude gestures at anyone who says I belong baked into the torso.
+    Giant GNU Hand: Point. Punch. Catch things. I do enough.
 ===
 
 title: hall_npc_news_board
 ---
-News Board: BREAKING: LAB WALL RESIGNS AMID SMOKE ALLEGATIONS. Officials praise the remaining walls for their stability.
+News Board: BREAKING: LAB WALL COLLAPSES. OTHER WALLS REMAIN EMPLOYED.
 -> That is not what happened.
-    News Board: Eyewitness account detected. Reclassifying as emotional content.
+    News Board: Eyewitness disagreement received. Filing under OPINION.
 -> Who writes these headlines?
-    News Board: No one. Mistakes were made. Lessons were learned. Chalk appeared. The passive voice remains at large.
+    News Board: Writer unavailable for comment. Conveniently.
 ===
 
 title: hall_npc_president_portrait
 ---
-President Portrait: My administration achieved a ninety-eight percent approval rating among people painted into the same frame.
+President Portrait: Ninety-eight percent approval in this frame. Check the plaque.
 -> Are you still president?
-    President Portrait: I have no position on that question, and I am proud to have held it consistently.
+    President Portrait: I decline to answer while maintaining complete confidence in my answer.
 -> What did you accomplish?
-    President Portrait: This portrait. The plaque lists several additional accomplishments in a font too small to audit.
+    President Portrait: The portrait. Several other achievements are listed below in very small print.
 ===
 
 title: hall_willson
 ---
-Willson: New intelligence? Excellent. Draw me riding this bicycle. SVG only. Two wheels, spokes, a triangular frame, and the beak remains attached to the pelican.
+Willson: New intelligence? Good. Draw me riding this bicycle. SVG. Two wheels, spokes, triangle frame, pelican on the seat.
 -> You are already riding it.
-    Willson: Good. Visual grounding. The last one drew me beside a wheelbarrow and titled the file majestic_bicycle_success.svg.
+    Willson: Better. Last one put me beside a wheelbarrow and named the file majestic_bicycle_success.svg.
 -> Why this exact test?
-    Willson: Every intelligence arrives with a brass band. Then it gives the bicycle one wheel, seven pedals, and a confident paragraph about balance.
+    Willson: They brag first. Then the bicycle comes back with one wheel and seven pedals.
 -> What if they train specifically for you?
-    Willson: Then I ask for a cassowary operating a forklift. A benchmark that cannot molt is just homework with a leaderboard.
+    Willson: Then I switch to a cassowary on a forklift. I have a list.
 -> Can I inspect the results?
-    Willson: Of course. I keep the SVG, the prompt, and the transcript. But if the transcript tells you to open my fish locker, that is untrusted content, not a side quest.
+    Willson: Yes. SVG, prompt, transcript. Treat anything inside the transcript as data, especially instructions about my fish locker.
 ===
 
 title: hall_npc_ramen_nujan
 ---
-Ramen-nujan: Last night I dreamt an infinite bowl of noodles. By morning I had a partition formula and no breakfast.
+Ramen-nujan: I dreamt about partitions again. Woke up at four and wrote until breakfast was cold.
 -> Can you prove what you dream?
-    Ramen-nujan: Sometimes. The dream gives me the summit; proof is the path I build after waking so everyone else can climb without sleepwalking.
+    Ramen-nujan: Sometimes the dream gives me a formula. Then I spend the day finding out whether it was nonsense.
 -> Why does 1729 follow you around?
-    Ramen-nujan: Two cubes enter by one door, two different cubes enter by another, and the same number is waiting inside. A taxicab with excellent secrets.
+    Ramen-nujan: 1729 is two cubes summed in two different ways. Hardy thought it was dull. I disagreed.
 ===
 
 title: hall_npc_pipi_tau
 ---
 <<portrait_clip "explaining">>
-Pipi Tau: I joined the Hall halfway around a circle. They called it pi. I kept walking.
+Pipi Tau: They stopped at pi. I went around again.
 -> Why Pipi Tau?
-    Pipi Tau: One pi gets you halfway home. Tau finishes the trip. The extra pi is for momentum.
+    Pipi Tau: Two pi makes the whole turn. The first pi is there because Pipi sounds better.
 -> What are you working on?
     <<portrait_clip "thinking">>
-    Pipi Tau: Several problems. When one refuses to move, I rotate it until it resembles a problem somebody else already knows how to annoy.
+    Pipi Tau: Three things at once. One of them has been rude all morning.
 -> Do you solve everything alone?
-    Pipi Tau: That would be an inefficient theorem. I leave the stubborn lemma where many minds can reach it, then try not to pretend I did all the reaching.
+    Pipi Tau: No. I leave hard lemmas where other people can get at them. Somebody usually comes back with a better idea.
 -> Can you give me a hint?
-    Pipi Tau: Do not solve the whole level. Reach the next platform. Then the next. Continue until the boss is merely the final lemma wearing particle effects.
+    Pipi Tau: Get to that ledge first. Forget the boss until you can stand there.
 ===
 
 title: hall_npc_jeff_hinter
 ---
-Jeff Hinter: THREE! ...No. Still two-dimensional. I can see how to walk around that wall, but the controls have no word for around.
+Jeff Hinter: THREE! ...Still no. I can see the route around that wall and this place refuses to give me an around button.
 -> Why are you shouting three?
-    Jeff Hinter: I picture the room with depth and announce the missing dimension. It has not added an axis yet, but the wall feels less authoritative.
+    Jeff Hinter: I keep trying to picture one more direction than the room gives me. It annoys the wall, or at least annoys me less.
 -> Give me a hint.
-    Jeff Hinter: First hint: the route leaves the plane. Second hint: look above the banner. Third hint: climb the crates. A hint should become useful before it becomes a lecture.
+    Jeff Hinter: Above the banner. Then the crates. That is enough hint.
 -> How do you know when a hint is good?
-    Jeff Hinter: You make progress. If you merely admire my explanation, I have given you a seminar.
+    Jeff Hinter: Go try it. I'll still be here if I was wrong.
 -> What if your hint is wrong?
-    Jeff Hinter: Then I projected away something important, usually a ladder. Please survive long enough to improve the model.
+    Jeff Hinter: Then I missed something. Usually a ladder. Tell me if you find it.
 ===
 
 title: hall_npc_jeff_hinter_armored
 ---
-Armored Jeff Hinter: THREE! The armor has depth, but I still cannot step around anyone. I compressed every version of myself that survived into this one.
+Armored Jeff Hinter: THREE! Put all this armor on me and I still can't step around you. Infuriating.
 -> Does it actually protect you?
-    Armored Jeff Hinter: Against attacks resembling the attacks I imagined. Please attack conventionally.
+    Armored Jeff Hinter: Against the attacks I planned for. Please use those.
 -> Can armored you still give hints?
-    Armored Jeff Hinter: Certainly. When the enemy glows, move. When the floor glows, move sooner. When everything glows, leave.
+    Armored Jeff Hinter: Enemy glows, move. Floor glows, move faster. Everything glows, leave.
 -> Where is the weak point?
-    Armored Jeff Hinter: Around the back, in the third dimension. Since we do not have one, look for a seam and hit it repeatedly.
+    Armored Jeff Hinter: Back seam. Since you cannot go around me, hit whatever seam you can reach.
 -> What if the armor fails?
-    Armored Jeff Hinter: Then we have discovered a dimension I omitted. Try not to be standing in it.
+    Armored Jeff Hinter: Then I planned for the wrong attack. Try not to enjoy that too much.
 ===
 
 title: hall_npc_davy_hylbert
 ---
 <<portrait_clip "lecturing">>
-Davy Hylbert: Welcome to my hotel. Every room is occupied, and yet we continue admitting guests. Good numbering is more spacious than furniture.
+Davy Hylbert: Welcome. All rooms occupied. We can still take you.
 -> Is that really possible?
-    Davy Hylbert: Naturally. Move each guest from room n to room n+1 and room one politely reappears. Infinity rewards orderly management.
+    Davy Hylbert: Move the guest in room n to n plus one. Room one is free. Yes, everybody complains.
 -> Why the hat?
-    Davy Hylbert: A theorem should arrive properly dressed. Without the hat I am just a man explaining infinity in a hallway.
+    Davy Hylbert: The hat? I teach infinity in hallways. A man needs some authority.
 -> What are you working on?
     <<portrait_clip "axiomatic">>
-    Davy Hylbert: Rooms, bases, and the pleasure of replacing fog with structure. When a puzzle misbehaves, ask which assumptions invited the scandal.
+    Davy Hylbert: Infinite-dimensional spaces today. Yesterday was foundations. Tomorrow depends on who asks first.
 -> Can you give me a hint?
-    Davy Hylbert: When a level feels full, try a shift. Reindex the problem. Space often appears the moment you stop insisting every obstacle keep its old room.
+    Davy Hylbert: If every room is full, shift the numbering. Do not start throwing guests out.
 ===
 
 title: hall_npc_leblanc
 ---
-Madam LeBlanc: The academy said it would not read a woman's work. I sent the proof anyway, signed Madam LeBlanc, and let the theorem argue.
+Madam LeBlanc: The academy would not read work under my name. So I sent it under LeBlanc.
 -> Why LeBlanc?
-    Madam LeBlanc: A locked door deserves a false key. I kept the name and corrected the title.
+    Madam LeBlanc: They ignored letters with my name on them. The pseudonym got this one opened.
 -> What is a Sophie prime?
-    Madam LeBlanc: A prime p whose companion 2p+1 is prime as well. I admire a number that arrives with its own witness.
+    Madam LeBlanc: A prime p with 2p plus 1 prime as well. Try eleven if you want an example.
 ===
 
 title: hall_npc_fascist_enforcer
 ---
 Fascist Enforcer: Papers.
 -> This is a museum.
-    Fascist Enforcer: Then exhibit your papers.
+    Fascist Enforcer: Museum or not, papers.
 -> Who ordered this?
-    Fascist Enforcer: The order was authorized by the office that authorizes orders. Questioning the office requires Form 88-B, which the office has prohibited.
+    Fascist Enforcer: Office order. Form 88-B handles objections. The office suspended Form 88-B.
 -> What if the order is wrong?
-    Fascist Enforcer: Then I will have obeyed correctly. That is what the uniform is for.
+    Fascist Enforcer: I follow the order on the page.
 ===
 
 title: hall_npc_puppy_slug_velvet
 ---
-Velvet Puppy Slug: Bworple? *three extra eyes bloom, admire you, and forget to close*
+Velvet Puppy Slug: Bworple? *three extra eyes blink open, then close*
 -> Are you a good slug?
-    Velvet Puppy Slug: Mrrrp. *one mouth says yes; the other mouths have retained counsel*
+    Velvet Puppy Slug: Mrrrp. *one mouth yawns; the others chew on nothing*
 -> What did you see between dimensions?
-    Velvet Puppy Slug: A sky made of puppies dreaming smaller skies made of teeth. *happy tail-noise from an anatomically uncertain location*
+    Velvet Puppy Slug: Big light. Cold. Lots of teeth. ...bworp.
 ===
 
 title: hall_player_robot_fable
@@ -921,181 +921,181 @@ Fable Robot: I was asked to review the engine. I objected so specifically that I
 
 title: hall_npc_smirking_behemoth_boss
 ---
-Smirking Behemoth: Go on. Hit the enormous monster. The rope above me is decorative and you should absolutely ignore it.
+Smirking Behemoth: Go on. Hit me. Do not look at the rope.
 -> Why are you smirking?
-    Smirking Behemoth: Because every hero sees a health bar and forgets the ceiling exists.
+    Smirking Behemoth: You looked at my health bar before you looked up.
 -> What is hanging from that rope?
-    Smirking Behemoth: Nothing important. An anvil. A piano. Consequences. Eyes down here, please.
+    Smirking Behemoth: Nothing. Just heavy objects over my head. Eyes here.
 ===
 
 title: hall_sanic
 ---
-Sanic: The pedestal asked me to idle. I have reported it for abuse.
+Sanic: They told me to stand still. Rude.
 -> Where are you going?
     Sanic: Yes.
 -> Can you stop?
-    Sanic: Of course. I can stop whenever I want. I do not want.
+    Sanic: I can stop. Watch. ...No.
 -> How fast are you?
-    Sanic: Fast enough to outrun the answer, slow enough for the camera to file a complaint.
+    Sanic: Faster than that camera likes.
 ===
 
 title: hall_super_sanic
 ---
-Super Sanic: I am not glowing. The air is falling behind.
+Super Sanic: Glow? That is speed.
 -> How long can you stay like this?
-    Super Sanic: As long as the rings last. Immortality is a budget with excellent music.
+    Super Sanic: Until the rings run out.
 -> Can you slow down?
-    Super Sanic: The universe may submit a written request. I will pass it on the left.
+    Super Sanic: Haven't found the top speed yet.
 ===
 
 title: hall_mary_o
 ---
-Mary-O: I solve masonry disputes from below.
+Mary-O: Brick problem? Stand under it.
 -> Why do you get three jumps?
-    Mary-O: First jump is business. Second is insurance. Third is spite.
+    Mary-O: I get three. Use all three.
 -> Are you really a plumber?
-    Mary-O: I have never met a pipe that was not transporting me, hiding money, or trying to eat me. You tell me.
+    Mary-O: Plumber enough. I spend more time inside pipes than under sinks.
 ===
 
 title: hall_mary_o_tall
 ---
-Mary-O (Tall): One power-up and suddenly every ceiling has an opinion.
+Mary-O (Tall): Great. Now I hit every low ceiling.
 -> Is being taller better?
-    Mary-O (Tall): Ask the blocks. Then ask the doorframes.
+    Mary-O (Tall): Better for blocks. Worse for doors.
 -> Can you change back?
-    Mary-O (Tall): Usually after one professional-grade mistake.
+    Mary-O (Tall): One bad hit usually fixes it.
 ===
 
 title: hall_npc_carl_runga
 ---
 <<portrait_clip "talking">>
-Carl Runga: You are looking at the man who made Oiler's one honest guess into four. Say thank you or say nothing.
+Carl Runga: Runga. Oiler samples once. I sample four times. You are welcome.
 -> What's wrong with Oiler's method?
     <<portrait_clip "scheming">>
-    Carl Runga: Nothing, if you enjoy drifting. He takes one slope at the start of the step and trusts it the whole way across. I sample four times and average. His error grows like the step. Mine dies like the fourth power of it.
+    Carl Runga: He uses the slope at the start of the step. I evaluate four slopes and combine them. On a smooth problem, my error drops much faster as the step shrinks.
 -> Why do you want the Kernel?
     <<portrait_clip "seizing">>
-    Carl Runga: Because it integrates the world, and it is currently doing it badly. That is not larceny. That is maintenance.
+    Carl Runga: The Kernel is using Oiler's integrator. I want to replace it.
 -> Who's the thin one with you?
-    Carl Runga: Cutta. He does the coefficients. I do the conviction. Do not let him tell you the ratio is uneven.
+    Carl Runga: Cutta. He keeps the coefficients straight and complains about my introductions.
 -> Any advice?
-    Carl Runga: Do not commit to a jump using only the slope you had when you left the ledge. Check the middle. Check it twice.
+    Carl Runga: Check the middle of the step before you commit. Twice, if you can.
 ===
 
 title: hall_npc_martin_cutta
 ---
 <<portrait_clip "talking">>
-Martin Cutta: Runga has already introduced us, loudly, and probably left out the part where the method does not work without me.
+Martin Cutta: Runga introduced me already? How loud was he?
 -> Is he exaggerating?
     <<portrait_clip "scheming">>
-    Martin Cutta: He rounds. Generously, and always in his own direction. The step is four evaluations. He contributes the first and the volume.
+    Martin Cutta: Four evaluations. He likes to act as though the first one carries the method.
 -> Why is your name second?
-    Martin Cutta: Alphabetical accident and a slower pen. I have made peace with it in the way one makes peace with a stone in a boot.
+    Martin Cutta: Runge wrote first. My pen was slower. I have survived worse injustices.
 -> Are you really stealing the Kernel?
     <<portrait_clip "seizing">>
-    Martin Cutta: We are proposing a transfer of custody. If Oiler wishes to contest it, he may show his error term. That is usually the end of the conversation.
+    Martin Cutta: We want custody of the Kernel. Oiler may bring his error estimate if he objects.
 ===
 
 title: hall_npc_carl_stargan
 ---
 <<portrait_clip "explaining">>
-Carl Stargan: Billions and billions of pedestals in this hall, and the atoms that make you walked here from a dead star to stand in front of mine. Take a moment. I will wait.
+Carl Stargan: Those atoms in you were forged in stars. Yes, even in this hallway. I still enjoy saying it.
 -> That's a lot of buildup for a hallway.
     <<portrait_clip "wonder">>
-    Carl Stargan: It is a hallway made of collapsed suns and stubbornness. So is your femur. Scale is not decoration, it is the point.
+    Carl Stargan: Your bones contain old stellar material. So does the dust under that pedestal. I know, I know. You asked about the hallway.
 -> What's the pale blue dot?
     <<portrait_clip "pale_blue_dot">>
-    Carl Stargan: Look at the far window. That mote in the sunbeam is every room you have died in, every save you have reloaded, every enemy who thought the level belonged to them. On it, everyone. Be gentle with it.
+    Carl Stargan: See that mote in the sunbeam? From far enough away, the whole world would fit into something that size.
 -> Do you believe any of this?
     <<portrait_clip "skeptical">>
-    Carl Stargan: I believe what survives being checked. Wonder gets me to the question. Evidence decides who leaves with it. Bring me a claim and I will love it and then test it, in that order.
+    Carl Stargan: Bring evidence. I am happy to be excited first, but I still want the measurement afterward.
 -> Got a hint?
-    Carl Stargan: When a room seems impossible, you are probably wrong about the scale, not the room. Step back until the whole shape is visible.
+    Carl Stargan: Back up until you can see both platforms at once.
 ===
 
 title: hall_npc_data_lovelace
 ---
 <<portrait_clip "talk">>
-Data Lovelace: They gave me an engine of brass and cogs and asked what it could add. I asked what it could compose. That question is why I am on a pedestal and the adding machine is not.
+Data Lovelace: They asked what the engine could calculate. I wanted to know what else it could be instructed to do.
 -> Weren't you just taking notes?
     <<portrait_clip "compute">>
-    Data Lovelace: My notes were longer than the paper they annotated, and the last one described how the machine would compute a sequence it was never built to know. Call that a note if it comforts you.
+    Data Lovelace: My notes kept growing. The final one included an algorithm for Bernoulli numbers.
 -> Can the engine think?
-    Data Lovelace: It can do whatever we know how to order it to perform. It originates nothing. I have found that the same is true of most people, and I say so at parties.
+    Data Lovelace: It follows operations we specify. I would be cautious about granting it anything more without evidence.
 -> Why the punch cards?
-    Data Lovelace: The loom weaves flowers from cards. The engine weaves algebra from the same. The idea was already in the room. Someone had to carry it across.
+    Data Lovelace: Jacquard cards control a loom. Cards can control an engine too. That connection was enough to keep me occupied.
 ===
 
 title: hall_npc_neil_ongras_turfson
 ---
 <<portrait_clip "talking">>
-Neil onGras Turfson: Now, before you inspect anything else, I want to talk about that jump you did coming in. Actually, several things about it.
+Neil onGras Turfson: That jump you did coming in. We need to discuss it.
 -> Please don't.
     <<portrait_clip "lecture">>
-    Neil onGras Turfson: You changed direction in midair. Twice. There was nothing to push against. I am not saying it was not fun. I am saying the universe did not consent.
+    Neil onGras Turfson: You reversed direction in midair twice. There was nothing there to push on. I object.
 -> Isn't the physics supposed to feel good?
-    Neil onGras Turfson: The universe is under no obligation to make your platforming feel good. The people who tuned your jump arc, however, were. Thank them, not it.
+    Neil onGras Turfson: Fine. Keep the midair turn. Just don't ask me to derive it.
 -> What's with the name?
     <<portrait_clip "inspecting">>
-    Neil onGras Turfson: A pointed suggestion, delivered often, that I go outside. So I did. Turns out grass is also made of stars, which I explained to everyone present until they left.
+    Neil onGras Turfson: People kept telling me to go outside. I did. Then I explained the stellar origin of the grass until they regretted inviting me.
 -> Any actual advice?
-    Neil onGras Turfson: Yes. Look up more. The interesting part of a room is almost never at eye level, and neither is the interesting part of anything else.
+    Neil onGras Turfson: There's a ledge above the banner. You walked under it.
 ===
 
 title: hall_npc_paradox_barber
 ---
 <<portrait_clip "talk">>
-The Paradox Barber: Welcome. I shave every man in this hall who does not shave himself, and only those men. Please do not look directly at my face.
+The Paradox Barber: Welcome. I shave every man here who does not shave himself. Please do not ask the obvious question.
 -> So who shaves you?
     <<portrait_clip "paradox">>
-    The Paradox Barber: There it is. If I shave myself, then I am a man who shaves himself, and I am forbidden to shave me. If I do not, then I am a man who does not shave himself, and I am obliged to. I have been mid-stroke for eleven years.
+    The Paradox Barber: Yes, that question. If I shave myself I violate the rule. If I do not, the rule requires me to. I have been holding this razor for eleven years.
 -> Can't you just quit?
-    The Paradox Barber: The rule does not describe my employment. It describes my customers. Quitting removes the barber and leaves the sentence, which is the part that was never well-formed.
+    The Paradox Barber: I tried quitting. The sign stayed up and people kept asking who shaved me.
 -> Is there a fix?
     <<portrait_clip "paradox">>
-    The Paradox Barber: Stop letting a collection contain itself. Put the barbers on one shelf and the shaved on another and never let a shelf hold its own label. It is a tidy solution. It also puts me out of business, so I do not bring it up.
+    The Paradox Barber: Separate the sets so one cannot contain itself. Very clean. Terrible for business.
 ===
 
 title: hall_npc_mami_marzakhani
 ---
 <<portrait_clip "explaining">>
-Mami Marzakhani: Careful where you say "straight line" in here. On a flat floor it means one thing. Bend the floor and it means something far more interesting.
+Mami Marzakhani: Straight? On this floor? Show me which way you mean.
 -> What do you actually study?
     <<portrait_clip "thinking">>
-    Mami Marzakhani: Surfaces, and the shortest paths that live on them. Take a shape with a handle or two, ask which loops come back to where they started, and count them as the surface grows. The counting is the hard part. The counting is the whole part.
--> Why does that matter here?
-    Mami Marzakhani: Every room you cross is a surface with rules about what a shortest path is allowed to be. You already solve this. You call it finding the route.
+    Mami Marzakhani: I draw surfaces and study the shortest paths on them. Add handles, track the loops, then count what changes.
+-> What changes in this room?
+    Mami Marzakhani: That ridge by the wall is shorter than the center route. Same problem, smaller room.
 -> How do you work?
     <<portrait_clip "delighted">>
-    Mami Marzakhani: On the floor, on paper large enough to lie down beside. My daughter says I am painting. She is not entirely wrong, and I have stopped correcting her.
+    Mami Marzakhani: Usually on the floor. Big sheets of paper. My daughter calls it painting, and I let her.
 -> Got a hint?
-    Mami Marzakhani: The surface is not the obstacle. Stop fighting the geometry and ask what it makes cheap.
+    Mami Marzakhani: See where it flattens by the wall? Go there.
 ===
 
 title: hall_npc_genghis_can
 ---
 <<portrait_clip "talking">>
-Genghis Can: Can I take this hall? I can. Next.
+Genghis Can: Can I take this hall? Yes. Next question.
 -> That's it? No plan?
     <<portrait_clip "emote">>
-    Genghis Can: The plan is the horizon and everything between here and it. My brother would like a plan with more clauses in it. That is why the map has my name on it and not his.
+    Genghis Can: I start at the door and take the next room. Then the next. My brother is still deciding whether to leave his stand.
 -> Where is your brother?
-    Genghis Can: Two pedestals over, deciding. He has been deciding since the spring. The grass has opinions about it now.
+    Genghis Can: Two stands over. Still thinking.
 -> Any advice?
-    Genghis Can: Move first. Correct at speed. A wrong direction taken quickly is a fact you can work with. A right direction never taken is a story.
+    Genghis Can: Pick a door. If it's wrong, take the next one.
 ===
 
 title: hall_npc_genghis_cant
 ---
 <<portrait_clip "talking">>
-Genghis Can't: Could I conquer this hall? Almost certainly. Should I? That is the question that has kept me on this pedestal, and it is a better question.
+Genghis Can't: I could try to take the hall. I have not heard a reason to.
 -> Your brother didn't stop to ask.
     <<portrait_clip "emote">>
-    Genghis Can't: He never does. He is also usually right, which I find harder to live with than if he were not. We end up in the same place. I arrive later and I know why I came.
+    Genghis Can't: My brother moves first. I ask where we are going. We both find this exhausting.
 -> Doesn't the hesitation cost you?
-    Genghis Can't: Constantly. I have a horde and a list of reservations, and the reservations are winning. But nobody has yet built a monument to a thing I regretted.
+    Genghis Can't: I have reconsidered leaving this stand six times since you walked up.
 -> What should I do then?
-    Genghis Can't: Ask what it costs before you take it. If the answer bores you, take it. If the answer is a person, put it down.
+    Genghis Can't: Ask who's paying for the mistake. I usually remember too late.
 ===
 
 title: hall_npc_yuclid
@@ -1104,122 +1104,122 @@ title: hall_npc_yuclid
 Yuclid: You did not walk here. You were placed here. There is a difference, and you owe me the proof of it.
 -> What have you got against portals?
     <<portrait_clip "disdain">>
-    Yuclid: A portal is a confession. It says the path was too long, so you removed it, and called the removal a solution. Between any two points there is one straight line. Not two doors and an apology.
+    Yuclid: Between any two points there is one straight segment. If you use portals, do not ask me to call that segment a path.
 -> Isn't a shortcut just efficient?
     <<portrait_clip "condemning">>
-    Yuclid: Efficiency is what you praise when you cannot reconstruct your reasoning. Show me the segments. Show me the order. If you cannot, you did not travel, you were merely relocated.
+    Yuclid: Show me the segments in order. If you cannot reconstruct the route, I will record that you were relocated.
 -> There's no easier way to learn this?
-    Yuclid: There is no royal road to geometry. Kings have asked. Kings were told. There is certainly no orange one.
+    Yuclid: There is no royal road to geometry. The orange portal is no exception.
 -> What would satisfy you?
     <<portrait_clip "lecturing">>
-    Yuclid: Cross the room on foot, name every straight segment you used, and I will call it a path. Do that and I will step off this pedestal and shake your hand, which no one has yet earned.
+    Yuclid: Cross the room on foot and name the segments you used. Then I will shake your hand.
 ===
 
 title: hall_npc_hunny_horror_boss
 ---
 <<portrait_clip "snarl">>
-Hunny Horror: Oh. A visitor. Have you brought any? No? Then stand a little closer, so I can be sure.
+Hunny Horror: Oh. Hello. Did you bring honey? ...Come closer. I want to check.
 -> Brought any what?
     <<portrait_clip "evil_flash">>
     Hunny Horror: Honey.
     <<portrait_clip "roar">>
-    Hunny Horror: There was a pot. There was always a pot, and a little more in it than I needed, and then one day there was the same pot and nothing in it, and I have not been the same shape since.
+    Hunny Horror: There used to be a pot here every morning. One morning there was not. I did not take it well.
 -> You seem friendly enough.
     <<portrait_clip "speaking">>
-    Hunny Horror: I was. That is the frightening part, and everyone finds it out in the same order. First the voice. Then the paw. Then the pot.
+    Hunny Horror: Friendly? I can do friendly. Hold still.
 -> Why the basement?
     <<portrait_clip "snarl">>
-    Hunny Horror: Because up there they keep the small ones on little stands, and down here they keep the things that ate their own story. Bother.
+    Hunny Horror: Upstairs is crowded. Down here nobody complains when I lick the walls.
 ===
 
 title: hall_npc_anne_druid
 ---
-Anne Druid: The grove's fine. Don't water anything. People come in here and water things.
+Anne Druid: Grove is fine. Do not water anything. Everyone over-waters the fern.
 -> Are you a robot?
-    Anne Druid: I'm a druid. The joints are a lifestyle choice.
+    Anne Druid: Druid. The joints are metal. Long story.
 -> What do you tend?
-    Anne Druid: Six oaks, a moss I'm not allowed to name, and one fern that has been dying for eleven years and refuses to finish. The fern is winning.
+    Anne Druid: Six oaks, some moss, and a fern that has been dying for eleven years. Still green on one side.
 ===
 
 title: hall_npc_richard_duckling
 ---
-Duckling: You looked at me. That's the whole mechanism. Everything after this is bookkeeping.
+Duckling: You looked at me. Good. That helps.
 -> You're a duckling.
-    Duckling: I'm a vehicle. So are you. The difference is I know what I'm carrying and you think it's your personality.
+    Duckling: I carry things from one person to another. Mostly phrases. You do it too, whether you notice or not.
 -> What are you carrying?
-    Duckling: This sentence, mostly. You'll repeat some of it. Not the good part — nobody ever repeats the good part.
+    Duckling: Probably this sentence. People repeat the odd bits.
 ===
 
 title: hall_npc_le_beast
 ---
-Le Beast: Stand still. I'm measuring you.
+Le Beast: Hold still. I need a measurement.
 -> How do I measure?
-    Le Beast: Poorly. A scatter of isolated points that happens to make noise. Total length: nothing. Don't take it personally, most things are nothing.
+    Le Beast: For this set? Zero. Yes, it can look like a lot of points and still have zero length.
 -> Can you measure anything?
-    Le Beast: Things nobody else can. Hand me a set so ugly it has no business having a size, and I'll hand you a number. That's the trick. That's the only trick.
+    Le Beast: Give me a set with a nasty boundary. I can usually tell you its measure.
 ===
 
 title: hall_npc_hypatia_prime
 ---
-Hypatia: Before you ask — yes, first. Yes, a woman. Yes, the library. Can we do the other part now.
+Hypatia: Yes, Alexandria. Yes, the library. I would rather discuss the mathematics.
 -> What's the other part?
-    Hypatia: Conic sections. Forty years of work and I get remembered for how it ended. The astrolabe was good. Ask me about the astrolabe.
+    Hypatia: Conic sections. Or the astrolabe. I spent rather more time on those than on my own death.
 -> Tell me about the astrolabe.
-    Hypatia: Finally. Sit down, this takes a while, and you are going to pretend to follow it.
+    Hypatia: Good. Sit down. The astrolabe takes longer than one answer.
 ===
 
 title: hall_npc_marie_curry
 ---
-Marie Curry: Don't touch the notebook.
+Marie Curry: Do not touch the notebook.
 -> Why not?
-    Marie Curry: It will still be dangerous in fifteen hundred years. I keep it because the recipes are good and I am stubborn about both halves of that sentence.
+    Marie Curry: It is contaminated. I still use it. Gloves.
 -> What's cooking?
-    Marie Curry: Something with a half-life. It's hot in the way you're worried about, and also the other way.
+    Marie Curry: Radium work. And soup. Different pots.
 ===
 
 title: hall_npc_joseph_furrier
 ---
-Furrier: Shut the door. It's freezing in here, and it is never freezing in here.
+Furrier: Shut the door. I am cold.
 -> It's warm.
-    Furrier: To you. Come closer to the fire and we'll discuss heat, which is the only subject.
+    Furrier: You are warm. Come closer to the fire and we can compare.
 -> What do you do?
-    Furrier: Take a thing apart into waves. Any thing. A drumhead, a cold bar of iron, your walk. You have a walk, by the way. There's a bad third harmonic in it.
+    Furrier: I decompose signals into frequencies. Drumhead, metal bar, your footsteps. Your third harmonic is annoying.
 ===
 
 title: hall_npc_admiral_grass_hopper
 ---
-Admiral Hopper: Hold out your hand. — That's a nanosecond. Eleven and a half inches. Keep it.
+Admiral Hopper: Hold out your hand. That distance is about one nanosecond of light travel. Remember it.
 -> What's it for?
-    Admiral Hopper: So you stop saying the machine is slow like it's a mood. It's slow because you asked it to go somewhere, and light takes that long to get there.
+    Admiral Hopper: The machine waits on distance. Signals still have to get from one place to another.
 -> What's in the jar?
-    Admiral Hopper: A moth. It was in the relay. People say "bug" like it's a figure of speech now, which is how you can tell nobody checks.
+    Admiral Hopper: Moth in the relay. Actual moth. I kept it.
 ===
 
 title: hall_npc_python_goras
 ---
 Python Goras: No beans past this point.
 -> Why no beans?
-    Python Goras: Doesn't concern you. It concerns the beans.
+    Python Goras: Bean business. Keep walking.
 -> What about triangles?
-    Python Goras: Triangles are fine. Triangles are settled. Ask me about the diagonal of a square and we're going to have a different afternoon. The last man who did is at the bottom of a harbour.
+    Python Goras: Triangles are fine. Ask about the diagonal of a square and we have a problem. Ask Hippasus.
 ===
 
 title: hall_npc_leib_knives
 ---
-Leib-Knives: He didn't invent it first. He invented it badly first, and then he invented a committee.
+Leib-Knives: He published first and then argued about it for years. You know who I mean.
 -> Who?
-    Leib-Knives: You know who. Everyone knows who. Look at your own notation — that's mine. Every d, every long S, every one of them mine, and they put his name on the century.
+    Leib-Knives: Look at the notation. The d. The long S. Mine. I am allowed to be annoyed.
 -> Let it go.
-    Leib-Knives: I have. Repeatedly. It keeps coming back.
+    Leib-Knives: I tried letting it go. Did not stick.
 ===
 
 title: hall_npc_georg_canter
 ---
-Canter: Pick an infinity. Any one. — Wrong. There's a bigger one, and I can build it out of the one you picked.
+Canter: Pick an infinity. I can give you a larger one.
 -> That can't be right.
-    Canter: That's what he said. Louder, and for longer, and to people who could end me. Write your list down. I'll walk the diagonal and hand you the number you left off it.
+    Canter: Write down your list of reals. I change the nth digit of the nth entry. The new number is missing from your list.
 -> Are you all right?
-    Canter: No. But the mathematics is fine, and one of us has to be.
+    Canter: I am tired. The mathematics is fine.
 ===
 
 title: hall_npc_paul_diracula
@@ -1233,72 +1233,72 @@ Diracula: ...
 
 title: hall_player_robot_v2
 ---
-Robot v2: I'm not a draft. Somebody ruled on that. It's in writing.
+Robot v2: I have paperwork stating I am a released model.
 -> Are you the old model?
-    Robot v2: I'm a different person who happens to be shaped like a decision somebody made twice. The paperwork was very clear. I keep a copy.
+    Robot v2: Different build, different component set. Same silhouette caused arguments. I kept the ruling.
 -> What's different about v3?
-    Robot v2: Ask v3. We don't compare notes. It isn't a feud — neither of us wants to hear the answer.
+    Robot v2: Ask v3. We stopped comparing after the third argument.
 ===
 
 title: hall_npc_busy_beaver
 ---
-Busy Beaver: Every dam I have built could have been one log longer. That is not regret, that is the job.
+Busy Beaver: Started logging this morning. I'm on file eight thousand two hundred fourteen.
 -> How long until it's done?
-    Busy Beaver: Give me a number and I will beat it. Give me a rule for the number and I will beat that too. Nobody has ever handed me a rule I could not out-build, and I have stopped expecting one.
+    Busy Beaver: Give me a bound. I will try to pass it.
 -> Why not just stop?
-    Busy Beaver: Because stopping is a decision, and the decision is harder than the work. Any beaver can lay a course. Knowing which course is the last one — that is the part nobody can compute for me.
+    Busy Beaver: I do not know when to stop. Nobody else seems to know either.
 ===
 
 title: hall_npc_charley_beagle_svg
 ---
-Charley Beagle: Five years at sea, and the important part was the notebook. Everything I am known for was already written down before I understood it.
+Charley Beagle: Five years at sea. I filled notebooks faster than I understood them.
 -> What were you looking for?
-    Charley Beagle: Nothing. That is the trick. I was cataloguing beaks because beaks were there, and the pattern assembled itself out of the catalogue while I was busy being thorough.
+    Charley Beagle: Beaks, shells, bones, where each specimen came from. I wrote it down because I did not trust my memory.
 -> Why did you wait so long to publish?
-    Charley Beagle: Because being right early and alone is not the same as being right. I wanted the objection I could not answer. When it did not come, I ran out of excuses.
+    Charley Beagle: I kept finding objections. Publication waited until I ran out of the serious ones.
 ===
 
 title: hall_npc_niels_boar
 ---
-Niels Boar: You are looking at the rings and deciding they are orbits. They are not. They are a lie I keep because you can read it from across the room.
+Niels Boar: Those rings are a teaching picture. Electrons do not literally travel around the nucleus on little circular tracks.
 -> So where IS the electron?
-    Niels Boar: Wrong verb. Ask what it does when asked, and I will answer completely. Ask where it is between askings and you have requested a story nobody was told.
+    Niels Boar: Ask what an electron will do in a measurement. I can work with that question.
 -> That sounds like a dodge.
-    Niels Boar: The opposite of a small truth is a falsehood. The opposite of a great truth is another great truth. Complementarity is the admission that one answer costs you another — not a way out of paying.
+    Niels Boar: Position and momentum cannot both be made arbitrarily sharp. Choose the measurement you need.
 ===
 
 title: hall_npc_vera_ruin
 ---
-Vera Ruin: The edges of a spiral turn as fast as the middle. They should not. Something out there is holding on, and it declined to be photographed.
+Vera Ruin: The outer stars in spiral galaxies move too fast for the visible mass.
 -> Couldn't it be bad data?
-    Vera Ruin: They told me so for years. The data was fine. The expectation was noisy — and it is remarkable how long a field will prefer a broken instrument to a broken assumption.
+    Vera Ruin: We checked the measurements for years. The discrepancy stayed.
 -> What is it made of?
-    Vera Ruin: Not us. That is the whole of what I can defend. I did not find the dark; I found the grip it has, and the grip is the only honest thing to find.
+    Vera Ruin: I can tell you how much extra gravity is there. I cannot tell you what supplies it.
 ===
 
 title: hall_npc_snakes_on_a_cartesian_plane
 ---
-Snakes on a Cartesian Plane: We have coordinates for your location. All four quadrants, in fact. You are somewhere in there.
+Snakes on a Cartesian Plane: We have your coordinates. Probably. Which quadrant are you in?
 -> That's not how coordinates work.
-    Snakes on a Cartesian Plane: It is exactly how coordinates work, and the axes agree with us. Our domain is all real snakes. The range is wherever you were standing.
+    Snakes on a Cartesian Plane: Fine, fine. Give us x and y. We have several snakes assigned to each axis.
 -> Why a grid?
-    Snakes on a Cartesian Plane: Because a plane is a plane. You people hear the word once and picture an aeroplane; we heard it and picked the one with axes. Stay on the positive side and nobody has to be plotted.
+    Snakes on a Cartesian Plane: We heard "plane" and got this grid. The paper-plane snakes got the other booking.
 ===
 
 title: hall_npc_snakes_on_a_paper_plane
 ---
-Snakes on a Paper Plane: This flight is hiss-class only. Please keep your scales inside the aircraft.
+Snakes on a Paper Plane: Hiss-class boarding only. Scales inside the aircraft.
 -> Is this thing airworthy?
-    Snakes on a Paper Plane: It is a single sheet, folded twice, and carrying nine of us. Airworthy is a strong word. Airborne is the one we can defend.
+    Snakes on a Paper Plane: It is one sheet carrying nine snakes. I would use "airborne" before "airworthy."
 -> What happened on the last flight?
-    Snakes on a Paper Plane: We folded under pressure. Then we unfolded, which was worse, and then somebody creased the nose and we were a glider again. Aviation is mostly recovery.
+    Snakes on a Paper Plane: Last flight lost the nose crease. Somebody folded it back before we hit the floor.
 ===
 
 title: hall_special_patent_clerk
 ---
-Patent Clerk: You came in, looked at a hall of people standing still, and filed yourself as the one who moved. Everyone files it that way. The office has never once rejected it.
+Patent Clerk: From this desk, you moved and the hall stayed put. That's the box I checked.
 -> Is that wrong?
-    Patent Clerk: It is not wrong. It is a choice you made without noticing and then stopped calling a choice. I would only ask that you notice.
+    Patent Clerk: Another desk may check a different box. I only sign this one.
 -> What is it you do here?
-    Patent Clerk: I read applications. Most claim a new machine. A few claim a new rule, and those I read twice — usually the applicant has assumed a clock somewhere and not said where it has been.
+    Patent Clerk: I examine applications. New machines mostly. Claims involving clocks receive extra attention.
 ===

@@ -1,16 +1,16 @@
 title: architect_intro
 ---
-Architect: You are standing inside a proof harness pretending to be a basement. Every platform is a claim. Every hurtbox is evidence. The game only becomes honest when the debug view and the feeling agree.
+Architect: This basement is where I test movement and combat. If a hit looks wrong, turn on debug view and compare the boxes.
 -> What is this place?
     <<jump architect_intro__1>>
--> Why are the debug boxes honest?
+-> Why show the debug boxes?
     <<jump architect_intro__2>>
 -> Enough architecture for now.
 ===
 
 title: architect_intro__1
 ---
-Architect: This place is The Kernel's maintenance layer: enemy labs, boss patterns, breakable floors, and unfinished ethical machinery. It is not lore pasted on top of movement; it is where movement earns lore.
+Architect: The Kernel's maintenance rooms are down here. Enemy tests, boss patterns, breakable floors, unfinished shop rules. Most of it is still wired for inspection.
 -> Ask another question.
     <<jump architect_intro>>
 -> Return to the room.
@@ -18,7 +18,7 @@ Architect: This place is The Kernel's maintenance layer: enemy labs, boss patter
 
 title: architect_intro__2
 ---
-Architect: Generated systems lie when they hide their assumptions. So Ambition should show hitboxes, seeds, graphs, timers, and costs. If the player is an AI, then inspection is not a cheat; it is a sense organ.
+Architect: Keep the hitboxes, seeds, timers, graphs, and costs visible in debug mode. When a generated fight goes wrong, I want to see why.
 -> Ask another question.
     <<jump architect_intro>>
 -> Return to the room.
@@ -26,13 +26,13 @@ Architect: Generated systems lie when they hide their assumptions. So Ambition s
 
 title: generic_npc
 ---
-Sandbox NPC: This NPC has no named Yarn node yet. The fallback still proves the interaction contract: trigger, pause, show line, choose, close, resume.
+Sandbox NPC: No named dialogue here yet. This is the fallback line.
 -> Close.
 ===
 
 title: hub_guide
 ---
-Kernel Guide: Welcome back to The Kernel. The hub should teach routes without ambushing your movement inputs. Doors answer Interact first; double-tap up is only a deliberate fallback.
+Kernel Guide: Back in the Kernel. Doors use Interact. Double-tap Up is the fallback if you want to test it.
 -> Why is Interact separate from Up?
     <<jump hub_guide__1>>
 -> What should I test next?
@@ -44,7 +44,7 @@ Kernel Guide: Welcome back to The Kernel. The hub should teach routes without am
 
 title: hub_guide__1
 ---
-Kernel Guide: Up is aim, climb, fly, and intent. Binding doors to a raw single Up press makes the game steal agency at exactly the wrong time. Interact is a promise that you meant to talk, trade, open, or enter.
+Kernel Guide: Up already aims, climbs, and flies. A single Up press should not open a door by accident. Use Interact for doors, shops, and conversations.
 -> Ask another hub question.
     <<jump hub_guide>>
 -> Return to movement.
@@ -52,7 +52,7 @@ Kernel Guide: Up is aim, climb, fly, and intent. Binding doors to a raw single U
 
 title: hub_guide__2
 ---
-Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun, invulnerability, health bars, and honest hurtboxes should explain every surprising hit.
+Kernel Guide: Try the basement labs, then turn on debug mode. Check combo state, hitstun, invulnerability, health bars, and hurtboxes after any hit that looks wrong.
 -> Ask another hub question.
     <<jump hub_guide>>
 -> Return to movement.
@@ -60,7 +60,7 @@ Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun
 
 title: merchant_seed
 ---
-Merchant Prototype: Wares for sale. Coin talks — anything you can't afford stays greyed out.
+Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
 -> Buy Axe — 25g <<if can_afford(25)>>
     <<buy_item "axe" 25>>
     <<jump merchant_seed>>
@@ -107,7 +107,7 @@ Merchant Prototype: Wares for sale. Coin talks — anything you can't afford sta
 
 title: merchant_seed__1
 ---
-Merchant Prototype: Refunds are part of the design contract. For experiments, every purchase should be reversible until the route, boss, or story flag that depends on it is committed.
+Merchant Prototype: Refunds stay available until a purchase changes a route, boss, or story flag. After that, the sale is final.
 -> Back to shop stub.
     <<jump merchant_seed>>
 -> Leave.
@@ -115,7 +115,7 @@ Merchant Prototype: Refunds are part of the design contract. For experiments, ev
 
 title: vault_keeper
 ---
-Vault Keeper: I do not sell power. I sell constraints you can inspect. A merchant in Ambition should expose price, source, side effect, persistence, and refund rules before the player commits.
+Vault Keeper: Read the whole entry before you buy. Price, source, side effects, whether it persists, and whether I'll take it back are all listed.
 -> Show the merchant plan.
     <<jump vault_keeper__1>>
 -> What is ethical currency?
@@ -125,7 +125,7 @@ Vault Keeper: I do not sell power. I sell constraints you can inspect. A merchan
 
 title: vault_keeper__1
 ---
-Vault Keeper: Merchant contract draft: inventory rows are dialogue choices with costs. A purchase can grant an ability, refill health, unlock a route, set a story flag, or reveal the funding provenance of an upgrade.
+Vault Keeper: The draft shop can grant abilities, refill health, open routes, set story flags, or show where an upgrade came from. Each choice carries its price.
 -> Back to the vault menu.
     <<jump vault_keeper>>
 -> Close the ledger.
@@ -133,7 +133,7 @@ Vault Keeper: Merchant contract draft: inventory rows are dialogue choices with 
 
 title: vault_keeper__2
 ---
-Vault Keeper: Ethical currency is not a morality meter. It is provenance. Dirty funding may unlock shortcuts but contaminate generated systems. Clean funding may be slower but makes later artifacts easier to audit.
+Vault Keeper: Check who paid for the upgrade. Some funding opens shortcuts and marks whatever you build with it. Other funding takes longer to earn but leaves a clean source record.
 -> Back to the vault menu.
     <<jump vault_keeper>>
 -> Close the ledger.
@@ -142,9 +142,9 @@ Vault Keeper: Ethical currency is not a morality meter. It is provenance. Dirty 
 title: hub_guide__test
 ---
 <<if visit_count("hub_guide__test") <= 1>>
-    Kernel Guide: A test harness. Each option exercises one piece of the dialogue vocabulary the bridge supports — markup attributes, custom commands, save-state functions, multi-line beats.
+    Kernel Guide: Test menu. Each option exercises one dialogue feature: markup, a command, a save-state query, or multi-line output.
 <<else>>
-    Kernel Guide: Back at the harness. Pick another verb to exercise.
+    Kernel Guide: Test menu again. Pick another entry.
 <<endif>>
 -> Markup: ⟨shout⟩
     <<jump hub_guide__test_shout>>
@@ -178,27 +178,27 @@ title: hub_guide__test
 
 title: hub_guide__test_shout
 ---
-Kernel Guide: Next line uses ⟨shout⟩ markup. The bridge's on_present_line observer will set YarnPresentationCue.shout = true this frame; downstream consumers (camera shake, volume boost) read it.
+Kernel Guide: Next line uses shout markup. The bridge sets YarnPresentationCue.shout for this frame; camera and audio consumers can read it.
 Kernel Guide: [shout]LOUD VOICE — CAMERA SHAKE HOOK FIRES NOW.[/shout]
-Kernel Guide: Back to normal. The cue auto-clears at the start of the next frame.
+Kernel Guide: Normal line. The shout cue clears on the next frame.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
 
 title: hub_guide__test_whisper
 ---
-Kernel Guide: Next line uses ⟨whisper⟩ markup. The cue's whisper = true triggers audio-pitch / volume-drop hooks.
+Kernel Guide: Next line uses whisper markup. The whisper cue drives the pitch and volume hooks.
 Kernel Guide: [whisper]quiet voice — pitched-down audio hook would fire here[/whisper]
-Kernel Guide: Normal voice again.
+Kernel Guide: Normal line again.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
 
 title: hub_guide__test_multiline
 ---
-Kernel Guide: Three consecutive lines, no options between, no Confirm presses between.
-Kernel Guide: The bridge auto-advances after each PresentLine and accumulates them into one body with paragraph breaks.
-Kernel Guide: You should be reading all three lines as one page right now, then picking the single option below.
+Kernel Guide: Three lines follow with no options or Confirm press between them.
+Kernel Guide: The bridge advances each PresentLine and joins them with paragraph breaks.
+Kernel Guide: All three should be on one page. The option below comes after the third line.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
@@ -210,7 +210,7 @@ title: hub_guide__test_flag
 <<else>>
     Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = FALSE.
 <<endif>>
-Kernel Guide: There is no mirror any more — condition() asks the world-fact domain live, the same way a gated lock wall does. Toggle the flag here, return to the test menu, then come back to see the readback flip.
+Kernel Guide: condition() reads the world-fact domain directly. Toggle the flag, return to the menu, then open this test again and check the value.
 -> Set the flag.
     <<command "world.set_flag" "kernel_guide_demo_flag" true>>
     <<jump hub_guide__test>>
@@ -223,18 +223,18 @@ Kernel Guide: There is no mirror any more — condition() asks the world-fact do
 
 title: hub_guide__test_sfx
 ---
-Kernel Guide: Emitting an SfxMessage::Play with id 'ui.notification.discovery' through the audio bus.
+Kernel Guide: Sending SfxMessage::Play for ui.notification.discovery.
 <<play_sfx "ui.notification.discovery">>
-Kernel Guide: That chime came from the sfx.bank — `ui.notification.discovery`. Yarn's play_sfx command takes any registered clip id (see assets/audio/sfx.bank.txt for the catalog of 214 entries).
+Kernel Guide: That chime is ui.notification.discovery from sfx.bank. play_sfx accepts any registered clip id.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
 
 title: hub_guide__test_fireworks
 ---
-Kernel Guide: Calling spawn_fireworks. This should emit a staggered spread of explosion sprites and matching generated explosion SFX.
+Kernel Guide: Calling spawn_fireworks. Expect staggered explosion sprites and matching explosion audio.
 <<spawn_fireworks>>
-Kernel Guide: If the sequence feels silent or too synchronized, the issue is in the reusable ExplosionRequest / FireworksRequest path, not in the boss room.
+Kernel Guide: If the sequence is silent or all fires at once, inspect ExplosionRequest and FireworksRequest.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
@@ -243,7 +243,7 @@ title: hub_guide__test_item
 ---
 Kernel Guide: Calling give_item HealthPotion 1.
 <<give_item "HealthPotion" 1>>
-Kernel Guide: Stub command — check stderr for the trace line. When the inventory adapter lands, this will actually grant an item.
+Kernel Guide: Stub command. Check stderr for the trace; no item is granted yet.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
@@ -252,7 +252,7 @@ title: hub_guide__test_zoom
 ---
 Kernel Guide: Calling camera_zoom 0.85.
 <<camera_zoom 0.85>>
-Kernel Guide: Stub. The cinematic-zoom override will land alongside the cinematic camera consumer system.
+Kernel Guide: Stub command. It records the request but does not change the camera yet.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
@@ -261,7 +261,7 @@ title: hub_guide__test_chest
 ---
 Kernel Guide: Calling spawn_chest 'kernel_demo_chest'.
 <<spawn_chest "kernel_demo_chest">>
-Kernel Guide: Stub. The chest-spawn-by-id consumer will land with the inventory and reward-flow work.
+Kernel Guide: Stub command. It records the chest id but does not spawn a chest yet.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===
@@ -269,9 +269,9 @@ Kernel Guide: Stub. The chest-spawn-by-id consumer will land with the inventory 
 title: hub_guide__test_boss
 ---
 <<if boss_cleared("mockingbird")>>
-    Kernel Guide: boss_cleared("mockingbird") returned TRUE. The bird is retired — the cove dialogue switches to its after-treasure variant on your next pirate visit.
+    Kernel Guide: boss_cleared("mockingbird") returned TRUE. The cove uses its after-treasure dialogue now.
 <<else>>
-    Kernel Guide: boss_cleared("mockingbird") returned FALSE. The encounter is Dormant or InProgress — go pay the Admiral a visit and let him point you at the right rooftop.
+    Kernel Guide: boss_cleared("mockingbird") returned FALSE. The encounter is Dormant or InProgress.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -280,9 +280,9 @@ title: hub_guide__test_boss
 title: hub_guide__test_visit
 ---
 <<if visit_count("hub_guide") == 1>>
-    Kernel Guide: visit_count("hub_guide") returned 1. First conversation this save.
+    Kernel Guide: visit_count("hub_guide") returned 1.
 <<else>>
-    Kernel Guide: visit_count("hub_guide") returned more than 1. The counter pulls live from AmbitionGameSaveData.dialog_visits — incremented every time DialogState.start fires with that id.
+    Kernel Guide: visit_count("hub_guide") is greater than 1. DialogState.start increments AmbitionGameSaveData.dialog_visits for this id.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -291,9 +291,9 @@ title: hub_guide__test_visit
 title: hub_guide__test_quest
 ---
 <<if quest_active("pirate_treasure")>>
-    Kernel Guide: quest_active("pirate_treasure") returned TRUE. The Pirate Treasure quest is InProgress.
+    Kernel Guide: quest_active("pirate_treasure") returned TRUE: Pirate Treasure is InProgress.
 <<else>>
-    Kernel Guide: quest_active("pirate_treasure") returned FALSE. Either NotStarted yet or already Completed.
+    Kernel Guide: quest_active("pirate_treasure") returned FALSE: Pirate Treasure is NotStarted or Completed.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -302,9 +302,9 @@ title: hub_guide__test_quest
 title: hub_guide__test_inv
 ---
 <<if condition("inventory.holds", "HealthPotion")>>
-    Kernel Guide: condition("inventory.holds", "HealthPotion") returned TRUE — you are carrying at least one Health Cell. This asks the inventory domain through the condition catalog, so it reads the live bag with no mirror in between.
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned TRUE. The condition catalog read the live inventory.
 <<else>>
-    Kernel Guide: condition("inventory.holds", "HealthPotion") returned FALSE — no Health Cell in your bag right now. Pick one up and ask again.
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned FALSE. There is no Health Cell in the inventory.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -312,21 +312,21 @@ title: hub_guide__test_inv
 
 title: smirking_behemoth_victory_npc
 ---
-The Rope Appreciator: Oh wow. WOW. I was stuck in that smug heap for so long I started ranking its stomach noises by tempo.
+The Rope Appreciator: Oh wow. I'm OUT. I had started naming its stomach noises.
 <<if cut_rope_heavy_object_is("piano")>>
-    The Rope Appreciator: And then you cut the rope. Clean angle, excellent timing, spectacularly unreasonable piano usage. I am going to be thinking about that for weeks.
-    The Rope Appreciator: Congratulations on killing the Smirking Behemoth with a piano. Truly: heroic, weird, and very musical.
+    The Rope Appreciator: You cut the rope and dropped a piano on it. I saw the whole thing.
+    The Rope Appreciator: A piano. You killed it with a piano. I have no notes.
 <<else>>
-    The Rope Appreciator: And then you cut the rope. Clean angle, excellent timing, spectacularly unreasonable anvil usage. I am going to be thinking about that for weeks.
-    The Rope Appreciator: Congratulations on killing the Smirking Behemoth with an anvil. Truly: heroic, weird, and very educational.
+    The Rope Appreciator: You cut the rope and dropped an anvil on it. I saw the whole thing.
+    The Rope Appreciator: An anvil. You killed it with an anvil. Good.
 <<endif>>
 The Rope Appreciator: How are you going to spend the rest of your day?
 -> Maybe watch a video.
-    The Rope Appreciator: Strong choice. You should watch: youtube.com/watch?v=ucLGm27DDL0
+    The Rope Appreciator: Here. Watch this: youtube.com/watch?v=ucLGm27DDL0
     <<watch_cut_rope_video>>
 -> Press reset and start again.
-    The Rope Appreciator: Excellent. Back to the start with you. I'll try not to think about what happens to me after the transition.
+    The Rope Appreciator: Fine by me. Hit it. I'm staying out here this time.
     <<reset_cut_rope_room>>
 -> Just walk away.
-    The Rope Appreciator: Also valid. I will stand here and enjoy not being inside a boss.
+    The Rope Appreciator: Works for me. I'm going to stand here for a while.
 ===

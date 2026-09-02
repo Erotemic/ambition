@@ -126,7 +126,35 @@ Prefer domain-specific authoritative constructors/request types that make the
 required invariants hard to omit. Do **not** introduce a universal
 `spawn_sim_entity` wrapper merely so a source scanner can ban raw `spawn`.
 
-### S2 — remove authoritative non-rewinding memory
+### S2 — remove authoritative non-rewinding memory — ✔ CLOSED 2026-09-02
+
+Every authoritative case this row named is now registered state, and the
+remaining `Local<T>`s on sim-schedule systems were censused and classified:
+
+```text
+cutscene trigger room      ambition_cutscene::LastCutsceneRoom        registered (cutscene.last_room)
+Mary-O active-room follower LevelDeparture.seen_room (component)     registered; rollback_room_memory.rs
+quest room-entry edge      ambition_persistence::quest::LastQuestRoom registered+checksummed (2d73d9d94, schema v149)
+```
+
+Census of `Local<T>` on systems in the sim schedule after that (grep, sim-side
+crates, tests/dev/census excluded): `tick_npc_idle_barks`'s bark timers —
+presentation cadence that writes only `VfxMessage` (cleared on rollback), so a
+resim re-emits bubbles and mutates nothing authoritative; `contact_scratch` and
+`empty_relations` — per-run scratch cleared before use; `gated_lock_walls`'s
+cached query state; everything else is host/presentation (`time_control`,
+audio, menu input, the runtime's prefetch memory, the causal recorder's epoch).
+None remembers an authoritative future.
+
+⚠ Known limit of the quest fix's PIN: a confirmed room transition rebases GGRS
+onto a new frame-zero baseline, so today no rewind crosses the room flip and the
+old `Local`'s divergence was unreachable (the mary-o file records the same for
+its follower). The guard is therefore structural — the resource restores the
+producer's behaviour (`restoring_the_last_room_makes_the_producer_announce_the_
+room_again`, red with the `Local` back) — not a desync reproduction. The move is
+still right: a correctness only the rebase provides moves when the rebase does.
+
+The original row, for the record:
 
 Current review evidence still identifies gameplay logic whose `Local<T>`/edge
 memory can remember a future state after rollback. Examples include the Mary-O

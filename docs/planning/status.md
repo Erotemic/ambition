@@ -50,8 +50,9 @@ The current model has separate questions:
 Rollback registration is federated by domain and the concrete GGRS backend lives
 in `ambition_platformer2d_rollback_ggrs`; the generic runtime no longer owns a
 census of concrete gameplay component types. The remaining work is correctness
-at runtime-created populations, residual non-rewinding memory, deterministic
-selection/composition, and the confirmed/external lifecycle boundary.
+at runtime-created populations, deterministic selection/composition, and the
+confirmed/external lifecycle boundary (non-rewinding memory closed 2026-09-02:
+S2 in the determinism doc).
 
 See [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
 and [`engine/netcode.md`](engine/netcode.md).

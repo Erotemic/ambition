@@ -27,8 +27,8 @@ correct gameplay-session/timeline owner.
 `26ec7b19` closed the demonstrated cross-game rollback-health leak by making
 rollback authority gameplay-session-owned while preserving same-session health
 across timeline rebases. Remaining work includes runtime-created populations,
-residual non-rewinding memory, deterministic selection/composition, and related
-structural tests.
+deterministic selection/composition, and related structural tests
+(non-rewinding memory closed 2026-09-02, S2).
 
 Owner: [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 

@@ -63,8 +63,9 @@ diagnostic history is evidence only and cannot gate gameplay.
 ### N1 — finish deterministic/runtime-state correctness before transport
 
 Transport should not hide local deterministic defects. The simulation-authority
-program still owns non-rewinding authoritative memory, remaining deterministic
-selection/composition sites, and scenario-populated dynamic-state coverage.
+program still owns the remaining deterministic selection/composition sites and
+scenario-populated dynamic-state coverage (non-rewinding authoritative memory
+closed 2026-09-02, S2).
 
 Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md).
 

@@ -647,6 +647,17 @@ host has the 434 MP; but the shape of the answer is no longer unknown.
 ⛔ `dropped before gpu 0` on this road is STRUCTURAL, not a finding: headless has
 no render world, so `awaiting gpu` holds all 237 and nothing can be dropped
 *before* a GPU that never looks. Do not quote it as evidence of no waste.
+⛔⛔ **AND ON THIS BOX, READ THE COUNTS AND NOT THE CLOCK.** Five runs of that
+script across the 2026-09-02 merges gave byte-identical counts every time —
+`0 re-decodes / 237 resident / 67.6 MP / 213 routed / 126 newly staged` — and
+frame-spike totals of **61, 4, 9, 6, 52** for the same five runs, at load average
+7–12 with two other agents compiling. ⇒ A timing reading taken here is a reading
+of who else was building. I nearly recorded the 61→4 pair as a 15× improvement
+from the first-room-art prefetch; re-running three times is what stopped it, and
+a single before/after would have published it. The counts are deterministic and
+are what this environment can honestly measure; the wall-clock rows in this
+document that came from llvmpipe runs should be read with the same caution, and
+the host is the only place a timing claim settles.
 ⛔⛔ **AND THE `UNROUTED` BUCKET WAS 24 NON-FINDINGS. Split 2026-09-02
 (`a20b5b1a2`).** The same census read `UNROUTED(no demand) 24×4.5MP`, which reads
 as *"something loaded art and no road said so"* — 24 times. Every one of the 24

@@ -22,6 +22,7 @@ that stops carrying it, and a profiler that stops using it.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -29,12 +30,19 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def plan(*args: str) -> list[str]:
+    # The subject is what run_game.sh decides ON ITS OWN. The plan reports an
+    # inherited CARGO_INCREMENTAL faithfully, and the suite runner exports
+    # CARGO_INCREMENTAL=0 into every job — so under `run_tests.sh` the dev plan
+    # carried the runner's setting and the test below read it as the launcher's.
+    # Green alone, red in the gate, since 2026-08-31.
+    env = {k: v for k, v in os.environ.items() if k != "CARGO_INCREMENTAL"}
     out = subprocess.run(
         [str(REPO / "run_game.sh"), "--print-plan", *args],
         capture_output=True,
         text=True,
         check=True,
         cwd=REPO,
+        env=env,
     )
     return out.stdout.splitlines()
 

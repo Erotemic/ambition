@@ -400,10 +400,22 @@ which is what makes this expressible without the new crate naming the kernel.
   `.after(lifecycle::BodyCustodySettled)`, and each variant
   `.in_set(GameplayGated)`.
 - `step_item_motion` in `Motion`; `collect_world_items` in `Collect`.
-- **`PreCollect` exists for a real customer**: Mary-O's cross-schedule
-  `.before(collect_world_items)` (in `ambition_demo_mary_o/src/lib.rs`) names a
-  concrete FUNCTION in another crate, which is the thing `ItemPickupSet`'s own
-  doc says not to do. It moves into `PreCollect`.
+- **`PreCollect` exists for a real customer, and it fixes a LATENT bug rather
+  than a style problem.** Mary-O's `refuse_a_weaker_form_pickup`
+  (`ambition_demo_mary_o/src/lib.rs`) is `.before(collect_world_items)` — naming
+  a concrete FUNCTION in another crate, which is the thing `ItemPickupSet`'s own
+  doc says not to do. ⚠ AND ITS COMMENT EXPLAINS A CHOICE THAT IS ONLY
+  CONDITIONALLY RIGHT: *"Registered on `Update` beside `collect_world_items`
+  rather than in the sim set, so the ordering edge is real (a cross-schedule
+  `.before` is silently vacuous)."* The mechanism is stated correctly and the
+  conclusion holds only for ONE of the three hosts — `collect_world_items` is
+  registered into `app.sim_schedule()`, which is `Update` under
+  `SimulationHost::RenderFrame` (the `#[default]`, and what Mary-O runs) but
+  `FixedUpdate` under `Fixed60Hz` and backend-selected under `Rollback`. ⇒ The
+  edge binds today because of the HOST, not because of `collect_world_items`,
+  and it goes silently vacuous the day that demo gains a rollback or fixed-tick
+  host. Moving the system into `PreCollect` makes it host-independent, which is
+  the actual reason to do it.
 
 #### The two regressions each need a guard, and both must be poison-verified
 

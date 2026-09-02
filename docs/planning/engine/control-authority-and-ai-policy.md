@@ -119,11 +119,32 @@ types inside it, and the offer is a typed plugin rather than a table.
 
 ## Acceptance
 
-- ▢ `PossessionState::restore_brain` is DELETED, not merely unused — it is a
-  field of a rollback-registered resource, so its removal is a schema change and
-  belongs to a bump;
-- ▢ no exhaustive match anywhere has an arm for "a human is driving" beside arms
-  for wanderers;
+- ✔ `PossessionState::restore_brain` is DELETED, not merely unused — **verified
+  against the code 2026-09-02**: the resource has four fields (`possessed`,
+  `home`, `hold_timer`, `prev_down_interact`) and no brain state. The name
+  survives only in comments explaining what changed, and in an unrelated Yarn
+  command (`<<restore_brain>>` / `cmd_restore_brain`), which is a dialogue verb,
+  not this field.
+  ⚠ **The "belongs to a bump" half cannot be checked, by design, and this row
+  should not imply it can.** `RollbackRegistrationDescriptor` records
+  `name`/`owner`/`kind`/`type_name`/`detail` — all TYPE-level — so adding or
+  removing a FIELD of a registered resource moves neither `deterministic_dump()`
+  nor `schema_fingerprint()`, and `rollback_schema_baseline` stays green.
+  `GGRS_ROLLBACK_SCHEMA_VERSION` is the MANUAL knob for exactly the changes the
+  fingerprint cannot see; that is what it is for, not a hole in it. ⇒ "was it
+  bumped?" is answerable only by reading history, and I did not establish it —
+  `git log -S` on the file finds comment-cleanup and rename commits, and the
+  removal predates them.
+- ✔ no exhaustive match anywhere has an arm for "a human is driving" beside arms
+  for wanderers — **verified against the code 2026-09-02**: `Brain` has ONE
+  variant (`StateMachine`), and `CharacterBrainTemplate`'s nine (`StandStill`,
+  `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
+  `Aerial`, `Fighter`) contain no player/human arm.
+⇒ **TWO OF THE FOUR WERE ALREADY MET and had been carrying `▢` — the two that
+remain are the CARVE, and only the carve.** Checked 2026-09-02: `Smash` and
+`Fighter` are still variants of `CharacterBrainTemplate` in
+`ambition_characters`, so nothing below has moved.
+
 - ▢ `brain/smash` and `brain/fighter` leave `ambition_characters`, and the
   measured line count of that crate falls by roughly the 8,950 above — ⛔ a carve
   that only re-exports them has moved nothing, and the debt ledger must not be

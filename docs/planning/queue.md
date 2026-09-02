@@ -1399,7 +1399,9 @@ product ruling.
   insertion actually preceded, and headless the two land in the SAME frame);
   and no 67-79 ms frame ~0.1 s after `room-loaded` (`aca57e636`; the pre-fix
   captures `015511Z`/`015909Z`/`020529Z` all have it). The player must never
-  draw as a rectangle at start. (b) The census row reads
+  draw as a rectangle at start. ⭐ The bundle summary prints this verdict
+  itself since `b41044206` ("✔/⚠ FIRST ROOM: …", by frame); a `⚠` naming only
+  `ai_slop` is the basement prefetch, by design. (b) The census row reads
   `images_render_world_only=true` and `resident_mb` is roughly HALF the
   pre-`68d38076e` figure for the same room and tier (the CPU copy is gone);
   the history label carries `+render-world-only`. (c) HALL EXIT — no

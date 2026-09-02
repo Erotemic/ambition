@@ -1064,7 +1064,12 @@ now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
   where nextest has ~14 test processes live at once. A Bevy app test that is
   sensitive to CPU contention is worth knowing about; it is not a code defect,
   and treating it as one would have sent somebody hunting a change that does not
-  exist.
+  exist. ⛔ CORRECTED 2026-09-02: it was never contention. `nextest --workspace`
+  unifies features, and under the union the smash app's device layer rewrote
+  the frame the test wrote — a deterministic red in the gate, green per-crate
+  (`f4a757328`). Re-measured after the fix with the gate's own union binary:
+  28 copies contended 14-wide, 28/28 green. The last gate red (01:27Z) predates
+  the fix (04:02Z).
 * ✔ `ambition_sprite_sheet::fx::every_authored_effect_row_is_reachable_by_name`
   — fixed: 196 rows, because the trapdoor art arrived with the renderer that
   draws one.

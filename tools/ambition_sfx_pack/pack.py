@@ -120,7 +120,21 @@ def collect_entries(input_dir: Path) -> list[Entry]:
         if not render_json.exists():
             print(f"  skip {child.name}: no render.json", file=sys.stderr)
             continue
-        meta = json.loads(render_json.read_text())
+        # ⚠ NAME THE FILE. A bare `json.loads` raises `JSONDecodeError: Extra
+        # data: line 52 column 1` and nothing else — not which of 654
+        # render.json files it was, so finding it means writing a script. One
+        # corrupt manifest (valid JSON plus a stale five-byte tail, the shape a
+        # concurrent or interrupted write leaves) failed the whole sfx category
+        # this way on 2026-09-02.
+        try:
+            meta = json.loads(render_json.read_text())
+        except json.JSONDecodeError as ex:
+            raise SystemExit(
+                f"error: {render_json} is not valid JSON: {ex}\n"
+                f"  it is generated and git-ignored; delete its directory and "
+                f"re-run scripts/regen/sfx.sh to rebuild it:\n"
+                f"    rm -rf {child}"
+            ) from ex
         sfx_id = meta["id"]
         if meta.get("skipped"):
             print(f"  skip {sfx_id}: marked skipped in render.json", file=sys.stderr)

@@ -1035,6 +1035,14 @@ would instead keep the last room's cast resident while the total stays under
 a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
+⛔ **AND THE 2026-09-02 HOST RUN DOES NOT SUPPLY IT, though it looks like it
+does.** `desktop-timeline-run-20260902T215256Z` reports *"decoded images 0 → 252
+(78.3 MP, 313.1 MB of decode work); images resident at end 251"* — ⚠ that is
+DECODE WORK over the run and a count at the end, not a steady-state residency,
+and the hall leg of it ran under the room tier cap (quarter-tier art), so it is
+not the FULL figure this limit needs. It is also a one-way walk: hub → hall, with
+no return leg. ⇒ The input is still owed, and whoever takes the capture should
+make it hub → hall → hub at Full with the cap gone.
 
 ⚠ **Parallax is the one road that ACCUMULATES, and its ceiling is known
 (read from the code 2026-09-02, not yet measured on a walk).**

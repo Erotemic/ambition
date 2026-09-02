@@ -868,6 +868,23 @@ mod a_viewer_is_not_its_own_peer {
 
 /// ⛔⛔ A BRAIN THAT STOPS PERCEIVING MUST NOT KEEP WHAT IT LAST BELIEVED.
 ///
+/// ⚠ **AND THIS IS A UNIT TEST ON PURPOSE — the behavioural one was PRICED AND
+/// DECLINED, not forgotten.** The regression a reviewer would want is
+/// end-to-end: observe a hostile, `BrainCommand` to StandStill, tick, switch
+/// back, assert the old hostile is not recovered. Running the invariant in situ
+/// means driving `tick_actor_brains`, whose parameter list alone is **145 lines**
+/// (`update.rs:223-368`) — `PerceivedWorld`, `WorldTime`, `GameplayElapsed` and
+/// a dozen more authorities — and NOTHING in the tree drives it today: the only
+/// mentions outside its own file are three comments and one registration. The
+/// `BrainCommand` harness next door runs `apply_brain_commands` alone and cannot
+/// reach it.
+///
+/// ⇒ A fixture for that is out of proportion to a three-line helper, and a
+/// fixture built badly would assert less than the arms below while looking like
+/// more. What it would take to make it cheap, so this is actionable rather than
+/// refused: a harness that can tick ONE actor through `ActorDecisionSet::Decide`.
+/// If someone builds that for another reason, this is the first test to add to it.
+///
 /// `believed_target` is the only thing that ages a `PerceptionMemory`, and the
 /// `None` gate skips it — so before this invariant existed, a body switched to
 /// StandStill mid-match froze its belief, and switching back resurrected a

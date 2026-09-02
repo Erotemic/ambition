@@ -440,7 +440,32 @@ submodule), not a route. `[image-gpu]` lines only appear with a
 render world; headless runs show `awaiting gpu` growing instead, which is the
 readout saying nobody uploaded.
 
-#### ▢ The fourth stage: RESIDENT USE (first draw) — scoped 2026-09-02, not built
+#### ✔ The fourth stage: RESIDENT USE (first draw) — BUILT 2026-09-02
+
+⭐⭐ **BOTH HALVES LANDED.** The ledger half (`b360f4a3a`): `first_drawn_at`,
+`first_drawn(id, at)` and `resident_never_drawn()`. The render half: a
+`stamp_first_drawn_images` sibling of `stamp_gpu_prepared_images` in
+`ImageStagePlugin`, ordered after `RenderSystems::ExtractCommands`, reading
+`ExtractedSprites` and stamping first-write-wins. A `[image-drawn]` line prints
+`demand→draw NNNms via <road>` at the same NOTABLE threshold the other stages
+use, and the census row gains `never drawn N (M MP)`.
+
+⛔⛔ **AND THE ROW PRINTS `-`, NOT `0`, WITHOUT A RENDER WORLD.** With nothing
+extracted, EVERY resident image is "never drawn" — which on a headless road means
+nobody could have drawn anything, not that the pixels were wasted.
+`render_world_present()` is the fact that separates the two readings and the row
+consults it; a readout that skipped that check would accuse a `NoWindow` run of
+waste it cannot commit. Both rules are guarded on the pure ledger and
+poison-verified (drop first-write-wins and the guard names the instant that
+moved).
+
+⚠ **OWED: the `capture_scene hall_of_characters` number.** The end-to-end
+confirmation belongs to an OffscreenGpu run — `NoWindow` has no render world, so
+a headless test would wait for a draw forever — and the reading this section
+wants is `resident_never_drawn()` shrinking to the UI/prop art after the shot.
+Not taken yet.
+
+<details><summary>The scoping note, kept because it is what the build was measured against</summary>
 
 The ledger measures demand -> insert -> GPU. All three are about the asset
 ARRIVING; none says it was ever USED. That gap is why the re-decode census and
@@ -488,6 +513,8 @@ ledger's own cost shows up in what it measures. (2) A headless or `NoWindow`
 composition has no render world at all, so `first_drawn` is permanently absent
 there — the same asymmetry `is_awaiting_gpu` already documents, and the readout
 must say "no render world" rather than "never drawn", which are different facts.
+
+</details>
 
 ### 2. Demand before first visible use
 

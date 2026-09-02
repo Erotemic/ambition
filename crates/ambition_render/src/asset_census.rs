@@ -302,6 +302,7 @@ pub fn report_image_census(
         by_road,
         unrouted,
         unrouted_total,
+        never_drawn,
     ) = {
         let mut ledger = image_stages::ledger();
         let (count, megapixels, p50, max) = ledger.take_gpu_window();
@@ -343,6 +344,16 @@ pub fn report_image_census(
             .map(|(mp, path)| format!("{mp:.1}MP {path}"))
             .collect();
         let unrouted_total = ledger.unrouted_resident().len();
+        // ⛔⛔ ONLY WHERE A DRAW IS POSSIBLE. Without a render world nothing is
+        // ever extracted, so EVERY resident image is "never drawn" and the row
+        // would accuse a headless run of waste it cannot commit. The ledger's
+        // own doc says the two readings need separating; this is the separation.
+        let never_drawn: Option<(usize, f64)> = ledger.render_world_present().then(|| {
+            ledger
+                .resident_never_drawn()
+                .iter()
+                .fold((0usize, 0f64), |(n, mp), (row_mp, _)| (n + 1, mp + row_mp))
+        });
         (
             count,
             megapixels,
@@ -355,6 +366,7 @@ pub fn report_image_census(
             by_road,
             unrouted,
             unrouted_total,
+            never_drawn,
         )
     };
     if census.window_images > 0 || gpu_count > 0 || exiting {
@@ -373,7 +385,7 @@ pub fn report_image_census(
             "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident \
              | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting} \
              | re-decodes {re_decodes} | dropped before gpu {dropped} ({dropped_mp:.1}MP) \
-             | resident by road: {}",
+             | never drawn {} | resident by road: {}",
             census.window_images,
             census.window_megapixels,
             census.total_images,
@@ -381,6 +393,9 @@ pub fn report_image_census(
             census.total_bytes as f64 / 1.0e6,
             ms(gpu_p50),
             ms(gpu_max),
+            // `-` where a draw is not observable at all, which is a different
+            // fact from "nothing has been drawn yet".
+            never_drawn.map_or("-".to_string(), |(n, mp)| format!("{n} ({mp:.1}MP)")),
             by_road.join(", "),
         );
         // ⛔ ONE LINE, AND ONLY WHEN THERE IS SOMETHING TO SAY. An unrouted image
@@ -495,6 +510,58 @@ pub fn stamp_gpu_prepared_images(
     }
 }
 
+/// Stamp the FOURTH stage: this image was extracted, so this frame would draw it.
+///
+/// ⭐⭐ THE FIRST STAGE THAT IS ABOUT USE. Demand, insert and GPU all say the
+/// asset ARRIVED; none says anybody wanted it on screen. `ExtractedSprites` is
+/// filled AFTER visibility culling, so an id appearing there means "this frame
+/// would draw it", which is the honest meaning of resident use and closer than
+/// anything the three earlier stages can say.
+///
+/// ⛔ `SpriteBatch` IS ONE STEP LATER AND STRICTLY STRONGER — it survived
+/// batching — at the cost of running after `RenderSystems::Queue`. Extraction is
+/// preferred until a measurement shows it over-reports, which is the trade the
+/// scoping note asked for.
+///
+/// ⛔⛔ AND IT WRITES AT MOST ONCE PER IMAGE. Extraction runs every frame for
+/// every visible sprite; `ImageStageLedger::first_drawn` returns `None` after
+/// the first stamp, so the hot path here is a lock and a walk over the extracted
+/// list, and the ledger does not grow a per-frame write on the whole visible
+/// set. Without that rule this instrument's own cost would be part of what it
+/// measures.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn stamp_first_drawn_images(
+    sprites: Res<bevy::sprite_render::ExtractedSprites>,
+    started_at: Res<ImageStageClock>,
+) {
+    if sprites.sprites.is_empty() {
+        return;
+    }
+    let now = Instant::now();
+    let mut ledger = image_stages::ledger();
+    for sprite in sprites.sprites.iter() {
+        let Some(waited) = ledger.first_drawn(sprite.image_handle_id.untyped(), now) else {
+            continue;
+        };
+        let Some(stages) = ledger.get(sprite.image_handle_id.untyped()) else {
+            continue;
+        };
+        // The same NOTABLE threshold the other stages print at: an icon
+        // reaching the screen is not news, and a 25 MP sheet is.
+        if stages.megapixels < ImageCensus::NOTABLE_MEGAPIXELS {
+            continue;
+        }
+        let at = now.duration_since(started_at.0).as_secs_f64();
+        eprintln!(
+            "[image-drawn] {at:8.3}s {:6.1}MP {} demand→draw {:.0}ms via {}",
+            stages.megapixels,
+            stages.path.as_deref().unwrap_or("<runtime-generated>"),
+            waited.as_secs_f64() * 1e3,
+            stages.source.unwrap_or("?"),
+        );
+    }
+}
+
 /// The census clock, mirrored into the render world so `[image-gpu]` lines sit
 /// on the same timeline as `[image]` lines.
 #[derive(Resource, Clone, Copy)]
@@ -523,7 +590,13 @@ impl Plugin for ImageStagePlugin {
             image_stages::ledger().set_render_world_present(true);
             render_app.insert_resource(clock).add_systems(
                 Render,
-                stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
+                (
+                    stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
+                    // ⛔ AFTER EXTRACTION, which is where `ExtractedSprites` is
+                    // filled — and it is a SIBLING of the hook above rather than
+                    // new machinery: same sub-app, same clock, same ledger.
+                    stamp_first_drawn_images.after(RenderSystems::ExtractCommands),
+                ),
             );
         }
     }

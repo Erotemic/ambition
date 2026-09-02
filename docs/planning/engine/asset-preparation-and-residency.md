@@ -811,8 +811,15 @@ they converge, which was their claim all along. Host tell after a hall exit:
 no `[image]` line for a hall-only character with `live=1`.
 
 Quality changes should re-tier the same logical asset and converge predictably in
-both directions. Keep the currently reported live quality-switch issue attached
-to this program until a real rendered session demonstrates the round trip.
+both directions. ✔ The round trip is demonstrated headless with real decode
+(`a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`,
+2026-09-02): Full → Potato → Full in the direct host; each leg is judged only
+once the worn sheet's PAGES are loaded, every token resolves to the sheet it
+started with, and no character page is left resident without a realization
+(poison: three Full pages held across the drop are named). Keep the reported
+live quality-switch issue attached until a RENDERED session shows the same —
+the GPU half (old tier's `GpuImage` released, new tier's prepared before the
+swap draws) is not observable here.
 
 ### 7. Load/readiness semantics
 

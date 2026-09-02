@@ -129,3 +129,141 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
         swapped.join("\n"),
     );
 }
+
+/// The ROUND TRIP (asset open work 6): Full → Potato → Full converges back to
+/// the sheets the session started with, the worn character's pages are LOADED
+/// at the end of each leg (real decode, not a table entry), and no character
+/// page is left resident without a realization owning it — a tier swap that
+/// leaked the old tier's pages would show here as pages nobody owns.
+#[test]
+fn a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned() {
+    use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+
+    let mut app = boot();
+    for _ in 0..240 {
+        app.update();
+    }
+    let worn = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world).next().map(|w| w.0.as_str().to_owned())
+    }
+    .expect("a direct gameplay boot has a PrimaryPlayer wearing a character");
+    let original_profile = app
+        .world()
+        .resource::<UserSettings>()
+        .video
+        .quality
+        .profile;
+    assert_ne!(
+        original_profile,
+        VisualQualityProfile::Potato,
+        "premise: the round trip needs two different tiers"
+    );
+
+    // Step until the table is quiet AND every page of the worn sheet is loaded,
+    // so a leg is judged on decoded pixels rather than on a fresh table entry.
+    let settle = |app: &mut App| {
+        let mut quiet = 0;
+        let mut last = resident(app);
+        for _ in 0..1200 {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let now = resident(app);
+            let pages_loaded = {
+                let assets = app.world().resource::<GameAssets>();
+                let server = app.world().resource::<AssetServer>();
+                assets.characters.sheet(&worn).is_some_and(|sheet| {
+                    sheet
+                        .pages
+                        .iter()
+                        .all(|page| server.is_loaded_with_dependencies(page.texture.id()))
+                })
+            };
+            if now == last && pages_loaded {
+                quiet += 1;
+                if quiet >= 30 {
+                    return now;
+                }
+            } else {
+                quiet = 0;
+                last = now;
+            }
+        }
+        panic!("the residency table never settled with the worn sheet's pages loaded");
+    };
+    let orphans = |app: &App| -> Vec<String> {
+        let assets = app.world().resource::<GameAssets>();
+        let owned: std::collections::BTreeSet<String> = assets
+            .characters
+            .resident_sheets()
+            .map(|(_, sheet)| sheet)
+            .chain(assets.characters.props.values())
+            .flat_map(|sheet| sheet.pages.iter())
+            .filter_map(|page| page.texture.path().map(|path| path.to_string()))
+            .collect();
+        ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger()
+            .resident_rows()
+            .filter(|row| row.source == Some("character-sheet"))
+            .filter_map(|row| row.path.clone())
+            .filter(|path| !owned.contains(path))
+            .collect()
+    };
+
+    let at_start = settle(&mut app);
+    assert!(at_start.contains_key(&worn), "premise: `{worn}` is resident");
+
+    app.world_mut()
+        .resource_mut::<UserSettings>()
+        .video
+        .quality
+        .profile = VisualQualityProfile::Potato;
+    let at_potato = settle(&mut app);
+    assert_ne!(
+        at_potato.get(&worn),
+        at_start.get(&worn),
+        "premise: Potato moved the worn sheet's path"
+    );
+    let leaked = orphans(&app);
+    assert!(
+        leaked.is_empty(),
+        "after the drop to Potato, {} character page(s) are resident with no realization: {:?}",
+        leaked.len(),
+        leaked.iter().take(5).collect::<Vec<_>>()
+    );
+
+    app.world_mut()
+        .resource_mut::<UserSettings>()
+        .video
+        .quality
+        .profile = original_profile;
+    let back = settle(&mut app);
+    assert_eq!(
+        back.get(&worn),
+        at_start.get(&worn),
+        "the worn sheet did not come back to its original path after the round trip"
+    );
+    let drifted: Vec<String> = at_start
+        .iter()
+        .filter(|(token, path)| back.get(*token).is_some_and(|now| now != *path))
+        .map(|(token, path)| format!("{token}: {path} -> {}", back[token]))
+        .collect();
+    assert!(
+        drifted.is_empty(),
+        "{} token(s) resolve to a different sheet after the round trip than before it: {:?}",
+        drifted.len(),
+        drifted.iter().take(8).collect::<Vec<_>>()
+    );
+    let leaked = orphans(&app);
+    assert!(
+        leaked.is_empty(),
+        "after the return to {original_profile:?}, {} character page(s) are resident with no \
+         realization: {:?}",
+        leaked.len(),
+        leaked.iter().take(5).collect::<Vec<_>>()
+    );
+}

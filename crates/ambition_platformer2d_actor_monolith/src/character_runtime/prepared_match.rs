@@ -202,9 +202,14 @@ pub struct MatchRules {
     /// the field it is carried from, and [`Self::body_over`] for the precedence.
     pub body: Option<ambition_platformer2d_core::MatchBody>,
     /// The pool this match gives every seat, or `None` to keep each
-    /// character's own. See
-    /// [`MatchParticipantRoster::fighter_health_pool`](super::staging::MatchParticipantRoster::fighter_health_pool)
-    /// — the field it is carried from, and where the reasoning lives.
+    /// character's own. Carried on
+    /// [`MatchParticipantRoster::rules`](super::staging::MatchParticipantRoster::rules),
+    /// whose doc holds the reasoning.
+    ///
+    /// ⚠ It USED to name `MatchParticipantRoster::fighter_health_pool`, which
+    /// was one of the eight loose fields that collapsed into the single `rules`
+    /// field — the roster's own doc records that collapse, and this pointer
+    /// outlived it.
     pub health_pool: Option<i32>,
     pub opens_suspended: bool,
     /// How long the opening ceremony holds the cast, in simulation ticks.

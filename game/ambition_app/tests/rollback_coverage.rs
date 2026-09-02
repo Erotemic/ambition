@@ -1435,7 +1435,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_characters::actor::population_cap::AuthoredPopulationCap",
-        "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction plan's          admission quota, never written by a system. The quota it seeds lives on          the plan (`ActorAdmission`), whose lifetime is one room build",
+        "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction          plan's admission quota, never written by a system. ⛔ THE QUOTA IS SPENT          WHILE THE PLAN IS BUILT, not carried on it: `ActorAdmission` filters          `room.placements` as the record list is assembled (`spawn/mod.rs`), so a          refused placement never becomes a record and never gets an identity. The          older wording here said the quota `lives on the plan`, which described          the design before the cap moved to plan time and left a refused NPC          holding an authoritative root",
     ),
     (
         "ambition_characters::perception::PerceptionExtentOverride",

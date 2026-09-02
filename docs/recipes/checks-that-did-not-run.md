@@ -163,8 +163,26 @@ outside repo" errors appeared **in every worktree and in no clean checkout**.
 An external reviewer saw three errors. The session in the worktree saw five. Two
 of them were its environment.
 
+⭐ **AND THE SAME TRAP HAS A FLAGS-SHAPED TWIN, met the same day.** The wasm32
+CHECK was run here by hand — `cargo check -p ambition_app --lib --target
+wasm32-unknown-unknown --no-default-features --features web_served_assets`. It
+passed in 5m02s and emitted three warnings that looked like real rot:
+
+| warning | why it is NOT a defect |
+|---|---|
+| unused imports `ITEM_GRID_COLS`, `ITEM_GRID_ROWS` | they ARE used, in code gated `#[cfg(feature = "kaleidoscope_menu")]` — a feature this invocation's `--no-default-features` did not enable |
+| unused import `VisualQualityProfile` | same feature gate |
+| `prefetch_preparations` is never used | it IS used, by `tests/neighbor_prefetch_prepares_rooms.rs` — which `--lib` does not build, and which the gate's `cargo check --all-targets` does |
+
+Three warnings, zero defects, produced entirely by running a narrower command
+than the gate runs. ⛔ The mirror of member #3 exactly: there, a WARMER build
+hid warnings that existed; here, a NARROWER build invented warnings that did
+not. Both are the same mistake — reading a diagnostic list without knowing what
+produced it.
+
 ⛔ **THE GENERAL RULE: your error list is a property of your environment until
-you have compared it with one you did not build.** This cuts both ways — the
+you have compared it with one you did not build** — and "environment" includes
+your flags, not just your machine. This cuts both ways — the
 extras may be phantom, and a clean checkout may also show you something your
 warm tree has been hiding since member #3.
 

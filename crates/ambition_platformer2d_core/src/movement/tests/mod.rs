@@ -61,6 +61,7 @@ mod clock;
 mod combat_actions;
 mod contacts;
 mod glide_and_air;
+mod hazard_sweep;
 mod jump_squat;
 mod ledge_grab;
 mod submerged;

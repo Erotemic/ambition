@@ -36,28 +36,43 @@ Those are implementation facts now, not planning tasks.
 
 ## 1. Make hazard contact consume the canonical swept path
 
-**Open and source-confirmed.** The old CC2 campaign claimed hazard touch had
-been converted, but the current common movement gate still calls
-`touching_hazard_aabb(world, clusters.kinematics.aabb())`: it tests only the
-body's endpoint AABB. A sufficiently fast body can therefore cross a thin
-hazard between samples even though the movement kernel has already published a
-`SweepSample` for the tick.
+✔ **CLOSED.** The shared gate reads the tick's `SweepSample` (`prev -> curr`)
+through `hazard_contact_on_path`, so a body fast enough to step over a thin
+hazard is hit. A body with no sample keeps the endpoint test and nothing else —
+the one compatibility arm, chosen so no second motion model reconstructs a
+segment from `vel * dt` and disagrees with the kernel; `SweepSample`'s
+`TODO(compat-remove)` is the plan to delete it. Teleports needed no exclusion:
+the sample spans simulation-phase entry to exit, so a blink or room transfer is
+not inside the segment by construction. Guarded by
+`movement::tests::hazard_sweep` (5 cases, every motion policy), poison-verified
+in both halves.
 
-Desired end state:
+⛔ **The axis-swept arm ran the gate one tick stale, and that was the harder
+half.** `apply_world_hazard_gate` sat at the end of `update_body_simulation_
+inner` while that policy writes its `SweepSample` in the wrapper *after* the
+inner step returns — so the gate would have read the PREVIOUS tick's segment,
+and a zero-length default on the first tick. The other two policies already
+wrote their sample immediately before calling the gate. The gate now runs in the
+wrapper, after the write, and all three arms share the shape *write sample ->
+gate*. A reader that consumes a per-tick record must be ordered against the
+writer of that record, not merely placed in the same function.
 
-1. hazard contact in the common movement gate consumes the canonical
-   simulation-phase path (`SweepSample::prev -> curr`) rather than reconstructing
-   motion from velocity or using endpoint overlap alone;
-2. bodies without a sweep sample have one explicit compatibility behavior rather
-   than a second hidden motion model;
-3. teleports/blinks/room transfers remain excluded from the path by the existing
-   `SweepSample` phase semantics;
-4. a behavioral regression proves a fast body crossing a thin hazard is hit,
-   while a teleport across the same hazard is not falsely treated as traversed
-   simulation motion;
-5. both movement policies continue through the one shared hazard/OOB gate.
+⛔⛔ **AND MOVING IT CHANGED WHO IT JUDGES, WHICH IS A SECOND DECISION.** The
+inner step has three early returns — a `raw_dt <= 0.0` tick, a drowning, and a
+frame an active ledge grab consumed — and none reached the gate while it sat in
+the tail. Lifting it to the caller silently added all three: a frozen frame would
+judge a body nothing had stepped, and a body HANGING on a ledge whose box
+overlaps a hazard would start dying, which matters because spikes under a lip is
+an authored shape. `SimPhaseReach` now reports whether the phase reached its
+tail and the gate runs only on `Completed`, so the population is exactly what it
+was. ⚠ The SAMPLE WRITE is deliberately not gated the same way — it must run on
+every path, because a zero-dt tick has to record a zero-length segment rather
+than keep a stale one. Guarded by `a_hanging_body_is_not_judged_by_the_hazard_
+gate`, which proves the same body in the same spikes DOES die when nothing
+consumes its frame.
 
-Do not solve this with a source scanner. The behavior is directly testable.
+⇒ **Relocating a call relocates its population.** The ordering was the bug; the
+population was not, and one edit changed both.
 
 ## 2. Turn stable collision-oracle findings into behavioral regressions
 
@@ -96,6 +111,41 @@ portal-specific.
 AABB slope vocabulary from the old CC8 plan remains deferred until a real game
 or demo demands slopes. Do not build it merely to finish the historical
 campaign.
+
+## 6. The swept primitive's parity claim is false for touch contacts
+
+**Open, source-confirmed and measured once.** `cast::aabb_path_contacts`
+documents itself as *"PARITY by construction: it returns `true` for the
+already-overlapping (standing-in-it) case exactly as the old discrete
+`strict_intersects` did, then ADDS the swept path on top"*. The first half is
+true. The second is not: the discrete test reports boxes that **overlap**, while
+`sweep_hit` reports boxes that **contact**, so the sweep adds every TOUCH along
+the path — including a body sliding along a face it never enters.
+`reject_grazing_contact` does not cover it, because the approach is head-on on
+one axis while the other axis merely shares a plane.
+
+⭐ **MEASURED 2026-09-02 in `blink_run`.** A body walking the start floor with
+feet at `y = 128.0`, against a hazard whose top face is also `y = 128.0`, was
+reported as hitting the hazard the instant its leading edge passed `x = 288.0`
+(endpoint AABB `max = (288.87, 128.0)` vs hazard `min = (288.0, 128.0)`). It
+walked along a surface and was killed for it. This is not an exotic shape: an
+authored death gap ALWAYS shares its top face with the floor it interrupts.
+
+The hazard gate fixed this **on the consumer side**, insetting the hazard to its
+interior before the swept query (`movement::collision::HAZARD_SURFACE_EPSILON`),
+and deliberately did not change the primitive on the strength of one case.
+Guarded by `movement::tests::hazard_sweep::walking_a_floor_flush_with_a_hazards_
+top_face_is_not_a_hit`, across every motion policy, poison-verified.
+
+⚠ **THE OTHER CONSUMERS ARE OVER-TRIGGER LATENT, UNMEASURED.** Room and
+loading-zone entry both read the same primitive (see "Verified current
+foundation"). Neither has been shown to misfire, and neither has been checked —
+the reason they may not is that a loading zone is rarely coplanar with a
+walkable surface, which is a property of current authoring rather than a rule.
+⛔ Do not "fix" them speculatively. The open question is whether the parity claim
+should be corrected at the primitive — a strict-overlap variant beside the
+contact one — or whether contact is right for triggers and only hazards want
+overlap. Answer that with a second measured case, not by reasoning.
 
 ## Exit
 

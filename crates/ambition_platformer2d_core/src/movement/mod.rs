@@ -60,7 +60,7 @@ pub use authority::{
     arrive_body_in_room, carry_body, constrain_body_pose, halt_body, reconcile_transit,
     shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
 };
-pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
+pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
 pub use facts::{BodyMotionFacts, LedgeFacts, PoseOwnedExternally};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
@@ -302,7 +302,7 @@ pub(crate) fn update_body_simulation_in_frame(
     // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
-    let events = update_body_simulation_inner(
+    let (mut events, reach) = update_body_simulation_inner(
         world,
         clusters,
         state,
@@ -321,6 +321,24 @@ pub(crate) fn update_body_simulation_in_frame(
             half: clusters.kinematics.size * 0.5,
         };
     }
+
+    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
+    //
+    // ⛔ AFTER THE SAMPLE WRITE, AND THAT ORDER IS THE CONTRACT. The gate reads
+    // the tick's travelled path, so running it inside the inner step — where it
+    // used to live — read the PREVIOUS tick's segment, and on the first tick a
+    // zero-length default. The other two policy arms already write their sample
+    // immediately before calling the gate; this arm captures its endpoints out
+    // here, so the gate has to be out here too.
+    //
+    // ⛔⛔ AND ONLY ON THE PATH THAT USED TO REACH IT. `SimPhaseReach` exists
+    // because moving the gate out here would otherwise have ADDED three
+    // populations the tail never judged — a zero-dt tick, a drowning, and a frame
+    // an active ledge grab consumed. This is an ordering fix, not a widening.
+    if reach == SimPhaseReach::Completed {
+        kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
+    }
+
     events
 }
 
@@ -380,6 +398,28 @@ pub(super) fn recovery_refresh(
     }
 }
 
+/// Did the simulation phase run to its END this tick, or short-circuit?
+///
+/// ⛔ THE HAZARD/OOB GATE RUNS ONLY ON `Completed`, AND THAT IS A POPULATION
+/// DECISION, not a detail. `update_body_simulation_inner` has three early
+/// returns — a `raw_dt <= 0.0` tick, a drowning, and a frame an active ledge
+/// grab consumed — and none of them ever reached the gate while it sat in that
+/// function's tail. Moving the gate to the caller without this flag silently
+/// added all three: a body hanging on a ledge whose box overlaps a hazard
+/// (spikes under a lip is an authored shape) would start dying, and a frozen
+/// frame would judge a body nothing had stepped.
+///
+/// ⚠ The SAMPLE WRITE is deliberately NOT gated on this. It runs on every path,
+/// because a zero-dt tick must record a zero-length segment rather than keep a
+/// stale one.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SimPhaseReach {
+    /// The phase ran to its tail: the body was stepped and may be judged.
+    Completed,
+    /// The phase returned early; this tick did not step the body.
+    ShortCircuited,
+}
+
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -391,10 +431,10 @@ fn update_body_simulation_inner(
     contact: body_contact::BodyContactField<'_>,
     // See `MotionStepContext::recovery_commitment_outstanding`.
     recovery_commitment_outstanding: bool,
-) -> FrameEvents {
+) -> (FrameEvents, SimPhaseReach) {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
-        return events;
+        return (events, SimPhaseReach::ShortCircuited);
     }
     let dt = raw_dt.min(1.0 / 30.0);
 
@@ -449,7 +489,7 @@ fn update_body_simulation_inner(
     // Drowning gate — body flags the cause; the owner applies its policy.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
         events.reset = Some(ResetCause::Drowned);
-        return events;
+        return (events, SimPhaseReach::ShortCircuited);
     }
 
     // Age lifetime + timers + combo trace — cluster + maneuver-state inline.
@@ -632,7 +672,7 @@ fn update_body_simulation_inner(
         tuning,
         &mut events,
     ) {
-        return events;
+        return (events, SimPhaseReach::ShortCircuited);
     }
 
     // Consume the buffered jump (or convert to swim stroke /
@@ -690,10 +730,7 @@ fn update_body_simulation_inner(
         &mut events,
     );
 
-    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
-    kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
-
-    events
+    (events, SimPhaseReach::Completed)
 }
 
 fn dec(value: f32, dt: f32) -> f32 {

@@ -518,11 +518,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   in the survey. ⛔ Not a straight cache swap: `cache.rows` is empty off the
   System face while a System action stays reachable there, so an unguarded
   substitution resolves every such hover to `MenuFocus::System(0)`; it wants an
-  active-page guard. Also open: `focus_for_action` and `focus_for_action_in_rows`
-  now BOTH exist, differing only in whether the caller built the list — the "same
-  lookup wearing different names" drift `character/assets.rs:261` records — and
-  `grid_backend::focus_key_for_cursor` still rebuilds the list once per
-  actionable node.
+  active-page guard. ✔ **BOTH "also open" items CLOSED 2026-09-01** (`63cceae0a`),
+  and re-verified against the code 2026-09-02: `focus_for_action_in_rows` no
+  longer exists — there is ONE `focus_for_action` taking `rows` as a parameter,
+  so the "same lookup wearing different names" drift `character/assets.rs:261`
+  records is undone — and `grid_backend::cursor_focus_key` builds the row list
+  ONCE, outside its loop over the page's nodes.
+  ⛔ THE NAME IN THIS ROW WAS INVENTED. It read
+  `grid_backend::focus_key_for_cursor`, which `git log -S` says has never existed
+  in this repository; the function is `cursor_focus_key`, and the same fabricated
+  name had also reached a doc comment in `kaleidoscope_app.rs`. A citation nobody
+  greps is a citation nobody can check — this one survived a commit message, a
+  planning row and a code comment.
   Still per frame and still allocating:
   `RadioSnapshot`'s `String` per station and the `RebuildKey` clone of it —
   both small, both a count away if they matter. Read the map for what is

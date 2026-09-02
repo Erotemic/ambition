@@ -30,6 +30,19 @@ store_for() {
 
 fstype_of() { findmnt -no FSTYPE --target "$1" 2>/dev/null || echo unknown; }
 
+# ⛔⛔ A LIVE MOUNT CAN OUTLIVE ITS BACKING DIRECTORY, and `mountpoint` cannot see
+# it. Delete the store while the bind mount is up — a cache sweep, a stale-slot
+# cleanup, `rm -rf ~/.cache/ambition-targets/<slot>` — and the mount stays up over
+# an UNLINKED directory: `mountpoint -q` still says yes, `findmnt` appends
+# `//deleted` to SOURCE, and every create under the mount point fails with ENOENT.
+# The store path is the only cheap thing that tells the truth.
+#
+# Measured 2026-09-02 on agent-worktree1: `agent_worktree.sh list` printed `bound`,
+# `--status` printed `BOUND`, `--check` exited 0, and `setup` said "already bound"
+# and skipped the repair — while a seed died on a raw
+# `mkdir: cannot create directory ...: No such file or directory`.
+store_is_gone() { [ ! -d "$1" ]; }
+
 cmd_status() {
     local root target fs store
     root="$(worktree_root)"
@@ -42,6 +55,12 @@ cmd_status() {
     printf 'target       %s\n' "$target"
     if [ ! -d "$target" ]; then
         printf 'state        ABSENT (cargo has not built here yet)\n'
+    elif mountpoint -q "$target" && store_is_gone "$store"; then
+        printf 'state        ⛔ BOUND, BUT THE BACKING STORE IS GONE\n'
+        printf '             The mount is live over an unlinked directory, so every write\n'
+        printf '             under target/ fails with ENOENT. Nothing here is recoverable —\n'
+        printf '             the artifacts went with the store. Rebind and reseed:\n'
+        printf '                 %s\n' "$0"
     elif mountpoint -q "$target"; then
         printf 'state        BOUND -> %s\n' "$(findmnt -no SOURCE --target "$target" 2>/dev/null || echo '?')"
         printf 'size         %s\n' "$(du -sh "$target" 2>/dev/null | cut -f1)"
@@ -73,7 +92,26 @@ cmd_check() {
 
     [ "$fs" = virtiofs ] || return 0
     [ -d "$target" ] || return 0
-    mountpoint -q "$target" && return 0
+    if mountpoint -q "$target"; then
+        store_is_gone "$(store_for "$root")" || return 0
+        printf '\n' >&2
+        printf '  ⛔⛔ TARGET IS BOUND OVER A DELETED BACKING STORE.\n' >&2
+        printf '\n' >&2
+        printf '  %s\n' "$target" >&2
+        printf '  is a live mount whose backing directory no longer exists. `mountpoint`\n' >&2
+        printf '  still reports it as bound, but the directory is unlinked, so EVERY\n' >&2
+        printf '  create under it fails with ENOENT — a build or a seed dies here on a\n' >&2
+        printf '  bare "No such file or directory" naming a path that looks present.\n' >&2
+        printf '\n' >&2
+        printf '  FIX IT — rebinds onto a fresh store:\n' >&2
+        printf '\n' >&2
+        printf '      scripts/setup/target_bindmount.sh\n' >&2
+        printf '\n' >&2
+        printf '  ⚠ The previous artifacts are GONE with the store; reseed after rebinding\n' >&2
+        printf '     (scripts/agent_worktree.sh seed <n>).\n' >&2
+        printf '\n' >&2
+        return 2
+    fi
 
     printf '\n' >&2
     printf '  ⛔⛔ TARGET IS ON VIRTIOFS AND NOT SHADOWED.\n' >&2
@@ -113,8 +151,20 @@ cmd_mount() {
     fi
 
     if [ -d "$target" ] && mountpoint -q "$target"; then
-        printf 'already bound: %s -> %s\n' "$target" "$store"
-        return 0
+        # ⛔ "Mounted" is not "working". If the store was deleted under the live
+        # mount, reporting `already bound` here is what makes the failure durable:
+        # the caller believes the slot is ready and the ENOENT surfaces minutes
+        # later inside cargo. Unmount and fall through to a fresh bind instead.
+        if store_is_gone "$store"; then
+            printf '⚠ bound, but the backing store is GONE: %s\n' "$store"
+            printf '  the mount was live over an unlinked directory — every write under\n'
+            printf '  target/ was failing with ENOENT. Rebinding onto a fresh store.\n'
+            printf '  ⚠ the artifacts that were there are gone with it; reseed.\n'
+            sudo umount "$target"
+        else
+            printf 'already bound: %s -> %s\n' "$target" "$store"
+            return 0
+        fi
     fi
 
     # ⛔⛔ A POPULATED `target/` IS NOT A PROBLEM — SHADOWING IT IS THE POINT.

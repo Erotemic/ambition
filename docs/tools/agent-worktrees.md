@@ -74,6 +74,18 @@ against the shared target" rule applied to unbound worktrees.
 builds silently go to the shared virtiofs mount and everything gets slower.
 `list` prints `LOCAL` instead of `bound` when that has happened.
 
+⛔⛔ **A MOUNT CAN OUTLIVE ITS STORE, and `mountpoint` cannot see it.** Delete a
+store under a live mount — a cache sweep, a stale-slot cleanup, `rm -rf
+~/.cache/ambition-targets/<slot>` — and the mount stays up over an *unlinked*
+directory. `mountpoint -q` still says yes, so this used to read as `bound`
+everywhere while every create under `target/` returned ENOENT; a build or a seed
+then died on a bare `No such file or directory` naming a path that plainly
+exists. 2026-09-02 it had taken all three slot stores at once and nothing
+reported it. `list` now prints `BROKEN` (it probes a write, which is the only
+cheap check that sees this), `target_bindmount.sh --check` exits 2, and
+`--mount` rebinds instead of reporting `already bound`. **The artifacts are gone
+with the store — repair, then reseed.**
+
 ## Seeding and clearing
 
 `seed` copies a warm target into a slot:

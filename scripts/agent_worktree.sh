@@ -61,13 +61,43 @@ human() { du -sh "$1" 2>/dev/null | cut -f1 || printf '?'; }
 # on one filesystem — so linking `<wt>/target` to `<other>/target` always fails.
 # The backing stores are all plain directories under one mount, so linking works
 # there. Falls back to the target path itself when the tree is not bound.
+#
+# ⛔⛔ IT MUST NEVER RETURN AN EMPTY STRING. `findmnt` reports SOURCE as
+# `<dev>[<path>//deleted]` once the backing directory is removed under a live
+# mount, and `readlink -f` fails on that path because a non-final component is
+# gone — so this printed NOTHING, and `cmd_seed` went on to build ROOT-RELATIVE
+# paths out of it: `mkdir -p "/debug"`, `rm -rf "/debug/deps"`. Verified
+# 2026-09-02. Fail loudly instead; `target_state` is what callers should ask.
 store_of() {
-    local root="$1" src
+    local root="$1" src out
     src="$(findmnt -no SOURCE --target "$root/target" 2>/dev/null || true)"
     case "$src" in
-        *\[*\]) printf '%s' "$(readlink -f "/${src#*[}" 2>/dev/null | sed 's/]$//')" ;;
-        *) printf '%s' "$root/target" ;;
+        *\[*\]) out="$(readlink -f "/${src#*[}" 2>/dev/null | sed 's/]$//')" ;;
+        *) out="$root/target" ;;
     esac
+    [ -n "$out" ] || die "cannot resolve the backing store for $root/target (findmnt SOURCE: ${src:-none}).
+  A mount over a DELETED store reports exactly this. Repair it:
+      ( cd $root && scripts/setup/target_bindmount.sh )"
+    printf '%s' "$out"
+}
+
+# bound / LOCAL / BROKEN / absent.
+#
+# BROKEN is a live mount whose backing store has been deleted: `mountpoint` still
+# says yes and the path looks present, but the directory is unlinked and every
+# create under it returns ENOENT. PROBE A WRITE — no cheaper check sees it, and
+# on 2026-09-02 `list` reported `bound` for a slot in exactly this state while a
+# seed died on a bare `mkdir: No such file or directory`.
+target_state() {
+    local t="$1/target"
+    [ -d "$t" ] || { printf 'absent'; return; }
+    mountpoint -q "$t" 2>/dev/null || { printf 'LOCAL'; return; }
+    if ( : > "$t/.bindprobe" ) 2>/dev/null; then
+        rm -f "$t/.bindprobe"
+        printf 'bound'
+    else
+        printf 'BROKEN'
+    fi
 }
 
 # ── list ──────────────────────────────────────────────────────────────────────
@@ -77,7 +107,7 @@ cmd_list() {
     local total; total="$(nproc)"
     printf '%-6s %-4s %-22s %-7s %-8s %-6s %s\n' \
         main "$total" "$(git -C "$MAIN" rev-parse --abbrev-ref HEAD)" \
-        "$(mountpoint -q "$MAIN/target" && echo bound || echo LOCAL)" \
+        "$(target_state "$MAIN")" \
         "$(human "$MAIN/target")" \
         "$(busy "$MAIN" && echo yes || echo no)" "$MAIN"
 
@@ -91,13 +121,16 @@ cmd_list() {
         fi
         head="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
         [ "$head" = HEAD ] && head="detached $(git -C "$path" rev-parse --short HEAD 2>/dev/null)"
-        bound="$(mountpoint -q "$path/target" && echo bound || echo LOCAL)"
+        bound="$(target_state "$path")"
         size="$(human "$path/target")"
         printf '%-6s %-4s %-22s %-7s %-8s %-6s %s\n' \
             "$n" "$(slot_jobs "$n")" "$head" "$bound" "$size" \
             "$(busy "$path" && echo yes || echo no)" "$path"
     done
     printf '\nTARGET=LOCAL on a virtiofs checkout means builds are on the SHARED mount.\n'
+    printf 'TARGET=BROKEN means the mount is live but its backing store was DELETED:\n'
+    printf '  nothing can be written there and the artifacts are gone. Repair with\n'
+    printf '  ( cd <path> && scripts/setup/target_bindmount.sh ), then reseed.\n'
     printf 'BUSY=yes means a cargo build holds that build lock right now.\n'
 }
 
@@ -163,6 +196,18 @@ cmd_seed() {
     busy "$from" && die "donor is BUILDING right now: $from
   Seeding would hardlink partially written artifacts. Wait for it to finish."
     busy "$path" && die "slot $n is BUILDING right now — refusing to seed under it"
+
+    # ⛔ A MOUNT OVER A DELETED STORE LOOKS BOUND AND ACCEPTS NOTHING. Without this
+    # the first `mkdir -p` inside the loop fails with a bare
+    # `No such file or directory` naming a path that plainly exists, which reads as
+    # a broken script rather than a broken mount. Check BOTH ends: a donor in this
+    # state has no artifacts to give either.
+    [ "$(target_state "$path")" = BROKEN ] && die "slot $n's target is a live mount over a DELETED backing store.
+  Nothing can be written there and the old artifacts are gone. Rebind first:
+      ( cd $path && scripts/setup/target_bindmount.sh )"
+    [ "$(target_state "$from")" = BROKEN ] && die "the donor's target is a live mount over a DELETED backing store: $from
+  There is nothing to seed FROM. Rebind and rebuild it first:
+      ( cd $from && scripts/setup/target_bindmount.sh )"
 
     # Link through the STORES, not the bind-mounted target paths (see store_of).
     src_store="$(store_of "$from")"

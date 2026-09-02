@@ -622,7 +622,7 @@ mod dispatch_parity {
             InventoryUiBackend::Grid,
             MenuPageAction::Equip(axe),
         );
-        let grid_equipped = grid.world().resource::<OwnedItems>().equipped();
+        let grid_equipped = crate::menu::effects::hand_of_primary_player(grid.world_mut());
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
         cube.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
@@ -631,7 +631,7 @@ mod dispatch_parity {
             InventoryUiBackend::LunexKaleidoscope,
             MenuPageAction::Equip(axe),
         );
-        let cube_equipped = cube.world().resource::<OwnedItems>().equipped();
+        let cube_equipped = crate::menu::effects::hand_of_primary_player(cube.world_mut());
 
         assert_eq!(grid_equipped, Some(axe), "grid release equipped the item");
         assert_eq!(

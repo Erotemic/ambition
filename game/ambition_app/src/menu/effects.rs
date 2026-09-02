@@ -7,11 +7,12 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::actors::items::pickup::{
-    equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
+    equip_held_spec, held_spec_for_item, item_in_hand, unequip_held, StashedActionSet,
 };
 use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::engine_core::BodyMana;
-use ambition_platformer2d::items::{Item, ItemCategory, OwnedItems};
+use ambition_platformer2d::items::{Inventory, Item, ItemCategory, OwnedItems};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
@@ -35,8 +36,8 @@ pub enum MenuAction {
     NotOwned(Item),
 }
 
-/// Decide the action for confirming `item`.
-pub fn decide(item: Item, owned: &OwnedItems) -> MenuAction {
+/// Decide the action for confirming `item`, against the bag AND the hand.
+pub fn decide(item: Item, owned: &Inventory<'_>) -> MenuAction {
     if !owned.has(item) {
         return MenuAction::NotOwned(item);
     }
@@ -96,9 +97,66 @@ pub(crate) type MenuEffectPlayers<'w, 's> = Query<
     (With<PlayerEntity>, With<PrimaryPlayer>),
 >;
 
+/// The primary player's HAND, read where it lives (I1): what the menu calls
+/// "equipped". Every menu reader of that fact goes through [`Self::in_hand`];
+/// there is no catalog slot mirroring it any more.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct PrimaryHand<'w, 's> {
+    held: Query<'w, 's, Option<&'static HeldItem>, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    #[cfg(feature = "portal")]
+    guns: Query<
+        'w,
+        's,
+        Option<&'static ambition_platformer2d::portal::PortalGun>,
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+}
+
+impl PrimaryHand<'_, '_> {
+    /// The catalog item in the primary player's hand, or `None` for an empty
+    /// hand, an item the catalog has no row for, or no primary player at all.
+    pub(crate) fn in_hand(&self) -> Option<Item> {
+        let held = self.held.single().ok().flatten();
+        #[cfg(feature = "portal")]
+        let gun = self.guns.single().ok().flatten();
+        item_in_hand(
+            held,
+            #[cfg(feature = "portal")]
+            gun,
+        )
+    }
+}
+
 /// The player-mana query shape shared by every menu-effect dispatch.
 pub(crate) type MenuEffectManaQuery<'w, 's> =
     Query<'w, 's, &'static mut BodyMana, (With<PlayerEntity>, With<PrimaryPlayer>)>;
+
+/// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
+/// tests used to read off `OwnedItems::equipped`).
+#[cfg(test)]
+pub(crate) fn hand_of_primary_player(world: &mut World) -> Option<Item> {
+    let held = world
+        .query_filtered::<Option<&HeldItem>, (With<PlayerEntity>, With<PrimaryPlayer>)>()
+        .single(world)
+        .ok()
+        .flatten()
+        .cloned();
+    #[cfg(feature = "portal")]
+    let gun = world
+        .query_filtered::<
+            Option<&ambition_platformer2d::portal::PortalGun>,
+            (With<PlayerEntity>, With<PrimaryPlayer>),
+        >()
+        .single(world)
+        .ok()
+        .flatten()
+        .cloned();
+    item_in_hand(
+        held.as_ref(),
+        #[cfg(feature = "portal")]
+        gun.as_ref(),
+    )
+}
 
 /// Decide and apply the effect of confirming `item` (equip / unequip / use /
 /// inspect). The ONE place both menu backends turn an item confirmation into ECS
@@ -107,12 +165,13 @@ pub(crate) type MenuEffectManaQuery<'w, 's> =
 pub(crate) fn dispatch_item_confirm(
     item: Item,
     owned: &mut OwnedItems,
+    hand: &PrimaryHand<'_, '_>,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
     mana_q: &mut MenuEffectManaQuery<'_, '_>,
     heals: &mut MessageWriter<PlayerHealRequested>,
 ) -> MenuAction {
-    let action = decide(item, owned);
+    let action = decide(item, &Inventory::new(owned, hand.in_hand()));
     apply_menu_action(action, owned, commands, players, mana_q, heals);
     action
 }
@@ -143,21 +202,10 @@ pub(crate) fn apply_menu_action(
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
                 // Clear whatever weapon is currently held (a held item OR the
                 // portal gun) so we re-stash the true base, then equip the new one.
-                //
-                // the catalog's equipped slot rides along inside these
-                // calls rather than being set once at the end. `OwnedItems::
-                // equipped` and the body's `HeldItem`/`PortalGun` are one fact
-                // stored twice, and every site that wrote only one of them
-                // drifted. The release clears the slot, the take names the new
-                // one, and the net is the item just equipped.
+                // The hand is the only record of what is equipped (I1): there is
+                // no catalog slot to keep in step any more.
                 if stashed.is_some() {
-                    unequip_held(
-                        commands,
-                        player,
-                        &mut action_set,
-                        stashed,
-                        Some(&mut *owned),
-                    );
+                    unequip_held(commands, player, &mut action_set, stashed);
                     #[cfg(feature = "portal")]
                     commands
                         .entity(player)
@@ -169,27 +217,20 @@ pub(crate) fn apply_menu_action(
                         commands,
                         player,
                         &mut action_set,
-                        Some(&mut *owned),
                     );
                 } else if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec, Some(&mut *owned));
+                    equip_held_spec(commands, player, &mut action_set, spec);
                 }
                 #[cfg(not(feature = "portal"))]
                 if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec, Some(&mut *owned));
+                    equip_held_spec(commands, player, &mut action_set, spec);
                 }
             }
         }
         MenuAction::Unequip(_item) => {
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
                 // Detach both possible weapon front-ends (held item + portal gun).
-                unequip_held(
-                    commands,
-                    player,
-                    &mut action_set,
-                    stashed,
-                    Some(&mut *owned),
-                );
+                unequip_held(commands, player, &mut action_set, stashed);
                 #[cfg(feature = "portal")]
                 commands
                     .entity(player)
@@ -219,16 +260,78 @@ mod tests {
     #[test]
     fn unowned_item_is_a_noop_action() {
         let owned = OwnedItems::default();
-        assert_eq!(decide(Item::Axe, &owned), MenuAction::NotOwned(Item::Axe));
+        assert_eq!(
+            decide(Item::Axe, &Inventory::new(&owned, None)),
+            MenuAction::NotOwned(Item::Axe)
+        );
     }
 
     #[test]
     fn weapon_toggles_between_equip_and_unequip() {
         let mut owned = OwnedItems::default();
         owned.grant(Item::Axe, 1);
-        assert_eq!(decide(Item::Axe, &owned), MenuAction::Equip(Item::Axe));
-        owned.set_equipped(Some(Item::Axe));
-        assert_eq!(decide(Item::Axe, &owned), MenuAction::Unequip(Item::Axe));
+        assert_eq!(
+            decide(Item::Axe, &Inventory::new(&owned, None)),
+            MenuAction::Equip(Item::Axe)
+        );
+        assert_eq!(
+            decide(Item::Axe, &Inventory::new(&owned, Some(Item::Axe))),
+            MenuAction::Unequip(Item::Axe)
+        );
+    }
+
+    /// A weapon picked up off the FLOOR has no stored copy; the hand is the
+    /// record, and the menu must offer to stow it rather than call it not
+    /// acquired (I1).
+    /// THE DEFECT THE MIRROR HAD: a second seat picking up a gun-sword marked
+    /// it equipped in the first seat's menu, because one process-global slot
+    /// was written by every equip road. `PrimaryHand` reads the primary body
+    /// and nobody else's.
+    #[test]
+    fn another_seats_weapon_is_not_the_primary_players_equipped_item() {
+        use ambition_platformer2d::characters::brain::held_item_by_id;
+        #[derive(Resource, Default)]
+        struct Seen(Option<Option<Item>>);
+        fn read(hand: PrimaryHand, mut seen: ResMut<Seen>) {
+            seen.0 = Some(hand.in_hand());
+        }
+        let mut app = App::new();
+        app.init_resource::<Seen>();
+        app.add_systems(Update, read);
+        let sword = held_item_by_id("gun_sword").unwrap();
+        // Seat two, wielding.
+        app.world_mut()
+            .spawn((PlayerEntity, HeldItem::new(sword.clone())));
+        // The primary player, empty-handed.
+        let primary = app.world_mut().spawn((PlayerEntity, PrimaryPlayer)).id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<Seen>().0,
+            Some(None),
+            "seat two's gun-sword must not read as the primary player's equipped item"
+        );
+        // And the primary's own hand does.
+        app.world_mut()
+            .entity_mut(primary)
+            .insert(HeldItem::new(sword));
+        app.update();
+        assert_eq!(app.world().resource::<Seen>().0, Some(Some(Item::GunSword)));
+    }
+
+    #[test]
+    fn a_wielded_weapon_with_no_stored_copy_is_owned_and_stowable() {
+        let owned = OwnedItems::default();
+        assert_eq!(
+            decide(
+                Item::GunSword,
+                &Inventory::new(&owned, Some(Item::GunSword))
+            ),
+            MenuAction::Unequip(Item::GunSword)
+        );
+        assert_eq!(
+            decide(Item::GunSword, &Inventory::new(&owned, None)),
+            MenuAction::NotOwned(Item::GunSword)
+        );
     }
 
     #[test]
@@ -238,16 +341,16 @@ mod tests {
         owned.grant(Item::ManaCell, 1);
         owned.grant(Item::DataChip, 1);
         assert_eq!(
-            decide(Item::HealthCell, &owned),
+            decide(Item::HealthCell, &Inventory::new(&owned, None)),
             MenuAction::UseConsumable(Item::HealthCell)
         );
         assert_eq!(
-            decide(Item::ManaCell, &owned),
+            decide(Item::ManaCell, &Inventory::new(&owned, None)),
             MenuAction::UseConsumable(Item::ManaCell)
         );
         // Owned but no effect → inspect.
         assert_eq!(
-            decide(Item::DataChip, &owned),
+            decide(Item::DataChip, &Inventory::new(&owned, None)),
             MenuAction::Inspect(Item::DataChip)
         );
     }
@@ -258,9 +361,12 @@ mod tests {
         let mut owned = OwnedItems::default();
         owned.grant(Item::Fly, 1);
         owned.grant(Item::MapFragment, 1);
-        assert_eq!(decide(Item::Fly, &owned), MenuAction::Inspect(Item::Fly));
         assert_eq!(
-            decide(Item::MapFragment, &owned),
+            decide(Item::Fly, &Inventory::new(&owned, None)),
+            MenuAction::Inspect(Item::Fly)
+        );
+        assert_eq!(
+            decide(Item::MapFragment, &Inventory::new(&owned, None)),
             MenuAction::Inspect(Item::MapFragment)
         );
     }
@@ -276,12 +382,14 @@ mod tests {
             "Mark/Recall is wired"
         );
         assert_eq!(
-            decide(Item::MarkRecall, &owned),
+            decide(Item::MarkRecall, &Inventory::new(&owned, None)),
             MenuAction::Equip(Item::MarkRecall)
         );
-        owned.set_equipped(Some(Item::MarkRecall));
         assert_eq!(
-            decide(Item::MarkRecall, &owned),
+            decide(
+                Item::MarkRecall,
+                &Inventory::new(&owned, Some(Item::MarkRecall))
+            ),
             MenuAction::Unequip(Item::MarkRecall)
         );
     }

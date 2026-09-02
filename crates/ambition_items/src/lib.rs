@@ -510,25 +510,71 @@ impl Item {
 
 }
 
-/// Quantity-owned catalog items plus the currently equipped slot.
+/// Quantity-owned catalog items: the BAG.
 ///
 /// `counts` is authoritative only for entitlements with no world object. Held
-/// item instances remain authoritative on the object/custody side; [`Self::count`]
-/// projects both populations for queries. Persistence writes stored quantities
-/// through [`Self::to_persisted`] and never serializes that projection as a
-/// second ownership authority.
+/// item instances remain authoritative on the object/custody side — a body's
+/// `HeldItem` / `PortalGun` IS the record that it wields something — and
+/// [`Inventory`] projects the two populations together for a reader that wants
+/// one answer. Persistence writes stored quantities through
+/// [`Self::to_persisted`] and never serializes that projection as a second
+/// ownership authority.
+///
+/// ⛔ THERE IS NO `equipped` FIELD ANY MORE (I1, 2026-09-02). One existed: a
+/// process-global mirror of "some body holds X", written by every equip road
+/// and read by the menu. Four seats cannot share one slot as authority — seat
+/// two picking up a gun-sword marked it equipped in seat one's menu — and a
+/// mirror that has to be written beside the truth is the shape this tree keeps
+/// paying for. The hand is read where it lives.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
-    equipped: Option<Item>,
 }
 
 impl Default for OwnedItems {
     fn default() -> Self {
         Self {
             counts: [0; ITEM_COUNT],
-            equipped: None,
         }
+    }
+}
+
+/// What ONE body can be said to have: its bag plus the item in its hand.
+///
+/// The bag is process-wide (an entitlement ledger); the hand is the body's own
+/// `HeldItem` / `PortalGun`, projected to a catalog [`Item`] by whoever built
+/// this view. `max` rather than `+` because these are two readings of one
+/// possession, never two possessions: a weapon picked up off the floor has no
+/// stored quantity at all — the object is the record that you have it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Inventory<'a> {
+    pub bag: &'a OwnedItems,
+    pub in_hand: Option<Item>,
+}
+
+impl<'a> Inventory<'a> {
+    pub fn new(bag: &'a OwnedItems, in_hand: Option<Item>) -> Self {
+        Self { bag, in_hand }
+    }
+
+    /// How many of `item` this body has: the stored quantity, OR the one in
+    /// its hand.
+    pub fn count(&self, item: Item) -> u32 {
+        self.bag
+            .count(item)
+            .max(u32::from(self.in_hand == Some(item)))
+    }
+
+    pub fn has(&self, item: Item) -> bool {
+        self.count(item) > 0
+    }
+
+    pub fn is_equipped(&self, item: Item) -> bool {
+        self.in_hand == Some(item)
+    }
+
+    pub fn equipped(&self) -> Option<Item> {
+        self.in_hand
     }
 }
 
@@ -543,24 +589,15 @@ pub struct ItemGrantRequested {
 }
 
 impl OwnedItems {
-    /// How many of `item` the player has: the stored quantity, OR the one in
-    /// the body's hand.
-    ///
-    ///  the second term is a PROJECTION, not a row — see the type's docs.
-    /// A weapon picked up off the floor has no quantity at all; the object is the
-    /// record that you have it, and `equipped` is that object's presence in the
-    /// hand as the catalog sees it. `max` rather than `+` because these are two
-    /// readings of the same possession, never two possessions.
+    /// How many of `item` the bag stores. The hand is NOT counted here — see
+    /// [`Inventory`] for the reader that wants both.
     pub fn count(&self, item: Item) -> u32 {
-        self.stored(item).max(u32::from(self.equipped == Some(item)))
+        self.stored(item)
     }
 
-    /// The stored quantity ALONE — an entitlement with no object behind it.
-    ///
-    ///  the durable save's view ([`Self::to_persisted`]) and every mutation
-    /// ([`Self::grant`] / [`Self::take`]) go through this rather than through
-    /// [`Self::count`]: writing the projected hand back into the table is exactly
-    /// the double-claim the projection exists to remove.
+    /// The stored quantity — an entitlement with no object behind it. The
+    /// durable save's view ([`Self::to_persisted`]) and every mutation
+    /// ([`Self::grant`] / [`Self::take`]) go through this.
     fn stored(&self, item: Item) -> u32 {
         self.counts[item.index()]
     }
@@ -587,20 +624,6 @@ impl OwnedItems {
         let removed = (*slot).min(n);
         *slot -= removed;
         removed
-    }
-
-    pub fn equipped(&self) -> Option<Item> {
-        self.equipped
-    }
-
-    pub fn is_equipped(&self, item: Item) -> bool {
-        self.equipped == Some(item)
-    }
-
-    /// Mark a weapon slot equipped (does not itself attach the `HeldItem` — the
-    /// menu effect system does that). Toggling the already-equipped item clears it.
-    pub fn set_equipped(&mut self, item: Option<Item>) {
-        self.equipped = item;
     }
 
     /// Seed a small starter set so a fresh sandbox run has something to show in

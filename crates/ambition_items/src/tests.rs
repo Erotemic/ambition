@@ -111,7 +111,10 @@ fn legacy_health_alias_resolves_to_health_cell() {
     );
     assert_eq!(Item::from_dialog_id("healthcell"), Some(Item::HealthCell));
     // The other two overlapping items already share their ids — no alias needed.
-    assert_eq!(Item::from_dialog_id("sparebattery"), Some(Item::SpareBattery));
+    assert_eq!(
+        Item::from_dialog_id("sparebattery"),
+        Some(Item::SpareBattery)
+    );
     assert_eq!(Item::from_dialog_id("datachip"), Some(Item::DataChip));
 }
 
@@ -136,15 +139,25 @@ fn grant_clamps_unique_but_stacks_consumables() {
     );
 }
 
+/// The hand is a PROJECTION over the bag, never a row in it: a wielded weapon
+/// with no stored copy still reads as owned, and putting it down leaves the
+/// bag exactly as it was.
 #[test]
-fn equip_toggle_tracks_the_active_weapon() {
-    let mut owned = OwnedItems::default();
-    assert_eq!(owned.equipped(), None);
-    owned.set_equipped(Some(Item::Axe));
-    assert!(owned.is_equipped(Item::Axe));
-    assert!(!owned.is_equipped(Item::GunSword));
-    owned.set_equipped(None);
-    assert_eq!(owned.equipped(), None);
+fn the_hand_projects_over_the_bag_without_writing_it() {
+    let owned = OwnedItems::default();
+    let wielding = Inventory::new(&owned, Some(Item::Axe));
+    assert!(wielding.has(Item::Axe));
+    assert!(wielding.is_equipped(Item::Axe));
+    assert!(!wielding.is_equipped(Item::GunSword));
+    assert_eq!(wielding.count(Item::Axe), 1);
+    assert_eq!(
+        owned.count(Item::Axe),
+        0,
+        "the bag never learned about the hand"
+    );
+    let empty_handed = Inventory::new(&owned, None);
+    assert!(!empty_handed.has(Item::Axe));
+    assert_eq!(empty_handed.equipped(), None);
 }
 
 #[test]

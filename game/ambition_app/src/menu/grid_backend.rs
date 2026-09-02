@@ -23,7 +23,7 @@ use ambition_platformer2d::menu::{
     MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
+use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers, PrimaryHand};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -48,6 +48,7 @@ use ambition_platformer2d::sfx::SfxWriter;
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuDispatchParams<'w, 's> {
     owned: ResMut<'w, OwnedItems>,
+    hand: PrimaryHand<'w, 's>,
     settings: ResMut<'w, UserSettings>,
     quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
@@ -137,6 +138,9 @@ struct ViewKey {
     /// still does not (preserving the click-drop fix), mirroring the cube's republish.
     window_start: usize,
     pending_quality: Option<VisualQualityProfile>,
+    /// The primary hand (I1): an equip changes a body component, not the bag,
+    /// so the bag's change tick cannot stand in for it.
+    in_hand: Option<ambition_platformer2d::items::Item>,
 }
 
 /// Flat Grid backend SFX ids. The cube keeps kaleidoscope-specific `ui.menu.*`
@@ -680,6 +684,7 @@ pub(crate) fn grid_menu_republish_view(
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
+    hand: PrimaryHand,
     cursor: Res<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -742,6 +747,7 @@ pub(crate) fn grid_menu_republish_view(
         zone: tab_state.focus_zone,
         window_start,
         pending_quality: quality_confirm.pending(),
+        in_hand: hand.in_hand(),
     };
     // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
     // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
@@ -753,7 +759,7 @@ pub(crate) fn grid_menu_republish_view(
 
     let built = build_inventory_pages_with_quality_prompt(
         &owned,
-        owned.equipped(),
+        key.in_hand,
         cursor.focus(),
         &settings,
         &system.radio_snapshot(),
@@ -967,6 +973,7 @@ pub(crate) fn grid_menu_action_activated(
             &mut system_nav,
             &mut cursor,
             &mut fx.owned,
+            &fx.hand,
             &mut fx.settings,
             &mut fx.quality_confirm,
             &mut close_menu,

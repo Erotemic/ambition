@@ -223,12 +223,10 @@ pub fn restore_owned_items_to_checkpoint(
     if !requested {
         return;
     }
-    // the EQUIPPED slot is not the baseline's to restore: custody is restored
-    // by `restore_custody_to_checkpoint`, which re-equips what the hand held.
-    // Writing the whole bag back would fight it for the one field they share.
-    let equipped = owned.equipped();
+    // The bag only. The hand is not in it (I1): custody is restored by
+    // `restore_custody_to_checkpoint`, which re-equips what the hand held, and
+    // the bag no longer carries a field that could fight it.
     *owned = baseline.remembered().clone();
-    owned.set_equipped(equipped);
 }
 
 /// The item domain's checkpoint contribution: its two private baseline values,

@@ -1293,9 +1293,7 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
     }
     app.update();
     assert!(
-        !app.world()
-            .resource::<OwnedItems>()
-            .is_equipped(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Blink),
         "precondition: Blink not equipped yet"
     );
     // Hover Axe (moves focus → old rebuild), then click Blink (was despawned).
@@ -1305,9 +1303,7 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
         MenuPageAction::Equip(Item::Blink),
     );
     assert!(
-        app.world()
-            .resource::<OwnedItems>()
-            .is_equipped(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
         "clicking an item after a hover-move must still equip it (Bug 2)"
     );
 }
@@ -1696,9 +1692,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
         .active = Some(MenuPage::Items);
     app.update();
     assert!(
-        !app.world()
-            .resource::<OwnedItems>()
-            .is_equipped(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Blink),
         "precondition: Blink not equipped yet"
     );
 
@@ -1742,9 +1736,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     //    stored at press time, not the release entity — so it still equips.
     fire_release(&mut app, pressed);
     assert!(
-        app.world()
-            .resource::<OwnedItems>()
-            .is_equipped(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
         "release dispatches the action armed at press time even after the control \
          was despawned + respawned between press and release (the GUI mouse-click fix)"
     );
@@ -1765,9 +1757,7 @@ fn press_then_release_equips_an_item() {
     let entity = arm_press(&mut app, MenuPageAction::Equip(Item::Blink));
     fire_release(&mut app, entity);
     assert!(
-        app.world()
-            .resource::<OwnedItems>()
-            .is_equipped(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
         "a clean press→release on an item control equips it"
     );
 }

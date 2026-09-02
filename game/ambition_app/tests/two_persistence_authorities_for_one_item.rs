@@ -4,10 +4,10 @@
 //! through both representations, so the two restore paths must agree.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::item::Item;
 use ambition_platformer2d::item::ItemGrantRequested;
 use ambition_platformer2d::item::OwnedItems;
-use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::platformer::construction::SpawnOrigin;
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -93,8 +93,38 @@ fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
 }
 
 /// Durable catalog count for one item.
-fn catalog_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
-    sim.world().resource::<OwnedItems>().count(item)
+/// What the GRID shows for `item`: the bag plus the primary hand, projected
+/// through `Inventory` (I1) — the bag alone no longer counts a wielded weapon.
+fn catalog_count(sim: &mut Platformer2dSimHarness, item: Item) -> u32 {
+    let in_hand = hand_item(sim);
+    ambition_platformer2d::item::Inventory::new(sim.world().resource::<OwnedItems>(), in_hand)
+        .count(item)
+}
+
+/// The catalog item in the primary body's hand.
+fn hand_item(sim: &mut Platformer2dSimHarness) -> Option<Item> {
+    let world = sim.world_mut();
+    let held = world
+        .query_filtered::<Option<&Held>, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
+        .single(world)
+        .ok()
+        .flatten()
+        .cloned();
+    #[cfg(feature = "portal")]
+    let gun = world
+        .query_filtered::<
+            Option<&ambition_platformer2d::portal::PortalGun>,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        >()
+        .single(world)
+        .ok()
+        .flatten()
+        .cloned();
+    ambition_platformer2d::actors::items::pickup::item_in_hand(
+        held.as_ref(),
+        #[cfg(feature = "portal")]
+        gun.as_ref(),
+    )
 }
 
 /// Count serialized into `AmbitionGameSave`, read independently of the live `OwnedItems` mirror.
@@ -199,7 +229,6 @@ fn load_the_save(sim: &mut Platformer2dSimHarness) {
 /// `MenuAction::Equip` in `menu::effects` with the portal fork removed.
 fn equip_the_counted_item(
     mut commands: bevy::prelude::Commands,
-    mut owned: bevy::prelude::ResMut<OwnedItems>,
     mut bodies: bevy::prelude::Query<
         (
             Entity,
@@ -216,7 +245,6 @@ fn equip_the_counted_item(
         player,
         &mut action_set,
         spec,
-        Some(&mut owned),
     );
 }
 
@@ -254,7 +282,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
     });
     sim.step_n(base(), 8);
     assert_eq!(
-        catalog_count(&sim, COUNTED_ITEM),
+        catalog_count(&mut sim, COUNTED_ITEM),
         1,
         "the grant channel must put exactly one in the catalog"
     );
@@ -268,7 +296,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
 
     // ── LOAD ─────────────────────────────────────────────────────────────────
     load_the_save(&mut sim);
-    let after_load = catalog_count(&sim, COUNTED_ITEM);
+    let after_load = catalog_count(&mut sim, COUNTED_ITEM);
     assert_eq!(
         after_load, 1,
         "the load restores the saved count, which is the quantity the menu then \
@@ -294,7 +322,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
         "equipping out of the catalog must not create a world instance — that is \
          the whole reason throwing one has to mint"
     );
-    let after_equip = catalog_count(&sim, COUNTED_ITEM);
+    let after_equip = catalog_count(&mut sim, COUNTED_ITEM);
 
     // ── THROW: the quantity becomes an instance ──────────────────────────────
     sim.step(AgentAction {
@@ -312,19 +340,19 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
         "throwing with no object behind the hand mints exactly one instance"
     );
     let minted = minted.into_iter().next().expect("one mint");
-    let after_throw = catalog_count(&sim, COUNTED_ITEM);
+    let after_throw = catalog_count(&mut sim, COUNTED_ITEM);
 
     // ── PICK IT UP ───────────────────────────────────────────────────────────
     let landed = resting_place(&mut sim, &minted);
     pick_up(&mut sim, landed, &minted);
-    let after_pickup = catalog_count(&sim, COUNTED_ITEM);
+    let after_pickup = catalog_count(&mut sim, COUNTED_ITEM);
 
     // ── BANK IT, then DIE ────────────────────────────────────────────────────
     commit_a_checkpoint(&mut sim);
     die(&mut sim);
 
     let live = occurrences(&mut sim, &minted);
-    let after_death = catalog_count(&sim, COUNTED_ITEM);
+    let after_death = catalog_count(&mut sim, COUNTED_ITEM);
     // The second round-trip: mirror whatever the reset left behind, so the save
     // row below is what would actually land on disk.
     sim.step_n(base(), 8);
@@ -419,7 +447,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     // NON-VACUITY: the starter roster must not already own this, or every
     // reading below is about the starter set rather than about this acquisition.
     assert_eq!(
-        catalog_count(&sim, AUTHORED_REWARD_ITEM),
+        catalog_count(&mut sim, AUTHORED_REWARD_ITEM),
         0,
         "the catalog must start without a `{}`",
         AUTHORED_REWARD_ITEM.dialog_id()
@@ -434,7 +462,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
 
     // ── CLAIM 1: held reads as owned, because the hand is projected ──────────
     assert_eq!(
-        catalog_count(&sim, AUTHORED_REWARD_ITEM),
+        catalog_count(&mut sim, AUTHORED_REWARD_ITEM),
         1,
         "⭐ the grid must still show the weapon you are carrying. Deleting the \
          grant without projecting the hand would leave a player holding an axe \
@@ -473,7 +501,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     // ── CLAIM 3: the catalog went with it ────────────────────────────────────
     sim.step_n(base(), 8);
     save_the_inventory(&mut sim);
-    let still_owned = catalog_count(&sim, AUTHORED_REWARD_ITEM);
+    let still_owned = catalog_count(&mut sim, AUTHORED_REWARD_ITEM);
     let still_saved = saved_count(&sim, AUTHORED_REWARD_ITEM);
     eprintln!("MEASURED  still_owned={still_owned} still_saved={still_saved}");
     assert_eq!(
@@ -565,7 +593,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
 
     sim.step_n(base(), 8);
     save_the_inventory(&mut sim);
-    let granted = catalog_count(&sim, COUNTED_ITEM);
+    let granted = catalog_count(&mut sim, COUNTED_ITEM);
     let granted_saved = saved_count(&sim, COUNTED_ITEM);
     eprintln!("MEASURED  granted={granted} granted_saved={granted_saved}");
     assert_eq!(
@@ -604,7 +632,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
         });
     sim.step_n(base(), 4);
     save_the_inventory(&mut sim);
-    let before = catalog_count(&sim, COUNTED_ITEM);
+    let before = catalog_count(&mut sim, COUNTED_ITEM);
     assert_eq!(before, 1, "the grant must land, or this measures nothing");
 
     // Copy only the file into a second harness.
@@ -612,7 +640,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
     let mut reloaded = fixed_60hz_room_sim(ROOM);
     reloaded.step_n(base(), 8);
     assert_eq!(
-        catalog_count(&reloaded, COUNTED_ITEM),
+        catalog_count(&mut reloaded, COUNTED_ITEM),
         0,
         "the fresh-process poison requires pre-load live state to differ from disk",
     );
@@ -624,7 +652,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
     reloaded.step_n(base(), 60);
 
     assert_eq!(
-        catalog_count(&reloaded, COUNTED_ITEM),
+        catalog_count(&mut reloaded, COUNTED_ITEM),
         before,
         "the first death after a fresh-process load took back what the file remembered —          the entitlement baseline captured the pre-load bag instead of the restored one"
     );

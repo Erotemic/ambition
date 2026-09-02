@@ -802,7 +802,6 @@ pub fn restore_custody_to_checkpoint(
         Option<&HeldItem>,
         Option<&StashedActionSet>,
     )>,
-    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     // Drained unconditionally, like every other reader of this channel.
@@ -857,13 +856,7 @@ pub fn restore_custody_to_checkpoint(
                 let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
                     continue;
                 };
-                equip_held_spec(
-                    &mut commands,
-                    holder,
-                    &mut action_set,
-                    spec,
-                    owned.as_deref_mut(),
-                );
+                equip_held_spec(&mut commands, holder, &mut action_set, spec);
                 if let Ok((_, _, mut ground, mut custody)) = items.get_mut(entity) {
                     *custody = ItemCustody::Held { holder };
                     // A carried item is not in flight — the same zeroing the
@@ -885,13 +878,7 @@ pub fn restore_custody_to_checkpoint(
                     // hand would take away an item this reset has no claim on.
                     if let Ok((_, _, mut action_set, held, stashed)) = bodies.get_mut(holder) {
                         if held.is_some_and(|held| held.id() == spec.id.as_str()) {
-                            unequip_held(
-                                &mut commands,
-                                holder,
-                                &mut action_set,
-                                stashed,
-                                owned.as_deref_mut(),
-                            );
+                            unequip_held(&mut commands, holder, &mut action_set, stashed);
                         }
                     }
                 }
@@ -1071,13 +1058,7 @@ pub fn restore_custody_to_checkpoint(
                 ItemCustody::Held { holder },
             ),
         );
-        equip_held_spec(
-            &mut commands,
-            holder,
-            &mut action_set,
-            held,
-            owned.as_deref_mut(),
-        );
+        equip_held_spec(&mut commands, holder, &mut action_set, held);
     }
 }
 
@@ -1265,14 +1246,15 @@ pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
 
 /// TAKE custody of a held item — one operation, both ends.
 ///
-/// Stash the current action set, overlay the item's verbs, attach [`HeldItem`],
-/// and name the catalog slot this body is now holding. Every way a body comes to
-/// hold a weapon calls this: the world pickup ([`pickup_held_item_system`]) and
-/// the inventory menu. There is no second place that writes half of it.
+/// Stash the current action set, overlay the item's verbs, and attach
+/// [`HeldItem`]. Every way a body comes to hold a weapon calls this: the world
+/// pickup ([`pickup_held_item_system`]) and the inventory menu. There is no
+/// second place that writes half of it.
 ///
-/// Handing the catalog to the transfer is what makes the two ends move together or not at all.
-/// `None` means "this body has no catalog behind it" (a headless fixture, a game with no
-/// inventory) — never "skip the bookkeeping".
+/// ⛔ NOTHING ELSE IS WRITTEN. This used to name a catalog slot on
+/// `OwnedItems` as well — a process-global mirror of "some body holds X" that
+/// four seats could not share (I1, 2026-09-02). The hand IS the record; a
+/// reader that wants the catalog's view of it projects with [`item_in_hand`].
 ///
 /// `grant` belongs to the sites that confer a quantity with no object — `<<give_item>>`, the
 /// shop, ability drops.
@@ -1281,12 +1263,7 @@ pub fn equip_held_spec(
     player: Entity,
     action_set: &mut ActionSet,
     spec: HeldItemSpec,
-    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
-    // Resolved BEFORE either end is written, so the catalog can never be told
-    // about a slot the body did not end up with. An id with no catalog row (the
-    // pirates' `gun_sword_heavy`) equips normally and claims no slot.
-    let slot = ambition_items::Item::from_held_item_id(spec.id.as_str());
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
@@ -1296,15 +1273,29 @@ pub fn equip_held_spec(
     action_set.melee = spec.melee;
     action_set.ranged = spec.ranged;
     commands.entity(player).insert(held);
-    if let (Some(owned), Some(item)) = (owned, slot) {
-        owned.set_equipped(Some(item));
+}
+
+/// The catalog [`Item`](ambition_items::Item) a body's hand holds, if the
+/// hand holds something the catalog has a row for: a [`HeldItem`] whose id
+/// maps through `Item::from_held_item_id` (the pirates' `gun_sword_heavy` maps
+/// to nothing and reads as an empty hand, as it always did), or an active
+/// [`PortalGun`], which equips through its own component and carries no
+/// held-item id. The ONE projection every menu-side "is it equipped" reads.
+pub fn item_in_hand(
+    held: Option<&HeldItem>,
+    #[cfg(feature = "portal")] portal_gun: Option<&PortalGun>,
+) -> Option<ambition_items::Item> {
+    #[cfg(feature = "portal")]
+    if portal_gun.is_some_and(|gun| gun.active) {
+        return Some(ambition_items::Item::PortalGun);
     }
+    held.and_then(|held| ambition_items::Item::from_held_item_id(held.id()))
 }
 
 /// RELEASE custody of a held item — the twin of [`equip_held_spec`].
 ///
-/// Restore the stashed action set, detach [`HeldItem`], and clear the catalog's
-/// equipped slot. The body stops holding it here and nowhere else.
+/// Restore the stashed action set and detach [`HeldItem`]. The body stops
+/// holding it here and nowhere else.
 ///
 /// Nothing here has an item query to fix that with (the menu calls this from `Update`, in another
 /// crate), so custody is re-derived from the hand instead: see [`return_released_items`]. A caller
@@ -1314,33 +1305,23 @@ pub fn unequip_held(
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
-    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }
     commands.entity(player).remove::<HeldItem>();
     commands.entity(player).remove::<StashedActionSet>();
-    if let Some(owned) = owned {
-        owned.set_equipped(None);
-    }
 }
 
 /// TAKE custody of the portal gun — the portal-gun twin of
 /// [`equip_held_spec`]. Stash the action set, attach an active [`PortalGun`],
-/// clear the melee swing so `Attack` fires portals, and name the catalog slot.
+/// and clear the melee swing so `Attack` fires portals.
 ///
 /// The gun equips through its own component rather than a `HeldItemSpec`, which
-/// is why it needs a twin at all; the catalog slot is spelled out here because
-/// `Item::PortalGun` deliberately carries no `held_item_id` (nothing to look it
-/// up from).
+/// is why it needs a twin at all; [`item_in_hand`] reads the active gun as
+/// `Item::PortalGun`, which deliberately carries no `held_item_id`.
 #[cfg(feature = "portal")]
-pub fn equip_portal_gun(
-    commands: &mut Commands,
-    player: Entity,
-    action_set: &mut ActionSet,
-    owned: Option<&mut ambition_items::OwnedItems>,
-) {
+pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
@@ -1349,30 +1330,22 @@ pub fn equip_portal_gun(
         ..PortalGun::default()
     });
     action_set.melee = None;
-    if let Some(owned) = owned {
-        owned.set_equipped(Some(ambition_items::Item::PortalGun));
-    }
 }
 
 /// RELEASE custody of the portal gun — the portal-gun twin of
-/// [`unequip_held`]. Detach [`PortalGun`], restore the stashed action set, and
-/// clear the catalog's equipped slot.
+/// [`unequip_held`]. Detach [`PortalGun`] and restore the stashed action set.
 #[cfg(feature = "portal")]
 pub fn unequip_portal_gun(
     commands: &mut Commands,
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
-    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }
     commands.entity(player).remove::<PortalGun>();
     commands.entity(player).remove::<StashedActionSet>();
-    if let Some(owned) = owned {
-        owned.set_equipped(None);
-    }
 }
 
 /// EVERY BODY WHOSE PRESSES ARE SOMEBODY'S — the population a press-gated item
@@ -1471,7 +1444,6 @@ pub fn pickup_held_item_system(
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
-    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     for player in driven.entities() {
         let Ok((mut control, kin, mut action_set, held)) = bodies.get_mut(player) else {
@@ -1514,13 +1486,7 @@ pub fn pickup_held_item_system(
                 // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
                 //
                 // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-                equip_held_spec(
-                    &mut commands,
-                    player,
-                    &mut action_set,
-                    ground.spec.clone(),
-                    owned.as_deref_mut(),
-                );
+                equip_held_spec(&mut commands, player, &mut action_set, ground.spec.clone());
                 // The Attack press is *consumed* by the pickup so the same press
                 // doesn't also fire the just-equipped item this frame. Clear the
                 // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -1699,13 +1665,7 @@ pub fn throw_held_item_system(
         // The rule the note still carries is the useful part: only the equipped slot moves here, never
         // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
         // object.
-        unequip_held(
-            &mut commands,
-            player,
-            &mut action_set,
-            stashed,
-            owned.as_deref_mut(),
-        );
+        unequip_held(&mut commands, player, &mut action_set, stashed);
         // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
         // is still a live entity carrying its own identity, so the throw resets its custody and writes
         // the launch onto it.

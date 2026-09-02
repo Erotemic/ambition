@@ -231,7 +231,7 @@ pub mod participant {
 /// Items as simulation state, when the item capability is installed.
 #[cfg(feature = "ambition_items")]
 pub mod item {
-    pub use ambition_items::{Item, ItemGrantRequested, OwnedItems};
+    pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
     pub use ambition_platformer2d_actor_monolith::items::pickup::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
     };

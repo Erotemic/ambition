@@ -63,12 +63,23 @@ entity.
 
 ## Remaining migration pressure
 
-### I1 — body inventory replaces process-global equipped mirrors
+### I1 — body inventory replaces process-global equipped mirrors — ✔ CLOSED 2026-09-02
 
-Where `OwnedItems::equipped` duplicates a body's `HeldItem`/equipment truth,
-remove the process-global copy as the body-owned path becomes complete. This is
-also required for several driven bodies: four seats cannot share one equipped
-slot as authority.
+`OwnedItems::equipped` is gone. It was a process-global mirror of "some body
+holds X", written by every equip road (`equip_held_spec`, the portal-gun twins,
+the checkpoint restore) and read by the menu — and four seats could not share
+it: seat two picking up a gun-sword marked it equipped in seat one's menu. Now
+the hand IS the record: `items::pickup::item_in_hand(held, portal_gun)`
+projects a body's `HeldItem` / active `PortalGun` to the catalog `Item`, the
+menu reads the PRIMARY player's through `menu::effects::PrimaryHand`, and
+`ambition_items::Inventory { bag, in_hand }` is the one view that answers
+count / has / is_equipped over both — `OwnedItems::count` is the bag alone.
+`inventory.holds` (the authored condition) asks the bag and then any player or
+driven body's hand. Guards: `another_seats_weapon_is_not_the_primary_players_
+equipped_item`, `a_wielded_weapon_with_no_stored_copy_is_owned_and_stowable`,
+`a_weapon_in_the_players_hand_is_held_with_nothing_in_the_bag`; the two
+persistence-authority tests read the grid's count through the projection. No
+schema bump: the clone snapshot lost a field the session checksum never saw.
 
 ### I2 — held weapon/ability occurrence continuity
 

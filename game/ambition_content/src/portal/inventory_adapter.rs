@@ -60,7 +60,6 @@ pub fn drop_portal_gun_system(
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,
-    mut owned: Option<ResMut<OwnedItems>>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     // ⭐ THE BODY WHOSE PRESS IT WAS. This read "did anybody drop?" and then
@@ -73,13 +72,7 @@ pub fn drop_portal_gun_system(
     // world the first had already changed. The intents already name their
     // bodies; taking one of them was the last thing making this singular.
     for drop in drops.read().copied().collect::<Vec<_>>() {
-        drop_one_portal_gun(
-            drop.body,
-            &mut commands,
-            &mut holders,
-            owned.as_deref_mut(),
-            &mut sfx,
-        );
+        drop_one_portal_gun(drop.body, &mut commands, &mut holders, &mut sfx);
     }
 }
 
@@ -97,7 +90,6 @@ fn drop_one_portal_gun(
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,
-    mut owned: Option<&mut OwnedItems>,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
     let Ok((kin, mut action_set, stashed, mut actor_control)) = holders.get_mut(player) else {
@@ -105,15 +97,9 @@ fn drop_one_portal_gun(
     };
     // Committed: this body IS dropping its gun, so the press is answered.
     actor_control.0.melee_pressed = false;
-    // CUSTODY, one operation: detach the gun, restore the swing it replaced, and
-    // clear the catalog slot. The same release the inventory menu performs.
-    unequip_portal_gun(
-        commands,
-        player,
-        &mut action_set,
-        stashed,
-        owned.as_deref_mut(),
-    );
+    // CUSTODY, one operation: detach the gun and restore the swing it replaced.
+    // The same release the inventory menu performs; the hand is the record.
+    unequip_portal_gun(commands, player, &mut action_set, stashed);
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn_room_scoped((
         PortalGunPickup {
@@ -223,7 +209,7 @@ fn pick_up_one_portal_gun(
                 owned.grant(Item::PortalGun, 1);
             }
             // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-            equip_portal_gun(commands, player, &mut action_set, owned.as_deref_mut());
+            equip_portal_gun(commands, player, &mut action_set);
             claimed.insert(entity);
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });

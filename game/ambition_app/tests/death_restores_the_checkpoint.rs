@@ -599,7 +599,6 @@ fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
 /// take-custody operation.
 fn equip_the_minted_item(
     mut commands: bevy::prelude::Commands,
-    mut owned: bevy::prelude::ResMut<ambition_platformer2d::item::OwnedItems>,
     mut bodies: bevy::prelude::Query<
         (
             Entity,
@@ -616,7 +615,6 @@ fn equip_the_minted_item(
         player,
         &mut action_set,
         spec,
-        Some(&mut owned),
     );
 }
 

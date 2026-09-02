@@ -941,7 +941,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
         for (body, mut action_set, stashed) in &mut bodies {
             // The menu passes no catalog in this fixture; `None` is its "no
             // inventory behind this body" case, not "skip the bookkeeping".
-            unequip_held(&mut commands, body, &mut action_set, stashed, None);
+            unequip_held(&mut commands, body, &mut action_set, stashed);
         }
     }
 

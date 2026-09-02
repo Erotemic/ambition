@@ -91,6 +91,8 @@ pub(crate) fn cache_system_menu(
 pub(crate) fn republish_kaleidoscope_pages(
     ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
+    // The primary hand (I1): what the cube shows as equipped.
+    hand: PrimaryHand,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
     // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
@@ -140,7 +142,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         active: pages.active,
         open_entry: system_nav.open_entry,
         owned_counts: Item::ALL.map(|item| owned.count(item)),
-        equipped: owned.equipped(),
+        equipped: hand.in_hand(),
         settings: settings.clone(),
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
@@ -185,7 +187,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     // the cube faces.
     let built = build_inventory_pages_with_quality_prompt(
         &owned,
-        owned.equipped(),
+        key.equipped,
         cursor.focus,
         &settings,
         &key.radio,

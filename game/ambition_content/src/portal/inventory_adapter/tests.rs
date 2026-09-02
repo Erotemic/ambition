@@ -131,10 +131,14 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
         app.world().get::<PortalGun>(player).is_some(),
         "the pickup grants the gun"
     );
+    // The hand IS the catalog's view of it (I1): no slot to name any more.
     assert_eq!(
-        app.world().resource::<OwnedItems>().equipped(),
+        ambition_platformer2d_actor_monolith::items::pickup::item_in_hand(
+            None,
+            app.world().get::<PortalGun>(player),
+        ),
         Some(Item::PortalGun),
-        "taking custody names the catalog slot"
+        "an active gun in the hand reads as the equipped PortalGun"
     );
 
     // RELEASE custody: both ends move, or the transfer is not one.
@@ -146,9 +150,12 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
         "the drop detaches the gun"
     );
     assert_eq!(
-        app.world().resource::<OwnedItems>().equipped(),
+        ambition_platformer2d_actor_monolith::items::pickup::item_in_hand(
+            None,
+            app.world().get::<PortalGun>(player),
+        ),
         None,
-        "and clears the slot — a gun on the floor is not an equipped gun"
+        "and an empty hand reads as nothing equipped — a gun on the floor is not an equipped gun"
     );
     assert!(
         app.world().resource::<OwnedItems>().has(Item::PortalGun),

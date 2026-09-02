@@ -31,7 +31,7 @@ use ambition_menu_kaleidoscope::{
 use bevy::prelude::*;
 
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
+use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers, PrimaryHand};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -1149,6 +1149,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut mode_io: GameModeIo,
     mut owned: ResMut<OwnedItems>,
+    hand: PrimaryHand,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
@@ -1172,6 +1173,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
             &mut system_nav,
             &mut cursor,
             &mut owned,
+            &hand,
             &mut settings,
             &mut quality_confirm,
             &mut close_menu,
@@ -2166,6 +2168,7 @@ fn kaleidoscope_sync_focus_visuals(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
+    hand: PrimaryHand,
     cursor: Res<KaleidoscopeCursor>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     cache: Res<CachedSystemMenu>,
@@ -2180,7 +2183,7 @@ fn kaleidoscope_sync_detail_text(
     // Build the slot→string map for whichever face's detail panel is live. Only the
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
-        MenuPage::Items => items_detail_slot_text(&owned, owned.equipped(), cursor.focus),
+        MenuPage::Items => items_detail_slot_text(&owned, hand.in_hand(), cursor.focus),
         MenuPage::System => match cache.model.as_ref() {
             Some(model) => {
                 let focused = match cursor.focus {

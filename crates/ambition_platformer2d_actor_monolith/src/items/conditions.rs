@@ -45,7 +45,31 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
             "no inventory is installed in this composition, so nothing is carried",
         );
     };
-    ConditionOutcome::from_bool(owned.count(item) > 0)
+    if owned.count(item) > 0 {
+        return ConditionOutcome::Satisfied;
+    }
+    // The hand is not a row in the bag (I1): a weapon picked up off the floor
+    // has no stored quantity, the object in the hand is the record. Any body a
+    // participant is driving, or the player population, counts as "the player".
+    ConditionOutcome::from_bool(player_hand_holds(world, item))
+}
+
+/// Does some driven or player body hold `item` in its hand?
+///
+/// Two queries rather than one with `Has<_>`: `try_query` is `None` when ANY
+/// named component was never registered in this world, and a composition
+/// with no seats has never registered `DrivingParticipant` — which must read
+/// as "no driven body holds it", not as "the player population holds nothing".
+fn player_hand_holds(world: &World, item: Item) -> bool {
+    use bevy::prelude::With;
+    let holds = |held: &crate::features::HeldItem| Item::from_held_item_id(held.id()) == Some(item);
+    let player_holds = world
+        .try_query_filtered::<&crate::features::HeldItem, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
+        .is_some_and(|mut hands| hands.iter(world).any(holds));
+    let driven_holds = world
+        .try_query_filtered::<&crate::features::HeldItem, With<ambition_characters::control::DrivingParticipant>>()
+        .is_some_and(|mut hands| hands.iter(world).any(holds));
+    player_holds || driven_holds
 }
 
 /// Publishes the inventory domain's conditions.
@@ -102,6 +126,34 @@ mod tests {
             ask(app.world(), "HealthPotion"),
             ConditionOutcome::NotSatisfied
         );
+    }
+
+    /// THE HAND COUNTS, AND ONLY A PLAYER'S OR A DRIVEN BODY'S HAND. A
+    /// gun-sword picked up off the floor has no stored quantity; the object in
+    /// the hand is the record (I1). A pirate's gun-sword is not the player's.
+    #[test]
+    fn a_weapon_in_the_players_hand_is_held_with_nothing_in_the_bag() {
+        let mut app = App::new();
+        app.insert_resource(OwnedItems::default());
+        let spec = ambition_characters::brain::held_item_by_id("gun_sword").unwrap();
+        // An enemy wielding one: not the player's.
+        app.world_mut()
+            .spawn(crate::features::HeldItem::new(spec.clone()));
+        assert_eq!(ask(app.world(), "gunsword"), ConditionOutcome::NotSatisfied);
+        // The player wielding one: held.
+        let player = app
+            .world_mut()
+            .spawn((
+                crate::features::HeldItem::new(spec),
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ))
+            .id();
+        assert_eq!(ask(app.world(), "gunsword"), ConditionOutcome::Satisfied);
+        // Put it down and the answer follows the hand, with nothing refreshed.
+        app.world_mut()
+            .entity_mut(player)
+            .remove::<crate::features::HeldItem>();
+        assert_eq!(ask(app.world(), "gunsword"), ConditionOutcome::NotSatisfied);
     }
 
     /// NO INVENTORY AT ALL IS UNANSWERABLE, NOT EMPTY.

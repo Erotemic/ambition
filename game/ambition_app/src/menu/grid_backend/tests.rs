@@ -7,6 +7,12 @@ use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 
+/// What the primary player's HAND holds, as the catalog sees it (I1): the fact
+/// the menu used to read off `OwnedItems::equipped`.
+fn equipped_in_hand(app: &mut App) -> Option<Item> {
+    crate::menu::effects::hand_of_primary_player(app.world_mut())
+}
+
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
 /// new frontend (not back on Inventory). The cube stores the page in
 /// `ActiveMenuPages.active`, the Grid in `GridMenuTabState.active_tab`;
@@ -238,7 +244,7 @@ fn selecting_an_item_dispatches_equip() {
     set_frame(&mut app, |f| f.select = true);
     app.update();
     assert_eq!(
-        app.world().resource::<OwnedItems>().equipped(),
+        equipped_in_hand(&mut app),
         Some(axe),
         "selecting the item equipped it through dispatch_menu_action"
     );
@@ -412,7 +418,7 @@ fn back_closes_and_respects_opened_from_pause() {
 #[test]
 fn cross_backend_model_parity_inventory_and_system() {
     let owned = OwnedItems::starter();
-    let equipped = owned.equipped();
+    let equipped = None;
     let settings = UserSettings::default();
     let build = || {
         build_inventory_pages(
@@ -462,7 +468,7 @@ fn cursor_focus_key_matches_a_rendered_control() {
     let settings = UserSettings::default();
     let pages = build_inventory_pages(
         &owned,
-        owned.equipped(),
+        None,
         MenuFocus::Item(1),
         &settings,
         &Default::default(),
@@ -691,7 +697,7 @@ fn select_forces_republish_so_view_refreshes_immediately() {
     set_frame(&mut app, |f| f.select = true);
     app.update();
     assert_eq!(
-        app.world().resource::<OwnedItems>().equipped(),
+        equipped_in_hand(&mut app),
         Some(axe),
         "select equipped the item"
     );
@@ -817,7 +823,7 @@ fn interaction_press_switches_tab_and_dispatches_item() {
     press_interaction(&mut app, axe_ctrl);
     app.update();
     assert_eq!(
-        app.world().resource::<OwnedItems>().equipped(),
+        equipped_in_hand(&mut app),
         Some(axe),
         "clicking the item equipped it through dispatch_menu_action"
     );

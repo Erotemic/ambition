@@ -303,6 +303,21 @@ the INSERTION into `Assets<Image>` (the census, main world) and the GPU
 PREPARATION (`stamp_gpu_prepared_images`, render world, after
 `prepare_assets::<GpuImage>`). Readout, on the same clock as `[image]`:
 
+⛔ **WHAT IS DELIBERATELY NOT STAMPED, so a `demand=unknown` on one of these is
+EXPECTED rather than a defect to chase:** menu icons, shell presentation images
+and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime —
+`character-sheet`, `portrait`, `projectile-art`, `parallax`, `fx-sheet`,
+`boss-sheet`, `vanity-card` — because that is the population the hall-entry hitch
+is about. UI chrome is small, loaded once and not what a room's reveal waits on;
+labelling it would make the ledger's rows less comparable, not more.
+
+⚠ And the `game://` in a row is NOT an authored prefix. `load_sheet_image` labels
+each row with `AssetPath::to_string()`, and an `AssetPath` PRINTS ITS SOURCE — so
+every load through the `game` source reads that way whether or not any code wrote
+the scheme. Grepping the tree for `game://` finds one const and a handful of doc
+comments; the question is always which ROAD inserted the image without stamping,
+never which string was written.
+
 ```text
 [image]      0.911s 3006x2462 7.4MP live=1 sprites/bob_spritesheet.png demand→insert 219ms via character-sheet — DECODED DURING GAMEPLAY …
 [image-gpu]  1.404s 7.4MP live=1 sprites/bob_spritesheet.png insert→gpu 493ms demand→insert 219ms via character-sheet

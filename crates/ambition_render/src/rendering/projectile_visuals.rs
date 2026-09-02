@@ -27,7 +27,7 @@ use ambition_projectiles::{
     ProjectileVisualCatalog, ProjectileVisualId,
 };
 use ambition_sim_view::ProjectileView;
-use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
+use ambition_sprite_sheet::game_assets::{load_sheet_image, EntitySprite, GameAssets};
 use ambition_sprite_sheet::SheetRegistry;
 
 /// Marker on the persistent per-projectile sprite entity.
@@ -160,7 +160,11 @@ fn build_visual(
             }
         }
         ProjectileArtSource::Image { path } => {
-            let mut sprite = Sprite::from_image(asset_server.load(path.clone()));
+            let mut sprite = Sprite::from_image(load_sheet_image(
+                asset_server,
+                "projectile-art",
+                path.clone(),
+            ));
             sprite.custom_size = Some(render_size(art.size, body, 1.0));
             BuiltVisual {
                 sprite,
@@ -218,7 +222,11 @@ fn build_sheet_visual(
         Vec2::new(record.frame_width as f32, record.frame_height as f32),
     ));
     let frame_aspect = (first.width() / first.height()).max(0.0001);
-    let mut sprite = Sprite::from_image(asset_server.load(format!("sprites/{}", record.image)));
+    let mut sprite = Sprite::from_image(load_sheet_image(
+        asset_server,
+        "projectile-art",
+        format!("sprites/{}", record.image),
+    ));
     sprite.custom_size = Some(render_size(
         size,
         Vec2::new(view.size.x, view.size.y),

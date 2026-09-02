@@ -127,6 +127,11 @@ pub fn report_image_census(
     mode: Option<
         Res<bevy::state::state::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     >,
+    // The census flushes on the way OUT as well as on the window boundary: a
+    // capture that finishes inside one window — which every hall entry does
+    // now — otherwise ends with no `[image-census]` line at all, and the run's
+    // resident-by-road answer dies with the process.
+    mut exits: MessageReader<bevy::app::AppExit>,
 ) {
     let live_known = mode.as_ref().map(|mode| mode.get().allows_gameplay());
     let during_gameplay = live_known.unwrap_or(false);
@@ -262,11 +267,15 @@ pub fn report_image_census(
     }
 
     let now = Instant::now();
-    if now.duration_since(census.window_started_at).as_secs_f64() < ImageCensus::WINDOW_SECS {
+    let exiting = exits.read().next().is_some();
+    if !exiting
+        && now.duration_since(census.window_started_at).as_secs_f64() < ImageCensus::WINDOW_SECS
+    {
         return;
     }
     // Stay silent through quiet windows: a steady stream of "+0 images" lines
-    // would drown the windows that actually decoded something.
+    // would drown the windows that actually decoded something. The exit flush
+    // is the exception: it prints whatever the last partial window holds.
     let (
         gpu_count,
         gpu_megapixels,
@@ -334,7 +343,7 @@ pub fn report_image_census(
             unrouted_total,
         )
     };
-    if census.window_images > 0 || gpu_count > 0 {
+    if census.window_images > 0 || gpu_count > 0 || exiting {
         let at = now.duration_since(census.started_at).as_secs_f64();
         let ms = |d: Option<std::time::Duration>| {
             d.map_or("-".to_string(), |d| {

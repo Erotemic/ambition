@@ -71,6 +71,13 @@ impl Loop {
             ..Default::default()
         });
         app.init_resource::<SpentPowerBlocks>();
+        // The transformation beat times itself against the ARRIVING form's
+        // sheet, joined through the catalog. Without both resources every beat
+        // is authored from the unreadable-sheet fallback — which is what this
+        // fixture measured until 2026-09-02, and the grow arm passed on it by
+        // arithmetic alone.
+        app.insert_resource(ambition_demo_mary_o::mary_o_character_catalog());
+        app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
         // The bonk handler asks the ROOM what it hit, so the room has to be here.
         let room = ambition_demo_mary_o::level_1_1();
         let struck = room
@@ -347,6 +354,17 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         grow.duration * grow.clock_scale,
         grow_clip,
     );
+    // ⛔ THE PREMISE: the beat IS the clip, not merely longer than it. The
+    // unreadable-sheet fallback (0.45s) is longer than the grow clip, so `>=`
+    // alone passed for a year on a fixture with no catalog in it. If the policy
+    // ever gains deliberate slack, move the slack into this tolerance.
+    assert!(
+        (grow.duration * grow.clock_scale - grow_clip).abs() < 1e-3,
+        "the grow beat draws {:.3}s against a {:.3}s clip — a beat that is not \
+         the clip's length was authored from something other than the sheet",
+        grow.duration * grow.clock_scale,
+        grow_clip,
+    );
 
     // --- grown -> fire: the same-size transformation -------------------------
     game.bonk();
@@ -357,25 +375,11 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     let transform_clip = clip_secs("mary_o_v2_fire", CharacterAnim::Transform);
     assert!(
         transform.duration * transform.clock_scale >= transform_clip - 1e-4,
-        "the fire transformation is the clip a flat 0.5s cut off: \
-         {:.3}s of wall time at {:.2}x draws {:.3}s of a {:.3}s clip.\n\
-         \n\
-         ⛔ RED SINCE BEFORE 2026-09-01, and 0.450 is not a coincidence: it is \
-         `UNREADABLE_CLIP_SECS`, the fallback `powerups::clip_seconds` returns \
-         when it cannot join a character id to a sheet. So the beat is not \
-         mistimed — it is being authored from the fallback instead of from the \
-         art.\n\
-         \n\
-         The sheet is fine: `sprites/mary_o_v2_fire_spritesheet.ron` has an \
-         11-frame transform at 0.08s = 0.880s, at every quality tier. The TALL \
-         form joins correctly in this same test, so the catalog and sheets are \
-         staged. What fails is \
-         `sheet_for_character_id_from_data(authored, catalog.data(), \"mary_o_fire\")` \
-         returning None (or a zero clip) for the fire form alone.\n\
-         \n\
-         ⚠ The old message said EIGHT frames. The art has eleven — the prose \
-         went stale exactly the way this test's doc warns a copied constant \
-         would.",
+        "the fire transformation is cut short: {:.3}s of wall time at {:.2}x \
+         draws {:.3}s of a {:.3}s clip. 0.450s is `UNREADABLE_CLIP_SECS`, the \
+         fallback for a form whose sheet did not join through the catalog — \
+         check that both `CharacterCatalog` and `AuthoredSheets` are present \
+         where the beat is authored.",
         transform.duration,
         transform.clock_scale,
         transform.duration * transform.clock_scale,

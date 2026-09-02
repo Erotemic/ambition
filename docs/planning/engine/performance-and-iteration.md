@@ -344,7 +344,13 @@ but the exit code was never lying.
 — *"the eight-frame fire transformation is the clip a flat 0.5s cut off"*
 (`power_loop.rs:358`). **Pre-existing**, confirmed by running it at `82cda301f`
 in a clean baseline worktree with submodules initialised. Not caused by the
-perception, census, geometry or knob work, and still open.
+perception, census, geometry or knob work. ✔ CLOSED 2026-09-02: the test's own
+diagnosis ("the fire form alone fails to join") was wrong — the fixture had NO
+`CharacterCatalog` or `AuthoredSheets`, so EVERY beat came from the 0.45 s
+fallback, and the grow arm passed only because 0.45 ≥ its 0.28 s clip. The
+fixture now carries the demo catalog, and a premise guard pins the grow beat to
+its clip's length (red at 0.450 vs 0.280 when the catalog is removed). The
+shipped composition always has both resources; nothing changed in the game.
 
 ## Measurement rules
 

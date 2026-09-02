@@ -992,6 +992,17 @@ pub(crate) fn mary_o_catalog_ron() -> String {
     MARY_O_CATALOG_RON_TEMPLATE.replace("$CLASSIC_AXIS_TUNING", MARY_O_CLASSIC_AXIS_TUNING)
 }
 
+/// The demo's catalog as the assembled resource, for a fixture that wants the
+/// forms' sheet rows without the whole provider (the transformation beat reads
+/// them to time itself against the art).
+pub fn mary_o_character_catalog(
+) -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
+    use ambition_platformer2d::characters::actor::character_catalog::{
+        parse_catalog, CharacterCatalog,
+    };
+    CharacterCatalog::from_data(parse_catalog(&mary_o_catalog_ron()))
+}
+
 /// The demo's one-character catalog. Every demo installs its own roster; the
 /// engine ships none (ADR 0017).
 const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(

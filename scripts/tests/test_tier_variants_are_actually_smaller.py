@@ -26,6 +26,7 @@ tier promises ~10.5.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 from pathlib import Path
 
@@ -76,6 +77,19 @@ def offenders() -> dict[str, dict[str, float]]:
     return found
 
 
+@pytest.mark.skipif(
+    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
+    reason=(
+        "⛔ THE SPRITE TREE IS GITIGNORED AND MACHINE-LOCAL. Every PNG under "
+        "assets/sprites* is generated, and a worktree SYMLINKS the main "
+        "checkout's copies (mirror_assets_for_worktree.py), so this asserts "
+        "one machine's generated state. On a box that generates them correctly "
+        "the KNOWN_ lists below read as stale and this fails for the wrong "
+        "reason. Opt in with AMBITION_ASSETS_ARE_CANONICAL=1 where the assets "
+        "are known-good; the SCRIPT's own behaviour is pinned unconditionally "
+        "by the fixture tests at the bottom."
+    ),
+)
 def test_no_new_sheet_ships_a_tier_variant_that_is_not_smaller():
     found = offenders()
     new = set(found) - KNOWN_UNSCALED
@@ -88,6 +102,10 @@ def test_no_new_sheet_ships_a_tier_variant_that_is_not_smaller():
     )
 
 
+@pytest.mark.skipif(
+    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
+    reason="asserts machine-local generated assets; see the note above",
+)
 def test_the_known_list_does_not_rot():
     """⛔ A RATCHET THAT ONLY EVER GROWS IS NOT A RATCHET. If a name here has
     been fixed, the list must lose it — otherwise the guard silently permits a
@@ -101,6 +119,10 @@ def test_the_known_list_does_not_rot():
     )
 
 
+@pytest.mark.skipif(
+    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
+    reason="asserts machine-local generated assets; see the note above",
+)
 def test_the_measurement_can_see_a_sheet_that_does_scale():
     """⭐ POSITIVE CONTROL. Both tests above are absence assertions; if `collect`
     returned nothing they would pass forever. This pins that the tree really
@@ -153,6 +175,10 @@ def missing_variants() -> dict[str, list[str]]:
     return out
 
 
+@pytest.mark.skipif(
+    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
+    reason="asserts machine-local generated assets; see the note above",
+)
 def test_no_new_sheet_ships_without_a_reduced_variant():
     found = missing_variants()
     new = set(found) - KNOWN_MISSING_VARIANTS
@@ -164,6 +190,10 @@ def test_no_new_sheet_ships_without_a_reduced_variant():
     )
 
 
+@pytest.mark.skipif(
+    not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"),
+    reason="asserts machine-local generated assets; see the note above",
+)
 def test_the_missing_variant_list_does_not_rot():
     found = missing_variants()
     fixed = KNOWN_MISSING_VARIANTS - set(found)
@@ -171,3 +201,61 @@ def test_the_missing_variant_list_does_not_rot():
         f"{sorted(fixed)} now publish their reduced variants — remove them from "
         "KNOWN_MISSING_VARIANTS so a regression is caught"
     )
+
+
+# ── The SCRIPT's behaviour, on fixtures, unconditionally ──────────────────
+#
+# ⛔⛔ EVERY TEST ABOVE IS SKIPPED BY DEFAULT, so without these this file is a
+# check that cannot fail — the exact family it was written to help catch. These
+# pin the measurement's logic on synthetic manifests, which are the same on
+# every machine.
+
+PLAIN_MANIFEST = '(target: "x", image: "x.png", rows: [])'
+PACKED_MANIFEST = '(target: "x", image: "x.png", images: ["x.png", "x.1.png"], rows: [])'
+
+
+def _png(tmp_path, name, width, height):
+    """A PNG with a real IHDR and nothing else — the script reads 24 bytes."""
+    import struct
+    import zlib
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    chunk = struct.pack(">I", len(ihdr)) + b"IHDR" + ihdr
+    chunk += struct.pack(">I", zlib.crc32(b"IHDR" + ihdr) & 0xFFFFFFFF)
+    path = tmp_path / name
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk)
+    return path
+
+
+def test_png_size_reads_the_header_without_decoding(tmp_path):
+    module = load()
+    assert module.png_size(_png(tmp_path, "a.png", 640, 480)) == (640, 480)
+    bogus = tmp_path / "b.png"
+    bogus.write_bytes(b"not a png at all")
+    assert module.png_size(bogus) is None, "a non-PNG must not report a size"
+
+
+def test_sheet_megapixels_sums_every_page(tmp_path):
+    module = load()
+    _png(tmp_path, "x.png", 1000, 1000)
+    _png(tmp_path, "x.1.png", 500, 1000)
+    plain = tmp_path / "x_spritesheet.ron"
+    plain.write_text(PLAIN_MANIFEST)
+    assert module.sheet_megapixels(plain) == (1.0, 1), "one page, 1 MP"
+
+    packed = tmp_path / "y_spritesheet.ron"
+    packed.write_text(PACKED_MANIFEST)
+    assert module.sheet_megapixels(packed) == (1.5, 2), (
+        "a packed sheet's cost is the SUM over its pages — measuring one page's "
+        "dimensions called two correctly-scaled atlases offenders"
+    )
+
+
+def test_a_missing_page_refuses_the_sheet_rather_than_shrinking_it(tmp_path):
+    """⛔ An unreadable page would make the total an UNDERCOUNT, which reads as
+    'this tier is smaller' — the opposite of the truth, and silent."""
+    module = load()
+    _png(tmp_path, "x.png", 1000, 1000)
+    packed = tmp_path / "y_spritesheet.ron"
+    packed.write_text(PACKED_MANIFEST)  # names x.1.png, which does not exist
+    assert module.sheet_megapixels(packed) is None

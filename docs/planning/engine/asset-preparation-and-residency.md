@@ -1022,8 +1022,41 @@ accounting believes it saved 16x.
 ⛔ **IT IS THE OPPOSITE OF THE GALLERY-PREVIEW RULING AND MUST NOT BE READ AS
 CHALLENGING IT.** Jon's rule is that nothing may draw FEWER pixels than the
 setting asks for; these draw MORE. Regenerating the variants removes no pixels
-from any tier that requested them. ▢ Doing it means regenerating committed art
-through the sprite renderer, which is a content change and is not taken here.
+from any tier that requested them.
+
+⚠⚠ **CORRECTED WITHIN THE HOUR: THIS IS A GENERATOR DEFECT, NOT COMMITTED ART.**
+The first write-up called fixing it "a content change" that wanted Jon's say-so.
+Every sprite PNG is GITIGNORED and generated — `assets/sprites/.gitignore` is
+`*.png`, and `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` are ignored
+whole. Nothing here is committed art; the tree holds seven tracked files under
+`assets/sprites`, all of them JSON or markdown. ⇒ The fix belongs in
+`scripts/generate_visual_quality_variants.py`, is Python, and needs no art
+decision at all.
+⛔⛔ **AND MY CORROBORATION WAS FALSE — RETRACTED THE SAME HOUR.** I checked the
+primary worktree, saw the identical four sheets undownscaled, and wrote that it
+"reproduces on a second, independently-generated tree". **It is the same tree.**
+`scripts/mirror_assets_for_worktree.py` symlinks a worktree's generated assets
+at the main checkout's, file by file — `sprites_0_25x/author_spritesheet.png`
+here IS `/home/joncrall/code/ambition/...` there. I measured one set of bytes
+twice and called the second read independent evidence.
+
+⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
+assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
+asking for those tiers pays for them. NOT established: that any other machine
+generates the same, or that the generator is at fault. ⚠ The arithmetic points
+AWAY from a scaling bug — `effective_scale` returns 0.25 for these sheets, the
+same as for `carl_runga`, which scales correctly — so the likeliest cause is a
+STALE OUTPUT that the freshness check (`_published_and_current`) never rebuilds,
+which would be per-machine rather than a repository defect. ▢ The cheap decider
+is `scripts/regen/quality_variants.sh --target author --force`: if the variant
+comes back smaller, it was staleness; if it comes back full-size, the generator
+is wrong for these sheets. That has not been run here, and running it needs the
+renderer.
+
+⇒ **A finding about GITIGNORED, GENERATED files is a finding about the generator
+only if it reproduces where the generator ran SEPARATELY** — and a symlinked
+worktree is not a separate run. That test is the whole reason this paragraph
+exists; I applied it and then accepted an answer that could not have failed.
 
 ⚠ **AND THE QUANTITY DECIDED THE ANSWER.** Measured by one page's dimensions the
 list was SIX, including `noether` and `perfect_cellular_automaton` whose 0_5x

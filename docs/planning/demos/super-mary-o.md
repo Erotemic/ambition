@@ -210,7 +210,7 @@ Remaining acceptance work
   It claimed *"nothing in the codebase has ever bonked a ?-block while
   GROWN"*, which the ✔ row above it contradicts outright:
   `a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
-  (`game/ambition_demo_mary_o_app/tests/level_1_acceptance.rs:1486`) does
+  (`game/ambition_demo_mary_o_app/tests/level_1_acceptance.rs:1326`) does
   exactly that and has been green since 2026-08-14. ⛔ an open marker its own
   neighbour answers is worse than no row: it reads as work and sends the next
   session to re-investigate a closed question.

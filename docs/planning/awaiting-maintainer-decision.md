@@ -309,7 +309,7 @@ the old number would be starting finished work.
 **What is actually left is 2,258 non-test lines of DATA — 8% of that crate's
 28,234** — and it is pinned by two located constraints, not by effort:
 
-* `impl SnapshotCursor for Brain` (`snapshot_impls.rs:350`). The trait is declared
+* `impl SnapshotCursor for Brain` (`crates/ambition_characters/src/snapshot_impls.rs:350`). The trait is declared
   in `ambition_platformer2d_core`, so it is foreign to `ambition_characters`
   while `Brain` is local; the impl can live only in one of those two crates, and
   everything the encoder reads is pinned with it.

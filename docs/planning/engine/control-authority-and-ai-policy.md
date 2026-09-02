@@ -3,9 +3,11 @@
 > ⚠ **`Brain::Player` NO LONGER EXISTS** (re-measured 2026-08-20). `Brain` is a
 > ONE-VARIANT enum — `StateMachine(StateMachineCfg)` — and who drives a body is
 > the separate typed component `DrivingParticipant(PlayerSlot)`. Every mention of
-> `Brain::Player` below is HISTORY describing the pre-split tree; the repository
-> has 29 such mentions left and all 29 are comments, zero live code. ⛔ do not
-> grep for it expecting to find the mechanism.
+> `Brain::Player` below is HISTORY describing the pre-split tree. ⛔ do not grep
+> for it expecting to find the mechanism.
+> ⭐ **Re-counted 2026-09-02: TWO mentions left, both comments** (was 29 on
+> 2026-08-20 — the rest were tidied as their files were touched). Zero live code
+> either way, so the claim held; only the number moved.
 
 **Owner: the engine.** Written 2026-08-20 from Jon's architectural review of
 `4af278e77`, which named this as the next broad direction after the custody and
@@ -17,7 +19,7 @@ that refusal is the first thing to read.
 `Brain` is now `StateMachine(StateMachineCfg)` and nothing else. Who drives a
 body is `ambition_characters::brain::DrivingParticipant(PlayerSlot)`, authored at
 the spawn/seat site and moved for a possession by exactly one system,
-`control::project_driving_participant`. `PossessionState::restore_brain` and
+`control::project_driving_participant`. `PossessionState::restore_brain` <!-- cite-ok: names a deleted field --> and
 `restore_scope` are gone with it — a driven body keeps its own policy for the
 whole possession, so there is nothing to stash and nothing to put back.
 
@@ -106,7 +108,7 @@ its remainder needs an ANSWER TO THE ORPHAN-RULE PIN rather than another move.
 Two independent things hold the remainder in the floor crate. Both were located
 rather than inferred:
 
-1. **`impl SnapshotCursor for Brain`** (`snapshot_impls.rs:350`). `SnapshotCursor`
+1. **`impl SnapshotCursor for Brain`** (`crates/ambition_characters/src/snapshot_impls.rs:350`). `SnapshotCursor`
    is declared in `ambition_platformer2d_core`, so it is FOREIGN here; `Brain` is
    local. The impl is therefore legal only in `ambition_characters` or in
    `ambition_platformer2d_core`, and everything the encoder reads is pinned with
@@ -172,7 +174,7 @@ AiPolicy           a typed, domain-owned policy component    domain-owned
 * a player-driven body carries `ControlAuthority` and no `AiPolicy`;
 * an autonomous body carries `AiPolicy` and no `ControlAuthority`;
 * **possession INSERTS `ControlAuthority` and leaves `AiPolicy` where it is.**
-  Release removes it. Nothing is stashed, so `restore_brain` retires and
+  Release removes it. Nothing is stashed, so `restore_brain` retires and <!-- cite-ok -->
   `PossessionState` stops carrying policy state through rollback.
 * a domain publishes its own policy component. `Smash`/`Fighter` become the smash
   domain's; `Patrol`/`Wanderer`/`StandStill` stay on the actor floor. Each moves
@@ -184,7 +186,7 @@ types inside it, and the offer is a typed plugin rather than a table.
 
 ## Acceptance
 
-- ✔ `PossessionState::restore_brain` is DELETED, not merely unused — **verified
+- ✔ `PossessionState::restore_brain` <!-- cite-ok: names a DELETED field --> is DELETED, not merely unused — **verified
   against the code 2026-09-02**: the resource has four fields (`possessed`,
   `home`, `hold_timer`, `prev_down_interact`) and no brain state. The name
   survives only in comments explaining what changed, and in an unrelated Yarn

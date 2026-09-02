@@ -70,8 +70,10 @@ runs the **real presentation plugins**, forces the main camera through the same
 target, and writes that target to a PNG:
 
 ```
-cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] \
-    [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]
+capture_scene <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
+capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
+  --warmup N  --frames N  --stride K  --character ID  --press SEQ
+  --include-ui  --dev-overlays  --combat-overlay  --screen-effect E  --fit-room
 ```
 
 ⭐ **it composes through `build_visible_app_with`, the same builder the desktop
@@ -83,23 +85,18 @@ retargeted to the offscreen image).
 So an agent CAN spot-check visuals the same way it spot-checks simulation, and
 "always draw blind" work should produce an image rather than assert it cannot.
 
-⚠ **It captures ROOMS, not ROUTES (found 2026-07-28 by trying).** The first
-argument is a room id resolved inside the sandbox composition, so asking it for
-`versus_arena` — a shell-route experience with its own prepared session — quietly
-captures the default sandbox room instead. There is no error; the PNG just shows
-somewhere else, which is the worst possible failure for a verification tool.
+✔ **ROUTES too, since `--route` landed** (the 2026-07-28 finding that the tool
+captured rooms only — so the launcher, the startup cards, the versus stage and
+its HUD could not be photographed — is closed). `--route smash_gameplay
+--character ID` seats a match; `--press` drives keys/touches through the route's
+own lobby before the shutter; `--frames N --stride K` photographs a sequence.
+⚠ The shutter opens only AFTER the press sequence completes, so a frame that
+happens DURING an input (a page turn's first frame, a menu's opening frame) is
+not capturable this way — a `--press-during` step would be the extension.
+⚠ On a machine with no GPU pair it with `AMBITION_QUALITY_PROFILE=ultra`; the
+tool's `--help` says why (Potato scales screen shaders and the parallax to
+nothing).
 
-**The consequence is the one that matters for "a stranger can run it and see it":
-the surfaces a stranger sees FIRST cannot be captured at all.** The launcher, the
-startup cards, the versus stage and its HUD are all routes. A day of work on the
-title screen's text sizes, its hover, the round-start countdown card and the
-per-seat health gauges produced no image, and the honest reason is not "headless
-cannot see UI" — `--include-ui` works — it is that this tool cannot reach a route.
-
-The fix is a `--route <SHELL_ROUTE_ID>` mode that composes the shell host
-(`build_visible_app(NoWindow, ..)`, which every rendered test already uses),
-settles to the route, and hands the same offscreen target to the same readback.
-The readback half is done and route-agnostic; only the app build differs.
 The sibling capture is `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`
 (geometry only, no render stack).
 

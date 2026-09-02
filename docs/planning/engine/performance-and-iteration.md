@@ -1302,10 +1302,14 @@ Follow
 specific telemetry, demand before first use, rendered pacing validation, explicit
 residency owners/budgets, and elimination of measured re-preparation/re-loads.
 
-### P1 — transparent draw attribution
+### P1 — transparent draw attribution — ✔ ANSWERED 2026-09-01
 
-Identify which render layers/material classes own the large transparent fragment
-area before changing renderer architecture.
+Measured with `report_draw_census` (`crates/ambition_render/src/runtime_census.rs`):
+four backdrop sprites hold 96% of all drawn sprite AREA and fifty-seven gameplay
+sprites hold 4% — the lever is the backdrop's layer count and blending, not the
+actors (`dev/ambition_dev_measurements/journal/2026-09-02-the-overdraw-is-the-backdrop.md`,
+queue row D-RASTER-3). What remains is the weak-GPU measurement itself, which
+needs that machine.
 
 ### P1 — build/test iteration
 

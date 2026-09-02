@@ -1,7 +1,9 @@
 # HEAD orientation
 
-**Reviewed baseline:** `4e5f59cf753a62105cbc9fd53aa9697d337d0eed` —
-`Update docs phase 2` (2026-08-30).
+**Reviewed baseline:** `91d5d4a9c48c7bab42b7e9f2d86ca631057d1cfe` —
+`Planning: S2 closed with the Local<T> census` (2026-09-02). The performance
+model below was rewritten at this baseline; other sections were last reviewed
+at `4e5f59cf` (2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated
@@ -129,12 +131,36 @@ See
 
 ## Current performance model
 
+### The frame, measured on the shipped program (2026-09-02)
+
+The shipped build (release optimisation, no Tracy, V-Sync Off) runs **250-310
+fps in every room** on the reference desktop (i9-11900K + RTX 3090), including
+the Hall of Characters once its art is resident. "Under 100 fps" was three
+things stacked and none of them the shipped program: the dev build
+(opt-level 1), `Fifo` v-sync at 144 Hz (any frame over 6.9 ms shows as 72; an
+unfocused window shows 60), and — while profiling — the Tracy build's ~2.5x
+per-frame span cost. There is no frame-rate campaign. See the top of
+[`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+
 ### Simulation CPU
 
-Representative headless Smash workloads are within the current 60 Hz budget and
-show many small systems rather than one dominant gameplay hotspot. Current
-evidence does not fund broad system-count reduction, generic change-driven
-projection, physics rewrites, or parallelizing `GgrsSchedule`.
+The production rollback host ticks the full hall (129 actors) in 1.9 ms, linear
+at ~7 us per actor per tick (`scripts/sim_scaling_curve.py`); the decision
+pipeline is closed. The shipped host's whole main-world frame is ~3.4-4.5 ms
+of which ~3.4 ms is a floor independent of the cast: `bevy_ecs` bookkeeping
+over ~2400 system runs per frame, no hotspot, not the executor. Current
+evidence does not fund physics rewrites or parallelizing `GgrsSchedule`; the
+only lever on the floor is running fewer systems, and it is not needed at
+144 Hz.
+
+### Asset loading — the one user-visible performance problem
+
+Entering the hall cost nine frames of 89-355 ms while 434 MP of Full-tier art
+arrived AFTER the cover lifted. Root cause found and fixed 2026-09-02: the
+reveal barrier never waited for the cast beyond the per-frame load ration
+(`2c8f27b32`); the hall now realizes its cast at Quarter (`dc3cd0d91`). Both
+await one host capture to confirm; see
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 
 ### Weak-GPU rendering
 

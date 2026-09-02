@@ -404,6 +404,38 @@ build the generator for the remainder only (a per-character node synthesized
 from `fallback_dialogue`, overridden by any authored node of the same title).
 Content call; the engine side is unchanged either way.
 
+### 45. Is a unique capability item an ENTITLEMENT or an OCCURRENCE? (2026-09-02)
+
+`item-custody-and-accounting.md` I3 asks special pickup roads to "converge
+toward the same occurrence/custody model as ordinary held items **when that
+model can express their semantics**". Measured, it cannot express the portal
+gun's, and the difference is a product decision rather than an engineering one.
+
+An ordinary held item is an OCCURRENCE: a `GroundItem` with a `SimId` that
+persists through pickup and drop, its location remembered by custody and the
+whereabouts ledger. The portal gun is an ENTITLEMENT: picking it up despawns the
+world token, grants `PortalGun` on the body and `Item::PortalGun` in
+`OwnedItems`, and **dropping never revokes the grant** — it unequips and spawns
+a fresh, room-scoped token. The menu re-equips straight from `OwnedItems`. The
+code states the intent where it is decided: *"The gun is a single item: it
+doesn't exist until you pick it up — picking up the one world item IS getting
+the portal gun."*
+
+✔ Nothing is broken: `OwnedItems::grant` clamps a unique item to 1, so the two
+roads cannot inflate a count, and the measured behaviour is self-consistent.
+
+⇒ **The question is what you want a unique capability item to MEAN**, and the
+two readings differ observably in exactly one place: **can dropping the portal
+gun and walking away ever lose it?**
+
+- **Entitlement** (what ships today): no. Once acquired it is yours; the world
+  token is a convenience for re-equipping in place. Zelda's hookshot.
+- **Occurrence**: yes. The gun is a thing that exists somewhere, can be left in
+  a room, stolen, or lost down a pit, and the durable record is where it IS.
+
+⛔ Not an agent's call — it decides whether a whole category of future item is
+losable. Recorded rather than implemented; I3 stays open behind it.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

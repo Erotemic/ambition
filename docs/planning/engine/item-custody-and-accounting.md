@@ -97,6 +97,40 @@ Special pickup roads that despawn on pickup and manufacture a replacement on
 drop should converge toward the same occurrence/custody model as ordinary held
 items when that model can express their semantics.
 
+⭐⭐ **MEASURED 2026-09-02, and the row's own escape clause — *"when that model
+can express their semantics"* — is the whole answer. It cannot, because the
+portal gun is not an occurrence.** Read side by side:
+
+| | ordinary held item | portal gun |
+|---|---|---|
+| in the world | `GroundItem` with a `SimId` | `PortalGunPickup`, no identity |
+| pickup | `HeldItem` + `ItemCustody::Held { holder }`; the object PERSISTS | pickup entity despawned; `PortalGun { active }` + `StashedActionSet` on the body; `owned.grant(Item::PortalGun, 1)` |
+| drop | the same object returns to the ground | `unequip_portal_gun`, then `spawn_room_scoped(PortalGunPickup { … })` — a FRESH token |
+| durable record | custody + the whereabouts ledger, rebuilt by `restore_custody_to_checkpoint` | `OwnedItems`, granted on pickup and **never revoked on drop** |
+
+⇒ **The gun is an ENTITLEMENT with a cosmetic world token.** "Dropping" it is
+unequip-plus-spawn-a-re-pickup, and it never loses you the gun: the menu
+re-equips straight from `OwnedItems`
+(`menu/effects.rs` → `equip_portal_gun`, no check that a token exists), and the
+dropped token is room-scoped so leaving the room destroys it with no
+consequence. The code says this out loud where it is decided — *"The gun is a
+single item: it doesn't exist until you pick it up — picking up the one world
+item IS getting the portal gun."*
+
+✔ **AND THE ACCOUNTING IS SAFE, checked rather than assumed:**
+`OwnedItems::grant` clamps a `is_unique()` category to 1, so the two roads
+cannot inflate a count. What they can do is coexist — after a drop there are two
+independent ways to hold the gun again (the menu, and the token), which is
+harmless today precisely BECAUSE the gun is an entitlement.
+
+⛔ **SO I3 IS A DECISION, NOT AN IMPLEMENTATION.** Converging the gun onto the
+occurrence/custody model would give it an identity its semantics never use, and
+would make "drop" mean something it does not mean for this item. The question —
+is a unique capability item an ENTITLEMENT or an OCCURRENCE? — is recorded in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+⚠ Whoever answers it should note that the two readings differ observably in one
+place only: whether dropping the gun and walking away can ever lose it.
+
 ### I4 — unloaded-room disposition
 
 Persistent dropped items and carried items in nonresident rooms need a durable

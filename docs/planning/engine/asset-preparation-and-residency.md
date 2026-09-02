@@ -312,7 +312,25 @@ measured.
 Choose a budget from rendered measurements. "One character per frame" is a
 current useful bound, not a universal theorem.
 
-### 3a. The next increment, planned 2026-09-02: a ROOM-LEVEL sprite tier cap
+### 3a. ✔ LANDED 2026-09-02 (`dc3cd0d91`): the ROOM-LEVEL sprite tier cap
+
+Built as planned below with two departures worth knowing. (1) No new authored
+field yet: the cap derives from the existing authored `gallery` flag
+(`room_sprite_tier_cap`), which is every pedestal room today; the derivation
+is one function and an authored field can replace it. (2) Staleness became a
+RANGE `(floor, ceiling)`, not a single tier: a Full sheet standing in a
+gallery is kept (oversampled), a Quarter sheet carried into a Full room is
+retired before that room's reveal — so entering the hall loads only NEW
+characters, at Quarter, and hub-shared ones are not churned. The demand now
+carries a per-token tier and the convergence knows the room being loaded
+(`PendingRoomTierFloor`); without those the in-room drain realized the
+forwarded cast at the hub's Full and the convergence retired the Quarter ones
+the frame after they arrived (measured headless: 103 Full behind the cover).
+Headless: 124 new sheets at Quarter, 5 hub-shared kept at Full. **Host tell:**
+`image_arrivals` megapixels in the hall window (434 before), `resident_mb`
+(2153 before), and the cover's hold time.
+
+#### The plan as written (kept for the record)
 
 Now that the frame is answered (250-310 fps everywhere; the hall's entry hitch
 is the one user-visible cost left), this is the first thing to build. The

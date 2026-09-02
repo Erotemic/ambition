@@ -1372,7 +1372,16 @@ product ruling.
   its first frames under 0.19. Read the census `camera` rows: three active
   cameras on the window (main order 0, "Cube scrim display" order 7 with no
   layers, "Cube pause" order 8) — a full-screen camera with nothing to draw
-  is a clear per frame if its clear is not `None`.
+  is a clear per frame if its clear is not `None`. ⭐ PHOTOGRAPHED HEADLESS
+  2026-09-02 (`capture_scene --route ambition_gameplay --press Escape,wait:10
+  --press-during 1 --frames 10 --include-ui`, llvmpipe): frame 0 the world,
+  frame 1 the world dimmed under the scrim, frame 2 the cube with its faces
+  drawn — **no black and no magenta frame** in the open sequence, and the
+  direct-sandbox host (`<ROOM_ID>` form) does not open the menu at all (the
+  world pauses, nothing is drawn — the kaleidoscope is shell-route
+  presentation). So under a software renderer the open is clean; what is left
+  is host-side (swapchain `Outdated` on the first frames, MSAA writeback on a
+  real adapter) or launch-only — which is exactly the fact only you can give.
 - **The reveal-barrier fix needs its host confirmation** (`2c8f27b32`, root
   cause; `6446c5adc` was not it): one more `--no-tracy` capture through the hub
   door. Tells: zero "nothing demanded it" warnings at the hall reveal,

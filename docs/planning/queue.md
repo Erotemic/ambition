@@ -599,9 +599,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   SystemSet instead has the same problem: the set would live in the monolith.
   ⇒ THE ONLY WAYS TO REMOVE THIS EDGE ARE TO DELETE THE MEASUREMENT OR TO MOVE
   `phase_mark` DOWN, and both are carving for a NUMBER, which this row's first
-  paragraph forbids. ✔ SO THE DEV_TOOLS SLICE IS DONE: the kernel holds no
-  developer AUTHORITY, and a plugin asking a profiler to time its own startup is
-  a legitimate use of a developer tool.
+  paragraph forbids.
+  ✔ THE PHASE MARKS WENT ANYWAY, 2026-09-02 (`09f34b8d2`) — not by moving
+  `phase_mark` down but by inverting the ordering: the plugin publishes
+  `AudioInitSet` (in `ambition_platformer2d_shared_tangle`) and the HOST brackets
+  that set beside every other mark, under the same two names so existing startup
+  profiles still compare. Nothing in the dev crate names the monolith.
+  ⛔⛔ **BUT "THE KERNEL HOLDS NO DEVELOPER AUTHORITY" IS FALSE, and this row said
+  it while the owner doc had already been corrected — the same item in two files,
+  fixed in one.** Counted on `main` 2026-09-02, three PRODUCTION reads remain and
+  none is instrumentation:
+  * `features/npcs.rs:114,127` — `brain_override::forced_profile()` /
+    `forced_preset()`, read while BUILDING A LIVE BRAIN;
+  * `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`,
+    deciding whether a placement spawns AT ALL;
+  * `features/mod.rs:350` — `runtime_census`, the mildest (cfg'd and
+    census-gated).
+  The first two are the simulation reading developer state to decide what the
+  world contains, which is precisely the authority this carve exists to remove.
+  ⇒ THE `Cargo.toml` DEPENDENCY STAYS and the dev_tools slice is NOT closed.
+  ▢ **The next slice's shape, agreed 2026-09-02 and deliberately not started
+  without review**: *the sim reads a SESSION-owned override that the dev tool
+  WRITES, never the dev crate itself* — the same inversion `ClockScaleRequest`
+  already demonstrates for slow-motion.
+  ⚠ **What each actually reads, checked rather than assumed**: `forced_profile()`
+  is a `OnceLock` over an env var — a hidden process-global INPUT, but constant
+  once resolved. `admit_actor()` is more than a read: it is an
+  `AtomicUsize::fetch_add(Relaxed)` that decides whether a placement spawns.
+  ⭐ AND IT IS INERT BY DEFAULT — `cap()` resolves to `usize::MAX` with the env
+  knob unset and `admit_actor` returns `true` before touching the counter, so
+  the mutable global is live only in a developer scenario. ⇒ This is an
+  OWNERSHIP problem first. The determinism question (a process-global counter
+  that no rollback rewinds, deciding which actors exist) is real but scoped to
+  runs with the cap set, and should be stated that way rather than as a shipped
+  desync risk.
   ⭐ AND THE OTHER HALF OF THAT FRONTIER WAS MEASURED BEFORE PICKING IT UP —
   *"presentation dependencies"* is mostly a mirage. The kernel's production refs
   are `sfx` 160, `vfx` 103, `audio` 70, `conversation` 33, `cutscene` 16, and

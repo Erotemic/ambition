@@ -6,6 +6,12 @@
 > route owns its own score. The full migration record is archived at
 > [`../archive/planning-superseded/2026-08-13/frontend-audio-is-per-experience.md`](../archive/planning-superseded/2026-08-13/frontend-audio-is-per-experience.md).
 
+> **Re-checked against `008b44120` (2026-09-02): NOTHING HAD CHANGED.**
+> `FrontendAudioRegistry` is live in `ambition_audio/src/selection.rs` and read
+> by the actor monolith's audio plugin; `selection.rs` itself records that
+> declarations are keyed by route. The remaining item below is still a
+> "when the product wants it" consumer, not missing architecture.
+
 ## Remaining
 
 - ▢ **Use route declarations for music changes inside one experience.** A stage

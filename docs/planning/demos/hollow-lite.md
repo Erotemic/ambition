@@ -4,6 +4,12 @@ Inspired by Hollow Knight's opening area (Forgotten Crossroads energy)
 ending in a real boss fight (False Knight energy). Parody-original: a
 small errant automaton in the ruins of a dead machine-colony.
 
+> **Re-checked against `008b44120` (2026-09-02): STILL ENTIRELY UNBUILT, as this
+> plan expects.** No `hollow` crate, target or module exists anywhere in the
+> workspace — the built demo customers are `ambition_demo_{mary_o,sanic,smash,twintrack}`
+> (plus `ambition_demo_pocket`, which is a provider FIXTURE and not a customer;
+> see [`README.md`](README.md)). Nothing here has been superseded by code.
+
 **Purpose:** two proofs in one. (1) The exploration-combat loop —
 interconnected rooms, melee-first combat with pogo, benches/saves,
 currency-loss-on-death — is content on the engine. (2) **The boss-design

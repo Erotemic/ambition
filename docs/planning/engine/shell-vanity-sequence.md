@@ -2,6 +2,12 @@
 
 Status: **OPEN — VC5 only**
 
+> **Re-checked against `008b44120` (2026-09-02): NOTHING HAD CHANGED, VC5 is still
+> open.** No launcher content-alpha ramp exists — the only presentation fade in
+> the shell is the vanity CARD's own (`basic_presentation.rs`), and the other
+> `fade_*` hits in the workspace are audio tweens and the nameplate rank
+> opacity. The "Verified landed" list below still describes the code.
+
 The original shell vanity-sequence campaign is complete except for the title
 launcher fade-in. VC1–VC4 and VC6 are implemented. The full campaign history is
 archived at

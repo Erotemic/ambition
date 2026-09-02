@@ -69,10 +69,20 @@ human() { du -sh "$1" 2>/dev/null | cut -f1 || printf '?'; }
 # paths out of it: `mkdir -p "/debug"`, `rm -rf "/debug/deps"`. Verified
 # 2026-09-02. Fail loudly instead; `target_state` is what callers should ask.
 store_of() {
-    local root="$1" src out
+    local root="$1" src inner out
     src="$(findmnt -no SOURCE --target "$root/target" 2>/dev/null || true)"
     case "$src" in
-        *\[*\]) out="$(readlink -f "/${src#*[}" 2>/dev/null | sed 's/]$//')" ;;
+        *\[*\])
+            inner="${src#*[}"
+            inner="${inner%]}"
+            # ⛔ STRIP THE KERNEL'S `//deleted` MARKER FIRST. findmnt reports a
+            # mount whose backing directory was removed as `<dev>[<path>//deleted]`,
+            # and `readlink -f` FAILS on that because a non-final component no
+            # longer exists — which is how this used to return an empty string.
+            # The store still has a name; it is simply gone. Name it.
+            inner="${inner%//deleted}"
+            out="$(readlink -f "$inner" 2>/dev/null || printf '%s' "$inner")"
+            ;;
         *) out="$root/target" ;;
     esac
     [ -n "$out" ] || die "cannot resolve the backing store for $root/target (findmnt SOURCE: ${src:-none}).
@@ -95,8 +105,13 @@ target_state() {
     if ( : > "$t/.bindprobe" ) 2>/dev/null; then
         rm -f "$t/.bindprobe"
         printf 'bound'
+    elif [ -d "$(store_of "$1")" ]; then
+        # The store is THERE and still refuses the write — read-only, a full or
+        # errored filesystem, wrong owner. Not the deleted-store case, and the
+        # repair is not the same, so do not call it that.
+        printf 'UNWRITABLE'
     else
-        printf 'BROKEN'
+        printf 'DELETED'
     fi
 }
 
@@ -128,9 +143,11 @@ cmd_list() {
             "$(busy "$path" && echo yes || echo no)" "$path"
     done
     printf '\nTARGET=LOCAL on a virtiofs checkout means builds are on the SHARED mount.\n'
-    printf 'TARGET=BROKEN means the mount is live but its backing store was DELETED:\n'
-    printf '  nothing can be written there and the artifacts are gone. Repair with\n'
+    printf 'TARGET=DELETED means the mount is live but its backing store was REMOVED:\n'
+    printf '  the artifacts are gone. Repair with\n'
     printf '  ( cd <path> && scripts/setup/target_bindmount.sh ), then reseed.\n'
+    printf 'TARGET=UNWRITABLE means the store is present but refuses writes (read-only,\n'
+    printf '  full, or wrong owner). The artifacts may be fine — diagnose before repairing.\n'
     printf 'BUSY=yes means a cargo build holds that build lock right now.\n'
 }
 
@@ -202,11 +219,12 @@ cmd_seed() {
     # `No such file or directory` naming a path that plainly exists, which reads as
     # a broken script rather than a broken mount. Check BOTH ends: a donor in this
     # state has no artifacts to give either.
-    [ "$(target_state "$path")" = BROKEN ] && die "slot $n's target is a live mount over a DELETED backing store.
-  Nothing can be written there and the old artifacts are gone. Rebind first:
+    case "$(target_state "$path")" in DELETED|UNWRITABLE) true ;; *) false ;; esac && die "slot $n's target cannot be written ($(target_state "$path")).
+  A DELETED store means the artifacts are gone and a rebind is the fix; an
+  UNWRITABLE one means the store is there and something else is wrong. Rebind:
       ( cd $path && scripts/setup/target_bindmount.sh )"
-    [ "$(target_state "$from")" = BROKEN ] && die "the donor's target is a live mount over a DELETED backing store: $from
-  There is nothing to seed FROM. Rebind and rebuild it first:
+    case "$(target_state "$from")" in DELETED|UNWRITABLE) true ;; *) false ;; esac && die "the donor's target cannot be read as a store ($(target_state "$from")): $from
+  There is nothing to seed FROM. Diagnose, or rebind and rebuild it first:
       ( cd $from && scripts/setup/target_bindmount.sh )"
 
     # Link through the STORES, not the bind-mounted target paths (see store_of).

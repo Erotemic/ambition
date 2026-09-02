@@ -56,7 +56,7 @@ cmd_status() {
     if [ ! -d "$target" ]; then
         printf 'state        ABSENT (cargo has not built here yet)\n'
     elif mountpoint -q "$target" && store_is_gone "$store"; then
-        printf 'state        ⛔ BOUND, BUT THE BACKING STORE IS GONE\n'
+        printf 'state        ⛔ BOUND, BUT THE BACKING STORE IS GONE (removed under the mount)\n'
         printf '             The mount is live over an unlinked directory, so every write\n'
         printf '             under target/ fails with ENOENT. Nothing here is recoverable —\n'
         printf '             the artifacts went with the store. Rebind and reseed:\n'

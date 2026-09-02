@@ -60,7 +60,9 @@ actual product requirement.
   [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 - ▢ **Item custody/accounting residual.** Complete body-owned instance/count
   semantics for held weapons/abilities and unloaded-room occurrence behavior.
-  Owner: [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
+  I1 (the process-global equipped mirror) closed 2026-09-02 — the hand is the
+  record; I2–I4 remain. Owner:
+  [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md).
 - ▢ **Capability progression/world gating.** Physical verbs remain body-owned;
   knowledge/keys/theorems remain participant-owned. Grow the authoring vocabulary
   only from concrete progression needs. Owner:
@@ -181,7 +183,11 @@ actual product requirement.
   logcat, confirm menu and dialogue text render rather than falling back to
   boxes. ⛔ Until then never write "verified on Android" for it.
 - ▢ **Asset residency/materialization followups.** Add ownership/budget policy
-  from measured resident-memory or hitch pressure. Owner:
+  from measured resident-memory or hitch pressure. The instrument exists since
+  2026-09-02 (the image stage ledger: demand → insert → GPU, re-decodes, decodes
+  dropped before upload) and readiness now includes the GPU copy; open work 4
+  (ownership/budgets) and the intro cast's startup preload are the named
+  residuals. Owner:
   [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 - **Generic CPU optimization** — no standing campaign. Reopen only with a
   representative measured hotspot/budget failure. Current disproven/low-leverage

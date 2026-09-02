@@ -784,6 +784,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⚠ The kernel reads 1204 tests after this, against 1207 before — the three are
   a peer's uncommitted room-tier-cap deletion (`character_sprites/assets.rs`,
   11 `#[test]` → 8), checked per file rather than assumed.
+  ⭐ **AND THE SWEEP WAS GENERALISED TO EVERY KERNEL MODULE, WHICH IS HOW THE
+  MEASUREMENT CAUGHT ITSELF OVER-REPORTING.** Running the same "is this name
+  defined here?" test over `crate::<module>::X` for all 32 kernel modules first
+  reported `character_runtime` 36/140 (25%), `control` 8/32 (25%) and `session`
+  8/58 (13%) — headline numbers that would have justified three more sweeps.
+  ⛔ SPOT-CHECKED BEFORE ACTING, and most of it dissolved: `crate::session::reset`
+  and `crate::session::data` are MODULE paths, not names, and the script was
+  matching a same-named `pub fn` in another crate; `character_runtime::presentation`
+  likewise. ⇒ **the second path segment is not necessarily a type**, and the
+  `features` result only held because it was cross-checked against that facade's
+  actual re-export list.
+  ✔ What survived the check was small and is now done: `control::DrivingParticipant`
+  (8 uses, really `ambition_characters::control::DrivingParticipant`).
+  ⚠ One genuine case is LEFT ON PURPOSE: `character_runtime::prepare_and_finalize_for_test`
+  (33 uses, really `ambition_characters`) is test-support, and its hub file is
+  open in another session tonight.
+  ⇒ **The `features` facade was the real hub; the rest of the kernel is close to
+  clean.** Do not re-run the generalised form and act on its raw numbers without
+  the per-module re-export cross-check — it over-reports by design.
 
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor

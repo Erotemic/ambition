@@ -98,7 +98,7 @@ pub fn derive_slot_direction_gestures(
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     // WHO IS DRIVING WHAT, so each seat's gesture resolves against the
     // gravity of the body that seat is actually steering.
-    drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -207,7 +207,7 @@ pub fn interaction_input_system(
     slots: Res<ambition_characters::control::SlotControls>,
     latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
@@ -337,7 +337,7 @@ pub fn cleanup_timers_system(
 #[cfg(test)]
 mod per_seat_gesture_tests {
     use super::*;
-    use crate::control::DrivingParticipant;
+    use ambition_characters::control::DrivingParticipant;
     use ambition_characters::control::{
         PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState,
     };

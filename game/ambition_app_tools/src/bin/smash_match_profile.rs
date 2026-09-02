@@ -290,17 +290,25 @@ fn main() {
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
 fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character: String) {
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-
     // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
     // subscriber safe here and unsafe in the test binary — which is why
     // `build_visible_app` drops `LogPlugin` from every windowless mode. Tracy's
     // recorder is a LAYER ON THAT SUBSCRIBER, so without this a
     // `--features profile` capture of this binary records ZERO zones, and
     // per-system timing is the one measurement a machine with no GPU still has.
-    #[cfg(feature = "profile")]
-    app.add_plugins(bevy::log::LogPlugin::default());
+    // ⛔ IN THE COMPOSE HOOK: a `NoWindow` build finishes and cleans up its
+    // plugins before returning, and Bevy 0.19 panics on `add_plugins` after
+    // that — so under `--features profile` this arm died before it measured
+    // anything. The `#[cfg]` stays INSIDE the closure: a `cfg` on the statement
+    // above would drift onto whatever followed it.
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |_app| {
+            #[cfg(feature = "profile")]
+            _app.add_plugins(bevy::log::LogPlugin::default());
+        },
+    );
 
     for _ in 0..SETTLE_FRAMES {
         app.update();

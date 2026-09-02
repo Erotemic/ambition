@@ -141,7 +141,14 @@ fn build_slash_source(
         })
     };
     let source = SlashSource {
-        image: asset_server.load(format!("sprites/{sheet}_spritesheet.png")),
+        // `fx-sheet`, the label the catalog's own effect loads already use — a
+        // slash arc is an effect sheet. A bare `load` here left it in
+        // `Assets<Image>` with no demand, so the ledger read `demand=unknown`.
+        image: ambition_sprite_sheet::game_assets::load_sheet_image(
+            asset_server,
+            "fx-sheet",
+            format!("sprites/{sheet}_spritesheet.png"),
+        ),
         layout,
         side_arc: row("side"),
         up_arc: row("up"),

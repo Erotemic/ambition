@@ -684,7 +684,16 @@ impl RetainedHudImages {
         }
         self.by_path
             .entry(path)
-            .or_insert_with_key(|path| asset_server.load(path.clone()))
+            .or_insert_with_key(|path| {
+                // Stamped like every other portrait road: a bare `load` here put
+                // the image into `Assets<Image>` with no demand, so the ledger
+                // could only report it as `demand=unknown`.
+                ambition_sprite_sheet::game_assets::load_sheet_image(
+                    asset_server,
+                    "portrait",
+                    path.clone(),
+                )
+            })
             .clone()
     }
 }

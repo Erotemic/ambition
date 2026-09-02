@@ -937,6 +937,21 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
 
     let character = ambition_demo_smash::SMASH_GEORGE_BOOUL;
     let mut app = build_demo_app();
+    // ⛔ UNDER THE `input` FEATURE THE RAW ROW BELOW IS OVERWRITTEN EVERY FRAME.
+    // `populate_seat_control_frames` derives each seat's raw frame from the
+    // device layer, so a frame written straight into `SeatRawFrames` is gone
+    // before the sim reads it — which is why this test was green per-crate and
+    // red under the workspace-unified gate (`nextest --workspace` turns
+    // `visible` → `input` on) with "What the human actually played: []". The
+    // roster seats its human on PAD 0, so be that pad: a real `Gamepad` entity,
+    // plugged in before the roster is seated, whose West button (Attack in the
+    // default preset) is pressed and HELD through Bevy's raw gamepad events. The
+    // headless build has no device layer and keeps the raw row; both roads say
+    // the same thing.
+    let pad = app
+        .world_mut()
+        .spawn(bevy::input::gamepad::Gamepad::default())
+        .id();
     for _ in 0..30 {
         app.update();
     }
@@ -1000,6 +1015,16 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             frame.attack_pressed = standing && !pressed_yet;
             frame.attack_held = standing || pressed_yet;
             raw.set(PlayerSlot(0), frame);
+        }
+        if standing && !pressed_yet {
+            app.world_mut()
+                .write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+                    bevy::input::gamepad::RawGamepadButtonChangedEvent::new(
+                        pad,
+                        bevy::input::gamepad::GamepadButton::West,
+                        1.0,
+                    ),
+                ));
         }
         pressed_yet |= standing;
         app.update();

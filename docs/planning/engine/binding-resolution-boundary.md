@@ -22,8 +22,41 @@ passes generic declarers such as `"ground item"` rather than provider/source
 identity. Two providers with the same unresolved id can therefore suppress one
 another's diagnostic in one process.
 
-Fix the declarer at the call site so a failure names the provider/content source
-that authored it. Do not add another global reporting registry.
+⛔⛔ **THE FIX AS WRITTEN IS NOT IMPLEMENTABLE, MEASURED 2026-09-02.** "Fix the
+declarer at the call site" assumes provider identity is reachable there. It is
+not, on either side of the join:
+
+- **the art side** — `WorldItemArtEntry` is `{ sprite_id, asset_path, size }`
+  and `HeldItemArtEntry` matches it. Providers construct them with exactly those
+  three fields (`ambition_demo_mary_o/src/provider.rs:151,161,174`), and
+  `WorldItemArtManifest::effective()` is a LAST-WINS merge keyed by `sprite_id`,
+  so not even the winning entry records who contributed it;
+- **the content side** — `GroundItemFact` is `{ pos, half_extent, item_id }`
+  (`ambition_sim_view/src/facts.rs:215`). The renderer iterates
+  `GroundItemsView` and holds the id and nothing else.
+
+⇒ Qualifying the declarer with the ID buys nothing: `ReportedOnce` already keys
+by (namespace, declarer, id), so the id is in the key. Only PROVIDER identity
+separates two providers' reports, and it does not exist to be named.
+
+A real fix is a design choice between two DIFFERENT questions, and this row does
+not say which it wants:
+
+1. **attribute the ART** — a source on `WorldItemArtEntry` / `HeldItemArtEntry`,
+   carried through `effective()`. Answers "whose art binding is missing", and
+   incidentally makes the last-wins merge auditable: today one provider can
+   silently override another's sprite and nothing records it;
+2. **attribute the CONTENT** — the declaring source on `GroundItemFact`. Answers
+   "whose level authored an item with an unbound id", which is closer to this
+   row's wording.
+
+⚠ **AND SETTLE THE PRIOR QUESTION FIRST.** This row asserts the suppression is a
+defect but cites no case where a real diagnostic was lost. Two providers failing
+on one id may be ONE authoring defect seen twice, in which case reporting it once
+per process is correct and there is nothing here to fix. Find the case before
+building either shape.
+
+Do not add another global reporting registry.
 
 ### 2. Extend failed-file detection beyond item art where invisibility is real
 

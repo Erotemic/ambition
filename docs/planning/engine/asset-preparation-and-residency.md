@@ -1082,6 +1082,26 @@ regression. Poison-verified in every direction, with a positive control
 asserting the tree really does contain correctly-scaled variants — otherwise
 two absence assertions would pass forever on an empty measurement.
 
+⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
+asks how much of a CLAIMED page is sampled, and says nothing about pages no
+manifest claims at all. `--orphans` measures those: **15 files per tier, 775 MP
+and 61.8 MB at Full — 16-18% of every tier's PNG bytes, and more megapixels than
+every censused page combined.** Mostly extra pages of split sheets
+(`pointed_polygon_spritesheet.2/.3/.4`) plus three whole sheets
+(`gnu_ton_boss_body`, `gnu_ton_boss_full`, `giant_gnu_body`) that **nothing in
+the repository references** — checked across `.rs`, `.ron`, `.json` and `.py`.
+
+⛔ **THE COST IS PACKAGE SIZE, NOT RESIDENCY.** No manifest names them, so
+nothing decodes them; but `package_asset_guard.py` records *"every regular
+file"* from the asset roots, so they ship.
+
+⚠⚠ **AND THIS IS PER-MACHINE UNTIL SOMEONE SEES IT ON A SEPARATELY-GENERATED
+TREE.** These are gitignored generated outputs and the likely cause is an
+earlier render leaving pages behind — the same staleness class as the tier
+variants above. ⛔ Checking the primary worktree does NOT count: its assets are
+symlinks at this checkout's, so it is the same bytes. The decider is a clean
+generation on another box.
+
 ⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
 decoded, uploaded and held resident whole; only the frame rects its baked
 manifest names are ever sampled. `scripts/measure_sheet_occupancy.py` reads

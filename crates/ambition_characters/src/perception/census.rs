@@ -15,6 +15,19 @@
 //! ⚠ OFF BY DEFAULT AND NEARLY FREE WHEN OFF: one relaxed load per world view.
 //! The census is a measuring instrument and must not join the population it
 //! measures when nobody asked it to.
+//!
+//! ⭐ IT MOVED HERE FROM `ambition_dev_tools` ON 2026-09-02, and the direction
+//! is the point (D33). The counting site is `build_world_view` in the actor
+//! kernel — a HOT LOOP, so the number cannot be recovered from outside — and
+//! while the sink lived in the developer crate, the simulation had to name that
+//! crate to record it. That was one of the two production reads keeping the
+//! kernel's upward `ambition_dev_tools` dependency alive.
+//!
+//! ⛔ THE DEVELOPER CRATE STILL OWNS THE REPORT. `runtime_census` calls
+//! [`enable`] where it installs its other rows and [`drain`] where it prints
+//! them; nothing here formats, schedules, or decides when to measure. What
+//! moved down is the COUNTER, which is a property of the views this module
+//! builds, not the instrument's policy.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -74,7 +87,10 @@ mod tests {
     fn it_records_nothing_until_enabled_and_then_reports_what_it_saw() {
         assert!(!ENABLED.load(Ordering::Relaxed), "off by default");
         note_world_view(129, 14);
-        assert!(drain().is_none(), "a disabled census records nothing at all");
+        assert!(
+            drain().is_none(),
+            "a disabled census records nothing at all"
+        );
 
         enable();
         note_world_view(129, 10);
@@ -83,7 +99,10 @@ mod tests {
         assert_eq!(views, 2);
         assert_eq!(offered, 129.0);
         assert_eq!(kept, 15.0, "the MEAN kept set");
-        assert_eq!(kept_max, 20, "and the worst single viewer, which is what a budget caps");
+        assert_eq!(
+            kept_max, 20,
+            "and the worst single viewer, which is what a budget caps"
+        );
 
         assert!(drain().is_none(), "draining leaves the counters empty");
         ENABLED.store(false, Ordering::Relaxed);

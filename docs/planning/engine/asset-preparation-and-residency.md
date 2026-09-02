@@ -328,10 +328,23 @@ PREPARATION (`stamp_gpu_prepared_images`, render world, after
 
 ⛔ **WHAT IS DELIBERATELY NOT STAMPED, so a `demand=unknown` on one of these is
 EXPECTED rather than a defect to chase:** menu icons, shell presentation images
-and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime —
-`character-sheet`, `portrait`, `projectile-art`, `parallax`, `fx-sheet`,
-`boss-sheet`, `vanity-card` — because that is the population the hall-entry hitch
-is about. UI chrome is small, loaded once and not what a room's reveal waits on;
+and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime, because that is
+the population the hall-entry hitch is about.
+
+⭐ **MEASURED 2026-09-02, because three descriptions of this vocabulary
+disagreed** — this list, a code comment, and a reviewer's reading. Every string
+literal reaching `note_demand` / `load_sheet_image` / `load_sprite_pages`:
+
+```text
+asset-manifest   boss-sheet   character-sheet   fx-sheet   held-item
+parallax         portrait     projectile-art    shrine-sheet   vanity-card
+```
+
+**TEN live roads.** This list named seven and omitted `asset-manifest`,
+`held-item` and `shrine-sheet`; the review that flagged the drift said nine and
+missed `shrine-sheet` too. ⇒ Nobody's hand-kept copy was right, which is the
+argument for deriving it rather than restating it — a road is added by passing a
+new string literal at a call site, and nothing makes the prose follow. UI chrome is small, loaded once and not what a room's reveal waits on;
 labelling it would make the ledger's rows less comparable, not more.
 
 ⛔⛔ **A `demand=unknown` MAY BE A RE-DECODE RATHER THAN AN UNROUTED LOAD, and

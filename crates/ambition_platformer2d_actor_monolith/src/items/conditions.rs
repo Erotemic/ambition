@@ -51,7 +51,13 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     // The hand is not a row in the bag (I1): a weapon picked up off the floor
     // has no stored quantity, the object in the hand is the record. Any body a
     // participant is driving, or the player population, counts as "the player".
-    ConditionOutcome::from_bool(player_hand_holds(world, item))
+    ConditionOutcome::from_bool(player_hand_holds(world, item), || {
+        ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
+            "inventory.holds",
+            item.dialog_id(),
+            "the bag stores none and no player or driven hand wields one",
+        )
+    })
 }
 
 /// Does some driven or player body hold `item` in its hand?
@@ -109,7 +115,10 @@ mod tests {
         assert_eq!(ask(world, "healthcell"), ConditionOutcome::Satisfied);
 
         // a kind the catalog knows but the bag does not hold is NOT satisfied.
-        assert_eq!(ask(world, "gunsword"), ConditionOutcome::NotSatisfied);
+        assert!(matches!(
+            ask(world, "gunsword"),
+            ConditionOutcome::NotSatisfied(_)
+        ));
 
         // and a kind that does not exist is UNANSWERABLE, not "no" — an
         // authored typo must be reported, not silently answered forever.
@@ -122,10 +131,10 @@ mod tests {
         app.world_mut()
             .resource_mut::<OwnedItems>()
             .take(Item::HealthCell, u32::MAX);
-        assert_eq!(
+        assert!(matches!(
             ask(app.world(), "HealthPotion"),
-            ConditionOutcome::NotSatisfied
-        );
+            ConditionOutcome::NotSatisfied(_)
+        ));
     }
 
     /// THE HAND COUNTS, AND ONLY A PLAYER'S OR A DRIVEN BODY'S HAND. A
@@ -139,7 +148,10 @@ mod tests {
         // An enemy wielding one: not the player's.
         app.world_mut()
             .spawn(crate::features::HeldItem::new(spec.clone()));
-        assert_eq!(ask(app.world(), "gunsword"), ConditionOutcome::NotSatisfied);
+        assert!(matches!(
+            ask(app.world(), "gunsword"),
+            ConditionOutcome::NotSatisfied(_)
+        ));
         // The player wielding one: held.
         let player = app
             .world_mut()
@@ -153,7 +165,10 @@ mod tests {
         app.world_mut()
             .entity_mut(player)
             .remove::<crate::features::HeldItem>();
-        assert_eq!(ask(app.world(), "gunsword"), ConditionOutcome::NotSatisfied);
+        assert!(matches!(
+            ask(app.world(), "gunsword"),
+            ConditionOutcome::NotSatisfied(_)
+        ));
     }
 
     /// NO INVENTORY AT ALL IS UNANSWERABLE, NOT EMPTY.

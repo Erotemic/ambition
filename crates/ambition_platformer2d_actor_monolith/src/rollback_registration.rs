@@ -648,6 +648,12 @@ where
         "derived.gated_lock_wall_cache",
         "authored gated walls for the active room; recomputed from the room set and LDtk project",
     );
+    registrar
+        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallVerdicts>(
+            OWNER,
+            "derived.gated_lock_wall_verdicts",
+            "why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick",
+        );
     registrar.declare_rollback_derived_resource::<
         crate::world::authored_switch_commands::AuthoredSwitchCommands,
     >(

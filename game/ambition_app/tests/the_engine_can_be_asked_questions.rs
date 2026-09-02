@@ -127,9 +127,11 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
         found[0].clone()
     };
 
-    assert_eq!(
-        ask(&sim, &is_held, &[AuthoredArg::Reference(authored.clone())]),
-        ConditionOutcome::NotSatisfied,
+    assert!(
+        matches!(
+            ask(&sim, &is_held, &[AuthoredArg::Reference(authored.clone())]),
+            ConditionOutcome::NotSatisfied(_)
+        ),
         "it is lying on the floor"
     );
 
@@ -182,10 +184,10 @@ fn the_world_fact_domain_answers_from_the_save_layer() {
     let flag_set = ConditionId::new("world", "flag_set");
     let flag = "a_fact_this_run_has_not_recorded";
 
-    assert_eq!(
+    assert!(matches!(
         ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
-        ConditionOutcome::NotSatisfied
-    );
+        ConditionOutcome::NotSatisfied(_)
+    ));
 
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
@@ -229,7 +231,10 @@ fn the_inventory_domain_answers_about_the_live_bag() {
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::items::OwnedItems>()
         .take(ambition_platformer2d::items::Item::HealthCell, u32::MAX);
-    assert_eq!(carried(&sim, "healthcell"), ConditionOutcome::NotSatisfied);
+    assert!(matches!(
+        carried(&sim, "healthcell"),
+        ConditionOutcome::NotSatisfied(_)
+    ));
 
     // and a kind no catalog row spells is UNANSWERABLE rather than "no",
     // which is what turns an authored typo into a diagnostic.

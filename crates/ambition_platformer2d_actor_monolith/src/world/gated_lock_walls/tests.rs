@@ -317,3 +317,42 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
          retried its preparation, so it stands forever on a satisfied condition"
     );
 }
+
+/// A STANDING WALL EXPLAINS ITSELF AS STRUCTURE (M5): the term, the flag it
+/// names and the flag's state are readable off `GatedLockWallVerdicts` without
+/// parsing a log — and the explanation follows the wall down.
+#[test]
+fn a_standing_wall_says_which_flag_is_unset_and_stops_saying_it_when_it_opens() {
+    let mut app = world_with_one_gated_wall();
+    app.update();
+    assert_eq!(standing(&app), 1, "premise: the wall is up");
+    let verdicts = app.world().resource::<GatedLockWallVerdicts>();
+    let (wall_id, why) = verdicts
+        .by_wall
+        .iter()
+        .find_map(|(id, verdict)| verdict.why_not().map(|why| (id.clone(), why.clone())))
+        .expect("a standing wall publishes a structured why-not");
+    assert_eq!(why.term, "world.flag_set");
+    assert_eq!(
+        why.subject, FLAG,
+        "the why-not names the flag the wall waits on"
+    );
+    assert!(
+        why.observed.contains("no such flag"),
+        "and the flag's state in the domain's words: {}",
+        why.observed
+    );
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(FLAG, true);
+    app.update();
+    assert_eq!(standing(&app), 0, "premise: the wall opened");
+    let verdicts = app.world().resource::<GatedLockWallVerdicts>();
+    assert!(
+        verdicts.why_standing(&wall_id).is_none(),
+        "an open wall has nothing to explain: {:?}",
+        verdicts.by_wall.get(&wall_id)
+    );
+}

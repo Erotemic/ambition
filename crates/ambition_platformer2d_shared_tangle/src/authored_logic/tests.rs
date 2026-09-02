@@ -28,7 +28,7 @@ fn is_carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let found = query
         .iter(world)
         .any(|(sim_id, carried)| sim_id == wanted && carried.is_some());
-    ConditionOutcome::from_bool(found)
+    ConditionOutcome::from_bool_unexplained(found)
 }
 
 fn descriptor(domain: &str, question: &str) -> ConditionDescriptor {
@@ -51,7 +51,10 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
     let mut app = App::new();
     app.publish_condition(descriptor("bystander", "is_carried"), is_carried);
 
-    let held = app.world_mut().spawn((SimId::placement("axe"), Carried)).id();
+    let held = app
+        .world_mut()
+        .spawn((SimId::placement("axe"), Carried))
+        .id();
     let _ = held;
     app.world_mut().spawn(SimId::placement("rock"));
 
@@ -66,14 +69,14 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
         ),
         ConditionOutcome::Satisfied
     );
-    assert_eq!(
+    assert!(matches!(
         catalog.evaluate(
             app.world(),
             &id,
             &[AuthoredArg::Reference(SimId::placement("rock"))]
         ),
-        ConditionOutcome::NotSatisfied
-    );
+        ConditionOutcome::NotSatisfied(_)
+    ));
 }
 
 /// TWO domains coexist and each is discoverable on its own.
@@ -127,11 +130,9 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     };
     assert!(too_few.contains("occurrence"), "{too_few}");
 
-    let ConditionOutcome::Unanswerable(wrong_kind) = catalog.evaluate(
-        app.world(),
-        &id,
-        &[AuthoredArg::Name("axe".to_string())],
-    ) else {
+    let ConditionOutcome::Unanswerable(wrong_kind) =
+        catalog.evaluate(app.world(), &id, &[AuthoredArg::Name("axe".to_string())])
+    else {
         panic!("a Name where a Reference belongs must be refused");
     };
     assert!(wrong_kind.contains("occurrence"), "{wrong_kind}");

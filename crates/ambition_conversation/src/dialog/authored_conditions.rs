@@ -76,7 +76,15 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
                 "condition({raw_id:?}, …) is unanswerable: {reason}",
             );
         }
-        ConditionOutcome::Satisfied | ConditionOutcome::NotSatisfied => {}
+        ConditionOutcome::NotSatisfied(why) => {
+            // The branch did not open, and this is the structured reason an
+            // author or an agent reads instead of a bare `false` (M5).
+            bevy::log::debug!(
+                target: "crate::dialog::authored_conditions",
+                "condition({raw_id:?}, …) is not satisfied: {why}",
+            );
+        }
+        ConditionOutcome::Satisfied => {}
     }
     outcome.is_satisfied()
 }

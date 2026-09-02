@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionCatalog, ConditionId, PreparedCondition,
+    ConditionCatalog, ConditionId, ConditionOutcome, PreparedCondition,
 };
 
 /// The block-name prefix a gated wall contributes under.
@@ -79,6 +79,29 @@ struct CachedWall {
 pub struct GatedLockWallCache {
     room: Option<String>,
     walls: Vec<CachedWall>,
+}
+
+/// WHY each authored gated wall of the active room stands or does not — the
+/// last verdict of its prepared question, keyed by wall id (M5: a standing wall
+/// explains itself as structure, not as a log line).
+///
+/// Rebuilt from the verdicts on every tick the gate runs, so it is a DERIVED
+/// read model, never an authority: nothing decides a wall from it, and a rewind
+/// that does not restore it costs one tick of stale explanation.
+#[derive(Resource, Default, Debug)]
+pub struct GatedLockWallVerdicts {
+    pub by_wall: std::collections::BTreeMap<String, ConditionOutcome>,
+}
+
+impl GatedLockWallVerdicts {
+    /// The structured reason `wall` stands, if it stands for a reason a domain
+    /// stated (`None` while it is open, or unanswerable/unpreparable).
+    pub fn why_standing(
+        &self,
+        wall: &str,
+    ) -> Option<&ambition_platformer2d_shared_tangle::authored_logic::WhyNot> {
+        self.by_wall.get(wall).and_then(ConditionOutcome::why_not)
+    }
 }
 
 /// Contribute a solid for every authored gated wall whose condition is not yet
@@ -189,6 +212,7 @@ pub fn sync_authored_gated_lock_walls(
         .get_resource::<GatedLockWallCache>()
         .map(|cache| cache.walls.clone())
         .unwrap_or_default();
+    let mut verdicts = std::collections::BTreeMap::new();
     let standing: Vec<&GatedLockWall> = walls
         .iter()
         .filter(|cached| {
@@ -202,12 +226,28 @@ pub fn sync_authored_gated_lock_walls(
             // late-provider case the old per-frame retry existed for is handled
             // on that edge instead of by parsing on every tick for every wall.
             let Some(question) = cached.question.clone() else {
+                verdicts.insert(
+                    cached.wall.id.clone(),
+                    ConditionOutcome::unanswerable("the wall's question could not be prepared"),
+                );
                 return true;
             };
-            !catalog.ask(world, &question).is_satisfied()
+            let verdict = catalog.ask(world, &question);
+            let stands = !verdict.is_satisfied();
+            verdicts.insert(cached.wall.id.clone(), verdict);
+            stands
         })
         .map(|cached| &cached.wall)
         .collect();
+    // Published whether or not anything stands: an open wall's verdict is the
+    // answer to "why is it open", and a room with no walls publishes an empty
+    // map rather than last room's.
+    {
+        let mut published = world.get_resource_or_insert_with(GatedLockWallVerdicts::default);
+        if published.by_wall != verdicts {
+            published.by_wall = verdicts;
+        }
+    }
     if standing.is_empty() {
         return;
     }

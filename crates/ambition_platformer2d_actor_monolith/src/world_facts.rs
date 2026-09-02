@@ -47,7 +47,13 @@ pub fn flag_set(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
             "no save layer is installed in this composition, so no world facts exist",
         );
     };
-    ConditionOutcome::from_bool(save.data().flag(flag))
+    ConditionOutcome::from_bool(save.data().flag(flag), || {
+        ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
+            "world.flag_set",
+            flag,
+            "the save has no such flag set",
+        )
+    })
 }
 
 const ON: ParamSpec = ParamSpec {

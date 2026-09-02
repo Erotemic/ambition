@@ -143,6 +143,11 @@ Authoring and agent tooling should be able to enumerate:
 Do not require a developer to search Rust registration topology to discover the
 authored vocabulary.
 
+✔ M5, the why-not half, landed 2026-09-02: `ConditionOutcome::NotSatisfied`
+carries `WhyNot { term, subject, observed }` and every production evaluator
+states one; `GatedLockWallVerdicts` is the first read model built on it. See the
+inspection plan's why-not item for what is still open.
+
 ## Determinism and lifetime
 
 Prepared program data is immutable. If a future authored rule has mutable

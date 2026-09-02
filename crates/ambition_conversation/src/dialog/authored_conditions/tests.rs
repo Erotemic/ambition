@@ -53,7 +53,7 @@ fn heard(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(gossip) = world.get_resource::<TownGossip>() else {
         return ConditionOutcome::unanswerable("no gossip domain is installed");
     };
-    ConditionOutcome::from_bool(gossip.rumours.contains(rumour))
+    ConditionOutcome::from_bool_unexplained(gossip.rumours.contains(rumour))
 }
 
 const CARRIED: ParamSpec = ParamSpec {
@@ -81,7 +81,7 @@ fn carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(mut query) = world.try_query::<&SimId>() else {
         return ConditionOutcome::unanswerable("nothing in this world has an identity");
     };
-    ConditionOutcome::from_bool(query.iter(world).any(|sim_id| sim_id == wanted))
+    ConditionOutcome::from_bool_unexplained(query.iter(world).any(|sim_id| sim_id == wanted))
 }
 
 // ===== Harness ==================================================

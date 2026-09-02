@@ -170,6 +170,7 @@ derived.encounter_view	derived	EncounterView	presentation-intent read model repu
 derived.feature_ecs_world_overlay	derived	FeatureEcsWorldOverlay	collision contributions rebuilt from ECS feature state every tick
 derived.force_zones	derived	ForceZones	per-tick zone snapshot rebuilt by collect_force_zones
 derived.gated_lock_wall_cache	derived	GatedLockWallCache	authored gated walls for the active room; recomputed from the room set and LDtk project
+derived.gated_lock_wall_verdicts	derived	GatedLockWallVerdicts	why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick
 derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N

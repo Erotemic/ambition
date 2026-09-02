@@ -65,7 +65,13 @@ pub fn is_held(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         .find(|(sim_id, _)| *sim_id == wanted)
         .map(|(_, custody)| *custody);
     match found {
-        Some(custody) => ConditionOutcome::from_bool(!custody.in_world()),
+        Some(custody) => ConditionOutcome::from_bool(!custody.in_world(), || {
+            ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
+                "item.is_held",
+                wanted.as_str(),
+                "the occurrence is lying in the world, in nobody's custody",
+            )
+        }),
         None => ConditionOutcome::unanswerable(format!(
             "no live occurrence `{wanted}` — it may be authored in an unloaded room, \
              consumed, or never authored at all"

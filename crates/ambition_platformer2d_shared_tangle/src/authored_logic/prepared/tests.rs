@@ -59,7 +59,9 @@ fn is_rumoured(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(gossip) = world.get_resource::<Gossip>() else {
         return ConditionOutcome::unanswerable("nobody in this world gossips");
     };
-    ConditionOutcome::from_bool(gossip.0.iter().any(|line| line.starts_with(about.as_str())))
+    ConditionOutcome::from_bool_unexplained(
+        gossip.0.iter().any(|line| line.starts_with(about.as_str())),
+    )
 }
 
 fn is_rumoured_descriptor() -> ConditionDescriptor {
@@ -249,9 +251,11 @@ fn a_prepared_question_is_validated_once_and_asked_without_reassembly() {
         )
         .expect("a published question with a well-typed argument");
 
-    assert_eq!(
-        conditions.ask(app.world(), &gate),
-        ConditionOutcome::NotSatisfied,
+    assert!(
+        matches!(
+            conditions.ask(app.world(), &gate),
+            ConditionOutcome::NotSatisfied(_)
+        ),
         "nobody has gossiped yet"
     );
 

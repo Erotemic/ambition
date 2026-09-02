@@ -72,19 +72,15 @@ fn a_requested_command_reaches_the_domain_and_the_save() {
     let flag = "a_fact_only_an_authored_command_records";
     let flag_set = ConditionId::new("world", "flag_set");
     let ask = |sim: &Platformer2dSimHarness| {
-        sim.world()
-            .resource::<ConditionCatalog>()
-            .clone()
-            .evaluate(
-                sim.world(),
-                &flag_set,
-                &[AuthoredArg::Name(flag.to_string())],
-            )
+        sim.world().resource::<ConditionCatalog>().clone().evaluate(
+            sim.world(),
+            &flag_set,
+            &[AuthoredArg::Name(flag.to_string())],
+        )
     };
 
-    assert_eq!(
-        ask(&sim),
-        ConditionOutcome::NotSatisfied,
+    assert!(
+        matches!(ask(&sim), ConditionOutcome::NotSatisfied(_)),
         "nothing had recorded this fact yet, so the test below has something to \
          prove"
     );
@@ -117,9 +113,8 @@ fn a_requested_command_reaches_the_domain_and_the_save() {
         .data_mut()
         .set_flag(flag, false);
     sim.step_n(base(), 2);
-    assert_eq!(
-        ask(&sim),
-        ConditionOutcome::NotSatisfied,
+    assert!(
+        matches!(ask(&sim), ConditionOutcome::NotSatisfied(_)),
         "the request was performed again on a later tick; a grant is not \
          idempotent and this is how one becomes two"
     );

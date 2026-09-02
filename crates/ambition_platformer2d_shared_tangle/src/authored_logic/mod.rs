@@ -189,10 +189,55 @@ pub struct ConditionDescriptor {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConditionOutcome {
     Satisfied,
-    NotSatisfied,
+    /// Answered, and the answer is no — WITH the structure that says why (M5).
+    NotSatisfied(WhyNot),
     /// The domain could not answer, with a reason written for a human or an
     /// agent reading a diagnostic.
     Unanswerable(String),
+}
+
+/// WHY a condition was not satisfied, as structure rather than a log line: the
+/// term that blocked it, the object that term names, and that object's state
+/// as the domain saw it. A standing lock wall, a dialogue branch that did not
+/// open, an agent asking "why not" — all read this instead of re-deriving it.
+///
+/// Every production evaluator states one; [`ConditionOutcome::from_bool_unexplained`]
+/// exists for test fixtures and is grep-able for exactly that reason.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WhyNot {
+    /// The condition (or the sub-question inside it) that answered no, e.g.
+    /// `world.flag_set`, `inventory.holds/bag`, `inventory.holds/hand`.
+    pub term: String,
+    /// The object the term named: a flag id, an item kind, an occurrence.
+    pub subject: String,
+    /// The subject's current state, in the domain's own words: `unset`,
+    /// `bag holds 0 and no player hand wields it`, `in the world at (x, y)`.
+    pub observed: String,
+}
+
+impl WhyNot {
+    pub fn new(
+        term: impl Into<String>,
+        subject: impl Into<String>,
+        observed: impl Into<String>,
+    ) -> Self {
+        Self {
+            term: term.into(),
+            subject: subject.into(),
+            observed: observed.into(),
+        }
+    }
+
+    /// The fixture arm: a `no` whose structure nobody stated.
+    pub fn unexplained() -> Self {
+        Self::new("<unstated>", "<unstated>", "<unstated>")
+    }
+}
+
+impl std::fmt::Display for WhyNot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} on `{}`: {}", self.term, self.subject, self.observed)
+    }
 }
 
 impl ConditionOutcome {
@@ -207,11 +252,28 @@ impl ConditionOutcome {
         Self::Unanswerable(reason.into())
     }
 
-    pub fn from_bool(value: bool) -> Self {
+    /// `Satisfied`, or `NotSatisfied` carrying the structure `why` builds —
+    /// built lazily, because the satisfied arm never needs it.
+    pub fn from_bool(value: bool, why: impl FnOnce() -> WhyNot) -> Self {
         if value {
             Self::Satisfied
         } else {
-            Self::NotSatisfied
+            Self::NotSatisfied(why())
+        }
+    }
+
+    /// A `no` with no structure. FIXTURES ONLY: a production evaluator that
+    /// reaches for this has a why-not it is not stating, and the grep for this
+    /// name is the list of them.
+    pub fn from_bool_unexplained(value: bool) -> Self {
+        Self::from_bool(value, WhyNot::unexplained)
+    }
+
+    /// The structure, when the answer was no.
+    pub fn why_not(&self) -> Option<&WhyNot> {
+        match self {
+            Self::NotSatisfied(why) => Some(why),
+            _ => None,
         }
     }
 }

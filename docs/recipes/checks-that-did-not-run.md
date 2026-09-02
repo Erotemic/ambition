@@ -8,9 +8,10 @@ This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I
 ran actually run* — and it exists because on 2026-09-02 a single day's work
-turned up **seven** members of the same family in one gate script.
+turned up SEVEN members of the same family in one gate script, and an eighth was
+already sitting in the backlog unrecognised.
 
-⭐ **THE FINDING IS NOT THE SEVEN. It is that five of the seven were found by
+⭐ **THE FINDING IS NOT THE COUNT. It is that five of the eight were found by
 accident** — by running a suite for an unrelated reason, by an external reviewer
 reading source, by running `cargo check` by hand before the gate. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
@@ -49,9 +50,9 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The seven, and what each one teaches
+## The eight, and what each one teaches
 
-| # | the check | how it lied | status at `f9ffc3fbc` |
+| # | the check | how it lied | status |
 |---|---|---|---|
 | 1 | `./run_tests.sh --rust` | skipped the whole Python lane, so the rollback stable-name ratchet, the codec-shape baseline and a stale `MODULES.md` sat red **for a day** behind a gate reporting 4/4 GREEN | fixed `2945f3381` |
 | 2 | the wasm build job | gated on `if not only and everything` — the exhaustive plan only, so a default run never checked `wasm32` at all | fixed `b85b4db20` |
@@ -59,6 +60,7 @@ expression; those survive edits that line numbers do not.
 | 4 | the repo-tooling lane | simply not invoked by the flag anybody was using | fixed `2945f3381` |
 | 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
 | 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
+| 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
@@ -94,6 +96,31 @@ they are not the same kind of fix.
   type check will never execute code and a native run will never be a wasm run.
   The only defence is a human knowing the gap exists, which is why it is written
   down here instead of filed as a bug.
+
+## The machine you are on decides which of these are live
+
+Members #2, #7 and #8 are not properties of the code alone — they fire or do not
+fire depending on what is installed where you are standing. On the calculex VM,
+2026-09-02, `rustup target list --installed` returns exactly one target:
+
+```text
+x86_64-unknown-linux-gnu
+```
+
+No `wasm32-unknown-unknown`, no `aarch64-linux-android`, and `ANDROID_NDK_HOME`
+unset. So on this box:
+
+- the web build CHECK and LINK are both **skipped** — #7's fix is what makes that
+  visible, and it works: the plan prints `SKIPPING the web build CHECK … The web
+  build is UNCHECKED in this run`;
+- the Android font path (#8) cannot even link, let alone run;
+- a full green gate here therefore carries **zero** web and **zero** Android
+  coverage, and says so out loud rather than in a footer that claims otherwise.
+
+⛔ **SO "THE GATE PASSED" IS NOT A PORTABLE CLAIM.** It is a claim about one
+machine's installed toolchains. When you report a green gate to somebody on
+different hardware, say which targets were installed, or you have handed them
+member #7 in social form.
 
 ## Before you believe an error list, diff it against a clean checkout
 

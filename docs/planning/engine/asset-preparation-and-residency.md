@@ -222,9 +222,22 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. **Host tell, still owed:** zero "nothing demanded
-it" warnings at the hall reveal, `asset_wait_ms` in the seconds (129 frames of
-ration at least), no >33 ms frames after the cover lifts. The hitches now happen
+when the remainder is dropped. **Host tell, still owed — AND CHECKED NOW
+RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
+reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
+>33.4 ms frames after the cover lifts. The profiling bundle summary grows a
+**Room reveal** section parsing all three out of the game's own stamped log, so
+a host capture states its own verdict instead of needing someone to read stderr
+and judge — which is how the 2026-09-01 capture's 111 warnings became evidence
+for a cause nobody checked.
+⛔ **THE WARNING'S DIAGNOSIS SPLIT IN THREE and the phrasing above predates it.**
+A RETIRED sheet was demanded AND decoded, so counting it beside "never
+materialized" is the conflation `retired_tier` was added to end; the section
+reports the split. ⛔ The spike log caps at 60 lines, so a count past the cap is
+a FLOOR and says so. Guarded by
+`test_room_reveal_tells_are_read_from_the_log.py`, whose BEFORE fixture is the
+2026-09-01 capture's shape — 111 warnings, `asset_wait_ms=3`, nine spikes of
+89-355 ms after the transition line. The hitches now happen
 UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
 small; the upload pacer / render-world-only knobs below make them smaller.
 

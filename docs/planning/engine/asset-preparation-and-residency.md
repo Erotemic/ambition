@@ -1051,6 +1051,27 @@ the census names `UNROUTED(no demand)`: decoded with nobody claiming to have
 asked for it. An image that arrives without a demand stamp also arrives without a
 quality path, so the tier cannot reach it.
 
+⛔⛔ **AND IT IS A SECOND COPY OF A SHEET THE ROOM ALREADY HAS AT THE RIGHT
+TIER. The census names the cause in its own line:**
+
+```text
+[image]  0.923s f 0 3072x2468 7.6MP live=0 game://sprites/player_robot_v3_spritesheet.png
+         demand=unknown (not through load_sheet_image)
+[image-drawn] 1.412s 0.1MP sprites_potato/player_robot_v3_spritesheet.png
+         demand→draw 128ms via character-sheet
+```
+
+Frame **0**, before gameplay, 3072×2468, and `demand=unknown (not through
+load_sheet_image)` — the instrument says exactly which road was skipped. Half a
+second later the SAME character's sheet arrives again through the demand road at
+the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
+7.6 MP one appears in `never drawn` for the rest of the run.
+
+⇒ **So this is not "one image ignored the tier". It is a DUPLICATE: 7.6 MP
+loaded at boot outside the demand road, never drawn, alongside the 0.1 MP copy
+that is.** At Potato that duplicate is 32% of the hall's resident megapixels and
+76× the drawn copy.
+
 ⛔ **AND THE VARIANT IT SHOULD HAVE USED EXISTS.** All four are on disk for that
 sheet — `sprites/` **4.3 MB**, `sprites_0_5x/` 2.2 MB, `sprites_0_25x/` 844 KB,
 `sprites_potato/` **56 KB**. The Potato run decoded the 4.3 MB one. That is

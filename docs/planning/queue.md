@@ -518,11 +518,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   in the survey. ⛔ Not a straight cache swap: `cache.rows` is empty off the
   System face while a System action stays reachable there, so an unguarded
   substitution resolves every such hover to `MenuFocus::System(0)`; it wants an
-  active-page guard. Also open: `focus_for_action` and `focus_for_action_in_rows`
-  now BOTH exist, differing only in whether the caller built the list — the "same
-  lookup wearing different names" drift `character/assets.rs:261` records — and
-  `grid_backend::focus_key_for_cursor` still rebuilds the list once per
-  actionable node.
+  active-page guard. ✔ **BOTH "also open" items CLOSED 2026-09-01** (`63cceae0a`),
+  and re-verified against the code 2026-09-02: `focus_for_action_in_rows` no
+  longer exists — there is ONE `focus_for_action` taking `rows` as a parameter,
+  so the "same lookup wearing different names" drift `character/assets.rs:261`
+  records is undone — and `grid_backend::cursor_focus_key` builds the row list
+  ONCE, outside its loop over the page's nodes.
+  ⛔ THE NAME IN THIS ROW WAS INVENTED. It read
+  `grid_backend::focus_key_for_cursor`, which `git log -S` says has never existed
+  in this repository; the function is `cursor_focus_key`, and the same fabricated
+  name had also reached a doc comment in `kaleidoscope_app.rs`. A citation nobody
+  greps is a citation nobody can check — this one survived a commit message, a
+  planning row and a code comment.
   Still per frame and still allocating:
   `RadioSnapshot`'s `String` per station and the `RebuildKey` clone of it —
   both small, both a count away if they matter. Read the map for what is
@@ -695,6 +702,62 @@ The one unresolved developer-policy choice from the session-ownership work is in
   0. ⇒ the remaining 35 targets are a POPULATION, not a defect list; the open
   work is an instrument that separates "drawn flush to a fitted frame" from
   "severed", not 35 canvas edits.
+  ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
+  asked for CANNOT BE MADE. `scripts/measure_clip_population.py` in the renderer
+  submodule, branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
+  checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
+  move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
+  never rendered.** The obvious classifier — "seated flush" vs "still moving when
+  cut" — was written first and does not survive its own data: `pirate_admiral`'s
+  plume (a TIP) and `super_sanic`'s historical spike (a CUT) have the same
+  profile and both land exactly on the guard's 0.5 threshold.
+      pirate_admiral top   7  9  9 10 10 11 14   ratio 0.50  <- a tip
+      super_sanic idle    12 14 17 18 20 22 25   ratio 0.50  <- a cut
+      mary_o idle         24 24 24 24 24 24 24   ratio 1.00  <- a flat sole
+  A classifier that answered anyway would be INVENTING the distinction, and here
+  an invented distinction means padding canvases and moving ground contact on the
+  strength of it. So the instrument reports the stake (ink at the boundary over
+  the edge's length) and the guard's own ratio, ordered by their product. It is a
+  WORKLIST ORDER; no row of it is evidence that a frame is wrong.
+  ⭐ MEASURED 2026-09-02, 209 targets in 452s: **27 flagged, 362 edges, 22 NOT
+  MEASURED.** Four findings:
+  * **`smirking_behemoth_boss` (101 edges, severity 1.000) is where a human
+    should look first** — every edge fully opaque on `rest#0-5`, `bottom
+    [208,208,208,208,208,208,208]` on a 208-wide frame. ⚠ AND IT IS THE
+    RANKING'S OWN CAVEAT: that is either a full-bleed sprite by design or
+    something badly cropped, and the silhouette cannot say which.
+  * **THE FIVE PIRATES ARE ONE AUTHORED PLUME, NOT FIVE DEFECTS.**
+    `pirate_admiral`, `pirate_lookout`, `pirate_navigator`,
+    `pirate_quartermaster` and `pirate_raider` all report the IDENTICAL profile
+    `[7,9,9,10,10,11,14]` on `top`, `idle#1` and `idle#2`. Five rows of the
+    guard's report, one authoring decision — they come off the list together or
+    not at all.
+  * **A SECOND FALSE-POSITIVE CLASS THE COMPOSITED-WHOLE MARKER DOES NOT COVER:
+    the `super_mary_o` TILE PROPS.** `pipe_body` / `pipe_top` / `flag_pole_body`
+    / `flag_pole_top` are 32x32 and 64x32 tiles with dead-constant profiles
+    (`53 53 53…`, `9 9 9…`). ⛔ A pipe body is SUPPOSED to be flush top and
+    bottom — that is what tiling means. They are DRAWN rather than composited, so
+    the marker never sees them. Do not pad a tile to silence this.
+  * ⛔ **A KILLED HYPOTHESIS, recorded so the next reader does not re-derive it.**
+    `davy_hylbert`, `paul_diracula` and `pipi_tau` show the fingerprint
+    `carl_stargan` showed before its fix (`crouch#0-5` bottom, `roll#2` left,
+    `roll#5` right, `death` bottom/left), and `RIG_RENDER_PADDING` has exactly
+    four adopters (`carl_stargan`, `noether`, `noether_gameplay`,
+    `patent_clerk`) with zero in those three. It reads like the same unfixed
+    defect. IT IS NOT: none of the three imports `canonical_scientist_rig`; they
+    are independently hand-authored 128x128 targets calling `build_sheet`
+    directly. What they share is the MOVESET VOCABULARY — the extreme poses
+    (crouch low, roll wide, death sprawl) exceed a canvas sized for the idle.
+    That is a more general pattern than a shared rig, and it does NOT license
+    `carl_stargan`'s fix as a template.
+  ⛔ **22 TARGETS NOT MEASURED and NOT counted as clean** — all need native
+  `resvg-py`, absent on the machine that ran this. The SVG set must be re-run
+  where the dep exists: `author`, `carl_stargan`, `charley_beagle_svg`,
+  `data_lovelace`, `hunny_horror_boss`, `m_leblanc`, `mary_o_v2`,
+  `mary_o_v2_fire`, `mary_o_v2_tall`, `medic`, `neil_ongras_turfson`, `noether`,
+  `officer`, `oiler`, `paradox_barber`, `patent_clerk`,
+  `perfect_cellular_automaton`, `performer`, `player_robot_v3`,
+  `pointed_polygon`, `projectile_polygon`, `pugnacious_polygon`.
 
 - ✔ **D-SFX-RESET-RED — CLOSED 2026-08-31, and the fixture pressed one frame too
   early.** `ambition_app`'s own lib suite had a long-red test that no gate in

@@ -513,6 +513,54 @@ asset mutation where measurements show repeated work. Retain the semantic handle
 when an asset is intentionally resident; compare before writing materials/assets
 so unchanged values do not trigger uploads.
 
+⭐ **THE INSTRUMENT EXISTS AND HAD NEVER BEEN RUN (2026-09-02).**
+`ImageStageLedger::inserted` has been counting `re_decodes` all along — it bumps
+whenever a path is inserted a second time — and `asset_census` already prints the
+total. Nothing had ever run that counter over the Hall entry, the one transition
+big enough for a repeat to cost anything.
+`scripts/measure_hall_redecodes.sh` does, driving
+`hall_redecode_census::the_halls_entry_is_counted_for_art_it_decodes_twice`.
+⛔ It is `#[ignore]`d ON PURPOSE and must stay that way. `ambition_app` has ONE
+`[[test]]` target, so every file under `tests/` is a module of `app_it` sharing a
+process, and cargo runs those as parallel threads; the ledger is a process-global
+`static`. The test's before/after delta already excludes everything that ran
+EARLIER in that process — only concurrency is left, and the only fix for that is
+to run the test alone, which is what the script does. Un-ignoring it would make
+it flaky rather than red.
+⚠⚠ **MEASURED: 0 re-decodes — AND THE NUMBER IS NEARLY VACUOUS, which is the
+finding.** The headless run staged 126 characters and decoded **22 images / 4.5
+MP**; the host run of the same entry took **434 MP**. `NoWindow` has no render
+world and decodes almost nothing on purpose (`hall_transition_cover.rs` says so),
+so this is ~5% of the art and a repeat that only happens under real GPU residency
+could not appear in it. ⇒ A green here is a REGRESSION GUARD ON THE HEADLESS
+ROAD, not evidence the shipped game re-decodes nothing, and the row must not be
+read as closing Open work 5.
+⛔ **THE FIRST DRAFT OF THE TEST WOULD HAVE REPORTED THAT ZERO CONFIDENTLY.** Its
+only premise guard was the staged-cast size — but staging is a DEMAND and
+`re_decodes` counts INSERTIONS, so the guard and the measurement were watching
+different things and a run that decoded nothing at all would have passed. A
+second premise now pins the decoded population, and it is poison-verified (raise
+it above the reading and the test fails naming the count).
+⭐ **THE HOST TELL, since only a host run can answer this**: boot with
+`AMBITION_PROFILE_CENSUS=1` and read `re-decodes N` from the `[image-census]`
+line. That number over a real Hall entry is the measurement this section wants.
+
+⛔⛔ **AND THE "NOT MATERIALIZED" WARNING ASSERTS A CAUSE THE TYPE SAYS IT CANNOT
+KNOW.** `CharacterSheetState::Declared`'s own doc names TWO causes — *"either it
+never has, or its realization was retired by a quality change"* — and the warning
+in `ambition_render/src/rendering/actors/mod.rs:721` reports only the first:
+*"nothing demanded it, so the engine never decoded its sheet"*. That is the
+warning the host run saw 111 times on the Hall reveal, so its diagnosis is
+evidence for a cause it never checked.
+The two are not distinguishable today: `demote_stale_realizations_outside`
+removes the token from `sheets` and deliberately leaves `declared` intact (the
+entry is the recipe for re-making it), so a retired realization and one that was
+never made are the SAME state, and nothing records that a retirement happened.
+⇒ A retirement followed by a re-demand IS accidental re-preparation, which puts
+this squarely in this section rather than in observability. The fix is to record
+the retirement (token → the tier it was retired from, cleared when the token
+becomes resident again) and let the warning name which of the two it is. ▢ Open.
+
 ### 6. Live quality switching
 
 ✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the

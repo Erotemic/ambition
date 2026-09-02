@@ -1750,7 +1750,7 @@ pub(crate) fn focus_without_system_model(
 /// System row list.
 ///
 /// ⛔ `rows` IS A PARAMETER AND NOT REBUILT HERE, because this is called once per
-/// actionable control per frame and `grid_backend::focus_key_for_cursor` calls it
+/// actionable control per frame and `grid_backend::cursor_focus_key` calls it
 /// in a loop over every node. Rebuilding the list to read one `.position()` out
 /// of it made answering "which control holds the cursor?" cost N list builds
 /// (D-CUBE-CHURN). Callers pass `CachedSystemMenu.rows`, which

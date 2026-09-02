@@ -225,10 +225,17 @@ Choose one:
 found the difference somewhere else.** A capture was queued for this; reading the
 two paths answers it more exactly than a screenshot could.
 
-- **SIZE: exact parity.** The deleted renderer drew `Vec2::splat(30.0)`. The new
-  registration is `ProjectileRenderSize::FixedWidth(30.0)`, which resolves as
-  `Vec2::new(w, w / frame_aspect)`. `gauntlet_fireball.png` is **16 x 16**, so
-  the aspect is 1.0 and the height is 30.0. Identical, not merely close.
+- **SIZE: exact parity, at every quality tier.** The deleted renderer drew
+  `Vec2::splat(30.0)`. The new registration is
+  `ProjectileRenderSize::FixedWidth(30.0)`, which resolves as
+  `Vec2::new(w, w / frame_aspect)`. `gauntlet_fireball.png` ships at **64 x 64**
+  (base), 32 x 32, 16 x 16 and 8 x 8 (`sprites_potato`) — **all square**, so the
+  aspect is 1.0 and the height is 30.0 whichever tier the quality budget loads.
+  Identical, not merely close.
+  ⚠ An earlier revision of this note said the sprite was 16 x 16. That was the
+  `sprites_0_25x` copy — one of four, read without checking the others. The
+  conclusion was right and is now stronger, but the number was a sample quoted as
+  the population.
 - **ANCHOR: exact parity.** The old sprite took `..default()` (centre); the new
   Image path passes `anchor: None`, which is the same centre.
 - ⛔ **DEPTH CHANGED, and nobody asked about depth.** The old fireball drew at

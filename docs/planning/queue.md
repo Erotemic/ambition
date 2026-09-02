@@ -1092,15 +1092,11 @@ product ruling.
   the proof-pulse lifetime, character heights, fighter reach/tumble policy,
   ranged-recharge presentation, persistent foreign-room actor placement and
   dormant windbox/armor customers.
-- **The first honest measurement of the shipped program in the hall**
-  (2026-09-01, supersedes the `FramePaceCap::Off` and `--no-tracy` captures
-  above, which the day's findings folded together): pull, rebuild, Video →
-  V-Sync **Off**, then `scripts/profile_desktop.sh --no-tracy`, walk into the
-  hall. Ledger label reads `no-features` + `present:Immediate`. Prediction on
-  record: 120-200 fps, main-thread frame 5-8 ms; see the "whole shipped host"
-  section of [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
-  for what each other outcome would mean. The frame-cap arm is answered by the
-  same run (cap Off, vsync Off).
+- ✔ **The first honest measurement of the shipped program in the hall** — taken
+  2026-09-02 (`desktop-timeline-run-20260902T015909Z`): 250-310 fps in every
+  room, V-Sync Off, no Tracy. No frame-rate campaign remains; see the top of
+  [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+  The user-visible problem is the hall-entry hitch, which is the asset campaign.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

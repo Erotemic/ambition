@@ -141,7 +141,7 @@ pub(crate) struct RoomPreparationPrefetchState {
 /// arity limit while preserving a clean headless path where every field is
 /// absent.
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct RoomTransitionAssetContext<'w> {
+pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, Platformer2dAssetCatalog>>,
     pub(crate) character_catalog: Option<
@@ -179,6 +179,19 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// this workspace.
     /// The boss catalog, for the boss sheets a boss room demands on preparation.
     pub(crate) boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
+    /// What the PLAYER population and driven bodies wear: the characters a
+    /// room's placements never list but that travel with the transition. Not
+    /// every body — every NPC wears its character too, and asking for all of
+    /// them re-demanded the whole gallery at Full on the way out (measured).
+    pub(crate) worn: bevy::prelude::Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        bevy::prelude::Or<(
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+            bevy::prelude::With<ambition_platformer2d::characters::control::DrivingParticipant>,
+        )>,
+    >,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
@@ -376,6 +389,10 @@ pub(crate) fn demand_room_character_sheets(
     // The provider-authored sheets — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
+    // Characters some body WEARS right now. They go everywhere the body goes,
+    // so a retire below this room's floor must re-demand them too — the room's
+    // placements never list the player.
+    worn: &[String],
     // `true` for the transition INTO this room (covered: retiring resident
     // sheets outside its tier range is safe and the reveal waits for their
     // re-decode). `false` for a neighbour PREFETCH, which runs in the open:
@@ -418,7 +435,29 @@ pub(crate) fn demand_room_character_sheets(
     let mut demand =
         ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
     demand.request_all(names.iter().map(String::as_str));
-    demand.request_all(retired);
+    // ⛔ ONLY THE RETIRED SHEETS THIS ROOM NEEDS ARE RE-DEMANDED. `demote` walks
+    // every resident realization, so leaving the hall for the hub retires the
+    // whole gallery cast (124 Quarter sheets); re-demanding all of them here
+    // would decode 124 FULL sheets for a room that places five of them — the
+    // entry hitch in reverse, and bigger. The rest stay retired: their actors
+    // left with the room, and the next room that places one demands it then.
+    let wanted: std::collections::BTreeSet<String> = names
+        .iter()
+        .chain(worn.iter())
+        .map(|token| {
+            ambition_platformer2d::actors::character_runtime::canonical_character_id(
+                registry,
+                character_catalog,
+                token,
+            )
+            .to_string()
+        })
+        .collect();
+    let retired_but_wanted: Vec<String> = retired
+        .into_iter()
+        .filter(|id| wanted.contains(id))
+        .collect();
+    demand.request_all(retired_but_wanted.iter().map(String::as_str));
     ambition_platformer2d::actors::character_runtime::materialize_character_demand(
         &mut demand,
         states,
@@ -568,6 +607,7 @@ pub(crate) fn build_room_asset_manifest(
     registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
+    worn: &[String],
     for_reveal: bool,
 ) -> (RoomAssetManifest, RoomCharacterRemainder) {
     ensure_parallax_layers_for_room(
@@ -610,6 +650,7 @@ pub(crate) fn build_room_asset_manifest(
         states,
         registry,
         authored_sheets,
+        worn,
         for_reveal,
     );
     (
@@ -860,6 +901,11 @@ pub(crate) fn contribute_room_transition_assets_system(
     contributed.sequence = Some(active.sequence);
     contributed.manifest = None;
 
+    let worn: Vec<String> = context
+        .worn
+        .iter()
+        .map(|worn| worn.0.as_str().to_string())
+        .collect();
     let (
         Some(assets),
         Some(catalog),
@@ -920,6 +966,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         &prepared_characters,
         &context.authored_sheets,
         context.boss_catalog.as_deref(),
+        &worn,
         true,
     );
     active.asset_manifest_duration = Some(manifest_started.elapsed());
@@ -1381,6 +1428,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             prepared_characters.as_deref().unwrap_or(&empty_registry),
             &authored_sheets,
             Some(&boss_catalog),
+            &[],
             false,
         );
         let replace = refresh_manifests

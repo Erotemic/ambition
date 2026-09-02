@@ -5,8 +5,8 @@
 /// Zero aggro/attack radii keep the aerial brain roaming instead of diving;
 /// `patrol_effort: 1.0` preserves the authored full-speed patrol.
 pub(crate) fn register_snakes_on_a_plane_characters(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
     use ambition_platformer2d::character::CharacterDefinition;
-    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
     use ambition_platformer2d::characters::brain::{
         BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
@@ -110,6 +110,19 @@ pub fn register_snakes_on_a_plane_sheets(
         ),
     ] {
         if game_assets.characters.sheet(display_name).is_some() {
+            continue;
+        }
+        // ⛔ THE ENGINE'S ROAD OWNS A DECLARED CHARACTER. In the shipped app these
+        // planes have catalog rows, so the room demand declares and realizes
+        // them at the ROOM'S tier; this fallback re-published them at full
+        // resolution every time the tier convergence retired them — the whole
+        // hall's cast re-decoded at Full on the way out of the gallery, two
+        // sheets at a time (measured 2026-09-02). Only a composition where
+        // nothing declared the character still needs this road.
+        if !matches!(
+            game_assets.characters.sheet_state(character_id),
+            ambition_platformer2d::sprite_sheet::character::CharacterSheetState::Unknown
+        ) {
             continue;
         }
         let Some(asset) =

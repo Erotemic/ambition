@@ -628,11 +628,22 @@ pub fn materialize_character_demand(
     let default_tier = crate::character_sprites::character_sprite_tier(quality);
     for (token, tier) in demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, default_tier) {
         // A demand that names its tier floor (a room transition's cast) is
-        // realized there; the rest at the budget the caller resolved.
+        // realized THERE; the rest at the budget the caller resolved.
+        //
+        // ⛔⛔ NOT `floor.min(budget's scale)`. The caller's budget is the ACTIVE
+        // room's — lowered to that room's cap — and a transition OUT of a capped
+        // room forwards its destination's cast at the destination's floor:
+        // leaving the hall (Quarter) for the hub (Full), the hub's cast was
+        // re-demanded at Full and then clamped back to the hall's Quarter here,
+        // re-decoded at the tier it already had, and re-tiered a second time
+        // after the reveal, in the open. The token's floor already carries the
+        // setting's ceiling (`room_character_tier_bounds` applies it), so it is
+        // used as given. Measured 2026-09-02 by
+        // `leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting`.
         let tiered_budget = tier.and_then(|floor| {
             quality.map(|budget| {
                 let mut budget = budget.clone();
-                budget.sprites.resolution_scale = floor.min(budget.sprites.effective_scale());
+                budget.sprites.resolution_scale = floor;
                 budget.sprites.prefer_scaled_variants = true;
                 budget
             })

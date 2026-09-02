@@ -340,7 +340,11 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let ids = hall_character_ids(&mut app);
-    assert!(ids.len() > 50, "the hall places only {} characters?", ids.len());
+    assert!(
+        ids.len() > 50,
+        "the hall places only {} characters?",
+        ids.len()
+    );
 
     let mut realized_first = None;
     let mut realized_last = 0;
@@ -349,9 +353,10 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
         step(&mut app);
         let (declared, realized) = {
             let assets = app.world().resource::<GameAssets>();
-            let states = app.world().resource::<
-                ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
-            >();
+            let states = app
+                .world()
+                .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+            );
             let mut declared = 0;
             let mut realized = 0;
             for id in &ids {
@@ -468,7 +473,11 @@ fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
         *tiers.entry(sheet.requested_tier).or_default() += 1;
     }
     let realized: usize = tiers.values().sum();
-    assert!(realized >= 100, "only {realized} of {} realized in 200 frames", ids.len());
+    assert!(
+        realized >= 100,
+        "only {realized} of {} realized in 200 frames",
+        ids.len()
+    );
     assert_eq!(
         tiers.keys().copied().collect::<Vec<_>>(),
         vec![TextureResolutionScale::Quarter],
@@ -476,4 +485,234 @@ fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
          Quarter under a {setting:?} setting"
     );
     assert_eq!(kept_as_they_were, already_realized.len());
+}
+
+/// THE OTHER DIRECTION (asset open work 6): a character realized at the
+/// gallery's Quarter and then needed in an uncapped room is re-tiered UP.
+///
+/// Boot straight into the hall (so its cast — including the characters the hub
+/// also places — realizes at Quarter with nothing pre-realized at Full), record
+/// the hall → hub transition through the room graph, and watch the shared
+/// characters' sheets ask for the setting's tier while the cover is still down:
+/// `PendingRoomTierFloor` names the destination's floor, and convergence
+/// retires a Quarter sheet as too small for the room being loaded.
+#[test]
+fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
+    use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    use ambition_platformer2d::persistence::settings::TextureResolutionScale;
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+
+    const HUB: &str = "central_hub_complex";
+    const HALL_EXIT_ZONE: &str = "hall_of_characters_entry";
+
+    let mut app =
+        ambition_app::app::build_visible_app_with(VisibleRenderMode::NoWindow, true, |app| {
+            app.insert_resource(ambition_app::app::StartRoomOverride(
+                "hall_of_characters".to_string(),
+            ));
+            app.insert_resource(ambition_app::app::StartRoomMustResolve);
+        });
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    settle_cast(&mut app, 10);
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    settle_cast(&mut app, 20);
+    {
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        assert_eq!(
+            room_set.active_spec().id,
+            "hall_of_characters",
+            "premise: the override started the session in the hall"
+        );
+    }
+    let setting = app
+        .world()
+        .resource::<ambition_platformer2d::persistence::settings::UserSettings>()
+        .video
+        .quality
+        .resolved_budget()
+        .sprites
+        .effective_scale();
+    assert!(
+        setting > TextureResolutionScale::Quarter,
+        "premise: setting {setting:?} is above the cap"
+    );
+    for _ in 0..200 {
+        step(&mut app);
+    }
+
+    // The characters the HUB places that the hall realized at Quarter.
+    let hub_ids: std::collections::BTreeSet<String> = {
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        let hub = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == HUB)
+            .expect("the hub is in the room set");
+        hub.placements
+            .iter()
+            .filter_map(|placement| match &placement.schema {
+                PlacementSchema::Interactable(spec) => match &spec.kind {
+                    InteractionKindSpec::Npc {
+                        character_id: Some(id),
+                        ..
+                    } => Some(id.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    };
+    // The WORN character goes everywhere the player goes, so it is shared with
+    // every room by construction; the hub's own placed cast joins it.
+    let worn: String = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world)
+            .next()
+            .expect("the primary avatar wears a character")
+            .0
+            .as_str()
+            .to_string()
+    };
+    let mut hall_ids = hall_character_ids(&mut app);
+    hall_ids.push(worn.clone());
+    hall_ids.sort();
+    hall_ids.dedup();
+    // The hall's cast the hub does NOT place: retired with the room, and never
+    // re-decoded at Full for a room that has no use for it.
+    let hall_only: Vec<String> = hall_ids
+        .iter()
+        .filter(|id| !hub_ids.contains(*id) && **id != worn)
+        .cloned()
+        .collect();
+    assert!(
+        hall_only.len() >= 50,
+        "premise: the hall places a cast the hub does not"
+    );
+    let shared_at_quarter: Vec<String> = {
+        let assets = app.world().resource::<GameAssets>();
+        hall_ids
+            .iter()
+            .cloned()
+            .filter(|id| hub_ids.contains(id) || *id == worn)
+            .filter(|id| {
+                assets
+                    .characters
+                    .sheet(id)
+                    .is_some_and(|sheet| sheet.requested_tier == TextureResolutionScale::Quarter)
+            })
+            .collect()
+    };
+    assert!(
+        !shared_at_quarter.is_empty(),
+        "premise: no character the hub places was realized at Quarter in the hall, so \
+         there is nothing to re-tier (hub cast {} ids)",
+        hub_ids.len()
+    );
+
+    // Record the hall -> hub transition through the room graph.
+    let (target_room, arrival) = {
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        let zone = room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| zone.id == HALL_EXIT_ZONE)
+            .unwrap_or_else(|| panic!("the hall has no `{HALL_EXIT_ZONE}`"))
+            .clone();
+        let transition = room_set
+            .transition_for_player(
+                zone.aabb,
+                ambition_platformer2d::engine_core::Vec2::ZERO,
+                true,
+            )
+            .expect("the hall's exit resolves to a transition");
+        (
+            room_set.rooms[transition.target_room].id.clone(),
+            transition.arrival,
+        )
+    };
+    assert_eq!(
+        target_room, HUB,
+        "premise: the hall's exit leads to the hub"
+    );
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world).next().expect("a primary avatar").clone()
+    };
+    let _ = app.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(
+            0,
+            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room,
+                    arrival,
+                    edge_exit: false,
+                    zone_sfx: None,
+                },
+            ),
+        );
+    for _ in 0..300 {
+        step(&mut app);
+    }
+
+    let assets = app.world().resource::<GameAssets>();
+    let still_quarter: Vec<String> = shared_at_quarter
+        .iter()
+        .filter(|id| {
+            assets
+                .characters
+                .sheet(id)
+                .is_none_or(|sheet| sheet.requested_tier != setting)
+        })
+        .cloned()
+        .collect();
+    assert!(
+        still_quarter.is_empty(),
+        "{} of {} hub characters the hall realized at Quarter did not re-tier to {setting:?} \
+         while the hub was being loaded: {still_quarter:?}",
+        still_quarter.len(),
+        shared_at_quarter.len()
+    );
+    // ⛔ AND THE GALLERY'S OWN CAST WAS NOT RE-DECODED AT FULL. Leaving retires
+    // every Quarter sheet; only the hub's are re-demanded. Before the fix the
+    // whole hall came back at Full — the entry hitch in reverse, and bigger.
+    let promoted_for_nobody: Vec<String> = hall_only
+        .iter()
+        .filter(|id| {
+            assets
+                .characters
+                .sheet(id)
+                .is_some_and(|sheet| sheet.requested_tier == setting)
+        })
+        .cloned()
+        .collect();
+    assert!(
+        promoted_for_nobody.is_empty(),
+        "{} hall-only characters were re-decoded at {setting:?} for a room that does not \
+         place them: {:?}…",
+        promoted_for_nobody.len(),
+        promoted_for_nobody.iter().take(5).collect::<Vec<_>>()
+    );
 }

@@ -515,6 +515,31 @@ so unchanged values do not trigger uploads.
 
 ### 6. Live quality switching
 
+✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the
+gallery (Quarter) for the hub (Full) is now a test in the shipped composition,
+`leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting`, and its first
+run found three defects on the way out: (1) the per-token tier a transition
+forwards was CLAMPED to the active room's cap in `materialize_character_demand`
+(`floor.min(budget)`), so the hub's cast was re-demanded at Full and decoded
+at Quarter again — fixed, the token's floor is used as given; (2) the
+transition re-demanded EVERY retired sheet, i.e. the whole gallery cast at
+Full for a room that places five of them — fixed, only the destination's
+tokens and the player population's worn characters are re-demanded, the rest
+stay retired; (3) three mary_o demo systems (`register_snakes_on_a_plane_
+sheets`, `register_solid_snake_sheet`, `register_ai_slop_sheet`) re-published
+their sheets under display names at full resolution whenever the engine
+retired them — a permanent fight with tier convergence — now gated on the
+engine not having declared the character. ⚠ Still open, and honestly the
+larger half at COMMIT time: `converge_character_residency_to_active_quality`
+retires every below-floor sheet once the hub is active and RE-DEMANDS ALL OF
+THEM (`demand.request_all(stale)`), so the gallery's Quarter cast is decoded
+at Full into the hub after the reveal, in the open. A `NoWindow` host never
+commits (the barrier never releases), so this file cannot measure it; the
+fix wants a criterion for "still in use" (worn by a body, named by a live
+actor, or in the session cast) that the quality-Apply tests — which converge
+a character no body wears — also accept. The host tell is the `[image]` lines
+after a hall exit: Full-tier hall characters decoding with `live=1`.
+
 Quality changes should re-tier the same logical asset and converge predictably in
 both directions. Keep the currently reported live quality-switch issue attached
 to this program until a real rendered session demonstrates the round trip.

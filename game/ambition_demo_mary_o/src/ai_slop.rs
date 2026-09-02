@@ -92,6 +92,17 @@ pub fn register_ai_slop_sheet(
     if config.no_assets || game_assets.characters.sheet(AI_SLOP_DISPLAY_NAME).is_some() {
         return;
     }
+    // ⛔ THE ENGINE'S ROAD OWNS A DECLARED CHARACTER: this id is a registered
+    // definition, so the room demand declares and realizes it at the room's
+    // tier, and this fallback must not re-publish it at full resolution after
+    // a tier convergence retires it (see `plane.rs` for the measurement). Only
+    // a composition where nothing declared it still needs this road.
+    if !matches!(
+        game_assets.characters.sheet_state(AI_SLOP_SHEET_TARGET),
+        ambition_platformer2d::sprite_sheet::character::CharacterSheetState::Unknown
+    ) {
+        return;
+    }
     if let Some(asset) =
         ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
             &asset_server,

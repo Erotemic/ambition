@@ -109,6 +109,15 @@ struct StartupAssetInputs<'w, 's> {
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
+    worn: Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        Or<(
+            With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+            With<ambition_platformer2d::characters::control::DrivingParticipant>,
+        )>,
+    >,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
@@ -418,6 +427,11 @@ fn build_startup_manifest(
     // the startup cover — the same barrier semantics room transitions get.
     // Sheets beyond the per-frame ration go to the global demand, exactly as
     // a room transition hands them over (see `demand_room_character_sheets`).
+    let worn: Vec<String> = inputs
+        .worn
+        .iter()
+        .map(|worn| worn.0.as_str().to_string())
+        .collect();
     let remainder = super::world_flow::demand_room_character_sheets(
         room,
         &staged_names,
@@ -433,6 +447,7 @@ fn build_startup_manifest(
             .as_deref()
             .unwrap_or(&Default::default()),
         &inputs.authored_sheets,
+        &worn,
         true,
     );
     remainder.forward_into(&mut inputs.character_load_demand);

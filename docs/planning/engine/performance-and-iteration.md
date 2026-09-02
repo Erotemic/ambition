@@ -132,6 +132,60 @@ Two host numbers to keep apart: the direct sandbox (`--start-room`) ticked the
 hall in 1.56 ms; the production host ticks it in 1.9 ms. Both are the
 uninflated program; the difference is the rollback host's own machinery.
 
+## ⭐ THE WHOLE SHIPPED HOST, headless, in the hall (2026-09-01, late)
+
+`AMBITION_HEADLESS_GAMEPLAY_ROOM=<room>` now makes `--headless` drive the
+launcher into the Ambition route and play in that room — every schedule the
+windowed binary runs, minus the render app. `scripts/headless_room_frame.sh`
+runs it on the no-`profile` build and prints the census phase split. 3000
+ticks, median of 1 s windows, reps 2-3, VM:
+
+```text
+cap             frame   PreUpdate  Update  PostUpdate  RunFixedMainLoop  StateTransition
+  2 actors      3.7 ms    1.20      0.87     0.78         0.48              0.12
+ 64             3.9-4.2   1.42-1.55 0.90-0.99 0.76-0.81   0.47-0.48         0.13
+130 (full)      4.3-4.7   1.68-1.88 0.97-1.11 0.77-0.84   0.48-0.51         0.13
+```
+
+**Two readings.** First: the shipped program's main-world frame in the full
+hall is ~4.5 ms on this VM — against Jon's Tracy capture's 19.8 ms (PreUpdate
+8.5, Update 5.4, PostUpdate 3.2, RunFixedMainLoop 1.2), a uniform ~4x across
+every phase, which is the instrument tax times the windowed additions. Second,
+and the architectural one: **~3.7 ms of it is a FLOOR that does not depend on
+the cast.** Two actors cost 3.7 ms; 130 add 0.8. `Update` is 0.87 ms and
+`PostUpdate` 0.78 ms with nothing to present; `RunFixedMainLoop` is 0.48 ms
+(avian's physics schedules, 50+22 systems, for debris); `StateTransition` is
+0.13 ms for 16 systems.
+
+`perf` on the 2-actor run (flat, `-F 999`, 4000 ticks) names no hotspot — the
+top symbol is the allocator at 3% — but it names FAMILIES:
+
+```text
+allocator (mimalloc malloc/free/zero)          7.9%
+task pool / executor handoff (user side)       8.2%   + kernel futex/scheduler 7.8%
+leafwing input maps (process_actions, clash)   3.6%   two seats, no window
+QueryState::new_archetype                      3.1%   a query is being BUILT per frame somewhere
+UI layout + text (taffy, parley)               2.6%   with no window
+main thread 83%, compute pool 15%
+```
+
+⇒ The shipped frame is not one slow system; it is **~2400 system runs per
+frame at ~1.5 us each with allocation on the way** — 3234 systems in 33
+schedules, of which the harness composition needs 2373 and the direct sandbox
+fewer. Halving it is a composition question (whole plugin groups that could
+carry a run condition when nothing they own exists; systems that allocate per
+frame; a query rebuilt per frame), not a hotspot fix, and it is outside the
+decision pipeline this goal was armed for. It is the next campaign if Jon's
+capture confirms the windowed frame is CPU-main-thread-bound.
+
+**Prediction on record for that capture** (`--no-tracy`, V-Sync Off, hall,
+3090): the main-thread frame lands between 5 and 8 ms — this 4.5 ms plus the
+dozen windowed-only systems and the render extract — so the overlay reads
+120-200 fps unless the RENDER thread is the longer one. If it reads under 100
+with `outside` small, the render app is the bottleneck and the transparent
+overdraw campaign is the one to open. If it reads under 100 with a fat
+`PreUpdate`/`Update`, this section is wrong about the windowed additions.
+
 **State:** OPEN, but narrow. Optimize measured user-visible or developer costs;
 do not maintain a speculative micro-optimization backlog.
 

@@ -338,7 +338,23 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     use bevy::time::TimeUpdateStrategy;
     use std::time::Duration;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    // `AMBITION_HEADLESS_GAMEPLAY_ROOM=<room id>`: instead of idling on the
+    // launcher, select the Ambition route and play `max_ticks` ticks in that
+    // room. This is the whole shipped host — every schedule the windowed
+    // binary runs, minus the render app — in a room of choice, which is what
+    // `--start-room` cannot give (it selects the direct sandbox host, no
+    // rollback session). The room override is a composition input, so it goes
+    // in through the one hook that exists for that.
+    let gameplay_room = std::env::var("AMBITION_HEADLESS_GAMEPLAY_ROOM")
+        .ok()
+        .filter(|room| !room.trim().is_empty());
+    let mut app = match gameplay_room.clone() {
+        Some(room) => build_visible_app_with(VisibleRenderMode::NoWindow, true, move |app| {
+            app.insert_resource(super::StartRoomOverride(room));
+            app.insert_resource(super::StartRoomMustResolve);
+        }),
+        None => build_visible_app(VisibleRenderMode::NoWindow, true),
+    };
     // `build_visible_app` drops `LogPlugin` from `NoWindow` because a TEST
     // process builds several Apps and the tracing subscriber is process-global.
     // This is not that process: it is an executable host with exactly one App.
@@ -352,6 +368,44 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / SHARED_HOST_HEADLESS_TICK_HZ,
     )));
+    if let Some(room) = gameplay_room {
+        use ambition_platformer2d::game_shell::ShellLauncherCommand;
+        use shell_drive::*;
+        let launcher = super::shell_host::AMBITION_LAUNCHER_ROUTE;
+        let route = super::shell_host::AMBITION_GAMEPLAY_ROUTE;
+        // LOUD at every step: a benchmark that quietly idled on the launcher
+        // would publish the launcher's cost under the room's name.
+        assert!(
+            shell_step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize),
+            "the startup run-in did not reach the launcher within its own budget"
+        );
+        assert!(
+            shell_select_launcher_route(&mut app, route),
+            "the launcher offers no route {route:?}"
+        );
+        app.world_mut()
+            .write_message(ShellLauncherCommand::LaunchSelected);
+        assert!(
+            shell_step_until(&mut app, route, 600),
+            "route {route:?} did not become active within 600 ticks of launch"
+        );
+        // The room comes up under a load/cover; give it a bounded run-in, then
+        // insist on it. `StartRoomMustResolve` already made a bad id fatal.
+        let mut in_room = false;
+        for _ in 0..600 {
+            app.update();
+            let active = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+                ambition_platformer2d::world::rooms::RoomSet,
+            >(app.world())
+            .map(|rooms| rooms.active_spec().id.clone());
+            if active.as_deref() == Some(room.as_str()) {
+                in_room = true;
+                break;
+            }
+        }
+        assert!(in_room, "route {route:?} came up, but the active room never became {room:?}");
+        eprintln!("ambition_app: headless gameplay in {room:?}; measuring {max_ticks} ticks");
+    }
     for _ in 0..max_ticks {
         app.update();
     }
@@ -376,42 +430,18 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     }
 }
 
-/// Result of the executable multi-provider shipping-host acceptance cycle.
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SharedHostAcceptanceReport {
-    pub completed: bool,
-    pub route_stops: Vec<String>,
-    pub title_zero_state_stops: u32,
-    pub exit_requested: bool,
-}
 
+// The launcher-driving helpers the acceptance cycle and the headless gameplay
+// entry share: they are how a no-window host gets from the launcher into a
+// route without a human at the keyboard.
 #[cfg(not(target_arch = "wasm32"))]
-impl std::fmt::Display for SharedHostAcceptanceReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "shared-host acceptance: completed={}, zero-state-stops={}, exit={}, routes={}",
-            self.completed,
-            self.title_zero_state_stops,
-            self.exit_requested,
-            self.route_stops.join(" -> "),
-        )
-    }
-}
-
-/// Execute startup -> launcher -> Ambition -> launcher -> Sanic -> launcher ->
-/// Mary-O -> launcher -> Sanic -> launcher -> Exit through the exact shipping
-/// composition. This is exposed to `run_game.sh -- --headless-acceptance-cycle`.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
+mod shell_drive {
     use ambition_platformer2d::game_shell::{
-        ShellCommand, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState, ShellRouter,
+        ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState, ShellRouter,
     };
-    use bevy::time::TimeUpdateStrategy;
-    use std::time::Duration;
+    use bevy::prelude::*;
 
-    fn active_route(app: &App) -> Option<&str> {
+    pub(super) fn shell_active_route(app: &App) -> Option<&str> {
         app.world()
             .resource::<ShellRouter>()
             .active
@@ -419,17 +449,17 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
             .map(|active| active.route_id.as_str())
     }
 
-    fn step_until(app: &mut App, route: &str, budget: usize) -> bool {
+    pub(super) fn shell_step_until(app: &mut App, route: &str, budget: usize) -> bool {
         for _ in 0..budget {
             app.update();
-            if active_route(app) == Some(route) {
+            if shell_active_route(app) == Some(route) {
                 return true;
             }
         }
         false
     }
 
-    fn title_is_zero_state(app: &App) -> bool {
+    pub(super) fn shell_title_is_zero_state(app: &App) -> bool {
         let world = app.world();
         world
             .resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
@@ -448,17 +478,17 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
             && ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_none()
     }
 
-    fn step_until_title_zero_state(app: &mut App, route: &str, budget: usize) -> bool {
+    pub(super) fn shell_step_until_title_zero_state(app: &mut App, route: &str, budget: usize) -> bool {
         for _ in 0..budget {
             app.update();
-            if active_route(app) == Some(route) && title_is_zero_state(app) {
+            if shell_active_route(app) == Some(route) && shell_title_is_zero_state(app) {
                 return true;
             }
         }
         false
     }
 
-    fn select_launcher_route(app: &mut App, route: &str) -> bool {
+    pub(super) fn shell_select_launcher_route(app: &mut App, route: &str) -> bool {
         let target = app
             .world()
             .resource::<ShellLaunchCatalog>()
@@ -495,7 +525,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
         app.world().resource::<ShellLauncherState>().selected == target
     }
 
-    fn select_launcher_exit(app: &mut App) -> bool {
+    pub(super) fn shell_select_launcher_exit(app: &mut App) -> bool {
         let target = app
             .world()
             .resource::<ShellLaunchCatalog>()
@@ -522,6 +552,42 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
         app.world().resource::<ShellLauncherState>().selected == target
     }
 
+}
+
+/// Result of the executable multi-provider shipping-host acceptance cycle.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SharedHostAcceptanceReport {
+    pub completed: bool,
+    pub route_stops: Vec<String>,
+    pub title_zero_state_stops: u32,
+    pub exit_requested: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for SharedHostAcceptanceReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "shared-host acceptance: completed={}, zero-state-stops={}, exit={}, routes={}",
+            self.completed,
+            self.title_zero_state_stops,
+            self.exit_requested,
+            self.route_stops.join(" -> "),
+        )
+    }
+}
+
+/// Execute startup -> launcher -> Ambition -> launcher -> Sanic -> launcher ->
+/// Mary-O -> launcher -> Sanic -> launcher -> Exit through the exact shipping
+/// composition. This is exposed to `run_game.sh -- --headless-acceptance-cycle`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+    use bevy::time::TimeUpdateStrategy;
+    use shell_drive::*;
+    use std::time::Duration;
+
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     super::shell_host::compose_ambition_startup_sequence(&mut app);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
@@ -535,7 +601,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     // so budget it from the composed sequence rather than a constant that goes
     // stale the next time a card is added or retimed.
     let mut completed =
-        step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize);
+        shell_step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize);
     if completed {
         routes.push(launcher.to_owned());
         title_zero_state_stops += 1;
@@ -550,19 +616,19 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
         if !completed {
             break;
         }
-        completed = select_launcher_route(&mut app, route);
+        completed = shell_select_launcher_route(&mut app, route);
         if !completed {
             break;
         }
         app.world_mut()
             .write_message(ShellLauncherCommand::LaunchSelected);
-        completed = step_until(&mut app, route, 90);
+        completed = shell_step_until(&mut app, route, 90);
         if !completed {
             break;
         }
         routes.push(route.to_owned());
         app.world_mut().write_message(ShellCommand::QuitToHome);
-        completed = step_until_title_zero_state(&mut app, launcher, 90);
+        completed = shell_step_until_title_zero_state(&mut app, launcher, 90);
         if completed {
             routes.push(launcher.to_owned());
             title_zero_state_stops += 1;
@@ -570,7 +636,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     }
 
     if completed {
-        completed = select_launcher_exit(&mut app);
+        completed = shell_select_launcher_exit(&mut app);
         if completed {
             app.world_mut()
                 .write_message(ShellLauncherCommand::LaunchSelected);

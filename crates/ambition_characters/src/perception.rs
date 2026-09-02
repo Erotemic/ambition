@@ -987,5 +987,48 @@ impl DelayedPerception {
     }
 }
 
+/// A MEASUREMENT KNOB: override the viewport half-extent every `Sighted` body
+/// is given. Absent means the shipped default.
+///
+/// ⭐⭐ THE ROOM CANNOT ASK THE QUESTION THE DESIGN IS ABOUT.
+/// `bounded-perception-and-attention.md` measures `kept` saturating at ~14.4
+/// across 65 → 130 bodies and says so plainly: the hall's geometry is already a
+/// crude attention budget, so *"the hall CANNOT demonstrate why attention is
+/// needed"*. The regime that matters is DENSITY — a melee where fighters sit
+/// inside one another's viewports and `kept` keeps rising with population. The
+/// only way to reach it in an existing room is to widen the viewport at fixed
+/// population, which is what this does.
+///
+/// ⛔ IT CHANGES THE SIMULATION AND NO NUMBER TAKEN UNDER IT DESCRIBES THE
+/// SHIPPED GAME, exactly as [`crate::actor::AuthoredPopulationCap`] says of
+/// itself. Density is the other axis of the same experiment; the two are held
+/// one-at-a-time, never together, or the curve cannot be attributed.
+///
+/// ⛔ AND THE SIM DOES NOT READ THE ENVIRONMENT. This is a value; the developer
+/// crate owns the name and the parse and publishes it, and `ensure_perception`
+/// reads the resource. That inversion is D33's, and adding a second env read to
+/// the actor kernel would undo the thing D33 just finished.
+///
+/// ⚠ The prior density figures on that page came from a probe that no longer
+/// exists — the same "a number from a throwaway probe, quoted long after the
+/// probe was gone" this subsystem's census was built to end. This makes the
+/// sweep re-runnable.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct PerceptionExtentOverride(pub Option<ae::Vec2>);
+
+impl PerceptionExtentOverride {
+    pub const NONE: Self = Self(None);
+
+    pub fn half_extent(self) -> Option<ae::Vec2> {
+        self.0
+    }
+
+    /// The extent a `Sighted` body should get: the override when one is
+    /// published, otherwise the caller's default.
+    pub fn or_default(self, shipped: ae::Vec2) -> ae::Vec2 {
+        self.0.unwrap_or(shipped)
+    }
+}
+
 #[cfg(test)]
 mod tests;

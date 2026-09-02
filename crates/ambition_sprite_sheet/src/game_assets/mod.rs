@@ -635,7 +635,6 @@ mod parallax_residency_tests {
     use super::*;
     use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
     use ambition_asset_manager::AssetProfile;
-    use bevy::prelude::*;
 
     fn packaged_catalog() -> Platformer2dAssetCatalog {
         Platformer2dAssetCatalog::new(

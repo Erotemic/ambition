@@ -87,8 +87,27 @@ impl ActorAdmission {
             < cap
     }
 
-    /// How many this transaction has admitted (for a census, not a decision).
-    pub fn admitted(&self) -> usize {
+    /// How many times admission was ASKED on this transaction while a cap was
+    /// installed — for a census, not a decision.
+    ///
+    /// ⛔⛔ NOT "HOW MANY WERE ADMITTED", WHICH IS WHAT IT USED TO BE CALLED and
+    /// what its doc used to claim. It is wrong for that in two directions, and
+    /// both are load-bearing:
+    ///
+    /// * **a REFUSAL counts.** `admit_actor` does `fetch_add(1)` and then
+    ///   compares, so a cap of 2 with a third caller reports **3** — more than
+    ///   the cap it is capping.
+    /// * **an UNCAPPED run counts NOTHING.** The uncapped path returns before
+    ///   touching the counter, deliberately: this is called once per placement
+    ///   in every room, and an atomic there would be a permanent cost for a
+    ///   number the shipped game never reads. So a 130-body hall reports **0**.
+    ///
+    /// ⇒ Renamed rather than corrected. Making it truthful would mean paying
+    /// that atomic on the uncapped road forever, and NOTHING IN THE TREE READS
+    /// IT — the other `.admitted()` calls belong to a portal route, a
+    /// sandbox-reset and a shrine. A name that cannot mislead is worth more
+    /// than a number nobody consumes.
+    pub fn admission_attempts(&self) -> usize {
         self.admitted.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
@@ -106,7 +125,12 @@ mod tests {
         assert!(first.admit_actor());
         assert!(first.admit_actor());
         assert!(!first.admit_actor(), "the third is over the cap");
-        assert_eq!(first.admitted(), 3, "the refusal was counted as an attempt");
+        assert_eq!(
+            first.admission_attempts(),
+            3,
+            "ATTEMPTS, not admissions: the refusal is counted, so a cap of two \
+             reports three. The name says attempts for exactly this reason."
+        );
 
         let second = ActorAdmission::new(AuthoredPopulationCap::capped_at(2));
         assert!(second.admit_actor(), "a new lowering starts with a full quota");
@@ -115,6 +139,12 @@ mod tests {
         for _ in 0..1000 {
             assert!(uncapped.admit_actor());
         }
-        assert_eq!(uncapped.admitted(), 0, "uncapped counts nothing");
+        assert_eq!(
+            uncapped.admission_attempts(),
+            0,
+            "and an UNCAPPED run counts nothing at all — 1000 admissions report \
+             zero, because the uncapped path returns before the counter and is \
+             deliberately free. Read this as attempts-while-capped or not at all."
+        );
     }
 }

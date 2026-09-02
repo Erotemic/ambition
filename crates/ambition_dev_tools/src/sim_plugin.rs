@@ -56,6 +56,8 @@ impl Plugin for DevToolsSimPlugin {
         // The actor population cap, same shape and same reason — see
         // `population_cap`. Inert (uncapped) unless the environment says.
         app.insert_resource(crate::population_cap::from_env());
+        // The other axis of the same experiment; see `perception_extent`.
+        app.insert_resource(crate::perception_extent::from_env());
         // ⛔⛔ `Update`, NOT THE SIMULATION. It does a BLOCKING `fs::metadata` —
         // measured at up to 3.9ms on virtiofs — so on the sim schedule a
         // dev-tooling stat sat inside the deterministic tick. It also reads

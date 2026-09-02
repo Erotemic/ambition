@@ -9,9 +9,73 @@
   `actors/update.rs`, and the rollback schema baseline moved with it. The
   rollback/replay question that blocked it is settled by
   [ADR 0034](../../adr/0034-perception-is-bounded-by-attention.md).
-* ▢ **Increment 2**: a cheap `TargetBelief` provider that answers "do I perceive
+* ◐ **Increment 2**: a cheap `TargetBelief` provider that answers "do I perceive
   a valid target, and where was the last one" WITHOUT building a full
   `WorldView`, and a bounded `TacticalWorld` representation.
+  ✔ **THE PROVIDER EXISTS (2026-09-02): `nearest_hostile_peer`**, which borrows
+  the peer slice, applies the two filters and takes a min by squared distance —
+  **allocating nothing**. The `String` id clone that dominates `PerceivedActor`
+  never happens.
+  ⭐ **AND THE CUSTOMER IS SEVEN OF THE NINE BRAIN TEMPLATES**, which is the
+  fact that makes this worth doing rather than a capability looking for a user:
+  `Patrol`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Aerial`, `MeleeBrute` and
+  `BossPattern` all declare `TargetBelief` and read only `target_pos` /
+  `target_alive`. Only `Smash` and `Fighter` take a `&WorldView`. Until now every
+  one of those paid for the full view to answer one question — at the hall's
+  density ~14 `PerceivedActor` constructions to use ONE, and 113 at the density
+  the table above reaches.
+  ⛔ **IT ANSWERS THROUGH THE SAME TWO AUTHORITIES THE FULL VIEW USES.**
+  `peer_is_visible_to_body` and `peer_is_hostile_to_body` were EXTRACTED from
+  `build_world_view` rather than restated, so there is one definition of "in
+  view" and one of "hostile" — the latter being three inputs and a precedence
+  (team relation, faction relation, personal grudge), which is exactly what a
+  hand-written cheap check gets subtly wrong.
+  ⛔⛔ **AND THE EQUIVALENCE IS PINNED, because a cheap road that can disagree is
+  worth nothing.** `a_cheap_belief_agrees_with_the_view_it_replaces` and
+  `a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does` assert the
+  two roads name the same hostile, and the same NOBODY. Poison-verified twice:
+  restating hostility as faction-only drops the grudge and goes red; dropping the
+  viewport filter goes red.
+  ⚠ **THE VIEWPORT ARM ONLY DISCRIMINATES BECAUSE OF ITS GEOMETRY, and the first
+  version did not.** Its out-of-view foe was also the FARTHEST, so `min_by`
+  rejected it whether or not the filter ran — poisoning the filter away left the
+  test GREEN while its comment claimed to catch exactly that. The out-of-view
+  peer now sits NEARER (340) than the right answer (450), so its exclusion is
+  observable.
+  ▢ **STILL OPEN:** routing `TargetBelief` bodies to the provider at the
+  `build_world_view` call site in `actors/update.rs` — the change that actually
+  stops building the view — and the bounded `TacticalWorld` representation, which
+  is the larger half and is what the density table above prices.
+
+  ⛔⛔ **AND THE ROUTING IS BIGGER THAN "USE THE CHEAP PROVIDER", because the
+  belief has TWO halves and only one of them is the nearest hostile.** Read the
+  increment's own words — *"do I perceive a valid target, AND WHERE WAS THE LAST
+  ONE"*. `believed_target` touches the view twice:
+
+  ```rust
+  mem.0.update(view, dt);                       // <- needs the SEEN SET
+  view.nearest_hostile().map(|a| a.pos)         // <- needs one peer
+      .or_else(|| memory.last_known_hostile())  //    (the memory answers here)
+  ```
+
+  `WorldMemory::update` collects `view.actors.iter().map(|a| a.id.as_str())` to
+  decay everything NOT seen this tick. So a `TargetBelief` body cannot simply
+  skip the build: drop the view and every remembered foe decays as though it had
+  left the viewport, and pursuit (invariant I6) silently stops working. ⇒ **A
+  cheap road that answered only the first half would look correct on a body that
+  can see its foe and quietly break the one that is chasing.**
+
+  ⇒ **The shape that works is to narrow what `update` DEPENDS ON, not to skip
+  it**: take an iterator of `(id, pos, hostile)` borrowed from the peers rather
+  than a `&WorldView`. The memory keeps its exact semantics — it already borrows
+  ids rather than cloning them — and the `PerceivedActor` construction that costs
+  ~152 ns each disappears for seven of the nine templates. That is the same
+  "publish the thing downward" move D33 used to get the census out of the kernel,
+  applied to a data dependency instead of a crate one.
+
+  ⚠ Found by reading `update` before writing the routing, not after. The
+  provider and its equivalence guards are right and land as they are; what would
+  have been wrong is the call site that used them.
 
 ## The rule
 
@@ -429,6 +493,71 @@ binds at about fourteen.
 ⇒ **An explicit budget of K≈16 would change almost nothing here**, and that is
 the honest verdict on the hall as an acceptance room. It cannot show the problem
 because its geometry already solves it.
+
+## ⭐⭐ MEASURED 2026-09-02: the hall CAN reach the dense regime — by EXTENT, not population
+
+The row above says the hall cannot demonstrate why attention is needed. That is
+true of its POPULATION axis and not of its density axis, and the difference is
+now measurable rather than argued. `scripts/measure_perception_density.sh` pins
+population and sweeps `AMBITION_PERCEPTION_VIEWPORT_HALF`; the FULL hall cast,
+`ambition::medium_striker`, 600 ticks, hall_bench (the shipped rollback host):
+
+```text
+viewport_half        offered    kept   kept_max
+480x320   (shipped)    130.0    14.4         21
+680x453   (1.4x)       130.0    34.2         54
+960x640   (2x)         130.0    56.1        104
+1360x907  (2.8x)       130.0    82.8        116
+1920x1280 (4x)         130.0   113.2        124
+```
+
+⭐ **`offered` IS FLAT AT 130.0 ACROSS EVERY ARM**, which is the control that makes
+the rest readable: the scan walks every peer whatever the viewport, so nothing
+but `kept` moved and the result is attributable to extent alone. The script
+refuses to interpret a run whose `offered` drifts.
+
+⭐ **AND `kept` NEVER REACHES THE POPULATION**, which is what makes these arms a
+measurement of EXTENT rather than of the cap. `kept_max` tops out at 124 of a
+possible 130, so the viewport is still the binding constraint at every point.
+⛔⛔ **A FIRST VERSION OF THIS TABLE WAS CAPPED AT 64 AND ITS TOP TWO ARMS BOTH
+READ `kept=64.0`** — a full mesh, every fighter seeing every other. That is a
+ceiling I imposed, not a saturation I found, and quoting "4x keeps everything"
+off it would have said nothing about cost scaling. **A ceiling you set yourself
+is not a saturation you discovered** — the same error as reading `kept` flat
+across 65 → 130 bodies and concluding the geometry solves it, one level up.
+Caught by 383484 before it was quoted.
+
+⇒ **The shipped viewport is doing real work**: 130 offered → 14.4 kept, a 9x cut.
+One 1.4x widening more than doubles it; 4x reaches **113.2**, which is the
+`kept`=113 the cost row above was measured at. So the density point that row
+prices is reachable in the hall, with the cast and the room unchanged, by a knob
+instead of a probe nobody can re-run.
+
+⛔⛔ **THIS IS A COUNT, NOT A COST, AND MUST NOT BE QUOTED AS ONE.** It says how
+many `PerceivedActor`s get built per viewer, not what they cost. The 10x cost
+claim above still rests on timings, and timings on THIS box are a reading of who
+else is compiling — five identical hall runs the same day gave frame-spike totals
+of 61, 4, 9, 6, 52 while every count was byte-identical. (Measured 2026-09-02 on
+an untenanted VM: the same instrument is stable to 2.2% there. The caveat belongs
+to the shared box, not to the instrument.) These counts reproduced exactly across
+interleaved reps.
+
+⛔⛔ **AND THE CAST MUST BE RE-BRAINED OR THE MEASUREMENT IS OF AN EMPTY
+POPULATION — read this as a PREMISE of every hall perception measurement, not a
+footnote.** The hall is authored `stand_still`; increment 1's
+`PerceptionRequirement::None` gate means such a brain never builds a `WorldView`;
+`note_world_view` is called INSIDE that build, so nothing is recorded and the
+census row carries **no `kept=` field at all**. The first sweep printed "NO CENSUS
+ROW" for every arm, which is the harness refusing to invent data. ⇒ The tell is
+an ABSENT field, not a small number — and an instrument reporting NOTHING looks
+exactly like an instrument reporting a little. The gate that made the hall cheap
+is the gate that makes it unmeasurable.
+
+⭐ The knob itself is `PerceptionExtentOverride`, a value in
+`ambition_characters::perception`, published by `ambition_dev_tools` and read by
+`ensure_perception` as a resource — **the same inversion as the population cap,
+deliberately**, because D33 removed the actor kernel's three developer reads and
+an environment read inside `ensure_perception` would have added a fourth.
 
 ⚠ AND IT KILLS A CONCLUSION I WAS ABOUT TO DRAW. Seeing kept flat while `Decide`
 still doubled, I reasoned the cost must therefore be the SCAN over offered peers

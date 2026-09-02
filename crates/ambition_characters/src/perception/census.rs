@@ -16,6 +16,23 @@
 //! The census is a measuring instrument and must not join the population it
 //! measures when nobody asked it to.
 //!
+//! ⛔⛔ **A PREMISE OF EVERY HALL MEASUREMENT, NOT A FOOTNOTE: THE CAST MUST
+//! NEED PERCEPTION OR THIS RECORDS NOTHING.** The counting site is inside
+//! `build_world_view`, and a brain declaring `PerceptionRequirement::None`
+//! never builds a view — so `hall_of_characters`, whose cast is authored
+//! `stand_still`, produces ZERO views and the census line carries **no `kept=`
+//! field at all**. Measured 2026-09-02: a viewport sweep printed "NO CENSUS ROW"
+//! for every arm until the cast was re-brained with
+//! `AMBITION_ACTOR_BRAIN_PROFILE=ambition::medium_striker`, whose template
+//! consumes a view.
+//!
+//! ⭐ **THE TELL IS AN ABSENT FIELD, NOT A SMALL NUMBER**, and that distinction
+//! is the whole safety of this instrument: `kept=0` would have read as "the
+//! budget is binding hard" and been published. An instrument reporting NOTHING
+//! looks exactly like an instrument reporting a little. ⇒ Before quoting a
+//! `kept`, ask what had to RUN for it to be recorded — the gate that made the
+//! hall cheap is the gate that makes it unmeasurable.
+//!
 //! ⭐ IT MOVED HERE FROM `ambition_dev_tools` ON 2026-09-02, and the direction
 //! is the point (D33). The counting site is `build_world_view` in the actor
 //! kernel — a HOT LOOP, so the number cannot be recovered from outside — and

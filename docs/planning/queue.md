@@ -532,8 +532,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
   change. A test cannot guard a shape it is not able to express; do not credit
   this row with a guard stronger than that.
 
-- ▢ **D33 FOLLOW-UP: THE POPULATION CAP ADMITS AFTER THE PLAN IS FROZEN, so a
-  refused NPC still gets an authoritative root.** Raised by review 2026-09-02
+- ✔ **THE POPULATION CAP ADMITTED AFTER THE PLAN WAS FROZEN — CLOSED 2026-09-02
+  by `2ea4ef21ac`, five of six claims verified against the code.** A finding
+  under D33, which is still open; ⛔ deliberately NOT titled with that id, because
+  a `✔ D33 …` row beside the open `▢ D33 …` row makes the ledger say both things
+  about one id — which `test_no_ledger_row_is_marked_both_open_and_closed` caught
+  the moment I wrote it.
+  `RoomFeatureConstructionPlan::prepare` now spends the quota over
+  `room.placements` in AUTHORED order and hands only `admitted_records` to
+  `plan_room` (`spawn/mod.rs`), so: a refused NPC has no plan row, no root and no
+  id; the predicted roster is honest; the cohort follows the order the API always
+  claimed; and `construction_plan_id` differs between capped and uncapped runs
+  because it hashes `construction_deterministic_dump()`, which is built from the
+  admitted set. The fake-Hazard acceptance is replaced by
+  `the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota`,
+  which uses real `InteractionKindSpec::Npc` placements.
+  ⚠ **THE HALL NUMBERS STILL WANT RE-READING**, and closing this row does not do
+  it: capped runs taken BEFORE this fix selected their cohort in canonical
+  `SimId` order while the API said authored order, and kept over-cap identity
+  shells — so `EcsPopulation::scene_entities()` did not fall with body count.
+  Body-count curves stand; any explanation that leaned on the cohort being an
+  authored-order PREFIX was about a set nobody measured.
+  ✔ **AND THE SIXTH IS CLOSED TOO, BY RENAMING RATHER THAN CORRECTING.**
+  `ActorAdmission::admitted()` was documented as the number admitted and was
+  wrong in two directions: a refusal COUNTS (`fetch_add` precedes the compare, so
+  a cap of 2 reports 3) and an uncapped run counts NOTHING (the uncapped path
+  returns before the counter, deliberately — it is called once per placement in
+  every room). It is now `admission_attempts()`, with both directions in its doc.
+  ⛔ Not corrected, because making it truthful means an atomic on the uncapped
+  road forever and **nothing in the tree reads it** — the other `.admitted()`
+  calls belong to a portal route, a sandbox reset and a shrine. A name that
+  cannot mislead beats a number nobody consumes.
+
+<details><summary>The original finding, kept because the sequence is the lesson</summary>
+
+- **THE POPULATION CAP ADMITTED AFTER THE PLAN WAS FROZEN, so a refused NPC
+  still got an authoritative root.** Raised by review 2026-09-02
   and verified against the code. ⛔ **NOT A REGRESSION FROM TONIGHT'S WORK** —
   the composition-input inversion (the cap as an engine value, published by
   `ambition_dev_tools`, handed to construction) is right and stays. The process
@@ -595,6 +629,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   admitted, but a cap of two followed by one refusal returns three, and the unit
   test locks that in as "the refusal was counted as an attempt". Pick one meaning
   and let the name say it.
+
+</details>
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
@@ -1091,9 +1127,35 @@ The one unresolved developer-policy choice from the session-ownership work is in
   solved: the two systems it moved were registered inside the entangled file, so
   the split was "move two files AND the registrations that belong to them". The
   same move is available here at ten times the size.
-  ⇒ **Whoever takes this should size it as: one construction seam to resolve, a
-  plugin to leave behind or invert, and ~1,659 lines that name almost nothing.**
-  Not as 6,000 tangled lines.
+  ⭐⭐ **AND THE THIRD CUT MAKES IT EXACT.** The two seam references are both
+  inside ONE function, `restore_custody_to_checkpoint` (lines 775-1089) — which
+  is checkpoint restore reading authored construction records, arguably not the
+  pickup domain at all. Bound the plugin AND that function and measure what is
+  left:
+
+  ```text
+  items/pickup/mod.rs                        1,860 lines
+    impl Plugin block          (53-253)        201 lines   21 refs
+    restore_custody_to_checkpoint (775-1089)   315 lines    2 refs
+    everything else                          1,344 lines    0 refs
+  ```
+
+  ⛔ **CHECKED IN ALL THREE PATH FORMS, because this row has already been wrong
+  twice by grepping only one.** The 1,344-line remainder contains exactly ONE
+  `crate::` reference — `crate::items`, its own parent module — and ZERO
+  `super::` paths. It names nothing outside itself.
+
+  ⇒ **THE CARVE IS: move 1,344 lines, leave 516.** Ground-item physics, custody,
+  pickup, throw, held-item specs and aim are free-standing; the entanglement is a
+  plugin that schedules its neighbours' systems and one checkpoint function that
+  reads authored records. Neither has to move for the domain to leave, and
+  neither needs an inversion designed first — which is what "one construction
+  seam to resolve" (written an hour earlier, on the coarser cut) got wrong.
+  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included
+  in that count; they move with the code and are most of the remaining work.
+  ⚠ And the consumer surface is real: games name `actors::items::pickup::` about
+  twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
+  with a facade export and a re-point, exactly as `ambition_world_items` did.
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,

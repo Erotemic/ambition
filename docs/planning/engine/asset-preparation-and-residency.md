@@ -416,6 +416,42 @@ site is still to be found and routed. `[image-gpu]` lines only appear with a
 render world; headless runs show `awaiting gpu` growing instead, which is the
 readout saying nobody uploaded.
 
+#### ▢ The fourth stage: RESIDENT USE (first draw) — scoped 2026-09-02, not built
+
+The ledger measures demand -> insert -> GPU. All three are about the asset
+ARRIVING; none says it was ever USED. That gap is why the re-decode census and
+the reveal barrier both have to talk about "prepared" rather than "drawn", and
+why `[image-dropped]` can only report pixels decoded for nobody AFTER the fact.
+
+⭐ **THE SEAM EXISTS AND IS ONE RESOURCE.** `bevy_sprite_render::ExtractedSprites`
+is a render-world `Resource` holding `Vec<ExtractedSprite>`, and
+`ExtractedSprite.image_handle_id` is an `AssetId<Image>` — the same key the
+ledger already uses. It is reachable as `bevy::sprite_render::…` behind bevy's
+`bevy_sprite_render` feature. Extraction happens AFTER visibility culling, so an
+id appearing there means "this frame would draw it", which is the honest meaning
+of resident use — closer than anything the three current stages can say.
+⚠ `SpriteBatch.image_handle_id` is one step later and strictly stronger (it
+survived batching), at the cost of running after `RenderSystems::Queue`. Prefer
+`ExtractedSprites` unless a measurement shows extraction over-reports.
+
+**What it would take**, stated so nobody re-derives it: `ImageStagePlugin`
+already owns a render-world system (`stamp_gpu_prepared_images`, after
+`RenderSystems::PrepareAssets`) and already inserts the shared `ImageStageClock`,
+so this is a SIBLING of an existing hook rather than new machinery — and the
+ledger is a process-global `static`, so a render-world system can reach it
+without a channel. Three pieces: a `first_drawn_at` field plus a `first_drawn(id,
+at)` method on `ImageStageLedger` (first write wins; later frames must not
+overwrite), one `stamp_first_drawn_images` system reading `ExtractedSprites`, and
+one `.add_systems` line. ⛔ NOT BUILT HERE because that is three pieces rather
+than the one-line hook that would justify landing it inside a scoping pass.
+
+⚠ **Two things to get right when it is built.** (1) The stamp must be
+FIRST-WRITE-WINS, or it becomes a per-frame write on every visible sprite and the
+ledger's own cost shows up in what it measures. (2) A headless or `NoWindow`
+composition has no render world at all, so `first_drawn` is permanently absent
+there — the same asymmetry `is_awaiting_gpu` already documents, and the readout
+must say "no render world" rather than "never drawn", which are different facts.
+
 ### 2. Demand before first visible use
 
 ✔ **Two rows closed 2026-09-02, both found by the ledger's "resident by
@@ -541,14 +577,24 @@ process, and cargo runs those as parallel threads; the ledger is a process-globa
 EARLIER in that process — only concurrency is left, and the only fix for that is
 to run the test alone, which is what the script does. Un-ignoring it would make
 it flaky rather than red.
-⚠⚠ **MEASURED: 0 re-decodes — AND THE NUMBER IS NEARLY VACUOUS, which is the
-finding.** The headless run staged 126 characters and decoded **22 images / 4.5
-MP**; the host run of the same entry took **434 MP**. `NoWindow` has no render
-world and decodes almost nothing on purpose (`hall_transition_cover.rs` says so),
-so this is ~5% of the art and a repeat that only happens under real GPU residency
-could not appear in it. ⇒ A green here is a REGRESSION GUARD ON THE HEADLESS
-ROAD, not evidence the shipped game re-decodes nothing, and the row must not be
-read as closing Open work 5.
+⛔⛔ **MEASURED: 0 re-decodes — AND THE NUMBER IS EMPTY, NOT SMALL. CORRECTED
+2026-09-02, same day, twice.** The first write-up of this said the headless run
+decoded "22 images / 4.5 MP, ~5% of the host's 434 MP", and treated that as a
+small-but-real population. It is not a small population, it is NO population:
+all 22 are keyed `"?"` in `resident_by_road`, meaning `source == None` — images
+that reached `Assets<Image>` without passing a stamped demand road, i.e.
+inserted directly rather than decoded from a file. **Routed images: 0.**
+⭐ THE CAUSE, found by `df`: `ImagePlugin` registers the image loader in
+`Plugin::finish`, and `finish()` never runs under the `app.update()` loop a
+`NoWindow` composition uses. ⇒ **No file-backed art decodes on that road at
+all** — not 5% of it. Every stage after "demanded" (insert, GPU, first draw) is
+observable only in `capture_scene` (OffscreenGpu) or the windowed host.
+⇒ The test's premise guard now asks the question that matters — did ANY resident
+image arrive through a demand road — and **it fails today**, naming the reason.
+That is the correct outcome: a re-decode census over a population with no art in
+it cannot answer anything, and a guard that passed on 22 unrouted images was
+reporting a number it never had.
+
 ⛔ **THE FIRST DRAFT OF THE TEST WOULD HAVE REPORTED THAT ZERO CONFIDENTLY.** Its
 only premise guard was the staged-cast size — but staging is a DEMAND and
 `re_decodes` counts INSERTIONS, so the guard and the measurement were watching
@@ -607,9 +653,10 @@ count could show would be a missing character rather than a deduplicated one.
 ⇒ This also settles the "126 newly staged of 129 authored" reading from the
 re-decode census above: with all 129 reached, the three are characters the HUB
 had already staged before the transition, not three the hall failed to ask for.
-⇒ Of the three candidates, scope is out, re-decode is 0 on the headless road
-(~5% of the art, so not yet answered for the host), and retired realizations are
-now distinguishable but need a host run to count.
+⇒ Of the three candidates, scope is out, re-decode is UNANSWERED (the headless
+road decodes no file-backed art at all — see the correction above; the earlier
+"~5% of the art" reading was wrong), and retired realizations are now
+distinguishable but need a host run to count.
 
 ### 6. Live quality switching
 

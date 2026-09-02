@@ -4,6 +4,35 @@
 wiring nine generated characters into the Hall and finding two channels reading
 two different sources.
 
+> **RE-MEASURED against `7ca4f1df6` (2026-09-02). ⭐ STILL UNBUILT AS DESIGNED — AND
+> LARGELY UNNECESSARY, because the problem was solved the other way the decision
+> allowed: by hand-authoring.**
+>
+> - The generation is **not** built. `fallback_dialogue` still feeds only barks
+>   (`CharacterCatalog::fallback_dialogue`), and `npc_dialogue_request`
+>   (`features/npcs.rs`) still reads only the LDtk `Interactable`'s
+>   `dialogue_id`, falling through to `"generic_npc"`. The two-channel table
+>   below is an accurate description of that code path today.
+> - ⭐ **But the Hall was covered by authoring instead.** The catalog gained a
+>   per-character `hall_dialogue_id`, and `known_dialogue_ids`
+>   (`ambition_content/src/dialogue/yarn.rs`) folds those ids into the
+>   validator's accepted set so authored `hall_<id>` nodes need no second
+>   hand-maintained list. Counted at HEAD: **149 catalog rows, 124 declaring a
+>   `hall_dialogue_id`** (8 explicitly `None`), against **131 authored
+>   `title: hall_*` Yarn nodes**.
+> - That is exactly the escape the 2026-07-26 decision left open — *"a
+>   hand-authored node of the same title overrides it by existing … so writing
+>   real dialogue is never blocked."* Somebody wrote the dialogue.
+>
+> ⇒ **So the value of building the generator has dropped, and the question it
+> should be re-opened against has changed.** It is no longer "generated
+> characters say a placeholder when you talk to them" — in the Hall, 124 of them
+> do not. What remains is (a) the ~25 catalog rows with no `hall_dialogue_id`,
+> and (b) every room that is NOT the Hall, where a character with a real
+> `fallback_dialogue` voice still reaches `generic_npc` on interact. ⛔ Re-scope
+> to that before implementing; a generator written to the original framing would
+> now be generating over 124 characters that already have authored nodes.
+
 ## The state today
 
 A character arriving from the sprite pipeline declares

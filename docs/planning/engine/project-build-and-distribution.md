@@ -142,6 +142,29 @@ A clean checkout should have an explicit path to produce every required generate
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.
 
+⚠ **Measured on a genuinely fresh clone, 2026-09-02, and this row had three
+live violations — two now closed.** They shared one shape: the producing command
+EXISTED and nothing called it, so the artifact was missing on every machine
+except the one that had run the command by hand.
+
+- ✔ **Bundled UI fonts.** `ambition_render`'s typography test `include_bytes!`s
+  three faces from a git-ignored directory, so their absence is not a missing
+  picture at runtime — `cargo check --all-targets` exits 101, and TWO gate jobs
+  run exactly that command. `scripts/grab_font_assets.py` had been in the tree
+  the whole time; `scripts/setup/generated_content.sh` now runs it.
+- ✔ **Sampled instrument libraries.** Opt-in behind a flag, so a default clone
+  rendered the whole catalogue through General MIDI and reported success —
+  indistinguishable downstream from the real cues. Now installed by default, and
+  the renderer refuses rather than shipping stand-ins.
+- ▢ **The `.ipfs` sidecars still have no hydration command**, which is the
+  remaining instance of exactly this class: six git-ignored payload directories
+  whose only restore path is a manual `ipfs get`. ⛔ Do NOT fold this into
+  feature work — `dev/journals/code_smells.md` (2026-07-19) records it as
+  backlog-only because Jon owns asset distribution. Noted here so B4's exit
+  criterion is not read as met while it is outstanding. ⚠ The fonts sidecar that
+  entry names (`.../assets/fonts/bundled.ipfs`) is itself absent now, so that
+  payload has lost even its CID.
+
 ### B5 — platform prerequisites
 
 Desktop remains the primary local path. Android/web/cross targets should use

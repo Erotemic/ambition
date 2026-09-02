@@ -913,6 +913,60 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
     panic!("the transition to '{target_room}' did not complete in {max} frames");
 }
 
+/// Step until every resident realization's pages are LOADED and the table is
+/// quiet — the fact a residency sample needs, not a frame count. Asset work is
+/// paced and partly wall-clock, so `for _ in 0..300 { step() }` covered less
+/// progress under parallel CPU contention and sampled one page still in
+/// flight (16 → 15 pages on the second lap, e7's run on 994b15c6a).
+fn settle_resident_pages(app: &mut App, what: &str) {
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+    const BACKSTOP: std::time::Duration = std::time::Duration::from_secs(180);
+    let started = std::time::Instant::now();
+    let mut quiet = 0;
+    let mut last = (0usize, 0usize);
+    loop {
+        step(app);
+        let (realized, loaded) = {
+            let assets = app.world().resource::<GameAssets>();
+            let server = app.world().resource::<bevy::asset::AssetServer>();
+            let mut pages = 0;
+            let mut loaded = 0;
+            for (_, sheet) in assets.characters.resident_sheets() {
+                // Only the pages a frame can draw from: `pages` is indexed by
+                // source page number and holds placeholder slots for a sparse
+                // pack's unused pages, whose textures nothing ever loads.
+                for index in sheet.spec.used_pages() {
+                    let Some(page) = sheet.pages.get(index as usize) else {
+                        continue;
+                    };
+                    pages += 1;
+                    if server.is_loaded_with_dependencies(page.texture.id()) {
+                        loaded += 1;
+                    }
+                }
+            }
+            (assets.characters.resident_sheets().count(), (pages, loaded))
+        };
+        let all_loaded = loaded.0 == loaded.1;
+        if all_loaded && (realized, loaded.0) == last {
+            quiet += 1;
+            if quiet >= 30 {
+                return;
+            }
+        } else {
+            quiet = 0;
+            last = (realized, loaded.0);
+        }
+        assert!(
+            started.elapsed() < BACKSTOP,
+            "HARNESS GAVE UP after {BACKSTOP:?}: the resident pages never all loaded and went \
+             quiet while {what} ({} of {} pages loaded)",
+            loaded.1,
+            loaded.0
+        );
+    }
+}
+
 /// What the character table and THIS App's resident character pages hold.
 fn residency_snapshot(app: &App) -> (usize, usize, f64) {
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
@@ -940,21 +994,15 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
-    for _ in 0..120 {
-        step(&mut app);
-    }
+    settle_resident_pages(&mut app, "the hub was settling after activation");
     let start = residency_snapshot(&app);
     let mut laps = Vec::new();
     for lap in 0..2 {
         let to_hall = transit_through(&mut app, HALL_DOOR_ZONE, 900);
-        for _ in 0..120 {
-            step(&mut app);
-        }
+        settle_resident_pages(&mut app, "the hall was settling");
         let in_hall = residency_snapshot(&app);
         let to_hub = transit_through(&mut app, "hall_of_characters_entry", 900);
-        for _ in 0..300 {
-            step(&mut app);
-        }
+        settle_resident_pages(&mut app, "the hub was settling after the return");
         let back = residency_snapshot(&app);
         eprintln!(
             "[residency-lap {lap}] to hall in {to_hall} frames: {in_hall:?}; back in {to_hub} \
@@ -966,13 +1014,15 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     let (first, second) = (laps[0], laps[1]);
     assert_eq!(
         first.0, second.0,
-        "the hub's resident REALIZATIONS grew between the first and second return \
-         ({} → {}): the table keeps a character no room places",
+        "the hub's resident REALIZATIONS differ between the first and second return \
+         ({} → {}): more means the table keeps a character no room places, fewer means \
+         a return did not bring the hub's own cast back",
         first.0, second.0
     );
     assert_eq!(
         first.1, second.1,
-        "the hub's resident character PAGES grew between laps ({} → {})",
+        "the hub's resident character PAGES differ between laps ({} → {}) — more is a \
+         retention, fewer is a page that never came back",
         first.1, second.1
     );
     assert!(

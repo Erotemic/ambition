@@ -864,6 +864,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `m_leblanc`, `neil_ongras_turfson`, `author` and the three polygon targets.
   ⇒ The instrument's caveat is discharged: there is no longer a "of the N that
   render here" qualifier on this row, and the worklist is the whole roster.
+  ⭐ **THE RESULT IS ON THE RECORD, not just in this row**:
+  `ambition_dev_measurements` branch `sprite-clip-census-20260902` @ `c0e3889`,
+  `summaries/sprite-clip-census-20260902.md` — the run, its provenance, and the
+  two caveats a reader must not lose. ⚠ The 228K per-edge JSON is deliberately
+  NOT committed: that repo ignores `profiles/` by design and tracks only the
+  readable half. ⛔ Neither submodule pointer is bumped — the instrument
+  (`d129-composited-frames` @ `c6a9712`) and the census (`c0e3889`) are both on
+  pushed branches awaiting the maintainer's call.
 
 - ✔ **D-SFX-RESET-RED — CLOSED 2026-08-31, and the fixture pressed one frame too
   early.** `ambition_app`'s own lib suite had a long-red test that no gate in

@@ -408,6 +408,7 @@ pub fn report_image_census(
     };
     if census.window_images > 0 || gpu_count > 0 || exiting {
         let at = now.duration_since(census.started_at).as_secs_f64();
+        #[cfg(not(target_arch = "wasm32"))]
         let ms = |d: Option<std::time::Duration>| {
             d.map_or("-".to_string(), |d| {
                 format!("{:.0}ms", d.as_secs_f64() * 1e3)
@@ -499,10 +500,15 @@ mod tests {
 /// (`RenderAssetBytesPerFrame`) defers uploads across frames, and this is the
 /// instrument that shows the deferral: `insert→gpu` grows while `awaiting gpu`
 /// on the census line stays nonzero.
-#[cfg(not(target_arch = "wasm32"))]
+///
+/// ⛔⛔ THIS RUNS ON EVERY TARGET, AND USED TO BE NATIVE-ONLY. Stamping is the
+/// READINESS FACT the web reveal barrier depends on; only the `[image-gpu]`
+/// REPORT below needs a clock. Gating the whole system on `not(wasm32)` left
+/// the browser with nothing ever prepared, hence never anything awaited, hence
+/// a cover that lifted before the GPU had the pixels.
 pub fn stamp_gpu_prepared_images(
     gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
-    started_at: Res<ImageStageClock>,
+    #[cfg(not(target_arch = "wasm32"))] started_at: Res<ImageStageClock>,
 ) {
     let mut ledger = image_stages::ledger();
     if ledger.awaiting_gpu().is_empty() {
@@ -520,33 +526,61 @@ pub fn stamp_gpu_prepared_images(
     if prepared.is_empty() {
         return;
     }
-    let now = Instant::now();
-    let live = ledger.gameplay_live();
+
+    // ⛔ ONE `#[cfg]` BOUNDARY, NOT EIGHT. An earlier draft of this gated eight
+    // separate statements, which is the shape that put a `#[cfg]` on the wrong
+    // item and broke the whole web build once already. The FACT loop below is
+    // unconditional; everything that needs a clock lives in one native-only
+    // helper.
+    #[cfg(not(target_arch = "wasm32"))]
+    let clock = (Instant::now(), ledger.gameplay_live());
+
     for id in prepared {
-        let Some(stages) = ledger.gpu_prepared(id, now) else {
-            continue;
-        };
-        if stages.megapixels < ImageCensus::NOTABLE_MEGAPIXELS {
-            continue;
-        }
-        let at = now.duration_since(started_at.0).as_secs_f64();
-        let ms = |d: Option<std::time::Duration>| {
-            d.map_or("-".to_string(), |d| {
-                format!("{:.0}ms", d.as_secs_f64() * 1e3)
-            })
-        };
-        // `live=` mirrors the `[image]` line: a big upload while gameplay is
-        // live is a frame the player felt, whichever stage owned the wait.
-        let live = live.map_or("?".to_string(), |live| u8::from(live).to_string());
-        eprintln!(
-            "[image-gpu] {at:8.3}s {:6.1}MP live={live} {} insert→gpu {} demand→insert {} via {}",
-            stages.megapixels,
-            stages.path.as_deref().unwrap_or("<runtime-generated>"),
-            ms(stages.insert_to_gpu()),
-            ms(stages.demand_to_insert()),
-            stages.source.unwrap_or("?"),
+        let stamped = ledger.gpu_prepared(
+            id,
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(clock.0),
         );
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(stages) = stamped {
+            report_gpu_prepared(&stages, clock.0, clock.1, started_at.0);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = stamped;
     }
+}
+
+/// The `[image-gpu]` line. Native-only because every field it prints is a
+/// duration, and the web has no `Instant` to measure one against — which is
+/// exactly the distinction that had to be drawn: the REPORT needs a clock, the
+/// readiness FACT above does not.
+#[cfg(not(target_arch = "wasm32"))]
+fn report_gpu_prepared(
+    stages: &image_stages::ImageStages,
+    now: Instant,
+    live: Option<bool>,
+    started_at: Instant,
+) {
+    if stages.megapixels < ImageCensus::NOTABLE_MEGAPIXELS {
+        return;
+    }
+    let at = now.duration_since(started_at).as_secs_f64();
+    let ms = |d: Option<std::time::Duration>| {
+        d.map_or("-".to_string(), |d| {
+            format!("{:.0}ms", d.as_secs_f64() * 1e3)
+        })
+    };
+    // `live=` mirrors the `[image]` line: a big upload while gameplay is live
+    // is a frame the player felt, whichever stage owned the wait.
+    let live = live.map_or("?".to_string(), |live| u8::from(live).to_string());
+    eprintln!(
+        "[image-gpu] {at:8.3}s {:6.1}MP live={live} {} insert→gpu {} demand→insert {} via {}",
+        stages.megapixels,
+        stages.path.as_deref().unwrap_or("<runtime-generated>"),
+        ms(stages.insert_to_gpu()),
+        ms(stages.demand_to_insert()),
+        stages.source.unwrap_or("?"),
+    );
 }
 
 /// Stamp the FOURTH stage: this image was extracted, so this frame would draw it.
@@ -646,34 +680,54 @@ pub struct ImageStagePlugin;
 
 impl Plugin for ImageStagePlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use bevy::render::{Render, RenderApp, RenderSystems};
-            // One clock for both halves: whichever side initialises the census
-            // first fixes the zero, and the other reads it.
-            app.init_resource::<ImageCensus>();
-            let clock = ImageStageClock(app.world().resource::<ImageCensus>().started_at);
-            if app.get_sub_app(RenderApp).is_none() {
-                return;
-            }
-            // From here on a reveal may wait for stage 3; see
-            // `ImageStageLedger::is_awaiting_gpu`. ⛔ ON THIS APP'S MAIN WORLD,
-            // not on the process ledger: a sibling App in the same process has
-            // its own answer. Inserted BEFORE the sub-app is borrowed.
-            app.insert_resource(image_stages::RenderWorldPresent(true));
-            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-                return;
-            };
-            render_app.insert_resource(clock).add_systems(
-                Render,
-                (
-                    stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
-                    // ⛔ AFTER EXTRACTION, which is where `ExtractedSprites` is
-                    // filled — and it is a SIBLING of the hook above rather than
-                    // new machinery: same sub-app, same clock, same ledger.
-                    stamp_first_drawn_images.after(RenderSystems::ExtractCommands),
-                ),
-            );
+        use bevy::render::{Render, RenderApp, RenderSystems};
+
+        // ⛔⛔ THE READINESS HALF IS NOT `not(wasm32)`, AND IT USED TO BE. The
+        // whole of this body was native-only because `ImageStageClock` holds an
+        // `Instant`. That gated the FACT along with the TELEMETRY: on the web,
+        // `RenderWorldPresent` was never inserted and `is_gpu_prepared` was a
+        // stub returning `false`, so `is_awaiting_gpu` was always false and the
+        // browser lifted its cover the moment pixels reached `Assets<Image>` —
+        // skipping exactly the GPU upload the barrier exists to move under the
+        // cover. Every branch type-checks, so the wasm CHECK could not see it.
+        // The clock stays native; the stamp does not.
+        if app.get_sub_app(RenderApp).is_none() {
+            return;
         }
+        // From here on a reveal may wait for stage 3; see
+        // `ImageStageLedger::is_awaiting_gpu`. ⛔ ON THIS APP'S MAIN WORLD, not
+        // on the process ledger: a sibling App in the same process has its own
+        // answer. Inserted BEFORE the sub-app is borrowed.
+        app.insert_resource(image_stages::RenderWorldPresent(true));
+
+        // One clock for both halves: whichever side initialises the census
+        // first fixes the zero, and the other reads it.
+        #[cfg(not(target_arch = "wasm32"))]
+        let clock = {
+            app.init_resource::<ImageCensus>();
+            ImageStageClock(app.world().resource::<ImageCensus>().started_at)
+        };
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        render_app.insert_resource(clock);
+        // THE READINESS STAMP, on every target — the reveal barrier reads it.
+        render_app.add_systems(
+            Render,
+            stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
+        );
+        // ⛔ AFTER EXTRACTION, which is where `ExtractedSprites` is filled — a
+        // SIBLING of the hook above rather than new machinery: same sub-app,
+        // same ledger. Native-only, and unlike the stamp above that is correct:
+        // first-draw is pure TELEMETRY measured in `Instant`s, and no readiness
+        // decision reads it. Gating the GPU stamp the same way is what put the
+        // hole in the web reveal.
+        #[cfg(not(target_arch = "wasm32"))]
+        render_app.add_systems(
+            Render,
+            stamp_first_drawn_images.after(RenderSystems::ExtractCommands),
+        );
     }
 }

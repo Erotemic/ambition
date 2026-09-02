@@ -1875,7 +1875,7 @@ mod tests {
         assert_eq!(held.settled, 0);
 
         // The render world stamps it prepared: ready on the next inspection.
-        image_stages::ledger().gpu_prepared(page.id().untyped(), std::time::Instant::now());
+        image_stages::ledger().gpu_prepared(page.id().untyped(), Some(std::time::Instant::now()));
         let ready = inspect(&app, rendering);
         assert!(ready.is_ready(), "{:?}", ready.pending);
         assert_eq!(ready.settled, 1);

@@ -36,28 +36,26 @@ Those are implementation facts now, not planning tasks.
 
 ## 1. Make hazard contact consume the canonical swept path
 
-**Open and source-confirmed.** The old CC2 campaign claimed hazard touch had
-been converted, but the current common movement gate still calls
-`touching_hazard_aabb(world, clusters.kinematics.aabb())`: it tests only the
-body's endpoint AABB. A sufficiently fast body can therefore cross a thin
-hazard between samples even though the movement kernel has already published a
-`SweepSample` for the tick.
+✔ **CLOSED.** The shared gate reads the tick's `SweepSample` (`prev -> curr`)
+through `hazard_contact_on_path`, so a body fast enough to step over a thin
+hazard is hit. A body with no sample keeps the endpoint test and nothing else —
+the one compatibility arm, chosen so no second motion model reconstructs a
+segment from `vel * dt` and disagrees with the kernel; `SweepSample`'s
+`TODO(compat-remove)` is the plan to delete it. Teleports needed no exclusion:
+the sample spans simulation-phase entry to exit, so a blink or room transfer is
+not inside the segment by construction. Guarded by
+`movement::tests::hazard_sweep` (5 cases, every motion policy), poison-verified
+in both halves.
 
-Desired end state:
-
-1. hazard contact in the common movement gate consumes the canonical
-   simulation-phase path (`SweepSample::prev -> curr`) rather than reconstructing
-   motion from velocity or using endpoint overlap alone;
-2. bodies without a sweep sample have one explicit compatibility behavior rather
-   than a second hidden motion model;
-3. teleports/blinks/room transfers remain excluded from the path by the existing
-   `SweepSample` phase semantics;
-4. a behavioral regression proves a fast body crossing a thin hazard is hit,
-   while a teleport across the same hazard is not falsely treated as traversed
-   simulation motion;
-5. both movement policies continue through the one shared hazard/OOB gate.
-
-Do not solve this with a source scanner. The behavior is directly testable.
+⛔ **The axis-swept arm ran the gate one tick stale, and that was the harder
+half.** `apply_world_hazard_gate` sat at the end of `update_body_simulation_
+inner` while that policy writes its `SweepSample` in the wrapper *after* the
+inner step returns — so the gate would have read the PREVIOUS tick's segment,
+and a zero-length default on the first tick. The other two policies already
+wrote their sample immediately before calling the gate. The gate now runs in the
+wrapper, after the write, and all three arms share the shape *write sample ->
+gate*. A reader that consumes a per-tick record must be ordered against the
+writer of that record, not merely placed in the same function.
 
 ## 2. Turn stable collision-oracle findings into behavioral regressions
 

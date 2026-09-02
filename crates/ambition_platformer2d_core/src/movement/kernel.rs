@@ -13,8 +13,8 @@ use super::adhesive_crawler;
 use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
 use super::{
-    touching_hazard_aabb, touching_rebound_aabb, FrameEvents, GroundContactTransition, InputState,
-    ResetCause,
+    hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb, FrameEvents,
+    GroundContactTransition, InputState, ResetCause,
 };
 
 /// One deterministic movement tick's complete external context.
@@ -584,9 +584,36 @@ pub(crate) fn apply_world_hazard_gate(
     // further out than any authored volume, so it is the later, larger fact.
     if left_the_world {
         events.reset = events.reset.or(Some(ResetCause::LeftTheWorld));
-    } else if touching_hazard_aabb(world, clusters.kinematics.aabb()) {
+    } else if touching_hazard(world, clusters) {
         events.reset = events.reset.or(Some(ResetCause::Hazard));
     }
+}
+
+/// Hazard contact for the shared gate: the tick's travelled path when the body
+/// has a `SweepSample`, its endpoint AABB when it does not.
+///
+/// ⛔ THE NO-SAMPLE ARM IS THE DISCRETE TEST, DELIBERATELY, and it is the only
+/// compatibility behaviour here. The alternative — rebuilding a segment from
+/// `vel * dt` — would be a SECOND motion model living next to the kernel's, free
+/// to disagree with it: velocity at phase entry does not describe a step that a
+/// collision resolve shortened, so that arm would report a hazard on a path the
+/// body never travelled. A body with no sample is a body nothing swept, and the
+/// endpoint is the only thing actually known about it. `SweepSample`'s
+/// `TODO(compat-remove)` is the plan to delete this arm outright.
+///
+/// Teleports need no exclusion of their own: the sample is captured from
+/// simulation-phase entry to phase exit, so a later system's blink or room
+/// transfer is not inside `prev -> curr` in the first place.
+fn touching_hazard(world: &World, clusters: &BodyClustersMut<'_>) -> bool {
+    // The endpoint the body is at NOW is always tested — a teleport that lands
+    // inside a hazard is standing in one, whatever path preceded it.
+    if touching_hazard_aabb(world, clusters.kinematics.aabb()) {
+        return true;
+    }
+    clusters
+        .sweep
+        .as_ref()
+        .is_some_and(|sweep| hazard_contact_on_path(world, sweep.curr, sweep.half, sweep.delta()))
 }
 
 /// Select the tick's semantic support fact from the contact kinds: the newest

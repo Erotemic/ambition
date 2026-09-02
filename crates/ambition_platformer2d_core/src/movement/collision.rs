@@ -746,11 +746,36 @@ pub fn teetering_at_edge(
 /// Tile-set-only hazard touch test. Cluster-aware callers
 /// pass `BodyKinematics::aabb()` directly without building an
 /// `ae::Player`.
+///
+/// ⚠ ENDPOINT ONLY. A body fast enough to cross a thin hazard between two
+/// samples is not detected here. Callers that have the tick's canonical
+/// `SweepSample` must use [`hazard_contact_on_path`]; this remains the honest
+/// answer for a body that has no sample.
 pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
     world
         .blocks
         .iter()
         .any(|b| matches!(b.kind, BlockKind::Hazard) && aabb.strict_intersects(b.aabb))
+}
+
+/// Did the body CONTACT a hazard anywhere along the segment it actually
+/// travelled this tick?
+///
+/// `center`/`half` describe the body at the segment's END and `delta` is the
+/// segment (`SweepSample::delta()`), so the path tested is `curr - delta ->
+/// curr` — the simulation phase's own record. It is deliberately NOT
+/// reconstructed from `vel * dt`: velocity at phase entry does not describe a
+/// step a collision resolve shortened, and a second motion model that disagrees
+/// with the kernel's is how a hazard fires on a frame the body never entered.
+///
+/// PARITY: `aabb_path_contacts` returns true for the already-overlapping case,
+/// so every hit [`touching_hazard_aabb`] would have found is still a hit here
+/// and the only new detections are genuine tunnels.
+pub fn hazard_contact_on_path(world: &World, center: Vec2, half: Vec2, delta: Vec2) -> bool {
+    world.blocks.iter().any(|b| {
+        matches!(b.kind, BlockKind::Hazard)
+            && crate::cast::aabb_path_contacts(center, half, delta, b.aabb)
+    })
 }
 
 /// Rebound impulse lookup for a body AABB.

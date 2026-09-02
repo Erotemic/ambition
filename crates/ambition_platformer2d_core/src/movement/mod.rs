@@ -60,7 +60,7 @@ pub use authority::{
     arrive_body_in_room, carry_body, constrain_body_pose, halt_body, reconcile_transit,
     shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
 };
-pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
+pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
 pub use facts::{BodyMotionFacts, LedgeFacts, PoseOwnedExternally};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
@@ -302,7 +302,7 @@ pub(crate) fn update_body_simulation_in_frame(
     // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
-    let events = update_body_simulation_inner(
+    let mut events = update_body_simulation_inner(
         world,
         clusters,
         state,
@@ -321,6 +321,17 @@ pub(crate) fn update_body_simulation_in_frame(
             half: clusters.kinematics.size * 0.5,
         };
     }
+
+    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
+    //
+    // ⛔ AFTER THE SAMPLE WRITE, AND THAT ORDER IS THE CONTRACT. The gate reads
+    // the tick's travelled path, so running it inside the inner step — where it
+    // used to live — read the PREVIOUS tick's segment, and on the first tick a
+    // zero-length default. The other two policy arms already write their sample
+    // immediately before calling the gate; this arm captures its endpoints out
+    // here, so the gate has to be out here too.
+    kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
+
     events
 }
 
@@ -689,9 +700,6 @@ fn update_body_simulation_inner(
         &tuning,
         &mut events,
     );
-
-    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
-    kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
 
     events
 }

@@ -77,7 +77,11 @@ pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONL
 /// says `0`. Read once per process.
 pub fn images_render_world_only() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var(IMAGES_RENDER_WORLD_ONLY_ENV).ok().is_none_or(|v| v != "0"))
+    *ON.get_or_init(|| {
+        std::env::var(IMAGES_RENDER_WORLD_ONLY_ENV)
+            .ok()
+            .is_none_or(|v| v != "0")
+    })
 }
 
 pub fn default_asset_profile() -> AssetProfile {

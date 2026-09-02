@@ -252,22 +252,12 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     );
 }
 
-/// Ordered authority boundaries for one autonomous actor decision.
-///
-/// These are deliberately coarser than individual systems. The contract is
-/// semantic: targeting settles first, eligibility/projections are prepared,
-/// observations are frozen, reaction clocks advance, decision produces plain
-/// intent values, and only then does publication mutate `ActorControl`.
-/// Movement begins after the whole chain through [`ambition_platformer2d_shared_tangle::schedule::WorldPrepSet`].
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub(crate) enum ActorDecisionSet {
-    Targeting,
-    Prepare,
-    Observe,
-    StateMaintenance,
-    Decide,
-    Publish,
-}
+/// The decision chain's boundaries now live in
+/// [`ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet`], with
+/// the reason they had to leave. This crate still owns WHERE they sit — see
+/// `configure_actor_decision_phases` directly below — and every use in this
+/// file reads the same name through this import.
+pub(crate) use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
 
 fn configure_actor_decision_phases(app: &mut App) {
     let sim = app.sim_schedule();
@@ -314,91 +304,20 @@ fn configure_actor_decision_phases(app: &mut App) {
             .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
-
-    install_actor_decision_census_boundary(app);
 }
 
-/// Close the census bucket that owns everything this file schedules.
+/// ⭐ THE DECISION-PHASE CENSUS MARKS ARE NOT INSTALLED HERE ANY MORE, and the
+/// reason this comment survives the systems is that the WHY was load-bearing
+/// and easy to lose. Without a mark closing this file's span, all of it billed
+/// to `WorldPrep.BeforeIntegrate` — a windowed Hall capture on 2026-08-31 read
+/// 1.214 ms/tick there and it was taken for movement preparation, when 0.958 of
+/// it was the decision chain against `BeforeIntegrate`'s 0.037.
 ///
-/// ⛔⛔ **WITHOUT THIS, ALL OF IT BILLED TO `WorldPrep.BeforeIntegrate`.** Every
-/// set configured above is `in_set(WorldPrep)` and `before(BeforeIntegrate)`, and
-/// the sim-phase census's first `WorldPrep` mark closes AFTER `BeforeIntegrate`.
-/// A boundary instrument attributes "now minus the previous mark", so the six
-/// decision sets plus `ControlGate` and `BodyMode` all landed in a bucket named
-/// after a set none of them belong to. A windowed Hall capture on 2026-08-31
-/// read 1.214 ms/tick there and it was taken for movement preparation.
-///
-/// ⭐ THE MARK IS INSTALLED HERE BECAUSE ONLY THIS CRATE CAN NAME THE SETS.
-/// `ambition_dev_tools` depends on `shared_tangle`, not on the monolith, so it
-/// cannot order a system after `ActorDecisionSet::Publish`; the dependency edge
-/// runs the other way, and this crate already has it.
-///
-/// ⚠ THE SPAN IS `Targeting` THROUGH `BodyMode`, not `Targeting` through
-/// `Publish` — the two gate sets sit between publication and `BeforeIntegrate`,
-/// so a mark after `Publish` would have left them misattributed exactly as
-/// before, just less of them.
-///
-/// ⭐ MEASURED 2026-09-01, and it is why the six sub-marks below exist. In
-/// `hall_of_characters` at 130 bodies, headless and without Tracy, the span was
-/// **0.958 ms/tick against `BeforeIntegrate`'s 0.037** — 96% of a bucket that had
-/// been read as movement preparation. Splitting it further separates the two
-/// candidates: `Targeting` (`select_actor_targets` documents itself O(n²)) from
-/// `Decide` (`tick_actor_brains` builds a full `WorldView` for every actor,
-/// including the ones authored `stand_still` that read none of it).
-#[cfg(not(target_arch = "wasm32"))]
-fn install_actor_decision_census_boundary(app: &mut App) {
-    use ambition_dev_tools::runtime_census as census;
-    use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, WorldPrepSet};
-
-    // ⛔⛔ NOT WHEN THE CENSUS IS OFF. These run inside the sim schedule, the
-    // hottest in the app, and registering them unconditionally panicked every
-    // run with the census disabled -- which is every run a player makes -- on a
-    // resource `RuntimeCensusPlugin` only inserts when asked. `mark_sim_phase`
-    // now tolerates the absence too; this keeps seven no-op systems out of the
-    // tick regardless.
-    if !census::sim_phase_census_enabled() {
-        return;
-    }
-
-    let sim = app.sim_schedule();
-
-    // ⛔⛔ EACH MARK NEEDS BOTH EDGES. `.after(Targeting)` alone has no upper
-    // bound — the sets are chained to each other, not to this system, so a mark
-    // with only a lower bound may legally run after `Decide` and bill five
-    // phases into one bucket. That is the same class of error as the boundary
-    // this file already got wrong once, one level down.
-    app.add_systems(
-        sim,
-        (
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_TARGETING)
-                .after(ActorDecisionSet::Targeting)
-                .before(ActorDecisionSet::Prepare),
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_PREPARE)
-                .after(ActorDecisionSet::Prepare)
-                .before(ActorDecisionSet::Observe),
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_OBSERVE)
-                .after(ActorDecisionSet::Observe)
-                .before(ActorDecisionSet::StateMaintenance),
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_STATE_MAINTENANCE)
-                .after(ActorDecisionSet::StateMaintenance)
-                .before(ActorDecisionSet::Decide),
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_DECIDE)
-                .after(ActorDecisionSet::Decide)
-                .before(ActorDecisionSet::Publish),
-            census::mark_sim_phase(census::SIM_PHASE_DECISION_PUBLISH)
-                .after(ActorDecisionSet::Publish)
-                .before(PlayerInputSet::ControlGate),
-            // The tail: `ControlGate` and `BodyMode`, which are chained after
-            // `Publish` and before `BeforeIntegrate`.
-            census::mark_sim_phase(census::SIM_PHASE_ACTOR_DECISION)
-                .after(PlayerInputSet::BodyMode)
-                .before(WorldPrepSet::BeforeIntegrate),
-        ),
-    );
-}
-
-#[cfg(target_arch = "wasm32")]
-fn install_actor_decision_census_boundary(_app: &mut App) {}
+/// ⛔ THE OLD REASON THE MARKS LIVED IN THIS CRATE WAS *"only this crate can
+/// name the sets"*, and that stopped being true when `ActorDecisionSet` moved to
+/// `shared_tangle`. `ambition_dev_tools::runtime_census::
+/// install_actor_decision_census_boundary` owns them now — the crate whose
+/// instrument they are — and it carries every ordering rule they depend on.
 
 #[cfg(test)]
 mod actor_decision_phase_tests {

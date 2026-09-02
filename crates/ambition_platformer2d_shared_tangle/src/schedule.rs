@@ -400,6 +400,36 @@ pub enum WorldPrepSet {
     ContactDamage,
 }
 
+/// Ordered authority boundaries for one autonomous actor decision, inside
+/// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
+///
+/// These are deliberately coarser than individual systems. The contract is
+/// semantic: targeting settles first, eligibility/projections are prepared,
+/// observations are frozen, reaction clocks advance, decision produces plain
+/// intent values, and only then does publication mutate `ActorControl`.
+/// Movement begins after the whole chain, through [`WorldPrepSet`].
+///
+/// ⭐ IT LIVES HERE, NOT IN THE ACTOR KERNEL, SO AN INSTRUMENT CAN NAME IT.
+/// The kernel still CONFIGURES the chain — where these sets sit in the sim
+/// schedule is its business and moved nowhere. But a census that bills a tick
+/// to `Targeting` versus `Decide` has to order a system between two of them,
+/// and `ambition_dev_tools` may not name the monolith
+/// (`engine.ambition_dev_tools-source-purity`). While the enum was
+/// `pub(crate)` in the kernel, the only crate that could install those marks
+/// was the kernel — so the simulation package carried a registration for a
+/// developer facility, which is the anti-god rule the dev-tools carve exists
+/// to undo. Publishing the VOCABULARY downward is the same inversion
+/// [`AudioInitSet`] already made for the startup profiler's brackets.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ActorDecisionSet {
+    Targeting,
+    Prepare,
+    Observe,
+    StateMaintenance,
+    Decide,
+    Publish,
+}
+
 /// Ordered possession, host extension, and outcome phases inside
 /// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]

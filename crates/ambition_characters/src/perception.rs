@@ -6,6 +6,14 @@
 //! Geometry is world-space and gravity-independent; [`SelfView::gravity_down`]
 //! lets brains project into a body-local frame when needed.
 
+/// How many peers each viewer actually KEEPS, per tick — a census over the
+/// views this module builds. ⭐ IT LIVES HERE, NOT IN `ambition_dev_tools`,
+/// BECAUSE THE COUNTING SITE IS IN THE SIMULATION: `build_world_view` runs in
+/// the actor kernel, and while the sink was in the developer crate the kernel
+/// had to name it — the last of the upward reads the dev-tools carve exists to
+/// remove (D33). The developer crate still owns the REPORT; it drains this.
+pub mod census;
+
 use ae::AabbExt;
 use ambition_platformer2d_core as ae;
 

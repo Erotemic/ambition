@@ -93,6 +93,15 @@ no longer “reduce LOC” or “win frame time.” Carves should leave behind t
 smallest coherent actor/body simulation kernel while moving unrelated domain
 ownership, plugin registration, dependencies, and tests to their natural homes.
 
+⚠ **THE PLUGIN-REGISTRATION HALF OF THAT SENTENCE IS SPENT (2026-09-02).** The
+kernel makes five foreign plugin registrations and all five are accounted for, so
+there is no misplaced one left to move; and the developer-tools edge — the last
+production dependency the kernel held on a crate above it — is gone, enforced by
+the manifest rather than a test. ⛔ What remains is INTERNAL decomposition (the
+kernel's own `items/` module), which ends with no edge to point at, so do not
+size it against the earlier slices. The owner doc carries the measurement and
+why a reference count cannot find this.
+
 See [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
 and [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 

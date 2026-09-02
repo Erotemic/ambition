@@ -175,6 +175,20 @@ made one bullet up:
   installs its rows and `drain` where it prints them, so the POLICY did not
   move — only the counter.
 
+⭐ **AND THE INSTRUMENTS WERE RE-MEASURED FROM THEIR NEW HOMES, because a census
+that COMPILES is not a census that BILLS.** Moving a boundary mark is exactly the
+change a type-checker cannot judge: every `.after`/`.before` still names a real
+set, and the marks could still fire in the wrong order, into the wrong bucket, or
+not at all. `AMBITION_PROFILE_CENSUS=1 capture_scene --route ambition_gameplay`
+reports all seven decision buckets alive — `WorldPrep.Decision.Gate`,
+`.Targeting`, `.Prepare`, `.Observe`, `.StateMaintenance`, `.Decide`, `.Publish`
+— with `unmeasured=Trace` and no never-closed line, and the perception row
+(`views=N offered=… kept=… kept_max=…`) reports from `ambition_characters`.
+⚠ That run is the HUB, not the hall, so the magnitudes are small and are not
+comparable to the 0.958 ms/tick hall figure above; what it certifies is that
+every mark fires and lands in its own bucket, which is the property the move put
+at risk.
+
 ⛔ **THE GUARD IS THE MANIFEST, not a test, so it cannot rot.** A production
 `use ambition_dev_tools::…` anywhere in the kernel's `src/` no longer compiles.
 Poison-verified by adding one: `error[E0433]: cannot find module or crate
@@ -182,9 +196,51 @@ Poison-verified by adding one: `error[E0433]: cannot find module or crate
 tests keep reaching it, which is what a dev-dependency is for.
 
 ⚠ **AND IT BUYS NO SMALLER CLOSURE, which the table above already forbade
-claiming.** `ambition_dev_tools` has 6 dependents and the facade names it
-directly; nothing downstream drops it. The payoff is ownership and a boundary
-the compiler holds.
+claiming — re-measured after the carve rather than asserted.** Six manifests
+name `ambition_dev_tools`, and after this slice exactly one of them
+(`ambition_platformer2d_actor_monolith`) says `[dev-dependencies]`. The other
+FIVE are production and include the facade every game depends on:
+`ambition_platformer2d`, `ambition_render`, `ambition_sim_view`,
+`ambition_platformer2d_provider`, `ambition_platformer2d_runtime`. ⇒ Nothing
+downstream drops the crate, and the shipped closure is unchanged. The payoff is
+ownership and a boundary the compiler holds.
+
+⛔⛔ **AND IT WAS THE LAST MISPLACED REGISTRATION — SO THE "NEXT SLICE FROM THE
+DOMAIN FRONTIERS" PLAN POINTS AT NOTHING.** Measured 2026-09-02 late, after this
+carve closed. The frontier sizing that recommended it counted REFERENCES
+(`ambition_encounter` 74/24 files, `ambition_mount` 69/17,
+`ambition_conversation` 48/13, `ambition_items` 40/17 — non-comment), and reading
+what those references ARE gives the same answer this doc already reached for
+`sfx`/`vfx`/`audio`: they are components the kernel stores (`MountSlot`,
+`RidingOn`, `Mounted`), types it matches (`SwitchActivation`, `EncounterSpec`)
+and helpers it calls. **Downward vocabulary consumption, which is correct.** A
+reference count cannot tell that from an authority read — which is how it
+produced a four-item worklist with nothing on it, against this doc's own rule
+that footprint is retired as a rationale.
+
+⭐ **THE SWEEP THAT DISCRIMINATES is "who does the kernel register plugins FOR?"**
+— the smell both the dev-tools and audio slices turned out to be. There are FIVE
+foreign plugin registrations in the whole kernel and every one is accounted for:
+`ConversationPlugin` plus five `NarrativeInputPlugin::<T>` (deliberate, and
+`FeatureInteractionSchedulePlugin` states why in place — three of the payloads
+are `features` types a carved-out conversation crate could not name);
+`ambition_characters::brain::BrainPlugin` (brains are the kernel's subject); and
+three `ambition_audio` plugins inside the kernel's own `Platformer2dAudioPlugin`,
+which the host adds and the `audio` feature removes wholesale.
+⚠ COUNTED TWICE, because one form of the grep is not enough: matching
+`add_plugins(ambition_x::…)` misses anything imported by `use`. Sweeping every
+`*Plugin` inside an `add_plugins(…)` raised two more candidates that both
+dissolved — `CharacterCatalogPlugin` occurs only in `character_roster/tests.rs`,
+and `PhysicsPlugin` was a substring of avian's `PhysicsPlugins::default()` inside
+`AmbitionPhysicsPlugin`.
+
+⇒ **WHAT IS ACTUALLY LEFT IS INTERNAL, and whoever takes it should know that
+going in.** The kernel's own `items/` module is ~6,000 lines, named `items::` 79
+times by the rest of the kernel, importing `abilities::ranged` ×10, `features`,
+`durable_horizon`, `traversal`, `character_runtime`, `shrine` and `construction`.
+That is a decomposition of the monolith's INSIDE — no manifest edge to delete at
+the end of it, and no compiler-held guard like the one this slice earned. Every
+previous slice finished with an edge to point at; that one will not.
 
 ⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
 `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the

@@ -603,7 +603,7 @@ pub fn tick_actor_brains(
                     // 45,795 views of `kept=0` — a mean over bodies that never
                     // looked, which is not the population the budget is about.
                     if perception_need.needs_world_view() || perception_need.needs_target_belief() {
-                        ambition_dev_tools::perception_census::note_world_view(
+                        ambition_characters::perception::census::note_world_view(
                             view_peers.len(),
                             world_view.actors.len(),
                         );
@@ -1765,7 +1765,7 @@ fn capture_candidate(
 ) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
-    use ambition_characters::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
+    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,

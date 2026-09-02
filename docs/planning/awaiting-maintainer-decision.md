@@ -383,6 +383,33 @@ actually realizes. The runtime never draws it. Fix is one line per world in the
 map submodule (point it at the `sprites_0_25x` copy, 0.5 MP; the editor preview
 survives at a quarter resolution). ⛔ Jon's file, so it waits.
 
+### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
+
+Jon raised the general shape of this on 2026-08-28, about a different type
+(*"it might be a good idea to rename the actor given its conflation with a very
+core concept in the architecture. But we can do that in a different pass"*). The
+`Actor` half was done — it is `Performer` now. This half was never put to him and
+should not be decided by an agent, because a rename is Jon's vocabulary call.
+
+⭐ THE CONFLATION IS MEASURED, not assumed. `SmashChargeSpec` is named for one
+game mode and its own doc comment describes something general: *"How a chargeable
+move HOLDS: where on its own timeline the charge waits, and how long it may wait
+before it fires itself."* It carries `roots`, `sustain`
+(`WhileHeld` / `UntilPressedAgain`) and two seconds-valued clocks in the owner's
+proper time — none of which is Smash-specific — and the Trap (the Performer's
+down-B, an Ambition move, not a Smash one) uses it for a three-second
+subterranean beat, which is what made the name visible.
+
+⚠ THE SIZE, so the answer can be costed: **36 references** across `crates/` and
+`game/`. A rename is mechanical and touches authored content, so it wants to
+happen in one pass or not at all.
+
+⇒ Three answers are all reasonable and the choice is not an agent's: keep the
+name (the mechanism was authored for Smash and the association is useful), rename
+to something like `TimelineHoldSpec` / `ChargeHoldSpec`, or keep it and let a
+future Smash-specific type take the name back. ⛔ No engineering is blocked
+either way — this is recorded so it stops being asked and forgotten.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### The residency limit open work 4 needs

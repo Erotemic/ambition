@@ -746,7 +746,9 @@ The one unresolved developer-policy choice from the session-ownership work is in
   improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
-  3, and the FACADE every game depends on names all four directly. So removing
+  3, and the FACADE every game depends on names all four directly. ✔ ALL FOUR
+  RE-MEASURED 2026-09-02 late and still exact; ⚠ but `ambition_dev_tools`'s six
+  is now 5 PRODUCTION + 1 dev-only, the dev-only one being the kernel itself. So removing
   the monolith's edge to any of them cannot shrink a product's closure, and
   footprint is retired as a rationale for these four; carve them for ownership
   and compile isolation or not at all. ⭐ SLICE TAKEN 2026-08-31 on
@@ -929,6 +931,58 @@ The one unresolved developer-policy choice from the session-ownership work is in
   of the kernel names `items::` 79 times — a multi-day carve, not an evening's.
   The evening's D33 slice was the brain-override inversion (agent 383484,
   `AuthoredBrainOverride` in `ambition_characters::brain`; see its commits).
+  ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
+  2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
+  `ambition_conversation` 45, `ambition_items` 34) invite a carve chosen by
+  reference count, which THIS ROW'S FIRST PARAGRAPH FORBIDS — and re-counting
+  non-comment references and then reading what each one IS says the row's own
+  "presentation dependencies are mostly a mirage" finding applies to the domain
+  frontiers too:
+
+  | edge | non-comment refs / files | what they are |
+  |---|---|---|
+  | `ambition_encounter` | 74 / 24 | `SwitchActivation`, `EncounterSpec`, `EncounterWaveBook` — types and helpers |
+  | `ambition_mount` | 69 / 17 | `MountSlot`, `RidingOn`, `Mounted`, `CanPilot`, `rider_of` — components and helpers |
+  | `ambition_conversation` | 48 / 13 | `ActiveConversation`, `NarrativeMusicRequest`, plus registrations |
+  | `ambition_items` | 40 / 17 | types and helpers |
+
+  ⭐ **NONE OF THE FOUR IS AN AUTHORITY EDGE.** Every reference is the kernel
+  CONSUMING a downward vocabulary crate — components it stores, types it matches,
+  helpers it calls — which is the same shape as `sfx`/`vfx`/`audio` above and is
+  correct by this doc's own reasoning. ⛔ A reference count cannot tell that from
+  an authority read, which is exactly how it produced a four-item worklist with
+  nothing on it.
+  ⭐ **THE SWEEP THAT DOES DISCRIMINATE: who does the kernel register plugins
+  FOR?** That is the anti-god-rule smell the dev-tools and audio slices both
+  turned out to be. Across the whole kernel there are **FIVE** foreign plugin
+  registrations, and every one is already accounted for.
+  ⚠ COUNTED TWICE, because the first sweep was wrong: grepping
+  `add_plugins(ambition_x::…)` misses any plugin brought in by `use`, and
+  re-running over every `*Plugin` name inside an `add_plugins(…)` turned up two
+  more candidates. Both dissolved on inspection — `CharacterCatalogPlugin`
+  appears only in `character_roster/tests.rs`, and `PhysicsPlugin` was a
+  substring hit on avian's `PhysicsPlugins::default()` inside the kernel's own
+  `AmbitionPhysicsPlugin`. A one-form grep would have published four or six:
+  * `ambition_conversation::ConversationPlugin` and five
+    `NarrativeInputPlugin::<T>` — deliberate, and `FeatureInteractionSchedulePlugin`
+    states why in place: *"A payload belongs to whoever CONSUMES it: three of
+    these are `features` types that a carved-out conversation crate could not
+    name at all."* The conversation domain already installs itself;
+  * `ambition_characters::brain::BrainPlugin` — brains are the kernel's subject,
+    not a foreign facility;
+  * three `ambition_audio` plugins, all inside the monolith's OWN
+    `Platformer2dAudioPlugin`, which the host adds through
+    `add_presentation_plugins` and which the `audio` feature removes wholesale.
+  ⇒ **There is no misplaced foreign registration left in the kernel.** The
+  dev-tools slice was the last one, which is why it closed.
+  ⇒ **SO THE NEXT D33 SLICE IS NOT AN EDGE REMOVAL AT ALL.** What is actually
+  left is INTERNAL: this row already names it — the kernel's own `items/` module
+  at ~6,000 lines, named 79 times by the rest of the kernel, importing
+  `abilities::ranged` ×10, `features`, `durable_horizon`, `traversal`,
+  `character_runtime`, `shrine` and `construction`. That is a decomposition of
+  the monolith's INSIDE, with no manifest edge to delete at the end of it and no
+  compiler-held guard like the dev-tools one. ⚠ Whoever takes it should know that
+  going in, because every previous slice ended with an edge to point at.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current

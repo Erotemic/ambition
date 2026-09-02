@@ -732,7 +732,8 @@ pub fn report_sim_phase_census(
     // rather than the room's population: it grows superlinearly while the kept
     // set is still growing and flattens when the viewport saturates. Reported
     // beside the phase it explains.
-    if let Some((views, offered, kept, kept_max)) = crate::perception_census::drain() {
+    if let Some((views, offered, kept, kept_max)) = ambition_characters::perception::census::drain()
+    {
         row.push_str(&format!(
             " views={views} offered={offered:.1} kept={kept:.1} kept_max={kept_max}"
         ));
@@ -1343,8 +1344,11 @@ fn sim_phase_names() -> Vec<&'static str> {
         // ⛔⛔ APPENDED, AND THE ORDER OF THIS LIST IS NOT THE ORDER OF THE CHAIN.
         // `close(index)` bills "now minus the previous mark" into whichever
         // bucket the mark names, so attribution follows the RUNTIME order of the
-        // marks and an index is only a label. These seven are closed from the
-        // actor monolith, the only crate that can name `ActorDecisionSet`.
+        // marks and an index is only a label. ⚠ THESE SEVEN WERE CLOSED FROM THE
+        // ACTOR MONOLITH until 2026-09-02, *"the only crate that can name
+        // `ActorDecisionSet`"* — which stopped being true when that set moved to
+        // `shared_tangle`. They are installed by `install_sim_phase_boundaries`
+        // below now, beside every other mark.
         //
         // ⭐ ALL SEVEN OR NONE. They are installed by one function in one crate,
         // so there is no arrangement where the six decision phases are marked and
@@ -1366,7 +1370,8 @@ fn sim_phase_names() -> Vec<&'static str> {
 #[cfg(not(target_arch = "wasm32"))]
 fn install_sim_phase_boundaries(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::{
-        Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt as _, WorldPrepSet,
+        ActorDecisionSet, Platformer2dSimulationPhaseMonolith as Phase, PlayerInputSet,
+        SimScheduleExt as _, WorldPrepSet,
     };
 
     let sim = app.sim_schedule();
@@ -1398,7 +1403,7 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
     // wants a smaller constant. The sub-sets below are what tells them apart.
     app.insert_resource(SimPhaseCensus::with_names(sim_phase_names()));
-    crate::perception_census::enable();
+    ambition_characters::perception::census::enable();
 
     // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
     // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
@@ -1557,6 +1562,72 @@ fn install_sim_phase_boundaries(app: &mut App) {
     // ⇒ Bucket 20 stays ZERO and the row says `unmeasured=Trace`. A phase
     // nothing orders cannot be given a wall-time slice by a boundary
     // instrument; measuring it needs its own spans, not a mark.
+
+    // ⭐⭐ THE DECISION CHAIN, MOVED HERE 2026-09-02 FROM THE ACTOR KERNEL.
+    // These seven used to be installed by
+    // `ambition_platformer2d_actor_monolith::features::install_actor_decision_
+    // census_boundary`, because `ActorDecisionSet` was `pub(crate)` there and
+    // this crate may not name that one
+    // (`engine.ambition_dev_tools-source-purity`). The set moved down to
+    // `shared_tangle` beside `WorldPrepSet`, so the instrument's own
+    // registration lives with the instrument and the simulation package no
+    // longer schedules a developer facility.
+    //
+    // ⛔⛔ WITHOUT THESE, ALL OF IT BILLS TO BUCKET 1. Every decision set is
+    // `in_set(WorldPrep)` and `before(BeforeIntegrate)`, and bucket 1 closes
+    // AFTER `BeforeIntegrate`; a boundary instrument attributes "now minus the
+    // previous mark", so the six decision sets plus the two gate sets landed in
+    // a bucket named after a set none of them belong to. A windowed Hall
+    // capture on 2026-08-31 read 1.214 ms/tick there and it was taken for
+    // movement preparation.
+    //
+    // ⭐ MEASURED 2026-09-01, and it is why the six sub-marks exist rather than
+    // one. In `hall_of_characters` at 130 bodies, headless and without Tracy,
+    // the span was **0.958 ms/tick against `BeforeIntegrate`'s 0.037** — 96% of
+    // a bucket that had been read as movement preparation. Splitting it
+    // separates the two candidates: `Targeting` (`select_actor_targets`
+    // documents itself O(n²)) from `Decide` (`tick_actor_brains` builds a full
+    // `WorldView` for every actor, including the ones authored `stand_still`
+    // that read none of it).
+    //
+    // ⚠ THE SPAN IS `Targeting` THROUGH `BodyMode`, not `Targeting` through
+    // `Publish` — the two gate sets sit between publication and
+    // `BeforeIntegrate`, so a mark after `Publish` would leave them
+    // misattributed exactly as before, just less of them.
+    //
+    // ⛔⛔ EACH MARK NEEDS BOTH EDGES, the same rule the parent marks above
+    // learned on 2026-09-01: `.after(Targeting)` alone has no upper bound — the
+    // sets are chained to each other, not to this system — so a mark with only
+    // a lower bound may legally run after `Decide` and bill five phases into
+    // one bucket.
+    app.add_systems(
+        sim,
+        (
+            mark_sim_phase(SIM_PHASE_DECISION_TARGETING)
+                .after(ActorDecisionSet::Targeting)
+                .before(ActorDecisionSet::Prepare),
+            mark_sim_phase(SIM_PHASE_DECISION_PREPARE)
+                .after(ActorDecisionSet::Prepare)
+                .before(ActorDecisionSet::Observe),
+            mark_sim_phase(SIM_PHASE_DECISION_OBSERVE)
+                .after(ActorDecisionSet::Observe)
+                .before(ActorDecisionSet::StateMaintenance),
+            mark_sim_phase(SIM_PHASE_DECISION_STATE_MAINTENANCE)
+                .after(ActorDecisionSet::StateMaintenance)
+                .before(ActorDecisionSet::Decide),
+            mark_sim_phase(SIM_PHASE_DECISION_DECIDE)
+                .after(ActorDecisionSet::Decide)
+                .before(ActorDecisionSet::Publish),
+            mark_sim_phase(SIM_PHASE_DECISION_PUBLISH)
+                .after(ActorDecisionSet::Publish)
+                .before(PlayerInputSet::ControlGate),
+            // The tail: `ControlGate` and `BodyMode`, which are chained after
+            // `Publish` and before `BeforeIntegrate`.
+            mark_sim_phase(SIM_PHASE_ACTOR_DECISION)
+                .after(PlayerInputSet::BodyMode)
+                .before(WorldPrepSet::BeforeIntegrate),
+        ),
+    );
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -2056,7 +2127,10 @@ mod sim_phase_bracket_tests {
             let Ok(index) = rest[open..close].trim().parse::<usize>() else {
                 continue;
             };
-            let end = rest.find(");").map(|e| e + 2).unwrap_or(rest.len().min(400));
+            let end = rest
+                .find(");")
+                .map(|e| e + 2)
+                .unwrap_or(rest.len().min(400));
             out.push((index, rest[..end].to_string()));
         }
         out
@@ -2075,7 +2149,10 @@ mod sim_phase_bracket_tests {
             if has_no_declared_successor(*index) {
                 continue;
             }
-            assert!(text.contains(".after("), "mark {index} lost its lower bound");
+            assert!(
+                text.contains(".after("),
+                "mark {index} lost its lower bound"
+            );
             assert!(
                 text.contains(".before("),
                 "mark {index} is one-sided: `.after(..)` alone lets the next \
@@ -2106,7 +2183,10 @@ mod sim_phase_bracket_tests {
         assert_eq!(super::SIM_PHASE_UNORDERED.len(), 1);
         let names = super::sim_phase_names();
         for index in super::SIM_PHASE_UNORDERED {
-            assert!(index < names.len(), "unordered index {index} names no bucket");
+            assert!(
+                index < names.len(),
+                "unordered index {index} names no bucket"
+            );
         }
     }
 }

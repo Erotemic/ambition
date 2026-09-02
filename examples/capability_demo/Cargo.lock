@@ -501,7 +501,6 @@ dependencies = [
  "ambition_conversation",
  "ambition_cutscene",
  "ambition_damage",
- "ambition_dev_tools",
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_gameplay_trace",

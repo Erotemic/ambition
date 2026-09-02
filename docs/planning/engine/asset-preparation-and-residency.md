@@ -557,9 +557,26 @@ removes the token from `sheets` and deliberately leaves `declared` intact (the
 entry is the recipe for re-making it), so a retired realization and one that was
 never made are the SAME state, and nothing records that a retirement happened.
 ⇒ A retirement followed by a re-demand IS accidental re-preparation, which puts
-this squarely in this section rather than in observability. The fix is to record
-the retirement (token → the tier it was retired from, cleared when the token
-becomes resident again) and let the warning name which of the two it is. ▢ Open.
+this squarely in this section rather than in observability.
+✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
+(token → the tier whose pixels it actually held), written by
+`demote_stale_realizations_outside` and cleared by both publish paths the moment
+the token is resident again — so a character that comes back stops being
+described by a retirement it recovered from. `retired_tier(token)` exposes it and
+the warning now says either *"declared as 'X' and RETIRED from Full — it was
+decoded and then dropped by a quality transition, so this is a re-realization
+that has not happened yet"* or *"declared as 'X' but never materialized"*.
+⚠ It is a TRACE, not state anything decides on: nothing reads it to choose what
+to load, and `None` is also the answer for an undeclared token, since only
+declared tokens are ever retired. Guarded by two arms in
+`quality_convergence_tests` — one proving the two causes are distinguishable
+(with a never-realized character alongside, so it cannot pass by reporting a
+retirement for everything), one proving re-realizing clears the trace under BOTH
+keys the double-keyed table holds. Poison-verified separately: dropping the
+record kills both arms, dropping the clear kills only the second.
+⚠ **Still unmeasured on the host**: this makes the 111-warning run *answerable*,
+not answered. The next host Hall entry will say how many of those 111 were
+retirements rather than first loads, and that is the number this section wants.
 
 ### 6. Live quality switching
 

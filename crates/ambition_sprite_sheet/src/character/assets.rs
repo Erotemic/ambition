@@ -91,6 +91,22 @@ pub struct CharacterSpriteAssets {
     /// character privileged. The entry SURVIVES the decode, because it is also
     /// the recipe for re-making the realization after one is retired.
     declared: HashMap<String, String>,
+    /// Tokens whose realization was RETIRED, and the tier it was retired from.
+    ///
+    /// ⛔⛔ WITHOUT THIS, `Declared` ALIASES TWO DIFFERENT FACTS. Retiring drops
+    /// the token from `sheets` and deliberately leaves `declared` standing (it is
+    /// the recipe), so "never materialized" and "materialized, then retired by a
+    /// quality change" become the same observable state — which is exactly what
+    /// [`CharacterSheetState::Declared`]'s own doc says it means, and exactly
+    /// what the placeholder-rectangle warning could not tell apart. It reported
+    /// *"nothing demanded it"* for both, and that warning fired 111 times on one
+    /// Hall reveal, so its diagnosis was evidence for a cause nobody checked.
+    ///
+    /// ⚠ It is a TRACE, not state anything decides on. Nothing reads it to choose
+    /// what to load; it exists so a report can say which of the two happened.
+    /// Cleared the moment the token is resident again, so a re-realized character
+    /// stops being described by a retirement it recovered from.
+    retired: HashMap<String, TextureResolutionScale>,
 }
 
 impl CharacterSpriteAssets {
@@ -113,10 +129,12 @@ impl CharacterSpriteAssets {
             .map(|(token, _)| token.clone())
             .collect();
         for token in tokens {
+            self.retired.remove(&token);
             self.sheets.insert(token, asset.clone());
         }
         // A character published without ever being declared (a test fixture, or
         // a host inserting a sheet directly) still resolves by its own id.
+        self.retired.remove(character_id);
         self.sheets.insert(character_id.to_string(), asset);
     }
 
@@ -133,6 +151,7 @@ impl CharacterSpriteAssets {
     /// art it did not build, so retiring it would delete a face with no way to
     /// draw it again. See [`Self::demote_stale_realizations`].
     pub fn publish_under(&mut self, token: &str, asset: CharacterSpriteAsset) {
+        self.retired.remove(token);
         self.sheets.insert(token.to_string(), asset);
     }
 
@@ -153,6 +172,22 @@ impl CharacterSpriteAssets {
     /// The catalog id a token names, declared or resident.
     pub fn character_id_for(&self, token: &str) -> Option<&str> {
         self.declared.get(token).map(String::as_str)
+    }
+
+    /// The tier a token's realization was RETIRED from, if it ever had one.
+    ///
+    /// The half of [`CharacterSheetState::Declared`] the state itself cannot
+    /// carry: `Some` means the sheet was decoded and then dropped by a quality
+    /// transition, `None` means nothing has ever realized it. Both are
+    /// `Declared`, and a report that does not ask this cannot tell them apart —
+    /// which is how *"nothing demanded it"* came to be printed for characters
+    /// that had been demanded and served.
+    ///
+    /// ⚠ `None` is also the answer for a token that was never declared, because
+    /// only declared tokens are retired. Ask [`Self::sheet_state`] first: this
+    /// question only means anything about a `Declared` one.
+    pub fn retired_tier(&self, token: &str) -> Option<TextureResolutionScale> {
+        self.retired.get(token).copied()
     }
 
     /// Is anything resident whose REQUEST is no longer the active one?
@@ -250,7 +285,11 @@ impl CharacterSpriteAssets {
             if let Some(id) = self.declared.get(&token) {
                 ids.insert(id.clone());
             }
-            self.sheets.remove(&token);
+            // The tier it HELD, not the tier that was asked for: a report saying
+            // "retired from Full" is describing pixels that existed.
+            if let Some(asset) = self.sheets.remove(&token) {
+                self.retired.insert(token, asset.resolved_tier);
+            }
         }
         ids
     }
@@ -302,6 +341,8 @@ impl CharacterSpriteAssets {
     /// needs determinism must collect and sort — this deliberately does not
     /// impose an order it would then have to promise.
     pub fn resident_sheets(&self) -> impl Iterator<Item = (&str, &CharacterSpriteAsset)> {
-        self.sheets.iter().map(|(token, asset)| (token.as_str(), asset))
+        self.sheets
+            .iter()
+            .map(|(token, asset)| (token.as_str(), asset))
     }
 }

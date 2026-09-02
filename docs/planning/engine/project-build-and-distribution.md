@@ -105,10 +105,36 @@ UNION (`visible` → `input` on, so seats read devices), and
 `Assets<TextureAtlasLayout>` (the MinimalPlugins foundation never registers it;
 the union happens to). The full lane only `cargo check`s that third cell, so
 nothing claims it runs; the product binary uses `build_windowed_demo_app` and
-is fine. The first two disagreed about one test until `f4a757328`. ▢ Decide
-whether the per-crate `visible` test cell is supported (then register the
-atlas asset in `build_demo_app`) or declare it unsupported in the crate's
-feature docs; today it is neither.
+is fine. The first two disagreed about one test until `f4a757328`.
+
+✔ **DECIDED 2026-09-02: THE CELL IS UNSUPPORTED, and it is not one registration
+away.** The atlas was the first missing resource, not the only one. Fixing each
+revealed the next: `Assets<TextureAtlasLayout>` (`ImagePlugin` does not supply it
+— it is `TextureAtlasPlugin`'s), then `GizmoConfigStore` for `draw_debug_viz`,
+then `Assets<Mesh>` + `Assets<HitFlashMaterial>` for the hit-flash pass, which
+belong to `MeshPlugin` and in this repo are only ever hand-registered inside
+tests. `build_demo_app` has no renderer whatever features are on; `visible` adds
+presentation systems whose parameters are render-stack resources. A chain that
+regrows each time it is cut is a composition asking for a renderer, so it is
+declared unsupported in `ambition_demo_smash_app`'s feature docs with that
+evidence, and the supported paths are named there (the workspace union, and
+`build_windowed_demo_app`).
+
+⭐ **TWO REAL DEFECTS CAME OUT OF IT AND ARE FIXED AT THE SOURCE**, both worth
+having on their own account rather than for this cell:
+`PlatformerAssetsPlugin` now registers the `Assets<TextureAtlasLayout>` its own
+`Startup` system consumes (guarded on the resource — `init_asset` is NOT
+idempotent, so an unguarded call would replace a live store and drop every handle
+in it), and `draw_debug_viz` now carries the
+`run_if(resource_exists::<GizmoConfigStore>)` guard `avatar::trail.rs` already
+had. The cell went from panicking in `build_demo_app` to running, with 14 of 39
+passing.
+
+⚠ **AND THE FAILURE NAMES NOTHING.** Bevy reports these as
+`Parameter <Enable the debug feature to see the name> failed validation: Resource
+does not exist`. `RUST_BACKTRACE=1` and the `run_unsafe<fn(..)>` frame is the
+only place the system's parameter list appears; without that, this row is
+unactionable.
 
 ### B4 — generated-content/bootstrap contract
 

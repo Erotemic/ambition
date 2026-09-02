@@ -35,6 +35,11 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# One implementation of "what does this target install", shared with the sprite
+# regen cache.
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "lib"))
+from sprite_install_names import claimed_install_names  # noqa: E402
 DEFAULT_ASSET_ROOT = (
     REPO_ROOT / "crates/ambition_platformer2d_actor_monolith/assets"
 )
@@ -80,41 +85,16 @@ def roster_targets(sprites_sh: Path) -> list[str]:
 def claimed_names(targets: list[str]) -> dict[str, list[str]] | None:
     """What each target DECLARES it installs, asked of the renderer itself.
 
-    ⛔⛔ NEVER GUESS `<target>_spritesheet.ron`. That assumption is wrong for
-    every target that installs under a subdirectory or under sub-names:
-    `town_tileset` installs `town_tileset.png`/`.yaml`,
-    `interdimensional_gate` installs `_ring_`/`_portal_` sheets, and
-    `gnu_ton_boss` installs into a subdir. A checker built on the guess reports
-    four healthy targets as missing, and a checker that cries wolf is worse
-    than no checker because it teaches people to skip the step.
+    ⛔⛔ NEVER GUESS `<target>_spritesheet.ron`. The reasoning, and the four
+    targets that disprove the guess, live with the implementation in
+    `scripts/lib/sprite_install_names.py` — shared because the sprite regen
+    cache needs the same answer and used to guess it independently.
 
     Returns `None` when the renderer package is not importable, which is an
     ordinary state on a machine that has not set up the tool venv — the caller
     reports "cannot check" rather than inventing a verdict.
     """
-    try:
-        from ambition_sprite2d_renderer.cli.commands import discover_all_targets
-    except Exception:
-        return None
-    result = discover_all_targets()
-    # `discover_all_targets` returns a `DiscoveryReport` of (targets, warnings).
-    # Pick the mapping by TYPE rather than by index: the report is a structured
-    # pair whose field order is not this script's to depend on.
-    registry = result if isinstance(result, dict) else None
-    if registry is None:
-        registry = next((el for el in result if isinstance(el, dict)), None)
-    if registry is None:
-        return None
-    claimed: dict[str, list[str]] = {}
-    for target in targets:
-        entry = registry.get(target)
-        if entry is None:
-            continue
-        try:
-            claimed[target] = list(entry.claimed_install_names())
-        except Exception:
-            continue
-    return claimed
+    return claimed_install_names(targets)
 
 
 def main() -> int:

@@ -9,7 +9,8 @@
 #   scripts/setup/target_bindmount.sh
 #   scripts/setup/target_bindmount.sh --status
 #   scripts/setup/target_bindmount.sh --check     # exit 2 if unbound on virtiofs
-#   scripts/setup/target_bindmount.sh --unmount
+#   scripts/setup/target_bindmount.sh --unmount          # refuses the primary worktree
+#   scripts/setup/target_bindmount.sh --unmount --force  # ...unless you mean it
 set -euo pipefail
 
 STORE_ROOT="${AMBITION_TARGET_STORE:-$HOME/.cache/ambition-targets}"
@@ -18,6 +19,31 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 worktree_root() {
     git rev-parse --show-toplevel 2>/dev/null || die "not inside a git worktree"
+}
+
+# Is `$1` the PRIMARY worktree — the shared checkout everyone else branches from?
+#
+# ⛔⛔ THE FOOTGUN THIS EXISTS FOR. `worktree_root` resolves through
+# `git rev-parse --show-toplevel`, i.e. from the CURRENT DIRECTORY, so
+# `--unmount` typed anywhere inside the main tree unbinds MAIN — and it printed
+# `unbound ...` and exited 0, reading exactly like unbinding a slot. Main's mount
+# went missing on 2026-09-02 and nobody could say why; whatever the cause, a
+# command that cannot tell you which tree it is about to act on is one nobody can
+# clear themselves of afterwards.
+#
+# The test is exact rather than a guess at path shape (`.worktrees/` in the name
+# is a convention, not a fact): a LINKED worktree's `--git-common-dir` points back
+# at the primary's `.git`, so the primary is the one whose toplevel is that
+# directory's parent.
+is_primary_worktree() {
+    local root common
+    root="$1"
+    common="$(cd "$root" && git rev-parse --git-common-dir)"
+    case "$common" in
+        /*) ;;
+        *) common="$root/$common" ;;
+    esac
+    [ "$(cd "$(dirname "$common")" && pwd -P)" = "$(cd "$root" && pwd -P)" ]
 }
 
 # The readable half is kept only so `du -sh` output is legible.
@@ -200,15 +226,28 @@ cmd_unmount() {
         printf 'not bound: %s\n' "$target"
         return 0
     fi
+    # ⛔ SAY WHICH TREE, ALWAYS. The old line named only `target`, which is the
+    # same six characters for every worktree on the machine.
+    if is_primary_worktree "$root" && [ "${1:-}" != "--force" ]; then
+        printf 'refusing to unbind the PRIMARY worktree: %s\n' "$root" >&2
+        printf '  Every other worktree branches from this one and its store is the\n' >&2
+        printf '  seed for new slots; unbinding it silently sends the whole build to\n' >&2
+        printf '  the shared filesystem, which is slow and is not noticed for hours.\n' >&2
+        printf '  If you meant a slot, cd into it first -- this command reads the\n' >&2
+        printf '  tree from your CURRENT DIRECTORY, not from an argument.\n' >&2
+        printf '  If you really meant this one: %s --unmount --force\n' "$0" >&2
+        exit 3
+    fi
     sudo umount "$target"
-    printf 'unbound %s (backing store kept at %s)\n' "$target" "$(store_for "$root")"
+    printf 'unbound %s -> %s (backing store kept at %s)\n' \
+        "$root" "$target" "$(store_for "$root")"
 }
 
 case "${1:---mount}" in
     --mount|mount)     cmd_mount ;;
     --status|status)   cmd_status ;;
     --check|check)     cmd_check ;;
-    --unmount|umount|--umount) cmd_unmount ;;
+    --unmount|umount|--umount) cmd_unmount "${2:-}" ;;
     -h|--help|help)    sed -n '3,30p' "$0" ;;
     *) die "unknown argument: $1 (try --status)" ;;
 esac

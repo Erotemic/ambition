@@ -170,6 +170,19 @@ like the prop loader and gives no reason — which is what makes it a finding an
 the prop loader not one. The difference is not the behaviour; it is whether
 anybody wrote down that they chose it.
 
+⭐ **AND HERE IS HOW THE UNJUSTIFIED ONES GET WRITTEN, traced on 2026-09-02:
+copying a call shape copies its ARGUMENTS but not its JUSTIFICATION.**
+`ensure_fx_sheet_loaded` was added the same day, passing
+`TextureResolutionScale::Full, Full` in the identical shape as
+`load_prop_sheet_for_target`, which had held that pattern for six weeks. The
+prop loader's `Full` is correct BECAUSE of a scope note about one demo prop —
+and the scope note stayed behind when the pattern moved. Nobody decided FX art
+should ignore the tier; a signature was matched.
+
+⇒ **So a sibling that documents itself is weak evidence for the copy.** Ask
+whether the sibling's stated reason is about the road you are on, or about its
+own.
+
 ⇒ **So the question to ask of every "X does not do Y" is: is there a comment, a
 sibling, or a scope note that makes Y wrong here?** If yes, the finding is that
 the reason is undiscoverable, not that the code is broken — a much smaller and

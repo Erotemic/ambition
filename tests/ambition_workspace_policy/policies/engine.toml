@@ -2889,3 +2889,70 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_world_items/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+# ── the 2026-08-31 carves get the guards the 2026-09-02 one already had ──
+#
+# ⚠ `ambition_world_items` was carved on 2026-09-02 with a manifest-allow AND a
+# source-purity row of its own. `ambition_mount` and `ambition_damage` were
+# carved two days EARLIER and got neither — they appear only in
+# `engine.runtime-manifest-allow`, which says the runtime may depend on them and
+# nothing about what they may depend on. A carve whose boundary is unguarded is
+# a carve that can silently grow back.
+#
+# Both pass these rules today: their only mentions of a forbidden crate are
+# provenance comments (`//! ⭐⭐ CARVED OUT OF ...`), which the scanner excludes.
+
+[[policy]]
+id = "engine.ambition_mount-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/Cargo.toml"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "The mount PAIR is two linked bodies and the control grant between them. Its closure is the same four as ambition_world_items: body/geometry vocabulary, actor components, the shared tangle, and time. Anything wider means the pair has started to know about the world it is mounted in."
+allow = [
+  "ambition_platformer2d_core",
+  "ambition_characters",
+  "ambition_platformer2d_shared_tangle",
+  "ambition_time",
+]
+manifest = "crates/ambition_mount/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_mount-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_mount"]
+watch_paths = ["crates/ambition_mount/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Mount source must not reach up into the monolith it was carved from, nor into presentation, app, content or developer tooling."
+roots = ["crates/ambition_mount/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]
+
+[[policy]]
+id = "engine.ambition_damage-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_damage"]
+watch_paths = ["crates/ambition_damage/src"]
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+rationale = "Damage resolution is domain vocabulary that presentation consumes, never the reverse. ⚠ No manifest allowlist beside this one: its closure is eleven crates (combat, boss_encounter, projectiles, sfx, vfx, persistence and more), and pinning that list is a real ownership decision rather than a copy of the world_items row — it belongs to whoever finishes the damage carve."
+roots = ["crates/ambition_damage/src"]
+forbid = [
+  "ambition_platformer2d_actor_monolith",
+  "ambition_render",
+  "ambition_menu",
+  "ambition_app",
+  "ambition_content",
+  "ambition_dev_tools",
+]

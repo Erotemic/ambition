@@ -98,9 +98,13 @@ single-path claim; it is cheaper than `cargo tree` and it is what went stale.
 
 ### ✔ `ambition_dev_tools`: the kernel no longer reads or writes developer state
 
-Closed 2026-08-31, in two slices, and carved for OWNERSHIP rather than footprint
-(the table above forbids the footprint claim). Four production references
-remained after the first slice; two are gone and two are instrumentation:
+Closed 2026-09-02, in four slices, and carved for OWNERSHIP rather than
+footprint (the table above forbids the footprint claim). ⚠ THE COUNT OF WHAT WAS
+LEFT WAS RESTATED THREE TIMES AND WRONG TWICE — read the trail below rather than
+any one of its numbers, because each was written as if it were the last. The
+kernel's production `[dependencies]` edge to this crate is gone; the
+`[dev-dependency]` the `#[cfg(test)]` fixtures use is not, and is not meant to
+be. What follows is in the order the references fell:
 
 - **the WRITE.** `cleanup_timers_system` decayed `dev_state.preset_flash`, a
   developer HUD timer, and that one line was the only reason the control module
@@ -136,14 +140,51 @@ remained after the first slice; two are gone and two are instrumentation:
     and `for_room_construction` takes the authority as a parameter so no road can
     forget it;
   - ✔ `features/ecs/spawn_static.rs` — CLOSED 2026-09-02 evening. The quota is
-    `ActorAdmission` on the placement context (one per construction plan), the
+    `ActorAdmission` spent at plan time in `prepare` (a refused NPC plans no row), the
     value is a published `AuthoredPopulationCap`, `for_room_construction` takes
     it as a parameter, and the dev crate keeps only the env name and parse;
-  - `features/mod.rs:350` — `runtime_census`, `#[cfg(not(wasm32))]` and gated on
-    the census being on, so it is the mildest of the three.
-  ⇒ The `Cargo.toml` dependency therefore stays, and a row that says the marks
-  were the last residue would have closed this carve on a false premise. Each of
-  the three wants its own decision about who should own the fact.
+  - ✔ `features/mod.rs:350` — `runtime_census` — CLOSED 2026-09-02, and ⛔ THE
+    COUNT IN THIS PARAGRAPH WAS ALSO WRONG. "THREE more production paths … they
+    are not instrumentation" undercounted by one and mis-described the
+    remainder: after the two above closed, the survivors were **TWO** and BOTH
+    were instruments. The uncounted one was `features/ecs/actors/update.rs:606`,
+    `perception_census::note_world_view`, called inside the `build_world_view`
+    loop — a hot path, which is why it could not simply be observed from
+    outside.
+  - ✔ `features/ecs/actors/update.rs:606` — CLOSED with it, the same day.
+
+⭐⭐ **AND THE EDGE IS GONE: `ambition_dev_tools` IS A `[dev-dependency]` OF THE
+KERNEL NOW.** Both instruments moved by publishing the thing DOWNWARD, which is
+the third option beside the two this doc had been treating as exhaustive (delete
+the measurement, or move `phase_mark` down) — the same inversion `AudioInitSet`
+made one bullet up:
+
+- `ActorDecisionSet` moved from `pub(crate)` in `features/mod.rs` to
+  `shared_tangle::schedule`, beside `WorldPrepSet` and `PlayerInputSet` — which
+  the census-boundary function was ALREADY importing from there, so the enum was
+  the only reason the marks could not live with the instrument.
+  `runtime_census::install_sim_phase_boundaries` now installs all seven beside
+  its other twenty, under the same `if enabled` gate and the same "an instrument
+  must not join the population it measures" rule. ⛔ The kernel still CONFIGURES
+  the chain: `configure_actor_decision_phases` and every ordering assertion in
+  `actor_decision_phase_tests` stayed, because WHERE the sets sit is the
+  simulation's business. What left is the developer registration.
+- `perception_census` (91 lines) moved to
+  `ambition_characters::perception::census`, the module that defines the
+  `WorldView` it counts. The developer crate still calls `enable` where it
+  installs its rows and `drain` where it prints them, so the POLICY did not
+  move — only the counter.
+
+⛔ **THE GUARD IS THE MANIFEST, not a test, so it cannot rot.** A production
+`use ambition_dev_tools::…` anywhere in the kernel's `src/` no longer compiles.
+Poison-verified by adding one: `error[E0433]: cannot find module or crate
+`ambition_dev_tools` in this scope`. The `#[cfg(test)]` live-refresh and reset
+tests keep reaching it, which is what a dev-dependency is for.
+
+⚠ **AND IT BUYS NO SMALLER CLOSURE, which the table above already forbade
+claiming.** `ambition_dev_tools` has 6 dependents and the facade names it
+directly; nothing downstream drops it. The payoff is ownership and a boundary
+the compiler holds.
 
 ⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
 `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the

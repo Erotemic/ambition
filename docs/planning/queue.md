@@ -405,8 +405,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **`hall_transition_cover` IS RED IN PARALLEL, and it is a SECOND-ORDER COST OF
-  THE COMPOSITION FIX.** Measured at `0955bd888`:
+- ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE
+  COMPOSITION FIX — CLOSED 2026-09-02 evening.** The fixture waits for FACTS now
+  (`wait_for_a_session_room_set`, `settle_resident_pages` — every resident
+  realization's USED pages loaded and the table quiet, 180 s backstops that
+  say the harness gave up; `70f6a8494`, and the lap test's frame-count sample
+  replaced the same day), the three discarded `settle_cast` verdicts became
+  an asserting `settle_launcher`, and the population it is about certified
+  it: an unfiltered `cargo test -p ambition_app --test app_it` read **548
+  passed / 0 failed** with all six hall tests inside it (agent 383484,
+  b0df66fc6+). ⚠ One green of a schedule-dependent flake proves the fixture no
+  longer loses to this machine at this load, not that no schedule exists that
+  beats a 180 s backstop. The original evidence, kept: measured at `0955bd888`:
 
   ```text
   cargo test -p ambition_app --test app_it hall_transition_cover
@@ -521,6 +531,70 @@ The one unresolved developer-policy choice from the session-ownership work is in
   only poison that defeats them is reintroducing the global, i.e. reverting the
   change. A test cannot guard a shape it is not able to express; do not credit
   this row with a guard stronger than that.
+
+- ▢ **D33 FOLLOW-UP: THE POPULATION CAP ADMITS AFTER THE PLAN IS FROZEN, so a
+  refused NPC still gets an authoritative root.** Raised by review 2026-09-02
+  and verified against the code. ⛔ **NOT A REGRESSION FROM TONIGHT'S WORK** —
+  the composition-input inversion (the cap as an engine value, published by
+  `ambition_dev_tools`, handed to construction) is right and stays. The process
+  -global counter it replaced refused at the same place, so this is the older
+  defect the inversion did not reach.
+
+  The sequence, each step checked:
+
+  ```text
+  RoomFeatureConstructionPlan::prepare   builds ALL placement requests
+  ConstructionPlan::prepare              requests.sort_by(|a,b| a.sim_id.cmp(&b.sim_id))
+                                         construction/mod.rs — canonical, before any cap
+  spawn/mod.rs                           the frozen set becomes expected_authoritative_ids
+  ActorAdmission                         attached AFTER that, as execution context
+  commit_entity                          `spawn_empty()`, then SimId + provenance +
+                                         transaction ownership on EVERY planned row
+  lower_interactable_placement           `if ... !admission.admit_actor() { return; }`
+                                         spawn_static.rs — the FIRST place the cap acts
+  ```
+
+  ⇒ Consequences, in order of how much they matter to the measurement campaign:
+  - an over-cap NPC is a live identity/provenance/transaction **shell** with no
+    actor or body — so `EcsPopulation::scene_entities()` did NOT fall by the
+    same amount as body count, and any entity-count scaling conclusion from a
+    capped run needs re-reading;
+  - the cohort is chosen in **canonical `SimId` order**, while `ActorAdmission`
+    documents "the first n authored placements". ⚠ **The hall's body-count
+    curves are not thereby void** — the cap really did reduce the body
+    population and the reports name actual body counts — but any explanation
+    that leaned on the selected set being an authored-order PREFIX (the
+    visibility/density wobble story) was reasoning about a cohort it did not
+    measure;
+  - `verify_committed_roster` accepts the shells, because the planned identity
+    IS on the expected root with the expected stamps;
+  - `RoomConstructionPlanId` hashes the `RoomSpec` plus the deterministic dump,
+    and the cap enters neither — so **capped and uncapped runs can share one
+    immutable-plan identity while producing different populations**.
+
+  ⇒ **The fix is to admit on the REQUEST side, before `ConstructionPlan::prepare`
+  freezes and canonicalises**: take up to N qualifying NPC requests in authored
+  placement order, omit the rest entirely, then let the plan sort what remains.
+  A refused NPC then has no row, no root, and no place in the predicted roster,
+  and the plan id differs when the admitted world differs. ⛔ Do NOT fix it by
+  despawning shells after commit, by adding the cap to the plan hash, or by
+  keeping hidden mutable policy behind a frozen plan. Relations need an explicit
+  rule; refusing preparation when a cap would sever a required one is acceptable
+  for the hall workload.
+
+  ⛔ **THE EXISTING TEST CANNOT SEE ANY OF THIS.**
+  `the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota` uses four
+  Hazard rows and a fake lowering that spawns an `Admitted` marker, then counts
+  markers. No `Interactable::Npc`, no planned ids, no check that refused roots
+  are absent. The acceptance wants real NPC placements asserting the refused ids
+  are absent from `planned_ids`, from `expected_authoritative_ids`, from the
+  receipt and from live `SimId`s; that the admitted cohort follows AUTHORED
+  order; and that capped and uncapped plan ids differ.
+
+  ⚠ Minor, same file: `ActorAdmission::admitted()` is documented as the number
+  admitted, but a cap of two followed by one refusal returns three, and the unit
+  test locks that in as "the refusal was counted as an attempt". Pick one meaning
+  and let the name say it.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
@@ -760,19 +834,58 @@ The one unresolved developer-policy choice from the session-ownership work is in
     inversion for the quota: the developer plugin publishes
     `AuthoredPopulationCap` (env parsed once in `ambition_dev_tools::
     population_cap::from_env`), `for_room_construction` takes it as a
-    PARAMETER (all six roads state it), and the quota itself is
-    `ActorAdmission` ON THE PLACEMENT CONTEXT — built once per construction
-    plan, so its lifetime is the plan's by construction and
-    `begin_room_lowering` is deleted with both statics. Guards: the quota's
-    own arithmetic (`ambition_characters`), the cap riding the plan with a
-    fresh quota per plan (`the_population_cap_rides_the_plan_and_each_plan_
-    gets_its_own_quota`), and the plugin publishing it (app-level). The census
-    row now reports the cap IN FORCE (the resource), not the environment;
-  * `features/mod.rs:350` — `runtime_census`, the mildest (cfg'd and
-    census-gated) — the ONE production read left.
-  The first two are the simulation reading developer state to decide what the
-  world contains, which is precisely the authority this carve exists to remove.
-  ⇒ THE `Cargo.toml` DEPENDENCY STAYS and the dev_tools slice is NOT closed.
+    PARAMETER (all six roads state it), and the quota (`ActorAdmission`) is
+    spent AT PLAN TIME in `RoomFeatureConstructionPlan::prepare`, before
+    `plan_room` — so a refused NPC has no row, no authoritative root and no
+    id, and a capped build of a room is a smaller plan rather than the same
+    plan with lowerings that decline (the review's follow-up, closed the same
+    evening; the lowering-time refusal and `begin_room_lowering` are gone with
+    both statics). Guards: the quota's own arithmetic (`ambition_characters`),
+    the cap planning the FIRST n NPCs with a fresh quota per plan and
+    furniture not counting (`the_population_cap_is_spent_at_plan_time_and_
+    each_plan_gets_its_own_quota`, poison: every record kept), and the plugin
+    publishing it (app-level). The census row reports the cap IN FORCE (the
+    resource): headless hall with `AMBITION_ACTOR_POPULATION_CAP=5` reads
+    `actor_cap=5`, 6 bodies;
+  * ✔ **`features/mod.rs:350` — `runtime_census` — CLOSED 2026-09-02, AND THE
+    ROW'S OWN COUNT WAS WRONG.** It said *"the ONE production read left"*;
+    counted on main, non-comment and non-test, there were **TWO**, and the row's
+    *"none is instrumentation"* was wrong in the other direction — BOTH survivors
+    were instruments. The missing one was `features/ecs/actors/update.rs:606`,
+    `ambition_dev_tools::perception_census::note_world_view`, inside the
+    `build_world_view` loop.
+    ⭐ **AND NEITHER MEASUREMENT WAS DELETED TO REMOVE THEM**, which is the trap
+    this row named twelve lines up (*"the only ways to remove this edge are to
+    delete the measurement or to move `phase_mark` down, and both are carving for
+    a NUMBER"*). Each went by publishing the thing DOWNWARD — the third way
+    `AudioInitSet` had already taken:
+    * the census marks needed to name `ActorDecisionSet`, which was `pub(crate)`
+      in the kernel, so *"only this crate can name the sets"* was true. The enum
+      moved to `shared_tangle` beside `WorldPrepSet` and `PlayerInputSet` (which
+      the same function already imported from there), and
+      `runtime_census::install_sim_phase_boundaries` installs all seven marks
+      itself, beside the other twenty. The kernel still CONFIGURES the chain —
+      where the sets sit is its business and moved nowhere;
+    * `perception_census` is counted in a hot loop, so the number cannot be
+      recovered from outside; the 91-line COUNTER moved down to
+      `ambition_characters::perception::census` (the crate that defines
+      `WorldView`, which is what it counts) and the developer crate still owns
+      `enable`, `drain` and the report.
+    ⭐⭐ **SO `ambition_dev_tools` IS OFF THE KERNEL'S `[dependencies]` — it is a
+    `[dev-dependency]` now**, which the `#[cfg(test)]` live-refresh and reset
+    tests still need. ⛔ AND THE MOVE IS ITS OWN GUARD, with no test to rot:
+    a production `use ambition_dev_tools::…` in that crate's `src/` no longer
+    COMPILES. Poison-verified by adding one — `error[E0433]: cannot find module
+    or crate `ambition_dev_tools` in this scope`.
+  The first two were the simulation reading developer state to decide what the
+  world contains, which is precisely the authority this carve exists to remove;
+  the last two were instruments, and the inversion kept both.
+  ⇒ **THE `Cargo.toml` PRODUCTION DEPENDENCY IS GONE and the dev_tools slice IS
+  CLOSED.** ⚠ What it did NOT buy is a smaller product closure: this row already
+  re-measured that `ambition_dev_tools` has 6 dependents and the facade names it
+  directly, so nothing downstream drops it. The payoff is ownership — the
+  simulation kernel no longer names the developer crate, and cannot again
+  without a manifest change.
   ▢ **The next slice's shape, agreed 2026-09-02 and deliberately not started
   without review**: *the sim reads a SESSION-owned override that the dev tool
   WRITES, never the dev crate itself* — the same inversion `ClockScaleRequest`
@@ -1386,6 +1499,48 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 These are live but should not cause an autonomous agent to invent data or a
 product ruling.
+
+- ⚠ **THE WEB REVEAL DOES NOT WAIT FOR THE GPU — fix written, ON ITS OWN BRANCH
+  `web-gpu-wait` (`2d623308f`), DELIBERATELY NOT MERGED.** Found by review
+  2026-09-02.
+
+  **What is wrong on the web TODAY.** The native barrier holds a decoded image
+  as pending until the render world is seen to prepare it. On wasm the whole of
+  `ImageStagePlugin::build` was `#[cfg(not(target_arch = "wasm32"))]`, so
+  `RenderWorldPresent` was never inserted, `is_gpu_prepared` was a stub
+  returning `false`, `is_awaiting_gpu` was therefore always `false`, and
+  `inspect_room_asset_manifest` read that as SETTLED. **The browser lifts its
+  cover when pixels reach `Assets<Image>`, not when the GPU has them** — exactly
+  the post-reveal upload the barrier exists to move under the cover.
+
+  **What the branch changes.** One conflation: `Instant` is native-only, so
+  gating the TIMING gated the READINESS with it. `ImageStages` gains
+  `gpu_prepared: bool` (the fact, every target) beside the native-only
+  `gpu_prepared_at` (telemetry); `is_gpu_prepared` has one definition again;
+  `gpu_prepared()` takes an optional instant. The GPU stamper and
+  `RenderWorldPresent` install on every target. The clock, the `[image-gpu]`
+  line and the FIRST-DRAW stamp stay native — correctly, for first draw: it is
+  pure telemetry no readiness decision reads.
+
+  ⛔ **THE ONE BROWSER CHECK JON RUNS TO ACCEPT IT** — enter the hall on the web
+  persona and watch the cover: it must visibly HOLD through the upload and then
+  LIFT. **If it never lifts, revert the branch.** That is the failure mode this
+  is held back for, and it is worse for a web player than today's early lift,
+  which is why it is not going in unverified.
+
+  ⛔⛔ **AND IT NAMES TWO MORE CONDITIONALLY-BLIND CHECKS** (the family in
+  `reviewer-guide` terms: correct, unrun, reported as though run):
+  - the **wasm CHECK is TYPE-ONLY**. Every branch here type-checks; a compile
+    check can never see a `#[cfg]` that removes BEHAVIOUR rather than code that
+    fails to build.
+  - the **"web persona BOOTS" job runs the web composition NATIVELY**
+    (`--features visible_web_base`, native target), so it compiles the
+    `not(wasm32)` branch. It proves the web persona composes; it cannot execute
+    the web branch of anything.
+  ⇒ Between them the web path had ZERO behavioural coverage, which is how this
+  survived. Native-side it is guarded and poison-verified — passing `None` for
+  the timestamp is what a clockless target does, so the web case is reachable
+  from a native test — but no test on this machine executes wasm.
 
 - **Switch Pro outer range:** run `Shift+F6` on both machines, push the controller
   to each extreme/corner and compare peak axis magnitude. Only then decide

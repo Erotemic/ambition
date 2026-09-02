@@ -363,9 +363,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # first class and drops this one; `--rust-alone` drops both.
     if not only and include_slow_python_checkers:
         post_rust_repo_jobs.extend([
+            # ⭐ `--fresh` SINCE 2026-09-02: without it the job reads only the
+            # diagnostics of crates that happened to recompile, so in a warm tree
+            # it passed while real warnings existed (three unused imports and two
+            # dead helpers were found the same day by a cold `cargo check`). The
+            # flag touches every workspace crate root, so OUR crates re-check
+            # (minutes) and the next test build re-fingerprints them — the price
+            # of "no warnings" meaning the whole tree rather than the last diff.
             Job(
-                "no warnings (cargo check --all-targets)",
-                [sys.executable, "scripts/check_no_warnings.py"],
+                "no warnings (cargo check --all-targets, fresh)",
+                [sys.executable, "scripts/check_no_warnings.py", "--fresh"],
             ),
             Job(
                 "doc links (active KB)",

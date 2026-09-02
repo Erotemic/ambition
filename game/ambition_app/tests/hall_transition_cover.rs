@@ -54,6 +54,16 @@ fn settle_cast(app: &mut App, secs: u64) -> bool {
     false
 }
 
+/// Settle the LAUNCHER before routing: the staged cast goes quiet once the boot
+/// preload has staged what it stages. Asserts the verdict so a launcher that
+/// never settles is reported as the harness giving up, not three lines later.
+fn settle_launcher(app: &mut App) {
+    assert!(
+        settle_cast(app, 120),
+        "HARNESS GAVE UP: the launcher's staged cast never went quiet in 120 s"
+    );
+}
+
 /// Step until a session room set EXISTS, then until the staged cast is quiet.
 ///
 /// ⛔ A WALL-CLOCK DEADLINE IS NOT A SETTLE. The old fixture stepped for 10 s,
@@ -102,7 +112,7 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    let _ = settle_cast(&mut app, 10);
+    settle_launcher(&mut app);
 
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
@@ -494,7 +504,7 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    let _ = settle_cast(&mut app, 10);
+    settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
@@ -989,7 +999,7 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    let _ = settle_cast(&mut app, 10);
+    settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));

@@ -63,7 +63,7 @@ def test_rust_lane_keeps_the_cheap_guard_set_and_drops_the_slow_checkers():
         "hole that let three schema/rollback checks sit red behind a green gate"
     )
     names = [job.name for job in rust_jobs]
-    assert "no warnings (cargo check --all-targets)" not in names
+    assert "no warnings (cargo check --all-targets, fresh)" not in names
     assert "doc links (active KB)" not in names
     assert "planning citations (reports, does not gate)" not in names
 
@@ -145,7 +145,7 @@ def test_default_starts_rust_immediately_after_repo_coupled_pytest():
     rust = names.index("workspace (default features)")
     render = names.index("acceptance: the render composition draws a frame")
     consumer = names.index("external consumer: outlander COMPILES against the umbrella")
-    warnings = names.index("no warnings (cargo check --all-targets)")
+    warnings = names.index("no warnings (cargo check --all-targets, fresh)")
     docs = names.index("doc links (active KB)")
     ratchet = names.index("compile-cost ratchet (frozen weights, not a stopwatch)")
     assert rust < render < consumer < warnings < docs < ratchet

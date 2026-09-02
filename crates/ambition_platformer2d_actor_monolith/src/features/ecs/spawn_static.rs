@@ -364,19 +364,11 @@ pub(crate) fn lower_interactable_placement(
     let PlacementSchema::Interactable(spec) = &record.schema else {
         return;
     };
-    // ⭐ THE SCALING-CURVE KNOB, and it is inert unless
-    // `AMBITION_ACTOR_POPULATION_CAP` is set — see `population_cap`, which owns
-    // the policy and the reason. An authored cast is a fixed population, and one
-    // population cannot separate O(n) from O(n²).
-    //
-    // ⛔⛔ ONLY NPCs. This used to sit at the top of the function, before the
-    // kind was known, so an "actor cap" of 16 in a room with doors and chests
-    // omitted whichever placements happened to come after the sixteenth — cast
-    // or furniture. The Hall contains nothing but `NpcSpawn`, which is the only
-    // reason its curve measured what it claimed to.
-    if counts_against_the_actor_cap(&spec.kind) && !ctx.context.admission.admit_actor() {
-        return;
-    }
+    // The scaling-curve population cap is no longer applied here: a refused
+    // NPC used to be refused by THIS function, after the plan had frozen its
+    // row and allocated its root. `RoomFeatureConstructionPlan::prepare` spends
+    // the quota before `plan_room`, so a refused NPC never reaches a lowering.
+    // `counts_against_the_actor_cap` below still says which kinds count.
     let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),

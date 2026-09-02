@@ -48,14 +48,6 @@ pub struct ActorPlacementContext {
     /// variable has always meant — so a composition with no developer tools
     /// lowers exactly as before.
     pub forced_brains: ambition_characters::brain::AuthoredBrainOverride,
-    /// This lowering's actor admission quota — the developer's population cap
-    /// and the count spent against it. Built with the context, once per
-    /// construction plan, so the quota's lifetime is the plan's: a reload of
-    /// the same room is a new plan and a full quota, and nothing re-opens it
-    /// by hand (the process-global counter this replaces needed
-    /// `begin_room_lowering` at every road and was wrong twice before that).
-    /// Uncapped by default, at the cost of one compare per authored actor.
-    pub admission: ambition_characters::actor::ActorAdmission,
 }
 
 impl ActorPlacementContext {
@@ -93,19 +85,6 @@ impl ActorPlacementContext {
         self
     }
 
-    /// Supply the developer population cap, so a capped run admits the FIRST
-    /// n authored actors of this lowering and no more. A builder for the same
-    /// reason as `with_forced_brains`: uncapped is the correct default for
-    /// every composition without developer tools.
-    #[must_use]
-    pub fn with_population_cap(
-        mut self,
-        cap: ambition_characters::actor::AuthoredPopulationCap,
-    ) -> Self {
-        self.admission = ambition_characters::actor::ActorAdmission::new(cap);
-        self
-    }
-
     /// Supply the published controller policies, so a placement may name
     /// one. A builder for the same reason `with_prepared` is: an empty registry
     /// is a meaningful value, and the sites that have none should not have to
@@ -129,7 +108,6 @@ impl ActorPlacementContext {
             prepared: Default::default(),
             brain_profiles: Default::default(),
             forced_brains: Default::default(),
-            admission: Default::default(),
         }
     }
 }

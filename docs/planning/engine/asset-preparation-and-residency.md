@@ -328,10 +328,23 @@ PREPARATION (`stamp_gpu_prepared_images`, render world, after
 
 ⛔ **WHAT IS DELIBERATELY NOT STAMPED, so a `demand=unknown` on one of these is
 EXPECTED rather than a defect to chase:** menu icons, shell presentation images
-and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime —
-`character-sheet`, `portrait`, `projectile-art`, `parallax`, `fx-sheet`,
-`boss-sheet`, `vanity-card` — because that is the population the hall-entry hitch
-is about. UI chrome is small, loaded once and not what a room's reveal waits on;
+and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime, because that is
+the population the hall-entry hitch is about.
+
+⭐ **MEASURED 2026-09-02, because three descriptions of this vocabulary
+disagreed** — this list, a code comment, and a reviewer's reading. Every string
+literal reaching `note_demand` / `load_sheet_image` / `load_sprite_pages`:
+
+```text
+asset-manifest   boss-sheet   character-sheet   fx-sheet   held-item
+parallax         portrait     projectile-art    shrine-sheet   vanity-card
+```
+
+**TEN live roads.** This list named seven and omitted `asset-manifest`,
+`held-item` and `shrine-sheet`; the review that flagged the drift said nine and
+missed `shrine-sheet` too. ⇒ Nobody's hand-kept copy was right, which is the
+argument for deriving it rather than restating it — a road is added by passing a
+new string literal at a call site, and nothing makes the prose follow. UI chrome is small, loaded once and not what a room's reveal waits on;
 labelling it would make the ledger's rows less comparable, not more.
 
 ⛔⛔ **A `demand=unknown` MAY BE A RE-DECODE RATHER THAN AN UNROUTED LOAD, and
@@ -438,10 +451,18 @@ say-so rather than being edited from here. Everything else that decodes an
 image in the shipped composition now stamps its road.
 
 Not covered, honestly reported: source IO and decode are one stage here
-(Bevy's loader does both on the IO pool and `Added` fires after); "resident
-use" (first draw) is not stamped; an image demanded by a road that calls
-neither funnel prints `demand=unknown` — in the hall that is exactly one,
-`game://sprites/player_robot_v3_spritesheet.png`: found 2026-09-02, it is
+(Bevy's loader does both on the IO pool and `Added` fires after).
+
+⛔ **TWO CLAIMS THAT WERE IN THIS PARAGRAPH ARE STALE, AND THE SECOND IS
+CONTRADICTED FURTHER DOWN THIS PAGE.** It said *"'resident use' (first draw) is
+not stamped"* — the FOURTH STAGE IS BUILT, `first_drawn_at` and
+`resident_never_drawn()` are on the ledger and a render system feeds them; see
+the ✔ section below. And it said the unrouted set *"in the hall is exactly one"*
+— the census that split `UNROUTED` from `PROCEDURAL` reports **nine** file-backed
+rows, listed below, of which three were new. Corrected 2026-09-02; the tileset
+below is still the LARGEST of the nine and still the one that matters.
+
+`game://sprites/player_robot_v3_spritesheet.png`, found 2026-09-02, is
 `bevy_ecs_ldtk` loading the four worlds' editor-preview tileset (`relPath:
 ../sprites/player_robot_v3_spritesheet.png`) through the `game` source — the
 same file the player's realization decodes again as `sprites/…` through the

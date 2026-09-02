@@ -8,10 +8,10 @@ This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I
 ran actually run* — and it exists because on 2026-09-02 a single day's work
-turned up SEVEN members of the same family in one gate script, and an eighth was
-already sitting in the backlog unrecognised.
+turned up SEVEN members of the same family in one gate script; an eighth was
+already sitting in the backlog unrecognised, and a ninth surfaced the same night.
 
-⭐ **THE FINDING IS NOT THE COUNT. It is that five of the eight were found by
+⭐ **THE FINDING IS NOT THE COUNT. It is that six of the nine were found by
 accident** — by running a suite for an unrelated reason, by an external reviewer
 reading source, by running `cargo check` by hand before the gate. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
@@ -75,7 +75,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The eight, and what each one teaches
+## The nine, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|
@@ -86,6 +86,7 @@ expression; those survive edits that line numbers do not.
 | 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
 | 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
 | 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build |
+| 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE.** Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
@@ -96,6 +97,19 @@ names the mechanism exactly: *"The web reveal never waited for the GPU, because
 the FACT was gated with the CLOCK"* (`2d623308f`, branch `web-gpu-wait`). A
 `#[cfg]` that removes a timing concern took the fact it was timing with it, and
 no type check can see that shape.
+
+⭐ **#9 IS #2 WEARING DIFFERENT CLOTHES, AND THAT IS THE POINT OF LISTING IT.**
+The wasm CHECK was exhaustive-plan-only until `b85b4db20` moved it; the
+feature-union job that runs every gated test still is. So a correctness guard on
+whether a room's cover may lift — `the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present`
+— does not run on the command anybody types. ⛔ The failure is not that the tests
+are bad or missing. They exist, they pass, and they are thorough. They are simply
+not in the plan.
+
+⇒ **The question this adds to the four: does the thing I am about to trust exist
+in the DEFAULT plan, or only in the one nobody runs?** A test that only the
+exhaustive plan executes is a test that runs when somebody already suspects a
+problem.
 
 ## The three remedies, and which one you are actually reaching for
 

@@ -54,6 +54,23 @@ Its demonstrated value is:
 > of 43. A slice here has a ready-made acceptance condition (that count falls)
 > and a ready-made regression guard (it may not rise), neither of which this page
 > currently tells a reader exists.
+>
+> **Two more guards belong to this program and were also unnamed here:**
+>
+> - `scripts/check_capability_ships.py` — *"a capability whose only installer is
+>   behind a DEV feature does not ship."* Green at `ce25540b1`: every Option-read
+>   capability has at least one shipping writer, across 1437 files and 177
+>   optional-read types. This is the mechanical form of "dependency closure and
+>   installed runtime behavior should agree", the second principle below.
+> - `scripts/check_engine_systems_are_engine_installed.py` — finds reusable
+>   engine systems whose registration has leaked into a game host, so
+>   headless/demo consumers cannot accidentally omit required behaviour. Green
+>   at `ce25540b1`.
+>
+> ⛔ **A program with three green guards and one red-capable number is in a very
+> different state from one with none, and a reader could not tell that from this
+> page.** Name a guard where its program lives, or the next session re-derives
+> the check that already exists.
 ## Principles
 
 - capability selection is a semantic engine API, not a Cargo-feature illusion;

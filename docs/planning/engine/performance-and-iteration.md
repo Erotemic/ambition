@@ -231,6 +231,45 @@ two rows is not a difference at all.
 ⇒ Recorded to keep the table truthful, NOT as a tuning signal. The measurement
 that would answer "what did decoding cost" is one binary, two arms, interleaved.
 
+### ⭐ A SECOND MACHINE, 2026-09-02: the calculex VM, and the spread collapses to 2%
+
+Same script, same commit (`6162b3e88`), 3000 ticks, uncapped, three reps. ⛔ **A
+DIFFERENT MACHINE from every row above** — the calculex laptop's VM: 6 vCPU on an
+**i7-7700HQ**, 15 GB, **no `/dev/dri` at all**, sole tenant. Nothing here may be
+differenced against the aivm rows; a machine is not an arm.
+
+```text
+room                    frame (3 reps)          median  PreUpdate  StateTrans  RunFixedMainLoop  Update  PostUpdate
+hall_of_characters      6.955 / 7.107 / 7.058    7.058    2.70        0.20          0.91         1.53      1.19
+central_hub_complex     5.765 / 5.595 / 5.736    5.736    1.81        0.19          0.90         1.24      1.14
+```
+
+⭐ **THE SPREAD IS THE RESULT, not the frame time.** 2.2% across the hall's three
+reps and 3.0% across the hub's, against the **22%** (4.726-5.765 ms) recorded on
+the aivm box directly above. Same script, same rep count, same kind of VM. The
+difference is tenancy: this box had one job and its load average sat pinned at
+6.5 on 6 cores for its own builds and nothing else.
+
+⇒ **So the "wide spread" caveat attached to headless numbers is a property of a
+SHARED box, not of the harness or of `--headless`.** A sibling session reported
+five identical runs on a shared machine giving frame-spike totals of 61, 4, 9, 6,
+52 and nearly published a 15x improvement that was load. On an untenanted machine
+the same instrument is stable to 2%. ⛔ Which does not retire the caveat — it
+relocates it. Read it as "counts not clocks **on a shared box**", and prefer an
+untenanted machine when the clock is the measurement.
+
+⭐ **AND THE HALL-MINUS-HUB DIFFERENCE IS ONE PHASE.** 7.058 - 5.736 = 1.32 ms,
+of which `PreUpdate` is 0.89 and `Update` is 0.29; `RunFixedMainLoop`,
+`StateTransition`, `PostUpdate`, `First` and `Last` are identical between the two
+rooms to within 0.05 ms. Whatever the hall costs over the hub on this machine, it
+is not the fixed simulation step.
+
+⚠ What this row does NOT say: anything about GPU cost (there is no GPU), and
+anything about the aivm rows (different silicon). `[census] phases_trust` reports
+`trustworthy=no_render_backend … Phase splits from this run are usable` on every
+rep, which is the harness certifying this configuration rather than me asserting
+it.
+
 **Two readings.** First: the shipped program's main-world frame in the full
 hall is ~4.5 ms on this VM — against Jon's Tracy capture's 19.8 ms (PreUpdate
 8.5, Update 5.4, PostUpdate 3.2, RunFixedMainLoop 1.2), a uniform ~4x across

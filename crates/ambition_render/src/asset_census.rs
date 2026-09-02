@@ -578,6 +578,7 @@ pub fn stamp_first_drawn_images(
     }
     let now = Instant::now();
     let mut ledger = image_stages::ledger();
+    let covered = ledger.saw_covered_frame();
     for sprite in sprites.sprites.iter() {
         let Some(waited) = ledger.first_drawn(sprite.image_handle_id.untyped(), now) else {
             continue;
@@ -609,8 +610,15 @@ pub fn stamp_first_drawn_images(
         // appeared in front of the player. Named rather than left as `live=1`,
         // because the reader of a hitch log should not have to know which way
         // the flag points.
+        // ⛔⛔ AND "POP" ONLY MEANS SOMETHING WHERE A COVER EXISTED. `capture_scene`
+        // boots straight into `playing` on every road it has, so there every
+        // first draw is trivially during gameplay — eighteen "findings" in a
+        // hall shot, all of them the harness. `saw_covered_frame` is the fact
+        // that separates "the cover did not cover this" from "nothing here has
+        // a cover", and without it this line reports the instrument.
         let pop = match stages.live_at_first_draw {
-            Some(true) => " POP (drawn during gameplay, after the cover)",
+            Some(true) if covered => " POP (drawn during gameplay, after the cover)",
+            Some(true) => " live=1 (this composition never covered anything)",
             Some(false) => "",
             None => " live=?",
         };

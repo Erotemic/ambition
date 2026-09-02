@@ -195,6 +195,7 @@ pub struct ImageStageLedger {
     /// The main world's last word on whether gameplay is live, for the render
     /// world's report (it has no `GameMode` of its own).
     gameplay_live: Option<bool>,
+    saw_covered_frame: bool,
     /// Insertions per PATH, across ids and across removals: the re-decode
     /// census. Survives `removed`, which is the point.
     insertions_by_path: BTreeMap<String, u32>,
@@ -318,9 +319,30 @@ impl ImageStageLedger {
     }
 
     pub fn set_gameplay_live(&mut self, live: Option<bool>) {
+        // ⛔⛔ REMEMBER THAT A COVER EXISTED AT ALL. `capture_scene` puts the app
+        // in `playing` from boot on every road it has — measured 2026-09-02:
+        // `[game-mode] 0.633s initial playing`, before the room even loads — so
+        // on that road EVERY first draw is trivially "during gameplay" and a POP
+        // readout would report eighteen findings where there is no cover to have
+        // failed. This is the fact that separates "the cover did not cover this"
+        // from "this composition has no cover", and a readout that skips it is
+        // measuring its own harness.
+        if live == Some(false) {
+            self.saw_covered_frame = true;
+        }
         self.gameplay_live = live;
     }
 
+    /// Has this process ever observed a frame where gameplay was NOT live?
+    ///
+    /// A `false` here means no cover, no countdown and no transition has run,
+    /// so [`ImageStages::live_at_first_draw`] is `true` for everything and says
+    /// nothing. See [`Self::set_gameplay_live`].
+    pub fn saw_covered_frame(&self) -> bool {
+        self.saw_covered_frame
+    }
+
+    #[allow(dead_code)]
     pub fn gameplay_live(&self) -> Option<bool> {
         self.gameplay_live
     }
@@ -624,6 +646,7 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     rows: BTreeMap::new(),
     awaiting_gpu: Vec::new(),
     gameplay_live: None,
+    saw_covered_frame: false,
     insertions_by_path: BTreeMap::new(),
     #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap::new(),
@@ -973,6 +996,42 @@ mod tests {
             Some(true),
             "an image first drawn after the cover lifted is a POP, and reading \
              the insert's liveness instead reports the frame it did not cost",
+        );
+    }
+
+    /// ⛔⛔ AND A COMPOSITION THAT NEVER COVERS ANYTHING CANNOT HAVE A POP.
+    ///
+    /// `capture_scene` boots straight into `playing` on every road it has, so
+    /// every first draw there is trivially "during gameplay" — a POP readout
+    /// would have reported eighteen findings in one hall shot, all of them the
+    /// harness. This is the fact that separates "the cover did not cover this"
+    /// from "nothing here has a cover", and it is what the readout consults
+    /// before it says the word.
+    #[test]
+    fn a_process_that_never_covered_a_frame_can_report_no_pop() {
+        let mut ledger = ImageStageLedger::default();
+        assert!(
+            !ledger.saw_covered_frame(),
+            "a fresh ledger has seen no cover, which is what makes the default \
+             reading conservative",
+        );
+        ledger.set_gameplay_live(Some(true));
+        assert!(
+            !ledger.saw_covered_frame(),
+            "live frames alone are not evidence a cover exists; a harness that \
+             boots into `playing` reports only these",
+        );
+        ledger.set_gameplay_live(Some(false));
+        assert!(
+            ledger.saw_covered_frame(),
+            "one not-live frame is the whole evidence a cover ran, and without \
+             noticing it the readout calls every first draw a pop",
+        );
+        ledger.set_gameplay_live(Some(true));
+        assert!(
+            ledger.saw_covered_frame(),
+            "the fact is that a cover EXISTED, so it must not be cleared when \
+             play resumes",
         );
     }
 

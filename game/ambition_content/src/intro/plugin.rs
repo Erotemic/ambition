@@ -8,9 +8,6 @@
 //!   [`ambition_cutscene::CutsceneLibrary`] and
 //!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
-//! - [`load_intro_npc_sprites_system`] extends
-//!   [`ambition_sprite_sheet::game_assets::GameAssets`]`.characters.npcs` with the
-//!   intro placeholder sprite rows from [`crate::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
 //! resources they extend, so they layer on top without overwriting
@@ -25,14 +22,14 @@ use crate::banter::CombatBanterRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_platformer2d_actor_monolith::character_sprites::{
-    build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
+    build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
 use ambition_render::quality::ResolvedVisualQuality;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
-use super::sprites::{intro_npc_sprite_rows, intro_prop_sprite_rows};
+use super::sprites::intro_prop_sprite_rows;
 
 /// Intro portal IDs. The gate stack room places:
 /// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
@@ -52,16 +49,10 @@ pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
 pub const INTRO_PORTAL_SPRITE_NAME: &str = "Interdimensional Gate Portal";
 pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 
-/// Marker zero-sized resource — flips `true` once
-/// [`load_intro_npc_sprites_system`] has run. Keeps the system idempotent
-/// across the multi-frame startup window.
-#[derive(Resource, Default, Debug)]
-pub(crate) struct IntroSpritesInstalled(bool);
-
 /// Marker zero-sized resource — guards
-/// [`load_intro_prop_sprites_system`] (the prop equivalent of
-/// [`IntroSpritesInstalled`]). Separate flag so the two loaders can
-/// install independently if one of them needs to wait for assets.
+/// [`load_intro_prop_sprites_system`]. Props keep their loader because a
+/// `Prop` is keyed by `Prop.kind`, which the world does author; the NPC
+/// equivalent is gone (see `crate::intro::sprites`).
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroPropSpritesInstalled(bool);
 
@@ -83,8 +74,7 @@ impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         // What is left here is content INSTALLATION, which is what an intro-content plugin
         // should be.
-        app.init_resource::<IntroSpritesInstalled>()
-            .init_resource::<IntroPropSpritesInstalled>()
+        app.init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
             .init_resource::<IntroBanterInstalled>()
             .init_resource::<IntroGatedZonesInstalled>()
@@ -99,7 +89,6 @@ impl Plugin for IntroPlugin {
                 Update,
                 (
                     install_intro_cutscenes_system,
-                    load_intro_npc_sprites_system,
                     load_intro_prop_sprites_system,
                     install_intro_banter_system,
                     install_intro_gated_zones_system,
@@ -196,55 +185,6 @@ pub(crate) fn install_intro_gated_zones_system(
         INTRO_PORTAL_SPRITE_NAME,
         INTRO_PORTAL_RING_NAME,
     );
-    installed.0 = true;
-}
-
-/// Extend `GameAssets.characters.npcs` with intro placeholder NPC sheets.
-/// Runs once — guarded by [`IntroSpritesInstalled`].
-pub(crate) fn load_intro_npc_sprites_system(
-    mut installed: ResMut<IntroSpritesInstalled>,
-    config: Option<Res<GameAssetConfig>>,
-    asset_server: Option<Res<AssetServer>>,
-    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-    game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
-    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-) {
-    if installed.0 {
-        return;
-    }
-    // `GameAssets` is inserted by `setup_presentation_system` partway
-    // through startup. Wait for it before installing intro sprites.
-    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets), Some(catalog)) =
-        (config, asset_server, layouts, game_assets, catalog)
-    else {
-        return;
-    };
-    if config.no_assets {
-        // `--no-assets` short-circuits every disk load. Skip without
-        // marking installed so a later toggle still wires sprites in.
-        installed.0 = true;
-        return;
-    }
-    for (name, filename, spec) in intro_npc_sprite_rows(&authored_sheets, &character_catalog) {
-        if game_assets.characters.sheet(name).is_some() {
-            continue;
-        }
-        let id = crate::intro::sprites::intro_npc_asset_id(name);
-        if let Some(asset) =
-            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, &spec)
-        {
-            game_assets.characters.publish_under(name, asset);
-        } else {
-            eprintln!(
-                "[intro] NPC sheet '{name}' (catalog id {id}) not loadable under {} \
-                 profile (logical {}/{filename}) — falling back to colored rectangle",
-                catalog.profile().label(),
-                config.sprite_folder,
-            );
-        }
-    }
     installed.0 = true;
 }
 

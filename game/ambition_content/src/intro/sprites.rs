@@ -15,12 +15,7 @@
 
 use ambition_asset_manager::AssetId;
 
-use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_character_id_in;
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSheetSpec, SheetTuning};
-
-/// Default toon-NPC tuning the old intro `*_SHEET` statics carried.
-const INTRO_NPC_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
 
 /// Resolve a content-owned sheet spec by manifest target, with intro
 /// tuning. Panics in tests via the registry checks; at runtime a
@@ -30,71 +25,31 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
     try_load_spec_for_target(target, tuning)
 }
 
-/// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
-/// intro NPCs, resolved from the generated sheet manifests + the
-/// intro's own tuning (Stage 20 / B3: the named `*_SHEET` statics in
-/// the machinery lib are gone; story content owns its named sheets).
-pub fn intro_npc_sprite_rows(
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_catalog: &CharacterCatalog,
-) -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
-    let t = &INTRO_NPC_TUNING;
-    let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>)> = vec![
-        // Wake-room creator + raid-corridor variant (same sheet so the
-        // player recognizes the silhouette dying mid-sentence).
-        (
-            "Creator",
-            "creator_spritesheet.png",
-            intro_sheet("creator", t),
-        ),
-        (
-            "Creator Final",
-            "creator_spritesheet.png",
-            intro_sheet("creator", t),
-        ),
-        ("Oiler", "oiler_spritesheet.png", intro_sheet("oiler", t)),
-        // Gate Janitor: Kernel Guide placeholder until a dedicated
-        // janitor sheet lands.
-        (
-            "Gate Janitor",
-            "kernel_guide_spritesheet.png",
-            sheet_for_character_id_in(authored_sheets, character_catalog, "npc_kernel_guide"),
-        ),
-        // Erdish: pre-registered for later LDtk authoring.
-        ("Erdish", "erdish_spritesheet.png", intro_sheet("erdish", t)),
-        // Lab Raider / Salvage Guard: goblin sheet while the act-1
-        // faction identity settles.
-        (
-            "Lab Raider",
-            "goblin_spritesheet.png",
-            sheet_for_character_id_in(authored_sheets, character_catalog, "goblin"),
-        ),
-        (
-            "Salvage Guard",
-            "goblin_spritesheet.png",
-            sheet_for_character_id_in(authored_sheets, character_catalog, "goblin"),
-        ),
-        // Manifest clerk: architect sheet reads as "person at a podium".
-        (
-            "Manifest Clerk",
-            "architect_spritesheet.png",
-            sheet_for_character_id_in(authored_sheets, character_catalog, "npc_architect"),
-        ),
-        // News board: wall-mounted bulletin board rendered through the
-        // NpcSpawn path.
-        (
-            "News Board",
-            "news_board_spritesheet.png",
-            intro_sheet("news_board", &SheetTuning::new(1.50, 2)),
-        ),
-        // Alice + Bob — the cartographer pair, dedicated sheets.
-        ("Alice", "alice_spritesheet.png", intro_sheet("alice", t)),
-        ("Bob", "bob_spritesheet.png", intro_sheet("bob", t)),
-    ];
-    rows.drain(..)
-        .filter_map(|(name, file, spec)| spec.map(|s| (name, file, s)))
-        .collect()
-}
+// ⛔⛔ THE INTRO NPC SPRITE TABLE IS GONE, and it was decoding art for nobody.
+//
+// It listed eleven `(display name, filename, sheet spec)` rows, preloaded them at
+// boot in whatever room, and published each under its DISPLAY NAME
+// ("Creator", "Manifest Clerk", …). Measured 2026-09-02: the intro world authors
+// no such names. Every `NpcSpawn` in `intro.ldtk` carries a `character_id` and
+// `name: None` — npc_creator, npc_alice, npc_bob, npc_oiler, npc_news_board,
+// npc_gate_janitor, npc_manifest_clerk — and `convert_npc_spawn` puts that id
+// into `InteractionKindSpec::Npc.character_id`, which is what
+// `demand_actor_character_sheets` raises on room entry. The peaceful NPC road
+// sets `sprite_override_npc_name: None`, so NOTHING ever looked a sheet up by
+// the display name this table published under.
+//
+// ⇒ every row was a decode whose result no lookup could reach. The `[image-dropped]`
+// line named them: architect, bob, erdish, goblin, alice, oiler and two more.
+// Two rows (Lab Raider, Salvage Guard) were doubly dead — both are `EnemySpawn`s
+// with their own ids since 2026-08-12 — and Erdish had no placement at all, as
+// its own comment said ("pre-registered for later LDtk authoring").
+//
+// ⚠ The rows also fed `extend_with_intro_sprite_entries`, which put each sheet in
+// the manifest under `PreloadGroup::SandboxCore` — a SECOND preload road off the
+// same table. Deleting the table closes both.
+//
+// Props are a different question and keep their table below: a `Prop` is keyed by
+// `Prop.kind`, which the world does author.
 
 /// Prop tuning: props render at their authored AABB size.
 const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
@@ -189,45 +144,6 @@ pub fn intro_prop_sprite_rows() -> Vec<(
         .collect()
 }
 
-/// Stable [`AssetId`] for an intro NPC sprite. The namespace is
-/// `sprite.character.intro_<lower_snake_name>` — distinct from the
-/// sandbox-side `sprite.character.npc_<…>` namespace so the intro's
-/// authored NPC roster doesn't collide with the sandbox `NPC_SPRITE_REGISTRY`.
-///
-/// The mapping is the inverse of [`intro_npc_label`]: catalog id
-/// construction (here) + label lookup (over there) must agree on the
-/// snake_case form for every entry in [`INTRO_NPC_SPRITE_REGISTRY`].
-pub fn intro_npc_asset_id(npc_name: &str) -> AssetId {
-    AssetId::new(format!(
-        "sprite.character.intro_{}",
-        intro_npc_label(npc_name)
-    ))
-}
-
-/// Snake_case label slot for an intro NPC name. Pairs with
-/// [`intro_npc_asset_id`]. New rows in [`INTRO_NPC_SPRITE_REGISTRY`]
-/// must add a row here too.
-pub fn intro_npc_label(npc_name: &str) -> &'static str {
-    match npc_name {
-        "Creator" => "creator",
-        "Creator Final" => "creator_final",
-        "Oiler" => "oiler",
-        "Gate Janitor" => "gate_janitor",
-        "Erdish" => "erdish",
-        "Lab Raider" => "lab_raider",
-        "Salvage Guard" => "salvage_guard",
-        "Manifest Clerk" => "manifest_clerk",
-        "News Board" => "news_board",
-        "Alice" => "alice",
-        "Bob" => "bob",
-        // Story plugins that author NPCs outside `INTRO_NPC_SPRITE_REGISTRY`
-        // fall through to a single "unregistered" label so the catalog
-        // can still resolve their entries (typically resolves to a
-        // colored rectangle).
-        _ => "unregistered",
-    }
-}
-
 /// Stable [`AssetId`] for an intro prop sprite. Namespace
 /// `sprite.character.intro_prop_<lower_snake_kind>` — props share the
 /// `sprite.character.*` namespace with NPCs because they ride the same
@@ -250,21 +166,11 @@ use ambition_asset_manager::{
 /// `sprite.character.intro_prop_<kind_snake>` for props. Both use
 /// `SilentPlaceholder` because missing intro art falls back to colored
 /// rectangles per the existing contract.
-pub fn extend_with_intro_sprite_entries(
-    manifest: &mut AssetManifest,
-    sprite_folder: &str,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_catalog: &CharacterCatalog,
-) {
-    for (name, filename, _spec) in intro_npc_sprite_rows(authored_sheets, character_catalog) {
-        let id = intro_npc_asset_id(name);
-        let logical_path = format!("{sprite_folder}/{filename}");
-        manifest.insert(
-            AssetEntry::new(id, AssetKind::Image, logical_path)
-                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-                .with_preload_group(PreloadGroup::SandboxCore),
-        );
-    }
+/// ⚠ TAKES NO CAST ANY MORE. It needed `AuthoredSheets` + `CharacterCatalog` to
+/// resolve the intro NPC rows; those are gone (see the note above), and a `Prop`
+/// row resolves from its own table. Kept narrow rather than kept compatible — a
+/// parameter nobody reads is a claim that this still knows about characters.
+pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
     for (kind, filename, _spec, _pack) in intro_prop_sprite_rows() {
         let id = intro_prop_asset_id(kind);
         let logical_path = format!("{sprite_folder}/{filename}");

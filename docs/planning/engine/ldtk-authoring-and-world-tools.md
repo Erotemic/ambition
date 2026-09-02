@@ -44,6 +44,15 @@ The next phase should consolidate these into a coherent authoring product.
    authoring diagnostics.
 6. The tools know many intent-level operations, but capability-specific recipes
    are still scattered.
+7. ⛔⛔ **`tools/ambition_ldtk_tools/specs/*.ron` LAG THE `.ldtk`, AND THE `.ldtk`
+   IS THE TRUTH.** A spec is the input that AUTHORED a level; later
+   `entity set-field` edits (the `specs/*.yaml` form) change the world without
+   changing it. Measured 2026-09-02: `intro_wake_room_area.ron` still shows an
+   `NpcSpawn` with `name: "Creator"` and no `character_id`, while `intro.ldtk`
+   has `character_id: "npc_creator"` and `name: None` — the opposite shape.
+   Anyone scoping work from the specs gets a world that no longer exists; read
+   the `.ldtk` (or `static_world_text!`'s embedded copy) when the question is
+   "what does the game load".
 
 ## First vertical slice: moving platforms
 

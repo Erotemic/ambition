@@ -175,8 +175,6 @@ pub(crate) fn setup_host_presentation_system(
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
                     &asset_config.sprite_folder,
-                    &catalogs.sheets,
-                    &catalogs.characters,
                 );
             },
         )
@@ -282,8 +280,6 @@ pub(crate) fn setup_host_presentation_system(
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
                     &asset_config.sprite_folder,
-                    &catalogs.sheets,
-                    &catalogs.characters,
                 );
             },
         )

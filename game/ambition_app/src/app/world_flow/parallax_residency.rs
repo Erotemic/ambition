@@ -15,6 +15,23 @@
 //! adjacency the preparation prefetch uses — `RoomSet::neighboring_room_indices`,
 //! the presentation-neutral seam that already exists for exactly this question.
 //!
+//! ⭐ THE RULE MATCHES WHAT THE PREFETCH ALREADY LOADS, which is why it is the
+//! right rule and not merely a plausible one. `prefetch_neighbor_room_preparation_system`
+//! calls `build_room_asset_manifest` for each one-hop neighbour, and that
+//! function's first act is `ensure_parallax_layers_for_room` for the room it is
+//! describing. So standing still already loads the active theme plus every
+//! neighbour's; retaining exactly that set drops only themes belonging to rooms
+//! the player has walked away from, and never fights the prefetch.
+//!
+//! ⚠ MEASURED OVER `sandbox.ldtk`, 60 rooms, 2026-09-02: the rule retains a mean
+//! of **1.8 themes** against an unbounded ceiling of 9 — but its worst case is
+//! `central_hub_main` at **6** (Basement, Boss, Cove, Hub, Lab, Skybridge),
+//! because the hub has 21 exits and touches six biomes. Most rooms retain one.
+//! ⛔ So this bounds the leak, it does not make the hub cheap: the room a player
+//! returns to most is the room where this rule does least. A tighter policy
+//! would have to drop neighbours the prefetch still wants, which trades a
+//! guaranteed reload for the saving and is a different decision.
+//!
 //! ⚠ THIS IS A RESIDENCY CHANGE AND NOTHING ELSE. Jon's ruling, 2026-09-02:
 //! nothing may LOWER visual quality for cost reasons. Retiring an off-screen
 //! theme is fine; a lower-resolution parallax is not. This module never touches

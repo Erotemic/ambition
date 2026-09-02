@@ -33,7 +33,7 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
                 // order `.after(the set)` instead of naming this system.
                 // Direct entry constructs the simulation world at boot; the
                 // shell host constructs a SESSION-scoped world per activation
-                // (`shell_host::ambition_activate_session`).
+                // (`shell_host::ambition_activate_session_visuals`).
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_simulation"),
             )
                 .chain(),

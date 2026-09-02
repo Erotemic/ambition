@@ -1117,3 +1117,152 @@ fn the_perception_extent_knob_is_inert_unset_and_reaches_every_body_when_set() {
          cannot pass by both being the same number"
     );
 }
+
+/// ⛔⛔ THE CHEAP BELIEF ROAD MUST AGREE WITH THE VIEW IT REPLACES, ALWAYS.
+///
+/// Seven of the nine brain templates declare `PerceptionRequirement::TargetBelief`
+/// and read only `target_pos` / `target_alive`, so increment 2 answers them from
+/// `nearest_hostile_peer` instead of building a whole `WorldView`. The saving is
+/// real — at the hall's density ~14 `PerceivedActor` constructions to use one,
+/// and 113 at the density a melee reaches — and it is worth NOTHING if the two
+/// roads can disagree.
+///
+/// ⛔ THE DIVERGENCE THIS PINS IS NOT HYPOTHETICAL. "In view" and "hostile" are
+/// two rules with, between them, a viewport, a self-exclusion, a team
+/// precedence, a faction relation and a personal grudge. A cheap road that
+/// restated any of them would be a second authority; this test is what says
+/// they were EXTRACTED rather than copied.
+#[test]
+fn a_cheap_belief_agrees_with_the_view_it_replaces() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let peers = vec![
+        // An ally, in view: never the answer.
+        peer("friend", ae::Vec2::new(110.0, 180.0), ActorFaction::Enemy),
+        // The nearest hostile IN VIEW — 450 away, inside the 480x320 half-extent.
+        peer(
+            "in_view_foe",
+            ae::Vec2::new(550.0, 180.0),
+            ActorFaction::Boss,
+        ),
+        // ⛔⛔ NEARER THAN THAT (340) AND OUTSIDE THE VIEWPORT (dy 340 > 320).
+        // The geometry is the whole point of this row: an out-of-view peer that
+        // is also the FARTHEST cannot detect a forgotten viewport filter, because
+        // `min_by` rejects it anyway. A first version of this test put the
+        // out-of-view foe at x=5000 and claimed to catch exactly that — poisoning
+        // the filter away left it GREEN. It has to be closer than the right
+        // answer for its exclusion to be observable.
+        peer(
+            "out_of_view_foe",
+            ae::Vec2::new(100.0, 520.0),
+            ActorFaction::Boss,
+        ),
+    ];
+
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    let full = view.nearest_hostile().map(|a| a.pos);
+    let cheap = super::nearest_hostile_peer(&viewer, &peers, &relations, perception).map(|p| p.pos);
+
+    assert_eq!(
+        full,
+        Some(ae::Vec2::new(550.0, 180.0)),
+        "premise: the full road picks the nearest IN-VIEW foe, not the nearer \
+         one outside the viewport"
+    );
+    assert_eq!(
+        cheap, full,
+        "the cheap belief road and the WorldView must name the SAME hostile; \
+         they share `peer_is_visible_to_body` and `peer_is_hostile_to_body` \
+         precisely so this cannot drift"
+    );
+
+    // ⭐ AND AGREEING ON "NOBODY" IS HALF THE CONTRACT. Perceiving no foe is a
+    // real answer (idle), not a missing one, and a cheap road that returned the
+    // nearest PEER rather than the nearest HOSTILE would still pass the arm
+    // above while failing here.
+    let only_allies = vec![peer(
+        "friend",
+        ae::Vec2::new(110.0, 180.0),
+        ActorFaction::Enemy,
+    )];
+    let empty_view = build_world_view(
+        &viewer,
+        &only_allies,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    assert_eq!(empty_view.nearest_hostile().map(|a| a.pos), None, "premise");
+    assert_eq!(
+        super::nearest_hostile_peer(&viewer, &only_allies, &relations, perception).map(|p| p.pos),
+        None,
+        "an ally is not a target on either road"
+    );
+}
+
+/// A GRUDGE crosses faction, on the cheap road too.
+///
+/// ⭐ THE ARM A HAND-WRITTEN HOSTILITY CHECK FAILS. Faction hostility alone
+/// would miss a same-faction duel opponent, and `select_actor_targets` and the
+/// damage road both honour the grudge — so a belief road that did not would
+/// point a brain at nobody while it was being attacked.
+#[test]
+fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+
+    let rival = bevy::prelude::Entity::from_raw_u32(77).expect("a valid test entity");
+    let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    viewer.grudge = Some(rival);
+
+    // Same faction as the viewer, and no faction hostility is configured.
+    let mut foe = peer(
+        "duel_rival",
+        ae::Vec2::new(160.0, 180.0),
+        ActorFaction::Enemy,
+    );
+    foe.entity = rival;
+    let peers = vec![foe];
+
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        perception,
+        0.0,
+    );
+    assert_eq!(
+        view.nearest_hostile().map(|a| a.pos),
+        Some(ae::Vec2::new(160.0, 180.0)),
+        "premise: the full road honours the grudge across faction"
+    );
+    assert_eq!(
+        super::nearest_hostile_peer(&viewer, &peers, &relations, perception).map(|p| p.pos),
+        Some(ae::Vec2::new(160.0, 180.0)),
+        "and so must the cheap one — this is the rule a restated check loses"
+    );
+}

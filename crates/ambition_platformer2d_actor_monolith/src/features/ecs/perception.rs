@@ -459,6 +459,92 @@ pub fn ensure_perception(
         ));
     }
 }
+/// Whether `peer` is one this body can see at all — not itself, and inside the
+/// viewport unless the policy knows bodies anywhere.
+///
+/// ⛔ EXTRACTED SO THERE IS ONE AUTHORITY. [`nearest_hostile_peer`] answers the
+/// same question without building a `WorldView`, and a second copy of this
+/// filter would be a second definition of "in view" that could drift from the
+/// one the full view uses — the exact divergence a cheap road is tempted into.
+pub(crate) fn peer_is_visible_to_body(
+    perception: Perception,
+    viewport: &Viewport,
+    body: &PerceptionBody,
+    peer: &PerceptionPeer,
+) -> bool {
+    Some(peer.entity) != body.viewer
+        && (perception.knows_bodies_anywhere() || viewport.contains(peer.pos))
+}
+
+/// A foe by faction (`FactionRelations`) OR by a personal grudge against this
+/// exact body — the SAME two-part rule `select_actor_targets` uses, so
+/// `nearest_hostile` sees a same-faction grudge-duel opponent (which faction
+/// hostility alone would miss).
+///
+/// THE SAME PRECEDENCE `damage_lands_between` USES, through the same
+/// `team_allows_damage` authority: when both bodies are seated, the team
+/// relation decides and factions have nothing to say. A grudge still overrides,
+/// exactly as it does for damage.
+///
+/// ⛔ EXTRACTED FOR THE SAME REASON AS THE FILTER ABOVE. This rule is the
+/// substantial one — three inputs and a precedence — and it is precisely what a
+/// hand-written "cheap" hostility check would get subtly wrong.
+pub(crate) fn peer_is_hostile_to_body(
+    body: &PerceptionBody,
+    relations: &FactionRelations,
+    peer: &PerceptionPeer,
+) -> bool {
+    match ambition_combat::targeting::team_allows_damage(body.team.as_ref(), peer.team.as_ref()) {
+        Some(allowed) => allowed || body.grudge == Some(peer.entity),
+        None => {
+            relations.is_hostile(body.faction, peer.faction) || body.grudge == Some(peer.entity)
+        }
+    }
+}
+
+/// The nearest hostile peer this body can see — **without building a
+/// `WorldView`**. Increment 2 of `bounded-perception-and-attention.md`.
+///
+/// ⭐⭐ SEVEN OF THE NINE BRAIN TEMPLATES ONLY EVER NEEDED THIS. `Patrol`,
+/// `Skirmisher`, `Sniper`, `ChargeCrash`, `Aerial`, `MeleeBrute` and
+/// `BossPattern` declare `PerceptionRequirement::TargetBelief` and read
+/// `target_pos` / `target_alive`; only `Smash` and `Fighter` take a
+/// `&WorldView`. Until now a `TargetBelief` brain paid for the full view to
+/// answer one question: at the hall's density that is ~14 `PerceivedActor`
+/// constructions to use ONE, and at the density a melee reaches (measured:
+/// `kept` 113 at 4x viewport) it is 113 to use one. Construction, not
+/// cognition, is 66% of `Decide`.
+///
+/// ⛔ IT ANSWERS THROUGH THE SAME TWO AUTHORITIES THE FULL VIEW USES —
+/// [`peer_is_visible_to_body`] and [`peer_is_hostile_to_body`] — rather than
+/// restating them. A cheap road with its own idea of "in view" or "hostile"
+/// would be a second definition that drifts, and the hostility rule in
+/// particular has three inputs and a precedence. `a_cheap_belief_agrees_with_the_view_it_replaces`
+/// pins the equivalence.
+///
+/// ⚠ ALLOCATES NOTHING. It borrows peers and compares squared distances; the
+/// `String` id clone that dominates `PerceivedActor` never happens.
+pub(crate) fn nearest_hostile_peer<'p>(
+    body: &PerceptionBody,
+    peers: &'p [PerceptionPeer],
+    relations: &FactionRelations,
+    perception: Perception,
+) -> Option<&'p PerceptionPeer> {
+    let viewport = Viewport::around(body.pos, perception.tactical_extent());
+    peers
+        .iter()
+        .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
+        .filter(|p| peer_is_hostile_to_body(body, relations, p))
+        .min_by(|a, b| {
+            // ⛔ THE SAME ORDER AS `WorldView::nearest_hostile`, squared distance
+            // included: comparing distances instead would be the same ranking
+            // but a different float, and two roads that disagree on a tie are
+            // two roads.
+            let da = a.pos.distance_squared(body.pos);
+            let db = b.pos.distance_squared(body.pos);
+            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+        })
+}
 
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
 /// pre-collected peers/projectiles, and the relational faction matrix.
@@ -534,8 +620,7 @@ pub fn build_world_view(
         .iter()
         // A body is not its own peer. This is the whole job `peers_seen_by`
         // used to do by copying the other 129 rows.
-        .filter(|p| Some(p.entity) != body.viewer)
-        .filter(|p| perception.knows_bodies_anywhere() || viewport.contains(p.pos))
+        .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
         .map(|p| PerceivedActor {
             id: p.id.clone(),
             pos: p.pos,
@@ -551,15 +636,7 @@ pub fn build_world_view(
             // same `team_allows_damage` authority: when both bodies are seated,
             // the team relation decides and factions have nothing to say. A
             // grudge still overrides, exactly as it does for damage.
-            hostile_to_self: match ambition_combat::targeting::team_allows_damage(
-                body.team.as_ref(),
-                p.team.as_ref(),
-            ) {
-                Some(allowed) => allowed || body.grudge == Some(p.entity),
-                None => {
-                    relations.is_hostile(body.faction, p.faction) || body.grudge == Some(p.entity)
-                }
-            },
+            hostile_to_self: peer_is_hostile_to_body(body, relations, p),
             alive: p.alive,
             on_ground: p.on_ground,
             shield_raised: p.shield_raised,

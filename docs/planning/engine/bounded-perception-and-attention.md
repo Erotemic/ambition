@@ -9,9 +9,73 @@
   `actors/update.rs`, and the rollback schema baseline moved with it. The
   rollback/replay question that blocked it is settled by
   [ADR 0034](../../adr/0034-perception-is-bounded-by-attention.md).
-* ▢ **Increment 2**: a cheap `TargetBelief` provider that answers "do I perceive
+* ◐ **Increment 2**: a cheap `TargetBelief` provider that answers "do I perceive
   a valid target, and where was the last one" WITHOUT building a full
   `WorldView`, and a bounded `TacticalWorld` representation.
+  ✔ **THE PROVIDER EXISTS (2026-09-02): `nearest_hostile_peer`**, which borrows
+  the peer slice, applies the two filters and takes a min by squared distance —
+  **allocating nothing**. The `String` id clone that dominates `PerceivedActor`
+  never happens.
+  ⭐ **AND THE CUSTOMER IS SEVEN OF THE NINE BRAIN TEMPLATES**, which is the
+  fact that makes this worth doing rather than a capability looking for a user:
+  `Patrol`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Aerial`, `MeleeBrute` and
+  `BossPattern` all declare `TargetBelief` and read only `target_pos` /
+  `target_alive`. Only `Smash` and `Fighter` take a `&WorldView`. Until now every
+  one of those paid for the full view to answer one question — at the hall's
+  density ~14 `PerceivedActor` constructions to use ONE, and 113 at the density
+  the table above reaches.
+  ⛔ **IT ANSWERS THROUGH THE SAME TWO AUTHORITIES THE FULL VIEW USES.**
+  `peer_is_visible_to_body` and `peer_is_hostile_to_body` were EXTRACTED from
+  `build_world_view` rather than restated, so there is one definition of "in
+  view" and one of "hostile" — the latter being three inputs and a precedence
+  (team relation, faction relation, personal grudge), which is exactly what a
+  hand-written cheap check gets subtly wrong.
+  ⛔⛔ **AND THE EQUIVALENCE IS PINNED, because a cheap road that can disagree is
+  worth nothing.** `a_cheap_belief_agrees_with_the_view_it_replaces` and
+  `a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does` assert the
+  two roads name the same hostile, and the same NOBODY. Poison-verified twice:
+  restating hostility as faction-only drops the grudge and goes red; dropping the
+  viewport filter goes red.
+  ⚠ **THE VIEWPORT ARM ONLY DISCRIMINATES BECAUSE OF ITS GEOMETRY, and the first
+  version did not.** Its out-of-view foe was also the FARTHEST, so `min_by`
+  rejected it whether or not the filter ran — poisoning the filter away left the
+  test GREEN while its comment claimed to catch exactly that. The out-of-view
+  peer now sits NEARER (340) than the right answer (450), so its exclusion is
+  observable.
+  ▢ **STILL OPEN:** routing `TargetBelief` bodies to the provider at the
+  `build_world_view` call site in `actors/update.rs` — the change that actually
+  stops building the view — and the bounded `TacticalWorld` representation, which
+  is the larger half and is what the density table above prices.
+
+  ⛔⛔ **AND THE ROUTING IS BIGGER THAN "USE THE CHEAP PROVIDER", because the
+  belief has TWO halves and only one of them is the nearest hostile.** Read the
+  increment's own words — *"do I perceive a valid target, AND WHERE WAS THE LAST
+  ONE"*. `believed_target` touches the view twice:
+
+  ```rust
+  mem.0.update(view, dt);                       // <- needs the SEEN SET
+  view.nearest_hostile().map(|a| a.pos)         // <- needs one peer
+      .or_else(|| memory.last_known_hostile())  //    (the memory answers here)
+  ```
+
+  `WorldMemory::update` collects `view.actors.iter().map(|a| a.id.as_str())` to
+  decay everything NOT seen this tick. So a `TargetBelief` body cannot simply
+  skip the build: drop the view and every remembered foe decays as though it had
+  left the viewport, and pursuit (invariant I6) silently stops working. ⇒ **A
+  cheap road that answered only the first half would look correct on a body that
+  can see its foe and quietly break the one that is chasing.**
+
+  ⇒ **The shape that works is to narrow what `update` DEPENDS ON, not to skip
+  it**: take an iterator of `(id, pos, hostile)` borrowed from the peers rather
+  than a `&WorldView`. The memory keeps its exact semantics — it already borrows
+  ids rather than cloning them — and the `PerceivedActor` construction that costs
+  ~152 ns each disappears for seven of the nine templates. That is the same
+  "publish the thing downward" move D33 used to get the census out of the kernel,
+  applied to a data dependency instead of a crate one.
+
+  ⚠ Found by reading `update` before writing the routing, not after. The
+  provider and its equivalence guards are right and land as they are; what would
+  have been wrong is the call site that used them.
 
 ## The rule
 

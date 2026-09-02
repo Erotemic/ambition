@@ -87,6 +87,48 @@ without the feature. Two binaries at `target/profiling/ambition_game_bin` on two
 machines (the VM's target is a bind mount, not Jon's directory) are not one
 binary — check `metadata.json:cargo_features` before comparing.
 
+## ⭐ THE CURVE ON THE PRODUCTION HOST (2026-09-01, late) — item (2) done on the right program
+
+`examples/hall_bench` drives the shipped local session (sync test,
+`check_distance: 0`) through the sim harness in `hall_of_characters`, headless,
+built WITHOUT the `profile` feature. `scripts/sim_scaling_curve.py` runs it at
+each cap, interleaved, first repetition discarded (a 1.5 GB binary's first run
+pays the page cache: rep 1 read 2.0 ms where reps 2-3 read 1.0). 3000 ticks,
+median of 1 s windows, VM. The `!! NEVER CLOSED` warning appeared zero times.
+
+```text
+cap                                 2      16      64     130     200
+actors (AbilityBase)                0      17      65     130     130   <- the room authors 129; 200 = uncapped
+WHOLE TICK (wall, harness)      1.02    1.19    1.58    1.95    1.87   ms
+sum of measured sim phases      0.43    0.55    0.79    1.07    1.05
+WorldPrep.Integrate            0.021   0.043   0.109   0.196   0.193
+FeatureViewSync                0.059   0.079   0.123   0.173   0.167
+Combat                         0.078   0.095   0.123   0.153   0.150
+Progression                    0.027   0.038   0.058   0.080   0.077
+Decision.* (7 marks)           0.038   0.056   0.090   0.137   0.133
+WorldPrep.AfterIntegrate       0.015   0.021   0.033   0.048   0.048
+ContactDamage                  0.002   0.003   0.008   0.013   0.012
+```
+
+**What it says.** The shipped simulation of the full hall is ~1.9 ms per tick,
+of which ~0.9 ms follows the actor count: **~7 us per actor per tick, linear.**
+Nothing bends upward — `Decision.Targeting` goes 0.007 → 0.042 for 65x the
+actors, so the documented O(n²) in `select_actor_targets` is not what runs.
+The largest single phase in the hall is `Integrate` at 0.196 ms. At 60 Hz the
+whole actor-dependent cost is ~1 ms of a 16.7 ms budget.
+
+**⇒ Item (3) has nothing to optimise that would move a frame.** The decision
+pipeline is closed by measurement on the program that ships. Whatever makes the
+hall 50-60 fps on Jon's machine is not in `GgrsSchedule`'s work; the candidates
+left are windowed-only — the per-system executor overhead of 3234 systems
+(2400 runs per frame; 500 in `Update`, 217 in `PostUpdate`), the render app,
+and the dev build — and every one of them needs the `--no-tracy`, V-Sync-Off
+capture named above before another line is changed.
+
+Two host numbers to keep apart: the direct sandbox (`--start-room`) ticked the
+hall in 1.56 ms; the production host ticks it in 1.9 ms. Both are the
+uninflated program; the difference is the rollback host's own machinery.
+
 **State:** OPEN, but narrow. Optimize measured user-visible or developer costs;
 do not maintain a speculative micro-optimization backlog.
 

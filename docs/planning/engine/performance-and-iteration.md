@@ -270,6 +270,32 @@ anything about the aivm rows (different silicon). `[census] phases_trust` report
 rep, which is the harness certifying this configuration rather than me asserting
 it.
 
+#### The population-cap curve, re-taken untenanted
+
+Same box, same commit, `CAPS="2 64 130"`, three reps interleaved across caps by
+the script. ⛔ Again a DIFFERENT MACHINE from the 2026-09-01 cap curve above —
+compare the SHAPE, never the absolute values.
+
+```text
+cap        reps (ms)                 median   spread   PreUpdate   Update   PostUpdate
+  2        5.589 / 5.571 / 5.522     5.571     1.2%      1.72       1.27       1.10
+ 64        6.253 / 6.331 / 6.542     6.331     4.6%      2.27       1.43       1.17
+130        7.053 / 6.842 / 6.871     6.871     3.1%      2.67       1.53       1.18
+```
+
+⭐ **THE COST OF THE ACTOR POPULATION IS `PreUpdate`, and this curve is quiet
+enough to say so.** From 2 actors to 130 the frame grows **1.30 ms**, of which
+`PreUpdate` is **0.95** and `Update` is 0.26. `PostUpdate` moves 0.08,
+`RunFixedMainLoop` and `StateTransition` do not move at all. On the 2026-09-01
+aivm curve the same three rows overlap within their own noise, so the attribution
+could not be made there — it can be made here because every arm's spread (1.2%,
+4.6%, 3.1%) is smaller than the gaps between arms.
+
+⚠ Two honest limits. This is a no-GPU software-rasterizer box, so nothing here
+speaks to what a GPU would add. And "PreUpdate carries it" localises the cost to
+a schedule, not to a system — naming the system needs a per-system census, not
+this instrument.
+
 **Two readings.** First: the shipped program's main-world frame in the full
 hall is ~4.5 ms on this VM — against Jon's Tracy capture's 19.8 ms (PreUpdate
 8.5, Update 5.4, PostUpdate 3.2, RunFixedMainLoop 1.2), a uniform ~4x across

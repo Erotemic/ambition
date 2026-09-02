@@ -466,14 +466,18 @@ overwrite), one `stamp_first_drawn_images` system reading `ExtractedSprites`, an
 one `.add_systems` line. ⛔ NOT BUILT HERE because that is three pieces rather
 than the one-line hook that would justify landing it inside a scoping pass.
 
-⛔ **AND ITS TEST GOES ON THE PURE LEDGER, not on an app.** Measured 2026-09-02:
-a `NoWindow` composition decodes NO file-backed art, because `ImagePlugin`
-registers the image loader in `Plugin::finish` and `finish()` never runs under
-the `app.update()` loop that composition uses. So no `app_it` test can wait for a
-draw — it would wait forever, and a test that waits forever tends to become a
-test that waits a fixed number of frames and asserts nothing. Unit-test
-`first_drawn`'s FIRST-WRITE-WINS rule directly on `ImageStageLedger`; the
-end-to-end confirmation belongs to `capture_scene` or the windowed host.
+⛔ **AND ITS TEST STILL GOES ON THE PURE LEDGER, though the reason changed under
+it the same day.** When this was scoped, a `NoWindow` composition decoded NO
+file-backed art at all (`ImagePlugin` registers the image loader in
+`Plugin::finish`, which never ran under that composition's `app.update()` loop),
+so no `app_it` test could wait for anything. ✔ `124684f56` fixed that and images
+now decode headlessly — but a DRAW is still not available there: `NoWindow` has
+no render world, so `ExtractedSprites` never exists and nothing is ever
+extracted. ⇒ Unit-test `first_drawn`'s FIRST-WRITE-WINS rule directly on
+`ImageStageLedger`; the end-to-end confirmation belongs to `capture_scene`
+(OffscreenGpu) or the windowed host. A test that waits for a draw headlessly
+would wait forever, and such a test tends to become one that waits a fixed
+number of frames and asserts nothing.
 
 ⚠ **Two things to get right when it is built.** (1) The stamp must be
 FIRST-WRITE-WINS, or it becomes a per-frame write on every visible sprite and the
@@ -663,11 +667,18 @@ small-but-real population. It is not a small population, it is NO population:
 all 22 are keyed `"?"` in `resident_by_road`, meaning `source == None` — images
 that reached `Assets<Image>` without passing a stamped demand road, i.e.
 inserted directly rather than decoded from a file. **Routed images: 0.**
-⭐ THE CAUSE, found by `df`: `ImagePlugin` registers the image loader in
-`Plugin::finish`, and `finish()` never runs under the `app.update()` loop a
-`NoWindow` composition uses. ⇒ **No file-backed art decodes on that road at
-all** — not 5% of it. Every stage after "demanded" (insert, GPU, first draw) is
-observable only in `capture_scene` (OffscreenGpu) or the windowed host.
+⭐ THE CAUSE, found by `df`: `ImagePlugin` registered the image loader in
+`Plugin::finish`, and `finish()` did not run under the `app.update()` loop a
+`NoWindow` composition uses. ⇒ **No file-backed art decoded on that road at
+all** — not 5% of it.
+✔ **FIXED THE SAME DAY at `124684f56`** (the NoWindow builder finishes its
+plugins). Re-measured through the same script: **225 images resident, 60.5 MP,
+201 of them through a demand road**, 0 re-decodes, over a 126-character Hall
+entry. The premise guard is green on a real population and the census finally
+measures the thing it is named for.
+⚠ The population is NOT fixed run to run — 225/201 here, 237/213 on another run
+the same day — because how much lands inside the frame budget varies. The guard
+is a THRESHOLD for that reason and must stay one.
 ⇒ The test's premise guard now asks the question that matters — did ANY resident
 image arrive through a demand road — and **it fails today**, naming the reason.
 That is the correct outcome: a re-decode census over a population with no art in
@@ -735,13 +746,15 @@ count could show would be a missing character rather than a deduplicated one.
 re-decode census above: with all 129 reached, the three are characters the HUB
 had already staged before the transition, not three the hall failed to ask for.
 ⇒ Of the three candidates, **scope is out** (measured), **re-decode is out on
-the headless road** (re-measured 2026-09-02 against a real 237-image / 213-routed
-population, 0 repeats — see the top of this section; the earlier "~5% of the art"
-reading was wrong and the "no art decodes at all" correction to it is now also
-superseded), and **retired realizations are the one candidate left standing** —
-distinguishable since the same day, but only a host run can count how many of the
-111 they were. That is the single measurement this section is still waiting on,
-and it is one boot with `AMBITION_PROFILE_CENSUS=1`.
+the headless road** (0 repeats over a real population since `124684f56`: 237
+resident / 213 routed on one run, 225 / 201 on another — the population varies
+with what lands inside the frame budget, so the guard is a threshold; the
+earlier "~5% of the art" reading was wrong and the "no art decodes at all"
+correction to it is now also superseded), and **retired realizations are the
+one candidate left standing** — distinguishable since the same day, but only a
+host run can count how many of the 111 they were. That is the single
+measurement this section is still waiting on, and it is one boot with
+`AMBITION_PROFILE_CENSUS=1`.
 
 ### 6. Live quality switching
 

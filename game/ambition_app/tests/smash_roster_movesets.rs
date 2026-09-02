@@ -352,8 +352,9 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
 }
 
 /// a MASK could not promise this, and the gap was invisible because
-/// almost nobody exercised it. `MatchParticipantRoster::fighter_abilities` was
-/// one set, intersected:
+/// almost nobody exercised it. `MatchParticipantRoster::fighter_abilities`
+/// (cite-ok: a field that has since collapsed into `rules`; the history is the
+/// point) was one set, intersected:
 ///
 /// ```text
 ///   character authors nothing  ->  the stage's set verbatim   (twelve of fourteen)

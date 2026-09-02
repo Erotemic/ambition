@@ -56,6 +56,10 @@ SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")
 #: Segments that are never a definition to look for on their own.
 NOISE = {
     "self", "crate", "super", "std", "core", "alloc",
+    # ⛔ `X::mod` IS A PATH IDIOM, NOT A SYMBOL. The repo writes `conversion::mod`
+    # and `rendering::mod` to mean "that module's mod.rs"; there is no item named
+    # `mod` to find and reporting it is pure noise.
+    "mod",
     # ⛔ PRIMITIVES ARE NOT OURS. `usize::MAX` and `f32::INFINITY` cite the
     # standard library; the repository happens to define fields and type
     # aliases with these spellings, so the qualifier test alone lets them past.

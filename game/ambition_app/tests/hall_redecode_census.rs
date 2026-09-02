@@ -6,16 +6,24 @@
 //! had ever run that counter over the Hall entry, which is the one transition
 //! big enough for a repeat to cost anything (129 authored NpcSpawns).
 //!
-//! ⛔⛔ WHAT THIS CAN AND CANNOT ANSWER — and the answer today is NOTHING, which
-//! is why its premise guard fails. `NoWindow` shows 22 resident images, but ALL
-//! 22 are unrouted (`source == None`): procedurally inserted, never demanded.
-//! ZERO file-backed art decodes, because `ImagePlugin` registers the image
-//! loader in `Plugin::finish` and `finish()` never runs under the `app.update()`
-//! loop this composition uses. An earlier version of this file called those 22
-//! "~5% of the art" and treated a clean result as a headless regression guard;
-//! that was wrong — 5% of nothing is nothing. The run that CAN answer this boots
-//! with `AMBITION_PROFILE_CENSUS=1` and reads `re-decodes N` from the
-//! `[image-census]` line, in `capture_scene` or the windowed host.
+//! ⭐ WHAT THIS ANSWERS, and it only started answering anything on 2026-09-02.
+//! MEASURED after the composition fix (`124684f56`): 225 images resident,
+//! 60.5 MP, of which **201 arrived through a demand road**, over a 126-character
+//! Hall entry — and 0 paths decoded twice.
+//!
+//! ⛔⛔ BEFORE THAT FIX IT ANSWERED NOTHING, AND SAID SO CONFIDENTLY. `NoWindow`
+//! showed 22 resident images and every one was unrouted (`source == None`):
+//! procedurally inserted, never demanded. Zero file-backed art decoded, because
+//! `ImagePlugin` registers the image loader in `Plugin::finish` and `finish()`
+//! did not run under this composition's `app.update()` loop. An earlier version
+//! of this file called those 22 "~5% of the art" and treated a clean result as a
+//! headless regression guard — 5% of nothing is nothing. The premise guard below
+//! is the one that caught it, and it is the third one this test had.
+//!
+//! ⚠ THE POPULATION IS NOT FIXED RUN TO RUN (225/201 here, 237/213 on another
+//! machine the same day), because how much lands inside the frame budget varies.
+//! That is why the guard is a THRESHOLD and must stay one; an equality here
+//! would be flaky and would read as a regression.
 //!
 //! ⛔⛔ `#[ignore]`, AND RUN ALONE BY A SCRIPT. THAT IS THE WHOLE DESIGN, and it
 //! is forced by the ledger being a process-global `static` behind a `Mutex`.
@@ -217,15 +225,17 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     // all 22 were procedural inserts with no road, and ZERO character sheets had
     // decoded. `ImagePlugin` registers the image loader in `finish()`, which
     // never ran under the `app.update()` loop a `NoWindow` composition uses, so
-    // this road decoded NO FILE-BACKED ART AT ALL.
+    // this road decoded NO FILE-BACKED ART AT ALL. Only this third guard asks
+    // whether any resident image came from the road the census is about.
     //
     // ✔ FIXED 2026-09-02 (`124684f56`): the no-window builder finishes its
-    // plugins. Re-measured the same day -- 237 resident, 213 of them ROUTED,
-    // 67.6 MP -- so this guard reads a real population for the first time and
-    // the re-decode count below is a measurement rather than an artefact.
-    //
-    // ⇒ The honest guard is still on the ROUTED count: it is what separates
-    // "the Hall decoded no art twice" from "the Hall decoded no art".
+    // plugins. Re-measured the same day on a real population -- 237 resident /
+    // 213 routed / 67.6 MP on one run, 225 / 201 on another; the population is
+    // NOT fixed run to run, because how much lands inside the frame budget
+    // varies, which is why this is a threshold and not an equality. The guard
+    // stays because it is what would catch the composition regressing again,
+    // and because a re-decode count over an artless population is a number
+    // with nothing behind it.
     assert!(
         routed > 0,
         "no resident image arrived through a demand road ({total} resident), so \

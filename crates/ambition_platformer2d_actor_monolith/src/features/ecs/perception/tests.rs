@@ -865,3 +865,72 @@ mod a_viewer_is_not_its_own_peer {
         assert_eq!(view.actors.len(), 1, "nobody to exclude, so nobody is");
     }
 }
+
+/// ⛔⛔ A BRAIN THAT STOPS PERCEIVING MUST NOT KEEP WHAT IT LAST BELIEVED.
+///
+/// `believed_target` is the only thing that ages a `PerceptionMemory`, and the
+/// `None` gate skips it — so before this invariant existed, a body switched to
+/// StandStill mid-match froze its belief, and switching back resurrected a
+/// hostile that had died or left the room. Deterministic, so not a desync; a
+/// cognition-lifecycle defect, which is worse because it looks like the AI
+/// remembering something.
+#[test]
+fn a_requirement_of_none_empties_a_belief_it_stopped_maintaining() {
+    use ambition_characters::perception::PerceptionRequirement as Need;
+
+    let mut memory = PerceptionMemory::default();
+    // Populate it the way the real road does: a hostile in view, remembered.
+    let view = ambition_characters::perception::WorldView {
+        self_view: ambition_characters::perception::SelfView {
+            pos: ae::Vec2::ZERO,
+            faction: ActorFaction::Enemy,
+            ..Default::default()
+        },
+        viewport: ambition_characters::perception::Viewport::around(
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(300.0),
+        ),
+        actors: vec![ambition_characters::perception::PerceivedActor {
+            id: "boss".into(),
+            pos: ae::Vec2::new(100.0, 0.0),
+            faction: ActorFaction::Boss,
+            hostile_to_self: true,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    memory.0.update(&view, 1.0 / 60.0);
+    assert!(
+        memory.0.last_known_hostile().is_some(),
+        "premise: the body believes in a hostile before its brain changes"
+    );
+
+    // ── A requirement that still perceives leaves the belief alone ───────────
+    assert!(!super::enforce_empty_belief_for_none(
+        Need::TargetBelief,
+        Some(&mut memory)
+    ));
+    assert!(
+        memory.0.last_known_hostile().is_some(),
+        "a body that still perceives must keep pursuing what it remembers"
+    );
+
+    // ── `None` empties it ───────────────────────────────────────────────────
+    assert!(super::enforce_empty_belief_for_none(
+        Need::None,
+        Some(&mut memory)
+    ));
+    assert!(
+        memory.0.is_empty(),
+        "a brain that stopped perceiving must not keep a stale hostile to \
+         resurrect when it starts again"
+    );
+
+    // ⚠ AND IT MUST NOT WRITE AGAIN. `PerceptionMemory` arrives as a `Mut<_>`;
+    // an unconditional clear would mark the component changed every tick for
+    // every `None` body — 129 of them in the hall — for a no-op.
+    assert!(
+        !super::enforce_empty_belief_for_none(Need::None, Some(&mut memory)),
+        "an already-empty belief must not be rewritten"
+    );
+}

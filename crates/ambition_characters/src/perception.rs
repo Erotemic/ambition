@@ -405,6 +405,14 @@ impl SelfView {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum PerceptionRequirement {
     /// Nothing. No view built, no belief maintained, memory stays empty.
+    ///
+    /// ⚠ "STAYS EMPTY" IS ENFORCED, NOT ASSUMED — and until 2026-09-02 it was
+    /// only true of a body that STARTED here. A live brain can BECOME `None`
+    /// (`BrainCommand` swapping in a StandStill), and nothing on that road
+    /// cleared the belief, so it froze instead: switch back later and the body
+    /// resurrects a hostile that may have died or left the room. The invariant
+    /// lives at the decision site rather than on every brain-changing road —
+    /// see the actor kernel's `enforce_empty_belief_for_none`.
     #[default]
     None,
     /// One target belief — enough to acquire, hold and lose a foe.

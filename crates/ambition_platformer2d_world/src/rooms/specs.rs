@@ -7,11 +7,11 @@ use ambition_platformer2d_core as ae;
 /// Sheet lookup goes through the prop registry in `crate::character_sprites::sheets`, keyed by
 /// `kind`.
 ///
-/// Props are kept off `World::objects` (which is the engine-side
-/// authored-object list — every entry there grows runtime behavior).
-/// They live on `RoomSpec.props` instead so the sandbox can iterate
-/// them once at room load to spawn presentation entities without
-/// the engine ever seeing them.
+/// Props are kept OUT OF THE ENGINE `World` entirely. Its authored collections
+/// (`blocks`, `water_regions`, `climbable_regions`, `chains`) each grow runtime
+/// behaviour for every entry, and a decoration should grow none. They live on
+/// `RoomSpec.props` instead, so the sandbox can iterate them once at room load
+/// to spawn presentation entities without the engine ever seeing them.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PropSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.

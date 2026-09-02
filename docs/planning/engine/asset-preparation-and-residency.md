@@ -357,6 +357,22 @@ with no catalog character today, which is why the preload existed. Not the
 hitch — it runs before the cover — but it is the first named row of open
 work 2 with a measured size.
 
+✔ **The one `demand=unknown` in the hall is the LDtk PREVIEW TILESET (found
+2026-09-02 by probing the ledger, not by grepping).** Every world file —
+`hall_of_characters`, `intro`, `sandbox`, `you_have_to_cut_the_rope` — declares
+a tileset `sprite_player_robot_v3 = ../sprites/player_robot_v3_spritesheet.png`
+(3072×2484, 7.6 MP) so the editor can draw entity previews, and `bevy_ecs_ldtk`
+decodes every tileset of a project when the project loads: asset index 4 of
+the process, path printed with the `game://` source, no demand stamp because
+no code of ours asked for it. It is the FULL-tier player sheet, decoded beside
+the tier the game actually realizes (Potato in that run), on every boot and
+every world load, and it is never drawn by the runtime. Fix is one line per
+world in the map submodule — point the preview tileset at the `sprites_0_25x`
+copy (0.5 MP; the editor preview survives at a quarter of the resolution) —
+and that is Jon's file, so it sits in `queue.md`'s host section awaiting his
+say-so rather than being edited from here. Everything else that decodes an
+image in the shipped composition now stamps its road.
+
 Not covered, honestly reported: source IO and decode are one stage here
 (Bevy's loader does both on the IO pool and `Added` fires after); "resident
 use" (first draw) is not stamped; an image demanded by a road that calls

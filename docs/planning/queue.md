@@ -1142,6 +1142,14 @@ product ruling.
   landed, `asset_wait_ms` INCLUDES the upload and the reveal should show no
   `[image-gpu]` line after it — if one appears after the cover lifts, name the
   file; it came by a road the manifest does not list.
+- **Four LDtk preview tilesets decode the FULL player sheet on every boot**
+  (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
+  `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity
+  previews; `bevy_ecs_ldtk` loads every project tileset). Never drawn by the
+  runtime. The fix is retargeting each declaration at
+  `../sprites_0_25x/player_robot_v3_spritesheet.png` (0.5 MP, preview survives)
+  — in the map submodule, so it waits for Jon's yes. Measured via the image
+  stage ledger (`demand=unknown`, asset index 4).
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

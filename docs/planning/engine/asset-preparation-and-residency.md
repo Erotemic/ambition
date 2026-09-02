@@ -200,6 +200,31 @@ same room decoded 92 MP in total. This is the "nasty frame drop entering the
 hall"; it is not the room load (70 ms under the cover), it is the cast's Full
 tier arriving late and all at once.
 
+### ⭐⭐ ROOT CAUSE, found and fixed 2026-09-02 (`2c8f27b32`)
+
+The art arrived late because the reveal barrier never asked for it. Loads
+are rationed to one character per frame (`MAX_CHARACTERS_MATERIALIZED_PER_FRAME
+= 1`); `demand_room_character_sheets` built its demand in a LOCAL that went out
+of scope, so the transition realized ONE character and dropped the other 128;
+and the barrier waited only on the pages of realized sheets — one character's,
+already cached, 3 ms. The game said so at the reveal: 111 × *"declared as
+'npc_x' but not materialized — nothing demanded it"*. The rest were demanded by
+their own actors after the reveal and loaded one per frame in the open: the
+nine 89-355 ms frames. The comment on the ration claimed `character_reveal_ready`
+held the curtain; only `capture_scene` ever called it.
+
+Fix: the remainder is forwarded to the global `CharacterLoadDemand` (transition
+and startup; the neighbour prefetch deliberately not), the poll rebuilds the
+manifest as sheets realize, and `inspect_demanded_characters` holds the reveal
+while any demanded character is only declared. Headless proof: the hall's 129
+now realize one per frame behind the cover (stalled at 6 before); the guard
+`the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
+when the remainder is dropped. **Host tell, still owed:** zero "nothing demanded
+it" warnings at the hall reveal, `asset_wait_ms` in the seconds (129 frames of
+ration at least), no >33 ms frames after the cover lifts. The hitches now happen
+UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
+small; the upload pacer / render-world-only knobs below make them smaller.
+
 **Two mechanisms, and the lever for each — to MEASURE, not yet to change:**
 
 - The **upload** half runs in the render world's `prepare_assets<GpuImage>`.

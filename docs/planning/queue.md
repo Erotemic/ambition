@@ -1110,10 +1110,12 @@ product ruling.
   cameras on the window (main order 0, "Cube scrim display" order 7 with no
   layers, "Cube pause" order 8) — a full-screen camera with nothing to draw
   is a clear per frame if its clear is not `None`.
-- **The reveal-barrier fix needs its host confirmation** (`6446c5adc`): one
-  more `--no-tracy` capture through the hub door. Tells: zero "nothing
-  demanded it" warnings at the hall reveal, `asset_wait_ms` in the seconds,
-  no >33 ms frames after the cover lifts.
+- **The reveal-barrier fix needs its host confirmation** (`2c8f27b32`, root
+  cause; `6446c5adc` was not it): one more `--no-tracy` capture through the hub
+  door. Tells: zero "nothing demanded it" warnings at the hall reveal,
+  `asset_wait_ms` in the seconds (the cover visibly holding ~2 s), no >33 ms
+  frames after the cover lifts. Also worth a look in the same run: the
+  kaleidoscope System page under a scroll — no flash (`2e7819419`).
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

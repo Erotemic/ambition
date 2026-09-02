@@ -88,6 +88,7 @@ mod movement_axis;
 mod neighbor_prefetch_prepares_rooms;
 mod no_character_resolves_art_by_an_ambiguous_root;
 mod one_character_two_contexts;
+mod parallax_theme_retires_on_walk;
 mod participant_input;
 mod player_bubble_shield;
 mod player_clone_live;

@@ -23,14 +23,26 @@
 //! neighbour's; retaining exactly that set drops only themes belonging to rooms
 //! the player has walked away from, and never fights the prefetch.
 //!
-//! ⚠ MEASURED OVER `sandbox.ldtk`, 60 rooms, 2026-09-02: the rule retains a mean
-//! of **1.8 themes** against an unbounded ceiling of 9 — but its worst case is
-//! `central_hub_main` at **6** (Basement, Boss, Cove, Hub, Lab, Skybridge),
-//! because the hub has 21 exits and touches six biomes. Most rooms retain one.
-//! ⛔ So this bounds the leak, it does not make the hub cheap: the room a player
-//! returns to most is the room where this rule does least. A tighter policy
-//! would have to drop neighbours the prefetch still wants, which trades a
-//! guaranteed reload for the saving and is a different decision.
+//! ⚠ TWO DIFFERENT NUMBERS, AND THE SMALLER ONE IS THE REAL ONE.
+//!
+//! What this rule PERMITS, computed over `sandbox.ldtk`'s 60 rooms: a mean of
+//! 1.8 themes against the unbounded ceiling of 9, worst case **6** at
+//! `central_hub_main`, which has 21 exits into six biomes.
+//!
+//! ⭐ What is actually RESIDENT there is **3** — measured by
+//! `scripts/measure_parallax_retire.sh`, which observed `[Hub, Basement, Boss]`
+//! in the hub. The difference is [`NEIGHBOR_PREFETCH_ROOM_BUDGET`] = 4: the
+//! prefetch prepares at most four neighbours however many the room has, so the
+//! themes that can be loaded at once are capped at active + 4 regardless of a
+//! hub's degree. This rule's keep-set is therefore WIDER than what is ever
+//! loaded, which is why it never fights the prefetch and never evicts something
+//! about to be wanted.
+//!
+//! ⛔ So the honest claim is bounded twice over, and the adjacency count is the
+//! looser bound. An earlier version of this comment quoted the 6 alone and
+//! implied the hub keeps six themes' worth of layers resident; it does not, and
+//! a reader sizing the leak from that number would have overestimated it by
+//! double.
 //!
 //! ⚠ THIS IS A RESIDENCY CHANGE AND NOTHING ELSE. Jon's ruling, 2026-09-02:
 //! nothing may LOWER visual quality for cost reasons. Retiring an off-screen

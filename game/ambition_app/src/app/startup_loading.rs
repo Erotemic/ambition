@@ -102,6 +102,8 @@ struct StartupAssetInputs<'w, 's> {
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
         ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    character_load_demand:
+        ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
     /// Sheets this app's providers authored — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
@@ -380,7 +382,9 @@ fn build_startup_manifest(
         .collect::<Vec<_>>();
     // Deferred character sheets for the FIRST room materialize here, behind
     // the startup cover — the same barrier semantics room transitions get.
-    super::world_flow::demand_room_character_sheets(
+    // Sheets beyond the per-frame ration go to the global demand, exactly as
+    // a room transition hands them over (see `demand_room_character_sheets`).
+    let remainder = super::world_flow::demand_room_character_sheets(
         room,
         &staged_names,
         &mut inputs.game_assets,
@@ -396,6 +400,9 @@ fn build_startup_manifest(
             .unwrap_or(&Default::default()),
         &inputs.authored_sheets,
     );
+    inputs
+        .character_load_demand
+        .request_all(remainder.iter().map(String::as_str));
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 
     let mut supporting = Vec::new();

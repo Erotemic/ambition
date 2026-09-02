@@ -157,6 +157,11 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// no materialization service at all — which the startup audit reports.
     pub(crate) character_load_states:
         Option<ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>>,
+    /// The engine's GLOBAL demand, drained one character per frame by
+    /// `materialize_demanded_character_sheets`. The transition hands it the
+    /// cast the per-frame ration did not realize on the transition frame.
+    pub(crate) character_load_demand:
+        Option<ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>>,
     /// Registered character definitions. A character may be declared ONLY through
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
@@ -258,6 +263,90 @@ fn add_named_character(draft: &mut RoomManifestDraft, assets: &GameAssets, chara
     }
 }
 
+/// Every character token the destination room asks art for: the plan's staged
+/// actors, the placements' catalog NPCs, and the authored enemies. ONE list,
+/// used both to DEMAND (`demand_room_character_sheets`) and to WAIT
+/// (`inspect_demanded_characters`) — two lists would let the barrier wait on
+/// something other than what was asked for.
+pub(crate) fn room_character_tokens(room: &RoomSpec, staged_actor_names: &[String]) -> Vec<String> {
+    let mut names: Vec<String> = staged_actor_names.to_vec();
+    for placement in &room.placements {
+        if let PlacementSchema::Interactable(spec) = &placement.schema {
+            if let InteractionKindSpec::Npc {
+                character_id: Some(character_id),
+                ..
+            } = &spec.kind
+            {
+                names.push(character_id.clone());
+            }
+        }
+    }
+    // Authored enemies too: a sheet that is still only DECLARED is invisible
+    // to the manifest's by-name lookup, so the enemy must be demanded here.
+    for enemy in &room.enemy_spawns {
+        names.push(enemy.name.clone());
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// Fold the DEMANDED-BUT-NOT-REALIZED characters into a readiness answer.
+///
+/// ⛔⛔ THE BARRIER WAITED ON THE PAGES OF REALIZED SHEETS, AND LOADS ARE
+/// RATIONED TO ONE CHARACTER PER FRAME. `materialize_character_demand` stages
+/// every token at once but REALIZES one per frame
+/// (`MAX_CHARACTERS_MATERIALIZED_PER_FRAME`), and a sheet the table only
+/// DECLARES contributes no handle to the manifest — so on the transition frame
+/// the manifest held one character's pages, the barrier waited 3 ms for them,
+/// and the hall's other 111 arrived in the open over three seconds as nine
+/// frames of 89-355 ms (`desktop-timeline-run-20260902T015909Z`). The comment
+/// on that bound said the curtain would stay down because
+/// `character_reveal_ready` blocks on unsettled tokens; nothing in the ROOM
+/// barrier ever called it. This is that call.
+///
+/// A token whose load reached a terminal outcome is settled either way: art
+/// that cannot load is the sprites system's placeholder, not a reveal that
+/// never comes.
+pub(crate) fn inspect_demanded_characters(
+    tokens: &[String],
+    assets: &GameAssets,
+    states: Option<&ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    readiness: &mut RoomAssetReadiness,
+) {
+    use ambition_platformer2d::sprite_sheet::character::CharacterSheetState;
+    for token in tokens {
+        match assets.characters.sheet_state(token) {
+            // Its pages are in the manifest (rebuilt as sheets realize).
+            CharacterSheetState::Ready(_) => {}
+            CharacterSheetState::Declared { character_id } => {
+                readiness.total += 1;
+                let terminal = states.is_some_and(|states| {
+                    states.outcome(character_id).is_some() || states.outcome(token).is_some()
+                });
+                if terminal {
+                    readiness.settled += 1;
+                } else {
+                    readiness
+                        .pending
+                        .push(format!("character:{token} (not yet decoded)"));
+                }
+            }
+            // Nothing declares it; nothing will ever arrive. The sprites system
+            // names the typo once. Not counted, so it cannot hold a reveal.
+            CharacterSheetState::Unknown => {}
+        }
+    }
+}
+
+/// How many of `tokens` the table holds a realized sheet for.
+pub(crate) fn realized_character_count(tokens: &[String], assets: &GameAssets) -> usize {
+    tokens
+        .iter()
+        .filter(|token| assets.characters.sheet(token).is_some())
+        .count()
+}
+
 /// Name every character this room stages and hand the list to the ENGINE to
 /// decode, before the manifest is built — so the reveal barrier waits on those
 /// sheets exactly like it waits on parallax themes.
@@ -279,33 +368,15 @@ pub(crate) fn demand_room_character_sheets(
     // The provider-authored sheets — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
-) {
-    let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
-    for placement in &room.placements {
-        if let PlacementSchema::Interactable(spec) = &placement.schema {
-            if let InteractionKindSpec::Npc {
-                character_id: Some(character_id),
-                ..
-            } = &spec.kind
-            {
-                names.push(character_id);
-            }
-        }
-    }
-    // Authored enemies too: `add_room_specific_sprites` adds their sheets to
-    // the manifest by name, but a sheet that is still only DECLARED is
-    // invisible to that lookup — the enemy would silently render as the
-    // goblin/rectangle fallback.
-    for enemy in &room.enemy_spawns {
-        names.push(&enemy.name);
-    }
+) -> Vec<String> {
+    let names = room_character_tokens(room, staged_actor_names);
     // Submit DEMAND and let the engine decode it. The host names what this room
     // stages — that is content knowledge it legitimately has — but the decode
     // itself is the engine's, so every application gets it whether or not it has
     // a room-transition step at all.
     let mut demand =
         ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
-    demand.request_all(names);
+    demand.request_all(names.iter().map(String::as_str));
     ambition_platformer2d::actors::character_runtime::materialize_character_demand(
         &mut demand,
         states,
@@ -318,6 +389,17 @@ pub(crate) fn demand_room_character_sheets(
         layouts,
         Some(&quality.budget),
     );
+    // ⛔⛔ THE REMAINDER USED TO DIE HERE. `materialize_character_demand` STAGES
+    // every token but REALIZES at most `MAX_CHARACTERS_MATERIALIZED_PER_FRAME`
+    // per call, and this `demand` was a local that went out of scope — so a
+    // room's cast beyond the first character was never loaded by the transition
+    // at all. Those characters were loaded later, one per frame, when their
+    // actors spawned and demanded them through the GLOBAL demand: after the
+    // reveal, in the open. Measured on the host 2026-09-02 as 111 placeholder
+    // rectangles at the hall's reveal and 434 MP arriving over three seconds.
+    // The caller forwards this remainder into the global `CharacterLoadDemand`,
+    // and the reveal barrier waits on it (`inspect_demanded_characters`).
+    demand.pending().map(str::to_string).collect()
 }
 
 fn add_room_specific_sprites(
@@ -420,7 +502,7 @@ pub(crate) fn build_room_asset_manifest(
     states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
     registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
-) -> RoomAssetManifest {
+) -> (RoomAssetManifest, Vec<String>) {
     ensure_parallax_layers_for_room(
         assets,
         catalog,
@@ -428,7 +510,7 @@ pub(crate) fn build_room_asset_manifest(
         &room.metadata,
         Some(&quality.budget),
     );
-    demand_room_character_sheets(
+    let remainder = demand_room_character_sheets(
         room,
         staged_actor_names,
         assets,
@@ -441,8 +523,10 @@ pub(crate) fn build_room_asset_manifest(
         registry,
         authored_sheets,
     );
-
-    build_loaded_room_asset_manifest(room, staged_actor_names, assets)
+    (
+        build_loaded_room_asset_manifest(room, staged_actor_names, assets),
+        remainder,
+    )
 }
 
 /// Describe the handles already selected for an active room without mutating
@@ -630,6 +714,15 @@ impl RoomPreparationPrefetchState {
 pub(crate) struct ContributedRoomAssets {
     sequence: Option<u64>,
     manifest: Option<Arc<RoomAssetManifest>>,
+    /// The destination room and the plan's staged names, kept so the poll can
+    /// REBUILD the manifest as rationed sheets realize (a sheet realized after
+    /// the first build has pages the first manifest never saw).
+    room: Option<Arc<RoomSpec>>,
+    staged_actor_names: Vec<String>,
+    /// Every character token the transition demanded; see `inspect_demanded_characters`.
+    demanded_characters: Vec<String>,
+    /// How many of `demanded_characters` were realized when `manifest` was built.
+    realized_at_build: usize,
 }
 
 /// Build the destination room's dependency set the first time the engine hands
@@ -651,6 +744,8 @@ pub(crate) fn contribute_room_transition_assets_system(
     let Some(active) = transitions.active.as_mut() else {
         contributed.sequence = None;
         contributed.manifest = None;
+        contributed.room = None;
+        contributed.demanded_characters.clear();
         return;
     };
     if contributed.sequence == Some(active.sequence) || active.asset_readiness_complete {
@@ -701,11 +796,12 @@ pub(crate) fn contribute_room_transition_assets_system(
     };
 
     // the browser recorded NOTHING here, and this is the burst that most
-    // needed measuring: `build_room_asset_manifest` materializes the whole staged
-    // cast synchronously, and Hall of Characters stages 129 distinct ones.
+    // needed measuring: `build_room_asset_manifest` STAGES the whole cast
+    // synchronously (Hall of Characters stages 129 distinct ones) and realizes
+    // them one per frame from then on.
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
     let manifest_started = bevy::platform::time::Instant::now();
-    let manifest = build_room_asset_manifest(
+    let (manifest, remainder) = build_room_asset_manifest(
         target_spec,
         &active.staged_actor_names,
         assets,
@@ -719,6 +815,21 @@ pub(crate) fn contribute_room_transition_assets_system(
         &context.authored_sheets,
     );
     active.asset_manifest_duration = Some(manifest_started.elapsed());
+    // The characters the ration did not realize this frame: hand them to the
+    // engine's global demand so `materialize_demanded_character_sheets` loads
+    // them one per frame BEHIND the cover, which the barrier below holds until
+    // they are in.
+    if let Some(demand) = context.character_load_demand.as_deref_mut() {
+        demand.request_all(remainder.iter().map(String::as_str));
+    } else if !remainder.is_empty() {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::room_transition",
+            "room '{}': {} character(s) beyond the per-frame ration have no global \
+             CharacterLoadDemand to be handed to; they will load when their actors spawn",
+            active.target_room_id,
+            remainder.len(),
+        );
+    }
     let now = context.real_time.as_deref().map(|time| time.elapsed());
     if let Some(cache) = context.prefetch.as_deref_mut() {
         let assets_promoted = cache.classify_promotion(
@@ -730,9 +841,22 @@ pub(crate) fn contribute_room_transition_assets_system(
         );
         active.prefetch_hit &= assets_promoted;
     }
-    let manifest_is_empty = manifest.is_empty();
-    let readiness = inspect_room_asset_manifest(asset_server, context.images.as_deref(), &manifest);
+    let demanded = room_character_tokens(target_spec, &active.staged_actor_names);
+    let mut readiness =
+        inspect_room_asset_manifest(asset_server, context.images.as_deref(), &manifest);
+    inspect_demanded_characters(
+        &demanded,
+        assets,
+        Some(&*character_load_states),
+        &mut readiness,
+    );
+    // Empty means NOTHING to wait for — including no character still decoding.
+    let manifest_is_empty = manifest.is_empty() && readiness.total == 0;
     active.observe_asset_progress(readiness.settled, readiness.total, now.unwrap_or_default());
+    contributed.realized_at_build = realized_character_count(&demanded, assets);
+    contributed.room = Some(Arc::new(target_spec.clone()));
+    contributed.staged_actor_names = active.staged_actor_names.clone();
+    contributed.demanded_characters = demanded;
     contributed.manifest = Some(Arc::new(manifest));
 
     if !readiness.failed.is_empty() {
@@ -788,9 +912,13 @@ pub(crate) fn contribute_room_transition_assets_system(
 pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
     images: Option<Res<Assets<Image>>>,
+    assets: Option<Res<GameAssets>>,
+    character_load_states: Option<
+        Res<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    >,
     time: Res<Time<Real>>,
     mut transitions: ResMut<RoomTransitionLoadState>,
-    contributed: Res<ContributedRoomAssets>,
+    mut contributed: ResMut<ContributedRoomAssets>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: bevy::prelude::MessageWriter<LoadEvent>,
 ) {
@@ -804,11 +932,34 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     if contributed.sequence != Some(active.sequence) {
         return;
     }
+    if contributed.manifest.is_none() {
+        return;
+    }
+    // Sheets realize one per frame AFTER the manifest was built, and each brings
+    // page handles the first build never saw. Rebuild the (non-mutating)
+    // description whenever the realized count moved, so the barrier waits on
+    // those pages too and not only on "is it realized yet".
+    if let (Some(assets), Some(room)) = (assets.as_deref(), contributed.room.clone()) {
+        let realized = realized_character_count(&contributed.demanded_characters, assets);
+        if realized != contributed.realized_at_build {
+            let manifest =
+                build_loaded_room_asset_manifest(&room, &contributed.staged_actor_names, assets);
+            contributed.manifest = Some(Arc::new(manifest));
+            contributed.realized_at_build = realized;
+        }
+    }
     let Some(manifest) = contributed.manifest.as_ref() else {
         return;
     };
-
-    let readiness = inspect_room_asset_manifest(&asset_server, images.as_deref(), manifest);
+    let mut readiness = inspect_room_asset_manifest(&asset_server, images.as_deref(), manifest);
+    if let Some(assets) = assets.as_deref() {
+        inspect_demanded_characters(
+            &contributed.demanded_characters,
+            assets,
+            character_load_states.as_deref(),
+            &mut readiness,
+        );
+    }
     if !readiness.failed.is_empty() {
         let detail = format!(
             "room '{}' failed to load {} activation-critical asset(s): {}",
@@ -1101,7 +1252,12 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 }
             };
         let staged_names = construction_plan.content_staged_names();
-        let manifest = build_room_asset_manifest(
+        // The prefetch stages and declares a neighbour's cast and realizes the
+        // ration's worth; the remainder is deliberately NOT forwarded to the
+        // global demand — loading a neighbour's whole cast in the open, one per
+        // frame, is the hitch this file exists to avoid. The transition into that
+        // room forwards it, behind its cover.
+        let (manifest, _not_forwarded) = build_room_asset_manifest(
             room,
             &staged_names,
             &mut assets,
@@ -1151,6 +1307,33 @@ mod tests {
     // rather than by prelude glob — so the trait has to be named too.
     use bevy::asset::AssetApp;
     use bevy::prelude::App;
+
+    /// A character the room DEMANDED but the ration has not yet realized holds
+    /// the reveal; one nothing declares does not (nothing will ever arrive for
+    /// it, and the sprites system names the typo). Ready ones are answered by
+    /// their pages in the manifest, not counted twice here.
+    #[test]
+    fn a_declared_but_unrealized_character_is_pending_and_an_unknown_one_is_not() {
+        let mut assets = GameAssets::default();
+        assets.characters.declare("npc_busy_beaver", "Busy Beaver");
+        let tokens = vec![
+            "npc_busy_beaver".to_string(),
+            "Busy Beaver".to_string(),
+            "nobody_declares_this".to_string(),
+        ];
+        let mut readiness = RoomAssetReadiness::default();
+        inspect_demanded_characters(&tokens, &assets, None, &mut readiness);
+        assert_eq!(readiness.total, 2, "both tokens of the declared character count");
+        assert_eq!(readiness.settled, 0);
+        assert_eq!(
+            readiness.pending,
+            vec![
+                "character:npc_busy_beaver (not yet decoded)".to_string(),
+                "character:Busy Beaver (not yet decoded)".to_string(),
+            ]
+        );
+        assert!(!readiness.is_ready(), "a declared, unrealized character holds the reveal");
+    }
 
     #[test]
     fn placeholder_image_handles_never_enter_room_manifests() {

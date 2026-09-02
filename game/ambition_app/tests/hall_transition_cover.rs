@@ -64,8 +64,10 @@ fn settle_cast(app: &mut App, secs: u64) {
     }
 }
 
-#[test]
-fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
+/// Boot the no-window shipping host, walk the launcher into gameplay, and
+/// record the hub → Hall transition through the room graph (not synthesised).
+/// Returns the staged-cast size BEFORE the transition was recorded.
+fn boot_and_record_the_hall_transition() -> (App, usize) {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
@@ -137,6 +139,12 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
                 },
             ),
         );
+    (app, before)
+}
+
+#[test]
+fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
+    let (mut app, before) = boot_and_record_the_hall_transition();
     // the loop must not be the assertion. It waits for the cast to grow AT
     // ALL and then measures that same frame, so a Hall that trickled its
     // characters in ten at a time still fails the bill below. A loop that waited
@@ -275,5 +283,130 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     assert!(
         report.contains("Still pending:") && report.contains("hall_of_characters"),
         "the stall report does not name the room and its outstanding assets: {report}"
+    );
+}
+
+/// The characters the hall PLACES, read from the room spec so a placement whose
+/// actor failed to spawn cannot hide.
+fn hall_character_ids(app: &mut App) -> Vec<String> {
+    use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+    let room_set = query.iter(app.world()).next().expect("a session room set");
+    let hall = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "hall_of_characters")
+        .expect("the hall is in the room set");
+    let mut ids: Vec<String> = hall
+        .placements
+        .iter()
+        .filter_map(|placement| match &placement.schema {
+            PlacementSchema::Interactable(spec) => match &spec.kind {
+                InteractionKindSpec::Npc {
+                    character_id: Some(id),
+                    ..
+                } => Some(id.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+/// ⛔⛔ THE BARRIER RELEASED WHILE 111 OF THE HALL'S SHEETS WERE ONLY DECLARED.
+///
+/// Measured on the host 2026-09-02 (`desktop-timeline-run-20260902T015909Z`):
+/// the cover retired 66 ms after the door (`asset_wait_ms=3`), 111 actors drew
+/// the placeholder rectangle with the engine's own warning — *"declared as
+/// 'npc_busy_beaver' but not materialized"* — and 434 MP of art arrived in the
+/// open over three seconds as nine frames of 89-355 ms. Loads are rationed to
+/// one character per frame; the manifest held only the realized sheets' pages;
+/// the test above counted STAGED characters and stayed green.
+///
+/// The rule, frame by frame: as long as any placed character's sheet is still
+/// `Declared` with no terminal outcome, the transition's asset readiness is NOT
+/// complete. A `NoWindow` host decodes almost nothing, so here the barrier is
+/// expected never to release — and the sheets must still REALIZE (one per
+/// frame), which is the progress that proves the loop was not idle.
+#[test]
+fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
+    use ambition_platformer2d::sprite_sheet::character::CharacterSheetState;
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+
+    let (mut app, _before) = boot_and_record_the_hall_transition();
+    let ids = hall_character_ids(&mut app);
+    assert!(ids.len() > 50, "the hall places only {} characters?", ids.len());
+
+    let mut realized_first = None;
+    let mut realized_last = 0;
+    let mut frames_with_declared = 0;
+    for _frame in 0..400 {
+        step(&mut app);
+        let (declared, realized) = {
+            let assets = app.world().resource::<GameAssets>();
+            let states = app.world().resource::<
+                ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+            >();
+            let mut declared = 0;
+            let mut realized = 0;
+            for id in &ids {
+                match assets.characters.sheet_state(id) {
+                    CharacterSheetState::Ready(_) => realized += 1,
+                    CharacterSheetState::Declared { character_id }
+                        if states.outcome(character_id).is_none() =>
+                    {
+                        declared += 1
+                    }
+                    _ => {}
+                }
+            }
+            (declared, realized)
+        };
+        if realized_first.is_none() && realized > 0 {
+            realized_first = Some(realized);
+        }
+        realized_last = realized;
+        let state = app
+            .world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
+        );
+        let Some(active) = state.active.as_ref() else {
+            // The transition finished. Legal only with nothing left declared.
+            assert_eq!(
+                declared, 0,
+                "the transition released with {declared} of the hall's {} characters still                  only DECLARED — their art arrives after the reveal, in the open",
+                ids.len()
+            );
+            break;
+        };
+        if declared > 0 {
+            frames_with_declared += 1;
+            assert!(
+                !active.asset_readiness_complete,
+                "asset readiness reported COMPLETE while {declared} of the hall's {} placed                  characters were still only declared (realized so far: {realized}). The                  barrier is waiting on the realized sheets' pages and not on the characters                  it demanded.",
+                ids.len()
+            );
+        }
+    }
+    assert!(
+        frames_with_declared > 0,
+        "no frame ever had a declared-but-unrealized character; the ration this test          exists to cover was not exercised"
+    );
+    // One per frame, behind the cover, until the whole cast is realized. Before
+    // the remainder was forwarded to the global demand this stalled at the
+    // ration's worth (6 of 129) and the other 123 loaded after their actors
+    // spawned — after the reveal.
+    assert!(
+        realized_last >= ids.len(),
+        "only {realized_last} of the hall's {} characters realized in 400 frames (first \
+         sample {:?}); the ration's remainder is not reaching the global demand, so the \
+         rest will load after the reveal",
+        ids.len(),
+        realized_first
     );
 }

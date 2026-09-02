@@ -98,6 +98,28 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+### ⛔ The hardest rot to catch: a premise that is still true and no longer the point
+
+Twice in one sweep, a planning doc's stated premise **verified clean by grep**
+and its conclusion was nevertheless dead. This is worse than a false claim,
+because the obvious check confirms it.
+
+- `engine/participant-action-system.md` §P1: *"`GameMode::allows_gameplay()`
+  still treats `Dialogue` as globally unable to route gameplay input."* Still
+  literally true — the function is unchanged. But it is no longer the thing
+  deciding per-seat gameplay routing; a context claim in `SeatInputContexts` is,
+  and the whole open design question had been answered.
+- `engine/kinematic-world-objects.md` §K2: *"path motion still carries a string
+  `path_id`."* Also still literally true. But authoring became a native LDtk
+  `EntityRef`, so the string is a RESOLVED reference rather than the ambiguous
+  authored field the item existed to remove.
+
+⇒ **So do not stop at confirming the sentence. Ask what the sentence was FOR,
+and check whether anything else now does that job.** The cheap version: grep for
+the concept, not only for the identifier — and read the tests, which state
+intent in a way a type signature cannot. Both of these were settled by a test
+name and its assertion message, not by the code they describe.
+
 ⇒ **So: when you re-measure a planning file against `HEAD`, leave the receipt** —
 the sha, the date, and what you found, including "nothing had changed". A reader
 who cannot tell whether a claim was checked yesterday or six weeks ago has to

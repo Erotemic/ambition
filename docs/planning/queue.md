@@ -833,9 +833,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   actual re-export list.
   ✔ What survived the check was small and is now done: `control::DrivingParticipant`
   (8 uses, really `ambition_characters::control::DrivingParticipant`).
-  ⚠ One genuine case is LEFT ON PURPOSE: `character_runtime::prepare_and_finalize_for_test`
-  (33 uses, really `ambition_characters`) is test-support, and its hub file is
-  open in another session tonight.
+  ✔ **AND THE ONE CASE I LEFT "ON PURPOSE" TURNS OUT NOT TO BE A CASE.**
+  `character_runtime::prepare_and_finalize_for_test` (33 uses, really
+  `ambition_characters::prepared`) looked like the same laundering, and the row
+  said it was deferred only because its hub file was open in another session.
+  Read afterwards: the re-export is `#[cfg(test)] pub(crate) use`. It is
+  test-only AND crate-private, so no consumer can reach it and nothing is being
+  laundered — it is an ordinary local alias for a test helper, which is what
+  those are for. ⇒ **Do not re-point it.** The `features` case was a problem
+  because it was `pub`: a name a consumer could learn the wrong path to.
   ⇒ **The `features` facade was the real hub; the rest of the kernel is close to
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.

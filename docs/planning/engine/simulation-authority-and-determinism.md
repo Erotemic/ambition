@@ -143,10 +143,13 @@ Where it stands (re-verified 2026-09-02):
   frames. `RollbackRestoreAudit` is the oracle that sees them; the same poison
   fails it at frame 2 naming `Sentry`. A poison periodic in the check window
   (`n % 7` at distance 7) cancels and proves nothing — measured.
-- open: **semantic identity across a rewind** (the `SimId` a resimulation mints
-  for a runtime-spawned entity is the one the first pass minted) is asserted
-  only indirectly, through the checksummed `SimId`; **session ownership** is
-  covered by `rollback_lifecycle_reset.rs` / `session_ownership_tests.rs`;
+- ✔ **semantic identity across a rewind** is covered by the same timeline, and
+  measured rather than inferred: `SimId` is canonical AND checksummed, the
+  fixture fires a bolt every nine frames inside seven-frame check windows, so
+  every mint is replayed — and minting from a process-global counter instead
+  of the spawner's `SimIdCounter` (poison in `sim_identity.rs`) desyncs the
+  session at frame 2. **Session ownership** is covered by
+  `rollback_lifecycle_reset.rs` / `session_ownership_tests.rs`;
   **selection/composition** is S3.
 
 ### S2 — remove authoritative non-rewinding memory — ✔ CLOSED 2026-09-02
@@ -247,8 +250,8 @@ most one per key, so re-placing is the same object. The collision was the
 fixture's: hand-minted `slot:0/0` met the subject's first bolt, which is why
 the fixture now draws from the subject's own `SimIdCounter` like every
 production spawner. Poison: drop the portal's id and the census names it.
-Open: the semantic half — proving a resimulation re-mints the SAME ids the
-first pass minted (today only indirect, through the checksummed `SimId`).
+The semantic half — a resimulation re-mints the SAME ids — is proven by the
+S1 timeline (see S1: a process-global mint counter desyncs it at frame 2).
 
 ### S5 — phase and ownership decomposition
 

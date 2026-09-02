@@ -1206,10 +1206,10 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     app.add_systems(
         Update,
         (
-            crate::features::tick_boss_brains_system,
-            crate::features::trigger_boss_attack_moves,
+            ambition_boss_encounter::ecs::tick_boss_brains_system,
+            ambition_boss_encounter::ecs::trigger_boss_attack_moves,
             ambition_combat::moveset::advance_move_playback,
-            crate::features::project_boss_attack_state_from_move,
+            ambition_boss_encounter::ecs::project_boss_attack_state_from_move,
             route_boss_strikes_to_limbs,
             fan_out_limb_intents,
         )

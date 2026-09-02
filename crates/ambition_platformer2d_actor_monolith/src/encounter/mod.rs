@@ -66,8 +66,8 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 drive_wave_encounters
                     .in_set(WaveEncounterDriven)
                     .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
-                crate::features::apply_gameplay_banner_requests,
-                crate::features::tick_gameplay_banner,
+                ambition_combat::banner::apply_gameplay_banner_requests,
+                ambition_combat::banner::tick_gameplay_banner,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation),
@@ -94,7 +94,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             contribute_encounter_lock_walls
                 .after(crate::features::FeatureWorldOverlaySet)
-                .before(crate::features::update_ecs_hazards)
+                .before(ambition_combat::hazards::update_ecs_hazards)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // ITS SIBLING: the walls an AUTHORED CONDITION opens rather than an
@@ -106,7 +106,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             crate::world::gated_lock_walls::sync_authored_gated_lock_walls
                 .after(crate::features::FeatureWorldOverlaySet)
-                .before(crate::features::update_ecs_hazards)
+                .before(ambition_combat::hazards::update_ecs_hazards)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
     }

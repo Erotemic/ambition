@@ -21,7 +21,7 @@
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
-use crate::features::HeldItem;
+use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::BodyMana;

@@ -1044,7 +1044,7 @@ mod authored_enemy_reads_its_character {
         app.update();
 
         let world = app.world_mut();
-        let mut q = world.query::<&crate::features::HeldItem>();
+        let mut q = world.query::<&ambition_combat::held_items::HeldItem>();
         q.iter(world).next().map(|held| held.spec.id.clone())
     }
 

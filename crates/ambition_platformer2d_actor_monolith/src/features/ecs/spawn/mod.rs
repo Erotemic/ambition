@@ -974,7 +974,7 @@ impl RoomFeatureConstructionPlan {
     ) -> RoomFeatureConstructionReceipt {
         // Every actor-owned authoritative family is a plan row, committed below
         // with its relations. Capability-owned families use sibling lanes.
-        commands.insert_resource(crate::features::FactionRelations::default());
+        commands.insert_resource(ambition_combat::targeting::FactionRelations::default());
 
         let construction = {
             let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {

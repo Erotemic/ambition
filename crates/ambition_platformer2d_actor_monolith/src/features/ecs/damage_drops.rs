@@ -116,7 +116,7 @@ const EXPLODER_BLAST_KNOCKBACK: f32 = 1.6;
 const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 
 /// Spawn the death blast of a volatile mite: a one-shot Enemy-faction
-/// [`Hitbox`](crate::features::Hitbox) centered on the corpse. Enemy faction, so
+/// [`Hitbox`](ambition_combat::hitbox::Hitbox) centered on the corpse. Enemy faction, so
 /// `apply_hitbox_damage` routes it at the *player* (not other enemies — the blast
 /// doesn't chain), and the player's shield/parry can still negate it. `owner` is
 /// the dying mite (moot for ignore-self, since the blast never hits its own side).

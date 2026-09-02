@@ -200,6 +200,16 @@ parking and waking) rather than per-system dispatch, and the floor is what the
 systems DO — ~2400 small bodies of real work at ~1.3 us each. ⇒ reducing it
 means running fewer of them, not scheduling them differently.
 
+By crate, the same profile: **`bevy_ecs` 34%**, core/alloc/std 10%, kernel 8%,
+mimalloc 7%, leafwing 3.3%, and every `ambition_*` crate together ~6%. Inside
+`bevy_ecs`: `QueryState::update_archetypes_unsafe_world_cell` 9.4% +
+`new_archetype` 3.1% — the per-system, per-query "did new archetypes appear"
+check, ~70 ns a call times several thousand calls a frame — then
+`System::run_without_applying_deferred` 4%, `apply_deferred` 1.2%. With two
+actors, a third of the frame is the ECS's own per-system bookkeeping, and the
+game's code is a rounding error. That is the number to hold up against the
+system count.
+
 ⇒ The shipped frame is not one slow system; it is **~2400 system runs per
 frame at ~1.5 us each with allocation on the way** — 3234 systems in 33
 schedules, of which the harness composition needs 2373 and the direct sandbox

@@ -1243,7 +1243,11 @@ product ruling.
   runtime. The fix is retargeting each declaration at
   `../sprites_0_25x/player_robot_v3_spritesheet.png` (0.5 MP, preview survives)
   — in the map submodule, so it waits for Jon's yes. Measured via the image
-  stage ledger (`demand=unknown`, asset index 4).
+  stage ledger (`demand=unknown`, asset index 4). ⚠ It is also the player's
+  own sheet decoded TWICE per session — `game://sprites/…` by the LDtk spine
+  at boot, `sprites/…` by the realization after the first `room-loaded` (host
+  captures `015511Z`/`015909Z`) — a pair the re-decode census cannot see
+  because two sources are two asset ids.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

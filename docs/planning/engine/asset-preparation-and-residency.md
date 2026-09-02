@@ -411,8 +411,15 @@ Not covered, honestly reported: source IO and decode are one stage here
 (Bevy's loader does both on the IO pool and `Added` fires after); "resident
 use" (first draw) is not stamped; an image demanded by a road that calls
 neither funnel prints `demand=unknown` — in the hall that is exactly one,
-the player's own `game://sprites/player_robot_v3_spritesheet.png`, whose load
-site is still to be found and routed. `[image-gpu]` lines only appear with a
+`game://sprites/player_robot_v3_spritesheet.png`: found 2026-09-02, it is
+`bevy_ecs_ldtk` loading the four worlds' editor-preview tileset (`relPath:
+../sprites/player_robot_v3_spritesheet.png`) through the `game` source — the
+same file the player's realization decodes again as `sprites/…` through the
+default source (host captures `015511Z`/`015909Z`: 7.6 MP at 0.8 s game time
+and again 0.15 s after `room-loaded`). ⚠ Two sources make two asset ids, so
+the ledger's re-decode census, keyed by path string, cannot see this pair;
+the fix is the tileset retarget in `queue.md`'s host section (Jon's
+submodule), not a route. `[image-gpu]` lines only appear with a
 render world; headless runs show `awaiting gpu` growing instead, which is the
 readout saying nobody uploaded.
 

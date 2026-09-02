@@ -364,6 +364,21 @@ fn claim_lane_ids(
     Ok(())
 }
 
+/// Whether a placement is an authored ACTOR for the population cap's purposes:
+/// only NPC interactables. Doors, chests, pickups, hazards and portals are
+/// furniture, and a cap that counted them once omitted whichever came after
+/// the sixteenth — cast or furniture (see `counts_against_the_actor_cap`).
+fn placement_counts_against_the_actor_cap(
+    record: &ambition_platformer2d_world::placements::PlacementRecord,
+) -> bool {
+    match &record.schema {
+        ambition_entity_catalog::placements::PlacementSchema::Interactable(spec) => {
+            crate::features::ecs::spawn_static::counts_against_the_actor_cap(&spec.kind)
+        }
+        _ => false,
+    }
+}
+
 impl RoomFeatureConstructionPlan {
     #[allow(clippy::too_many_arguments)]
     pub fn prepare(
@@ -376,8 +391,32 @@ impl RoomFeatureConstructionPlan {
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
         let paths = room_spec_paths(room);
+        // ⭐ THE MEASUREMENT QUOTA IS SPENT HERE, AT PLAN TIME. A refused NPC
+        // used to be refused by its lowering interpreter, after the plan had
+        // frozen and canonicalised the row set — so it still got an
+        // authoritative root (an empty entity with an identity), the predicted
+        // roster named it, and a capped and an uncapped build of the same room
+        // shared a plan id. Filtering the records before `plan_room` means a
+        // refused NPC has no row, no root and no id anywhere: the capped room
+        // IS a smaller room. Authored order, so the same cap admits the same
+        // cast every run; inert (every record kept) unless a developer cap is
+        // installed.
+        let admission = ambition_characters::actor::ActorAdmission::new(
+            construction
+                .population_cap
+                .copied()
+                .unwrap_or(ambition_characters::actor::AuthoredPopulationCap::UNCAPPED),
+        );
+        let admitted_records: Vec<_> = room
+            .placements
+            .iter()
+            .filter(|record| {
+                !placement_counts_against_the_actor_cap(record) || admission.admit_actor()
+            })
+            .cloned()
+            .collect();
         let placements = registry
-            .plan_room(&room.id, &paths, &room.placements)
+            .plan_room(&room.id, &paths, &admitted_records)
             .map_err(RoomFeatureConstructionError::Placement)?;
         let owned_content_requests = content_staging
             .try_owned_requests_for(room)
@@ -673,15 +712,6 @@ impl RoomFeatureConstructionPlan {
         }
         if let Some(forced) = construction.forced_brains {
             placement_context = placement_context.with_forced_brains(forced);
-        }
-        // ⭐ THE MEASUREMENT QUOTA'S TRANSACTION BOUNDARY. `prepare` runs exactly
-        // once per room build and the context below lives as long as this plan,
-        // so a quota opened here cannot outlive the lowering it belongs to —
-        // and a reload of the SAME room gets a fresh one. Inert unless a
-        // developer cap is installed (`AMBITION_ACTOR_POPULATION_CAP`, read by
-        // `ambition_dev_tools` and published as a resource, never read here).
-        if let Some(cap) = construction.population_cap {
-            placement_context = placement_context.with_population_cap(*cap);
         }
         Ok(Self {
             room: room.clone(),

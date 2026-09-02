@@ -1334,55 +1334,55 @@ mod authored_enemy_reads_its_character {
     // supply one.
 }
 
-/// The developer population cap reaches the lowering as a VALUE on the plan's
-/// context — D33's third read, inverted. A capped construction context admits
-/// the first n actors of ITS plan and a second plan from the same room starts
-/// with a full quota (the two defects the process-global counter had). Red
-/// with the cap not threaded (`for_room_construction` dropping it: every
-/// lowering admits all four).
+/// The developer population cap is spent at PLAN time — D33's third read,
+/// inverted, and then moved one step earlier. A capped construction context
+/// plans the first n NPC placements and no others: a refused NPC has no plan
+/// row and no authoritative id (it used to get a root and an id and be refused
+/// by its lowering). Furniture never counts. A second plan of the same room
+/// starts with a full quota. Red with the cap not threaded (`for_room_
+/// construction` dropping it: every plan carries all four).
 #[test]
-fn the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota() {
+fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_characters::actor::AuthoredPopulationCap;
     use ambition_entity_catalog::placements::{
-        DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
+        InteractableSpec, InteractionKindSpec, PlacementKind, PlacementSchema,
     };
     use ambition_platformer2d_core::Vec2;
-    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
     use ambition_platformer2d_world::placements::PlacementRecord;
 
-    #[derive(bevy::prelude::Component)]
-    struct Admitted;
-
-    // A stand-in ACTOR lowering: it asks the context's quota the way
-    // `lower_interactable_placement` does for an NPC, and leaves a trace only
-    // when admitted. Hazard records, because they need no catalog to plan.
-    fn admitting_lowering(_record: &PlacementRecord, ctx: &mut LoweringCtx<'_, '_, '_>) {
-        if ctx.context.admission.admit_actor() {
-            ctx.commands.spawn(Admitted);
-        }
-    }
-
+    // Planning needs an interpreter per kind; lowering never runs here.
+    fn inert(_record: &PlacementRecord, _ctx: &mut LoweringCtx<'_, '_, '_>) {}
     let mut registry = PlacementLoweringRegistry::default();
     registry
-        .try_register(PlacementKind::Hazard, "test", "spawn_test", "hazard.v1", admitting_lowering)
+        .try_register(PlacementKind::Interactable, "test", "spawn_test", "interactable.v1", inert)
         .unwrap();
     let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "capped_room",
         ae::World::new("capped_room", Vec2::splat(1000.0), Vec2::ZERO, Vec::new()),
     );
+    // A door first, so furniture is seen not to count against the cap.
+    room.placements.push(PlacementRecord::new(
+        "door",
+        PlacementSchema::Interactable(InteractableSpec::new(
+            "Door",
+            InteractionKindSpec::Door { target: None },
+        )),
+        ae::Aabb::new(Vec2::new(-20.0, 0.0), Vec2::splat(4.0)),
+    ));
     for index in 0..4 {
         room.placements.push(PlacementRecord::new(
-            format!("actor_{index}"),
-            PlacementSchema::Hazard(HazardSpec {
-                damage: 1,
-                knockback: [0.0, 0.0],
-                kind: DamageKind::Hazard,
-                team: DamageTeam::Environment,
-                hitstop_seconds: 0.0,
-                respawn: HazardRespawn::Never,
-                path_id: None,
-            }),
+            format!("npc_{index}"),
+            PlacementSchema::Interactable(InteractableSpec::new(
+                format!("NPC {index}"),
+                InteractionKindSpec::Npc {
+                    character_id: Some("goblin".into()),
+                    dialogue_id: None,
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: None,
+                },
+            )),
             ae::Aabb::new(Vec2::new(index as f32 * 10.0, 0.0), Vec2::splat(4.0)),
         ));
     }
@@ -1390,7 +1390,7 @@ fn the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota() {
     let boss_catalog = ambition_boss_encounter::test_boss_catalog();
     let recipes = crate::construction::engine_construction_registry();
 
-    let admitted_under = |cap: Option<&AuthoredPopulationCap>| -> usize {
+    let planned_under = |cap: Option<&AuthoredPopulationCap>| -> Vec<String> {
         let plan = RoomFeatureConstructionPlan::prepare(
             &room,
             &registry,
@@ -1410,22 +1410,36 @@ fn the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota() {
             ),
         )
         .expect("the room prepares");
-        let mut app = App::new();
-        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        app.add_systems(Update, move |mut commands: Commands| {
-            spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
-        });
-        app.update();
-        app.world_mut().query::<&Admitted>().iter(app.world()).count()
+        // A door plans no row (inert furniture), so the id set is the NPCs
+        // alone — which is also why a door ahead of them proves it did not
+        // spend the quota.
+        plan.expected_authoritative_ids()
+            .iter()
+            .filter(|id| id.starts_with("placement:npc_"))
+            .cloned()
+            .collect()
     };
 
-    assert_eq!(admitted_under(None), 4, "no developer cap: every actor is admitted");
-    let two = AuthoredPopulationCap::capped_at(2);
-    assert_eq!(admitted_under(Some(&two)), 2, "a cap of two admits the first two");
     assert_eq!(
-        admitted_under(Some(&two)),
-        2,
-        "a SECOND plan of the same room under the same cap starts with a full quota — the \
-         process-global counter this replaces admitted nobody here"
+        planned_under(None),
+        vec![
+            "placement:npc_0",
+            "placement:npc_1",
+            "placement:npc_2",
+            "placement:npc_3"
+        ],
+        "no developer cap: every NPC is planned"
+    );
+    let two = AuthoredPopulationCap::capped_at(2);
+    assert_eq!(
+        planned_under(Some(&two)),
+        vec!["placement:npc_0", "placement:npc_1"],
+        "a cap of two plans the FIRST two NPCs (the door ahead of them did not count); the \
+         refused two have no row and no authoritative id"
+    );
+    assert_eq!(
+        planned_under(Some(&two)),
+        vec!["placement:npc_0", "placement:npc_1"],
+        "a SECOND plan of the same room under the same cap starts with a full quota"
     );
 }

@@ -760,19 +760,58 @@ The one unresolved developer-policy choice from the session-ownership work is in
     inversion for the quota: the developer plugin publishes
     `AuthoredPopulationCap` (env parsed once in `ambition_dev_tools::
     population_cap::from_env`), `for_room_construction` takes it as a
-    PARAMETER (all six roads state it), and the quota itself is
-    `ActorAdmission` ON THE PLACEMENT CONTEXT — built once per construction
-    plan, so its lifetime is the plan's by construction and
-    `begin_room_lowering` is deleted with both statics. Guards: the quota's
-    own arithmetic (`ambition_characters`), the cap riding the plan with a
-    fresh quota per plan (`the_population_cap_rides_the_plan_and_each_plan_
-    gets_its_own_quota`), and the plugin publishing it (app-level). The census
-    row now reports the cap IN FORCE (the resource), not the environment;
-  * `features/mod.rs:350` — `runtime_census`, the mildest (cfg'd and
-    census-gated) — the ONE production read left.
-  The first two are the simulation reading developer state to decide what the
-  world contains, which is precisely the authority this carve exists to remove.
-  ⇒ THE `Cargo.toml` DEPENDENCY STAYS and the dev_tools slice is NOT closed.
+    PARAMETER (all six roads state it), and the quota (`ActorAdmission`) is
+    spent AT PLAN TIME in `RoomFeatureConstructionPlan::prepare`, before
+    `plan_room` — so a refused NPC has no row, no authoritative root and no
+    id, and a capped build of a room is a smaller plan rather than the same
+    plan with lowerings that decline (the review's follow-up, closed the same
+    evening; the lowering-time refusal and `begin_room_lowering` are gone with
+    both statics). Guards: the quota's own arithmetic (`ambition_characters`),
+    the cap planning the FIRST n NPCs with a fresh quota per plan and
+    furniture not counting (`the_population_cap_is_spent_at_plan_time_and_
+    each_plan_gets_its_own_quota`, poison: every record kept), and the plugin
+    publishing it (app-level). The census row reports the cap IN FORCE (the
+    resource): headless hall with `AMBITION_ACTOR_POPULATION_CAP=5` reads
+    `actor_cap=5`, 6 bodies;
+  * ✔ **`features/mod.rs:350` — `runtime_census` — CLOSED 2026-09-02, AND THE
+    ROW'S OWN COUNT WAS WRONG.** It said *"the ONE production read left"*;
+    counted on main, non-comment and non-test, there were **TWO**, and the row's
+    *"none is instrumentation"* was wrong in the other direction — BOTH survivors
+    were instruments. The missing one was `features/ecs/actors/update.rs:606`,
+    `ambition_dev_tools::perception_census::note_world_view`, inside the
+    `build_world_view` loop.
+    ⭐ **AND NEITHER MEASUREMENT WAS DELETED TO REMOVE THEM**, which is the trap
+    this row named twelve lines up (*"the only ways to remove this edge are to
+    delete the measurement or to move `phase_mark` down, and both are carving for
+    a NUMBER"*). Each went by publishing the thing DOWNWARD — the third way
+    `AudioInitSet` had already taken:
+    * the census marks needed to name `ActorDecisionSet`, which was `pub(crate)`
+      in the kernel, so *"only this crate can name the sets"* was true. The enum
+      moved to `shared_tangle` beside `WorldPrepSet` and `PlayerInputSet` (which
+      the same function already imported from there), and
+      `runtime_census::install_sim_phase_boundaries` installs all seven marks
+      itself, beside the other twenty. The kernel still CONFIGURES the chain —
+      where the sets sit is its business and moved nowhere;
+    * `perception_census` is counted in a hot loop, so the number cannot be
+      recovered from outside; the 91-line COUNTER moved down to
+      `ambition_characters::perception::census` (the crate that defines
+      `WorldView`, which is what it counts) and the developer crate still owns
+      `enable`, `drain` and the report.
+    ⭐⭐ **SO `ambition_dev_tools` IS OFF THE KERNEL'S `[dependencies]` — it is a
+    `[dev-dependency]` now**, which the `#[cfg(test)]` live-refresh and reset
+    tests still need. ⛔ AND THE MOVE IS ITS OWN GUARD, with no test to rot:
+    a production `use ambition_dev_tools::…` in that crate's `src/` no longer
+    COMPILES. Poison-verified by adding one — `error[E0433]: cannot find module
+    or crate `ambition_dev_tools` in this scope`.
+  The first two were the simulation reading developer state to decide what the
+  world contains, which is precisely the authority this carve exists to remove;
+  the last two were instruments, and the inversion kept both.
+  ⇒ **THE `Cargo.toml` PRODUCTION DEPENDENCY IS GONE and the dev_tools slice IS
+  CLOSED.** ⚠ What it did NOT buy is a smaller product closure: this row already
+  re-measured that `ambition_dev_tools` has 6 dependents and the facade names it
+  directly, so nothing downstream drops it. The payoff is ownership — the
+  simulation kernel no longer names the developer crate, and cannot again
+  without a manifest change.
   ▢ **The next slice's shape, agreed 2026-09-02 and deliberately not started
   without review**: *the sim reads a SESSION-owned override that the dev tool
   WRITES, never the dev crate itself* — the same inversion `ClockScaleRequest`

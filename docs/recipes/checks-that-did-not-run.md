@@ -25,6 +25,31 @@ the argument for the rule at the bottom of this page. Re-check a member against
 the current `HEAD` before you repeat it to anybody; a catalogue of gate holes is
 a claim about a changing repository, exactly like a queue row.
 
+## The question before the four
+
+⛔ **DID ANYONE RUN A CHECK AT ALL?** Everything below assumes a check ran and
+lied about its coverage. The plainer failure underneath the whole family is a
+check that was simply never run in the window where it mattered, and it produces
+an identical outcome: nobody knows.
+
+On 2026-09-02 `main` could not compile for several commits. `perception_census.rs`
+was renamed out of `ambition_dev_tools` in one commit and its
+`pub mod perception_census;` line in `lib.rs` was not removed until `01b7c7ca0`,
+so every commit in between failed with **E0583, file not found for module** — the
+loudest, least subtle error Rust has. It survived because the commits in that
+window were documentation-shaped and nobody compiled that crate.
+
+⭐ **AND IT SURVIVED A CONFLICT-FREE MERGE, WHICH IS THE PART TO REMEMBER.** A
+branch based before the rename merged `main` cleanly: its side kept the `lib.rs`
+line because it had never touched it, the other side deleted the file, and git
+was correct both times. A `rename … => …` in a merge's stat output for a file
+whose module is declared elsewhere is a semantic conflict a textual merge cannot
+see — and the merge reports success.
+
+So: "the gate is slow, I'll run it later" and "the gate is blind" have the same
+consequence. The four questions below are for the second case; this one is
+answered by running something at all, on the crate the merge just renamed.
+
 ## The four questions
 
 Ask these of any check you are about to trust. They are cheap, and each one

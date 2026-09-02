@@ -215,9 +215,13 @@ Re-verified 2026-09-02:
   on it. Guard: `two_stacked_victims_are_struck_in_identity_order_whatever_the_
   archetype_order` (spawns `[a, b]` and `[b, a]`; red without the key). The
   boss/breakable arms are `any()` predicates, order-free by construction.
-- still open: a CENSUS of first-wins `.find`/`break` loops over authoritative
-  queries outside these three, which nobody has taken; the melee victim loop
-  hits every overlapping body and has no first-wins to order.
+- censused the same day: every `.iter().find/min_by/max_by` in the sim-side
+  crates (11 sites) is a lookup by unique key (`enc.id == target`, `entity ==
+  body`, the portal partner) or a walk over an AUTHORED `Vec` (a boss's
+  damageable parts, `world.blocks`) — none selects among peers by query order.
+  The melee victim loop hits every overlapping body and has no first-wins to
+  order. `for … in query { … break }` shapes outside these were not swept; the
+  grep for them is noisy and the next one found should be added here.
 
 ### S4 — dynamic identity and provenance
 

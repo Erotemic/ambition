@@ -72,8 +72,15 @@ def repo_files() -> list[Path]:
     return [Path(p) for p in out]
 
 
-def source_text() -> str:
-    """Every tracked Rust/Python source, concatenated once.
+def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """Every tracked source with one of `suffixes`, concatenated once.
+
+    ⛔ THE SUFFIX ARGUMENT IS NOT A CONVENIENCE. Concatenating Rust and Python
+    into one index makes a name in either language qualify a citation in the
+    other, and they collide: a `class FontSource:` in a font-download script
+    made the checker judge Rust's upstream `FontSource::Family` as ours, then
+    report its variant missing — four findings from one collision. A citation in
+    a `.rs` file is judged against Rust definitions.
 
     One read beats a `grep -r` per citation: a full planning sweep asks a few
     hundred questions and the tree is large enough that the difference is
@@ -81,7 +88,7 @@ def source_text() -> str:
     """
     chunks = []
     for rel in repo_files():
-        if rel.suffix not in {".rs", ".py"}:
+        if rel.suffix not in suffixes:
             continue
         try:
             chunks.append((REPO / rel).read_text(errors="replace"))
@@ -186,7 +193,13 @@ def main() -> int:
     print(f"reading {len(list(repo_files()))} tracked files ...", file=sys.stderr)
     text = source_text()
     defined = defined_names(text)
-    ours = set(QUALIFIER.findall(text)) - dependency_crates()
+    deps = dependency_crates()
+    ours = set(QUALIFIER.findall(text)) - deps
+    # A citation inside a `.rs` file is judged against RUST names only; see
+    # `source_text`. Planning prose cites both languages, so it keeps the union.
+    rust_text = source_text((".rs",))
+    rust_defined = defined_names(rust_text)
+    rust_ours = set(QUALIFIER.findall(rust_text)) - deps
     print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
           file=sys.stderr)
     tracked = {str(p) for p in repo_files()}
@@ -217,10 +230,10 @@ def main() -> int:
                     head, tail = parts[0], parts[-1]
                     if tail in NOISE or len(tail) < 3:
                         continue
-                    if head in NOISE or head not in ours:
+                    if head in NOISE or head not in rust_ours:
                         continue
                     checked += 1
-                    if tail not in defined:
+                    if tail not in rust_defined:
                         findings.append((str(rel), lineno, m.group(0),
                                          "nothing DEFINES this name"))
     for doc in docs:

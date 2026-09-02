@@ -416,6 +416,18 @@ which is what makes this expressible without the new crate naming the kernel.
   and it goes silently vacuous the day that demo gains a rollback or fixed-tick
   host. Moving the system into `PreCollect` makes it host-independent, which is
   the actual reason to do it.
+  ✔ **AND THE REPO WAS SWEPT FOR THE SAME SHAPE — this is the only one.**
+  Searching every `add_systems(<explicit schedule>, …)` block for a
+  `.before`/`.after` naming a concrete cross-crate FUNCTION (rather than a set,
+  which carries no such hazard because both sides land wherever the set does)
+  returns exactly two: this, and `sim_core_resources.rs`'s
+  `apply_camera_shake_requests.before(camera_ease::tick_camera_shake)`.
+  ⭐ The camera one is SOUND and deliberately so — both sides are registered on
+  `Update` by name, split across composition groups for the reason its comment
+  gives (the applier lives with the resource it writes; the tick is the windowed
+  host's, because a headless run has no camera), so the edge binds; and if the
+  host plugin is absent there is no system to order against and the vacuity is
+  harmless. ⇒ Nobody needs to re-run this sweep.
 
 #### The two regressions each need a guard, and both must be poison-verified
 

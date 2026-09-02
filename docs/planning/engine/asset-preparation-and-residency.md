@@ -459,11 +459,51 @@ waste it cannot commit. Both rules are guarded on the pure ledger and
 poison-verified (drop first-write-wins and the guard names the instant that
 moved).
 
-⚠ **OWED: the `capture_scene hall_of_characters` number.** The end-to-end
-confirmation belongs to an OffscreenGpu run — `NoWindow` has no render world, so
-a headless test would wait for a draw forever — and the reading this section
-wants is `resident_never_drawn()` shrinking to the UI/prop art after the shot.
-Not taken yet.
+⭐⭐ **MEASURED 2026-09-02, `capture_scene hall_of_characters player --warmup 400`
+(llvmpipe, OffscreenGpu), byte-identical across two runs:**
+
+```text
+total 239 images, 30.7MP, 122.9MB resident | never drawn 195 (25.4MP)
+resident by road: UNROUTED(no demand) 9×7.9MP, PROCEDURAL(no file) 26×4.6MP,
+                  character-sheet 138×4.2MP, fx-sheet 41×9.6MP,
+                  parallax 4×2.4MP, boss-sheet 1×2.0MP, held-item 20×0.1MP
+```
+
+⇒ **44 of 239 images are drawn, and they are 5.3 of the 30.7 MP.** Eighty-three
+per cent of the resident megapixels are not on screen at that framing.
+⛔ THAT IS NOT A WASTE NUMBER AND MUST NOT BE QUOTED AS ONE. The hall places 129
+characters and the camera sees a slice of them; most of "never drawn" is
+off-camera, which is correct. What the number IS, and what no earlier stage could
+say, is the SIZE OF THE HEADROOM: the resident set is 5.8× the pixels the camera
+draws, so a residency policy that evicted on first-draw evidence has that much to
+work with. Open work 4 asks for the owner of retained assets before any eviction
+policy; this is the other half of that question.
+
+⭐ **AND THE UNROUTED SPLIT PAID FOR ITSELF ON THE FIRST HOST-SHAPED RUN.** Before
+`a20b5b1a2` that row read `? 35×12.5MP`; the nine real findings were invisible
+inside twenty-six procedural inserts. The census now names them:
+
+```text
+[image-unrouted] 9 file(s) decoded with no demand stamp:
+  7.6MP game://sprites/player_robot_v3_spritesheet.png   <- the editor-preview tileset
+  0.3MP sprites/shrine_spritesheet.png                    <- NEW, not previously known
+  0.0MP game://sprites/intro_lab_tileset.png
+  0.0MP sprites/props/portal_gun_blue.png                 <- NEW
+  0.0MP sprites/props/portal_gun_orange.png               <- NEW
+  0.0MP game://worlds/{hall_of_characters,intro,sandbox}.ldtk#int_grid_image (+1)
+```
+
+⇒ The 7.6 MP tileset is the one this document already identified by a bespoke
+ledger probe; it is on the census line now, every run, for free. The shrine sheet
+and the two portal-gun props are NEW — small, but they are art reaching
+`Assets<Image>` by a road that stamps nothing, which is the class this bucket
+exists to catch. The `#int_grid_image` rows are `bevy_ecs_ldtk`'s own, the same
+family as the tileset.
+
+⚠ Taken on a tree carrying another session's uncommitted population-cap work.
+That knob is inert with `AMBITION_ACTOR_POPULATION_CAP` unset, so it cannot move
+an image count — but the run is not a pure `main` reading and is recorded as
+such.
 
 <details><summary>The scoping note, kept because it is what the build was measured against</summary>
 

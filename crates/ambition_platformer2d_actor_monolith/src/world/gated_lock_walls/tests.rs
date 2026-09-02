@@ -259,7 +259,7 @@ fn swapping_the_room_set_alone_invalidates_the_cached_walls() {
 /// takes) and must OPEN once the provider arrives and the flag is set. A test
 /// that only checked the first would pass over a permanent `None`.
 #[test]
-fn a_wall_whose_question_cannot_be_prepared_yet_stands_and_is_retried() {
+fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves() {
     use ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog;
 
     let mut app = App::new();
@@ -296,7 +296,11 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_and_is_retried() {
          exactly the situations where the world is least well understood"
     );
 
-    // The provider arrives, and the flag it answers about is set.
+    // ⭐ THE PROVIDER ARRIVES, AND THAT EDGE IS WHAT RE-PREPARES. `publish_condition`
+    // mutates `ConditionCatalog`, the cache is keyed on that resource's change
+    // tick, so the question is prepared once here rather than re-parsed on every
+    // tick for every wall — which is what this system used to do to cover exactly
+    // this case. If the cache ever stops watching the catalog, this goes red.
     app.publish_condition(
         crate::world_facts::flag_set_descriptor(),
         crate::world_facts::flag_set,

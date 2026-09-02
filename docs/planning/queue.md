@@ -440,9 +440,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ The two real options are therefore: **(a)** `#[ignore]` plus an exact-filter
   script, as `measure_hall_redecodes.sh` does — correct, cheap, and it removes
   three asset guards from the suite; or **(b)** give the ledger an App/world
-  SCOPE so a row can be attributed. (b) is the honest fix and is not small; note
-  that `render_world_present` is already a process-global bool standing in for a
-  per-App fact, so the ledger has this shape of problem twice.
+  SCOPE so a row can be attributed. (b) is the honest fix and is not small.
+  ⭐ **THE LEDGER HAS THIS SHAPE OF PROBLEM TWICE**: `render_world_present` is
+  also a process-global `bool` standing in for a per-App fact — set true by
+  whichever App installs a render plugin, read for every App thereafter, and
+  `is_awaiting_gpu` gates on it. ⚠ **LATENT, NOT LIVE — measured**: all 97
+  `VisibleRenderMode` uses across `app_it` are `NoWindow`, so nothing in that
+  process ever sets it and it cannot currently give a wrong answer. It becomes
+  live the day one test builds a render world beside one that does not.
+  ⇒ Whoever takes (b) should scope BOTH: fixing row attribution while leaving a
+  global render-world flag leaves the ledger half-scoped, which is harder to
+  reason about than either end state.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

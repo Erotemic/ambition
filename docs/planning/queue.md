@@ -1092,16 +1092,25 @@ product ruling.
   the proof-pulse lifetime, character heights, fighter reach/tumble policy,
   ranged-recharge presentation, persistent foreign-room actor placement and
   dormant windbox/armor customers.
-- **One windowed capture with `FramePaceCap::Off`** (2026-09-01). Every frame
-  number to date was taken under the pacer. Prediction on record so it can be
-  wrong: it will NOT materially change the frame, because the limiter sleeps
-  only ~4 us/frame — it was on but not binding. See
-  [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
-- **One capture with `--no-tracy`**, to settle why the capture runs on for
-  minutes after the game is quit. Ruled out already: perf call-graph cost
-  (timeline-run uses none), perf.data size (1.2 MB), and quitting to the launcher
-  rather than the desktop. `TRACY_NO_EXIT` is opt-in and unset, so the client
-  cannot block forever — a bounded flush of queued zones remains possible.
+- **The first honest measurement of the shipped program in the hall**
+  (2026-09-01, supersedes the `FramePaceCap::Off` and `--no-tracy` captures
+  above, which the day's findings folded together): pull, rebuild, Video →
+  V-Sync **Off**, then `scripts/profile_desktop.sh --no-tracy`, walk into the
+  hall. Ledger label reads `no-features` + `present:Immediate`. Prediction on
+  record: 120-200 fps, main-thread frame 5-8 ms; see the "whole shipped host"
+  section of [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
+  for what each other outcome would mean. The frame-cap arm is answered by the
+  same run (cap Off, vsync Off).
+- **Why the capture runs on for minutes after the window closes:** reproduces
+  nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
+  `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's
+  Linux sampling/context-switch capture on the host; if the exit is instant,
+  make it the script's default.
+- **Two asset-campaign knobs to try in the hall on the 3090** (each recorded on
+  the census row and in the ledger label): `AMBITION_RENDER_ASSET_MB_PER_FRAME=64`
+  and `AMBITION_IMAGES_RENDER_WORLD_ONLY=1`. Read the hall-entry spike list,
+  `resident_mb`, and whether any sprite draws blank. See
+  [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 - **Whether to author a DENSE melee room** — a product call, not an engine one.
   Bounded attention (ADR 0034 increment 2) cannot be validated without it:
   `Perception::Sighted`'s viewport already caps kept peers at ~14 (max 21) and

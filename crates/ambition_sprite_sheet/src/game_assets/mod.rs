@@ -463,11 +463,30 @@ pub struct GameAssets {
 #[derive(Default, Clone)]
 pub struct FxSheetAssets {
     sheets: HashMap<&'static str, CharacterSpriteAsset>,
+    /// Where the sheets live (`{sprite_folder}/{target}_spritesheet.png`),
+    /// remembered at boot so a character-owned sheet can be demanded later
+    /// without the asset config in hand.
+    sprite_folder: String,
 }
 
 impl FxSheetAssets {
+    pub fn with_sprite_folder(sprite_folder: impl Into<String>) -> Self {
+        Self {
+            sheets: HashMap::default(),
+            sprite_folder: sprite_folder.into(),
+        }
+    }
+
+    pub fn sprite_folder(&self) -> &str {
+        &self.sprite_folder
+    }
+
     pub fn insert(&mut self, target: &'static str, asset: CharacterSpriteAsset) {
         self.sheets.insert(target, asset);
+    }
+
+    pub fn contains(&self, target: &str) -> bool {
+        self.sheets.contains_key(target)
     }
 
     pub fn get(&self, target: &str) -> Option<&CharacterSpriteAsset> {

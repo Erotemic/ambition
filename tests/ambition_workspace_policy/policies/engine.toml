@@ -1736,6 +1736,12 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     "ambition_damage",
     # Mount/rider link enforcement plus the four dismount/ride message channels.
     "ambition_mount",
+    # The TOUCHED collectible (D33, 2026-09-02), composed here for the same
+    # reason as `ambition_mount` and `ambition_damage` above: a domain carved out
+    # of the actor monolith is added by the RUNTIME, so no registration for it
+    # lands back in the kernel. `WorldItemSimulationPlugin` sits beside
+    # `ItemPickupSimulationPlugin`, its sibling across the touched/pressed split.
+    "ambition_world_items",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
     "ambition_gameplay_trace"]
@@ -2830,3 +2836,27 @@ deny = [
     "ambition_content",
     "ambition_app",
 ]
+
+[[policy]]
+id = "engine.ambition_world_items-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_world_items"]
+watch_paths = ["crates/ambition_world_items/Cargo.toml"]
+rationale = "ambition_world_items owns the PHYSICAL life of a touched collectible -- where it is, whether it is moving, and that walking into it collects it (D33, 2026-09-02). The list is the carve: geometry and the world from platformer2d_core, the equipment ROW it records from ambition_characters, the touch-collect rule and spawn scope from shared_tangle, and the simulation clock from ambition_time so a dilated world moves its pickups at the dilated rate. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed, and the sibling it split from (items::pickup, the PRESSED pickup) still lives there"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_time"]
+manifest = "crates/ambition_world_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_world_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_world_items"]
+watch_paths = ["crates/ambition_world_items/src"]
+rationale = "A collectible's PRESENCE is this crate's; its MEANING and its PICTURE are not. The equipment row it records is interpreted by reconcile_equipment_grants in the actor kernel, and its sprite is an art id a game resolves through WorldItemArt in ambition_render -- so naming either would be this crate reaching back up into the two consumers that read it. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_world_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]

@@ -463,7 +463,9 @@ fn build_startup_manifest(
             .unwrap_or(&Default::default()),
         &inputs.authored_sheets,
         &worn,
-        true,
+        // A fresh process has nothing an earlier room realized; the first
+        // room commit (`RoomResidencyOwners`) is where ownership is applied.
+        None,
     );
     remainder.forward_into(&mut inputs.character_load_demand);
     // A first room that authors a boss demands the dedicated boss sheets now,

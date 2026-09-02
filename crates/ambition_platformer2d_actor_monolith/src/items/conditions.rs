@@ -68,12 +68,12 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 /// as "no driven body holds it", not as "the player population holds nothing".
 fn player_hand_holds(world: &World, item: Item) -> bool {
     use bevy::prelude::With;
-    let holds = |held: &crate::features::HeldItem| Item::from_held_item_id(held.id()) == Some(item);
+    let holds = |held: &ambition_combat::held_items::HeldItem| Item::from_held_item_id(held.id()) == Some(item);
     let player_holds = world
-        .try_query_filtered::<&crate::features::HeldItem, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
+        .try_query_filtered::<&ambition_combat::held_items::HeldItem, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
         .is_some_and(|mut hands| hands.iter(world).any(holds));
     let driven_holds = world
-        .try_query_filtered::<&crate::features::HeldItem, With<ambition_characters::control::DrivingParticipant>>()
+        .try_query_filtered::<&ambition_combat::held_items::HeldItem, With<ambition_characters::control::DrivingParticipant>>()
         .is_some_and(|mut hands| hands.iter(world).any(holds));
     player_holds || driven_holds
 }
@@ -147,7 +147,7 @@ mod tests {
         let spec = ambition_characters::brain::held_item_by_id("gun_sword").unwrap();
         // An enemy wielding one: not the player's.
         app.world_mut()
-            .spawn(crate::features::HeldItem::new(spec.clone()));
+            .spawn(ambition_combat::held_items::HeldItem::new(spec.clone()));
         assert!(matches!(
             ask(app.world(), "gunsword"),
             ConditionOutcome::NotSatisfied(_)
@@ -156,7 +156,7 @@ mod tests {
         let player = app
             .world_mut()
             .spawn((
-                crate::features::HeldItem::new(spec),
+                ambition_combat::held_items::HeldItem::new(spec),
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             ))
             .id();
@@ -164,7 +164,7 @@ mod tests {
         // Put it down and the answer follows the hand, with nothing refreshed.
         app.world_mut()
             .entity_mut(player)
-            .remove::<crate::features::HeldItem>();
+            .remove::<ambition_combat::held_items::HeldItem>();
         assert!(matches!(
             ask(app.world(), "gunsword"),
             ConditionOutcome::NotSatisfied(_)

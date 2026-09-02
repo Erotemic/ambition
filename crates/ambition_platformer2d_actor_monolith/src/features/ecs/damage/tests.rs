@@ -1046,8 +1046,8 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
         );
     });
     app.update();
-    let mut q = app.world_mut().query::<&crate::features::Hitbox>();
-    let boxes: Vec<crate::features::Hitbox> = q.iter(app.world()).cloned().collect();
+    let mut q = app.world_mut().query::<&ambition_combat::hitbox::Hitbox>();
+    let boxes: Vec<ambition_combat::hitbox::Hitbox> = q.iter(app.world()).cloned().collect();
     assert_eq!(boxes.len(), 1, "the mite's death spawns one blast hitbox");
     assert_eq!(
         boxes[0].source,
@@ -1055,7 +1055,7 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
         "enemy side -> the blast damages the player, not other mites (no chain)",
     );
     assert_eq!(boxes[0].damage, EXPLODER_BLAST_DAMAGE);
-    if let crate::features::HitboxAnchor::World { center } = boxes[0].anchor {
+    if let ambition_combat::hitbox::HitboxAnchor::World { center } = boxes[0].anchor {
         assert_eq!(
             center,
             ae::Vec2::new(50.0, 60.0),
@@ -1850,7 +1850,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         (
             clear_iframes,
             project_moveset_melee_to_body_melee,
-            crate::features::apply_hitbox_damage,
+            ambition_combat::hitbox::apply_hitbox_damage,
             apply_feature_hit_events,
         )
             .chain(),

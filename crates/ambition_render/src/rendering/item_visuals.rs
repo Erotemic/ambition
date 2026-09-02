@@ -331,12 +331,12 @@ pub fn sync_ground_item_visuals(
     }
 }
 
-/// Marks a sprite entity visualizing a [`WorldItem`](ambition_platformer2d_actor_monolith::items::world_item::WorldItem).
+/// Marks a sprite entity visualizing a `WorldItem` (`ambition_world_items`).
 #[derive(Component)]
 pub struct WorldItemVisual;
 
 /// Game-supplied art for walk-into world items, keyed by the presentation `sprite`
-/// id a [`WorldItem`](ambition_platformer2d_actor_monolith::items::world_item::WorldItem) carries →
+/// id a `WorldItem` (`ambition_world_items`) carries →
 /// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
 /// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
 /// own pickups' images (e.g. Mary-O's star wand), keeping asset knowledge out of

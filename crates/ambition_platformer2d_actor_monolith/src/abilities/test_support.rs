@@ -4,7 +4,7 @@
 //! action set, held item, and mana. Keeping that bundle here lets each ability
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
-use crate::features::HeldItem;
+use ambition_combat::held_items::HeldItem;
 use ambition_characters::brain::{held_item_by_id, ActionSet};
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;

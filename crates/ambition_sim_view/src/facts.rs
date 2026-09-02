@@ -276,11 +276,11 @@ pub struct WorldItemFact {
 pub fn rebuild_world_items_view(
     mut view: ResMut<WorldItemsView>,
     items: Query<(
-        &ambition_platformer2d_actor_monolith::items::world_item::WorldItem,
-        Option<&ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>,
+        &ambition_world_items::world_item::WorldItem,
+        Option<&ambition_world_items::item_motion::ItemMotion>,
     )>,
 ) {
-    use ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload;
+    use ambition_world_items::world_item::WorldItemPayload;
     view.0.clear();
     view.0
         .extend(items.iter().map(|(item, motion)| WorldItemFact {

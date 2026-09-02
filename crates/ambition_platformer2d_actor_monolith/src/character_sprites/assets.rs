@@ -508,55 +508,6 @@ pub fn character_sprite_tier(quality: Option<&VisualQualityBudget>) -> TextureRe
         .unwrap_or(TextureResolutionScale::Full)
 }
 
-/// The sheet tier a ROOM caps its characters at, or `None` for no cap.
-///
-/// Measured 2026-09-01: a Hall of Characters pedestal is drawn 132 px tall at
-/// 1080p and loads 496 x 528 frames — 4x linear, 16x areal — and the whole
-/// hall at Full is 434 MP against 38 MP at Quarter. Drawn size is a property
-/// of the room's camera framing, so the cap is a room fact; today it is
-/// derived from the authored `gallery` flag (every pedestal room), and an
-/// authored per-room field can replace this derivation without touching a
-/// consumer.
-pub fn room_sprite_tier_cap(
-    room: &ambition_platformer2d_world::rooms::RoomMetadata,
-) -> Option<TextureResolutionScale> {
-    room.gallery.then_some(TextureResolutionScale::Quarter)
-}
-
-/// `(floor, ceiling)` for the characters standing in `room`: the ceiling is
-/// the user's setting (`character_sprite_tier`), the floor is that setting
-/// lowered by the room's cap. A realization outside the range is stale; see
-/// `CharacterSpriteAssets::has_stale_realizations_outside` for why a Full
-/// sheet inside a Quarter room is NOT.
-pub fn room_character_tier_bounds(
-    quality: Option<&VisualQualityBudget>,
-    room: Option<&ambition_platformer2d_world::rooms::RoomMetadata>,
-) -> (TextureResolutionScale, TextureResolutionScale) {
-    let ceiling = character_sprite_tier(quality);
-    let floor = room
-        .and_then(room_sprite_tier_cap)
-        .map_or(ceiling, |cap| cap.min(ceiling));
-    (floor, ceiling)
-}
-
-/// The budget to REALIZE a room's characters with: the user's budget with its
-/// sprite tier lowered to the room's floor. A capped room asks for scaled
-/// variants even when the setting would not, because the cap IS a request for
-/// smaller pixels. No room, or no cap: the budget unchanged.
-pub fn budget_for_room(
-    quality: &VisualQualityBudget,
-    room: Option<&ambition_platformer2d_world::rooms::RoomMetadata>,
-) -> VisualQualityBudget {
-    if room.and_then(room_sprite_tier_cap).is_none() {
-        return quality.clone();
-    }
-    let (floor, _) = room_character_tier_bounds(Some(quality), room);
-    let mut budget = quality.clone();
-    budget.sprites.resolution_scale = floor;
-    budget.sprites.prefer_scaled_variants = true;
-    budget
-}
-
 fn build_optional_via_catalog(
     catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
@@ -769,7 +720,8 @@ pub fn build_prop_sprite_asset(
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
-/// Decode the effect sheets the ENGINE itself draws — every entry of
+/// Decode the effect sheets the ENGINE itself draws at boot — the
+/// [`FxResidency::Core`](ambition_sprite_sheet::fx::FxResidency) entries of
 /// [`ambition_sprite_sheet::fx::FX_SHEETS`], with no content, catalog or LDtk
 /// prop involved.
 ///
@@ -790,38 +742,89 @@ pub fn load_fx_sheets(
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
 ) -> ambition_sprite_sheet::game_assets::FxSheetAssets {
-    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::default();
+    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::with_sprite_folder(sprite_folder);
     let mut missing: Vec<&'static str> = Vec::new();
-    for sheet in ambition_sprite_sheet::fx::FX_SHEETS {
-        let Some(spec) = ambition_sprite_sheet::fx::fx_sheet_spec(sheet.target) else {
-            missing.push(sheet.target);
-            continue;
-        };
-        let page0_path = format!("{sprite_folder}/{}_spritesheet.png", sheet.target);
-        set.insert(
-            sheet.target,
-            load_sprite_pages(
-                asset_server,
-                layouts,
-                "fx-sheet",
-                &page0_path,
-                &spec,
-                TextureResolutionScale::Full,
-                TextureResolutionScale::Full,
-            ),
-        );
+    // ⭐ THE CORE ONLY. The character-owned sheets (nine of thirteen) are
+    // demanded when a character whose moveset names them is realized — see
+    // `ensure_fx_sheet_loaded` and `demand_character_fx_sheets` — and ride the
+    // same reveal barrier as the character's pages. Before 2026-09-02 all
+    // thirteen (9.4 MP) were decoded at boot and resident in every room.
+    for target in ambition_sprite_sheet::fx::core_fx_targets() {
+        if !ensure_fx_sheet_loaded(&mut set, target, asset_server, layouts) {
+            missing.push(target);
+        }
     }
     if !missing.is_empty() {
         bevy::log::warn!(
             target: "ambition_platformer2d::fx_sheets",
-            "{}/{} engine FX sheets decoded; no baked manifest for {:?}, so effects on \
+            "{}/{} core FX sheets decoded; no baked manifest for {:?}, so effects on \
              those sheets fall back to a particle burst",
             set.len(),
-            ambition_sprite_sheet::fx::FX_SHEETS.len(),
+            ambition_sprite_sheet::fx::core_fx_targets().count(),
             missing,
         );
     }
     set
+}
+
+/// Decode one FX sheet into `set` if it is not there yet. `false` when the
+/// build did not bake its manifest (the caller keeps the particle fallback).
+pub fn ensure_fx_sheet_loaded(
+    set: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
+    target: &'static str,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> bool {
+    if set.contains(target) {
+        return true;
+    }
+    let Some(spec) = ambition_sprite_sheet::fx::fx_sheet_spec(target) else {
+        return false;
+    };
+    let page0_path = format!("{}/{target}_spritesheet.png", set.sprite_folder());
+    set.insert(
+        target,
+        load_sprite_pages(
+            asset_server,
+            layouts,
+            "fx-sheet",
+            &page0_path,
+            &spec,
+            TextureResolutionScale::Full,
+            TextureResolutionScale::Full,
+        ),
+    );
+    true
+}
+
+/// Demand the character-owned FX sheets a realized character's moveset names.
+///
+/// The seam for the nine sheets that are not core: a fighter's own effect
+/// art cannot fire before the fighter exists, so it is decoded when the
+/// character is — beside its pages, behind whatever cover realized it. A
+/// character with no registered moveset, or one naming only core rows, owes
+/// nothing here. Returns the targets newly demanded, for the ledger line.
+pub fn demand_character_fx_sheets(
+    set: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
+    registry: &ambition_characters::prepared::PreparedCharacterRegistry,
+    character_id: &str,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Vec<&'static str> {
+    let Some(moveset) = registry
+        .get(character_id)
+        .and_then(|prepared| prepared.kit.projectable_moveset())
+    else {
+        return Vec::new();
+    };
+    let effects = moveset.moves.iter().flat_map(|spec| spec.vfx_effects());
+    let mut demanded = Vec::new();
+    for target in ambition_sprite_sheet::fx::owned_fx_sheets_named_by(effects) {
+        if !set.contains(target) && ensure_fx_sheet_loaded(set, target, asset_server, layouts) {
+            demanded.push(target);
+        }
+    }
+    demanded
 }
 
 /// Load a prop sprite sheet straight from its generated manifest TARGET, without
@@ -1133,71 +1136,3 @@ mod sprite_body_collision_tests {
     }
 }
 
-#[cfg(test)]
-mod room_tier_tests {
-    use super::*;
-    use ambition_persistence::settings::VisualQualityProfile;
-    use ambition_platformer2d_world::rooms::RoomMetadata;
-
-    fn budget(profile: VisualQualityProfile) -> VisualQualityBudget {
-        VisualQualityBudget::for_profile(profile)
-    }
-
-    fn gallery() -> RoomMetadata {
-        RoomMetadata {
-            gallery: true,
-            ..Default::default()
-        }
-    }
-
-    /// The hall's pedestals draw 132 px tall and loaded 496 px frames; a
-    /// gallery caps its characters at Quarter, whatever the setting above it.
-    #[test]
-    fn a_gallery_lowers_the_floor_to_quarter_under_a_full_setting() {
-        let ultra = budget(VisualQualityProfile::Ultra);
-        assert_eq!(
-            character_sprite_tier(Some(&ultra)),
-            TextureResolutionScale::Full
-        );
-        let (floor, ceiling) = room_character_tier_bounds(Some(&ultra), Some(&gallery()));
-        assert_eq!(
-            (floor, ceiling),
-            (
-                TextureResolutionScale::Quarter,
-                TextureResolutionScale::Full
-            )
-        );
-        let realized_with = budget_for_room(&ultra, Some(&gallery()));
-        assert_eq!(
-            realized_with.sprites.effective_scale(),
-            TextureResolutionScale::Quarter
-        );
-    }
-
-    /// A setting already below the cap is the floor: the cap never RAISES a tier.
-    #[test]
-    fn a_potato_setting_stays_potato_in_a_gallery() {
-        let potato = budget(VisualQualityProfile::Potato);
-        let (floor, ceiling) = room_character_tier_bounds(Some(&potato), Some(&gallery()));
-        assert_eq!(floor, ceiling);
-        assert_eq!(
-            budget_for_room(&potato, Some(&gallery()))
-                .sprites
-                .effective_scale(),
-            potato.sprites.effective_scale()
-        );
-    }
-
-    /// No cap, no change: an ordinary room realizes exactly the setting, and the
-    /// range collapses to the one tier the old exact rule compared against.
-    #[test]
-    fn an_ordinary_room_is_the_setting_alone() {
-        let ultra = budget(VisualQualityProfile::Ultra);
-        let plain = RoomMetadata::default();
-        assert_eq!(room_sprite_tier_cap(&plain), None);
-        let (floor, ceiling) = room_character_tier_bounds(Some(&ultra), Some(&plain));
-        assert_eq!(floor, ceiling);
-        assert_eq!(budget_for_room(&ultra, Some(&plain)), ultra);
-        assert_eq!(room_character_tier_bounds(Some(&ultra), None).0, ceiling);
-    }
-}

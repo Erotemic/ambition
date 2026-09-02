@@ -477,7 +477,7 @@ pub fn clear_transient_on_sandbox_reset(
             .remove::<crate::items::pickup::StashedActionSet>();
         commands
             .entity(player)
-            .remove::<crate::features::HeldItem>();
+            .remove::<ambition_combat::held_items::HeldItem>();
         #[cfg(feature = "portal")]
         commands
             .entity(player)

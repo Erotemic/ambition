@@ -882,17 +882,6 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // The tier floor of the room the HOST is loading behind a cover.
     //
-    // ⭐ PRESENTATION LOADING STATE, NOT SIMULATION STATE. Written by the
-    // host's room-transition contributor while a transition loads and cleared
-    // when none is active; read only by the character-sheet residency
-    // convergence, which decides which decoded PIXELS are resident — nothing a
-    // rewind can disagree about, and the sim never reads a sheet. A rewind
-    // restoring it mid-load would stop the convergence honouring the room
-    // being entered, which is the defect it exists to prevent.
-    (
-        "ambition_platformer2d_actor_monolith::character_runtime::PendingRoomTierFloor",
-        "host loading hint for sheet residency (which pixels are resident), written outside the sim and read by no sim system",
-    ),
     // The authored respawn beat, in SECONDS.
     //
     // ⭐ CONFIG, NOT STATE, and structurally so: the ruleset inserts it once in
@@ -2186,19 +2175,32 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000u64 / 60),
     ));
+    // Wait for the FACT (a player exists), not a frame count: the route
+    // activates only after the first room's art is decoded (`prepare-first-
+    // room-art`), and decode is wall time shared with every other test in this
+    // process — 240 frames was enough alone and not beside the hall fixtures
+    // once they decoded Full sheets (2026-09-02). The cap says the harness
+    // gave up, not that the world is slow.
+    let mut players = 0;
+    let mut updates = 0;
+    while players != 1 && updates < 6_000 {
+        app.update();
+        updates += 1;
+        players = app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .iter(app.world())
+            .count();
+    }
+    // Then let it PLAY: the resources this fixture is about are the ones the
+    // running simulation brings into existence.
     for _ in 0..240 {
         app.update();
     }
-
-    let players = app
-        .world_mut()
-        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
-        .iter(app.world())
-        .count();
     assert_eq!(
         players, 1,
-        "the gameplay route did not produce a player, so nothing below was measured \
-         against a world that played"
+        "the gameplay route did not produce a player within {updates} updates, so nothing \
+         below was measured against a world that played"
     );
     assert!(
         app.world()

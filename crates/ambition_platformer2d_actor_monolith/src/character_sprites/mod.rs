@@ -22,8 +22,8 @@ mod tests;
 )]
 pub use assets::{
     all_character_sprite_filenames_in, build_npc_sprite_asset, build_prop_sprite_asset,
-    build_prop_sprite_asset_packed, character_sprite_tier, budget_for_room, room_character_tier_bounds, room_sprite_tier_cap, load_character_sprites_in,
-    load_fx_sheets, load_prop_sheet_for_target, materialize_declared_character_sprite,
+    build_prop_sprite_asset_packed, character_sprite_tier, load_character_sprites_in,
+    demand_character_fx_sheets, ensure_fx_sheet_loaded, load_fx_sheets, load_prop_sheet_for_target, materialize_declared_character_sprite,
     portrait_for_declared_character, sheet_for_character_id_in, sheet_for_declared_character,
     sprite_body_collision_for_character_id_in, SpriteMaterialization,
 };

@@ -231,7 +231,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
 // ── S3e: relational actor-vs-actor projectiles ──────────────────────────
 
 /// Build a headless app wired for `step_projectiles` with the given relations.
-fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
+fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations) -> App {
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -301,7 +301,7 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
 /// non-player-centric arena. Pre-resolved to that exact actor.
 #[test]
 fn enemy_glider_damages_a_relationally_hostile_actor() {
-    let mut relations = crate::features::FactionRelations::default();
+    let mut relations = ambition_combat::targeting::FactionRelations::default();
     relations.set_mutual_hostile(
         ambition_combat::components::ActorFaction::Enemy,
         ambition_combat::components::ActorFaction::Boss,
@@ -329,7 +329,7 @@ fn enemy_glider_damages_a_relationally_hostile_actor() {
 /// body would be spared.)
 #[test]
 fn enemy_glider_damages_a_different_faction_actor_physically() {
-    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
     let pos = ae::Vec2::new(300.0, 100.0);
     let boss_actor = spawn_boss_actor(&mut app, pos);
     spawn_overlapping_enemy_glider(&mut app, pos);
@@ -355,7 +355,7 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
 fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     use ambition_combat::targeting::MatchTeam;
 
-    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
     let pos = ae::Vec2::new(300.0, 100.0);
 
     // The firer and the victim: one faction, two teams — a match.
@@ -434,7 +434,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
 fn a_shot_outlives_its_firer_without_changing_sides() {
     use ambition_combat::targeting::MatchTeam;
 
-    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
 
     let firer = app
         .world_mut()
@@ -531,7 +531,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
 fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     use ambition_combat::targeting::MatchTeam;
 
-    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
 
     let firer = app
         .world_mut()
@@ -602,7 +602,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     use ambition_combat::targeting::MatchTeam;
     use bevy::ecs::system::RunSystemOnce as _;
 
-    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
 
     let firer = app
         .world_mut()
@@ -943,7 +943,7 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
 
     /// Spawn one enemy bolt against a player publishing `volume`, isolating victim geometry.
     fn arena_publishing(volume: ae::Aabb) -> App {
-        let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+        let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
         let pos = ae::Vec2::new(300.0, 100.0);
         let mut volumes = ambition_combat::components::DamageableVolumes::default();
         volumes.set_single(volume);
@@ -996,7 +996,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
     /// the shipped volume publisher running ahead of the stepper exactly as the
     /// production schedule runs it.
     fn arena_with_victim_hp(current: i32) -> (App, Entity) {
-        let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+        let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
         app.add_systems(
             Update,
             crate::features::refresh_body_damageable_volumes

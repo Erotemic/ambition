@@ -40,6 +40,7 @@ members = [
     "crates/ambition_input",
     "crates/ambition_interaction",
     "crates/ambition_items",
+    "crates/ambition_world_items",
     "crates/ambition_inventory_ui",
     "crates/ambition_platformer2d_ldtk",
     "crates/ambition_load",

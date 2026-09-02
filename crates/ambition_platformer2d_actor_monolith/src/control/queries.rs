@@ -43,7 +43,7 @@ where
 /// arbitrary body for an ambiguous control identity. Multiple holders are logged
 /// as an invariant violation so possession/vacate ownership can be repaired.
 pub fn body_driving_seat(
-    drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
+    drivers: &Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     slot: PlayerSlot,
 ) -> Option<Entity> {
     let mut holders = drivers
@@ -173,7 +173,7 @@ pub fn another_authority_publishes(
 /// `fallback` is consulted when nobody holds the seat, which is the load-frame
 /// case slot zero has always had.
 pub fn seat_frame_down(
-    drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
+    drivers: &Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     slot: PlayerSlot,
     frames: &Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     fallback: Option<Entity>,
@@ -219,7 +219,7 @@ mod tests {
         app.init_resource::<Answer>();
         app.world_mut().resource_mut::<Answer>().1 = false;
         let mut system = bevy::ecs::system::IntoSystem::into_system(
-            move |drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
+            move |drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
                   mut answer: ResMut<Answer>| {
                 answer.0 = body_driving_seat(&drivers, slot);
                 answer.1 = true;
@@ -253,7 +253,7 @@ mod tests {
 
         let only = app
             .world_mut()
-            .spawn(crate::control::DrivingParticipant(slot))
+            .spawn(ambition_characters::control::DrivingParticipant(slot))
             .id();
         assert_eq!(
             seat_holder(&mut app, slot),
@@ -264,7 +264,7 @@ mod tests {
         // The stale-seat bug: a second body claims the same seat.
         let second = app
             .world_mut()
-            .spawn(crate::control::DrivingParticipant(slot))
+            .spawn(ambition_characters::control::DrivingParticipant(slot))
             .id();
         assert_ne!(only, second);
         assert_eq!(

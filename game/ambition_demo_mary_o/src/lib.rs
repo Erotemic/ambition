@@ -1879,7 +1879,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_systems(
             bevy::prelude::Update,
             powerups::refuse_a_weaker_form_pickup
-                .before(ambition_platformer2d::actors::items::collect_world_items)
+                .before(ambition_platformer2d::world_items::collect_world_items)
                 .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
         );
         let powerups = (

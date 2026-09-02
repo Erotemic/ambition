@@ -52,7 +52,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
                 crate::items::pickup::StashedActionSet(
                     ambition_characters::brain::ActionSet::default(),
                 ),
-                crate::features::HeldItem::new(crate::items::pickup::axe_spec()),
+                ambition_combat::held_items::HeldItem::new(crate::items::pickup::axe_spec()),
             ))
             .id();
     #[cfg(feature = "portal")]
@@ -68,7 +68,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
         .is_some());
     assert!(app
         .world()
-        .get::<crate::features::HeldItem>(player)
+        .get::<ambition_combat::held_items::HeldItem>(player)
         .is_some());
 
     // A reset that was ASKED FOR but refused: the request resource is set and
@@ -77,7 +77,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     app.update();
     assert!(
         app.world()
-            .get::<crate::features::HeldItem>(player)
+            .get::<ambition_combat::held_items::HeldItem>(player)
             .is_some(),
         "a refused reset emptied the player's hands. The decline path promises \
          the running session is untouched; this is the system that has to make \
@@ -107,7 +107,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
     assert!(
         app.world()
-            .get::<crate::features::HeldItem>(player)
+            .get::<ambition_combat::held_items::HeldItem>(player)
             .is_none(),
         "held item removed from player"
     );

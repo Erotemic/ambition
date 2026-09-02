@@ -1,6 +1,6 @@
 //! `WorldItem` — a walk-into collectible that grants EQUIPMENT.
 //!
-//! The sibling of [`GroundItem`](super::pickup::GroundItem), split along the
+//! The sibling of `GroundItem`, split along the
 //! collect TRIGGER the pickup module's `AMBITION_REVIEW(discrete_ok)` note
 //! already anticipated: a `GroundItem` is a *held weapon* grabbed with a
 //! deliberate `Attack` press; a `WorldItem` is *touched* — bare AABB overlap
@@ -17,7 +17,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::ecs::pickups::TouchCollectorFilter;
+use ambition_platformer2d_shared_tangle::markers::TouchCollectorFilter;
 use ambition_characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
@@ -26,7 +26,7 @@ use ambition_platformer2d_shared_tangle::sim_selection::{in_deterministic_order,
 
 /// A collectible resting in the world. Touch it (AABB overlap) and its
 /// [`payload`](WorldItem::payload) is applied to the collecting body, then it
-/// despawns. Unlike a [`GroundItem`](super::pickup::GroundItem) there is no
+/// despawns. Unlike a `GroundItem` there is no
 /// press gate and no held-weapon overlay — a `WorldItem` grants equipment.
 #[derive(Component, Clone, Debug)]
 pub struct WorldItem {
@@ -83,7 +83,7 @@ pub enum WorldItemPayload {
 
 /// Spawn a `WorldItem` into the active session, room-scoped so it despawns with
 /// the room (never leaks across a reload) — the same scoping a thrown
-/// [`GroundItem`](super::pickup::GroundItem) uses.
+/// `GroundItem` uses.
 /// returns the entity so the caller can SCOPE what it spawned. Room-scoping
 /// is this function's business; whether the item is also residue of one ATTEMPT is
 /// the caller's, and it could not say so while this returned `()`. See
@@ -108,7 +108,7 @@ pub fn spawn_world_item(
 }
 
 /// Spawn a `WorldItem` that MOVES — the same room-scoped pickup plus an authored
-/// [`ItemMotionPlan`](super::item_motion::ItemMotionPlan) for the engine to step.
+/// [`ItemMotionPlan`](crate::item_motion::ItemMotionPlan) for the engine to step.
 ///
 /// A separate entry point rather than an `Option` on [`spawn_world_item`]: a
 /// still pickup and a moving one are different enough at the call site that
@@ -117,13 +117,13 @@ pub fn spawn_moving_world_item(
     commands: &mut Commands,
     id: ambition_platformer2d_shared_tangle::sim_id::SimId,
     item: WorldItem,
-    plan: super::item_motion::ItemMotionPlan,
+    plan: crate::item_motion::ItemMotionPlan,
 ) -> Entity {
     commands
         .spawn_room_scoped((
             item,
             id,
-            super::item_motion::ItemMotion::new(plan),
+            crate::item_motion::ItemMotion::new(plan),
             Name::new("World item"),
         ))
         .id()
@@ -131,8 +131,8 @@ pub fn spawn_moving_world_item(
 
 /// Collect overlapping consumable `WorldItem`s for bodies in
 /// [`TouchCollectorFilter`]. The payload is added to [`WornEquipment`] and the
-/// consumable entity ends; durable [`GroundItem`](super::pickup::GroundItem)
-/// instances instead preserve identity through [`ItemCustody`](super::pickup::ItemCustody).
+/// consumable entity ends; durable `GroundItem`
+/// instances instead preserve identity through `ItemCustody` (which stays with the kernel's held-item pickup).
 /// Each body collects at most one world item per frame.
 pub fn collect_world_items(
     mut commands: Commands,
@@ -159,7 +159,7 @@ pub fn collect_world_items(
     let collectors: Vec<(Entity, ae::Aabb)> = bodies
         .iter()
         .filter(|(_, _, is_player, control, _)| {
-            crate::features::ecs::pickups::body_collects_on_touch(*is_player, *control)
+            ambition_platformer2d_shared_tangle::markers::body_collects_on_touch(*is_player, *control)
         })
         .map(|(entity, kin, _, _, _)| (entity, ae::Aabb::new(kin.pos, kin.size * 0.5)))
         .collect();
@@ -376,7 +376,7 @@ mod tests {
                         &ae::GeoId::placement(ae::PlacementId::new("block-iid"), 0),
                     ),
                     WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::splat(12.0)),
-                    super::super::item_motion::ItemMotionPlan::still(),
+                    crate::item_motion::ItemMotionPlan::still(),
                 );
             })
             .expect("the spawn seams run");

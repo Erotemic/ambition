@@ -27,7 +27,7 @@ use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::features::transform_beat::{
     TransformBeatPolicy, TransformBeatRequested,
 };
-use ambition_platformer2d::actors::items::{collect_world_items, WorldItem};
+use ambition_platformer2d::world_items::{collect_world_items, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition_platformer2d::characters::control::ActorControl;

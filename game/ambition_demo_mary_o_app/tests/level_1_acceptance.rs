@@ -77,7 +77,7 @@ const STOMP_REACH_PX: f32 = 176.0;
 fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
     let mut query = app
         .world_mut()
-        .query::<&ambition_platformer2d::actors::items::WorldItem>();
+        .query::<&ambition_platformer2d::world_items::WorldItem>();
     let world = app.world();
     query
         .iter(world)

@@ -373,6 +373,11 @@ ambition_audio = { path = "../ambition_audio" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/current/state.md Stage 13 / Task K.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The physical life of a touched collectible -- where it is, whether it is
+# moving, and that touching it collects it (D33, 2026-09-02). `items::pickup`
+# still owns the PRESSED pickup and the two are siblings, so this crate is named
+# from `rollback_registration` and from the pickup plugin's ordering comment.
+ambition_world_items = { path = "../ambition_world_items" }
 # ADR 0019; Stage 19.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +

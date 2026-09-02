@@ -186,6 +186,16 @@ pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
+/// The physical life of a touched collectible: `WorldItem`, its motion, and the
+/// touch-collect pass.
+///
+/// ⭐ IT IS NOT UNDER [`actors`] ANY MORE, and the path change is the point.
+/// `actors` IS the actor monolith, so a game importing
+/// `actors::items::WorldItem` was naming the kernel for something the kernel no
+/// longer owns (D33, 2026-09-02). `actors::items::pickup` still holds the
+/// PRESSED pickup — a held weapon taken with `Attack` — which is a different
+/// domain that stayed.
+pub use ambition_world_items as world_items;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]
@@ -470,13 +480,9 @@ pub mod character {
     pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
     pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
     pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
-    /// The sheet tier a room's characters are realized at: the user's setting
-    /// lowered by the room's cap (a gallery of pedestals needs Quarter). The
-    /// host's room-transition demand realizes with `budget_for_room` and
-    /// retires what sits outside `room_character_tier_bounds` before a reveal.
-    pub use ambition_platformer2d_actor_monolith::character_sprites::{
-        budget_for_room, room_character_tier_bounds, room_sprite_tier_cap,
-    };
+    /// The sheet tier every character is realized at: the user's setting, and
+    /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
+    pub use ambition_platformer2d_actor_monolith::character_sprites::character_sprite_tier;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;

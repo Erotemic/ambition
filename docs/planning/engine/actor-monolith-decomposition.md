@@ -234,13 +234,90 @@ dissolved — `CharacterCatalogPlugin` occurs only in `character_roster/tests.rs
 and `PhysicsPlugin` was a substring of avian's `PhysicsPlugins::default()` inside
 `AmbitionPhysicsPlugin`.
 
-⇒ **WHAT IS ACTUALLY LEFT IS INTERNAL, and whoever takes it should know that
-going in.** The kernel's own `items/` module is ~6,000 lines, named `items::` 79
-times by the rest of the kernel, importing `abilities::ranged` ×10, `features`,
-`durable_horizon`, `traversal`, `character_runtime`, `shrine` and `construction`.
-That is a decomposition of the monolith's INSIDE — no manifest edge to delete at
-the end of it, and no compiler-held guard like the one this slice earned. Every
-previous slice finished with an edge to point at; that one will not.
+⇒ **WHAT IS ACTUALLY LEFT IS INTERNAL** — the kernel's own `items/` module,
+~6,000 lines, named `items::` 79 times by the rest of the kernel.
+
+⛔⛔ **AND THE PARAGRAPH THAT USED TO END HERE WAS WRONG WITHIN THE HOUR.** It
+said that carve had *"no manifest edge to delete at the end of it, and no
+compiler-held guard like the one this slice earned … every previous slice
+finished with an edge to point at; that one will not."* ⭐ A first slice landed
+the same evening and finished with BOTH: `ambition_world_items` is a new crate
+with two poison-verified policy rows. The mistake was reading `items/` as one
+mass because the sentence above it lists the UNION of every file's imports —
+counted per file, `pickup/mod.rs` holds 27 of the module's 51 references into
+the rest of the kernel and `item_motion.rs` holds none. ⇒ **"Internal" was a
+property of ONE FILE in that module, not of the module.**
+
+### ✔ `ambition_world_items`: the touched collectible left the kernel (2026-09-02)
+
+`world_item.rs` + `item_motion.rs` and their 14 tests — the physical life of a
+collectible: where it is, whether it is moving, and that walking into it
+collects it. All 14 pass in the new crate and the monolith went 1221 → 1207,
+which is exactly them.
+
+- ⛔ **THE SPLIT IS BY COLLECT TRIGGER, NOT BY SIZE.** `items::pickup` keeps the
+  PRESSED pickup — a held weapon taken with `Attack` — and its reach into
+  `abilities`, `ability_cooldown`, `construction` and `shrine`. That is the line
+  the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had already drawn,
+  years of comments before anyone carved along it.
+- ⭐ **THE APPARENT BLOCKER WAS THE LEVER.** The collect pass named
+  `features::ecs::pickups::TouchCollectorFilter`, a type alias composed of
+  nothing but `PlayerEntity` and `TemporaryControl` — both already in
+  `shared_tangle`. It moved down beside them, and so did its VALUE twin
+  `body_collects_on_touch`; the kernel re-exports both under the short names its
+  three passes read. ⛔ ONE definition, not a copy: the filter decides who a
+  query RETURNS and the value check decides whether a returned body collects, so
+  a second copy is how the two halves come to disagree.
+- ⛔ **NOTHING IS RE-EXPORTED FROM `items/mod.rs`.** Keeping the module paths
+  alive there would have meant zero consumer churn and was refused: a re-export
+  keeps the kernel as the discovery path for code it no longer owns, and the
+  boundary stops being greppable. Games reach it through the facade's new
+  `ambition_platformer2d::world_items` for the same reason — `actors` IS the
+  monolith.
+- The runtime composes `WorldItemSimulationPlugin` beside
+  `ItemPickupSimulationPlugin`, so no registration for the domain lands back in
+  the kernel — the shape `ambition_mount` and `ambition_damage` established.
+- ✔ **The rollback ledgers did not churn**, and the check was worth doing rather
+  than assuming: both types are registered, but
+  `rollback_schema_baseline.txt` keys its rows by the registrar's OWNER STRING
+  and short type name (`entity:world_item`, `item.motion`, `item.world_item`),
+  not by crate path. Only the `use` paths in `rollback_registration.rs` moved.
+- ⛔⛔ **The footprint ratchet fired: 43 → 44**, declared in the baseline in the
+  `mount`/`damage` idiom. ⚠ It counts CRATES, not bytes — the same code was
+  linked the day before inside the monolith and the linked code went slightly
+  DOWN — and that sentence now also sits on
+  [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
+  beside the number, because a queue row there has *"the count falls"* as its
+  acceptance and a carve raises it by construction.
+- ⭐⭐ **AND THE SIBLING IS NOT MULTI-DAY EITHER, measured the same night.**
+  `items/pickup/mod.rs` holds 27 of the module's 51 kernel references, which is
+  why it was called the hard part. Split at its `impl Plugin` block: the plugin
+  is **201 lines and holds 21 of the file's 23 cross-module references**; the
+  other **1,659 lines hold 2**, both at one seam
+  (`construction::authored_occurrence_request` and
+  `ActorConstructionParams::GroundItem`, spawning a ground item from an authored
+  occurrence). Every reference in the plugin is a SYSTEM NAME being scheduled —
+  `abilities::{ranged ×10, traversal ×4, thrown ×3}`, `shrine` ×3,
+  `construction` ×2, `ability_cooldown` — not a call the pickup logic makes.
+  ⇒ **The entanglement is scheduling, not logic**, and it is the same shape the
+  `world_items` slice solved in miniature: the systems it moved were registered
+  inside the file it was carving, so the split had to take the registrations too.
+  ⛔ **THREE SIZING ERRORS IN THIS ROW'S HISTORY NOW SHARE ONE SHAPE** — a count
+  taken at the wrong granularity: a module's UNION of imports read as one file's,
+  a re-exported name read as kernel coupling
+  (`scripts/measure_facade_reexport_coupling.py`: 27% of `crate::features::X`
+  uses name a type defined elsewhere), and a plugin's system list read as its
+  domain's dependencies. ⇒ **before sizing a carve, ask what granularity the
+  number was taken at and whether the thing being counted is code the domain
+  RUNS or code it merely SCHEDULES.**
+
+- ⚠ **AND THE SIZING GREP UNDERCOUNTED ITS OWN SUBJECT.** `world_item.rs` was
+  sized at TWO kernel references with `grep -o "crate::[a-z_]*"`, which sees
+  neither `super::` paths nor a fully-qualified call; the file also reached
+  `super::item_motion` four times and called `pickups::body_collects_on_touch`.
+  ⇒ the same one-form-grep error recorded two sections above, repeated by its
+  author four hours later. Everything resolved downward so the slice held, but
+  the number was produced by an instrument blind to half its subject.
 
 ⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
 `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the

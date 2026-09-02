@@ -579,7 +579,7 @@ fn block_is_spent(app: &App, id: &ae::GeoId) -> bool {
 fn pending_item_pos(app: &mut App) -> Option<Vec2> {
     let mut query = app
         .world_mut()
-        .query::<&ambition_platformer2d::actors::items::WorldItem>();
+        .query::<&ambition_platformer2d::world_items::WorldItem>();
     query.iter(app.world()).next().map(|item| item.pos)
 }
 

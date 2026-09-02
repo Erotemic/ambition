@@ -1067,9 +1067,20 @@ second later the SAME character's sheet arrives again through the demand road at
 the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
 7.6 MP one appears in `never drawn` for the rest of the run.
 
+⛔ **AND THE LOADER IS NOT OURS — CORRECTED 2026-09-02 after this was first
+written up.** It is `bevy_ecs_ldtk` loading every project tileset: all four
+`.ldtk` worlds declare `sprite_player_robot_v3` with
+`relPath=../sprites/player_robot_v3_spritesheet.png` at 3072×2484, for EDITOR
+entity previews. Verified in all four world files. So `demand=unknown` is
+accurate and the road is genuinely absent — but the fix is retargeting four
+declarations at `../sprites_0_25x/…` in the map submodule, which is Jon's, and
+the row that owns it is in [`../queue.md`](../queue.md). ⚠ Do not go looking for
+this in our character-sprite loader; an earlier version of this paragraph would
+have sent a reader there.
+
 ⇒ **So this is not "one image ignored the tier". It is a DUPLICATE: 7.6 MP
-loaded at boot outside the demand road, never drawn, alongside the 0.1 MP copy
-that is.** At Potato that duplicate is 32% of the hall's resident megapixels and
+loaded at boot by the LDtk spine, never drawn, alongside the 0.1 MP copy the
+realization loads and the game actually draws.** At Potato that duplicate is 32% of the hall's resident megapixels and
 76× the drawn copy.
 
 ⛔ **AND THE VARIANT IT SHOULD HAVE USED EXISTS.** All four are on disk for that

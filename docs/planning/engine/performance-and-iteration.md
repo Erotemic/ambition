@@ -175,6 +175,13 @@ dependency or reached through a lens/join. A DWARF call graph on the 1.6 GB
 binary exceeded its report budget again; naming it needs a frame-pointer build.
 At 3% of a 3.7 ms floor it is 0.1 ms: a curiosity, not a lead.)
 
+One guess killed before anyone chases it: `RunFixedMainLoop` at 0.48 ms/frame
+holds avian's six fixed schedules (PhysicsSchedule 50 systems, SubstepSchedule
+20, FixedFirst/FixedPostUpdate/FixedLast), and avian's OWN code is 0.12% of the
+profile — the bucket is ~120 near-empty systems being scheduled, plus
+leafwing's `update_action_state` (input symbols total 4.7%). An idle physics
+pipeline costs its system count, not its math.
+
 ⇒ The shipped frame is not one slow system; it is **~2400 system runs per
 frame at ~1.5 us each with allocation on the way** — 3234 systems in 33
 schedules, of which the harness composition needs 2373 and the direct sandbox

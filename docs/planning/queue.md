@@ -739,6 +739,43 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `Msaa::Off` recovers nothing):
   [`../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md).
 
+- ▢ **THE `features` FACADE LAUNDERS 34 LOWER-CRATE NAMES, so 27% of the
+  kernel's apparent coupling to it is not coupling at all.** (Measured
+  2026-09-02, `scripts/measure_facade_reexport_coupling.py`.)
+  ⭐ **HOW IT WAS FOUND:** a per-file sizing of `items/conditions.rs` reported
+  SEVEN references into the kernel. Six were one type — `crate::features::HeldItem`
+  — and `HeldItem` is `ambition_combat`'s, reached through
+  `features/ecs/mod.rs:27` (`use ambition_combat::{… held_items …}`) and then
+  re-exported twice. The file was not coupled to the kernel; it was naming a
+  kernel path to another crate's type.
+
+  ```text
+  facade re-exports 129 names:  RE-EXPORT 34 | LOCAL 95 | UNRESOLVED 0
+  `crate::features::X` uses:    164 total
+     RE-EXPORT  45  (27%)   <- naming a type defined OUTSIDE the monolith
+     LOCAL     119  (73%)
+  by real owner:  ambition_combat 42, ambition_boss_encounter 3
+  ```
+
+  ⛔⛔ **THE CONSEQUENCE IS FOR SIZING, NOT TIDINESS.** Every carve estimate in
+  this file that counted `crate::features` references overstates kernel coupling
+  by up to a quarter, and those estimates are what decides which carve is "an
+  evening's" and which is "multi-day". The `items/` row above was sized that way
+  and was wrong for a related reason (it quoted the UNION of per-file imports).
+  ⇒ **a sizing grep must resolve where a name is DEFINED, not where it is
+  spelled.**
+
+  ✔ Six of the 45 are already re-pointed (`items/conditions.rs` →
+  `ambition_combat::held_items::HeldItem`), as much to prove the change is
+  mechanical as to fix that file.
+  ▢ **The remaining 39** are listed by
+  `python3 scripts/measure_facade_reexport_coupling.py --by-file`; roughly half
+  are in test modules. ⚠ Deliberately NOT done in one sweep on 2026-09-02: two
+  other sessions were editing the same crate, and the payoff is legibility
+  rather than behaviour, so it is not worth a merge conflict. Pick it up when
+  the tree is quiet. ⛔ It is a re-point, NOT a deletion of the facade — some of
+  the 95 LOCAL names are the facade's real job.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or

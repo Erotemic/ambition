@@ -653,6 +653,24 @@ calls unnamed could in principle be constructed. The five fully-named sheets are
 the evidence the method works; treat a single unnamed row as a lead, not a
 verdict.
 
+⇒ **THE SEAM THE ROW SAID DID NOT EXIST DOES, for most of the set.** Eight of
+the thirteen sheets are CHARACTER-named (`carl_stargan_vfx`, `george_booul_vfx`,
+`ninja_shadow_oni_leader_vfx`, `noether_vfx`, `oiler_vfx`, `patent_clerk_vfx`,
+`pca_vfx`, `pirate_admiral_vfx`): each is that fighter's own effect art, and a
+fighter's effects cannot fire before the fighter exists. So their demand seam
+is the CHARACTER REALIZATION that already runs behind every cover — demand
+`<character>_vfx` beside `<character>`'s pages, on the same `fx-sheet` road,
+and let the reveal barrier wait for it like a page. What stays always-resident
+is the five sheets no character owns (`generic_action_fx`, `generic_exotic_fx`,
+`generic_world_fx`, `generic_explosions`, `projectile_polygon_vfx`) — the core
+vocabulary the load-site defence is about — and a fighter whose art fails to
+load still draws the particle fallback exactly as today. Not built tonight: it
+touches `load_fx_sheets`, the realization path and `FxSheetAssets` ownership,
+and it wants the wiring question above answered first (there is no point
+demanding `pirate_admiral_vfx` with the admiral if his moveset never asks for
+it). The number it would move: 8 of 13 sheets out of every room that does not
+place the fighter, measurable by the `resident by road: fx-sheet` term.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare

@@ -427,11 +427,22 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `sprites_0_25x/goblin_spritesheet.png`"*. That reads as an asset-residency leak
   in exactly the subsystem the hall-entry campaign is about, so it will cost
   somebody real hours. The goblin page belongs to a sibling test's App.
-  ⇒ Two fixes, and the precedent is already in that directory: `#[ignore]` plus an
-  exact-filter script (as `measure_hall_redecodes.sh` does) where the global
-  ledger is genuinely the subject, or assert over the App's own `Assets<Image>`
-  and realization table where the per-App answer is equivalent. **Prefer the
-  second** — it makes the test immune rather than sequestered.
+  ⛔⛔ **AND THE OBVIOUS FIX IS NOT AVAILABLE — measured, and it was my own first
+  recommendation.** "Assert over the App's own `Assets<Image>` so the test is
+  immune rather than sequestered" cannot be made to work, because neither key
+  discriminates one App's images from another's:
+  * **by PATH** — two Apps in one process legitimately load the same file, so a
+    sibling's `goblin_spritesheet.png` is indistinguishable from this App's;
+  * **by ASSET ID** — `AssetId::Index { AssetIndex { generation, index } }` is a
+    PER-ARENA index (bevy_asset 0.19.1, `assets.rs`). Each App owns its own
+    `Assets<Image>` arena, so both allocate index 0, 1, 2… and the ids COLLIDE
+    by construction. Adding an id to the ledger row would not help.
+  ⇒ The two real options are therefore: **(a)** `#[ignore]` plus an exact-filter
+  script, as `measure_hall_redecodes.sh` does — correct, cheap, and it removes
+  three asset guards from the suite; or **(b)** give the ledger an App/world
+  SCOPE so a row can be attributed. (b) is the honest fix and is not small; note
+  that `render_world_present` is already a process-global bool standing in for a
+  per-App fact, so the ledger has this shape of problem twice.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

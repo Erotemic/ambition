@@ -266,6 +266,52 @@ def sheets_in(tier_dir: Path) -> list[dict]:
     return rows
 
 
+
+def report_orphans(wanted: list[tuple[str, Path]]) -> None:
+    """Sheet PNGs that NO manifest names — the population occupancy cannot see.
+
+    ⛔⛔ IT IS BIGGER THAN THE ONE THE CENSUS COVERS. Occupancy asks how much of
+    a CLAIMED page is sampled and says nothing about pages nothing claims.
+    Measured 2026-09-02: unclaimed files are 48% of the Full tier's megapixels,
+    more than every censused page combined, so reporting occupancy alone
+    describes 44% of the tree as if it were the tree.
+
+    ⚠ AND THESE ARE GITIGNORED, GENERATED FILES. Extra pages left by an earlier
+    render are the likely cause, which makes this PER-MACHINE until it is seen
+    on a tree generated separately — a symlinked worktree is not one. Nothing
+    loads them (no manifest names them), so the cost is package size rather than
+    decode or residency; `package_asset_guard.py` records "every regular file"
+    from the asset roots, so they do ship.
+    """
+    print("\n=== sheet PNGs no manifest names ===")
+    for tier, tier_dir in wanted:
+        if not tier_dir.is_dir():
+            continue
+        claimed = set()
+        for manifest in baked_manifests(tier_dir):
+            text = manifest.read_text(errors="ignore")
+            for name in page_images(text):
+                claimed.add((manifest.parent / name).resolve())
+        rows = []
+        for png in sorted(tier_dir.rglob("*.png")):
+            if "_spritesheet" not in png.name or png.resolve() in claimed:
+                continue
+            size = png_size(png)
+            if size:
+                rows.append((size[0] * size[1] / 1e6, png.stat().st_size, png.name))
+        total_bytes = sum(p.stat().st_size for p in tier_dir.rglob("*.png"))
+        orphan_bytes = sum(b for _, b, _ in rows)
+        print(
+            f"  {tier:<16} {len(rows):>3} file(s)  {sum(m for m, _, _ in rows):8.1f} MP  "
+            f"{orphan_bytes / 1e6:7.1f} MB  "
+            f"({orphan_bytes / total_bytes:.0%} of the tier's PNG bytes)"
+            if total_bytes
+            else f"  {tier:<16} no PNGs"
+        )
+        for mp, _, name in sorted(rows, reverse=True)[:4]:
+            print(f"        {mp:8.2f} MP  {name}")
+
+
 def report(rows: list[dict], label: str, top: int) -> None:
     measured = [r for r in rows if "skipped" not in r]
     skipped = [r for r in rows if "skipped" in r]
@@ -333,6 +379,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--all-tiers", action="store_true", help="every quality tier, not just Full")
     ap.add_argument("--top", type=int, default=25)
     ap.add_argument("--json", type=str, default=None)
+    ap.add_argument(
+        "--orphans",
+        action="store_true",
+        help="also report sheet PNGs that no manifest names",
+    )
     args = ap.parse_args(argv)
 
     wanted = SPRITE_DIRS if args.all_tiers else SPRITE_DIRS[:1]
@@ -342,6 +393,8 @@ def main(argv: list[str]) -> int:
         everything[tier] = rows
         report(rows, f"{tier} ({path.relative_to(REPO)})", args.top)
 
+    if args.orphans:
+        report_orphans(wanted)
     if args.json:
         Path(args.json).write_text(json.dumps(everything, indent=2, sort_keys=True))
         print(f"\nwrote {args.json}")

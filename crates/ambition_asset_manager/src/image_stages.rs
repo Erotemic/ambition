@@ -85,13 +85,22 @@ impl ImageStages {
         Some(self.gpu_prepared_at?.duration_since(self.inserted_at?))
     }
 
-    /// `demand→insert 123ms via character-sheet`, or `demand=unknown`.
+    /// `demand→insert 123ms via character-sheet`, `first demanded via <road>`
+    /// for a re-decode, or `demand=unknown`.
+    ///
+    /// ⚠ THE THREE ARE DIFFERENT FACTS AND USED TO PRINT AS TWO. A re-decode has
+    /// a known demander but no honest wait — `removed` took its row, and the
+    /// path's first demand instant belongs to the earlier decode — so quoting a
+    /// duration would be inventing one. It says who asked and stops there.
+    /// `demand=unknown` is now reserved for what it claims: an image that
+    /// reached `Assets<Image>` by a road that stamps nothing.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn demand_phrase(&self) -> String {
         match (self.demand_to_insert(), self.source) {
             (Some(d), Some(source)) => {
                 format!("demand→insert {:.0}ms via {source}", d.as_secs_f64() * 1e3)
             }
+            (None, Some(source)) => format!("first demanded via {source}"),
             _ => "demand=unknown (not through load_sheet_image)".to_string(),
         }
     }
@@ -111,6 +120,21 @@ pub struct ImageStageLedger {
     /// Insertions per PATH, across ids and across removals: the re-decode
     /// census. Survives `removed`, which is the point.
     insertions_by_path: BTreeMap<String, u32>,
+    /// The FIRST demand recorded for a path, kept beside the insertion count and
+    /// for the same reason.
+    ///
+    /// ⛔⛔ WITHOUT THIS, A RE-DECODE IS UNATTRIBUTABLE. `removed` deletes the
+    /// whole per-id row, demand included, and `demand()` only ever runs at a LOAD
+    /// call site — a second `load` of a resident path is a handle lookup, not a
+    /// decode. So a demote-then-redecode came back reading `demand=unknown`,
+    /// which is also what an unrouted road prints. Two very different facts, one
+    /// word, and chasing the wrong one costs an afternoon looking for roads that
+    /// are already stamped.
+    ///
+    /// ⇒ The count survived a removal and the attribution for it did not, which
+    /// is backwards: the wasted decode is exactly the one whose demander you want
+    /// named, and `dropped_before_gpu` exists to count that population.
+    demand_by_path: BTreeMap<String, (&'static str, Instant)>,
     /// Whether a render world is stamping stage 3 at all. `false` in a
     /// headless or `NoWindow` composition, where nothing is ever prepared on a
     /// GPU — and where a readiness rule that waited for it would wait forever.
@@ -137,14 +161,20 @@ impl ImageStageLedger {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn demand(&mut self, id: UntypedAssetId, source: &'static str, path: String, at: Instant) {
-        let row = self.row(id);
         // First demand wins: a second `load` of the same path is a handle
         // lookup, not a second decode, and the wait that matters is the first.
-        if row.demanded_at.is_none() {
-            row.demanded_at = Some(at);
-            row.source = Some(source);
-            row.path = Some(path);
+        if self.row(id).demanded_at.is_some() {
+            return;
         }
+        // Beside the insertion count, and surviving `removed` the same way, so a
+        // re-decode of this path can still say who first asked for it.
+        self.demand_by_path
+            .entry(path.clone())
+            .or_insert((source, at));
+        let row = self.row(id);
+        row.demanded_at = Some(at);
+        row.source = Some(source);
+        row.path = Some(path);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -168,14 +198,29 @@ impl ImageStageLedger {
         let path = row.path.clone();
         let snapshot = row.clone();
         let snapshot = if let Some(path) = path {
-            let count = self.insertions_by_path.entry(path).or_default();
+            let count = self.insertions_by_path.entry(path.clone()).or_default();
             *count += 1;
             if *count > 1 {
                 self.re_decodes += 1;
             }
             let count = *count;
+            // ⭐ A RE-DECODE INHERITS THE PATH'S FIRST DEMAND. `removed` deleted
+            // the per-id row, so this insertion's row is blank even though the
+            // file was demanded by a known road earlier — without this the
+            // re-decode prints `demand=unknown`, which is also what an UNROUTED
+            // load prints, and the two are not the same fact at all.
+            //
+            // ⚠ `demanded_at` is the FIRST demand's instant, not this decode's,
+            // so `wait()` would measure from the wrong moment. Only the SOURCE is
+            // adopted; the row keeps no `demanded_at`, and the readout says
+            // "first demanded via <road>" rather than quoting a duration it
+            // cannot honestly compute.
+            let inherited = self.demand_by_path.get(&path).map(|(source, _)| *source);
             let row = self.row(id);
             row.insertions_of_path = count;
+            if row.source.is_none() {
+                row.source = inherited;
+            }
             row.clone()
         } else {
             snapshot
@@ -280,6 +325,7 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     awaiting_gpu: Vec::new(),
     gameplay_live: None,
     insertions_by_path: BTreeMap::new(),
+    demand_by_path: BTreeMap::new(),
     render_world_present: false,
     re_decodes: 0,
     dropped_before_gpu: 0,
@@ -317,6 +363,61 @@ mod tests {
             uuid: bevy::asset::uuid::Uuid::from_u128(n),
         }
         .untyped()
+    }
+
+    #[test]
+    /// ⛔⛔ A RE-DECODE KNOWS WHO ASKED FOR IT THE FIRST TIME.
+    ///
+    /// `removed` deletes the per-id row, and `demand()` only runs at a LOAD call
+    /// site — a second `load` of a resident path is a handle lookup, not a
+    /// decode. So a demote-then-redecode used to come back reading
+    /// `demand=unknown`, which is ALSO what an image loaded by an unstamped road
+    /// prints. Two entirely different facts wearing one word: one is "this road
+    /// needs routing", the other is "this file was decoded twice". Chasing the
+    /// first when it was the second costs an afternoon.
+    ///
+    /// The path's first demand now outlives the row, exactly as
+    /// `insertions_by_path` already did.
+    #[test]
+    fn a_re_decode_inherits_the_road_that_first_demanded_the_path() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+
+        ledger.demand(id(1), "character-sheet", "hero.png".into(), t0);
+        let first = ledger.inserted(id(1), 7.4, Some(true), None, t0 + Duration::from_millis(80));
+        assert_eq!(first.source, Some("character-sheet"));
+        assert_eq!(first.insertions_of_path, 1);
+
+        // Dropped before the GPU ever saw it — the wasted decode this ledger
+        // exists to count. The row, and with it the demand, is gone.
+        assert!(
+            ledger.removed(id(1)).is_some(),
+            "premise: dropped before GPU"
+        );
+
+        // The same FILE decoded again under a new asset id, with nothing calling
+        // `demand()` for it — the shape a quality demote-and-restore produces.
+        let second = ledger.inserted(
+            id(2),
+            7.4,
+            Some(true),
+            Some("hero.png".into()),
+            t0 + Duration::from_millis(400),
+        );
+
+        assert_eq!(
+            second.source,
+            Some("character-sheet"),
+            "the re-decode must name the road that first demanded this path, not \
+             report `unknown` and read like an unrouted load",
+        );
+        assert_eq!(second.insertions_of_path, 2, "and it is the path's second");
+        assert_eq!(ledger.re_decodes, 1);
+
+        // ⚠ NO WAIT IS QUOTED. `demanded_at` belongs to the FIRST decode;
+        // measuring this insertion against it would invent a duration.
+        assert_eq!(second.demand_to_insert(), None);
+        assert_eq!(second.demand_phrase(), "first demanded via character-sheet");
     }
 
     #[test]

@@ -509,8 +509,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   compared, never tick-checked; a `set_changed()` on `UserSettings` every frame
   for thirty frames builds it once, `an_idle_system_face_builds_its_model_once`,
   red at 30 with the gate removed); `DevSnapshot` borrows its labels
-  (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through
-  `focus_for_action_in_rows`.
+  (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through the one
+  `focus_for_action(action, page, rows)`.
   ⚠ **CLOSED ON THE ROW AS WRITTEN, AND ONE BIGGER THING SURVIVES IT.**
   `pointer.rs` rebuilds the WHOLE settings IR — a `String` per label, description
   and value, plus both snapshots — ON EVERY HOVER EVENT over a System control, to
@@ -518,7 +518,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   in the survey. ⛔ Not a straight cache swap: `cache.rows` is empty off the
   System face while a System action stays reachable there, so an unguarded
   substitution resolves every such hover to `MenuFocus::System(0)`; it wants an
-  active-page guard. ✔ **BOTH "also open" items CLOSED 2026-09-01** (`63cceae0a`),
+  active-page guard. ✔ **BOTH "also open" items CLOSED 2026-09-02** (`63cceae0a`),
   and re-verified against the code 2026-09-02: `focus_for_action_in_rows` no
   longer exists — there is ONE `focus_for_action` taking `rows` as a parameter,
   so the "same lookup wearing different names" drift `character/assets.rs:261`

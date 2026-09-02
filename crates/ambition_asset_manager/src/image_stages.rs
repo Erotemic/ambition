@@ -111,6 +111,10 @@ pub struct ImageStageLedger {
     /// Insertions per PATH, across ids and across removals: the re-decode
     /// census. Survives `removed`, which is the point.
     insertions_by_path: BTreeMap<String, u32>,
+    /// Whether a render world is stamping stage 3 at all. `false` in a
+    /// headless or `NoWindow` composition, where nothing is ever prepared on a
+    /// GPU — and where a readiness rule that waited for it would wait forever.
+    render_world_present: bool,
     /// Total insertions that were a path's second or later.
     pub re_decodes: u64,
     /// Images removed after insertion and before any GPU preparation: decoded
@@ -194,6 +198,30 @@ impl ImageStageLedger {
         &self.awaiting_gpu
     }
 
+    /// The render world's stamp exists in this process (the plugin found a
+    /// render app to install into).
+    pub fn set_render_world_present(&mut self, present: bool) {
+        self.render_world_present = present;
+    }
+
+    pub fn render_world_present(&self) -> bool {
+        self.render_world_present
+    }
+
+    /// READINESS TERM: `id` was decoded and inserted, and a render world exists
+    /// that has not yet prepared it. `false` whenever no render world stamps
+    /// stage 3 — a headless run never waits on a GPU it does not have — and
+    /// `false` for an id this ledger never saw inserted, which is the loading
+    /// stages' question, not this one.
+    ///
+    /// A room whose reveal waits on this converts the upload of its cast from a
+    /// frame after the cover lifts into cover time: the pixels were paid for
+    /// either way, and under a byte-per-frame budget they pace while the cover
+    /// still holds.
+    pub fn is_awaiting_gpu(&self, id: UntypedAssetId) -> bool {
+        self.render_world_present && self.awaiting_gpu.contains(&id)
+    }
+
     /// The render world saw `id` prepared. Returns the row for reporting.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn gpu_prepared(&mut self, id: UntypedAssetId, at: Instant) -> Option<ImageStages> {
@@ -252,6 +280,7 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     awaiting_gpu: Vec::new(),
     gameplay_live: None,
     insertions_by_path: BTreeMap::new(),
+    render_world_present: false,
     re_decodes: 0,
     dropped_before_gpu: 0,
     dropped_before_gpu_megapixels: 0.0,
@@ -341,6 +370,36 @@ mod tests {
         let other = ledger.inserted(id(9), 2.0, None, Some("hall/b.png".into()), t0);
         assert_eq!(other.insertions_of_path, 1);
         assert_eq!(ledger.re_decodes, 1);
+    }
+
+    /// The readiness term is exactly "inserted, render world present, not yet
+    /// prepared" — and NOTHING without a render world.
+    #[test]
+    fn the_gpu_readiness_term_only_holds_while_a_render_world_owes_the_upload() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.inserted(id(10), 1.0, None, None, t0);
+        assert!(
+            !ledger.is_awaiting_gpu(id(10)),
+            "no render world: a reveal must never wait on a GPU that does not exist"
+        );
+        ledger.set_render_world_present(true);
+        assert!(
+            ledger.is_awaiting_gpu(id(10)),
+            "inserted and unprepared: owed"
+        );
+        assert!(
+            !ledger.is_awaiting_gpu(id(11)),
+            "never inserted: not this term's question"
+        );
+        ledger.gpu_prepared(id(10), t0 + Duration::from_millis(5));
+        assert!(!ledger.is_awaiting_gpu(id(10)), "prepared: ready");
+        ledger.inserted(id(12), 1.0, None, None, t0);
+        ledger.removed(id(12));
+        assert!(
+            !ledger.is_awaiting_gpu(id(12)),
+            "dropped before upload: nothing owed"
+        );
     }
 
     #[test]

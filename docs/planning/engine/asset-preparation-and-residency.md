@@ -455,6 +455,23 @@ Required readiness is a semantic contract, not a percentage bar. A session may
 commit when its required prepared work is ready; degradable presentation work can
 remain explicit and continue resolving afterward.
 
+✔ **"Ready" now includes the GPU copy (2026-09-02).** `inspect_room_asset_manifest`
+— the one readiness function both the room transition and the direct startup
+cover consult — holds a decoded page as `pending` under the label
+`<page> (gpu upload)` while a render world exists that has not yet prepared
+it (`ImageStageLedger::is_awaiting_gpu`). That converts the upload of a room's
+cast from the first frame AFTER the cover lifts (measured: every sheet of the
+hall's reveal in one render frame) into cover time, and it is what makes a
+byte-per-frame upload budget safe to adopt: paced uploads extend the cover by
+a few frames instead of popping sprites in after it. Headless and `NoWindow`
+compositions have no render world and the term is always false — a reveal
+never waits on a GPU it does not have (unit-tested both ways). The startup
+cover prints `[startup-cover] revealed after N updates (M of them waiting only
+on GPU uploads)`; the room transition's `asset_wait_ms` now includes the wait.
+⚠ Still a decode-plus-upload metric, not "resident use": nothing stamps the
+first draw, and a manifest never names a `MAIN_WORLD`-only image (which no
+render world would ever prepare) — if one ever does, the label says which.
+
 ## Explicit non-goals
 
 Do not yet build:

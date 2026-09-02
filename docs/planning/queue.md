@@ -1125,7 +1125,10 @@ product ruling.
   (`insert→gpu 493ms` for all seventeen). On the 3090 read the `insert→gpu`
   max in the hall window; if it is a frame, a second walk with
   `AMBITION_RENDER_ASSET_MB_PER_FRAME=64` shows whether pacing trades it for
-  `awaiting gpu` frames of late-arriving art.
+  `awaiting gpu` frames of late-arriving art. AND since the readiness term
+  landed, `asset_wait_ms` INCLUDES the upload and the reveal should show no
+  `[image-gpu]` line after it — if one appears after the cover lifts, name the
+  file; it came by a road the manifest does not list.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

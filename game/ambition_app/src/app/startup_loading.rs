@@ -75,6 +75,9 @@ struct DirectStartupLoadingState {
     update_serial: u64,
     ready_observed_at: Option<u64>,
     revealed: bool,
+    /// Updates spent with every pending asset decoded and only its GPU upload
+    /// owed — the upload half of the boot, measured under the cover.
+    waited_on_gpu_updates: u32,
 }
 
 impl DirectStartupLoadingState {
@@ -361,11 +364,32 @@ fn drive_direct_startup_loading(
     );
 
     if !state.observe_readiness(ready, failed) {
+        // The last stage the cover is still waiting on, so a log can tell a
+        // decode wait from an upload wait. `(gpu upload)` labels come from
+        // `inspect_room_asset_manifest`'s render-world term.
+        if let Some(first) = summary.pending.first() {
+            if summary
+                .pending
+                .iter()
+                .all(|label| label.ends_with("(gpu upload)"))
+            {
+                state.waited_on_gpu_updates = state.waited_on_gpu_updates.saturating_add(1);
+            }
+            bevy::log::debug!(
+                target: "ambition_app::startup_cover",
+                "startup cover waiting: {} pending, first `{first}`",
+                summary.pending.len()
+            );
+        }
         return;
     }
 
     // Open simulation first, then retire the cover so the first exposed world is also the first
     // live tick.
+    eprintln!(
+        "[startup-cover] revealed after {} updates ({} of them waiting only on GPU uploads), {} assets",
+        state.update_serial, state.waited_on_gpu_updates, summary.total
+    );
     gameplay.mark_ready();
     for entity in &ui.roots {
         commands.entity(entity).despawn();
@@ -412,12 +436,9 @@ fn build_startup_manifest(
     );
     remainder.forward_into(&mut inputs.character_load_demand);
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
-    let demanded_characters =
-        super::world_flow::room_character_tokens(room, &staged_names);
-    let realized_at_build = super::world_flow::realized_character_count(
-        &demanded_characters,
-        &inputs.game_assets,
-    );
+    let demanded_characters = super::world_flow::room_character_tokens(room, &staged_names);
+    let realized_at_build =
+        super::world_flow::realized_character_count(&demanded_characters, &inputs.game_assets);
     let room_spec = Some(std::sync::Arc::new(room.clone()));
 
     let mut supporting = Vec::new();
@@ -488,10 +509,8 @@ fn inspect_startup_manifest(
     // Sheets realize one per frame after the first build; each brings pages
     // the first manifest never saw. Rebuild the description when the count moved.
     if let Some(room_spec) = manifest.room_spec.clone() {
-        let realized = super::world_flow::realized_character_count(
-            &manifest.demanded_characters,
-            game_assets,
-        );
+        let realized =
+            super::world_flow::realized_character_count(&manifest.demanded_characters, game_assets);
         if realized != manifest.realized_at_build {
             manifest.room =
                 build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets);

@@ -24,10 +24,10 @@ use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
     LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress,
 };
+use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::platformer::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionWorldRef,
 };
-use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::render::quality::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::boss::BossSpriteAsset;
 use ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset;
@@ -662,23 +662,34 @@ pub(crate) fn inspect_room_asset_manifest(
         // `AssetServer` is authoritative only for handles it owns. A directly
         // inserted/procedural image has no server load state; for that case the main-world
         // `Assets<Image>` collection is the readiness authority.
-        match asset_server.get_load_state(dependency.asset_id) {
-            Some(_) if asset_server.is_loaded_with_dependencies(dependency.asset_id) => {
-                readiness.settled += 1;
-            }
+        let inserted = match asset_server.get_load_state(dependency.asset_id) {
+            Some(_) if asset_server.is_loaded_with_dependencies(dependency.asset_id) => true,
             Some(LoadState::Failed(_)) => {
                 readiness.settled += 1;
                 readiness.failed.push(dependency.label.clone());
+                continue;
             }
-            Some(LoadState::NotLoaded | LoadState::Loading | LoadState::Loaded) => {
-                readiness.pending.push(dependency.label.clone());
-            }
-            None if images.is_some_and(|images| images.contains(dependency.asset_id)) => {
-                readiness.settled += 1;
-            }
-            None => {
-                readiness.pending.push(dependency.label.clone());
-            }
+            Some(LoadState::NotLoaded | LoadState::Loading | LoadState::Loaded) => false,
+            None => images.is_some_and(|images| images.contains(dependency.asset_id)),
+        };
+        if !inserted {
+            readiness.pending.push(dependency.label.clone());
+            continue;
+        }
+        // Decoded and inserted. ⭐ AND UPLOADED, when a render world is there
+        // to upload: a page whose GPU copy is still owed would otherwise be
+        // prepared on the first frame AFTER the cover lifts — measured as every
+        // sheet of the hall's reveal in one render frame. Waiting here turns
+        // that frame into cover time. Headless (no render world) the term is
+        // always false; see `ImageStageLedger::is_awaiting_gpu`.
+        if ambition_platformer2d::asset_manager::image_stages::ledger()
+            .is_awaiting_gpu(dependency.asset_id.untyped())
+        {
+            readiness
+                .pending
+                .push(format!("{} (gpu upload)", dependency.label));
+        } else {
+            readiness.settled += 1;
         }
     }
     readiness
@@ -1399,7 +1410,10 @@ mod tests {
         ];
         let mut readiness = RoomAssetReadiness::default();
         inspect_demanded_characters(&tokens, &assets, None, &mut readiness);
-        assert_eq!(readiness.total, 2, "both tokens of the declared character count");
+        assert_eq!(
+            readiness.total, 2,
+            "both tokens of the declared character count"
+        );
         assert_eq!(readiness.settled, 0);
         assert_eq!(
             readiness.pending,
@@ -1408,7 +1422,10 @@ mod tests {
                 "character:Busy Beaver (not yet decoded)".to_string(),
             ]
         );
-        assert!(!readiness.is_ready(), "a declared, unrealized character holds the reveal");
+        assert!(
+            !readiness.is_ready(),
+            "a declared, unrealized character holds the reveal"
+        );
     }
 
     #[test]
@@ -1628,6 +1645,78 @@ mod tests {
         );
         assert!(readiness.failed.is_empty(), "{:?}", readiness.failed);
         assert!(readiness.is_ready(), "{:?}", readiness.pending);
+    }
+
+    /// A decoded page whose GPU copy is still owed holds the reveal — when a
+    /// render world exists to owe it — and releases it the frame the upload
+    /// lands. Without a render world the same page is simply ready.
+    ///
+    /// The ledger is process-global, so the render-world flag is set for the
+    /// span of this test only and cleared before it returns; the id is a fresh
+    /// handle nobody else awaits.
+    #[test]
+    fn room_readiness_waits_for_the_gpu_copy_only_while_a_render_world_owes_it() {
+        use ambition_platformer2d::asset_manager::image_stages;
+        let mut app = App::new();
+        app.add_plugins(bevy::app::TaskPoolPlugin::default());
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let page = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+        let manifest = a_room_manifest_staging(
+            vec![
+                ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
+                    texture: page.clone(),
+                    layout: Handle::default(),
+                },
+            ],
+            a_synthetic_spec(1, &[0]),
+        );
+        let inspect = |app: &App| {
+            inspect_room_asset_manifest(
+                &asset_server,
+                Some(app.world().resource::<Assets<Image>>()),
+                &manifest,
+            )
+        };
+
+        // Inserted, no render world: ready (a headless run never waits on a GPU).
+        image_stages::ledger().inserted(
+            page.id().untyped(),
+            1.0,
+            None,
+            None,
+            std::time::Instant::now(),
+        );
+        assert!(
+            inspect(&app).is_ready(),
+            "no render world: {:?}",
+            inspect(&app).pending
+        );
+
+        // Inserted, render world present, upload owed: the page holds the reveal
+        // under its own label.
+        image_stages::ledger().set_render_world_present(true);
+        let held = inspect(&app);
+        assert!(!held.is_ready());
+        assert!(
+            held.pending
+                .iter()
+                .any(|label| label.ends_with("(gpu upload)")),
+            "the pending label names the stage: {:?}",
+            held.pending
+        );
+        assert_eq!(held.settled, 0);
+
+        // The render world stamps it prepared: ready on the next inspection.
+        image_stages::ledger().gpu_prepared(page.id().untyped(), std::time::Instant::now());
+        let ready = inspect(&app);
+        image_stages::ledger().set_render_world_present(false);
+        assert!(ready.is_ready(), "{:?}", ready.pending);
+        assert_eq!(ready.settled, 1);
     }
 
     #[test]

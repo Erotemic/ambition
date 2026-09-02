@@ -419,6 +419,9 @@ impl Plugin for ImageStagePlugin {
             let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
                 return;
             };
+            // From here on a reveal may wait for stage 3; see
+            // `ImageStageLedger::is_awaiting_gpu`.
+            image_stages::ledger().set_render_world_present(true);
             render_app.insert_resource(clock).add_systems(
                 Render,
                 stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),

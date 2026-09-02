@@ -399,10 +399,9 @@ fn build_startup_manifest(
             .as_deref()
             .unwrap_or(&Default::default()),
         &inputs.authored_sheets,
+        true,
     );
-    inputs
-        .character_load_demand
-        .request_all(remainder.iter().map(String::as_str));
+    remainder.forward_into(&mut inputs.character_load_demand);
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 
     let mut supporting = Vec::new();

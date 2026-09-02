@@ -410,3 +410,70 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
         realized_first
     );
 }
+
+/// The hall is a gallery (`RoomMetadata::gallery`): its pedestals are drawn
+/// 132 px tall, so the transition realizes its cast at Quarter — 11.5x fewer
+/// megapixels than the Full frames the same walk loaded on 2026-09-02 (434 MP,
+/// 2.15 GB resident). Under the default (Full) setting, every hall sheet the
+/// transition realizes asks for Quarter; an ordinary room would ask for Full.
+#[test]
+fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
+    use ambition_platformer2d::persistence::settings::TextureResolutionScale;
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+
+    let (mut app, _before) = boot_and_record_the_hall_transition();
+    let ids = hall_character_ids(&mut app);
+    // Characters the hub already realized at the setting's tier stay as they
+    // are — a Full sheet in a gallery is merely oversampled, and retiring it on
+    // every entry to re-decode it on every exit would be churn for nothing.
+    let already_realized: std::collections::BTreeSet<String> = {
+        let assets = app.world().resource::<GameAssets>();
+        ids.iter()
+            .filter(|id| assets.characters.sheet(id).is_some())
+            .cloned()
+            .collect()
+    };
+    let setting = app
+        .world()
+        .resource::<ambition_platformer2d::persistence::settings::UserSettings>()
+        .video
+        .quality
+        .resolved_budget()
+        .sprites
+        .effective_scale();
+    assert!(
+        setting > TextureResolutionScale::Quarter,
+        "this test needs a setting ABOVE the gallery cap to tell the two apart; got {setting:?}"
+    );
+    // Let the ration realize a good part of the cast behind the cover.
+    for _ in 0..200 {
+        step(&mut app);
+    }
+    let assets = app.world().resource::<GameAssets>();
+    let mut tiers: std::collections::BTreeMap<TextureResolutionScale, usize> = Default::default();
+    let mut kept_as_they_were = 0;
+    for id in &ids {
+        let Some(sheet) = assets.characters.sheet(id) else {
+            continue;
+        };
+        if already_realized.contains(id) {
+            assert_eq!(
+                sheet.requested_tier, setting,
+                "'{id}' was realized at {setting:?} before the door and must be KEPT there, \
+                 not retired and re-decoded because a gallery would have asked for less"
+            );
+            kept_as_they_were += 1;
+            continue;
+        }
+        *tiers.entry(sheet.requested_tier).or_default() += 1;
+    }
+    let realized: usize = tiers.values().sum();
+    assert!(realized >= 100, "only {realized} of {} realized in 200 frames", ids.len());
+    assert_eq!(
+        tiers.keys().copied().collect::<Vec<_>>(),
+        vec![TextureResolutionScale::Quarter],
+        "the hall's newly realized sheets asked for {tiers:?}; a gallery caps its cast at \
+         Quarter under a {setting:?} setting"
+    );
+    assert_eq!(kept_as_they_were, already_realized.len());
+}

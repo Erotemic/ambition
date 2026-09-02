@@ -168,8 +168,27 @@ impl CharacterSpriteAssets {
     /// system that took the mutable borrow every frame would mark the whole
     /// asset resource changed every frame.
     pub fn has_stale_realizations(&self, active: TextureResolutionScale) -> bool {
+        self.has_stale_realizations_outside(active, active)
+    }
+
+    /// A realization is stale when its tier is BELOW `floor` (drawn from pixels
+    /// too small for where it is shown) or ABOVE `ceiling` (bigger than the
+    /// user's setting asks for). One tier for both is the old exact rule.
+    ///
+    /// The room a character stands in sets the floor
+    /// (`room_sprite_tier_cap`: a gallery of 132-px pedestals needs Quarter),
+    /// the user's setting sets the ceiling. A Full sheet standing in a gallery
+    /// is merely oversampled and is KEPT — demoting it on every hall entry and
+    /// re-decoding it on every exit would be churn for nothing; a Quarter sheet
+    /// carried out into a Full room is too small and goes.
+    pub fn has_stale_realizations_outside(
+        &self,
+        floor: TextureResolutionScale,
+        ceiling: TextureResolutionScale,
+    ) -> bool {
         self.sheets.iter().any(|(token, asset)| {
-            asset.requested_tier != active && self.declared.contains_key(token)
+            (asset.requested_tier < floor || asset.requested_tier > ceiling)
+                && self.declared.contains_key(token)
         })
     }
 
@@ -207,11 +226,22 @@ impl CharacterSpriteAssets {
         &mut self,
         active: TextureResolutionScale,
     ) -> std::collections::BTreeSet<String> {
+        self.demote_stale_realizations_outside(active, active)
+    }
+
+    /// [`Self::demote_stale_realizations`] with the floor/ceiling rule of
+    /// [`Self::has_stale_realizations_outside`].
+    pub fn demote_stale_realizations_outside(
+        &mut self,
+        floor: TextureResolutionScale,
+        ceiling: TextureResolutionScale,
+    ) -> std::collections::BTreeSet<String> {
         let stale: Vec<String> = self
             .sheets
             .iter()
             .filter(|(token, asset)| {
-                asset.requested_tier != active && self.declared.contains_key(*token)
+                (asset.requested_tier < floor || asset.requested_tier > ceiling)
+                    && self.declared.contains_key(*token)
             })
             .map(|(token, _)| token.clone())
             .collect();

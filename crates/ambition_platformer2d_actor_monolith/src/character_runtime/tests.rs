@@ -133,7 +133,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
 
     // Drive only the unknown-token branch, which needs no asset pipeline at all —
     // that is exactly why an unknown id must be classified BEFORE any decode.
-    for token in std::mem::take(&mut demand.pending) {
+    for (token, _tier) in std::mem::take(&mut demand.pending) {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
                 token.clone(),
@@ -1233,7 +1233,12 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
         "everything is eventually taken"
     );
 
-    let mut all: Vec<String> = first.into_iter().chain(second).chain(third).collect();
+    let mut all: Vec<String> = first
+        .into_iter()
+        .chain(second)
+        .chain(third)
+        .map(|(token, _tier)| token)
+        .collect();
     all.sort();
     assert_eq!(
         all,

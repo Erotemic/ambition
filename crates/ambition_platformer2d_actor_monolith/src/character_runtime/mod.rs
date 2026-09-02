@@ -96,7 +96,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::prelude::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_persistence::settings::VisualQualityBudget;
+use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
@@ -107,9 +107,29 @@ use crate::assets::platformer_assets::Platformer2dAssetCatalog;
 /// A token is a catalog id or an authored display name — whatever content wrote.
 /// Requests accumulate until the materializer drains them, so a submitter never
 /// has to know whether the decode already happened.
+/// The tier floor of a room the host is LOADING but has not yet made active.
+///
+/// `converge_character_residency_to_active_quality` retires realizations
+/// outside the ACTIVE room's tier range every frame. During a covered
+/// transition the active room is still the one being left, so the cast the
+/// transition realizes at the destination's floor (Quarter for a gallery) was
+/// retired as "too small" the frame after it arrived, re-demanded untiered, and
+/// realized at Full — the churn measured 2026-09-02 as 103 Full sheets behind
+/// the hall's cover. The host sets this while a transition loads and clears it
+/// when none is active; converge takes the LOWER floor of the two rooms.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingRoomTierFloor(pub Option<TextureResolutionScale>);
+
 #[derive(Resource, Default, Debug, Clone)]
 pub struct CharacterLoadDemand {
-    pending: BTreeSet<String>,
+    /// Token → the tier FLOOR it was demanded at, when the demander knew one.
+    /// A room transition demands its cast at the TARGET room's floor
+    /// (`room_sprite_tier_cap`); an in-room demand carries `None` and is
+    /// realized at the ACTIVE room's. Without this, the cast a covered
+    /// transition hands over is realized by the drain at the room the player
+    /// is still standing in — Full sheets for a gallery whose door they are
+    /// walking through.
+    pending: BTreeMap<String, Option<TextureResolutionScale>>,
 }
 
 impl CharacterLoadDemand {
@@ -118,7 +138,16 @@ impl CharacterLoadDemand {
     pub fn request(&mut self, token: impl Into<String>) {
         let token = token.into();
         if !token.trim().is_empty() {
-            self.pending.insert(token);
+            self.pending.entry(token).or_insert(None);
+        }
+    }
+
+    /// Ask for one character's art, to be realized at `tier` at least. A later
+    /// tiered request overrides an earlier one; an untiered one never erases a tier.
+    pub fn request_at(&mut self, token: impl Into<String>, tier: TextureResolutionScale) {
+        let token = token.into();
+        if !token.trim().is_empty() {
+            self.pending.insert(token, Some(tier));
         }
     }
 
@@ -133,57 +162,43 @@ impl CharacterLoadDemand {
         }
     }
 
+    /// Ask for many, all at `tier`.
+    pub fn request_all_at<I, S>(&mut self, tokens: I, tier: TextureResolutionScale)
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for token in tokens {
+            self.request_at(token, tier);
+        }
+    }
+
+    /// Tokens demanded and not yet taken by the materializer.
     pub fn pending(&self) -> impl Iterator<Item = &str> {
-        self.pending.iter().map(String::as_str)
+        self.pending.keys().map(String::as_str)
     }
 
     pub fn is_empty(&self) -> bool {
         self.pending.is_empty()
     }
 
-    /// Take the outstanding demand. Deterministic order: `BTreeSet`, so two peers
-    /// decode the same ids in the same sequence.
-    fn take(&mut self) -> BTreeSet<String> {
-        std::mem::take(&mut self.pending)
+    fn take(&mut self) -> Vec<(String, Option<TextureResolutionScale>)> {
+        std::mem::take(&mut self.pending).into_iter().collect()
     }
 
-    /// Take at most `limit` tokens, leaving the rest pending for later frames.
-    ///
-    /// ⛔⛔ WHY A LIMIT EXISTS AT ALL: a character is ~7 sheets at 4096x4096, about
-    /// **470MB of decoded RGBA**, and `take()` drained the WHOLE demand set in one
-    /// frame — so every fighter's sheets started loading together, finished
-    /// together, and were extracted into the render world together. The first
-    /// hardware profile (2026-08-29) measured the result:
-    /// `extract_render_asset<GpuImage>` at **454.9ms against a 0.1ms mean**, inside
-    /// a 516ms frame.
-    ///
-    /// ⭐ The hitch is not how long a decode takes — decode is already async on the
-    /// IO pool. It is **how many finished decodes land on the same frame**. Starting
-    /// them on different frames is what spreads the landing.
-    ///
-    /// ⚠ This DELAYS readiness, it does not drop it: whatever is not taken stays
-    /// pending and is taken next frame, and the reveal barrier
-    /// (`character_reveal_ready`) still waits for every demanded token to reach a
-    /// terminal state. That is affordable precisely because demand is now raised at
-    /// match PREPARATION rather than at the opening bell — there are frames to
-    /// spread across.
-    ///
-    /// ⛔ It bounds LOADS, never STAGING. A caller that let this ration the cast
-    /// too would make characters arrive after their actors spawn, in frame and
-    /// uncovered — the exact defect `hall_transition_cover` exists to keep closed.
-    fn take_bounded(&mut self, limit: usize) -> BTreeSet<String> {
+    /// Take at most `limit` pending tokens (all of them for `limit == 0`),
+    /// leaving the rest pending for the next call.
+    fn take_bounded(&mut self, limit: usize) -> Vec<(String, Option<TextureResolutionScale>)> {
         if limit == 0 || self.pending.len() <= limit {
             return self.take();
         }
-        // `BTreeSet`, so this split is by sorted token — deterministic, which a
-        // rollback host needs and a `HashSet` could not promise.
-        let mut taken = BTreeSet::new();
+        let mut taken = Vec::with_capacity(limit);
         for _ in 0..limit {
-            let Some(token) = self.pending.iter().next().cloned() else {
+            let Some(token) = self.pending.keys().next().cloned() else {
                 break;
             };
-            self.pending.remove(&token);
-            taken.insert(token);
+            let tier = self.pending.remove(&token).flatten();
+            taken.push((token, tier));
         }
         taken
     }
@@ -561,7 +576,18 @@ pub fn materialize_character_demand(
     // ⭐ See `take_bounded`: each character is ~470MB of decoded RGBA, and landing
     // several in one frame is what produced a 516ms frame on hardware. Anything
     // not taken stays pending and is taken next frame.
-    for token in demand.take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME) {
+    for (token, tier) in demand.take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME) {
+        // A demand that names its tier floor (a room transition's cast) is
+        // realized there; the rest at the budget the caller resolved.
+        let tiered_budget = tier.and_then(|floor| {
+            quality.map(|budget| {
+                let mut budget = budget.clone();
+                budget.sprites.resolution_scale = floor.min(budget.sprites.effective_scale());
+                budget.sprites.prefer_scaled_variants = true;
+                budget
+            })
+        });
+        let quality = tiered_budget.as_ref().or(quality);
         // Whose cues this character will emit under, resolved BEFORE any decode:
         // the cast is a roster, not a report on the art, and it must be right for a
         // character whose sheet never resolves.
@@ -797,22 +823,42 @@ pub fn converge_character_residency_to_active_quality(
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The room the cast stands in sets the FLOOR of the acceptable tier range
+    // (`room_sprite_tier_cap`); the setting sets the ceiling. `Option`: no
+    // session, no room, and the range collapses to the setting alone.
+    room_set: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
+    pending_room: Option<Res<PendingRoomTierFloor>>,
 ) {
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
     };
     let budget = settings.map(|settings| settings.video.quality.resolved_budget());
-    let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
+    let (mut floor, ceiling) = crate::character_sprites::room_character_tier_bounds(
+        budget.as_ref(),
+        room_set.as_ref().map(|rooms| &rooms.active_spec().metadata),
+    );
+    if let Some(pending) = pending_room.as_deref().and_then(|pending| pending.0) {
+        floor = floor.min(pending);
+    }
     // Read through the immutable deref: nothing is stale on almost every frame,
     // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
-    if !assets.characters.has_stale_realizations(active) {
+    if !assets
+        .characters
+        .has_stale_realizations_outside(floor, ceiling)
+    {
         return;
     }
-    let stale = assets.characters.demote_stale_realizations(active);
+    let stale = assets
+        .characters
+        .demote_stale_realizations_outside(floor, ceiling);
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
-        "quality transition to {active:?}: retired {} character realization(s) and \
-         re-demanded them",
+        "quality transition to {floor:?}..={ceiling:?}: retired {} character realization(s) \
+         and re-demanded them",
         stale.len(),
     );
     demand.request_all(stale);
@@ -866,6 +912,14 @@ pub fn materialize_demanded_character_sheets(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // A character demanded IN a room is realized at that room's tier floor
+    // (`budget_for_room`), the same tier the room's transition would have
+    // chosen for it — so a late spawn in a gallery does not fetch Full pages.
+    room_set: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
 ) {
     // The ledger and the demand come first and separately: the no-pipeline path
     // still has to SETTLE what was staged, so it cannot be inside a destructuring
@@ -886,7 +940,7 @@ pub fn materialize_demanded_character_sheets(
         // art that was never going to exist is that silence with extra steps.
         let fallback_registry = PreparedCharacterRegistry::default();
         let registry = registry.as_deref().unwrap_or(&fallback_registry);
-        for token in demand.take() {
+        for (token, _tier) in demand.take() {
             // Canonicalized here too. An art-free composition still emits cues, and
             // authorization is deliberately not gated on the asset pipeline — so a
             // headless session that staged `"Mary-O"` must still authorize
@@ -904,7 +958,12 @@ pub fn materialize_demanded_character_sheets(
     };
     // Same source `ResolvedVisualQuality` mirrors, read directly so the engine
     // does not depend on the render crate to know its own texture budget.
-    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    let budget = settings.map(|settings| {
+        crate::character_sprites::budget_for_room(
+            &settings.video.quality.resolved_budget(),
+            room_set.as_ref().map(|rooms| &rooms.active_spec().metadata),
+        )
+    });
     let fallback_registry = PreparedCharacterRegistry::default();
     materialize_character_demand(
         &mut demand,
@@ -930,6 +989,7 @@ impl Plugin for CharacterRuntimePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.init_resource::<CharacterLoadDemand>()
+            .init_resource::<PendingRoomTierFloor>()
             .init_resource::<CharacterLoadStates>()
             // The provider-authored sheet registry (U1). Initialised HERE, by
             // the plugin that owns the decode, for the same reason this plugin

@@ -281,7 +281,55 @@ original population rather than deciding this by accident. See
 ⚠ Recorded, not recommended. Whichever way it goes it is a FEEL ruling and wants
 authoring deliberately, not acquiring from a refactor.
 
+### Two fighters' bespoke effect art is never requested (2026-09-02)
+
+`npc_pirate_admiral` has a 14-row effect sheet and `smash_george_booul` a 21-row
+one, and **nothing in the repository names 34 of those 35 rows** — measured by
+`scripts/measure_fx_row_reachability.py`, which asks which fx row names any
+tracked `.rs`/`.ron`/`.yarn`/`.json` mentions (an effect is drawn by name, so a
+row nothing names cannot be requested).
+
+⛔ IT IS NOT DEAD ART, which is why this is a question and not a slice. The rows
+were drawn FOR those kits: `grapeshot_cloud`, `heave_to_anchor`,
+`heave_to_brake`, `cutlass_wake`, `boarding_wake`, `captains_mark` sit beside an
+admiral moveset whose moves are named `grapeshot`, `heave_to`, `gun_sword` — and
+that moveset asks for `muzzle_flash` and `air_slice` from the GENERIC sheets
+instead. George is the same: `bivalence_weak`/`bivalence_strong`,
+`excluded_middle_windup/launch/ascent/gate/tail`, `modus_ponens_*`, `reductio_*`,
+beside moves called `bivalence`, `excluded_middle`, `commitment`.
+
+⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
+from the names, but WHEN in a timeline each fires and at what scale is a feel
+ruling, which is why it is here rather than done. Residency's interest is only
+the size: the FX set is 9.6 MP resident in every room and 76 of its 196 rows are
+currently unrequestable.
+
+### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
+
+Every world file declares `sprite_player_robot_v3 = ../sprites/player_robot_v3_
+spritesheet.png` (3072×2484) so the editor can draw entity previews, and
+`bevy_ecs_ldtk` decodes every tileset of a project when the project loads — on
+every boot and every world load, at FULL tier, beside whatever tier the game
+actually realizes. The runtime never draws it. Fix is one line per world in the
+map submodule (point it at the `sprites_0_25x` copy, 0.5 MP; the editor preview
+survives at a quarter resolution). ⛔ Jon's file, so it waits.
+
 ## Waiting on maintainer measurement, not a decision
+
+### The residency limit open work 4 needs
+
+A budget policy that keeps the last room's cast resident needs a ceiling, and the
+ceiling is a host number: `resident_mb` at Full on the 3090 after a
+hub→hall→hub walk. Everything else in that section is measured; this is the one
+input that cannot be taken on a software rasteriser.
+
+### D-RASTER-3's remaining half
+
+Splitting the weak-GPU 2.54× between framebuffer scale and MSAA needs an
+interleaved A/B on real weak-GPU hardware with the independent
+`AMBITION_MAX_SCALE_FACTOR` and `AMBITION_MSAA` knobs, multiple reps per arm,
+build/features/profile held constant. ⛔ Explicitly not lavapipe: the row says so
+and the substitution is what made the original result unattributable.
 
 ### Switch Pro outer stick range
 

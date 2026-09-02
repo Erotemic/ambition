@@ -419,8 +419,9 @@ impl ImageStageLedger {
     ///
     /// ⛔ SAME RENDER-WORLD CAVEAT AS [`Self::resident_never_drawn`]: without one
     /// this returns every resident image under its road and means "nobody could
-    /// have drawn anything". The caller must consult
-    /// [`Self::render_world_present`] before printing it as a finding.
+    /// have drawn anything". The caller must consult the ASKING App's
+    /// [`RenderWorldPresent`] before printing it as a finding — the ledger is
+    /// process-global and cannot know which App is reading it.
     ///
     /// ⛔⛔ AND [`ROAD_PROCEDURAL`] IS NEVER A FINDING IN THIS READOUT, whatever
     /// its megapixels say. The stage is stamped from `ExtractedSprites`, and a

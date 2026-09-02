@@ -95,6 +95,41 @@ AABB slope vocabulary from the old CC8 plan remains deferred until a real game
 or demo demands slopes. Do not build it merely to finish the historical
 campaign.
 
+## 6. The swept primitive's parity claim is false for touch contacts
+
+**Open, source-confirmed and measured once.** `cast::aabb_path_contacts`
+documents itself as *"PARITY by construction: it returns `true` for the
+already-overlapping (standing-in-it) case exactly as the old discrete
+`strict_intersects` did, then ADDS the swept path on top"*. The first half is
+true. The second is not: the discrete test reports boxes that **overlap**, while
+`sweep_hit` reports boxes that **contact**, so the sweep adds every TOUCH along
+the path — including a body sliding along a face it never enters.
+`reject_grazing_contact` does not cover it, because the approach is head-on on
+one axis while the other axis merely shares a plane.
+
+⭐ **MEASURED 2026-09-02 in `blink_run`.** A body walking the start floor with
+feet at `y = 128.0`, against a hazard whose top face is also `y = 128.0`, was
+reported as hitting the hazard the instant its leading edge passed `x = 288.0`
+(endpoint AABB `max = (288.87, 128.0)` vs hazard `min = (288.0, 128.0)`). It
+walked along a surface and was killed for it. This is not an exotic shape: an
+authored death gap ALWAYS shares its top face with the floor it interrupts.
+
+The hazard gate fixed this **on the consumer side**, insetting the hazard to its
+interior before the swept query (`movement::collision::HAZARD_SURFACE_EPSILON`),
+and deliberately did not change the primitive on the strength of one case.
+Guarded by `movement::tests::hazard_sweep::walking_a_floor_flush_with_a_hazards_
+top_face_is_not_a_hit`, across every motion policy, poison-verified.
+
+⚠ **THE OTHER CONSUMERS ARE OVER-TRIGGER LATENT, UNMEASURED.** Room and
+loading-zone entry both read the same primitive (see "Verified current
+foundation"). Neither has been shown to misfire, and neither has been checked —
+the reason they may not is that a loading zone is rarely coplanar with a
+walkable surface, which is a property of current authoring rather than a rule.
+⛔ Do not "fix" them speculatively. The open question is whether the parity claim
+should be corrected at the primitive — a strict-overlap variant beside the
+contact one — or whether contact is right for triggers and only hazards want
+overlap. Answer that with a second measured case, not by reasoning.
+
 ## Exit
 
 This residual plan is complete when the source-confirmed swept-hazard gap is

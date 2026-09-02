@@ -774,8 +774,54 @@ pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
 pub fn hazard_contact_on_path(world: &World, center: Vec2, half: Vec2, delta: Vec2) -> bool {
     world.blocks.iter().any(|b| {
         matches!(b.kind, BlockKind::Hazard)
-            && crate::cast::aabb_path_contacts(center, half, delta, b.aabb)
+            && interior_of(b.aabb)
+                .is_some_and(|inside| crate::cast::aabb_path_contacts(center, half, delta, inside))
     })
+}
+
+/// How far a swept query is pulled inside a hazard's faces before it counts.
+///
+/// ⛔⛔ WITHOUT THIS, WALKING UP TO A GAP KILLS YOU. `aabb_path_contacts` is a
+/// CONTACT test — `sweep_hit` reports boxes that touch — while the discrete
+/// `strict_intersects` it claims parity with reports only boxes that OVERLAP.
+/// The two agree everywhere except on a shared face, and an authored hazard gap
+/// shares its top face with the floor either side of it by construction.
+///
+/// Measured 2026-09-02 in `blink_run`: a body walking the start floor at
+/// `feet y = 128.0` against a hazard whose top face is also `y = 128.0` reported
+/// a swept hit the instant its leading edge passed `x = 288.0` — endpoint AABB
+/// `max = (288.87, 128.0)` versus hazard `min = (288.0, 128.0)`. It never
+/// penetrated anything; it walked along a surface. `reject_grazing_contact`
+/// inside `sweep_hit` does not cover a coplanar slide.
+///
+/// ⛔ THREE DIFFERENT QUESTIONS OWN THREE DIFFERENT CASES. Do not add a fourth
+/// epsilon; work out which of these a new case belongs to.
+///
+/// - the DISCRETE arm (`touching_hazard_aabb`) owns the ENDPOINT, and carries no
+///   epsilon at all — it is `strict_intersects` against the hazard's real AABB.
+///   A body that ends the tick even `1e-4` inside a hazard is caught there, so
+///   this inset cannot let a real penetration through the back door;
+/// - `reject_grazing_contact` (inside `sweep_hit`) owns motion PARALLEL to the
+///   face it contacts — a slide that never approaches the surface;
+/// - this epsilon owns contact at ZERO penetration, where the approach IS
+///   head-on on the other axis, so grazing rejection correctly does not apply.
+///
+/// ⇒ what the inset can miss is exactly one thing: a body that dips no more than
+/// `1e-3` into a hazard MID-tick and is back out by the tick's end. At a
+/// thousandth of a pixel that is not a traversal, and the endpoint arm still
+/// answers for where the body actually finished.
+const HAZARD_SURFACE_EPSILON: f32 = 1.0e-3;
+
+/// A hazard's INTERIOR — the volume a body has to be inside to have gone
+/// through it, rather than along it. `None` for a hazard thinner than the
+/// epsilon, which has no interior to tunnel.
+fn interior_of(hazard: Aabb) -> Option<Aabb> {
+    let inset = Vec2::splat(HAZARD_SURFACE_EPSILON);
+    let inside = Aabb {
+        min: hazard.min + inset,
+        max: hazard.max - inset,
+    };
+    (inside.min.x < inside.max.x && inside.min.y < inside.max.y).then_some(inside)
 }
 
 /// Rebound impulse lookup for a body AABB.

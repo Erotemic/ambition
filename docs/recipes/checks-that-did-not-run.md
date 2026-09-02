@@ -8,9 +8,10 @@ This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I
 ran actually run* — and it exists because on 2026-09-02 a single day's work
-turned up **seven** members of the same family in one gate script.
+turned up SEVEN members of the same family in one gate script, and an eighth was
+already sitting in the backlog unrecognised.
 
-⭐ **THE FINDING IS NOT THE SEVEN. It is that five of the seven were found by
+⭐ **THE FINDING IS NOT THE COUNT. It is that five of the eight were found by
 accident** — by running a suite for an unrelated reason, by an external reviewer
 reading source, by running `cargo check` by hand before the gate. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
@@ -23,6 +24,31 @@ draft was still open. That is not an embarrassment to correct quietly — it is
 the argument for the rule at the bottom of this page. Re-check a member against
 the current `HEAD` before you repeat it to anybody; a catalogue of gate holes is
 a claim about a changing repository, exactly like a queue row.
+
+## The question before the four
+
+⛔ **DID ANYONE RUN A CHECK AT ALL?** Everything below assumes a check ran and
+lied about its coverage. The plainer failure underneath the whole family is a
+check that was simply never run in the window where it mattered, and it produces
+an identical outcome: nobody knows.
+
+On 2026-09-02 `main` could not compile for several commits. `perception_census.rs`
+was renamed out of `ambition_dev_tools` in one commit and its
+`pub mod perception_census;` line in `lib.rs` was not removed until `01b7c7ca0`,
+so every commit in between failed with **E0583, file not found for module** — the
+loudest, least subtle error Rust has. It survived because the commits in that
+window were documentation-shaped and nobody compiled that crate.
+
+⭐ **AND IT SURVIVED A CONFLICT-FREE MERGE, WHICH IS THE PART TO REMEMBER.** A
+branch based before the rename merged `main` cleanly: its side kept the `lib.rs`
+line because it had never touched it, the other side deleted the file, and git
+was correct both times. A `rename … => …` in a merge's stat output for a file
+whose module is declared elsewhere is a semantic conflict a textual merge cannot
+see — and the merge reports success.
+
+So: "the gate is slow, I'll run it later" and "the gate is blind" have the same
+consequence. The four questions below are for the second case; this one is
+answered by running something at all, on the crate the merge just renamed.
 
 ## The four questions
 
@@ -49,9 +75,9 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The seven, and what each one teaches
+## The eight, and what each one teaches
 
-| # | the check | how it lied | status at `f9ffc3fbc` |
+| # | the check | how it lied | status |
 |---|---|---|---|
 | 1 | `./run_tests.sh --rust` | skipped the whole Python lane, so the rollback stable-name ratchet, the codec-shape baseline and a stale `MODULES.md` sat red **for a day** behind a gate reporting 4/4 GREEN | fixed `2945f3381` |
 | 2 | the wasm build job | gated on `if not only and everything` — the exhaustive plan only, so a default run never checked `wasm32` at all | fixed `b85b4db20` |
@@ -59,6 +85,7 @@ expression; those survive edits that line numbers do not.
 | 4 | the repo-tooling lane | simply not invoked by the flag anybody was using | fixed `2945f3381` |
 | 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
 | 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
+| 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
@@ -95,6 +122,37 @@ they are not the same kind of fix.
   The only defence is a human knowing the gap exists, which is why it is written
   down here instead of filed as a bug.
 
+## The machine you are on decides which of these are live
+
+Members #2, #7 and #8 are not properties of the code alone — they fire or do not
+fire depending on what is installed where you are standing.
+
+On the calculex VM on 2026-09-02, `rustup target list --installed` returned
+exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
+`aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box
+therefore carried **zero** web and **zero** Android coverage — and said so out
+loud rather than in a footer claiming otherwise, which is #7's fix working on a
+machine it was not written on:
+
+```text
+run_tests: SKIPPING the web build CHECK — the wasm32-unknown-unknown target is
+not installed … The web build is UNCHECKED in this run, and a #[cfg] break on
+that target is invisible to every other job.
+```
+
+⭐ **THEN `rustup target add wasm32-unknown-unknown` CHANGED THE ANSWER, in about
+a minute.** The same commit, the same command, the same repository — different
+coverage, because the machine changed. Nothing in the code moved. The Android
+path (#8) did not change with it: it needs a device, not a toolchain, which is
+what makes it the structural member and the web one the situational member.
+
+⛔ **SO "THE GATE PASSED" IS NOT A PORTABLE CLAIM.** It is a claim about one
+machine's installed toolchains at one moment. When you report a green gate to
+somebody on different hardware, say which targets were installed, or you have
+handed them member #7 in social form — a report that something was checked when
+it was skipped. And when a target is cheap to install, installing it is a better
+answer than documenting the gap.
+
 ## Before you believe an error list, diff it against a clean checkout
 
 `check_agent_kb.py` could not pass in an agent worktree. It used
@@ -105,8 +163,26 @@ outside repo" errors appeared **in every worktree and in no clean checkout**.
 An external reviewer saw three errors. The session in the worktree saw five. Two
 of them were its environment.
 
+⭐ **AND THE SAME TRAP HAS A FLAGS-SHAPED TWIN, met the same day.** The wasm32
+CHECK was run here by hand — `cargo check -p ambition_app --lib --target
+wasm32-unknown-unknown --no-default-features --features web_served_assets`. It
+passed in 5m02s and emitted three warnings that looked like real rot:
+
+| warning | why it is NOT a defect |
+|---|---|
+| unused imports `ITEM_GRID_COLS`, `ITEM_GRID_ROWS` | they ARE used, in code gated `#[cfg(feature = "kaleidoscope_menu")]` — a feature this invocation's `--no-default-features` did not enable |
+| unused import `VisualQualityProfile` | same feature gate |
+| `prefetch_preparations` is never used | it IS used, by `tests/neighbor_prefetch_prepares_rooms.rs` — which `--lib` does not build, and which the gate's `cargo check --all-targets` does |
+
+Three warnings, zero defects, produced entirely by running a narrower command
+than the gate runs. ⛔ The mirror of member #3 exactly: there, a WARMER build
+hid warnings that existed; here, a NARROWER build invented warnings that did
+not. Both are the same mistake — reading a diagnostic list without knowing what
+produced it.
+
 ⛔ **THE GENERAL RULE: your error list is a property of your environment until
-you have compared it with one you did not build.** This cuts both ways — the
+you have compared it with one you did not build** — and "environment" includes
+your flags, not just your machine. This cuts both ways — the
 extras may be phantom, and a clean checkout may also show you something your
 warm tree has been hiding since member #3.
 

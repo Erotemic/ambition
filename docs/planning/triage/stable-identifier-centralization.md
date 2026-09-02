@@ -6,6 +6,40 @@
 > straight, but no decision has been made to introduce a derive macro, a shared
 > newtype crate, or generated boilerplate. Explicit, locally readable Rust is a
 > valid outcome.
+>
+> **RE-MEASURED against `925b355c1` (2026-09-02). The inventory this doc asks for
+> below is still not done, but the two facts that decide it are now measured —
+> and they INVERT the framing above.**
+>
+> - **42** distinct `pub struct *Id` newtypes at HEAD, against **23** at
+>   `159daa235` (2026-07-23). The population nearly doubled in six weeks. Ten
+>   wrap `String` directly, two wrap an integer, none wrap `&'static str`.
+> - **`macro_rules! string_id` is defined THREE TIMES**, in
+>   `ambition_load_presentation/src/model.rs`, `ambition_game_shell/src/id.rs`
+>   and `ambition_load/src/id.rs` — covering `LoadExperienceId`/`LoadActivityId`/
+>   `LoadPresentationOwnerId`; `ShellRouteId`/`ShellExperienceId`/
+>   `ShellSegmentId`/`ShellSegmentKindId`/`ShellHoldId`; and `LoadId`/
+>   `LoadBarrierId`/`LoadWorkId`. Two further id-macro families exist beside
+>   them (`sfx_ids!`, `fx_ids!`).
+> - ⭐ **THE THREE ARE IDENTICAL.** Normalised for whitespace they diff clean,
+>   pairwise: same derives (`Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd`),
+>   the same `new` that **panics** via `assert!` on a trim-empty value, the same
+>   `as_str`, `From<&str>`, `From<String>` and `Display`. No serde, no `Borrow`,
+>   no `AsRef`.
+>
+> ⛔ **SO THE RISK THIS DOC GUARDS AGAINST IS NOT THE RISK PRESENT.** It argues a
+> macro "can hide policy from both human maintainers and coding agents", and that
+> saving twenty lines is not worth a hunt for an expansion rule in another crate.
+> Fair — but nothing is hidden today, because the same expansion rule is written
+> out three times and has not drifted. What IS unstated is the policy those three
+> copies silently agree on: **an identifier is a non-empty `String` that PANICS on
+> violation and is not serialisable.** That decision was made three times without
+> being written down anywhere, and eleven types now depend on it.
+>
+> ⇒ The open question is therefore narrower and more answerable than "derive macro
+> versus explicit Rust": which crate owns the ONE copy, and is panic-on-empty the
+> policy the other 31 identifier types should also follow? The classification axes
+> below remain the right way to answer the second half.
 
 ## Why this is in triage
 

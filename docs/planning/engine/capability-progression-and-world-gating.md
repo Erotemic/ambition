@@ -2,6 +2,35 @@
 
 **State:** OPEN — systemic gating is the preferred direction; capability ownership details are intentionally unresolved.
 
+> **RE-MEASURED against `bc85c059d` (2026-09-02). ⭐ THE INPUTS TO FOUR GATE FAMILIES
+> ALREADY EXIST; THE GATE THAT READS THEM DOES NOT.** That is a materially
+> different starting position from "design the whole thing", and it says where
+> the first slice is.
+>
+> | gate family | vocabulary at HEAD |
+> |---|---|
+> | body capability | ⭐ `AbilitySet` (`platformer2d_core/src/abilities.rs`) with **14** fields: `move_horizontal`, `jump`, `variable_jump`, `double_jump`, `fast_fall`, `wall_jump`, `wall_cling`, `wall_climb`, `dash`, `double_dash`, `fly`, `fly_toggle`, `blink`, `precision_blink` |
+> | body property | ⭐ `mass` (`Option<f32>`, read at spawn, rollback-registered as `mount.mass`), `standing_height` (authored; "IS the body's height — not a hint"), `Locomotion` |
+> | item/equipment | `crates/ambition_items`, `crates/ambition_inventory_ui` |
+> | world mechanism | partial — `PersistedSwitch`, `GravityFlipSwitch`, `Empowered`; no general "mechanism is in state X" fact |
+> | soft systemic pressure | nothing route-facing |
+> | social/knowledge | nothing route-facing |
+> | story gate | the authored road, as intended |
+>
+> ⛔ **AND NOTHING GATES A ROUTE ON ANY OF THEM.** The types named `*Gate` in the
+> workspace are `ActionGate` (`entity_catalog/src/action_scheme.rs`),
+> `EncounterGate` (`ambition_encounter/src/timeline.rs`) and `OutOfShieldGate`
+> (`platformer2d_core/src/movement/abilities.rs`) — action and encounter
+> sequencing, not world traversal. A search for a route requirement reading a
+> body capability finds only cooldown and brain-action gating.
+>
+> ⇒ **So the open question is narrower than the page's framing suggests.** It is
+> not "how do we represent seven gate families"; it is "what reads `AbilitySet`
+> and `mass` when a body meets a route, and who owns that predicate". The
+> capability-ownership detail the page leaves unresolved is exactly the thing
+> that first slice would have to decide, and it can now be decided against real
+> types rather than proposed ones.
+
 ## Goal
 
 Make exploration and progression primarily emerge from **what the controlled

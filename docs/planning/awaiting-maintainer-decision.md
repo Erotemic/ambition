@@ -180,6 +180,27 @@ is `fire_held_ranged_system` in `items/pickup/mod.rs`; the guard is
 (`game/ambition_app/tests/hand_fired_held_shot.rs`) — retarget it with the
 ruling.
 
+✔ **ANSWERED by Jon, 2026-09-02, verbatim:** *"Weapons can have recoil and they
+will kick whoever is firing it. The kick might depend on the mass property of
+the actor doing the firing."*
+
+⇒ **The first sentence settles this entry: delete the zeroing.** One weapon, one
+authored number, and it kicks its wielder whoever that is. `fire_held_ranged_system`
+stops special-casing hand-fired items and the guard retargets to expect recoil.
+
+▢ **The second sentence opens a NEW question and must not be smuggled into this
+one.** "Might" is a direction, not a ruling. Recording what it would have to
+attach to, because the input already exists and is not vestigial:
+`ActorDefinition.mass` is `Option<f32>`, read at spawn as
+`definition.vitals.mass.unwrap_or(1.0)`, merged by
+`character_runtime/physical_baseline.rs`, and rollback-registered under the
+stable name `mount.mass`. So a mass-scaled recoil would read a live,
+rollback-safe value rather than needing a new authored field. ⛔ What is NOT
+decided: the curve (linear in mass? inverse? clamped?), whether an unauthored
+mass of 1.0 means "average" or "unscaled", and whether this generalises to all
+knockback or only to discharge recoil. Do not pick one by inference — a shipped
+feel change to every weapon is a bigger ruling than the one asked here.
+
 ### 41. Where should a hand-fired fireball leave the body?
 
 The deleted held-shot path spawned the fireball from a side muzzle at
@@ -280,6 +301,33 @@ original population rather than deciding this by accident. See
 
 ⚠ Recorded, not recommended. Whichever way it goes it is a FEEL ruling and wants
 authoring deliberately, not acquiring from a refactor.
+
+✔ **ANSWERED by Jon, 2026-09-02, verbatim:** *"They get hit by the spikes (as
+long as they are not immune - e.g. they might have iframes from a ledge grab).
+Spikes may or may not insta-kill, they could just do damage."*
+
+⇒ **"Dies" was the wrong framing of the second option and the ruling corrects
+it.** The body is HIT; whether that kills it is the hazard's authored damage,
+not a property of hanging. Both halves are already expressible and need no new
+vocabulary: `HazardSpec` carries `damage: i32`, `knockback`, `kind`, `team`,
+`hitstop_seconds` and `respawn`, so a spike that merely hurts is authored, not
+built.
+
+⛔ **AND THE EXEMPTION MOVES.** It is no longer "hanging is a committed state" —
+a hanging body is judged like any other, and if it survives that is because it
+is IMMUNE, through the ordinary invulnerability road. Jon names a ledge grab
+granting iframes as an example, not as a fact about today's code.
+
+▢ **So what remains is one question this entry did not ask:** does a ledge grab
+grant iframes, and if so for how long? ⭐ It has a home already — invulnerability
+is a REASON SET, not a flag (`features/empowerment.rs` delegates
+`Empowerment::UNTOUCHABLE` to the body's invulnerability-reason set, beside
+`Invulnerability::EMPOWERED`), so "hanging on a ledge" would be another reason
+rather than a new mechanism. That is a separate authoring decision
+from the gate ordering, and it is the one that decides whether the visible
+behaviour actually changes. Until it is answered, moving the gate makes hanging
+bodies take spike damage — which is now the intended behaviour, so the
+constraint that held the gate back is lifted.
 
 ### Two fighters' bespoke effect art is never requested (2026-09-02)
 

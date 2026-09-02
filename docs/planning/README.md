@@ -67,6 +67,42 @@ Two other files contain work an agent must not silently resolve by inference:
 - Keep deep architectural reasoning in the focused plan when one exists. The
   queue should carry enough context to choose and resume the work reliably.
 
+### The dated verification header, and what it predicted
+
+⭐ **OBSERVED 2026-09-02, over a sweep of eleven planning files: the ones
+carrying a dated `> **Verified against <sha> (<date>).**` header were accurate,
+and the ones without one had drifted — every time, in that sample.**
+
+Accurate on re-check, all header-bearing: `frontend-audio-is-per-experience.md`,
+`engine_rename_campaign.md`, `triage/declared-id-resolution-checks.md`,
+`triage/gameplay-presentation-profiles.md`. So were two that carry a dated status
+line instead (`engine/relativity.md`, `engine/shell-vanity-sequence.md`).
+
+Drifted, none of them header-bearing at the time:
+
+- `triage/ambition-test-support.md` — proposed a Layer 2 that had shipped that
+  morning as `ambition_sim_harness`;
+- `triage/ambition-registry-core.md` — 27 registries had become 31;
+- `triage/stable-identifier-centralization.md` — `string_id!` turned out to be
+  written out three times identically;
+- `engine/dialogue-continuity.md` — built, with three of its four open questions
+  answered by the code;
+- `engine/capability-progression-and-world-gating.md` — four gate families'
+  inputs already existed;
+- `triage/character-dialogue-from-suggestions.md` — solved by hand-authoring
+  instead of by the generator it designed.
+
+⚠ **The header is a correlate, not a cause.** It marks a file somebody has
+re-read against the code since writing it; that is the act that keeps a plan
+true, and the header is just its receipt. A header added without the re-reading
+would be worse than none, because it would buy the next reader's trust without
+earning it.
+
+⇒ **So: when you re-measure a planning file against `HEAD`, leave the receipt** —
+the sha, the date, and what you found, including "nothing had changed". A reader
+who cannot tell whether a claim was checked yesterday or six weeks ago has to
+re-derive it, which is the cost this whole directory exists to avoid.
+
 The repository has a small mechanical guard around the live-ledger pointer and
 row-state consistency because a broken pointer or contradictory row directly
 breaks this continuation mechanism. That is an exceptional use of document

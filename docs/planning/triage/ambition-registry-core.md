@@ -10,6 +10,29 @@
 > **Not a queue card:** this document records the direction only. Promotion into
 > [`../tracks.md`](../tracks.md) should happen when the current construction and
 > room-transaction campaign has a safe insertion point.
+>
+> **RE-MEASURED against `3e3c397f2` (2026-09-02). The premise did not decay — it
+> GREW, and there is still no shared protocol.**
+>
+> - `crates/ambition_registry_core` does not exist; no Cargo.toml names it.
+> - **31 distinct `pub struct *Registry` types** at HEAD, against **27** at
+>   `159daa235` (2026-07-23, the day after this was written). Five arrived in
+>   the interval: `ActionRegistry`, `BrainProfileRegistry`,
+>   `FrontendAudioRegistry`, `PreparedCharacterRegistry`, `SchemaRegistry`.
+> - The only registry-shaped trait in the workspace is
+>   `RollbackRegistrar` (`ambition_platformer2d_core/src/snapshot.rs`), which is
+>   one domain's registration hook and not the shared protocol proposed here.
+>
+> ⛔ **SO THE COST THIS DOC PREDICTED IS THE ONE THAT IS ACCRUING.** It argued
+> the real expense is semantic drift rather than duplicate lines — registries
+> disagreeing on what counts as identity, whether function addresses take part
+> in equality, what enters a fingerprint, and whether a conflict leaves the old
+> registry unchanged. Five new registries have since made those decisions
+> independently, with no shared vocabulary to make them agree and no inventory
+> saying which way each one went. A promotion to `tracks.md` should carry that
+> inventory as its first deliverable: the four protocol decisions, per registry,
+> as they stand — because the abstraction cannot be designed against 31
+> registries whose current answers nobody has written down.
 
 ## Problem
 

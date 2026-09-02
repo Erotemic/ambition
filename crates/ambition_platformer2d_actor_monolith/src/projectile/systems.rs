@@ -626,7 +626,10 @@ pub fn step_projectiles(
             // reached first is the body it hits. ⚠ ties break on the victim's
             // own position rather than on its entity — an entity index is not
             // stable across a rewind and a position is, for the same reason the
-            // ordering itself is trustworthy.
+            // ordering itself is trustworthy — and then on `SimId`, because two
+            // bodies CAN share a position (a spawn point, a stack) and a stable
+            // sort over an equal key hands the decision back to query order
+            // (S3, 2026-09-02).
             let leg_start = kin.pos - kin.vel * dt;
             let mut ordered: Vec<_> = victims.iter().collect();
             let sort_key = |c: ae::Vec2| ((c - leg_start).length(), c.x, c.y);
@@ -636,6 +639,7 @@ pub fn step_projectiles(
                 ad.total_cmp(&bd)
                     .then(ax.total_cmp(&bx))
                     .then(ay.total_cmp(&by))
+                    .then_with(|| a.sim_id.cmp(&b.sim_id))
             });
             for victim in &ordered {
                 if Some(victim.entity) == owner_entity {

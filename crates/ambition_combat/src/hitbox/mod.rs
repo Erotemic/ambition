@@ -243,6 +243,11 @@ pub struct StrikeVictim {
     /// The victim's resolved motion frame; knockback direction is interpreted in this frame.
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     pub is_player: Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    /// The victim's stable identity, for a FIRST-WINS resolver's final
+    /// tie-break. Two bodies at one position (a spawn point, a stack) tie on
+    /// every geometric key, and `Entity` is not stable across a rewind; a body
+    /// without one still gets hit, it just cannot win the tie.
+    pub sim_id: Option<&'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
 }
 
 impl StrikeVictimItem<'_, '_> {

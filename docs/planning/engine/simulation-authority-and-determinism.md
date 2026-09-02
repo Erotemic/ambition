@@ -193,7 +193,7 @@ For each case, decide whether the memory is:
 Move authoritative memory into registered state or eliminate it. Do not add it
 to checksums while leaving the actual restore semantics unchanged.
 
-### S3 — close remaining deterministic selection/composition sites
+### S3 — close remaining deterministic selection/composition sites — ✔ the three named sites, 2026-09-02
 
 Current known sites include projectile-victim ties, possession candidates and
 pickup-magnet ownership. Use the existing deterministic-selection vocabulary
@@ -202,6 +202,22 @@ where the operation is a true selection.
 For composition problems, first state whether the operation is commutative. A
 stable sort is not a semantic answer when reversing the same valid influences
 changes the result.
+
+Re-verified 2026-09-02:
+
+- possession candidates (`abilities/traversal/possession.rs:226`) and the pickup
+  magnet / collector (`features/ecs/pickups.rs`, `items/world_item.rs`) go
+  through `sim_selection::winner_by`, whose final key is `SimId`;
+- ✔ projectile victims: `step_projectiles` ordered its first-wins loop by
+  distance-along-the-leg then the victim's position — and two bodies on one
+  spawn point tie on all of it, so a stable sort handed the decision back to
+  query order. `StrikeVictim` now carries the victim's `SimId` and the sort ends
+  on it. Guard: `two_stacked_victims_are_struck_in_identity_order_whatever_the_
+  archetype_order` (spawns `[a, b]` and `[b, a]`; red without the key). The
+  boss/breakable arms are `any()` predicates, order-free by construction.
+- still open: a CENSUS of first-wins `.find`/`break` loops over authoritative
+  queries outside these three, which nobody has taken; the melee victim loop
+  hits every overlapping body and has no first-wins to order.
 
 ### S4 — dynamic identity and provenance
 

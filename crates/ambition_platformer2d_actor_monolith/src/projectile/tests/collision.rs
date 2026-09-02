@@ -608,3 +608,112 @@ fn a_bouncing_shot_still_crosses_a_one_way_platform_sideways() {
         bodies[0].kin.pos
     );
 }
+
+/// Two bodies at ONE position, one shot: the same body is struck whichever
+/// order the archetype lists them in.
+///
+/// The victim loop breaks on the first qualifying body, ordered by distance
+/// from the leg's start and then by the victim's position. Two bodies on one
+/// spawn point tie on all of it, and a stable sort over an equal key is query
+/// order — which a rollback resimulation does not reproduce. The final
+/// tie-break is the victim's `SimId` (S3, 2026-09-02).
+///
+/// Spawn order IS archetype order for two identical mobs, so running the same
+/// shot against `[a, b]` and `[b, a]` asks the question directly.
+fn the_body_a_stacked_shot_strikes(spawn_order: [&'static str; 2]) -> String {
+    let world = ae::World::new(
+        "stacked",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.add_systems(
+        Startup,
+        move |mut commands: Commands,
+              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            for id in spawn_order {
+                crate::features::spawn_encounter_mob(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    "projectile_test",
+                    crate::features::EncounterMobSeed {
+                        id: id.into(),
+                        character: Some("fixture_striker"),
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "fixture_striker".into(),
+                        ),
+                        pos: ae::Vec2::new(400.0, 300.0),
+                        size: ae::Vec2::new(28.0, 46.0),
+                    },
+                );
+            }
+        },
+    );
+    app.update();
+    // The identities the construction road would have minted for these
+    // placements. `spawn_encounter_mob` is the seam BELOW the one that plans
+    // `SimId`s, so the fixture supplies them; the claim under test is the
+    // resolver's, given two identified bodies.
+    {
+        let world = app.world_mut();
+        let mobs: Vec<(Entity, String)> = {
+            let mut q = world.query::<(Entity, &ActorIdentity)>();
+            q.iter(world)
+                .map(|(entity, identity)| (entity, identity.id().to_string()))
+                .collect()
+        };
+        for (entity, id) in mobs {
+            world
+                .entity_mut(entity)
+                .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&id));
+        }
+    }
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(360.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let world = app.world_mut();
+    let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+    let hurt: Vec<String> = query
+        .iter(world)
+        .filter(|(_, health)| health.health.current < health.health.max)
+        .map(|(identity, _)| identity.id().to_string())
+        .collect();
+    assert_eq!(
+        hurt.len(),
+        1,
+        "premise: one shot on two stacked bodies damages exactly one of them (hurt: {hurt:?})"
+    );
+    hurt.into_iter().next().unwrap()
+}
+
+#[test]
+fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order() {
+    let forward = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"]);
+    let reversed = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"]);
+    assert_eq!(
+        forward, reversed,
+        "the struck body followed spawn order: {forward} when a was spawned first, \
+         {reversed} when b was — a resimulation does not promise either order"
+    );
+    assert_eq!(
+        forward, "stack_a",
+        "the tie-break is the victim's SimId, so the lower placement id is struck"
+    );
+}

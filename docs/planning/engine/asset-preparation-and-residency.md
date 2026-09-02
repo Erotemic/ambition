@@ -445,6 +445,15 @@ overwrite), one `stamp_first_drawn_images` system reading `ExtractedSprites`, an
 one `.add_systems` line. ⛔ NOT BUILT HERE because that is three pieces rather
 than the one-line hook that would justify landing it inside a scoping pass.
 
+⛔ **AND ITS TEST GOES ON THE PURE LEDGER, not on an app.** Measured 2026-09-02:
+a `NoWindow` composition decodes NO file-backed art, because `ImagePlugin`
+registers the image loader in `Plugin::finish` and `finish()` never runs under
+the `app.update()` loop that composition uses. So no `app_it` test can wait for a
+draw — it would wait forever, and a test that waits forever tends to become a
+test that waits a fixed number of frames and asserts nothing. Unit-test
+`first_drawn`'s FIRST-WRITE-WINS rule directly on `ImageStageLedger`; the
+end-to-end confirmation belongs to `capture_scene` or the windowed host.
+
 ⚠ **Two things to get right when it is built.** (1) The stamp must be
 FIRST-WRITE-WINS, or it becomes a per-frame write on every visible sprite and the
 ledger's own cost shows up in what it measures. (2) A headless or `NoWindow`

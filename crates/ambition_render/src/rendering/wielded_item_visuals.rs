@@ -136,7 +136,13 @@ pub fn sync_wielded_item_visuals(
         };
         let texture = textures
             .entry(spec.texture_path.clone())
-            .or_insert_with(|| asset_server.load(spec.texture_path.clone()))
+            .or_insert_with(|| {
+                ambition_sprite_sheet::game_assets::load_sheet_image(
+                    &asset_server,
+                    "held-item",
+                    spec.texture_path.clone(),
+                )
+            })
             .clone();
         let frame_size = spec.source_rect.size();
         let anchor_x_norm = (spec.grip_px.x - frame_size.x * 0.5) / frame_size.x;

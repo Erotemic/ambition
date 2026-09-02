@@ -257,7 +257,11 @@ pub fn build_held_item_art(
             manifest.item_ids(),
             manifest.effective().into_iter().map(|entry| {
                 (
-                    assets.load(entry.asset_path.clone()),
+                    ambition_sprite_sheet::game_assets::load_sheet_image(
+                        &assets,
+                        "held-item",
+                        entry.asset_path.clone(),
+                    ),
                     Vec2::new(entry.size.x, entry.size.y),
                 )
             }),
@@ -360,7 +364,11 @@ pub fn build_world_item_art(
             manifest.sprite_ids(),
             manifest.effective().into_iter().map(|entry| {
                 (
-                    assets.load(entry.asset_path.clone()),
+                    ambition_sprite_sheet::game_assets::load_sheet_image(
+                        &assets,
+                        "held-item",
+                        entry.asset_path.clone(),
+                    ),
                     Vec2::new(entry.size.x, entry.size.y),
                 )
             }),

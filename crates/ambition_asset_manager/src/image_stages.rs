@@ -13,11 +13,28 @@
 //! a diagnostic — nothing authoritative reads it, and it is never rollback state.
 //!
 //! Coverage is exactly the images demanded through a road that calls
-//! [`note_demand`]: `load_sheet_image` (character sheet pages, parallax layers,
-//! fx sheets, boss pages) and the manifest catalog's `load_optional`. An image
-//! that arrives by another road still gets its insertion and GPU stamps (keyed
-//! by asset id when the census first sees it) but reports `demand=unknown`,
-//! which is the honest answer and also the list of roads still to route.
+//! [`note_demand`]: `load_sheet_image` and the manifest catalog's
+//! `load_optional`. An image that arrives by another road still gets its
+//! insertion and GPU stamps (keyed by asset id when the census first sees it)
+//! but reports `demand=unknown`.
+//!
+//! ⛔ THE ROAD VOCABULARY IS CLOSED AT EIGHT, and an addition wants a reason:
+//!
+//! ```text
+//! character-sheet  parallax  fx-sheet  boss-sheet
+//! asset-manifest   portrait  projectile-art  held-item
+//! ```
+//!
+//! They name CONTENT ART decoded at runtime, because that is the population a
+//! room reveal waits on. ⚠ Menu icons, shell presentation images and prop pngs
+//! are deliberately NOT stamped — small, loaded once, and not what a reveal
+//! waits for; labelling them would make these rows less comparable rather than
+//! more. A `demand=unknown` on one of those is expected, not work.
+//!
+//! ⚠ AND `demand=unknown` HAS A SECOND CAUSE, so it is not simply "a road still
+//! to route": see [`ImageStageLedger::removed`] — a dropped image loses its
+//! demand row, so a RE-DECODE arrives unattributed. Two very different facts
+//! print the same word.
 //!
 //! Keyed by [`UntypedAssetId`] so a generic `load_optional::<T>` can record a
 //! demand without knowing it is an image; the census only ever asks about

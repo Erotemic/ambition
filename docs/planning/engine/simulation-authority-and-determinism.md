@@ -110,7 +110,7 @@ must survive a timeline rebase; different gameplay sessions must not inherit it.
 
 ## Current work
 
-### S1 — scenario-populated rollback coverage
+### S1 — scenario-populated rollback coverage — the timeline half landed 2026-09-02
 
 Boot-time/static registration checks cannot prove runtime-created authoritative
 families. Representative scenarios should create the populations real gameplay
@@ -125,6 +125,29 @@ creates, then assert the required combination of:
 Prefer domain-specific authoritative constructors/request types that make the
 required invariants hard to omit. Do **not** introduce a universal
 `spawn_sim_entity` wrapper merely so a source scanner can ban raw `spawn`.
+
+Where it stands (re-verified 2026-09-02):
+
+- **participation + registration, populated**: `rollback_coverage.rs` builds a
+  live match, a boss arena, a strike volume, a mounted pair, the falling-sand
+  room and the event-created set (sentry, vortex well, temporary gravity zone,
+  falling hazard, portal shot) and sweeps each for unaccounted components and
+  INERT registrations (a registered type on an entity with no anchor).
+- ✔ **rewind stability while those families STEP**:
+  `rollback_populated_timeline.rs` makes that same event-created population
+  (plus a held-item bolt created by play) a fresh SyncTest baseline and
+  resimulates 150 frames at check distance 7 — 852 replay comparisons — under
+  TWO oracles. ⛔⛔ The session checksum alone was not one: 47 registrations are
+  probed-only ("not in the session checksum"), and a sentry stepping from a
+  process-global counter stayed GREEN under `rollback_health` for all 150
+  frames. `RollbackRestoreAudit` is the oracle that sees them; the same poison
+  fails it at frame 2 naming `Sentry`. A poison periodic in the check window
+  (`n % 7` at distance 7) cancels and proves nothing — measured.
+- open: **semantic identity across a rewind** (the `SimId` a resimulation mints
+  for a runtime-spawned entity is the one the first pass minted) is asserted
+  only indirectly, through the checksummed `SimId`; **session ownership** is
+  covered by `rollback_lifecycle_reset.rs` / `session_ownership_tests.rs`;
+  **selection/composition** is S3.
 
 ### S2 — remove authoritative non-rewinding memory — ✔ CLOSED 2026-09-02
 

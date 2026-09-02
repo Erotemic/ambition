@@ -521,7 +521,13 @@ impl Platformer2dSimHarness {
     /// world. This is for message-driven setup seams such as SpawnActorRequest:
     /// the request is external harness input, while the spawned entity becomes
     /// part of the new frame-zero baseline.
-    fn run_rollback_setup_frame(&mut self) -> Result<(), String> {
+    ///
+    /// Public for scenario tests that populate the world through a seam the
+    /// typed helpers do not wrap (a `Commands`-driven spawn, an intent message).
+    /// ⛔ Under a live SyncTest a plain `step` after such a mutation is not a
+    /// setup frame: the check rewinds behind the spawn, `LoadWorld` despawns
+    /// the anchored entity, and the resimulation never recreates it.
+    pub fn run_rollback_setup_frame(&mut self) -> Result<(), String> {
         let Some(settings) = self.sync_test_settings() else {
             self.app.update();
             return Ok(());

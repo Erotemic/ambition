@@ -385,6 +385,39 @@ impl ImageStageLedger {
         Some(at.duration_since(demanded))
     }
 
+    /// What is resident and NEVER DRAWN, by the road that demanded it.
+    ///
+    /// ⭐⭐ THE TOTAL CANNOT ANSWER THE QUESTION IT RAISES. A run that reports
+    /// "23.2 MP never drawn" immediately invites *"whose?"* — and the owners are
+    /// exactly the buckets [`Self::resident_by_road`] already names, so an
+    /// eviction conversation can start from an owner instead of a number. It is
+    /// what decides whether the FX set's 9.6 MP is an effect vocabulary or a
+    /// preload (asset open work 2's third row).
+    ///
+    /// ⛔ SAME RENDER-WORLD CAVEAT AS [`Self::resident_never_drawn`]: without one
+    /// this returns every resident image under its road and means "nobody could
+    /// have drawn anything". The caller must consult
+    /// [`Self::render_world_present`] before printing it as a finding.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn never_drawn_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
+        let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
+        for row in self
+            .rows
+            .values()
+            .filter(|row| row.inserted_at.is_some() && row.first_drawn_at.is_none())
+        {
+            let key = row.source.unwrap_or(if row.path.is_some() {
+                ROAD_UNROUTED
+            } else {
+                ROAD_PROCEDURAL
+            });
+            let entry = by_road.entry(key).or_default();
+            entry.0 += 1;
+            entry.1 += row.megapixels;
+        }
+        by_road
+    }
+
     /// Every resident image the render world has never extracted, largest first.
     ///
     /// ⛔⛔ ONLY MEANINGFUL WITH A RENDER WORLD, and the caller must say so.
@@ -836,6 +869,47 @@ mod tests {
             Some(first),
             "the later frame moved the instant, so `first_drawn_at` is not the \
              FIRST draw at all",
+        );
+    }
+
+    /// ⛔⛔ AND THE TOTAL CANNOT SAY WHOSE. A run reporting "23.2 MP never
+    /// drawn" invites exactly one question, and the roads answer it: an eviction
+    /// conversation starts from an owner, not from a number. This pins that the
+    /// split adds up to the total and that a drawn image leaves its OWN bucket
+    /// rather than the whole road.
+    #[test]
+    fn never_drawn_splits_by_owner_and_the_split_adds_up() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.demand(id(50), "character-sheet", "hero.png".into(), t0);
+        ledger.demand(id(51), "character-sheet", "rival.png".into(), t0);
+        ledger.demand(id(52), "fx-sheet", "sparks.png".into(), t0);
+        for id_n in [50u128, 51, 52] {
+            ledger.inserted(id(id_n), 2.0, None, None, t0);
+        }
+
+        let split = ledger.never_drawn_by_road();
+        assert_eq!(split.get("character-sheet"), Some(&(2, 4.0)));
+        assert_eq!(split.get("fx-sheet"), Some(&(1, 2.0)));
+        let total: usize = split.values().map(|(n, _)| n).sum();
+        assert_eq!(
+            total,
+            ledger.resident_never_drawn().len(),
+            "the by-road split and the flat list disagree about how many images \
+             were never drawn, so one of the two readouts is lying",
+        );
+
+        ledger.first_drawn(id(50), t0 + Duration::from_millis(10));
+        let split = ledger.never_drawn_by_road();
+        assert_eq!(
+            split.get("character-sheet"),
+            Some(&(1, 2.0)),
+            "drawing one sheet emptied or failed to shrink its own road",
+        );
+        assert_eq!(
+            split.get("fx-sheet"),
+            Some(&(1, 2.0)),
+            "drawing a character sheet moved another road's count",
         );
     }
 

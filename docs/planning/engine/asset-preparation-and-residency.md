@@ -599,13 +599,30 @@ Smash, Sanic and Mary-O drew the particle fallback for every effect, forever. An
 an effect is not a cast: a room's characters are known at entry, while any effect
 may fire on any frame, so there is no "demand at room entry" seam to move it to.
 
-⭐ **WHAT WOULD DECIDE IT IS NOW MEASURABLE, and was not before today.** The
-fourth stage stamps first draw, so a real gameplay run can say how many of the 41
-a session ever draws. If a room draws six of them, the set is a candidate for
-demand-on-first-use with a small always-resident core; if it draws thirty, 9.6 MP
-is the honest price of an effect vocabulary and this row closes as a non-finding.
-⚠ A `capture_scene` shot cannot answer it — nothing fires an effect in a static
-frame — so the reading has to come from a played or scripted run.
+⭐⭐ **MEASURED THE SAME DAY, and it is much closer to six than to thirty.** The
+fourth stage stamps first draw and the census reports never-drawn BY OWNER, so a
+scripted run answers this directly. `capture_scene --route smash_gameplay
+--character npc_pirate_admiral --press hold:right,x,wait:20,g,wait:20,z,x,wait:20,hold:down,x
+--frames 40 --stride 6` — a fighter throwing four different moves over ~240
+ticks:
+
+```text
+never drawn 116 (28.7MP: … fx-sheet 38×8.8MP …)
+```
+
+⇒ **3 of 41 fx sheets are drawn, 0.8 of 9.6 MP.** The other 38 — 92% of the set —
+are resident and never touched. The static hall shot agrees on the shape: 37 of
+41 never drawn, and the four that are drawn are 0.0 MP of the 9.6.
+
+⚠ **A LOWER BOUND, AND IT MUST BE READ AS ONE.** One character, four moves, one
+short run: hits, deaths, environment and other fighters' kits all reach effects
+this did not fire. The honest claim is *"a short scripted run touches three"*,
+NOT *"only three are ever needed"* — the number that would settle a policy is the
+union over a real play session, and the instrument now produces it from any run
+with a render world.
+⇒ Enough to say the set behaves like a PRELOAD rather than a working vocabulary,
+which is what this row was asking. A demand-on-first-use design with a small
+always-resident core is now worth drawing up; it was speculation this morning.
 
 ### 3. Pace expensive completion, not declarations
 

@@ -371,6 +371,48 @@ impl ParallaxLayerSet {
         added
     }
 
+    /// Drop every layer handle whose theme `keep` rejects; returns how many
+    /// handles were dropped.
+    ///
+    /// ⛔⛔ THIS IS THE ONLY EVICTION API, AND IT DELIBERATELY OWNS NO POLICY.
+    /// Until 2026-09-02 this type had none at all: `handles` is private and its
+    /// only mutator was [`Self::ensure_theme_loaded`], which inserts. Combined
+    /// with `GameAssets` being built once in `Startup`, that made a visited
+    /// theme's four layers resident for the life of the process — nine themes ×
+    /// four layers is the ceiling a walk can reach, and nothing could release
+    /// one. That was a guarantee of the type, not an oversight of a caller,
+    /// which is why the fix had to start here.
+    ///
+    /// ⛔ WHICH THEMES SURVIVE IS THE CALLER'S BUSINESS. A residency rule needs
+    /// to know the active room, its neighbours and when a transition commits;
+    /// this crate knows none of those and must not learn them. Pass a predicate.
+    ///
+    /// ⚠ DROPPING A HANDLE IS NECESSARY, NOT SUFFICIENT. Bevy frees the pixels
+    /// when the last `Handle<Image>` for an asset drops, so a caller that keeps
+    /// its own clone — a spawned `ParallaxLayerVisual`, say — keeps the image
+    /// alive no matter what this returns. Retiring visuals is the caller's job
+    /// too, and the app-side guard asserts the image actually leaves
+    /// `Assets<Image>` rather than trusting this count.
+    pub fn retain_themes(&mut self, keep: impl Fn(ParallaxTheme) -> bool) -> usize {
+        let before = self.handles.len();
+        self.handles.retain(|(theme, _), _| keep(*theme));
+        before - self.handles.len()
+    }
+
+    /// The themes with at least one resident layer handle, in `ParallaxTheme::ALL`
+    /// order so a log line or a census row reads the same way twice.
+    pub fn resident_themes(&self) -> Vec<ParallaxTheme> {
+        ParallaxTheme::ALL
+            .iter()
+            .copied()
+            .filter(|theme| {
+                ParallaxLayerAsset::ALL
+                    .iter()
+                    .any(|layer| self.handles.contains_key(&(*theme, *layer)))
+            })
+            .collect()
+    }
+
     pub fn len(&self) -> usize {
         self.handles.len()
     }
@@ -568,3 +610,99 @@ pub fn ensure_parallax_layers_for_room(
 
 // Splitting sprite-side coverage into this crate is a separate opportunity
 // (dev/journals/code_smells.md).
+
+#[cfg(test)]
+mod parallax_residency_tests {
+    use super::*;
+    use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
+    use ambition_asset_manager::AssetProfile;
+    use bevy::prelude::*;
+
+    fn packaged_catalog() -> Platformer2dAssetCatalog {
+        Platformer2dAssetCatalog::new(
+            ambition_asset_manager::AmbitionAssetCatalog::new(sandbox_image_manifest("sprites")),
+            AssetProfile::AndroidBundle,
+        )
+    }
+
+    fn asset_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app
+    }
+
+    /// ⛔ THE ACCUMULATION THIS TYPE USED TO GUARANTEE, and the eviction that
+    /// answers it.
+    ///
+    /// Before `retain_themes` existed, `handles` was private with `ensure_theme_loaded`
+    /// as its only mutator — so a theme, once visited, was resident for the life
+    /// of the process. Nine themes of four layers is the ceiling a walk reaches.
+    /// This pins both halves: that visiting accumulates, and that eviction is
+    /// now possible and exact.
+    #[test]
+    fn three_visited_themes_accumulate_and_retain_evicts_all_but_one() {
+        let app = asset_app();
+        let catalog = packaged_catalog();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let per_theme = ParallaxLayerAsset::ALL.len();
+
+        let mut set = ParallaxLayerSet::default();
+        assert!(set.is_empty(), "a fresh set holds nothing");
+
+        for (visited, theme) in [ParallaxTheme::Hub, ParallaxTheme::Cave, ParallaxTheme::Lab]
+            .into_iter()
+            .enumerate()
+        {
+            set.ensure_theme_loaded(&catalog, &asset_server, theme, None);
+            assert_eq!(
+                set.len(),
+                per_theme * (visited + 1),
+                "visiting {theme:?} should add {per_theme} layers and retire nothing — \
+                 the accumulation this test exists to describe",
+            );
+        }
+        assert_eq!(
+            set.resident_themes(),
+            vec![ParallaxTheme::Hub, ParallaxTheme::Lab, ParallaxTheme::Cave],
+            "resident_themes reports in ParallaxTheme::ALL order, not visit order",
+        );
+
+        // Re-visiting is idempotent: the count must not move.
+        let before_revisit = set.len();
+        set.ensure_theme_loaded(&catalog, &asset_server, ParallaxTheme::Hub, None);
+        assert_eq!(set.len(), before_revisit, "re-visiting a theme reloads nothing");
+
+        let dropped = set.retain_themes(|theme| theme == ParallaxTheme::Cave);
+        assert_eq!(dropped, per_theme * 2, "two themes' worth of layers dropped");
+        assert_eq!(set.len(), per_theme, "only the kept theme's layers remain");
+        assert_eq!(set.resident_themes(), vec![ParallaxTheme::Cave]);
+        assert!(
+            set.get(ParallaxTheme::Hub, ParallaxLayerAsset::ALL[0]).is_none(),
+            "an evicted theme must not answer `get`",
+        );
+        assert!(
+            set.get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0]).is_some(),
+            "the kept theme must be untouched",
+        );
+    }
+
+    /// Keeping everything must drop nothing — the predicate is not inverted.
+    #[test]
+    fn retaining_every_theme_drops_nothing() {
+        let app = asset_app();
+        let catalog = packaged_catalog();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let mut set = ParallaxLayerSet::default();
+        set.ensure_theme_loaded(&catalog, &asset_server, ParallaxTheme::Boss, None);
+        let before = set.len();
+        assert!(before > 0, "non-vacuity: the boss theme loaded something");
+
+        assert_eq!(set.retain_themes(|_| true), 0);
+        assert_eq!(set.len(), before);
+        assert_eq!(set.retain_themes(|_| false), before, "and the inverse clears it");
+        assert!(set.is_empty());
+    }
+}

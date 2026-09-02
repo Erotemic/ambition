@@ -642,6 +642,17 @@ mod live_quality_apply {
             .map(|path| path.to_string())
     }
 
+    /// A BODY on screen wearing `cid`. Convergence re-demands a retired sheet
+    /// only for a character somebody wears or a live actor names — a fixture
+    /// that demands a sheet nobody uses is a fixture whose sheet is correctly
+    /// left retired — so every "already on screen" arm puts a body there.
+    fn wear(app: &mut App, cid: &str) {
+        app.world_mut()
+            .spawn(ambition_characters::actor::WornCharacter::new(
+                cid.to_string(),
+            ));
+    }
+
     /// Hit Apply, and let the transition settle.
     fn apply(app: &mut App, profile: VisualQualityProfile) {
         app.world_mut()
@@ -680,6 +691,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
+        wear(&mut app, &cid);
         finalize_and_update(&mut app);
 
         let before = resident_image_path(&app, &cid)
@@ -741,6 +753,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
+        wear(&mut app, &cid);
         finalize_and_update(&mut app);
         let before = resident_image_path(&app, &cid).expect("materializes at Full");
         assert!(!before.contains("sprites_0_5x"), "starts full: `{before}`");
@@ -769,6 +782,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
+        wear(&mut app, &cid);
         finalize_and_update(&mut app);
         let handle = app
             .world()
@@ -794,6 +808,58 @@ mod live_quality_apply {
         );
     }
 
+    /// A retired sheet is re-decoded only for a character somebody still uses.
+    ///
+    /// Two characters resident at Half; one is worn by a body, the other is
+    /// worn by nobody and named by no actor. Apply High: the worn one comes
+    /// back at Full, the other stays retired. Before this rule the transition
+    /// out of the hall re-decoded the whole gallery cast at Full into a room
+    /// that placed five of them (measured 2026-09-02).
+    #[test]
+    fn apply_re_decodes_only_the_characters_still_in_use() {
+        let mut variants = characters_with_scaled_variants(2);
+        let (Some(unused), Some(worn_by_a_body)) = (variants.pop(), variants.pop()) else {
+            panic!("need two baked half-tier sheet variants");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request_all([worn_by_a_body.as_str(), unused.as_str()]);
+        wear(&mut app, &worn_by_a_body);
+        finalize_and_update(&mut app);
+        finalize_and_update(&mut app);
+        for cid in [&worn_by_a_body, &unused] {
+            assert!(
+                resident_image_path(&app, cid).is_some_and(|p| p.contains("sprites_0_5x")),
+                "premise: `{cid}` is resident at Half before Apply"
+            );
+        }
+
+        apply(&mut app, VisualQualityProfile::High);
+        finalize_and_update(&mut app);
+
+        let worn_after = resident_image_path(&app, &worn_by_a_body)
+            .expect("the worn character is re-realized after Apply");
+        assert!(
+            !worn_after.contains("sprites_0_5x"),
+            "the worn character converges to Full: {worn_after}"
+        );
+        assert!(
+            resident_image_path(&app, &unused).is_none(),
+            "a character nobody wears or names stays retired after Apply instead of being \
+             re-decoded at Full for nobody: {:?}",
+            resident_image_path(&app, &unused)
+        );
+        // Still declared: the next demand realizes it at the new tier.
+        assert!(matches!(
+            app.world()
+                .resource::<GameAssets>()
+                .characters
+                .sheet_state(&unused),
+            ambition_sprite_sheet::character::CharacterSheetState::Declared { .. }
+        ));
+    }
+
     /// The invariant: after Apply completes there is exactly ONE active
     /// quality generation across the live residency set — including a
     /// character that was materialized only AFTER the transition.
@@ -811,6 +877,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(survivor.clone());
+        wear(&mut app, &survivor);
         finalize_and_update(&mut app);
         assert_eq!(
             app.world()
@@ -828,6 +895,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(newcomer.clone());
+        wear(&mut app, &newcomer);
         finalize_and_update(&mut app);
 
         let tiers = app
@@ -1092,6 +1160,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
+        wear(&mut app, &cid);
         finalize_and_update(&mut app);
         let resident = resident_image_path(&app, &cid)
             .unwrap_or_else(|| panic!("`{cid}` must materialize on first demand"));
@@ -1105,6 +1174,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
+        wear(&mut app, &cid);
         finalize_and_update(&mut app);
 
         let layouts_after_second = app
@@ -1261,7 +1331,10 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
 fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
     use super::{CharacterLoadDemand, MATERIALIZATION_UNITS_PER_FRAME};
     use ambition_persistence::settings::TextureResolutionScale as Tier;
-    assert_eq!(MATERIALIZATION_UNITS_PER_FRAME, 16, "one Full character per frame");
+    assert_eq!(
+        MATERIALIZATION_UNITS_PER_FRAME, 16,
+        "one Full character per frame"
+    );
 
     // 40 Quarter tokens: 16, 16, 8.
     let mut demand = CharacterLoadDemand::default();
@@ -1271,7 +1344,11 @@ fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
         (!taken.is_empty()).then_some(taken.len())
     })
     .collect();
-    assert_eq!(frames, vec![16, 16, 8], "a Quarter cast fills the ration sixteen at a time");
+    assert_eq!(
+        frames,
+        vec![16, 16, 8],
+        "a Quarter cast fills the ration sixteen at a time"
+    );
     assert_eq!(demand.pending().count(), 0);
 
     // Untiered tokens cost the DEFAULT tier: at Full, one per frame.
@@ -1279,7 +1356,11 @@ fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
     demand.request_all(["author", "noether", "turing"]);
     let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
     assert_eq!(first.len(), 1, "a Full character is a whole frame's ration");
-    assert_eq!(demand.pending().count(), 2, "the rest wait, they are not dropped");
+    assert_eq!(
+        demand.pending().count(),
+        2,
+        "the rest wait, they are not dropped"
+    );
 
     // A mixed frame: Half (4) + Half (4) + Full (16) would overspend, so the
     // Full waits for the next frame — and then starts, alone, at once.
@@ -1293,7 +1374,11 @@ fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
         vec!["a_half", "b_half"]
     );
     let second = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
-    assert_eq!(second.len(), 1, "the first token of a frame is always taken, whatever it costs");
+    assert_eq!(
+        second.len(),
+        1,
+        "the first token of a frame is always taken, whatever it costs"
+    );
     assert_eq!(second[0].0, "c_full");
 }
 

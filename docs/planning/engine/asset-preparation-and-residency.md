@@ -601,16 +601,18 @@ stay retired; (3) three mary_o demo systems (`register_snakes_on_a_plane_
 sheets`, `register_solid_snake_sheet`, `register_ai_slop_sheet`) re-published
 their sheets under display names at full resolution whenever the engine
 retired them — a permanent fight with tier convergence — now gated on the
-engine not having declared the character. ⚠ Still open, and honestly the
-larger half at COMMIT time: `converge_character_residency_to_active_quality`
-retires every below-floor sheet once the hub is active and RE-DEMANDS ALL OF
-THEM (`demand.request_all(stale)`), so the gallery's Quarter cast is decoded
-at Full into the hub after the reveal, in the open. A `NoWindow` host never
-commits (the barrier never releases), so this file cannot measure it; the
-fix wants a criterion for "still in use" (worn by a body, named by a live
-actor, or in the session cast) that the quality-Apply tests — which converge
-a character no body wears — also accept. The host tell is the `[image]` lines
-after a hall exit: Full-tier hall characters decoding with `live=1`.
+engine not having declared the character. ✔ And the COMMIT-time half, the
+same day: `converge_character_residency_to_active_quality` still retires every
+below-floor sheet once the hub is active, but re-demands only the characters
+STILL IN USE — worn by a body, or named by a live actor's config — and leaves
+the rest retired (declared, so the next room that places one demands it then).
+Before, `demand.request_all(stale)` decoded the gallery's ~125 Quarter sheets
+at Full into a room that placed five, after the reveal, in the open. Guard:
+`apply_re_decodes_only_the_characters_still_in_use` (two Half sheets, one worn;
+Apply High re-realizes the worn one and leaves the other retired; red with the
+filter removed). The quality-Apply fixtures now put a BODY on the character
+they converge, which was their claim all along. Host tell after a hall exit:
+no `[image]` line for a hall-only character with `live=1`.
 
 Quality changes should re-tier the same logical asset and converge predictably in
 both directions. Keep the currently reported live quality-switch issue attached

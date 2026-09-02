@@ -893,6 +893,11 @@ pub fn converge_character_residency_to_active_quality(
         >,
     >,
     pending_room: Option<Res<PendingRoomTierFloor>>,
+    // WHO STILL USES A RETIRED SHEET: a body wearing the character, or a live
+    // actor whose config names it. Only those are re-demanded; the rest stay
+    // retired until something asks for them again.
+    worn: Query<&ambition_characters::actor::WornCharacter>,
+    configs: Query<&ambition_combat::actor_tuning::ActorConfig>,
 ) {
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
@@ -916,13 +921,34 @@ pub fn converge_character_residency_to_active_quality(
     let stale = assets
         .characters
         .demote_stale_realizations_outside(floor, ceiling);
+    // ⛔ RE-DEMAND ONLY WHAT IS IN USE. Retiring walks every resident
+    // realization, so committing the hub after the hall retires the whole
+    // gallery cast — and re-demanding all of it decoded ~125 FULL sheets into
+    // a room that places five of them, after the reveal, in the open (the
+    // entry hitch in reverse, and bigger). A character somebody wears or a
+    // live actor names comes back at the new tier; the rest stay retired,
+    // and the next room that places one demands it then.
+    let in_use: std::collections::BTreeSet<&str> = worn
+        .iter()
+        .map(|worn| worn.0.as_str())
+        .chain(
+            configs
+                .iter()
+                .filter_map(|config| config.sprite_character_id.as_deref()),
+        )
+        .collect();
+    let (re_demanded, left_retired): (Vec<String>, Vec<String>) = stale
+        .into_iter()
+        .partition(|id| in_use.contains(id.as_str()));
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
-        "quality transition to {floor:?}..={ceiling:?}: retired {} character realization(s) \
-         and re-demanded them",
-        stale.len(),
+        "quality transition to {floor:?}..={ceiling:?}: retired {} character realization(s); \
+         re-demanded {} in use, left {} retired",
+        re_demanded.len() + left_retired.len(),
+        re_demanded.len(),
+        left_retired.len(),
     );
-    demand.request_all(stale);
+    demand.request_all(re_demanded);
 }
 
 /// A new session gets a new cast.

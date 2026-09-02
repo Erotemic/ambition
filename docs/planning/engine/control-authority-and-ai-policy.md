@@ -66,9 +66,20 @@ StateMachineCfg::Smash     13 external references
 brain/fighter + brain/smash  8,950 non-test lines, INSIDE `ambition_characters`
 ```
 
-⛔⛔ **THE CENSUS ABOVE IS STALE IN EVERY LINE — RE-MEASURED 2026-09-02.** It is
-the block this plan calls "the number to look at", so it is corrected here rather
-than left for a reader to act on. Most of what it counts has already happened.
+⛔⛔ **THE CENSUS ABOVE IS STALE IN ALL BUT ONE LINE — RE-MEASURED 2026-09-02.**
+It is the block this plan calls "the number to look at", so it is corrected here
+rather than left for a reader to act on. Most of what it counts has already
+happened.
+
+⚠ **The exception, checked separately at `f563aa973`: `StateMachineCfg` still has
+exactly 12 variants and the same twelve names** — `StandStill`, `Patrol`,
+`Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `BossPattern`,
+`Smash`, `Fighter`, `Aerial`, `PlayerDemo`
+(`crates/ambition_characters/src/brain/state_machine/mod.rs:26`). The carve moved
+the brains' IMPLEMENTATIONS out; it did not change the policy vocabulary, which
+is the correct outcome and worth stating rather than leaving inside a blanket
+"every line". A reader who spot-checks that one line and finds it right has no
+way to tell whether the rest of the correction is trustworthy.
 
 ```text
                                   planned    measured 2026-09-02

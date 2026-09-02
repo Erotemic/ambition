@@ -405,6 +405,34 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
+  PARALLEL-FLAKY.** Found 2026-09-02 while checking for reds. `app_it` runs its
+  tests as parallel threads; `image_stages::ledger()` is a `static`. Exactly three
+  files read it:
+
+  ```text
+  hall_redecode_census.rs                       #[ignore] + script   PASSES
+  hall_transition_cover.rs               (2)    no guard             FLAKY
+  quality_change_keeps_each_character.rs (1)    no guard             FLAKY
+  ```
+
+  ⭐ **The one with the guard is the one that passes** — same subject, same
+  global, and the only difference is whether it runs alone. Measured: full
+  `--test app_it` gives 543 passed / 2 failed; each failing test passes under
+  `--test-threads=1 --exact`; `leaving_the_gallery…` failed one run and passed
+  the next on identical source; and the counts move with the schedule (15→14 on
+  one base, 20→19 on another), where a real leak would be stable.
+  ⛔⛔ **THE FAILURE TEXT IS WHY THIS IS NOT MERELY NOISE**: *"1 character page(s)
+  are resident in the hub with no realization owning them:
+  `sprites_0_25x/goblin_spritesheet.png`"*. That reads as an asset-residency leak
+  in exactly the subsystem the hall-entry campaign is about, so it will cost
+  somebody real hours. The goblin page belongs to a sibling test's App.
+  ⇒ Two fixes, and the precedent is already in that directory: `#[ignore]` plus an
+  exact-filter script (as `measure_hall_redecodes.sh` does) where the global
+  ledger is genuinely the subject, or assert over the App's own `Assets<Image>`
+  and realization table where the per-App answer is equivalent. **Prefer the
+  second** — it makes the test immune rather than sequestered.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)

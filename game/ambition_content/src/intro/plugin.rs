@@ -116,19 +116,21 @@ impl Plugin for IntroPlugin {
                     >,
                 ),
             );
-        // ⚠ THIS COMMENT DESCRIBES MACHINERY THAT NO LONGER EXISTS, and it is
-        // left saying so rather than repointed, because there is nothing to
-        // repoint AT. It read: "Intro dialog redirects are handled by the
-        // unified `dialog::redirect_post_quest_dialog` system" (cite-ok), whose
-        // ordering was after CoreSimulation and before DialogPresentationSet.
-        // Checked 2026-09-02: no `redirect_post_quest_dialog` and no function
-        // named `*redirect*` survives anywhere in `ambition_content`, and
-        // `intro::dialog` exports only `intro_dialogue_ids`.
+        // ⭐ INTRO DIALOG REDIRECTS ARE AUTHORED NOW, NOT SYSTEMATISED — which is
+        // why nothing is registered here.
         //
-        // ⇒ EITHER post-quest redirects moved to a mechanism nobody recorded, OR
-        // they are gone and the intro quietly lost a behaviour. This block
-        // registers nothing, so a reader cannot tell which from here. Worth one
-        // person's five minutes who knows the dialogue road.
+        // This block used to say they were "handled by the unified
+        // `dialog::redirect_post_quest_dialog` system" (cite-ok), ordered after
+        // CoreSimulation and before DialogPresentationSet. `d180054d0`
+        // ("Dialogue → Yarn, phases 5+6") deleted that function and inlined the
+        // five redirect rules as `<<if>>` branches inside the `.yarn` files —
+        // verified in the content, not just in the commit message:
+        // `<<if boss_cleared("mockingbird")>>` and `<<if quest_active(
+        // "pirate_treasure")>>` are live in `assets/dialogue/sandbox/`.
+        //
+        // ⇒ The behaviour MOVED from Rust to authored content. A reader who
+        // greps for a redirect system will find none and should look in the
+        // `.yarn` files instead.
     }
 }
 

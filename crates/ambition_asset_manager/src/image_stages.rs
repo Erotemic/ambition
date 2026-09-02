@@ -151,6 +151,13 @@ pub struct ImageStageLedger {
     /// ⇒ The count survived a removal and the attribution for it did not, which
     /// is backwards: the wasted decode is exactly the one whose demander you want
     /// named, and `dropped_before_gpu` exists to count that population.
+    /// ⛔ NATIVE-ONLY, because it carries an `Instant` and `Instant` is
+    /// native-only in this module. Leaving it ungated broke the WASM build
+    /// outright: `image_stages` is compiled whenever the `bevy` feature is on,
+    /// which the web composition turns on, so the field's type named a type that
+    /// was not in scope there. Found by review 2026-09-02 and reproduced with
+    /// `cargo check --target wasm32-unknown-unknown`.
+    #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap<String, (&'static str, Instant)>,
     /// Whether a render world is stamping stage 3 at all. `false` in a
     /// headless or `NoWindow` composition, where nothing is ever prepared on a
@@ -232,7 +239,12 @@ impl ImageStageLedger {
             // adopted; the row keeps no `demanded_at`, and the readout says
             // "first demanded via <road>" rather than quoting a duration it
             // cannot honestly compute.
+            #[cfg(not(target_arch = "wasm32"))]
             let inherited = self.demand_by_path.get(&path).map(|(source, _)| *source);
+            // WASM never stamps a demand (`note_demand` is a no-op there), so
+            // there is no road to inherit and nothing to look up.
+            #[cfg(target_arch = "wasm32")]
+            let inherited: Option<&'static str> = None;
             let row = self.row(id);
             row.insertions_of_path = count;
             if row.source.is_none() {
@@ -338,6 +350,11 @@ impl ImageStageLedger {
 
     /// Every image inserted and not yet removed, in id order — the per-row
     /// form of [`Self::resident_by_road`], for a census that wants the PATHS.
+    ///
+    /// ⛔ Native-only for the same reason as [`Self::demand_by_path`]: residency
+    /// here is defined by `inserted_at`, a timestamp this module does not keep
+    /// on WASM.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_rows(&self) -> impl Iterator<Item = &ImageStages> {
         self.rows.values().filter(|row| row.inserted_at.is_some())
     }
@@ -369,6 +386,7 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     awaiting_gpu: Vec::new(),
     gameplay_live: None,
     insertions_by_path: BTreeMap::new(),
+    #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap::new(),
     render_world_present: false,
     re_decodes: 0,

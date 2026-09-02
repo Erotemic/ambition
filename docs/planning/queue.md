@@ -405,6 +405,35 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **`hall_transition_cover` IS RED IN PARALLEL, and it is a SECOND-ORDER COST OF
+  THE COMPOSITION FIX.** Measured at `0955bd888`:
+
+  ```text
+  cargo test -p ambition_app --test app_it hall_transition_cover
+    parallel (the normal invocation)   3 passed, 3 FAILED
+    --test-threads=1                   6 passed, 0 failed   (106.8s, ~18s/test)
+  ```
+
+  All three failures are one panic — `hall_transition_cover.rs:74`, `.expect("a
+  session room set")` — i.e. the app never reached a `RoomSet` before the harness
+  gave up.
+  ⭐ **`settle_cast(app, secs)` IS A WALL-CLOCK DEADLINE, NOT A SETTLE.** It
+  returns whether or not the thing arrived, and the CALLER CANNOT TELL WHICH, so a
+  timeout masquerades as "settled" and surfaces three lines later as an unrelated
+  `.expect`. Callers pass 10s and 20s.
+  ⇒ It was adequate while headless decoded nothing. The composition fix took the
+  same hall entry from **22 resident images to 226** (re-measured at this commit:
+  226 resident / 201 routed / 0 re-decodes), so boot is roughly an order of
+  magnitude heavier and the budgets expire under parallel CPU contention.
+  ⛔ **THE FIX IS THE SHAPE, NOT THE NUMBER** — raising 20 to 60 buys time until
+  the next thing gets heavier. Wait for the FACT (a room set exists / the cast is
+  staged) with a generous cap, and panic naming the cap when it is hit, so a
+  timeout can never again be mistaken for progress.
+  ⚠ And the general point, which is why this is a row and not a bug report: the
+  composition fix was correct and its cost was not free. **10× the decode work at
+  boot surfaced first as a test-harness timeout, not as a number anyone
+  recorded** — a "captures byte-identical, RSS −141 MB" A/B does not show it.
+
 - ▢ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
   PARALLEL-FLAKY.** Found 2026-09-02 while checking for reds. `app_it` runs its
   tests as parallel threads; `image_stages::ledger()` is a `static`. Exactly three

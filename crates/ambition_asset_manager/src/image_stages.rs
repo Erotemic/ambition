@@ -62,6 +62,22 @@ pub struct ImageStages {
     pub inserted_at: Option<Instant>,
     #[cfg(not(target_arch = "wasm32"))]
     pub gpu_prepared_at: Option<Instant>,
+    /// The first frame this image would actually be DRAWN — the fourth stage.
+    ///
+    /// ⭐⭐ THE OTHER THREE ARE ALL ABOUT THE ASSET ARRIVING. Demand, insert and
+    /// GPU say it was asked for, decoded and uploaded; none of them says it was
+    /// ever USED. That gap is why the re-decode census and the reveal barrier
+    /// both have to talk about *"prepared"* rather than *"drawn"*, and why
+    /// `[image-dropped]` can only report pixels decoded for nobody after the
+    /// fact.
+    ///
+    /// ⛔ ABSENT MEANS TWO DIFFERENT THINGS AND A READER MUST NOT CONFLATE THEM:
+    /// "no render world at all" (a `NoWindow` or headless composition, where
+    /// nothing is ever extracted and this can never be set) and "drawn by
+    /// nobody yet". [`ImageStageLedger::render_world_present`] is the fact that
+    /// separates them — the same asymmetry `is_awaiting_gpu` already documents.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub first_drawn_at: Option<Instant>,
     pub megapixels: f64,
     /// Whether gameplay was live when the pixels were inserted.
     pub live_at_insert: Option<bool>,
@@ -84,6 +100,8 @@ impl ImageStages {
             inserted_at: None,
             #[cfg(not(target_arch = "wasm32"))]
             gpu_prepared_at: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            first_drawn_at: None,
             megapixels: 0.0,
             live_at_insert: None,
             insertions_of_path: 0,
@@ -341,6 +359,50 @@ impl ImageStageLedger {
             self.window_insert_to_gpu.push(d);
         }
         Some(snapshot)
+    }
+
+    /// This image was extracted for drawing — the FOURTH stage, and the first
+    /// one that is about USE rather than arrival.
+    ///
+    /// ⛔⛔ FIRST WRITE WINS, and that is not tidiness. Extraction runs every
+    /// frame for every visible sprite, so a stamp that overwrote would be a
+    /// per-frame write on the whole visible set and the ledger's own cost would
+    /// show up in what it measures. The question is *"when was this first
+    /// drawn"*, which is asked once and answered forever.
+    ///
+    /// Returns the elapsed demand→draw when this call is the one that stamped
+    /// it and the demand is known, so a caller can report the wait without
+    /// re-reading the row; `None` on every later frame, which is also how a
+    /// caller knows not to print.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn first_drawn(&mut self, id: UntypedAssetId, at: Instant) -> Option<Duration> {
+        let row = self.row(id);
+        if row.first_drawn_at.is_some() {
+            return None;
+        }
+        row.first_drawn_at = Some(at);
+        let demanded = row.demanded_at?;
+        Some(at.duration_since(demanded))
+    }
+
+    /// Every resident image the render world has never extracted, largest first.
+    ///
+    /// ⛔⛔ ONLY MEANINGFUL WITH A RENDER WORLD, and the caller must say so.
+    /// Without one nothing is ever extracted, so this returns EVERY resident
+    /// image and means "nobody could have drawn anything" — not "these were
+    /// decoded for nobody". [`Self::render_world_present`] is the fact that
+    /// separates the two readings, and a readout that prints this without
+    /// consulting it is accusing a headless run of waste it cannot commit.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resident_never_drawn(&self) -> Vec<(f64, &str)> {
+        let mut rows: Vec<(f64, &str)> = self
+            .rows
+            .values()
+            .filter(|row| row.inserted_at.is_some() && row.first_drawn_at.is_none())
+            .filter_map(|row| Some((row.megapixels, row.path.as_deref()?)))
+            .collect();
+        rows.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(b.1)));
+        rows
     }
 
     /// An image the main world dropped. Returns the row when it was dropped
@@ -736,6 +798,73 @@ mod tests {
              insert in it is a name nobody can act on",
         );
         assert_eq!(ledger.procedural_resident(), (2, 1.3));
+    }
+
+    /// ⛔⛔ FIRST WRITE WINS, AND THE SECOND CALL MUST SAY NOTHING.
+    ///
+    /// The fourth stage is stamped from the render world's extraction, which
+    /// runs EVERY FRAME for EVERY VISIBLE SPRITE. A stamp that overwrote would
+    /// be a per-frame write on the whole visible set, and the ledger's own cost
+    /// would land in what it measures — so the rule is not tidiness, it is the
+    /// reason the stage can exist at all.
+    ///
+    /// ⛔ AND THE RETURN IS THE TELL. A caller prints the demand→draw wait when
+    /// it gets one; a `None` on the second frame is how it knows not to print
+    /// the same line sixty times a second.
+    #[test]
+    fn the_first_draw_is_stamped_once_and_later_frames_report_nothing() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.demand(id(40), "character-sheet", "hero.png".into(), t0);
+        ledger.inserted(id(40), 4.0, None, None, t0);
+
+        let first = t0 + Duration::from_millis(120);
+        let waited = ledger
+            .first_drawn(id(40), first)
+            .expect("the first draw of a demanded image reports its wait");
+        assert_eq!(waited, Duration::from_millis(120));
+
+        assert_eq!(
+            ledger.first_drawn(id(40), first + Duration::from_millis(16)),
+            None,
+            "a later frame re-stamped the first draw: the stage would be a \
+             per-frame write on every visible sprite, and its own cost would be \
+             part of what it measures",
+        );
+        assert_eq!(
+            ledger.get(id(40)).and_then(|row| row.first_drawn_at),
+            Some(first),
+            "the later frame moved the instant, so `first_drawn_at` is not the \
+             FIRST draw at all",
+        );
+    }
+
+    /// ⛔⛔ NEVER-DRAWN IS NOT A FINDING WITHOUT A RENDER WORLD, and the list
+    /// cannot tell the caller that — only [`ImageStageLedger::render_world_present`]
+    /// can. This pins the shape a readout has to respect: with nothing extracted,
+    /// EVERY resident image is "never drawn", which on a headless road means
+    /// nobody could have drawn anything rather than that the pixels were wasted.
+    #[test]
+    fn every_resident_image_is_never_drawn_until_something_extracts_one() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.demand(id(41), "character-sheet", "a.png".into(), t0);
+        ledger.demand(id(42), "parallax", "sky.png".into(), t0);
+        ledger.inserted(id(41), 4.0, None, None, t0);
+        ledger.inserted(id(42), 1.0, None, None, t0);
+        assert_eq!(
+            ledger.resident_never_drawn(),
+            vec![(4.0, "a.png"), (1.0, "sky.png")],
+            "largest first, so the expensive one is the one that gets read",
+        );
+
+        ledger.first_drawn(id(41), t0 + Duration::from_millis(50));
+        assert_eq!(
+            ledger.resident_never_drawn(),
+            vec![(1.0, "sky.png")],
+            "an image that was drawn is off the list; anything else makes the \
+             readout unable to distinguish waste from work",
+        );
     }
 
     #[test]

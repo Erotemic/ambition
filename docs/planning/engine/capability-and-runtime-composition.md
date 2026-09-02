@@ -55,6 +55,25 @@ Its demonstrated value is:
 > and a ready-made regression guard (it may not rise), neither of which this page
 > currently tells a reader exists.
 >
+> ⛔⛔ **BUT THE RATCHET COUNTS CRATES, NOT BYTES, AND A CARVE RAISES IT BY
+> CONSTRUCTION.** Read "that count falls" as an acceptance condition without
+> this and a decomposition slice looks like a regression on the very page that
+> recommends decomposition. The closure is **44** as of 2026-09-02, not 43,
+> because `ambition_world_items` entered it — the touched-collectible domain
+> carved OUT of the actor monolith (D33). ⭐ **No new code entered the closure:
+> the same `WorldItem` and `ItemMotion` were linked the day before, inside the
+> monolith, and the monolith shed ~1,044 lines doing it.** The same is true of
+> the `ambition_mount` and `ambition_damage` rows that preceded it.
+>
+> ⇒ **So the number answers "how many `ambition_*` crates does a movement-only
+> game link", and NOT "how much does it link".** Both are worth knowing and they
+> move in opposite directions under a carve. A row whose acceptance is "the
+> count falls" is asking for edges to be made OPTIONAL or removed — the
+> `ldtk_left_the_closure_2026_08_22` and `settings_menu_left_the_closure_2026_08_22`
+> shape — and a carve cannot satisfy it, so the two lines of work must not be
+> scored against each other. The baseline file records the reason beside every
+> entry that arrived this way; ⚠ read those before quoting the delta.
+>
 > **Two more guards belong to this program and were also unnamed here:**
 >
 > - `scripts/check_capability_ships.py` — *"a capability whose only installer is

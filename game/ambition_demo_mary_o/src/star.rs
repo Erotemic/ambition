@@ -33,7 +33,7 @@ const STAR_MUSIC_OWNER: &str = "mary_o_star";
 /// It carries no modifier, no grant and no armor, because what it does is not
 /// expressible as equipment — it is a TIMED body state. The row exists only so
 /// the quasar can ride the same "touch it → it's yours" pickup the wand and the
-/// beacon ride ([`ambition_platformer2d::actors::items::collect_world_items`]),
+/// beacon ride ([`ambition_platformer2d::world_items::collect_world_items`]),
 /// and [`begin_star_power`] converts it into that state and takes the token back
 /// on the very next tick.
 pub fn pocket_quasar() -> EquipmentRow {

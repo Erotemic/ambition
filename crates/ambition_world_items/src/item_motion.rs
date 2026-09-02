@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use super::world_item::WorldItem;
+use crate::world_item::WorldItem;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
 /// What a pickup does once it is in the world. Pure numbers — a game states

@@ -186,6 +186,16 @@ pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
+/// The physical life of a touched collectible: `WorldItem`, its motion, and the
+/// touch-collect pass.
+///
+/// ⭐ IT IS NOT UNDER [`actors`] ANY MORE, and the path change is the point.
+/// `actors` IS the actor monolith, so a game importing
+/// `actors::items::WorldItem` was naming the kernel for something the kernel no
+/// longer owns (D33, 2026-09-02). `actors::items::pickup` still holds the
+/// PRESSED pickup — a held weapon taken with `Attack` — which is a different
+/// domain that stayed.
+pub use ambition_world_items as world_items;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]

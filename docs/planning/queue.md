@@ -931,6 +931,71 @@ The one unresolved developer-policy choice from the session-ownership work is in
   of the kernel names `items::` 79 times — a multi-day carve, not an evening's.
   The evening's D33 slice was the brain-override inversion (agent 383484,
   `AuthoredBrainOverride` in `ambition_characters::brain`; see its commits).
+  ⭐⭐ **AND A FIRST `items/` SLICE LANDED 2026-09-02 LATE:
+  `ambition_world_items`.** The row above calls `items/` *"~6,000 lines … a
+  multi-day carve, not an evening's"*, which is the UNION of every file's
+  imports and describes the worst file. Counted PER FILE — non-`crate::items`
+  references into the rest of the kernel — `pickup/mod.rs` holds **27 of 51**
+  and `item_motion.rs` holds **none**. So the multi-day claim is true of
+  `pickup/` and false of the rest.
+
+  ✔ **WHAT MOVED:** `world_item.rs` + `item_motion.rs` and their tests — the
+  PHYSICAL life of a touched collectible: where it is, whether it is moving, and
+  that walking into it collects it. **14 tests moved with it and all 14 pass in
+  the new crate**; the monolith went 1221 → 1207, which is exactly them.
+  ⛔ **WHAT STAYED, and the split is by TRIGGER not by size:** `items::pickup`
+  owns the PRESSED pickup — a held weapon taken with `Attack` — and still
+  reaches `abilities`, `ability_cooldown`, `construction` and `shrine`. That is
+  the line the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had
+  already drawn.
+
+  ⭐ **THE COUPLING THAT LOOKED LIKE A BLOCKER WAS THE CARVE'S OWN LEVER.** The
+  collect pass named `features::ecs::pickups::TouchCollectorFilter`, which is a
+  type alias composed of nothing but `PlayerEntity` and `TemporaryControl` —
+  both already in `shared_tangle`. It moved down beside them, and so did its
+  VALUE twin `body_collects_on_touch`; `pickups.rs` re-exports both under the
+  short names its three passes read. ⛔ ONE DEFINITION, not a copy: the filter
+  decides who a query RETURNS and the value check decides whether a returned
+  body collects, so a second copy is how the halves come to disagree.
+  ⚠ **AND MY OWN PER-FILE COUNT UNDERCOUNTED, which is worth more than the
+  slice.** I sized `world_item.rs` at TWO kernel references using
+  `grep -o "crate::[a-z_]*"`. That grep cannot see `super::` paths or a
+  fully-qualified call, and the file also reached `super::item_motion` four
+  times and called `pickups::body_collects_on_touch`. ⇒ **the same
+  one-form-grep error the frontier row above records, made by the person who
+  wrote that row, four hours later.** Every reference resolved downward so the
+  slice held, but the number was produced by an instrument blind to half its
+  subject.
+
+  ⛔ **NOTHING IS RE-EXPORTED FROM `items/mod.rs`.** Keeping
+  `pub use ambition_world_items::{world_item, item_motion};` there would have
+  meant ZERO consumer churn; it was refused because a re-export keeps the kernel
+  as the discovery path for code it no longer owns, and then the boundary is not
+  greppable. For the same reason games reach it through the facade's new
+  `ambition_platformer2d::world_items` rather than `actors::items` — `actors`
+  IS the monolith.
+  ⭐ The runtime composes `WorldItemSimulationPlugin` beside
+  `ItemPickupSimulationPlugin` (its sibling across the split), so no
+  registration for the domain lands back in the kernel — the same shape as
+  `ambition_mount` and `ambition_damage`.
+
+  ✔ **GUARDED, both poison-verified:**
+  `engine.ambition_world_items-source-purity` (adding the monolith to the
+  crate's source trips it) and `engine.ambition_world_items-manifest-allow`
+  (adding `ambition_dev_tools` to its manifest trips it).
+  ✔ **AND THE LEDGER FEAR WAS CHECKABLE AND FALSE.** Both types are
+  rollback-registered, so a crate move looks like it should churn a path-keyed
+  baseline. `rollback_schema_baseline.txt` keys rows by the registrar's OWNER
+  STRING and short type name — `entity:world_item`, `item.motion`,
+  `item.world_item` — so the file is UNCHANGED and only the `use` paths in
+  `rollback_registration.rs` moved.
+  ⛔⛔ **THE FOOTPRINT RATCHET FIRED, AND IT COUNTS CRATES, NOT BYTES.**
+  `capability-footprint-baseline.json` went 43 → 44 and the growth is declared
+  in the same idiom as the `mount`/`damage` rows. ⚠ THE SAME CODE WAS LINKED
+  BEFORE, inside the monolith — the linked code went slightly DOWN. A reader
+  taking `closure_size` as a size metric reads a carve as a regression, which is
+  the one thing that row shape must never be allowed to say.
+
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
   `ambition_conversation` 45, `ambition_items` 34) invite a carve chosen by
@@ -1549,15 +1614,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 43 crates linked, 16 a movement-only game never
-  asked for.** (Scheduled 2026-09-02 from agent ambition-da's docs pass.) The
-  acceptance and the regression guard are already installed:
+- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 16 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (Scheduled
+  2026-09-02 from ambition-da's docs pass; re-worded the same night after
+  ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
-  measures the count every gate run and ratchets it
-  (`scripts/baselines/capability-footprint-baseline.json`). Acceptance: the
-  count FALLS; the guard: it may not rise. Design and the per-crate reasons in
-  `engine/capability-and-runtime-composition.md`. Ranks first among the docs-pass
-  rows because it arrives with its own instrument.
+  ratchets the closure (`scripts/baselines/capability-footprint-baseline.json`).
+  ⛔ Slice H (2026-07-30) already took every facade cut (41 → 38); all 16 that
+  remain ALSO arrive through `ambition_platformer2d_actor_monolith`'s own
+  manifest, so gating a facade edge cuts nothing — a game that needs actors
+  needs the monolith and the monolith brings them. The baseline's own
+  `facade_only_four_are_not_a_quick_win` note counts 170 in-repo `ambition::`
+  call sites (`render` alone 90) behind the four facade-only edges. ⇒ Honest
+  acceptance: the count falls only through a D33 CARVE (a domain leaves the
+  monolith AND its edge leaves the monolith's manifest) or a facade-optionality
+  migration over those 170 call sites; neither is mechanical. ⚠ A carve that
+  adds a crate RAISES the count (`ambition_world_items`, 43 → 44: crates, not
+  bytes) — the two lines of work must not be scored against each other, which
+  `engine/capability-and-runtime-composition.md` now says. Owed: the baseline's
+  `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
+  (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
+  ambition-da repairs it in one commit after the `items/` carve lands.
 - ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
   by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
   `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
@@ -1574,15 +1651,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   fingerprint; does a conflict leave the old registry unchanged), each cell a
   citation the planning citation checker resolves. ⛔ No abstraction until that
   table exists. Design: `triage/ambition-registry-core.md`. Assigned to ambition-da.
-- ▢ **RE-SCOPE THE GENERATED-DIALOGUE TRIAGE BEFORE ANYONE IMPLEMENTS IT.**
-  (Scheduled 2026-09-02.) 149 catalog rows, 124 with a `hall_dialogue_id`, 131
-  authored `hall_*` Yarn nodes: the Hall was solved by hand-authoring, the escape
-  its 2026-07-26 decision left open. A generator written to the original framing
-  would generate over 124 characters that already have nodes. What is left: ~25
-  rows with no hall id, and every room that is not the Hall. Re-scope in
-  `triage/character-dialogue-from-suggestions.md`; whether to generate at all for
-  the remainder is a content call (record it in awaiting-maintainer-decision if
-  it comes to that).
+- ✔ **THE GENERATED-DIALOGUE TRIAGE IS RE-SCOPED (2026-09-02).** 149 catalog
+  rows, 124 with a `hall_dialogue_id`, 131 authored `hall_*` Yarn nodes: the
+  Hall was solved by hand-authoring, the escape its 2026-07-26 decision left
+  open, and `triage/character-dialogue-from-suggestions.md` now says so at the
+  top. What is left (~25 rows with no hall id, every room that is not the Hall)
+  is a content call — generate for the remainder or keep authoring — recorded
+  in `awaiting-maintainer-decision.md`; no engine work until it is made.
 - ✔ **Two rows corrected, no work owed (2026-09-02, ambition-da):**
   `engine/participant-action-system.md` §P1 is DONE (pinned by
   `dialogue_claims_the_talker_while_a_pause_still_stops_everybody`);
@@ -1659,7 +1734,10 @@ product ruling.
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
   The user-visible problem is the hall-entry hitch, which is the asset campaign.
 - **A flash in the kaleidoscope menu since Bevy 0.19** (Jon, 2026-09-02, not
-  yet observed by an agent). Facts needed before anyone searches: one frame at
+  yet observed by an agent). ⛔ STILL THERE after `2e7819419` (Jon, 2026-09-02
+  evening, same profile session as the hall run) — whatever that commit fixed
+  was not it. DEFERRED by Jon to a session where he can iterate interactively
+  with an agent; no more blind fixes. Facts needed before anyone searches: one frame at
   launch or on EVERY menu open; the colour (black = an uncleared/uninitialised
   target, magenta = a Bevy diagnostic texture, the world = a missed overlay).
   Shape suspects, in order: the cube's `Camera3d` activates with
@@ -1680,13 +1758,23 @@ product ruling.
   presentation). So under a software renderer the open is clean; what is left
   is host-side (swapchain `Outdated` on the first frames, MSAA writeback on a
   real adapter) or launch-only — which is exactly the fact only you can give.
-- **The reveal-barrier fix needs its host confirmation** (`2c8f27b32`, root
-  cause; `6446c5adc` was not it): one more `--no-tracy` capture through the hub
-  door. Tells: zero "nothing demanded it" warnings at the hall reveal,
-  `asset_wait_ms` in the seconds (the cover visibly holding ~2 s), no >33 ms
-  frames after the cover lifts. In the same run: `image_arrivals` megapixels
-  in the hall window (434 before the gallery tier cap `dc3cd0d91`; expect
-  ~40) and `resident_mb` (2153 before). Also worth a look: the kaleidoscope
+- **The reveal-barrier fix: HALF-CONFIRMED on the host 2026-09-02, and the
+  other half is void.** `desktop-timeline-run-20260902T215256Z` (Ultra, 3090,
+  hub → hall): placeholder rectangles 0 / 0 / 0, `wait_ms 292` covered, **0
+  frames over 33 ms after the transition** — the reveal no longer hitches.
+  ⛔ But that run drew the hall from `sprites_0_25x/` because of the room tier
+  cap `dc3cd0d91`, which Jon rejected on sight ("no lower quality tier for
+  gallery previews") and which is removed; so the 292 ms and the "expect ~40
+  MP" tell below describe a program that no longer exists. The next walk
+  re-measures at the user's tier: the cover will hold LONGER (434 MP at Full
+  decodes under it) and the tells are the same ones — zero "nothing demanded
+  it" warnings, no >33 ms frame after the cover lifts, and every `[image]`
+  line in the hall window reading `sprites/` (Full), none `sprites_0_25x/`.
+  Original tells, still the checklist: zero "nothing demanded it" warnings at
+  the hall reveal, `asset_wait_ms` in the seconds (the cover visibly holding),
+  no >33 ms frames after the cover lifts. In the same run: `image_arrivals`
+  megapixels in the hall window (434 at Full) and `resident_mb` (2153 before
+  render-world-only). Also worth a look: the kaleidoscope
   System page under a scroll — no flash (`2e7819419`). NEW since `2b31329c6`:
   the `[image-gpu]` lines say how long the UPLOAD half took — on the VM's
   llvmpipe every sheet of the reveal was prepared in ONE render frame

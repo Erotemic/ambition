@@ -108,15 +108,20 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 pickup_held_item_system
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                // Pickups that MOVE, stepped before the collect below so a
-                // pickup is collected where it IS this tick — a fast one would
-                // otherwise stay collectable from a box it has already left.
-                crate::items::item_motion::step_item_motion
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                // Touch-to-collect equipment pickups (mushroom / flower). A
-                // sibling collect trigger to the pressed held-item pickup above.
-                crate::items::world_item::collect_world_items
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                // ⭐ THE MOVING-PICKUP STEP AND THE TOUCH COLLECT LEFT THIS
+                // PLUGIN (D33, 2026-09-02). They are
+                // `ambition_world_items::WorldItemSimulationPlugin` now, which
+                // the runtime adds beside this one, and the ordering rule that
+                // used to live between them here went WITH them: a pickup is
+                // collected where it IS this tick, so the step must precede the
+                // collect or a fast item stays collectable from a box it has
+                // already left. ⛔ Both remain `GameplayGated`.
+                //
+                // ⚠ They were a sibling collect TRIGGER to the pressed
+                // held-item pickup above — touched versus pressed — which is
+                // the line the carve split on. This comment stays because the
+                // absence is otherwise invisible: nothing here fails if that
+                // plugin is never added.
                 fire_held_ranged_system
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system

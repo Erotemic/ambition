@@ -8,32 +8,23 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
-/// Bodies eligible for passive touch collection.
+/// Bodies eligible for passive touch collection, and the value check that goes
+/// with it.
 ///
-/// This includes all `PlayerEntity` bodies and actors currently driven through
-/// `TemporaryControl::Player`. [`body_collects_on_touch`] performs the value
-/// check because every autonomous actor also carries `TemporaryControl`.
-/// Action-driven held-item pickup uses a separate control path.
-pub type TouchCollectorFilter = bevy::prelude::Or<(
-    bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-    bevy::prelude::With<ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
-)>;
-
-/// A body collects on touch when it belongs to the player population or is
-/// currently driven through possession. `PlayerEntity` remains sufficient even
-/// while that body's brain is temporarily absent.
-pub fn body_collects_on_touch(
-    in_player_population: bool,
-    control: Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
-) -> bool {
-    in_player_population
-        || matches!(
-            control,
-            Some(
-                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Player { .. }
-            )
-        )
-}
+/// ⭐ BOTH MOVED TO [`ambition_platformer2d_shared_tangle::markers`] and are
+/// re-exported here under the short names the three passes below read. They are
+/// composed of nothing but `PlayerEntity` and `TemporaryControl`, both of which
+/// already live down there, and while they sat in this file they were the only
+/// reason a world-item collect pass could not leave this crate.
+/// ⛔ ONE DEFINITION, not a copy: the filter decides who a query RETURNS and
+/// `body_collects_on_touch` decides whether a returned body actually collects,
+/// so a second copy of either is a way for the two halves to disagree.
+/// `PlayerEntity` remains sufficient — a player body whose brain is temporarily
+/// absent still collects — and action-driven held-item pickup uses a separate
+/// control path.
+pub use ambition_platformer2d_shared_tangle::markers::{
+    body_collects_on_touch, TouchCollectorFilter,
+};
 
 /// Attraction targets the nearest eligible touch collector.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]

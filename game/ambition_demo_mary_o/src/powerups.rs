@@ -16,7 +16,7 @@ use ambition_platformer2d::characters::equipment::{
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
+use ambition_platformer2d::world_items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
@@ -455,7 +455,7 @@ pub(crate) fn tall_body_size() -> ae::Vec2 {
 /// statement about this game's progression.
 pub fn refuse_a_weaker_form_pickup(
     mut commands: Commands,
-    items: Query<(Entity, &ambition_platformer2d::actors::items::WorldItem)>,
+    items: Query<(Entity, &ambition_platformer2d::world_items::WorldItem)>,
     mut players: Query<
         (
             &ae::BodyKinematics,
@@ -476,7 +476,7 @@ pub fn refuse_a_weaker_form_pickup(
         if !body_aabb.strict_intersects(item.aabb()) {
             continue;
         }
-        let ambition_platformer2d::actors::items::WorldItemPayload::Equip(row) = &item.payload;
+        let ambition_platformer2d::world_items::WorldItemPayload::Equip(row) = &item.payload;
         let is_form = row
             .exclusive_slot
             .as_deref()
@@ -2046,7 +2046,7 @@ mod tests {
             .query::<&WorldItem>()
             .iter(app.world())
             .map(|item| match &item.payload {
-                ambition_platformer2d::actors::items::WorldItemPayload::Equip(row) => {
+                ambition_platformer2d::world_items::WorldItemPayload::Equip(row) => {
                     row.id.clone()
                 }
             })
@@ -2323,7 +2323,7 @@ mod tests {
 #[cfg(test)]
 mod loose_form_tests {
     use super::*;
-    use ambition_platformer2d::actors::items::WorldItem;
+    use ambition_platformer2d::world_items::WorldItem;
     use ambition_platformer2d::characters::equipment::WornEquipment;
 
     /// A wand lying on the floor cannot demote fire Mary-O.

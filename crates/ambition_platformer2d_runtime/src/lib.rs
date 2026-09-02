@@ -366,8 +366,16 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
             .add(ambition_platformer2d_actor_monolith::gravity::GravityPlugin)
-            // Item pickup simulation.
+            // Item pickup simulation: the PRESSED pickup (a held weapon taken
+            // with `Attack`), plus throw, custody and the ground-item physics.
             .add(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin)
+            // ⭐ ITS SIBLING, AND THE TWO ARE COMPOSED HERE RATHER THAN ONE
+            // ADDING THE OTHER: the TOUCHED collectible — where it is, whether
+            // it is moving, and that walking into it collects it. Split out of
+            // the actor kernel in D33 (2026-09-02) along the collect TRIGGER.
+            // ⚠ Order between the two plugins does not matter; the order that
+            // does is INSIDE this one (step before collect), and it says so.
+            .add(ambition_world_items::WorldItemSimulationPlugin)
             // Feature (room-entity) collection + interaction schedules.
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)

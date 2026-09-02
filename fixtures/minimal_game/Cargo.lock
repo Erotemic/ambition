@@ -459,6 +459,7 @@ dependencies = [
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
+ "ambition_world_items",
  "bevy",
 ]
 
@@ -492,6 +493,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
+ "ambition_world_items",
  "avian2d",
  "bevy",
  "bevy_asset_loader",
@@ -604,6 +606,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
+ "ambition_world_items",
  "bevy",
  "bevy_common_assets",
  "blake3",
@@ -733,6 +736,7 @@ dependencies = [
  "ambition_projectiles",
  "ambition_sprite_sheet",
  "ambition_time",
+ "ambition_world_items",
  "bevy",
  "bevy_math",
  "leafwing-input-manager",
@@ -780,6 +784,17 @@ dependencies = [
  "ambition_geometry",
  "ambition_platformer2d_core",
  "ambition_sfx",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_world_items"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_time",
  "bevy",
 ]
 

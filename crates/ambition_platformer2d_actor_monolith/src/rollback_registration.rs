@@ -39,7 +39,7 @@ where
     registrar.require_rollback::<crate::items::pickup::SettledItem>(OWNER, "entity:settled_item");
     // `RoomScopedEntity` governs lifetime, not rewindability; moving world
     // items therefore require their own rollback registration.
-    registrar.require_rollback::<crate::items::world_item::WorldItem>(OWNER, "entity:world_item");
+    registrar.require_rollback::<ambition_world_items::world_item::WorldItem>(OWNER, "entity:world_item");
     registrar
         .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
     // the heal shrine, for the same reason as the portal gun pickup
@@ -390,7 +390,7 @@ where
         OWNER,
         "lifecycle.spawned_this_attempt",
     );
-    registrar.rollback_component_clone_probed::<crate::items::world_item::WorldItem>(
+    registrar.rollback_component_clone_probed::<ambition_world_items::world_item::WorldItem>(
         OWNER,
         "item.world_item",
         |item| {
@@ -413,7 +413,7 @@ where
             // timelines of one session. The id and the exclusive slot are what
             // a divergent spawn would change.
             match &item.payload {
-                crate::items::world_item::WorldItemPayload::Equip(row) => {
+                ambition_world_items::world_item::WorldItemPayload::Equip(row) => {
                     row.id.hash(&mut hasher);
                     row.exclusive_slot.hash(&mut hasher);
                 }
@@ -445,7 +445,7 @@ where
     // The motion PLAN and its cursor travel together — `ItemMotion`'s own doc
     // says a cursor without its plan is meaningless — so one registration
     // restores both halves of where the pickup is in its arc.
-    registrar.rollback_component_clone_probed::<crate::items::item_motion::ItemMotion>(
+    registrar.rollback_component_clone_probed::<ambition_world_items::item_motion::ItemMotion>(
         OWNER,
         "item.motion",
         |motion| {

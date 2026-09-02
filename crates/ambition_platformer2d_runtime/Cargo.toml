@@ -18,6 +18,9 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
     "headless",
     "input",
 ] }
+# `WorldItemSimulationPlugin`, composed beside `ItemPickupSimulationPlugin`
+# above so neither item domain registers the other.
+ambition_world_items = { path = "../ambition_world_items" }
 # Conversation continuity, named directly since it left the actor monolith
 # . The domain now owns its rollback declaration; this host composes
 # that offer and `room_transition/commit.rs` reads whether a conversation is live.

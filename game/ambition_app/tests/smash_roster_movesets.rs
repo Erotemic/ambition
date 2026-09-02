@@ -25,7 +25,7 @@ use ambition_platformer2d::character::CharacterCatalog;
 /// Fighters on the grid whose catalog row gives them NO melee.
 ///
 /// The five that can hit are the ones whose rows already named a combat preset: George Booul and
-/// the demo's duelists (`smash::duelist`, 4 damage, 34px), and the Pirate Admiral, Shadow Oni
+/// the demo's duelists (`smash::duelist` (cite-ok: authored key), 4 damage, 34px), and the Pirate Admiral, Shadow Oni
 /// Leader, Perfect Cellular Automaton and Goblin (Ambition's `striker_swipe` / `pirate_pistol`, 1
 /// damage, 28px).
 ///

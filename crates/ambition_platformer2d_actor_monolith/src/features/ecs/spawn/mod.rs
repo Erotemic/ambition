@@ -796,16 +796,13 @@ impl RoomFeatureConstructionPlan {
     /// accepts — the provider-owned content requests AND the actors the
     /// placement lowering planned (`NpcSpawn`, programmatic enemies).
     ///
-    /// ⛔⛔ THE SECOND HALF WAS MISSING, AND THE LOADING SCREEN WENT WITH IT.
-    /// This list is what the room-transition reveal barrier demands art for.
-    /// It named only the content requests, so a room whose cast is authored
-    /// as placements — the hall's 129 pedestals — contributed nothing to the
-    /// barrier: the cover retired 66 ms after the door (`asset_wait_ms=3`),
-    /// 111 actors drew the placeholder rectangle with the game's own warning
-    /// ("nothing demanded it, so the engine never decoded its sheet"), and
-    /// 434 MP of sheets then arrived in the open over the next three seconds
-    /// as nine frames of 89-355 ms. Measured 2026-09-02,
-    /// `desktop-timeline-run-20260902T015909Z`.
+    /// The second half was added 2026-09-02 while chasing the hall's 111
+    /// placeholder rectangles. ⚠ It was NOT that bug's cause — the room's own
+    /// `Interactable(Npc)` loop already named those ids; the cause was the
+    /// per-frame load ration dropping its remainder (see
+    /// `demand_room_character_sheets`). It stays because a plan-staged actor
+    /// that is not an authored placement (a programmatic spawn) had no other
+    /// road into the reveal barrier's demand.
     pub fn content_staged_names(&self) -> Vec<String> {
         let mut names: Vec<String> = self
             .content_requests

@@ -543,10 +543,15 @@ pub fn materialize_character_demand(
     // so the cast is whole immediately and the room bills its full weight at
     // once. Only `materialize_declared_character_sprite` below is rationed.
     //
-    // ⚠ This does NOT release the reveal barrier early. `unsettled_staged_
-    // characters` blocks on a pending token having no OUTCOME, and an unstaged
-    // load records no outcome — so the curtain stays down for exactly as long as
-    // the loads take, which is the behaviour the cover test's second half wants.
+    // ⛔⛔ THIS DID RELEASE THE REVEAL BARRIER EARLY, for a room's whole cast.
+    // The paragraph that stood here said `unsettled_staged_characters` would
+    // hold the curtain; nothing in the ROOM transition ever called it (only
+    // `capture_scene` did), the barrier waited on realized sheets' PAGES, and
+    // the caller's demand was a local that dropped the un-taken remainder. On
+    // the host, 2026-09-02: 111 of the hall's actors drew the placeholder at
+    // reveal and 434 MP arrived in the open. Fixed in the host's
+    // `room_transition_assets`: the remainder is forwarded to the global
+    // demand and `inspect_demanded_characters` holds the reveal.
     for token in demand.pending().map(str::to_string).collect::<Vec<_>>() {
         let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
         declare_registered_character_into(sprites, registry, &token, &character_id);

@@ -672,7 +672,32 @@ def resize_png(
         height = max(min_px, round(image.height * scale))
         resized = image.resize((width, height), resampling)
         dst.parent.mkdir(parents=True, exist_ok=True)
+        break_symlink_before_write(dst)
         resized.save(dst)
+
+
+def break_symlink_before_write(path: Path) -> None:
+    """Replace a symlinked destination with a real file, never write through it.
+
+    ⛔⛔ AN ASSET-MIRRORED WORKTREE POINTS EVERY GENERATED FILE AT THE MAIN
+    CHECKOUT'S COPY. `scripts/mirror_assets_for_worktree.py` symlinks file by
+    file precisely so that "a regenerated sprite lands as a REAL file in the
+    worktree ... and the main checkout never sees it" — but that is only true if
+    the writer UNLINKS FIRST. `Image.save()` and `Path.write_text()` open the
+    path for writing, and an open-for-write FOLLOWS the symlink: the bytes land
+    in the shared main checkout, silently, for every agent regenerating assets
+    in a worktree.
+
+    Verified 2026-09-02 rather than reasoned about: a plain
+    `open(link, "wb").write(...)` replaced the TARGET's contents and left the
+    link in place.
+
+    ⚠ The main checkout is what other sessions build and gate from, so this is
+    not a tidiness rule — it is the difference between regenerating your own
+    assets and quietly editing everyone else's.
+    """
+    if path.is_symlink():
+        path.unlink()
 
 
 def page_filenames(record: Struct) -> list[str]:
@@ -988,12 +1013,15 @@ def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) ->
 
     ron_dst.parent.mkdir(parents=True, exist_ok=True)
     for page, fname in zip(result.pages, page_names):
-        page.save(ron_dst.parent / fname)
+        page_dst = ron_dst.parent / fname
+        break_symlink_before_write(page_dst)
+        page.save(page_dst)
 
     # the decoded source pages belong to `source`, which the caller reuses for
     # the remaining tiers. Closing them here (as this did while the tier was the
     # outer loop and each sheet was opened afresh) leaves the next tier reading
     # from a closed image.
+    break_symlink_before_write(ron_dst)
     ron_dst.write_text("[\n" + ",\n".join(dump(r) for r in scaled.items) + "\n]\n")
     return len(result.pages)
 

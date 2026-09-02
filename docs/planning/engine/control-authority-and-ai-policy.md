@@ -64,10 +64,75 @@ StateMachineCfg::Smash     13 external references
 brain/fighter + brain/smash  8,950 non-test lines, INSIDE `ambition_characters`
 ```
 
-⚠ **the 8,950 is the number to look at.** `ambition_characters` is a floor crate:
-every composition links it, including the exploration game and the two fixture
-consumers. Two platform-fighter policies live there because policy shares a
-component — and therefore a crate — with control authority.
+⛔⛔ **THE CENSUS ABOVE IS STALE IN EVERY LINE — RE-MEASURED 2026-09-02.** It is
+the block this plan calls "the number to look at", so it is corrected here rather
+than left for a reader to act on. Most of what it counts has already happened.
+
+```text
+                                  planned    measured 2026-09-02
+Brain::Player                     194 sites  0 — the variant is DELETED; the 2
+                                             surviving greps are comments saying so
+Brain::StateMachine               107 sites  118
+exhaustive matches on Brain            13    moot: `Brain` has ONE variant now
+StateMachineCfg::Fighter          20 ext.    24 outside `ambition_characters`
+StateMachineCfg::Smash            13 ext.     9 outside `ambition_characters`
+brain/fighter + brain/smash    8,950 lines   2,258 non-test remain inside;
+  (non-test, inside characters)              6,491 are in `ambition_combat/src/brain`
+```
+
+⭐ **THE CARVE LARGELY HAPPENED ON 2026-08-27 (D168)**, and the acceptance box
+below never learned. Both module headers say so in their first line: *"THE SMASH
+BRAIN'S DATA — and only its data"*, *"THE FIGHTER BRAIN'S SHAPE — and only its
+shape"*. The decision tick, option scoring, shadow rollout, recovery probe,
+reeling response, charge maths, scenario suite, content schema, mode/action/emit
+stages, difficulty filter and arena harness are all
+`ambition_platformer2d::combat::brain::*` now.
+
+⛔ **AND WHAT REMAINS CANNOT LEAVE — for a stated structural reason, not for want
+of effort.** `Brain`'s snapshot encoder is bound to `ambition_characters` by the
+ORPHAN RULE, and `ambition_combat` depends on `ambition_characters`, so a type
+the encoder reads can never move up. `BrainSnapshot` pins more on top: `attack_kit`
+is a `Vec<AttackCandidate>` BY VALUE, which is why the whole option vocabulary
+stayed while its scoring went. ⇒ The remaining 2,258 lines are DATA the floor
+crate must own. Anyone reading the acceptance box as ~8,950 lines of pending
+carve is reading a number from before the carve.
+
+⚠ `ambition_characters` is still a floor crate every composition links, so the
+question the plan asks is still live — it is just much smaller than stated, and
+its remainder needs an ANSWER TO THE ORPHAN-RULE PIN rather than another move.
+
+### The pin, located exactly (2026-09-02) — and the question it leaves
+
+Two independent things hold the remainder in the floor crate. Both were located
+rather than inferred:
+
+1. **`impl SnapshotCursor for Brain`** (`snapshot_impls.rs:350`). `SnapshotCursor`
+   is declared in `ambition_platformer2d_core`, so it is FOREIGN here; `Brain` is
+   local. The impl is therefore legal only in `ambition_characters` or in
+   `ambition_platformer2d_core`, and everything the encoder reads is pinned with
+   it. Moving `Brain` "up" is not available — up is where the dependents are.
+2. **`BrainSnapshot.attack_kit: Vec<AttackCandidate>`**, by value
+   (`snapshot.rs:87`). ⭐ This pin is STABLE rather than accidental:
+   `ambition_combat` *consumes* that vocabulary
+   (`use ambition_characters::brain::attack_kit::…` across `evaluation`,
+   `rollout`, `decision`, `moveset`), which is the correct dependency direction.
+   Nothing is upside-down; the floor crate owns a vocabulary the layer above
+   reads, which is what a floor crate is for.
+
+**And the size the decision should be made against**: the remainder is **2,258 of
+`ambition_characters`' 28,234 non-test lines — 8%**, and it is DATA. The original
+concern ("a movement-only game links two platform-fighter policies") is now about
+8% of one crate in inert definitions, not about 8,950 lines of fighter AI.
+
+▢ **QUESTION FOR THE MAINTAINER, recorded rather than decided, because it is a
+cost/benefit call and not an engineering blocker.** Is 8% of the floor crate, in
+data, worth splitting a rollback encoder for? If yes, the shapes available are a
+DISPATCHER (`Brain` becomes opaque in the floor crate and its encoder delegates
+to a domain-registered encoder) or making `BrainSnapshot` generic/opaque over the
+attack kit. Both touch the rollback wire format, so both want a schema bump and a
+desync test, and neither should be started on the strength of the stale 8,950.
+If no, the two remaining acceptance boxes should be rewritten to say what is
+actually left — a template NAME in an enum — and closed.
 
 ## The two facts
 
@@ -140,10 +205,12 @@ types inside it, and the offer is a typed plugin rather than a table.
   variant (`StateMachine`), and `CharacterBrainTemplate`'s nine (`StandStill`,
   `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
   `Aerial`, `Fighter`) contain no player/human arm.
-⇒ **TWO OF THE FOUR WERE ALREADY MET and had been carrying `▢` — the two that
-remain are the CARVE, and only the carve.** Checked 2026-09-02: `Smash` and
-`Fighter` are still variants of `CharacterBrainTemplate` in
-`ambition_characters`, so nothing below has moved.
+⇒ **TWO OF THE FOUR WERE ALREADY MET and had been carrying `▢`.** And the third
+is mostly met too — see the re-measured census above: the BEHAVIOUR of both
+brains left on 2026-08-27 (6,491 non-test lines now in `ambition_combat`), and
+the 2,258 that remain are data pinned in place by the orphan rule. `Smash` and
+`Fighter` are still variants of `CharacterBrainTemplate`, which is what the box
+below is really still about — a template name, not 8,950 lines.
 
 - ▢ `brain/smash` and `brain/fighter` leave `ambition_characters`, and the
   measured line count of that crate falls by roughly the 8,950 above — ⛔ a carve

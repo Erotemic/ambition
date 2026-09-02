@@ -569,7 +569,10 @@ impl NpcActorSpawnPlan {
         // property of the PLACEMENT, and this placement is a person.
         //
         // That pin lives on the SEED's tuning (`ActorClusterSeed::new_peaceful_npc_in`) and
-        // survives provocation via `ActorTuning::adopting_archetype`. A peaceful NPC carries the
+        // survives provocation because `ActorTuning` carries NO respawn field at all, so an
+        // archetype projection has nothing to drag in (the field once named here,
+        // `adopting_archetype`, is gone -- respawn moved onto the placement in `8fec52282`).
+        // A peaceful NPC carries the
         // kit it will use if provoked, resolved at spawn — and it was resolved by handing an
         // ARCHETYPE the NPC's display name and taking whatever that matched. For a character that
         // authors its own repertoire, that is a borrowed weapon: the cove pirates state a bolt, a

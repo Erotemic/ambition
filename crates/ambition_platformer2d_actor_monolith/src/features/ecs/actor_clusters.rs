@@ -545,7 +545,11 @@ impl ActorClusterSeed {
             // STATED, not inherited from `Default`: an NPC is a unique named
             // placement, so its death is permanent (ADR 0022) even after it
             // provokes into a mob archetype authored `OnRoomReenter`. This is
-            // the pin `ActorTuning::adopting_archetype` protects.
+            // the pin protects: `ActorTuning` carries no respawn field, so the
+            // archetype projection cannot supply one and the placement's
+            // `RespawnPolicy` below is the only answer. (It used to name an
+            // `ActorTuning::adopting_archetype` field; respawn moved onto the
+            // placement in `8fec52282` and the field went with it.)
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             ..Default::default()
         };

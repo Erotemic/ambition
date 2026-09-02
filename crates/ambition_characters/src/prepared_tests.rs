@@ -662,7 +662,8 @@ fn an_incomplete_character_names_the_fact_it_is_missing() {
 }
 
 /// The assembled shape a shared-policy fixture has to model: fragment keys are
-/// namespaced `provider::local_name` by `CharacterCatalogRegistry`.
+/// namespaced `provider::local_name` by `CharacterCatalogRegistry` (cite-ok:
+/// that is the SHAPE of a key, not a symbol -- neither half is an item).
 const SHARED_POLICY_CATALOG: &str = r#"(
     autonomous_profiles: {
         //  NAMESPACED, because assembly namespaces every fragment key

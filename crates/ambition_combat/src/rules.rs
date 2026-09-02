@@ -79,7 +79,8 @@ pub struct DeclaredCombatRules {
     ///
     /// this is what stopped the protagonist carrying its own repertoire.
     /// Attaching the canonical moveset to `player_robot_v3` turned
-    /// `gravity_symmetry::pogo_bounces_away_from_gravity` red, and the wrong fix
+    /// `gravity_symmetry::pogo_bounces_away_from_gravity_under_both_orientations`
+    /// red, and the wrong fix
     /// — authoring the robot a second, Ambition-only down-air — is the
     /// duplicate-moves outcome §16 explicitly forbids.
     ///

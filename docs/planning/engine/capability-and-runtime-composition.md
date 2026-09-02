@@ -31,6 +31,29 @@ Its demonstrated value is:
 - public SDK quality;
 - making optional domains actually optional.
 
+> **RE-MEASURED against `f32eb7274` (2026-09-02): this program has a LIVE MECHANICAL
+> GUARD, and the page does not mention it.**
+>
+> `scripts/check_absence_contracts.py` runs
+> **`capability-footprint-may-not-grow`**, which reports the program's headline
+> number every time the gate runs: **43 crates linked, 16 of them a
+> movement-only game never asked for.** It ratchets — a new crate entering the
+> minimal consumer's closure turns it RED, naming each one — and its failure
+> text is this page's §2e in one sentence: *"a perfectly semantic API can still
+> force a movement-only game to compile and link every unrelated gameplay
+> domain — no forbidden path is named and the footprint is still wrong."*
+>
+> Four sibling contracts pin the public-SDK half — `outlander-`,
+> `minimal-game-`, `sim-harness-` and `capability-demo-names-only-the-public-sdk`
+> — each at 0 of 0 baseline modules still naming internals. All 37 absence
+> contracts hold at this commit.
+>
+> ⇒ **So "dependency closure" and "smaller/minimal consumers", two of the six
+> values listed above, are no longer arguments — they are a number with a
+> ratchet under it.** ⛔ And the number says the work is real and unfinished: 16
+> of 43. A slice here has a ready-made acceptance condition (that count falls)
+> and a ready-made regression guard (it may not rise), neither of which this page
+> currently tells a reader exists.
 ## Principles
 
 - capability selection is a semantic engine API, not a Cargo-feature illusion;

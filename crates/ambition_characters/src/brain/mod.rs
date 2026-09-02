@@ -106,7 +106,7 @@ impl Brain {
         })
     }
 
-    // ⛔⛔ `Brain::tick` AND `Brain::tick_with_actions` ARE GONE, and their
+    // ⛔⛔ `Brain::tick` AND `Brain::tick_with_actions` ARE GONE (cite-ok), and their
     // absence is the point. They were a match over every variant, so behaviour
     // placement followed the enum: three of the twelve arms are platform-fighter
     // and boss thinking whose destination is a crate ABOVE this one, and a

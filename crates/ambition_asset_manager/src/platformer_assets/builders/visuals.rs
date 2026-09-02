@@ -74,8 +74,9 @@ pub(in super::super) fn extend_with_font_entries(manifest: &mut AssetManifest) {
     );
 }
 
-/// Character sprite entries — one per `character_sprites::CHARACTER_SPRITE_REGISTRY`
-/// row (player / robot / goblin / sandbag + every NPC sheet). Pulls
+/// Character sprite entries — one per row of the catalog projection
+/// `character_sprites::all_character_sprite_filenames_in` (player / robot /
+/// goblin / sandbag + every NPC sheet). Pulls
 /// the canonical filename list from `character_sprites` so adding a new
 /// NPC sheet there auto-registers the catalog id.
 ///

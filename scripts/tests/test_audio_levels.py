@@ -32,6 +32,23 @@ sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 import audio_levels as al  # noqa: E402
 
 
+def _soundfile():
+    """The audio tooling's decoder, reached through `importorskip`.
+
+    ⛔ A MISSING OPTIONAL TOOL IS "NOT SET UP HERE", NOT A FAILING AUDIO BANK.
+    `soundfile` is declared by `tools/ambition_music_renderer` and
+    `tools/ambition_sfx_renderer`, so a machine without the audio tooling simply
+    does not have it — and a bare `import soundfile` turned that into SEVEN red
+    tests that read exactly like the shipped audio being wrong. This file already
+    skips when the bank asset is absent; it guarded one precondition and not the
+    other, and the ungarded one is the likelier of the two to be missing.
+
+    ⚠ The point is not tidiness. A lane that reports seven failures for "you did
+    not install a renderer" teaches its reader to skim past it, and the next real
+    red goes with them.
+    """
+    return pytest.importorskip("soundfile")
+
 def test_the_shipped_bank_agrees_with_the_metadata_it_carries():
     """A bank slice that is off by one byte still decodes; it decodes as garbage.
 
@@ -44,7 +61,8 @@ def test_the_shipped_bank_agrees_with_the_metadata_it_carries():
         pytest.skip(f'{bank} is a git-ignored binary asset and is absent here')
 
     import numpy as np
-    import soundfile as sf
+
+    sf = _soundfile()
 
     entries = al.read_bank(bank)
     assert len(entries) > 100, 'the shipped bank is not nearly empty'
@@ -142,7 +160,8 @@ def _probe(waveform: str, volume: float) -> al.ProceduralSpec:
 
 def _rendered(spec: al.ProceduralSpec):
     import numpy as np
-    import soundfile as sf
+
+    sf = _soundfile()
 
     frames, rate = sf.read(io.BytesIO(al.synthesize(spec)), dtype='float64', always_2d=True)
     assert rate == spec.sample_rate

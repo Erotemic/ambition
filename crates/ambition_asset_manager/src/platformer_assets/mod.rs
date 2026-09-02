@@ -364,8 +364,7 @@ pub fn scaled_asset_id(id: &AssetId, scale_asset_id_suffix: Option<&str>) -> Opt
 /// Build the ordered candidate roots for `rel_path` on desktop / Steam
 /// Deck profiles. The only candidate-roots walker in the sandbox;
 /// [`Platformer2dAssetCatalog::resolve_local_file_path`] (and through it
-/// `should_attempt_optional_load` / `try_path_for_load`) are the sole
-/// callers.
+/// `try_path_for_load`) are the sole callers.
 fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     let rel = std::path::Path::new(rel_path);
     let mut candidates = Vec::with_capacity(5);

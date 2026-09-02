@@ -6,13 +6,16 @@
 //! had ever run that counter over the Hall entry, which is the one transition
 //! big enough for a repeat to cost anything (129 authored NpcSpawns).
 //!
-//! ⚠⚠ WHAT THIS CAN AND CANNOT ANSWER, up front so no reader takes its green for
-//! more than it is. `NoWindow` decodes 22 images / 4.5 MP over a 126-character
-//! Hall entry; the HOST run of the same entry took 434 MP. This is ~5% of the
-//! art, so a clean result here is a regression guard on the headless road and is
-//! NOT evidence that the shipped game re-decodes nothing. The run that can answer
-//! that boots with `AMBITION_PROFILE_CENSUS=1` and reads `re-decodes N` from the
-//! `[image-census]` line.
+//! ⛔⛔ WHAT THIS CAN AND CANNOT ANSWER — and the answer today is NOTHING, which
+//! is why its premise guard fails. `NoWindow` shows 22 resident images, but ALL
+//! 22 are unrouted (`source == None`): procedurally inserted, never demanded.
+//! ZERO file-backed art decodes, because `ImagePlugin` registers the image
+//! loader in `Plugin::finish` and `finish()` never runs under the `app.update()`
+//! loop this composition uses. An earlier version of this file called those 22
+//! "~5% of the art" and treated a clean result as a headless regression guard;
+//! that was wrong — 5% of nothing is nothing. The run that CAN answer this boots
+//! with `AMBITION_PROFILE_CENSUS=1` and reads `re-decodes N` from the
+//! `[image-census]` line, in `capture_scene` or the windowed host.
 //!
 //! ⛔⛔ `#[ignore]`, AND RUN ALONE BY A SCRIPT. THAT IS THE WHOLE DESIGN, and it
 //! is forced by the ledger being a process-global `static` behind a `Mutex`.
@@ -176,49 +179,55 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
 
     let ledger = image_stages::ledger();
     let re_decodes = ledger.re_decodes - before_redecodes;
-    let (total, megapixels) = ledger
-        .resident_by_road()
+    let by_road = ledger.resident_by_road();
+    let (total, megapixels) = by_road
         .values()
         .fold((0usize, 0f64), |(n, mp), (count, road_mp)| {
             (n + count, mp + road_mp)
         });
+    // ⛔⛔ THE POPULATION THAT MATTERS IS THE ROUTED ONE. `"?"` is the ledger's
+    // key for a row whose `source` is `None` -- an image that reached
+    // `Assets<Image>` without ever passing a stamped demand road, i.e. inserted
+    // directly rather than decoded from a file. Character sheets ALWAYS carry a
+    // road, so a resident set that is entirely `"?"` contains no art at all.
+    let routed: usize = by_road
+        .iter()
+        .filter(|(road, _)| **road != "?")
+        .map(|(_, (count, _))| *count)
+        .sum();
     drop(ledger);
 
     println!(
         "hall-entry re-decode census: {re_decodes} path(s) decoded more than once \
-         during the transition; {total} image(s) resident ({megapixels:.1}MP) \
-         across {} newly staged character(s)",
+         during the transition; {total} image(s) resident ({megapixels:.1}MP), of \
+         which {routed} arrived through a demand road, across {} newly staged \
+         character(s)",
         staged - before_cast
     );
 
-    // ⛔⛔ THE SECOND PREMISE, AND THE ONE THAT MATTERS. Staging is a DEMAND;
-    // `re_decodes` counts INSERTIONS. The first draft of this test guarded only
-    // the cast size, so it would have reported a confident zero over a run that
-    // decoded nothing at all — the count and the guard were measuring different
-    // things.
+    // ⛔⛔ THE PREMISE THAT MATTERED, AND MY FIRST TWO GUARDS BOTH MISSED IT.
     //
-    // ⚠ AND THE GUARD BELOW IS DELIBERATELY WEAK, because the honest reading is
-    // that THIS ROAD CANNOT ANSWER THE HOST'S QUESTION. Measured 2026-09-02:
-    // `NoWindow` decodes 22 images / 4.5 MP over a 126-character Hall entry,
-    // where the host run of the same entry took 434 MP. A `NoWindow` composition
-    // has no render world and decodes almost nothing on purpose
-    // (`hall_transition_cover.rs` says so). So a green here is a REGRESSION GUARD
-    // ON THE HEADLESS ROAD and nothing more: it is 5% of the host's art, and a
-    // repeat that only happens under real GPU residency would not appear in it.
-    // ⇒ THE HOST TELL, for the run that can answer it: boot with
-    // `AMBITION_PROFILE_CENSUS=1` and read `re-decodes N` in the `[image-census]`
-    // line. That number over a real Hall entry is the measurement Open work 5
-    // actually wants; this one only proves the headless road stays clean.
-    const MINIMUM_DECODED_IMAGES: usize = 15;
+    // Draft one guarded the staged CAST size -- but staging is a demand and
+    // `re_decodes` counts insertions. Draft two guarded the resident IMAGE count
+    // and passed at 22, which read like a small-but-real population. It was not:
+    // all 22 were `"?"`, procedurally inserted images with no road, and ZERO
+    // character sheets had decoded. `ImagePlugin` registers the image loader in
+    // `finish()`, which never runs under the `app.update()` loop a `NoWindow`
+    // composition uses, so this road decodes NO FILE-BACKED ART AT ALL.
+    //
+    // ⇒ The honest guard is on the ROUTED count, and today it FAILS -- which is
+    // the correct outcome, because a re-decode census over a population with no
+    // art in it cannot answer anything. It is not a regression; it is the
+    // measurement refusing to report a number it never had.
     assert!(
-        total >= MINIMUM_DECODED_IMAGES,
-        "only {total} image(s) were decoded during this run, so a re-decode count \
-         of {re_decodes} is measuring an empty population rather than a clean one"
+        routed > 0,
+        "no resident image arrived through a demand road ({total} resident, all \
+         unrouted), so NOTHING file-backed decoded and a re-decode count of \
+         {re_decodes} is measuring an empty population. This is expected on the \
+         NoWindow road until the composition finishes its plugins; see \
+         `asset-preparation-and-residency.md` Open work 5."
     );
 
-    // The number this measurement was written to establish. It is asserted at
-    // the value it MEASURES rather than at zero-on-principle: a ceiling picked
-    // without a reading is a guess, and one picked above the reading cannot fail.
     // MEASURED 0 on 2026-09-02 over the population the guard above pins, so this
     // is asserted at its reading rather than at zero-on-principle.
     assert_eq!(

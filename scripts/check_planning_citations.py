@@ -72,8 +72,15 @@ def repo_files() -> list[Path]:
     return [Path(p) for p in out]
 
 
-def source_text() -> str:
-    """Every tracked Rust/Python source, concatenated once.
+def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """Every tracked source with one of `suffixes`, concatenated once.
+
+    ⛔ THE SUFFIX ARGUMENT IS NOT A CONVENIENCE. Concatenating Rust and Python
+    into one index makes a name in either language qualify a citation in the
+    other, and they collide: a `class FontSource:` in a font-download script
+    made the checker judge Rust's upstream `FontSource::Family` as ours, then
+    report its variant missing — four findings from one collision. A citation in
+    a `.rs` file is judged against Rust definitions.
 
     One read beats a `grep -r` per citation: a full planning sweep asks a few
     hundred questions and the tree is large enough that the difference is
@@ -81,7 +88,7 @@ def source_text() -> str:
     """
     chunks = []
     for rel in repo_files():
-        if rel.suffix not in {".rs", ".py"}:
+        if rel.suffix not in suffixes:
             continue
         try:
             chunks.append((REPO / rel).read_text(errors="replace"))
@@ -95,8 +102,15 @@ DEF_KINDS = (
     "union", "class", "def", "macro_rules!",
 )
 #: One pass over the whole tree, collecting every name it DEFINES.
+#: ⛔ MODIFIERS MUST BE CONSUMED, NOT MATCHED. The first version alternated over
+#: the keywords directly, so `pub const fn levelled` matched `const` and captured
+#: the NEXT word -- "fn" -- and the real name was never indexed at all. Every
+#: `const fn`, `async fn` and `unsafe fn` in the tree was invisible, which shows
+#: up as a citation to a function that plainly exists being reported missing.
 DEFINITION = re.compile(
-    r"\b(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
+    r"\b(?:pub\s*(?:\([^)]*\)\s*)?)?"
+    r"(?:default\s+)?(?:const\s+|async\s+|unsafe\s+|extern\s+\"[^\"]*\"\s+)*"
+    r"(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
 )
 #: An enum variant or associated item, at the start of a line.
 #:
@@ -162,6 +176,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict", action="store_true",
                         help="exit 1 when anything is unresolved")
+    parser.add_argument(
+        "--comments", action="store_true",
+        help="also check backticked citations in Rust COMMENTS (the fabricated "
+             "name that prompted this script reached one, where nothing looks)",
+    )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])
     args = parser.parse_args()
@@ -174,7 +193,13 @@ def main() -> int:
     print(f"reading {len(list(repo_files()))} tracked files ...", file=sys.stderr)
     text = source_text()
     defined = defined_names(text)
-    ours = set(QUALIFIER.findall(text)) - dependency_crates()
+    deps = dependency_crates()
+    ours = set(QUALIFIER.findall(text)) - deps
+    # A citation inside a `.rs` file is judged against RUST names only; see
+    # `source_text`. Planning prose cites both languages, so it keeps the union.
+    rust_text = source_text((".rs",))
+    rust_defined = defined_names(rust_text)
+    rust_ours = set(QUALIFIER.findall(rust_text)) - deps
     print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
           file=sys.stderr)
     tracked = {str(p) for p in repo_files()}
@@ -184,6 +209,33 @@ def main() -> int:
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
+    if args.comments:
+        # ⭐ SAME RULE, WIDER TARGET. A comment citation is judged exactly like a
+        # planning one -- there is no reason a name in prose is more real for
+        # sitting next to the code. MEASURED 2026-09-02: 2,847 judged, 45
+        # distinct names unresolved in 59 places, about 2%.
+        for rel in repo_files():
+            if rel.suffix != ".rs":
+                continue
+            for lineno, line in enumerate(
+                (REPO / rel).read_text(errors="replace").splitlines(), 1
+            ):
+                stripped = line.lstrip()
+                if not stripped.startswith("//"):
+                    continue
+                if MARKER in line:
+                    continue
+                for m in SYMBOL.finditer(line):
+                    parts = m.group(1).split("::")
+                    head, tail = parts[0], parts[-1]
+                    if tail in NOISE or len(tail) < 3:
+                        continue
+                    if head in NOISE or head not in rust_ours:
+                        continue
+                    checked += 1
+                    if tail not in rust_defined:
+                        findings.append((str(rel), lineno, m.group(0),
+                                         "nothing DEFINES this name"))
     for doc in docs:
         # ⛔ A DOC OUTSIDE THE REPO IS A LEGITIMATE TARGET -- a fixture under
         # pytest's tmp_path, or a file being checked before it is committed.

@@ -90,9 +90,30 @@ captured rooms only — so the launcher, the startup cards, the versus stage and
 its HUD could not be photographed — is closed). `--route smash_gameplay
 --character ID` seats a match; `--press` drives keys/touches through the route's
 own lobby before the shutter; `--frames N --stride K` photographs a sequence.
-⚠ The shutter opens only AFTER the press sequence completes, so a frame that
-happens DURING an input (a page turn's first frame, a menu's opening frame) is
-not capturable this way — a `--press-during` step would be the extension.
+✔ **`--press-during N` LANDED 2026-09-02**, so a frame that happens DURING an
+input (a page turn's first frame, a menu's opening frame) is capturable. The flag
+opens the shutter `N` press-driving frames in instead of after the sequence
+completes: `--press Enter --press-during 1` photographs the frame Enter is still
+held on, a tap's press and release being two frames by design. With `--frames N`
+the stride is counted in press-driving frames too — the ordinary `stride_left`
+countdown returns above the press driver, so a sequence that used it would freeze
+the input it is photographing. ⛔ It EXITS 2 rather than falling back to the
+ordinary capture when the sequence runs out before frame `N`: a post-press image
+written to a path a `--press-during` command line named is a good photograph of
+the wrong moment, which is the quiet failure this binary's other guards refuse.
+`--press-during` without `--press`, and `--press-during 0`, are refused at parse.
+The schedule is pinned by unit tests in the binary (including the arm that the
+flag's ABSENCE never opens the shutter mid-sequence, which is the whole
+byte-identical promise); the pixels are pinned by `scripts/verify_press_during_capture.sh`,
+which is a script and not a `#[test]` because the claim needs two full app boots
+and a readback — minutes each on a software rasteriser, a cost the suite should
+not carry for a developer tool. MEASURED 2026-09-02 on llvmpipe at 320x180,
+`--route ambition_launcher --press Enter`: the two shutters land on opposite
+sides of the route change the confirmation starts — `--press-during 1` is the
+launcher's "Choose Game" list with Enter still down (26446 bytes, and the tool
+prints `NO SUBJECT` because a launcher has no body), the ordinary one is the game
+it reached (28776 bytes, a subject and its HUD). Distinct hashes, and distinct
+for the right reason rather than by a pixel of noise.
 ⚠ On a machine with no GPU pair it with `AMBITION_QUALITY_PROFILE=ultra`; the
 tool's `--help` says why (Potato scales screen shaders and the parallax to
 nothing).

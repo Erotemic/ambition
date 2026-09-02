@@ -15,11 +15,11 @@ use ambition_platformer2d::actors::character_runtime::{CharacterLoadDemand, Char
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::render::rendering::{
-    camera_follow, sync_parallax_layers, CameraViewState,
+    CameraViewState, camera_follow, sync_parallax_layers,
 };
 use ambition_platformer2d::sim_view::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
-    CameraSnapshotResolveMode,
+    CameraFocus2d, CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+    resolve_follow_camera_snapshot,
 };
 use bevy::app::AppExit;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
@@ -118,6 +118,26 @@ struct SceneCaptureConfig {
     /// arrow keys are still the right tool for a LIST — the launcher rows,
     /// the menus — and for gameplay. They just cannot name a rectangle.
     press: Vec<PressStep>,
+    /// Open the shutter N press-driving frames in, INSTEAD OF after the
+    /// sequence completes (`--press-during N`).
+    ///
+    /// The default shutter waits for the press sequence to be spent and then
+    /// for the state it asked for, which is right when the presses are a means
+    /// of navigation — you want the screen they reach. It cannot photograph a
+    /// frame that only exists WHILE an input is being delivered: a page turn's
+    /// first frame, a menu's opening frame, a key's held pose. Those are states
+    /// the sequence passes THROUGH, and by the time it is spent they are gone.
+    ///
+    /// `None` is the tool this has always been, byte-identical. `Some(n)` shoots
+    /// on the frame after `n` frames of press driving — so `--press Enter
+    /// --press-during 1` photographs the frame on which Enter is still held,
+    /// before its release edge, because a tap is two frames by design.
+    ///
+    /// ⛔ It is a HARD FAILURE for the sequence to be spent before frame `n`
+    /// arrives. The post-press image would be a perfectly good photograph of the
+    /// wrong moment, filed under a flag that says otherwise — the exact quiet
+    /// wrong-thing this binary's other guards exist to refuse.
+    press_during: Option<u32>,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
     ///
     /// The surfaces a stranger sees first — the launcher, the startup cards,
@@ -167,6 +187,16 @@ struct SceneCaptureRuntime {
     next_touch_id: u64,
     /// Frames left on a `wait` step.
     press_wait: u32,
+    /// How many frames the press driver has actually RUN for — the clock
+    /// `--press-during` counts in, and deliberately not `frames`. `frames`
+    /// includes warmup and is zeroed when a sequence completes; this counts only
+    /// the frames on which a step was delivered, held, released or waited out,
+    /// which is the thing a person means by "one frame into the press".
+    press_frames: u32,
+    /// The sequence ran out before `--press-during` named a frame. Carried as a
+    /// flag rather than exited on the spot because the detection happens inside
+    /// `complete_press_sequence_if_spent`, which has no `Commands`.
+    press_during_missed: bool,
     /// The frame the last key was released on. The sequence usually STARTS a
     /// route change ("Starting…"), so the shutter has to wait for the state the
     /// presses asked for rather than photograph the moment they were accepted —
@@ -201,6 +231,15 @@ OPTIONS:
     --route ID          photograph a shell route instead of a room
     --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
                         (`hold:up` / `release:up` / `wait:30` also work)
+    --press-during N    open the shutter N press-driving frames in, INSTEAD of
+                        after the sequence finishes — the only way to photograph
+                        a frame that exists only WHILE an input is being
+                        delivered (a menu's opening frame, a key's held pose).
+                        `--press Enter --press-during 1` shoots with Enter still
+                        down; a tap's press and release are two frames. With
+                        `--frames N` the stride is counted in press frames too.
+                        ⛔ Fails (exit 2) rather than falling back to the
+                        ordinary capture if the sequence runs out first.
     --include-ui        keep the game's UI in the shot
     --dev-overlays      stop silencing the developer chrome
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
@@ -395,6 +434,28 @@ enum PressStep {
     Touch(Vec2),
 }
 
+/// Parse `--press-during N` into the press-driving frame the shutter opens on.
+///
+/// `0` is refused rather than clamped. It would mean "photograph before the
+/// first step is delivered", which is a capture with no press in it — already
+/// spelled by leaving `--press` off — and a person who typed `--press-during 0`
+/// much more likely meant the first frame of the input, which is `1`. Silently
+/// answering the other question is how a flag stops meaning what it says.
+fn parse_press_during(text: &str) -> Result<u32, String> {
+    let frames = text
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| format!("--press-during wants a frame count, got '{text}'"))?;
+    if frames == 0 {
+        return Err(
+            "--press-during 0 would photograph the frame BEFORE the first press step, which is \
+             what leaving --press off already does. The first frame of the input is 1."
+                .to_string(),
+        );
+    }
+    Ok(frames)
+}
+
 /// Parse `--press Down,Enter,wait,Down,Enter` into taps and pauses.
 ///
 /// The names are the ones a person says out loud, not `ArrowDown`: this is typed
@@ -501,6 +562,7 @@ impl SceneCaptureConfig {
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
         let mut press: Vec<PressStep> = Vec::new();
+        let mut press_during: Option<u32> = None;
         let mut i = 0usize;
         while i < args.len() {
             // A cursor the arms cannot write cannot be forgotten — an arm that ate one argument
@@ -566,6 +628,19 @@ impl SceneCaptureConfig {
                 }
                 arg if arg.starts_with("--press=") => {
                     press = parse_press_sequence(arg.trim_start_matches("--press="))?;
+                    1
+                }
+                "--press-during" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--press-during requires a frame count".to_string());
+                    };
+                    press_during = Some(parse_press_during(value)?);
+                    2
+                }
+                arg if arg.starts_with("--press-during=") => {
+                    press_during = Some(parse_press_during(
+                        arg.trim_start_matches("--press-during="),
+                    )?);
                     1
                 }
                 "--route" => {
@@ -642,6 +717,19 @@ impl SceneCaptureConfig {
             i += consumed;
         }
 
+        // `--press-during` NAMES A FRAME OF `--press`. Without a sequence there
+        // is no press-driving frame for it to name, and the capture would come
+        // out as the ordinary one — a flag that reads as honoured and did
+        // nothing. Refuse it here rather than at the shutter, where the image is
+        // already written.
+        if press_during.is_some() && press.is_empty() {
+            return Err(
+                "--press-during counts frames of --press, and no --press was given. There is no \
+                 input for the shutter to open during."
+                    .to_string(),
+            );
+        }
+
         // A ROUTE has no room id and no focus point: the shell composes its own
         // surface and its own cameras. Requiring the room positionals anyway
         // would mean inventing values that are then ignored, which is how a
@@ -687,6 +775,7 @@ impl SceneCaptureConfig {
                 combat_overlay,
                 screen_effects,
                 press,
+                press_during,
                 route: Some(route),
             });
         }
@@ -732,6 +821,7 @@ impl SceneCaptureConfig {
             follow_player,
             route: None,
             press,
+            press_during,
         })
     }
 }
@@ -757,6 +847,40 @@ impl SceneCaptureConfig {
 /// release, no finger still on the glass, no wait counting down. Asking one
 /// question in one place is what stops the next step type from being forgotten
 /// the way these three were.
+/// The press-driving frame shot `shot` of a `--press-during` capture opens on.
+///
+/// Kept as a function of the shot index rather than a countdown in the runtime
+/// because the ordinary sequence stride (`stride_left`) is counted OUTSIDE the
+/// press block — it returns before the driver runs — so a `--press-during`
+/// sequence that used it would stall the press it is photographing. Here the
+/// stride is measured in press-driving frames, which is the only clock that is
+/// still ticking while an input is being delivered.
+///
+/// `None` when `--press-during` was not asked for, and that `None` is the whole
+/// promise that the default tool is unchanged.
+fn press_during_shutter_frame(press_during: Option<u32>, shot: usize, stride: u32) -> Option<u32> {
+    let first = press_during?;
+    let offset = u32::try_from(shot)
+        .unwrap_or(u32::MAX)
+        .saturating_mul(stride.max(1));
+    Some(first.saturating_add(offset))
+}
+
+/// Has the shutter's press-driving frame arrived?
+///
+/// Strictly greater, not equal: `--press-during 1` means "one frame of the press
+/// has happened", so the shot is taken on the frame AFTER that one — which for a
+/// tap is the frame its key is still held, before the release edge. Equality
+/// here would photograph the frame the step was delivered on, whose render the
+/// step has not reached yet.
+fn press_during_shutter_is_open(
+    config: &SceneCaptureConfig,
+    runtime: &SceneCaptureRuntime,
+) -> bool {
+    press_during_shutter_frame(config.press_during, runtime.shot, config.stride)
+        .is_some_and(|at| runtime.press_frames > at)
+}
+
 fn complete_press_sequence_if_spent(
     config: &SceneCaptureConfig,
     runtime: &mut SceneCaptureRuntime,
@@ -766,6 +890,17 @@ fn complete_press_sequence_if_spent(
         || runtime.touch_held.is_some()
         || runtime.press_wait > 0
     {
+        return;
+    }
+    // ⛔ THE SEQUENCE RAN OUT BEFORE THE FRAME THE CALLER NAMED.
+    //
+    // Falling through here would hand back the ordinary post-press capture: a
+    // real photograph, correctly exposed, of a moment nobody asked for, written
+    // to the path a `--press-during` command line named. Same failure as a route
+    // that adopts no camera — the image proves nothing and says nothing about
+    // it — so it gets the same answer.
+    if config.press_during.is_some() && !runtime.requested {
+        runtime.press_during_missed = true;
         return;
     }
     if runtime.press_done_frame.is_some() {
@@ -1305,6 +1440,103 @@ fn world_is_ready(
     }
 }
 
+/// Deliver ONE frame of the `--press` sequence: a countdown tick, a pending
+/// release, or the next step.
+///
+/// Lifted out of `request_capture` when `--press-during` gave the caller a
+/// second thing to do with a press-driving frame — photograph it instead of
+/// driving it. Two callers of one body beats an `if` wrapped around eighty
+/// lines, and the extraction is exact: nothing here reads a capture field.
+fn drive_press_frame(
+    config: &SceneCaptureConfig,
+    runtime: &mut SceneCaptureRuntime,
+    keys: &mut ButtonInput<KeyCode>,
+    fingers: &mut MessageWriter<TouchInput>,
+) {
+    if runtime.press_wait > 0 {
+        runtime.press_wait -= 1;
+        complete_press_sequence_if_spent(config, runtime);
+        return;
+    }
+    if let Some(key) = runtime.press_held.take() {
+        keys.release(key);
+        complete_press_sequence_if_spent(config, runtime);
+    } else if let Some(at) = runtime.touch_held.take() {
+        // The lift, at the SAME point the finger went down. A touch that
+        // ended somewhere else is a drag, and a drag means "drop it here"
+        // to the screen this drives — a tap that travelled by accident
+        // would place a token nobody moved.
+        fingers.write(TouchInput {
+            phase: TouchPhase::Ended,
+            position: at,
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id: runtime.next_touch_id - 1,
+        });
+        complete_press_sequence_if_spent(config, runtime);
+    } else {
+        match config.press[runtime.press_cursor] {
+            PressStep::Tap(key) => {
+                keys.press(key);
+                runtime.press_held = Some(key);
+                eprintln!(
+                    "capture_scene: pressed {key:?} ({} of {})",
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
+            PressStep::Hold(key) => {
+                // Deliberately NOT recorded in `press_held`: that field is
+                // "the tap awaiting its release next frame", and a hold is
+                // the opposite — it outlives the step that started it.
+                keys.press(key);
+                eprintln!(
+                    "capture_scene: holding {key:?} ({} of {})",
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
+            PressStep::Release(key) => {
+                keys.release(key);
+                eprintln!(
+                    "capture_scene: released {key:?} ({} of {})",
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
+            PressStep::Touch(at) => {
+                let id = runtime.next_touch_id;
+                runtime.next_touch_id += 1;
+                fingers.write(TouchInput {
+                    phase: TouchPhase::Started,
+                    position: at,
+                    window: Entity::PLACEHOLDER,
+                    force: None,
+                    id,
+                });
+                runtime.touch_held = Some(at);
+                eprintln!(
+                    "capture_scene: touched ({:.0}, {:.0}) ({} of {})",
+                    at.x,
+                    at.y,
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
+            PressStep::Wait(frames) => {
+                runtime.press_wait = frames;
+                eprintln!(
+                    "capture_scene: waiting {frames} frames ({} of {})",
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
+        }
+        runtime.press_cursor += 1;
+        complete_press_sequence_if_spent(config, runtime);
+    }
+}
+
 fn request_capture(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
@@ -1327,6 +1559,29 @@ fn request_capture(
         if runtime.requested {
             runtime.wait_frames = runtime.wait_frames.saturating_add(1);
         }
+        return;
+    }
+    if runtime.press_during_missed {
+        runtime.failed = true;
+        runtime.requested = true;
+        eprintln!(
+            "capture_scene: --press-during {} never arrived. The press sequence was spent after \
+             {} driving frame(s){}, so the frame you named does not exist. No image is written: a \
+             post-press capture filed under --press-during would be a photograph of a different \
+             moment, which is exactly what this flag exists to avoid. Add a trailing `wait:N` step \
+             to lengthen the sequence, or name an earlier frame.",
+            config.press_during.unwrap_or(0),
+            runtime.press_frames,
+            if config.frames > 1 {
+                format!(
+                    " and {} of {} shot(s) were taken",
+                    runtime.shot, config.frames
+                )
+            } else {
+                String::new()
+            },
+        );
+        commands.write_message(AppExit::from_code(2));
         return;
     }
     // ⭐ THE GAP BETWEEN SHOTS OF A SEQUENCE. Counted here rather than in the
@@ -1364,89 +1619,19 @@ fn request_capture(
         || runtime.touch_held.is_some()
         || runtime.press_wait > 0
     {
-        if runtime.press_wait > 0 {
-            runtime.press_wait -= 1;
-            complete_press_sequence_if_spent(&config, &mut runtime);
+        runtime.press_frames = runtime.press_frames.saturating_add(1);
+        // ⭐ THE SHUTTER OPENS MID-SEQUENCE, and this frame drives NOTHING.
+        //
+        // Falling through without advancing the driver is deliberate: the
+        // photograph is of the world as the previous frame's input left it, so
+        // the state being captured is one the game actually rendered rather than
+        // one this system perturbed on the way past. For a tap that means the
+        // key is still down — which is the whole point, a tap's press and its
+        // release being two frames by design.
+        if !press_during_shutter_is_open(&config, &runtime) {
+            drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers);
             return;
         }
-        if let Some(key) = runtime.press_held.take() {
-            keys.release(key);
-            complete_press_sequence_if_spent(&config, &mut runtime);
-        } else if let Some(at) = runtime.touch_held.take() {
-            // The lift, at the SAME point the finger went down. A touch that
-            // ended somewhere else is a drag, and a drag means "drop it here"
-            // to the screen this drives — a tap that travelled by accident
-            // would place a token nobody moved.
-            fingers.write(TouchInput {
-                phase: TouchPhase::Ended,
-                position: at,
-                window: Entity::PLACEHOLDER,
-                force: None,
-                id: runtime.next_touch_id - 1,
-            });
-            complete_press_sequence_if_spent(&config, &mut runtime);
-        } else {
-            match config.press[runtime.press_cursor] {
-                PressStep::Tap(key) => {
-                    keys.press(key);
-                    runtime.press_held = Some(key);
-                    eprintln!(
-                        "capture_scene: pressed {key:?} ({} of {})",
-                        runtime.press_cursor + 1,
-                        config.press.len()
-                    );
-                }
-                PressStep::Hold(key) => {
-                    // Deliberately NOT recorded in `press_held`: that field is
-                    // "the tap awaiting its release next frame", and a hold is
-                    // the opposite — it outlives the step that started it.
-                    keys.press(key);
-                    eprintln!(
-                        "capture_scene: holding {key:?} ({} of {})",
-                        runtime.press_cursor + 1,
-                        config.press.len()
-                    );
-                }
-                PressStep::Release(key) => {
-                    keys.release(key);
-                    eprintln!(
-                        "capture_scene: released {key:?} ({} of {})",
-                        runtime.press_cursor + 1,
-                        config.press.len()
-                    );
-                }
-                PressStep::Touch(at) => {
-                    let id = runtime.next_touch_id;
-                    runtime.next_touch_id += 1;
-                    fingers.write(TouchInput {
-                        phase: TouchPhase::Started,
-                        position: at,
-                        window: Entity::PLACEHOLDER,
-                        force: None,
-                        id,
-                    });
-                    runtime.touch_held = Some(at);
-                    eprintln!(
-                        "capture_scene: touched ({:.0}, {:.0}) ({} of {})",
-                        at.x,
-                        at.y,
-                        runtime.press_cursor + 1,
-                        config.press.len()
-                    );
-                }
-                PressStep::Wait(frames) => {
-                    runtime.press_wait = frames;
-                    eprintln!(
-                        "capture_scene: waiting {frames} frames ({} of {})",
-                        runtime.press_cursor + 1,
-                        config.press.len()
-                    );
-                }
-            }
-            runtime.press_cursor += 1;
-            complete_press_sequence_if_spent(&config, &mut runtime);
-        }
-        return;
     }
     if let Some(kin) = player_q.iter().next() {
         println!(
@@ -1629,7 +1814,16 @@ fn save_readback_to_disk(
         // Without a stride the sequence photographs one instant many times.
         runtime.requested = false;
         runtime.wait_frames = 0;
-        runtime.stride_left = config.stride;
+        // ⛔ A `--press-during` SEQUENCE COUNTS ITS STRIDE IN PRESS FRAMES, so
+        // it must not also sit out `stride_left`. That countdown returns above
+        // the press driver, which would freeze the input mid-delivery for the
+        // length of the gap and photograph the same held frame `--frames` times.
+        // `press_during_shutter_frame` already spaces the shots by the stride.
+        runtime.stride_left = if config.press_during.is_some() {
+            0
+        } else {
+            config.stride
+        };
         return;
     }
     runtime.completed = true;
@@ -1702,3 +1896,132 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
 //
 // It has no app of its own now: `build_visible_app_with` resolves the root, and there is
 // nothing here left to disagree with it.
+
+#[cfg(test)]
+mod press_during_tests {
+    use super::*;
+
+    fn args(text: &str) -> Vec<String> {
+        text.split_whitespace().map(str::to_string).collect()
+    }
+
+    fn room_args(extra: &str) -> Vec<String> {
+        args(&format!("blink_run 0,0 /tmp/t.png {extra}"))
+    }
+
+    #[test]
+    fn the_flag_names_a_frame_of_the_press_and_both_spellings_agree() {
+        let spaced = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 3"))
+            .expect("spaced form parses");
+        let joined = SceneCaptureConfig::from_args(room_args("--press=Enter --press-during=3"))
+            .expect("joined form parses");
+        assert_eq!(spaced.press_during, Some(3));
+        assert_eq!(joined.press_during, Some(3));
+    }
+
+    #[test]
+    fn a_capture_that_did_not_ask_for_the_flag_does_not_get_it() {
+        // ⭐ THE POISON ARM for the whole change. `press_during_shutter_frame`
+        // returning `None` is the only thing keeping every existing capture
+        // byte-identical, so it is asserted directly rather than inferred from
+        // a green suite that never sets the flag.
+        let config = SceneCaptureConfig::from_args(room_args("--press Down,Enter"))
+            .expect("a plain press capture parses");
+        assert_eq!(config.press_during, None);
+        for shot in 0..4 {
+            for stride in 1..4 {
+                assert_eq!(
+                    press_during_shutter_frame(config.press_during, shot, stride),
+                    None,
+                    "a capture without --press-during must never open the shutter mid-sequence"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_shutter_opens_the_frame_after_the_one_the_caller_named() {
+        // `--press-during 1` = one frame of the press has HAPPENED, so the shot
+        // is taken on the next one — the frame a tap's key is still held.
+        let config = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 1"))
+            .expect("parses");
+        let mut runtime = SceneCaptureRuntime::default();
+        runtime.press_frames = 1;
+        assert!(
+            !press_during_shutter_is_open(&config, &runtime),
+            "the frame the step was delivered on has not been rendered with it yet"
+        );
+        runtime.press_frames = 2;
+        assert!(press_during_shutter_is_open(&config, &runtime));
+    }
+
+    #[test]
+    fn a_sequence_spaces_its_shots_by_the_stride_in_press_frames() {
+        // The ordinary `stride_left` countdown returns ABOVE the press driver,
+        // so a --press-during sequence that used it would freeze the input it is
+        // photographing. These are the frames the driver actually runs for.
+        let config = SceneCaptureConfig::from_args(room_args(
+            "--press hold:up --press-during 2 --frames 3 --stride 5",
+        ))
+        .expect("parses");
+        let at = |shot| press_during_shutter_frame(config.press_during, shot, config.stride);
+        assert_eq!(at(0), Some(2));
+        assert_eq!(at(1), Some(7));
+        assert_eq!(at(2), Some(12));
+    }
+
+    #[test]
+    fn a_frame_count_the_press_cannot_reach_is_refused_not_rounded() {
+        // The failure the flag exists to prevent, at the other end: a sequence
+        // too short to contain the named frame must not quietly hand back the
+        // ordinary post-press capture.
+        let config = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 9"))
+            .expect("parses");
+        let mut runtime = SceneCaptureRuntime::default();
+        // Enter is two frames: the press and its release. Spent at 2 — and
+        // "spent" is the CURSOR, not the frame count, which is the premise the
+        // first draft of this test got wrong and passed anyway.
+        runtime.press_frames = 2;
+        runtime.press_cursor = config.press.len();
+        assert!(!press_during_shutter_is_open(&config, &runtime));
+        complete_press_sequence_if_spent(&config, &mut runtime);
+        assert!(
+            runtime.press_during_missed,
+            "a spent sequence must report the frame it never reached"
+        );
+        assert!(
+            runtime.press_done_frame.is_none(),
+            "and must NOT fall through into the ordinary post-press shutter"
+        );
+    }
+
+    #[test]
+    fn a_press_that_reaches_the_frame_never_reports_a_miss() {
+        // The same helper on the other road: a sequence still running when the
+        // shutter opens has nothing to report, so the guard above cannot be
+        // passing for the trivial reason that it always fires.
+        let config =
+            SceneCaptureConfig::from_args(room_args("--press hold:up,wait:30 --press-during 2"))
+                .expect("parses");
+        let mut runtime = SceneCaptureRuntime::default();
+        runtime.press_cursor = 1;
+        runtime.press_wait = 20;
+        complete_press_sequence_if_spent(&config, &mut runtime);
+        assert!(!runtime.press_during_missed);
+    }
+
+    #[test]
+    fn the_flag_is_refused_where_it_would_read_as_honoured_and_do_nothing() {
+        let no_press = SceneCaptureConfig::from_args(room_args("--press-during 2"))
+            .expect_err("--press-during without --press is refused");
+        assert!(no_press.contains("no --press was given"), "{no_press}");
+
+        let zero = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 0"))
+            .expect_err("frame 0 is refused");
+        assert!(zero.contains("first frame of the input is 1"), "{zero}");
+
+        let words = SceneCaptureConfig::from_args(room_args("--press Enter --press-during soon"))
+            .expect_err("a non-integer is refused");
+        assert!(words.contains("wants a frame count"), "{words}");
+    }
+}

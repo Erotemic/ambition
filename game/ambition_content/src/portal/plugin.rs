@@ -182,7 +182,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sim,
             pickup_portal_gun_system
                 .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .after(ambition_portal2d::PortalPickupArming),
         );
 

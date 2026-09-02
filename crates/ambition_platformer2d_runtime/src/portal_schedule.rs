@@ -90,7 +90,7 @@ impl Plugin for PortalSchedulePlugin {
             sim,
             PortalSet::Transit
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-                .after(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems)
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .run_if(gameplay_allowed),
         );
     }

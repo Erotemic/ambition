@@ -2058,10 +2058,10 @@ scope = "engine"
 kind = "file-contains"
 owners = ["ambition_portal2d"]
 watch_paths = ["crates/ambition_platformer2d_runtime/src/portal_schedule.rs"]
-rationale = "portal wiring orders on the held-item/ground-item simulation set"
+rationale = "portal wiring orders on the held-item/ground-item simulation SET rather than on a concrete system function -- that is what this row asserts, and the path is only how the set is spelled today. Repointed 2026-09-02 when ItemPickupSet moved to ambition_platformer2d_shared_tangle::schedule beside ActorDecisionSet, because three packages outside the monolith order against it and had to name the kernel to say when their own systems run. If the set moves again, update the string; a break here is a stale spelling, not a boundary violation"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems"]
+contains = ["ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems"]
 file = "crates/ambition_platformer2d_runtime/src/portal_schedule.rs"
 
 

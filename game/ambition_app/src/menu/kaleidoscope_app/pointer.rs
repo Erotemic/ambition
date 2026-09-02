@@ -86,17 +86,27 @@ pub(crate) fn kaleidoscope_pointer_move(
             // their lists.
             let next = match focus_without_system_model(action, active_page) {
                 Some(focus) => focus,
-                None => focus_for_action(
-                    action,
-                    active_page,
-                    &SystemMenuModel::build(
+                None => {
+                    // ⚠ STILL BUILDS THE IR PER HOVER, and that is the biggest
+                    // remaining cost in this area — recorded in the D-CUBE-CHURN
+                    // row rather than fixed here, because it is not a cache swap:
+                    // `cache.rows` is populated only while the System face is
+                    // ACTIVE, while a System action stays reachable off it
+                    // (`focus_without_system_model` answers only for
+                    // Equip/Use/ChangePage). Substituting an empty `cache.rows`
+                    // resolves every such hover to `MenuFocus::System(0)`.
+                    let model = SystemMenuModel::build(
                         &settings,
                         &snapshot.radio_snapshot(),
                         &snapshot.dev_snapshot(),
-                    ),
-                    system_nav.open_entry,
-                    quality_confirm.pending(),
-                ),
+                    );
+                    let rows = system_rows_with_quality_prompt(
+                        &model,
+                        system_nav.open_entry,
+                        quality_confirm.pending(),
+                    );
+                    focus_for_action(action, active_page, &rows)
+                }
             };
             if cursor.last_pointer_focus == Some(next) {
                 return;
@@ -153,13 +163,15 @@ pub(crate) fn kaleidoscope_pointer_release(
         // whose focus is a System ROW INDEX.
         let next = match focus_without_system_model(action, active_page) {
             Some(focus) => focus,
-            None => focus_for_action(
-                action,
-                active_page,
-                &system.model(&settings),
-                system_nav.open_entry,
-                quality_confirm.pending(),
-            ),
+            None => {
+                let model = system.model(&settings);
+                let rows = system_rows_with_quality_prompt(
+                    &model,
+                    system_nav.open_entry,
+                    quality_confirm.pending(),
+                );
+                focus_for_action(action, active_page, &rows)
+            }
         };
         cursor.focus = next;
         cursor.owner = FocusSource::Pointer;

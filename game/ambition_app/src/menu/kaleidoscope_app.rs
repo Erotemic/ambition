@@ -1746,27 +1746,27 @@ pub(crate) fn focus_without_system_model(
     }
 }
 
-pub(crate) fn focus_for_action(
-    action: MenuPageAction,
-    active_page: MenuPage,
-    model: &SystemMenuModel,
-    open_entry: Option<SystemMenuEntryId>,
-    pending_quality: Option<VisualQualityProfile>,
-) -> MenuFocus {
-    if let Some(focus) = focus_without_system_model(action, active_page) {
-        return focus;
-    }
-    let rows = system_rows_with_quality_prompt(model, open_entry, pending_quality);
-    focus_for_action_in_rows(action, active_page, &rows)
-}
-
-/// [`focus_for_action`] against an already-built System row list.
+/// Which focus a control's action resolves to, against the CURRENTLY-DISPLAYED
+/// System row list.
 ///
-/// The per-frame callers (`kaleidoscope_sync_focus_visuals`, once per control)
-/// read `CachedSystemMenu.rows` — the exact list for the live drill state —
-/// instead of rebuilding it per control: that was a `Vec<SystemRow>` allocation
-/// for every System control on every visible frame (D-CUBE-CHURN).
-pub(crate) fn focus_for_action_in_rows(
+/// ⛔ `rows` IS A PARAMETER AND NOT REBUILT HERE, because this is called once per
+/// actionable control per frame and `grid_backend::focus_key_for_cursor` calls it
+/// in a loop over every node. Rebuilding the list to read one `.position()` out
+/// of it made answering "which control holds the cursor?" cost N list builds
+/// (D-CUBE-CHURN). Callers pass `CachedSystemMenu.rows`, which
+/// `cache_system_menu` already built this frame from identical inputs, or build
+/// it once outside their own loop.
+///
+/// ⚠ THIS REPLACED A PAIR. There was a `focus_for_action` that took
+/// `(model, open_entry, pending_quality)` and a `focus_for_action_in_rows` that
+/// took the list, differing only in whether the caller had built it — which is
+/// the "same lookup wearing different names" drift `character/assets.rs:261`
+/// records this repository having already paid for once. One function; the
+/// caller decides where the list comes from.
+///
+/// Off the System face an EMPTY slice is correct: no System action resolves
+/// there, which is what the old empty-model fallback meant.
+pub(crate) fn focus_for_action(
     action: MenuPageAction,
     active_page: MenuPage,
     rows: &[SystemRow],
@@ -2148,7 +2148,7 @@ fn kaleidoscope_sync_focus_visuals(
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
         let focused =
-            on_active_face && focus_for_action_in_rows(action, active_page, rows) == cursor.focus;
+            on_active_face && focus_for_action(action, active_page, rows) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {

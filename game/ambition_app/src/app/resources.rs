@@ -127,15 +127,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         .world()
         .resource::<ambition_platformer2d::boss_encounter::BossCatalog>()
         .clone();
-    // Provider-authored sheets (U1). Cloned like the catalogs above; empty is
-    // the ordinary state for an app whose providers author none, and the intro
-    // sprite rows resolve exactly as before when it is.
-    let authored_sheets = app
-        .world()
-        .get_resource::<ambition_platformer2d::character::AuthoredSheets>()
-        .cloned()
-        .unwrap_or_default();
-
     // Build the singleton Platformer2dAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
     // sandbox flows through this — LDtk, SFX bank, fonts, sprites,

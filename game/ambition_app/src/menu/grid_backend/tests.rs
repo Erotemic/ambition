@@ -489,9 +489,10 @@ fn cursor_focus_key_matches_a_rendered_control() {
     .expect("focused item resolves to a rendered control");
     // The key must equal the rect-derived key of SOME actionable control whose
     // action maps back to Item(1) — i.e. it addresses a real tagged control.
+    let rows = system_rows_with_quality_prompt(&model, None, None);
     let matching = items.nodes.iter().any(|n| {
         matches!(n, MenuNode::Control { rect, action: Some(a), .. }
-            if focus_for_action(*a, MenuPage::Items, &model, None, None) == MenuFocus::Item(1)
+            if focus_for_action(*a, MenuPage::Items, &rows) == MenuFocus::Item(1)
                 && focus_key_for(*rect) == key)
     });
     assert!(

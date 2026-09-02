@@ -2023,7 +2023,8 @@ fn assert_highlight_visible(app: &mut App, item: Item) {
         .iter(world)
         .filter_map(|(e, c, vis)| {
             let action = c.action?;
-            let f = focus_for_action(action, active_page, &model, None, None);
+            let rows = system_rows_with_quality_prompt(&model, None, None);
+            let f = focus_for_action(action, active_page, &rows);
             Some((e, f == focus, vis.focused))
         })
         .collect();

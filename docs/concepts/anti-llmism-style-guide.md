@@ -1,3 +1,15 @@
+---
+id: anti-llmism-style-guide
+status: current
+aliases:
+  - anti-LLMism
+  - LLM prose patterns
+  - dialogue style guide
+related_docs:
+  - docs/concepts/agent-native-authoring.md
+last_verified: 2026-09-02
+---
+
 # Anti-LLMism Style Guide
 
 This document defines writing patterns that should be rejected when authoring or reviewing Ambition dialogue and other player-facing prose.

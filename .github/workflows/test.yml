@@ -119,5 +119,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      # ⛔ THE INDEX IS GENERATED AND GIT-IGNORED, so a clean checkout does not
+      # have it and `check_agent_kb.py` fails on its absence before it can check
+      # anything. The job could never pass as written.
+      - name: python scripts/generate_agent_index.py
+        run: python scripts/generate_agent_index.py
       - name: python scripts/check_agent_kb.py
         run: python scripts/check_agent_kb.py

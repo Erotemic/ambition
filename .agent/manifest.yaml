@@ -58,4 +58,4 @@ notes:
   - Regenerate when files, symbols, tests, tools, ADRs, archive entries, or concept pages move.
   - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.
   - Brainstorms are active design incubation and are not touched by cleanup scripts.
-  - Top-level docs should contain only docs/README.md.
+  - Top-level docs should contain only docs/README.md and docs/reviewer-guide.md.

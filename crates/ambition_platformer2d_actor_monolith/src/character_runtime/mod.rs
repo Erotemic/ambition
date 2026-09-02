@@ -186,8 +186,34 @@ impl CharacterLoadDemand {
         std::mem::take(&mut self.pending).into_iter().collect()
     }
 
+    /// Take pending tokens until one frame's PIXEL ration is spent, leaving the
+    /// rest for the next call. A token's cost is its own tier's areal units
+    /// (`materialization_units`), or `default_tier`'s when it named none; the
+    /// first token is always taken, so a single Full character still starts
+    /// this frame and the ration can never strand a token.
+    fn take_within_budget(
+        &mut self,
+        budget_units: usize,
+        default_tier: TextureResolutionScale,
+    ) -> Vec<(String, Option<TextureResolutionScale>)> {
+        let mut taken = Vec::new();
+        let mut spent = 0usize;
+        while let Some(token) = self.pending.keys().next().cloned() {
+            let tier = self.pending.get(&token).copied().flatten();
+            let cost = materialization_units(tier.unwrap_or(default_tier));
+            if !taken.is_empty() && spent + cost > budget_units {
+                break;
+            }
+            self.pending.remove(&token);
+            spent += cost;
+            taken.push((token, tier));
+        }
+        taken
+    }
+
     /// Take at most `limit` pending tokens (all of them for `limit == 0`),
     /// leaving the rest pending for the next call.
+    #[cfg_attr(not(test), allow(dead_code))]
     fn take_bounded(&mut self, limit: usize) -> Vec<(String, Option<TextureResolutionScale>)> {
         if limit == 0 || self.pending.len() <= limit {
             return self.take();
@@ -274,7 +300,30 @@ impl CharacterLoadDemand {
 /// ⚠ STILL NOT THE OWED MEASUREMENT. This is an offscreen software rasteriser on
 /// a COVERED transition. What is still missing is a windowed capture of an
 /// UNCOVERED frame, which is the case the bound is actually for.
+///
+/// ⭐ SINCE 2026-09-02 THE BOUND IS AREAL, NOT A HEAD COUNT. Every number above
+/// was measured on FULL sheets, and it is the decoded BYTES per frame the bound
+/// spreads — so a frame's ration is one Full character's worth of pixels, and a
+/// gallery whose cast realizes at Quarter (16x fewer pixels per sheet) starts
+/// sixteen of them per frame instead of holding its cover for 129 frames to
+/// move 129 small sheets. See `take_within_budget`.
 const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
+
+/// One frame's materialization ration, in units of ONE QUARTER-TIER SHEET:
+/// `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` Full characters' worth of pixels.
+const MATERIALIZATION_UNITS_PER_FRAME: usize =
+    MAX_CHARACTERS_MATERIALIZED_PER_FRAME * materialization_units(TextureResolutionScale::Full);
+
+/// Areal cost of one character at a tier, relative to Quarter. Linear scale
+/// halves each step down, so area quarters: Full 16, Half 4, Quarter 1. Potato
+/// is far smaller than Quarter but a token is never free, so it floors at 1.
+const fn materialization_units(tier: TextureResolutionScale) -> usize {
+    match tier {
+        TextureResolutionScale::Full => 16,
+        TextureResolutionScale::Half => 4,
+        TextureResolutionScale::Quarter | TextureResolutionScale::Potato => 1,
+    }
+}
 
 /// Why a demanded character has no art.
 ///
@@ -576,7 +625,8 @@ pub fn materialize_character_demand(
     // ⭐ See `take_bounded`: each character is ~470MB of decoded RGBA, and landing
     // several in one frame is what produced a 516ms frame on hardware. Anything
     // not taken stays pending and is taken next frame.
-    for (token, tier) in demand.take_bounded(MAX_CHARACTERS_MATERIALIZED_PER_FRAME) {
+    let default_tier = crate::character_sprites::character_sprite_tier(quality);
+    for (token, tier) in demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, default_tier) {
         // A demand that names its tier floor (a room transition's cast) is
         // realized there; the rest at the budget the caller resolved.
         let tiered_budget = tier.and_then(|floor| {

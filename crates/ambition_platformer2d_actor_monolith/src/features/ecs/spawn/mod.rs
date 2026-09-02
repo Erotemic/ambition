@@ -792,11 +792,42 @@ impl RoomFeatureConstructionPlan {
         &self.expected_authoritative_ids
     }
 
+    /// Every character this room stages, by the token `CharacterLoadDemand`
+    /// accepts — the provider-owned content requests AND the actors the
+    /// placement lowering planned (`NpcSpawn`, programmatic enemies).
+    ///
+    /// ⛔⛔ THE SECOND HALF WAS MISSING, AND THE LOADING SCREEN WENT WITH IT.
+    /// This list is what the room-transition reveal barrier demands art for.
+    /// It named only the content requests, so a room whose cast is authored
+    /// as placements — the hall's 129 pedestals — contributed nothing to the
+    /// barrier: the cover retired 66 ms after the door (`asset_wait_ms=3`),
+    /// 111 actors drew the placeholder rectangle with the game's own warning
+    /// ("nothing demanded it, so the engine never decoded its sheet"), and
+    /// 434 MP of sheets then arrived in the open over the next three seconds
+    /// as nine frames of 89-355 ms. Measured 2026-09-02,
+    /// `desktop-timeline-run-20260902T015909Z`.
     pub fn content_staged_names(&self) -> Vec<String> {
-        self.content_requests
+        let mut names: Vec<String> = self
+            .content_requests
             .iter()
             .map(|request| request.name.clone())
-            .collect()
+            .collect();
+        for entity in self.construction.entities() {
+            if let crate::construction::ActorConstructionParams::StagedActor(request) =
+                entity.parameters()
+            {
+                names.push(request.name.clone());
+                // The kind may carry the catalog id the display name is not.
+                if let super::spawn_actors::SpawnActorKind::Enemy { character, .. } =
+                    &request.kind
+                {
+                    names.push(character.to_string());
+                }
+            }
+        }
+        names.sort();
+        names.dedup();
+        names
     }
 
     /// Rebuild one authored authoritative root through the exact interpreter

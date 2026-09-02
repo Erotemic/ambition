@@ -106,6 +106,16 @@ whether a room's cover may lift — `the_gpu_readiness_term_wants_the_gpu_stamp_
 are bad or missing. They exist, they pass, and they are thorough. They are simply
 not in the plan.
 
+⚠ **HOW BIG IS IT? UPPER BOUND ONLY, AND THE BOUND IS STATED AS ONE ON PURPOSE.**
+Applying `run_tests.py`'s own selection rules by hand — non-default features, not
+in `DENY_EXACT`, no denied prefix, crate not in `SKIP_FEATURE_JOB`, crate
+contains `#[test]` — **31 workspace crates qualify** for the exhaustive-only
+feature-union job. ⛔ That is a count of CRATES THAT COULD BE AFFECTED, not of
+blind tests: "the crate has tests" and "the crate has tests behind those
+features" are different questions and I measured the first. For the one crate I
+measured properly, `--features bevy` adds 27 tests, 16 of them in the module that
+mattered. The other 30 are unmeasured.
+
 ⇒ **The question this adds to the four: does the thing I am about to trust exist
 in the DEFAULT plan, or only in the one nobody runs?** A test that only the
 exhaustive plan executes is a test that runs when somebody already suspects a

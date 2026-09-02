@@ -264,6 +264,17 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(LoadPresentationSet::Finalize)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
+        // ⭐ Residency, not presentation — but this is where the room-change
+        // systems are wired and the policy needs the same `session_world_exists`
+        // guard. Ordered AFTER the prefetch deliberately: the prefetch may load a
+        // neighbour's theme this frame, and retiring before it would drop what it
+        // just decided to keep.
+        .add_systems(
+            Update,
+            super::parallax_residency::retire_departed_parallax_themes
+                .after(prefetch_neighbor_room_preparation_system)
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+        )
         .add_systems(
             Update,
             handle_room_transition_presentation_events

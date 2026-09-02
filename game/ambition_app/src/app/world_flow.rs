@@ -5,10 +5,13 @@
 //! - the [`room_transition_assets`] submodule (room manifests, handle readiness,
 //!   neighbor prefetch) — the engine's asset CONTRIBUTOR;
 //! - the [`room_transition_presentation`] submodule (cover-first adaptive UI);
+//! - the [`parallax_residency`] submodule — which zone backdrops may stay
+//!   resident once the player has walked on;
 //! - the [`first_room_art`] submodule — the same asset question asked of a
 //!   shell route's FIRST room, before it activates.
 
 mod first_room_art;
+pub(crate) mod parallax_residency;
 pub(crate) mod room_transition_assets;
 mod room_transition_presentation;
 pub(crate) use room_transition_assets::{

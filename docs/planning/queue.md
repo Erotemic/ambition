@@ -405,6 +405,83 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **`hall_transition_cover` IS RED IN PARALLEL, and it is a SECOND-ORDER COST OF
+  THE COMPOSITION FIX.** Measured at `0955bd888`:
+
+  ```text
+  cargo test -p ambition_app --test app_it hall_transition_cover
+    parallel (the normal invocation)   3 passed, 3 FAILED
+    --test-threads=1                   6 passed, 0 failed   (106.8s, ~18s/test)
+  ```
+
+  All three failures are one panic — `hall_transition_cover.rs:74`, `.expect("a
+  session room set")` — i.e. the app never reached a `RoomSet` before the harness
+  gave up.
+  ⭐ **`settle_cast(app, secs)` IS A WALL-CLOCK DEADLINE, NOT A SETTLE.** It
+  returns whether or not the thing arrived, and the CALLER CANNOT TELL WHICH, so a
+  timeout masquerades as "settled" and surfaces three lines later as an unrelated
+  `.expect`. Callers pass 10s and 20s.
+  ⇒ It was adequate while headless decoded nothing. The composition fix took the
+  same hall entry from **22 resident images to 226** (re-measured at this commit:
+  226 resident / 201 routed / 0 re-decodes), so boot is roughly an order of
+  magnitude heavier and the budgets expire under parallel CPU contention.
+  ⛔ **THE FIX IS THE SHAPE, NOT THE NUMBER** — raising 20 to 60 buys time until
+  the next thing gets heavier. Wait for the FACT (a room set exists / the cast is
+  staged) with a generous cap, and panic naming the cap when it is hit, so a
+  timeout can never again be mistaken for progress.
+  ⚠ And the general point, which is why this is a row and not a bug report: the
+  composition fix was correct and its cost was not free. **10× the decode work at
+  boot surfaced first as a test-harness timeout, not as a number anyone
+  recorded** — a "captures byte-identical, RSS −141 MB" A/B does not show it.
+
+- ▢ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
+  PARALLEL-FLAKY.** Found 2026-09-02 while checking for reds. `app_it` runs its
+  tests as parallel threads; `image_stages::ledger()` is a `static`. Exactly three
+  files read it:
+
+  ```text
+  hall_redecode_census.rs                       #[ignore] + script   PASSES
+  hall_transition_cover.rs               (2)    no guard             FLAKY
+  quality_change_keeps_each_character.rs (1)    no guard             FLAKY
+  ```
+
+  ⭐ **The one with the guard is the one that passes** — same subject, same
+  global, and the only difference is whether it runs alone. Measured: full
+  `--test app_it` gives 543 passed / 2 failed; each failing test passes under
+  `--test-threads=1 --exact`; `leaving_the_gallery…` failed one run and passed
+  the next on identical source; and the counts move with the schedule (15→14 on
+  one base, 20→19 on another), where a real leak would be stable.
+  ⛔⛔ **THE FAILURE TEXT IS WHY THIS IS NOT MERELY NOISE**: *"1 character page(s)
+  are resident in the hub with no realization owning them:
+  `sprites_0_25x/goblin_spritesheet.png`"*. That reads as an asset-residency leak
+  in exactly the subsystem the hall-entry campaign is about, so it will cost
+  somebody real hours. The goblin page belongs to a sibling test's App.
+  ✔ **FIXED 2026-09-02 at `8fe723cf9`, the per-App way — and this row said that
+  was IMPOSSIBLE.** The correction is worth more than the fix:
+  `common::resident_character_pages` answers residency from **THIS App's**
+  `Assets<Image>` and **this App's** `AssetServer` path, and uses the ledger ONLY
+  as a classifier (was this path demanded on the `character-sheet` road),
+  requiring `row.path == server.get_path(id)`. A sibling's row can share an arena
+  index; it cannot make a page resident here that is not, and the path equality
+  rejects a colliding index carrying a different file.
+  ⛔ **WHAT I GOT WRONG, because the shape recurs**: I checked whether each key
+  discriminates ALONE — path collides (two Apps load the same file), id collides
+  (`AssetId::Index` (cite-ok: bevy_asset's, not ours) is a per-arena
+  `{generation, index}`) — and concluded neither
+  could work. **"Neither A nor B is sufficient" does not imply "A ∧ B is
+  insufficient."** Residency from the App plus classification from the ledger is
+  exactly that conjunction, and it is sound.
+  ⭐ **THE LEDGER HAS THIS SHAPE OF PROBLEM TWICE**: `render_world_present` is
+  also a process-global `bool` standing in for a per-App fact — set true by
+  whichever App installs a render plugin, read for every App thereafter, and
+  `is_awaiting_gpu` gates on it. ⚠ **LATENT, NOT LIVE — measured**: all 97
+  `VisibleRenderMode` uses across `app_it` are `NoWindow`, so nothing in that
+  process ever sets it and it cannot currently give a wrong answer. It becomes
+  live the day one test builds a render world beside one that does not.
+  ⇒ Whoever takes (b) should scope BOTH: fixing row attribution while leaving a
+  global render-world flag leaves the ledger half-scoped, which is harder to
+  reason about than either end state.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
@@ -858,6 +935,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `m_leblanc`, `neil_ongras_turfson`, `author` and the three polygon targets.
   ⇒ The instrument's caveat is discharged: there is no longer a "of the N that
   render here" qualifier on this row, and the worklist is the whole roster.
+  ⭐ **THE RESULT IS ON THE RECORD, not just in this row**:
+  `ambition_dev_measurements` branch `sprite-clip-census-20260902` @ `c0e3889`,
+  `summaries/sprite-clip-census-20260902.md` — the run, its provenance, and the
+  two caveats a reader must not lose. ⚠ The 228K per-edge JSON is deliberately
+  NOT committed: that repo ignores `profiles/` by design and tracks only the
+  readable half. ⛔ Neither submodule pointer is bumped — the instrument
+  (`d129-composited-frames` @ `c6a9712`) and the census (`c0e3889`) are both on
+  pushed branches awaiting the maintainer's call.
 
 - ✔ **D-SFX-RESET-RED — CLOSED 2026-08-31, and the fixture pressed one frame too
   early.** `ambition_app`'s own lib suite had a long-red test that no gate in

@@ -531,8 +531,8 @@ ledger is a process-global `static`, so a render-world system can reach it
 without a channel. Three pieces: a `first_drawn_at` field plus a `first_drawn(id,
 at)` method on `ImageStageLedger` (first write wins; later frames must not
 overwrite), one `stamp_first_drawn_images` system reading `ExtractedSprites`, and
-one `.add_systems` line. ⛔ NOT BUILT HERE because that is three pieces rather
-than the one-line hook that would justify landing it inside a scoping pass.
+one `.add_systems` line. ⛔ NOT BUILT IN THE SCOPING PASS, because that is three
+pieces rather than the one-line hook that would justify landing code inside one.
 
 ⛔ **AND ITS TEST STILL GOES ON THE PURE LEDGER, though the reason changed under
 it the same day.** When this was scoped, a `NoWindow` composition decoded NO

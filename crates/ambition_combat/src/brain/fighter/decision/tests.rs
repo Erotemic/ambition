@@ -1352,7 +1352,6 @@ fn every_published_level_below_the_stage_asks_to_rise() {
 /// `vetoed=[Approach, Jump] unmodelled=[Dodge] chose=Some(Dodge)
 /// least_bad=Some(Approach)`.
 mod movement_ranking {
-    use super::*;
     use ambition_characters::brain::fighter::options::{MoveOption, MovementVerb};
 
     fn offered(verbs: &[(MovementVerb, f32)]) -> Vec<MoveOption> {

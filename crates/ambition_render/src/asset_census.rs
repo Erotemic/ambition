@@ -603,8 +603,19 @@ pub fn stamp_first_drawn_images(
             continue;
         }
         let at = now.duration_since(started_at.0).as_secs_f64();
+        // ⭐⭐ `POP` IS THE WHOLE POINT OF THIS LINE. A cover exists so a room's
+        // art arrives before anyone can see the room; an image whose FIRST DRAW
+        // lands while gameplay is live is one the cover did not cover, and it
+        // appeared in front of the player. Named rather than left as `live=1`,
+        // because the reader of a hitch log should not have to know which way
+        // the flag points.
+        let pop = match stages.live_at_first_draw {
+            Some(true) => " POP (drawn during gameplay, after the cover)",
+            Some(false) => "",
+            None => " live=?",
+        };
         eprintln!(
-            "[image-drawn] {at:8.3}s {:6.1}MP {} demand→draw {:.0}ms via {}",
+            "[image-drawn] {at:8.3}s {:6.1}MP {} demand→draw {:.0}ms via {}{pop}",
             stages.megapixels,
             stages.path.as_deref().unwrap_or("<runtime-generated>"),
             waited.as_secs_f64() * 1e3,

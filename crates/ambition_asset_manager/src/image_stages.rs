@@ -82,6 +82,19 @@ pub struct ImageStages {
     pub megapixels: f64,
     /// Whether gameplay was live when the pixels were inserted.
     pub live_at_insert: Option<bool>,
+    /// Whether gameplay was live the first time this image was DRAWN.
+    ///
+    /// ⭐⭐ THIS IS THE POP, AND IT IS THE FACT THE WHOLE HITCH LANE IS ABOUT.
+    /// A cover exists so a room's art arrives before anybody can see the room;
+    /// an image whose FIRST DRAW happens while gameplay is live is one the cover
+    /// did not cover — it appeared in front of the player. `live_at_insert`
+    /// beside it answers a different question (did the DECODE cost a live
+    /// frame), and the two can disagree in both directions: art decoded under
+    /// the cover and first drawn minutes later is fine, and art decoded live but
+    /// never seen is waste rather than a pop.
+    ///
+    /// `None` where nothing could tell — no game mode, or no render world.
+    pub live_at_first_draw: Option<bool>,
     /// How many times THIS PATH has been inserted since the process started
     /// (1 = the first decode). A second insertion of the same path is a
     /// re-decode: the asset was dropped and demanded again, or loaded twice
@@ -105,6 +118,7 @@ impl ImageStages {
             first_drawn_at: None,
             megapixels: 0.0,
             live_at_insert: None,
+            live_at_first_draw: None,
             insertions_of_path: 0,
         }
     }
@@ -399,11 +413,13 @@ impl ImageStageLedger {
     /// caller knows not to print.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn first_drawn(&mut self, id: UntypedAssetId, at: Instant) -> Option<Duration> {
+        let live = self.gameplay_live;
         let row = self.row(id);
         if row.first_drawn_at.is_some() {
             return None;
         }
         row.first_drawn_at = Some(at);
+        row.live_at_first_draw = live;
         let demanded = row.demanded_at?;
         Some(at.duration_since(demanded))
     }
@@ -916,6 +932,47 @@ mod tests {
             Some(first),
             "the later frame moved the instant, so `first_drawn_at` is not the \
              FIRST draw at all",
+        );
+    }
+
+    /// ⭐⭐ A FIRST DRAW WHILE GAMEPLAY IS LIVE IS A POP, and that is the fact
+    /// the whole hitch lane is about: a cover exists so a room's art arrives
+    /// before anyone can see the room. This pins that the flag follows the
+    /// ledger's live state at the DRAW rather than at the insert — the two
+    /// answer different questions and can disagree in both directions.
+    #[test]
+    fn a_first_draw_while_gameplay_is_live_is_recorded_as_one() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+
+        // Decoded under a cover, drawn under it too: not a pop.
+        ledger.set_gameplay_live(Some(false));
+        ledger.demand(id(60), "character-sheet", "covered.png".into(), t0);
+        ledger.inserted(id(60), 2.0, Some(false), None, t0);
+        ledger.first_drawn(id(60), t0 + Duration::from_millis(20));
+        assert_eq!(
+            ledger.get(id(60)).and_then(|r| r.live_at_first_draw),
+            Some(false),
+        );
+
+        // Decoded under the cover and first drawn AFTER it lifted: a pop, and
+        // `live_at_insert` cannot see it — which is why this field exists.
+        ledger.demand(id(61), "character-sheet", "late.png".into(), t0);
+        ledger.inserted(id(61), 2.0, Some(false), None, t0);
+        ledger.set_gameplay_live(Some(true));
+        ledger.first_drawn(id(61), t0 + Duration::from_millis(900));
+        let row = ledger.get(id(61)).expect("the late sheet has a row");
+        assert_eq!(
+            row.live_at_insert,
+            Some(false),
+            "the decode happened under the cover, and that is what makes this \
+             the interesting case",
+        );
+        assert_eq!(
+            row.live_at_first_draw,
+            Some(true),
+            "an image first drawn after the cover lifted is a POP, and reading \
+             the insert's liveness instead reports the frame it did not cost",
         );
     }
 

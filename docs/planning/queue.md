@@ -511,14 +511,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   red at 30 with the gate removed); `DevSnapshot` borrows its labels
   (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through the one
   `focus_for_action(action, page, rows)`.
-  ⚠ **CLOSED ON THE ROW AS WRITTEN, AND ONE BIGGER THING SURVIVES IT.**
-  `pointer.rs` rebuilds the WHOLE settings IR — a `String` per label, description
+  ✔ **AND THE BIGGER THING THAT SURVIVED IT IS CLOSED TOO, 2026-09-02.**
+  `pointer.rs` rebuilt the WHOLE settings IR — a `String` per label, description
   and value, plus both snapshots — ON EVERY HOVER EVENT over a System control, to
-  resolve one row index. Larger than either allocation this row named, and never
-  in the survey. ⛔ Not a straight cache swap: `cache.rows` is empty off the
-  System face while a System action stays reachable there, so an unguarded
-  substitution resolves every such hover to `MenuFocus::System(0)`; it wants an
-  active-page guard. ✔ **BOTH "also open" items CLOSED 2026-09-02** (`63cceae0a`),
+  resolve one row index; larger than either allocation this row named, and never
+  in the survey. The hover now reads the rows `cache_system_menu` already built.
+  ⛔ NOT A STRAIGHT CACHE SWAP, exactly as this row warned: `cache.rows` is empty
+  off the System face while a System action stays reachable there, so an
+  unguarded substitution resolves every such hover to `MenuFocus::System(0)`.
+  ⭐ AND THE GUARD IS ONE COMPARISON WIDER THAN "IS THE FACE ACTIVE", because
+  `kaleidoscope_pointer_move` is an OBSERVER: it fires whenever a `Pointer<Move>`
+  arrives, which may precede this frame's `cache_system_menu`. Of the six inputs
+  the rows are built from, five cannot move without a frame passing; the
+  DRILL-DOWN can, because a press opens it. `CachedSystemMenu::rows_are_current_for`
+  is both halves. Guarded by
+  `the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does` —
+  ⛔ which picks a row PAST THE FIRST on purpose, since `focus_for_action` falls
+  back to `System(0)` and an action at index zero cannot tell a correct answer
+  from the fallback. Poison-verified: make the guard always say yes and the
+  off-face arm names it. ✔ **BOTH "also open" items CLOSED 2026-09-02** (`63cceae0a`),
   and re-verified against the code 2026-09-02: `focus_for_action_in_rows` no
   longer exists — there is ONE `focus_for_action` taking `rows` as a parameter,
   so the "same lookup wearing different names" drift `character/assets.rs:261`
@@ -628,10 +639,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
     plugin publishes one at all
     (`the_dev_tool_publishes_the_brain_override`, app-level because the dev
     crate cannot boot its own plugin);
-  * `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`,
-    deciding whether a placement spawns AT ALL;
+  * ✔ `features/ecs/spawn_static.rs` — CLOSED 2026-09-02 evening, the same
+    inversion for the quota: the developer plugin publishes
+    `AuthoredPopulationCap` (env parsed once in `ambition_dev_tools::
+    population_cap::from_env`), `for_room_construction` takes it as a
+    PARAMETER (all six roads state it), and the quota itself is
+    `ActorAdmission` ON THE PLACEMENT CONTEXT — built once per construction
+    plan, so its lifetime is the plan's by construction and
+    `begin_room_lowering` is deleted with both statics. Guards: the quota's
+    own arithmetic (`ambition_characters`), the cap riding the plan with a
+    fresh quota per plan (`the_population_cap_rides_the_plan_and_each_plan_
+    gets_its_own_quota`), and the plugin publishing it (app-level). The census
+    row now reports the cap IN FORCE (the resource), not the environment;
   * `features/mod.rs:350` — `runtime_census`, the mildest (cfg'd and
-    census-gated).
+    census-gated) — the ONE production read left.
   The first two are the simulation reading developer state to decide what the
   world contains, which is precisely the authority this carve exists to remove.
   ⇒ THE `Cargo.toml` DEPENDENCY STAYS and the dev_tools slice is NOT closed.
@@ -639,10 +660,11 @@ The one unresolved developer-policy choice from the session-ownership work is in
   without review**: *the sim reads a SESSION-owned override that the dev tool
   WRITES, never the dev crate itself* — the same inversion `ClockScaleRequest`
   already demonstrates for slow-motion.
-  ⚠ **What each actually reads, checked rather than assumed**: `forced_profile()`
+  ⚠ **What each actually read, checked rather than assumed**: `forced_profile()`
   WAS a `OnceLock` over an env var — a hidden process-global INPUT, constant once
-  resolved, and gone as of 2026-09-02. `admit_actor()` is more than a read: it is an
-  `AtomicUsize::fetch_add(Relaxed)` that decides whether a placement spawns.
+  resolved, and gone as of 2026-09-02. `admit_actor()` WAS more than a read: an
+  `AtomicUsize::fetch_add(Relaxed)` that decided whether a placement spawns —
+  gone the same evening (see above).
   ⭐ AND IT IS INERT BY DEFAULT — `cap()` resolves to `usize::MAX` with the env
   knob unset and `admit_actor` returns `true` before touching the counter, so
   the mutable global is live only in a developer scenario. ⇒ This is an

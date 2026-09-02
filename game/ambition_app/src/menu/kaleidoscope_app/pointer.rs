@@ -54,6 +54,9 @@ pub(crate) fn kaleidoscope_pointer_move(
     devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
+    // The rows `cache_system_menu` already built this frame. See the hover path
+    // below for why a hover may use them and a press may not.
+    cache: Res<CachedSystemMenu>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
     // past the tap threshold from its press origin.
     mut press: ResMut<KaleidoscopePointerPress>,
@@ -86,15 +89,29 @@ pub(crate) fn kaleidoscope_pointer_move(
             // their lists.
             let next = match focus_without_system_model(action, active_page) {
                 Some(focus) => focus,
+                // ⭐⭐ THE ROWS THIS FRAME ALREADY BUILT. A hover fires on every
+                // mouse move across a control and this used to rebuild the WHOLE
+                // settings IR — a `String` per label, description and value, plus
+                // both snapshots — to resolve one row index. D-CUBE-CHURN closed
+                // around it and recorded it as larger than either allocation the
+                // row had named.
+                //
+                // ⛔ AND IT IS NOT A BARE CACHE SWAP, which is why the row left it.
+                // `cache.rows` is populated ONLY while the System face is active,
+                // and a System action stays reachable off it
+                // (`focus_without_system_model` answers only for
+                // Equip/Use/ChangePage) — so substituting an empty `cache.rows`
+                // would resolve every such hover to `MenuFocus::System(0)`.
+                // `rows_are_current_for` is that guard plus the one staleness an
+                // OBSERVER can hit: this fires whenever a `Pointer<Move>` arrives,
+                // which may precede this frame's `cache_system_menu`, and the
+                // drill-down is the only input a press can move underneath it.
+                None if cache.rows_are_current_for(system_nav.open_entry) => {
+                    focus_for_action(action, active_page, &cache.rows)
+                }
                 None => {
-                    // ⚠ STILL BUILDS THE IR PER HOVER, and that is the biggest
-                    // remaining cost in this area — recorded in the D-CUBE-CHURN
-                    // row rather than fixed here, because it is not a cache swap:
-                    // `cache.rows` is populated only while the System face is
-                    // ACTIVE, while a System action stays reachable off it
-                    // (`focus_without_system_model` answers only for
-                    // Equip/Use/ChangePage). Substituting an empty `cache.rows`
-                    // resolves every such hover to `MenuFocus::System(0)`.
+                    // Off the System face, or the drill state moved since the
+                    // cache ran: build the model, as this path always did.
                     let model = SystemMenuModel::build(
                         &settings,
                         &snapshot.radio_snapshot(),

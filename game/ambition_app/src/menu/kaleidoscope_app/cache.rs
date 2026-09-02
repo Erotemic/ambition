@@ -33,6 +33,22 @@ pub(crate) struct CachedSystemMenu {
     pub(crate) model_builds: u64,
 }
 
+impl CachedSystemMenu {
+    /// Are the cached rows the ones a reader asking about `open_entry` wants?
+    ///
+    /// ⛔⛔ THE ONE STALENESS A READER OUTSIDE THE FRAME CHAIN CAN HIT.
+    /// `cache_system_menu` runs once per visible frame at the front of the
+    /// chain, but `kaleidoscope_pointer_move` is an OBSERVER — it fires on a
+    /// `Pointer<Move>` whenever one arrives, which may be before this frame's
+    /// cache run. Of the six inputs the rows are built from, five (settings,
+    /// radio, dev, quality, and the model itself) cannot move without a frame
+    /// passing; the drill-down CAN, because a PRESS opens it. So this is the
+    /// whole of the currency question, and it is one comparison.
+    pub(crate) fn rows_are_current_for(&self, open_entry: Option<SystemMenuEntryId>) -> bool {
+        self.model.is_some() && self.open_entry == open_entry
+    }
+}
+
 /// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
 /// chain) into [`CachedSystemMenu`]. The model + rows are built only while the System
 /// face is active; the snapshots are always refreshed (the republish key carries them

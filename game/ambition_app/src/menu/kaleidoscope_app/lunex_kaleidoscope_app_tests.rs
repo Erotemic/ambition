@@ -2516,3 +2516,98 @@ fn an_idle_system_face_builds_its_model_once() {
         "and the frame after it is idle again"
     );
 }
+
+/// ⭐⭐ THE HOVER MAY READ THE CACHE, AND IT MUST GET THE SAME ANSWER.
+///
+/// `kaleidoscope_pointer_move` rebuilt the WHOLE settings IR — a `String` per
+/// label, description and value, plus both snapshots — on every mouse move
+/// across a System control, to resolve one row index. D-CUBE-CHURN closed around
+/// that and recorded it as larger than either allocation the row had named.
+///
+/// ⛔ THE ROW ALSO NAMED WHY IT IS NOT A BARE CACHE SWAP: `cache.rows` is
+/// populated ONLY while the System face is active, and a System action stays
+/// reachable off it, so an unguarded substitution "resolves every such hover to
+/// `MenuFocus::System(0)`". Both arms are here, because the equivalence alone
+/// would pass on a build that had thrown the guard away.
+#[test]
+fn the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does() {
+    let mut app = base_kaleidoscope_test_app();
+    app.add_systems(Update, cache_system_menu);
+    set_kaleidoscope_visible(&mut app, true);
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::System);
+    app.update();
+
+    let open_entry = app.world().resource::<KaleidoscopeSystemNav>().open_entry;
+    let cache = app.world().resource::<CachedSystemMenu>();
+    assert!(
+        cache.rows_are_current_for(open_entry),
+        "the System face is active and the cache ran, so its rows are the ones a \
+         hover may read — without this the fast path never engages and the test \
+         below proves nothing",
+    );
+    assert!(
+        !cache.rows.is_empty(),
+        "an empty row list makes every `focus_for_action` answer collapse to the \
+         same index, which is the failure this guard exists for",
+    );
+
+    // ⛔ A ROW PAST THE FIRST, deliberately. `focus_for_action` falls back to
+    // `MenuFocus::System(0)` for a row it cannot find, so an action that lives at
+    // index zero cannot tell "resolved correctly" from "collapsed to the
+    // fallback" — which is the exact failure the row warned about.
+    let (index, action) = cache
+        .rows
+        .iter()
+        .enumerate()
+        .skip(1)
+        .find_map(|(index, row)| match row {
+            SystemRow::Entry(id) => Some((index, MenuPageAction::OpenSystemEntry(*id))),
+            _ => None,
+        })
+        .expect("a System page publishes an entry row past the first");
+
+    let from_cache = focus_for_action(action, MenuPage::System, &cache.rows);
+    assert_eq!(
+        from_cache,
+        MenuFocus::System(index),
+        "the cached rows resolved to the fallback rather than the row the action \
+         actually sits on",
+    );
+    let fresh_rows = {
+        let settings = app.world().resource::<UserSettings>().clone();
+        let quality = app
+            .world()
+            .resource::<VisualQualityConfirmState>()
+            .pending();
+        let model = crate::menu::model::system_menu_model_with_pending_quality(
+            &settings,
+            &cache.radio,
+            &cache.dev,
+            quality,
+        );
+        system_rows_with_quality_prompt(&model, open_entry, quality)
+    };
+    let from_fresh = focus_for_action(action, MenuPage::System, &fresh_rows);
+    assert_eq!(
+        from_cache, from_fresh,
+        "the cached rows resolved a System action differently from a freshly \
+         built model, so the hover fast path answers a different question from \
+         the one it replaced",
+    );
+
+    // ⛔ THE OTHER ARM: off the System face the cache is EMPTY, and the guard
+    // must say so — otherwise the hover path substitutes an empty list and every
+    // System action reachable off-face resolves to row zero.
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::Items);
+    app.update();
+    let cache = app.world().resource::<CachedSystemMenu>();
+    assert!(
+        !cache.rows_are_current_for(open_entry),
+        "off the System face the cache holds no rows, and a guard that still \
+         said yes would resolve every off-face System hover to row zero",
+    );
+}

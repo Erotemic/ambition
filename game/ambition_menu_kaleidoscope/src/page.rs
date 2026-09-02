@@ -158,7 +158,7 @@ fn spawn_panel_at_depth<Action>(
     let base_alpha = color.alpha();
     let material = materials.add(StandardMaterial {
         base_color: fade_color(color, base_alpha),
-        alpha_mode: AlphaMode::Blend,
+        alpha_mode: solid_plane_alpha_mode(),
         cull_mode: None,
         unlit: true,
         ..default()
@@ -302,7 +302,7 @@ fn spawn_control<Action>(
     let base_alpha = color.alpha();
     let material = materials.add(StandardMaterial {
         base_color: fade_color(color, base_alpha),
-        alpha_mode: AlphaMode::Blend,
+        alpha_mode: solid_plane_alpha_mode(),
         cull_mode: None,
         unlit: true,
         ..default()
@@ -481,7 +481,7 @@ fn spawn_scrollbar_thumb(
     let base_alpha = color.alpha();
     let material = materials.add(StandardMaterial {
         base_color: fade_color(color, base_alpha),
-        alpha_mode: AlphaMode::Blend,
+        alpha_mode: solid_plane_alpha_mode(),
         cull_mode: None,
         unlit: true,
         ..default()
@@ -565,7 +565,7 @@ fn spawn_selection_corners(
     // StandardMaterial assets + GPU bind groups).
     let material = materials.add(StandardMaterial {
         base_color: fade_color(color, base_alpha),
-        alpha_mode: AlphaMode::Blend,
+        alpha_mode: solid_plane_alpha_mode(),
         cull_mode: None,
         unlit: true,
         ..default()
@@ -744,6 +744,19 @@ fn text_depth(y: f32) -> f32 {
 /// `color`'s rgb with an explicit `alpha` (Feature B). Used so a control/panel
 /// material starts at its design alpha and [`fade_kaleidoscope_materials`] can scale
 /// that alpha by the open `amount` without losing the rgb.
+/// The alpha mode a SOLID (untextured) plane is born with.
+///
+/// It is the mode `fade_kaleidoscope_materials` would correct it to on the same
+/// frame: solid planes are always `Opaque` so depth bands resolve, and only the
+/// textured ones cross-fade. Spawning them `Blend` and correcting them one
+/// schedule later changed the material's pipeline key on every rebuild — a
+/// scroll of the System list, a modal option change — and under Bevy 0.19 that
+/// mode flip is a frame in which the plane belongs to no render phase: the
+/// flash Jon reported 2026-09-02. Born right, nothing flips.
+pub(super) fn solid_plane_alpha_mode() -> AlphaMode {
+    AlphaMode::Opaque
+}
+
 pub(super) fn fade_color(color: Color, alpha: f32) -> Color {
     let s = color.to_srgba();
     Color::srgba(s.red, s.green, s.blue, alpha)

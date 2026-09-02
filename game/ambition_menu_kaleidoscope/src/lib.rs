@@ -1059,8 +1059,12 @@ fn fade_kaleidoscope_materials(
     // Faded planes that need this sweep THIS frame. Two causes, and they are not
     // the same signal:
     //
-    // * `Changed<MeshMaterial3d>` — a plane `rebuild_cube_faces` just spawned
-    //   (always Blend, and a solid one must be corrected to Opaque here).
+    // * `Changed<MeshMaterial3d>` — a plane `rebuild_cube_faces` just spawned.
+    //   Solid planes are born Opaque (`page::solid_plane_alpha_mode`) so this
+    //   sweep has nothing to flip on them; textured ones are born Blend at their
+    //   base alpha and only their ALPHA is brought to the current fold amount.
+    //   ⛔ A mode flip here on the spawn frame was the System-face flash under
+    //   Bevy 0.19 (2026-09-02): the plane sat in no render phase for a frame.
     // * `Changed<MenuVisualState>` — a control `sync_control_focus_visuals` just
     //   recolored. ⚠ It writes the material IN PLACE, so the handle does NOT change
     //   and the first filter cannot see it. Without this arm a focus move while the
@@ -1109,10 +1113,10 @@ fn fade_kaleidoscope_materials(
         };
         // Only invalidate (and re-extract) the asset when the mode or alpha actually
         // needs to change — avoids thrashing every material every frame while the
-        // menu sits open or shut, and corrects planes freshly spawned THIS frame by
-        // `rebuild_cube_faces` (which always creates Blend) or recolored in place by
-        // `sync_control_focus_visuals`: PostUpdate runs after both, so a republish or
-        // a focus move while open settles with no one-frame flicker.
+        // menu sits open or shut. For planes freshly spawned THIS frame by
+        // `rebuild_cube_faces` only a textured plane's alpha can differ (solid ones
+        // are born in their final mode); a focus move recolors in place. Alpha
+        // alone is a material re-upload, never a pipeline change.
         if cur_mode != target_mode || (cur_alpha - target_alpha).abs() > 1.0e-4 {
             if let Some(mut mat) = materials.get_mut(&material.0) {
                 mat.alpha_mode = target_mode;

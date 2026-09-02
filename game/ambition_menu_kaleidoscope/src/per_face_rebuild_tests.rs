@@ -203,3 +203,34 @@ fn a_page_leaving_the_publication_retires_its_face() {
     let live: Vec<Page> = faces(&mut app).into_iter().map(|(id, _)| id).collect();
     assert_eq!(live, vec![Page::Items, Page::Map, Page::System]);
 }
+
+/// A solid plane is born in the alpha mode the fade sweep would give it, so a
+/// rebuild never flips a material's pipeline key one schedule later. The flip
+/// was a frame in which the plane sat in no render phase under Bevy 0.19 — the
+/// System-face flash on every scroll and modal change (2026-09-02).
+#[test]
+fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
+    let mut app = test_app();
+    let world = app.world_mut();
+    let mut query = world.query::<(&super::KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>();
+    let handles: Vec<Handle<StandardMaterial>> = query
+        .iter(world)
+        .map(|(_, material)| material.0.clone())
+        .collect();
+    assert!(!handles.is_empty(), "the fixture's pages spawn at least one faded plane");
+    let materials = world.resource::<Assets<StandardMaterial>>();
+    let mut solid = 0;
+    for handle in &handles {
+        let material = materials.get(handle).expect("a spawned plane's material exists");
+        if material.base_color_texture.is_none() {
+            solid += 1;
+            assert_eq!(
+                material.alpha_mode,
+                AlphaMode::Opaque,
+                "a solid plane must be spawned Opaque — the mode the fade sweep would set — \
+                 not Blend-then-corrected"
+            );
+        }
+    }
+    assert!(solid > 0, "the fixture's panels are solid planes; none were found");
+}

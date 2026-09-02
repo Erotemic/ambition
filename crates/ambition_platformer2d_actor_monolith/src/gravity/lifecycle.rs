@@ -36,7 +36,7 @@ pub struct GravityFlipSwitch {
 }
 
 // The hub gravity flip is now an LDtk-authored `Switch` whose `action` is
-// "FlipGravity" (handled in `encounter::systems::update_encounters_from_world`),
+// "FlipGravity" (handled in `encounter::systems::drive_wave_encounters`),
 // so the old debug-spawned overlap column is gone. The `GravityFlipSwitch`
 // component + `gravity_flip_switch_system` below remain only for the unit test
 // + any future overlap-style gravity plate; nothing spawns one in-game.

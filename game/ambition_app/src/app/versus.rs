@@ -1197,7 +1197,7 @@ mod roster_topology_tests {
             // through the App seam the composition itself uses, so what is
             // published here is what a shipped versus route publishes — the
             // registration is what turns an authored profile into a resolvable
-            // `versus::versus_duelist`.
+            // `versus::versus_duelist` (cite-ok: an authored key, not a path).
             app.register_character_catalog_fragment(
                 CharacterCatalogFragment::from_ron(
                     VERSUS_EXPERIENCE,

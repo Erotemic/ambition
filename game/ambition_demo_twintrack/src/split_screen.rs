@@ -103,7 +103,7 @@ impl SplitObserverPane {
     ///
     /// participant order, not exhibit order. The traveler is seat zero and
     /// takes the left pane, because that is the pane its gameplay camera is
-    /// already drawing into (`participants::place_the_two_views`) — an
+    /// already drawing into (`participants::compose_the_panes`) — an
     /// instrument that reported the traveler's numbers over the laboratory
     /// twin's picture would be worse than no instrument.
     fn column(self) -> u32 {

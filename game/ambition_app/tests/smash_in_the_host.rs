@@ -3728,7 +3728,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     //
     // the property the command is FOR is not "two cells" but "two authored
     // kits", so that is what is asserted, against the same oracle
-    // `smash_roster_movesets::the_grid_fighters_with_a_real_repertoire_only_grow`
+    // `smash_roster_movesets::every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip`
     // ratchets — `PreparedCharacterDefinition::authored_moveset`, the field the
     // stage actually reads. deliberately NOT two hard-coded ids: naming
     // `smash_george_booul` and `npc_pirate_admiral` here would pin WHICH

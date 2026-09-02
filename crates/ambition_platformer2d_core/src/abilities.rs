@@ -1300,7 +1300,9 @@ mod tests {
     /// the trap is that it reads as "this body can fly".
     ///
     /// two shipped kits did exactly that when `fly_toggle` was introduced —
-    /// `enemies::movement_kit` and the boss kit in `spawn_actors` — and the cost
+    /// `enemies::movement_kit` (cite-ok: that module is gone; the sentence is
+    /// about what the two kits DID when `fly_toggle` landed) and the boss kit in
+    /// `spawn_actors` — and the cost
     /// was worse than a wrong default. Permanent flight is latched into
     /// `BodyFlightState` when the cluster is BUILT (`fly && !fly_toggle`), so a
     /// body whose brain expects to toggle flight on later never flies at all.

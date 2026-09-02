@@ -83,7 +83,9 @@ impl PropDraw {
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.
 ///
 /// Resolved to a [`crate::items::pickup::GroundItem`] at room load through the
-/// held-item registry. Kept as room placement IR rather than `World::objects`.
+/// held-item registry. Kept as room placement IR rather than entering the
+/// engine `World`'s authored collections (`blocks`, `water_regions`, …), which
+/// grow runtime behaviour for every entry.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GroundItemSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.

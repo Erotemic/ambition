@@ -1,6 +1,7 @@
 //! The sandbox reset authority and its room-replay consumer.
 //!
-//! It lived there because `reset_sandbox` sat in `app::world_flow::room_flow`, a module that also
+//! It lived there because `reset_sandbox` sat in `app::world_flow::room_flow` (cite-ok:
+//! that is where it USED to sit -- the sentence explains why this crate exists), a module that also
 //! composes `load_room` and therefore imports `ambition_render` — a dependency this crate must
 //! never take. Nothing about the RESET half needed render: it names only
 //! `ambition_platformer2d_core`, `ambition_platformer2d_actor_monolith`, `ambition_characters`,

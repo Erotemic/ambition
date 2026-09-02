@@ -43,7 +43,8 @@ pub const STARTING_STOCKS: u32 = 3;
 /// THE MATCH declares it, not the characters. See `apply_smash_match_rules`.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
-/// The published controller policy a CPU seat asks for — `smash::duelist`,
+/// The published controller policy a CPU seat asks for — `smash::duelist`
+/// (cite-ok: an authored provider::name key, not a Rust path),
 /// resolved in this stage's own provider.
 ///
 /// They are deleted; the six are `autonomous_profiles` in the catalog above.

@@ -407,7 +407,7 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
     // and deliberately has no catalog dependency, so it cannot resolve a human
     // label here — `Authored.name` carries the character_id (every NpcSpawn
     // shares the LDtk identifier "NpcSpawn", so the entity name is useless as a
-    // label). `spawn_actors::spawn_interactable` resolves the real display name
+    // label). `spawn_static::lower_interactable_placement` resolves the real display name
     // from the catalog at spawn, keyed off the character_id that travels in
     // `InteractionKindSpec::Npc` below.
     let character_id = field_string(entity, "character_id").unwrap_or_default();

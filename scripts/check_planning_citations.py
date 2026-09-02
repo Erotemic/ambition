@@ -19,6 +19,12 @@ row was never true".
                 and this script prints the command for you.
     QUOTED      a row deliberately quotes a name that is wrong, to record a
                 mistake. Mark those (see MARKER below) so they stop reporting.
+    NOT A PATH  a SCHEMATIC (`provider::local_name` -- the SHAPE of a key) or an
+                AUTHORED CONTENT KEY (`smash::duelist`, `versus::versus_duelist`
+                -- a catalog fragment, not a Rust item). Both are spelled like
+                paths and neither half is ever an item. There is no reliable way
+                to tell these from a real path by regex, so they are marked, not
+                matched. Expect them: they were a fifth of one sweep's findings.
 
 ⚠ THIS IS A LINTER FOR PROSE AND IT WILL HAVE FALSE POSITIVES. It cannot know
 about upstream crates, external tools, or names that only appear in generated
@@ -36,6 +42,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+#: ⚠ SAME LINE OR THE NEXT ONE. A wrapped comment routinely puts the citation at
+#: the end of one line and the parenthetical reason at the start of the next, so
+#: a strict same-line rule quietly ignored half the markers people wrote — three
+#: of them mine, and I re-triaged those citations twice before noticing.
+#:
 #: Put this on the same line as a citation that is wrong ON PURPOSE -- a row
 #: quoting a mistake it is recording. `three classes of comment history`: a
 #: quoted mistake outlives the mistake, and must not be silently "fixed".
@@ -221,13 +232,14 @@ def main() -> int:
         for rel in repo_files():
             if rel.suffix != ".rs":
                 continue
-            for lineno, line in enumerate(
-                (REPO / rel).read_text(errors="replace").splitlines(), 1
-            ):
+            src_lines = (REPO / rel).read_text(errors="replace").splitlines()
+            for lineno, line in enumerate(src_lines, 1):
                 stripped = line.lstrip()
                 if not stripped.startswith("//"):
                     continue
-                if MARKER in line:
+                if MARKER in line or (
+                    lineno < len(src_lines) and MARKER in src_lines[lineno]
+                ):
                     continue
                 for m in SYMBOL.finditer(line):
                     parts = m.group(1).split("::")
@@ -250,8 +262,11 @@ def main() -> int:
             rel = doc.relative_to(REPO)
         except ValueError:
             rel = doc
-        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
-            if MARKER in line:
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if MARKER in line or (
+                lineno < len(doc_lines) and MARKER in doc_lines[lineno]
+            ):
                 continue
             for m in FILE_LINE.finditer(line):
                 checked += 1

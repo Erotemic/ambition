@@ -2,6 +2,15 @@
 
 **State:** OPEN. Ambition is the primary customer.
 
+> **Guard pointer, added 0ac499bb1 (2026-09-02).**
+> `scripts/check_zone_name_ratchet.py` ratchets player-visible loading-zone names
+> that still look like authoring ids — a zone `name` is presentation text, so an
+> underscore-shaped identifier wants authored prose rather than mechanical
+> prettifying or hiding. Counts are tracked per world file, and symlinked worlds
+> are deduplicated by real path so one world's improvement cannot mask another's
+> regression. Green at `0ac499bb1`: **151 zones carry a name, 0% still look like
+> authoring ids.**
+
 ## Goal
 
 Make Ambition unusually easy for LLM agents to author correctly.

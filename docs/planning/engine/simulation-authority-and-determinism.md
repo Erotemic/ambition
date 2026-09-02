@@ -15,6 +15,14 @@ composition, lifetime boundaries, and explicit phase ownership.
 > and shows nothing — it only diverges under GGRS, where the value rewinds and
 > the mutation does not replay with it. Green at `ce25540b1`: 4 systems mutate
 > rollback state, none registered into a non-rewinding schedule.
+>
+> **And a second, for the ordering half of this program:**
+> `scripts/check_set_pins_have_engine_members.py` reports engine ordering edges
+> that target sets with no engine-owned members — a Bevy ordering edge against an
+> empty set is VACUOUS in that schedule, and reads exactly like an active
+> constraint. It compares engine set pins against engine-installed systems so
+> host/game-only extension sets are not mistaken for real ordering. Green at
+> `0ac499bb1`: **2 app-filled sets, all waived with a reason.**
 
 ## Goal
 

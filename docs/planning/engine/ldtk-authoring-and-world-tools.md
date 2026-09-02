@@ -2,6 +2,14 @@
 
 **State:** OPEN authoring program. Ambition is the primary customer.
 
+> **Guard pointer, added 0ac499bb1 (2026-09-02).**
+> `scripts/check_authored_levels_survive.py` baselines each world file's set of
+> level identifiers: adding levels is fine, REMOVING a recorded one is an error
+> unless the baseline is explicitly `--bless`ed. Green at `0ac499bb1`: **77 authored
+> levels across 6 worlds, none lost.** ⛔ Deliberately narrow — it guards roster
+> SURVIVAL only; other validators own level contents and entity correctness. It
+> is the thing standing between an editor session and a silently deleted level.
+
 ## Goal
 
 Make LDtk a first-class **agent-operable** spatial authoring backend rather than

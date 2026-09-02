@@ -120,6 +120,16 @@ actors, so the documented O(n²) in `select_actor_targets` is not what runs.
 The largest single phase in the hall is `Integrate` at 0.196 ms. At 60 Hz the
 whole actor-dependent cost is ~1 ms of a 16.7 ms budget.
 
+**The actor-dependent slice, by symbol** (perf on the whole shipped host,
+130 vs 2 actors, added samples; the run gained 20% samples for 128 actors):
+allocator 3.3%, libc memcpy (three unresolved libc addresses) 6.5% ≈ 0.05 ms
+per frame — the upper bound on EVERY clone the perception path does —
+`select_actor_targets` 2.2% ≈ 0.02 ms, `tick_actor_brains` 1.7%,
+`first_body_sweep` 1.7%, `integrate_sim_bodies` 1.2%, `resolve_axis_repair`
+1.2%. The two standing hypotheses of this goal are answered with numbers:
+the documented O(n²) in targeting costs 0.02 ms/frame at full cast, and the
+`PerceptionPeer` string clones are inside a 0.05 ms memcpy budget.
+
 **⇒ Item (3) has nothing to optimise that would move a frame.** The decision
 pipeline is closed by measurement on the program that ships. Whatever makes the
 hall 50-60 fps on Jon's machine is not in `GgrsSchedule`'s work; the candidates

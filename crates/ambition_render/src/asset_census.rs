@@ -109,13 +109,19 @@ impl ImageCensus {
 /// `AssetEvent::Added` fires when the asset reaches `Assets<Image>` — after the
 /// IO pool decoded it — so these timestamps mark decode COMPLETION, which is
 /// what lines up with a frame spike and a sprite re-bind.
-#[cfg(not(target_arch = "wasm32"))]
+// ⛔ A `#[cfg]` GATES THE NEXT ITEM ONLY. The constant below was inserted
+// between this function's gate and the function, which silently moved the gate
+// onto the constant and made the NATIVE census unconditional: 16 wasm errors
+// ("defined multiple times", `Instant`) that only the web job — which the
+// default gate plan does not run — could see.
 /// How many unrouted images the census names before it says `+N more`.
 ///
 /// Eight, because the bucket is meant to be small: a census that has to print a
 /// hundred of these is reporting a different problem, and the count says so.
+#[cfg(not(target_arch = "wasm32"))]
 const UNROUTED_NAMED: usize = 8;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn report_image_census(
     mut events: MessageReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
@@ -348,12 +354,29 @@ pub fn report_image_census(
         // ever extracted, so EVERY resident image is "never drawn" and the row
         // would accuse a headless run of waste it cannot commit. The ledger's
         // own doc says the two readings need separating; this is the separation.
-        let never_drawn: Option<(usize, f64)> = ledger.render_world_present().then(|| {
-            ledger
-                .resident_never_drawn()
-                .iter()
-                .fold((0usize, 0f64), |(n, mp), (row_mp, _)| (n + 1, mp + row_mp))
-        });
+        let never_drawn: Option<(usize, f64, Vec<String>)> =
+            ledger.render_world_present().then(|| {
+                let by_road = ledger.never_drawn_by_road();
+                let (count, megapixels) =
+                    by_road.values().fold((0usize, 0f64), |(n, mp), (c, road_mp)| {
+                        (n + c, mp + road_mp)
+                    });
+                // ⭐ BY OWNER, because "23.2 MP was never drawn" invites `whose?`
+                // and the roads are the answer. An eviction conversation starts
+                // from an owner, not from a total.
+                let rows = by_road
+                    .into_iter()
+                    .map(|(road, (c, mp))| {
+                        let road = match road {
+                            image_stages::ROAD_UNROUTED => "UNROUTED",
+                            image_stages::ROAD_PROCEDURAL => "PROCEDURAL",
+                            road => road,
+                        };
+                        format!("{road} {c}×{mp:.1}MP")
+                    })
+                    .collect();
+                (count, megapixels, rows)
+            });
         (
             count,
             megapixels,
@@ -395,7 +418,9 @@ pub fn report_image_census(
             ms(gpu_max),
             // `-` where a draw is not observable at all, which is a different
             // fact from "nothing has been drawn yet".
-            never_drawn.map_or("-".to_string(), |(n, mp)| format!("{n} ({mp:.1}MP)")),
+            never_drawn.map_or("-".to_string(), |(n, mp, rows)| {
+                format!("{n} ({mp:.1}MP: {})", rows.join(", "))
+            }),
             by_road.join(", "),
         );
         // ⛔ ONE LINE, AND ONLY WHEN THERE IS SOMETHING TO SAY. An unrouted image
@@ -563,7 +588,8 @@ pub fn stamp_first_drawn_images(
 }
 
 /// The census clock, mirrored into the render world so `[image-gpu]` lines sit
-/// on the same timeline as `[image]` lines.
+/// on the same timeline as `[image]` lines. Native only, like every stage stamp.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Clone, Copy)]
 pub struct ImageStageClock(pub Instant);
 

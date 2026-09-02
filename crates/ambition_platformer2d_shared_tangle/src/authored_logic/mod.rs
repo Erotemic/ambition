@@ -286,7 +286,7 @@ impl ConditionOutcome {
 ///
 /// Answer a question about identities, not about a sequence.
 ///
-/// `&World` is sufficient: `World::try_query` permits evaluation without
+/// `&World` is sufficient: `World::try_query` (cite-ok: bevy's World, not ours) permits evaluation without
 /// exclusive world access. Its `None` arm is
 /// meaningful rather than a nuisance: a domain asking about a component no
 /// installed plugin registered is genuinely *unanswerable*, not false — which is

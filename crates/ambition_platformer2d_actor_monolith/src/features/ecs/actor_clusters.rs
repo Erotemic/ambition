@@ -548,7 +548,8 @@ impl ActorClusterSeed {
             // the pin protects: `ActorTuning` carries no respawn field, so the
             // archetype projection cannot supply one and the placement's
             // `RespawnPolicy` below is the only answer. (It used to name an
-            // `ActorTuning::adopting_archetype` field; respawn moved onto the
+            // `ActorTuning::adopting_archetype` field (cite-ok: naming the dead
+            // field is the point); respawn moved onto the
             // placement in `8fec52282` and the field went with it.)
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             ..Default::default()

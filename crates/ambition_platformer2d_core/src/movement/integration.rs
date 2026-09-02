@@ -451,7 +451,7 @@ pub(super) fn integrate_velocity_clusters(
     // same reason: it describes where the body ENDED UP, not the pose it was
     // leaving.
     //
-    // ⛔⛔ IT ONLY SHRINKS HERE. The spend (`simulation::apply_jump`) is the one
+    // ⛔⛔ IT ONLY SHRINKS HERE. The spend (`abilities::apply_jump_release`) is the one
     // place that ever raises it, to the jump's authored speed; this clamps it
     // down to whatever rise survived the step. Gravity eating the jump reduces
     // it; an opponent's launch ADDING rise cannot grow it back.

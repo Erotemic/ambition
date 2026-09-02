@@ -113,7 +113,7 @@ impl GatedLockWallVerdicts {
 /// where the world is least well understood.
 /// The room-set query, built once and reused.
 ///
-/// ⭐ `World::query_filtered` BUILDS A FRESH `QueryState` on every call, which
+/// ⭐ `World::query_filtered` (cite-ok: bevy's World, not ours) BUILDS A FRESH `QueryState` on every call, which
 /// re-matches every archetype in the world. In an exclusive system that runs
 /// each frame, that is a per-frame archetype scan to read a single component
 /// off one entity. `Local` is an `ExclusiveSystemParam`, so the state can just

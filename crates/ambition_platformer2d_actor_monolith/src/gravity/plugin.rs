@@ -60,7 +60,8 @@ impl Plugin for GravityPlugin {
             .expect("the gravity-zone construction schema cannot conflict with itself");
 
         // Portal carve publishing pins `.after(collect_gravity_zones)` so the combined cadence
-        // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves` chain.
+        // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves` chain
+        // (cite-ok: that variant is gone -- `PortalSet::Carves` is what survived the split).
         app.add_systems(
             sim,
             (

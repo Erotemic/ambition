@@ -42,7 +42,7 @@ impl PlayerSafetyState {
     }
 }
 
-/// Per-frame conditions that gate writes to `RoomTransitionCooldown::last_safe_player_pos`.
+/// Per-frame conditions that gate writes to `PlayerSafetyState::last_safe_pos`.
 /// We refuse to record a position as "safe" while any of these flags are
 /// set so an in-flight reset / hazard respawn / room transition cannot
 /// pollute the safe spawn point. Construct with [`SafePositionContext::ideal`]

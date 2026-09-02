@@ -1438,6 +1438,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction plan's          admission quota, never written by a system. The quota it seeds lives on          the plan (`ActorAdmission`), whose lifetime is one room build",
     ),
     (
+        "ambition_characters::perception::PerceptionExtentOverride",
+        "the developer's perception viewport override, the THIRD of the same          shape: env-parsed once at plugin build by `ambition_dev_tools`, read by          `ensure_perception` when it attaches a policy to a new body, never written          by a system. A measurement knob that changes how far a brain can SEE, so          it changes what a resimulated frame perceives only through           `Perception::Sighted`, which IS rollback state and is registered — the          knob itself is the input that seeded it, not a second copy of it",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",
         "which key toggles which developer overlay. No production code takes it          mutably; it is configuration, and it is not present in a player's build's          decisions at all",
     ),

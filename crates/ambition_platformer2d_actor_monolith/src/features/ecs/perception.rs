@@ -524,20 +524,27 @@ pub(crate) fn peer_is_hostile_to_body(
 ///
 /// ⚠ ALLOCATES NOTHING. It borrows peers and compares squared distances; the
 /// `String` id clone that dominates `PerceivedActor` never happens.
-// ⚠ Its production caller (the `TargetBelief` routing in `actors/update.rs`)
-// is ambition-e7's next commit, 2026-09-02 night; until it lands only the
-// equivalence test calls this. Remove the attribute with that commit.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn nearest_hostile_peer<'p>(
     body: &PerceptionBody,
     peers: &'p [PerceptionPeer],
     relations: &FactionRelations,
     perception: Perception,
-) -> Option<&'p PerceptionPeer> {
+) -> CheapPerception<'p> {
     let viewport = Viewport::around(body.pos, perception.tactical_extent());
-    peers
-        .iter()
-        .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
+    let visible = || {
+        peers
+            .iter()
+            .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
+    };
+    // ⛔⛔ THE COUNT IS NOT OPTIONAL, AND IT IS EASY TO LOSE HERE. `[census]
+    // perception`'s `kept` IS `world_view.actors.len()` — every peer that passed
+    // the VISIBILITY filter, allies included, not the hostiles. A cheap road
+    // that reported only its target would silently read `kept = 0` or `1` for
+    // seven of the nine templates, and the instrument that priced this work
+    // would start understating the population it measures. Counted on the same
+    // pass that finds the target.
+    let visible_count = visible().count();
+    let nearest = visible()
         .filter(|p| peer_is_hostile_to_body(body, relations, p))
         .min_by(|a, b| {
             // ⛔ THE SAME ORDER AS `WorldView::nearest_hostile`, squared distance
@@ -547,7 +554,21 @@ pub(crate) fn nearest_hostile_peer<'p>(
             let da = a.pos.distance_squared(body.pos);
             let db = b.pos.distance_squared(body.pos);
             da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-        })
+        });
+    CheapPerception {
+        nearest_hostile: nearest,
+        visible_count,
+        viewport,
+    }
+}
+
+/// What the cheap road learned in its one pass: the target, and how many peers
+/// it saw. Both are needed — the second is the census's `kept`, which a road
+/// that returned only a target would zero without anyone noticing.
+pub(crate) struct CheapPerception<'p> {
+    pub(crate) nearest_hostile: Option<&'p PerceptionPeer>,
+    pub(crate) visible_count: usize,
+    pub(crate) viewport: Viewport,
 }
 
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
@@ -894,12 +915,31 @@ pub(crate) fn believed_target(
     if let Some(mem) = memory.as_deref_mut() {
         mem.0.update(view, dt);
     }
+    belief_from_nearest(policy, view.nearest_hostile().map(|a| a.pos), memory)
+}
+
+/// The belief itself, once the fold has happened and the nearest hostile is
+/// known — whichever road found it.
+///
+/// ⛔⛔ THIS SPLIT EXISTS BECAUSE THE OLD PARAMETER DID TWO JOBS AND LOOKED LIKE
+/// IT DID ONE. `believed_target` takes a `&WorldView` and uses it twice: to fold
+/// memory (which decays everything NOT seen) and to find one peer. A cheap road
+/// that replaced the parameter's apparent purpose would have kept the second and
+/// silently dropped the first — every remembered foe decaying as though it had
+/// left the viewport, so pursuit stops, a body that can SEE its foe still looks
+/// correct, and only the one CHASING breaks. Separating the fold from the belief
+/// makes that mistake unavailable rather than merely documented.
+pub(crate) fn belief_from_nearest(
+    policy: Perception,
+    nearest_hostile: Option<ae::Vec2>,
+    memory: Option<&mut PerceptionMemory>,
+) -> Option<Option<ae::Vec2>> {
     match policy {
         Perception::Omniscient => None,
         // The nearest foe IN VIEW, or when none is visible the most-confident foe
         // the body REMEMBERS — pursuit of one that left the viewport (invariant
         // I6).
-        Perception::Sighted { .. } => Some(view.nearest_hostile().map(|a| a.pos).or_else(|| {
+        Perception::Sighted { .. } => Some(nearest_hostile.or_else(|| {
             memory
                 .as_deref()
                 .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))

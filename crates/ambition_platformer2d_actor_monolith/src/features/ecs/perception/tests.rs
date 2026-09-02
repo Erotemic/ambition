@@ -1176,7 +1176,9 @@ fn a_cheap_belief_agrees_with_the_view_it_replaces() {
         0.0,
     );
     let full = view.nearest_hostile().map(|a| a.pos);
-    let cheap = super::nearest_hostile_peer(&viewer, &peers, &relations, perception).map(|p| p.pos);
+    let cheap = super::nearest_hostile_peer(&viewer, &peers, &relations, perception)
+        .nearest_hostile
+        .map(|p| p.pos);
 
     assert_eq!(
         full,
@@ -1189,6 +1191,27 @@ fn a_cheap_belief_agrees_with_the_view_it_replaces() {
         "the cheap belief road and the WorldView must name the SAME hostile; \
          they share `peer_is_visible_to_body` and `peer_is_hostile_to_body` \
          precisely so this cannot drift"
+    );
+
+    // ⛔⛔ AND THE CENSUS COUNT MUST AGREE TOO. `[census] perception`'s `kept` IS
+    // `world_view.actors.len()` — everything VISIBLE, allies included, not the
+    // hostiles. Routing seven of nine templates onto a road that reported only
+    // its target would silently drop `kept` toward zero, and the instrument that
+    // priced this whole increment would start understating the population it
+    // measures. This is the arm that keeps the measurement honest after the
+    // optimisation it justified.
+    let cheap_kept =
+        super::nearest_hostile_peer(&viewer, &peers, &relations, perception).visible_count;
+    assert_eq!(
+        cheap_kept,
+        view.actors.len(),
+        "the cheap road's visible count is the census's `kept`; it counts \
+         everything in view, not just the foe"
+    );
+    assert!(
+        cheap_kept > 1,
+        "premise: the fixture has an ally and two foes in view, so a road that \
+         counted only hostiles — or only the target — would differ here"
     );
 
     // ⭐ AND AGREEING ON "NOBODY" IS HALF THE CONTRACT. Perceiving no foe is a
@@ -1212,7 +1235,9 @@ fn a_cheap_belief_agrees_with_the_view_it_replaces() {
     );
     assert_eq!(empty_view.nearest_hostile().map(|a| a.pos), None, "premise");
     assert_eq!(
-        super::nearest_hostile_peer(&viewer, &only_allies, &relations, perception).map(|p| p.pos),
+        super::nearest_hostile_peer(&viewer, &only_allies, &relations, perception)
+            .nearest_hostile
+            .map(|p| p.pos),
         None,
         "an ally is not a target on either road"
     );
@@ -1261,8 +1286,107 @@ fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
         "premise: the full road honours the grudge across faction"
     );
     assert_eq!(
-        super::nearest_hostile_peer(&viewer, &peers, &relations, perception).map(|p| p.pos),
+        super::nearest_hostile_peer(&viewer, &peers, &relations, perception)
+            .nearest_hostile
+            .map(|p| p.pos),
         Some(ae::Vec2::new(160.0, 180.0)),
         "and so must the cheap one — this is the rule a restated check loses"
+    );
+}
+
+/// ⛔⛔ PURSUIT MUST SURVIVE THE CHEAP ROAD — the defect the routing invites.
+///
+/// `actors/update.rs` now composes two steps for a `TargetBelief` body: fold
+/// memory from borrowed peers, then `belief_from_nearest`. The old road composed
+/// `build_world_view` + `believed_target`, which did the fold internally. This
+/// asserts the two COMPOSITIONS agree, not just their pieces — including the arm
+/// that matters, where the foe has LEFT the viewport and only memory can answer.
+///
+/// ⚠ A body that can still SEE its foe agrees on both roads no matter how badly
+/// the fold is wired, because `nearest_hostile` answers before memory is
+/// consulted. Only the lost-sight arm can catch a dropped fold.
+#[test]
+fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let dt = 1.0 / 60.0;
+
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let in_view = vec![peer("foe", ae::Vec2::new(300.0, 180.0), ActorFaction::Boss)];
+    // Far outside the 480x320 half-extent: the same foe, no longer perceivable.
+    let gone = vec![peer(
+        "foe",
+        ae::Vec2::new(4000.0, 180.0),
+        ActorFaction::Boss,
+    )];
+
+    // ── the road update.rs used to take ─────────────────────────────────────
+    let full_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        let view = build_world_view(
+            &viewer,
+            peers,
+            &[],
+            &[],
+            &world,
+            &relations,
+            perception,
+            0.0,
+        );
+        super::believed_target(perception, &view, Some(memory), dt)
+    };
+    // ── the road it takes now ───────────────────────────────────────────────
+    let cheap_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        let cheap = super::nearest_hostile_peer(&viewer, peers, &relations, perception);
+        memory.0.update_from_seen(
+            0.0,
+            dt,
+            peers
+                .iter()
+                .filter(|p| super::peer_is_visible_to_body(perception, &cheap.viewport, &viewer, p))
+                .map(|p| ambition_characters::perception::SeenActor {
+                    id: p.id.as_str(),
+                    pos: p.pos,
+                    vel: p.vel,
+                    faction: p.faction,
+                    hostile_to_self: super::peer_is_hostile_to_body(&viewer, &relations, p),
+                }),
+        );
+        super::belief_from_nearest(
+            perception,
+            cheap.nearest_hostile.map(|p| p.pos),
+            Some(memory),
+        )
+    };
+
+    let mut full_mem = PerceptionMemory::default();
+    let mut cheap_mem = PerceptionMemory::default();
+
+    // Seen: both roads name the foe where it stands.
+    let seen_full = full_belief(&in_view, &mut full_mem);
+    let seen_cheap = cheap_belief(&in_view, &mut cheap_mem);
+    assert_eq!(
+        seen_full,
+        Some(Some(ae::Vec2::new(300.0, 180.0))),
+        "premise: a visible foe is believed where it is"
+    );
+    assert_eq!(seen_cheap, seen_full, "in view, the roads must agree");
+
+    // ⭐ LOST: only the remembered position can answer, and it must still be the
+    // place the foe was last SEEN — not its current, unperceived position.
+    let lost_full = full_belief(&gone, &mut full_mem);
+    let lost_cheap = cheap_belief(&gone, &mut cheap_mem);
+    assert_eq!(
+        lost_full,
+        Some(Some(ae::Vec2::new(300.0, 180.0))),
+        "premise: the old road pursues the last known position (invariant I6)"
+    );
+    assert_eq!(
+        lost_cheap, lost_full,
+        "the cheap road must pursue too — a dropped fold shows up HERE and \
+         nowhere else, because a body that can see its foe never consults memory"
     );
 }

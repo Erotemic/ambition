@@ -10,6 +10,7 @@
 
 use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_persistence::settings::UserSettings;
+use std::borrow::Cow;
 
 /// True in builds that ship developer tooling; gates Developer and reset rows.
 pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
@@ -432,16 +433,27 @@ pub struct RadioSnapshot {
 /// the `DeveloperTools` resource.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DevSnapshot {
-    pub values: Vec<(DevToggleId, bool, String)>,
+    pub values: Vec<(DevToggleId, bool, Cow<'static, str>)>,
 }
 
 impl DevSnapshot {
     /// `(toggle, on)` for a bool toggle.
-    pub fn toggle(id: DevToggleId, on: bool) -> (DevToggleId, bool, String) {
-        (id, on, if on { "ON" } else { "OFF" }.to_string())
+    pub fn toggle(id: DevToggleId, on: bool) -> (DevToggleId, bool, Cow<'static, str>) {
+        (id, on, Cow::Borrowed(if on { "ON" } else { "OFF" }))
     }
     /// `(cycle, value_label)` for a cycle.
-    pub fn cycle(id: DevToggleId, value_label: impl Into<String>) -> (DevToggleId, bool, String) {
+    ///
+    /// ⚠ `Cow`, not `String`, and the whole point is the BORROWED arm: every
+    /// caller passes a `&'static str` (`"ON"`, `"OFF"`, a `label()` constant),
+    /// and this snapshot is rebuilt EVERY FRAME on EVERY face because the cube's
+    /// rebuild key carries it. Taking `impl Into<String>` heap-allocated all 22
+    /// entries per frame to answer "did anything change?" — the answer being
+    /// "no" almost every time. `Into<Cow>` keeps a static label free while an
+    /// owned label still works.
+    pub fn cycle(
+        id: DevToggleId,
+        value_label: impl Into<Cow<'static, str>>,
+    ) -> (DevToggleId, bool, Cow<'static, str>) {
         (id, false, value_label.into())
     }
 }
@@ -667,7 +679,7 @@ impl SystemMenuModel {
                         .values
                         .iter()
                         .find(|(d, _, _)| d == id)
-                        .map(|(_, on, label)| (*on, label.clone()))
+                        .map(|(_, on, label)| (*on, label.to_string()))
                         .unwrap_or((false, if id.is_cycle() { "—" } else { "OFF" }.to_string()));
                     let kind = if id.is_cycle() {
                         SettingsOptionKind::Cycle { index: 0, count: 1 }

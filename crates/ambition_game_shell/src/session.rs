@@ -197,6 +197,13 @@ impl ActiveGameplaySession {
                         "{} gameplay session world",
                         activation.experience_id.as_str()
                     )),
+                    // The root is rollback-anchored (it carries the room set)
+                    // and there is one per activation: a derived identity, so
+                    // the identity census admits no waiver (S4).
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
+                        "session",
+                        &activation.activation_id.0.to_string(),
+                    ),
                     SessionRoot(scope),
                     GameplaySessionWorldRoot {
                         activation_id: activation.activation_id,

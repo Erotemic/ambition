@@ -135,6 +135,13 @@ pub fn portal_projectile_step(
                 portal_half_extent(winner.normal),
             ),
             Name::new(format!("Portal: {}", winner.channel.name())),
+            // One portal per channel per room: a derived identity, so the same
+            // wall re-placed is the same logical object and a rewind can name
+            // it (S4).
+            ambition_platformer2d::platformer::sim_id::SimId::singleton(
+                "portal",
+                &winner.channel.name(),
+            ),
             // Portals are per-room: a room transition despawns them, so
             // they don't linger and reappear when you leave and come back
             // (#41).

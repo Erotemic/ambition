@@ -40,7 +40,14 @@ pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
-    mut scripts: Query<(&EncounterParticipants, &mut EncounterScript)>,
+    // The encounter's own identity and counter: what it DROPS is minted under
+    // it, so two hazards of one script are two identified objects.
+    mut scripts: Query<(
+        &EncounterParticipants,
+        &mut EncounterScript,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+    )>,
     mut members: Query<(
         &mut BossEncounter,
         &mut ambition_characters::actor::BodyHealth,
@@ -54,7 +61,7 @@ pub fn tick_encounter_scripts(
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
 
-    for (participants, mut script) in &mut scripts {
+    for (participants, mut script, encounter_id, mut counter) in &mut scripts {
         let effects = script.advance(dt, participants, &fired);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
         for effect in &effects {
@@ -98,6 +105,15 @@ pub fn tick_encounter_scripts(
                     impact_gate,
                 } => {
                     if let Some(target) = member_entity(*target_member) {
+                        let sim_id = match (encounter_id, counter.as_deref_mut()) {
+                            (Some(encounter), Some(counter)) => {
+                                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                                    encounter,
+                                    counter.next(),
+                                ))
+                            }
+                            _ => None,
+                        };
                         drop_hazard(
                             &mut commands,
                             SessionSpawnScope::new(
@@ -114,6 +130,7 @@ pub fn tick_encounter_scripts(
                                 vel_y: 0.0,
                                 dropping: false,
                             },
+                            sim_id,
                         );
                     }
                 }
@@ -132,19 +149,27 @@ pub fn tick_encounter_scripts(
 /// ⛔⛔ `vel_y`, `dropping` and the entity it is aimed at are the fall itself, and
 /// the hazard decides when a boss takes an impact. The declaration is in this
 /// crate's `register_rollback_state`, anchor and codec together.
+///
+/// `sim_id` is the hazard's identity — `SimId::spawned(encounter, counter)`
+/// minted under the encounter that dropped it. `None` only for a fixture with
+/// no spawner in hand; production always identifies what it drops, because a
+/// rollback-anchored entity with no identity rewinds anonymously (S4).
 pub fn drop_hazard(
     commands: &mut Commands,
     scope: SessionSpawnScope,
     anchor: ae::Vec2,
     hazard: FallingHazard,
+    sim_id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> Entity {
     let size = hazard.size;
-    commands
-        .spawn_session_scoped(
-            scope,
-            (CenteredAabb::from_center_size(anchor, size), hazard),
-        )
-        .id()
+    let mut spawned = commands.spawn_session_scoped(
+        scope,
+        (CenteredAabb::from_center_size(anchor, size), hazard),
+    );
+    if let Some(sim_id) = sim_id {
+        spawned.insert(sim_id);
+    }
+    spawned.id()
 }
 
 /// Generic "lured movement" override: while present on a boss, its brain control

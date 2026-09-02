@@ -111,6 +111,21 @@ impl SimId {
         Self(format!("match:{activation}/spawn/{tick}"))
     }
 
+    /// An entity of which the world holds AT MOST ONE per `key` — a placed
+    /// portal per channel, a gameplay session's world root per activation.
+    ///
+    /// DERIVED like [`Self::strike_volume`], and for the same reason: the key
+    /// determines it completely, and re-opening it (a portal re-placed on the
+    /// same wall) is the same logical object, not a new one. `kind` is its own
+    /// namespace so `portal:blue` can never collide with a placement iid.
+    ///
+    /// Why anchored singletons need an id at all: they carry rollback state,
+    /// and a census of "every anchored entity has one stable identity" is only
+    /// worth running if it admits no waivers.
+    pub fn singleton(kind: &str, key: &str) -> Self {
+        Self(format!("{}:{}", escape_segment(kind), escape_segment(key)))
+    }
+
     /// A piece of durable ROOM GEOMETRY, by its [`GeoId`].
     ///
     /// ⭐ ITS OWN NAMESPACE BECAUSE GEOMETRY IS NOT A PLACEMENT. A `GeoId` is a

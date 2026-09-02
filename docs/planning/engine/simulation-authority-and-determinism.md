@@ -223,7 +223,7 @@ Re-verified 2026-09-02:
   order. `for … in query { … break }` shapes outside these were not swept; the
   grep for them is noisy and the next one found should be added here.
 
-### S4 — dynamic identity and provenance
+### S4 — dynamic identity and provenance — the census half landed 2026-09-02
 
 Runtime-spawned authoritative entities must use the runtime identity/provenance
 road rather than borrowing authored-placement identity. Required component
@@ -233,6 +233,22 @@ can express the invariant.
 Do not attempt to enforce semantic authored-vs-runtime provenance with a grep of
 all `SimId::placement` call sites. A future typed `PlacementId` seam may be
 appropriate when the refactor is justified by a concrete failure/customer.
+
+✔ **Every rollback-anchored entity on the populated timeline carries one
+unique `SimId`** — `every_rollback_anchored_entity_has_a_unique_sim_id_on_the_
+populated_timeline` (`rollback_populated_timeline.rs`), with no waiver list.
+The first run found four anonymous anchors and one collision, all repaired at
+their seams: the grenade's gravity well and the encounter script's falling
+hazard now mint `SimId::spawned(spawner, counter)` under the grenade / the
+encounter (`open_temporary_gravity_well` and `drop_hazard` take the id); a
+placed portal and the gameplay session's world root carry the new DERIVED
+`SimId::singleton(kind, key)` (`portal:blue`, `session:<activation>`) — at
+most one per key, so re-placing is the same object. The collision was the
+fixture's: hand-minted `slot:0/0` met the subject's first bolt, which is why
+the fixture now draws from the subject's own `SimIdCounter` like every
+production spawner. Poison: drop the portal's id and the census names it.
+Open: the semantic half — proving a resimulation re-mints the SAME ids the
+first pass minted (today only indirect, through the checksummed `SimId`).
 
 ### S5 — phase and ownership decomposition
 

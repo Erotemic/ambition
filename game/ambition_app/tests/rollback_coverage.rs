@@ -2268,8 +2268,8 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     // pointed at nothing retires itself on the next tick.
     let target = {
         let world = sim.world_mut();
-        let mut bodies =
-            world.query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
+        let mut bodies = world
+            .query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
         bodies
             .iter(world)
             .next()
@@ -2300,6 +2300,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
             &mut commands,
             SessionSpawnScope::UNSCOPED,
             bevy::math::Vec2::new(160.0, 96.0),
+            Some(SimId::spawned(&SimId::player_slot(0), 2)),
         );
         drop_hazard(
             &mut commands,
@@ -2315,6 +2316,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
                 vel_y: 0.0,
                 dropping: false,
             },
+            Some(SimId::spawned(&SimId::player_slot(0), 3)),
         );
         world.flush();
     }

@@ -81,6 +81,29 @@ fn populate(sim: &mut Platformer2dSimHarness) {
             .unwrap_or(subject);
         (subject, target)
     };
+    // The fixture's spawns are minted UNDER THE SUBJECT, from the subject's own
+    // counter — the way every production spawner mints — so the bolts the
+    // subject fires later continue the same sequence instead of colliding with
+    // a hand-picked `slot:0/0`. (They did: the first hand-minted sentry and the
+    // first bolt shared an id, and the identity census below caught it.)
+    let (spawner, mut seq) = {
+        let world = sim.world_mut();
+        let spawner = world
+            .get::<SimId>(subject)
+            .cloned()
+            .expect("the controlled subject carries a SimId");
+        let mut counter = world
+            .get_mut::<ambition_platformer2d::platformer::sim_id::SimIdCounter>(subject)
+            .expect("an identified entity carries a counter");
+        let seq = [
+            counter.next(),
+            counter.next(),
+            counter.next(),
+            counter.next(),
+        ];
+        (spawner, seq.into_iter())
+    };
+    let mut mint = || SimId::spawned(&spawner, seq.next().expect("four ids"));
     {
         let world = sim.world_mut();
         world
@@ -105,18 +128,19 @@ fn populate(sim: &mut Platformer2dSimHarness) {
             ActorFaction::Player,
             None,
             None,
-            Some(SimId::spawned(&SimId::player_slot(0), 0)),
+            Some(mint()),
         );
         open_vortex_well(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
             bevy::math::Vec2::new(128.0, 96.0),
-            Some(SimId::spawned(&SimId::player_slot(0), 1)),
+            Some(mint()),
         );
         open_temporary_gravity_well(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
             bevy::math::Vec2::new(160.0, 96.0),
+            Some(mint()),
         );
         drop_hazard(
             &mut commands,
@@ -132,6 +156,7 @@ fn populate(sim: &mut Platformer2dSimHarness) {
                 vel_y: 0.0,
                 dropping: false,
             },
+            Some(mint()),
         );
         world.flush();
     }
@@ -280,5 +305,98 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
         stats.load_runs,
         stats.advance_runs,
         audit.coverage()
+    );
+}
+
+/// S4, the census half: every entity on the rollback timeline carries ONE
+/// stable identity, and no two carry the same one.
+///
+/// `Rollback` is what makes an entity's state rewind; `SimId` is what lets a
+/// resimulation say WHICH logical object came back (the checksum probes for
+/// entity references fold through it, and an entity index is not stable across
+/// a rewind). An anchored entity with no id is state that rewinds anonymously;
+/// two entities with one id are a selection nobody can make deterministically.
+/// Measured on the populated world, after the families have stepped and spawned
+/// (bolts, sentry shots), not on the empty boot room.
+#[test]
+fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline() {
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::rollback::Rollback;
+    use std::collections::BTreeMap;
+
+    let mut sim = rollback_sim();
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    populate(&mut sim);
+    for frame in 0..60 {
+        sim.step(busy(frame));
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
+    }
+
+    let world = sim.world_mut();
+    let mut anchored = world
+        .query_filtered::<(Entity, Option<&SimId>, Option<&bevy::prelude::Name>), With<Rollback>>();
+    let rows: Vec<(Entity, Option<String>, String)> = anchored
+        .iter(world)
+        .map(|(entity, id, name)| {
+            (
+                entity,
+                id.map(|id| id.to_string()),
+                name.map(|n| n.as_str().to_string())
+                    .unwrap_or_else(|| format!("<unnamed {entity}>")),
+            )
+        })
+        .collect();
+    let total = rows.len();
+    let mut anonymous: Vec<String> = Vec::new();
+    let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (entity, id, label) in rows {
+        match id {
+            Some(id) => by_id.entry(id).or_default().push(label),
+            None => {
+                // An unnamed anonymous entity is unfindable; list what it is
+                // made of so the failure names the archetype.
+                let label = if label.starts_with("<unnamed") {
+                    let parts: Vec<String> = world
+                        .inspect_entity(entity)
+                        .map(|components| {
+                            components
+                                .map(|info| {
+                                    info.name()
+                                        .to_string()
+                                        .rsplit("::")
+                                        .next()
+                                        .unwrap_or("")
+                                        .to_string()
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    format!("{label} [{}]", parts.join(", "))
+                } else {
+                    label
+                };
+                anonymous.push(label)
+            }
+        }
+    }
+    assert!(
+        total > 20,
+        "premise: a populated timeline anchors more than {total} entities"
+    );
+    anonymous.sort();
+    anonymous.dedup();
+    let shared: Vec<(&String, &Vec<String>)> = by_id
+        .iter()
+        .filter(|(_, carriers)| carriers.len() > 1)
+        .collect();
+    assert!(
+        anonymous.is_empty() && shared.is_empty(),
+        "of {total} rollback-anchored entities:\n  {} carry NO SimId (rewind anonymously): {anonymous:#?}\n  \
+         {} SimIds are carried by more than one entity: {shared:#?}",
+        anonymous.len(),
+        shared.len()
     );
 }

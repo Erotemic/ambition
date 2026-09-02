@@ -87,26 +87,34 @@ pub fn arm_thrown_gravity_grenades(
 /// therefore the rollback ANCHOR of the pair — see the shared-tangle
 /// registration, which says why anchoring `GravityZone` instead would enlist
 /// every authored column for nothing.
+///
+/// `sim_id` is the well's identity, minted under the GRENADE that burned down
+/// (`SimId::spawned(grenade, counter)`); `None` only for a fixture with no
+/// grenade in hand. The well is rollback-anchored, and an anchored entity
+/// without an identity rewinds anonymously (S4).
 pub fn open_temporary_gravity_well(
     commands: &mut Commands,
     scope: SessionSpawnScope,
     center: ae::Vec2,
+    sim_id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> Entity {
-    commands
-        .spawn_session_scoped(
-            scope,
-            (
-                GravityZone {
-                    aabb: ae::Aabb::new(center, WELL_HALF),
-                    dir: ae::Vec2::new(0.0, -1.0), // up
-                },
-                TemporaryZone {
-                    remaining: WELL_DURATION_SECS,
-                },
-                Name::new("Gravity well (grenade)"),
-            ),
-        )
-        .id()
+    let mut spawned = commands.spawn_session_scoped(
+        scope,
+        (
+            GravityZone {
+                aabb: ae::Aabb::new(center, WELL_HALF),
+                dir: ae::Vec2::new(0.0, -1.0), // up
+            },
+            TemporaryZone {
+                remaining: WELL_DURATION_SECS,
+            },
+            Name::new("Gravity well (grenade)"),
+        ),
+    );
+    if let Some(sim_id) = sim_id {
+        spawned.insert(sim_id);
+    }
+    spawned.id()
 }
 
 /// Burn fuses; on expiry open a temporary up-gravity well at the grenade and
@@ -119,6 +127,9 @@ pub fn tick_gravity_grenade_fuses(
         &GroundItem,
         &mut GravityGrenadeFuse,
         Option<&SessionScopedEntity>,
+        // The grenade's identity and counter: its well is minted under it.
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -127,15 +138,25 @@ pub fn tick_gravity_grenade_fuses(
     if dt <= 0.0 {
         return;
     }
-    for (entity, ground, mut fuse, owner) in &mut grenades {
+    for (entity, ground, mut fuse, owner, grenade_id, mut counter) in &mut grenades {
         fuse.timer -= dt;
         if fuse.timer > 0.0 {
             continue;
         }
+        let well_id = match (grenade_id, counter.as_deref_mut()) {
+            (Some(grenade), Some(counter)) => {
+                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                    grenade,
+                    counter.next(),
+                ))
+            }
+            _ => None,
+        };
         open_temporary_gravity_well(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             ground.pos,
+            well_id,
         );
         sfx.write_for(
             entity,

@@ -95,8 +95,15 @@ DEF_KINDS = (
     "union", "class", "def", "macro_rules!",
 )
 #: One pass over the whole tree, collecting every name it DEFINES.
+#: ⛔ MODIFIERS MUST BE CONSUMED, NOT MATCHED. The first version alternated over
+#: the keywords directly, so `pub const fn levelled` matched `const` and captured
+#: the NEXT word -- "fn" -- and the real name was never indexed at all. Every
+#: `const fn`, `async fn` and `unsafe fn` in the tree was invisible, which shows
+#: up as a citation to a function that plainly exists being reported missing.
 DEFINITION = re.compile(
-    r"\b(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
+    r"\b(?:pub\s*(?:\([^)]*\)\s*)?)?"
+    r"(?:default\s+)?(?:const\s+|async\s+|unsafe\s+|extern\s+\"[^\"]*\"\s+)*"
+    r"(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
 )
 #: An enum variant or associated item, at the start of a line.
 #:
@@ -162,6 +169,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict", action="store_true",
                         help="exit 1 when anything is unresolved")
+    parser.add_argument(
+        "--comments", action="store_true",
+        help="also check backticked citations in Rust COMMENTS (the fabricated "
+             "name that prompted this script reached one, where nothing looks)",
+    )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])
     args = parser.parse_args()
@@ -184,6 +196,33 @@ def main() -> int:
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
+    if args.comments:
+        # ⭐ SAME RULE, WIDER TARGET. A comment citation is judged exactly like a
+        # planning one -- there is no reason a name in prose is more real for
+        # sitting next to the code. MEASURED 2026-09-02: 2,847 judged, 45
+        # distinct names unresolved in 59 places, about 2%.
+        for rel in repo_files():
+            if rel.suffix != ".rs":
+                continue
+            for lineno, line in enumerate(
+                (REPO / rel).read_text(errors="replace").splitlines(), 1
+            ):
+                stripped = line.lstrip()
+                if not stripped.startswith("//"):
+                    continue
+                if MARKER in line:
+                    continue
+                for m in SYMBOL.finditer(line):
+                    parts = m.group(1).split("::")
+                    head, tail = parts[0], parts[-1]
+                    if tail in NOISE or len(tail) < 3:
+                        continue
+                    if head in NOISE or head not in ours:
+                        continue
+                    checked += 1
+                    if tail not in defined:
+                        findings.append((str(rel), lineno, m.group(0),
+                                         "nothing DEFINES this name"))
     for doc in docs:
         # ⛔ A DOC OUTSIDE THE REPO IS A LEGITIMATE TARGET -- a fixture under
         # pytest's tmp_path, or a file being checked before it is committed.

@@ -217,7 +217,10 @@ Fix: the remainder is forwarded to the global `CharacterLoadDemand` (transition
 and startup; the neighbour prefetch deliberately not), the poll rebuilds the
 manifest as sheets realize, and `inspect_demanded_characters` holds the reveal
 while any demanded character is only declared. Headless proof: the hall's 129
-now realize one per frame behind the cover (stalled at 6 before); the guard
+now realize behind the cover (stalled at 6 before) — one Full character's
+worth of pixels per frame, which at the gallery's Quarter tier is sixteen
+sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
+areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
 when the remainder is dropped. **Host tell, still owed:** zero "nothing demanded
 it" warnings at the hall reveal, `asset_wait_ms` in the seconds (129 frames of

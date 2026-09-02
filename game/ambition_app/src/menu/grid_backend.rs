@@ -288,6 +288,13 @@ fn cursor_focus_key(
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
 ) -> Option<MenuFocusKey> {
+    // ⛔ BUILT ONCE, OUTSIDE THE LOOP. This asks every actionable node "is your
+    // focus the cursor's?", and the answer for a System row is an index into
+    // this list. Rebuilding it per node made one cursor lookup cost N list
+    // builds -- a heap allocation and a copy of every row id, each time, to read
+    // one `.position()`. The rows are ids, not text, so this is allocation
+    // traffic rather than a settings-IR walk; the IR walk lives in `pointer.rs`.
+    let rows = system_rows_with_quality_prompt(model, open_entry, pending_quality);
     for node in &page.nodes {
         let MenuNode::Control {
             rect,
@@ -297,7 +304,7 @@ fn cursor_focus_key(
         else {
             continue;
         };
-        if focus_for_action(*action, active_page, model, open_entry, pending_quality) == cursor {
+        if focus_for_action(*action, active_page, &rows) == cursor {
             return Some(focus_key_for(*rect));
         }
     }
@@ -1059,13 +1066,9 @@ pub(crate) fn grid_menu_pointer_hover(
     };
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
-    let focus = focus_for_action(
-        action,
-        active_page,
-        &model,
-        system_nav.open_entry,
-        quality_confirm.pending(),
-    );
+    let rows =
+        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
+    let focus = focus_for_action(action, active_page, &rows);
     cursor.mark_keyboard(focus);
 }
 

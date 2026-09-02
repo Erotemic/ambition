@@ -91,8 +91,13 @@ visible frame on *every* face (it says so, `cache.rs:20-22`) and:
 
 - `dev_snapshot()` builds `DevSnapshot { values: Vec<(DevToggleId, bool, String)> }`
   — **one `String` allocated per toggle**, e.g. `"ON".to_string()`
-  (`settings_menu/src/system/mod.rs:434-446`). There are **21** `DevToggleId`
-  variants.
+  (`settings_menu/src/system/mod.rs:434-446`). There are **22** `DevToggleId`
+  variants (`ALL` is `[Self; 22]`, counted 2026-09-02 — this file said 21).
+  ✔ **FIXED 2026-09-02.** The field is `Cow<'static, str>` now, so all 22 borrow:
+  every one of them originated in a `&'static str` (`"ON"`/`"OFF"`, or a
+  `label()` constant) and was being copied onto the heap to be dropped a few
+  systems later. Only `SystemMenuModel::build` materialises an owned `String`,
+  and only while the System face is actually shown.
 - `radio_snapshot()` builds `RadioSnapshot { stations: Vec<(usize, String)> }` —
   one `String` per station.
 - `republish_kaleidoscope_pages` then does `cache.radio.clone()` and
@@ -112,7 +117,41 @@ per control per frame; for System-family actions that allocates a fresh
 list, built once per frame from identical inputs. The fix is `focus_for_action`
 taking the rows rather than the model; it touches six call sites including
 `grid_backend.rs`, which is why it was left out of `88efa268a` rather than
-folded in.
+folded in. ✔ **DONE 2026-09-02**, as described: `focus_for_action` takes
+`rows: &[SystemRow]` and the three parameters it only used to rebuild that list
+are gone. `grid_backend::focus_key_for_cursor` builds it ONCE outside its
+per-node loop.
+
+⚠ **AND THE COST WAS SMALLER THAN THIS PARAGRAPH IMPLIES — read it before
+quoting it.** `SystemRow` is a small id enum, so each rebuild was one heap
+allocation plus a copy of N enum values, not a walk of the settings IR. Real, and
+worth removing from a per-control loop, but allocation traffic rather than
+compute.
+
+⛔⛔ **THE SETTINGS-IR WALK IS IN `pointer.rs`, AND THIS FILE MISSED IT.** The
+hover observer (`Pointer<Move>`, which fires on every mouse move across a
+control) and the release observer both call, when the hovered action is a System
+action:
+
+```rust
+focus_for_action(action, active_page,
+    &SystemMenuModel::build(&settings, &snapshot.radio_snapshot(), &snapshot.dev_snapshot()),
+    ..)
+```
+
+That is the FULL settings IR — a `String` per label, description and value —
+plus both snapshots, rebuilt PER HOVER EVENT, to resolve one row index.
+`CachedSystemMenu` already holds the model and the rows, built once that frame.
+This is a bigger cost than the per-control `Vec` above and it is not in §4's
+list.
+
+⚠ It is NOT a straight swap to the cache. `cache.rows` is populated only while
+`pages.active == Some(MenuPage::System)`, but a System action stays reachable off
+that face — `focus_without_system_model` returns `Some` only for
+Equip/Use/ChangePage, so a hovered System control falls through to the model
+build whatever face is up. Substituting an empty `cache.rows` there would
+silently resolve every such hover to `MenuFocus::System(0)`. The safe shape
+guards on the active page and leaves the off-face path exactly as it is.
 
 **Unverified, inherited from a survey and NOT re-read at the line:**
 `project_scrollbar_tracks` doing per-frame `world_to_viewport` with unguarded

@@ -293,36 +293,14 @@ The proposed shared outer-saturation fix should be judged only after that number
 exists. This is tracked in the execution queue as an external measurement, not a
 maintainer design decision.
 
-## Is 8% of the floor crate, in data, worth splitting a rollback encoder for?
+## ✔ WITHDRAWN 2026-09-02 — "is 8% of the floor crate worth an encoder split?"
 
-**Raised 2026-09-02** from
-[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md),
-whose remaining acceptance boxes ask for `brain/smash` and `brain/fighter` to
-leave `ambition_characters`.
-
-⭐ **The carve they describe already happened, on 2026-08-27 (D168).** 6,491
-non-test lines are in `ambition_combat/src/brain` now. The plan's census —
-including its headline "8,950 non-test lines, INSIDE `ambition_characters`" — was
-stale in every line and has been re-measured in place; anyone sizing this from
-the old number would be starting finished work.
-
-**What is actually left is 2,258 non-test lines of DATA — 8% of that crate's
-28,234** — and it is pinned by two located constraints, not by effort:
-
-* `impl SnapshotCursor for Brain` (`crates/ambition_characters/src/snapshot_impls.rs:350`). The trait is declared
-  in `ambition_platformer2d_core`, so it is foreign to `ambition_characters`
-  while `Brain` is local; the impl can live only in one of those two crates, and
-  everything the encoder reads is pinned with it.
-* `BrainSnapshot.attack_kit: Vec<AttackCandidate>` by value. ⭐ Stable rather than
-  accidental: `ambition_combat` consumes that vocabulary, which is the correct
-  direction — a floor crate owning a vocabulary the layer above reads.
-
-**The decision.** If the 8% is worth paying to remove, the available shapes are a
-DISPATCHER (`Brain` opaque in the floor crate, its encoder delegating to a
-domain-registered one) or making `BrainSnapshot` generic over the attack kit.
-⛔ Both change the rollback wire format, so both want a schema bump and a desync
-test — which is why this is a maintainer call and not a cleanup.
-
-If it is not worth paying, the two open acceptance boxes should be rewritten to
-say what genuinely remains — a template NAME in `CharacterBrainTemplate` — and
-closed. Leaving them as written keeps advertising a carve that is done.
+Raised here the same day and withdrawn the same day: it is an ENGINEERING
+question, not a product one, so it is answered in
+[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md)
+instead. Short answer: do not split. Of the three available shapes, two are
+refused by rules the repository already holds (no service locator; the orphan
+rule again one crate up) and the third fails the plan's own acceptance criterion
+4, because `ambition_mount` holds a `Brain` by value and does not depend on
+`ambition_combat` — so moving `Brain` into a combat crate makes a movement-only
+game link one. Recorded here only so the question is not raised a third time.

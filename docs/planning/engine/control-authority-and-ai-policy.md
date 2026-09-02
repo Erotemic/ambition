@@ -126,63 +126,54 @@ rather than inferred:
 concern ("a movement-only game links two platform-fighter policies") is now about
 8% of one crate in inert definitions, not about 8,950 lines of fighter AI.
 
-▢ **QUESTION FOR THE MAINTAINER, recorded rather than decided, because it is a
-cost/benefit call and not an engineering blocker.** Is 8% of the floor crate, in
-data, worth splitting a rollback encoder for? If yes, the shapes available are a
-DISPATCHER (`Brain` becomes opaque in the floor crate and its encoder delegates
-to a domain-registered encoder) or making `BrainSnapshot` generic/opaque over the
-attack kit. Both touch the rollback wire format, so both want a schema bump and a
-desync test, and neither should be started on the strength of the stale 8,950.
-If no, the two remaining acceptance boxes should be rewritten to say what is
-actually left — a template NAME in an enum — and closed.
+### ✔ DECIDED 2026-09-02: DO NOT SPLIT. The pin is intentional.
 
-## The two facts
+This is an ENGINEERING call, not a product one, so it is answered here rather
+than filed for the maintainer. Three shapes were available. All three were
+measured, and two are refused by rules this repository already holds.
 
-* **CONTROL AUTHORITY** — *who drives this body*. `Brain::Player(slot)` says the
-  body reads participant `slot`'s control stream. This is participant-scoped and
-  entirely generic: it names no policy, no genre and no content.
-* **AI POLICY** — *how this body decides for itself*. `StateMachineCfg` is a
-  closed set of typed policies, each carrying its own tuning AND its per-actor
-  runtime state.
+**A — a split encoder in the floor crate dispatching to a domain-owned codec.**
+⛔ REFUSED BY THIS DOCUMENT'S OWN PROHIBITION. For `ambition_characters` to call a
+codec owned by `ambition_combat` it must reach UPWARD, which needs a runtime
+registry — and the "What was refused" section above rules out exactly that: *"no
+`Any`, no `TypeId`, no `BrainId`, no executable registry, no service locator"*,
+because it converts a compile error into a runtime lookup. The shape is not
+available and the reason predates this question.
 
-They are one enum, so they are mutually exclusive by construction. That is
-convenient and it is why three separate costs exist:
+**B — a dispatcher trait the ggrs crate implements per variant.**
+⛔ BLOCKED BY THE SAME ORPHAN RULE, one crate further up. `SnapshotCursor` lives
+in `ambition_platformer2d_core` and `Brain` in `ambition_characters`; both are
+FOREIGN to `ambition_platformer2d_rollback_ggrs`, so it may not write that impl
+either. A newtype wrapper is the usual escape and does not fit here: the
+registrar's bound is `T: Component<Mutability = Mutable> + Clone + SnapshotCursor`
+(`crates/ambition_platformer2d_runtime/src/rollback/registrar.rs:67`), so the
+COMPONENT itself must implement the trait — a wrapper would have to become the
+registered component, which is a far larger change than the one being bought.
 
-1. ⛔⛔ **possession must SWAP the whole component and remember the old one.**
-   `PossessionState::restore_brain: Option<Brain>` is rollback-registered state,
-   so a rewound possession round-trips an entire AI policy's runtime state
-   through a resource whose subject is *who is driving*. Possession should
-   transfer control authority; it currently transfers a policy as well because
-   it has no way to move one without the other.
-2. ⛔ **"human participant" is an AI-backend variant.** A body under a
-   participant's control is spelled as a case of the same enum whose other cases
-   are wanderers and bosses. Every exhaustive match over `Brain` therefore has an
-   arm for a thing that is not a policy at all.
-3. ⛔ **policy cannot migrate to its domain.** A Smash fighter policy belongs with
-   Smash; `Patrol` and `Wanderer` belong to the generic actor floor. They cannot
-   move independently while both are variants of one enum in one crate.
+**C — move `Brain` up with its encoder.** The only shape that satisfies the orphan
+rule, and the measurement kills it. Inside `ambition_characters` and outside
+`brain/`, exactly TWO sites name the type — its registration
+(`rollback_registration.rs:32`, `"actor.brain"`) and the encoder itself — so the
+floor crate's actor model does NOT hold it back. What does is a crate above:
+`ambition_mount` stores `pub brain: ambition_characters::brain::Brain` BY VALUE
+(`crates/ambition_mount/src/lib.rs:205`) and depends on `ambition_characters`
+but NOT on `ambition_combat`. ⛔ Moving `Brain` into a combat crate makes a MOUNT
+system link one — which is precisely acceptance criterion 4 (*"a movement-only
+game's linked-crate count does not rise"*) failing. The carve would buy 8% of a
+floor crate by breaking the goal the carve exists to serve.
 
-## The shape
+⇒ **The pin stays, and it is not debt.** Cost of this decision in the terms the
+repo uses: **no schema bump** (nothing moves), **no crate gains a dependency**,
+**zero call sites touched**. The encoder is
+`crates/ambition_characters/src/snapshot_impls.rs:350-489` and discriminates
+exactly three variants (`BossPattern`, `Fighter`, `Smash`); the registrar is
+generic over the trait, so there are no per-type call sites to migrate even if
+one wanted to.
 
-Two typed components instead of one enum, and NEITHER of them is erased:
-
-```text
-ControlAuthority   the participant slot this body reads      generic, engine-owned
-AiPolicy           a typed, domain-owned policy component    domain-owned
-```
-
-* a player-driven body carries `ControlAuthority` and no `AiPolicy`;
-* an autonomous body carries `AiPolicy` and no `ControlAuthority`;
-* **possession INSERTS `ControlAuthority` and leaves `AiPolicy` where it is.**
-  Release removes it. Nothing is stashed, so `restore_brain` retires and <!-- cite-ok -->
-  `PossessionState` stops carrying policy state through rollback.
-* a domain publishes its own policy component. `Smash`/`Fighter` become the smash
-  domain's; `Patrol`/`Wanderer`/`StandStill` stay on the actor floor. Each moves
-  when it has somewhere to go, independently.
-
-⭐ **this is the same federation shape as the checkpoint horizon and the
-construction lanes**: composition names a domain's offer, never the concrete
-types inside it, and the offer is a typed plugin rather than a table.
+⚠ **What would REOPEN this**, stated so the decision is falsifiable rather than
+permanent: `ambition_mount` ceasing to hold a `Brain` by value (the one measured
+blocker), or `SnapshotCursor` moving somewhere both `Brain` and a domain codec
+can see. Neither is worth engineering for its own sake.
 
 ## Acceptance
 

@@ -25,6 +25,36 @@ bench = false
 [features]
 default = []
 # Draw it AND make it playable, exactly as the Sanic shell does.
+#
+# ⛔ `cargo test -p ambition_demo_smash_app --features visible` IS NOT A
+# SUPPORTED CELL, and that is a property of the composition rather than a bug to
+# fix. `build_demo_app` starts from `add_headless_foundation` — MinimalPlugins
+# plus assets/images/transforms/states — and has no renderer whatever features
+# are on (its own doc says so). `visible` then adds presentation and debug-viz
+# SYSTEMS whose parameters are render-stack resources.
+#
+# MEASURED 2026-09-02, by fixing each one and finding the next:
+#   1. `Assets<TextureAtlasLayout>` — `ImagePlugin` does not supply it (it is
+#      `TextureAtlasPlugin`'s). FIXED at the source: `PlatformerAssetsPlugin`
+#      now registers what its own Startup system consumes.
+#   2. `GizmoConfigStore` for `draw_debug_viz` — needs bevy's `GizmoPlugin`.
+#      FIXED at the source: that system now carries the same
+#      `run_if(resource_exists::<GizmoConfigStore>)` guard `avatar::trail.rs`
+#      already had.
+#   3. `Assets<Mesh>` + `Assets<HitFlashMaterial>` for the hit-flash pass —
+#      `MeshPlugin`'s, and in this repo only ever hand-registered inside tests.
+# ⇒ Each fix revealed the next. That is the signature of "this composition wants
+# a renderer", not "one registration is missing", so the chain is not worth
+# following further.
+#
+# WHERE IT STANDS: the cell BUILDS and 14 of 39 tests pass; the other 25 step far
+# enough to reach a presentation system and die in bevy's parameter validation.
+# ⚠ That failure names nothing — `<Enable the debug feature to see the name>` —
+# so run it under `RUST_BACKTRACE=1` and read the `run_unsafe<fn(..)>` frame,
+# which is the only place the system's parameters appear.
+#
+# SUPPORTED INSTEAD: the workspace feature union (`nextest --workspace`, which
+# the gate runs), and `build_windowed_demo_app` for anything that must draw.
 visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input"]
 input = ["ambition_platformer2d/input"]
 # The causal log, for `ladder_probe`'s seam trace. Off by default (§2e): a demo

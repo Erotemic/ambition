@@ -743,7 +743,20 @@ impl Plugin for DebugVizPlugin {
                 toggle_debug_viz,
                 draw_debug_viz
                     .after(ambition_sim_view::PresentedPoseSet)
-                    .run_if(session_world_exists),
+                    .run_if(session_world_exists)
+                    // ⛔ A GIZMO SYSTEM WITHOUT A GIZMO STACK IS NOT A PANIC, IT IS
+                    // A NO-OP. `Gizmos` needs `GizmoConfigStore`, which comes from
+                    // bevy's `GizmoPlugin` and therefore from a RENDERER. A headless
+                    // composition that still adds this plugin — `-p
+                    // ambition_demo_smash_app --features visible` is one, and it is
+                    // B3's whole subject — otherwise dies inside bevy's system
+                    // parameter validation naming nothing you can act on.
+                    //
+                    // Same guard `avatar::trail.rs` already puts on its own gizmo
+                    // system; this one was simply never given it.
+                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                        bevy::gizmos::config::GizmoConfigStore,
+                    >),
             )
                 .chain(),
         );

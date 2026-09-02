@@ -141,6 +141,27 @@ impl Plugin for PlatformerAssetsPlugin {
         app.insert_resource(config);
         app.insert_resource(catalog);
         app.insert_resource(AssetBindRoom(self.room.clone()));
+        // ⛔⛔ THE PLUGIN REGISTERS WHAT ITS OWN SYSTEM CONSUMES, GUARDED.
+        // `bind_game_assets` takes `ResMut<Assets<TextureAtlasLayout>>`, and a
+        // composition that never registered it panics on `Startup` instead of at
+        // `build`. That is not hypothetical: `-p ambition_demo_smash_app
+        // --features visible` hand-assembles its app rather than going through
+        // `app.rs`'s composition road, so nothing supplied the atlas store and the
+        // demo could be `cargo check`ed but never RUN (B3).
+        //
+        // ⛔ AND THE GUARD IS NOT OPTIONAL. `init_asset` is NOT idempotent — read
+        // it: bevy_asset 0.19.1 `lib.rs:639` ends in an unconditional
+        // `insert_resource(assets)`, so calling it where a store already exists
+        // REPLACES it and drops every handle already registered, then re-adds its
+        // systems and messages on top. `app.rs:1298` gets away with a bare call
+        // only because it is behind `if !windowed`, which is a proxy for this
+        // question; ask the question directly.
+        if !app
+            .world()
+            .contains_resource::<Assets<TextureAtlasLayout>>()
+        {
+            app.init_asset::<TextureAtlasLayout>();
+        }
         app.init_resource::<GameAssets>();
         app.add_systems(
             Startup,

@@ -1361,6 +1361,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which assets are staged and how far the prefetch got — a readiness          question about loading, never about the simulated world",
     ),
     (
+        "ambition_app::app::world_flow::first_room_art::FirstRoomArtJobs",
+        "the same readiness question asked of a shell route's FIRST room, BEFORE          it activates: per published session, the manifest being waited on and          how many updates it took. Loading work that finishes before any session          simulates; nothing in a session reads it",
+    ),
+    (
+        "ambition_platformer2d_provider::lifecycle::FirstRoomArtContributor",
+        "a marker inserted by `init_resource` at plugin build: THIS host answers          `prepare-first-room-art` itself. Composition identity, written once,          never taken mutably",
+    ),
+    (
         "ambition_content::presentation::",
         "content-side presentation (dialog layout/portrait playback, the deep          dream settings): draws the sim, never authors it",
     ),

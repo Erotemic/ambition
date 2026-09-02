@@ -398,6 +398,15 @@ impl ImageStageLedger {
     /// this returns every resident image under its road and means "nobody could
     /// have drawn anything". The caller must consult
     /// [`Self::render_world_present`] before printing it as a finding.
+    ///
+    /// ⛔⛔ AND [`ROAD_PROCEDURAL`] IS NEVER A FINDING IN THIS READOUT, whatever
+    /// its megapixels say. The stage is stamped from `ExtractedSprites`, and a
+    /// render target, a shader input or a material texture is never a sprite —
+    /// it is written to or sampled, not extracted. So those rows are
+    /// PERMANENTLY "never drawn" by construction, and a reader chasing the 4-6
+    /// MP this bucket reports in a hall capture is chasing the instrument rather
+    /// than the assets. Only the file-backed roads answer a residency question
+    /// here.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn never_drawn_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
         let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();

@@ -347,22 +347,90 @@ impl ImageStageLedger {
         self.rows.values()
     }
 
+    /// The UNROUTED resident images, largest first: every image that came from a
+    /// FILE and reached `Assets<Image>` without passing a stamped demand road.
+    ///
+    /// ⛔⛔ THE ONE BUCKET A COUNT CANNOT ANSWER. Unrouted means *nobody claims
+    /// to have asked for this*, so the next question is always WHICH — and until
+    /// this existed the only way to find out was to probe the ledger by hand.
+    /// That is how the Hall's one unrouted image was identified on 2026-09-02
+    /// (the LDtk editor-preview tileset), and it should not have taken a bespoke
+    /// probe.
+    ///
+    /// ⛔ FILE-BACKED ONLY, and the split is the whole point. See
+    /// [`Self::procedural_resident`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn unrouted_resident(&self) -> Vec<(f64, &str)> {
+        let mut rows: Vec<(f64, &str)> = self
+            .rows
+            .values()
+            .filter(|row| row.inserted_at.is_some() && row.source.is_none())
+            .filter_map(|row| Some((row.megapixels, row.path.as_deref()?)))
+            .collect();
+        // Megapixels descending, then path, so two censuses diff cleanly and the
+        // expensive one is the one that gets read.
+        rows.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(b.1)));
+        rows
+    }
+
+    /// Resident images that came from no file at all — inserted directly into
+    /// `Assets<Image>` rather than decoded: render targets, procedural sprites,
+    /// shader inputs.
+    ///
+    /// ⛔⛔ NOT THE SAME FACT AS UNROUTED, AND THEY SHARED A BUCKET. A row with
+    /// `source == None` was keyed `"?"` whether it was a FILE nobody stamped or
+    /// an image with no file to stamp — and the second kind can never acquire a
+    /// demand road, because there is no load to stamp. Measured 2026-09-02 on
+    /// the Hall: 24 of the 24 "unrouted" images had no path at all, so a census
+    /// line reading `UNROUTED(no demand) 24×4.5MP` reported 24 findings where
+    /// there were none, and on the host would have buried the one that matters
+    /// (the 7.6 MP LDtk editor-preview tileset) inside its own noise.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn procedural_resident(&self) -> (usize, f64) {
+        self.rows
+            .values()
+            .filter(|row| row.inserted_at.is_some() && row.source.is_none())
+            .filter(|row| row.path.is_none())
+            .fold((0usize, 0f64), |(n, mp), row| (n + 1, mp + row.megapixels))
+    }
+
     /// WHAT IS RESIDENT, BY THE ROAD THAT DEMANDED IT: megapixels of every
     /// image inserted and not yet removed, grouped by source label (asset open
     /// work 4 asks for the owner of retained assets before any eviction policy;
     /// this is the measurement that names the owners). Images no road stamped
-    /// group under `"?"`. Deterministic order, so two censuses diff cleanly.
+    /// group under [`ROAD_UNROUTED`] when they came from a file and
+    /// [`ROAD_PROCEDURAL`] when they did not. Deterministic order, so two
+    /// censuses diff cleanly.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
         let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
         for row in self.rows.values().filter(|row| row.inserted_at.is_some()) {
-            let entry = by_road.entry(row.source.unwrap_or("?")).or_default();
+            let key = row.source.unwrap_or(if row.path.is_some() {
+                ROAD_UNROUTED
+            } else {
+                ROAD_PROCEDURAL
+            });
+            let entry = by_road.entry(key).or_default();
             entry.0 += 1;
             entry.1 += row.megapixels;
         }
         by_road
     }
 }
+
+/// [`ImageStageLedger::resident_by_road`] key for a FILE-backed image that
+/// reached `Assets<Image>` without passing a stamped demand road. A finding:
+/// something loaded art and no road said so.
+pub const ROAD_UNROUTED: &str = "?";
+
+/// [`ImageStageLedger::resident_by_road`] key for an image with no file behind
+/// it — inserted directly rather than decoded.
+///
+/// ⛔ NOT A FINDING, and it shared a key with one until 2026-09-02. A procedural
+/// image can never acquire a demand road, because there is no load to stamp;
+/// counting it as unrouted put 24 non-findings in the Hall's bucket and would
+/// have buried the single real one on the host.
+pub const ROAD_PROCEDURAL: &str = "~procedural";
 
 static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     rows: BTreeMap::new(),
@@ -574,6 +642,52 @@ mod tests {
             ledger.resident_by_road().get("character-sheet"),
             Some(&(1, 2.0))
         );
+    }
+
+    /// ⛔⛔ AN UNROUTED FILE AND A PROCEDURAL IMAGE ARE NOT THE SAME FINDING,
+    /// AND THEY SHARED A BUCKET.
+    ///
+    /// `source == None` was keyed `"?"` for both — a FILE that decoded with
+    /// nobody claiming to have asked for it, and an image with no file at all.
+    /// The second can never acquire a demand road, because there is no load to
+    /// stamp. Measured on the Hall 2026-09-02: 24 of the 24 "unrouted" images
+    /// had no path, so the census line read `UNROUTED(no demand) 24×4.5MP` and
+    /// every one of them was a non-finding — while the one that matters on the
+    /// host (the 7.6 MP LDtk editor-preview tileset) would have been the 25th
+    /// entry in a bucket nobody could read.
+    ///
+    /// ⛔ BOTH HALVES, because either alone passes on a ledger that puts
+    /// everything in one bucket: the split is what is being pinned, not the
+    /// presence of a key.
+    #[test]
+    fn a_file_nobody_demanded_is_a_finding_and_a_procedural_insert_is_not() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        // A FILE with no demand stamp: something loaded art and no road said so.
+        ledger.inserted(id(30), 7.6, None, Some("preview_tileset.png".into()), t0);
+        // Two images with no file behind them at all.
+        ledger.inserted(id(31), 0.3, None, None, t0);
+        ledger.inserted(id(32), 1.0, None, None, t0);
+
+        let census = ledger.resident_by_road();
+        assert_eq!(
+            census.get(ROAD_UNROUTED),
+            Some(&(1, 7.6)),
+            "the unrouted bucket must hold the FILE and only the file",
+        );
+        assert_eq!(
+            census.get(ROAD_PROCEDURAL),
+            Some(&(2, 1.3)),
+            "images with no file belong in their own bucket, not among findings",
+        );
+
+        assert_eq!(
+            ledger.unrouted_resident(),
+            vec![(7.6, "preview_tileset.png")],
+            "the named unrouted list is what a host run reads; a procedural \
+             insert in it is a name nobody can act on",
+        );
+        assert_eq!(ledger.procedural_resident(), (2, 1.3));
     }
 
     #[test]

@@ -185,14 +185,18 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
         .fold((0usize, 0f64), |(n, mp), (count, road_mp)| {
             (n + count, mp + road_mp)
         });
-    // ⛔⛔ THE POPULATION THAT MATTERS IS THE ROUTED ONE. `"?"` is the ledger's
-    // key for a row whose `source` is `None` -- an image that reached
-    // `Assets<Image>` without ever passing a stamped demand road, i.e. inserted
-    // directly rather than decoded from a file. Character sheets ALWAYS carry a
-    // road, so a resident set that is entirely `"?"` contains no art at all.
+    // ⛔⛔ THE POPULATION THAT MATTERS IS THE ROUTED ONE, and there are TWO keys
+    // that are not roads. `ROAD_UNROUTED` is a FILE that decoded with nobody
+    // claiming to have asked for it -- a finding. `ROAD_PROCEDURAL` is an image
+    // with no file at all, inserted directly: it can never carry a road, because
+    // there is no load to stamp. Character sheets ALWAYS carry a road, so a
+    // resident set that is entirely those two contains no art.
     let routed: usize = by_road
         .iter()
-        .filter(|(road, _)| **road != "?")
+        .filter(|(road, _)| {
+            **road != image_stages::ROAD_UNROUTED
+                && **road != image_stages::ROAD_PROCEDURAL
+        })
         .map(|(_, (count, _))| *count)
         .sum();
     drop(ledger);
@@ -210,21 +214,24 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     // Draft one guarded the staged CAST size -- but staging is a demand and
     // `re_decodes` counts insertions. Draft two guarded the resident IMAGE count
     // and passed at 22, which read like a small-but-real population. It was not:
-    // all 22 were `"?"`, procedurally inserted images with no road, and ZERO
-    // character sheets had decoded. `ImagePlugin` registers the image loader in
-    // `finish()`, which never runs under the `app.update()` loop a `NoWindow`
-    // composition uses, so this road decodes NO FILE-BACKED ART AT ALL.
+    // all 22 were procedural inserts with no road, and ZERO character sheets had
+    // decoded. `ImagePlugin` registers the image loader in `finish()`, which
+    // never ran under the `app.update()` loop a `NoWindow` composition uses, so
+    // this road decoded NO FILE-BACKED ART AT ALL.
     //
-    // ⇒ The honest guard is on the ROUTED count, and today it FAILS -- which is
-    // the correct outcome, because a re-decode census over a population with no
-    // art in it cannot answer anything. It is not a regression; it is the
-    // measurement refusing to report a number it never had.
+    // ✔ FIXED 2026-09-02 (`124684f56`): the no-window builder finishes its
+    // plugins. Re-measured the same day -- 237 resident, 213 of them ROUTED,
+    // 67.6 MP -- so this guard reads a real population for the first time and
+    // the re-decode count below is a measurement rather than an artefact.
+    //
+    // ⇒ The honest guard is still on the ROUTED count: it is what separates
+    // "the Hall decoded no art twice" from "the Hall decoded no art".
     assert!(
         routed > 0,
-        "no resident image arrived through a demand road ({total} resident, all \
-         unrouted), so NOTHING file-backed decoded and a re-decode count of \
-         {re_decodes} is measuring an empty population. This is expected on the \
-         NoWindow road until the composition finishes its plugins; see \
+        "no resident image arrived through a demand road ({total} resident), so \
+         NOTHING file-backed decoded and a re-decode count of {re_decodes} is \
+         measuring an empty population -- the composition is not finishing its \
+         plugins, so `ImagePlugin` never registered the image loader. See \
          `asset-preparation-and-residency.md` Open work 5."
     );
 

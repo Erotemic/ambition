@@ -110,6 +110,12 @@ impl ImageCensus {
 /// IO pool decoded it — so these timestamps mark decode COMPLETION, which is
 /// what lines up with a frame spike and a sprite re-bind.
 #[cfg(not(target_arch = "wasm32"))]
+/// How many unrouted images the census names before it says `+N more`.
+///
+/// Eight, because the bucket is meant to be small: a census that has to print a
+/// hundred of these is reporting a different problem, and the count says so.
+const UNROUTED_NAMED: usize = 8;
+
 pub fn report_image_census(
     mut events: MessageReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
@@ -271,6 +277,8 @@ pub fn report_image_census(
         dropped,
         dropped_mp,
         by_road,
+        unrouted,
+        unrouted_total,
     ) = {
         let mut ledger = image_stages::ledger();
         let (count, megapixels, p50, max) = ledger.take_gpu_window();
@@ -292,6 +300,22 @@ pub fn report_image_census(
                 format!("{road} {count}×{mp:.1}MP")
             })
             .collect();
+        // ⭐ AND NAME THEM. A count of FILES nobody claims to have asked for is
+        // the one row whose next question is always WHICH — the Hall's single
+        // unrouted image took a bespoke ledger probe to identify on 2026-09-02,
+        // and a host run should not have to repeat that. Capped, because the
+        // point is the expensive ones and a census line is not a manifest.
+        //
+        // ⛔ FILE-BACKED ONLY. Procedural inserts have no load to stamp and can
+        // never leave this bucket; listing them would print 24 non-findings and
+        // push the real one past the cap.
+        let unrouted: Vec<String> = ledger
+            .unrouted_resident()
+            .into_iter()
+            .take(UNROUTED_NAMED)
+            .map(|(mp, path)| format!("{mp:.1}MP {path}"))
+            .collect();
+        let unrouted_total = ledger.unrouted_resident().len();
         (
             count,
             megapixels,
@@ -302,6 +326,8 @@ pub fn report_image_census(
             ledger.dropped_before_gpu,
             ledger.dropped_before_gpu_megapixels,
             by_road,
+            unrouted,
+            unrouted_total,
         )
     };
     if census.window_images > 0 || gpu_count > 0 {
@@ -330,6 +356,21 @@ pub fn report_image_census(
             ms(gpu_max),
             by_road.join(", "),
         );
+        // ⛔ ONE LINE, AND ONLY WHEN THERE IS SOMETHING TO SAY. An unrouted image
+        // is either eager loading nobody asked for or a demand road that stamps
+        // nothing; both are findings, and neither is readable from a count.
+        if unrouted_total > 0 {
+            let more = unrouted_total.saturating_sub(unrouted.len());
+            let tail = if more > 0 {
+                format!(" (+{more} more)")
+            } else {
+                String::new()
+            };
+            eprintln!(
+                "[image-unrouted] {at:8.3}s {unrouted_total} file(s) decoded with no demand stamp: {}{tail}",
+                unrouted.join(", "),
+            );
+        }
     }
     census.window_images = 0;
     census.window_megapixels = 0.0;

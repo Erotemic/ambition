@@ -995,6 +995,41 @@ that keeps the active theme and the one-hop neighbours' would bound it at
 recorded rather than built; the `resident by road: parallax` term after a
 multi-zone walk is the measurement.
 
+⭐ **BUILT AND MEASURED 2026-09-02 (`f1445c142`). And the accumulation was not a
+caller's omission — it was a GUARANTEE OF THE TYPE**, which is why the fix had to
+start in `ambition_sprite_sheet` and not at a call site:
+
+- `ParallaxLayerSet`'s whole API was `get`, `ensure_theme_loaded`, `len`,
+  `is_empty` over a PRIVATE map; no `remove`, `clear` or `retain` existed and
+  nothing outside its module named the type;
+- `GameAssets` is assigned once, by `bind_game_assets` on `Startup`, so the
+  accumulating set lives for the whole process;
+- the one path that looks like a release,
+  `refresh_parallax_layers_on_quality_change`, despawns `ParallaxLayerVisual`
+  ENTITIES and respawns them without touching the handle store.
+
+`ParallaxLayerSet::retain_themes` is the eviction API and owns no policy;
+`world_flow::parallax_residency` owns the rule (active + one-hop), ordered after
+the prefetch. Verified end to end by `scripts/measure_parallax_retire.sh`:
+`[Hub, Basement, Boss]` → `[Hub, Basement]`, and the retired theme's images leave
+`Assets<Image>` — asserted separately, because dropping a handle is necessary and
+not sufficient when a spawned visual may hold a clone.
+
+⚠ **Two corrections to the estimate above, both downward.** The ceiling is
+reached less often than "visits every zone" suggests, and the rule's own bound is
+looser than what is ever loaded:
+
+- ⛔ **`NEIGHBOR_PREFETCH_ROOM_BUDGET` is 4** — the prefetch prepares at most four
+  neighbours however many a room has. `central_hub_main` has 21 exits into six
+  biomes, so the rule PERMITS six themes there, but only **three** are ever
+  resident (`[Hub, Basement, Boss]`, measured). Sizing this leak from adjacency
+  overestimates it by double.
+- The route that would test it is not the obvious one: `central_hub_main` and
+  `hall_of_characters` BOTH resolve to `ParallaxTheme::Hub` (`biome: hall` is not
+  a `from_key` key, so it falls through to `visual_theme: default`), so the hall
+  door crosses no theme boundary and a retire assertion on it passes while doing
+  nothing. The fixture walks `tech_bros_door` into Basement instead.
+
 ### 5. Eliminate accidental re-preparation/reload
 
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame

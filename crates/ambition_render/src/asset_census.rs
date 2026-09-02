@@ -127,6 +127,11 @@ pub fn report_image_census(
     images: Res<Assets<Image>>,
     asset_server: Res<AssetServer>,
     mut census: ResMut<ImageCensus>,
+    // ⭐ OPTIONAL AND PER-APP. Absent means this App never installed a render
+    // world, which is the honest reading for a headless probe sharing the
+    // process with a rendering sibling — the process-global bool this replaced
+    // could not tell the two apart.
+    render_world: Option<Res<image_stages::RenderWorldPresent>>,
     // ⭐ OPTIONAL, because a composition may have no game mode at all (a capture
     // tool, a headless probe). Absent means "cannot tell", which must read as
     // "do not accuse", not as "not during gameplay".
@@ -354,8 +359,10 @@ pub fn report_image_census(
         // ever extracted, so EVERY resident image is "never drawn" and the row
         // would accuse a headless run of waste it cannot commit. The ledger's
         // own doc says the two readings need separating; this is the separation.
+        let render_world_present =
+            image_stages::RenderWorldPresent::from_option(render_world.as_deref());
         let never_drawn: Option<(usize, f64, Vec<String>)> =
-            ledger.render_world_present().then(|| {
+            render_world_present.is_present().then(|| {
                 let by_road = ledger.never_drawn_by_road();
                 let (count, megapixels) =
                     by_road.values().fold((0usize, 0f64), |(n, mp), (c, road_mp)| {
@@ -608,12 +615,17 @@ impl Plugin for ImageStagePlugin {
             // first fixes the zero, and the other reads it.
             app.init_resource::<ImageCensus>();
             let clock = ImageStageClock(app.world().resource::<ImageCensus>().started_at);
+            if app.get_sub_app(RenderApp).is_none() {
+                return;
+            }
+            // From here on a reveal may wait for stage 3; see
+            // `ImageStageLedger::is_awaiting_gpu`. ⛔ ON THIS APP'S MAIN WORLD,
+            // not on the process ledger: a sibling App in the same process has
+            // its own answer. Inserted BEFORE the sub-app is borrowed.
+            app.insert_resource(image_stages::RenderWorldPresent(true));
             let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
                 return;
             };
-            // From here on a reveal may wait for stage 3; see
-            // `ImageStageLedger::is_awaiting_gpu`.
-            image_stages::ledger().set_render_world_present(true);
             render_app.insert_resource(clock).add_systems(
                 Render,
                 (

@@ -460,9 +460,12 @@ asset problem. Only the file-backed roads answer a residency question here.
 ⛔⛔ **AND THE ROW PRINTS `-`, NOT `0`, WITHOUT A RENDER WORLD.** With nothing
 extracted, EVERY resident image is "never drawn" — which on a headless road means
 nobody could have drawn anything, not that the pixels were wasted.
-`render_world_present()` is the fact that separates the two readings and the row
-consults it; a readout that skipped that check would accuse a `NoWindow` run of
-waste it cannot commit. Both rules are guarded on the pure ledger and
+The ASKING App's `RenderWorldPresent` resource is the fact that separates the two
+readings and the row consults it; a readout that skipped that check would accuse
+a `NoWindow` run of waste it cannot commit. ⭐ It was a `bool` ON THE PROCESS
+LEDGER until 2026-09-02, which answered "did any App in this process render"
+rather than "does the one asking" — see `queue.md`'s ledger row for the fix and
+why it was latent rather than live. Both rules are guarded on the pure ledger and
 poison-verified (drop first-write-wins and the guard names the instant that
 moved).
 

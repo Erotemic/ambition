@@ -471,16 +471,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   could work. **"Neither A nor B is sufficient" does not imply "A ∧ B is
   insufficient."** Residency from the App plus classification from the ledger is
   exactly that conjunction, and it is sound.
-  ⭐ **THE LEDGER HAS THIS SHAPE OF PROBLEM TWICE**: `render_world_present` is
-  also a process-global `bool` standing in for a per-App fact — set true by
-  whichever App installs a render plugin, read for every App thereafter, and
-  `is_awaiting_gpu` gates on it. ⚠ **LATENT, NOT LIVE — measured**: all 97
-  `VisibleRenderMode` uses across `app_it` are `NoWindow`, so nothing in that
-  process ever sets it and it cannot currently give a wrong answer. It becomes
-  live the day one test builds a render world beside one that does not.
-  ⇒ Whoever takes (b) should scope BOTH: fixing row attribution while leaving a
-  global render-world flag leaves the ledger half-scoped, which is harder to
-  reason about than either end state.
+  ⭐ **THE LEDGER HAD THIS SHAPE OF PROBLEM TWICE, AND THE SECOND HALF IS NOW
+  CLOSED (2026-09-02).** `render_world_present` was also a process-global `bool`
+  standing in for a per-App fact — set true by whichever App installed a render
+  plugin, read for every App thereafter, and `is_awaiting_gpu` gated on it.
+  ⚠ It was **LATENT, NOT LIVE — measured**: all 97 `VisibleRenderMode` uses
+  across `app_it` are `NoWindow`, so nothing in that process ever set it and it
+  could not give a wrong answer yet. It would have become live the day one test
+  built a render world beside one that did not.
+  ✔ **FIXED BY DELETING THE FIELD, not by guarding it.** `RenderWorldPresent` is
+  a Bevy `Resource` in `image_stages`, inserted on the MAIN world by the App that
+  installs the census's render systems; `is_awaiting_gpu(id, render_world)` and
+  the census's never-drawn row take the fact as an argument, so the process
+  ledger no longer holds an opinion about which App is asking. Threaded through
+  `inspect_room_asset_manifest` to its five production callers — the three
+  systems that had a spare param slot took one, and the two that were at Bevy's
+  arity limit joined an existing tuple beside `AssetServer`/`Assets<Image>`,
+  which is where the readiness authorities already travel together.
+  ⭐ **THE TESTS THAT SET-AND-RESTORED THE GLOBAL WERE THE TELL, and they are
+  the guard now.** `room_readiness_waits_for_the_gpu_copy_only_while_a_render_world_owes_it`
+  used to set the flag for its span and clear it before returning, with a doc
+  paragraph explaining why; that dance is gone, and both it and the ledger's own
+  `the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present`
+  now assert the thing the field made unsayable: **one ledger, one id, one
+  breath, two different answers** for a headless App and a rendering one.
+  ⛔⛔ **AND BE PRECISE ABOUT WHAT THE POISON PROVED.** Making `is_awaiting_gpu`
+  ignore its argument turns both tests red, at both layers, with messages naming
+  the defect — but the arm that catches it is one that existed BEFORE this
+  change, and the panic arrives before the new same-breath assertion even runs.
+  ⇒ The real guard here is STRUCTURAL: the field is deleted, so an App cannot
+  inherit a sibling's answer no matter what a test asserts. The new assertions
+  DOCUMENT that — they state a claim the old design made unsayable — and the
+  only poison that defeats them is reintroducing the global, i.e. reverting the
+  change. A test cannot guard a shape it is not able to express; do not credit
+  this row with a guard stronger than that.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

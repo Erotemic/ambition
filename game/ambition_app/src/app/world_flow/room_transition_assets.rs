@@ -19,6 +19,7 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent;
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
@@ -148,6 +149,11 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     >,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
+    /// Whether THIS App has a render world, so the GPU-upload readiness term
+    /// asks about a GPU that exists. ⛔ Absent means no render world: the
+    /// resource is inserted only by the App that installs the census's render
+    /// systems, and a headless sibling in the same process must not inherit it.
+    pub(crate) render_world: Option<Res<'w, RenderWorldPresent>>,
     /// Main-world images are the readiness authority for handles that were
     /// inserted directly instead of requested through `AssetServer`.
     pub(crate) images: Option<Res<'w, Assets<Image>>>,
@@ -709,6 +715,10 @@ pub(crate) fn build_loaded_room_asset_manifest(
 pub(crate) fn inspect_room_asset_manifest(
     asset_server: &AssetServer,
     images: Option<&Assets<Image>>,
+    // ⛔ THIS App's fact, not the process's. The ledger is a `static` shared by
+    // every App in the process; only the caller knows whether ITS App has a
+    // render world that will ever stamp stage 3.
+    render_world: RenderWorldPresent,
     manifest: &RoomAssetManifest,
 ) -> RoomAssetReadiness {
     let mut readiness = RoomAssetReadiness {
@@ -748,7 +758,7 @@ pub(crate) fn inspect_room_asset_manifest(
         // that frame into cover time. Headless (no render world) the term is
         // always false; see `ImageStageLedger::is_awaiting_gpu`.
         if ambition_platformer2d::asset_manager::image_stages::ledger()
-            .is_awaiting_gpu(dependency.asset_id.untyped())
+            .is_awaiting_gpu(dependency.asset_id.untyped(), render_world)
         {
             readiness
                 .pending
@@ -1000,8 +1010,12 @@ pub(crate) fn contribute_room_transition_assets_system(
         pending.0 = Some(remainder.floor);
     }
     let demanded = room_character_tokens(target_spec, &active.staged_actor_names);
-    let mut readiness =
-        inspect_room_asset_manifest(asset_server, context.images.as_deref(), &manifest);
+    let mut readiness = inspect_room_asset_manifest(
+        asset_server,
+        context.images.as_deref(),
+        RenderWorldPresent::from_option(context.render_world.as_deref()),
+        &manifest,
+    );
     inspect_demanded_characters(
         &demanded,
         assets,
@@ -1070,6 +1084,7 @@ pub(crate) fn contribute_room_transition_assets_system(
 pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
     images: Option<Res<Assets<Image>>>,
+    render_world: Option<Res<RenderWorldPresent>>,
     assets: Option<Res<GameAssets>>,
     character_load_states: Option<
         Res<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
@@ -1109,7 +1124,12 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     let Some(manifest) = contributed.manifest.as_ref() else {
         return;
     };
-    let mut readiness = inspect_room_asset_manifest(&asset_server, images.as_deref(), manifest);
+    let mut readiness = inspect_room_asset_manifest(
+        &asset_server,
+        images.as_deref(),
+        RenderWorldPresent::from_option(render_world.as_deref()),
+        manifest,
+    );
     if let Some(assets) = assets.as_deref() {
         inspect_demanded_characters(
             &contributed.demanded_characters,
@@ -1290,7 +1310,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     ),
     mut assets: ResMut<GameAssets>,
     catalog: Res<Platformer2dAssetCatalog>,
-    (asset_server, images): (Res<AssetServer>, Option<Res<Assets<Image>>>),
+    // Grouped because they are one question — is this dependency ready, and for
+    // an App with which render world — and because a Bevy system stops at
+    // sixteen params.
+    (asset_server, images, render_world): (
+        Res<AssetServer>,
+        Option<Res<Assets<Image>>>,
+        Option<Res<RenderWorldPresent>>,
+    ),
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
@@ -1486,8 +1513,13 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         if entry.settled_at.is_some() {
             continue;
         }
-        if inspect_room_asset_manifest(&asset_server, images.as_deref(), &entry.manifest)
-            .is_terminal()
+        if inspect_room_asset_manifest(
+            &asset_server,
+            images.as_deref(),
+            RenderWorldPresent::from_option(render_world.as_deref()),
+            &entry.manifest,
+        )
+        .is_terminal()
         {
             entry.settled_at = Some(time.elapsed());
         }
@@ -1676,6 +1708,8 @@ mod tests {
         let readiness = inspect_room_asset_manifest(
             &asset_server,
             Some(app.world().resource::<Assets<Image>>()),
+            // This App builds no render world, so nothing is ever owed a GPU.
+            RenderWorldPresent(false),
             &manifest,
         );
         assert!(
@@ -1748,6 +1782,8 @@ mod tests {
         let readiness = inspect_room_asset_manifest(
             &asset_server,
             Some(app.world().resource::<Assets<Image>>()),
+            // This App builds no render world, so nothing is ever owed a GPU.
+            RenderWorldPresent(false),
             &manifest,
         );
         assert!(readiness.failed.is_empty(), "{:?}", readiness.failed);
@@ -1758,9 +1794,10 @@ mod tests {
     /// render world exists to owe it — and releases it the frame the upload
     /// lands. Without a render world the same page is simply ready.
     ///
-    /// The ledger is process-global, so the render-world flag is set for the
-    /// span of this test only and cleared before it returns; the id is a fresh
-    /// handle nobody else awaits.
+    /// ⭐ THE RENDER-WORLD FACT IS NOW AN ARGUMENT, so this test states it per
+    /// arm instead of setting a process-global for its span and clearing it
+    /// before returning. The stamps it makes are still on the shared ledger; the
+    /// id is a fresh handle nobody else awaits.
     #[test]
     fn room_readiness_waits_for_the_gpu_copy_only_while_a_render_world_owes_it() {
         use ambition_platformer2d::asset_manager::image_stages;
@@ -1782,13 +1819,16 @@ mod tests {
             ],
             a_synthetic_spec(1, &[0]),
         );
-        let inspect = |app: &App| {
+        let inspect = |app: &App, render_world: RenderWorldPresent| {
             inspect_room_asset_manifest(
                 &asset_server,
                 Some(app.world().resource::<Assets<Image>>()),
+                render_world,
                 &manifest,
             )
         };
+        let headless = RenderWorldPresent(false);
+        let rendering = RenderWorldPresent(true);
 
         // ⭐ THE RACE ARM: the page is in `Assets<Image>` but the ledger has not
         // stamped it inserted yet — which is every image on the frame it lands,
@@ -1796,9 +1836,7 @@ mod tests {
         // With a render world present that is OWED, not ready: the old reading
         // of the awaiting list called it ready here, latched the reveal, and
         // let a paced upload land after the cover lifted.
-        image_stages::ledger().set_render_world_present(true);
-        let unstamped = inspect(&app);
-        image_stages::ledger().set_render_world_present(false);
+        let unstamped = inspect(&app, rendering);
         assert!(
             !unstamped.is_ready()
                 && unstamped
@@ -1818,15 +1856,14 @@ mod tests {
             std::time::Instant::now(),
         );
         assert!(
-            inspect(&app).is_ready(),
+            inspect(&app, headless).is_ready(),
             "no render world: {:?}",
-            inspect(&app).pending
+            inspect(&app, headless).pending
         );
 
         // Inserted, render world present, upload owed: the page holds the reveal
         // under its own label.
-        image_stages::ledger().set_render_world_present(true);
-        let held = inspect(&app);
+        let held = inspect(&app, rendering);
         assert!(!held.is_ready());
         assert!(
             held.pending
@@ -1839,10 +1876,18 @@ mod tests {
 
         // The render world stamps it prepared: ready on the next inspection.
         image_stages::ledger().gpu_prepared(page.id().untyped(), std::time::Instant::now());
-        let ready = inspect(&app);
-        image_stages::ledger().set_render_world_present(false);
+        let ready = inspect(&app, rendering);
         assert!(ready.is_ready(), "{:?}", ready.pending);
         assert_eq!(ready.settled, 1);
+        // ⛔⛔ AND THE POINT OF THE ARGUMENT: the SAME ledger, the SAME id, in
+        // the SAME breath, answers a headless App differently. While this was a
+        // field on the process-global ledger these two could not disagree, so
+        // one rendering App in the process made every headless sibling wait for
+        // an upload nothing would ever stamp.
+        assert!(
+            inspect(&app, headless).is_ready(),
+            "a headless App must not inherit a rendering sibling's GPU debt"
+        );
     }
 
     #[test]
@@ -1879,6 +1924,8 @@ mod tests {
         let readiness = inspect_room_asset_manifest(
             &asset_server,
             Some(app.world().resource::<Assets<Image>>()),
+            // This App builds no render world, so nothing is ever owed a GPU.
+            RenderWorldPresent(false),
             &manifest,
         );
 
@@ -1922,12 +1969,8 @@ mod tests {
     #[test]
     fn a_stall_report_names_the_room_and_what_is_outstanding() {
         let pending: Vec<String> = (0..15).map(|i| format!("page_{i}.png")).collect();
-        let report = asset_stall_report(
-            "hall_of_characters",
-            Duration::from_secs(5),
-            &pending,
-            141,
-        );
+        let report =
+            asset_stall_report("hall_of_characters", Duration::from_secs(5), &pending, 141);
         assert!(report.contains("room 'hall_of_characters'"), "{report}");
         assert!(report.contains("15 of 141"), "{report}");
         assert!(report.contains("Still pending: page_0.png"), "{report}");

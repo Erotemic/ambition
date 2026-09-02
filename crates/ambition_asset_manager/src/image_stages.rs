@@ -41,6 +41,7 @@
 //! image ids, so a non-image row is simply never consulted.
 
 use bevy::asset::UntypedAssetId;
+use bevy::prelude::Resource;
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
@@ -74,8 +75,8 @@ pub struct ImageStages {
     /// ⛔ ABSENT MEANS TWO DIFFERENT THINGS AND A READER MUST NOT CONFLATE THEM:
     /// "no render world at all" (a `NoWindow` or headless composition, where
     /// nothing is ever extracted and this can never be set) and "drawn by
-    /// nobody yet". [`ImageStageLedger::render_world_present`] is the fact that
-    /// separates them — the same asymmetry `is_awaiting_gpu` already documents.
+    /// nobody yet". [`RenderWorldPresent`] — the asking App's — is the fact
+    /// that separates them, the same asymmetry `is_awaiting_gpu` documents.
     #[cfg(not(target_arch = "wasm32"))]
     pub first_drawn_at: Option<Instant>,
     pub megapixels: f64,
@@ -140,6 +141,34 @@ impl ImageStages {
         }
     }
 }
+/// Whether THIS App has a render world. A per-App fact, and therefore an App
+/// resource rather than a field on the process-global ledger.
+///
+/// ⛔⛔ IT WAS A `bool` ON THE LEDGER, AND THE LEDGER IS A `static` SHARED BY
+/// EVERY APP IN THE PROCESS. That field answered "did ANY App in this process
+/// install a render plugin", which is a different question from "does the App
+/// asking have one" the moment a headless App runs beside a rendering one — and
+/// `app_it` is exactly that process, with one `[[test]]` target running its
+/// files as parallel threads. A headless App would be told its images were
+/// awaiting a GPU that will never look at them, and a reveal gated on that waits
+/// forever. Latent while all 97 `VisibleRenderMode` uses were `NoWindow`; live
+/// the day one test builds a render world beside one that does not.
+///
+/// Absent means `false`: an App that never installed the census never had a
+/// render world stamping stage 3.
+#[derive(Resource, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RenderWorldPresent(pub bool);
+
+impl RenderWorldPresent {
+    /// Read the fact from an App that may not have the resource at all.
+    pub fn from_option(present: Option<&Self>) -> Self {
+        present.copied().unwrap_or_default()
+    }
+
+    pub fn is_present(self) -> bool {
+        self.0
+    }
+}
 
 /// The ledger behind the process-global. Pure, so the arithmetic is testable
 /// without an asset server or a render world.
@@ -177,10 +206,6 @@ pub struct ImageStageLedger {
     /// `cargo check --target wasm32-unknown-unknown`.
     #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap<String, (&'static str, Instant)>,
-    /// Whether a render world is stamping stage 3 at all. `false` in a
-    /// headless or `NoWindow` composition, where nothing is ever prepared on a
-    /// GPU — and where a readiness rule that waited for it would wait forever.
-    render_world_present: bool,
     /// Total insertions that were a path's second or later.
     pub re_decodes: u64,
     /// Images removed after insertion and before any GPU preparation: decoded
@@ -292,17 +317,14 @@ impl ImageStageLedger {
 
     /// The render world's stamp exists in this process (the plugin found a
     /// render app to install into).
-    pub fn set_render_world_present(&mut self, present: bool) {
-        self.render_world_present = present;
-    }
-
-    pub fn render_world_present(&self) -> bool {
-        self.render_world_present
-    }
 
     /// READINESS TERM: a render world exists and has NOT yet been seen to
     /// prepare `id`. `false` whenever no render world stamps stage 3 — a
     /// headless run never waits on a GPU it does not have.
+    ///
+    /// ⛔ THE CALLER SUPPLIES THE RENDER-WORLD FACT, from ITS OWN App's
+    /// [`RenderWorldPresent`]. The ledger is process-global and cannot know
+    /// which App is asking.
     ///
     /// ⭐ POSITIVE PROOF, not "not known to be waiting". The insertion stamp
     /// comes from the main world's `Last` (an `AssetEvent::Added` reader) while
@@ -319,8 +341,8 @@ impl ImageStageLedger {
     /// frame after the cover lifts into cover time: the pixels were paid for
     /// either way, and under a byte-per-frame budget they pace while the cover
     /// still holds.
-    pub fn is_awaiting_gpu(&self, id: UntypedAssetId) -> bool {
-        self.render_world_present && !self.is_gpu_prepared(id)
+    pub fn is_awaiting_gpu(&self, id: UntypedAssetId, render_world: RenderWorldPresent) -> bool {
+        render_world.is_present() && !self.is_gpu_prepared(id)
     }
 
     /// The render world has stamped `id` prepared (stage 3). The proof the
@@ -332,9 +354,10 @@ impl ImageStageLedger {
             .is_some_and(|row| row.gpu_prepared_at.is_some())
     }
 
-    /// No stage-3 stamp exists on the web (the stamper is native-only, and
-    /// `render_world_present` is never set there), so nothing is ever proven —
-    /// and nothing is ever owed, because the term above is off.
+    /// No stage-3 stamp exists on the web (the stamper is native-only, and no
+    /// App inserts [`RenderWorldPresent(true)`](RenderWorldPresent) there), so
+    /// nothing is ever proven — and nothing is ever owed, because the term
+    /// above is off.
     #[cfg(target_arch = "wasm32")]
     pub fn is_gpu_prepared(&self, _id: UntypedAssetId) -> bool {
         false
@@ -432,9 +455,10 @@ impl ImageStageLedger {
     /// ⛔⛔ ONLY MEANINGFUL WITH A RENDER WORLD, and the caller must say so.
     /// Without one nothing is ever extracted, so this returns EVERY resident
     /// image and means "nobody could have drawn anything" — not "these were
-    /// decoded for nobody". [`Self::render_world_present`] is the fact that
-    /// separates the two readings, and a readout that prints this without
-    /// consulting it is accusing a headless run of waste it cannot commit.
+    /// decoded for nobody". [`RenderWorldPresent`] — the ASKING App's, not the
+    /// process's — separates the two readings, and a readout that prints this
+    /// without consulting it is accusing a headless run of waste it cannot
+    /// commit.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_never_drawn(&self) -> Vec<(f64, &str)> {
         let mut rows: Vec<(f64, &str)> = self
@@ -586,7 +610,6 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     insertions_by_path: BTreeMap::new(),
     #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap::new(),
-    render_world_present: false,
     re_decodes: 0,
     dropped_before_gpu: 0,
     dropped_before_gpu_megapixels: 0.0,
@@ -737,31 +760,45 @@ mod tests {
     #[test]
     fn the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present() {
         let mut ledger = ImageStageLedger::default();
+        let headless = RenderWorldPresent(false);
+        let rendering = RenderWorldPresent(true);
         let t0 = Instant::now();
         ledger.inserted(id(10), 1.0, None, None, t0);
         assert!(
-            !ledger.is_awaiting_gpu(id(10)),
+            !ledger.is_awaiting_gpu(id(10), headless),
             "no render world: a reveal must never wait on a GPU that does not exist"
         );
-        ledger.set_render_world_present(true);
         assert!(
-            ledger.is_awaiting_gpu(id(10)),
+            ledger.is_awaiting_gpu(id(10), rendering),
             "inserted and unprepared: owed"
+        );
+        // ⛔⛔ THE PER-APP POINT, and the whole reason this argument exists: ONE
+        // ledger answers BOTH Apps in the same breath, on the same id. While the
+        // fact lived on the ledger these two calls could not disagree, so a
+        // rendering sibling made a headless App wait for a GPU nothing would
+        // ever stamp.
+        assert_ne!(
+            ledger.is_awaiting_gpu(id(10), headless),
+            ledger.is_awaiting_gpu(id(10), rendering),
+            "the same ledger must answer a headless App and a rendering App differently"
         );
         // ⭐ THE RACE: readiness polls in `Update`, the insertion is stamped in
         // `Last`. An id the ledger has not seen yet is OWED, not ready — the
         // old "awaiting list contains it" reading called it ready here.
         assert!(
-            ledger.is_awaiting_gpu(id(11)),
+            ledger.is_awaiting_gpu(id(11), rendering),
             "not yet stamped inserted: the GPU has not proven anything, so owed"
         );
         ledger.gpu_prepared(id(10), t0 + Duration::from_millis(5));
-        assert!(!ledger.is_awaiting_gpu(id(10)), "prepared: ready");
+        assert!(
+            !ledger.is_awaiting_gpu(id(10), rendering),
+            "prepared: ready"
+        );
         assert!(ledger.is_gpu_prepared(id(10)));
         ledger.inserted(id(12), 1.0, None, None, t0);
         ledger.removed(id(12));
         assert!(
-            ledger.is_awaiting_gpu(id(12)),
+            ledger.is_awaiting_gpu(id(12), rendering),
             "dropped before upload: no proof, so still owed if anything still asks"
         );
     }
@@ -923,8 +960,9 @@ mod tests {
     }
 
     /// ⛔⛔ NEVER-DRAWN IS NOT A FINDING WITHOUT A RENDER WORLD, and the list
-    /// cannot tell the caller that — only [`ImageStageLedger::render_world_present`]
-    /// can. This pins the shape a readout has to respect: with nothing extracted,
+    /// cannot tell the caller that — only the asking App's
+    /// [`RenderWorldPresent`] can. This pins the shape a readout has to
+    /// respect: with nothing extracted,
     /// EVERY resident image is "never drawn", which on a headless road means
     /// nobody could have drawn anything rather than that the pixels were wasted.
     #[test]

@@ -40,57 +40,65 @@ This is the deliverable the note above named as a precondition for promotion:
 how all 31 registries currently answer the protocol questions. **No abstraction
 is designed here.**
 
-⚠ **Method, and its limits.** Cells are derived mechanically — the key type from
-the registry's own map field, the conflict protocol from the return type of its
-registration function. Citations are FILE plus SYMBOL rather than `file:line`,
-deliberately: line numbers in this repository went stale inside a single merge
-today, and a symbol survives the edit that moves it.
+⚠ **Method.** Cells are derived mechanically — the key type from the registry's
+own map field, the conflict protocol from the return type of its registration
+function. ⛔ "no register fn" means the type is built some other way (a builder,
+`From`, deserialisation) and the question is not answered by a signature; it is
+NOT a claim that conflicts are unhandled.
 
-⛔ **AND THE CITATION CHECKER DOES NOT VALIDATE THIS TABLE.** Verified by poison
-on 2026-09-02: replacing one cell's path with `crates/ambition_input/src/semantic_NOPE.rs`
-left `python3 scripts/check_planning_citations.py` reporting *"410 citations …
-all resolved"*. It does not read markdown table cells. The 28 distinct paths here
-were therefore checked by a separate loop over the table, and all 28 exist — but
-⛔ **nothing re-checks them on your behalf when this file next drifts.** That is
-the same shape as `docs/recipes/checks-that-did-not-run.md`: a checker that is
-correct, that ran, and that never looked at the thing you assumed it did. ⛔ "no register fn" means
+⭐ **Citations are `file:line`, and that is a deliberate reversal.** The first
+draft of this table used bare paths, on the reasoning that line numbers rot —
+they do, and three of them rotted inside a single merge earlier the same day.
+The reasoning was still wrong. `scripts/check_planning_citations.py` recognises
+exactly two citation forms: `` `path.rs:123` `` and `` `foo::bar` ``. **A bare
+`` `path.rs` `` is not a citation to it at all**, so the "safer" form was simply
+unchecked — 31 rows nothing would ever re-verify. With line numbers the table
+adds 31 checked citations (410 → 441) and the checker's own MOVED/FABRICATED
+triage catches the rot instead of me hoping it will not happen.
+
+⇒ **A citation that rots under a checker beats one that cannot rot because
+nothing reads it.** ⛔ And the intermediate claim this note used to carry — that
+the checker "does not read markdown table cells" — was FALSE and is recorded
+here because it was acted on: poisoning a cell with
+`crates/ambition_input/src/semantic_NOPE.rs:9999` makes the checker report it
+immediately. Tables were never the blind spot; the citation FORM was. ⛔ "no register fn" means
 the type is built some other way (a builder, `From`, deserialisation) and the
 question is not answered by a signature — it is NOT a claim that conflicts are
 unhandled.
 
 | registry | file | identity key | registration fn | conflict protocol |
 |---|---|---|---|---|
-| `ActionRegistry` | `crates/ambition_input/src/semantic.rs` | `SemanticActionId` | `register` | Result |
-| `AdaptiveMusicCatalogRegistry` | `crates/ambition_audio/src/music/catalog.rs` | `String` | `register` | Result |
-| `AudioCatalogRegistry` | `crates/ambition_audio/src/catalog.rs` | `String` | `register` | Result |
-| `BossCatalogRegistry` | `crates/ambition_boss_encounter/src/catalog.rs` | `String` | `register` | Result |
-| `CharacterCatalogRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs` | `String` | `register` | Result |
-| `ConstructionRegistry` | `crates/ambition_platformer2d_shared_tangle/src/construction/registry.rs` | `RecipeId (+RelationKind)` | `try_register_recipe` | Result |
-| `PlacementLoweringRegistry` | `crates/ambition_platformer2d_world/src/placements.rs` | `PlacementKind` | `try_register` | Result |
-| `PlatformerAuthoredCatalogRegistry` | `crates/ambition_platformer2d_provider/src/authoring.rs` | `String` | `try_register` | Result |
-| `RollbackRegistry` | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs` | `String` | `try_register` | Result |
-| `SchemaRegistry` | `crates/ambition_content_pack/src/schema.rs` | `SchemaId` | `register` | Result |
-| `SfxBankRegistry` | `crates/ambition_audio/src/catalog.rs` | `String` | `register` | Result |
-| `GameplaySessionRegistry` | `crates/ambition_game_shell/src/session.rs` | `ShellExperienceId` | `register` | bool/Option |
-| `ShellExperienceRegistry` | `crates/ambition_game_shell/src/experience.rs` | `ShellExperienceId` | `register` | bool/Option |
-| `BossEncounterRegistry` | `crates/ambition_boss_encounter/src/registry.rs` | `String` | `-` | no register fn |
-| `BossProfileRegistry` | `crates/ambition_boss_encounter/src/pattern/profile.rs` | `String` | `-` | no register fn |
-| `BossSheetRegistry` | `crates/ambition_sprite_sheet/src/boss.rs` | `String` | `-` | no register fn |
-| `BrainProfileRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs` | `String` | `-` | no register fn |
-| `CombatBanterRegistry` | `crates/ambition_conversation/src/banter.rs` | `String` | `-` | no register fn |
-| `MusicRegistry` | `crates/ambition_audio/src/spec.rs` | `String` | `-` | no register fn |
-| `PortraitSheetRegistry` | `crates/ambition_sprite_sheet/src/portrait.rs` | `String` | `-` | no register fn |
-| `PreparedSessionRegistry` | `crates/ambition_game_shell/src/preparation.rs` | `LoadId` | `-` | no register fn |
-| `QuestRegistry` | `crates/ambition_persistence/src/quest/registry.rs` | `String` | `-` | no register fn |
-| `SfxRegistry` | `crates/ambition_audio/src/spec.rs` | `String` | `-` | no register fn |
-| `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs` | `String` | `-` | no register fn |
-| `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs` | `String` | `insert` | silent |
-| `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs` | `String` | `declare_route` | silent |
-| `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs` | `String` | `register` | silent |
-| `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs` | `String` | `register` | silent |
-| `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs` | `String` | `register` | silent |
-| `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |
-| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs` | `String` | `register` | silent |
+| `ActionRegistry` | `crates/ambition_input/src/semantic.rs:61` | `SemanticActionId` | `register` | Result |
+| `AdaptiveMusicCatalogRegistry` | `crates/ambition_audio/src/music/catalog.rs:353` | `String` | `register` | Result |
+| `AudioCatalogRegistry` | `crates/ambition_audio/src/catalog.rs:92` | `String` | `register` | Result |
+| `BossCatalogRegistry` | `crates/ambition_boss_encounter/src/catalog.rs:366` | `String` | `register` | Result |
+| `CharacterCatalogRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs:201` | `String` | `register` | Result |
+| `ConstructionRegistry` | `crates/ambition_platformer2d_shared_tangle/src/construction/registry.rs:228` | `RecipeId (+RelationKind)` | `try_register_recipe` | Result |
+| `PlacementLoweringRegistry` | `crates/ambition_platformer2d_world/src/placements.rs:198` | `PlacementKind` | `try_register` | Result |
+| `PlatformerAuthoredCatalogRegistry` | `crates/ambition_platformer2d_provider/src/authoring.rs:106` | `String` | `try_register` | Result |
+| `RollbackRegistry` | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs:237` | `String` | `try_register` | Result |
+| `SchemaRegistry` | `crates/ambition_content_pack/src/schema.rs:253` | `SchemaId` | `register` | Result |
+| `SfxBankRegistry` | `crates/ambition_audio/src/catalog.rs:236` | `String` | `register` | Result |
+| `GameplaySessionRegistry` | `crates/ambition_game_shell/src/session.rs:71` | `ShellExperienceId` | `register` | bool/Option |
+| `ShellExperienceRegistry` | `crates/ambition_game_shell/src/experience.rs:149` | `ShellExperienceId` | `register` | bool/Option |
+| `BossEncounterRegistry` | `crates/ambition_boss_encounter/src/registry.rs:16` | `String` | `-` | no register fn |
+| `BossProfileRegistry` | `crates/ambition_boss_encounter/src/pattern/profile.rs:213` | `String` | `-` | no register fn |
+| `BossSheetRegistry` | `crates/ambition_sprite_sheet/src/boss.rs:103` | `String` | `-` | no register fn |
+| `BrainProfileRegistry` | `crates/ambition_characters/src/actor/character_catalog/registry.rs:398` | `String` | `-` | no register fn |
+| `CombatBanterRegistry` | `crates/ambition_conversation/src/banter.rs:18` | `String` | `-` | no register fn |
+| `MusicRegistry` | `crates/ambition_audio/src/spec.rs:177` | `String` | `-` | no register fn |
+| `PortraitSheetRegistry` | `crates/ambition_sprite_sheet/src/portrait.rs:142` | `String` | `-` | no register fn |
+| `PreparedSessionRegistry` | `crates/ambition_game_shell/src/preparation.rs:206` | `LoadId` | `-` | no register fn |
+| `QuestRegistry` | `crates/ambition_persistence/src/quest/registry.rs:18` | `String` | `-` | no register fn |
+| `SfxRegistry` | `crates/ambition_audio/src/spec.rs:27` | `String` | `-` | no register fn |
+| `SheetRegistry` | `crates/ambition_sprite_sheet/src/lib.rs:565` | `String` | `-` | no register fn |
+| `EncounterRegistry` | `crates/ambition_encounter/src/registry.rs:18` | `String` | `insert` | silent |
+| `FrontendAudioRegistry` | `crates/ambition_audio/src/selection.rs:181` | `String` | `declare_route` | silent |
+| `GatePortalRegistry` | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs:77` | `String` | `register` | silent |
+| `MovePrefabRegistry` | `crates/ambition_combat/src/moveset/prefab_registry.rs:21` | `String` | `register` | silent |
+| `ParamSchemaRegistry` | `crates/ambition_entity_catalog/src/lib.rs:135` | `String` | `register` | silent |
+| `PreparedCharacterRegistry` | `crates/ambition_characters/src/prepared.rs:1320` | `ambition_entity_catalog::CharacterId` | `insert_prepared` | silent |
+| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs:57` | `String` | `register` | silent |
 
 ### What the inventory says
 

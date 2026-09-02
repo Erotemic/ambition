@@ -246,6 +246,30 @@ clean.** The bundle's own **Room reveal** section:
 ⇒ **The reveal barrier holds on the host**: nothing draws a placeholder, the
 cover is up for the wait, and the nine 89-355 ms frames are gone.
 
+⭐⭐ **AND THE SAME RUN SAYS WHERE THE REMAINING HOST HITCH IS: STARTUP, NOT THE
+HALL — and the two are the same shape with and without a cover.** The run has
+exactly three frames over 33.4 ms, all BEFORE the transition, and
+`asset_activity.csv` puts them inside a decode burst:
+
+```text
+  wall_s  decoded_images  decoded_MP  decoded_MB     frame spikes in the window
+   2.262        0            0.0           0
+   2.989       98           20.7          82.8        125.3 ms @2.386, 203.3 ms @2.589
+   ...
+   6.997      122           42.1         168.5
+   8.002      250           71.2         284.7        none — the hub → hall entry
+```
+
+⇒ **The hall entry decodes MORE than the startup burst — 128 images and 116 MB
+against 98 and 83 — and costs ZERO spikes, because the cover holds for it.** The
+startup burst has no cover and costs a 203 ms frame and a 125 ms frame.
+⚠ AND THE COMPARISON IS CONSERVATIVE: the hall was under the room tier cap in
+this run (quarter-tier art), while startup art was at the setting's own tier, so
+the hall's real Full-tier load is larger still and the gap widens.
+⇒ **The reveal barrier is not a hall fix, it is a mechanism the first room does
+not yet use.** That is the same conclusion the headless work reached from the
+other end, now with host frames attached.
+
 ⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
 in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
 `sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a

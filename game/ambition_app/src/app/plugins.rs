@@ -450,6 +450,33 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // V-sync: the Video setting → the primary window's present mode. Not
     // feature-gated — it is one system that does nothing without a window.
     app.add_plugins(crate::host::vsync::VsyncPlugin);
+    // EXPERIMENT KNOB for the frame-floor question: run the main world's big
+    // schedules on Bevy's single-threaded executor. The shipped host runs
+    // ~2400 system runs per frame and measures a 3.7 ms floor with two actors
+    // and no window (performance-and-iteration.md); if that floor is task-pool
+    // handoff rather than work, serialising it will show as a SMALLER frame.
+    // Measured with scripts/headless_room_frame.sh, on and off. Not a shipped
+    // setting until it is.
+    if std::env::var("AMBITION_MAIN_SCHEDULES_SINGLE_THREADED").is_ok_and(|v| v == "1") {
+        use bevy::ecs::schedule::{ScheduleLabel, SingleThreadedExecutor};
+        for label in [
+            bevy::app::First.intern(),
+            bevy::app::PreUpdate.intern(),
+            bevy::app::Update.intern(),
+            bevy::app::PostUpdate.intern(),
+            bevy::app::Last.intern(),
+            bevy::app::FixedFirst.intern(),
+            bevy::app::FixedPreUpdate.intern(),
+            bevy::app::FixedUpdate.intern(),
+            bevy::app::FixedPostUpdate.intern(),
+            bevy::app::FixedLast.intern(),
+        ] {
+            app.edit_schedule(label, |schedule| {
+                schedule.set_executor(SingleThreadedExecutor::new());
+            });
+        }
+        bevy::log::warn!("AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1: main-world schedules run single-threaded (experiment)");
+    }
     // EXPERIMENT KNOB for the asset campaign: Bevy's own per-frame GPU upload
     // budget. `GpuImage` reports its byte length, so with a budget the render
     // world defers whole images past it to later frames instead of uploading

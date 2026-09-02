@@ -182,6 +182,24 @@ profile — the bucket is ~120 near-empty systems being scheduled, plus
 leafwing's `update_action_state` (input symbols total 4.7%). An idle physics
 pipeline costs its system count, not its math.
 
+And the executor is not the floor either — measured, not read off the perf
+buckets. `AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1` puts First/PreUpdate/
+Update/PostUpdate/Last and the five Fixed schedules on Bevy's single-threaded
+executor; same run, interleaved, 2 actors:
+
+```text
+executor        frame    PreUpdate  Update  PostUpdate  RunFixedMainLoop
+multi (default) 3.40     1.10       0.80    0.71        0.45
+single          3.21     1.08       0.79    0.71        0.32
+```
+
+−5% on the frame, −30% on the fixed bucket (~120 near-empty systems, where
+dispatch IS the cost), nothing on Update/PostUpdate. So the 8% "executor" and
+8% kernel in the perf buckets are mostly the compute pool existing (workers
+parking and waking) rather than per-system dispatch, and the floor is what the
+systems DO — ~2400 small bodies of real work at ~1.3 us each. ⇒ reducing it
+means running fewer of them, not scheduling them differently.
+
 ⇒ The shipped frame is not one slow system; it is **~2400 system runs per
 frame at ~1.5 us each with allocation on the way** — 3234 systems in 33
 schedules, of which the harness composition needs 2373 and the direct sandbox

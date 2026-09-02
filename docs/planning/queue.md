@@ -434,8 +434,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
   boot surfaced first as a test-harness timeout, not as a number anyone
   recorded** — a "captures byte-identical, RSS −141 MB" A/B does not show it.
 
-- ▢ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
-  PARALLEL-FLAKY.** Found 2026-09-02 while checking for reds. `app_it` runs its
+- ✔ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
+  PARALLEL-FLAKY — CLOSED 2026-09-02, both halves.** Found 2026-09-02 while
+  checking for reds.
+  ⭐ **VERIFIED BY THE FULL PARALLEL TARGET, which is the only run that could
+  say so**: `cargo test -p ambition_app --test app_it` reads **546 passed / 1
+  failed / 22 ignored** in 484s, against 543/2 when this row was written. All
+  three ledger readers are green.
+  ⛔ **THE ONE RED IS NOT THIS ROW, and the distinction is the useful part.**
+  `two_round_trips_through_the_gallery_return_the_same_working_set` passes alone
+  (25.7s) and fails in the target — but `residency_snapshot` reads
+  `common::resident_character_pages(app)`, the per-App helper, so a sibling App
+  CANNOT inflate its answer. It samples with `for _ in 0..300 { step }` and then
+  reads; a fixed FRAME count is not a settle, and paced asset work converges
+  further in 300 frames alone than under contention. **Fixing the contamination
+  is what made that visible** — it is the settle-shape defect in the row above,
+  not a ledger one. ⚠ Its message also says PAGES "grew" for a 16 → 15 SHRINK,
+  which sends a reader hunting a retention leak; the sibling megapixel assertion
+  says "moved" and is the right wording. `app_it` runs its
   tests as parallel threads; `image_stages::ledger()` is a `static`. Exactly three
   files read it:
 

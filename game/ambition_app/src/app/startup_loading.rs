@@ -46,6 +46,13 @@ struct StartupAssetDependency {
 struct StartupAssetManifest {
     room: RoomAssetManifest,
     supporting: Vec<StartupAssetDependency>,
+    /// What the room manifest was built from, so it can be REBUILT as the
+    /// per-frame ration realizes sheets whose pages the first build never saw
+    /// — the same gap the room transition closed (`inspect_demanded_characters`).
+    room_spec: Option<std::sync::Arc<ambition_platformer2d::world::rooms::RoomSpec>>,
+    staged_names: Vec<String>,
+    demanded_characters: Vec<String>,
+    realized_at_build: usize,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -317,9 +324,11 @@ fn drive_direct_startup_loading(
     let summary = inspect_startup_manifest(
         &assets.asset_server,
         &assets.images,
+        &assets.game_assets,
+        &assets.character_load_states,
         state
             .manifest
-            .as_ref()
+            .as_mut()
             .expect("startup manifest was just initialized"),
     );
     let failed = !summary.failed.is_empty();
@@ -403,6 +412,13 @@ fn build_startup_manifest(
     );
     remainder.forward_into(&mut inputs.character_load_demand);
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
+    let demanded_characters =
+        super::world_flow::room_character_tokens(room, &staged_names);
+    let realized_at_build = super::world_flow::realized_character_count(
+        &demanded_characters,
+        &inputs.game_assets,
+    );
+    let room_spec = Some(std::sync::Arc::new(room.clone()));
 
     let mut supporting = Vec::new();
     if let Some(worlds) = inputs.ldtk_worlds.as_deref() {
@@ -455,15 +471,40 @@ fn build_startup_manifest(
     Ok(StartupAssetManifest {
         room: room_manifest,
         supporting,
+        room_spec,
+        staged_names,
+        demanded_characters,
+        realized_at_build,
     })
 }
 
 fn inspect_startup_manifest(
     asset_server: &AssetServer,
     images: &Assets<Image>,
-    manifest: &StartupAssetManifest,
+    game_assets: &GameAssets,
+    character_load_states: &ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    manifest: &mut StartupAssetManifest,
 ) -> StartupReadinessSummary {
-    let room = inspect_room_asset_manifest(asset_server, Some(images), &manifest.room);
+    // Sheets realize one per frame after the first build; each brings pages
+    // the first manifest never saw. Rebuild the description when the count moved.
+    if let Some(room_spec) = manifest.room_spec.clone() {
+        let realized = super::world_flow::realized_character_count(
+            &manifest.demanded_characters,
+            game_assets,
+        );
+        if realized != manifest.realized_at_build {
+            manifest.room =
+                build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets);
+            manifest.realized_at_build = realized;
+        }
+    }
+    let mut room = inspect_room_asset_manifest(asset_server, Some(images), &manifest.room);
+    super::world_flow::inspect_demanded_characters(
+        &manifest.demanded_characters,
+        game_assets,
+        Some(character_load_states),
+        &mut room,
+    );
     let mut summary = StartupReadinessSummary {
         settled: room.settled,
         total: room.total + manifest.supporting.len(),

@@ -9,7 +9,8 @@
 pub(crate) mod room_transition_assets;
 mod room_transition_presentation;
 pub(crate) use room_transition_assets::{
-    build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_room_asset_manifest,
+    build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_demanded_characters,
+    inspect_room_asset_manifest, realized_character_count, room_character_tokens,
     RoomAssetManifest,
 };
 pub(crate) use room_transition_presentation::install_room_transition_presentation;

@@ -71,6 +71,39 @@ Its demonstrated value is:
 > different state from one with none, and a reader could not tell that from this
 > page.** Name a guard where its program lives, or the next session re-derives
 > the check that already exists.
+
+### ⛔ 16 of 43 CANNOT be cut by a manifest change — do not start there
+
+Re-derived at `8621f2a7e` (2026-09-02) after being asked to cut the count, and the
+answer is that the cheap version of this work is already finished.
+
+- **Slice H already took every available facade cut**, 2026-07-30: closure 41 →
+  38 by making facade edges optional, which removed `ambition_inventory_ui`,
+  `ambition_portal2d_presentation` and `ambition_touch_input`.
+- **Every one of the remaining 16 also arrives through
+  `ambition_platformer2d_actor_monolith`**, so gating its facade edge cuts
+  nothing. A game that needs actors needs the monolith, and the monolith brings
+  them. That is the §4 carve condition, i.e. `actor-monolith-decomposition.md`
+  (D33) — not a manifest edit.
+- ⚠ **Two of the 16 were never classified**, and re-deriving them is what cost
+  the time this note exists to save. `ambition_damage` and `ambition_mount`
+  entered the closure on 2026-08-26, AFTER the baseline's
+  `reachable_via_ambition_platformer2d_actor_monolith_alone` list was written, so
+  that list has 16 entries which are not the same 16 as `never_asked_for`. Both
+  are unconditional facade edges AND monolith dependencies
+  (`ambition_platformer2d_actor_monolith/Cargo.toml`), so both behave like
+  `ambition_audio`: cuttable at the facade, worthless to cut.
+
+⭐ **And the baseline records why "make the edges optional" undersold itself the
+first time.** The four facade-only crates are named through `ambition::` by
+in-repo code 170 times (`render` alone 90). Making an edge optional means
+cfg-gating its re-export, so every one of those call sites must gain the same
+feature. The baseline's own words: *"calling it cheap was wrong"*, caught *"by
+counting the call sites before starting, rather than after."*
+
+⇒ **So the honest acceptance for this row is not "the count falls."** It is
+either a carve slice under D33, or a facade-optionality migration with 170
+consumer call sites. Both are real; neither is mechanical.
 ## Principles
 
 - capability selection is a semantic engine API, not a Cargo-feature illusion;

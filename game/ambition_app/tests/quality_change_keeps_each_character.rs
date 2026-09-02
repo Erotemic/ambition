@@ -196,23 +196,7 @@ fn a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphan
         }
         panic!("the residency table never settled with the worn sheet's pages loaded");
     };
-    let orphans = |app: &App| -> Vec<String> {
-        let assets = app.world().resource::<GameAssets>();
-        let owned: std::collections::BTreeSet<String> = assets
-            .characters
-            .resident_sheets()
-            .map(|(_, sheet)| sheet)
-            .chain(assets.characters.props.values())
-            .flat_map(|sheet| sheet.pages.iter())
-            .filter_map(|page| page.texture.path().map(|path| path.to_string()))
-            .collect();
-        ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger()
-            .resident_rows()
-            .filter(|row| row.source == Some("character-sheet"))
-            .filter_map(|row| row.path.clone())
-            .filter(|path| !owned.contains(path))
-            .collect()
-    };
+    let orphans = crate::common::orphan_character_pages;
 
     let at_start = settle(&mut app);
     assert!(at_start.contains_key(&worn), "premise: `{worn}` is resident");

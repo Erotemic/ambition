@@ -193,3 +193,68 @@ pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, 
     );
     (actor, id)
 }
+
+/// THIS App's resident character pages, judged per App.
+///
+/// The image-stage ledger is a process-global static and `app_it` runs its
+/// tests as threads of one process, so reading the ledger's resident rows
+/// directly counts every sibling test's pages too — a "leak" that tracks
+/// whoever else happens to be running (measured 2026-09-02: 15→14 on one
+/// schedule, 20→19 on another, always a page some other App owned). Asset ids
+/// are per-arena indices and collide across Apps by construction, so the id
+/// alone cannot attribute a row either.
+///
+/// ⭐ What IS per App: `Assets<Image>` and the asset server's path for each
+/// id. So residency is read from this App's own assets, the ledger is consulted
+/// only as a CLASSIFIER — "was this PATH demanded on the `character-sheet`
+/// road" — and a row counts only when this App's asset at that id has the
+/// same path the row names. A sibling's row can share an index; it cannot make
+/// a page resident here that is not.
+///
+/// Returns `(path, megapixels)` for every such page.
+pub fn resident_character_pages(app: &bevy::prelude::App) -> Vec<(String, f64)> {
+    use bevy::prelude::{Assets, Image};
+    let world = app.world();
+    let images = world.resource::<Assets<Image>>();
+    let server = world.resource::<bevy::asset::AssetServer>();
+    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+    let mut out = Vec::new();
+    for (id, image) in images.iter() {
+        let Some(path) = server.get_path(id).map(|path| path.to_string()) else {
+            continue;
+        };
+        let Some(row) = ledger.get(id.untyped()) else {
+            continue;
+        };
+        if row.source != Some("character-sheet") || row.path.as_deref() != Some(path.as_str()) {
+            continue;
+        }
+        let megapixels = f64::from(image.width()) * f64::from(image.height()) / 1.0e6;
+        out.push((path, megapixels));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// The resident character pages of THIS App that no realization in its
+/// tables (character sheets or props) owns. A retired realization drops its
+/// pages' last handles, so a page still resident with no owner is held by
+/// something else — the leak the residency rule exists to catch.
+pub fn orphan_character_pages(app: &bevy::prelude::App) -> Vec<String> {
+    let assets = app
+        .world()
+        .resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>();
+    let owned: std::collections::BTreeSet<String> = assets
+        .characters
+        .resident_sheets()
+        .map(|(_, sheet)| sheet)
+        .chain(assets.characters.props.values())
+        .flat_map(|sheet| sheet.pages.iter())
+        .filter_map(|page| page.texture.path().map(|path| path.to_string()))
+        .collect();
+    resident_character_pages(app)
+        .into_iter()
+        .map(|(path, _)| path)
+        .filter(|path| !owned.contains(path))
+        .collect()
+}

@@ -699,29 +699,11 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
     // table. Whatever demanded it — this room, a neighbour prefetch, a worn
     // identity — did so by realizing a sheet, and retiring the sheet drops
     // the page's last handle. A page resident with no realization is held by
-    // something else, and that something is the leak.
-    let owned_pages: std::collections::BTreeSet<String> = {
-        let assets = app.world().resource::<GameAssets>();
-        assets
-            .characters
-            .resident_sheets()
-            .map(|(_, sheet)| sheet)
-            .chain(assets.characters.props.values())
-            .flat_map(|sheet| sheet.pages.iter())
-            .filter_map(|page| page.texture.path().map(|path| path.to_string()))
-            .collect()
-    };
-    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
-    let leaked: Vec<String> = ledger
-        .resident_rows()
-        .filter(|row| row.source == Some("character-sheet"))
-        .filter_map(|row| row.path.clone())
-        .filter(|path| !owned_pages.contains(path))
-        .collect();
-    let resident_character_pages = ledger
-        .resident_rows()
-        .filter(|row| row.source == Some("character-sheet"))
-        .count();
+    // something else, and that something is the leak. Judged per App (see
+    // `common::resident_character_pages`): the ledger is process-global and a
+    // sibling test's pages are not this App's leak.
+    let leaked = crate::common::orphan_character_pages(&app);
+    let resident_character_pages = crate::common::resident_character_pages(&app).len();
     assert!(
         resident_character_pages > 0,
         "premise: character pages decoded in this composition (the plugins are finished)"
@@ -886,17 +868,14 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
     panic!("the transition to '{target_room}' did not complete in {max} frames");
 }
 
-/// What the character tables and the image ledger hold right now.
+/// What the character table and THIS App's resident character pages hold.
 fn residency_snapshot(app: &App) -> (usize, usize, f64) {
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
     let assets = app.world().resource::<GameAssets>();
     let realizations = assets.characters.resident_sheets().count();
-    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
-    let (pages, mp) = ledger
-        .resident_rows()
-        .filter(|row| row.source == Some("character-sheet"))
-        .fold((0usize, 0.0f64), |(n, mp), row| (n + 1, mp + row.megapixels));
-    (realizations, pages, mp)
+    let pages = crate::common::resident_character_pages(app);
+    let mp = pages.iter().map(|(_, mp)| mp).sum();
+    (realizations, pages.len(), mp)
 }
 
 /// RESIDENCY GROWTH (asset open work 4, the "measure working-set growth"

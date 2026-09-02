@@ -341,8 +341,8 @@ mod tests {
     /// a reader can see them; the mirror is only honest while this passes.
     #[test]
     fn a_probe_states_the_same_thresholds_the_gesture_uses() {
-        let tuning =
-            ambition_platformer2d::characters::actor::attack_gesture::AttackGestureTuning::default();
+        use ambition_platformer2d::characters::actor::attack_gesture::AttackGestureTuning;
+        let tuning = AttackGestureTuning::default();
         assert!(
             (tuning.flick_threshold - SMASH_FLICK_THRESHOLD).abs() < 1.0e-6,
             "the gesture flicks at {} and this overlay reports {SMASH_FLICK_THRESHOLD}",

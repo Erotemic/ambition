@@ -311,6 +311,26 @@ and prop pngs. The ledger's road names cover CONTENT ART decoded at runtime —
 is about. UI chrome is small, loaded once and not what a room's reveal waits on;
 labelling it would make the ledger's rows less comparable, not more.
 
+⛔⛔ **A `demand=unknown` MAY BE A RE-DECODE RATHER THAN AN UNROUTED LOAD, and
+today you cannot tell them apart.** `ImageStageLedger::removed()` does
+`self.rows.remove(&id)` — it deletes the whole row, demand stamp included — while
+`insertions_by_path` deliberately survives (its own doc says "which is the point").
+`demand()` only ever runs at a LOAD call site, and a second `load` of a path
+already resident is a handle lookup rather than a decode, so an image that is
+DROPPED and later RE-DECODED comes back with no demand, permanently.
+
+⇒ The population that loses its attribution is exactly the one worth attributing:
+the wasted half of the decode budget, which `[image-dropped]` is there to count.
+⚠ Anyone reading `demand=unknown` as "some road forgot to stamp" is sent hunting
+through call sites that are already correct — measured 2026-09-02, an exhaustive
+sweep of every `.load(` in the tree (plus `load_untyped`/`load_acquire`/
+`load_folder`/`get_handle`/`load_with_settings`, which have ZERO uses) found no
+unstamped route for the sheet that reported it.
+
+▢ The fix is to carry `demanded_at`/`source`/`path` across a removal the way
+`insertions_by_path` already is, so a re-decode inherits its first demand and can
+print it. Until then, read `demand=unknown` as "unstamped OR re-decoded".
+
 ⚠ And the `game://` in a row is NOT an authored prefix. `load_sheet_image` labels
 each row with `AssetPath::to_string()`, and an `AssetPath` PRINTS ITS SOURCE — so
 every load through the `game` source reads that way whether or not any code wrote

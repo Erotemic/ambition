@@ -229,10 +229,33 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. **Host tell, still owed — AND CHECKED NOW
-RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
-reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
->33.4 ms frames after the cover lifts. The profiling bundle summary grows a
+when the remainder is dropped. ⭐⭐ **HOST TELL PAID, 2026-09-02 — Jon's Ultra run
+`desktop-timeline-run-20260902T215256Z`, and all three named tells come back
+clean.** The bundle's own **Room reveal** section:
+
+```text
+  never materialized      0        (111 on 2026-09-01)
+  retired                 0
+  undeclared              0
+  total                   0
+  seq  wait_ms  covered  move
+    1      292     True  central_hub_complex -> hall_of_characters
+  frames over 33.4 ms AFTER the last transition (t=8.321s):  0   (nine on 2026-09-01)
+```
+
+⇒ **The reveal barrier holds on the host**: nothing draws a placeholder, the
+cover is up for the wait, and the nine 89-355 ms frames are gone.
+
+⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
+in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
+`sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a
+placeholder means an actor resolved no sprite at all, and the cover either held
+or it did not. **The TIMING tell is not**: "0 frames over 33.4 ms" was measured
+while the hall was decoding quarter-tier art, which is a fraction of the pixels
+Full asks for. ⇒ **Re-take the >33.4 ms count after the cap is removed**, on the
+same route, before calling the hitch closed. ⚠ The prediction to check it
+against: if the barrier is what fixed it, the count stays 0 at Full; if the cap
+was doing the work, it comes back. The profiling bundle summary grows a
 **Room reveal** section parsing all three out of the game's own stamped log, so
 a host capture states its own verdict instead of needing someone to read stderr
 and judge — which is how the 2026-09-01 capture's 111 warnings became evidence

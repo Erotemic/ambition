@@ -1051,6 +1051,13 @@ the census names `UNROUTED(no demand)`: decoded with nobody claiming to have
 asked for it. An image that arrives without a demand stamp also arrives without a
 quality path, so the tier cannot reach it.
 
+⛔ **AND THE VARIANT IT SHOULD HAVE USED EXISTS.** All four are on disk for that
+sheet — `sprites/` **4.3 MB**, `sprites_0_5x/` 2.2 MB, `sprites_0_25x/` 844 KB,
+`sprites_potato/` **56 KB**. The Potato run decoded the 4.3 MB one. That is
+**77× the bytes** of the variant its own tier authored, for the single largest
+image in the room, and the seven other unrouted files are ~0.0 MP each — so this
+one file IS the unrouted population in any sense that costs memory.
+
 ⇒ **So "the tier decides how many pixels the hall holds" is true of 5.8 MP of it
 and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrouted
 7.6 MP is constant underneath. ⛔ This is a ROUTING observation, not a proposal to

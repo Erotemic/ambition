@@ -646,6 +646,11 @@ pub struct ImageStagePlugin;
 
 impl Plugin for ImageStagePlugin {
     fn build(&self, app: &mut App) {
+        // On the web the whole render half below is compiled out (no
+        // `Instant`), so `app` is unused there; see the row in queue.md's host
+        // section for the web GPU-wait branch that would use it.
+        #[cfg(target_arch = "wasm32")]
+        let _ = app;
         #[cfg(not(target_arch = "wasm32"))]
         {
             use bevy::render::{Render, RenderApp, RenderSystems};

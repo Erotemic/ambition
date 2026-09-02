@@ -775,9 +775,10 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `Msaa::Off` recovers nothing):
   [`../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md`](../../dev/journals/kaleidoscope-what-churns-and-what-does-not-2026-08-31.md).
 
-- ▢ **THE `features` FACADE LAUNDERS 34 LOWER-CRATE NAMES, so 27% of the
-  kernel's apparent coupling to it is not coupling at all.** (Measured
-  2026-09-02, `scripts/measure_facade_reexport_coupling.py`.)
+- ✔ **THE `features` FACADE LAUNDERED 34 LOWER-CRATE NAMES, so 27% of the
+  kernel's apparent coupling to it was not coupling at all — CLOSED 2026-09-02,
+  `RE-EXPORT 45 (27%) → 0 (0%)`.** (Measured by
+  `scripts/measure_facade_reexport_coupling.py`, which ships with it.)
   ⭐ **HOW IT WAS FOUND:** a per-file sizing of `items/conditions.rs` reported
   SEVEN references into the kernel. Six were one type — `crate::features::HeldItem`
   — and `HeldItem` is `ambition_combat`'s, reached through

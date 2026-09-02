@@ -133,12 +133,55 @@ long before it arrives through headcount.
 ⇒ **The cost is 1,873 `PerceivedActor` constructions per tick at ~152 ns each.**
 A design that bounds the count without making construction cheaper moves 8%.
 
-⚠ **AN OPEN DISCREPANCY BLOCKS ANY 200-ACTOR DECISION.** Past saturation, builds
-grow 1.97× between 65 and 130 bodies while `Decide` grows 3.17×, and an 8% term
-growing 4× cannot close that gap. Something superlinear there is unattributed —
-possibly cache, possibly the brain-tick term. The saturation result says the
-shape should be linear; the slope says it is not. Until one of them is shown
-wrong, no number here sizes this design.
+✔ **THE DISCREPANCY THAT "BLOCKS ANY 200-ACTOR DECISION" IS RESOLVED, 2026-09-02,
+FROM THE NUMBERS ALREADY ON THIS PAGE — THERE IS NOTHING UNATTRIBUTED.** It read:
+*"builds grow 1.97× between 65 and 130 bodies while `Decide` grows 3.17×, and an
+8% term growing 4× cannot close that gap. Something superlinear there is
+unattributed — possibly cache, possibly the brain-tick term."*
+
+⛔ **NO CONSISTENT PAIR OF READINGS ON THIS PAGE GIVES 3.17×.** Taking the
+component table above at both populations:
+
+```text
+              @65      @130    growth
+builds+use   0.1183   0.2314    1.96x
+scan         0.0100   0.0416    4.16x
+fixed        0.0437   0.0797    1.82x
+TOTAL        0.1720   0.3527    2.05x     <- against 2.03x population: LINEAR
+share @130     66%      12%       23%     = 100%  <- nothing is unaccounted for
+```
+
+The components sum to **100% of the phase at 130 bodies**, so there is no room
+for an unattributed term to hide in. And the sweep further down measures the same
+thing independently — `Decide` 0.195 at 64 bodies, 0.419 at 130 — which is
+**2.15×**, and that section already states the conclusion in as many words:
+*"64 → 130 is 2.15x cost for 2.03x population, which is linear … There is no
+quadratic here to remove."* Two consistent comparisons, 2.05× and 2.15×; the
+page asserted a third, 3.17×, and blocked a decision on it.
+
+⭐ **AND THE LIKELY ORIGIN IS THE DEFECT THIS PAGE ALREADY FOUND ONCE.** For
+`Decide`@130 = 0.419, a ratio of 3.17× needs `Decide`@65 = **0.132 ms** — which
+is **1.30× smaller** than the 0.172 the components measure. The note directly
+above the table says the earlier figures were taken before the census's startup
+window was excluded and were *"understating short runs by up to a third"*. A 1.30×
+understatement is exactly that. ⇒ The 3.17× is almost certainly a
+**pre-correction @65 divided by a post-correction @130**: the table was
+re-measured and the conclusion drawn from the old numbers was left standing
+beside it.
+
+⚠ **STATED AS WHAT IT IS: ARITHMETIC ON PUBLISHED NUMBERS, NOT A NEW RUN.** No
+measurement was re-taken for this — and none should be taken on the shared box,
+where a timing reads whoever else is compiling. What is certain is that the page
+contains no pair of numbers exhibiting the gap, and that its own accounting
+leaves nothing unattributed; the startup-window origin is the best explanation
+for where 3.17 came from, not a proven provenance.
+
+⇒ **The 200-actor decision is no longer blocked by this.** Both consistent
+readings say `Decide` is LINEAR in population past saturation, which is what
+`cost ≈ n × kept(n)` with flat `kept` predicts. ⛔ That is not permission to
+size the design from headcount: the section below is still right that the hall
+saturates because it is SPARSE, so density — not population — is the axis that
+breaks this, and a dense-room measurement is still owed.
 
 ⚠ This also confirms the doc's central claim from the other side: population
 doubled and `kept` did not move. What sets the work is how many bodies share a

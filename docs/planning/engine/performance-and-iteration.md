@@ -2,6 +2,11 @@
 
 ## WHERE THIS STANDS — 2026-09-01, end of the perception campaign
 
+**Reopened by an instrument finding, see below:** the Tracy build costs ~2.5x
+per frame, and there is no measurement of the shipped program in the hall.
+Next number wanted: `profile_desktop.sh --no-tracy` with V-Sync Off (a Video
+setting since 2026-09-01), in the hall, on Jon's hardware.
+
 **Closed.** The many-actor decision campaign. `Decide` at 130 bodies went
 0.328 → 0.023 ms/tick (−93%) when ADR 0034 increment 1 landed; the hall frame
 went 1.94 → 1.56 ms in one ledger group. The sim profile is now FLAT — nothing
@@ -30,6 +35,57 @@ SHIPPED host — which simulates in `GgrsSchedule` inside `PreUpdate`, NOT in
 blocking, `phases_cpu` does not), and Tracy session totals are bimodal across
 load — each of those produced a published-then-withdrawn conclusion today.
 
+
+## ⛔⛔ MEASURED 2026-09-01 (late): the `--features profile` build is a DIFFERENT PROGRAM, ~2.5x per frame
+
+Every Tracy capture in the ledger was taken from a build whose per-system cost
+is not the shipped one. Headless production host, startup route, 4000 ticks,
+two reps interleaved, same `profiling` cargo profile, on the VM:
+
+```text
+arm                                           frame ms   PreUpdate ms
+release optimisation, NO `profile` feature    1.45-1.56    0.27-0.29
+`profile`, spans filtered (RUST_LOG=error)    1.78-1.81    0.32
+`profile`, spans on, no tracy-capture         3.64-3.81    0.59-0.61
+`profile`, spans on, tracy-capture attached   4.11-4.33    0.67-0.70   (4.2M zones / 4000 ticks)
+```
+
+~1050 zones per tick at this route, ~2.5 us each: the `tracing` -> `tracing-tracy`
+path formats every `system{name=..}` span's fields into a zone name on every
+enter. It is not Tracy's own cost (tens of ns); it is the subscriber's. The
+`RUST_LOG=error` arm shows it: same binary, spans filtered at the layer, and the
+frame is back within 20% of the shipped build.
+
+**What this does to the record.** `tracy-csvexport -e` (self time) on Jon's
+Ultra hall capture: `schedule{GgrsSchedule}` is 54% SELF time — 2.6 of 4.9 ms
+per tick lies inside the schedule but inside no system zone; `Update` 52%,
+`Render` 47%. That self time is where the per-zone tax lands. At the ~240k
+zones/s that capture carried (50 fps), the tax is of the order of 10 ms of a
+19.8 ms frame. ⇒ **every absolute schedule time from a Tracy capture is
+inflated, and inflated MORE for schedules made of many tiny systems** (the sim:
+434 systems ran per tick, largest 0.32 ms, mean 6 us). Zone-vs-zone rankings
+of real work (`integrate_sim_bodies`, `prepare_assets`) stand; "the sim is X ms"
+does not.
+
+**And the number Jon plays is a third program.** `./run_game.sh` with no
+profile word is the DEV build (workspace crates at opt-level 1). "50-60 fps in
+the hall on Ultra" is that build under `Fifo` v-sync at 144 Hz, where a frame
+over 6.9 ms shows as 72 and one over 13.9 ms as 48. There is no measurement yet
+of the shipped program, in the hall, with v-sync off.
+
+**The measurement that answers it** (Jon's hardware): pull, Video > V-Sync Off,
+then `scripts/profile_desktop.sh --no-tracy` — `profiling` optimisation, census
+on, no spans — and walk into the hall. The ledger label carries `no-features`
+and `+present:Immediate`, so it cannot be confused with the Tracy rows. The FPS
+overlay in that run is the honest number; the `[census] phases` row (with
+`phases_cpu`) is the honest phase split.
+
+⚠ The headless numbers were never inflated: the no-window recipe drops
+`LogPlugin`, and with it the Tracy layer, unless the binary carries `profile`
+(then `run_shared_host_headless` re-adds it). The 1.56 ms hall tick was a build
+without the feature. Two binaries at `target/profiling/ambition_game_bin` on two
+machines (the VM's target is a bind mount, not Jon's directory) are not one
+binary — check `metadata.json:cargo_features` before comparing.
 
 **State:** OPEN, but narrow. Optimize measured user-visible or developer costs;
 do not maintain a speculative micro-optimization backlog.

@@ -2,6 +2,32 @@
 
 > **State:** TRIAGE — STRONG CANDIDATE, DESIGN DECISIONS PENDING, 2026-07-22.
 >
+> **RE-MEASURED against `92e60d62b` (2026-09-02), six weeks on. The problem is
+> still real and Layer 2 has largely LANDED UNDER ANOTHER NAME.**
+>
+> - `ambition_test_support` does not exist, and neither does the
+>   `ambition_registry_core` proposed beside it in
+>   [`ambition-registry-core.md`](ambition-registry-core.md). No Cargo.toml
+>   mentions either name.
+> - ⭐ **But `crates/ambition_sim_harness` DOES**, extracted the same day this
+>   note was written (`6bcd53d45`, "Extract ambition_sim_harness below the
+>   product shell (track 4)") and already depended on by 6 manifests. Its
+>   `Platformer2dSimHarness` offers `build`, `step`/`step_n`/`step_frame`,
+>   `set_timestep`, `reset_episode`, `drive_seat`, rollback setup and health,
+>   and `world`/`world_mut`/`app_mut` — which is the **Layer 2 — engine/session
+>   fixtures** section below, near enough that proposing to build it fresh
+>   would now be duplicating it.
+> - **Layer 1 is untouched and the magnitude is unchanged:** 1004 `App::new()`
+>   call sites across 337 files, 329 of which also carry `#[test]`. Whatever
+>   this crate becomes, that is the population it has to serve.
+>
+> ⇒ **The open decision has therefore MOVED.** It is no longer "should a
+> dev-only support crate exist" — one does, for the simulation. It is whether
+> Layer 1's generic Bevy/app boilerplate belongs *inside* `ambition_sim_harness`
+> or in a crate beneath it, and that is a dependency question the pilot
+> migration below should now answer against the real crate rather than a
+> proposed one.
+>
 > The need is clear: Ambition's tests repeatedly rebuild Bevy apps, schedules,
 > fixed time, session roots, room state, catalogs, and command-flush sequences.
 > A dedicated dev-only support crate is likely worthwhile. The exact dependency

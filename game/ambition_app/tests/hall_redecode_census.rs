@@ -76,7 +76,24 @@ fn step(app: &mut App) {
     std::thread::sleep(std::time::Duration::from_millis(8));
 }
 
-fn settle_cast(app: &mut App, secs: u64) {
+/// Step until the staged cast stops changing, or say plainly that it did not.
+///
+/// ⛔⛔ THE OLD SHAPE WAS A WALL-CLOCK DEADLINE WEARING THE WORD "SETTLE". It
+/// returned whether or not the cast had settled, and the CALLER COULD NOT TELL
+/// WHICH — so a timeout was indistinguishable from success until some later
+/// `.expect` panicked about a missing room set, three lines away from the actual
+/// failure. `hall_transition_cover.rs` still carries that copy and goes red in
+/// parallel because of it (queue row, 2026-09-02).
+///
+/// ⚠ AND THE BUDGET ONLY LOOKED FINE BECAUSE HEADLESS DECODED NOTHING. The
+/// composition fix took this hall entry from 22 resident images to 226, so boot
+/// is an order of magnitude heavier and a number chosen against the old cost is
+/// not a number any more.
+///
+/// ⇒ Returns whether it settled. A caller that needs the settle asserts on it and
+/// gets a message naming the cap, instead of a confusing symptom later.
+#[must_use]
+fn settle_cast(app: &mut App, secs: u64) -> bool {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
     let mut last = usize::MAX;
     let mut quiet = 0;
@@ -86,13 +103,25 @@ fn settle_cast(app: &mut App, secs: u64) {
         if now == last {
             quiet += 1;
             if quiet >= 25 {
-                break;
+                return true;
             }
         } else {
             last = now;
             quiet = 0;
         }
     }
+    false
+}
+
+/// `settle_cast` with the assertion the callers all want, named once.
+fn settle_cast_or_fail(app: &mut App, secs: u64, what: &str) {
+    assert!(
+        settle_cast(app, secs),
+        "the staged cast never settled within {secs}s while {what}. That is the \
+         HARNESS giving up, not the subject failing -- boot got heavier when \
+         headless started decoding art (22 resident images -> 226), so a budget \
+         chosen against the old cost may simply be too small under parallel load."
+    );
 }
 
 #[test]
@@ -102,12 +131,12 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    settle_cast(&mut app, 10);
+    settle_cast_or_fail(&mut app, 10, "booting the shell");
 
     app.world_mut().write_message(ShellCommand::GoTo(
         shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
-    settle_cast(&mut app, 20);
+    settle_cast_or_fail(&mut app, 20, "entering gameplay");
     let before_cast = staged_cast_len(&app);
     let before_redecodes = image_stages::ledger().re_decodes;
 
@@ -170,7 +199,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     // Let the transition demand and decode. Long enough for the whole cast, not
     // a fixed frame count: a re-decode that happens on the tenth frame after the
     // reveal is still a re-decode a player paid for.
-    settle_cast(&mut app, 30);
+    settle_cast_or_fail(&mut app, 30, "walking into the hall");
     for _ in 0..120 {
         step(&mut app);
     }
@@ -202,8 +231,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     let routed: usize = by_road
         .iter()
         .filter(|(road, _)| {
-            **road != image_stages::ROAD_UNROUTED
-                && **road != image_stages::ROAD_PROCEDURAL
+            **road != image_stages::ROAD_UNROUTED && **road != image_stages::ROAD_PROCEDURAL
         })
         .map(|(_, (count, _))| *count)
         .sum();

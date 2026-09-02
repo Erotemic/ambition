@@ -759,6 +759,43 @@ pub(crate) fn perception_body_for(
 /// `None` means the policy does not override — an `Omniscient` body already
 /// carries the global target and simply knows. `Some(None)` means a sighted body
 /// perceives nobody, which is a real answer (idle), not a missing one.
+/// ⛔⛔ `None` MEANS AN EMPTY BELIEF STATE, NOT A FROZEN ONE.
+///
+/// [`believed_target`] is the ONLY thing that ages a [`PerceptionMemory`] — it
+/// runs `mem.0.update(view, dt)` on its way in — and the `None` gate in
+/// `actors/update.rs` skips it. So a body whose LIVE brain becomes `None` keeps
+/// whatever it last believed, forever: `BrainCommand` can swap a Fighter for a
+/// StandStill (`StateMachineCfg::StandStill => Need::None`) and
+/// `apply_brain_selection` never touches memory. Switch back later and
+/// `believed_target` finds nothing in view, falls through to
+/// `last_known_hostile()`, and RESURRECTS a hostile that may have died or left
+/// the room.
+///
+/// ⭐ ENFORCED AT THE INVARIANT rather than in `BrainCommand`, so any future road
+/// that changes a brain gets it for free. Teaching each road to clear memory is a
+/// hand-kept list, and the next road forgets.
+///
+/// ⚠ COMPARES BEFORE WRITING, and returns whether it wrote. `PerceptionMemory`
+/// arrives as a `Mut<_>`; an unconditional clear would deref-mut every tick for
+/// every `None` body — 129 of them in the hall — and mark the component changed
+/// forever, which is a rollback/change-detection cost for a no-op.
+pub(crate) fn enforce_empty_belief_for_none(
+    need: ambition_characters::perception::PerceptionRequirement,
+    memory: Option<&mut PerceptionMemory>,
+) -> bool {
+    if need.needs_target_belief() || need.needs_world_view() {
+        return false;
+    }
+    let Some(memory) = memory else {
+        return false;
+    };
+    if memory.0.is_empty() {
+        return false;
+    }
+    memory.0 = Default::default();
+    true
+}
+
 pub(crate) fn believed_target(
     policy: Perception,
     view: &ambition_characters::perception::WorldView,

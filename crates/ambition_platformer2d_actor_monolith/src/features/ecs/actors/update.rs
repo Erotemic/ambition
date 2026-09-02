@@ -568,23 +568,23 @@ pub fn tick_actor_brains(
                         || perception_need.needs_target_belief()
                     {
                         super::super::perception::build_world_view(
-                        &super::super::perception::perception_body_for(
-                            &body,
-                            self_faction,
-                            enemy_gravity_dir,
-                            action_set,
-                            self_peer,
-                            aggression,
-                            motion_model,
-                            capture,
-                        ),
-                        &view_peers,
-                        perceived.projectiles(),
-                        &[],
-                        &feature_world,
-                        relations,
-                        perception_policy,
-                        sim_now,
+                            &super::super::perception::perception_body_for(
+                                &body,
+                                self_faction,
+                                enemy_gravity_dir,
+                                action_set,
+                                self_peer,
+                                aggression,
+                                motion_model,
+                                capture,
+                            ),
+                            &view_peers,
+                            perceived.projectiles(),
+                            &[],
+                            &feature_world,
+                            relations,
+                            perception_policy,
+                            sim_now,
                         )
                     } else {
                         ambition_characters::perception::WorldView::default()
@@ -599,14 +599,19 @@ pub fn tick_actor_brains(
                     // gets `WorldView::default()`, and counting those recorded
                     // 45,795 views of `kept=0` — a mean over bodies that never
                     // looked, which is not the population the budget is about.
-                    if perception_need.needs_world_view()
-                        || perception_need.needs_target_belief()
-                    {
+                    if perception_need.needs_world_view() || perception_need.needs_target_belief() {
                         ambition_dev_tools::perception_census::note_world_view(
                             view_peers.len(),
                             world_view.actors.len(),
                         );
                     }
+                    // `None` means an EMPTY belief state, not a frozen one --
+                    // the rule, and why it lives at the invariant rather than in
+                    // `BrainCommand`, is on the helper.
+                    super::super::perception::enforce_empty_belief_for_none(
+                        perception_need,
+                        perception_memory.as_deref_mut(),
+                    );
                     // Sight and memory answer together; an `Omniscient` body
                     // already carries the global `ActorTarget` and is not
                     // overridden. Perceiving nobody is a real answer (idle).
@@ -614,8 +619,8 @@ pub fn tick_actor_brains(
                         .needs_target_belief()
                         .then(|| {
                             super::super::perception::believed_target(
-                        perception_policy,
-                        &world_view,
+                                perception_policy,
+                                &world_view,
                                 perception_memory.as_deref_mut(),
                                 dt,
                             )
@@ -1757,7 +1762,7 @@ fn capture_candidate(
 ) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
-    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+    use ambition_characters::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,

@@ -285,6 +285,14 @@ The remaining `LocalSessionPolicy::check_distance` F9-proof-pulse question is a
 maintainer/productivity decision, not evidence that all such resources need an
 entity-based rewrite.
 
+Addition 2026-09-02: the two room-entry edge memories S2 moved out of `Local`s
+(`LastQuestRoom`, `LastCutsceneRoom`) are in the set now. Each remembers "the
+room I last announced" and fires only on a change, so inherited across sessions
+a new game starting in the room the previous session ended in — quit at the
+start, start over — skipped its first room's quest events and cutscene
+trigger. The `Local`s had the same defect; S2 made it registered state and S6
+makes it session-scoped. Guard: `retirement_clears_every_session_scoped_mirror`.
+
 ## State projection rule
 
 Read models are allowed. They must be one-way projections from authoritative

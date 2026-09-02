@@ -104,6 +104,15 @@ pub struct SessionScopedResources<'w> {
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
     minted_baseline: ResMut<'w, crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    /// ⛔⛔ THE TWO ROOM-ENTRY EDGE MEMORIES (S2 moved them out of `Local`s; S6
+    /// makes them session-scoped). Each remembers "the room I last announced",
+    /// so the next tick's `RoomEntered` push / cutscene trigger fires only on a
+    /// CHANGE. Inherited across sessions, a new game that starts in the room
+    /// the previous session ended in — quitting at the start and starting
+    /// over is exactly that — would skip its first room's quest events and
+    /// cutscene trigger, because the memory already said "you are there".
+    quest_last_room: ResMut<'w, ambition_persistence::quest::LastQuestRoom>,
+    cutscene_last_room: ResMut<'w, ambition_cutscene::LastCutsceneRoom>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -156,6 +165,8 @@ fn reset(mut resources: SessionScopedResources) {
         ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
     *resources.minted_baseline =
         crate::items::pickup::minted_horizon::MintedItemBaseline::default();
+    *resources.quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
+    *resources.cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

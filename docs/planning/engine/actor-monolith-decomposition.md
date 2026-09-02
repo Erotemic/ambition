@@ -175,6 +175,20 @@ made one bullet up:
   installs its rows and `drain` where it prints them, so the POLICY did not
   move — only the counter.
 
+⭐ **AND THE INSTRUMENTS WERE RE-MEASURED FROM THEIR NEW HOMES, because a census
+that COMPILES is not a census that BILLS.** Moving a boundary mark is exactly the
+change a type-checker cannot judge: every `.after`/`.before` still names a real
+set, and the marks could still fire in the wrong order, into the wrong bucket, or
+not at all. `AMBITION_PROFILE_CENSUS=1 capture_scene --route ambition_gameplay`
+reports all seven decision buckets alive — `WorldPrep.Decision.Gate`,
+`.Targeting`, `.Prepare`, `.Observe`, `.StateMaintenance`, `.Decide`, `.Publish`
+— with `unmeasured=Trace` and no never-closed line, and the perception row
+(`views=N offered=… kept=… kept_max=…`) reports from `ambition_characters`.
+⚠ That run is the HUB, not the hall, so the magnitudes are small and are not
+comparable to the 0.958 ms/tick hall figure above; what it certifies is that
+every mark fires and lands in its own bucket, which is the property the move put
+at risk.
+
 ⛔ **THE GUARD IS THE MANIFEST, not a test, so it cannot rot.** A production
 `use ambition_dev_tools::…` anywhere in the kernel's `src/` no longer compiles.
 Poison-verified by adding one: `error[E0433]: cannot find module or crate

@@ -1422,15 +1422,17 @@ impl MoveSpec {
     /// Empty result = the move's presentation is resolvable.
     pub fn presentation_problems(&self, vfx_known: impl Fn(&str) -> bool) -> Vec<String> {
         let mut problems = Vec::new();
+        for effect in self.vfx_effects() {
+            if !vfx_known(effect) {
+                problems.push(format!(
+                    "move '{}': Vfx event names unknown cosmetic effect '{}' (no \
+                     shipped FX spritesheet has a row by that name)",
+                    self.id, effect
+                ));
+            }
+        }
         for ev in &self.events {
             match &ev.kind {
-                MoveEventKind::Vfx { effect, .. } if !vfx_known(effect) => {
-                    problems.push(format!(
-                        "move '{}': Vfx event names unknown cosmetic effect '{}' (no \
-                         shipped FX spritesheet has a row by that name)",
-                        self.id, effect
-                    ));
-                }
                 MoveEventKind::Sfx { cue } if cue.is_empty() => {
                     problems.push(format!(
                         "move '{}': Sfx event has an empty cue (resolves to silence)",
@@ -1441,6 +1443,18 @@ impl MoveSpec {
             }
         }
         problems
+    }
+
+    /// Every cosmetic effect this move can fire, by name — the one enumeration
+    /// both the install-time validator above and the runtime's FX demand read
+    /// (a character-owned FX sheet is decoded when a realized character's
+    /// moveset names one of its rows), so a new place a move names an effect
+    /// is added HERE and both see it.
+    pub fn vfx_effects(&self) -> impl Iterator<Item = &str> {
+        self.events.iter().filter_map(|ev| match &ev.kind {
+            MoveEventKind::Vfx { effect, .. } => Some(effect.as_str()),
+            _ => None,
+        })
     }
 
     /// Does a window the predicate accepts COVER proper-time `t`?

@@ -22,7 +22,7 @@
 //! decode — which is what lets a roster validator that runs at install time ask
 //! the same question the renderer asks at draw time, and get the same answer.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use crate::character::sheets::{record_for_sheet_key, CharacterSheetSpec, SheetTuning};
@@ -38,6 +38,22 @@ pub struct FxSheet {
     pub target: &'static str,
     /// Cue-name family: this sheet's row `r` sounds like `vfx.<family>.<r>`.
     pub cue_family: &'static str,
+    /// Whether the sheet is decoded at boot and kept for the whole process
+    /// (the generic vocabulary any effect may name) or decoded when a
+    /// CHARACTER whose moveset names one of its rows is realized — a fighter's own effect art cannot fire before the fighter
+    /// exists, so it rides the character's demand and the same reveal barrier.
+    /// Measured 2026-09-02: all thirteen sheets (9.4 MP) were resident in
+    /// every room, and a scripted capture drew a handful at most.
+    pub residency: FxResidency,
+}
+
+/// When an FX sheet is decoded. See [`FxSheet::residency`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FxResidency {
+    /// Decoded at boot, resident for the process.
+    Core,
+    /// Decoded when a realized character's moveset names a row of it.
+    OwnedByCharacter,
 }
 
 /// The effect art the engine ships. Four generic sheets plus the per-
@@ -52,56 +68,102 @@ pub const FX_SHEETS: &[FxSheet] = &[
     FxSheet {
         target: "generic_action_fx",
         cue_family: "generic_action",
+        residency: FxResidency::Core,
     },
     FxSheet {
         target: "generic_world_fx",
         cue_family: "generic_world",
+        residency: FxResidency::Core,
     },
     FxSheet {
         target: "generic_exotic_fx",
         cue_family: "generic_exotic",
+        residency: FxResidency::Core,
     },
     FxSheet {
         target: "generic_explosions",
         cue_family: "explosion",
+        residency: FxResidency::Core,
     },
     FxSheet {
         target: "george_booul_vfx",
         cue_family: "george_booul",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "oiler_vfx",
         cue_family: "oiler",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "pirate_admiral_vfx",
         cue_family: "pirate_admiral",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "ninja_shadow_oni_leader_vfx",
         cue_family: "ninja_shadow_oni_leader",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "pca_vfx",
         cue_family: "pca",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "patent_clerk_vfx",
         cue_family: "patent_clerk",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "carl_stargan_vfx",
         cue_family: "carl_stargan",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "noether_vfx",
         cue_family: "noether",
+        residency: FxResidency::OwnedByCharacter,
     },
     FxSheet {
         target: "projectile_polygon_vfx",
         cue_family: "projectile_polygon",
+        residency: FxResidency::OwnedByCharacter,
     },
 ];
+
+/// The sheet a target names, if the engine ships one.
+pub fn fx_sheet(target: &str) -> Option<&'static FxSheet> {
+    FX_SHEETS.iter().find(|sheet| sheet.target == target)
+}
+
+/// The sheets decoded at boot: every [`FxResidency::Core`] target, in table order.
+pub fn core_fx_targets() -> impl Iterator<Item = &'static str> {
+    FX_SHEETS
+        .iter()
+        .filter(|sheet| sheet.residency == FxResidency::Core)
+        .map(|sheet| sheet.target)
+}
+
+/// The character-owned sheets a set of effect names lives on — what a realized
+/// character's moveset makes the engine owe. Effects on core sheets are
+/// already resident and are not returned; unknown names are not an error
+/// here (`MoveSpec::presentation_problems` reports them where they are
+/// authored).
+pub fn owned_fx_sheets_named_by<'a>(
+    effects: impl IntoIterator<Item = &'a str>,
+) -> BTreeSet<&'static str> {
+    let index = authored_effects();
+    effects
+        .into_iter()
+        .filter_map(|name| index.get(name))
+        .filter(|effect| {
+            fx_sheet(effect.sheet)
+                .is_some_and(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
+        })
+        .map(|effect| effect.sheet)
+        .collect()
+}
 
 /// FX sheets render at their authored frame size; nothing collides with them.
 const FX_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
@@ -195,6 +257,34 @@ pub fn fx_sheet_spec(target: &str) -> Option<CharacterSheetSpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The residency split, asked through the seam a realization uses: a
+    /// moveset naming an owned row owes that sheet; core rows and unknown
+    /// names owe nothing.
+    #[test]
+    fn owned_sheets_are_owed_by_the_rows_that_name_them() {
+        let owned: Vec<&FxSheet> = FX_SHEETS
+            .iter()
+            .filter(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
+            .collect();
+        assert!(!owned.is_empty() && core_fx_targets().count() + owned.len() == FX_SHEETS.len());
+        let sheet = owned[0];
+        let row = record_for_sheet_key(sheet.target).unwrap().rows[0]
+            .animation
+            .clone();
+        let core_row = record_for_sheet_key(core_fx_targets().next().unwrap())
+            .unwrap()
+            .rows[0]
+            .animation
+            .clone();
+        assert_eq!(
+            owned_fx_sheets_named_by([row.as_str(), core_row.as_str(), "kaboom"]),
+            BTreeSet::from([sheet.target]),
+            "one owned row → its sheet; the core row is resident already; the unknown name is \
+             a moveset validation problem, not a demand"
+        );
+        assert!(owned_fx_sheets_named_by([core_row.as_str()]).is_empty());
+    }
 
     /// Every row of every shipped FX sheet is reachable by its own name, and
     /// nothing else is.

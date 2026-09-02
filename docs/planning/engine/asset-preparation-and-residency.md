@@ -846,30 +846,33 @@ is not merely under-wired — **no content names any of its rows**; its only
 askers are a test and the engine. So the split is 4 shared / 7 owned / 2 dead,
 not "five generic, eight per-character".
 
-⇒ **WHAT IS STILL OWED before building it:** the owner column above is a
-MOVESET FILE, and the demand seam needs a CHARACTER ID. That last hop is the
-only guessy step left, and it is content ownership rather than engine work —
-recorded in `awaiting-maintainer-decision.md`. The mechanism (load only the
-shared sheets at boot, ensure the owned ones at room-manifest time exactly as
-`ensure_boss_sheets_loaded` does) is unblocked the moment that column exists.
-
-⇒ **THE SEAM THE ROW SAID DID NOT EXIST DOES, for most of the set.** Eight of
-the thirteen sheets are CHARACTER-named (`carl_stargan_vfx`, `george_booul_vfx`,
-`ninja_shadow_oni_leader_vfx`, `noether_vfx`, `oiler_vfx`, `patent_clerk_vfx`,
-`pca_vfx`, `pirate_admiral_vfx`): each is that fighter's own effect art, and a
-fighter's effects cannot fire before the fighter exists. So their demand seam
-is the CHARACTER REALIZATION that already runs behind every cover — demand
-`<character>_vfx` beside `<character>`'s pages, on the same `fx-sheet` road,
-and let the reveal barrier wait for it like a page. What stays always-resident
-is the five sheets no character owns (`generic_action_fx`, `generic_exotic_fx`,
-`generic_world_fx`, `generic_explosions`, `projectile_polygon_vfx`) — the core
-vocabulary the load-site defence is about — and a fighter whose art fails to
-load still draws the particle fallback exactly as today. Not built tonight: it
-touches `load_fx_sheets`, the realization path and `FxSheetAssets` ownership,
-and it wants the wiring question above answered first (there is no point
-demanding `pirate_admiral_vfx` with the admiral if his moveset never asks for
-it). The number it would move: 8 of 13 sheets out of every room that does not
-place the fighter, measurable by the `resident by road: fx-sheet` term.
+⭐⭐ **LANDED 2026-09-02: the seam is CHARACTER REALIZATION, and the ownership
+column the paragraph above said was owed was never needed.** A realized
+character carries its own prepared moveset, and the moveset's `Vfx` events
+name the rows — so `character_sprites::demand_character_fx_sheets` asks
+`PreparedCharacterDefinition.kit.projectable_moveset()` the frame the sprite
+realizes (`materialize_character_demand`, every road: room transition, first
+room, in-room drain) and decodes whichever character-owned sheets those rows
+live on (`fx::owned_fx_sheets_named_by`, over `MoveSpec::vfx_effects()` — the
+same enumeration `presentation_problems` validates at install). Ownership is
+read off the content that fires the effect, not off a name; there is no table
+to mis-map. Each `FxSheet` declares `FxResidency::{Core, OwnedByCharacter}`:
+four core sheets (`generic_action_fx`, `generic_world_fx`, `generic_exotic_fx`,
+`generic_explosions`) decode at boot as before; the nine others (the eight
+character-named sheets and `projectile_polygon_vfx`, which one moveset owns)
+follow their character. The room manifest lists every fx sheet demanded so far
+(`fx:<target>`), so the reveal barrier waits on a fighter's own effects like a
+page. `pirate_admiral_vfx` and `george_booul_vfx` — named by no moveset — are
+now never decoded, which is the right residency for art nothing can request;
+the wiring question stays in `awaiting-maintainer-decision.md`. Guard:
+`the_engine_ships_its_own_effects.rs` (boot decodes the core set and only it;
+`cell_birth` is a particle burst at boot and sheet art once the PCA realizes)
++ `fx::tests::owned_sheets_are_owed_by_the_rows_that_name_them`. The size,
+from the sheets' own headers (`scripts/fx_residency_census.sh` reads the
+live `resident by road: fx-sheet` term for any room): boot went from 13
+sheets / 9.4 MP to **4 / 2.8 MP**; the 9 owned sheets are 6.7 MP and each
+arrives only with its fighter (the host run of 2026-09-02 evening, taken
+before this landed, still shows `fx-sheet 10×7.7MP` never drawn in the hub).
 
 ### 3. Pace expensive completion, not declarations
 
@@ -880,110 +883,56 @@ measured.
 Choose a budget from rendered measurements. "One character per frame" is a
 current useful bound, not a universal theorem.
 
-### 3a. ✔ LANDED 2026-09-02 (`dc3cd0d91`): the ROOM-LEVEL sprite tier cap
+### 3a. ⛔⛔ REMOVED 2026-09-02 BY JON'S RULING: there is NO room-level sprite tier cap
 
-Built as planned below with two departures worth knowing. (1) No new authored
-field yet: the cap derives from the existing authored `gallery` flag
-(`room_sprite_tier_cap`), which is every pedestal room today; the derivation
-is one function and an authored field can replace it. (2) Staleness became a
-RANGE `(floor, ceiling)`, not a single tier: a Full sheet standing in a
-gallery is kept (oversampled), a Quarter sheet carried into a Full room is
-retired before that room's reveal — so entering the hall loads only NEW
-characters, at Quarter, and hub-shared ones are not churned. The demand now
-carries a per-token tier and the convergence knows the room being loaded
-(`PendingRoomTierFloor`); without those the in-room drain realized the
-forwarded cast at the hub's Full and the convergence retired the Quarter ones
-the frame after they arrived (measured headless: 103 Full behind the cover).
-Headless: 124 new sheets at Quarter, 5 hub-shared kept at Full. The
-materialization ration became AREAL in the same day (`d19acd516`): one Full
-character's worth of pixels per frame, so the Quarter cast starts sixteen per
-frame and the hall's cover holds ~9 frames for its 129 sheets rather than 129
-(item 3 below, "choose a budget from rendered measurements", now has a unit —
-the Full-sheet bound that was measured — instead of a head count). **Host tell:**
-`image_arrivals` megapixels in the hall window (434 before), `resident_mb`
-(2153 before), and the cover's hold time.
+**Jon, on the 3090 at Ultra, profile run `desktop-timeline-run-20260902T215256Z`:
+"I DO NOT WANT A LOWER QUALITY TIER FOR GALLERY PREVIEWS. WHOEVER WROTE THAT IS
+WRONG."** The run shows why he saw it: every hall sheet decoded from
+`sprites_0_25x/` (`[image] … sprites_0_25x/noether_spritesheet.png … via
+character-sheet`) at `profile=Ultra`, and the gallery was blurry at 1600×900.
 
-#### The plan as written (kept for the record)
+The cap (`dc3cd0d91`: `room_sprite_tier_cap: gallery → Quarter`, a `(floor,
+ceiling)` staleness range, a per-token tier on `CharacterLoadDemand`,
+`PendingRoomTierFloor`, `budget_for_room`) is deleted, mechanism and all, not
+parked behind a flag — a capability that can lower the user's tier is the
+defect, whichever room uses it. **Standing rule: nothing may draw fewer pixels
+than `UserSettings.video.quality` asks for, for any room, view, distance or
+population reason, without Jon's explicit yes.** The "4x oversampled pedestal"
+measurement (132 px drawn at 1080p vs 496 px loaded) stands as a number; the
+decision it was used to justify was a feel ruling that was not mine to make.
+The "view-scoped tier" follow-up below is dead for the same reason.
 
-Now that the frame is answered (250-310 fps everywhere; the hall's entry hitch
-is the one user-visible cost left), this is the first thing to build. The
-pedestal measurement above says WHY (132 px drawn, 496 px loaded); the honest
-run says HOW MUCH (434 MP in two seconds, nine frames of 89-355 ms).
+What the hall entry costs again, and how it is paid: the cast decodes at the
+user's tier (434 MP at Full, measured 2026-09-01) UNDER THE COVER — the reveal
+barrier (`2c8f27b32`) holds the loading foreground until every manifest page is
+decoded and uploaded, so the cost is cover time, never a hitch after the
+reveal and never pixels. The levers that remain are the ones this document
+already names: demand seams (§2), the areal ration and upload pacing (§3), and
+residency/eviction (§4). ⚠ The 2026-09-02 host run's `wait_ms 292` and the
+"expect ~40 MP" tells in `queue.md` were taken WITH the cap and are void; the
+next host walk re-measures the hall's cover hold at Full.
 
-Shape: the drawn size of a character is a property of the ROOM's camera
-framing, so the cap is authored on the room, not derived per sprite.
+<details>
+<summary>What was built and removed (kept so nobody rebuilds it by accident)</summary>
 
-1. `RoomMetadata` gains `sprite_tier_cap: Option<TextureResolutionScale>`
-   (schema registers in both compositions — see the content-schema rule).
-2. `hall_of_characters` authors `Quarter`. Nothing else changes; a room with
-   no cap keeps today's behaviour exactly.
-3. The effective tier is `min(settings tier, room cap)` at the ONE seam:
-   `character_sprite_tier(budget)` gains the room cap as an input, and both
-   callers (`converge_character_residency_to_active_quality`,
-   `materialize_demanded_character_sheets`) pass the active room's. Entering
-   or leaving the hall is then the existing "quality transition" path — demote
-   stale realizations, re-demand — so no new lifecycle is invented.
-4. Missing variants: `performer`, `actor`, `medic` have no Quarter; fall to
-   the nearest tier that exists and say so once per character (the freshness
-   checker already reports absence).
-5. Measure with the same capture (`--no-tracy`, V-Sync Off, walk into the
-   hall): `image_arrivals` megapixels in the hall window (434 today), the
-   spike list (nine frames over 89 ms today), `resident_mb` (2153 today).
-   Expected: ~11x fewer megapixels, hitches under the 33 ms line or gone.
+Built 2026-09-02 as planned: the cap derived from the authored `gallery`
+flag; staleness became a range `(floor, ceiling)` so a Full sheet in a gallery
+was kept and a Quarter sheet carried into a Full room retired before the
+reveal; the demand carried a per-token tier and the convergence knew the room
+being loaded (`PendingRoomTierFloor`) so the in-room drain did not realize the
+forwarded cast at the hub's Full (103 Full sheets behind the cover, headless).
+Headless the hall went 434 MP → ~40 MP and the cover held ~9 frames; the host
+run at Ultra read `wait_ms 292`, 0 frames over 33 ms after the reveal, and a
+blurry gallery. The original plan text (authored `sprite_tier_cap` field,
+`min(settings, cap)` at one seam, nearest-tier fallback for `performer`,
+`actor`, `medic`) is in the history of this section at `dc3cd0d91`.
 
-What it does NOT fix: the boot's 504 ms frame and portal_lab's 123 ms entry,
-which are different rooms' art; those go through item 3 above (pace the
-upload) or the same cap once measured.
+The VIEW-scoped tier idea (only draw the tier a live camera needs; 14 of 138
+cast pages drawn in a hall capture) is recorded in the same history. It was
+scoped as needing three feel rulings — pop, hysteresis, whose view — and the
+ruling above answers it: no.
 
-#### ▢ The next lever after the room cap: a VIEW-scoped tier — scoped, not built
-
-The room-level cap (3a) asks "how big should this ROOM's characters be". The
-measurement the fourth stage now makes possible asks a narrower question the room
-cannot: **how many of them is anyone looking at?**
-
-Hall capture, Potato tier, `--warmup 400`:
-
-```text
-character-sheet   138 resident (4.2MP)   124 never drawn (3.5MP)
-```
-
-⇒ **14 of 138 cast pages are drawn. Ninety per cent of the cast's pixels are
-decoded for characters nobody can see.** The room cap already shrank the hall
-from 434 MP (Full) to a fraction of it; this is the headroom the cap CANNOT
-reach, because every character in the room gets the room's tier whether it is
-on screen or three screens away.
-
-⭐⭐ **AND THE MATERIALIZATION SIDE NEEDS NO CHANGE AT ALL — checked, not
-assumed.** `CharacterLoadDemand::take_within_budget` already yields
-`(token, tier)`: **the tier is carried PER TOKEN on the demand**, and the
-materializer's own comment says why — *"a demand that names its tier floor (a
-room transition's cast) is realized THERE; the rest at the budget the caller
-resolved"*. It then builds a per-token budget from that floor and hands it to
-`materialize_declared_character_sprite`, which takes `quality` per call.
-
-⇒ **A view-scoped tier is entirely a DEMAND-side change**: whoever raises the
-room's cast demand names a lower floor for the characters no view can see. The
-realization machinery, the retirement trace, the convergence guards and the
-ration all work unchanged, because they key on the REQUESTED tier and that is
-exactly what would move. The floor is already the seam; today only rooms use it.
-
-⛔⛔ **AND IT IS NOT A RESIDENCY DECISION ALONE, WHICH IS WHY THIS IS SCOPED AND
-NOT DONE.** Three things have to be answered first and two of them are FEEL:
-
-- **Pop.** A character that walks on screen at Potato and converges to Quarter is
-  visibly re-tiering in front of the player. The room cap has no such moment
-  because it changes only at a room boundary, under a cover. Whether the
-  convergence is fast enough to hide, or wants its own cover, is a ruling.
-- **Hysteresis.** A character on the edge of a view would re-tier every time it
-  crosses, which is the re-decode this document already measures at 44 MP for a
-  second hall entry. A band with a margin, or a dwell time, is required — and its
-  size is a feel number, not a derived one.
-- **Whose view.** Split-screen and the N-view work make "a live view" plural, and
-  a character visible to seat 2 must not be tiered for seat 1's camera.
-
-⇒ Worth building only after the first is ruled on. The measurement that motivates
-it is in hand and repeatable; the design is one input to two existing functions;
-the risk is entirely in what the player sees.
+</details>
 
 ### 4. Define residency ownership and budgets
 
@@ -1007,7 +956,7 @@ the rule was found). Retiring a realization drops the page's last handle, so
 after a room exit the ledger's resident `character-sheet` rows must all be
 owned by a live realization — a page resident with no realization is held by
 something else, and that something is the leak. Measured on the reverse leg
-(`leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting`, hall →
+(`leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`, hall →
 hub, 300 frames after the commit): **0 orphan pages**; the retired gallery
 cast leaves memory. Poison: holding five gallery page handles across the exit
 names exactly those five. What stays resident in the hub and why: the hub's
@@ -1032,6 +981,19 @@ would instead keep the last room's cast resident while the total stays under
 a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
+
+⚠ **Parallax is the one road that ACCUMULATES, and its ceiling is known
+(read from the code 2026-09-02, not yet measured on a walk).**
+`ensure_parallax_layers_for_room` lazy-loads a theme's four layers on first
+visit and nothing releases them: `ParallaxLayerSet` has `ensure_theme_loaded`
+and no retire. Nine themes × 4 layers = 37 files, **21.2 MP at Full** (every
+theme 2.4 MP), so a session that visits every zone holds 21 MP / ~85 MB of
+backgrounds for the rest of the process. Owner by the list above: "current/
+nearby room" — the same rule character pages follow — so a retire-on-commit
+that keeps the active theme and the one-hop neighbours' would bound it at
+≤3 themes. Bounded and small next to a hall cast at Full, which is why it is
+recorded rather than built; the `resident by road: parallax` term after a
+multi-zone walk is the measurement.
 
 ### 5. Eliminate accidental re-preparation/reload
 
@@ -1193,7 +1155,7 @@ measurement this section is still waiting on, and it is one boot with
 
 ✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the
 gallery (Quarter) for the hub (Full) is now a test in the shipped composition,
-`leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting`, and its first
+`leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`, and its first
 run found three defects on the way out: (1) the per-token tier a transition
 forwards was CLAMPED to the active room's cap in `materialize_character_demand`
 (`floor.min(budget)`), so the hub's cast was re-demanded at Full and decoded

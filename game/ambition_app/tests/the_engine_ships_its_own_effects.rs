@@ -10,8 +10,9 @@
 //! inserted the sheets itself would prove nothing about what a player gets.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_platformer2d::actors::character_runtime::CharacterLoadDemand;
 use ambition_platformer2d::render::fx::resolve_drawable;
-use ambition_platformer2d::sprite_sheet::fx::FX_SHEETS;
+use ambition_platformer2d::sprite_sheet::fx::{core_fx_targets, FX_SHEETS};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 use ambition_platformer2d::vfx::FxId;
 use bevy::prelude::*;
@@ -47,17 +48,24 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
          level prop and the assertions below stopped measuring the engine."
     );
 
+    // The CORE set at boot — the generic vocabulary and projectile art. The
+    // character-owned sheets follow their character (below); before 2026-09-02
+    // all thirteen decoded here and sat resident in every room.
+    let mut core: Vec<&str> = core_fx_targets().collect();
+    core.sort_unstable();
     assert_eq!(
-        assets.fx.len(),
-        FX_SHEETS.len(),
-        "every declared FX sheet decoded: {:?}",
-        assets.fx.targets()
+        assets.fx.targets(),
+        core,
+        "the core FX sheets decoded at boot, and only those"
+    );
+    assert!(
+        FX_SHEETS.len() > assets.fx.len(),
+        "NON-VACUITY: some sheets are character-owned, or the seam below tests nothing"
     );
 
     for (name, sheet) in [
         ("classic_burst", "generic_explosions"),
         ("sonic_boom", "generic_exotic_fx"),
-        ("reductio_impact", "george_booul_vfx"),
     ] {
         let (effect, _asset, slot) = resolve_drawable(Some(assets), FxId::new(name))
             .unwrap_or_else(|| panic!("`{name}` must resolve to sheet art, not a particle burst"));
@@ -72,4 +80,43 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
     // …and an id no sheet carries still falls back, so the check above is a
     // property of the name rather than of `resolve_drawable` answering `Some`.
     assert!(resolve_drawable(Some(assets), FxId::new("kaboom")).is_none());
+}
+
+/// A CHARACTER-OWNED SHEET DECODES WHEN ITS CHARACTER IS REALIZED, NOT BEFORE.
+///
+/// `cell_birth` is the Perfect Cellular Automaton's up-tilt effect, on
+/// `pca_vfx`: a particle burst at boot (nobody who fires it exists), sheet art
+/// once the engine's demand drain realizes the fighter — the same road a room
+/// transition or a spawn takes. Driven on the shipped host for the same reason
+/// as above: the seam is in `materialize_character_demand`, and a fixture that
+/// loaded the sheet itself would prove nothing about who owes it.
+#[test]
+fn a_characters_own_effect_sheet_follows_its_realization() {
+    let mut app = booted();
+    let fx = |app: &App| {
+        let assets = app.world().resource::<GameAssets>();
+        (
+            assets.fx.contains("pca_vfx"),
+            resolve_drawable(Some(assets), FxId::new("cell_birth")).is_some(),
+        )
+    };
+    assert_eq!(fx(&app), (false, false), "premise: nobody at boot fires a PCA effect");
+
+    app.world_mut()
+        .resource_mut::<CharacterLoadDemand>()
+        .request("perfect_cellular_automaton");
+    // The drain realizes one character per frame at most and the sheet's
+    // handle exists the frame the realization lands; the decode itself is
+    // asynchronous and the reveal barrier (not this test) waits on it.
+    for _ in 0..8 {
+        app.update();
+        if fx(&app).0 {
+            break;
+        }
+    }
+    assert_eq!(
+        fx(&app),
+        (true, true),
+        "realizing the fighter demanded `pca_vfx`, and its effect resolves to sheet art"
+    );
 }

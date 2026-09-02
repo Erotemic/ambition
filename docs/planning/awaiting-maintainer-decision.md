@@ -348,6 +348,132 @@ beside moves called `bivalence`, `excluded_middle`, `commitment`.
 
 ⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
 from the names, but WHEN in a timeline each fires and at what scale is a feel
+ruling, which is why it is here rather than done. Residency's interest was the
+size (9.4 MP resident in every room); since 2026-09-02 the two sheets are never
+decoded, because no realized character's moveset names a row of them.
+
+### A view-scoped sprite tier: is the pop acceptable? (2026-09-02)
+
+Fourteen of the hall's 138 resident cast pages are ever drawn — 90% of the cast's
+pixels are decoded for characters nobody can see. The room-level tier cap cannot
+reach that, because every character in a room gets the room's tier whether it is
+on screen or three screens away. Scoped in
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md);
+the engineering is small (the per-token tier floor already exists on the demand,
+and only rooms use it today).
+
+⛔ TWO OF THE THREE OPEN QUESTIONS ARE FEEL, which is why it is not built:
+
+- **Pop.** A character that walks on screen at a low tier and converges upward
+  re-tiers in front of the player. The room cap has no equivalent moment — it
+  changes only at a room boundary, under a cover. Is that acceptable, does it
+  want its own cover, or must the convergence be fast enough to hide?
+- **Hysteresis.** A character loitering at the edge of a view would re-tier on
+  every crossing, which is the re-decode this project already measures at 44 MP
+  for a second hall entry. A margin or a dwell time is required and its size is a
+  feel number.
+
+⚠ The third is engineering and answerable here: with split-screen and the N-view
+work, "a live view" is plural, and a character visible to seat 2 must not be
+tiered for seat 1's camera.
+
+### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
+
+Every world file declares `sprite_player_robot_v3 = ../sprites/player_robot_v3_
+spritesheet.png` (3072×2484) so the editor can draw entity previews, and
+`bevy_ecs_ldtk` decodes every tileset of a project when the project loads — on
+every boot and every world load, at FULL tier, beside whatever tier the game
+actually realizes. The runtime never draws it. Fix is one line per world in the
+map submodule (point it at the `sprites_0_25x` copy, 0.5 MP; the editor preview
+survives at a quarter resolution). ⛔ Jon's file, so it waits.
+
+### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
+
+Jon raised the general shape of this on 2026-08-28, about a different type
+(*"it might be a good idea to rename the actor given its conflation with a very
+core concept in the architecture. But we can do that in a different pass"*). The
+`Actor` half was done — it is `Performer` now. This half was never put to him and
+should not be decided by an agent, because a rename is Jon's vocabulary call.
+
+⭐ THE CONFLATION IS MEASURED, not assumed. `SmashChargeSpec` is named for one
+game mode and its own doc comment describes something general: *"How a chargeable
+move HOLDS: where on its own timeline the charge waits, and how long it may wait
+before it fires itself."* It carries `roots`, `sustain`
+(`WhileHeld` / `UntilPressedAgain`) and two seconds-valued clocks in the owner's
+proper time — none of which is Smash-specific — and the Trap (the Performer's
+down-B, an Ambition move, not a Smash one) uses it for a three-second
+subterranean beat, which is what made the name visible.
+
+⚠ THE SIZE, so the answer can be costed: **36 references** across `crates/` and
+`game/`. A rename is mechanical and touches authored content, so it wants to
+happen in one pass or not at all.
+
+⇒ Three answers are all reasonable and the choice is not an agent's: keep the
+name (the mechanism was authored for Smash and the association is useful), rename
+to something like `TimelineHoldSpec` / `ChargeHoldSpec`, or keep it and let a
+future Smash-specific type take the name back. ⛔ No engineering is blocked
+either way — this is recorded so it stops being asked and forgotten.
+
+## Waiting on maintainer measurement, not a decision
+
+### The residency limit open work 4 needs
+
+A budget policy that keeps the last room's cast resident needs a ceiling, and the
+ceiling is a host number: `resident_mb` at Full on the 3090 after a
+hub→hall→hub walk. Everything else in that section is measured; this is the one
+input that cannot be taken on a software rasteriser.
+
+### D-RASTER-3's remaining half
+
+Splitting the weak-GPU 2.54× between framebuffer scale and MSAA needs an
+interleaved A/B on real weak-GPU hardware with the independent
+`AMBITION_MAX_SCALE_FACTOR` and `AMBITION_MSAA` knobs, multiple reps per arm,
+build/features/profile held constant. ⛔ Explicitly not lavapipe: the row says so
+and the substitution is what made the original result unattributable.
+
+### Switch Pro outer stick range
+
+The remaining cross-machine controller question needs the actual hardware
+measurement: run the existing `Shift+F6` axis probe on both machines, push the
+Switch Pro to each extreme/corner, and compare reported peak magnitude.
+
+The proposed shared outer-saturation fix should be judged only after that number
+exists. This is tracked in the execution queue as an external measurement, not a
+maintainer design decision.
+
+### ~~Which character owns each per-fighter FX sheet~~ (raised 2026-09-02, withdrawn 2026-09-02 — no decision was needed)
+
+The question assumed the demand seam needed a sheet → CHARACTER ID table. It
+does not: a realized character carries its own prepared moveset
+(`PreparedCharacterDefinition.kit.projectable_moveset()`), and the moveset's
+`Vfx` events name the rows. `character_sprites::demand_character_fx_sheets`
+asks that moveset the frame the character realizes and decodes whichever
+character-owned sheets its rows live on (`fx::owned_fx_sheets_named_by`) —
+ownership is read off the content that fires the effect, not off a name.
+Landed in `asset-preparation-and-residency.md` §2. The two never-wired sheets
+below are unaffected: a sheet no moveset names is now never decoded, which is
+the correct residency for art nothing can request, and the wiring question
+stays the owner's.
+
+### Two fighters' bespoke effect art is never requested (2026-09-02)
+
+`npc_pirate_admiral` has a 14-row effect sheet and `smash_george_booul` a 21-row
+one, and **nothing in the repository names 34 of those 35 rows** — measured by
+`scripts/measure_fx_row_reachability.py`, which asks which fx row names any
+tracked `.rs`/`.ron`/`.yarn`/`.json` mentions (an effect is drawn by name, so a
+row nothing names cannot be requested).
+
+⛔ IT IS NOT DEAD ART, which is why this is a question and not a slice. The rows
+were drawn FOR those kits: `grapeshot_cloud`, `heave_to_anchor`,
+`heave_to_brake`, `cutlass_wake`, `boarding_wake`, `captains_mark` sit beside an
+admiral moveset whose moves are named `grapeshot`, `heave_to`, `gun_sword` — and
+that moveset asks for `muzzle_flash` and `air_slice` from the GENERIC sheets
+instead. George is the same: `bivalence_weak`/`bivalence_strong`,
+`excluded_middle_windup/launch/ascent/gate/tail`, `modus_ponens_*`, `reductio_*`,
+beside moves called `bivalence`, `excluded_middle`, `commitment`.
+
+⇒ **Wire them, or were they superseded?** The row→move pairing is unambiguous
+from the names, but WHEN in a timeline each fires and at what scale is a feel
 ruling, which is why it is here rather than done. Residency's interest is only
 the size: the FX set is 9.6 MP resident in every room and 76 of its 196 rows are
 currently unrequestable.
@@ -441,33 +567,20 @@ The proposed shared outer-saturation fix should be judged only after that number
 exists. This is tracked in the execution queue as an external measurement, not a
 maintainer design decision.
 
-### Which character owns each per-fighter FX sheet (raised 2026-09-02)
+### Interact dialogue for the characters the Hall's authoring did not cover (raised 2026-09-02)
 
-Seven of the thirteen FX sheets are named by exactly one moveset file, so their
-demand could move from "resident in every room" to the room's cast — 9.6 MP is
-31% of the hall's resident megapixels and this is the largest owner left after
-the boss sheets. `scripts/measure_fx_row_reachability.py --owners` measures the
-sheet → MOVESET FILE half. The demand seam needs a sheet → CHARACTER ID map, and
-that last hop cannot be derived: `noether_vfx` belongs to `npc_emmy_noether`,
-`carl_stargan_vfx` sits beside a sheet target `carl_runga`, and three sheets use
-bare ids with no `npc_` prefix. A wrong guess loads nothing and the effects fall
-back to particles SILENTLY.
+`triage/character-dialogue-from-suggestions.md` re-measured: 149 catalog rows,
+124 with a `hall_dialogue_id`, 131 authored `hall_*` Yarn nodes. The Hall was
+solved by hand-authoring, the escape the 2026-07-26 decision left open, so a
+generator built to that decision would generate over 124 characters that
+already have nodes. What remains is ~25 rows with no hall id, and every room
+that is not the Hall, where a character with a real `fallback_dialogue` voice
+still opens `generic_npc` on interact.
 
-Needed: the character id for each of `oiler_vfx`, `pca_vfx` (named by
-`cellular_automaton_moveset.rs` — "pca" is not a fighter), `patent_clerk_vfx`,
-`carl_stargan_vfx`, `noether_vfx`, `ninja_shadow_oni_leader_vfx`,
-`projectile_polygon_vfx`.
-
-⚠ And a separate content question in the same measurement, NOT blocking the
-above: `pirate_admiral_vfx` (14 rows) is named by nothing at all, and
-`george_booul_vfx` (21 rows) only by a test and the engine's own `fx.rs`. Their
-rows sit beside movesets whose moves have matching names, so this reads as
-missing wiring rather than dead art — but whether to wire them or drop them is
-the owner's call. Both stay resident until it is made.
-
-Engine side is unblocked the moment the id column exists: load only the four
-shared sheets at boot, ensure the owned ones at room-manifest time exactly as
-`ensure_boss_sheets_loaded` already does for bosses.
+Needed: keep authoring by hand (then the triage closes as superseded), or
+build the generator for the remainder only (a per-character node synthesized
+from `fallback_dialogue`, overridden by any authored node of the same title).
+Content call; the engine side is unchanged either way.
 
 ## ✔ WITHDRAWN 2026-09-02 — "is 8% of the floor crate worth an encoder split?"
 

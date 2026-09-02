@@ -480,13 +480,9 @@ pub mod character {
     pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
     pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
     pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
-    /// The sheet tier a room's characters are realized at: the user's setting
-    /// lowered by the room's cap (a gallery of pedestals needs Quarter). The
-    /// host's room-transition demand realizes with `budget_for_room` and
-    /// retires what sits outside `room_character_tier_bounds` before a reveal.
-    pub use ambition_platformer2d_actor_monolith::character_sprites::{
-        budget_for_room, room_character_tier_bounds, room_sprite_tier_cap,
-    };
+    /// The sheet tier every character is realized at: the user's setting, and
+    /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
+    pub use ambition_platformer2d_actor_monolith::character_sprites::character_sprite_tier;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;

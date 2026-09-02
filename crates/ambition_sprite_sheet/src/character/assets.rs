@@ -203,27 +203,8 @@ impl CharacterSpriteAssets {
     /// system that took the mutable borrow every frame would mark the whole
     /// asset resource changed every frame.
     pub fn has_stale_realizations(&self, active: TextureResolutionScale) -> bool {
-        self.has_stale_realizations_outside(active, active)
-    }
-
-    /// A realization is stale when its tier is BELOW `floor` (drawn from pixels
-    /// too small for where it is shown) or ABOVE `ceiling` (bigger than the
-    /// user's setting asks for). One tier for both is the old exact rule.
-    ///
-    /// The room a character stands in sets the floor
-    /// (`room_sprite_tier_cap`: a gallery of 132-px pedestals needs Quarter),
-    /// the user's setting sets the ceiling. A Full sheet standing in a gallery
-    /// is merely oversampled and is KEPT — demoting it on every hall entry and
-    /// re-decoding it on every exit would be churn for nothing; a Quarter sheet
-    /// carried out into a Full room is too small and goes.
-    pub fn has_stale_realizations_outside(
-        &self,
-        floor: TextureResolutionScale,
-        ceiling: TextureResolutionScale,
-    ) -> bool {
         self.sheets.iter().any(|(token, asset)| {
-            (asset.requested_tier < floor || asset.requested_tier > ceiling)
-                && self.declared.contains_key(token)
+            asset.requested_tier != active && self.declared.contains_key(token)
         })
     }
 
@@ -261,27 +242,47 @@ impl CharacterSpriteAssets {
         &mut self,
         active: TextureResolutionScale,
     ) -> std::collections::BTreeSet<String> {
-        self.demote_stale_realizations_outside(active, active)
-    }
-
-    /// [`Self::demote_stale_realizations`] with the floor/ceiling rule of
-    /// [`Self::has_stale_realizations_outside`].
-    pub fn demote_stale_realizations_outside(
-        &mut self,
-        floor: TextureResolutionScale,
-        ceiling: TextureResolutionScale,
-    ) -> std::collections::BTreeSet<String> {
         let stale: Vec<String> = self
             .sheets
             .iter()
             .filter(|(token, asset)| {
-                (asset.requested_tier < floor || asset.requested_tier > ceiling)
-                    && self.declared.contains_key(*token)
+                asset.requested_tier != active && self.declared.contains_key(*token)
             })
             .map(|(token, _)| token.clone())
             .collect();
+        self.retire_tokens(stale)
+    }
+
+    /// Retire every DECLARED realization whose character id is not in `keep`,
+    /// returning the retired ids — the room-exit half of residency ownership.
+    ///
+    /// A resident character page belongs to a realization, and a realization
+    /// belongs to a room that places the character, a body that wears it, or a
+    /// neighbour the prefetch decodes for; whoever commits a room transition
+    /// names that set and everything else leaves with the room it was for.
+    /// Nothing about pixels: the tier is the user's setting everywhere
+    /// (Jon, 2026-09-02: no room may lower it), so "stale" and "unowned" are
+    /// two different questions and this answers only the second.
+    pub fn retire_realizations_except(
+        &mut self,
+        keep: &std::collections::BTreeSet<String>,
+    ) -> std::collections::BTreeSet<String> {
+        let unowned: Vec<String> = self
+            .sheets
+            .keys()
+            .filter(|token| {
+                self.declared
+                    .get(*token)
+                    .is_some_and(|id| !keep.contains(id))
+            })
+            .cloned()
+            .collect();
+        self.retire_tokens(unowned)
+    }
+
+    fn retire_tokens(&mut self, tokens: Vec<String>) -> std::collections::BTreeSet<String> {
         let mut ids = std::collections::BTreeSet::new();
-        for token in stale {
+        for token in tokens {
             if let Some(id) = self.declared.get(&token) {
                 ids.insert(id.clone());
             }

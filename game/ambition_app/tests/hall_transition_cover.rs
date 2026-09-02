@@ -405,21 +405,21 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
     );
 }
 
-/// The hall is a gallery (`RoomMetadata::gallery`): its pedestals are drawn
-/// 132 px tall, so the transition realizes its cast at Quarter — 11.5x fewer
-/// megapixels than the Full frames the same walk loaded on 2026-09-02 (434 MP,
-/// 2.15 GB resident). Under the default (Full) setting, every hall sheet the
-/// transition realizes asks for Quarter; an ordinary room would ask for Full.
+/// ⛔⛔ THE HALL DRAWS AT THE USER'S TIER, NEVER LOWER. Jon, 2026-09-02, on the
+/// 3090 at Ultra, looking at a gallery decoded from `sprites_0_25x/`: *"I do
+/// not want a lower quality tier for gallery previews."* The room-level tier
+/// cap that did that (`dc3cd0d91`) is gone, mechanism and all; this pins the
+/// ruling on the room that motivated it. Every sheet the hall's transition
+/// realizes asks for exactly the setting's tier, and every sheet the hub had
+/// already realized keeps it. Poison: cap the gallery anywhere on the demand
+/// road and the newly realized tiers stop being `{setting}`.
 #[test]
-fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
+fn the_halls_cast_is_realized_at_the_users_tier_never_lower() {
     use ambition_platformer2d::persistence::settings::TextureResolutionScale;
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let ids = hall_character_ids(&mut app);
-    // Characters the hub already realized at the setting's tier stay as they
-    // are — a Full sheet in a gallery is merely oversampled, and retiring it on
-    // every entry to re-decode it on every exit would be churn for nothing.
     let already_realized: std::collections::BTreeSet<String> = {
         let assets = app.world().resource::<GameAssets>();
         ids.iter()
@@ -437,7 +437,7 @@ fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
         .effective_scale();
     assert!(
         setting > TextureResolutionScale::Quarter,
-        "this test needs a setting ABOVE the gallery cap to tell the two apart; got {setting:?}"
+        "this test needs a setting ABOVE Quarter, or a gallery cap would be invisible; got {setting:?}"
     );
     // Let the ration realize a good part of the cast behind the cover.
     for _ in 0..200 {
@@ -453,8 +453,7 @@ fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
         if already_realized.contains(id) {
             assert_eq!(
                 sheet.requested_tier, setting,
-                "'{id}' was realized at {setting:?} before the door and must be KEPT there, \
-                 not retired and re-decoded because a gallery would have asked for less"
+                "'{id}' was realized at {setting:?} before the door and must be KEPT there"
             );
             kept_as_they_were += 1;
             continue;
@@ -464,29 +463,32 @@ fn the_halls_cast_is_realized_at_the_gallery_tier_not_the_setting() {
     let realized: usize = tiers.values().sum();
     assert!(
         realized >= 100,
-        "only {realized} of {} realized in 200 frames",
+        "only {realized} of {} realized in 200 frames (one Full sheet per frame is the ration)",
         ids.len()
     );
     assert_eq!(
         tiers.keys().copied().collect::<Vec<_>>(),
-        vec![TextureResolutionScale::Quarter],
-        "the hall's newly realized sheets asked for {tiers:?}; a gallery caps its cast at \
-         Quarter under a {setting:?} setting"
+        vec![setting],
+        "the hall's newly realized sheets asked for {tiers:?}; the gallery must draw at the \
+         {setting:?} setting like every other room (Jon, 2026-09-02)"
     );
     assert_eq!(kept_as_they_were, already_realized.len());
 }
 
-/// THE OTHER DIRECTION (asset open work 6): a character realized at the
-/// gallery's Quarter and then needed in an uncapped room is re-tiered UP.
+/// THE EXIT (asset open work 4): leaving the gallery, the characters the hub
+/// places or a body wears STAY realized at the setting's tier, the hall-only
+/// cast leaves memory, and no page is left behind without an owner.
 ///
-/// Boot straight into the hall (so its cast — including the characters the hub
-/// also places — realizes at Quarter with nothing pre-realized at Full), record
-/// the hall → hub transition through the room graph, and watch the shared
-/// characters' sheets ask for the setting's tier while the cover is still down:
-/// `PendingRoomTierFloor` names the destination's floor, and convergence
-/// retires a Quarter sheet as too small for the room being loaded.
+/// Boot straight into the hall (so its whole cast is realized, the hub-shared
+/// characters included), record the hall → hub transition through the room
+/// graph, and watch the commit apply the ownership rule
+/// (`RoomResidencyOwners`): destination cast ∪ worn ∪ one-hop neighbours'
+/// casts stay; everything else is retired under the cover and its pages drop.
+/// Until 2026-09-02 this exit was driven by a tier mismatch (the gallery's
+/// Quarter against the hub's Full); Jon removed the gallery tier, so the rule
+/// had to become explicit — and this is the test that showed it had to.
 #[test]
-fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
+fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
     use ambition_platformer2d::persistence::settings::TextureResolutionScale;
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
@@ -528,15 +530,12 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         .resolved_budget()
         .sprites
         .effective_scale();
-    assert!(
-        setting > TextureResolutionScale::Quarter,
-        "premise: setting {setting:?} is above the cap"
-    );
+    let _ = TextureResolutionScale::Quarter;
     for _ in 0..200 {
         step(&mut app);
     }
 
-    // The characters the HUB places that the hall realized at Quarter.
+    // The characters the HUB places, which the hall realized too.
     let hub_ids: std::collections::BTreeSet<String> = {
         let mut query = app
             .world_mut()
@@ -591,7 +590,7 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         hall_only.len() >= 50,
         "premise: the hall places a cast the hub does not"
     );
-    let shared_at_quarter: Vec<String> = {
+    let shared: Vec<String> = {
         let assets = app.world().resource::<GameAssets>();
         hall_ids
             .iter()
@@ -601,14 +600,14 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
                 assets
                     .characters
                     .sheet(id)
-                    .is_some_and(|sheet| sheet.requested_tier == TextureResolutionScale::Quarter)
+                    .is_some_and(|sheet| sheet.requested_tier == setting)
             })
             .collect()
     };
     assert!(
-        !shared_at_quarter.is_empty(),
-        "premise: no character the hub places was realized at Quarter in the hall, so \
-         there is nothing to re-tier (hub cast {} ids)",
+        !shared.is_empty(),
+        "premise: no character the hub places was realized in the hall at {setting:?}, so \
+         there is nothing to keep (hub cast {} ids)",
         hub_ids.len()
     );
 
@@ -667,7 +666,7 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
     }
 
     let assets = app.world().resource::<GameAssets>();
-    let still_quarter: Vec<String> = shared_at_quarter
+    let lost: Vec<String> = shared
         .iter()
         .filter(|id| {
             assets
@@ -678,23 +677,19 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         .cloned()
         .collect();
     assert!(
-        still_quarter.is_empty(),
-        "{} of {} hub characters the hall realized at Quarter did not re-tier to {setting:?} \
-         while the hub was being loaded: {still_quarter:?}",
-        still_quarter.len(),
-        shared_at_quarter.len()
+        lost.is_empty(),
+        "{} of {} hub characters the hall had realized at {setting:?} were retired or \
+         re-tiered by the exit: {lost:?}",
+        lost.len(),
+        shared.len()
     );
-    // ⛔ AND THE GALLERY'S OWN CAST WAS NOT RE-DECODED AT FULL. Leaving retires
-    // every Quarter sheet; only the hub's are re-demanded. Before the fix the
-    // whole hall came back at Full — the entry hitch in reverse, and bigger.
+    // ⛔ AND THE GALLERY'S OWN CAST LEFT. The commit retires every realization
+    // no owner claims; a hall-only character still realized in the hub is held
+    // for nobody — the 434 MP the hall costs at Full, kept for a room that
+    // places five of its characters.
     let promoted_for_nobody: Vec<String> = hall_only
         .iter()
-        .filter(|id| {
-            assets
-                .characters
-                .sheet(id)
-                .is_some_and(|sheet| sheet.requested_tier == setting)
-        })
+        .filter(|id| assets.characters.sheet(id).is_some())
         .cloned()
         .collect();
     // ⛔ MINUS THE HUB'S ONE-HOP NEIGHBOURS. The neighbour prefetch
@@ -738,8 +733,8 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         .collect();
     assert!(
         promoted_for_nobody.is_empty(),
-        "{} hall-only characters were re-decoded at {setting:?} for a room that does not \
-         place them: {:?}…",
+        "{} hall-only characters are still realized in a room that does not place them \
+         (nor do its neighbours): {:?}…",
         promoted_for_nobody.len(),
         promoted_for_nobody.iter().take(5).collect::<Vec<_>>()
     );

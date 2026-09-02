@@ -34,7 +34,7 @@ use ambition_platformer2d::world::rooms::RoomSpec;
 use super::room_transition_assets::{
     build_loaded_room_asset_manifest, build_room_asset_manifest, inspect_demanded_characters,
     inspect_room_asset_manifest, realized_character_count, room_character_tokens,
-    RoomAssetManifest, RoomTransitionAssetContext,
+    RoomAssetManifest, RoomResidencyOwners, RoomTransitionAssetContext,
 };
 
 /// One published session whose first room's art this host is preparing.
@@ -163,6 +163,18 @@ pub(crate) fn prepare_first_room_art_system(
                 staged_actor_names.extend(worn.iter().cloned());
                 staged_actor_names.sort();
                 staged_actor_names.dedup();
+                // Whatever an earlier session left realized and this room, the
+                // worn body or its neighbours do not own leaves here, before the
+                // first reveal — the same ownership rule a room commit applies.
+                let room_set = source.room_set();
+                let owners = RoomResidencyOwners::for_room(
+                    room_set,
+                    room_set.active,
+                    &staged_actor_names,
+                    &worn,
+                    registry,
+                    character_catalog,
+                );
                 let (manifest, remainder) = build_room_asset_manifest(
                     room,
                     &staged_actor_names,
@@ -177,10 +189,10 @@ pub(crate) fn prepare_first_room_art_system(
                     &context.authored_sheets,
                     context.boss_catalog.as_deref(),
                     &worn,
-                    true,
+                    Some(&owners),
                 );
-                // Beyond the per-frame ration, to the engine's global demand at
-                // this room's floor — the same hand-over a room transition makes.
+                // Beyond the per-frame ration, to the engine's global demand —
+                // the same hand-over a room transition makes.
                 if let Some(demand) = context.character_load_demand.as_deref_mut() {
                     remainder.forward_into(demand);
                 }

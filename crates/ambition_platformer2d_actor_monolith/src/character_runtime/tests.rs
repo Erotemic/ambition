@@ -133,7 +133,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
 
     // Drive only the unknown-token branch, which needs no asset pipeline at all —
     // that is exactly why an unknown id must be classified BEFORE any decode.
-    for (token, _tier) in std::mem::take(&mut demand.pending) {
+    for token in std::mem::take(&mut demand.pending) {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
                 token.clone(),
@@ -1303,12 +1303,7 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
         "everything is eventually taken"
     );
 
-    let mut all: Vec<String> = first
-        .into_iter()
-        .chain(second)
-        .chain(third)
-        .map(|(token, _tier)| token)
-        .collect();
+    let mut all: Vec<String> = first.into_iter().chain(second).chain(third).collect();
     all.sort();
     assert_eq!(
         all,
@@ -1322,13 +1317,13 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
 }
 
 /// ⭐ THE RATION IS PIXELS, NOT HEADS. The bound was measured on Full sheets
-/// (~470 MB of RGBA per character); a Quarter sheet is sixteen times smaller,
-/// so a gallery's Quarter cast starts sixteen per frame under the SAME byte
-/// budget — a 129-character hall holds its cover ~9 frames, not 129. Full
-/// tokens still go one per frame, a mixed frame stops before it overspends,
-/// and the first token is always taken so nothing is ever stranded.
+/// (~470 MB of RGBA per character); at a lower SETTING a sheet is smaller, so
+/// a Quarter setting starts sixteen per frame under the SAME byte budget. Full
+/// tokens go one per frame, and the first token is always taken so nothing is
+/// ever stranded. The tier is the setting's — one for every token; a demand
+/// cannot name a lower one (Jon, 2026-09-02).
 #[test]
-fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
+fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
     use super::{CharacterLoadDemand, MATERIALIZATION_UNITS_PER_FRAME};
     use ambition_persistence::settings::TextureResolutionScale as Tier;
     assert_eq!(
@@ -1336,22 +1331,22 @@ fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
         "one Full character per frame"
     );
 
-    // 40 Quarter tokens: 16, 16, 8.
+    // 40 tokens at a Quarter setting: 16, 16, 8.
     let mut demand = CharacterLoadDemand::default();
-    demand.request_all_at((0..40).map(|i| format!("pedestal_{i:02}")), Tier::Quarter);
+    demand.request_all((0..40).map(|i| format!("pedestal_{i:02}")));
     let frames: Vec<usize> = std::iter::from_fn(|| {
-        let taken = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
+        let taken = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Quarter);
         (!taken.is_empty()).then_some(taken.len())
     })
     .collect();
     assert_eq!(
         frames,
         vec![16, 16, 8],
-        "a Quarter cast fills the ration sixteen at a time"
+        "a Quarter setting fills the ration sixteen at a time"
     );
     assert_eq!(demand.pending().count(), 0);
 
-    // Untiered tokens cost the DEFAULT tier: at Full, one per frame.
+    // At Full, one per frame.
     let mut demand = CharacterLoadDemand::default();
     demand.request_all(["author", "noether", "turing"]);
     let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
@@ -1362,24 +1357,14 @@ fn the_ration_spends_pixels_so_a_quarter_cast_starts_sixteen_a_frame() {
         "the rest wait, they are not dropped"
     );
 
-    // A mixed frame: Half (4) + Half (4) + Full (16) would overspend, so the
-    // Full waits for the next frame — and then starts, alone, at once.
+    // Half (4): four per frame, and the first token of a frame is always
+    // taken whatever it costs.
     let mut demand = CharacterLoadDemand::default();
-    demand.request_at("a_half", Tier::Half);
-    demand.request_at("b_half", Tier::Half);
-    demand.request_at("c_full", Tier::Full);
-    let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
-    assert_eq!(
-        first.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>(),
-        vec!["a_half", "b_half"]
-    );
-    let second = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Full);
-    assert_eq!(
-        second.len(),
-        1,
-        "the first token of a frame is always taken, whatever it costs"
-    );
-    assert_eq!(second[0].0, "c_full");
+    demand.request_all(["a", "b", "c", "d", "e"]);
+    let first = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Half);
+    assert_eq!(first.len(), 4);
+    let second = demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, Tier::Half);
+    assert_eq!(second, vec!["e".to_string()]);
 }
 
 /// A limit of zero, or a set smaller than the limit, takes everything — so the

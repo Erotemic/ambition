@@ -138,7 +138,13 @@ impl RoomSet {
     /// graph adjacency only; choosing how much speculative work to perform is
     /// owned by the loading/asset layer.
     pub fn neighboring_room_indices(&self) -> Vec<usize> {
-        let Some(&active_node) = self.room_nodes.get(self.active) else {
+        self.neighboring_room_indices_of(self.active)
+    }
+
+    /// The rooms one hop out from `room` — what a transition INTO `room` will
+    /// prefetch, and therefore what a room commit keeps resident.
+    pub fn neighboring_room_indices_of(&self, room: usize) -> Vec<usize> {
+        let Some(&active_node) = self.room_nodes.get(room) else {
             return Vec::new();
         };
         let mut neighbors = self

@@ -768,9 +768,13 @@ pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
 /// step a collision resolve shortened, and a second motion model that disagrees
 /// with the kernel's is how a hazard fires on a frame the body never entered.
 ///
-/// PARITY: `aabb_path_contacts` returns true for the already-overlapping case,
-/// so every hit [`touching_hazard_aabb`] would have found is still a hit here
-/// and the only new detections are genuine tunnels.
+/// ⚠ THIS FUNCTION ALONE IS NOT AT PARITY WITH THE DISCRETE TEST, and must not
+/// be used as if it were. It queries the hazard's INTERIOR, so a body overlapping
+/// a hazard by less than [`HAZARD_SURFACE_EPSILON`] is not a hit here. Parity is
+/// a property of the PAIR — `kernel::touching_hazard` runs the endpoint arm,
+/// which is exactly `strict_intersects` against the real AABB, and only then
+/// this one — so every hit the discrete test would find is still a hit, and what
+/// this adds is genuine tunnels rather than surface contact.
 pub fn hazard_contact_on_path(world: &World, center: Vec2, half: Vec2, delta: Vec2) -> bool {
     world.blocks.iter().any(|b| {
         matches!(b.kind, BlockKind::Hazard)

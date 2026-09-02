@@ -57,6 +57,23 @@ wrapper, after the write, and all three arms share the shape *write sample ->
 gate*. A reader that consumes a per-tick record must be ordered against the
 writer of that record, not merely placed in the same function.
 
+⛔⛔ **AND MOVING IT CHANGED WHO IT JUDGES, WHICH IS A SECOND DECISION.** The
+inner step has three early returns — a `raw_dt <= 0.0` tick, a drowning, and a
+frame an active ledge grab consumed — and none reached the gate while it sat in
+the tail. Lifting it to the caller silently added all three: a frozen frame would
+judge a body nothing had stepped, and a body HANGING on a ledge whose box
+overlaps a hazard would start dying, which matters because spikes under a lip is
+an authored shape. `SimPhaseReach` now reports whether the phase reached its
+tail and the gate runs only on `Completed`, so the population is exactly what it
+was. ⚠ The SAMPLE WRITE is deliberately not gated the same way — it must run on
+every path, because a zero-dt tick has to record a zero-length segment rather
+than keep a stale one. Guarded by `a_hanging_body_is_not_judged_by_the_hazard_
+gate`, which proves the same body in the same spikes DOES die when nothing
+consumes its frame.
+
+⇒ **Relocating a call relocates its population.** The ordering was the bug; the
+population was not, and one edit changed both.
+
 ## 2. Turn stable collision-oracle findings into behavioral regressions
 
 The full `collision_invariant_oracle` remains intentionally diagnostic and

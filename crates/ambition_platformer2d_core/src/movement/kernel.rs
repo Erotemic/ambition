@@ -604,6 +604,13 @@ pub(crate) fn apply_world_hazard_gate(
 /// Teleports need no exclusion of their own: the sample is captured from
 /// simulation-phase entry to phase exit, so a later system's blink or room
 /// transfer is not inside `prev -> curr` in the first place.
+///
+/// PARITY WITH THE DISCRETE TEST LIVES HERE, in the pair rather than in either
+/// half: the endpoint arm below is `strict_intersects` against the hazard's real
+/// AABB and carries no epsilon, so every hit the old discrete gate found is
+/// still a hit. `hazard_contact_on_path` then adds travelled path and nothing
+/// else — it queries the hazard's interior precisely so that it cannot add
+/// surface contact.
 fn touching_hazard(world: &World, clusters: &BodyClustersMut<'_>) -> bool {
     // The endpoint the body is at NOW is always tested — a teleport that lands
     // inside a hazard is standing in one, whatever path preceded it.

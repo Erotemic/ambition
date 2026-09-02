@@ -997,6 +997,50 @@ multi-zone walk is the measurement.
 
 ### 5. Eliminate accidental re-preparation/reload
 
+⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
+decoded, uploaded and held resident whole; only the frame rects its baked
+manifest names are ever sampled. `scripts/measure_sheet_occupancy.py` reads
+every published manifest and its PNG headers and reports what fraction that is,
+per page, ranked by waste. Byte-identical across runs:
+
+```text
+tier    pages   page MP   sampled MP   occupancy   waste MP
+full      225     662.0        595.4         90%       66.6
+0_5x      214     182.1        163.4         90%       18.7
+0_25x     212      73.4         64.3         88%        9.1
+potato    210       3.6          2.4         66%        1.2
+```
+
+⇒ **THE PACKING IS ALREADY GOOD AND THIS IS NOT A LEAD.** 90% at Full, and the
+10% that is left is DIFFUSE: the top 25 pages of 225 hold only 45% of it, so
+there is no handful of sheets to fix and no pipeline change that pays for
+itself. The worst single page is `jeff_hinter_armored` at 61% (2.24 MP), and
+the largest sheets — `noether`, `giant_gnu`, `gnu_ton_boss` — are already at
+89%. ⛔ Recorded so the question is closed with a number rather than re-asked;
+if a repack is ever proposed, it is worth ~10% of decode, not a multiple.
+
+⚠ **AND IT IS NOT A PIXEL-QUALITY QUESTION AT ALL.** Repacking would decode
+fewer pixels that nothing draws; it would not draw fewer pixels than the
+setting asks for. Those are different claims and only the first is supported
+here — Jon's ruling on gallery previews governs the second.
+
+⛔⛔ **THE FIRST RUN OF THIS SCRIPT SAID 5% OCCUPANCY AND 447.9 MP OF WASTE**, a
+7× error that would have launched a repacking campaign. Two rect shapes exist in
+the baked manifests — plain grid `(x, y, w, h)` in 384 of them, and packed
+`(x, y, w, h, page: N, off: (dx, dy))` from a trimmed multi-page atlas in 174 —
+and a pattern anchored on `h: NNN)` reads NONE of the second. The most tightly
+packed sheets in the tree reported **0% occupancy**, which reads as a finding
+rather than as a parser failure. ⇒ Caught because zero is not a plausible
+measurement, not because the regex looked wrong. An earlier version failed the
+OPPOSITE way, counting `body_metrics`' hurtbox/hitbox rects — identical in
+shape, in image space — as sampled area, which argues there is no waste at all.
+**Neither a low nor a high number is self-evidently right here**, which is why
+the script now checks its own premise every run (parsed rects must equal each
+sheet's declared `frame_count`; 211 of 211 single-page sheets agree) and
+`test_sheet_occupancy_reads_both_rect_shapes.py` pins both shapes, poison-verified
+in both directions.
+
+
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame
 asset mutation where measurements show repeated work. Retain the semantic handle
 when an asset is intentionally resident; compare before writing materials/assets

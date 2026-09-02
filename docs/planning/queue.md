@@ -730,9 +730,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Mary-O sprite's ground contact to silence a false positive. `pirate_admiral`
   (2 frames) is the same class at the top edge: his plume touches row 0 on ALL
   six idle frames and the guard fires on the two where it is 7px wide instead of
-  0. ⇒ the remaining 35 targets are a POPULATION, not a defect list; the open
+  0. ⇒ the remaining targets are a POPULATION, not a defect list; the open
   work is an instrument that separates "drawn flush to a fitted frame" from
-  "severed", not 35 canvas edits.
+  "severed", not a stack of canvas edits.
+  ⚠ **THE "35" THIS SENTENCE CARRIED IS SUPERSEDED** — it was 38 minus the two
+  false-positive classes, over a sweep that could not render 22 SVG targets. The
+  measured population is **34 flagged / 465 edges over all 209**, below, and the
+  membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
+  Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
   asked for CANNOT BE MADE. `scripts/measure_clip_population.py` in the renderer
   submodule, branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
@@ -781,14 +786,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
     (crouch low, roll wide, death sprawl) exceed a canvas sized for the idle.
     That is a more general pattern than a shared rig, and it does NOT license
     `carl_stargan`'s fix as a template.
-  ⛔ **22 TARGETS NOT MEASURED and NOT counted as clean** — all need native
-  `resvg-py`, absent on the machine that ran this. The SVG set must be re-run
-  where the dep exists: `author`, `carl_stargan`, `charley_beagle_svg`,
-  `data_lovelace`, `hunny_horror_boss`, `m_leblanc`, `mary_o_v2`,
-  `mary_o_v2_fire`, `mary_o_v2_tall`, `medic`, `neil_ongras_turfson`, `noether`,
-  `officer`, `oiler`, `paradox_barber`, `patent_clerk`,
-  `perfect_cellular_automaton`, `performer`, `player_robot_v3`,
-  `pointed_polygon`, `projectile_polygon`, `pugnacious_polygon`.
+  ✔ **THE 22 ARE MEASURED NOW, and the population was 7 targets short.**
+  Re-run 2026-09-02 with `resvg-py` — which is a DECLARED dependency of the
+  renderer (`pyproject.toml: "resvg-py>=0.3"`) that was simply absent from the
+  interpreter being used; `tools/ambition_sprite2d_renderer/.venv` already had
+  it. Nothing installed. **209 targets in 1007s, 0 would not render: 34 flagged,
+  465 edges** (was 27 / 362 over the 187 that rendered without it).
+  ⭐ **`hunny_horror_boss` is the biggest thing the gap was hiding** — 59 edges,
+  severity 0.402, which places it THIRD on the worklist behind
+  `smirking_behemoth_boss` and the pipe props. It had never appeared in any D129
+  count. `paradox_barber` (9), `data_lovelace` (14) and `charley_beagle_svg` (1)
+  are also new.
+  ⚠ **AND THE `mary_o_v2` SVG LINEAGE IS IN THE POPULATION**: `mary_o_v2` (12
+  edges), `mary_o_v2_tall` (5), `mary_o_v2_fire` (3). ⛔ These are NOT the
+  composited pixel-art Mary-O forms whose flush-standing was established as a
+  FALSE POSITIVE — different targets, a different authoring road, and their
+  profiles are tapering rather than flat. They want the same care before anyone
+  pads a canvas, and the same conclusion should not be assumed to carry.
+  ✔ Confirmed clean in the full sweep, so their earlier "not measured" is now a
+  real result: `perfect_cellular_automaton`, `noether`, `patent_clerk`,
+  `carl_stargan`, `player_robot_v3`, `officer`, `medic`, `oiler`, `performer`,
+  `m_leblanc`, `neil_ongras_turfson`, `author` and the three polygon targets.
+  ⇒ The instrument's caveat is discharged: there is no longer a "of the N that
+  render here" qualifier on this row, and the worklist is the whole roster.
 
 - ✔ **D-SFX-RESET-RED — CLOSED 2026-08-31, and the fixture pressed one frame too
   early.** `ambition_app`'s own lib suite had a long-red test that no gate in

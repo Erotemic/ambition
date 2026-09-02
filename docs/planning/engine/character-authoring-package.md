@@ -122,6 +122,11 @@ targets. Three residuals name all five parts:
   `canonical_character_id` falling through to `id_for_display_name`) is a real
   A3 residual, but content deliberately rides it and room/roster tokens
   legitimately arrive as display names. Not a one-slice promotion — see A3.
+  ✔ **Premise re-verified against the code 2026-09-02 and it holds exactly**:
+  `canonical_character_id` returns the token when either the registry or the
+  catalog knows it, and otherwise falls through to `id_for_display_name` on BOTH
+  — registry first, then catalog. Nothing has quietly closed this; the deferral
+  is still the right call, and now a reader can see when that was last true.
 
 ⛔ **NOT a residual, and worth stating so it is not re-filed**: eleven of the
 fourteen grid fighters play on the actor baseline because they author no fighter

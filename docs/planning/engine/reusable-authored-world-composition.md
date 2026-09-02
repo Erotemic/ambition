@@ -2,6 +2,41 @@
 
 **State:** INCUBATING — do not implement a universal prefab system yet.
 
+> **RE-MEASURED against `36c5cbf7a` (2026-09-02). The hold still holds, and it now
+> has numbers to be re-evaluated against instead of a judgement call.**
+>
+> ⭐ **Nothing has crystallised.** No `*Assembly`, `*Prefab`, `*Composition` or
+> `*Motif` type exists for authored world structure. The one near-miss is
+> `ShellComposition` (`ambition_platformer2d_provider/src/composition.rs`), and
+> reading it settles rather than complicates the question: it holds an
+> experience id and two route ids — shell/route composition, not world
+> composition.
+>
+> ⭐ **And the authored unit is still exactly one placement.** `PlacementKind`
+> has **six flat variants**: `Hazard`, `Interactable`, `Pickup`, `Chest`,
+> `Breakable`, `Portal`. There is no composite, no reference from one placement
+> to another, and no authored grouping above them.
+>
+> **Meanwhile every pressure this page predicted has grown a large bespoke
+> implementation** (files mentioning each, at HEAD):
+>
+> | predicted pressure | files |
+> |---|---|
+> | portal mechanisms | 264 |
+> | moving machinery (`KinematicPath` / `MovingPlatform`) | 58 |
+> | shrines | 40 |
+> | encounter assemblies | 27, in 2 crates |
+> | environmental hazards (`HazardSpec` / `HazardRespawn`) | 11 |
+>
+> ⇒ **So the two halves of the incubation are BOTH still true, which is why it
+> stays incubating.** The pressure is real and unrelieved — five predicted
+> families, all built out, none sharing a composition abstraction. And no
+> abstraction has emerged on its own from any of them, which is the evidence the
+> page said to wait for. ⛔ A file count is pressure, not a design: 264 files
+> mentioning portals is an argument that portals are load-bearing, not an
+> argument for a prefab system. Re-take these numbers before the next
+> re-evaluation rather than trusting this row.
+
 ## Goal
 
 Discover the reusable composition abstraction, if any, for authored structures

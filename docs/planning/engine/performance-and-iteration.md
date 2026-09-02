@@ -306,6 +306,17 @@ the cast.** Two actors cost 3.7 ms; 130 add 0.8. `Update` is 0.87 ms and
 (avian's physics schedules, 50+22 systems, for debris); `StateTransition` is
 0.13 ms for 16 systems.
 
+⭐ **AND THE HOST AGREES, which is what makes this more than a headless
+curiosity (2026-09-02, `desktop-timeline-run-20260902T215256Z`, 3090, windowed,
+the shipped `run_game.sh profiling` walk).** The native profile there is flat in
+the same shape: the top symbol is `leafwing_input_manager`'s `InputMap` lookup at
+**1.38%**, the allocator cluster (`_mi_page_malloc_zero` ×2, `mi_free`,
+`_mi_page_free_collect`, `mi_theap_malloc_aligned`) sums to about **4%**, and the
+ECS executor is third. ⇒ Two different programs — a 2-actor headless run and the
+windowed game on real hardware — agree that there is no hot spot to attack and
+that the largest attributable cluster is allocation. ⚠ 70.5% of the capture is
+the game binary and 22.7% the kernel, so the ranking is of the right layer.
+
 `perf` on the 2-actor run (flat, `-F 999`, 4000 ticks) names no hotspot — the
 top symbol is the allocator at 3% — but it names FAMILIES:
 

@@ -669,6 +669,59 @@ calls unnamed could in principle be constructed. The five fully-named sheets are
 the evidence the method works; treat a single unnamed row as a lead, not a
 verdict.
 
+⛔⛔ **MEASURED 2026-09-02: THE SEAM BELOW ASSUMES A NAMING CORRESPONDENCE THAT
+DOES NOT EXIST, and the sheet-to-owner map is not derivable at all.** "Demand
+`<character>_vfx` beside `<character>`'s pages" reads as if the sheet name comes
+off the character. Three conventions are in play:
+
+```text
+noether_vfx        -> npc_emmy_noether       (id shares no token with the sheet)
+carl_stargan_vfx   -> npc_carl_stargan       but its SHEET TARGET is carl_runga
+pca_vfx / patent_clerk_vfx / george_booul_vfx  bare ids, no npc_ prefix
+```
+
+⇒ String surgery would build `npc_noether`, match nothing, and the sheet would
+silently stop loading — the effects fall back to particles with no error, which
+is the failure mode this subsystem specialises in. Ownership has to be DECLARED,
+and a hand-declared table across three conventions is where a silent mis-mapping
+gets written.
+
+⭐⭐ **SO IT WAS MEASURED INSTEAD. `scripts/measure_fx_row_reachability.py
+--owners` reports which FILES name each sheet's rows** — a sheet whose rows are
+named only by one moveset belongs to that moveset, on the evidence rather than
+on the name. Byte-identical across three runs:
+
+```text
+SHARED, stay resident (4)   generic_action_fx, generic_world_fx,
+                            generic_exotic_fx, generic_explosions
+                            — each named by four or more unrelated movesets,
+                              and generic_explosions also by the engine itself
+OWNED by one moveset (7)    oiler_vfx 18 rows -> oiler_moveset.rs
+                            pca_vfx 14 -> cellular_automaton_moveset.rs
+                            patent_clerk_vfx 14 -> patent_clerk_moveset.rs
+                            carl_stargan_vfx 12 -> carl_stargan_moveset.rs (+1 from performer)
+                            noether_vfx 12 -> emmy_noether_moveset.rs
+                            ninja_shadow_oni_leader_vfx 10 -> its own moveset
+                            projectile_polygon_vfx 3 -> projectile_polygon_moveset.rs
+NAMED BY NO CONTENT (2)     pirate_admiral_vfx (nothing at all),
+                            george_booul_vfx (a TEST and the engine's fx.rs only)
+```
+
+⛔ **THREE CORRECTIONS TO THE PROSE BELOW, which was written from the names.**
+(1) `projectile_polygon_vfx` was listed among the five "no character owns" — it
+has a single owner and is not generic. (2) `pca_vfx` is named by
+`cellular_automaton_moveset.rs`: "pca" is not a fighter. (3) `george_booul_vfx`
+is not merely under-wired — **no content names any of its rows**; its only
+askers are a test and the engine. So the split is 4 shared / 7 owned / 2 dead,
+not "five generic, eight per-character".
+
+⇒ **WHAT IS STILL OWED before building it:** the owner column above is a
+MOVESET FILE, and the demand seam needs a CHARACTER ID. That last hop is the
+only guessy step left, and it is content ownership rather than engine work —
+recorded in `awaiting-maintainer-decision.md`. The mechanism (load only the
+shared sheets at boot, ensure the owned ones at room-manifest time exactly as
+`ensure_boss_sheets_loaded` does) is unblocked the moment that column exists.
+
 ⇒ **THE SEAM THE ROW SAID DID NOT EXIST DOES, for most of the set.** Eight of
 the thirteen sheets are CHARACTER-named (`carl_stargan_vfx`, `george_booul_vfx`,
 `ninja_shadow_oni_leader_vfx`, `noether_vfx`, `oiler_vfx`, `patent_clerk_vfx`,

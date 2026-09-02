@@ -32,12 +32,13 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
             ),
         );
     let world_manifest = ambition_content::worlds::world_manifest();
-    let catalog = ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
-        &character_catalog,
-        &boss_catalog,
-        &ambition_content::audio_registries::load_music_registry(),
-        &world_manifest,
-    );
+    let catalog =
+        ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
+            &character_catalog,
+            &boss_catalog,
+            &ambition_content::audio_registries::load_music_registry(),
+            &world_manifest,
+        );
 
     let mut missing = Vec::new();
     for (key, _filename) in boss_catalog.sprite_filenames() {
@@ -73,7 +74,11 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
         "flying_spaghetti_monster_boss",
         "trex_boss",
     ] {
-        let profile = ambition_platformer2d::boss_encounter::pattern::profile::BossBehaviorProfile::from_data(&boss_catalog, id);
+        let profile =
+            ambition_platformer2d::boss_encounter::pattern::profile::BossBehaviorProfile::from_data(
+                &boss_catalog,
+                id,
+            );
         assert_eq!(
             profile.id, id,
             "the profile registry must round-trip its own id"
@@ -127,8 +132,9 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     let boss_catalog = content_boss_catalog();
 
     let world_manifest = ambition_content::worlds::world_manifest();
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest)
-        .expect("the shipped LDtk project loads");
+    let project =
+        ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest)
+            .expect("the shipped LDtk project loads");
     let room_set = project
         .to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary())
         .expect("it lowers to rooms");
@@ -206,9 +212,9 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
 /// paper over.
 #[test]
 fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
-    use ambition_platformer2d::render::rendering::actor_sprite_path_owns;
     use ambition_app::rl_sim::TimestepMode;
     use ambition_app::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+    use ambition_platformer2d::render::rendering::actor_sprite_path_owns;
 
     let mut rooms_checked = 0;
     let mut bosses_checked = 0;
@@ -284,4 +290,100 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 
     assert!(rooms_checked >= 3, "checked {rooms_checked} boss rooms");
     assert!(bosses_checked >= 3, "checked {bosses_checked} bosses");
+}
+
+/// (4) DEDICATED BOSS SHEETS ARE DEMANDED BY A BOSS ROOM, NOT BY BOOT.
+///
+/// Every boss in the catalog used to decode at boot — seven sheets, 30 MP,
+/// resident in the hall of characters with no boss in it, measured by the image
+/// stage ledger as the hall's single largest owner (asset open work 2,
+/// 2026-09-02). Now `ensure_boss_sheets_loaded` is the one seam, called when a
+/// room that authors a `BossSpawn` is prepared; `load_game_assets` decodes none.
+#[test]
+fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
+    use ambition_platformer2d::actors::assets::game_assets::{
+        ensure_boss_sheets_loaded, load_game_assets,
+    };
+    use bevy::prelude::*;
+
+    let boss_catalog = content_boss_catalog();
+    let character_catalog =
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
+                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+            ),
+        );
+    let world_manifest = ambition_content::worlds::world_manifest();
+    let catalog =
+        ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
+            &character_catalog,
+            &boss_catalog,
+            &ambition_content::audio_registries::load_music_registry(),
+            &world_manifest,
+        );
+    let dedicated: BTreeSet<&str> = boss_catalog
+        .sprite_filenames()
+        .map(|(key, _)| key)
+        .filter(|key| Some(*key) != boss_catalog.fallback_sheet_key())
+        .collect();
+    assert!(
+        dedicated.len() >= 5,
+        "premise: the catalog names dedicated boss sheets ({dedicated:?})"
+    );
+
+    let mut app = App::new();
+    app.add_plugins(bevy::app::TaskPoolPlugin::default());
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.add_plugins(bevy::image::ImagePlugin::default());
+    app.init_asset::<TextureAtlasLayout>();
+    let asset_server = app.world().resource::<AssetServer>().clone();
+    let mut layouts = app.world_mut().resource_mut::<Assets<TextureAtlasLayout>>();
+
+    // BOOT: no dedicated sheet.
+    let config = ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig::default();
+    let mut assets = load_game_assets(
+        &config,
+        &character_catalog,
+        &Default::default(),
+        &boss_catalog,
+        &catalog,
+        &asset_server,
+        &mut layouts,
+        &ambition_platformer2d::world::rooms::RoomMetadata::default(),
+        None,
+    );
+    assert!(
+        assets.boss_sprites.is_empty(),
+        "boot decoded dedicated boss sheets again: {:?}",
+        assets.boss_sprites.keys().collect::<Vec<_>>()
+    );
+
+    // THE FIRST BOSS ROOM: every dedicated sheet, once.
+    let decoded = ensure_boss_sheets_loaded(
+        &mut assets,
+        &boss_catalog,
+        &catalog,
+        &asset_server,
+        &mut layouts,
+        None,
+    );
+    let resident: BTreeSet<&str> = assets.boss_sprites.keys().map(String::as_str).collect();
+    assert_eq!(
+        resident, dedicated,
+        "a boss room demands every dedicated sheet"
+    );
+    assert_eq!(decoded, dedicated.len());
+    // A second boss room decodes nothing new.
+    assert_eq!(
+        ensure_boss_sheets_loaded(
+            &mut assets,
+            &boss_catalog,
+            &catalog,
+            &asset_server,
+            &mut layouts,
+            None
+        ),
+        0,
+        "the seam is idempotent"
+    );
 }

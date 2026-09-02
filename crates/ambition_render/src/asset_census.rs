@@ -261,9 +261,27 @@ pub fn report_image_census(
     }
     // Stay silent through quiet windows: a steady stream of "+0 images" lines
     // would drown the windows that actually decoded something.
-    let (gpu_count, gpu_megapixels, gpu_p50, gpu_max, awaiting, re_decodes, dropped, dropped_mp) = {
+    let (
+        gpu_count,
+        gpu_megapixels,
+        gpu_p50,
+        gpu_max,
+        awaiting,
+        re_decodes,
+        dropped,
+        dropped_mp,
+        by_road,
+    ) = {
         let mut ledger = image_stages::ledger();
         let (count, megapixels, p50, max) = ledger.take_gpu_window();
+        // Who owns what is resident, in the ledger's own words: the road that
+        // demanded each image. Printed only on windows that changed something,
+        // beside the totals, so a transition's growth reads per owner.
+        let by_road: Vec<String> = ledger
+            .resident_by_road()
+            .into_iter()
+            .map(|(road, (count, mp))| format!("{road} {count}×{mp:.1}MP"))
+            .collect();
         (
             count,
             megapixels,
@@ -273,6 +291,7 @@ pub fn report_image_census(
             ledger.re_decodes,
             ledger.dropped_before_gpu,
             ledger.dropped_before_gpu_megapixels,
+            by_road,
         )
     };
     if census.window_images > 0 || gpu_count > 0 {
@@ -290,7 +309,8 @@ pub fn report_image_census(
         eprintln!(
             "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident \
              | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting} \
-             | re-decodes {re_decodes} | dropped before gpu {dropped} ({dropped_mp:.1}MP)",
+             | re-decodes {re_decodes} | dropped before gpu {dropped} ({dropped_mp:.1}MP) \
+             | resident by road: {}",
             census.window_images,
             census.window_megapixels,
             census.total_images,
@@ -298,6 +318,7 @@ pub fn report_image_census(
             census.total_bytes as f64 / 1.0e6,
             ms(gpu_p50),
             ms(gpu_max),
+            by_road.join(", "),
         );
     }
     census.window_images = 0;

@@ -177,6 +177,8 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// Sheets this app's providers authored — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
+    /// The boss catalog, for the boss sheets a boss room demands on preparation.
+    pub(crate) boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
@@ -565,6 +567,7 @@ pub(crate) fn build_room_asset_manifest(
     states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
     registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
+    boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
     for_reveal: bool,
 ) -> (RoomAssetManifest, RoomCharacterRemainder) {
     ensure_parallax_layers_for_room(
@@ -574,6 +577,22 @@ pub(crate) fn build_room_asset_manifest(
         &room.metadata,
         Some(&quality.budget),
     );
+    // A room that authors a boss demands the dedicated boss sheets HERE, the
+    // first time such a room is prepared — not at boot for every room (asset
+    // open work 2: 30 MP resident in the hall for bosses it does not have).
+    // The manifest below then lists them and the reveal waits on them.
+    if !room.boss_spawns.is_empty() {
+        if let Some(boss_catalog) = boss_catalog {
+            ambition_platformer2d::actors::assets::game_assets::ensure_boss_sheets_loaded(
+                assets,
+                boss_catalog,
+                catalog,
+                asset_server,
+                layouts,
+                Some(&quality.budget),
+            );
+        }
+    }
     let remainder = demand_room_character_sheets(
         room,
         staged_actor_names,
@@ -895,6 +914,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         character_load_states,
         &prepared_characters,
         &context.authored_sheets,
+        context.boss_catalog.as_deref(),
         true,
     );
     active.asset_manifest_duration = Some(manifest_started.elapsed());
@@ -1355,6 +1375,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &mut character_load_states,
             prepared_characters.as_deref().unwrap_or(&empty_registry),
             &authored_sheets,
+            Some(&boss_catalog),
             false,
         );
         let replace = refresh_manifests

@@ -59,49 +59,15 @@ pub fn load_game_assets(
             quality,
         )
     });
-    let mut boss_sprites: HashMap<String, sprites::BossSpriteAsset> = HashMap::new();
-    let mut boss_sheets_missed: Vec<String> = Vec::new();
-    for (key, _filename) in boss_catalog
-        .sprite_filenames()
-        .filter(|(key, _)| Some(*key) != fallback_sheet_key)
-    {
-        let spec = boss_catalog.sheet_for_key(key);
-        match sprites::load_named_boss_sprite_via_catalog(
-            catalog,
-            asset_server,
-            layouts,
-            key,
-            spec,
-            quality,
-        ) {
-            Some(sheet) => {
-                boss_sprites.insert(key.to_string(), sheet);
-            }
-            None => boss_sheets_missed.push(key.to_string()),
-        }
-    }
-    // A boss renders the provider-selected fallback body exactly when its `boss_key` (its
-    // lowercased behavior id) is absent from this map — `upgrade_boss_sprites` warns once per
-    // such boss. Printing the map's contents here says whether the key was never LOADED (an
-    // asset/catalog problem, listed below) or never LOOKED UP under that name (a key-agreement
-    // problem, and the disproven `sprite_target` dispatch is not the fix — the render keys on
-    // `behavior.id`).
-    {
-        let mut keys: Vec<&str> = boss_sprites.keys().map(String::as_str).collect();
-        keys.sort_unstable();
-        eprintln!(
-            "[boss_sprites] {} dedicated sheet(s) loaded: {}",
-            boss_sprites.len(),
-            keys.join(", ")
-        );
-        if !boss_sheets_missed.is_empty() {
-            eprintln!(
-                "[boss_sprites] {} FAILED to load (these bosses draw the generic body): {}",
-                boss_sheets_missed.len(),
-                boss_sheets_missed.join(", ")
-            );
-        }
-    }
+    // ⛔ NO DEDICATED BOSS SHEET IS DECODED HERE ANY MORE (asset open work 2,
+    // 2026-09-02). Every boss in the catalog used to load at boot — seven
+    // sheets, 30 MP, resident in rooms with no boss in them, measured by the
+    // image stage ledger in the hall as the single largest owner. A room that
+    // authors a `BossSpawn` demands them through `ensure_boss_sheets_loaded`
+    // when it is prepared, and the reveal barrier waits on them there. The
+    // fallback body above stays eager: it is one sheet and every boss may need
+    // it.
+    let boss_sprites: HashMap<String, sprites::BossSpriteAsset> = HashMap::new();
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
         load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme, quality);
@@ -127,3 +93,74 @@ pub fn load_game_assets(
 
 #[cfg(test)]
 mod tests;
+
+/// Decode every dedicated boss sheet the catalog names that `assets` does not
+/// hold yet. THE seam a boss's art comes into residency through: called when a
+/// room that authors a `BossSpawn` is prepared (transition, prefetch, direct
+/// startup), never at boot.
+///
+/// ⚠ Every catalog boss, not the room's: a `BossSpawn`'s brain resolves to a
+/// behavior id — and so to a sheet key — inside construction, and the manifest
+/// waits on every loaded boss sheet for a room with any spawn. Loading the
+/// catalog's set on the FIRST boss room keeps that contract intact while
+/// keeping the sheets out of every room without one, which is the measured
+/// win. Narrowing to the room's own keys is the next slice, once construction
+/// exposes the key before it spawns.
+///
+/// Returns how many sheets this call decoded.
+pub fn ensure_boss_sheets_loaded(
+    assets: &mut GameAssets,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
+    catalog: &crate::assets::platformer_assets::Platformer2dAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
+) -> usize {
+    let fallback_sheet_key = boss_catalog.fallback_sheet_key();
+    let mut loaded = 0usize;
+    let mut missed: Vec<String> = Vec::new();
+    for (key, _filename) in boss_catalog
+        .sprite_filenames()
+        .filter(|(key, _)| Some(*key) != fallback_sheet_key)
+    {
+        if assets.boss_sprites.contains_key(key) {
+            continue;
+        }
+        let spec = boss_catalog.sheet_for_key(key);
+        match sprites::load_named_boss_sprite_via_catalog(
+            catalog,
+            asset_server,
+            layouts,
+            key,
+            spec,
+            quality,
+        ) {
+            Some(sheet) => {
+                assets.boss_sprites.insert(key.to_string(), sheet);
+                loaded += 1;
+            }
+            None => missed.push(key.to_string()),
+        }
+    }
+    if loaded > 0 || !missed.is_empty() {
+        // A boss renders the provider-selected fallback body exactly when its
+        // `boss_key` (its lowercased behavior id) is absent from this map —
+        // `upgrade_boss_sprites` warns once per such boss. Listing the keys says
+        // whether a key was never LOADED (below) or never LOOKED UP under that
+        // name (the render keys on `behavior.id`).
+        let mut keys: Vec<&str> = assets.boss_sprites.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        eprintln!(
+            "[boss_sprites] {loaded} dedicated sheet(s) decoded for a boss room; resident: {}",
+            keys.join(", ")
+        );
+        if !missed.is_empty() {
+            eprintln!(
+                "[boss_sprites] {} FAILED to load (these bosses draw the generic body): {}",
+                missed.len(),
+                missed.join(", ")
+            );
+        }
+    }
+    loaded
+}

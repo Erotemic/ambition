@@ -108,6 +108,7 @@ struct StartupAssetInputs<'w, 's> {
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
+    boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
@@ -435,6 +436,20 @@ fn build_startup_manifest(
         true,
     );
     remainder.forward_into(&mut inputs.character_load_demand);
+    // A first room that authors a boss demands the dedicated boss sheets now,
+    // behind the cover; no room without one pays for them (asset open work 2).
+    if !room.boss_spawns.is_empty() {
+        if let Some(boss_catalog) = inputs.boss_catalog.as_deref() {
+            ambition_platformer2d::actors::assets::game_assets::ensure_boss_sheets_loaded(
+                &mut inputs.game_assets,
+                boss_catalog,
+                &inputs.asset_catalog,
+                &inputs.asset_server,
+                &mut inputs.layouts,
+                Some(&inputs.quality.budget),
+            );
+        }
+    }
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
     let demanded_characters = super::world_flow::room_character_tokens(room, &staged_names);
     let realized_at_build =

@@ -335,6 +335,22 @@ impl ImageStageLedger {
     pub fn get(&self, id: UntypedAssetId) -> Option<&ImageStages> {
         self.rows.get(&id)
     }
+
+    /// WHAT IS RESIDENT, BY THE ROAD THAT DEMANDED IT: megapixels of every
+    /// image inserted and not yet removed, grouped by source label (asset open
+    /// work 4 asks for the owner of retained assets before any eviction policy;
+    /// this is the measurement that names the owners). Images no road stamped
+    /// group under `"?"`. Deterministic order, so two censuses diff cleanly.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resident_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
+        let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
+        for row in self.rows.values().filter(|row| row.inserted_at.is_some()) {
+            let entry = by_road.entry(row.source.unwrap_or("?")).or_default();
+            entry.0 += 1;
+            entry.1 += row.megapixels;
+        }
+        by_road
+    }
 }
 
 static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
@@ -517,6 +533,36 @@ mod tests {
         assert!(
             !ledger.is_awaiting_gpu(id(12)),
             "dropped before upload: nothing owed"
+        );
+    }
+
+    /// The resident census groups what is inserted-and-not-removed by road,
+    /// and a removal leaves the census.
+    #[test]
+    fn resident_megapixels_are_grouped_by_the_road_that_demanded_them() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        ledger.demand(id(20), "character-sheet", "a.png".into(), t0);
+        ledger.demand(id(21), "character-sheet", "b.png".into(), t0);
+        ledger.demand(id(22), "parallax", "sky.png".into(), t0);
+        ledger.inserted(id(20), 4.0, None, None, t0);
+        ledger.inserted(id(21), 2.0, None, None, t0);
+        ledger.inserted(id(22), 1.0, None, None, t0);
+        ledger.inserted(id(23), 0.5, None, Some("icon.png".into()), t0);
+        // Demanded but not yet inserted: not resident.
+        ledger.demand(id(24), "parallax", "far.png".into(), t0);
+        let census = ledger.resident_by_road();
+        assert_eq!(census.get("character-sheet"), Some(&(2, 6.0)));
+        assert_eq!(census.get("parallax"), Some(&(1, 1.0)));
+        assert_eq!(
+            census.get("?"),
+            Some(&(1, 0.5)),
+            "an unstamped image is counted, under `?`"
+        );
+        ledger.removed(id(20));
+        assert_eq!(
+            ledger.resident_by_road().get("character-sheet"),
+            Some(&(1, 2.0))
         );
     }
 

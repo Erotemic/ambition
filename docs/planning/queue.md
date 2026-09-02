@@ -1097,6 +1097,23 @@ product ruling.
   room, V-Sync Off, no Tracy. No frame-rate campaign remains; see the top of
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
   The user-visible problem is the hall-entry hitch, which is the asset campaign.
+- **A flash in the kaleidoscope menu since Bevy 0.19** (Jon, 2026-09-02, not
+  yet observed by an agent). Facts needed before anyone searches: one frame at
+  launch or on EVERY menu open; the colour (black = an uncleared/uninitialised
+  target, magenta = a Bevy diagnostic texture, the world = a missed overlay).
+  Shape suspects, in order: the cube's `Camera3d` activates with
+  `ClearColorConfig::None` over the 2D camera and relies on
+  `msaa_writeback` for its first frame; the direct-entry window is created
+  `visible: false` and shown after startup; the ceiling app logs
+  `Couldn't get swap chain texture after configuring. Cause: 'Outdated'` on
+  its first frames under 0.19. Read the census `camera` rows: three active
+  cameras on the window (main order 0, "Cube scrim display" order 7 with no
+  layers, "Cube pause" order 8) — a full-screen camera with nothing to draw
+  is a clear per frame if its clear is not `None`.
+- **The reveal-barrier fix needs its host confirmation** (`6446c5adc`): one
+  more `--no-tracy` capture through the hub door. Tells: zero "nothing
+  demanded it" warnings at the hall reveal, `asset_wait_ms` in the seconds,
+  no >33 ms frames after the cover lifts.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

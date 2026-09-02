@@ -289,6 +289,28 @@ which is exactly them.
   [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
   beside the number, because a queue row there has *"the count falls"* as its
   acceptance and a carve raises it by construction.
+- ⭐⭐ **AND THE SIBLING IS NOT MULTI-DAY EITHER, measured the same night.**
+  `items/pickup/mod.rs` holds 27 of the module's 51 kernel references, which is
+  why it was called the hard part. Split at its `impl Plugin` block: the plugin
+  is **201 lines and holds 21 of the file's 23 cross-module references**; the
+  other **1,659 lines hold 2**, both at one seam
+  (`construction::authored_occurrence_request` and
+  `ActorConstructionParams::GroundItem`, spawning a ground item from an authored
+  occurrence). Every reference in the plugin is a SYSTEM NAME being scheduled —
+  `abilities::{ranged ×10, traversal ×4, thrown ×3}`, `shrine` ×3,
+  `construction` ×2, `ability_cooldown` — not a call the pickup logic makes.
+  ⇒ **The entanglement is scheduling, not logic**, and it is the same shape the
+  `world_items` slice solved in miniature: the systems it moved were registered
+  inside the file it was carving, so the split had to take the registrations too.
+  ⛔ **THREE SIZING ERRORS IN THIS ROW'S HISTORY NOW SHARE ONE SHAPE** — a count
+  taken at the wrong granularity: a module's UNION of imports read as one file's,
+  a re-exported name read as kernel coupling
+  (`scripts/measure_facade_reexport_coupling.py`: 27% of `crate::features::X`
+  uses name a type defined elsewhere), and a plugin's system list read as its
+  domain's dependencies. ⇒ **before sizing a carve, ask what granularity the
+  number was taken at and whether the thing being counted is code the domain
+  RUNS or code it merely SCHEDULES.**
+
 - ⚠ **AND THE SIZING GREP UNDERCOUNTED ITS OWN SUBJECT.** `world_item.rs` was
   sized at TWO kernel references with `grep -o "crate::[a-z_]*"`, which sees
   neither `super::` paths nor a fully-qualified call; the file also reached

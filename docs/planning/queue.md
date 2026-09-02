@@ -1033,6 +1033,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   taking `closure_size` as a size metric reads a carve as a regression, which is
   the one thing that row shape must never be allowed to say.
 
+  ⭐⭐ **AND THE SIBLING IS NOT A MULTI-DAY CARVE EITHER — the diagnosis was
+  wrong twice, measured 2026-09-02 late.** `items/pickup/mod.rs` is the file that
+  holds 27 of the module's 51 references into the rest of the kernel, and that is
+  why it was called *"a multi-day carve, not an evening's"*. Split the file at
+  its `impl Plugin for ItemPickupSimulationPlugin` block:
+
+  ```text
+  items/pickup/mod.rs           1,860 lines
+    the plugin block (53-253)     201 lines   21 of 23 cross-module refs
+    everything else             1,659 lines    2 of 23
+  ```
+
+  ⇒ **THE ENTANGLEMENT IS 201 LINES OF SCHEDULING, NOT 1,659 LINES OF LOGIC.**
+  The plugin names `crate::abilities::{ranged ×10, traversal ×4, thrown ×3}`,
+  `crate::shrine` ×3, `crate::construction` ×2 and `crate::ability_cooldown` —
+  every one of them a SYSTEM NAME being placed in a schedule, not a call the
+  pickup logic makes. The pickup domain itself reaches out exactly TWICE, both at
+  one seam: `crate::construction::authored_occurrence_request` and
+  `ActorConstructionParams::GroundItem`, spawning a ground item from an authored
+  occurrence (lines 993 and 1000).
+
+  ⛔ **SO THE "27 REFERENCES" NUMBER MEASURED THE PLUGIN AND WAS READ AS THE
+  DOMAIN.** That is the third sizing error in this row's history and they share
+  one shape — a count taken at the wrong granularity: the UNION of a module's
+  imports read as one file's, a re-exported name read as kernel coupling, and now
+  a plugin's system list read as its domain's dependencies.
+  ⚠ It is also exactly what the `ambition_world_items` slice hit in miniature and
+  solved: the two systems it moved were registered inside the entangled file, so
+  the split was "move two files AND the registrations that belong to them". The
+  same move is available here at ten times the size.
+  ⇒ **Whoever takes this should size it as: one construction seam to resolve, a
+  plugin to leave behind or invert, and ~1,659 lines that name almost nothing.**
+  Not as 6,000 tangled lines.
+
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
   `ambition_conversation` 45, `ambition_items` 34) invite a carve chosen by

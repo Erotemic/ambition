@@ -91,7 +91,8 @@ visible frame on *every* face (it says so, `cache.rs:20-22`) and:
 
 - `dev_snapshot()` builds `DevSnapshot { values: Vec<(DevToggleId, bool, String)> }`
   — **one `String` allocated per toggle**, e.g. `"ON".to_string()`
-  (`settings_menu/src/system/mod.rs:434-446`). There are **21** `DevToggleId`
+  (`settings_menu/src/system/mod.rs:434-446`). There are **22** `DevToggleId`
+  variants — `ALL` is `[Self; 22]`, counted 2026-09-02; this file said 21.
   variants.
 - `radio_snapshot()` builds `RadioSnapshot { stations: Vec<(usize, String)> }` —
   one `String` per station.
@@ -104,6 +105,29 @@ a change-detection mechanism. The structural fix is to compare without
 materializing: hash the snapshot inputs, or compare field-wise against the stored
 key instead of building a new one. ⚠ Whatever replaces it must stay a **value**
 comparison (see §0's gate 2).
+
+⛔⛔ **AND THE BIGGEST ONE IS NOT IN THIS FILE'S LIST: `pointer.rs` REBUILDS THE
+WHOLE SETTINGS IR PER HOVER EVENT.** The hover observer (`Pointer<Move>`, which
+fires on every mouse move across a control) and the release observer both call,
+when the hovered action is a System action:
+
+```rust
+focus_for_action(action, active_page,
+    &SystemMenuModel::build(&settings, &snapshot.radio_snapshot(), &snapshot.dev_snapshot()),
+    ..)
+```
+
+That is the full settings IR — a `String` per label, description and value — plus
+both snapshots, rebuilt to resolve ONE row index. `CachedSystemMenu` already holds
+the model and the rows, built once that frame. Larger than either allocation this
+file does list, and it survived the 2026-09-02 closure of D-CUBE-CHURN.
+
+⚠ NOT A STRAIGHT CACHE SWAP. `cache.rows` is populated only while
+`pages.active == Some(MenuPage::System)`, but a System action stays reachable off
+that face — `focus_without_system_model` answers only for Equip/Use/ChangePage, so
+a hovered System control falls through whatever face is up. Substituting an empty
+`cache.rows` silently resolves every such hover to `MenuFocus::System(0)`. The
+safe shape guards on the active page and leaves the off-face path alone.
 
 **And separately:** `kaleidoscope_sync_focus_visuals` calls `focus_for_action`
 per control per frame; for System-family actions that allocates a fresh

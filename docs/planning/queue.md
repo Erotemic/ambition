@@ -510,7 +510,20 @@ The one unresolved developer-policy choice from the session-ownership work is in
   for thirty frames builds it once, `an_idle_system_face_builds_its_model_once`,
   red at 30 with the gate removed); `DevSnapshot` borrows its labels
   (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through
-  `focus_for_action_in_rows`. Still per frame and still allocating:
+  `focus_for_action_in_rows`.
+  ⚠ **CLOSED ON THE ROW AS WRITTEN, AND ONE BIGGER THING SURVIVES IT.**
+  `pointer.rs` rebuilds the WHOLE settings IR — a `String` per label, description
+  and value, plus both snapshots — ON EVERY HOVER EVENT over a System control, to
+  resolve one row index. Larger than either allocation this row named, and never
+  in the survey. ⛔ Not a straight cache swap: `cache.rows` is empty off the
+  System face while a System action stays reachable there, so an unguarded
+  substitution resolves every such hover to `MenuFocus::System(0)`; it wants an
+  active-page guard. Also open: `focus_for_action` and `focus_for_action_in_rows`
+  now BOTH exist, differing only in whether the caller built the list — the "same
+  lookup wearing different names" drift `character/assets.rs:261` records — and
+  `grid_backend::focus_key_for_cursor` still rebuilds the list once per
+  actionable node.
+  Still per frame and still allocating:
   `RadioSnapshot`'s `String` per station and the `RebuildKey` clone of it —
   both small, both a count away if they matter. Read the map for what is
   FALSIFIED (Lunex is `Changed<>`-filtered; the `UserSettings` clone is a memcpy;

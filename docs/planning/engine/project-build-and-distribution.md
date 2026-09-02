@@ -97,6 +97,19 @@ personas—and compile/test those combinations deliberately.
 A broad matrix is useful only if it maps to real products/hosts. Do not enumerate
 the power set of Cargo features.
 
+⚠ MEASURED 2026-09-02: three programs answer to "the smash tests". Per-crate
+default features (no device layer), the gate's `nextest --workspace` feature
+UNION (`visible` → `input` on, so seats read devices), and
+`-p ambition_demo_smash_app --features visible` alone — under which
+`build_demo_app` panics in `bind_game_assets` on a missing
+`Assets<TextureAtlasLayout>` (the MinimalPlugins foundation never registers it;
+the union happens to). The full lane only `cargo check`s that third cell, so
+nothing claims it runs; the product binary uses `build_windowed_demo_app` and
+is fine. The first two disagreed about one test until `f4a757328`. ▢ Decide
+whether the per-crate `visible` test cell is supported (then register the
+atlas asset in `build_demo_app`) or declare it unsupported in the crate's
+feature docs; today it is neither.
+
 ### B4 — generated-content/bootstrap contract
 
 A clean checkout should have an explicit path to produce every required generated

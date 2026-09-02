@@ -57,20 +57,55 @@ already got it wrong.
 
 ## The open sub-questions
 
+> **RE-MEASURED against `4a9d73a27` (2026-09-02). THIS DESIGN IS BUILT.** It lives in
+> `crates/ambition_conversation` (carved out by `197ec6828`), whose module doc
+> states the same authority split this page argued for: `ActiveConversation` is
+> the simulation authority and holds/UI are projections rebuilt from it.
+>
+> ⭐ **AND "THE GAP" IS CLOSED.** This page called `can_hold_station` the one new
+> authority the design needed, existing then only as a per-fighter `can_fly`
+> field inside the SMASH brain config. It is now
+> `can_hold_station(&AbilitySet, grounded: bool)` in
+> `ambition_platformer2d_core/src/abilities.rs`, with its own tests — a general
+> body-capability predicate, exactly as specified.
+>
+> The ⚠ below ("measure the other participant's brain before building anything")
+> is also resolved: `project_conversation_hold` claims non-talker participants
+> with `HeldByConversation` and `ControlHold::Conversation`, and releases them
+> when the conversation ends.
+>
+> Three of the four questions below are now ANSWERED BY THE CODE, marked inline.
+> The fourth is still open and is now explicitly guarded rather than merely
+> unaddressed.
+
 None of these block starting; each changes behaviour enough to be worth an
 explicit answer rather than a default nobody chose.
 
-- **What counts as "hit"?** Any damage, or any hitstun/knockback? Damage alone
-  breaks a conversation when a poison tick lands; knockback alone lets a chip
-  hit pass unnoticed. ⭐ knockback is the one that matches the stated reason —
-  the *reason* a hit ends a conversation is that it moves you.
-- **What is the break DISTANCE, and who owns it?** A dialogue-authored range, a
-  per-actor reach, or the same proximity that started the conversation? The
-  cheapest honest answer is the third: you stay in talking range or you stop
-  talking.
-- **Who barks — the interrupted party, the one who broke it, or both?** An NPC
-  barking when the player falls away is the case Jon described; a player-side
-  bark is a different feature.
+- ✔ **What counts as "hit"? ANSWERED — KNOCKBACK, and the prediction below was
+  right.** `break_dialogue_on_hit_or_separation` tests
+  `recoil_lock_timer > 0.0 || hitstun_timer > 0.0` on `BodyCombat`, not any
+  health change, and says why in situ: a poison tick or a chip of environmental
+  damage leaves both bodies standing where they were and leaves them talking.
+  (Original reasoning: damage alone breaks a conversation when a poison tick
+  lands; knockback alone lets a chip hit pass unnoticed. ⭐ knockback is the one
+  that matches the stated reason — the *reason* a hit ends a conversation is
+  that it moves you.)
+- ✔ **What is the break DISTANCE, and who owns it? ANSWERED — BY NONE OF THE
+  THREE OPTIONS OFFERED.** The rule is `a_aabb.strict_intersects(b_aabb)`: the
+  two bodies' own AABBs must overlap. Not a dialogue-authored range, not a
+  per-actor reach, and not a proximity radius — the bodies themselves are the
+  reach, and nothing owns a number. ⚠ Worth a deliberate look rather than
+  acceptance by default: overlap is TIGHTER than "talking range" as this page
+  imagined it, so two characters conversing at arm's length break the moment
+  they stop touching. If that reads wrong in play, this is the line to change,
+  and it is one predicate.
+- ✔ **Who barks? ANSWERED — the second participant, and ONLY for separation.**
+  `ConversationCutBark { speaker: b }`, gated on `reason.wants_its_own_bark()`.
+  ⭐ The interesting half is the suppression: a conversation broken by a HIT
+  emits no cut bark, because `npc_hit_bark_line` already fires on every strike,
+  and a second bubble for one event would be worse than none. The continuity
+  layer names the speaker; which line, from which pool, with which fallback,
+  stays a cast question.
 - ✔ **Is station-keeping a suspension or an ABILITY being exercised?**
   **ANSWERED 2026-08-06, from the code rather than from taste.** Exercising the
   real thing — and the tree already does it, so no new mechanism is needed.
@@ -98,8 +133,13 @@ explicit answer rather than a default nobody chose.
   What is left is the other participant — an NPC whose brain may still be
   steering it mid-sentence. Measure that before building anything; a brain that
   already idles during dialogue means this row is finished.
-- **Multi-participant.** Everything above is written for two. A third actor
-  joining or leaving is not addressed and should not be invented yet.
+- ▢ **Multi-participant — STILL OPEN, and now explicitly guarded.** Everything
+  above is written for two, and the code enforces that rather than degrading:
+  `break_dialogue_on_hit_or_separation` destructures participants as `[a, b]`
+  and returns early otherwise, so a third actor does not silently get a
+  half-applied rule. A third actor joining or leaving is still not addressed and
+  should still not be invented yet — but the place it would go is now one
+  `else` branch with a comment on it.
 
 ## What this does NOT change
 

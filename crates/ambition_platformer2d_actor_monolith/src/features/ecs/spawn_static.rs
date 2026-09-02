@@ -374,9 +374,7 @@ pub(crate) fn lower_interactable_placement(
     // omitted whichever placements happened to come after the sixteenth — cast
     // or furniture. The Hall contains nothing but `NpcSpawn`, which is the only
     // reason its curve measured what it claimed to.
-    if counts_against_the_actor_cap(&spec.kind)
-        && !ambition_dev_tools::population_cap::admit_actor()
-    {
+    if counts_against_the_actor_cap(&spec.kind) && !ctx.context.admission.admit_actor() {
         return;
     }
     let authored = ambition_platformer2d_world::rooms::Authored {
@@ -653,10 +651,12 @@ mod actor_cap_selects_actors_tests {
         }
     }
 
-    /// ⛔ ONE TEST: the cap is process-global, so anything reading it races.
+    /// A cap of one drops the SECOND NPC and nothing else; uncapped, the same
+    /// room loses nobody. The quota is the lowering's own (`ActorAdmission`),
+    /// so this no longer races a process-global and can run beside its siblings.
     #[test]
     fn a_cap_of_one_omits_the_second_npc_and_keeps_every_prop() {
-        ambition_dev_tools::population_cap::force_cap_for_tests(Some(1));
+        use ambition_characters::actor::{ActorAdmission, AuthoredPopulationCap};
 
         let room = [
             ("Door", Kind::Door { target: None }),
@@ -664,32 +664,26 @@ mod actor_cap_selects_actors_tests {
             ("NPC B", npc()),
             ("Chest", Kind::Chest),
         ];
-        let survivors: Vec<&str> = room
-            .iter()
-            .filter(|(_, kind)| {
-                !counts_against_the_actor_cap(kind)
-                    || ambition_dev_tools::population_cap::admit_actor()
-            })
-            .map(|(name, _)| *name)
-            .collect();
+        let survivors_under = |admission: &ActorAdmission| -> Vec<&str> {
+            room.iter()
+                .filter(|(_, kind)| !counts_against_the_actor_cap(kind) || admission.admit_actor())
+                .map(|(name, _)| *name)
+                .collect()
+        };
 
+        let capped = ActorAdmission::new(AuthoredPopulationCap::capped_at(1));
         assert_eq!(
-            survivors,
+            survivors_under(&capped),
             vec!["Door", "NPC A", "Chest"],
             "a cap of 1 must drop the SECOND NPC and nothing else"
         );
 
         // Premise guard: uncapped, the same room loses nobody.
-        ambition_dev_tools::population_cap::force_cap_for_tests(None);
-        let all: Vec<&str> = room
-            .iter()
-            .filter(|(_, kind)| {
-                !counts_against_the_actor_cap(kind)
-                    || ambition_dev_tools::population_cap::admit_actor()
-            })
-            .map(|(name, _)| *name)
-            .collect();
-        assert_eq!(all, vec!["Door", "NPC A", "NPC B", "Chest"]);
+        let uncapped = ActorAdmission::default();
+        assert_eq!(
+            survivors_under(&uncapped),
+            vec!["Door", "NPC A", "NPC B", "Chest"]
+        );
     }
 
     #[test]

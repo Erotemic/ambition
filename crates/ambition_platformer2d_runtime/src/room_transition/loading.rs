@@ -570,6 +570,9 @@ pub fn begin_room_transition_load_system(
         // into the Hall is a TRANSITION, and the hall is the one room the brain
         // override exists to re-cast.
         Option<Res<ambition_characters::brain::AuthoredBrainOverride>>,
+        // The developer's actor population cap: the same class of authority,
+        // stated here for the same reason (the hall is the room it caps).
+        Option<Res<ambition_characters::actor::AuthoredPopulationCap>>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -581,7 +584,8 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
-    let (prepared_characters, brain_profiles, forced_brains) = character_authorities;
+    let (prepared_characters, brain_profiles, forced_brains, population_cap) =
+        character_authorities;
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already
     // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is
@@ -1083,6 +1087,7 @@ pub fn begin_room_transition_load_system(
                         }
                     }),
                     forced_brains.as_deref(),
+                    population_cap.as_deref(),
                 ),
             )
             .map(Arc::new),

@@ -126,6 +126,9 @@ pub(super) fn handle_ldtk_hot_reload(
         // What a developer forced the cast's brains to; a reload that dropped it
         // would un-force a cast mid-measurement.
         Option<Res<ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
+        // And the population cap, for the same reason: a reload that dropped
+        // it would rebuild the hall uncapped under a capped measurement.
+        Option<Res<ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
     ),
     mut content_identity: (
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -235,6 +238,7 @@ pub(super) fn handle_ldtk_hot_reload(
             catalogs.8.as_deref(),
             catalogs.9.as_deref(),
             catalogs.10.as_deref(),
+            catalogs.11.as_deref(),
             &mut content_identity.0,
             &mut content_identity.1,
             &mut content_identity.2,
@@ -385,6 +389,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // un-force a cast mid-measurement — which is the one thing a measurement
     // knob must not do.
     forced_brains: Option<&ambition_platformer2d::characters::brain::AuthoredBrainOverride>,
+    population_cap: Option<&ambition_platformer2d::characters::actor::AuthoredPopulationCap>,
     prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
     prepared_identity: &mut ambition_platformer2d::runtime::PreparedContentIdentity,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
@@ -446,6 +451,7 @@ pub(super) fn reload_ldtk_world_from_disk(
             // nothing about the new ones. Rebuilt from the records alone.
             None,
             forced_brains,
+            population_cap,
         ),
     )
     .map_err(|error| vec![error.to_string()])?;

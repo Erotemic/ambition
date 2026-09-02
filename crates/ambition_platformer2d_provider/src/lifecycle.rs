@@ -1182,7 +1182,13 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// is the same class of authority: lowering consults it while BUILDING a
     /// brain, which the actor kernel used to do by calling into
     /// `ambition_dev_tools` directly.
-    forced_brains: Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
+    /// Paired with the population cap because this `SystemParam` is at Bevy's
+    /// sixteen: both are developer overrides of the authored cast, threaded
+    /// into lowering as a snapshot rather than read from a developer crate.
+    forced_brains: (
+        Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
+        Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
+    ),
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -1297,7 +1303,8 @@ impl PlatformerSessionBuilder<'_, '_> {
                                 minted: self.minted.as_deref(),
                             }
                         }),
-                        self.forced_brains.as_deref(),
+                        self.forced_brains.0.as_deref(),
+                        self.forced_brains.1.as_deref(),
                     ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,

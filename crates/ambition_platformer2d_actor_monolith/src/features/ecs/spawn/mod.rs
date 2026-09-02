@@ -201,6 +201,10 @@ pub struct ActorConstructionContext<'a> {
     /// composition installs no developer tools, and "the author decides" is what
     /// an unset environment variable has always meant.
     pub forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
+    /// The developer population cap, when this composition installs the tools
+    /// that say. `None` and `Some(uncapped)` both mean every authored actor is
+    /// admitted.
+    pub population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -217,6 +221,7 @@ impl<'a> ActorConstructionContext<'a> {
             brain_profiles: None,
             continuity: None,
             forced_brains: None,
+            population_cap: None,
         }
     }
 
@@ -255,6 +260,10 @@ impl<'a> ActorConstructionContext<'a> {
         // What a developer has forced the cast's brains to, when this
         // composition installs the tools that say. See [`Self::forced_brains`].
         forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
+        // The developer population cap, threaded like the brain override and
+        // for the same reason: a snapshot the lowering runs against, not a
+        // process-global the kernel reaches up for mid-construction.
+        population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
     ) -> Self {
         let mut context = Self::new(recipes, content_epoch);
         if let Some(active) = active_binding {
@@ -264,6 +273,7 @@ impl<'a> ActorConstructionContext<'a> {
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
         context.forced_brains = forced_brains;
+        context.population_cap = population_cap;
         context
     }
 
@@ -366,12 +376,6 @@ impl RoomFeatureConstructionPlan {
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
         let paths = room_spec_paths(room);
-        // ⭐ THE MEASUREMENT QUOTA'S TRANSACTION BOUNDARY. `plan_room` runs
-        // exactly once per room build, so opening the budget here gives it a
-        // structural lifetime — a reload of the SAME room gets a fresh quota,
-        // which a room-id-keyed counter did not. Inert unless
-        // `AMBITION_ACTOR_POPULATION_CAP` is set.
-        ambition_dev_tools::population_cap::begin_room_lowering();
         let placements = registry
             .plan_room(&room.id, &paths, &room.placements)
             .map_err(RoomFeatureConstructionError::Placement)?;
@@ -669,6 +673,15 @@ impl RoomFeatureConstructionPlan {
         }
         if let Some(forced) = construction.forced_brains {
             placement_context = placement_context.with_forced_brains(forced);
+        }
+        // ⭐ THE MEASUREMENT QUOTA'S TRANSACTION BOUNDARY. `prepare` runs exactly
+        // once per room build and the context below lives as long as this plan,
+        // so a quota opened here cannot outlive the lowering it belongs to —
+        // and a reload of the SAME room gets a fresh one. Inert unless a
+        // developer cap is installed (`AMBITION_ACTOR_POPULATION_CAP`, read by
+        // `ambition_dev_tools` and published as a resource, never read here).
+        if let Some(cap) = construction.population_cap {
+            placement_context = placement_context.with_population_cap(*cap);
         }
         Ok(Self {
             room: room.clone(),

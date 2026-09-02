@@ -40,3 +40,28 @@ fn the_developer_plugin_publishes_a_brain_override_for_the_simulation_to_read() 
          every other test measures is not the authored one"
     );
 }
+
+/// The same wiring for the last of the three developer reads: the actor
+/// population cap (`AMBITION_ACTOR_POPULATION_CAP`) is published by the
+/// developer plugin and read by lowering as a value on the construction plan.
+/// Without this resource every road reads `None`, the knob is dead, and every
+/// scaling-curve script in `scripts/` measures an uncapped hall under a capped
+/// label. The suite runs with the variable unset, so "published, and uncapped"
+/// is the whole of what this run can honestly claim.
+#[test]
+fn the_developer_plugin_publishes_a_population_cap_for_the_simulation_to_read() {
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let cap = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::actor::AuthoredPopulationCap>()
+        .expect(
+            "no `AuthoredPopulationCap` resource: `DevToolsSimPlugin` did not publish one, so \
+             AMBITION_ACTOR_POPULATION_CAP caps nothing and the scaling scripts lie",
+        );
+    assert_eq!(
+        cap,
+        &ambition_platformer2d::characters::actor::AuthoredPopulationCap::UNCAPPED,
+        "this suite runs with the variable unset, so the published value must be uncapped"
+    );
+}

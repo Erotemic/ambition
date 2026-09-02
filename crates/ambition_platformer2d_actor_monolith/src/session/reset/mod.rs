@@ -136,6 +136,9 @@ pub struct ResetPlayState<'w> {
     /// brain, which the actor kernel used to do by calling into
     /// `ambition_dev_tools` directly.
     forced_brains: Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
+    /// The developer's actor population cap, same class of authority as the
+    /// brain override and threaded the same way.
+    population_cap: Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
     /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
     committed: MessageWriter<'w, NewGameResetCommitted>,
     /// **What the world remembers about the occurrences it authored** — cleared
@@ -273,6 +276,7 @@ pub fn process_new_game_reset_request(
             // is exactly wrong.
             None,
             play_state.forced_brains.as_deref(),
+            play_state.population_cap.as_deref(),
         ),
     );
     // DECLINE, do not die. The preflight runs before the wipe precisely so a

@@ -135,8 +135,10 @@ remained after the first slice; two are gone and two are instrumentation:
     `AuthoredBrainOverride` the dev tool writes, the two `OnceLock`s are deleted,
     and `for_room_construction` takes the authority as a parameter so no road can
     forget it;
-  - `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`, which
-    decides whether a placement spawns at all;
+  - ✔ `features/ecs/spawn_static.rs` — CLOSED 2026-09-02 evening. The quota is
+    `ActorAdmission` on the placement context (one per construction plan), the
+    value is a published `AuthoredPopulationCap`, `for_room_construction` takes
+    it as a parameter, and the dev crate keeps only the env name and parse;
   - `features/mod.rs:350` — `runtime_census`, `#[cfg(not(wasm32))]` and gated on
     the census being on, so it is the mildest of the three.
   ⇒ The `Cargo.toml` dependency therefore stays, and a row that says the marks

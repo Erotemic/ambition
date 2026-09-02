@@ -1265,7 +1265,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // params, the same reason the covered transition path groups them. The
     // authorities travel together anyway: a placement names a character and may
     // name the policy that drives it.
-    (construction_recipes, active_binding, brain_profiles, forced_brains, mut plan_prefetch): (
+    (
+        construction_recipes,
+        active_binding,
+        brain_profiles,
+        forced_brains,
+        population_cap,
+        mut plan_prefetch,
+    ): (
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Option<Res<ambition_platformer2d::actors::rooms::ActiveContentBinding>>,
         Option<
@@ -1274,8 +1281,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // ⭐ AND WHAT A DEVELOPER FORCED THEM TO. The PREFETCH builds the same
         // plan the transition will commit, so a plan built without the override
         // and a transition built with it would disagree about the cast — the
-        // prefetch would be discarded, silently, on every forced run.
+        // prefetch would be discarded, silently, on every forced run. The
+        // population cap rides for the same reason: a capped hall prefetched
+        // uncapped is a different room.
         Option<Res<ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
+        Option<Res<ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
         ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
@@ -1417,6 +1427,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // Correctness is unaffected; what is lost is the preloading.
                     None,
                     forced_brains.as_deref(),
+                    population_cap.as_deref(),
                 ),
             ) {
                 Ok(plan) => plan,

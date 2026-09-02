@@ -9,6 +9,8 @@
 
 pub mod pose;
 pub use pose::{ActorFaction, ActorPose};
+pub mod population_cap;
+pub use population_cap::{ActorAdmission, AuthoredPopulationCap};
 pub mod ai;
 pub mod body;
 pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet, BodyWalletShield, DeathPolicy};

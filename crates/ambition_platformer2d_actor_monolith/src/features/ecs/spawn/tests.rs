@@ -1333,3 +1333,99 @@ mod authored_enemy_reads_its_character {
     // placement that names none has no second road to be built on, so the display name cannot
     // supply one.
 }
+
+/// The developer population cap reaches the lowering as a VALUE on the plan's
+/// context — D33's third read, inverted. A capped construction context admits
+/// the first n actors of ITS plan and a second plan from the same room starts
+/// with a full quota (the two defects the process-global counter had). Red
+/// with the cap not threaded (`for_room_construction` dropping it: every
+/// lowering admits all four).
+#[test]
+fn the_population_cap_rides_the_plan_and_each_plan_gets_its_own_quota() {
+    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
+    use ambition_characters::actor::AuthoredPopulationCap;
+    use ambition_entity_catalog::placements::{
+        DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
+    };
+    use ambition_platformer2d_core::Vec2;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::placements::PlacementRecord;
+
+    #[derive(bevy::prelude::Component)]
+    struct Admitted;
+
+    // A stand-in ACTOR lowering: it asks the context's quota the way
+    // `lower_interactable_placement` does for an NPC, and leaves a trace only
+    // when admitted. Hazard records, because they need no catalog to plan.
+    fn admitting_lowering(_record: &PlacementRecord, ctx: &mut LoweringCtx<'_, '_, '_>) {
+        if ctx.context.admission.admit_actor() {
+            ctx.commands.spawn(Admitted);
+        }
+    }
+
+    let mut registry = PlacementLoweringRegistry::default();
+    registry
+        .try_register(PlacementKind::Hazard, "test", "spawn_test", "hazard.v1", admitting_lowering)
+        .unwrap();
+    let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "capped_room",
+        ae::World::new("capped_room", Vec2::splat(1000.0), Vec2::ZERO, Vec::new()),
+    );
+    for index in 0..4 {
+        room.placements.push(PlacementRecord::new(
+            format!("actor_{index}"),
+            PlacementSchema::Hazard(HazardSpec {
+                damage: 1,
+                knockback: [0.0, 0.0],
+                kind: DamageKind::Hazard,
+                team: DamageTeam::Environment,
+                hitstop_seconds: 0.0,
+                respawn: HazardRespawn::Never,
+                path_id: None,
+            }),
+            ae::Aabb::new(Vec2::new(index as f32 * 10.0, 0.0), Vec2::splat(4.0)),
+        ));
+    }
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let boss_catalog = ambition_boss_encounter::test_boss_catalog();
+    let recipes = crate::construction::engine_construction_registry();
+
+    let admitted_under = |cap: Option<&AuthoredPopulationCap>| -> usize {
+        let plan = RoomFeatureConstructionPlan::prepare(
+            &room,
+            &registry,
+            &Default::default(),
+            &catalog,
+            &Default::default(),
+            &boss_catalog,
+            crate::features::ActorConstructionContext::for_room_construction(
+                &recipes,
+                Default::default(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                cap,
+            ),
+        )
+        .expect("the room prepares");
+        let mut app = App::new();
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_systems(Update, move |mut commands: Commands| {
+            spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
+        });
+        app.update();
+        app.world_mut().query::<&Admitted>().iter(app.world()).count()
+    };
+
+    assert_eq!(admitted_under(None), 4, "no developer cap: every actor is admitted");
+    let two = AuthoredPopulationCap::capped_at(2);
+    assert_eq!(admitted_under(Some(&two)), 2, "a cap of two admits the first two");
+    assert_eq!(
+        admitted_under(Some(&two)),
+        2,
+        "a SECOND plan of the same room under the same cap starts with a full quota — the \
+         process-global counter this replaces admitted nobody here"
+    );
+}

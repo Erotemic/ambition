@@ -51,6 +51,9 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
     /// `ambition_dev_tools` from inside the actor kernel.
     forced_brains:
         Option<Res<'w, ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
+    /// The developer's actor population cap — same class, same road.
+    population_cap:
+        Option<Res<'w, ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
 }
 
 /// Who this app's characters ARE, in one parameter.
@@ -124,6 +127,7 @@ pub(super) fn setup_simulation_system(
                     // occurrence of anything exists yet to have a disposition.
                     None,
                     construction.forced_brains.as_deref(),
+                    construction.population_cap.as_deref(),
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],

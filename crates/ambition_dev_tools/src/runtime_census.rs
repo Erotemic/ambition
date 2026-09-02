@@ -662,6 +662,7 @@ pub fn report_sim_phase_census(
     // ⛔ `Option`: a composition may run this census with no developer tools
     // installed, and "nobody is steering" is the honest reading of absence.
     brains: Option<Res<ambition_characters::brain::AuthoredBrainOverride>>,
+    population_cap: Option<Res<ambition_characters::actor::AuthoredPopulationCap>>,
 ) {
     let Some(at) = census.due() else {
         return;
@@ -700,7 +701,10 @@ pub fn report_sim_phase_census(
     // removes authored actors to make a scaling curve possible, and a row taken
     // under it describes a room nobody plays. Say so ON THE ROW — a reader
     // quoting a number will not go looking for the environment it was taken in.
-    if let Some(cap) = crate::population_cap::active_cap() {
+    // ⭐ AND IT READS THE RESOURCE THE SIM READ, not the environment, for the
+    // same reason as the brain override below: the row reports what was IN
+    // FORCE, and the two cannot disagree.
+    if let Some(cap) = population_cap.as_deref().and_then(|cap| cap.cap()) {
         row.push_str(&format!(" actor_cap={cap}"));
     }
     // ⛔⛔ AND A RE-BRAINED CAST IS NOT THE AUTHORED ONE EITHER.

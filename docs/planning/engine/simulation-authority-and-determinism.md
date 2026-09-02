@@ -4,6 +4,26 @@
 remaining work is runtime authoritative-state correctness, deterministic
 composition, lifetime boundaries, and explicit phase ownership.
 
+> **Guard pointer, added ce25540b1 (2026-09-02).** This program has a mechanical
+> guard that no planning file previously named:
+> `scripts/check_rollback_mutators_run_in_sim.py` — *"does anything mutate
+> ROLLBACK state from a schedule that never rewinds?"* A component registered
+> for rollback is restored on every rewind, so a system mutating it must run in
+> the schedule GGRS resimulates (`app.sim_schedule()`), not a literal `Update`.
+> ⛔ Its own docstring names why the bug is invisible locally: **under a
+> fixed-tick host the two are the same schedule**, so the mistake costs nothing
+> and shows nothing — it only diverges under GGRS, where the value rewinds and
+> the mutation does not replay with it. Green at `ce25540b1`: 4 systems mutate
+> rollback state, none registered into a non-rewinding schedule.
+>
+> **And a second, for the ordering half of this program:**
+> `scripts/check_set_pins_have_engine_members.py` reports engine ordering edges
+> that target sets with no engine-owned members — a Bevy ordering edge against an
+> empty set is VACUOUS in that schedule, and reads exactly like an active
+> constraint. It compares engine set pins against engine-installed systems so
+> host/game-only extension sets are not mistaken for real ordering. Green at
+> `0ac499bb1`: **2 app-filled sets, all waived with a reason.**
+
 ## Goal
 
 A simulation result should be determined by explicit authoritative data and

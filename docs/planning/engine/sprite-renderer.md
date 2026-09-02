@@ -7,6 +7,15 @@ the gameplay layer needs, so the body and its hitbox cannot silently disagree.
 
 ---
 
+> **Guard pointer, added 0ac499bb1 (2026-09-02).**
+> `scripts/check_published_sheets_are_present.py` checks that every sheet the
+> publish roster claims is actually on disk. Green at `0ac499bb1`: **all 173 rostered
+> targets have published art.** ⛔ Its docstring records why it exists, and the
+> reason generalises: a missing ASSET failed a test in a way that READ LIKE A
+> CODE BUG (`a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`
+> depends on `goblin_cave_dagger` being present). A roster/disk mismatch should
+> fail as itself, not as whatever behaviour happened to need the file.
+
 ## The thesis
 
 > Plural authoring, one validated published-asset contract.

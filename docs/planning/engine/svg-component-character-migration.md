@@ -4,6 +4,28 @@
 rewrite the roster immediately. Profiling and ordinary character work may make
 small enabling changes when they pay for themselves now.
 
+> **RE-MEASURED against `ea4edb90d` (2026-09-02): the ENABLING WORK IS BUILT and
+> adoption is deliberately tiny, which is what this status asks for.**
+>
+> - ⭐ **The equivalence tooling the two levels below require exists**:
+>   `tools/ambition_sprite2d_renderer/equivalence_harness.py`, which cites this
+>   page for its rationale and compares a Pillow reference against an SVG
+>   candidate (`compare --ref pil_out/ --cand svg_out/`). Level 2 is therefore
+>   checkable rather than aspirational.
+> - **Adoption: 2 of 138 character target files are SVG-sourced by name**
+>   (`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`, plus the `_svg_poc` and
+>   `_svg_fighter_effects` helpers); 22 of the 138 mention `svg` at all.
+> - ⭐ **And `charley_beagle` genuinely SHIPS from it** — independently observed,
+>   not inferred from the target list: `sprites_potato/charley_beagle_svg_spritesheet.png`
+>   appears in the `[image-census]` of a real `capture_scene` run of
+>   `hall_of_characters` taken the same day.
+>
+> ⇒ **So the status line is accurate and should not be escalated.** The migration
+> has a working harness and one shipping character plus one proof-of-concept, on
+> a roster of 138. ⛔ That is the intended shape of a DIRECTION — the enabling
+> work paid for itself and the rewrite did not happen. A future session should
+> re-measure the 2-of-138 before treating slow adoption as a problem.
+
 ## Decision
 
 For most articulated characters, prefer an editable SVG component scene as the

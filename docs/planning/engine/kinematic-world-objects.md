@@ -172,13 +172,25 @@ behaviors are authoritative versus presentation.
   plan predicts: platform ownership questions keep resolving into actor/body
   questions, and are cheaper to answer after the actor kernel is coherent.
 
-### K2 — typed authored motion — PARTIAL
+### K2 — typed authored motion — CLOSED (marker corrected 780295052, 2026-09-02)
 
 The ambiguous optional-field precedence is now gone: LDtk conversion classifies
 into a validated `MovingPlatformMotionSpec` and rejects conflicting motion fields.
-The remaining half is identity: path motion still carries a string `path_id`;
-move the relationship to typed/native reference authoring when a real authored
-path customer justifies that slice.
+
+⚠ **This section said PARTIAL and contradicted the page header, which says
+K2-K6 are all closed. The header was right and this marker was stale.** The
+"remaining half" it described — *"path motion still carries a string `path_id`;
+move the relationship to typed/native reference authoring"* — was satisfied at
+the layer that matters. Authoring is a NATIVE LDtk `EntityRef`: `path_ref`, read
+through `LdtkEntityCtx::kinematic_path_ref` and used by
+`conversion/entity_converters.rs`, with the path index built before any
+conversion so a reference may name a path authored later in the file.
+
+⛔ `MovingPlatformMotionSpec::Path` does still hold a `String`, and that is not
+the same defect. The reference is typed where it is AUTHORED and resolved where
+it is CONSUMED, which is the ordinary shape of a resolved reference — not the
+"ambiguous optional field" this item existed to remove. Do not reopen K2 for the
+runtime string alone.
 
 ### K3 — isolate dynamic geometry ownership — CLOSED 2026-08-14
 
@@ -212,9 +224,21 @@ the blink reticle could point through a wall). All three now read
 shape is the four questions the game asks: `solids`, `carves_only`,
 `hostable_surfaces`, `base`.
 
-### K4 — contact completeness
+### K4 — contact completeness — CLOSED 2026-08-15 (marker added 780295052, 2026-09-02)
 
 Consolidate ride/ledge behavior and make crush/one-way policy explicit.
+
+⚠ **This section carried NO status marker at all while the page header counted
+it among the closed items.** Closed by `7f6c9a6a4`, "K4: riding a ledge was the
+one contact rule only the player could get", whose own message states the item
+verbatim and records that censusing HEAD dissolved most of it: passenger carry
+was already unified and explicit through `Block::velocity`. Verified at HEAD —
+one-way policy is explicit in the type system (`BlockKind::OneWay`, with its
+struck-from-below mirror), crush is an explicit reported event
+(`movement/events.rs`: the body is over-constrained between two surfaces;
+`movement/integration.rs` and `adhesive_crawler.rs` report rather than resolve
+it), and rider carry is pinned by
+`a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport`.
 
 ### K5 — authoring polish
 

@@ -46,6 +46,36 @@ This distinction is load-bearing and has been misread before, so state it here:
   a composed, read-only discovery index.** Nothing is authoritative there; it is
   derived.
 
+### ⚠ And the word "census" now means two different things — say which you mean
+
+⛔ **The `⛔ bad` bullet above is about a runtime OWNING an authoritative census
+of every gameplay domain. It is NOT about the `[census]` diagnostic lines, and a
+reader who greps this page for "census" finds only the prohibition.** Measured at
+`768c67c6e`, the engine emits **25 distinct `[census]` surfaces**:
+
+```text
+assets  camera  churn  conditions  config  draws  ecs  frame  ggrs_driver
+membership  owners  owners_in  phases  phases_cpu  phases_trust  phases_warning
+populations  portal  render_pass  render_pass_summary  render_targets  schedules
+sim_phases  views  visual_quality
+```
+
+Those are DERIVED, read-only emission — the `⭐ good` half of the distinction
+above, not the forbidden half. They are the largest existing implementation of
+this program's "structured introspection is the first-class product", and this
+page did not name a single one. Beside them sit four tooling entry points:
+`scripts/agent_query.py`, `scripts/ecs_inventory.py`,
+`scripts/non_ecs_inventory.py`, `scripts/core_import_census.py`.
+
+⭐ **One of them deserves special mention because it reports its own
+trustworthiness**, which is exactly what a self-explaining engine should do:
+`[census] phases_trust` prints `trustworthy=no_render_backend … Phase splits from
+this run are usable` — the instrument stating the conditions under which its own
+numbers may be read, rather than leaving the reader to infer them.
+
+⇒ A future GUI workbench consuming "the same APIs" should be understood to mean
+these, plus whatever replaces the line-oriented format.
+
 ⛔⛔ **do not sacrifice discoverability in the name of avoiding central
 authority.** LLM-native engine development requires exceptional discoverability —
 an agent that must read the implementation to learn the vocabulary is the failure

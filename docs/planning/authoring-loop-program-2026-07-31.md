@@ -2,6 +2,23 @@
 
 **Status:** residual work only, re-verified against HEAD on 2026-08-13.
 
+> **Re-checked against `4768eb13d` (2026-09-02), three weeks on: the residual work is
+> STILL ACCURATE.** Spot-checked each candidate under "Remaining work":
+> `boss_sheets.ron` and `ambition_sprite_sheet::boss::BossSheetSpec` are both
+> still live, so the duplicate boss-sheet authority is unresolved;
+> `content_validation.rs` is still 622 lines; and the action seam's three types
+> (`SemanticActionId`, `ActionRegistry`, `InstalledActions`) are all present, in
+> `ambition_input/src/semantic.rs`.
+>
+> ⚠ **ONE EXAMPLE HAS AGED BADLY AND SHOULD BE REPLACED WHEN THIS IS PICKED UP.**
+> §2 offers *"a provider-owned action such as `grapple`"* — but grapple now
+> exists as an ENGINE traversal ability
+> (`actor_monolith/src/abilities/traversal/grapple.rs`, alongside blink, dive,
+> flyline, possession, mark/recall), not as anything registered through the
+> provider seam. The seam's point is unchanged; its illustration now names
+> something built the other way, which is exactly the sentence a later session
+> would take as evidence that the work was done.
+
 The original 2026-07-31 program connected three goals: compiled content packs,
 participant-scoped semantic actions, and causal inspection. Most of that program
 has landed. The full execution record is archived at

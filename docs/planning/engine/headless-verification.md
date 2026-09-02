@@ -29,6 +29,33 @@ windowing stripped, the actual systems intact:
 > from some state, **fixing that is the priority**, never building a proxy. (The
 > brain-arena with its own kinematics is exactly the proxy to retire.)
 
+## ⭐ Headless DECODES ART now — since 2026-09-02, and it changes what these runs prove
+
+`124684f56` ("The no-window builder finishes its plugins: images decode headless
+for the first time"). ⛔ **Before it, `ImagePlugin` registered the image loader in
+`Plugin::finish`, which never ran under the `app.update()` loop `--headless`
+uses — so every asset stage after "demanded" was measuring an EMPTY POPULATION.**
+A headless assertion about residency, decode, insertion or extraction taken
+before that commit was true of nothing.
+
+Two consequences for anything written against the old behaviour:
+
+- **A headless run is now a real asset consumer.** Verified on the calculex VM at
+  `3f3b42407`: `AMBITION_HEADLESS_GAMEPLAY_ROOM=hall_of_characters` under
+  `scripts/headless_room_frame.sh` decodes a full hall population, and a
+  `capture_scene` run of the same room reports 235 images / 29.5 MP / 118.1 MB
+  resident on its `[image-census]` line. The equivalent run before the fix
+  reported none.
+- ⚠ **So headless frame numbers across that commit are not comparable**, and
+  `performance-and-iteration.md` says so where the affected table lives: every
+  phase moved up, not as a regression but because the binary is now doing asset
+  work it previously skipped. ⛔ 156 commits separate those two rows; nothing
+  should be credited the delta.
+
+⇒ What this ADDS to headless verification is real: residency, ownership and
+draw-stage claims are now assertable without a window. What it REMOVES is the
+right to quote any pre-`124684f56` headless asset number.
+
 ## Test invariants, not tuned values
 
 The strongest tests are **symmetry / covariance under the relativity principle** — an

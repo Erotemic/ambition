@@ -164,10 +164,16 @@ top symbol is the allocator at 3% — but it names FAMILIES:
 allocator (mimalloc malloc/free/zero)          7.9%
 task pool / executor handoff (user side)       8.2%   + kernel futex/scheduler 7.8%
 leafwing input maps (process_actions, clash)   3.6%   two seats, no window
-QueryState::new_archetype                      3.1%   a query is being BUILT per frame somewhere
+QueryState::new_archetype                      3.1%   a QueryState is being BUILT per frame (archetype count is stable)
 UI layout + text (taffy, parley)               2.6%   with no window
 main thread 83%, compute pool 15%
 ```
+
+(The `new_archetype` caller is not found by grep — every `world.query` /
+`SystemState::new` in the runtime crates is inside a test — so it is in a
+dependency or reached through a lens/join. A DWARF call graph on the 1.6 GB
+binary exceeded its report budget again; naming it needs a frame-pointer build.
+At 3% of a 3.7 ms floor it is 0.1 ms: a curiosity, not a lead.)
 
 ⇒ The shipped frame is not one slow system; it is **~2400 system runs per
 frame at ~1.5 us each with allocation on the way** — 3234 systems in 33

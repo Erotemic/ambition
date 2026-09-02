@@ -209,6 +209,16 @@ what the figure is now.
 The hall-entry fix itself (reveal barrier + gallery tier cap) still awaits its
 host confirmation; the tells are in `queue.md`.
 
+Later the same day: sheet images load render-world-only by default
+(`68d38076e`; captures byte-identical, peak RSS −141 MB in the hall at
+Quarter on llvmpipe, `=0` restores the CPU copy for an A/B); a resident
+character page must be owned by a live realization, guarded on the hall exit
+(`124684f56`, 0 orphans); and ⛔ the headless composition had never decoded
+an image — Bevy registers the `ImageLoader` in `Plugin::finish`, which
+`App::update()` never calls — so every headless readiness/residency number
+before `124684f56` was a number about the table, not the art. The no-window
+builder finishes its plugins now; 746/746 app tests pass under it.
+
 See [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
 and [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 

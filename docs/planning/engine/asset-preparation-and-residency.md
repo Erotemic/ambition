@@ -565,6 +565,27 @@ Name the owner for retained assets, for example:
 Then measure working-set growth and choose eviction/release policy. Do not pick
 LRU before the ownership/budget model exists.
 
+✔ **The owner of a character page is its realization, and that is now a rule
+with a guard (2026-09-02, `124684f56`).** Every image on the `character-sheet`
+road belongs to a row of `CharacterSpriteAssets` (a character sheet or a prop);
+the fx set demands on its own `fx-sheet` road and belongs to `FxSheetAssets`
+(13 vfx sheets were stamped `character-sheet` until this landed, which is how
+the rule was found). Retiring a realization drops the page's last handle, so
+after a room exit the ledger's resident `character-sheet` rows must all be
+owned by a live realization — a page resident with no realization is held by
+something else, and that something is the leak. Measured on the reverse leg
+(`leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting`, hall →
+hub, 300 frames after the commit): **0 orphan pages**; the retired gallery
+cast leaves memory. Poison: holding five gallery page handles across the exit
+names exactly those five. What stays resident in the hub and why: the hub's
+placed cast and the worn character (their realizations), the one-hop
+neighbours' casts the prefetch realized at THEIR tier (`basement_enemies`
+spawns an "Ai Slop", which is why `npc_ai_slop` comes back at Full — for the
+basement, not for nobody), the fx set, and 24 unrouted UI/prop images (4.5
+MP). ⚠ This is the ownership half of the item; the working-set budget and
+the eviction policy are still open, and the neighbour prefetch is now the
+only road that decodes in the open on purpose.
+
 ### 5. Eliminate accidental re-preparation/reload
 
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame
@@ -723,6 +744,23 @@ on GPU uploads)`; the room transition's `asset_wait_ms` now includes the wait.
 first draw, and a manifest never names a `MAIN_WORLD`-only image (which no
 render world would ever prepare) — if one ever does, the label says which.
 
+⛔⛔ **Until 2026-09-02 no image ever decoded in a headless composition, and
+every readiness claim measured there was a claim about the table.** Bevy
+registers the `ImageLoader` in `ImagePlugin::finish`, and `App::update()`
+never calls `finish` — only a runner does — so in every `NoWindow` app (the
+whole `app_it` suite and `--headless`) every `Handle<Image>` sat in
+`LoadState::Loading` forever: no room barrier ever opened, the hall → hub test
+was still in the hall with the cover up after 300 frames, and `headless_room_
+frame.sh` timed a hall with no art in it. `build_visible_app_with` now
+finishes and cleans up the plugins for `NoWindow` (`124684f56`); the headless
+host decodes 232 images / 57 MP entering the hall, the hall barrier settles
+in ~8 frames of game time with 129/129 realized, and the re-decode census
+counts 213 of 237 resident images through demand roads. Two tests had been
+built on the break — the cover test waited 600 frames for a stall report that
+a settling barrier never files — and were rewritten to the contract they
+meant. ⚠ Still not observable headless: GPU upload and first draw (no render
+world); those remain `capture_scene` / host measurements.
+
 ## Explicit non-goals
 
 Do not yet build:
@@ -745,7 +783,9 @@ This program has reached a stable first plateau when:
 3. one representative uncovered gameplay case demonstrates bounded
    materialization without a large completion burst;
 4. residency ownership/scopes are explicit enough to explain why a retained
-   image remains live;
+   image remains live (✔ for character and fx pages since 2026-09-02: a
+   resident page is owned by a realization, guarded on the hall exit; open
+   for UI/prop art and for the budget);
 5. quality switching preserves logical identity and round-trips in a rendered
    session;
 6. no new global cache duplicates domain/catalog ownership.

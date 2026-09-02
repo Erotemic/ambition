@@ -341,6 +341,34 @@ The proposed shared outer-saturation fix should be judged only after that number
 exists. This is tracked in the execution queue as an external measurement, not a
 maintainer design decision.
 
+### Which character owns each per-fighter FX sheet (raised 2026-09-02)
+
+Seven of the thirteen FX sheets are named by exactly one moveset file, so their
+demand could move from "resident in every room" to the room's cast — 9.6 MP is
+31% of the hall's resident megapixels and this is the largest owner left after
+the boss sheets. `scripts/measure_fx_row_reachability.py --owners` measures the
+sheet → MOVESET FILE half. The demand seam needs a sheet → CHARACTER ID map, and
+that last hop cannot be derived: `noether_vfx` belongs to `npc_emmy_noether`,
+`carl_stargan_vfx` sits beside a sheet target `carl_runga`, and three sheets use
+bare ids with no `npc_` prefix. A wrong guess loads nothing and the effects fall
+back to particles SILENTLY.
+
+Needed: the character id for each of `oiler_vfx`, `pca_vfx` (named by
+`cellular_automaton_moveset.rs` — "pca" is not a fighter), `patent_clerk_vfx`,
+`carl_stargan_vfx`, `noether_vfx`, `ninja_shadow_oni_leader_vfx`,
+`projectile_polygon_vfx`.
+
+⚠ And a separate content question in the same measurement, NOT blocking the
+above: `pirate_admiral_vfx` (14 rows) is named by nothing at all, and
+`george_booul_vfx` (21 rows) only by a test and the engine's own `fx.rs`. Their
+rows sit beside movesets whose moves have matching names, so this reads as
+missing wiring rather than dead art — but whether to wire them or drop them is
+the owner's call. Both stay resident until it is made.
+
+Engine side is unblocked the moment the id column exists: load only the four
+shared sheets at boot, ensure the owned ones at room-manifest time exactly as
+`ensure_boss_sheets_loaded` already does for bosses.
+
 ## ✔ WITHDRAWN 2026-09-02 — "is 8% of the floor crate worth an encoder split?"
 
 Raised here the same day and withdrawn the same day: it is an ENGINEERING

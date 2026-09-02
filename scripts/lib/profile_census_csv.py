@@ -96,8 +96,10 @@ CSV_NAMES = {
     "portal": "portal_activity.csv",
     "assets": "asset_activity.csv",
     "phases": "schedule_phases.csv",
-    # The same split on a CPU clock. `wall - cpu` per phase is the stall; a
-    # phase whose wall far exceeds its CPU was WAITING, not working.
+    # The same split on a CPU clock. A phase whose wall far exceeds its CPU was
+    # WAITING, not working — read cpu/wall as a RATIO. ⛔ NOT `wall - cpu`: the
+    # clock is `CLOCK_PROCESS_CPUTIME_ID` and sums every thread, so the
+    # difference goes negative on a parallel phase.
     "phases_cpu": "schedule_phases_cpu.csv",
     "config": "census_config.csv",
 }

@@ -434,8 +434,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
   boot surfaced first as a test-harness timeout, not as a number anyone
   recorded** — a "captures byte-identical, RSS −141 MB" A/B does not show it.
 
-- ▢ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
-  PARALLEL-FLAKY.** Found 2026-09-02 while checking for reds. `app_it` runs its
+- ✔ **THREE `app_it` TESTS ASSERT OVER A PROCESS-GLOBAL LEDGER AND ARE
+  PARALLEL-FLAKY — CLOSED 2026-09-02, both halves.** Found 2026-09-02 while
+  checking for reds.
+  ⭐ **VERIFIED BY THE FULL PARALLEL TARGET, which is the only run that could
+  say so**: `cargo test -p ambition_app --test app_it` reads **546 passed / 1
+  failed / 22 ignored** in 484s, against 543/2 when this row was written. All
+  three ledger readers are green.
+  ⛔ **THE ONE RED IS NOT THIS ROW, and the distinction is the useful part.**
+  `two_round_trips_through_the_gallery_return_the_same_working_set` passes alone
+  (25.7s) and fails in the target — but `residency_snapshot` reads
+  `common::resident_character_pages(app)`, the per-App helper, so a sibling App
+  CANNOT inflate its answer. It samples with `for _ in 0..300 { step }` and then
+  reads; a fixed FRAME count is not a settle, and paced asset work converges
+  further in 300 frames alone than under contention. **Fixing the contamination
+  is what made that visible** — it is the settle-shape defect in the row above,
+  not a ledger one. ⚠ Its message also says PAGES "grew" for a 16 → 15 SHRINK,
+  which sends a reader hunting a retention leak; the sibling megapixel assertion
+  says "moved" and is the right wording. `app_it` runs its
   tests as parallel threads; `image_stages::ledger()` is a `static`. Exactly three
   files read it:
 
@@ -471,16 +487,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   could work. **"Neither A nor B is sufficient" does not imply "A ∧ B is
   insufficient."** Residency from the App plus classification from the ledger is
   exactly that conjunction, and it is sound.
-  ⭐ **THE LEDGER HAS THIS SHAPE OF PROBLEM TWICE**: `render_world_present` is
-  also a process-global `bool` standing in for a per-App fact — set true by
-  whichever App installs a render plugin, read for every App thereafter, and
-  `is_awaiting_gpu` gates on it. ⚠ **LATENT, NOT LIVE — measured**: all 97
-  `VisibleRenderMode` uses across `app_it` are `NoWindow`, so nothing in that
-  process ever sets it and it cannot currently give a wrong answer. It becomes
-  live the day one test builds a render world beside one that does not.
-  ⇒ Whoever takes (b) should scope BOTH: fixing row attribution while leaving a
-  global render-world flag leaves the ledger half-scoped, which is harder to
-  reason about than either end state.
+  ⭐ **THE LEDGER HAD THIS SHAPE OF PROBLEM TWICE, AND THE SECOND HALF IS NOW
+  CLOSED (2026-09-02).** `render_world_present` was also a process-global `bool`
+  standing in for a per-App fact — set true by whichever App installed a render
+  plugin, read for every App thereafter, and `is_awaiting_gpu` gated on it.
+  ⚠ It was **LATENT, NOT LIVE — measured**: all 97 `VisibleRenderMode` uses
+  across `app_it` are `NoWindow`, so nothing in that process ever set it and it
+  could not give a wrong answer yet. It would have become live the day one test
+  built a render world beside one that did not.
+  ✔ **FIXED BY DELETING THE FIELD, not by guarding it.** `RenderWorldPresent` is
+  a Bevy `Resource` in `image_stages`, inserted on the MAIN world by the App that
+  installs the census's render systems; `is_awaiting_gpu(id, render_world)` and
+  the census's never-drawn row take the fact as an argument, so the process
+  ledger no longer holds an opinion about which App is asking. Threaded through
+  `inspect_room_asset_manifest` to its five production callers — the three
+  systems that had a spare param slot took one, and the two that were at Bevy's
+  arity limit joined an existing tuple beside `AssetServer`/`Assets<Image>`,
+  which is where the readiness authorities already travel together.
+  ⭐ **THE TESTS THAT SET-AND-RESTORED THE GLOBAL WERE THE TELL, and they are
+  the guard now.** `room_readiness_waits_for_the_gpu_copy_only_while_a_render_world_owes_it`
+  used to set the flag for its span and clear it before returning, with a doc
+  paragraph explaining why; that dance is gone, and both it and the ledger's own
+  `the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present`
+  now assert the thing the field made unsayable: **one ledger, one id, one
+  breath, two different answers** for a headless App and a rendering one.
+  ⛔⛔ **AND BE PRECISE ABOUT WHAT THE POISON PROVED.** Making `is_awaiting_gpu`
+  ignore its argument turns both tests red, at both layers, with messages naming
+  the defect — but the arm that catches it is one that existed BEFORE this
+  change, and the panic arrives before the new same-breath assertion even runs.
+  ⇒ The real guard here is STRUCTURAL: the field is deleted, so an App cannot
+  inherit a sibling's answer no matter what a test asserts. The new assertions
+  DOCUMENT that — they state a claim the old design made unsayable — and the
+  only poison that defeats them is reintroducing the global, i.e. reverting the
+  change. A test cannot guard a shape it is not able to express; do not credit
+  this row with a guard stronger than that.
 
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.

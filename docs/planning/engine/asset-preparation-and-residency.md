@@ -222,9 +222,22 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. **Host tell, still owed:** zero "nothing demanded
-it" warnings at the hall reveal, `asset_wait_ms` in the seconds (129 frames of
-ration at least), no >33 ms frames after the cover lifts. The hitches now happen
+when the remainder is dropped. **Host tell, still owed — AND CHECKED NOW
+RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
+reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
+>33.4 ms frames after the cover lifts. The profiling bundle summary grows a
+**Room reveal** section parsing all three out of the game's own stamped log, so
+a host capture states its own verdict instead of needing someone to read stderr
+and judge — which is how the 2026-09-01 capture's 111 warnings became evidence
+for a cause nobody checked.
+⛔ **THE WARNING'S DIAGNOSIS SPLIT IN THREE and the phrasing above predates it.**
+A RETIRED sheet was demanded AND decoded, so counting it beside "never
+materialized" is the conflation `retired_tier` was added to end; the section
+reports the split. ⛔ The spike log caps at 60 lines, so a count past the cap is
+a FLOOR and says so. Guarded by
+`test_room_reveal_tells_are_read_from_the_log.py`, whose BEFORE fixture is the
+2026-09-01 capture's shape — 111 warnings, `asset_wait_ms=3`, nine spikes of
+89-355 ms after the transition line. The hitches now happen
 UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
 small; the upload pacer / render-world-only knobs below make them smaller.
 
@@ -460,9 +473,12 @@ asset problem. Only the file-backed roads answer a residency question here.
 ⛔⛔ **AND THE ROW PRINTS `-`, NOT `0`, WITHOUT A RENDER WORLD.** With nothing
 extracted, EVERY resident image is "never drawn" — which on a headless road means
 nobody could have drawn anything, not that the pixels were wasted.
-`render_world_present()` is the fact that separates the two readings and the row
-consults it; a readout that skipped that check would accuse a `NoWindow` run of
-waste it cannot commit. Both rules are guarded on the pure ledger and
+The ASKING App's `RenderWorldPresent` resource is the fact that separates the two
+readings and the row consults it; a readout that skipped that check would accuse
+a `NoWindow` run of waste it cannot commit. ⭐ It was a `bool` ON THE PROCESS
+LEDGER until 2026-09-02, which answered "did any App in this process render"
+rather than "does the one asking" — see `queue.md`'s ledger row for the fix and
+why it was latent rather than live. Both rules are guarded on the pure ledger and
 poison-verified (drop first-write-wins and the guard names the instant that
 moved).
 
@@ -688,6 +704,59 @@ rows are art nothing can currently ask for.
 calls unnamed could in principle be constructed. The five fully-named sheets are
 the evidence the method works; treat a single unnamed row as a lead, not a
 verdict.
+
+⛔⛔ **MEASURED 2026-09-02: THE SEAM BELOW ASSUMES A NAMING CORRESPONDENCE THAT
+DOES NOT EXIST, and the sheet-to-owner map is not derivable at all.** "Demand
+`<character>_vfx` beside `<character>`'s pages" reads as if the sheet name comes
+off the character. Three conventions are in play:
+
+```text
+noether_vfx        -> npc_emmy_noether       (id shares no token with the sheet)
+carl_stargan_vfx   -> npc_carl_stargan       but its SHEET TARGET is carl_runga
+pca_vfx / patent_clerk_vfx / george_booul_vfx  bare ids, no npc_ prefix
+```
+
+⇒ String surgery would build `npc_noether`, match nothing, and the sheet would
+silently stop loading — the effects fall back to particles with no error, which
+is the failure mode this subsystem specialises in. Ownership has to be DECLARED,
+and a hand-declared table across three conventions is where a silent mis-mapping
+gets written.
+
+⭐⭐ **SO IT WAS MEASURED INSTEAD. `scripts/measure_fx_row_reachability.py
+--owners` reports which FILES name each sheet's rows** — a sheet whose rows are
+named only by one moveset belongs to that moveset, on the evidence rather than
+on the name. Byte-identical across three runs:
+
+```text
+SHARED, stay resident (4)   generic_action_fx, generic_world_fx,
+                            generic_exotic_fx, generic_explosions
+                            — each named by four or more unrelated movesets,
+                              and generic_explosions also by the engine itself
+OWNED by one moveset (7)    oiler_vfx 18 rows -> oiler_moveset.rs
+                            pca_vfx 14 -> cellular_automaton_moveset.rs
+                            patent_clerk_vfx 14 -> patent_clerk_moveset.rs
+                            carl_stargan_vfx 12 -> carl_stargan_moveset.rs (+1 from performer)
+                            noether_vfx 12 -> emmy_noether_moveset.rs
+                            ninja_shadow_oni_leader_vfx 10 -> its own moveset
+                            projectile_polygon_vfx 3 -> projectile_polygon_moveset.rs
+NAMED BY NO CONTENT (2)     pirate_admiral_vfx (nothing at all),
+                            george_booul_vfx (a TEST and the engine's fx.rs only)
+```
+
+⛔ **THREE CORRECTIONS TO THE PROSE BELOW, which was written from the names.**
+(1) `projectile_polygon_vfx` was listed among the five "no character owns" — it
+has a single owner and is not generic. (2) `pca_vfx` is named by
+`cellular_automaton_moveset.rs`: "pca" is not a fighter. (3) `george_booul_vfx`
+is not merely under-wired — **no content names any of its rows**; its only
+askers are a test and the engine. So the split is 4 shared / 7 owned / 2 dead,
+not "five generic, eight per-character".
+
+⇒ **WHAT IS STILL OWED before building it:** the owner column above is a
+MOVESET FILE, and the demand seam needs a CHARACTER ID. That last hop is the
+only guessy step left, and it is content ownership rather than engine work —
+recorded in `awaiting-maintainer-decision.md`. The mechanism (load only the
+shared sheets at boot, ensure the owned ones at room-manifest time exactly as
+`ensure_boss_sheets_loaded` does) is unblocked the moment that column exists.
 
 ⇒ **THE SEAM THE ROW SAID DID NOT EXIST DOES, for most of the set.** Eight of
 the thirteen sheets are CHARACTER-named (`carl_stargan_vfx`, `george_booul_vfx`,

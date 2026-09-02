@@ -23,6 +23,7 @@ use std::sync::Arc;
 use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent;
 use ambition_platformer2d::game_shell::PREPARE_FIRST_ROOM_ART_WORK_ID;
 use ambition_platformer2d::load::{
     LoadCommand, LoadFailure, LoadId, LoadWorkId, LoadWorkState, UnitProgress,
@@ -31,9 +32,9 @@ use ambition_platformer2d::provider::PreparedPlatformerSessions;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 use super::room_transition_assets::{
-    RoomAssetManifest, RoomTransitionAssetContext, build_loaded_room_asset_manifest,
-    build_room_asset_manifest, inspect_demanded_characters, inspect_room_asset_manifest,
-    realized_character_count, room_character_tokens,
+    build_loaded_room_asset_manifest, build_room_asset_manifest, inspect_demanded_characters,
+    inspect_room_asset_manifest, realized_character_count, room_character_tokens,
+    RoomAssetManifest, RoomTransitionAssetContext,
 };
 
 /// One published session whose first room's art this host is preparing.
@@ -152,11 +153,9 @@ pub(crate) fn prepare_first_room_art_system(
                 let worn: Vec<String> = match source.initial_body() {
                     ambition_platformer2d::actors::avatar::InitialBodyPolicy::SpawnCharacter(
                         starting,
-                    ) => vec![
-                        starting
-                            .effective_id(&prepared.report.starting_character)
-                            .to_string(),
-                    ],
+                    ) => vec![starting
+                        .effective_id(&prepared.report.starting_character)
+                        .to_string()],
                     ambition_platformer2d::actors::avatar::InitialBodyPolicy::NoInitialBody => {
                         Vec::new()
                     }
@@ -207,8 +206,12 @@ pub(crate) fn prepare_first_room_art_system(
                 build_loaded_room_asset_manifest(&job.room, &job.staged_actor_names, assets);
             job.realized_at_build = realized;
         }
-        let mut readiness =
-            inspect_room_asset_manifest(asset_server, context.images.as_deref(), &job.manifest);
+        let mut readiness = inspect_room_asset_manifest(
+            asset_server,
+            context.images.as_deref(),
+            RenderWorldPresent::from_option(context.render_world.as_deref()),
+            &job.manifest,
+        );
         inspect_demanded_characters(
             &job.demanded_characters,
             assets,

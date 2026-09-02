@@ -307,6 +307,160 @@ def section(lines: list[str], title: str) -> None:
     lines += [f"## {title}", ""]
 
 
+# ── Room reveal tells ────────────────────────────────────────────────────
+#
+# The hall-entry campaign named three host tells and nothing checked them, so a
+# capture had to be READ and judged. These parse them out of the game's own
+# stamped log.
+#
+# ⛔ THE WARNING'S DIAGNOSIS SPLIT IN THREE and the campaign's phrasing ("zero
+# 'nothing demanded it' warnings") predates the split. A RETIRED sheet was
+# demanded AND decoded, so counting it beside "never materialized" is the exact
+# conflation `retired_tier` was added to end. The split is reported.
+STAMPED = re.compile(r"^\[\s*([0-9.]+)s\]\s?(.*)$")
+PLACEHOLDER = "drawing the placeholder rectangle"
+ROOM_TRANSITION = re.compile(
+    r"room transition (\d+) (\S+) -> (\S+):.*?asset_wait_ms=(?:Some\(([0-9.]+)\)|None)"
+    r".*?covered=(\w+)"
+)
+# ⛔ THE SPIKE LOG'S CAP NOTICE SHARES THIS PREFIX: `[frame-spike] 11.600s
+# reached 60 logged spikes; further per-frame lines suppressed`. It is excluded
+# because a WORD follows the timestamp where this pattern requires a number —
+# not by the `ms` suffix, and not by the `continue` below, both of which I
+# claimed in turn and neither of which is what does it. The `continue` is a
+# second, independent guard; the test pins the OUTCOME (60 spikes, not 61)
+# rather than either mechanism.
+FRAME_SPIKE = re.compile(r"\[frame-spike\]\s+([0-9.]+)s\s+([0-9.]+)ms")
+SPIKE_CAP_HIT = "logged spikes; further per-frame lines suppressed"
+
+
+def room_reveal_tells(log: str) -> dict:
+    """The three tells, plus what the reader needs to distrust them."""
+    transitions: list[dict] = []
+    spikes: list[tuple[float, float]] = []
+    placeholders = {"never materialized": 0, "retired": 0, "undeclared": 0}
+    spike_cap_hit = False
+    saw_stamp = False
+
+    for raw in log.splitlines():
+        stamp = STAMPED.match(raw)
+        if stamp:
+            saw_stamp = True
+            at, body = float(stamp.group(1)), stamp.group(2)
+        else:
+            at, body = None, raw
+        if PLACEHOLDER in body:
+            if "RETIRED from" in body:
+                placeholders["retired"] += 1
+            elif "never materialized" in body:
+                placeholders["never materialized"] += 1
+            else:
+                placeholders["undeclared"] += 1
+        if SPIKE_CAP_HIT in body:
+            spike_cap_hit = True
+            continue
+        spike = FRAME_SPIKE.search(body)
+        if spike:
+            spikes.append((float(spike.group(1)), float(spike.group(2))))
+        move = ROOM_TRANSITION.search(body)
+        if move:
+            transitions.append(
+                {
+                    "at": at,
+                    "sequence": move.group(1),
+                    "source": move.group(2),
+                    "target": move.group(3),
+                    "asset_wait_ms": float(move.group(4)) if move.group(4) else None,
+                    "covered": move.group(5) == "true",
+                }
+            )
+    return {
+        "transitions": transitions,
+        "spikes": spikes,
+        "placeholders": placeholders,
+        "spike_cap_hit": spike_cap_hit,
+        "stamped": saw_stamp,
+    }
+
+
+def room_reveal_lines(log: str) -> list[str]:
+    tells = room_reveal_tells(log)
+    if not tells["transitions"] and not any(tells["placeholders"].values()):
+        return []
+
+    lines: list[str] = ["## Room reveal", ""]
+    placeholders = tells["placeholders"]
+    total = sum(placeholders.values())
+    lines += [
+        "Placeholder rectangles drawn (an actor resolved no sprite), counted "
+        "over the whole run. The hall reveal fired one hundred and eleven of "
+        "these on 2026-09-01 and they were the campaign's main evidence:",
+        "",
+        "```text",
+        f"  never materialized  {placeholders['never materialized']:5d}   "
+        "nothing decoded its sheet",
+        f"  retired             {placeholders['retired']:5d}   "
+        "decoded, then dropped by a quality change — a re-realization owed, not art nobody asked for",
+        f"  undeclared          {placeholders['undeclared']:5d}   "
+        "no loaded content declares the name (typo, or art not published)",
+        f"  total               {total:5d}",
+        "```",
+        "",
+    ]
+
+    if tells["transitions"]:
+        lines += [
+            "Room transitions, and how long the cover held for art:",
+            "",
+            "```text",
+            "  seq  wait_ms  covered  move",
+        ]
+        for move in tells["transitions"]:
+            wait = (
+                f"{move['asset_wait_ms']:7.0f}"
+                if move["asset_wait_ms"] is not None
+                else "      -"
+            )
+            lines.append(
+                f"  {move['sequence']:>3}  {wait}  {str(move['covered']):>7}  "
+                f"{move['source']} -> {move['target']}"
+            )
+        lines += ["```", ""]
+
+        last = tells["transitions"][-1]
+        if last["at"] is not None:
+            after = [(at, ms) for at, ms in tells["spikes"] if at > last["at"]]
+            worst = max((ms for _, ms in after), default=0.0)
+            lines += [
+                f"Frames over {33.4:.1f} ms AFTER the last transition was logged "
+                f"(t={last['at']:.3f}s): **{len(after)}**"
+                + (f", worst {worst:.1f} ms" if after else "")
+                + ".",
+                "",
+                "The hall entry hitched for nine such frames on 2026-09-01, "
+                "the worst well over a third of a second, all AFTER the cover "
+                "lifted. Under the cover they are cover time, which is what a "
+                "cover is for.",
+                "",
+            ]
+            if tells["spike_cap_hit"]:
+                lines += [
+                    "⛔ **THE SPIKE LOG HIT ITS 60-LINE CAP, so this count is a "
+                    "FLOOR, not a total.** Percentile summaries continued; the "
+                    "per-frame lines did not.",
+                    "",
+                ]
+        elif not tells["stamped"]:
+            lines += [
+                "⚠ The log carries no `[  N.NNNs]` stamps, so spikes cannot be "
+                "placed before or after the reveal. Counting them all would "
+                "blame the transition for the whole run.",
+                "",
+            ]
+
+    return lines
+
+
 def build_summary(bundle: Bundle) -> str:
     meta = bundle.metadata()
     lines: list[str] = ["# Profiling bundle", ""]
@@ -478,6 +632,12 @@ def build_summary(bundle: Bundle) -> str:
         lines += ["```", "", "Full list: `frame_spikes.csv`.", ""]
     else:
         lines += ["No frames crossed the 33.4ms spike threshold.", ""]
+
+    # ── Room reveal ──────────────────────────────────────────────────────
+    # Placed right after the frame-time section: the hall-entry hitch IS a
+    # frame-time story, and a reader who has just seen the spike list needs the
+    # reveal beside it to know whether those spikes were under the cover.
+    lines += room_reveal_lines(log)
 
     # ── Views and cameras ────────────────────────────────────────────────
     section(lines, "Cameras and views")
@@ -827,17 +987,24 @@ def build_summary(bundle: Bundle) -> str:
                     lines += [
                         "```",
                         "",
-                        "Wall against CPU, per phase. `stall` is wall minus CPU — "
-                        "time the frame spent in that phase with nothing running:",
+                        "Wall against CPU, per phase. `cpu/wall` is roughly how "
+                        "many cores the phase kept busy: near zero is a STALL "
+                        "(wall time with nothing running), around one is serial "
+                        "work, above one is parallel work.",
+                        "",
+                        "⛔ NOT `wall - cpu`. The census reads "
+                        "`CLOCK_PROCESS_CPUTIME_ID`, which sums EVERY THREAD, so "
+                        "that difference goes negative on any parallel phase and "
+                        "is not a stall. This table printed it as one until "
+                        "2026-09-02.",
                         "",
                         "```text",
-                        "    wall      cpu    stall   phase",
+                        "    wall      cpu  cpu/wall   phase",
                     ]
                     for label, wall in sorted(per_frame.items(), key=lambda kv: -kv[1]):
                         cpu = cpu_totals[label] / cpu_frames
-                        lines.append(
-                            f"{wall:8.2f} {cpu:8.2f} {wall - cpu:8.2f}   {label}"
-                        )
+                        ratio = f"{cpu / wall:8.2f}" if wall > 0 else "       -"
+                        lines.append(f"{wall:8.2f} {cpu:8.2f} {ratio}   {label}")
             if render_blocked:
                 lines += [
                     "```",

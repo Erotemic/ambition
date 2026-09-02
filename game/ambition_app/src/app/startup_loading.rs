@@ -101,6 +101,10 @@ impl DirectStartupLoadingState {
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
     images: Res<'w, Assets<Image>>,
+    /// This App's render world, for the GPU-upload readiness term. Absent means
+    /// none — the resource is per-App on purpose.
+    render_world:
+        Option<Res<'w, ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent>>,
     game_assets: ResMut<'w, GameAssets>,
     asset_catalog:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -337,6 +341,9 @@ fn drive_direct_startup_loading(
     let summary = inspect_startup_manifest(
         &assets.asset_server,
         &assets.images,
+        ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent::from_option(
+            assets.render_world.as_deref(),
+        ),
         &assets.game_assets,
         &assets.character_load_states,
         state
@@ -545,6 +552,7 @@ fn build_startup_manifest(
 fn inspect_startup_manifest(
     asset_server: &AssetServer,
     images: &Assets<Image>,
+    render_world: ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent,
     game_assets: &GameAssets,
     character_load_states: &ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
     manifest: &mut StartupAssetManifest,
@@ -560,7 +568,8 @@ fn inspect_startup_manifest(
             manifest.realized_at_build = realized;
         }
     }
-    let mut room = inspect_room_asset_manifest(asset_server, Some(images), &manifest.room);
+    let mut room =
+        inspect_room_asset_manifest(asset_server, Some(images), render_world, &manifest.room);
     super::world_flow::inspect_demanded_characters(
         &manifest.demanded_characters,
         game_assets,

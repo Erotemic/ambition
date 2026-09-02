@@ -73,7 +73,8 @@ SHIPPED host — which simulates in `GgrsSchedule` inside `PreUpdate`, NOT in
 
 ⚠ **Read every number here against its host and its phase.** Two hosts
 (`--start-room` picks the sandbox, no rollback), two clocks (wall absorbs GPU
-blocking, `phases_cpu` does not), and Tracy session totals are bimodal across
+blocking, `phases_cpu` does not — and it is a PROCESS clock summing all threads,
+so compare the two as a RATIO, never as a difference), and Tracy session totals are bimodal across
 load — each of those produced a published-then-withdrawn conclusion today.
 
 
@@ -941,8 +942,16 @@ brackets it. Trust phase splits only from a run with no rendering.
 
 The summary printed the table with no trace of that warning, which is how I read
 past it. Both are fixed: the summary now carries the caveat, and
-`[census] phases_cpu` reports the same split on a CPU clock so `wall - cpu` per
-phase IS the stall. **Neither number below is attributed until a capture with the
+`[census] phases_cpu` reports the same split on a CPU clock, so a phase whose
+wall time far exceeds its CPU time was WAITING.
+⛔⛔ **CORRECTED 2026-09-02: `wall - cpu` is NOT the stall, and this sentence
+said it was.** The census reads `CLOCK_PROCESS_CPUTIME_ID`, which SUMS EVERY
+THREAD — a phase keeping four cores busy for 2 ms reports 8 ms of CPU against
+2 ms of wall, and the subtraction goes NEGATIVE. **Read the RATIO**: cpu/wall is
+roughly how many cores the phase kept busy, and a ratio near zero is a stall.
+The subtraction is only the stall where the ratio cannot exceed one. The
+function's own doc said so from the start; three comments and this line
+propagated the thread-clock reading it had already rejected. **Neither number below is attributed until a capture with the
 CPU column exists.**
 
 ### What is structurally true regardless (counts, not timings)

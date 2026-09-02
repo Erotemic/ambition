@@ -61,6 +61,25 @@ entity.
   format;
 - participant entitlement and physical custody are not inferred from each other.
 
+⚠ **TWO OF THESE ARE WRITTEN AS UNIVERSALS AND HOLD ONLY FOR OCCURRENCE-MODEL
+ITEMS** — noticed while measuring I3, and worth fixing when question 45 is
+answered rather than guessed at now:
+
+- *"drop/rematerialization … not by fabricating an unrelated replacement"* — the
+  portal gun's drop spawns a fresh `PortalGunPickup` unrelated to the token that
+  was consumed. Under the ENTITLEMENT reading nothing is fabricated in place of
+  an occurrence, because there is no occurrence; under the OCCURRENCE reading it
+  is exactly what the invariant forbids;
+- *"participant entitlement and physical custody are not inferred from each
+  other"* — ⛔ and this one is looser than it looks for EVERY item, not just the
+  gun: `MenuAction::Equip` grants physical custody straight from the roster
+  (`equip_portal_gun`, or `held_spec_for_item` → `equip_held_spec`), which is
+  inferring custody from entitlement unless the invariant is read as being about
+  the SIMULATION only.
+
+⇒ Neither is a defect to fix today; both are the same under-specification, and
+answering question 45 is what makes them precise.
+
 ## Remaining migration pressure
 
 ### I1 — body inventory replaces process-global equipped mirrors — ✔ CLOSED 2026-09-02

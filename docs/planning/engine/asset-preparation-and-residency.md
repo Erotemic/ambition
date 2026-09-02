@@ -286,6 +286,47 @@ AMBITION_IMAGES_RENDER_WORLD_ONLY=0   scripts/profile_desktop.sh --no-tracy    #
 What to read after each: the hall-entry spike list, `resident_mb`, and whether
 any sprite draws blank.
 
+**Software rasterizer (calculex VM, 6 vCPU, llvmpipe) — NOT A GPU RUN, 2026-09-02.**
+Adapter `llvmpipe (LLVM 20.1.2, 256 bits)`, a **Cpu** adapter; visual quality
+therefore seeded itself to **`potato`**, which is a consequence of the adapter
+and not a choice. `capture_scene hall_of_characters player 640x360 --warmup 400`
+at `234bcc686`, three reps per arm, **arms interleaved** (rep1 a,b,c; rep2
+a,b,c) via `scripts/asset_pacer_ab.sh`; medians, `scripts/asset_pacer_ab_report.py`.
+⛔ These numbers cannot be compared with a 3090 row and must not be averaged
+into one: this machine has no `/dev/dri` at all, and frame cost here is raster
+and decode.
+
+| arm | resident MB | images (MP) | never drawn | insert→gpu max | awaiting gpu | 3 worst spikes (ms) | max RSS MB |
+|---|---|---|---|---|---|---|---|
+| default (no lever) | 118.1 | 235 (29.5) | 215 (28.6MP) | 161 ms | 0 | 181, 156, 147 | 1236 |
+| `AMBITION_RENDER_ASSET_MB_PER_FRAME=64` | 118.1 | 235 (29.5) | 215 (28.6MP) | **235 ms** | 0 | **261, 246, 149** | 1269 |
+| `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` | 118.1 | 235 (29.5) | 215 (28.6MP) | 168 ms | 0 | 178, 177, 167 | **1341** |
+
+⭐ **THE PACER IS A COST HERE AND BUYS NOTHING.** `insert→gpu max` rises 161 → 235 ms
+and the worst spikes rise 181 → 261 ms, with the three pacer reps (227/235/251 ms)
+entirely clear of the three default reps (144/161/188 ms) — a separation, not
+noise. Residency is byte-identical across all three arms, because the pacer
+throttles when pixels reach the GPU and changes nothing about what was decoded.
+⛔ `awaiting gpu` read 0 at every census sample in every arm, INCLUDING the paced
+one; the delay is real and the always-on counter did not show it, because
+`awaiting` is sampled at the five-second window boundary and the backlog drains
+between samples. Read `insert→gpu max`, not `awaiting`, when asking whether a
+pacer engaged.
+
+⭐ **AND THE CPU-COPY ARM AGREES WITH THE EARLIER llvmpipe READING, ON A SECOND
+SOFTWARE RASTERIZER.** `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` costs **+105 MB**
+max RSS (1236 → 1341) here, against the **+141 MB** (1392 → 1533) recorded above
+on the aivm box. Same direction, same order of magnitude, different absolute
+values — expected, since the tier and room state differ. Two independent
+software rasterizers now say the CPU copy is worth roughly the hall's decoded
+pages, which is what the RENDER_WORLD-only default was landed to reclaim.
+
+⚠ What this row does NOT settle: whether the pacer helps on real GPU hardware,
+where the upload is a PCIe transfer competing with a frame rather than a memcpy.
+The 3090 A/B above is still the one that answers that, and this row is evidence
+that its default must not simply be flipped on for everyone — on a machine with
+no GPU the lever is a regression.
+
 Neither replaces the per-use tier above: at Quarter the same hall asks for
 11.5x fewer megapixels and neither half has 430 MP to move.
 

@@ -24,25 +24,48 @@ The current architecture already provides:
 
 These pieces should be extended rather than replaced by another input manager.
 
-## P1 — decide the per-seat dialogue/gameplay model
+## P1 — decide the per-seat dialogue/gameplay model — ✔ DONE (verified `f51619ae2`, 2026-09-02)
 
-`DialogueStopsTheWorld` already makes simulation-clock suspension explicit, but
-`GameMode::allows_gameplay()` still treats `Dialogue` as globally unable to
-route gameplay input.
+⭐ **THIS IS BUILT AND ITS THREE ACCEPTANCE CONDITIONS ARE ALL PINNED BY ONE
+TEST.** `dialogue_claims_the_talker_while_a_pause_still_stops_everybody`
+(`actor_monolith/src/schedule/input_systems.rs`) sets `GameMode::Dialogue`, gives
+seat 0 a `ConversationInputOwner`, and asserts seat 0's context owner is
+`DIALOGUE_CONTEXT` while `seats.gameplay_owned(1)` holds and seat 1's
+`jump_held` still arrives — *"ONE PLAYER READS A DIALOGUE BOX WHILE THE OTHER
+KEEPS RUNNING — the thing the GameMode gate could not express, and the reason
+this moved"*. Its second half then sets `Paused` and pins that pausing still
+stops everybody.
 
-That is coherent for one active local participant. It cannot express one seat
-conversing while another seat continues gameplay.
+**The answer to the design question, as the code states it:** *the context claim
+carries ownership; `stops_the_world` carries the clock; and dialogue now says
+only the first.* Ownership lives in `SeatInputContexts` / `ParticipantContexts`
+(`ambition_input::participant`, with `DIALOGUE_CONTEXT`, `owner()` and
+`gameplay_owned(slot)`), not in the mode.
 
-Do not solve this by threading the world-stop flag into another global gate. The
-open design question is what owns **per-seat permission to route gameplay while
-another seat owns a dialogue surface**.
+⚠ **AND THE PARAGRAPH BELOW WAS TRUE BUT MISLEADING, WHICH IS WHY IT IS KEPT
+HERE RATHER THAN DELETED.** `GameMode::allows_gameplay()` is still literally
+`matches!(self, Self::Playing)` — unchanged. A reader checking that one function
+would conclude nothing had happened. What changed is that it is no longer the
+thing deciding per-seat gameplay routing. The repair was explicitly NOT "delete
+the mode gate": pause, room transition and cutscene must keep stopping
+everybody, and they still do.
 
-Acceptance for a promoted slice:
+Original text, for the record:
 
-- one seat can own/advance dialogue without stealing another seat's unrelated
-  gameplay controls when the experience permits it;
-- an experience may still explicitly choose world-stopping/global dialogue;
-- simulation-clock policy and input-ownership policy remain separate concepts.
+> `DialogueStopsTheWorld` already makes simulation-clock suspension explicit, but
+> `GameMode::allows_gameplay()` still treats `Dialogue` as globally unable to
+> route gameplay input. That is coherent for one active local participant. It
+> cannot express one seat conversing while another seat continues gameplay.
+> Do not solve this by threading the world-stop flag into another global gate.
+> The open design question is what owns **per-seat permission to route gameplay
+> while another seat owns a dialogue surface**.
+>
+> Acceptance for a promoted slice:
+>
+> - one seat can own/advance dialogue without stealing another seat's unrelated
+>   gameplay controls when the experience permits it;
+> - an experience may still explicitly choose world-stopping/global dialogue;
+> - simulation-clock policy and input-ownership policy remain separate concepts.
 
 ## P2 — finish provider actions at composition boundaries
 

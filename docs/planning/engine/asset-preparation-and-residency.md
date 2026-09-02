@@ -287,6 +287,38 @@ measured.
 Choose a budget from rendered measurements. "One character per frame" is a
 current useful bound, not a universal theorem.
 
+### 3a. The next increment, planned 2026-09-02: a ROOM-LEVEL sprite tier cap
+
+Now that the frame is answered (250-310 fps everywhere; the hall's entry hitch
+is the one user-visible cost left), this is the first thing to build. The
+pedestal measurement above says WHY (132 px drawn, 496 px loaded); the honest
+run says HOW MUCH (434 MP in two seconds, nine frames of 89-355 ms).
+
+Shape: the drawn size of a character is a property of the ROOM's camera
+framing, so the cap is authored on the room, not derived per sprite.
+
+1. `RoomMetadata` gains `sprite_tier_cap: Option<TextureResolutionScale>`
+   (schema registers in both compositions — see the content-schema rule).
+2. `hall_of_characters` authors `Quarter`. Nothing else changes; a room with
+   no cap keeps today's behaviour exactly.
+3. The effective tier is `min(settings tier, room cap)` at the ONE seam:
+   `character_sprite_tier(budget)` gains the room cap as an input, and both
+   callers (`converge_character_residency_to_active_quality`,
+   `materialize_demanded_character_sheets`) pass the active room's. Entering
+   or leaving the hall is then the existing "quality transition" path — demote
+   stale realizations, re-demand — so no new lifecycle is invented.
+4. Missing variants: `performer`, `actor`, `medic` have no Quarter; fall to
+   the nearest tier that exists and say so once per character (the freshness
+   checker already reports absence).
+5. Measure with the same capture (`--no-tracy`, V-Sync Off, walk into the
+   hall): `image_arrivals` megapixels in the hall window (434 today), the
+   spike list (nine frames over 89 ms today), `resident_mb` (2153 today).
+   Expected: ~11x fewer megapixels, hitches under the 33 ms line or gone.
+
+What it does NOT fix: the boot's 504 ms frame and portal_lab's 123 ms entry,
+which are different rooms' art; those go through item 3 above (pace the
+upload) or the same cap once measured.
+
 ### 4. Define residency ownership and budgets
 
 Name the owner for retained assets, for example:

@@ -80,6 +80,9 @@ and `+present:Immediate`, so it cannot be confused with the Tracy rows. The FPS
 overlay in that run is the honest number; the `[census] phases` row (with
 `phases_cpu`) is the honest phase split.
 
+**Reproduce:** `scripts/instrumentation_tax.sh` (the four arms, interleaved) and
+`scripts/tracy_self_time.py <bundle>` (self vs total per schedule zone).
+
 ⚠ The headless numbers were never inflated: the no-window recipe drops
 `LogPlugin`, and with it the Tracy layer, unless the binary carries `profile`
 (then `run_shared_host_headless` re-adds it). The 1.56 ms hall tick was a build

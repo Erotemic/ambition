@@ -101,6 +101,8 @@ COMPARABILITY_FIELDS = (
     # measures the setting, not the code.
     "quality.frame_cap",
     "quality.present_mode",
+    "quality.images_render_world_only",
+    "quality.upload_mb_per_frame",
     # ⛔⛔ A CAPPED OR RE-BRAINED ROOM IS A DIFFERENT WORKLOAD, NOT A RESULT.
     # `AMBITION_ACTOR_POPULATION_CAP` removes authored actors and
     # `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every one of them thinks
@@ -597,6 +599,8 @@ def quality_facts(bundle: Bundle) -> dict:
         "msaa_samples": last.get("msaa_samples"),
         "frame_cap": last.get("frame_cap"),
         "present_mode": last.get("present_mode"),
+        "images_render_world_only": last.get("images_render_world_only"),
+        "upload_mb_per_frame": last.get("upload_mb_per_frame"),
         "max_scale_factor": last.get("max_scale_factor"),
     }
 
@@ -823,6 +827,12 @@ def comparable_label(fields: dict) -> str:
     # one are different experiments even at the same cap.
     present = fields.get("quality.present_mode")
     quality = f"{quality}+present:{present}" if present else quality
+    # The asset-campaign experiment knobs, only when a run actually set one.
+    if fields.get("quality.images_render_world_only") in ("true", True):
+        quality = f"{quality}+render-world-only"
+    upload = fields.get("quality.upload_mb_per_frame")
+    if upload and upload != "unlimited":
+        quality = f"{quality}+upload:{upload}MB"
     # Only a run that actually set a knob carries the segment. An ordinary
     # capture keeps the label it has always had, so the history stays readable.
     knobs = []

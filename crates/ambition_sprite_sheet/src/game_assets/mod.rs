@@ -27,6 +27,39 @@ use ambition_platformer2d_world::rooms::RoomMetadata;
 ///
 /// `cargo run --bin sandbox -- --no-assets` overrides to [`AssetProfile::NoAssets`]
 /// via [`GameAssetConfig::from_arg_slice`].
+/// Load one sheet/layer image through the ONE knob that decides whether the
+/// decoded pixels stay in the main world.
+///
+/// Bevy's default `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` keeps a CPU
+/// copy of every image and CLONES it into the render world on extract; the
+/// hall at Full tier measured 2.2 GB resident and a 542 ms frame at that clone.
+/// `AMBITION_IMAGES_RENDER_WORLD_ONLY=1` loads these images `RENDER_WORLD`
+/// only: the extract becomes a move and the CPU copy is freed, at the price
+/// that `Assets<Image>::get` returns `None` for them afterwards (readiness
+/// checks already use the asset server's load state, not residency). An
+/// EXPERIMENT KNOB, read once, recorded by the visual-quality census so a
+/// capture says which way it was loaded.
+pub fn load_sheet_image(asset_server: &AssetServer, path: impl Into<bevy::asset::AssetPath<'static>>) -> Handle<Image> {
+    if images_render_world_only() {
+        asset_server
+            .load_builder()
+            .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
+                settings.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
+            })
+            .load(path)
+    } else {
+        asset_server.load(path)
+    }
+}
+
+pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONLY";
+
+/// The experiment knob, read once per process.
+pub fn images_render_world_only() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var(IMAGES_RENDER_WORLD_ONLY_ENV).is_ok_and(|v| v == "1"))
+}
+
 pub fn default_asset_profile() -> AssetProfile {
     if cfg!(target_arch = "wasm32") {
         if cfg!(feature = "web_served") {
@@ -302,7 +335,7 @@ impl ParallaxLayerSet {
             else {
                 continue;
             };
-            self.handles.insert((theme, layer), asset_server.load(path));
+            self.handles.insert((theme, layer), load_sheet_image(asset_server, path));
             added += 1;
         }
         added
@@ -425,7 +458,7 @@ pub fn load_entity_sprites(
             missing.push(id.to_string());
             continue;
         };
-        handles.insert(key, asset_server.load(path));
+        handles.insert(key, load_sheet_image(asset_server, path));
     }
     // ⚠ WHAT THIS CATCHES IS NARROW, AND SAYING SO IS THE POINT.
     // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or

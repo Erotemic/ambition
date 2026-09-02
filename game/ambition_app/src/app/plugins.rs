@@ -450,6 +450,16 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // V-sync: the Video setting → the primary window's present mode. Not
     // feature-gated — it is one system that does nothing without a window.
     app.add_plugins(crate::host::vsync::VsyncPlugin);
+    // EXPERIMENT KNOB for the asset campaign: Bevy's own per-frame GPU upload
+    // budget. `GpuImage` reports its byte length, so with a budget the render
+    // world defers whole images past it to later frames instead of uploading
+    // 150 MP in one (the 542 ms hall-entry frame). Unset = Bevy's unlimited
+    // default. Recorded by the visual-quality census.
+    if let Some(mb) = crate::host::render_asset_budget::render_asset_mb_per_frame() {
+        app.insert_resource(bevy::render::render_asset::RenderAssetBytesPerFrame::new(
+            mb * 1024 * 1024,
+        ));
+    }
 
     // the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and registering it here
     // alone left every non-app composition with no `UiFonts` and a vacuous

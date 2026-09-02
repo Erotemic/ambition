@@ -180,6 +180,13 @@ pub fn report_visual_quality_census(
         .single()
         .map(|window| format!("{:?}", window.present_mode))
         .unwrap_or_else(|_| "none".to_string());
+    // The two asset-campaign experiment knobs. Read here as the process saw
+    // them, so a capture taken with one set is not grouped with one without.
+    let images_render_world_only = ambition_sprite_sheet::game_assets::images_render_world_only();
+    let upload_mb_per_frame = std::env::var("AMBITION_RENDER_ASSET_MB_PER_FRAME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| "unlimited".to_string());
     let frame_cap = settings
         .as_deref()
         .map(|settings| format!("{:?}", settings.video.frame_cap))
@@ -190,7 +197,8 @@ pub fn report_visual_quality_census(
         // as "the tier did not matter here" rather than "nothing resolved one".
         eprintln!(
             "[census] visual_quality t={at:.3} profile=none frame_cap={frame_cap} \
-             present_mode={present_mode}"
+             present_mode={present_mode} images_render_world_only={images_render_world_only} \
+             upload_mb_per_frame={upload_mb_per_frame}"
         );
         return;
     };
@@ -198,7 +206,8 @@ pub fn report_visual_quality_census(
     eprintln!(
         "[census] visual_quality t={at:.3} profile={:?} parallax_enabled={} \
          parallax_max_layers={} parallax_resolution={:?} msaa_samples={} \
-         max_scale_factor={} frame_cap={} present_mode={}",
+         max_scale_factor={} frame_cap={} present_mode={} images_render_world_only={} \
+         upload_mb_per_frame={}",
         quality.profile,
         budget.parallax.enabled,
         budget
@@ -215,6 +224,8 @@ pub fn report_visual_quality_census(
             .unwrap_or_else(|| "compositor".to_string()),
         frame_cap,
         present_mode,
+        images_render_world_only,
+        upload_mb_per_frame,
     );
 }
 

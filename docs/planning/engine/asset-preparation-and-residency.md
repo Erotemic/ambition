@@ -218,6 +218,26 @@ tier arriving late and all at once.
   main world (sprite sizing, portraits, the image census) must be found first.
   Grep `Assets<Image>` readers before flipping it.
 
+**Both are now one environment variable away, so Jon can measure them on the
+3090 without a code change** (each is read once and recorded on the
+`[census] visual_quality` row and in the ledger label, so a capture says which
+way it was taken):
+
+```sh
+AMBITION_RENDER_ASSET_MB_PER_FRAME=64 scripts/profile_desktop.sh --no-tracy    # +upload:64MB
+AMBITION_IMAGES_RENDER_WORLD_ONLY=1   scripts/profile_desktop.sh --no-tracy    # +render-world-only
+```
+
+The second routes every sheet/parallax/boss-page load through
+`ambition_sprite_sheet::game_assets::load_sheet_image`; the main-world readers
+of `Assets<Image>` were checked first — `texture_is_ready` and the room
+transition's dependency check use the asset server's load state and fall back
+to residency only for handles without one, and the remaining readers are the
+census (an instrument, which will count fewer resident images) and procedural
+images (portal cones, quasar shader, touch overlay) that are not loaded this way.
+What to read after each: the hall-entry spike list, `resident_mb`, and whether
+any sprite draws blank.
+
 Neither replaces the per-use tier above: at Quarter the same hall asks for
 11.5x fewer megapixels and neither half has 430 MP to move.
 

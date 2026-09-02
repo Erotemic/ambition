@@ -4,6 +4,7 @@
 #[cfg(feature = "frame_pacing")]
 pub mod framepace;
 pub mod platform;
+pub mod render_asset_budget;
 pub mod render_recovery;
 pub mod vsync;
 // `windowing` (display-mode vocabulary) stays in the machinery lib

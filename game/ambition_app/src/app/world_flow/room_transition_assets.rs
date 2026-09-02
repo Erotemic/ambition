@@ -1773,6 +1773,25 @@ mod tests {
             )
         };
 
+        // ⭐ THE RACE ARM: the page is in `Assets<Image>` but the ledger has not
+        // stamped it inserted yet — which is every image on the frame it lands,
+        // because the insertion stamp runs in `Last` and this poll in `Update`.
+        // With a render world present that is OWED, not ready: the old reading
+        // of the awaiting list called it ready here, latched the reveal, and
+        // let a paced upload land after the cover lifted.
+        image_stages::ledger().set_render_world_present(true);
+        let unstamped = inspect(&app);
+        image_stages::ledger().set_render_world_present(false);
+        assert!(
+            !unstamped.is_ready()
+                && unstamped
+                    .pending
+                    .iter()
+                    .any(|label| label.ends_with("(gpu upload)")),
+            "loaded but not yet proven on the GPU must hold the reveal: {:?}",
+            unstamped.pending
+        );
+
         // Inserted, no render world: ready (a headless run never waits on a GPU).
         image_stages::ledger().inserted(
             page.id().untyped(),

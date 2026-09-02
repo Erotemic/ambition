@@ -282,18 +282,44 @@ impl ImageStageLedger {
         self.render_world_present
     }
 
-    /// READINESS TERM: `id` was decoded and inserted, and a render world exists
-    /// that has not yet prepared it. `false` whenever no render world stamps
-    /// stage 3 — a headless run never waits on a GPU it does not have — and
-    /// `false` for an id this ledger never saw inserted, which is the loading
-    /// stages' question, not this one.
+    /// READINESS TERM: a render world exists and has NOT yet been seen to
+    /// prepare `id`. `false` whenever no render world stamps stage 3 — a
+    /// headless run never waits on a GPU it does not have.
+    ///
+    /// ⭐ POSITIVE PROOF, not "not known to be waiting". The insertion stamp
+    /// comes from the main world's `Last` (an `AssetEvent::Added` reader) while
+    /// room readiness polls in `Update`, so on the frame an image lands the
+    /// poll runs BEFORE the row exists; a term that read the awaiting list
+    /// called that image ready, latched the reveal, and only then did `Last`
+    /// stamp it and the render world (possibly) defer its upload under a
+    /// byte-per-frame budget — the exact frame this term exists to keep under
+    /// the cover. So the question is "has the GPU stamp landed", and an id with
+    /// no row yet is owed like any other. The cost is one frame of cover per
+    /// image on an unpaced upload, which is cover time.
     ///
     /// A room whose reveal waits on this converts the upload of its cast from a
     /// frame after the cover lifts into cover time: the pixels were paid for
     /// either way, and under a byte-per-frame budget they pace while the cover
     /// still holds.
     pub fn is_awaiting_gpu(&self, id: UntypedAssetId) -> bool {
-        self.render_world_present && self.awaiting_gpu.contains(&id)
+        self.render_world_present && !self.is_gpu_prepared(id)
+    }
+
+    /// The render world has stamped `id` prepared (stage 3). The proof the
+    /// readiness term above asks for.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn is_gpu_prepared(&self, id: UntypedAssetId) -> bool {
+        self.rows
+            .get(&id)
+            .is_some_and(|row| row.gpu_prepared_at.is_some())
+    }
+
+    /// No stage-3 stamp exists on the web (the stamper is native-only, and
+    /// `render_world_present` is never set there), so nothing is ever proven —
+    /// and nothing is ever owed, because the term above is off.
+    #[cfg(target_arch = "wasm32")]
+    pub fn is_gpu_prepared(&self, _id: UntypedAssetId) -> bool {
+        false
     }
 
     /// The render world saw `id` prepared. Returns the row for reporting.
@@ -602,10 +628,10 @@ mod tests {
         assert_eq!(ledger.re_decodes, 1);
     }
 
-    /// The readiness term is exactly "inserted, render world present, not yet
-    /// prepared" — and NOTHING without a render world.
+    /// The readiness term is POSITIVE proof of the GPU stamp while a render
+    /// world is present — and NOTHING without a render world.
     #[test]
-    fn the_gpu_readiness_term_only_holds_while_a_render_world_owes_the_upload() {
+    fn the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present() {
         let mut ledger = ImageStageLedger::default();
         let t0 = Instant::now();
         ledger.inserted(id(10), 1.0, None, None, t0);
@@ -618,17 +644,21 @@ mod tests {
             ledger.is_awaiting_gpu(id(10)),
             "inserted and unprepared: owed"
         );
+        // ⭐ THE RACE: readiness polls in `Update`, the insertion is stamped in
+        // `Last`. An id the ledger has not seen yet is OWED, not ready — the
+        // old "awaiting list contains it" reading called it ready here.
         assert!(
-            !ledger.is_awaiting_gpu(id(11)),
-            "never inserted: not this term's question"
+            ledger.is_awaiting_gpu(id(11)),
+            "not yet stamped inserted: the GPU has not proven anything, so owed"
         );
         ledger.gpu_prepared(id(10), t0 + Duration::from_millis(5));
         assert!(!ledger.is_awaiting_gpu(id(10)), "prepared: ready");
+        assert!(ledger.is_gpu_prepared(id(10)));
         ledger.inserted(id(12), 1.0, None, None, t0);
         ledger.removed(id(12));
         assert!(
-            !ledger.is_awaiting_gpu(id(12)),
-            "dropped before upload: nothing owed"
+            ledger.is_awaiting_gpu(id(12)),
+            "dropped before upload: no proof, so still owed if anything still asks"
         );
     }
 

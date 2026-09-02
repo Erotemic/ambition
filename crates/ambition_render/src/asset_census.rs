@@ -277,10 +277,20 @@ pub fn report_image_census(
         // Who owns what is resident, in the ledger's own words: the road that
         // demanded each image. Printed only on windows that changed something,
         // beside the totals, so a transition's growth reads per owner.
+        // ⛔ NAME THE UNROUTED ROWS. `resident_by_road` keys a row whose `source`
+        // is `None` as `"?"`, which reads as "some road I did not catch" and is
+        // not what it means: those images never passed a stamped demand at all —
+        // they were inserted directly rather than decoded from a file. On
+        // 2026-09-02 a Hall census reported `? 22×4.5MP` and it was read as a
+        // small population of art. It was NO art: every routed count was zero,
+        // and a measurement was published on the strength of the misreading.
         let by_road: Vec<String> = ledger
             .resident_by_road()
             .into_iter()
-            .map(|(road, (count, mp))| format!("{road} {count}×{mp:.1}MP"))
+            .map(|(road, (count, mp))| {
+                let road = if road == "?" { "UNROUTED(no demand)" } else { road };
+                format!("{road} {count}×{mp:.1}MP")
+            })
             .collect();
         (
             count,

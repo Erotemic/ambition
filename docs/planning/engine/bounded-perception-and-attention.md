@@ -409,6 +409,37 @@ it.
 ⛔ Until such a room exists, do not justify attention work with a hall
 measurement. The hall says the current design is adequate for the hall.
 
+### ✔ THE ACCEPTANCE INSTRUMENT EXISTS, and it measured both rooms (2026-09-02)
+
+`kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense`
+(`features/ecs/perception/tests.rs`). `build_world_view` is a pure function over
+slices, so the dense room needs no `App`, no schedule and no fixture of
+`tick_actor_brains`'s 145-line signature — one viewer, N peers, count
+`view.actors`.
+
+```text
+kept per viewer          16     64    130    200
+  SPARSE (120px apart)    9      9      9      9     <- the hall's shape
+  DENSE  (4px apart)     16     64    130    200     <- kept tracks population
+```
+
+⇒ **The prediction above is confirmed exactly.** A sparse room saturates at 9 and
+population stops mattering before 16, which is why a hall measurement cannot
+justify attention work. A dense room tracks population 1:1, which is the room a
+budget has to flatten.
+
+⛔ It asserts the SHAPE, not the constants: saturation in one arm, growth in the
+other, and that the two arms differ at the same population. Pinning 9 or 200
+would break on any viewport tuning and would say nothing about either property.
+Poison-verified by giving both arms the same spacing — the two rooms collapse
+into one and the dense assertion fails naming `[9, 9, 9, 9]`.
+
+⚠ What it does NOT measure: build TIME, watchlist size, group counts or crowd
+representation. Those are the acceptance criteria for the bounded representation
+ITSELF and want the same instrument extended once there is something to compare
+against. This one answers only the prior question — does a room exist where the
+budget would matter — and the answer is yes, cheaply.
+
 ## Determinism
 
 Fixed cells; the sim's existing coordinate representation; stable `SimId`

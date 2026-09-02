@@ -951,3 +951,100 @@ fn a_requirement_of_none_empties_a_belief_it_stopped_maintaining() {
         "an already-empty belief must not be rewritten"
     );
 }
+
+/// ⭐⭐ THE ACCEPTANCE ROOM THE ATTENTION PLAN ASKS FOR — *"a room where `kept`
+/// tracks population"* — and the proof that the HALL is not it.
+///
+/// `bounded-perception-and-attention.md` states the criterion and forbids
+/// justifying attention work without it: *"A sparse gallery of 200 would still
+/// keep ~14 each and prove nothing. The criterion is not '200 bodies', it is a
+/// room where kept tracks population."* GPT 5.6's 2026-09-02 review reached the
+/// same conclusion independently and asked for the benchmark before any
+/// top-K/group compression is built.
+///
+/// This is that instrument at the cheapest honest level: `build_world_view` is a
+/// pure function over slices, so a dense population needs no `App`, no schedule
+/// and no fixture of `tick_actor_brains`'s 145-line signature. It measures the
+/// ONE number the criterion is about — how many actors a viewer keeps — across
+/// populations, in both a SPARSE arrangement (bodies spread far apart, the
+/// hall's shape) and a DENSE one (bodies inside one another's viewports).
+///
+/// ⛔ IT ASSERTS THE SHAPE, NOT A CONSTANT. `kept` saturating in the sparse arm
+/// is what makes hall measurements uninformative; `kept` growing in the dense
+/// arm is what makes a budget worth building. A test that pinned exact counts
+/// would break on any viewport tuning and would say nothing about either.
+#[test]
+fn kept_saturates_when_bodies_are_spread_and_grows_when_they_are_dense() {
+    let relations = {
+        let mut r = FactionRelations::default();
+        r.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        r
+    };
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(0.0, 180.0), ActorFaction::Enemy);
+
+    // How many actors the viewer keeps, given `count` peers laid out `spacing`
+    // apart along the floor, centred on the viewer.
+    let kept = |count: usize, spacing: f32| -> usize {
+        let peers: Vec<_> = (0..count)
+            .map(|i| {
+                let offset = (i as f32 - count as f32 / 2.0) * spacing;
+                peer(
+                    &format!("p{i}"),
+                    ae::Vec2::new(offset, 180.0),
+                    ActorFaction::Boss,
+                )
+            })
+            .collect();
+        build_world_view(
+            &viewer,
+            &peers,
+            &[],
+            &[],
+            &world,
+            &relations,
+            Perception::Sighted {
+                viewport_half: DEFAULT_VIEWPORT_HALF,
+            },
+            0.0,
+        )
+        .actors
+        .len()
+    };
+
+    // ── SPARSE: the hall's shape. The viewport bounds the kept set, so
+    //    population stops mattering long before 200. ───────────────────────────
+    let sparse: Vec<usize> = [16usize, 64, 130, 200]
+        .iter()
+        .map(|n| kept(*n, 120.0))
+        .collect();
+    assert!(
+        sparse[3] <= sparse[1] + 2,
+        "a SPARSE room's kept set must saturate -- that is why a hall \
+         measurement cannot justify attention work. kept at 16/64/130/200 = {sparse:?}"
+    );
+
+    // ── DENSE: bodies inside one another's viewports. Now kept tracks
+    //    population, which is the room the plan says must exist. ───────────────
+    let dense: Vec<usize> = [16usize, 64, 130, 200]
+        .iter()
+        .map(|n| kept(*n, 4.0))
+        .collect();
+    assert!(
+        dense[3] > dense[0] * 4,
+        "the DENSE arrangement must make kept track population, or this \
+         instrument cannot show a budget flattening it. kept at 16/64/130/200 = {dense:?}"
+    );
+    assert!(
+        dense[3] > sparse[3] * 3,
+        "dense must differ from sparse at the same population, or the two arms \
+         are measuring the same room: dense {} vs sparse {}",
+        dense[3],
+        sparse[3]
+    );
+
+    println!(
+        "attention acceptance -- kept per viewer at 16/64/130/200\n  \
+         sparse (120px apart): {sparse:?}\n  dense  (4px apart):   {dense:?}"
+    );
+}

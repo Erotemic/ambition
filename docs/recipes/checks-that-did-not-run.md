@@ -17,6 +17,13 @@ found by the checking system noticing its own hole. A gate cannot audit its own
 coverage, because the same assumption that makes a job skip also makes the
 report say it ran.
 
+⚠ **AND THIS PAGE ROTS.** Member #3 was live when the first draft of this
+sentence was written and fixed by `234bcc686` about an hour later, while the
+draft was still open. That is not an embarrassment to correct quietly — it is
+the argument for the rule at the bottom of this page. Re-check a member against
+the current `HEAD` before you repeat it to anybody; a catalogue of gate holes is
+a claim about a changing repository, exactly like a queue row.
+
 ## The four questions
 
 Ask these of any check you are about to trust. They are cheap, and each one
@@ -36,16 +43,22 @@ independent ways at once, and each question in isolation returned a locally
 reassuring answer. "Which plan is this in" and "which branch does this compile"
 were both asked of that job, months apart, and it stayed broken.
 
+⛔ **AND CITE THE JOB NAME, NOT THE LINE NUMBER.** The first draft of this page
+cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
+`:595` and `:597` — three dead citations in a page whose whole subject is
+claims that quietly stop being true. Grep for the job's name string or its gate
+expression; those survive edits that line numbers do not.
+
 ## The seven, and what each one teaches
 
 | # | the check | how it lied | status at `f9ffc3fbc` |
 |---|---|---|---|
 | 1 | `./run_tests.sh --rust` | skipped the whole Python lane, so the rollback stable-name ratchet, the codec-shape baseline and a stale `MODULES.md` sat red **for a day** behind a gate reporting 4/4 GREEN | fixed `2945f3381` |
 | 2 | the wasm build job | gated on `if not only and everything` — the exhaustive plan only, so a default run never checked `wasm32` at all | fixed `b85b4db20` |
-| 3 | `check_no_warnings.py` | parses diagnostics instead of setting `-D warnings`, so it reuses the build fingerprint — and **cached crates do not re-emit warnings**. In a warm tree it reports clean while real warnings exist | ⛔ **STILL LIVE.** Its own docstring offers `--fresh`; `run_tests.py:368` invokes it without |
+| 3 | `check_no_warnings.py` | parses diagnostics instead of setting `-D warnings`, so it reuses the build fingerprint — and **cached crates do not re-emit warnings**. In a warm tree it reports clean while real warnings exist | fixed `234bcc686` — the gate job is now `check_no_warnings.py --fresh`, and the price of the cold re-fingerprint is stated at the job |
 | 4 | the repo-tooling lane | simply not invoked by the flag anybody was using | fixed `2945f3381` |
 | 5 | the wasm CHECK | is **TYPE-ONLY**. `cargo check` cannot see a `#[cfg]` that removes BEHAVIOUR rather than breaking a build | ⛔ **STRUCTURALLY LIVE** |
-| 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and `run_tests.py:588` gates it on the exhaustive plan | ⛔ **STRUCTURALLY LIVE, TWICE** |
+| 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
@@ -62,10 +75,13 @@ no type check can see that shape.
 Reading the fixes together is more useful than reading any one of them, because
 they are not the same kind of fix.
 
-- **Make the job run.** #2 moved the wasm CHECK into the default plan. This is
-  the only remedy that adds coverage, and it is the rarest, because it costs
-  time on every run — 505 s cold and 26 s warm, in that case, and the team took
-  it for the CHECK and refused it for the LINK.
+- **Make the job run.** #2 moved the wasm CHECK into the default plan; #3 made
+  the no-warnings job pay for `--fresh`. This is the only remedy that adds
+  coverage, and it is the most expensive, because it costs time on every run —
+  505 s cold and 26 s warm for the wasm CHECK, and the team took that for the
+  CHECK and refused it for the LINK. ⭐ Both fixes state the price **at the job**
+  rather than in a commit message, which is what lets the next person re-decide
+  it instead of rediscovering why it is slow.
 - **Make the silence audible.** The dominant remedy. #7's footer now derives
   from the *planned* jobs rather than asserting; #2's `elif not only:` branch
   exists for no purpose but to print that the web build is UNCHECKED; and #1's

@@ -55,7 +55,7 @@ When a command changes, update or delete the recipe in the same patch.
 - [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the four
   questions that catch a check which is CORRECT and never executed. ⛔ seven
   members found in one gate script in one day, five of them by accident, and
-  three are still live.
+  two are structurally unfixable.
 - **Testing headlessly** lives in
   [`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
   — `Platformer2dSimHarness::step`, the headless binaries, and the doctrine about what to

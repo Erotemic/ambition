@@ -127,3 +127,47 @@ def test_the_measurement_can_see_a_sheet_that_does_scale():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ⛔ THE SECOND MECHANISM. A sheet publishing NO variant at a reduced tier costs
+# exactly as much as one whose variant was never downscaled, and cannot be seen
+# by comparing megapixels — there is nothing to compare against. Measured
+# 2026-09-02: `performer` (9.03 MP) publishes neither 0_5x nor 0_25x, and is
+# byte-identical to `actor`, which publishes both and shrinks neither. The same
+# artwork therefore fails to get cheaper by TWO different mechanisms.
+KNOWN_MISSING_VARIANTS = {"performer_spritesheet.ron"}
+
+
+def missing_variants() -> dict[str, list[str]]:
+    module = load()
+    if not (module.ASSETS / "sprites").is_dir():
+        pytest.skip("the actor-monolith sprite tree is absent")
+    rows = module.collect()
+    out: dict[str, list[str]] = {}
+    for rel, per_tier in rows.items():
+        if "sprites" not in per_tier:
+            continue
+        absent = [t for t, _ in module.TIERS[1:3] if t not in per_tier]
+        if absent:
+            out[rel.name] = absent
+    return out
+
+
+def test_no_new_sheet_ships_without_a_reduced_variant():
+    found = missing_variants()
+    new = set(found) - KNOWN_MISSING_VARIANTS
+    assert not new, (
+        "a sheet publishes no variant at a reduced tier, so a room asking for "
+        f"that tier gets the full-resolution page: {sorted(new)}. Generate the "
+        "variants (`scripts/regen/sprites.sh --target <name>`), or record why "
+        "the sheet cannot have them."
+    )
+
+
+def test_the_missing_variant_list_does_not_rot():
+    found = missing_variants()
+    fixed = KNOWN_MISSING_VARIANTS - set(found)
+    assert not fixed, (
+        f"{sorted(fixed)} now publish their reduced variants — remove them from "
+        "KNOWN_MISSING_VARIANTS so a regression is caught"
+    )

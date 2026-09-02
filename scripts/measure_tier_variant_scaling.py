@@ -141,7 +141,27 @@ def main(argv: list[str]) -> int:
                 f"{cells['sprites_0_25x']:8.2f} {cells['sprites_potato']:8.2f}{mark}"
             )
 
+    # ⛔ THE SECOND MECHANISM, AND IT LOOKS NOTHING LIKE THE FIRST. A sheet with
+    # NO variant at a tier cannot be spotted by comparing megapixels — there is
+    # nothing to compare — but the room still asks for the cheap tier and still
+    # gets the expensive art. Same cost, different cause, and a census that
+    # reported only the first would call the tree 4/213 clean when it is 5/213.
+    missing: dict[str, list[str]] = {}
+    for rel, per_tier in sorted(rows.items()):
+        if "sprites" not in per_tier:
+            continue
+        absent = [t for t, _ in TIERS[1:3] if t not in per_tier]
+        if absent:
+            missing[rel.name] = absent
+
     print(f"\n{len(offenders)} sheet(s) whose smaller tiers are not smaller.")
+    if missing:
+        print(f"{len(missing)} sheet(s) publish NO variant at a reduced tier:")
+        for name, absent in missing.items():
+            full_mp = next(
+                (per["sprites"][0] for rel, per in rows.items() if rel.name == name), 0.0
+            )
+            print(f"  {full_mp:6.2f} MP  {name:<44} missing {', '.join(absent)}")
     if offenders:
         wasted = sum(mp for _, full, failed in offenders for mp in failed.values())
         asked = sum(

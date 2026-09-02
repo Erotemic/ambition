@@ -1032,9 +1032,22 @@ repack per tier; measured by total page megapixels across all pages — what
 residency actually pays — they are genuinely smaller and drop out. Six was the
 wrong number for a defensible reason.
 
-⇒ Ratcheted by `test_tier_variants_are_actually_smaller.py`: the four are named
-with their date, a FIFTH fails, and a name that gets fixed must leave the list
-or the guard silently permits its regression. Poison-verified both ways.
+⛔⛔ **AND THERE IS A SECOND MECHANISM THAT LOOKS NOTHING LIKE THE FIRST.**
+`performer` (9.03 MP) publishes **no 0_5x or 0_25x variant at all** — so a room
+asking for a reduced tier gets the full page, at the same cost, and comparing
+megapixels can never see it because there is nothing to compare against. ⭐ It
+is byte-identical to `actor`, which DOES publish both variants and shrinks
+neither: **the same artwork fails to get cheaper by two different routes.**
+⇒ Five sheets, ~42 MP, that no reduced tier ever makes cheaper. A census
+reporting only the first mechanism would have called the tree 4/213 clean when
+it is 5/213.
+
+⇒ Ratcheted by `test_tier_variants_are_actually_smaller.py`, both mechanisms:
+the named sheets carry their date, a NEW one of either kind fails, and a name
+that gets fixed must LEAVE its list or the guard silently permits its
+regression. Poison-verified in every direction, with a positive control
+asserting the tree really does contain correctly-scaled variants — otherwise
+two absence assertions would pass forever on an empty measurement.
 
 ⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
 decoded, uploaded and held resident whole; only the frame rects its baked

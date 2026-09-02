@@ -1072,8 +1072,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
   Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
-  asked for CANNOT BE MADE. `scripts/measure_clip_population.py` in the renderer
-  submodule, branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
+  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py`
+  (the renderer submodule's script, not this repo's `scripts/`), branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
   checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
   move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
   never rendered.** The obvious classifier — "seated flush" vs "still moving when
@@ -1548,6 +1548,46 @@ The one unresolved developer-policy choice from the session-ownership work is in
   when the capability read is pinned to one answer. 21/21 report tests.
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
+
+- ▢ **CAPABILITY FOOTPRINT: 43 crates linked, 16 a movement-only game never
+  asked for.** (Scheduled 2026-09-02 from agent ambition-da's docs pass.) The
+  acceptance and the regression guard are already installed:
+  `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
+  measures the count every gate run and ratchets it
+  (`scripts/baselines/capability-footprint-baseline.json`). Acceptance: the
+  count FALLS; the guard: it may not rise. Design and the per-crate reasons in
+  `engine/capability-and-runtime-composition.md`. Ranks first among the docs-pass
+  rows because it arrives with its own instrument.
+- ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
+  by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
+  `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
+  on it; `ambition_load_presentation` on both — so `#[macro_export]` on
+  `ambition_load`'s copy, delete two, no new crate or edge. Check the bevy
+  `default-features = false` mismatch and that the exported macro spells
+  `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
+  `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
+- ▢ **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
+  (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped
+  trait is `RollbackRegistrar`, one domain's hook. The doc's argument is semantic
+  drift, so the first deliverable is a table of how all 31 answer the four
+  protocol questions (identity; do fn addresses join equality; what enters a
+  fingerprint; does a conflict leave the old registry unchanged), each cell a
+  citation the planning citation checker resolves. ⛔ No abstraction until that
+  table exists. Design: `triage/ambition-registry-core.md`. Assigned to ambition-da.
+- ▢ **RE-SCOPE THE GENERATED-DIALOGUE TRIAGE BEFORE ANYONE IMPLEMENTS IT.**
+  (Scheduled 2026-09-02.) 149 catalog rows, 124 with a `hall_dialogue_id`, 131
+  authored `hall_*` Yarn nodes: the Hall was solved by hand-authoring, the escape
+  its 2026-07-26 decision left open. A generator written to the original framing
+  would generate over 124 characters that already have nodes. What is left: ~25
+  rows with no hall id, and every room that is not the Hall. Re-scope in
+  `triage/character-dialogue-from-suggestions.md`; whether to generate at all for
+  the remainder is a content call (record it in awaiting-maintainer-decision if
+  it comes to that).
+- ✔ **Two rows corrected, no work owed (2026-09-02, ambition-da):**
+  `engine/participant-action-system.md` §P1 is DONE (pinned by
+  `dialogue_claims_the_talker_while_a_pause_still_stops_everybody`);
+  `engine/kinematic-world-objects.md` K2/K4 status lines now agree with the
+  header that closed K2–K6.
 
 ## External measurements / human-gated work
 

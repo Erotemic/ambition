@@ -327,9 +327,16 @@ sweep of every `.load(` in the tree (plus `load_untyped`/`load_acquire`/
 `load_folder`/`get_handle`/`load_with_settings`, which have ZERO uses) found no
 unstamped route for the sheet that reported it.
 
-▢ The fix is to carry `demanded_at`/`source`/`path` across a removal the way
-`insertions_by_path` already is, so a re-decode inherits its first demand and can
-print it. Until then, read `demand=unknown` as "unstamped OR re-decoded".
+✔ **FIXED 2026-09-02 (`438662619`), and NOT quite as this row prescribed.**
+`ImageStageLedger` keeps `demand_by_path`, so a re-decode inherits the road that
+first demanded the path and the readout says `first demanded via <road>` — a
+third phrase beside a stamped demand and a genuinely unstamped one. ⛔ The row
+asked for `demanded_at` to be carried across too, and it deliberately is NOT:
+that instant belongs to the FIRST demand, so `wait()` computed from it would
+measure from the wrong moment and print a duration this decode never took. Only
+the SOURCE is adopted, and the phrase is worded so it quotes no duration it
+cannot honestly compute. ⇒ `demand=unknown` now means unstamped, full stop; the
+"unstamped OR re-decoded" ambiguity this row existed for is gone.
 
 ⚠ And the `game://` in a row is NOT an authored prefix. `load_sheet_image` labels
 each row with `AssetPath::to_string()`, and an `AssetPath` PRINTS ITS SOURCE — so

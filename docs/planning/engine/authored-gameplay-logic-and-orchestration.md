@@ -108,6 +108,11 @@ diagnostic. `ParamKind::Reference` does validate (namespace, non-empty body,
 known namespace), so the shape of an answer exists — it needs a registry of
 authorable flag ids to validate against. ⛔ Do not build that registry
 speculatively; it wants a second consumer or a real authored mistake first.
+✔ **Premise re-verified against the code 2026-09-02 and it still holds exactly**:
+`prepared.rs`'s arm is `ParamKind::Name => Ok(AuthoredArg::Name(text.to_string()))`
+— unconditional — so every authored string still prepares. Nothing has quietly
+fixed this and the deferral is still the right call; recorded so the next reader
+does not have to re-derive it.
 
 ### O2 — collapse duplicated authored-argument preparation
 

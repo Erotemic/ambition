@@ -1,9 +1,10 @@
 # HEAD orientation
 
-**Reviewed baseline:** `881310ec7` — `I1: the hand is the record of what is
-equipped` (2026-09-02, later the same day). The rollback and item paragraphs
-below were re-verified at this baseline; the performance model was rewritten at
-`91d5d4a9c` (2026-09-02); other sections were last reviewed at `4e5f59cf`
+**Reviewed baseline:** `abe196d9d` (2026-09-02 21:00Z, the day-end gate of the
+asset/planning goal: five of six gate jobs green at `be4b9969c`, the sixth a
+stale `MODULES.md` regenerated at `2739a927c`). The asset and performance
+sections were re-verified at this baseline; the rollback and item paragraphs at
+`881310ec7` (2026-09-02); other sections were last reviewed at `4e5f59cf`
 (2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the

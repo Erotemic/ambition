@@ -1,9 +1,17 @@
 # Bounded perception and attention
 
-**Status:** direction set by Jon 2026-09-01, grounded in measurement. The
-rollback/replay question that blocks the first increment is settled by
-[ADR 0034](../../adr/0034-perception-is-bounded-by-attention.md). Not yet
-scheduled; no code written against it.
+**Status:** direction set by Jon 2026-09-01, grounded in measurement, and
+**INCREMENT 1 IS LANDED** — this line said "no code written against it" until
+2026-09-02, by which point there was.
+
+* ✔ **Increment 1**: `PerceptionRequirement` declared on the brain
+  (`None` / `TargetBelief` / `TacticalWorld`), the `None` gate wired into
+  `actors/update.rs`, and the rollback schema baseline moved with it. The
+  rollback/replay question that blocked it is settled by
+  [ADR 0034](../../adr/0034-perception-is-bounded-by-attention.md).
+* ▢ **Increment 2**: a cheap `TargetBelief` provider that answers "do I perceive
+  a valid target, and where was the last one" WITHOUT building a full
+  `WorldView`, and a bounded `TacticalWorld` representation.
 
 ## The rule
 

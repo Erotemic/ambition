@@ -179,11 +179,19 @@ one: a cast that needs the belief still gets it and still pays for it.
 view, so `TargetBelief` still constructs one — making THAT road cheap is a later
 increment, and it is where the attention work belongs.
 
-### What part two did NOT do
+### ✔ THE WIRING LANDED — this section said "not started" and was wrong
 
-Wiring the gate into `actors/update.rs` so a `None` brain gets no
-`build_world_view` and no `believed_target`. **That is the checksummed-state
-change** and it carries the schema baseline move with it. It is not started.
+Re-verified against the code 2026-09-02: the gate IS in `actors/update.rs`
+(around `let perception_need = brain_ref.perception_requirement();`), and a
+brain that needs neither a world view nor a target belief gets no
+`build_world_view`. The checksummed-state change and its schema baseline move
+went with it.
+
+⚠ **What is still open is the NEXT increment, not this one.** `believed_target`
+derives the belief FROM the view, so `TargetBelief` still constructs a full
+`WorldView`; making that road cheap is increment 2, along with a bounded
+`TacticalWorld` representation. Stating it as "the wiring is not started" sent a
+reader to build something that exists.
 
 Its acceptance is behavioural, not a millisecond count:
 

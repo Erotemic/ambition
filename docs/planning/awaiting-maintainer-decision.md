@@ -221,9 +221,35 @@ Choose one:
   `gauntlet_fireball` into the shared catalog as a first-class projectile visual
   other weapons may also use.
 
-⚠ Whichever way this goes, the size/anchor still needs a before/after capture —
-that is a measurement, not a decision, and it is queued separately. The
-registration is `GAUNTLET_FIREBALL_VISUAL` in `game/ambition_content/src/projectiles.rs`.
+⭐ **THE SIZE/ANCHOR COMPARISON IS DONE, IN CLOSED FORM, 2026-09-02 — and it
+found the difference somewhere else.** A capture was queued for this; reading the
+two paths answers it more exactly than a screenshot could.
+
+- **SIZE: exact parity.** The deleted renderer drew `Vec2::splat(30.0)`. The new
+  registration is `ProjectileRenderSize::FixedWidth(30.0)`, which resolves as
+  `Vec2::new(w, w / frame_aspect)`. `gauntlet_fireball.png` is **16 x 16**, so
+  the aspect is 1.0 and the height is 30.0. Identical, not merely close.
+- **ANCHOR: exact parity.** The old sprite took `..default()` (centre); the new
+  Image path passes `anchor: None`, which is the same centre.
+- ⛔ **DEPTH CHANGED, and nobody asked about depth.** The old fireball drew at
+  `z = 9.5` — below `WORLD_Z_DUMMY` (10.0) and well below `WORLD_Z_PLAYER`
+  (20.0), so it passed BEHIND the player and behind enemies. The projectile road
+  draws every shot at `projectile_z()` = `WORLD_Z_PLAYER + 2.0` = **22.0**, in
+  front of the player. `world_to_bevy` passes `z` straight through, so these are
+  the same scale and directly comparable.
+
+⇒ The fold moved the fireball from behind the cast to in front of it. That reads
+like a repair rather than a regression — a thrown fireball vanishing behind a
+body is hard to defend — but it IS a visible change, it was not authored as part
+of the fold, and it is not what decision 42 asks about. Say whether the new
+layering is what you want; if it is, nothing to do.
+
+⚠ **What a capture would still add, and only this:** that the asset RESOLVES at
+runtime rather than drawing the magenta placeholder. The geometry above needs no
+picture.
+
+The registration is `GAUNTLET_FIREBALL_VISUAL` in
+`game/ambition_content/src/projectiles.rs`.
 
 All three (40–42) were opened by the K2 fold on 2026-09-02; the fold itself is
 landed and none of them blocks it.

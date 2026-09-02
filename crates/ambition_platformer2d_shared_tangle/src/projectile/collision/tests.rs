@@ -26,6 +26,7 @@ fn straight_projectile(pos: ae::Vec2) -> crate::projectile::ProjectileBody {
         world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
         charge_tier: 0,
         boomerang_return_s: None,
+        splash_half_extent: 0.0,
     };
     let mut body = crate::projectile::ProjectileBody::from_spec(spec);
     body.game.bounces_remaining = 0; // baseline: no bouncing

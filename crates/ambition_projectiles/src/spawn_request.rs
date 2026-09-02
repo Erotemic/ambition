@@ -125,6 +125,7 @@ pub fn build_in_flight_projectile(
         // reaches this request seam.
         charge_tier: 0,
         boomerang_return_s: request.boomerang_return_s,
+        splash_half_extent: request.splash_half_extent.max(0.0),
     };
     InFlightProjectile {
         body: ProjectileBody::from_spec(spec),
@@ -150,6 +151,7 @@ mod tests {
             visual_id: "bolt".into(),
             bounces: 0,
             bounce_on_world_contact: false,
+            splash_half_extent: 0.0,
             boomerang_return_s: None,
         }
     }

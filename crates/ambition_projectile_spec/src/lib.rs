@@ -41,6 +41,10 @@ pub struct ProjectileSpawn {
     pub bounce_on_world_contact: bool,
     /// Seconds until this shot turns around and comes back, or `None` for one
     /// that never does. See `ProjectileGameplay::accel`.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub boomerang_return_s: Option<f32>,
+    /// Half-extent of the burst this shot deals when it lands (on a body, a
+    /// feature, or the world), or `0.0` for a shot that hits only what it
+    /// touched. A fireball's splash; a bolt's nothing. Absorbed from the former
+    /// held-shot simulation so one projectile road carries every projectile.
+    pub splash_half_extent: f32,
 }

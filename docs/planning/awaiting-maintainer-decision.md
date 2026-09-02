@@ -150,6 +150,84 @@ If one should become product-visible, name a fighter/move. Otherwise leave the
 mechanism dormant until a character design asks for it. Do not invent a customer
 to make an adoption count nonzero.
 
+### 40. Should a held gun-sword kick the player the way it kicks the pirate?
+
+The K2 fold puts the player's held gun-sword and fireball on the ONE projectile
+road, and that road applies the weapon's authored `Discharge`.
+`gun_sword_discharge()` authors **380 px/s of recoil**, written for the pirate
+who carries it.
+
+The held-shot path that was deleted applied **no recoil at all** when the player
+fired. That difference was a property of the second code path, not an authored
+decision — nobody chose it. The fold preserved the old feel by zeroing recoil
+for hand-fired held items, so today the same weapon kicks its NPC wielder and
+not its player wielder.
+
+Choose one:
+
+- **the weapon kicks whoever fires it:** delete the zeroing; a player firing the
+  gun-sword takes the authored 380 px/s. One weapon, one authored number.
+- **recoil is a wielder property:** keep the zeroing, and say so in the weapon
+  vocabulary rather than as a special case — an NPC braces, a player does not.
+- **the player number is simply different:** author a separate player recoil
+  value; name it.
+
+⚠ This is a FEEL ruling on a shipped weapon, not an engineering question. The
+engineering is done either way; the fold currently encodes "no kick for the
+player" only because that is what the deleted path happened to do. The zeroing
+is `fire_held_ranged_system` in `items/pickup/mod.rs`; the guard is
+`a_hand_fired_gun_sword_bolt_flies_the_one_projectile_road`
+(`game/ambition_app/tests/hand_fired_held_shot.rs`) — retarget it with the
+ruling.
+
+### 41. Where should a hand-fired fireball leave the body?
+
+The deleted held-shot path spawned the fireball from a side muzzle at
+`(size.x / 2 + 8, -0.12 * size.y)` — offset forward and slightly toward the
+head. The projectile road's default is `Muzzle::BodyOrigin`, a few pixels away
+from that point.
+
+The difference is small and entirely cosmetic, but it is visible on a wide body
+and it changes where the shot clears the player's own silhouette.
+
+Choose one:
+
+- **body origin:** accept the road's default and retire the old offset; one
+  spawn rule for every projectile.
+- **keep the authored muzzle:** register the old offset as an authored
+  `Muzzle` on the fireball so the fold preserves the shipped look exactly.
+- **a muzzle is a per-weapon authored fact:** every hand-fired weapon names its
+  own, and the fireball's is the old offset.
+
+The fireball's spec (`held_item_by_id("fireball")`, `action_set/mod.rs`) authors
+`Muzzle::default()` today.
+
+### 42. Should the gauntlet fireball keep its own sprite, or become the catalog's energy ball?
+
+The deleted path drew the fireball as the 30 px `gauntlet_fireball.png` sprite.
+The projectile catalog's `"fireball"` is a tinted energy ball — a different
+look, shared with every other fireball in the game.
+
+To avoid changing a shipped visual inside a refactor, the fold registers a
+`"gauntlet_fireball"` Image visual that reproduces the old sprite.
+
+Choose one:
+
+- **keep the gauntlet's own sprite:** the registered Image visual stays, and the
+  gauntlet reads as its own weapon.
+- **adopt the catalog energy ball:** delete the registration; one fireball look
+  across the game, and the gauntlet loses its distinct art.
+- **the sprite is right but the catalog should own it:** promote
+  `gauntlet_fireball` into the shared catalog as a first-class projectile visual
+  other weapons may also use.
+
+⚠ Whichever way this goes, the size/anchor still needs a before/after capture —
+that is a measurement, not a decision, and it is queued separately. The
+registration is `GAUNTLET_FIREBALL_VISUAL` in `game/ambition_content/src/projectiles.rs`.
+
+All three (40–42) were opened by the K2 fold on 2026-09-02; the fold itself is
+landed and none of them blocks it.
+
 ## Waiting on maintainer measurement, not a decision
 
 ### Switch Pro outer stick range

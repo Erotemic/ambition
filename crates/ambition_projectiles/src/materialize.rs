@@ -144,6 +144,7 @@ mod tests {
                 visual_id: "glider".into(),
                 bounces: 0,
                 bounce_on_world_contact: false,
+                splash_half_extent: 0.0,
                 boomerang_return_s: None,
             },
             start,

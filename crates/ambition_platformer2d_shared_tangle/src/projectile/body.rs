@@ -70,6 +70,9 @@ pub struct ProjectileGameplay {
     /// ledger is never cleared. They also despawn on their first body hit, so
     /// they never write to it either.
     pub hits_cleared_on_leg: u8,
+    /// Half-extent of the burst dealt where this shot lands; `0.0` for none.
+    /// Rollback state: a rewound shot must land the same burst.
+    pub splash_half_extent: f32,
 }
 
 /// EVERY VICTIM THIS SHOT HAS ALREADY HIT ON THE LEG IT IS FLYING.
@@ -140,6 +143,7 @@ impl ProjectileGameplay {
                 }
             }),
             hits_cleared_on_leg: 0,
+            splash_half_extent: spec.splash_half_extent,
         }
     }
 
@@ -432,6 +436,7 @@ mod tests {
                 world_hit: crate::projectile::WorldHitPolicy::Bouncing,
                 accel: Vec2::ZERO,
                 hits_cleared_on_leg: 0,
+                splash_half_extent: 0.0,
             },
         }
     }

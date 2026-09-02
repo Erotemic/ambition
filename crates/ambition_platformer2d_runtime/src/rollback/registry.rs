@@ -147,7 +147,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `LastCutsceneRoom` closed for cutscenes). It is now `LastQuestRoom`,
 /// registered and checksummed beside `QuestRegistry` — one more entry in the
 /// snapshot layout, so a peer without it disagrees about every snapshot.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 149;
+/// ⛔ v150: THE PARALLEL HELD-SHOT SIMULATION IS GONE (K2). A hand-fired
+/// gun-sword bolt or fireball is now an `ActionRequest::Ranged` on the one
+/// projectile road, so `item.held_projectile` leaves the layout, and
+/// `ProjectileGameplay` gains `splash_half_extent` (the fireball's burst,
+/// formerly a `HeldProjectile` flag) — one more f32 in every encoded
+/// projectile. Layout AND value change: a peer on v149 has an entry this one
+/// lacks and decodes a projectile four bytes short.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 150;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

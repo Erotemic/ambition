@@ -296,35 +296,6 @@ pub fn rebuild_world_items_view(
         }));
 }
 
-/// Every in-flight held shot (gun-sword laser / fireball).
-#[derive(Resource, Default, Clone, Debug)]
-pub struct HeldShotsView(pub Vec<HeldShotFact>);
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct HeldShotFact {
-    pub pos: ae::Vec2,
-    pub vel: ae::Vec2,
-    /// Radial fireball (draws the glowing sphere) vs a velocity-aligned
-    /// spinning blade.
-    pub fireball: bool,
-}
-
-pub fn rebuild_held_shots_view(
-    mut view: ResMut<HeldShotsView>,
-    projectiles: Query<(
-        &BodyKinematics,
-        &ambition_platformer2d_actor_monolith::items::pickup::HeldProjectile,
-    )>,
-) {
-    view.0.clear();
-    view.0
-        .extend(projectiles.iter().map(|(kin, proj)| HeldShotFact {
-            pos: kin.pos,
-            vel: kin.vel,
-            fireball: proj.explode_half > 0.0,
-        }));
-}
-
 /// Every player's dropped recall-mark position.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
@@ -836,7 +807,6 @@ impl Plugin for SimViewPlugin {
             .init_resource::<ControlledBodiesView>()
             .init_resource::<GroundItemsView>()
             .init_resource::<WorldItemsView>()
-            .init_resource::<HeldShotsView>()
             .init_resource::<MarkBeaconsView>()
             .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
@@ -860,7 +830,6 @@ impl Plugin for SimViewPlugin {
                 rebuild_controlled_bodies_view,
                 rebuild_ground_items_view,
                 rebuild_world_items_view,
-                rebuild_held_shots_view,
                 rebuild_mark_beacons_view,
                 rebuild_gravity_switches_view,
                 rebuild_shrines_view,

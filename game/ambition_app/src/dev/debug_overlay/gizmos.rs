@@ -9,38 +9,6 @@
 
 use super::*;
 
-/// Draw each in-flight held-item shot (gun-sword bolt / Fireball): its solid
-/// contact box (the box that registers a hit — `HeldProjectile::contact_aabb`)
-/// and, for a Fireball, the fainter splash box it detonates with on contact.
-#[cfg(feature = "input")]
-pub(crate) fn draw_held_projectiles<'a>(
-    gizmos: &mut Gizmos,
-    world: &ae::World,
-    projectiles: impl Iterator<
-        Item = (
-            &'a ambition_platformer2d::engine_core::BodyKinematics,
-            &'a ambition_platformer2d::actors::items::pickup::HeldProjectile,
-        ),
-    >,
-    developer_tools: &DeveloperTools,
-) {
-    use ambition_platformer2d::actors::items::pickup::HeldProjectile;
-    let contact_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue (player-side)
-    let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45); // faint orange (AOE)
-    for (kin, proj) in projectiles {
-        if let Some(splash) = proj.splash_aabb(kin.pos) {
-            draw_aabb_styled(gizmos, world, splash, splash_color, developer_tools);
-        }
-        draw_aabb_styled(
-            gizmos,
-            world,
-            HeldProjectile::contact_aabb(kin.pos),
-            contact_color,
-            developer_tools,
-        );
-    }
-}
-
 /// Draw each portal's capture AABB (the box that warps the player) plus a short
 /// outward normal tick, so the portal's collision can be eyeballed in the
 /// debug overlay (it's otherwise invisible — only the thin sprite shows).
@@ -135,19 +103,6 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// `presentation_deltas` performs that join and the shared draw applies it.
     /// One component, every body: a boss answers here exactly as a player does.
     pub body_deltas: Query<'w, 's, &'static ambition_platformer2d::sim_view::PresentedPose>,
-    /// In-flight held-item shots (gun-sword bolt / Fireball). Lives in this bundle (not a top-level
-    /// param) to keep `draw_debug_overlay` under Bevy's 16-system-param ceiling.
-    /// `Without<PlayerEntity>` keeps this read of `BodyKinematics` disjoint from the `&mut` player
-    /// query (a held shot is never the player) — B0001.
-    pub held_projectiles: Query<
-        'w,
-        's,
-        (
-            &'static ambition_platformer2d::engine_core::BodyKinematics,
-            &'static ambition_platformer2d::actors::items::pickup::HeldProjectile,
-        ),
-        Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
-    >,
     /// The player's resolved gravity, so the player debug box can rotate to
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
@@ -170,6 +125,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         (
             &'static ambition_platformer2d::engine_core::BodyKinematics,
             Option<&'static ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
+            &'static ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         ),
         (
             With<ambition_platformer2d::projectiles::LiveProjectile>,
@@ -702,13 +658,19 @@ pub(crate) fn draw_projectile_debug<'a>(
         Item = (
             &'a ambition_platformer2d::engine_core::BodyKinematics,
             Option<&'a ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
+            &'a ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         ),
     >,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
     let hostile_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
-    for (kin, allegiance) in projectiles {
+    // The fainter box a splashing shot (the fireball) bursts with where it
+    // lands — drawn so the whole area that will trigger is visible, not just
+    // the bolt. The "fireball hits before it touches the visible box" report
+    // was this box not being drawn.
+    let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45);
+    for (kin, allegiance, game) in projectiles {
         let color = if allegiance.is_some_and(|side| {
             side.faction == ambition_platformer2d::characters::actor::ActorFaction::Player
         }) {
@@ -716,6 +678,15 @@ pub(crate) fn draw_projectile_debug<'a>(
         } else {
             hostile_color
         };
+        if game.splash_half_extent > 0.0 {
+            draw_aabb_styled(
+                gizmos,
+                world,
+                ae::Aabb::new(kin.pos, ae::Vec2::splat(game.splash_half_extent)),
+                splash_color,
+                developer_tools,
+            );
+        }
         draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);
     }
 }

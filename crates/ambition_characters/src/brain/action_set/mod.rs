@@ -218,7 +218,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: Some(
                     RangedActionSpec::bolt(500.0, 2)
                         .with_visual(LASERSWORD_VISUAL)
-                        .with_discharge(gun_sword_discharge()),
+                        .with_discharge(gun_sword_discharge())
+                        .with_flight(held_shot_flight(500.0)),
                 ),
                 use_behavior: HeldUseBehavior::Auto,
             },
@@ -446,16 +447,26 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The Fireball ability fires a ranged bolt that *explodes on contact*
-        // (`item_pickup::fire_held_ranged_system` tags the shot by this id, and
-        // `held_projectile_step` detonates it). The Bolt damage is the splash
-        // damage; the AOE box is what makes it distinct from the gun-sword.
+        // The Fireball ability fires a bolt that BURSTS where it lands: the same
+        // projectile road as every other shot, with a splash authored on its
+        // flight. The Bolt damage is the splash damage; the AOE box is what makes
+        // it distinct from the gun-sword. Its look is its own sprite, not the
+        // tinted energy ball the catalog's "fireball" id draws.
         items.insert(
             "fireball",
             HeldItemSpec {
                 id: "fireball".into(),
                 melee: None,
-                ranged: Some(RangedActionSpec::bolt(440.0, 3)),
+                ranged: Some(
+                    RangedActionSpec::bolt(440.0, 3)
+                        .with_visual(GAUNTLET_FIREBALL_VISUAL)
+                        .with_discharge(Discharge {
+                            muzzle: Muzzle::default(),
+                            fire_sfx: Some("player.dash".into()),
+                            recoil: 0.0,
+                        })
+                        .with_flight(held_shot_flight(440.0).with_splash(FIREBALL_SPLASH_HALF)),
+                ),
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
@@ -574,6 +585,12 @@ pub struct ProjectileFlight {
     /// through the launch point at `0.8` and wants a lifetime a little past
     /// that. [`Self::boomerang`] does that arithmetic.
     pub boomerang_return_s: Option<f32>,
+    /// Half-extent of the burst this shot deals where it lands, or `0.0` for a
+    /// shot that hits only what it touched. The fireball's splash. Authored
+    /// here so a fireball is a bolt with a splash on the ONE projectile road,
+    /// not a second projectile simulation keyed on its item id.
+    #[serde(default)]
+    pub splash_half_extent: f32,
 }
 
 impl ProjectileFlight {
@@ -586,6 +603,7 @@ impl ProjectileFlight {
         max_lifetime: 2.4,
         half_extent: ae::Vec2::new(10.0, 8.0),
         boomerang_return_s: None,
+        splash_half_extent: 0.0,
     };
 
     /// A shot that goes out, stops, and comes back — `out_s` to the turnaround.
@@ -631,6 +649,12 @@ impl ProjectileFlight {
 
     pub const fn with_half_extent(mut self, half_extent: ae::Vec2) -> Self {
         self.half_extent = half_extent;
+        self
+    }
+
+    /// A shot that bursts where it lands, over a box of this half-extent.
+    pub const fn with_splash(mut self, half_extent: f32) -> Self {
+        self.splash_half_extent = half_extent;
         self
     }
 }
@@ -778,6 +802,25 @@ pub fn gun_sword_discharge() -> Discharge {
 
 /// The gun-sword's shot LOOKS like a spinning blade.
 pub const LASERSWORD_VISUAL: &str = "lasersword";
+
+/// The gauntlet fireball's shot: its own glowing sprite, radial, drawn a touch
+/// over its contact box. Registered by the game's projectile visual catalog.
+pub const GAUNTLET_FIREBALL_VISUAL: &str = "gauntlet_fireball";
+
+/// The splash box a fireball bursts with where it lands.
+pub const FIREBALL_SPLASH_HALF: f32 = 56.0;
+
+/// The flight every hand-fired held shot has had since it existed: a 24 x 18 px
+/// body that flies straight until it has covered 1600 px. Authored here, once,
+/// instead of a range gate inside a second projectile stepper.
+pub const fn held_shot_flight(speed: f32) -> ProjectileFlight {
+    ProjectileFlight::STRAIGHT
+        .with_half_extent(ae::Vec2::new(12.0, 9.0))
+        .with_lifetime(HELD_SHOT_MAX_RANGE / speed)
+}
+
+/// How far a hand-fired held shot flies before it expires on its own.
+pub const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 
 /// A service pistol's shot LOOKS like a bullet — brass slug, hot tip, short
 /// wake, authored travelling +x so `FlipToTravel` mirrors it correctly.

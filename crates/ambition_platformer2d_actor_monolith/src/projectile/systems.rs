@@ -348,6 +348,45 @@ struct PlayerProjectileTickInfo {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProjectileStepSet;
 
+/// The burst a landing shot deals when its spec carries a splash.
+///
+/// One `HitEvent` over a box of `half` about the impact, `HitTarget::Volume`
+/// so everything in it — bodies, breakables, bosses — resolves through the
+/// same damage road a melee volume takes; one cue and one flash. This is the
+/// fireball's explosion, absorbed from the former held-shot simulation so a
+/// fireball is a projectile with a splash and not a second projectile system.
+pub(crate) fn emit_landing_splash(
+    pos: ae::Vec2,
+    damage: i32,
+    half: f32,
+    attacker: Option<Entity>,
+    feature_damage: &mut MessageWriter<HitEvent>,
+    sfx: &mut SfxWriter,
+    vfx: &mut MessageWriter<VfxMessage>,
+) {
+    feature_damage.write(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(pos, ae::Vec2::splat(half)).into(),
+        damage,
+        source: HitSource::Projectile,
+        attacker,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    sfx.write(SfxMessage::Play {
+        id: ambition_sfx::ids::WORLD_ROCK_HIT,
+        pos,
+    });
+    vfx.write(VfxMessage::Effect {
+        pos,
+        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+        scale: 1.0,
+        pose: ambition_vfx::FxPose::UPRIGHT,
+    });
+}
+
 /// Step every live projectile in deterministic spawn order.
 /// Player/enemy routing shares this body-general path; bosses and breakables use the feature-hit path.
 pub fn step_projectiles(
@@ -767,6 +806,17 @@ pub fn step_projectiles(
                 // thrown and caught, and a throw that ends in the first body it
                 // touches is not the move Jon asked for.
                 if !game.returns() {
+                    if game.splash_half_extent > 0.0 {
+                        emit_landing_splash(
+                            kin.pos,
+                            game.damage.max(1),
+                            game.splash_half_extent,
+                            owner_entity,
+                            &mut feature_damage,
+                            &mut sfx,
+                            &mut vfx,
+                        );
+                    }
                     commands.entity(proj_entity).despawn();
                 }
                 continue;
@@ -793,6 +843,17 @@ pub fn step_projectiles(
                         &ecs_bosses,
                     );
             if reaches_feature {
+                if game.splash_half_extent > 0.0 {
+                    emit_landing_splash(
+                        kin.pos,
+                        game.damage.max(1),
+                        game.splash_half_extent,
+                        owner_entity,
+                        &mut feature_damage,
+                        &mut sfx,
+                        &mut vfx,
+                    );
+                }
                 feature_damage.write(unresolved);
                 // CM8: no attacker-side hit sound here — the struck feature's own
                 // victim consumer (the boss reaction, or the breakable's Impact /
@@ -900,6 +961,17 @@ pub fn step_projectiles(
                 sfx.write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
+                if game.splash_half_extent > 0.0 {
+                    emit_landing_splash(
+                        pos,
+                        game.damage.max(1),
+                        game.splash_half_extent,
+                        owner_entity,
+                        &mut feature_damage,
+                        &mut sfx,
+                        &mut vfx,
+                    );
+                }
                 match expiry_burst.map(|b| b.to_message(pos)) {
                     Some(boom) => {
                         vfx.write(boom);

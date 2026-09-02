@@ -298,8 +298,9 @@ construction — so a couch's second seat and a possessed body never acted:
 `DrivenBodies` (the possessed subject ∪ seated bodies, ordered by `SimId`), and
 every per-body exit is a `continue`. The held bolt carries
 `ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
-component the ECS projectile road uses — so `held_projectile_step` credits a
-hit to whoever fired it instead of `Query<Entity, PrimaryPlayerOnly>`. Looping
+component the ECS projectile road uses — so a hit is credited to whoever fired
+it instead of `Query<Entity, PrimaryPlayerOnly>` (the crediting stepper it
+named, `held_projectile_step`, was deleted by the K2 fold on 2026-09-02). Looping
 exposed one new defect and it is fixed: the summon cap counted a query, which
 cannot see this tick's `Commands` spawns, so N seats firing together each read
 the same pre-tick count and every one of them summoned. Ten guards, each proven

@@ -56,14 +56,14 @@ generic-body integration difference. Re-measure HEAD before changing it. Merge
 paths only when they express the same body semantic; do not erase legitimate
 home-avatar presentation or shell policy for naming symmetry.
 
-### K2 — per-driven-body item/projectile control — DONE for the ITEM half
+### K2 — per-driven-body item/projectile control — DONE (fold landed 2026-09-02)
 
 Both leaks this section named are closed:
 
 - held ranged shots no longer attribute through slot-zero. A held bolt carries
   `ProjectileOwner(firer)` — the rollback-registered, entity-remapped component
-  the ECS projectile road already uses — and `held_projectile_step` credits the
-  hit to it instead of `Query<Entity, PrimaryPlayerOnly>`;
+  the ECS projectile road already uses — so the hit is credited to whoever
+  fired it instead of `Query<Entity, PrimaryPlayerOnly>`;
 - nine held-item abilities (`ranged/{volley, meteor, beam, vortex}`,
   `thrown/puppy_slug_gun`, `traversal/{grapple, dive, blink, mark_recall}`) loop
   `DrivenBodies` instead of resolving one `ControlledSubject`.
@@ -79,10 +79,18 @@ classes of defect come with it, and both were live here:
   one tick each read the same pre-tick count and every one of them summoned. A
   budget shared across the loop has to be tallied inside it.
 
-The fold of held shots into `ProjectileSpawnRequest` — deleting the parallel
-held-shot simulation entirely — is still open and still preferred; it is a
-second world-collision implementation and a second place anti-tunnelling must be
-fixed, not just an attribution question.
+✔ **The fold landed 2026-09-02.** A press on a held gun-sword or fireball is
+an `ActionRequest::Ranged` (`fire_held_ranged_system`, `items/pickup/mod.rs`)
+consumed by the same spawner every brain's ranged action uses; the parallel
+`HeldProjectile` simulation — its own world collision, range gate, splash and
+rollback row (`item.held_projectile`) — is deleted, and the fireball's burst is
+`splash_half_extent` on `ProjectileGameplay` (schema v150). The two facts the
+old path decided by code, not authoring — no recoil for the hand, the side
+muzzle — are recorded as decisions 40–41 in `awaiting-maintainer-decision.md`;
+the fold preserves the shipped feel until they are ruled. Guards:
+`items::pickup::tests` (the request) and
+`game/ambition_app/tests/hand_fired_held_shot.rs` (the projectile, in the
+shipped composition; recoil proven red at −380 px/s).
 
 The press-gated WORLD verbs followed (D-CONTROL-INTERACT): `open_ecs_chests`,
 `interact_ecs_actors_and_switches`, `heal_save_shrine_system` and

@@ -50,6 +50,8 @@ pub struct ProjectileSpec {
     /// passes back through the launch point at `0.8` and wants a lifetime a
     /// little past that.
     pub boomerang_return_s: Option<f32>,
+    /// Half-extent of the burst dealt where this shot lands; `0.0` for none.
+    pub splash_half_extent: f32,
 }
 
 impl ProjectileSpec {
@@ -76,6 +78,7 @@ mod tests {
             world_hit: crate::projectile::WorldHitPolicy::Bouncing,
             charge_tier: 0,
             boomerang_return_s: None,
+            splash_half_extent: 0.0,
         };
         let v = s.initial_velocity();
         assert!((v.x - 360.0).abs() < 1e-3);

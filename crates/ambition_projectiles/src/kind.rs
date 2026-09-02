@@ -160,6 +160,7 @@ impl ProjectileKind {
             // A NAMED kind never turns around: the boomerang is authored on a
             // fighter's own ranged action, not on Ambition's shared kinds.
             boomerang_return_s: None,
+            splash_half_extent: 0.0,
             // Ambition's player kinds are arcing/bouncing shots (pass through
             // one-ways, bounce off supports per budget). Authored here, not
             // derived from who fires — so the player-robot boss firing this

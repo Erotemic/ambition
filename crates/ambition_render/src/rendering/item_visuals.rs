@@ -11,71 +11,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::world_item_art::WorldItemSprite;
-use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
+use ambition_sim_view::{GroundItemsView, HeldItemView};
 use std::collections::{BTreeMap, BTreeSet};
 
-const FIREBALL_ID: &str = "fireball";
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
-
-// --- Wielded / held gun-sword sprite ---------------------------------------
-// The spinning-lasersword sprite is the WIELDED weapon + the player's held
-// gun-sword shot (a `HeldProjectile`), distinct from the faction projectile
-// pool (whose art now flows through the `ProjectileVisualCatalog`). These consumers
-// keep their own static-frame helper.
-//
-// (Read from `lasersword_spritesheet.yaml`, row `idle`, frame 0.)
-const LASERSWORD_SHEET_PATH: &str = "sprites/lasersword_spritesheet.png";
-const LASERSWORD_LABEL_W: f32 = 110.0;
-const LASERSWORD_FRAME_W: f32 = 169.0;
-const LASERSWORD_FRAME_H: f32 = 44.0;
-const LASERSWORD_IDLE_FRAME_X: f32 = LASERSWORD_LABEL_W;
-const LASERSWORD_IDLE_FRAME_Y: f32 = 0.0;
-/// Pommel anchor in the idle frame — rotation pivot of the sprite.
-const LASERSWORD_POMMEL_X_PX: f32 = 14.0;
-const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
-const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
-
-/// Spritesheet path for the wielded / held gun-sword sprite.
-pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
-
-/// Build the lasersword sprite (idle frame, pommel-anchored) + its z-rotation
-/// for a shot traveling at `vel` (world space, y-down). Used by the wielded
-/// weapon and the player's held gun-sword shot so both render an identical
-/// spinning sword aligned to its velocity.
-///
-/// AMBITION_REVIEW(spatial): Bevy +Y is up, sim +Y is down — flip Y for the
-/// rotation; the pommel anchor is normalized from frame-local px (y negated).
-pub fn lasersword_projectile_sprite(
-    texture: Handle<Image>,
-    vel: ambition_platformer2d_core::Vec2,
-) -> (Sprite, Anchor, Quat) {
-    let bevy_dx = vel.x;
-    let bevy_dy = -vel.y;
-    let angle = if bevy_dx == 0.0 && bevy_dy == 0.0 {
-        0.0
-    } else {
-        bevy_dy.atan2(bevy_dx)
-    };
-    let aspect = LASERSWORD_FRAME_W / LASERSWORD_FRAME_H;
-    let render = Vec2::new(LASERSWORD_RENDER_WIDTH, LASERSWORD_RENDER_WIDTH / aspect);
-    let anchor_x_norm = (LASERSWORD_POMMEL_X_PX - LASERSWORD_FRAME_W * 0.5) / LASERSWORD_FRAME_W;
-    let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
-    let mut sprite = Sprite::from_image(texture);
-    sprite.custom_size = Some(render);
-    sprite.rect = Some(Rect::from_corners(
-        Vec2::new(LASERSWORD_IDLE_FRAME_X, LASERSWORD_IDLE_FRAME_Y),
-        Vec2::new(
-            LASERSWORD_IDLE_FRAME_X + LASERSWORD_FRAME_W,
-            LASERSWORD_IDLE_FRAME_Y + LASERSWORD_FRAME_H,
-        ),
-    ));
-    (
-        sprite,
-        Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
-        Quat::from_rotation_z(angle),
-    )
-}
 
 // Presentation (visible build only).
 
@@ -602,89 +541,6 @@ pub fn sync_held_item_visual(
                 sprite,
                 Transform::from_translation(translation).with_rotation(rotation),
                 Name::new("Held item visual"),
-            ),
-        );
-    }
-}
-
-/// Texture handles used by held-shot visuals. Kept alive in system-local state
-/// so the per-frame clear/rebuild visual path does not also re-request and
-/// repeatedly decode projectile sprite PNGs.
-pub struct HeldProjectileVisualArt {
-    lasersword: Handle<Image>,
-    fireball: Handle<Image>,
-}
-
-impl HeldProjectileVisualArt {
-    fn load(asset_server: &AssetServer) -> Self {
-        Self {
-            lasersword: asset_server.load(LASERSWORD_SHEET),
-            fireball: asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png")),
-        }
-    }
-}
-
-/// Marks the streak sprite for an in-flight [`HeldProjectile`] (laser bolt).
-#[derive(Component)]
-pub struct HeldProjectileVisual;
-
-/// Render each in-flight held shot. Fireballs draw as a glowing sphere; other
-/// shots reuse the spinning lasersword sprite and rotate along travel.
-pub fn sync_held_projectile_visuals(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    active_session: Option<Res<ActiveSessionScope>>,
-    visuals: Query<Entity, With<HeldProjectileVisual>>,
-    shots: Res<HeldShotsView>,
-    mut art: Local<Option<HeldProjectileVisualArt>>,
-) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-    let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
-    for shot in &shots.0 {
-        let translation =
-            ambition_platformer2d_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
-        if shot.fireball {
-            // Fireball: a glowing ball, sized a touch over the contact box so the
-            // fire visibly fills the space that hits. No rotation — it's radial.
-            commands.spawn_session_scoped(
-                session_scope,
-                (
-                    HeldProjectileVisual,
-                    Sprite {
-                        image: art.fireball.clone(),
-                        custom_size: Some(Vec2::splat(30.0)),
-                        ..default()
-                    },
-                    Transform::from_translation(translation),
-                    Name::new("Fireball shot"),
-                ),
-            );
-            continue;
-        }
-        let (sprite, anchor, rotation) =
-            lasersword_projectile_sprite(art.lasersword.clone(), shot.vel);
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                HeldProjectileVisual,
-                sprite,
-                anchor,
-                Transform {
-                    translation,
-                    rotation,
-                    scale: Vec3::ONE,
-                },
-                Name::new("Gun-sword laser shot"),
             ),
         );
     }

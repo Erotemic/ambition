@@ -148,6 +148,7 @@ pub fn spawn_eye_beam_from_special_messages(
                     // Straight shot: this ability authors no bounce.
                     bounces: 0,
                     bounce_on_world_contact: false,
+                    splash_half_extent: 0.0,
                     boomerang_return_s: None,
                 },
                 ProjectileStart::StepThisTick,

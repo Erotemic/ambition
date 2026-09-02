@@ -621,28 +621,15 @@ where
             // gravity well opens, and a well moves every body inside it.
             |fuse| fuse.timer.to_bits() as u64,
         );
-    // ⛔⛔ AND THIS ONE IS A WHOLE PARALLEL PROJECTILE. `HeldProjectile` rides on
-    // `BodyKinematics` — which IS rollback state — while its own damage, range
-    // and splash were not, so a rewind restored where a held shot WAS and kept
-    // what it would do when it landed. `traveled` is the range gate, so it also
-    // decides WHETHER it lands.
-    //
-    // ⚠ REGISTERED, NOT ENDORSED. The review that found this is right that the
-    // real repair is folding held shots into `ProjectileSpawnRequest` and
-    // deleting this second projectile simulation — which would take this row, a
-    // second world-collision implementation and a second place anti-tunnelling
-    // has to be fixed. (The slot-zero attribution this list used to name is
-    // gone: a held shot carries `ProjectileOwner` like every other projectile.) This makes the shipped
-    // behaviour correct in the meantime; it is not a reason to keep the fork.
-    registrar.rollback_component_clone_probed::<crate::items::pickup::HeldProjectile>(
-        OWNER,
-        "item.held_projectile",
-        |shot| {
-            (shot.damage as u64) << 32
-                ^ (shot.traveled.to_bits() as u64)
-                ^ (shot.explode_half.to_bits() as u64)
-        },
-    );
+    // ✔ THE PARALLEL PROJECTILE IS GONE (K2, 2026-09-02). `item.held_projectile`
+    // stood here: `HeldProjectile` rode on `BodyKinematics` while its own
+    // damage, range and splash were not rollback state, so a rewind restored
+    // where a held shot WAS and kept what it would do when it landed. The row
+    // was added as "registered, not endorsed", naming the real repair — fold
+    // held shots into `ProjectileSpawnRequest` and delete the second projectile
+    // simulation. That is done: a held item's shot is a `LiveProjectile` whose
+    // `ProjectileGameplay` (registered by the projectile domain, splash
+    // included) is the only in-flight state it has.
 
     // A MARKER, and presence is the whole of it — the summon cap counts these,
     // so a rewind that dropped one lets a fourth slug through.

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v149
+ggrs-rollback-schema-v150
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -256,7 +256,6 @@ gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapsho
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-item.held_projectile	component-clone	HeldProjectile	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

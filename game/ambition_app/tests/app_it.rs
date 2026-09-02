@@ -73,7 +73,7 @@ mod gravity_symmetry_room;
 mod hall_barks;
 mod hall_scale_spread;
 mod hall_transition_cover;
-mod held_projectile_portal_transit;
+mod hand_fired_held_shot;
 mod hit_shakes_the_camera;
 mod input_stream_replay;
 mod input_stream_under_rollback;

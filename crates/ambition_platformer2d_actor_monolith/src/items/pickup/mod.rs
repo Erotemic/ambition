@@ -119,8 +119,6 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 fire_held_ranged_system
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                held_projectile_step
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
                 throw_held_item_system
@@ -1785,90 +1783,24 @@ pub fn throw_held_item_system(
 }
 
 // ---------------------------------------------------------------------------
-// Held *ranged* items (the gun-sword): `Attack` fires a traveling laser bolt.
+// Held *ranged* items (the gun-sword, the fireball): `Attack` fires the item's
+// authored `RangedActionSpec` on the ONE projectile road.
 //
-// Self-contained like the portal shot — a `HeldProjectile` travels each tick,
-// damages the first enemy / boss / breakable it overlaps (reusing the shared
-// feature-damage `HitEvent` channel), and expires on a solid wall or past max
-// range. This is the player end of the held-gun-sword unification: the same
-// `RangedActionSpec` the pirates fire, driven by the player's `Attack`.
+// ⛔⛔ THERE USED TO BE A SECOND PROJECTILE SIMULATION HERE. `HeldProjectile`
+// stepped itself: its own raycast against solids, its own body/boss/breakable
+// hit test, its own range gate, its own fireball explosion, its own rollback
+// registration — a second world-collision implementation and a second place
+// anti-tunnelling had to be fixed (K2, `controlled-character-actor-kernel.md`).
+// A held item's shot is now an `ActorActionMessage::Ranged`, exactly what a
+// brain's ranged action is, and `spawn_projectiles_from_brain_actions` →
+// `step_projectiles` carry it: swept world contact, the victim ledger, shields
+// and parries, feature resolution, and — new to that road, absorbed from here —
+// the landing splash (`ProjectileFlight::splash_half_extent`).
 
-/// Held-shot-specific gameplay for an in-flight ranged item. Position and
-/// velocity live in shared [`BodyKinematics`]; this component carries damage,
-/// range traveled, and optional splash radius.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct HeldProjectile {
-    pub damage: i32,
-    pub traveled: f32,
-    /// Half-extent of an explosion this shot triggers when it hits something.
-    /// `0.0` for a plain bolt (the gun-sword); a Fireball sets it so the impact
-    /// deals splash damage to everything in the box, not just the first body.
-    pub explode_half: f32,
-}
-
-const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
-const HELD_SHOT_HALF: Vec2 = Vec2::new(12.0, 9.0);
-
-impl HeldProjectile {
-    /// The box that actually registers a hit on a body this tick, centered on the
-    /// body's current `pos`. ONE source of truth shared by the collision system
-    /// (`held_projectile_step`) and the debug overlay so the drawn box can never
-    /// drift from the box that hits — the cause of the "fireball hits before it
-    /// touches the visible box" report was that this contact box was never drawn.
-    pub fn contact_aabb(pos: Vec2) -> ae::Aabb {
-        ae::Aabb::new(pos, HELD_SHOT_HALF)
-    }
-
-    /// The splash box a Fireball detonates with on contact (`None` for a plain
-    /// bolt). Drawn faintly around an in-flight fireball so the player can see
-    /// the whole area-of-effect that will trigger, not just the thin bolt.
-    pub fn splash_aabb(&self, pos: Vec2) -> Option<ae::Aabb> {
-        (self.explode_half > 0.0).then(|| ae::Aabb::new(pos, Vec2::splat(self.explode_half)))
-    }
-}
-
-/// Held-item id of the Fireball ability — a ranged held item whose shot
-/// explodes on contact (see [`fire_held_ranged_system`]).
+/// Held-item id of the Fireball ability. Its shot is authored to burst where it
+/// lands (`ProjectileFlight::with_splash`), which is the whole difference from
+/// the gun-sword's bolt.
 pub const FIREBALL_ID: &str = "fireball";
-
-/// Splash half-extent a Fireball shot detonates with on contact.
-const FIREBALL_EXPLODE_HALF: f32 = 56.0;
-
-/// Detonate a Fireball shot at `pos`: a boxed splash `HitEvent` (damages every
-/// body in the box, not just the first), an explosion VFX, and a boom SFX. A
-/// free fn (not a closure) so it can borrow the loop's writers at each call site
-/// without holding them across the projectile loop.
-fn emit_fireball_explosion(
-    pos: Vec2,
-    damage: i32,
-    half: f32,
-    attacker: Option<Entity>,
-    feature_damage: &mut MessageWriter<ambition_combat::events::HitEvent>,
-    sfx: &mut ambition_sfx::SfxWriter,
-    vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
-) {
-    feature_damage.write(ambition_combat::events::HitEvent {
-        strike_sfx: None,
-        volume: ae::Aabb::new(pos, Vec2::splat(half)).into(),
-        damage,
-        source: ambition_combat::events::HitSource::Projectile,
-        attacker,
-        target: ambition_combat::events::HitTarget::Volume,
-        mode: ambition_combat::events::HitMode::Knockback,
-        knockback: None,
-        ignored_targets: Vec::new(),
-    });
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos,
-    });
-    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
-        pos,
-        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-        scale: 1.0,
-        pose: ambition_vfx::FxPose::UPRIGHT,
-    });
-}
 
 /// Body-generic ability aim in the CONTROLLED BODY'S LOCAL frame, taken from the
 /// brain-resolved [`ActorControlFrame::aim`] (the brain already crossed the input
@@ -1900,14 +1832,19 @@ pub fn ability_aim_world(
     ae::AccelerationFrame::new(gravity_dir).to_world(ability_aim_local(control, facing))
 }
 
-/// `Attack` while holding a *ranged* item fires a laser bolt along the aim
-/// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
+/// `Attack` while holding a *ranged* item fires it along the aim direction, as
+/// the brain road would: the request names the world-space direction and the
+/// item's own `RangedActionSpec`, and the projectile spawner does the rest —
+/// muzzle, cue, recoil, look, flight. `Shield + Attack` is the throw/drop
+/// gesture, so don't fire on it.
+///
+/// ⚠ ONE DELIBERATE DIFFERENCE FROM THE BRAIN ROAD: a held weapon fired from
+/// the hand applies NO recoil to the body holding it. The deleted held-shot
+/// path never kicked the player; the gun-sword's authored discharge kicks the
+/// PIRATE 380 px/s by design. Whether the player should feel that kick is a
+/// feel ruling and is recorded in `awaiting-maintainer-decision.md`, not
+/// decided here.
 pub fn fire_held_ranged_system(
-    mut commands: Commands,
-    // SUBJECT-GENERIC held-weapon fire: every DRIVEN body, reading its OWN
-    // `ActorControl` (brain output) + `HeldItem`. No `With<PlayerEntity>` filter
-    // or entity-local input copy — a possessed body firing its held gun works
-    // exactly like the home avatar, and so does a second seat.
     driven: DrivenBodies,
     bodies: Query<(
         &ActorControl,
@@ -1915,7 +1852,7 @@ pub fn fire_held_ranged_system(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
     )>,
-    mut sfx: ambition_sfx::SfxWriter,
+    mut actions: MessageWriter<ambition_characters::brain::ActorActionMessage>,
 ) {
     for subject in driven.entities() {
         let Ok((control, kin, resolved_frame, held)) = bodies.get(subject) else {
@@ -1926,262 +1863,32 @@ pub fn fire_held_ranged_system(
             continue;
         }
         let Some(ranged) = held.spec.ranged.clone() else {
-            // ⛔⛔ `continue`, NOT `return`. Seat zero holding a NON-ranged item
-            // ended the system, so seat one's gun did not fire.
             continue;
         };
-        // The body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
-        let local_dir = ability_aim_local(&c, kin.facing);
-        let dir = frame.to_world(local_dir).normalize_or_zero();
+        let dir = frame
+            .to_world(ability_aim_local(&c, kin.facing))
+            .normalize_or_zero();
         if dir == Vec2::ZERO {
-            // ⛔⛔ `continue`, NOT `return` — one body with no aim is not a reason
-            // to stop asking the others.
             continue;
         }
-        let muzzle_side = if local_dir.x.abs() > 0.001 {
-            local_dir.x.signum()
-        } else {
-            kin.facing.signum()
-        };
-        let muzzle = frame.to_world(Vec2::new(
-            muzzle_side * (kin.size.x * 0.5 + 8.0),
-            -kin.size.y * 0.12,
-        ));
-        let origin = kin.pos + muzzle;
-        // A Fireball shot explodes on contact; every other ranged held item fires a
-        // plain single-target bolt (`explode_half` 0).
-        let explode_half = if held.spec.id == FIREBALL_ID {
-            FIREBALL_EXPLODE_HALF
-        } else {
-            0.0
-        };
-        #[allow(unused_mut)]
-        let mut shot = commands.spawn_room_scoped((
-            // Position + velocity live in the shared body; size matches contact.
-            BodyKinematics {
-                pos: origin,
-                vel: dir * ranged.speed(),
-                size: HELD_SHOT_HALF * 2.0,
-                facing: if dir.x >= 0.0 { 1.0 } else { -1.0 },
+        let mut discharge = ranged.discharge.clone().unwrap_or_default();
+        discharge.recoil = 0.0;
+        let spec = ranged.with_discharge(discharge);
+        actions.write(ambition_characters::brain::ActorActionMessage {
+            actor: subject,
+            request: ambition_characters::brain::action_set::ActionRequest::Ranged {
+                spec,
+                origin: kin.pos,
+                dir,
+                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                // A press is an attempt: the spec's own refire gate applies,
+                // as it does to every other body that fires this weapon.
+                commitment: ambition_characters::brain::action_set::RangedCommitment::Attempt,
             },
-            // The projectile *marker*: excludes the bolt from actor-generic queries
-            // (auto-righting, actor portal tagging). Its kinematics are driven by
-            // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
-            // projectile step (keyed on `LiveProjectile`), so this marker never
-            // double-steps the bolt.
-            ambition_projectiles::ProjectileGameplay {
-                age: 0.0,
-                max_lifetime: f32::MAX,
-                gravity: 0.0,
-                damage: ranged.damage(),
-                bounces_remaining: 0,
-                // Stepped by `held_projectile_step` (keyed on `HeldProjectile`), not
-                // the ECS projectile world-collision path, so this is inert here; a
-                // detonate-on-contact bolt is `ExpireOnContact` in spirit.
-                world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
-                accel: ae::Vec2::ZERO,
-                // No `accel`, so no return leg and no ledger to clear.
-                hits_cleared_on_leg: 0,
-            },
-            HeldProjectile {
-                damage: ranged.damage(),
-                traveled: 0.0,
-                explode_half,
-            },
-            // ⭐ THE FIRER, CARRIED BY THE SHOT. `held_projectile_step` used to
-            // attribute every bolt in flight to the PRIMARY PLAYER, so a second
-            // seat's kills were credited to seat zero — and with nobody in the
-            // primary slot, to nobody at all. The same component the ECS
-            // projectile road already uses: rollback-registered, entity-remapped
-            // on restore, probed through the owner's stable `SimId`.
-            ambition_projectiles::ProjectileOwner(subject),
-            Name::new("Held ranged shot"),
-        ));
-        // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
-        #[cfg(feature = "portal")]
-        shot.insert((
-            ambition_portal2d::PortalBody,
-            ambition_portal2d::PortalPolicy {
-                reorient: false,
-                carry_velocity: true,
-            },
-        ));
-        let _ = &shot;
-        // Fireball currently reuses the dash whoosh instead of the gun-sword zap.
-        let fire_sfx = if held.spec.id == FIREBALL_ID {
-            ambition_sfx::ids::PLAYER_DASH
-        } else {
-            ambition_sfx::SfxId::from_static("weapon.lasersword.fire")
-        };
-        sfx.write(ambition_sfx::SfxMessage::Play {
-            id: fire_sfx,
-            pos: origin,
         });
     }
 }
-
-/// Advance held ranged shots; damage the first feature they overlap, or expire
-/// on a solid wall / past max range.
-#[allow(clippy::too_many_arguments)]
-pub fn held_projectile_step(
-    time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
-    mut commands: Commands,
-    // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from
-    // the boss cluster query below (which reads `BodyKinematics` via
-    // `BossClusterRef`) — a held bolt is never a feature-sim entity (B0001).
-    mut projectiles: Query<
-        (
-            Entity,
-            &mut BodyKinematics,
-            &mut HeldProjectile,
-            // The firer, stamped at the fire site. `Option` because a fixture may
-            // stage a bolt with no firer at all, and an unowned bolt is an
-            // honest `attacker: None` rather than a reason to drop it.
-            Option<&ambition_projectiles::ProjectileOwner>,
-        ),
-        Without<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
-    >,
-    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
-    ecs_breakables: Query<
-        (
-            &ambition_combat::components::FeatureId,
-            &ambition_platformer2d_core::CenteredAabb,
-            &ambition_combat::components::BreakableFeature,
-        ),
-        With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
-    >,
-    // `Option<&DamageableVolumes>` so a thrown bolt does not terminate on a body
-    // that published no hurtbox and would take no damage. Optional, never required:
-    // requiring it would drop every actor without one from the query.
-    ecs_actors: Query<
-        (
-            &ambition_combat::components::FeatureId,
-            &ambition_platformer2d_core::CenteredAabb,
-            &ambition_combat::components::ActorDisposition,
-            // AC3.1.A: the liveness authority, not the once-per-frame mirror.
-            &ambition_characters::actor::BodyHealth,
-            Option<&ambition_combat::components::DamageableVolumes>,
-        ),
-        (
-            With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
-            Without<ambition_boss_encounter::BossConfig>,
-        ),
-    >,
-    ecs_bosses: Query<
-        (
-            &ambition_combat::components::FeatureId,
-            &ambition_platformer2d_core::CenteredAabb,
-            ambition_boss_encounter::BossClusterRef,
-            &ambition_characters::actor::BodyHealth,
-            &ambition_characters::brain::BossAttackState,
-            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
-        ),
-        With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
-    >,
-    mut feature_damage: MessageWriter<ambition_combat::events::HitEvent>,
-    mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    // Collide against the room world with ONLY the portal apertures carved out: a
-    // portal punched through a wall leaves the opening non-solid, so a bolt fired
-    // at a wall portal flies INTO the opening instead of detonating on the wall —
-    // and `portal_transit` (which already moves this bolt's `BodyKinematics`)
-    // carries it out the far portal. Carves-only preserves the bolt's historical
-    // raw-world collision (it passes through moving platforms).
-    let collision_world = ambition_platformer2d_world::collision::world_with_portal_carves(
-        &world.0,
-        &overlay.portal_carves,
-    );
-    for (entity, mut kin, mut proj, owner) in &mut projectiles {
-        // Whoever FIRED this bolt, not whoever holds the primary slot.
-        let attacker = owner.map(|owner| owner.0);
-        let pos = kin.pos;
-        let vel = kin.vel;
-        // Damage check against actors / bosses / breakables via the shared
-        // attacker-side channel. Projectile hit events broadcast to features.
-        let hit_event = ambition_combat::events::HitEvent {
-            strike_sfx: None,
-            volume: HeldProjectile::contact_aabb(pos).into(),
-            damage: proj.damage,
-            source: ambition_combat::events::HitSource::Projectile,
-            attacker,
-            target: ambition_combat::events::HitTarget::Volume,
-            mode: ambition_combat::events::HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-        };
-        let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
-            || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-            || crate::features::ecs_hit_event_hits_boss(&boss_catalog, &hit_event, &ecs_bosses);
-        if hit {
-            if proj.explode_half > 0.0 {
-                // Fireball: the splash box covers the body we hit plus anything
-                // around it, so skip the single-target write and detonate.
-                emit_fireball_explosion(
-                    pos,
-                    proj.damage,
-                    proj.explode_half,
-                    attacker,
-                    &mut feature_damage,
-                    &mut sfx,
-                    &mut vfx,
-                );
-            } else {
-                feature_damage.write(hit_event);
-                sfx.write(ambition_sfx::SfxMessage::Hit { pos });
-            }
-            commands.entity(entity).despawn();
-            continue;
-        }
-        // Solid wall in this step → impact + expire (Fireball detonates here too).
-        // Uses the carved world, so a portal opening is NOT a wall.
-        let step = (vel * dt).length().max(1.0);
-        if let Some((hit_pos, _normal)) = ambition_platformer2d_core::cast::raycast_solids(
-            &*collision_world,
-            pos,
-            vel,
-            step,
-            false,
-        ) {
-            if proj.explode_half > 0.0 {
-                emit_fireball_explosion(
-                    hit_pos,
-                    proj.damage,
-                    proj.explode_half,
-                    attacker,
-                    &mut feature_damage,
-                    &mut sfx,
-                    &mut vfx,
-                );
-            } else {
-                vfx.write(ambition_vfx::vfx::VfxMessage::Impact { pos: hit_pos });
-            }
-            commands.entity(entity).despawn();
-            continue;
-        }
-        let delta = vel * dt;
-        kin.pos += delta;
-        proj.traveled += delta.length();
-        let oob = kin.pos.x < -64.0
-            || kin.pos.y < -64.0
-            || kin.pos.x > world.0.size.x + 64.0
-            || kin.pos.y > world.0.size.y + 64.0;
-        if proj.traveled > HELD_SHOT_MAX_RANGE || oob {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests;

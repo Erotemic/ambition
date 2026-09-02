@@ -265,12 +265,6 @@ pub(crate) fn draw_debug_overlay(
             feature_q.live_projectiles.iter(),
             &developer_tools,
         );
-        draw_held_projectiles(
-            &mut gizmos,
-            world,
-            feature_q.held_projectiles.iter(),
-            &developer_tools,
-        );
         #[cfg(feature = "portal")]
         draw_portals(&mut gizmos, world, portals.iter());
     }

@@ -103,6 +103,25 @@ pub(super) fn register(app: &mut App) {
         );
     }
 
+    // The gauntlet fireball a player throws: its own glowing sprite, radial,
+    // drawn a touch over the 24 x 18 contact box so the fire visibly fills the
+    // space that hits. This is the look the deleted held-shot renderer gave it
+    // (a 30 px `gauntlet_fireball.png` sprite); the catalog's "fireball" id is
+    // the tinted energy ball of the player kit and is not this.
+    app.register_projectile_visual(
+        ambition_platformer2d::characters::brain::action_set::GAUNTLET_FIREBALL_VISUAL,
+        ProjectileArt {
+            source: ProjectileArtSource::Image {
+                path: "sprites/props/gauntlet_fireball.png".to_string(),
+            },
+            size: ProjectileRenderSize::FixedWidth(30.0),
+            rotation: ProjectileRotation::GravityUpright,
+            debug_tint: [1.0, 0.55, 0.20, 1.0],
+            label: "gauntlet_fireball".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // Pirate gun-sword: the first idle frame of the lasersword sheet, rotated
     // along the velocity (pommel pivot read from the manifest), detonating on
     // expiry.

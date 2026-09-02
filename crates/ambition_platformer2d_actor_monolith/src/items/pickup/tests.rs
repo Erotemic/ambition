@@ -150,12 +150,34 @@ fn with_moveset(app: &mut App, body: Entity, moveset: MovesetContract, on_ground
     ));
 }
 
+/// Every `Ranged` request the held-fire system wrote this update, as
+/// `(actor, spec)`. The held-shot path used to spawn its own entity here; the
+/// fold makes a press the same request a brain's ranged action is, and the
+/// projectile spawner downstream (not under test here) does the rest.
+fn ranged_fires(
+    app: &mut App,
+) -> Vec<(
+    Entity,
+    ambition_characters::brain::action_set::RangedActionSpec,
+)> {
+    app.world()
+        .resource::<bevy::ecs::message::Messages<ambition_characters::brain::ActorActionMessage>>()
+        .iter_current_update_messages()
+        .filter_map(|msg| match &msg.request {
+            ambition_characters::brain::action_set::ActionRequest::Ranged { spec, .. } => {
+                Some((msg.actor, spec.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
 /// Press Attack while holding `spec`, and report BOTH claimants of that press:
 /// the number of item bolts fired, and the move the body ended up playing
 /// (`None` when nothing did).
 fn attack_while_holding(spec: HeldItemSpec, on_ground: bool) -> (usize, Option<MoveSpec>) {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(
         Update,
@@ -191,10 +213,7 @@ fn attack_while_holding(spec: HeldItemSpec, on_ground: bool) -> (usize, Option<M
     set_control(&mut app, player, true, false);
     app.update();
 
-    let bolts = {
-        let mut q = app.world_mut().query::<&HeldProjectile>();
-        q.iter(app.world()).count()
-    };
+    let bolts = ranged_fires(&mut app).len();
     let played = app
         .world()
         .get::<MovePlayback>(player)
@@ -335,6 +354,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
 fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, (pickup_held_item_system, fire_held_ranged_system));
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
@@ -371,10 +391,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
     // A second Attack while holding it fires exactly one laser bolt.
     set_control(&mut app, player, true, false);
     app.update();
-    let bolts = {
-        let mut q = app.world_mut().query::<&HeldProjectile>();
-        q.iter(app.world()).count()
-    };
+    let bolts = ranged_fires(&mut app).len();
     assert_eq!(
         bolts, 1,
         "Attack while holding the gun-sword fires one laser bolt"
@@ -463,9 +480,11 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
 }
 
 #[test]
-fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
+fn fireball_shot_is_authored_to_burst_unlike_a_plain_bolt() {
+    use ambition_characters::brain::action_set::{FIREBALL_SPLASH_HALF, GAUNTLET_FIREBALL_VISUAL};
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, fire_held_ranged_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
@@ -475,53 +494,49 @@ fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
         .insert(HeldItem::new(spec));
     set_control(&mut app, player, true, false);
     app.update();
-    let halves: Vec<f32> = {
-        let mut q = app.world_mut().query::<&HeldProjectile>();
-        q.iter(app.world()).map(|p| p.explode_half).collect()
-    };
-    assert_eq!(halves.len(), 1, "Attack fires one fireball");
+    let fires = ranged_fires(&mut app);
+    assert_eq!(fires.len(), 1, "Attack fires one fireball");
+    let flight = fires[0].1.flight.expect("the fireball authors its flight");
     assert_eq!(
-        halves[0], FIREBALL_EXPLODE_HALF,
-        "the fireball shot is tagged to explode on contact"
+        flight.splash_half_extent, FIREBALL_SPLASH_HALF,
+        "the fireball is authored to burst where it lands"
+    );
+    assert_eq!(
+        fires[0].1.visual.as_deref(),
+        Some(GAUNTLET_FIREBALL_VISUAL),
+        "the fireball keeps its own look, not the energy ball"
     );
 }
 
+/// The flight every hand-fired held shot has always had — a 24 x 18 body that
+/// flies 1600 px — is authored ONCE on the item specs, not gated inside a
+/// second projectile stepper. Both held weapons carry it; the range is the
+/// lifetime times the speed, so a faster bolt does not fly further.
 #[test]
-fn shot_collision_geometry_is_a_single_source_of_truth() {
-    // The contact box (what hits) and splash box (Fireball AOE) are the
-    // exact geometry the debug overlay draws, so the drawn box can't drift
-    // from the box that registers a hit — the original "fireball hits
-    // gnuton before it touches the visible box" report.
-    let pos = Vec2::new(50.0, 20.0);
-    let bolt = HeldProjectile {
-        damage: 3,
-        traveled: 0.0,
-        explode_half: 0.0,
-    };
-    assert_eq!(
-        HeldProjectile::contact_aabb(pos),
-        ae::Aabb::new(pos, HELD_SHOT_HALF)
-    );
-    assert!(
-        bolt.splash_aabb(pos).is_none(),
-        "a plain bolt has no splash AOE to draw"
-    );
-
-    let fireball = HeldProjectile {
-        explode_half: FIREBALL_EXPLODE_HALF,
-        ..bolt
-    };
-    assert_eq!(
-        fireball.splash_aabb(pos),
-        Some(ae::Aabb::new(pos, Vec2::splat(FIREBALL_EXPLODE_HALF))),
-        "a fireball's splash box is centered on the shot at its explode half-extent"
-    );
+fn held_shots_fly_the_authored_range_with_the_authored_body() {
+    use ambition_characters::brain::action_set::{held_shot_flight, HELD_SHOT_MAX_RANGE};
+    for (item, speed) in [("gun_sword", 500.0), (FIREBALL_ID, 440.0)] {
+        let spec = ambition_characters::brain::held_item_by_id(item).unwrap();
+        let ranged = spec.ranged.expect("a ranged held item");
+        let flight = ranged.flight.expect("held shots author their flight");
+        assert_eq!(
+            flight.half_extent,
+            Vec2::new(12.0, 9.0),
+            "{item}: the held-shot body"
+        );
+        assert!(
+            (flight.max_lifetime * ranged.speed() - HELD_SHOT_MAX_RANGE).abs() < 1.0e-3,
+            "{item}: lifetime x speed is the authored range"
+        );
+        assert_eq!(flight.max_lifetime, held_shot_flight(speed).max_lifetime);
+    }
 }
 
 #[test]
-fn a_plain_ranged_bolt_does_not_explode() {
+fn a_plain_ranged_bolt_does_not_burst() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, fire_held_ranged_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
@@ -530,11 +545,43 @@ fn a_plain_ranged_bolt_does_not_explode() {
         .insert(HeldItem::new(gunsword_spec()));
     set_control(&mut app, player, true, false);
     app.update();
-    let half = {
-        let mut q = app.world_mut().query::<&HeldProjectile>();
-        q.iter(app.world()).next().map(|p| p.explode_half)
-    };
-    assert_eq!(half, Some(0.0), "the gun-sword bolt does not explode");
+    let fires = ranged_fires(&mut app);
+    let splash = fires
+        .first()
+        .and_then(|(_, spec)| spec.flight.map(|f| f.splash_half_extent));
+    assert_eq!(splash, Some(0.0), "the gun-sword bolt does not burst");
+}
+
+/// A held weapon fired from the HAND kicks nobody: the deleted held-shot path
+/// never applied recoil to the player, and the gun-sword's authored discharge
+/// (recoil 380, the pirate's) must not start to. Whether it SHOULD is a feel
+/// ruling recorded in awaiting-maintainer-decision.md; this pins that the fold
+/// changed nothing until it is made.
+#[test]
+fn a_hand_fired_held_shot_carries_no_recoil() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, fire_held_ranged_system);
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    app.world_mut()
+        .entity_mut(player)
+        .insert(HeldItem::new(gunsword_spec()));
+    set_control(&mut app, player, true, false);
+    app.update();
+    let fires = ranged_fires(&mut app);
+    let discharge = fires[0]
+        .1
+        .discharge
+        .clone()
+        .expect("the fold always names a discharge");
+    assert_eq!(discharge.recoil, 0.0);
+    assert_eq!(
+        discharge.fire_sfx.as_deref(),
+        Some("weapon.lasersword.fire"),
+        "the cue is still the weapon's own"
+    );
 }
 
 #[test]
@@ -1669,6 +1716,7 @@ mod multi_seat {
     fn a_seat_holding_no_ranged_weapon_does_not_stop_the_next_seat_firing() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_characters::brain::ActorActionMessage>();
         app.insert_resource(ControlFrame::default());
         app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         app.add_systems(Update, fire_held_ranged_system);
@@ -1686,27 +1734,18 @@ mod multi_seat {
 
         app.update();
 
-        let shots = {
-            let mut q = app.world_mut().query::<&HeldProjectile>();
-            q.iter(app.world()).count()
-        };
+        let fires = ranged_fires(&mut app);
         assert_eq!(
-            shots, 1,
+            fires.len(),
+            1,
             "seat b holds a gun-sword and pressed Attack; seat a holds an axe, \
              which has no ranged spec — and that exit used to end the SYSTEM"
         );
-        // ⭐ AND THE BOLT KNOWS WHOSE IT IS. `held_projectile_step` reads this to
-        // credit the hit; without it the bolt was attributed to the primary slot,
-        // which on this stage is nobody.
-        let owners: Vec<_> = {
-            let mut q = app
-                .world_mut()
-                .query_filtered::<&ambition_projectiles::ProjectileOwner, With<HeldProjectile>>();
-            q.iter(app.world()).map(|owner| owner.0).collect()
-        };
+        // ⭐ AND THE BOLT KNOWS WHOSE IT IS. The request names its actor, and the
+        // projectile spawner credits the hit to it; before the fold the bolt was
+        // attributed to the primary slot, which on this stage is nobody.
         assert_eq!(
-            owners,
-            vec![second],
+            fires[0].0, second,
             "the bolt must carry the seat that fired it, not seat a and not nobody"
         );
     }
@@ -1747,118 +1786,4 @@ mod multi_seat {
             "seat a pressed nothing and must still be holding its axe"
         );
     }
-}
-
-/// ⭐⭐ A BOLT IS ATTRIBUTED TO WHOEVER FIRED IT, not to whoever holds the
-/// primary slot.
-///
-/// ⛔⛔ `held_projectile_step` READ `Query<Entity, PrimaryPlayerOnly>` AND
-/// STAMPED THAT ONE BODY ON EVERY BOLT IN FLIGHT. `fire_held_ranged_system` has
-/// iterated driven bodies for a while, so a second seat could already fire —
-/// and its kills were credited to seat zero. With nobody in the primary slot
-/// (a possessed body, a Smash stage) the credit went to NOBODY at all.
-///
-/// The bolt now carries `ProjectileOwner`, the same component the ECS
-/// projectile road already uses for exactly this: rollback-registered and
-/// entity-remapped on restore.
-///
-/// ⭐ THE PRIMARY PLAYER IS IN THIS FIXTURE ON PURPOSE. Without a primary body
-/// present, `attacker == shooter` would also hold for the OLD code reading
-/// `single().ok()` as `None`, and the test would agree with the bug.
-#[test]
-fn a_held_bolt_credits_the_body_that_fired_it_not_the_primary_player() {
-    let mut app = App::new();
-    app.add_message::<ambition_combat::events::HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
-    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<ambition_boss_encounter::BossCatalog>();
-    app.add_systems(Update, held_projectile_step);
-
-    // The session's room. `SessionWorldRef` is a `Single<.., With<SessionRoot>>`,
-    // so the geometry has to hang off the session root like production's does.
-    app.world_mut().spawn((
-        ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
-            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
-        ),
-        ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
-            "attribution fixture",
-            Vec2::new(1600.0, 600.0),
-            Vec2::new(50.0, 100.0),
-            Vec::new(),
-        )),
-    ));
-
-    // The body that FIRED, and a separate primary player that did not.
-    let shooter = app
-        .world_mut()
-        .spawn((
-            ambition_characters::control::DrivingParticipant(
-                ambition_characters::control::PlayerSlot(1),
-            ),
-            Name::new("seat one"),
-        ))
-        .id();
-    let primary = app
-        .world_mut()
-        .spawn((
-            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
-            Name::new("seat zero"),
-        ))
-        .id();
-
-    // A breakable to hit — the lightest target the preflight predicates accept.
-    let target = Vec2::new(400.0, 100.0);
-    app.world_mut().spawn((
-        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-        ambition_combat::components::FeatureId::new("crate"),
-        ambition_combat::components::CenteredAabb::new(target, Vec2::splat(24.0)),
-        ambition_combat::components::BreakableFeature::new(ambition_interaction::Breakable::new(
-            "crate", 10,
-        )),
-    ));
-
-    // Seat one's bolt, already overlapping the crate.
-    app.world_mut().spawn((
-        BodyKinematics {
-            pos: target,
-            vel: Vec2::new(300.0, 0.0),
-            size: Vec2::new(24.0, 18.0),
-            facing: 1.0,
-        },
-        HeldProjectile {
-            damage: 3,
-            traveled: 0.0,
-            explode_half: 0.0,
-        },
-        ambition_projectiles::ProjectileOwner(shooter),
-    ));
-
-    app.update();
-
-    let world = app.world_mut();
-    let mut reader = world
-        .resource_mut::<bevy::prelude::Messages<ambition_combat::events::HitEvent>>()
-        .get_cursor();
-    let world = app.world();
-    let attackers: Vec<Option<Entity>> = reader
-        .read(world.resource::<bevy::prelude::Messages<ambition_combat::events::HitEvent>>())
-        .map(|hit| hit.attacker)
-        .collect();
-    assert_eq!(
-        attackers.len(),
-        1,
-        "the bolt overlapped the crate, so exactly one hit should be written"
-    );
-    assert_eq!(
-        attackers[0],
-        Some(shooter),
-        "the bolt was fired by seat one and credited to {primary:?} (the \
-         primary player) instead"
-    );
 }

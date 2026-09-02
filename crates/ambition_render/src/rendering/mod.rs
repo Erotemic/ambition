@@ -249,7 +249,6 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // A struck block flinches — presentation only, see `block_nudge`.
                     flinch_struck_blocks,
                     item_visuals::sync_held_item_visual.after(actors::sync_visuals),
-                    item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,

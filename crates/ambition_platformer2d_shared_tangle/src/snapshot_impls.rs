@@ -136,6 +136,9 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
         // turnaround either re-arms the outbound leg's victims a second time or
         // never arms the return leg's at all.
         put_u8(out, self.hits_cleared_on_leg);
+        // The burst a landing deals. A peer that decoded a fireball without it
+        // would land a bolt.
+        put_f32(out, self.splash_half_extent);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
@@ -147,6 +150,7 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
             world_hit: crate::projectile::WorldHitPolicy::decode(r)?,
             accel: r.vec2()?,
             hits_cleared_on_leg: r.u8()?,
+            splash_half_extent: r.f32()?,
         })
     }
 }

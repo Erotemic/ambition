@@ -192,6 +192,7 @@ pub fn spawn_projectiles_from_brain_actions(
             // The pool's own straight envelope never turns around; a shot that
             // does says so on its authored flight.
             boomerang_return_s: None,
+            splash_half_extent: 0.0,
         });
         let gravity_dir = -surface
             .map(|s| s.surface_normal)
@@ -288,6 +289,7 @@ pub fn spawn_projectiles_from_brain_actions(
             visual_id,
             bounces: flight.bounces,
             bounce_on_world_contact: flight.bounce_on_world_contact,
+            splash_half_extent: flight.splash_half_extent,
             boomerang_return_s: flight.boomerang_return_s,
         };
         if let Some(cue) = discharge.fire_sfx.as_deref() {

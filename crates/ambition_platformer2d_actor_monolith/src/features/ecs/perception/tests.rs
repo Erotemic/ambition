@@ -538,6 +538,7 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
         accel: ae::Vec2::ZERO,
         hits_cleared_on_leg: 0,
+        splash_half_extent: 0.0,
     };
     app.world_mut().spawn((
         ambition_projectiles::LiveProjectile,

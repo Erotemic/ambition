@@ -1111,6 +1111,24 @@ and the one no 3090 measurement can reach. Together with the undrawn duplicate
 above, **15.3 of the hall's 24.1 resident MP at Potato — 63% — is art that does
 not respond to the tier at all.**
 
+⭐ **AUDITED ACROSS EVERY LOADER, so this is a complete list rather than one
+example.** Of the eleven `load_*`/`ensure_*` entry points in the asset path,
+**seven take the quality budget and three do not**:
+
+| takes `quality` | does NOT |
+|---|---|
+| `load_character_sprites_in`, `load_entity_sprites`, `load_game_assets`, `ensure_boss_sheets_loaded`, `ensure_theme_loaded`, `load_parallax_layers_for_theme`, `ensure_parallax_layers_for_room` | ⛔ `load_fx_sheets`, ⛔ `ensure_fx_sheet_loaded`, ⛔ `load_prop_sheet_for_target` |
+
+`load_sheet_image` is the eleventh and is correctly absent from both columns: it
+is the primitive that takes an already-resolved path, so the caller owns the
+choice.
+
+⛔ **BOTH FX LOADERS MISS IT — the boot core AND the per-character owned road** —
+which is why all ten resident fx sheets are full-resolution rather than just the
+four core ones. `load_prop_sheet_for_target` is the third; the hall's `held-item`
+road is 0.1 MP so it does not show there, and a prop-heavy room is where it
+would.
+
 ⛔ Routing again, not pixels: the fix gives a Potato user the 68 KB sheets they
 asked for and changes nothing at Ultra.
 

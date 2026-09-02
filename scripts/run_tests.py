@@ -545,6 +545,20 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # One persona because a linked wasm artifact is expensive; the served persona differs in ASSET
     # TRANSPORT, not in its dependency graph, so it stays a check — if that ever stops being true,
     # this is the line to change.
+    #
+    # ⭐ THE CHECK IS IN THE DEFAULT PLAN SINCE 2026-09-02; THE LINK STAYS EXHAUSTIVE-ONLY.
+    # A `#[cfg(not(wasm32))]` gate slid onto a new constant and the native image census became
+    # unconditional beside its wasm stub — 16 compile errors that only this job could see, and it
+    # did not run for seven hours of commits. Measured the same night: 505 s cold (the wasm
+    # dependency graph, once), 26 s warm. That is the price of not finding a whole build target
+    # broken by accident; the LINK's price (a release wasm artifact) is not, and its failure
+    # class (a missing wasm feature dying at `rust-lld`) has not recurred.
+    if not only and wasm_target_installed():
+        jobs.append(Job(
+            "web build check [web_served_assets]",
+            [CARGO, "check", "-p", "ambition_app", "--lib",
+             "--target", "wasm32-unknown-unknown",
+             "--no-default-features", "--features", "web_served_assets"]))
     if not only and everything:
         if wasm_target_installed():
             jobs.append(Job(
@@ -552,13 +566,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                 [CARGO, "build", "-p", "ambition_app", "--lib", "--release",
                  "--target", "wasm32-unknown-unknown",
                  "--no-default-features", "--features", "web"]))
-            jobs.append(Job(
-                "web build check [web_served_assets]",
-                [CARGO, "check", "-p", "ambition_app", "--lib",
-                 "--target", "wasm32-unknown-unknown",
-                 "--no-default-features", "--features", "web_served_assets"]))
         else:
-            print("run_tests: SKIPPING the web build check — the "
+            print("run_tests: SKIPPING the web build LINK — the "
                   "wasm32-unknown-unknown target is not installed "
                   "(`rustup target add wasm32-unknown-unknown`). "
                   "The web build is UNCHECKED in this run.")
@@ -858,7 +867,7 @@ def coverage_notice(
             "        `cargo test -p <crate> --features ...` compiles them)\n"
             "      - the external-consumer fixtures (own workspace + lockfile, so\n"
             "        an umbrella API break stays invisible to a workspace build)\n"
-            "      - the wasm/web build check\n"
+            "      - the wasm/web build LINK (the wasm CHECK ran)\n"
             "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
             "    That is the right trade for a dev cycle and the wrong one before a\n"
             "    release or after touching features, an SDK surface, or the web path."

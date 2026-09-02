@@ -63,18 +63,36 @@ pub struct WorldItemSimulationPlugin;
 
 impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use ambition_platformer2d_shared_tangle::schedule::{GameplayGated, SimScheduleExt as _};
+        use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
+        use ambition_platformer2d_shared_tangle::schedule::{
+            GameplayGated, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _, WorldItemSet,
+        };
         use bevy::prelude::IntoScheduleConfigs;
 
         let sim = app.sim_schedule();
-        app.add_systems(
+
+        // ⛔ THE PHASE IS THE POINT, NOT JUST THE CHAIN. `GameplayGated` is the
+        // MODE gate and nothing else — its own doc comment says it is
+        // deliberately not nested in `GameplaySimulationRoot`. Registering only
+        // against it left these systems outside session authorization and
+        // outside the phase order, so they could move an item on a tick the
+        // simulation never advanced.
+        //
+        // ⚠ CONFIGURED HERE, not inherited from the kernel's pickup plugin:
+        // depending on that plugin to configure our sets first would make this
+        // correct only for one plugin insertion order.
+        app.configure_sets(
             sim,
-            (
-                item_motion::step_item_motion,
-                world_item::collect_world_items,
-            )
+            (WorldItemSet::Motion, WorldItemSet::PreCollect, WorldItemSet::Collect)
                 .chain()
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
                 .in_set(GameplayGated),
         );
+        // Collection reads custody, so it must not run before custody settles;
+        // the same edge `ItemPickupSet::CoreHeldItems` carries for the held half.
+        app.configure_sets(sim, WorldItemSet::Motion.after(BodyCustodySettled));
+
+        app.add_systems(sim, item_motion::step_item_motion.in_set(WorldItemSet::Motion));
+        app.add_systems(sim, world_item::collect_world_items.in_set(WorldItemSet::Collect));
     }
 }

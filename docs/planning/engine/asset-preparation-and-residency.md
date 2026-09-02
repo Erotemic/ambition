@@ -1030,6 +1030,42 @@ looser than what is ever loaded:
   door crosses no theme boundary and a retire assertion on it passes while doing
   nothing. The fixture walks `tech_bros_door` into Basement instead.
 
+#### ⭐ The hall by TIER after the cap removal (calculex VM, software rasterizer, ff1ce535b)
+
+`capture_scene hall_of_characters player 640x360 --warmup 400`, tier forced with
+`AMBITION_QUALITY_PROFILE` and **verified from `[census] visual_quality
+profile=`** rather than assumed. ⛔ Counts, not clocks: this box has no GPU, so
+the megapixel and image figures transfer and the frame times do not.
+
+| tier | images | resident MP | MB | character-sheet | fx-sheet | parallax | UNROUTED |
+|---|---|---|---|---|---|---|---|
+| Potato | 234 | 24.1 | 96.5 | 137 × 4.2MP | 10 × 7.7MP | 4 × 0.0MP | 8 × **7.6MP** |
+| High | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+| Ultra | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+
+⭐ **THE UNROUTED POPULATION IGNORES THE TIER, AND IT IS THE BIGGEST SINGLE
+THING IN THE ROOM.** `game://sprites/player_robot_v3_spritesheet.png` is 7.6 MP
+at Potato, at High and at Ultra — byte-identical across all three. At Potato that
+one file is **32% of the hall's entire resident megapixels**, and it is the road
+the census names `UNROUTED(no demand)`: decoded with nobody claiming to have
+asked for it. An image that arrives without a demand stamp also arrives without a
+quality path, so the tier cannot reach it.
+
+⇒ **So "the tier decides how many pixels the hall holds" is true of 5.8 MP of it
+and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrouted
+7.6 MP is constant underneath. ⛔ This is a ROUTING observation, not a proposal to
+draw fewer pixels — the fix is a demand stamp, after which that sheet honours
+whatever tier the user chose, at whatever size that tier says.
+
+⚠ **High and Ultra are identical here** (29.9 MP, 119.4 MB, same road split), so
+for this room's residency the ceiling is reached at High. And the reveal barrier
+held **10 updates** at both Potato and Ultra — the tier did not change what the
+room waited for.
+
+⛔ Not comparable to the 434 MP host figure above: that is a walked-in hall on
+real hardware, this is a staged capture at 640×360 on a software rasterizer. The
+two answer different questions and no delta between them means anything.
+
 ### 5. Eliminate accidental re-preparation/reload
 
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame

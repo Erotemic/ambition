@@ -583,9 +583,14 @@ pub(crate) fn build_room_asset_manifest(
     // The manifest below then lists them and the reveal waits on them.
     if !room.boss_spawns.is_empty() {
         if let Some(boss_catalog) = boss_catalog {
+            let keys = ambition_platformer2d::actors::assets::game_assets::boss_sheet_keys_for_room(
+                room,
+                boss_catalog,
+            );
             ambition_platformer2d::actors::assets::game_assets::ensure_boss_sheets_loaded(
                 assets,
                 boss_catalog,
+                Some(&keys),
                 catalog,
                 asset_server,
                 layouts,

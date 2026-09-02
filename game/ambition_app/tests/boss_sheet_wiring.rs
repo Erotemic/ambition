@@ -358,26 +358,65 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         assets.boss_sprites.keys().collect::<Vec<_>>()
     );
 
-    // THE FIRST BOSS ROOM: every dedicated sheet, once.
+    // A BOSS ROOM: its own bosses' keys, and no other's. The authored worlds
+    // supply the room; the keys come from the same derivation the renderer
+    // makes for a live boss.
+    let project =
+        ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest)
+            .expect("the shipped LDtk project loads");
+    let room_set = project
+        .to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary())
+        .expect("it lowers to rooms");
+    let boss_rooms: Vec<_> = room_set
+        .rooms
+        .iter()
+        .filter(|room| !room.boss_spawns.is_empty())
+        .collect();
+    assert!(
+        boss_rooms.len() >= 2,
+        "premise: the worlds author more than one boss room"
+    );
+    // The first boss room whose bosses HAVE dedicated art (`basement_boss` is
+    // deliberately generic and names none, which is also correct).
+    let (first, first_keys) = boss_rooms
+        .iter()
+        .map(|room| {
+            (
+                *room,
+                ambition_platformer2d::actors::assets::game_assets::boss_sheet_keys_for_room(
+                    room,
+                    &boss_catalog,
+                ),
+            )
+        })
+        .find(|(_, keys)| !keys.is_empty())
+        .expect("premise: some authored boss room names a boss with a dedicated sheet");
+    assert!(
+        first_keys.len() < dedicated.len(),
+        "premise: room `{}` names some but not all dedicated sheets ({first_keys:?})",
+        first.id
+    );
     let decoded = ensure_boss_sheets_loaded(
         &mut assets,
         &boss_catalog,
+        Some(&first_keys),
         &catalog,
         &asset_server,
         &mut layouts,
         None,
     );
-    let resident: BTreeSet<&str> = assets.boss_sprites.keys().map(String::as_str).collect();
+    let resident: BTreeSet<String> = assets.boss_sprites.keys().cloned().collect();
     assert_eq!(
-        resident, dedicated,
-        "a boss room demands every dedicated sheet"
+        resident, first_keys,
+        "a boss room demands exactly its own bosses' sheets"
     );
-    assert_eq!(decoded, dedicated.len());
-    // A second boss room decodes nothing new.
+    assert_eq!(decoded, first_keys.len());
+    // The same room again decodes nothing new.
     assert_eq!(
         ensure_boss_sheets_loaded(
             &mut assets,
             &boss_catalog,
+            Some(&first_keys),
             &catalog,
             &asset_server,
             &mut layouts,
@@ -386,4 +425,16 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         0,
         "the seam is idempotent"
     );
+    // A fixture with no room in hand may still ask for everything.
+    ensure_boss_sheets_loaded(
+        &mut assets,
+        &boss_catalog,
+        None,
+        &catalog,
+        &asset_server,
+        &mut layouts,
+        None,
+    );
+    let resident: BTreeSet<&str> = assets.boss_sprites.keys().map(String::as_str).collect();
+    assert_eq!(resident, dedicated);
 }

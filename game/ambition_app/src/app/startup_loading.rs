@@ -440,9 +440,14 @@ fn build_startup_manifest(
     // behind the cover; no room without one pays for them (asset open work 2).
     if !room.boss_spawns.is_empty() {
         if let Some(boss_catalog) = inputs.boss_catalog.as_deref() {
+            let keys = ambition_platformer2d::actors::assets::game_assets::boss_sheet_keys_for_room(
+                room,
+                boss_catalog,
+            );
             ambition_platformer2d::actors::assets::game_assets::ensure_boss_sheets_loaded(
                 &mut inputs.game_assets,
                 boss_catalog,
+                Some(&keys),
                 &inputs.asset_catalog,
                 &inputs.asset_server,
                 &mut inputs.layouts,

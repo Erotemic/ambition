@@ -99,18 +99,16 @@ mod tests;
 /// room that authors a `BossSpawn` is prepared (transition, prefetch, direct
 /// startup), never at boot.
 ///
-/// ⚠ Every catalog boss, not the room's: a `BossSpawn`'s brain resolves to a
-/// behavior id — and so to a sheet key — inside construction, and the manifest
-/// waits on every loaded boss sheet for a room with any spawn. Loading the
-/// catalog's set on the FIRST boss room keeps that contract intact while
-/// keeping the sheets out of every room without one, which is the measured
-/// win. Narrowing to the room's own keys is the next slice, once construction
-/// exposes the key before it spawns.
+/// `keys` are the render keys the room's placements resolve to
+/// ([`boss_sheet_keys_for_room`]); `None` means every dedicated sheet the
+/// catalog names (a fixture with no room in hand). Sheets already resident are
+/// skipped, so a second boss room decodes only what it adds.
 ///
 /// Returns how many sheets this call decoded.
 pub fn ensure_boss_sheets_loaded(
     assets: &mut GameAssets,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
+    keys: Option<&std::collections::BTreeSet<String>>,
     catalog: &crate::assets::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -122,6 +120,7 @@ pub fn ensure_boss_sheets_loaded(
     for (key, _filename) in boss_catalog
         .sprite_filenames()
         .filter(|(key, _)| Some(*key) != fallback_sheet_key)
+        .filter(|(key, _)| keys.is_none_or(|wanted| wanted.contains(*key)))
     {
         if assets.boss_sprites.contains_key(key) {
             continue;
@@ -163,4 +162,33 @@ pub fn ensure_boss_sheets_loaded(
         }
     }
     loaded
+}
+
+/// The dedicated-sheet render keys a room's `BossSpawn`s resolve to — the same
+/// derivation the renderer makes for a LIVE boss (`upgrade_boss_sprites`:
+/// `behavior.id`, lowercased, `-` → `_`), run over the authored placements
+/// before anything spawns, so a boss room demands its own bosses' art and no
+/// other's. A placement whose profile has no dedicated sheet contributes
+/// nothing (it draws the fallback body by design).
+pub fn boss_sheet_keys_for_room(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
+) -> std::collections::BTreeSet<String> {
+    use ambition_boss_encounter::BossBehaviorProfileExt as _;
+    room.boss_spawns
+        .iter()
+        .map(|spawn| {
+            let canonical = ambition_boss_encounter::behavior::canonical_boss_id_from(
+                &spawn.name,
+                &spawn.payload,
+            );
+            let profile =
+                ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
+                    boss_catalog,
+                    &canonical,
+                );
+            profile.id.to_ascii_lowercase().replace('-', "_")
+        })
+        .filter(|key| boss_catalog.has_authored_sheet(key))
+        .collect()
 }

@@ -416,8 +416,12 @@ a `BossSpawn`, so the reveal waits on them there. Hall of characters, same
 capture, same tier: **86.6 MP / 346 MB resident → 32.7 MP / 131 MB**, and the
 largest upload frame 299 ms → 101 ms (llvmpipe). What remains under `?` is
 the LDtk preview tileset (7.6 MP, Jon's submodule) and ~4.7 MP of unstamped
-UI/prop art, by design. Next narrowing: a boss room demands only ITS bosses'
-keys once construction exposes the behavior id before it spawns.
+UI/prop art, by design. ✔ And the narrowing landed the same day: a boss room
+demands only ITS bosses' sheets — `boss_sheet_keys_for_room` runs the
+renderer's own key derivation (`canonical_boss_id_from` → profile → lowercased
+id) over the authored placements before anything spawns, so a one-boss arena
+decodes one sheet, not seven; `basement_boss` (deliberately generic) decodes
+none, correctly.
 
 Where semantic composition already knows the roster/room/UI assets, raise demand
 there rather than from `Added<ActorConfig>` or another first-use event.

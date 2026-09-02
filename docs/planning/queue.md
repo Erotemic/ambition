@@ -405,8 +405,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
-- ▢ **`hall_transition_cover` IS RED IN PARALLEL, and it is a SECOND-ORDER COST OF
-  THE COMPOSITION FIX.** Measured at `0955bd888`:
+- ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE
+  COMPOSITION FIX — CLOSED 2026-09-02 evening.** The fixture waits for FACTS now
+  (`wait_for_a_session_room_set`, `settle_resident_pages` — every resident
+  realization's USED pages loaded and the table quiet, 180 s backstops that
+  say the harness gave up; `70f6a8494`, and the lap test's frame-count sample
+  replaced the same day), the three discarded `settle_cast` verdicts became
+  an asserting `settle_launcher`, and the population it is about certified
+  it: an unfiltered `cargo test -p ambition_app --test app_it` read **548
+  passed / 0 failed** with all six hall tests inside it (agent 383484,
+  b0df66fc6+). ⚠ One green of a schedule-dependent flake proves the fixture no
+  longer loses to this machine at this load, not that no schedule exists that
+  beats a 180 s backstop. The original evidence, kept: measured at `0955bd888`:
 
   ```text
   cargo test -p ambition_app --test app_it hall_transition_cover

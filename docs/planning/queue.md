@@ -1157,6 +1157,42 @@ The one unresolved developer-policy choice from the session-ownership work is in
   twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
   with a facade export and a re-point, exactly as `ambition_world_items` did.
 
+  ▢ **THE EXECUTION ORDER, so this is startable rather than merely sized.**
+  Written after `ambition_world_items`, whose one surprise was step 2 — the
+  systems' `configure_sets` rules, which live far from the `add_systems` line and
+  which that carve dropped (see the regression in the owner doc).
+  1. **Read the plugin's `configure_sets` FIRST and write down every set the
+     moving systems join, what each set is nested `in_set`, and every
+     `.before`/`.after` edge it carries.** ⛔ This is step one and not step four
+     because skipping it is how `world_items` lost `.in_set(PlayerSimulation)`
+     and `.after(BodyCustodySettled)` while its comment claimed otherwise.
+  2. The new crate takes everything in `items/pickup/mod.rs` EXCEPT lines 53-253
+     (the plugin) and 775-1068 (`restore_custody_to_checkpoint`), plus
+     `pickup/conditions.rs` (80 lines, zero `crate::` references) and
+     `pickup/tests.rs`. ⚠ `pickup/minted_horizon.rs` STAYS for now: its single
+     kernel reference is `session::durable_horizon::SaveRestored`, a one-field
+     bool with 40 references across 13 files, which is its own move and not this
+     one's.
+  3. The kernel keeps a file holding the plugin and the checkpoint function,
+     importing the moved types. ✔ Verified feasible: neither calls a
+     file-private helper — the only non-`pub` functions in the file are `build`
+     (the `Plugin` trait method) and a `map_entities` trait impl.
+  4. `ItemPickupSet` is already in `shared_tangle::schedule` (`b80598c01`), so
+     the kernel's plugin and the new crate can both name it without either naming
+     the other.
+  5. Facade export + re-point the ~20 game references, as `world_items` did.
+  6. The usual tail, all of which `world_items` needed and none of which its
+     first pass remembered: two policy rows (manifest-allow + source-purity,
+     both poison-verified), `scripts/modules_md.py --write`, the two
+     sub-workspace lockfiles, and a declared entry in
+     `capability-footprint-baseline.json` — ⚠ the ratchet WILL fire, because it
+     counts crates.
+  ⚠ **AND THE ONE THING THAT IS NOT MECHANICAL**: `restore_custody_to_checkpoint`
+  stays in the kernel while the types it operates on leave, so it becomes a
+  kernel system reading a foreign crate's components. That is legitimate — it is
+  checkpoint policy, not item policy — but it should be stated in its doc
+  comment, or the next reader will "fix" it by dragging it after the domain.
+
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,
   `ambition_conversation` 45, `ambition_items` 34) invite a carve chosen by

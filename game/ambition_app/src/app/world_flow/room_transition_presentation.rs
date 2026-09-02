@@ -219,6 +219,11 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
     // item. A demo host that installs neither marker gets a barrier that
     // honestly skips the contributor.
     app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionAssetContributor>()
+        // And the same answer for a shell route's FIRST room, before it
+        // activates: the provider leaves `prepare-first-room-art` running for
+        // a host that installs this marker, and the system below completes it.
+        .init_resource::<ambition_platformer2d::provider::FirstRoomArtContributor>()
+        .init_resource::<super::first_room_art::FirstRoomArtJobs>()
         .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
         .init_resource::<RoomTransitionPresentationAvailable>()
         // The presentation floor owns this and fills it every frame. Named here
@@ -234,6 +239,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .add_systems(
             Update,
             (
+                super::first_room_art::prepare_first_room_art_system,
                 contribute_room_transition_assets_system,
                 poll_room_transition_asset_readiness_system,
                 // the census must be THIS frame's. The presentation floor

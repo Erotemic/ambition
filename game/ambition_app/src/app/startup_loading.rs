@@ -419,7 +419,7 @@ fn build_startup_manifest(
         .content_staging
         .try_requests_for(room)
         .map_err(|error| format!("content staging failed: {error}"))?;
-    let staged_names = staged
+    let mut staged_names = staged
         .iter()
         .map(|request| request.name.clone())
         .collect::<Vec<_>>();
@@ -432,6 +432,14 @@ fn build_startup_manifest(
         .iter()
         .map(|worn| worn.0.as_str().to_string())
         .collect();
+    // The worn characters join the staged list so ONE list demands them,
+    // waits for their realization and puts their pages in the manifest — the
+    // room's placements never name the player, and a body's own demand
+    // (`demand_worn_character_sheets`) realizes a sheet the manifest would
+    // otherwise never list, so the cover could lift on its page still loading.
+    staged_names.extend(worn.iter().cloned());
+    staged_names.sort();
+    staged_names.dedup();
     let remainder = super::world_flow::demand_room_character_sheets(
         room,
         &staged_names,

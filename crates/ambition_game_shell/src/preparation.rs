@@ -22,6 +22,16 @@ pub const PREPARE_ADAPTIVE_WORK_ID: &str = "validate-adaptive-cues";
 pub const PREPARE_DEFAULTS_WORK_ID: &str = "validate-provider-defaults";
 pub const PREPARE_AUDIO_WORK_ID: &str = PREPARE_MUSIC_WORK_ID;
 pub const PREPARE_SESSION_WORK_ID: &str = "publish-prepared-session";
+/// The first room's art — its cast at the room's tier and the starting
+/// character's sheet — decoded and inserted BEFORE the route activates, so
+/// the reveal is not the frame the player's own sheet arrives in (host
+/// captures 2026-09-02: a 67-79 ms frame 0.1 s after every first
+/// `room-loaded`). Required, so the barrier holds the load foreground for it.
+/// Owned by the host that has the sprite catalog and asset server; a
+/// provider whose host installs no first-room-art contributor completes it
+/// itself at publish time, so a thin composition never waits on a question
+/// nobody there can answer.
+pub const PREPARE_FIRST_ROOM_ART_WORK_ID: &str = "prepare-first-room-art";
 pub const PREPARE_PACKED_SFX_WORK_ID: &str = "stream-packed-sfx";
 
 pub fn standard_platformer_preparation_plan(label: impl Into<String>) -> ProviderPreparationPlan {
@@ -37,6 +47,7 @@ pub fn standard_platformer_preparation_plan(label: impl Into<String>) -> Provide
         )
         .required(PREPARE_DEFAULTS_WORK_ID, "Validate provider defaults")
         .required(PREPARE_SESSION_WORK_ID, "Build prepared session")
+        .required(PREPARE_FIRST_ROOM_ART_WORK_ID, "Load the first room's art")
         .streamable(PREPARE_PACKED_SFX_WORK_ID, "Stream packed sound bank")
 }
 
@@ -53,6 +64,7 @@ pub fn standard_preparation_succeeded_commands(
         PREPARE_ADAPTIVE_WORK_ID,
         PREPARE_DEFAULTS_WORK_ID,
         PREPARE_SESSION_WORK_ID,
+        PREPARE_FIRST_ROOM_ART_WORK_ID,
     ]
     .into_iter()
     .map(|work_id| LoadCommand::SetWorkState {

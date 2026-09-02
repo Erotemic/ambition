@@ -20,6 +20,6 @@ pub use composition::ShellComposition;
 pub use lifecycle::{
     prepare_platformer_content, prepare_platformer_content_for_app,
     prepare_world_replacement_candidate, PlatformerPreparationReport, PlatformerPreparationSet,
-    PlatformerSessionBuilder, PreparedPlatformerSession, PreparedPlatformerSessions,
-    SessionBuildResult,
+    FirstRoomArtContributor, PlatformerSessionBuilder, PreparedPlatformerSession,
+    PreparedPlatformerSessions, SessionBuildResult,
 };

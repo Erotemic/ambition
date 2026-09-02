@@ -53,7 +53,20 @@ fn rendered_app() -> App {
     app
 }
 
+/// Let a routed request land: while the shell holds a PENDING route its
+/// preparation barrier is loading — and since the first room's art is part of
+/// that barrier (`prepare-first-room-art`), the wait is a real decode, not a
+/// fixed count of frames. Six more updates after it settle the presentation.
 fn settle(app: &mut App) {
+    // The first update turns a written `GoTo` into a pending route.
+    app.update();
+    for _ in 0..1200 {
+        if app.world().resource::<ShellRouter>().pending.is_none() {
+            break;
+        }
+        app.update();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
     for _ in 0..6 {
         app.update();
     }

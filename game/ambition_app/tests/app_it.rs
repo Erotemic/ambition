@@ -63,6 +63,7 @@ mod every_character_says_something;
 mod experience_scope_ownership;
 mod falling_sand_room;
 mod fb6_shadow_fidelity;
+mod first_room_art;
 mod fly_to_the_hall_of_characters;
 mod fuzz_random_walker;
 mod gameplay_presentation_ggrs;

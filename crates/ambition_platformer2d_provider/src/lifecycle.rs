@@ -27,8 +27,8 @@ use ambition_game_shell::{
     ActiveGameplaySession, ActiveShellExperience, GameplayInputOwner, GameplaySessionEvent,
     GameplaySessionSet, PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
     ShellEvent, PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
-    PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID, PREPARE_SESSION_WORK_ID,
-    PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
+    PREPARE_FIRST_ROOM_ART_WORK_ID, PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID,
+    PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
 use ambition_load::AmbitionLoadSet;
 use ambition_platformer2d_runtime::{
@@ -257,7 +257,12 @@ pub(crate) struct PlatformerPreparation<'w> {
     sfx_banks: Option<Res<'w, ambition_audio::catalog::SfxBankRegistry>>,
     game_assets: Option<Res<'w, ambition_sprite_sheet::game_assets::GameAssets>>,
     registry: ResMut<'w, PreparedSessionRegistry>,
-    sessions: ResMut<'w, PreparedPlatformerSessions>,
+    // Paired because a `SystemParam` stops at sixteen: the store, and whether
+    // a HOST owns `prepare-first-room-art` (see `FirstRoomArtContributor`).
+    sessions: (
+        ResMut<'w, PreparedPlatformerSessions>,
+        Option<Res<'w, FirstRoomArtContributor>>,
+    ),
     streaming: ResMut<'w, PlatformerStreamingReadiness>,
     commands: MessageWriter<'w, ambition_load::LoadCommand>,
 }
@@ -296,6 +301,7 @@ impl PlatformerPreparation<'_> {
             PREPARE_ADAPTIVE_WORK_ID,
             PREPARE_DEFAULTS_WORK_ID,
             PREPARE_SESSION_WORK_ID,
+            PREPARE_FIRST_ROOM_ART_WORK_ID,
         ] {
             self.set_state(
                 transaction,
@@ -547,12 +553,20 @@ impl PlatformerPreparation<'_> {
                 return None;
             }
         };
-        let identity = self.sessions.publish(
+        let identity = self.sessions.0.publish(
             transaction,
             PreparedPlatformerSession { content, report },
             &mut self.registry,
         )?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
+        // The first room's art is the host's question: it has the sprite
+        // catalog, the asset server and the resolved quality, and it reads the
+        // published record to answer it (`PreparedPlatformerSessions::published`).
+        // A composition without that contributor has nobody to answer, so the
+        // item completes here rather than holding activation forever.
+        if self.sessions.1.is_none() {
+            self.complete(transaction, PREPARE_FIRST_ROOM_ART_WORK_ID);
+        }
         self.commands
             .write(ambition_load::LoadCommand::SetDiscovery {
                 load_id: transaction.barrier.load_id.clone(),
@@ -1040,6 +1054,14 @@ pub struct PreparedPlatformerSessions {
     records: BTreeMap<ambition_load::LoadId, PreparedPlatformerRecord>,
 }
 
+/// Installed by a host that answers `prepare-first-room-art` itself: it reads
+/// [`PreparedPlatformerSessions::published`] for the start room and the
+/// starting character, demands and decodes their art, and completes the work
+/// item through `LoadCommand::SetWorkState`. Without it the provider completes
+/// the item at publish time (a thin host has no sprite catalog to ask).
+#[derive(Resource, Default, Debug)]
+pub struct FirstRoomArtContributor;
+
 impl PreparedPlatformerSessions {
     pub(crate) fn publish(
         &mut self,
@@ -1071,6 +1093,17 @@ impl PreparedPlatformerSessions {
             return None;
         }
         Some(record.prepared)
+    }
+
+    /// Every published, not yet activated session with the transaction that
+    /// prepared it — what a host reads to prepare the first room's art before
+    /// activation.
+    pub fn published(
+        &self,
+    ) -> impl Iterator<Item = (&ProviderLoadTransaction, &PreparedPlatformerSession)> {
+        self.records
+            .values()
+            .map(|record| (&record.transaction, &record.prepared))
     }
 
     pub(crate) fn retain_requested(&mut self, registry: &PreparedSessionRegistry) {

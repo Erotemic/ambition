@@ -19,6 +19,12 @@ row was never true".
                 and this script prints the command for you.
     QUOTED      a row deliberately quotes a name that is wrong, to record a
                 mistake. Mark those (see MARKER below) so they stop reporting.
+    NOT A PATH  a SCHEMATIC (`provider::local_name` -- the SHAPE of a key) or an
+                AUTHORED CONTENT KEY (`smash::duelist`, `versus::versus_duelist`
+                -- a catalog fragment, not a Rust item). Both are spelled like
+                paths and neither half is ever an item. There is no reliable way
+                to tell these from a real path by regex, so they are marked, not
+                matched. Expect them: they were a fifth of one sweep's findings.
 
 ⚠ THIS IS A LINTER FOR PROSE AND IT WILL HAVE FALSE POSITIVES. It cannot know
 about upstream crates, external tools, or names that only appear in generated

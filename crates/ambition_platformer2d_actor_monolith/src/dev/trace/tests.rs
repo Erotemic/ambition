@@ -539,7 +539,7 @@ fn frame_includes_moving_platform_state() {
     assert!(platform.player_distance > 0.0);
 }
 
-/// P4 — `BodyMode::from_player` reads `player.body_mode` (the
+/// P4 — `BodyMode::from_clusters` reads `player.body_mode` (the
 /// authoritative field). Default is `Standing`; setting the field
 /// changes what the recorder/HUD see.
 #[test]

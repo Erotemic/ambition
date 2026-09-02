@@ -583,6 +583,30 @@ there rather than from `Added<ActorConfig>` or another first-use event.
 Do not prefetch every asset in the product. Demand should follow the prepared
 composition and the expected near-term experience/room.
 
+▢ **A THIRD ROW OF THE SAME SHAPE, SIZED 2026-09-02 AND DELIBERATELY NOT CLOSED:
+the FX set is 41 sheets / 9.6 MP, loaded at boot, in every room.**
+`load_game_assets` calls `load_fx_sheets` unconditionally, so the engine's whole
+effect vocabulary is resident whether or not anything ever plays one — 31% of the
+hall's resident megapixels on the capture above, and the second-largest owner on
+the `resident by road` line after the cast.
+
+⛔ **AND IT IS NOT OBVIOUSLY THE SAME MISTAKE**, which is why this is a row and
+not a fix. The two rows this section closed had no defence: the intro cast
+published under display names nothing looked up, and the boss sheets belonged to
+a boss that was not in the room. The FX set has one, stated at its load site: *"an
+engine that draws an asset has to be able to ship it"* — before that registration
+Smash, Sanic and Mary-O drew the particle fallback for every effect, forever. And
+an effect is not a cast: a room's characters are known at entry, while any effect
+may fire on any frame, so there is no "demand at room entry" seam to move it to.
+
+⭐ **WHAT WOULD DECIDE IT IS NOW MEASURABLE, and was not before today.** The
+fourth stage stamps first draw, so a real gameplay run can say how many of the 41
+a session ever draws. If a room draws six of them, the set is a candidate for
+demand-on-first-use with a small always-resident core; if it draws thirty, 9.6 MP
+is the honest price of an effect vocabulary and this row closes as a non-finding.
+⚠ A `capture_scene` shot cannot answer it — nothing fires an effect in a static
+frame — so the reading has to come from a played or scripted run.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare
@@ -676,8 +700,11 @@ names exactly those five. What stays resident in the hub and why: the hub's
 placed cast and the worn character (their realizations), the one-hop
 neighbours' casts the prefetch realized at THEIR tier (`basement_enemies`
 spawns an "Ai Slop", which is why `npc_ai_slop` comes back at Full — for the
-basement, not for nobody), the fx set, and 24 unrouted UI/prop images (4.5
-MP). ✔ **Working-set GROWTH measured the same evening**
+basement, not for nobody), the fx set, and 24 images on no demand road (4.5 MP).
+⚠ THAT LAST FIGURE WAS TWO POPULATIONS IN ONE BUCKET and is superseded: split on
+2026-09-02 (`a20b5b1a2`), the hall reads `UNROUTED(no demand) 9×7.9MP` — real
+findings, now named on an `[image-unrouted]` line — and `PROCEDURAL(no file)
+26×4.6MP`, which can never carry a road because there is no load to stamp. ✔ **Working-set GROWTH measured the same evening**
 (`two_round_trips_through_the_gallery_return_the_same_working_set`, headless,
 real decode): hub = 6 realizations / 16 character pages / 13.4 MP; hall =
 139 pages / 44.3 MP at Quarter; back in the hub after each of two laps:
@@ -911,9 +938,14 @@ compositions have no render world and the term is always false — a reveal
 never waits on a GPU it does not have (unit-tested both ways). The startup
 cover prints `[startup-cover] revealed after N updates (M of them waiting only
 on GPU uploads)`; the room transition's `asset_wait_ms` now includes the wait.
-⚠ Still a decode-plus-upload metric, not "resident use": nothing stamps the
-first draw, and a manifest never names a `MAIN_WORLD`-only image (which no
-render world would ever prepare) — if one ever does, the label says which.
+⚠ Still a decode-plus-upload metric, and a manifest never names a
+`MAIN_WORLD`-only image (which no render world would ever prepare) — if one
+ever does, the label says which.
+⭐ THE FIRST DRAW IS STAMPED NOW (the fourth stage, same day) — and readiness
+must still NOT consult it. A cover exists so nothing is drawn until the room
+is ready; a barrier that waited for a draw would wait for the thing it is
+holding back. The stage answers *"was this decode ever used"* after the fact,
+which is a residency question, not a readiness one.
 
 ⛔⛔ **Until 2026-09-02 no image ever decoded in a headless composition, and
 every readiness claim measured there was a claim about the table.** Bevy

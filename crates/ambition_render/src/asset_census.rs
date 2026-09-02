@@ -114,6 +114,13 @@ impl ImageCensus {
 // onto the constant and made the NATIVE census unconditional: 16 wasm errors
 // ("defined multiple times", `Instant`) that only the web job — which the
 // default gate plan does not run — could see.
+/// How long a demand→first-draw wait has to be before `[image-drawn]` says so.
+///
+/// A tenth of a second: six frames at 60Hz, which is the point a sprite arriving
+/// stops being a load and starts being a POP the player can see. Shorter waits
+/// are the ordinary cost of streaming and would bury the ones that are not.
+const NOTABLE_DRAW_WAIT: std::time::Duration = std::time::Duration::from_millis(100);
+
 /// How many unrouted images the census names before it says `+N more`.
 ///
 /// Eight, because the bucket is meant to be small: a census that has to print a
@@ -571,9 +578,21 @@ pub fn stamp_first_drawn_images(
         let Some(stages) = ledger.get(sprite.image_handle_id.untyped()) else {
             continue;
         };
-        // The same NOTABLE threshold the other stages print at: an icon
-        // reaching the screen is not news, and a 25 MP sheet is.
-        if stages.megapixels < ImageCensus::NOTABLE_MEGAPIXELS {
+        // ⛔⛔ GATED ON THE WAIT, NOT THE SIZE, and the other stages' threshold
+        // would have made this line unprintable in exactly the rooms it is for.
+        // `NOTABLE_MEGAPIXELS` is 1.0 and its rationale — "below this a texture
+        // is a UI glyph or an icon" — was written for FULL-tier art. Under the
+        // room sprite-tier cap a whole character sheet is about 0.3 MP, so in
+        // the capped gallery (the one room with a measured hitch) nothing would
+        // ever have reached the bar: measured, zero `[image-drawn]` lines across
+        // five captures.
+        //
+        // ⭐ AND SIZE IS THE WRONG QUESTION HERE ANYWAY. The three earlier
+        // stages report DECODE cost, where big means expensive. This one reports
+        // FIRST USE, where the interesting fact is how long the thing waited to
+        // be seen — a small sheet that took a second to reach the screen is a
+        // visible pop, and a large one drawn immediately is not a problem.
+        if waited < NOTABLE_DRAW_WAIT {
             continue;
         }
         let at = now.duration_since(started_at.0).as_secs_f64();

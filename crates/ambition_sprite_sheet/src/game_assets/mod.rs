@@ -488,7 +488,16 @@ pub fn load_entity_sprites(
             missing.push(id.to_string());
             continue;
         };
-        handles.insert(key, load_sheet_image(asset_server, "fx-sheet", path));
+        // ⛔⛔ ITS OWN ROAD, AND IT WAS `"fx-sheet"` UNTIL 2026-09-02. A door
+        // zone, a solid tile and an NPC terminal are not effects, and stamping
+        // them as such put them in the FX set's residency bucket — so
+        // `resident by road: fx-sheet N×M MP` was two populations, and a
+        // measurement of "how big is the effect vocabulary" counted the world's
+        // entity icons. Found by the fourth stage: `[image-drawn]
+        // sprites/entities/door_zone.png … via fx-sheet` is the line that says
+        // it out loud. Same class as the thirteen vfx sheets that were stamped
+        // `character-sheet` until the ownership rule landed.
+        handles.insert(key, load_sheet_image(asset_server, "entity-sprite", path));
     }
     // ⚠ WHAT THIS CATCHES IS NARROW, AND SAYING SO IS THE POINT.
     // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or

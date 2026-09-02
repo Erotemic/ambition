@@ -591,9 +591,9 @@ Do not prefetch every asset in the product. Demand should follow the prepared
 composition and the expected near-term experience/room.
 
 ▢ **A THIRD ROW OF THE SAME SHAPE, SIZED 2026-09-02 AND DELIBERATELY NOT CLOSED:
-the FX set is 41 sheets / 9.6 MP, loaded at boot, in every room.**
+the FX set is 13 sheets / 9.4 MP, loaded at boot, in every room.**
 `load_game_assets` calls `load_fx_sheets` unconditionally, so the engine's whole
-effect vocabulary is resident whether or not anything ever plays one — 31% of the
+effect vocabulary is resident whether or not anything ever plays one — 32% of the
 hall's resident megapixels on the capture above, and the second-largest owner on
 the `resident by road` line after the cast.
 
@@ -606,8 +606,27 @@ Smash, Sanic and Mary-O drew the particle fallback for every effect, forever. An
 an effect is not a cast: a room's characters are known at entry, while any effect
 may fire on any frame, so there is no "demand at room entry" seam to move it to.
 
-⛔ **AND IT IS 13 SHEETS ACROSS 41 PAGES, not 41 sheets** — the census counts
-IMAGES. Corrected here because the first write-up of this row said 41 sheets.
+⛔⛔ **AND `fx-sheet 41×9.6MP` WAS TWO POPULATIONS — corrected twice before it
+was right, which is the lesson of this row.** First write-up: "41 sheets".
+Second: "13 sheets across 41 pages". Both wrong. `load_entity_sprites` stamped
+its 28 entity icons — door zones, solid tiles, one-way tiles, NPC terminals —
+with the road `"fx-sheet"`, so the bucket held the effect vocabulary AND the
+world's entity icons and a measurement of "how big is the effect set" counted
+both. Given its own road (`entity-sprite`, 2026-09-02) the hall reads:
+
+```text
+fx-sheet 13×9.4MP        entity-sprite 28×0.1MP
+```
+
+⇒ **The FX set is 13 images and 9.4 MP; the 28 that made it look like 41 are
+0.1 MP of entity icons.** Same class as the thirteen vfx sheets that were stamped
+`character-sheet` until the ownership rule landed — and found the same way, by an
+instrument printing a road beside a path: `[image-drawn]
+sprites/entities/door_zone.png … via fx-sheet` is the line that said it out loud.
+⭐ THE INSTRUMENT FOUND ITS OWN INPUT'S BUG. A residency census is only as good as
+its stamps, and nothing else in the pipeline would have noticed: the images
+loaded, drew and were freed correctly the whole time. Only the ATTRIBUTION was
+wrong, and attribution is the entire product of open work 4.
 
 ⚠ **THE DRAW COUNT IS TOO NOISY TO QUOTE, and I nearly quoted it.** One scripted
 smash capture (admiral, four moves) ended with `fx-sheet 38×8.8MP` never drawn —
@@ -646,7 +665,7 @@ the same: 20 of his 21 rows (`bivalence_weak/strong`, `excluded_middle_*`,
 `excluded_middle`, `commitment`.
 ⇒ **This is a MISSING-WIRING finding, not a dead-art one**, and it belongs to
 whoever owns those two fighters' presentation rather than to residency. What
-residency can say is the size: 9.6 MP resident in every room, of which 76 of 196
+residency can say is the size: 9.4 MP resident in every room, of which 76 of 196
 rows are art nothing can currently ask for.
 ⚠ A string search cannot see a name built at runtime (`format!`), so a row it
 calls unnamed could in principle be constructed. The five fully-named sheets are

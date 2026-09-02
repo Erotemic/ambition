@@ -9,9 +9,6 @@ use bevy::prelude::*;
 
 use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
 use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::load_presentation::{
-    BasicLoadRoot, LoadForegroundPhase, LoadForegroundState,
-};
 
 /// The authored door from the hub. Named rather than "any zone" so this test
 /// fails loudly if the Hall stops being reachable, instead of quietly covering
@@ -26,18 +23,6 @@ fn staged_cast_len(app: &App) -> usize {
         .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
-}
-
-fn cover_entities(app: &mut App) -> usize {
-    let mut query = app.world_mut().query::<&BasicLoadRoot>();
-    query.iter(app.world()).count()
-}
-
-fn foreground_visible(app: &App) -> bool {
-    app.world()
-        .get_resource::<LoadForegroundState>()
-        .and_then(|state| state.active.as_ref())
-        .is_some_and(|active| active.phase != LoadForegroundPhase::HiddenGrace)
 }
 
 fn step(app: &mut App) {

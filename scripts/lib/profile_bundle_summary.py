@@ -1110,6 +1110,61 @@ def build_summary(bundle: Bundle) -> str:
         boot = [row for row in late if phase(row) == "boot"]
         streaming = [row for row in late if phase(row) == "streaming"]
         settled = [row for row in late if phase(row) == "settled"]
+
+        # ⭐ THE FIRST ROOM'S OWN VERDICT, BY FRAME. Every pre-fix host capture
+        # (0155/0159/0205Z, 2026-09-02) decoded the player's 7.6 MP sheet 0.15 s
+        # AFTER the first `room-loaded`, as a 67-79 ms frame: the shell route's
+        # preparation validated everything and decoded nothing. Since
+        # `prepare-first-room-art` the first room's cast and the worn sheet land
+        # BEFORE activation — and the honest test is the FRAME, not the clock:
+        # an image inserted in `PreUpdate` of the activation frame is stamped
+        # in `Last`, after the frame's work, so its wall time reads later than
+        # the `room-loaded` it preceded. Frame ≤ first-room frame = covered.
+        first_room_frame = next(
+            (
+                int(row["frame"])
+                for row in sorted(
+                    bundle.rows("world_events.csv"), key=lambda r: number(r, "wall_s")
+                )
+                if row.get("kind") == "room-loaded" and row.get("frame", "").isdigit()
+            ),
+            None,
+        )
+        if first_room_frame is not None and first_room is not None:
+            stamped = [row for row in late if row.get("frame", "").isdigit()]
+            first_room_window = [
+                row
+                for row in stamped
+                if int(row["frame"]) > first_room_frame
+                and number(row, "wall_s") - first_room <= 1.0
+            ]
+            if stamped and not first_room_window:
+                lines += [
+                    f"✔ FIRST ROOM: no notable decode landed in the second after the "
+                    f"first `room-loaded` (frame {first_room_frame}) with a LATER frame "
+                    "stamp — the first room's art, the player's sheet included, was "
+                    "in before the route activated.",
+                    "",
+                ]
+            elif first_room_window:
+                fr_mp = sum(number(row, "megapixels") for row in first_room_window)
+                lines += [
+                    f"⚠ FIRST ROOM: {len(first_room_window)} notable decode(s) "
+                    f"({fr_mp:.1f} MP) landed AFTER the first `room-loaded` (frame "
+                    f"{first_room_frame}) within a second — in the open. The neighbour "
+                    "PREFETCH is expected here (one ration per neighbouring room, by "
+                    "design; the hub's basement brings `ai_slop`); the player's own "
+                    "sheet or one of the room's placed characters is NOT — that is the "
+                    "first-room cover failing:",
+                    "",
+                    "```text",
+                ]
+                for row in first_room_window[:8]:
+                    lines.append(
+                        f"{number(row, 'megapixels'):6.1f}MP  f{row['frame']:>7}  "
+                        f"{row.get('path', '?')}"
+                    )
+                lines += ["```", ""]
         if boot:
             boot_mp = sum(number(row, "megapixels") for row in boot)
             lines += [

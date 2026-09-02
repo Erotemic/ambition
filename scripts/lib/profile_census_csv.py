@@ -69,8 +69,14 @@ LATE_ART = re.compile(
     r"^\[late-art\]\s+ticks_after_live=(?P<ticks>\d+)\s+character=(?P<character>\S+)"
 )
 
+# `f NNN` is the same frame stamp `[world-event]` carries (since fdd2019c1):
+# "before or after `room-loaded`" is a comparison of two frame numbers, where the
+# wall clocks disagree — the image census prints in `Last`, after a long
+# activation frame's work, so its time reads AFTER a `room-loaded` that the
+# insertion in `PreUpdate` of the same frame actually preceded. Optional, so a
+# log from before the stamp still parses (frame = "").
 IMAGE = re.compile(
-    r"^\[image\]\s+(?P<t>[0-9.]+)s\s+(?P<w>\d+)x(?P<h>\d+)\s+(?P<mp>[0-9.]+)MP"
+    r"^\[image\]\s+(?P<t>[0-9.]+)s\s+(?:f\s*(?P<frame>\d+)\s+)?(?P<w>\d+)x(?P<h>\d+)\s+(?P<mp>[0-9.]+)MP"
     r"\s+(?:live=(?P<live>[01])\s+)?(?P<path>.*)$"
 )
 
@@ -208,12 +214,15 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
                 {
                     "wall_s": f"{wall:.3f}",
                     "game_s": match.group("t"),
+                    "frame": match.group("frame") or "",
                     "width": match.group("w"),
                     "height": match.group("h"),
                     "megapixels": match.group("mp"),
                     # The engine appends its own explanation after the path; keep
                     # the path alone so the column stays joinable.
-                    "path": match.group("path").split(" — DECODED DURING")[0].strip(),
+                    # …and, since the stage ledger, its demand phrase
+                    # (`demand→insert 61ms via character-sheet`, `demand=unknown`).
+                    "path": re.split(r" — | demand", match.group("path"), maxsplit=1)[0].strip(),
                     # "" (not "0") when the log predates the marker: unknown is
                     # not the same answer as no.
                     "during_gameplay": match.group("live") or "",
@@ -247,7 +256,7 @@ def collect_always_on(lines: list[tuple[float, str]], out_dir: str) -> dict[str,
     )
     write_csv(
         os.path.join(out_dir, "image_decodes.csv"),
-        ["wall_s", "game_s", "width", "height", "megapixels", "path", "during_gameplay"],
+        ["wall_s", "game_s", "frame", "width", "height", "megapixels", "path", "during_gameplay"],
         images,
     )
     return {

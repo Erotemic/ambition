@@ -10,6 +10,55 @@
 
 use super::CharacterBrainTemplate;
 
+/// A developer's standing override of what every AUTHORED actor's brain is.
+///
+/// ⭐⭐ THE INVERSION D33 ASKED FOR: *the sim reads a SESSION-OWNED override that
+/// the dev tool WRITES, never the dev crate itself.* Until 2026-09-02 the
+/// simulation called `ambition_dev_tools::brain_override::forced_profile()` and
+/// `forced_preset()` while BUILDING A LIVE BRAIN — the actor kernel reaching UP
+/// into a developer crate to decide what the world contains, which is the
+/// authority that carve exists to remove. `ClockScaleRequest` had already shown
+/// the shape for slow-motion; this is the same move for brains.
+///
+/// ⛔ ABSENT AND DEFAULT BOTH MEAN "THE AUTHOR DECIDES", which is exactly what an
+/// unset environment variable meant before. A composition with no developer
+/// tools installs nothing and every placement resolves its own brain.
+///
+/// ⚠ AND IT STOPS BEING A HIDDEN PROCESS INPUT. The old road was a `OnceLock`
+/// over `std::env::var`, resolved once per PROCESS: a fixture could not set it,
+/// two tests in one binary could not disagree about it, and the value steering a
+/// run appeared in no snapshot. A resource is ordinary state — a test sets it,
+/// and what a measurement was taken under is visible to the census that prints
+/// it.
+///
+/// ⛔ IT CHANGES THE ROOM, AND THAT IS THE POINT — see
+/// `ambition_dev_tools::brain_override`, which still owns the environment names
+/// and the reason the knob exists. This type owns only the VALUE.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct AuthoredBrainOverride {
+    /// Force every authored actor's brain PRESET. `None` = the placement decides.
+    pub preset: Option<String>,
+    /// Force every authored actor's autonomous PROFILE. `None` = the author decides.
+    ///
+    /// ⭐ A SECOND FIELD AND NOT A MODE OF THE FIRST, because the preset road
+    /// cannot reach the brains that perceive: every catalog preset lowers to an
+    /// arm `tick_simple_state_machine` answers, and that takes no `WorldView`.
+    /// `Fighter` is reachable only through a character's autonomous profile.
+    pub profile: Option<String>,
+}
+
+impl AuthoredBrainOverride {
+    /// The preset every authored actor is forced to, or `None`.
+    pub fn preset(&self) -> Option<&str> {
+        self.preset.as_deref()
+    }
+
+    /// The autonomous profile every authored actor is forced to, or `None`.
+    pub fn profile(&self) -> Option<&str> {
+        self.profile.as_deref()
+    }
+}
+
 /// Default melee smash hit-band (px) for a profile that authors none.
 pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
 

@@ -130,6 +130,12 @@ pub struct ResetPlayState<'w> {
     /// policy and came back from every reset without it.
     brain_profiles:
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
+    /// What a DEVELOPER has forced every authored actor's brain to. Absent =
+    /// no developer tools = the author decides. Beside the policies because it
+    /// is the same class of authority: lowering consults it while BUILDING a
+    /// brain, which the actor kernel used to do by calling into
+    /// `ambition_dev_tools` directly.
+    forced_brains: Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
     /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
     committed: MessageWriter<'w, NewGameResetCommitted>,
     /// **What the world remembers about the occurrences it authored** — cleared
@@ -266,6 +272,7 @@ pub fn process_new_game_reset_request(
             // WITHOUT that object — the one path where "remember what happened"
             // is exactly wrong.
             None,
+            play_state.forced_brains.as_deref(),
         ),
     );
     // DECLINE, do not die. The preflight runs before the wipe precisely so a

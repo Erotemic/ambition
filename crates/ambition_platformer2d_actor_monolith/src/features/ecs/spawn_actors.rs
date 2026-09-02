@@ -557,6 +557,9 @@ impl NpcActorSpawnPlan {
         spawn_aabb: ae::Aabb,
         interactable: ambition_interaction::Interactable,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
+        // The developer brain knobs, as a VALUE. See `resolve_npc_brain`: the sim
+        // reads a session-owned override the dev tool writes, never the dev crate.
+        forced_brains: &ambition_characters::brain::AuthoredBrainOverride,
     ) -> Self {
         let id = id.into();
         let name = name.into();
@@ -637,6 +640,7 @@ impl NpcActorSpawnPlan {
             // would be paced against is right here.
             &seed.config,
             seed.body.0.abilities.abilities,
+            forced_brains,
         );
         // Derive the `CharacterBrain` read-model (patrol-stall intent) from the
         // RESOLVED autonomous brain, not from `patrol_radius`: a body patrol-stalls
@@ -1832,6 +1836,9 @@ pub(crate) fn spawn_interactable_into(
         ambition_platformer2d_world::rooms::InteractableSpec,
     >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
+    // The developer brain knobs, as a VALUE. See `resolve_npc_brain`: the sim
+    // reads a session-owned override the dev tool writes, never the dev crate.
+    forced_brains: &ambition_characters::brain::AuthoredBrainOverride,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let interactable = super::spawn_static::interactable_from_authored(authored);
@@ -1860,6 +1867,7 @@ pub(crate) fn spawn_interactable_into(
             authored.aabb,
             interactable.clone(),
             paths,
+            forced_brains,
         )
         .spawn_into(commands, session_scope, root);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {

@@ -41,6 +41,18 @@ impl Plugin for DevToolsSimPlugin {
         // its resolved value before the engine group, and `init_resource` never
         // clobbers.
         app.init_resource::<crate::WorldSourceHotReload>();
+        // ⭐⭐ THE DEV TOOL WRITES; THE SIM READS. What every authored actor's
+        // brain is forced to used to be two process-global `OnceLock`s that the
+        // ACTOR KERNEL called while building a live brain. The value is a
+        // session resource now, published here from the environment exactly
+        // once, and `ambition_platformer2d_actor_monolith` names this crate for
+        // it nowhere.
+        //
+        // ⛔ `insert_resource`, NOT `init`: `Default` is "nobody is steering",
+        // and a knob that resolved to the default whenever something else
+        // initialized the resource first would be a knob that silently stopped
+        // working.
+        app.insert_resource(crate::brain_override::from_env());
         // ⛔⛔ `Update`, NOT THE SIMULATION. It does a BLOCKING `fs::metadata` —
         // measured at up to 3.9ms on virtiofs — so on the sim schedule a
         // dev-tooling stat sat inside the deterministic tick. It also reads

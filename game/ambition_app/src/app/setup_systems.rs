@@ -41,6 +41,16 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
         Res<'w, ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<'w, ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
     recipes: Res<'w, ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
+    /// What a DEVELOPER has forced every authored actor's brain to.
+    ///
+    /// ⛔ `Option`, and its absence is the ordinary case: a composition with no
+    /// developer tools installs no such resource, and "the author decides" is
+    /// what an unset environment variable has always meant. It rides with the
+    /// other construction authorities because it IS one — lowering consults it
+    /// while building a brain, and it used to do that by calling into
+    /// `ambition_dev_tools` from inside the actor kernel.
+    forced_brains:
+        Option<Res<'w, ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
 }
 
 /// Who this app's characters ARE, in one parameter.
@@ -113,6 +123,7 @@ pub(super) fn setup_simulation_system(
                     // Direct entry builds the world at plugin-build time; no
                     // occurrence of anything exists yet to have a disposition.
                     None,
+                    construction.forced_brains.as_deref(),
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],

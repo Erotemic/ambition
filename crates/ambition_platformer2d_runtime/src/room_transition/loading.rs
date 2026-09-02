@@ -560,6 +560,16 @@ pub fn begin_room_transition_load_system(
         // one. A composition that publishes none is ordinary, and a placement
         // naming into an absent registry is what refuses.
         Option<Res<ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
+        // ⭐ AND WHAT A DEVELOPER HAS FORCED THEM ALL TO, which is a third
+        // authority about the same subject and travels with the pair for the
+        // same sixteen-parameter reason. Lowering consults it while BUILDING a
+        // brain; it used to reach into `ambition_dev_tools` from inside the
+        // actor kernel to ask. Absent = no developer tools = the author decides.
+        //
+        // ⛔ AND IT MUST BE STATED HERE OR THE KNOB IS DEAD ON THIS ROAD. Walking
+        // into the Hall is a TRANSITION, and the hall is the one room the brain
+        // override exists to re-cast.
+        Option<Res<ambition_characters::brain::AuthoredBrainOverride>>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -571,7 +581,7 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
-    let (prepared_characters, brain_profiles) = character_authorities;
+    let (prepared_characters, brain_profiles, forced_brains) = character_authorities;
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already
     // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is
@@ -1072,6 +1082,7 @@ pub fn begin_room_transition_load_system(
                             minted: construction_services.7.as_deref(),
                         }
                     }),
+                    forced_brains.as_deref(),
                 ),
             )
             .map(Arc::new),

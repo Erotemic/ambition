@@ -68,6 +68,14 @@ pub(crate) fn resolve_npc_brain(
     // against a preset's absolute numbers (§4.7).
     body: &ambition_combat::actor_tuning::ActorConfig,
     abilities: ambition_platformer2d_core::AbilitySet,
+    // ⭐⭐ THE MEASUREMENT KNOBS, AS A VALUE THE CALLER HANDS DOWN. This function
+    // used to call `ambition_dev_tools::brain_override::forced_profile()` and
+    // `forced_preset()` — the simulation reaching up into a developer crate,
+    // mid-brain-construction, to decide what the world contains. It reads a
+    // session-owned [`AuthoredBrainOverride`] now, which the dev tool writes;
+    // `Default` is "the author decides" and is what a composition with no
+    // developer tools supplies.
+    forced: &ambition_characters::brain::AuthoredBrainOverride,
 ) -> (
     ambition_characters::brain::Brain,
     Option<(BrainBinding, AuthoredBrainContext)>,
@@ -111,7 +119,7 @@ pub(crate) fn resolve_npc_brain(
     // `tick_simple_state_machine` answers, and that takes no `WorldView`.
     // `Fighter` is reachable only here. Unknown names panic rather than falling
     // back, for the same reason a bad preset does.
-    if let Some(name) = ambition_dev_tools::brain_override::forced_profile() {
+    if let Some(name) = forced.profile() {
         let profile = catalog.autonomous_profile(name).unwrap_or_else(|| {
             panic!(
                 "AMBITION_ACTOR_BRAIN_PROFILE names unknown autonomous profile `{name}`"
@@ -124,8 +132,8 @@ pub(crate) fn resolve_npc_brain(
             Some((BrainBinding::from_character_profile(), authored)),
         );
     }
-    let forced = ambition_dev_tools::brain_override::forced_preset();
-    if forced.is_none()
+    let forced_preset = forced.preset();
+    if forced_preset.is_none()
         && brain_override
             .as_deref()
             .map(str::trim)
@@ -144,7 +152,7 @@ pub(crate) fn resolve_npc_brain(
     match resolve_initial_brain(
         catalog,
         cid,
-        forced.or(brain_override.as_deref()),
+        forced_preset.or(brain_override.as_deref()),
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
@@ -789,6 +797,7 @@ mod default_profile_tests {
             0.0,
             &test_body(),
             ambition_platformer2d_core::AbilitySet::NONE,
+            &ambition_characters::brain::AuthoredBrainOverride::default(),
         );
         assert_eq!(
             brain.label(),
@@ -825,6 +834,7 @@ mod default_profile_tests {
                 0.0,
                 &test_body(),
                 ambition_platformer2d_core::AbilitySet::NONE,
+                &ambition_characters::brain::AuthoredBrainOverride::default(),
             );
             assert_eq!(brain.label(), "wanderer");
         }
@@ -845,7 +855,61 @@ mod default_profile_tests {
             0.0,
             &test_body(),
             ambition_platformer2d_core::AbilitySet::NONE,
+            &ambition_characters::brain::AuthoredBrainOverride::default(),
         );
         assert_eq!(brain.label(), "stand_still");
+    }
+
+    /// ⛔⛔ THE SIM READS A VALUE, AND THAT VALUE IS WHAT STEERS THE CAST.
+    ///
+    /// Until 2026-09-02 this function called
+    /// `ambition_dev_tools::brain_override::forced_preset()` and
+    /// `forced_profile()` — the actor kernel reaching UP into a developer crate,
+    /// mid-brain-construction, to decide what the world contains. The knob is a
+    /// session-owned `AuthoredBrainOverride` the dev tool writes and lowering
+    /// reads, which is D33's stated shape and the one `ClockScaleRequest`
+    /// already uses for slow-motion.
+    ///
+    /// ⛔ BOTH ARMS, because either alone passes on a broken build: an override
+    /// that never applies passes the quiet arm, and one that always applies
+    /// passes the forced arm. What is pinned is that the VALUE decides — and
+    /// the pair is the same character and the same placement, so nothing but
+    /// the override differs.
+    #[test]
+    fn the_developer_override_steers_the_cast_and_its_absence_does_not() {
+        let catalog = assembled_catalog();
+        let registry = registry_naming(Some(
+            ambition_characters::brain::CharacterBrainTemplate::Wanderer,
+        ));
+        let resolve = |forced: &ambition_characters::brain::AuthoredBrainOverride| {
+            resolve_npc_brain(
+                &catalog,
+                &registry,
+                &npc(None),
+                0.0,
+                &test_body(),
+                ambition_platformer2d_core::AbilitySet::NONE,
+                forced,
+            )
+            .0
+            .label()
+        };
+
+        assert_eq!(
+            resolve(&ambition_characters::brain::AuthoredBrainOverride::default()),
+            "wanderer",
+            "with nobody steering, the character's own policy decides — which is \
+             what an unset environment variable has always meant",
+        );
+        assert_eq!(
+            resolve(&ambition_characters::brain::AuthoredBrainOverride {
+                preset: Some("stand_still".to_string()),
+                profile: None,
+            }),
+            "stand_still",
+            "the override changed nothing: a measurement taken with \
+             AMBITION_ACTOR_BRAIN_OVERRIDE set would report the authored cast \
+             while claiming to describe a forced one",
+        );
     }
 }

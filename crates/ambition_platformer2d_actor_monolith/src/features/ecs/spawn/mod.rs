@@ -189,6 +189,18 @@ pub struct ActorConstructionContext<'a> {
     /// disposition is about and must therefore rebuild the room from the
     /// authored records alone.
     pub continuity: Option<OccurrenceContinuity<'a>>,
+    /// What a DEVELOPER has forced every authored actor's brain to.
+    ///
+    /// ⭐⭐ AN AUTHORITY THE SIM READS AND THE DEV TOOL WRITES. Lowering used to
+    /// call `ambition_dev_tools::brain_override::forced_profile()` from inside
+    /// `resolve_npc_brain` — the actor kernel reaching UP into a developer crate,
+    /// mid-brain-construction, to decide what the world contains. It arrives as
+    /// a value now, on the road every other lowering authority takes.
+    ///
+    /// `Option` with the same contract as its neighbours: absent means this
+    /// composition installs no developer tools, and "the author decides" is what
+    /// an unset environment variable has always meant.
+    pub forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -204,6 +216,7 @@ impl<'a> ActorConstructionContext<'a> {
             prepared: None,
             brain_profiles: None,
             continuity: None,
+            forced_brains: None,
         }
     }
 
@@ -239,6 +252,9 @@ impl<'a> ActorConstructionContext<'a> {
         // from nothing, or destroys one to rebuild it, states `None` and means
         // it. See [`Self::continuity`].
         continuity: Option<OccurrenceContinuity<'a>>,
+        // What a developer has forced the cast's brains to, when this
+        // composition installs the tools that say. See [`Self::forced_brains`].
+        forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
     ) -> Self {
         let mut context = Self::new(recipes, content_epoch);
         if let Some(active) = active_binding {
@@ -247,6 +263,7 @@ impl<'a> ActorConstructionContext<'a> {
         context.prepared = prepared;
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
+        context.forced_brains = forced_brains;
         context
     }
 
@@ -649,6 +666,9 @@ impl RoomFeatureConstructionPlan {
         }
         if let Some(profiles) = construction.brain_profiles {
             placement_context = placement_context.with_brain_profiles(profiles);
+        }
+        if let Some(forced) = construction.forced_brains {
+            placement_context = placement_context.with_forced_brains(forced);
         }
         Ok(Self {
             room: room.clone(),

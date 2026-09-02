@@ -33,6 +33,21 @@ pub struct ActorPlacementContext {
     /// authors none — and it is why a placement that NAMES one against an empty
     /// registry is a construction error rather than a shrug.
     pub brain_profiles: ambition_characters::actor::character_catalog::BrainProfileRegistry,
+    /// What a DEVELOPER has forced every authored actor's brain to, captured
+    /// with the rest of the snapshot.
+    ///
+    /// ⭐⭐ THE VALUE, NOT THE CRATE THAT OWNS THE KNOB. Lowering used to call
+    /// `ambition_dev_tools::brain_override::forced_profile()` from inside
+    /// `resolve_npc_brain` — the simulation reaching up into a developer crate,
+    /// mid-brain-construction, to decide what the world contains. It rides here
+    /// now for the same reason its four neighbours do: lowering runs against a
+    /// SNAPSHOT taken when staging was requested, and a knob that could change
+    /// under a commit would be a different room half way through.
+    ///
+    /// ⛔ DEFAULT IS "THE AUTHOR DECIDES", which is what an unset environment
+    /// variable has always meant — so a composition with no developer tools
+    /// lowers exactly as before.
+    pub forced_brains: ambition_characters::brain::AuthoredBrainOverride,
 }
 
 impl ActorPlacementContext {
@@ -52,6 +67,21 @@ impl ActorPlacementContext {
         prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     ) -> Self {
         self.prepared = prepared.clone();
+        self
+    }
+
+    /// Supply the developer brain override, so a forced run reaches the cast.
+    ///
+    /// A builder for the reason its two neighbours are: `Default` — "the author
+    /// decides" — is already the correct value for every composition that
+    /// installs no developer tools, and forcing the argument would make those
+    /// sites write `&Default::default()`, which says less.
+    #[must_use]
+    pub fn with_forced_brains(
+        mut self,
+        forced: &ambition_characters::brain::AuthoredBrainOverride,
+    ) -> Self {
+        self.forced_brains = forced.clone();
         self
     }
 
@@ -77,6 +107,7 @@ impl ActorPlacementContext {
             sheets: sheets.clone(),
             prepared: Default::default(),
             brain_profiles: Default::default(),
+            forced_brains: Default::default(),
         }
     }
 }

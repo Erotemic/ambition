@@ -394,6 +394,7 @@ pub(crate) fn lower_interactable_placement(
         ctx.root,
         &authored,
         ctx.paths,
+        &ctx.context.forced_brains,
     );
 }
 

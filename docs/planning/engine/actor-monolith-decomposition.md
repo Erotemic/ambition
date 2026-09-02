@@ -130,8 +130,11 @@ remained after the first slice; two are gone and two are instrumentation:
   more production paths, and they are not instrumentation — they are the
   simulation reading developer state, which is exactly what this carve exists to
   remove:
-  - `features/npcs.rs:114,127` — `brain_override::forced_profile()` /
-    `forced_preset()`, chosen while building a live brain;
+  - ✔ `features/npcs.rs` — CLOSED 2026-09-02. `forced_profile()` / `forced_preset()`
+    were chosen while building a live brain; the sim reads a session-owned
+    `AuthoredBrainOverride` the dev tool writes, the two `OnceLock`s are deleted,
+    and `for_room_construction` takes the authority as a parameter so no road can
+    forget it;
   - `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`, which
     decides whether a placement spawns at all;
   - `features/mod.rs:350` — `runtime_census`, `#[cfg(not(wasm32))]` and gated on

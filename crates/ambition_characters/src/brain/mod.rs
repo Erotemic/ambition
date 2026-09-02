@@ -36,6 +36,7 @@ pub use action_set::{
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 pub use ambition_entity_catalog::{BrainProfileId, BrainProfileRef};
+pub use profile::AuthoredBrainOverride;
 #[allow(unused_imports)]
 pub use boss_pattern::{
     BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState, BossCapability,

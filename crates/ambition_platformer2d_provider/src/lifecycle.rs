@@ -1177,6 +1177,12 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// (`EnemySpawnSpec::brain_profile`).
     brain_profiles:
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
+    /// What a DEVELOPER has forced every authored actor's brain to. Absent =
+    /// no developer tools = the author decides. Beside the policies because it
+    /// is the same class of authority: lowering consults it while BUILDING a
+    /// brain, which the actor kernel used to do by calling into
+    /// `ambition_dev_tools` directly.
+    forced_brains: Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -1291,6 +1297,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                                 minted: self.minted.as_deref(),
                             }
                         }),
+                        self.forced_brains.as_deref(),
                     ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,

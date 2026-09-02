@@ -609,8 +609,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
   it while the owner doc had already been corrected — the same item in two files,
   fixed in one.** Counted on `main` 2026-09-02, three PRODUCTION reads remain and
   none is instrumentation:
-  * `features/npcs.rs:114,127` — `brain_override::forced_profile()` /
-    `forced_preset()`, read while BUILDING A LIVE BRAIN;
+  * ✔ **`features/npcs.rs` — CLOSED 2026-09-02.** `brain_override::forced_profile()`
+    / `forced_preset()` were read while BUILDING A LIVE BRAIN; the value is a
+    session-owned `AuthoredBrainOverride` now (in `ambition_characters::brain`,
+    a crate the dev tools already depend on, so no manifest-allow entry was
+    needed). `DevToolsSimPlugin` publishes it from the environment once at
+    build; lowering carries it on `ActorPlacementContext` beside the cast and
+    the policies. ⛔ THE TWO PROCESS-GLOBAL `OnceLock`s ARE DELETED, not made
+    private — `runtime_census` was the only other reader and it takes the
+    resource too, so the census now reports what was IN FORCE rather than what
+    the environment said. ⛔ AND THE KNOB IS STILL LIVE ON ALL SIX ROADS:
+    `for_room_construction` takes it as a PARAMETER, which is that function's
+    own rule ("a road that forgot one link did not fail to compile"), so
+    startup, transition, reset, provider activation, hot reload and the plan
+    prefetch each had to state an answer. Guarded twice, both poison-verified:
+    the value steers the cast and its absence does not
+    (`the_developer_override_steers_the_cast_and_its_absence_does_not`), and the
+    plugin publishes one at all
+    (`the_dev_tool_publishes_the_brain_override`, app-level because the dev
+    crate cannot boot its own plugin);
   * `features/ecs/spawn_static.rs:378` — `population_cap::admit_actor()`,
     deciding whether a placement spawns AT ALL;
   * `features/mod.rs:350` — `runtime_census`, the mildest (cfg'd and
@@ -623,8 +640,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   WRITES, never the dev crate itself* — the same inversion `ClockScaleRequest`
   already demonstrates for slow-motion.
   ⚠ **What each actually reads, checked rather than assumed**: `forced_profile()`
-  is a `OnceLock` over an env var — a hidden process-global INPUT, but constant
-  once resolved. `admit_actor()` is more than a read: it is an
+  WAS a `OnceLock` over an env var — a hidden process-global INPUT, constant once
+  resolved, and gone as of 2026-09-02. `admit_actor()` is more than a read: it is an
   `AtomicUsize::fetch_add(Relaxed)` that decides whether a placement spawns.
   ⭐ AND IT IS INERT BY DEFAULT — `cap()` resolves to `usize::MAX` with the env
   knob unset and `admit_actor` returns `true` before touching the counter, so

@@ -656,7 +656,13 @@ pub fn report_sim_schedule_membership(
 const SIM_SCHEDULE_NAMES: &[&str] = &["GgrsSchedule", "SimSchedule"];
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<SimPhaseCensus>) {
+pub fn report_sim_phase_census(
+    census: Res<RuntimeCensus>,
+    mut phases: ResMut<SimPhaseCensus>,
+    // ⛔ `Option`: a composition may run this census with no developer tools
+    // installed, and "nobody is steering" is the honest reading of absence.
+    brains: Option<Res<ambition_characters::brain::AuthoredBrainOverride>>,
+) {
     let Some(at) = census.due() else {
         return;
     };
@@ -701,11 +707,19 @@ pub fn report_sim_phase_census(census: Res<RuntimeCensus>, mut phases: ResMut<Si
     // `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every body in the room
     // thinks with, which moves the decision cost far more than removing bodies
     // does. Same rule: say so ON THE ROW.
-    if let Some(preset) = crate::brain_override::forced_preset() {
-        row.push_str(&format!(" brain_override={preset}"));
-    }
-    if let Some(profile) = crate::brain_override::forced_profile() {
-        row.push_str(&format!(" brain_profile={profile}"));
+    //
+    // ⭐ AND IT READS THE RESOURCE THE SIM READ, not the environment. The two
+    // used to be separate readers of one `OnceLock`; now the census reports what
+    // was actually IN FORCE, so a row cannot claim a knob the world was not
+    // built under. `None` — a composition with no developer tools — prints
+    // nothing, which is what an unset variable printed.
+    if let Some(forced) = brains.as_deref() {
+        if let Some(preset) = forced.preset() {
+            row.push_str(&format!(" brain_override={preset}"));
+        }
+        if let Some(profile) = forced.profile() {
+            row.push_str(&format!(" brain_profile={profile}"));
+        }
     }
     // ⛔ The schedule declares no order between these, so their buckets are
     // differences between marks nobody sequenced. Named on the row so a reader

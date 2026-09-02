@@ -563,6 +563,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             root,
             &authored,
             &[],
+            &ambition_characters::brain::AuthoredBrainOverride::default(),
         );
     };
     app.add_systems(Update, spawn);

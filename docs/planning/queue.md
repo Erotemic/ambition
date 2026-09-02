@@ -1127,9 +1127,35 @@ The one unresolved developer-policy choice from the session-ownership work is in
   solved: the two systems it moved were registered inside the entangled file, so
   the split was "move two files AND the registrations that belong to them". The
   same move is available here at ten times the size.
-  ⇒ **Whoever takes this should size it as: one construction seam to resolve, a
-  plugin to leave behind or invert, and ~1,659 lines that name almost nothing.**
-  Not as 6,000 tangled lines.
+  ⭐⭐ **AND THE THIRD CUT MAKES IT EXACT.** The two seam references are both
+  inside ONE function, `restore_custody_to_checkpoint` (lines 775-1089) — which
+  is checkpoint restore reading authored construction records, arguably not the
+  pickup domain at all. Bound the plugin AND that function and measure what is
+  left:
+
+  ```text
+  items/pickup/mod.rs                        1,860 lines
+    impl Plugin block          (53-253)        201 lines   21 refs
+    restore_custody_to_checkpoint (775-1089)   315 lines    2 refs
+    everything else                          1,344 lines    0 refs
+  ```
+
+  ⛔ **CHECKED IN ALL THREE PATH FORMS, because this row has already been wrong
+  twice by grepping only one.** The 1,344-line remainder contains exactly ONE
+  `crate::` reference — `crate::items`, its own parent module — and ZERO
+  `super::` paths. It names nothing outside itself.
+
+  ⇒ **THE CARVE IS: move 1,344 lines, leave 516.** Ground-item physics, custody,
+  pickup, throw, held-item specs and aim are free-standing; the entanglement is a
+  plugin that schedules its neighbours' systems and one checkpoint function that
+  reads authored records. Neither has to move for the domain to leave, and
+  neither needs an inversion designed first — which is what "one construction
+  seam to resolve" (written an hour earlier, on the coarser cut) got wrong.
+  ⚠ The tests are a separate 1,789 lines (`pickup/tests.rs`) and are NOT included
+  in that count; they move with the code and are most of the remaining work.
+  ⚠ And the consumer surface is real: games name `actors::items::pickup::` about
+  twenty times across `ambition_app`'s tests and the smash demo, so the carve ends
+  with a facade export and a re-point, exactly as `ambition_world_items` did.
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,

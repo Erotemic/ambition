@@ -15,11 +15,34 @@ for bytes that are identical to the ones already sitting in the main checkout.
 ## Why file-by-file and not directory symlinks
 
 Linking the directories would be one line and would take the override away. The
-point of a worktree is to change something: mirror the files individually and a
-regenerated sprite lands as a REAL file in the worktree, replacing that one
-symlink, while every other asset still points at the shared copy — and the main
-checkout never sees it. Directory links would send that write straight into
-main's assets, which is exactly the accident this exists to prevent.
+point of a worktree is to change something: mirror the files individually so a
+regenerated sprite can land as a REAL file in the worktree, replacing that one
+symlink, while every other asset still points at the shared copy. Directory
+links would send that write straight into main's assets, which is exactly the
+accident this exists to prevent.
+
+## ⛔⛔ THE PER-FILE LINK IS ONLY HALF THE PROTECTION — THE WRITER MUST UNLINK
+
+This paragraph used to end "and the main checkout never sees it". **That was
+false, and it was the reassurance that stopped anyone checking.** A per-file
+symlink prevents nothing on its own: `Image.save()`, `Path.write_text()` and
+`shutil.copy2` all OPEN THE DESTINATION FOR WRITING, and an open-for-write
+FOLLOWS a symlink. Measured 2026-09-02 rather than argued —
+`open(link, "wb").write(...)` changed the TARGET's bytes and left the link in
+place — so regenerating assets in a worktree silently rewrote the checkout every
+other session builds and gates from.
+
+⇒ **The invariant is: a writer publishing into this tree must unlink a symlinked
+destination first.** Two roads were fixed once the hazard was measured — the
+variant generator (`generate_visual_quality_variants.py`, all three write sites)
+and the renderer's publish (`_copy_sheet_files`) — each with the premise itself
+under test, because a guard asserting "main was untouched" passes trivially on a
+system where writes never followed links.
+
+⚠ **A THIRD ROAD ADDED LATER WILL NOT BE PROTECTED BY THIS FILE.** Nothing here
+can enforce the rule on a writer it has never heard of; the enforcement lives in
+`scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`, which
+checks the known write sites by source. Add a new publisher, add it there.
 
 
 A fresh worktree gets EMPTY submodule directories, and one of them is not art:

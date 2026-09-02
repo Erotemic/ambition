@@ -442,17 +442,14 @@ Established:
 
 Refuted: the per-frame save cost, above.
 
-Still open, and now the only reason to run the comparison: the two hosts differ
-in schedule structure and in what the shared host composes around the sim
-(startup, launcher, providers, session bridge, host-relative routing). Whether
-that costs anything per frame at hall density is unmeasured. It is a smaller
-question than the one I thought I had, and it is not on the decision-pipeline
-critical path.
-
-**The measurement, when it is worth taking:** `--headless
---headless-acceptance-cycle` runs the production shared host and enters real
-gameplay routes; census it and compare schedule structure. `--start-room` cannot
-express it, because that flag is what selects the other host.
+✔ MEASURED 2026-09-02 (this paragraph was written before the instrument
+existed): `AMBITION_HEADLESS_GAMEPLAY_ROOM=<room> --headless` runs the
+PRODUCTION shared host in a room, and `scripts/headless_room_frame.sh` censuses
+it — see "the shipped frame floor" above: 4.5 ms in the hall of which 3.7 ms is
+a cast-independent floor, ~2400 system runs per frame, `bevy_ecs` 34% and our
+crates ~6% of the process. What the shared host composes around the sim is
+that floor, and it is system COUNT, not a hotspot. Nothing remains to compare
+against `--start-room`.
 
 ## ⭐ MEASURED 2026-09-01: the hall's decision cost is supplied to brains that provably cannot read it
 

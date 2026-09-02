@@ -348,22 +348,24 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     let gameplay_room = std::env::var("AMBITION_HEADLESS_GAMEPLAY_ROOM")
         .ok()
         .filter(|room| !room.trim().is_empty());
-    let mut app = match gameplay_room.clone() {
-        Some(room) => build_visible_app_with(VisibleRenderMode::NoWindow, true, move |app| {
+    let room_for_compose = gameplay_room.clone();
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, move |app| {
+        if let Some(room) = room_for_compose {
             app.insert_resource(super::StartRoomOverride(room));
             app.insert_resource(super::StartRoomMustResolve);
-        }),
-        None => build_visible_app(VisibleRenderMode::NoWindow, true),
-    };
-    // `build_visible_app` drops `LogPlugin` from `NoWindow` because a TEST
-    // process builds several Apps and the tracing subscriber is process-global.
-    // This is not that process: it is an executable host with exactly one App.
-    // Tracy's recorder is a LAYER ON THAT SUBSCRIBER, so without it a
-    // `--features profile` headless capture records zero zones — and per-system
-    // timing is the measurement a machine with no GPU still has. Gated on the
-    // profiling feature, so the no-window tests keep their silent composition.
-    #[cfg(feature = "profile")]
-    app.add_plugins(ambition_log_plugin());
+        }
+        // `build_visible_app` drops `LogPlugin` from `NoWindow` because a TEST
+        // process builds several Apps and the tracing subscriber is
+        // process-global. This is not that process: it is an executable host
+        // with exactly one App. Tracy's recorder is a LAYER ON THAT SUBSCRIBER,
+        // so without it a `--features profile` headless capture records zero
+        // zones — and per-system timing is the measurement a machine with no
+        // GPU still has. Gated on the profiling feature, so the no-window tests
+        // keep their silent composition. Added through the compose hook because
+        // the builder finishes the plugins before it returns.
+        #[cfg(feature = "profile")]
+        app.add_plugins(ambition_log_plugin());
+    });
     super::shell_host::compose_ambition_startup_sequence(&mut app);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / SHARED_HOST_HEADLESS_TICK_HZ,
@@ -973,6 +975,21 @@ pub fn build_visible_app_with(
         },
         compose_inputs,
     );
+    // ⭐ FINISH THE PLUGINS. A no-window app is stepped with `App::update()`,
+    // which never calls `Plugin::finish` — only a runner does — so everything a
+    // plugin registers there was ABSENT from every test and headless host: the
+    // `ImageLoader` above all (`ImagePlugin::finish`), which left every image
+    // `Loading` forever, no room barrier able to open, and the whole asset
+    // pipeline unmeasurable off-GPU. Finishing here makes the composition the
+    // one a player runs, at the price that a caller may not add plugins after
+    // this returns (use `compose_inputs`).
+    if matches!(render, VisibleRenderMode::NoWindow) {
+        while app.plugins_state() == bevy::app::PluginsState::Adding {
+            bevy::tasks::tick_global_task_pools_on_main_thread();
+        }
+        app.finish();
+        app.cleanup();
+    }
     app
 }
 

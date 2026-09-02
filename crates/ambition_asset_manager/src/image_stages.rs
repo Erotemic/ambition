@@ -336,6 +336,17 @@ impl ImageStageLedger {
         self.rows.get(&id)
     }
 
+    /// Every image inserted and not yet removed, in id order — the per-row
+    /// form of [`Self::resident_by_road`], for a census that wants the PATHS.
+    pub fn resident_rows(&self) -> impl Iterator<Item = &ImageStages> {
+        self.rows.values().filter(|row| row.inserted_at.is_some())
+    }
+
+    /// Every row the ledger holds — demanded, inserted or both.
+    pub fn rows(&self) -> impl Iterator<Item = &ImageStages> {
+        self.rows.values()
+    }
+
     /// WHAT IS RESIDENT, BY THE ROAD THAT DEMANDED IT: megapixels of every
     /// image inserted and not yet removed, grouped by source label (asset open
     /// work 4 asks for the owner of retained assets before any eviction policy;

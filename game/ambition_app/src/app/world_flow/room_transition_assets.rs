@@ -1184,31 +1184,47 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         .map(|since| time.elapsed().saturating_sub(since))
         .unwrap_or_default();
     if active.asset_stall_report.is_none() && stalled_for >= ASSET_READINESS_STALL_REPORT {
-        const NAMED: usize = 12;
-        let named = readiness
-            .pending
-            .iter()
-            .take(NAMED)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ");
-        let and_more = readiness.pending.len().saturating_sub(NAMED);
-        let report = format!(
-            "room '{}' has been waiting {:.1}s for {} of {} activation-critical asset(s) \
-             and has not settled one in that time. Still pending: {named}{}",
-            active.target_room_id,
-            stalled_for.as_secs_f32(),
-            readiness.pending.len(),
+        let report = asset_stall_report(
+            &active.target_room_id,
+            stalled_for,
+            &readiness.pending,
             readiness.total,
-            if and_more > 0 {
-                format!(" (+{and_more} more)")
-            } else {
-                String::new()
-            },
         );
         bevy::log::warn!(target: "ambition_platformer2d::room_transition", "{report}");
         active.asset_stall_report = Some(report);
     }
+}
+
+/// The explanation a stalled barrier owes: the room, how long, and the NAMES
+/// of what is outstanding — a stall report that says only "still waiting" is
+/// the 99% problem with more words. Pure, so the naming contract is tested
+/// without a composition whose loads never finish (there is none: images
+/// decode in every host now that the no-window builder finishes its plugins).
+pub(crate) fn asset_stall_report(
+    target_room_id: &str,
+    stalled_for: Duration,
+    pending: &[String],
+    total: usize,
+) -> String {
+    const NAMED: usize = 12;
+    let named = pending
+        .iter()
+        .take(NAMED)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let and_more = pending.len().saturating_sub(NAMED);
+    format!(
+        "room '{target_room_id}' has been waiting {:.1}s for {} of {total} activation-critical \
+         asset(s) and has not settled one in that time. Still pending: {named}{}",
+        stalled_for.as_secs_f32(),
+        pending.len(),
+        if and_more > 0 {
+            format!(" (+{and_more} more)")
+        } else {
+            String::new()
+        },
+    )
 }
 
 /// How long a room's asset barrier may sit at the SAME settled count before it
@@ -1863,5 +1879,23 @@ mod tests {
             ..Default::default()
         };
         assert!(!cache.classify_promotion(1, None, "hub", &different_room, Some(Duration::ZERO)));
+    }
+
+    /// The stall report names the room and the outstanding assets, and caps the
+    /// list so a 129-character hall does not print 129 names per stall.
+    #[test]
+    fn a_stall_report_names_the_room_and_what_is_outstanding() {
+        let pending: Vec<String> = (0..15).map(|i| format!("page_{i}.png")).collect();
+        let report = asset_stall_report(
+            "hall_of_characters",
+            Duration::from_secs(5),
+            &pending,
+            141,
+        );
+        assert!(report.contains("room 'hall_of_characters'"), "{report}");
+        assert!(report.contains("15 of 141"), "{report}");
+        assert!(report.contains("Still pending: page_0.png"), "{report}");
+        assert!(report.contains("page_11.png (+3 more)"), "{report}");
+        assert!(!report.contains("page_12.png"), "{report}");
     }
 }

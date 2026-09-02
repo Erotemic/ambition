@@ -583,6 +583,7 @@ fn build_optional_via_catalog(
     Some(load_sprite_pages(
         asset_server,
         layouts,
+        "character-sheet",
         &path,
         spec,
         requested,
@@ -598,6 +599,11 @@ fn build_optional_via_catalog(
 fn load_sprite_pages(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    // The image-stage road the pages are demanded on: `"character-sheet"`
+    // for a character or prop realization (owned by `CharacterSpriteAssets`),
+    // `"fx-sheet"` for the fx set (owned by `FxSheetAssets`). The residency
+    // census groups by it and the ownership guard asks each table for its own.
+    road: &'static str,
     page0_path: &str,
     spec: &CharacterSheetSpec,
     // The tier the caller ASKED for. Threaded rather than re-derived: this
@@ -655,7 +661,7 @@ fn load_sprite_pages(
                 // `Assets<Image>` (see `inspect_room_asset_manifest`).
                 texture: ambition_sprite_sheet::game_assets::load_sheet_image(
                     asset_server,
-                    "character-sheet",
+                    road,
                     page_path,
                 ),
                 layout: layouts.add(spec.build_atlas_for_page(page)),
@@ -745,6 +751,7 @@ pub fn build_prop_sprite_asset_packed(
     Some(load_sprite_pages(
         asset_server,
         layouts,
+        "character-sheet",
         &path,
         &spec,
         scale,
@@ -796,6 +803,7 @@ pub fn load_fx_sheets(
             load_sprite_pages(
                 asset_server,
                 layouts,
+                "fx-sheet",
                 &page0_path,
                 &spec,
                 TextureResolutionScale::Full,
@@ -839,6 +847,7 @@ pub fn load_prop_sheet_for_target(
     Some(load_sprite_pages(
         asset_server,
         layouts,
+        "character-sheet",
         &page0_path,
         &spec,
         TextureResolutionScale::Full,

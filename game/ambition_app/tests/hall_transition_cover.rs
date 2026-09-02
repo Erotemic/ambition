@@ -178,111 +178,58 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
 
     // ── And the wait is covered ─────────────────────────────────────────────
     //
-    // Not on the FIRST frame: `loading_reveal_after` is 250ms, deliberately, so
-    // a cheap room does not flash a loading screen. What matters is that an
-    // expensive one reaches it.
-    let mut visible_at = None;
-    for frame in 0..120 {
-        step(&mut app);
-        if foreground_visible(&app) {
-            visible_at = Some(frame);
-            break;
-        }
-    }
-    let visible_at = visible_at.expect(
-        "the load foreground never became visible for a transition that stages \
-         141 characters. Either the reveal grace outlives the load, or the \
-         barrier released before the assets were ready — both present to a \
-         player as 'it froze and there was no loading screen'",
-    );
-    assert!(
-        cover_entities(&mut app) > 0,
-        "the foreground reports visible but no `BasicLoadRoot` is on screen, so \
-         nothing is actually drawn over the transition"
-    );
-
-    // Still covered a moment later: the barrier is holding the reveal, not
-    // blinking a cover and committing behind it.
-    for _ in 0..10 {
-        step(&mut app);
-    }
-    assert!(
-        foreground_visible(&app) && cover_entities(&mut app) > 0,
-        "the cover appeared at frame {visible_at} and was gone ten frames later \
-         while the Hall's assets were still outstanding — a cover that does not \
-         outlast the load it covers is a flash, not a loading screen"
-    );
-
-    // ── And it can say WHAT it is waiting for ───────────────────────────────
-    //
-    // The poll computed `RoomAssetReadiness`, which names every pending asset, and kept `(settled,
-    // total)` — throwing the names away every frame while the player stared at a number that could
-    // not move.
-    //
-    // this test is the natural customer because a `NoWindow` host decodes almost nothing (see
-    // the header), so the Hall's barrier here genuinely never settles.
-    let mut report = None;
-    let mut outcome = String::from("ran out of frames while the barrier was still un-Ready");
-    for _ in 0..600 {
-        step(&mut app);
+    // The transition is COVERED (`cover_required`), and it releases only once
+    // every character it billed is realized: the barrier holds the reveal, the
+    // cover holds the screen. Images decode for real in this composition (the
+    // no-window builder finishes its plugins), so the barrier SETTLES here —
+    // in about ten frames of game time on this machine, which is under the
+    // 250 ms `loading_reveal_after` grace, so the explicit loading foreground
+    // is correctly never shown for it. The grace is a presentation contract
+    // with its own tests; what this test owns is that nothing was revealed
+    // while the cast was still arriving.
+    let hall_ids = hall_character_ids(&mut app);
+    let mut released_at = None;
+    let mut ready_when_released = 0;
+    let mut cover_required = false;
+    for frame in 0..600 {
         let state = app
             .world()
             .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
         );
-        let Some(active) = state.active.as_ref() else {
-            outcome = "the transition finished and released".into();
-            break;
-        };
-        if active.asset_readiness_complete {
-            outcome = format!(
-                "the barrier reached readiness (phase={:?}, progress={:?})",
-                active.phase, active.last_asset_progress
-            );
-            break;
+        match state.active.as_ref() {
+            Some(active) => {
+                cover_required |= active.cover_required;
+                if active.asset_readiness_complete && released_at.is_none() {
+                    let assets = app
+                        .world()
+                        .resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>();
+                    ready_when_released = hall_ids
+                        .iter()
+                        .filter(|id| assets.characters.sheet(id).is_some())
+                        .count();
+                    released_at = Some(frame);
+                }
+            }
+            None if released_at.is_some() => break,
+            None => {}
         }
-        if let Some(explained) = active.asset_stall_report.clone() {
-            report = Some(explained);
-            break;
-        }
-        outcome = format!(
-            "phase={:?} progress={:?} since={:?} complete={}",
-            active.phase,
-            active.last_asset_progress,
-            active.asset_progress_since,
-            active.asset_readiness_complete
-        );
+        step(&mut app);
     }
-    // Read them from the run output when the burst is what you are studying.
-    {
-        let state = app
-            .world()
-            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
-        );
-        if let Some(active) = state.active.as_ref() {
-            println!(
-                "[hall-transition] preflight={:?} manifest={:?} barrier={:?} prefetch_hit={}",
-                active.construction_preflight_duration,
-                active.asset_manifest_duration,
-                active.last_asset_progress,
-                active.prefetch_hit,
-            );
-        }
-    }
-
-    let report = report.unwrap_or_else(|| {
-        panic!(
-            "no stall explanation, and the loop exited because: {outcome}.\n{}",
-            "the Hall's asset barrier sat un-Ready for the whole test and the transition \
-         never produced an explanation. `RoomAssetReadiness::pending` names every \
-         outstanding asset on every poll; if this is `None`, those names are being \
-         computed and dropped again and a stuck load is back to reporting 99%",
-        )
-    });
-    // and the explanation has to NAME things. A stall report that says only
-    // "still waiting" is the 99% problem with more words.
+    assert!(cover_required, "the Hall transition ran without a cover");
+    let released_at = released_at.expect(
+        "the Hall's asset barrier never reached readiness in 600 frames: the reveal is \
+         held forever, which presents to a player as a loading screen that never ends",
+    );
     assert!(
-        report.contains("Still pending:") && report.contains("hall_of_characters"),
-        "the stall report does not name the room and its outstanding assets: {report}"
+        ready_when_released >= hall_ids.len().min(MINIMUM_HALL_CAST),
+        "the barrier released at frame {released_at} with {ready_when_released} of the \
+         hall's {} characters realized — the reveal is not waiting for the cast it billed",
+        hall_ids.len()
+    );
+    println!(
+        "[hall-transition] barrier released after {released_at} frames with \
+         {ready_when_released}/{} realized",
+        hall_ids.len()
     );
 }
 
@@ -330,9 +277,10 @@ fn hall_character_ids(app: &mut App) -> Vec<String> {
 ///
 /// The rule, frame by frame: as long as any placed character's sheet is still
 /// `Declared` with no terminal outcome, the transition's asset readiness is NOT
-/// complete. A `NoWindow` host decodes almost nothing, so here the barrier is
-/// expected never to release — and the sheets must still REALIZE (one per
-/// frame), which is the progress that proves the loop was not idle.
+/// complete. The barrier settles here (images decode in this composition), so
+/// the release is checked too: legal only with nothing left declared — and the
+/// sheets must REALIZE along the way, which is the progress that proves the
+/// loop was not idle.
 #[test]
 fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
     use ambition_platformer2d::sprite_sheet::character::CharacterSheetState;
@@ -709,6 +657,45 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         })
         .cloned()
         .collect();
+    // ⛔ MINUS THE HUB'S ONE-HOP NEIGHBOURS. The neighbour prefetch
+    // (`prefetch_neighbor_room_preparation_system`) demands what the rooms
+    // next door place, at THEIR tier, in the open, by design — so a gallery
+    // character the basement also spawns comes back at Full for the basement,
+    // not for nobody. Found the first time this fixture decoded real images:
+    // `basement_enemies` spawns an "Ai Slop".
+    let neighbour_ids: std::collections::BTreeSet<String> = {
+        let neighbour_tokens: Vec<String> = {
+            let mut query = app
+                .world_mut()
+                .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+            let room_set = query.iter(app.world()).next().expect("a session room set");
+            assert_eq!(room_set.active_spec().id, HUB, "premise: the hub is active");
+            room_set
+                .neighboring_room_indices()
+                .into_iter()
+                .flat_map(|index| room_placed_character_tokens(&room_set.rooms[index]))
+                .collect()
+        };
+        let registry = app
+            .world()
+            .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>();
+        let catalog = app
+            .world()
+            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        neighbour_tokens
+            .iter()
+            .map(|token| {
+                ambition_platformer2d::actors::character_runtime::canonical_character_id(
+                    registry, catalog, token,
+                )
+                .to_string()
+            })
+            .collect()
+    };
+    let promoted_for_nobody: Vec<String> = promoted_for_nobody
+        .into_iter()
+        .filter(|id| !neighbour_ids.contains(id))
+        .collect();
     assert!(
         promoted_for_nobody.is_empty(),
         "{} hall-only characters were re-decoded at {setting:?} for a room that does not \
@@ -716,6 +703,74 @@ fn leaving_the_gallery_re_tiers_the_shared_cast_up_to_the_setting() {
         promoted_for_nobody.len(),
         promoted_for_nobody.iter().take(5).collect::<Vec<_>>()
     );
+
+    // ⭐ AND THE RETIRED GALLERY CAST HAS LEFT MEMORY (asset open work 4: a
+    // retained image must have an owner). The plugins are finished in this
+    // composition, so images really decode and really drop: a hall-only
+    // character's page still in `Assets<Image>` here would be held by
+    // something other than its realization — the leak this exit exists to
+    // catch. Pages the hub or its neighbours want are theirs to keep.
+    // The rule: a resident character page belongs to a realization in the
+    // table. Whatever demanded it — this room, a neighbour prefetch, a worn
+    // identity — did so by realizing a sheet, and retiring the sheet drops
+    // the page's last handle. A page resident with no realization is held by
+    // something else, and that something is the leak.
+    let owned_pages: std::collections::BTreeSet<String> = {
+        let assets = app.world().resource::<GameAssets>();
+        assets
+            .characters
+            .resident_sheets()
+            .map(|(_, sheet)| sheet)
+            .chain(assets.characters.props.values())
+            .flat_map(|sheet| sheet.pages.iter())
+            .filter_map(|page| page.texture.path().map(|path| path.to_string()))
+            .collect()
+    };
+    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+    let leaked: Vec<String> = ledger
+        .resident_rows()
+        .filter(|row| row.source == Some("character-sheet"))
+        .filter_map(|row| row.path.clone())
+        .filter(|path| !owned_pages.contains(path))
+        .collect();
+    let resident_character_pages = ledger
+        .resident_rows()
+        .filter(|row| row.source == Some("character-sheet"))
+        .count();
+    assert!(
+        resident_character_pages > 0,
+        "premise: character pages decoded in this composition (the plugins are finished)"
+    );
+    assert!(
+        leaked.is_empty(),
+        "{} character page(s) are resident in the hub with no realization owning them: {:?}…",
+        leaked.len(),
+        leaked.iter().take(40).collect::<Vec<_>>()
+    );
+}
+
+/// The characters a room places by name: NPC interactables and authored enemy
+/// spawns, the two roads `room_character_tokens` demands from.
+fn room_placed_character_tokens(
+    room: &ambition_platformer2d::world::rooms::RoomSpec,
+) -> Vec<String> {
+    use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    let mut tokens: Vec<String> = room
+        .placements
+        .iter()
+        .filter_map(|placement| match &placement.schema {
+            PlacementSchema::Interactable(spec) => match &spec.kind {
+                InteractionKindSpec::Npc {
+                    character_id: Some(id),
+                    ..
+                } => Some(id.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    tokens.extend(room.enemy_spawns.iter().map(|enemy| enemy.name.clone()));
+    tokens
 }
 
 /// PREFETCH SCOPE: does the transition's demand reach every character the room

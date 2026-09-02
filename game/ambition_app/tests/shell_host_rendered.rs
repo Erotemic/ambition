@@ -58,8 +58,19 @@ fn rendered_app() -> App {
 /// that barrier (`prepare-first-room-art`), the wait is a real decode, not a
 /// fixed count of frames. Six more updates after it settle the presentation.
 fn settle(app: &mut App) {
-    // The first update turns a written `GoTo` into a pending route.
-    app.update();
+    // A written `GoTo` becomes a pending route on the next update; a
+    // `ShellLauncherCommand` takes one more (the launcher turns it into a
+    // `GoTo` first). Wait for the route to APPEAR, then for it to settle —
+    // a fixed "one update" here read the launcher's relaunch as already done
+    // the frame before it started, which was masked while a relaunched
+    // room's cast was still resident from the first session and stopped being
+    // masked when room exits began retiring it (2026-09-02).
+    for _ in 0..8 {
+        app.update();
+        if app.world().resource::<ShellRouter>().pending.is_some() {
+            break;
+        }
+    }
     for _ in 0..1200 {
         if app.world().resource::<ShellRouter>().pending.is_none() {
             break;

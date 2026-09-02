@@ -515,13 +515,24 @@ GPU, it is NO GPU"). So these megapixels are NOT comparable with this document's
 drawn to resident, and the split by owner — because those are counts.
 
 ```text
-total 239 images, 30.7MP, 122.9MB resident | never drawn 195 (25.4MP)
-resident by road: UNROUTED(no demand) 9×7.9MP, PROCEDURAL(no file) 26×4.6MP,
-                  character-sheet 138×4.2MP, fx-sheet 41×9.6MP,
-                  parallax 4×2.4MP, boss-sheet 1×2.0MP, held-item 20×0.1MP
+total 239 images, 30.6MP, 122.4MB resident | never drawn 219 (29.6MP)
+resident by road: UNROUTED(no demand) 8×7.6MP, PROCEDURAL(no file) 26×4.5MP,
+                  character-sheet 138×4.2MP, fx-sheet 13×9.4MP,
+                  entity-sprite 28×0.1MP, parallax 4×2.4MP, boss-sheet 1×2.0MP,
+                  held-item 20×0.1MP, shrine-sheet 1×0.3MP
 ```
 
-⇒ **44 of 239 images are drawn, and they are 5.3 of the 30.7 MP.** Eighty-three
+⚠ **RE-TAKEN AFTER TWO OF THE DAY'S OWN FIXES, and both moved it.** Routing the
+shrine sheet took it out of `UNROUTED` (9 files → 8) and gave it a road of its
+own; giving the 28 entity icons `entity-sprite` took them out of `fx-sheet`
+(41 → 13). The earlier block in this section quoted the pre-fix numbers, which is
+how a document acquires two readings of one run.
+⛔ AND THE `never drawn` FIGURE MOVED FOR A DIFFERENT REASON: 195 became 219
+because the DRAW GATE changed, not because less was drawn — the first version of
+`[image-drawn]` could not fire in a capped room at all. Do not read the two as a
+regression.
+
+⇒ **20 of 239 images are drawn, and they are 1.0 of the 30.6 MP.** Ninety-seven
 per cent of the resident megapixels are not on screen at that framing.
 ⛔ THAT IS NOT A WASTE NUMBER AND MUST NOT BE QUOTED AS ONE. The hall places 129
 characters and the camera sees a slice of them; most of "never drawn" is
@@ -536,12 +547,12 @@ policy; this is the other half of that question.
 inside twenty-six procedural inserts. The census now names them:
 
 ```text
-[image-unrouted] 9 file(s) decoded with no demand stamp:
+[image-unrouted] 9 file(s) decoded with no demand stamp:   <- 8 now; the shrine was routed
   7.6MP game://sprites/player_robot_v3_spritesheet.png   <- the editor-preview tileset
-  0.3MP sprites/shrine_spritesheet.png                    <- NEW, not previously known
+  0.3MP sprites/shrine_spritesheet.png                    <- NEW; ROUTED the same day
   0.0MP game://sprites/intro_lab_tileset.png
-  0.0MP sprites/props/portal_gun_blue.png                 <- NEW
-  0.0MP sprites/props/portal_gun_orange.png               <- NEW
+  0.0MP sprites/props/portal_gun_blue.png                 <- NEW; left unrouted, see below
+  0.0MP sprites/props/portal_gun_orange.png               <- NEW; left unrouted, see below
   0.0MP game://worlds/{hall_of_characters,intro,sandbox}.ldtk#int_grid_image (+1)
 ```
 
@@ -943,9 +954,9 @@ neighbours' casts the prefetch realized at THEIR tier (`basement_enemies`
 spawns an "Ai Slop", which is why `npc_ai_slop` comes back at Full — for the
 basement, not for nobody), the fx set, and 24 images on no demand road (4.5 MP).
 ⚠ THAT LAST FIGURE WAS TWO POPULATIONS IN ONE BUCKET and is superseded: split on
-2026-09-02 (`a20b5b1a2`), the hall reads `UNROUTED(no demand) 9×7.9MP` — real
+2026-09-02 (`a20b5b1a2`), the hall reads `UNROUTED(no demand) 8×7.6MP` — real
 findings, now named on an `[image-unrouted]` line — and `PROCEDURAL(no file)
-26×4.6MP`, which can never carry a road because there is no load to stamp. ✔ **Working-set GROWTH measured the same evening**
+26×4.5MP`, which can never carry a road because there is no load to stamp. ✔ **Working-set GROWTH measured the same evening**
 (`two_round_trips_through_the_gallery_return_the_same_working_set`, headless,
 real decode): hub = 6 realizations / 16 character pages / 13.4 MP; hall =
 139 pages / 44.3 MP at Quarter; back in the hub after each of two laps:

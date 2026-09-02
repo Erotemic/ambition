@@ -218,6 +218,13 @@ an image — Bevy registers the `ImageLoader` in `Plugin::finish`, which
 `App::update()` never calls — so every headless readiness/residency number
 before `124684f56` was a number about the table, not the art. The no-window
 builder finishes its plugins now; 746/746 app tests pass under it.
+And the shell route's FIRST room decodes its cast and the player's own sheet
+BEFORE the route activates (`aca57e636`, work item `prepare-first-room-art`
+on the standard platformer plan; host captures showed the 7.6 MP player sheet
+decoding 0.15 s after every first `room-loaded` as a 67-79 ms frame); the
+GPU readiness term is positive proof (`8bd19f890`); two hub↔hall laps return
+the identical working set (6 realizations / 16 pages / 13.4 MP) and a quality
+round trip converges back with every page loaded (`a1c03c179`).
 
 See [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
 and [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).

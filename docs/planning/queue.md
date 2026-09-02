@@ -650,6 +650,16 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Owner:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
+  ⭐ SIZED 2026-09-02 evening, for the NEXT slice (not started): the kernel's
+  domain-frontier edges by reference are `ambition_encounter` 66 refs / 24
+  files, `ambition_mount` 57 / 17, `ambition_conversation` 45 / 13,
+  `ambition_items` 34 / 16 (e7). The items edge is not a leaf: the kernel's own
+  `items/` module is ~6,000 lines (pickup, minted horizon, narrative, persist,
+  conditions) importing `abilities::ranged` ×10, `features`, `durable_horizon`,
+  `traversal`, `character_runtime`, `shrine` and `construction`, and the rest
+  of the kernel names `items::` 79 times — a multi-day carve, not an evening's.
+  The evening's D33 slice was the brain-override inversion (agent 383484,
+  `AuthoredBrainOverride` in `ambition_characters::brain`; see its commits).
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current

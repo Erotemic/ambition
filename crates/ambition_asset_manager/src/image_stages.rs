@@ -398,7 +398,6 @@ mod tests {
         .untyped()
     }
 
-    #[test]
     /// ⛔⛔ A RE-DECODE KNOWS WHO ASKED FOR IT THE FIRST TIME.
     ///
     /// `removed` deletes the per-id row, and `demand()` only runs at a LOAD call

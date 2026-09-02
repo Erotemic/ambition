@@ -36,3 +36,18 @@ What the flags are for:
 
 This crate is its own workspace on purpose: none of the engine's crates,
 features, or dependency table can reach it, so what it measures is Bevy.
+
+## Measured
+
+2026-09-01, i9-11900K + RTX 3090, driver 595.84, Vulkan, X11, 1600x900:
+
+```text
+fifo (default), window focused        144 fps   6.95 ms   <- the panel's refresh rate
+fifo, window NOT focused               60 fps  16.67 ms   <- the compositor throttles a background window
+immediate, empty                     ~800 fps   1.2-1.4 ms
+immediate, 500 moving sprites        ~850 fps   1.1-1.2 ms
+```
+
+So on this machine an empty Bevy frame is ~1.2 ms, the stock 2d pipeline's
+per-sprite cost is unmeasurably small at 500, and any window that reads 60 was
+not focused. Every game number is judged against these.

@@ -13,7 +13,25 @@
 > ([`../../archive/reviews/fable-demo-plan-2026-07-05.md`](../../archive/reviews/fable-demo-plan-2026-07-05.md));
 > the live queue is [`../tracks.md`](../tracks.md).
 > Nothing here builds the mechanic today; it fixes the SEAMS so building it
-> later is a content-plus-shader arc, not an engine rewrite. Direct kin of
+> later is a content-plus-shader arc, not an engine rewrite.
+>
+> ⭐ **RE-CHECKED against `0d71dd9bb` (2026-09-02): THE 2D HALF OF THAT SEAM IS
+> DONE, and it is the load-bearing half of Jon's directive.** The invariant
+> speed is not a constant anywhere in the stack — `ambition_relativity` takes an
+> `InvariantSpeed` newtype as an explicit parameter to `minkowski_interval`,
+> `minkowski_clock_rate` and `lorentz_boost_event`, constructed through a
+> validating `InvariantSpeed::new(f64) -> Result<_, InvariantSpeedError>` that
+> rejects non-finite and non-positive values. TwinTrack threads an authored one
+> through its own light-delay and observer maths
+> (`dual_observer.rs`), including `light_delay = range / invariant_speed`.
+>
+> ⇒ **So "lower the speed of light" is already expressible in 2D — it is a
+> number a provider authors, not an engine rewrite**, which is exactly the
+> outcome this page was holding the seam open for. ⛔ What remains deferred is
+> unchanged and is the other two thirds of the directive: the 3D runtime
+> surface, and *"the trick is how to warp space"* — the shader work that makes a
+> lowered speed VISIBLE rather than merely simulated. Nothing here should be
+> read as the mechanic being built. Direct kin of
 > [`frame-awareness.md`](frame-awareness.md) ("future relativity-inspired
 > mechanics") and the north star ("every biome a math world model").
 

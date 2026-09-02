@@ -128,11 +128,20 @@ lines one and two and fails line three.
 Jon, verbatim, after an **Ultra** host capture drew `hall_of_characters` from
 `sprites_0_25x` and he saw blur:
 
-> **"I DO NOT WANT A LOWER QUALITY TIER FOR GALLERY PREVIEWS."**
+> **"I DO NOT WANT A LOWER QUALITY TIER FOR GALLERY PREVIEWS. WHOEVER WROTE THAT
+> IS WRONG."**
+
+Profile run `desktop-timeline-run-20260902T215256Z`, 3090, `profile=Ultra`, and
+the run says why he saw it: every hall sheet decoded from `sprites_0_25x/`
+(`[image] … sprites_0_25x/noether_spritesheet.png … via character-sheet`), gallery
+blurry at 1600×900.
 
 ⚠ Relayed to this session by `ambition-df`, who received it directly and acted on
 it; recorded here rather than left in a chat log because it retires a shipped
-mechanism and a planned one.
+mechanism and a planned one. ⭐ *"Whoever wrote that is wrong"* points at this
+document's own engine doc: `asset-preparation-and-residency.md` §2 offered
+*"a lower quality tier for gallery previews"* as one of three levers against the
+43%, and that sentence is what the cap was built from. It is corrected there.
 
 **Confidence: High.** The standing rule, which is wider than the two mechanisms
 it settles: **nothing may draw fewer pixels than the user's quality setting asks

@@ -324,11 +324,23 @@ census line: `re-decodes N` (a path inserted a second time, under any id) and
 `[image-dropped]` line per notable file. First reading, `capture_scene`
 starting in the hall: re-decodes 0; **8 sheets, 25.6 MP decoded for nobody**
 (architect, bob, erdish, goblin, alice, oiler + two small), all
-`via character-sheet`, dropped at 1.2 s. Not yet classified: the hub's cast
-constructed and left before the hall (a tool artefact of the direct start) or
-a Full-tier demand later retired below the gallery floor (a real waste on the
-shipped road). The classification is a headless job — run the shipped host
-through hub → hall and read the same line.
+`via character-sheet`, dropped at 1.2 s. ✔ CLASSIFIED the same hour, by
+reading the names: that is the INTRO CAST, and
+`load_intro_npc_sprites_system` (`game/ambition_content/src/intro/plugin.rs`)
+loads every intro NPC's sheet ONCE AT STARTUP, in whatever room the game
+boots into, at the SETTING tier, and publishes them under display names
+(`publish_under`) so an LDtk `NpcSpawn.name` can find them. Global eager
+loading — this document's own non-goal — from the content side: on every
+boot ~26 MP is decoded before any of it can be seen, at Full about 100 MB
+resident, and in a capped room the tier convergence then retires it unseen.
+The fix shape is open work 2's: register those sheets as AUTHORED sheets for
+their characters (`AuthoredSheets`, the U1 seam the goblin/architect rows
+already use through `sheet_for_character_id_in`) so the room's cast demand
+raises them on entry at the room's tier, and delete the startup preload. The
+intro-only targets (`creator`, `oiler`, `erdish`, `news_board`) are the ones
+with no catalog character today, which is why the preload existed. Not the
+hitch — it runs before the cover — but it is the first named row of open
+work 2 with a measured size.
 
 Not covered, honestly reported: source IO and decode are one stage here
 (Bevy's loader does both on the IO pool and `Added` fires after); "resident

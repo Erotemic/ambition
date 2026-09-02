@@ -279,7 +279,7 @@ fn main() {
         if interesting {
             println!(
                 "[trap_probe] t{tick:>3} pos=({:>7.1},{:>7.1}) vel=({:>7.1},{:>7.1}) \
-                 under={under:<5} doors={doors} {vis} boxes={boxes} move={}",
+                 under={under:<5} doors={doors} {vis} boxes={boxes} {gest} move={}",
                 pos.x,
                 pos.y,
                 vel.x,

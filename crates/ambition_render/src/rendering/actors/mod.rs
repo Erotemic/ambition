@@ -6,17 +6,17 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::primitives::{
-    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
-    PropVisual,
+    FeatureVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, feature_color, feature_z,
+    switch_on_color,
 };
 use ambition_persistence::settings::TextureResolutionScale;
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{WORLD_Z_PLAYER, world_to_bevy};
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, sprite_render_size, CharacterAnimator,
+    CharacterAnimator, build_character_sprite, build_character_sprite_with_render_size,
+    feet_anchor_for, feet_anchor_for_render_size, sprite_render_size,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -717,10 +717,34 @@ pub fn upgrade_actor_sprites(
                     let diagnosis = match assets.characters.sheet_state(missed) {
                         ambition_sprite_sheet::character::CharacterSheetState::Declared {
                             character_id,
-                        } => format!(
-                            "declared as '{character_id}' but not materialized — nothing \
-                             demanded it, so the engine never decoded its sheet"
-                        ),
+                        } => {
+                            // ⛔⛔ `Declared` MEANS TWO DIFFERENT THINGS and this
+                            // line used to assert one of them. Its own type doc
+                            // says so — "either it never has, or its realization
+                            // was retired by a quality change" — and retiring
+                            // leaves the declaration standing, so the two states
+                            // are identical to look at. The old text read
+                            // "nothing demanded it, so the engine never decoded
+                            // its sheet", which for a retired sheet is false
+                            // twice over: it was demanded, and it WAS decoded.
+                            // That warning fired 111 times on one Hall reveal, so
+                            // it was the main evidence about a cause it had
+                            // guessed. `retired_tier` is the only thing that can
+                            // tell them apart.
+                            match assets.characters.retired_tier(missed) {
+                                Some(tier) => format!(
+                                    "declared as '{character_id}' and RETIRED from {tier:?} — it \
+                                     was decoded and then dropped by a quality transition, so this \
+                                     is a re-realization that has not happened yet, not art \
+                                     nobody asked for"
+                                ),
+                                None => format!(
+                                    "declared as '{character_id}' but never materialized — no \
+                                     realization of it has ever been resident, so nothing has \
+                                     decoded its sheet"
+                                ),
+                            }
+                        }
                         _ => "no loaded content declares this name — check for a typo or a \
                               decorated display name (\"Puppy Slug (ally)\"), or publish its art"
                             .to_string(),

@@ -48,7 +48,7 @@ fn quality(profile: VisualQualityProfile) -> ResolvedVisualQuality {
 /// landed — so a fixture that pre-populated the image would silently test only
 /// the same-frame case.
 fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> CharacterSpriteAsset {
-    use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
+    use ambition_sprite_sheet::character::sheets::{SheetTuning, try_load_spec_for_target};
 
     let spec = try_load_spec_for_target("robot", &SheetTuning::new(1.0, 1))
         .expect("the baked `robot` sheet record is present");
@@ -552,5 +552,121 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
         asset_server.get_load_state(requested.id()).is_some(),
         "the fixture must actually produce a SERVER-OWNED handle, or the branch \
          above is the main-world one wearing a disguise"
+    );
+}
+
+/// A retired realization and one that never existed are the SAME
+/// `CharacterSheetState::Declared`, and the placeholder warning used to assert
+/// the second for both.
+///
+/// The retirement drops the token from `sheets` and deliberately leaves
+/// `declared` standing — that declaration is the recipe for re-making it — so
+/// nothing about the state distinguishes "was decoded, then dropped by a quality
+/// transition" from "nothing has ever decoded this". `retired_tier` is the trace
+/// that does. The warning it feeds fired 111 times on one Hall reveal saying
+/// "nothing demanded it", which for every retired sheet among them was false
+/// twice: it HAD been demanded, and it HAD been decoded.
+#[test]
+fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
+    use ambition_sprite_sheet::character::CharacterSheetState;
+
+    let mut app = asset_app();
+    let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    let mut assets = GameAssets::default();
+    assets.characters.declare(ACTOR_ID, ACTOR_NAME);
+    // A second declared character that is never published: the arm that keeps
+    // this test from passing because EVERYTHING reports a retirement.
+    assets.characters.declare(PLAYER_ID, "Never Realized");
+
+    assets.characters.publish(ACTOR_ID, full);
+    assert!(
+        assets.characters.sheet_state(ACTOR_ID).is_ready(),
+        "premise: the realization is resident before anything retires it"
+    );
+    assert_eq!(
+        assets.characters.retired_tier(ACTOR_ID),
+        None,
+        "a RESIDENT sheet has no retirement to report"
+    );
+
+    // The quality transition: the active tier drops to Quarter, so a Full
+    // realization is above the ceiling and goes.
+    let retired = assets
+        .characters
+        .demote_stale_realizations(TextureResolutionScale::Quarter);
+    assert!(
+        retired.contains(ACTOR_ID),
+        "premise: the transition actually retired the fixture (retired {retired:?})"
+    );
+
+    // ── Both are now `Declared`, which is the whole problem ──────────────────
+    assert!(
+        matches!(
+            assets.characters.sheet_state(ACTOR_ID),
+            CharacterSheetState::Declared { .. }
+        ),
+        "a retired realization returns to Declared"
+    );
+    assert!(
+        matches!(
+            assets.characters.sheet_state(PLAYER_ID),
+            CharacterSheetState::Declared { .. }
+        ),
+        "and so does one that was never realized — the states are identical"
+    );
+
+    // ── And the trace separates them ────────────────────────────────────────
+    assert_eq!(
+        assets.characters.retired_tier(ACTOR_ID),
+        Some(TextureResolutionScale::Full),
+        "the retired token names the tier whose pixels it actually held"
+    );
+    assert_eq!(
+        assets.characters.retired_tier(PLAYER_ID),
+        None,
+        "a token nothing ever realized reports no retirement, so the warning \
+         still says 'never materialized' for the case that deserves it"
+    );
+}
+
+/// A character that comes back must stop being described by the retirement it
+/// recovered from.
+///
+/// Otherwise the trace is worse than nothing: it would accumulate, and a healthy
+/// re-realized sheet would be reported as retired forever by anything that read
+/// it without first checking residency.
+#[test]
+fn a_re_realized_character_no_longer_reports_a_retirement() {
+    let mut app = asset_app();
+    let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    let quarter = a_pending_realization(&mut app, TextureResolutionScale::Quarter);
+    let mut assets = GameAssets::default();
+    assets.characters.declare(ACTOR_ID, ACTOR_NAME);
+
+    assets.characters.publish(ACTOR_ID, full);
+    assets
+        .characters
+        .demote_stale_realizations(TextureResolutionScale::Quarter);
+    assert_eq!(
+        assets.characters.retired_tier(ACTOR_ID),
+        Some(TextureResolutionScale::Full),
+        "premise: it is retired before it is re-published"
+    );
+
+    assets.characters.publish(ACTOR_ID, quarter);
+    assert!(assets.characters.sheet_state(ACTOR_ID).is_ready());
+    assert_eq!(
+        assets.characters.retired_tier(ACTOR_ID),
+        None,
+        "re-realizing clears the trace"
+    );
+    // ⭐ THE DISPLAY NAME TOO, not just the id. The table is double-keyed, the
+    // retirement is recorded per TOKEN, and `publish` clears every token the
+    // character was declared under — a clear that only covered the id would
+    // leave the name reporting a retirement the character recovered from.
+    assert_eq!(
+        assets.characters.retired_tier(ACTOR_NAME),
+        None,
+        "the display name is a token too, and it was retired alongside the id"
     );
 }

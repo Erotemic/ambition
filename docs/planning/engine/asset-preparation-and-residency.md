@@ -980,15 +980,30 @@ Do not yet build:
 This program has reached a stable first plateau when:
 
 1. critical asset demand is raised from semantic composition before first visible
-   use;
+   use — ✔ for a room transition (the placed cast, `2c8f27b32`), for the direct
+   start (`startup_loading`, worn included) and for the shell route's first room
+   (`prepare-first-room-art`, `aca57e636`); ⚠ the neighbour prefetch is demand
+   AFTER a reveal by design, one ration per neighbour;
 2. stage-specific telemetry identifies whether a hitch is IO, decode, asset
-   insertion or render/device preparation;
+   insertion or render/device preparation — ✔ four stages on one ledger
+   (demand → insert → GPU → first draw, `image_stages`), with IO and decode
+   still one stage (Bevy's loader does both on the IO pool);
 3. one representative uncovered gameplay case demonstrates bounded
-   materialization without a large completion burst;
+   materialization without a large completion burst — ◐ the ration is areal
+   and the prefetch takes one per neighbour, but the UNCOVERED burst was only
+   ever measured on the host before the fixes (the 434 MP hall arrival); the
+   post-fix uncovered case needs the host walk;
 4. residency ownership/scopes are explicit enough to explain why a retained
-   image remains live (✔ for character and fx pages since 2026-09-02: a
-   resident page is owned by a realization, guarded on the hall exit; open
-   for UI/prop art and for the budget);
+   image remains live — ✔ for character and fx pages (a resident page is owned
+   by a realization, guarded on the hall exit and on a quality round trip; two
+   laps return the same working set); open for UI/prop art and for the BUDGET
+   (the 5.8× never-drawn headroom is the number a policy would spend);
 5. quality switching preserves logical identity and round-trips in a rendered
-   session;
-6. no new global cache duplicates domain/catalog ownership.
+   session — ✔ headless with real decode (`a1c03c179`); the rendered half (old
+   tier's `GpuImage` released, new one prepared before the swap draws) is a
+   host observation;
+6. no new global cache duplicates domain/catalog ownership — ✔ no cache was
+   added; ⚠ the image-stage LEDGER is a process-global instrument, which is
+   the right shape for one shipped App and the wrong one for a test process
+   with many (it is why the residency guards read `Assets<Image>` per App and
+   use the ledger only to classify a path).

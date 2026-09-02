@@ -49,6 +49,13 @@ When a command changes, update or delete the recipe in the same patch.
 - [`explaining-a-tick.md`](explaining-a-tick.md) — "why did this actor change on
   this tick": turning causal recording on, what can be asked today, and how a
   capability publishes its own facts.
+- [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md) — the narrow
+  command that settles a change, per row of what you touched, and what each row
+  does NOT cover.
+- [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the four
+  questions that catch a check which is CORRECT and never executed. ⛔ seven
+  members found in one gate script in one day, five of them by accident, and
+  two are structurally unfixable.
 - **Testing headlessly** lives in
   [`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
   — `Platformer2dSimHarness::step`, the headless binaries, and the doctrine about what to

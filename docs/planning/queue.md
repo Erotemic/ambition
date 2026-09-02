@@ -1537,8 +1537,17 @@ product ruling.
     (`--features visible_web_base`, native target), so it compiles the
     `not(wasm32)` branch. It proves the web persona composes; it cannot execute
     the web branch of anything.
+    ⛔ AND IT IS BLIND A SECOND WAY: its `if not only and everything:` gate puts
+    it in the EXHAUSTIVE plan only, so a default run never executes it at all
+    and an exhaustive run executes the wrong branch. One job, two independent
+    blindnesses — each question was asked of it separately and each got a
+    locally reassuring answer.
   ⇒ Between them the web path had ZERO behavioural coverage, which is how this
-  survived. Native-side it is guarded and poison-verified — passing `None` for
+  survived. The family now has a page of its own —
+  [`../recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md),
+  seven members, the four questions that find them, and ⛔ the rule that the
+  catalogue itself rots (member #3 was fixed by `234bcc686` within an hour of
+  being written down). Native-side it is guarded and poison-verified — passing `None` for
   the timestamp is what a clockless target does, so the web case is reachable
   from a native test — but no test on this machine executes wasm.
 

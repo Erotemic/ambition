@@ -382,6 +382,11 @@ Follow `AGENTS.md` and current campaign instructions for exact gate commands.
 
 Do not substitute an expensive workspace-wide gate when a narrower gate proves the touched seam.
 
+⛔ A green gate is a claim that the jobs ran, not proof of it. Before trusting
+one, ask what the flag skipped, which plan the job is in, whether it re-derived
+or reused a cache, and what it would look like if the feature were silently off:
+`docs/recipes/checks-that-did-not-run.md`.
+
 ## Planning documents
 
 Planning describes current executable direction.

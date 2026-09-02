@@ -1457,9 +1457,12 @@ product ruling.
   `[image]` line with `live=1` for a hall-only character after `room-loaded
   central_hub_complex`, and the `[image-census]` after it lists
   `character-sheet` at roughly the hub's cast, not the gallery's
-  (`124684f56`, 0 orphan pages headless). (d) `[image-census]` prints only on
-  a 5 s window boundary; a fast entry can finish inside one and print nothing
-  — read `[image]`/`[image-gpu]` lines directly when it does.
+  (`124684f56`, 0 orphan pages headless). (d) `[image-census]` prints on
+  a 5 s window boundary AND once at `AppExit` (`d10fbf0e3`), so even a run that
+  ends inside one window closes with its resident-by-road line. ⭐ And the
+  bundle summary states the hall-reveal verdict itself since `01ca0b006`
+  (placeholder rectangles by diagnosis, `asset_wait_ms` per transition,
+  spikes after the cover) — read the summary first, the raw log second.
 - **Four LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
   `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity

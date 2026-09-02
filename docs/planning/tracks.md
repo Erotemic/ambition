@@ -182,12 +182,16 @@ actual product requirement.
   desktop green says nothing about it. Closing it needs a device: launch, read
   logcat, confirm menu and dialogue text render rather than falling back to
   boxes. ⛔ Until then never write "verified on Android" for it.
-- ▢ **Asset residency/materialization followups.** Add ownership/budget policy
-  from measured resident-memory or hitch pressure. The instrument exists since
-  2026-09-02 (the image stage ledger: demand → insert → GPU, re-decodes, decodes
-  dropped before upload) and readiness now includes the GPU copy; open work 4
-  (ownership/budgets) and the intro cast's startup preload are the named
-  residuals. Owner:
+- ▢ **Asset residency/materialization followups.** Add a budget/eviction
+  policy from measured resident-memory or hitch pressure. Since 2026-09-02 the
+  instrument has four stages (demand → insert → GPU → first draw), sheets load
+  render-world-only, ownership is a guarded rule (a resident character page
+  belongs to a realization; two hub↔hall laps return the same working set),
+  the shell route's first room decodes before it activates, and the intro cast
+  preload is gone. The residual is the LIMIT itself (a host number: `resident_mb`
+  at Full after a hub→hall→hub walk; the hall's never-drawn headroom is 5.8×),
+  the FX preload's demand seam (8 of 13 sheets are character-owned), and the
+  LDtk preview tileset (Jon's submodule). Owner:
   [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 - **Generic CPU optimization** — no standing campaign. Reopen only with a
   representative measured hotspot/budget failure. Current disproven/low-leverage

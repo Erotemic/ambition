@@ -840,6 +840,56 @@ What it does NOT fix: the boot's 504 ms frame and portal_lab's 123 ms entry,
 which are different rooms' art; those go through item 3 above (pace the
 upload) or the same cap once measured.
 
+#### ▢ The next lever after the room cap: a VIEW-scoped tier — scoped, not built
+
+The room-level cap (3a) asks "how big should this ROOM's characters be". The
+measurement the fourth stage now makes possible asks a narrower question the room
+cannot: **how many of them is anyone looking at?**
+
+Hall capture, Potato tier, `--warmup 400`:
+
+```text
+character-sheet   138 resident (4.2MP)   124 never drawn (3.5MP)
+```
+
+⇒ **14 of 138 cast pages are drawn. Ninety per cent of the cast's pixels are
+decoded for characters nobody can see.** The room cap already shrank the hall
+from 434 MP (Full) to a fraction of it; this is the headroom the cap CANNOT
+reach, because every character in the room gets the room's tier whether it is
+on screen or three screens away.
+
+⭐⭐ **AND THE MATERIALIZATION SIDE NEEDS NO CHANGE AT ALL — checked, not
+assumed.** `CharacterLoadDemand::take_within_budget` already yields
+`(token, tier)`: **the tier is carried PER TOKEN on the demand**, and the
+materializer's own comment says why — *"a demand that names its tier floor (a
+room transition's cast) is realized THERE; the rest at the budget the caller
+resolved"*. It then builds a per-token budget from that floor and hands it to
+`materialize_declared_character_sprite`, which takes `quality` per call.
+
+⇒ **A view-scoped tier is entirely a DEMAND-side change**: whoever raises the
+room's cast demand names a lower floor for the characters no view can see. The
+realization machinery, the retirement trace, the convergence guards and the
+ration all work unchanged, because they key on the REQUESTED tier and that is
+exactly what would move. The floor is already the seam; today only rooms use it.
+
+⛔⛔ **AND IT IS NOT A RESIDENCY DECISION ALONE, WHICH IS WHY THIS IS SCOPED AND
+NOT DONE.** Three things have to be answered first and two of them are FEEL:
+
+- **Pop.** A character that walks on screen at Potato and converges to Quarter is
+  visibly re-tiering in front of the player. The room cap has no such moment
+  because it changes only at a room boundary, under a cover. Whether the
+  convergence is fast enough to hide, or wants its own cover, is a ruling.
+- **Hysteresis.** A character on the edge of a view would re-tier every time it
+  crosses, which is the re-decode this document already measures at 44 MP for a
+  second hall entry. A band with a margin, or a dwell time, is required — and its
+  size is a feel number, not a derived one.
+- **Whose view.** Split-screen and the N-view work make "a live view" plural, and
+  a character visible to seat 2 must not be tiered for seat 1's camera.
+
+⇒ Worth building only after the first is ruled on. The measurement that motivates
+it is in hand and repeatable; the design is one input to two existing functions;
+the risk is entirely in what the player sees.
+
 ### 4. Define residency ownership and budgets
 
 Name the owner for retained assets, for example:

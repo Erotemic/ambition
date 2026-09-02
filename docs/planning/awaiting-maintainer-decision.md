@@ -304,6 +304,31 @@ ruling, which is why it is here rather than done. Residency's interest is only
 the size: the FX set is 9.6 MP resident in every room and 76 of its 196 rows are
 currently unrequestable.
 
+### A view-scoped sprite tier: is the pop acceptable? (2026-09-02)
+
+Fourteen of the hall's 138 resident cast pages are ever drawn — 90% of the cast's
+pixels are decoded for characters nobody can see. The room-level tier cap cannot
+reach that, because every character in a room gets the room's tier whether it is
+on screen or three screens away. Scoped in
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md);
+the engineering is small (the per-token tier floor already exists on the demand,
+and only rooms use it today).
+
+⛔ TWO OF THE THREE OPEN QUESTIONS ARE FEEL, which is why it is not built:
+
+- **Pop.** A character that walks on screen at a low tier and converges upward
+  re-tiers in front of the player. The room cap has no equivalent moment — it
+  changes only at a room boundary, under a cover. Is that acceptable, does it
+  want its own cover, or must the convergence be fast enough to hide?
+- **Hysteresis.** A character loitering at the edge of a view would re-tier on
+  every crossing, which is the re-decode this project already measures at 44 MP
+  for a second hall entry. A margin or a dwell time is required and its size is a
+  feel number.
+
+⚠ The third is engineering and answerable here: with split-screen and the N-view
+work, "a live view" is plural, and a character visible to seat 2 must not be
+tiered for seat 1's camera.
+
 ### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
 
 Every world file declares `sprite_player_robot_v3 = ../sprites/player_robot_v3_

@@ -375,7 +375,7 @@ mod who_gets_it {
              nothing about who won"
         );
         let world = app.world_mut();
-        let mut heals = world.resource_mut::<bevy::prelude::Messages<PlayerHealRequested>>();
+        let heals = world.resource_mut::<bevy::prelude::Messages<PlayerHealRequested>>();
         let mut cursor = heals.get_cursor();
         let target = cursor
             .read(&heals)

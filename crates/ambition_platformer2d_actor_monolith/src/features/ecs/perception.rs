@@ -524,6 +524,10 @@ pub(crate) fn peer_is_hostile_to_body(
 ///
 /// ⚠ ALLOCATES NOTHING. It borrows peers and compares squared distances; the
 /// `String` id clone that dominates `PerceivedActor` never happens.
+// ⚠ Its production caller (the `TargetBelief` routing in `actors/update.rs`)
+// is ambition-e7's next commit, 2026-09-02 night; until it lands only the
+// equivalence test calls this. Remove the attribute with that commit.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn nearest_hostile_peer<'p>(
     body: &PerceptionBody,
     peers: &'p [PerceptionPeer],

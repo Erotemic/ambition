@@ -353,7 +353,7 @@ mod tests {
         slots.set(PlayerSlot(1), frame);
         app.insert_resource(slots);
 
-        let mut seated = |app: &mut App, slot: u8, sim: &str, x: f32| -> Entity {
+        let seated = |app: &mut App, slot: u8, sim: &str, x: f32| -> Entity {
             let mut control = ActorControl::default();
             control.0.melee_pressed = true;
             app.world_mut()

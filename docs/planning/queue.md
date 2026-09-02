@@ -1286,7 +1286,7 @@ product ruling.
   **Tells added 2026-09-02 evening, same walk:** (a) GAME START — the load
   screen shows a "Load the first room's art" row, and the `[image] … f NNN …
   sprites/player_robot_v3_spritesheet.png` line carries a FRAME STAMP ≤ the
-  first `room-loaded`'s (`[image]` lines print `f` since `<this commit>`;
+  first `room-loaded`'s (`[image]` lines print `f` since `fdd2019c1`;
   compare frames, not seconds — the census prints in `Last`, after the
   activation frame's work, so its clock reads later than a `room-loaded` the
   insertion actually preceded, and headless the two land in the SAME frame);

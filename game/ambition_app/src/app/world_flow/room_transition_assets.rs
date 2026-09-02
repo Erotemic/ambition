@@ -19,7 +19,7 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
-use ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent;
+use ambition_platformer2d::asset_manager::image_stages::{AppGpuPreparedImages, RenderWorldPresent};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{
@@ -153,6 +153,10 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// resource is inserted only by the App that installs the census's render
     /// systems, and a headless sibling in the same process must not inherit it.
     pub(crate) render_world: Option<Res<'w, RenderWorldPresent>>,
+    /// What THIS App has actually uploaded. Beside `render_world` because they
+    /// are one question in two halves — does this App draw, and has it drawn
+    /// THIS image — and because the process ledger can answer neither.
+    pub(crate) prepared_here: Option<Res<'w, AppGpuPreparedImages>>,
     /// Main-world images are the readiness authority for handles that were
     /// inserted directly instead of requested through `AssetServer`.
     pub(crate) images: Option<Res<'w, Assets<Image>>>,
@@ -749,6 +753,12 @@ pub(crate) fn inspect_room_asset_manifest(
     // every App in the process; only the caller knows whether ITS App has a
     // render world that will ever stamp stage 3.
     render_world: RenderWorldPresent,
+    // ⛔ AND THIS App's PREPARED SET, for the same reason one step further in.
+    // `RenderWorldPresent` says whether this App draws; this says what it has
+    // actually uploaded. The process ledger cannot answer the second question
+    // either — asset ids are App-local and collide across Apps, so a sibling
+    // App's upload was able to satisfy this App's reveal.
+    prepared_here: Option<&AppGpuPreparedImages>,
     manifest: &RoomAssetManifest,
 ) -> RoomAssetReadiness {
     let mut readiness = RoomAssetReadiness {
@@ -786,10 +796,19 @@ pub(crate) fn inspect_room_asset_manifest(
         // prepared on the first frame AFTER the cover lifts — measured as every
         // sheet of the hall's reveal in one render frame. Waiting here turns
         // that frame into cover time. Headless (no render world) the term is
-        // always false; see `ImageStageLedger::is_awaiting_gpu`.
-        if ambition_platformer2d::asset_manager::image_stages::ledger()
-            .is_awaiting_gpu(dependency.asset_id.untyped(), render_world)
-        {
+        // always false; see `AppGpuPreparedImages::is_awaiting_gpu`.
+        //
+        // ⛔ THE APP-LOCAL SET DECIDES; THE LEDGER ONLY MIRRORS. A missing set
+        // beside a present render world is a composition the census plugin does
+        // not build — it inserts both together — so the fallback exists to keep
+        // today's behaviour rather than to be relied on, and it is the global
+        // answer with the global flaw.
+        let awaiting = match prepared_here {
+            Some(prepared) => prepared.is_awaiting_gpu(dependency.asset_id.untyped(), render_world),
+            None => ambition_platformer2d::asset_manager::image_stages::ledger()
+                .is_awaiting_gpu(dependency.asset_id.untyped(), render_world),
+        };
+        if awaiting {
             readiness
                 .pending
                 .push(format!("{} (gpu upload)", dependency.label));
@@ -1043,6 +1062,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         asset_server,
         context.images.as_deref(),
         RenderWorldPresent::from_option(context.render_world.as_deref()),
+        context.prepared_here.as_deref(),
         &manifest,
     );
     inspect_demanded_characters(
@@ -1114,6 +1134,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
     images: Option<Res<Assets<Image>>>,
     render_world: Option<Res<RenderWorldPresent>>,
+    prepared_here: Option<Res<AppGpuPreparedImages>>,
     assets: Option<Res<GameAssets>>,
     character_load_states: Option<
         Res<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
@@ -1157,6 +1178,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         &asset_server,
         images.as_deref(),
         RenderWorldPresent::from_option(render_world.as_deref()),
+        prepared_here.as_deref(),
         manifest,
     );
     if let Some(assets) = assets.as_deref() {
@@ -1342,10 +1364,13 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // Grouped because they are one question — is this dependency ready, and for
     // an App with which render world — and because a Bevy system stops at
     // sixteen params.
-    (asset_server, images, render_world): (
+    (asset_server, images, render_world, prepared_here): (
         Res<AssetServer>,
         Option<Res<Assets<Image>>>,
         Option<Res<RenderWorldPresent>>,
+        // Grouped with the render-world fact because they are one question:
+        // does this App draw, and has it uploaded THIS image.
+        Option<Res<AppGpuPreparedImages>>,
     ),
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
@@ -1546,6 +1571,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &asset_server,
             images.as_deref(),
             RenderWorldPresent::from_option(render_world.as_deref()),
+            prepared_here.as_deref(),
             &entry.manifest,
         )
         .is_terminal()

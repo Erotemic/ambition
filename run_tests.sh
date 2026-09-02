@@ -24,4 +24,19 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # several minutes is a warning nobody reads, and the fix is one command.
 "$repo_root/scripts/setup/target_bindmount.sh" --check
 
-exec python3 "$repo_root/scripts/run_tests.py" "$@"
+# ⛔ THE SUITE'S PYTHON JOBS NEED THE REPO'S ENVIRONMENT, NOT THE SYSTEM ONE.
+# `run_tests.py` launches the goal guard, the absence contracts and the rest as
+# `sys.executable -m pytest`, so whatever interpreter starts it decides whether
+# those jobs can run at all. A bare `python3` on a fresh clone has no pytest, and
+# the runner reports that as two red jobs at 0.0s among twenty green ones rather
+# than as a broken environment. `run_developer_setup.sh` provisions this
+# environment; the resolver falls back to `python3` when it is absent, which is
+# exactly the old behaviour.
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/cargo_env.sh"
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
+scripts_python="$(ambition_select_tool_python "$repo_root" "" 0)"
+ambition_python_exists "$scripts_python" || scripts_python=python3
+
+exec "$scripts_python" "$repo_root/scripts/run_tests.py" "$@"

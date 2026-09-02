@@ -46,6 +46,30 @@ from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # no
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
 
+def tool_python(project_dir: Path, override_env: str = "") -> str:
+    """Resolve a tool's interpreter the way every other caller in the repo does.
+
+    ⚠ ONE resolver, and it is `scripts/lib/tool_python.sh`. The order it knows —
+    a tool override, this machine's venv store, an in-repo `.venv`, then bare
+    `python3` — is not restated here, because a second copy drifts and this
+    runner would then disagree with the regen scripts about which interpreter a
+    tool has. Reconstructing the path was the bug: a hard-coded
+    `<tool>/.venv/bin/python` misses the per-machine store entirely, so a fresh
+    checkout silently ran the LDtk suite on an interpreter without the package.
+    """
+    script = REPO / "scripts" / "lib" / "tool_python.sh"
+    try:
+        resolved = subprocess.run(
+            ["bash", "-c",
+             f'source "{script}"; ambition_select_tool_python "$1" "$2" 0',
+             "_", str(project_dir), override_env],
+            capture_output=True, text=True, timeout=30, check=True,
+        ).stdout.strip()
+    except (subprocess.SubprocessError, OSError):
+        return sys.executable
+    return resolved or sys.executable
+
+
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -620,13 +644,12 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
         return [Job("detached repo developer tools", argv)]
 
     ldtk = REPO / "tools" / "ambition_ldtk_tools"
-    ldtk_python = ldtk / ".venv" / "bin" / "python"
     return [
         Job("detached repo developer tools", argv),
         Job(
             "ldtk authoring tool tests",
             [
-                str(ldtk_python) if ldtk_python.exists() else sys.executable,
+                tool_python(ldtk, "AMBITION_LDTK_PYTHON"),
                 "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
             ],
             cwd=str(ldtk),

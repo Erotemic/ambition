@@ -296,7 +296,11 @@ pub fn report_image_census(
             .resident_by_road()
             .into_iter()
             .map(|(road, (count, mp))| {
-                let road = if road == "?" { "UNROUTED(no demand)" } else { road };
+                let road = match road {
+                    image_stages::ROAD_UNROUTED => "UNROUTED(no demand)",
+                    image_stages::ROAD_PROCEDURAL => "PROCEDURAL(no file)",
+                    road => road,
+                };
                 format!("{road} {count}×{mp:.1}MP")
             })
             .collect();

@@ -202,11 +202,30 @@ pub fn seed_profile_for_gpu(class: DetectedGpuClass) -> VisualQualityProfile {
     }
 }
 
-/// `Ord` is declaration order, which is ascending quality (Potato <
-/// Quarter < Half < Full). Derived so a set of tiers has a deterministic
-/// iteration order for diagnostics; nothing decides policy by comparing two
-/// tiers, and nothing should — "which is better" is not the same question as
-/// "which did we load".
+/// `Ord` is declaration order, which is ascending PIXEL BUDGET (Potato <
+/// Quarter < Half < Full).
+///
+/// ⭐ IT IS A REQUEST ORDERING, and policy does compare on it — the sentence
+/// here used to say *"nothing decides policy by comparing two tiers, and
+/// nothing should"*, and by 2026-09-02 two policy sites did. Both compare
+/// REQUESTS, which is what the order means:
+///
+/// - `room_character_tier_bounds` takes `cap.min(ceiling)` — of the room's cap
+///   and the user's setting, whichever asks for fewer pixels wins;
+/// - `has_stale_realizations_outside` asks `requested_tier < floor ||
+///   requested_tier > ceiling`, an interval test over that same band.
+///
+/// ⛔⛔ WHAT MUST NOT BE COMPARED IS A RESOLVED TIER, and that is what the
+/// original warning was protecting. Whether a realization is CURRENT is decided
+/// by the tier it ANSWERS, not by the pixels it got: `character_sprite_tier`
+/// stamps the request precisely so the comparison is an equality that settles,
+/// and `resident_tiers` records that two resolved tiers *"is NOT by itself a
+/// convergence failure — a fallback is a permanent, correct disagreement"*. A
+/// character whose Full sheet has no Quarter variant resolves Full inside a
+/// Quarter room forever, and ranking those two would retire and rebuild it every
+/// frame.
+///
+/// ⇒ Order the REQUESTS; compare the ANSWERS only for equality.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]

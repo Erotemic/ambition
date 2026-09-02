@@ -391,6 +391,20 @@ with no catalog character today, which is why the preload existed. Not the
 hitch — it runs before the cover — but it is the first named row of open
 work 2 with a measured size.
 
+✔✔ **AND IT IS GONE — the table was deleted, and the row above is the reading
+that got it deleted.** `crate::intro::sprites` now carries the tombstone: eleven
+`(display name, filename, spec)` rows published under DISPLAY NAMES that the
+intro world never authors — every `NpcSpawn` in `intro.ldtk` carries a
+`character_id` with `name: None`, and the peaceful-NPC road sets
+`sprite_override_npc_name: None`, so **no lookup could reach a single one of
+them**. Two rows were doubly dead (`EnemySpawn`s with their own ids since
+2026-08-12) and one had no placement at all. The rows also fed
+`extend_with_intro_sprite_entries` into `PreloadGroup::SandboxCore`, a second
+preload road off the same table; deleting the table closed both. Props keep
+their loader — a `Prop` is keyed by `Prop.kind`, which the world does author.
+⇒ The fix shape this paragraph proposed (re-register as `AuthoredSheets`) was
+not needed: the sheets had no reachable consumer to re-register FOR.
+
 ✔ **The one `demand=unknown` in the hall is the LDtk PREVIEW TILESET (found
 2026-09-02 by probing the ledger, not by grepping).** Every world file —
 `hall_of_characters`, `intro`, `sandbox`, `you_have_to_cut_the_rope` — declares
@@ -614,6 +628,34 @@ process, and cargo runs those as parallel threads; the ledger is a process-globa
 EARLIER in that process — only concurrency is left, and the only fix for that is
 to run the test alone, which is what the script does. Un-ignoring it would make
 it flaky rather than red.
+⭐⭐ **RE-MEASURED 2026-09-02 ON A REAL POPULATION, AND THE ANSWER IS STILL
+ZERO.** `124684f56` made the no-window builder finish its plugins, so the road
+below finally decodes file-backed art. `scripts/measure_hall_redecodes.sh` now
+reads: **237 images resident, 67.6 MP, 270.4 MB, of which 213 arrived through a
+demand road; re-decodes 0.** That is the first time this census has had art in
+it — the correction below explains why every earlier reading did not.
+⇒ **The Hall entry decodes nothing twice on the headless road.** The host number
+is still owed (`AMBITION_PROFILE_CENSUS=1`, read `re-decodes N`), and only the
+host has the 434 MP; but the shape of the answer is no longer unknown.
+⛔ `dropped before gpu 0` on this road is STRUCTURAL, not a finding: headless has
+no render world, so `awaiting gpu` holds all 237 and nothing can be dropped
+*before* a GPU that never looks. Do not quote it as evidence of no waste.
+⛔⛔ **AND THE `UNROUTED` BUCKET WAS 24 NON-FINDINGS. Split 2026-09-02
+(`a20b5b1a2`).** The same census read `UNROUTED(no demand) 24×4.5MP`, which reads
+as *"something loaded art and no road said so"* — 24 times. Every one of the 24
+has **no path**: they came from no file at all, inserted directly (render
+targets, procedural sprites, shader inputs), and an image with no load can never
+acquire a demand stamp. `resident_by_road` keyed both kinds `"?"`. Two keys now
+(`ROAD_UNROUTED`, `ROAD_PROCEDURAL`), and the census NAMES the first on an
+`[image-unrouted]` line with paths — because on the host the one that matters
+(the 7.6 MP editor-preview tileset below) would otherwise have been the 25th
+entry in a bucket of noise. Unit-tested and poison-verified in
+`ambition_asset_manager`; ⛔ that crate's `image_stages` is behind the `bevy`
+feature, so `cargo test -p ambition_asset_manager --lib` runs NONE of those
+tests and reports 56 green.
+
+<details><summary>The earlier reading, and why it was empty — kept because the correction is the lesson</summary>
+
 ⛔⛔ **MEASURED: 0 re-decodes — AND THE NUMBER IS EMPTY, NOT SMALL. CORRECTED
 2026-09-02, same day, twice.** The first write-up of this said the headless run
 decoded "22 images / 4.5 MP, ~5% of the host's 434 MP", and treated that as a
@@ -631,6 +673,8 @@ image arrive through a demand road — and **it fails today**, naming the reason
 That is the correct outcome: a re-decode census over a population with no art in
 it cannot answer anything, and a guard that passed on 22 unrouted images was
 reporting a number it never had.
+
+</details>
 
 ⛔ **THE FIRST DRAFT OF THE TEST WOULD HAVE REPORTED THAT ZERO CONFIDENTLY.** Its
 only premise guard was the staged-cast size — but staging is a DEMAND and
@@ -690,10 +734,14 @@ count could show would be a missing character rather than a deduplicated one.
 ⇒ This also settles the "126 newly staged of 129 authored" reading from the
 re-decode census above: with all 129 reached, the three are characters the HUB
 had already staged before the transition, not three the hall failed to ask for.
-⇒ Of the three candidates, scope is out, re-decode is UNANSWERED (the headless
-road decodes no file-backed art at all — see the correction above; the earlier
-"~5% of the art" reading was wrong), and retired realizations are now
-distinguishable but need a host run to count.
+⇒ Of the three candidates, **scope is out** (measured), **re-decode is out on
+the headless road** (re-measured 2026-09-02 against a real 237-image / 213-routed
+population, 0 repeats — see the top of this section; the earlier "~5% of the art"
+reading was wrong and the "no art decodes at all" correction to it is now also
+superseded), and **retired realizations are the one candidate left standing** —
+distinguishable since the same day, but only a host run can count how many of the
+111 they were. That is the single measurement this section is still waiting on,
+and it is one boot with `AMBITION_PROFILE_CENSUS=1`.
 
 ### 6. Live quality switching
 

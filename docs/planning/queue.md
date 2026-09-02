@@ -730,9 +730,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   Mary-O sprite's ground contact to silence a false positive. `pirate_admiral`
   (2 frames) is the same class at the top edge: his plume touches row 0 on ALL
   six idle frames and the guard fires on the two where it is 7px wide instead of
-  0. ⇒ the remaining 35 targets are a POPULATION, not a defect list; the open
+  0. ⇒ the remaining targets are a POPULATION, not a defect list; the open
   work is an instrument that separates "drawn flush to a fitted frame" from
-  "severed", not 35 canvas edits.
+  "severed", not a stack of canvas edits.
+  ⚠ **THE "35" THIS SENTENCE CARRIED IS SUPERSEDED** — it was 38 minus the two
+  false-positive classes, over a sweep that could not render 22 SVG targets. The
+  measured population is **34 flagged / 465 edges over all 209**, below, and the
+  membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
+  Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
   asked for CANNOT BE MADE. `scripts/measure_clip_population.py` in the renderer
   submodule, branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the

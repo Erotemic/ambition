@@ -1085,6 +1085,35 @@ and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrout
 draw fewer pixels — the fix is a demand stamp, after which that sheet honours
 whatever tier the user chose, at whatever size that tier says.
 
+⛔⛔ **AND A SECOND ROAD IGNORES THE TIER, LARGER THAN THE FIRST: `fx-sheet` is
+7.7 MP at Potato, High and Ultra alike.** This one is not a routing gap — the FX
+sheets DO carry a demand stamp (`via fx-sheet`). The cause is one missing
+parameter, visible in the signature:
+
+```rust
+let characters = character_sprites::load_character_sprites_in(…, quality);
+let entities   = load_entity_sprites(catalog, asset_server, quality);
+let fx         = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder);
+```
+
+`load_fx_sheets` is the only one of the three that never receives the quality
+budget. It builds its set `with_sprite_folder(sprite_folder)` — a fixed folder —
+so it cannot select a variant even though the variants exist: 12 fx PNGs in
+`sprites/` (1.3 MB), 12 in `sprites_0_25x/` (964 KB) and 12 in `sprites_potato/`
+(**68 KB**). The Potato run decoded `sprites/generic_exotic_fx_spritesheet.png`
+at 1216×958.
+
+⭐ **AND THIS ONE IS INVISIBLE ON THE MACHINE THAT WOULD NOTICE IT LEAST.** At
+Ultra, full-resolution FX is exactly right, so the 3090 sees no defect at all. It
+costs only the configurations that ASKED for less — Steam Deck, mobile, web, and
+a weak-GPU desktop — which is the target class `../../planning/vision.md` names
+and the one no 3090 measurement can reach. Together with the undrawn duplicate
+above, **15.3 of the hall's 24.1 resident MP at Potato — 63% — is art that does
+not respond to the tier at all.**
+
+⛔ Routing again, not pixels: the fix gives a Potato user the 68 KB sheets they
+asked for and changes nothing at Ultra.
+
 ⚠ **NEVER-DRAWN HEADROOM, same runs.** What the room holds against what it puts
 on screen:
 

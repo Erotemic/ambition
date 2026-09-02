@@ -982,7 +982,6 @@ mod held_item_view_tests {
     use super::*;
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    use bevy::prelude::*;
 
     fn holder(app: &mut App, sim: &str, x: f32, item: &str, slot: u8) {
         let spec = ambition_characters::brain::HeldItemSpec {

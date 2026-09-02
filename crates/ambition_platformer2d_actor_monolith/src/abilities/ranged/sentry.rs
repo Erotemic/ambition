@@ -591,7 +591,6 @@ mod damage_tests {
     use super::*;
     use ambition_combat::events::{HitEvent, HitSource};
     use ambition_vfx::vfx::VfxMessage;
-    use bevy::prelude::*;
 
     #[derive(Resource, Default)]
     struct CapturedHits(Vec<HitEvent>);

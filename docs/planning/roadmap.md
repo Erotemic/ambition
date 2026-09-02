@@ -40,9 +40,11 @@ consume one semantic construction model rather than maintain independent reset
 or reconstruction ledgers.
 
 Prepared transactional construction, the transition readiness/authorization
-transaction, and the same-room replay all run one constructor. What remains is
-the durable-restore leg: a save load should prepare its first room against the
-saved occurrence facts rather than build the room and then correct it.
+transaction, the same-room replay, and — since 2026-08-31 (`758e9df37`) — the
+durable-restore leg all run one constructor: a save load prepares its first room
+against the saved occurrence facts at the activation edge rather than building
+the room and correcting it. This item is closed; the owner doc's C3 records the
+proof.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 

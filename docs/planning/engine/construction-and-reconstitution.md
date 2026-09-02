@@ -198,7 +198,24 @@ the world in the same frame it was asked to:
   It now registers a `RoomContentStagingRegistry` stager for the active room, so
   every construction of that room produces it.
 
-### C3 — make durable restore consume facts, not ECS snapshots — MEASURED
+### C3 — make durable restore consume facts, not ECS snapshots — ✔ CLOSED 2026-08-31, recorded here 2026-09-02
+
+The third of the three closings named below is the one that landed:
+`adopt_the_occurrence_ledger_at_activation` (commit `758e9df37`, queue row
+D-RESTORE-INTERIM) puts the file's occurrence ledger in place at
+`SessionScopeSet::Activate`, and activation hands the real
+`OccurrenceContinuity` to the first construction — the temporary population is
+never built. Pinned every frame, not at the endpoints, by
+`canonical_reconstitution::a_load_never_authors_the_occurrence_it_is_about_to_suppress`,
+which boots WITH the save (`Platformer2dSimHarnessOptions::with_save`, the road
+the binary takes) and is red under either leg poisoned alone. The two collisions
+that trace found are their own rows and both closed (D-RESTORE-COLLISION,
+D-RESTORE-LEDGER-SCOPE). What still restores after the body exists is the
+item/wallet leg (`restore_inventory_from_save`), which needs a primary body and
+adopts custody rows idempotently; no interim duplicate population is involved.
+The paragraphs below are the 08-30 measurement that this superseded, kept for
+the record.
+
 
 The storage half holds: `AmbitionGameSaveData` is product facts keyed by stable
 ids (occurrence whereabouts, custody, encounter/quest/switch/boss records,

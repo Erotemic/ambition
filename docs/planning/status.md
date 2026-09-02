@@ -67,11 +67,12 @@ transitions already wait for the same readiness/authorization transaction and
 rebase onto a new frame-zero baseline; speculative rollback frames do not cross a
 room boundary.
 
-The remaining architectural problem is **reconstitution**, not another rollback
-snapshot format. Fresh construction, room transition, same-room replay and
-new-game reset now run one constructor; the same-room replay's hand-kept reset
-ledger is deleted. Checkpoint/save restoration still corrects an already-built
-world instead of informing its construction.
+**Reconstitution** runs one constructor on every road: fresh construction, room
+transition, same-room replay, new-game reset, and — since 2026-08-31 — a save
+load, which informs its first construction with the file's occurrence ledger at
+the activation edge instead of building a room and correcting it
+(`engine/construction-and-reconstitution.md` C3). The same-room replay's
+hand-kept reset ledger is deleted.
 
 See [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 

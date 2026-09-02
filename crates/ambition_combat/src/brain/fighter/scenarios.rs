@@ -420,11 +420,6 @@ mod tests {
         assert!(seen.iter().any(|p| p.y > STAGE_SIZE.y), "off the bottom");
     }
 
-    /// The suite covers every `Situation` a fight can be in except `Advantage`,
-    /// which §3 does not name a fixture for — the punish windows are L2's to price,
-    /// and `advantage_is_the_opponents_commitment_and_never_its_active_frames`
-    /// already pins the classification. Recorded here so the omission is a choice.
-    #[test]
     /// ⭐ THE SAME SITUATION OFF EITHER LEDGE.
     ///
     /// D184: `recovery_left` engages in real bouts while `recovery_right` dies at
@@ -476,6 +471,11 @@ mod tests {
         }
     }
 
+    /// The suite covers every `Situation` a fight can be in except `Advantage`,
+    /// which §3 does not name a fixture for — the punish windows are L2's to price,
+    /// and `advantage_is_the_opponents_commitment_and_never_its_active_frames`
+    /// already pins the classification. Recorded here so the omission is a choice.
+    #[test]
     fn the_suite_covers_four_of_the_five_situations() {
         let mut seen: Vec<Situation> = suite().iter().map(|s| s.expect).collect();
         seen.sort();

@@ -226,6 +226,34 @@ GPU readiness term is positive proof (`8bd19f890`); two hub↔hall laps return
 the identical working set (6 realizations / 16 pages / 13.4 MP) and a quality
 round trip converges back with every page loaded (`a1c03c179`).
 
+⭐⭐ **AND THE LEDGER HAS A FOURTH STAGE SINCE 2026-09-02: RESIDENT USE.**
+`first_drawn` is stamped from the render world's `ExtractedSprites` (first write
+wins, or the stage's own cost lands in what it measures), so the census can say
+what was DRAWN and not only what arrived — `[image-drawn] … demand→draw NNNms via
+<road>` and `never drawn N (M MP: by owner)`. Two rules a reader must carry: the
+row prints `-` rather than `0` without a render world, because "nobody could draw
+anything" is not "nothing was drawn"; and `PROCEDURAL` rows can never be
+extracted at all, so their megapixels on that row are the instrument, not waste.
+
+Its first findings, all Potato tier (llvmpipe classifies as `Cpu`, so these
+megapixels are NOT comparable with the 434 MP Full / 38 MP Quarter figures above
+— the SHAPE is what carries across):
+
+- **the hall draws 14 of 138 resident cast pages**, which is the headroom the
+  room-level tier cap cannot reach and the motivation for the view-scoped tier
+  scoped in the owner doc (blocked on a feel ruling, in
+  `awaiting-maintainer-decision.md`);
+- **the FX set is 13 sheets / 9.4 MP loaded at boot in every room, and 76 of its
+  196 rows are named by nothing** — including all 14 of the admiral's and 20 of
+  George's, whose art was plainly drawn for their kits while their movesets ask
+  for generic effects. A missing-wiring finding, not dead art;
+- ⛔ **two road MIS-STAMPS have now been found this way** (vfx as
+  `character-sheet`, and 28 entity icons as `fx-sheet` — which is why the FX
+  number read 41 before it read 13). The remaining stamps were swept and are
+  correct. Nothing else in the pipeline notices a bad stamp: the art loads, draws
+  and frees correctly, and only the ATTRIBUTION is wrong — which is the entire
+  product of the residency work.
+
 See [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
 and [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 

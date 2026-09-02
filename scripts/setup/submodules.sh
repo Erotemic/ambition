@@ -29,9 +29,42 @@ ensure_submodules() {
     have git || fatal "git is required for submodule setup"
     [ -f "$repo_root/.gitmodules" ] || return 0
 
+    # ⛔⛔ `git submodule update` MOVES A SUBMODULE TO THE RECORDED GITLINK AND
+    # DETACHES WHATEVER BRANCH WAS THERE. The commits survive as a branch ref;
+    # the WORKING TREE does not. Measured 2026-09-02: a setup run silently
+    # reverted an in-progress fix in `ambition_music_renderer`, the next asset
+    # regen failed with the exact error that fix removes, and a commit made
+    # afterwards landed on the detached HEAD where no branch could see it.
+    #
+    # Nothing here can stop git doing its job, so the job is to SAY SO — with
+    # the branch name, so restoring is one command instead of an archaeology
+    # session in the reflog.
+    local path branch
+    local -A prior_branch=()
+    while read -r path; do
+        [ -n "$path" ] || continue
+        branch="$(git -C "$repo_root/$path" branch --show-current 2>/dev/null || true)"
+        [ -n "$branch" ] && prior_branch["$path"]="$branch"
+    done < <(git -C "$repo_root" ls-files --stage | awk '$1 == "160000" { print substr($0, index($0, $4)) }')
+
     log "syncing and initializing git submodules recursively"
     git submodule sync --recursive
     git submodule update --init --recursive
+
+    local detached=0
+    for path in "${!prior_branch[@]}"; do
+        if [ -z "$(git -C "$repo_root/$path" branch --show-current 2>/dev/null || true)" ]; then
+            if [ "$detached" -eq 0 ]; then
+                warn "submodules were DETACHED from the branch they were on:"
+                detached=1
+            fi
+            printf '    git -C %s checkout %s
+' "$path" "${prior_branch[$path]}" >&2
+        fi
+    done
+    if [ "$detached" -eq 1 ]; then
+        log "   their commits are safe on those branches; the working trees moved"
+    fi
 
     # Verify against real gitlinks (index mode 160000), not `.gitmodules` entries.
     # A `.gitmodules` block whose gitlink was dropped is a stale declaration that

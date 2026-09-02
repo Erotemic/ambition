@@ -1114,8 +1114,10 @@ product ruling.
   cause; `6446c5adc` was not it): one more `--no-tracy` capture through the hub
   door. Tells: zero "nothing demanded it" warnings at the hall reveal,
   `asset_wait_ms` in the seconds (the cover visibly holding ~2 s), no >33 ms
-  frames after the cover lifts. Also worth a look in the same run: the
-  kaleidoscope System page under a scroll — no flash (`2e7819419`).
+  frames after the cover lifts. In the same run: `image_arrivals` megapixels
+  in the hall window (434 before the gallery tier cap `dc3cd0d91`; expect
+  ~40) and `resident_mb` (2153 before). Also worth a look: the kaleidoscope
+  System page under a scroll — no flash (`2e7819419`).
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

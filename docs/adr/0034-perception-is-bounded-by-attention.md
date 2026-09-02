@@ -187,6 +187,19 @@ brain that needs neither a world view nor a target belief gets no
 `build_world_view`. The checksummed-state change and its schema baseline move
 went with it.
 
+⚠ **AND THE `None` INVARIANT NEEDED ENFORCING, not just declaring** (found by
+review 2026-09-02, fixed the same day). This ADR's own text says a `None` brain
+keeps an empty belief state, and that was true only of a body that STARTED
+there. A LIVE brain can become `None` — `BrainCommand` swapping in a StandStill
+(`StateMachineCfg::StandStill => Need::None`) — and nothing on that road cleared
+`PerceptionMemory`. Since `believed_target` is the only thing that ages memory
+and the gate skips it, the belief FROZE: switch back later and the body
+resurrects a hostile that may have died or left the room. Deterministic, so not a
+desync — a cognition-lifecycle defect, which is harder to notice because it reads
+as the AI remembering something. Now enforced at the decision site
+(`enforce_empty_belief_for_none`) rather than on every brain-changing road, so a
+future road inherits it.
+
 ⚠ **What is still open is the NEXT increment, not this one.** `believed_target`
 derives the belief FROM the view, so `TargetBelief` still constructs a full
 `WorldView`; making that road cheap is increment 2, along with a bounded

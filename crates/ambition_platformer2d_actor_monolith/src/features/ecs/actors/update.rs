@@ -553,7 +553,10 @@ pub fn tick_actor_brains(
                     // ⛔⛔ THIS CHANGES CHECKSUMMED STATE, ON PURPOSE. A `None`
                     // brain stops maintaining `PerceptionMemory`, so its
                     // remembered set stays empty where it used to track peers
-                    // the brain could never read. Deterministic — the gate reads
+                    // the brain could never read — for a body that BECOMES
+                    // `None` as well as one that starts there, which needed
+                    // `enforce_empty_belief_for_none` below and did not hold
+                    // until 2026-09-02. Deterministic — the gate reads
                     // `StateMachineCfg`, which is rollback state — but the VALUE
                     // moves, which is why `GGRS_ROLLBACK_SCHEMA_VERSION` moved
                     // with it.

@@ -100,27 +100,33 @@ they are not the same kind of fix.
 ## The machine you are on decides which of these are live
 
 Members #2, #7 and #8 are not properties of the code alone — they fire or do not
-fire depending on what is installed where you are standing. On the calculex VM,
-2026-09-02, `rustup target list --installed` returns exactly one target:
+fire depending on what is installed where you are standing.
+
+On the calculex VM on 2026-09-02, `rustup target list --installed` returned
+exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
+`aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box
+therefore carried **zero** web and **zero** Android coverage — and said so out
+loud rather than in a footer claiming otherwise, which is #7's fix working on a
+machine it was not written on:
 
 ```text
-x86_64-unknown-linux-gnu
+run_tests: SKIPPING the web build CHECK — the wasm32-unknown-unknown target is
+not installed … The web build is UNCHECKED in this run, and a #[cfg] break on
+that target is invisible to every other job.
 ```
 
-No `wasm32-unknown-unknown`, no `aarch64-linux-android`, and `ANDROID_NDK_HOME`
-unset. So on this box:
-
-- the web build CHECK and LINK are both **skipped** — #7's fix is what makes that
-  visible, and it works: the plan prints `SKIPPING the web build CHECK … The web
-  build is UNCHECKED in this run`;
-- the Android font path (#8) cannot even link, let alone run;
-- a full green gate here therefore carries **zero** web and **zero** Android
-  coverage, and says so out loud rather than in a footer that claims otherwise.
+⭐ **THEN `rustup target add wasm32-unknown-unknown` CHANGED THE ANSWER, in about
+a minute.** The same commit, the same command, the same repository — different
+coverage, because the machine changed. Nothing in the code moved. The Android
+path (#8) did not change with it: it needs a device, not a toolchain, which is
+what makes it the structural member and the web one the situational member.
 
 ⛔ **SO "THE GATE PASSED" IS NOT A PORTABLE CLAIM.** It is a claim about one
-machine's installed toolchains. When you report a green gate to somebody on
-different hardware, say which targets were installed, or you have handed them
-member #7 in social form.
+machine's installed toolchains at one moment. When you report a green gate to
+somebody on different hardware, say which targets were installed, or you have
+handed them member #7 in social form — a report that something was checked when
+it was skipped. And when a target is cheap to install, installing it is a better
+answer than documenting the gap.
 
 ## Before you believe an error list, diff it against a clean checkout
 

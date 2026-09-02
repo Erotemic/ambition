@@ -128,7 +128,7 @@ ALSO fall forever below."*
 Fix (structural, per §1's single-owner rule): the stream-sprite representation
 is deleted; `SpawnParticleSignal` is the only way matter enters. Spouts are now
 a `SpoutMouth { particle_type, x, y, width }` table — the same shape the ruled
-`PlacementSchema::Spout` will carry ([W-a]/[W-b]). Tile ownership is exclusive
+`PlacementSchema::Spout` will carry ([W-a]/[W-b]) <!-- cite-ok: PROPOSED variant, does not exist yet -->. Tile ownership is exclusive
 too: a tile dense enough to be a sand solid never also becomes a water region,
 pinned by `a_tile_dense_in_both_sand_and_water_is_owned_by_sand_alone`. Silent
 truncation is gone — `MAX_DYNAMIC_*` truncation now warns once instead of

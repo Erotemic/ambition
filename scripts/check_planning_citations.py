@@ -99,11 +99,45 @@ DEFINITION = re.compile(
     r"\b(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
 )
 #: An enum variant or associated item, at the start of a line.
-BARE_ITEM = re.compile(r"^\s*([A-Z][A-Za-z0-9_]*)\s*[,({]", re.M)
+#:
+#: ⚠ `=` is in the class for two real declaration styles this missed: a variant
+#: with a DISCRIMINANT (`Sequence = 1 << 0,`), and a name declared inside a MACRO
+#: arm (`SHOCKWAVE => "shockwave",`). Both reported as missing until measured;
+#: both exist. A prose linter should err toward believing the tree.
+BARE_ITEM = re.compile(r"^\s*([A-Z][A-Za-z0-9_]*)\s*[,({=]", re.M)
 #: A STRUCT FIELD. Without this the checker reports every `Type::field` citation
 #: -- `ControlSettings::right_stick_mode` is a field, not a method, and the
 #: repository cites fields as often as functions.
 FIELD = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z0-9_]*)\s*:", re.M)
+
+
+#: A qualifier is only OURS if the tree declares it as a type or a module.
+#: ⛔ Not "any defined name": field and variant indexing is deliberately loose so
+#: TAILS resolve, and reusing it for qualifiers let `Gizmos::text_2d` and
+#: `bevy_ggrs::RollbackId` through -- upstream names that happen to collide with
+#: something loose. A checker that reports upstream names teaches its reader to
+#: skim, which is how a real finding gets missed.
+QUALIFIER = re.compile(
+    r"\b(?:struct|enum|trait|mod|type|class)\s+([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def dependency_crates() -> set[str]:
+    """Every crate named as a dependency anywhere in the workspace.
+
+    A qualifier that names one is upstream by construction, whatever our source
+    happens to contain.
+    """
+    names: set[str] = set()
+    for rel in repo_files():
+        if rel.name != "Cargo.toml":
+            continue
+        try:
+            body = (REPO / rel).read_text(errors="replace")
+        except OSError:
+            continue
+        names.update(re.findall(r"^\s*([a-z][a-z0-9_-]*)\s*=", body, re.M))
+    return {n.replace("-", "_") for n in names}
 
 
 def defined_names(text: str) -> set[str]:
@@ -138,8 +172,11 @@ def main() -> int:
         docs.extend(sorted(p.rglob("*.md")) if p.is_dir() else [p])
 
     print(f"reading {len(list(repo_files()))} tracked files ...", file=sys.stderr)
-    defined = defined_names(source_text())
-    print(f"indexed {len(defined)} defined name(s)", file=sys.stderr)
+    text = source_text()
+    defined = defined_names(text)
+    ours = set(QUALIFIER.findall(text)) - dependency_crates()
+    print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
+          file=sys.stderr)
     tracked = {str(p) for p in repo_files()}
     by_suffix: dict[str, list[str]] = {}
     for p in tracked:
@@ -148,7 +185,15 @@ def main() -> int:
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
     for doc in docs:
-        rel = doc.relative_to(REPO)
+        # ⛔ A DOC OUTSIDE THE REPO IS A LEGITIMATE TARGET -- a fixture under
+        # pytest's tmp_path, or a file being checked before it is committed.
+        # `relative_to` RAISES on those, which crashed the checker rather than
+        # reporting anything, and a crash reads as "no findings" to any caller
+        # that only looks at the output.
+        try:
+            rel = doc.relative_to(REPO)
+        except ValueError:
+            rel = doc
         for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
             if MARKER in line:
                 continue
@@ -176,7 +221,7 @@ def main() -> int:
                 # to skim past it -- which is how a real finding gets missed.
                 # Requiring the QUALIFIER to be defined here is the cheapest
                 # test that keeps `grid_backend::…` and drops the rest.
-                if head in NOISE or head not in defined:
+                if head in NOISE or head not in ours:
                     continue
                 if tail not in defined:
                     findings.append((str(rel), lineno, m.group(0),

@@ -365,6 +365,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                 [sys.executable, "scripts/check_doc_links.py"],
             ),
             Job(
+                # ⚠ NON-STRICT ON PURPOSE: it reports, it does not fail. This is
+                # a linter for PROSE, so a false positive is a matter of a name
+                # it cannot know about (a macro-declared const, an upstream type)
+                # rather than a defect. Failing the lane on one would train
+                # everybody to pass --no-verify. `--strict` exists for a
+                # deliberate sweep.
+                "planning citations (reports, does not gate)",
+                [sys.executable, "scripts/check_planning_citations.py"],
+            ),
+            Job(
                 "compile-cost ratchet (frozen weights, not a stopwatch)",
                 [sys.executable, "scripts/compile_ratchet.py"],
             ),

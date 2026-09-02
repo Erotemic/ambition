@@ -446,7 +446,7 @@ not be declared DONE merely because the currently-expressible checks are impleme
 ## 10. BD3 — the telegraph gets an identity (opus, 2026-07-10)
 
 `TelegraphSpec { pose, cue, vfx }`, `#[serde(default)]` on
-`BossPatternStep::Telegraph`, projected into `BossAttackState::telegraph_spec` so
+`BossPatternStep::Telegraph`, projected into `BossAttackState::telegraph_profile` so
 presentation reads ONE read-model instead of re-walking the script. Every pre-BD3
 row parses unchanged.
 

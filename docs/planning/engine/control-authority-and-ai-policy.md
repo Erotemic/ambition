@@ -153,7 +153,7 @@ registered component, which is a far larger change than the one being bought.
 **C — move `Brain` up with its encoder.** The only shape that satisfies the orphan
 rule, and the measurement kills it. Inside `ambition_characters` and outside
 `brain/`, exactly TWO sites name the type — its registration
-(`rollback_registration.rs:32`, `"actor.brain"`) and the encoder itself — so the
+(`crates/ambition_characters/src/rollback_registration.rs:32`, `"actor.brain"`) and the encoder itself — so the
 floor crate's actor model does NOT hold it back. What does is a crate above:
 `ambition_mount` stores `pub brain: ambition_characters::brain::Brain` BY VALUE
 (`crates/ambition_mount/src/lib.rs:205`) and depends on `ambition_characters`

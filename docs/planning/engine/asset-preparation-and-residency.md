@@ -1085,6 +1085,27 @@ and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrout
 draw fewer pixels — the fix is a demand stamp, after which that sheet honours
 whatever tier the user chose, at whatever size that tier says.
 
+⚠ **NEVER-DRAWN HEADROOM, same runs.** What the room holds against what it puts
+on screen:
+
+| tier | resident | never drawn | DRAWN | headroom |
+|---|---|---|---|---|
+| Potato | 24.1 MP / 234 img | 23.2 MP / 214 img | **0.9 MP** | **26.8×** |
+| High | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+| Ultra | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+
+⭐ **The headroom GROWS as the tier drops — 8.8× to 26.8× — which is the
+duplicate above showing through.** Lowering the tier shrinks what is drawn
+(3.4 → 0.9 MP) but the 7.6 MP undrawn copy does not shrink with it, so it becomes
+a larger share of a smaller total: nearly a third of everything resident at
+Potato. A residency ratio measured at a low tier is therefore dominated by
+whatever ignores the tier.
+
+⛔ **NOT comparable to the "5.8×" in `../tracks.md`**, and this row must not be
+read as correcting it. That figure is a host walk-in; this is a 640×360 staged
+capture, and a smaller viewport draws fewer sprites, which inflates headroom by
+construction. Same instrument, different question.
+
 ⚠ **High and Ultra are identical here** (29.9 MP, 119.4 MB, same road split), so
 for this room's residency the ceiling is reached at High. And the reveal barrier
 held **10 updates** at both Potato and Ultra — the tier did not change what the

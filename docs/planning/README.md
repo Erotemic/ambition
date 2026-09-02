@@ -98,6 +98,38 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+### ⚠ A guard sweep at SCRIPT granularity misses most of the guards
+
+Earlier on 2026-09-02 every `scripts/check_*.py` was checked against this
+directory and seven domain guards were given pointers in the programs they
+protect. That sweep was too coarse, and the way it was too coarse is worth
+keeping: **one referenced script can hide dozens of unreferenced rules.**
+
+`check_absence_contracts.py` is a single script — referenced, therefore "covered"
+by that sweep — and it runs **37 separate contracts**, each a standing
+architectural prohibition with its own name and its own owner. Re-checked at
+CONTRACT granularity at `dae963206`: **8 are named somewhere in `docs/planning`, 29
+are named nowhere.**
+
+The eight that are named cluster around two programs (public SDK, capability
+footprint). The twenty-nine that are not include rules a plan would obviously
+want to point at — `central-rollback-does-not-enumerate-domains`,
+`rollback-wire-format-changes-are-declared`,
+`engine-crates-do-not-consume-the-umbrella-facade`, `engine-core-is-the-floor`,
+`geometry-is-the-floor`, `platformer-primitives-stays-a-foundation`,
+`the-character-fold-is-not-a-public-capability`,
+`the-seat-topology-has-one-engine-side-creator` — and others that are
+self-explanatory and need no plan at all.
+
+⛔ **Mapping the 29 to owners is NOT done and is not a mechanical job**: several
+belong to campaigns that have closed, and a contract whose rule is obvious from
+its name costs nothing by being unlinked. The number is recorded so the next
+session starts from 29 rather than from zero.
+
+⇒ **The general form: when you sweep for instrumentation, sweep at the
+granularity a READER would look for.** Nobody greps for a filename; they grep for
+the rule they are about to break.
+
 ### ⛔ The hardest rot to catch: a premise that is still true and no longer the point
 
 Twice in one sweep, a planning doc's stated premise **verified clean by grep**

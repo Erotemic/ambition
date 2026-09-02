@@ -186,6 +186,40 @@ your flags, not just your machine. This cuts both ways — the
 extras may be phantom, and a clean checkout may also show you something your
 warm tree has been hiding since member #3.
 
+## ⛔ The filter you wrote yourself is the one you will not suspect
+
+The section above says your error list is a property of your environment. The
+sharper form, learned four separate times on 2026-09-02 by the person writing
+this page:
+
+> **A search that finds nothing has told you about your PATTERN until you have
+> checked that the pattern can match what you are looking for.**
+
+All four had the same shape and none of them looked alike at the time:
+
+| what was searched | what the search could not find | what it "proved" |
+|---|---|---|
+| `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not |
+| planning docs for `scripts/…` paths that exist | bare basenames (`tests.rs`, `fx.rs`) used as prose shorthand | "186 broken citations" — there were none |
+| `cargo check --workspace` output through `\| tail` | the exit status, which a pipeline takes from its LAST command | "the lane is green" — it was RED |
+| asset paths matched with `sprites_[a-z0-9_]+/` | `sprites/`, the Full path, which has no underscore | "`AMBITION_QUALITY_PROFILE` does not work" — it works |
+
+⭐ **Three of the four produced a FALSE NEGATIVE that read as a finding**, which
+is the dangerous direction: a missing result feels like evidence of absence, and
+absence is what this whole page is about. The fourth produced a false positive
+and was caught in seconds.
+
+⇒ **The cheap defence is a positive control.** Before believing a search found
+nothing, run it against something you KNOW it should match. `grep -c` on a
+pattern you expect to hit; poison the checker with the form it actually reads;
+capture `PIPESTATUS` instead of trusting a pipeline's exit. Every one of the four
+above would have taken under a minute to catch and cost between ten minutes and
+a twenty-minute build.
+
+⚠ And note where these landed: two of them were reported to a coordinator before
+being caught. A wrong finding sent to somebody acting on it costs more than the
+time to check it.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

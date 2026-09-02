@@ -105,6 +105,11 @@ struct StartupAssetInputs<'w, 's> {
     /// none — the resource is per-App on purpose.
     render_world:
         Option<Res<'w, ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent>>,
+    /// And what it has uploaded. Per-App for the same reason: asset ids are
+    /// local to an App, so a process-wide "prepared" set let a sibling App's
+    /// upload settle this one's startup readiness.
+    prepared_here:
+        Option<Res<'w, ambition_platformer2d::asset_manager::image_stages::AppGpuPreparedImages>>,
     game_assets: ResMut<'w, GameAssets>,
     asset_catalog:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -344,6 +349,7 @@ fn drive_direct_startup_loading(
         ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent::from_option(
             assets.render_world.as_deref(),
         ),
+        assets.prepared_here.as_deref(),
         &assets.game_assets,
         &assets.character_load_states,
         state
@@ -555,6 +561,9 @@ fn inspect_startup_manifest(
     asset_server: &AssetServer,
     images: &Assets<Image>,
     render_world: ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent,
+    prepared_here: Option<
+        &ambition_platformer2d::asset_manager::image_stages::AppGpuPreparedImages,
+    >,
     game_assets: &GameAssets,
     character_load_states: &ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
     manifest: &mut StartupAssetManifest,
@@ -571,7 +580,13 @@ fn inspect_startup_manifest(
         }
     }
     let mut room =
-        inspect_room_asset_manifest(asset_server, Some(images), render_world, &manifest.room);
+        inspect_room_asset_manifest(
+            asset_server,
+            Some(images),
+            render_world,
+            prepared_here,
+            &manifest.room,
+        );
     super::world_flow::inspect_demanded_characters(
         &manifest.demanded_characters,
         game_assets,

@@ -222,6 +222,7 @@ pub(crate) fn prepare_first_room_art_system(
             asset_server,
             context.images.as_deref(),
             RenderWorldPresent::from_option(context.render_world.as_deref()),
+            context.prepared_here.as_deref(),
             &job.manifest,
         );
         inspect_demanded_characters(

@@ -1002,6 +1002,184 @@ that keeps the active theme and the one-hop neighbours' would bound it at
 recorded rather than built; the `resident by road: parallax` term after a
 multi-zone walk is the measurement.
 
+⭐ **BUILT AND MEASURED 2026-09-02 (`f1445c142`). And the accumulation was not a
+caller's omission — it was a GUARANTEE OF THE TYPE**, which is why the fix had to
+start in `ambition_sprite_sheet` and not at a call site:
+
+- `ParallaxLayerSet`'s whole API was `get`, `ensure_theme_loaded`, `len`,
+  `is_empty` over a PRIVATE map; no `remove`, `clear` or `retain` existed and
+  nothing outside its module named the type;
+- `GameAssets` is assigned once, by `bind_game_assets` on `Startup`, so the
+  accumulating set lives for the whole process;
+- the one path that looks like a release,
+  `refresh_parallax_layers_on_quality_change`, despawns `ParallaxLayerVisual`
+  ENTITIES and respawns them without touching the handle store.
+
+`ParallaxLayerSet::retain_themes` is the eviction API and owns no policy;
+`world_flow::parallax_residency` owns the rule (active + one-hop), ordered after
+the prefetch. Verified end to end by `scripts/measure_parallax_retire.sh`:
+`[Hub, Basement, Boss]` → `[Hub, Basement]`, and the retired theme's images leave
+`Assets<Image>` — asserted separately, because dropping a handle is necessary and
+not sufficient when a spawned visual may hold a clone.
+
+⚠ **Two corrections to the estimate above, both downward.** The ceiling is
+reached less often than "visits every zone" suggests, and the rule's own bound is
+looser than what is ever loaded:
+
+- ⛔ **`NEIGHBOR_PREFETCH_ROOM_BUDGET` is 4** — the prefetch prepares at most four
+  neighbours however many a room has. `central_hub_main` has 21 exits into six
+  biomes, so the rule PERMITS six themes there, but only **three** are ever
+  resident (`[Hub, Basement, Boss]`, measured). Sizing this leak from adjacency
+  overestimates it by double.
+- The route that would test it is not the obvious one: `central_hub_main` and
+  `hall_of_characters` BOTH resolve to `ParallaxTheme::Hub` (`biome: hall` is not
+  a `from_key` key, so it falls through to `visual_theme: default`), so the hall
+  door crosses no theme boundary and a retire assertion on it passes while doing
+  nothing. The fixture walks `tech_bros_door` into Basement instead.
+
+#### ⭐ The hall by TIER after the cap removal (calculex VM, software rasterizer, ff1ce535b)
+
+`capture_scene hall_of_characters player 640x360 --warmup 400`, tier forced with
+`AMBITION_QUALITY_PROFILE` and **verified from `[census] visual_quality
+profile=`** rather than assumed. ⛔ Counts, not clocks: this box has no GPU, so
+the megapixel and image figures transfer and the frame times do not.
+
+| tier | images | resident MP | MB | character-sheet | fx-sheet | parallax | UNROUTED |
+|---|---|---|---|---|---|---|---|
+| Potato | 234 | 24.1 | 96.5 | 137 × 4.2MP | 10 × 7.7MP | 4 × 0.0MP | 8 × **7.6MP** |
+| High | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+| Ultra | 235 | 29.9 | 119.4 | 138 × 5.4MP | 10 × 7.7MP | 4 × 2.4MP | 8 × **7.6MP** |
+
+⭐ **THE UNROUTED POPULATION IGNORES THE TIER, AND IT IS THE BIGGEST SINGLE
+THING IN THE ROOM.** `game://sprites/player_robot_v3_spritesheet.png` is 7.6 MP
+at Potato, at High and at Ultra — byte-identical across all three. At Potato that
+one file is **32% of the hall's entire resident megapixels**, and it is the road
+the census names `UNROUTED(no demand)`: decoded with nobody claiming to have
+asked for it. An image that arrives without a demand stamp also arrives without a
+quality path, so the tier cannot reach it.
+
+⛔⛔ **AND IT IS A SECOND COPY OF A SHEET THE ROOM ALREADY HAS AT THE RIGHT
+TIER. The census names the cause in its own line:**
+
+```text
+[image]  0.923s f 0 3072x2468 7.6MP live=0 game://sprites/player_robot_v3_spritesheet.png
+         demand=unknown (not through load_sheet_image)
+[image-drawn] 1.412s 0.1MP sprites_potato/player_robot_v3_spritesheet.png
+         demand→draw 128ms via character-sheet
+```
+
+Frame **0**, before gameplay, 3072×2468, and `demand=unknown (not through
+load_sheet_image)` — the instrument says exactly which road was skipped. Half a
+second later the SAME character's sheet arrives again through the demand road at
+the resolved tier, 0.1 MP, and that is the copy the game actually draws. The
+7.6 MP one appears in `never drawn` for the rest of the run.
+
+⛔ **AND THE LOADER IS NOT OURS — CORRECTED 2026-09-02 after this was first
+written up.** It is `bevy_ecs_ldtk` loading every project tileset: all four
+`.ldtk` worlds declare `sprite_player_robot_v3` with
+`relPath=../sprites/player_robot_v3_spritesheet.png` at 3072×2484, for EDITOR
+entity previews. Verified in all four world files. So `demand=unknown` is
+accurate and the road is genuinely absent — but the fix is retargeting four
+declarations at `../sprites_0_25x/…` in the map submodule, which is Jon's, and
+the row that owns it is in [`../queue.md`](../queue.md). ⚠ Do not go looking for
+this in our character-sprite loader; an earlier version of this paragraph would
+have sent a reader there.
+
+⇒ **So this is not "one image ignored the tier". It is a DUPLICATE: 7.6 MP
+loaded at boot by the LDtk spine, never drawn, alongside the 0.1 MP copy the
+realization loads and the game actually draws.** At Potato that duplicate is 32% of the hall's resident megapixels and
+76× the drawn copy.
+
+⛔ **AND THE VARIANT IT SHOULD HAVE USED EXISTS.** All four are on disk for that
+sheet — `sprites/` **4.3 MB**, `sprites_0_5x/` 2.2 MB, `sprites_0_25x/` 844 KB,
+`sprites_potato/` **56 KB**. The Potato run decoded the 4.3 MB one. That is
+**77× the bytes** of the variant its own tier authored, for the single largest
+image in the room, and the seven other unrouted files are ~0.0 MP each — so this
+one file IS the unrouted population in any sense that costs memory.
+
+⇒ **So "the tier decides how many pixels the hall holds" is true of 5.8 MP of it
+and false of 7.6 MP of it.** Potato → Ultra moves 24.1 → 29.9 MP; the unrouted
+7.6 MP is constant underneath. ⛔ This is a ROUTING observation, not a proposal to
+draw fewer pixels — the fix is a demand stamp, after which that sheet honours
+whatever tier the user chose, at whatever size that tier says.
+
+⛔⛔ **AND A SECOND ROAD IGNORES THE TIER, LARGER THAN THE FIRST: `fx-sheet` is
+7.7 MP at Potato, High and Ultra alike.** This one is not a routing gap — the FX
+sheets DO carry a demand stamp (`via fx-sheet`). The cause is one missing
+parameter, visible in the signature:
+
+```rust
+let characters = character_sprites::load_character_sprites_in(…, quality);
+let entities   = load_entity_sprites(catalog, asset_server, quality);
+let fx         = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder);
+```
+
+`load_fx_sheets` is the only one of the three that never receives the quality
+budget. It builds its set `with_sprite_folder(sprite_folder)` — a fixed folder —
+so it cannot select a variant even though the variants exist: 12 fx PNGs in
+`sprites/` (1.3 MB), 12 in `sprites_0_25x/` (964 KB) and 12 in `sprites_potato/`
+(**68 KB**). The Potato run decoded `sprites/generic_exotic_fx_spritesheet.png`
+at 1216×958.
+
+⭐ **AND THIS ONE IS INVISIBLE ON THE MACHINE THAT WOULD NOTICE IT LEAST.** At
+Ultra, full-resolution FX is exactly right, so the 3090 sees no defect at all. It
+costs only the configurations that ASKED for less — Steam Deck, mobile, web, and
+a weak-GPU desktop — which is the target class `../../planning/vision.md` names
+and the one no 3090 measurement can reach. Together with the undrawn duplicate
+above, **15.3 of the hall's 24.1 resident MP at Potato — 63% — is art that does
+not respond to the tier at all.**
+
+⭐ **AUDITED ACROSS EVERY LOADER, so this is a complete list rather than one
+example.** Of the eleven `load_*`/`ensure_*` entry points in the asset path,
+**seven take the quality budget and three do not**:
+
+| takes `quality` | does NOT |
+|---|---|
+| `load_character_sprites_in`, `load_entity_sprites`, `load_game_assets`, `ensure_boss_sheets_loaded`, `ensure_theme_loaded`, `load_parallax_layers_for_theme`, `ensure_parallax_layers_for_room` | ⛔ `load_fx_sheets`, ⛔ `ensure_fx_sheet_loaded`, ⛔ `load_prop_sheet_for_target` |
+
+`load_sheet_image` is the eleventh and is correctly absent from both columns: it
+is the primitive that takes an already-resolved path, so the caller owns the
+choice.
+
+⛔ **BOTH FX LOADERS MISS IT — the boot core AND the per-character owned road** —
+which is why all ten resident fx sheets are full-resolution rather than just the
+four core ones. `load_prop_sheet_for_target` is the third; the hall's `held-item`
+road is 0.1 MP so it does not show there, and a prop-heavy room is where it
+would.
+
+⛔ Routing again, not pixels: the fix gives a Potato user the 68 KB sheets they
+asked for and changes nothing at Ultra.
+
+⚠ **NEVER-DRAWN HEADROOM, same runs.** What the room holds against what it puts
+on screen:
+
+| tier | resident | never drawn | DRAWN | headroom |
+|---|---|---|---|---|
+| Potato | 24.1 MP / 234 img | 23.2 MP / 214 img | **0.9 MP** | **26.8×** |
+| High | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+| Ultra | 29.9 MP / 235 img | 26.5 MP / 211 img | **3.4 MP** | **8.8×** |
+
+⭐ **The headroom GROWS as the tier drops — 8.8× to 26.8× — which is the
+duplicate above showing through.** Lowering the tier shrinks what is drawn
+(3.4 → 0.9 MP) but the 7.6 MP undrawn copy does not shrink with it, so it becomes
+a larger share of a smaller total: nearly a third of everything resident at
+Potato. A residency ratio measured at a low tier is therefore dominated by
+whatever ignores the tier.
+
+⛔ **NOT comparable to the "5.8×" in `../tracks.md`**, and this row must not be
+read as correcting it. That figure is a host walk-in; this is a 640×360 staged
+capture, and a smaller viewport draws fewer sprites, which inflates headroom by
+construction. Same instrument, different question.
+
+⚠ **High and Ultra are identical here** (29.9 MP, 119.4 MB, same road split), so
+for this room's residency the ceiling is reached at High. And the reveal barrier
+held **10 updates** at both Potato and Ultra — the tier did not change what the
+room waited for.
+
+⛔ Not comparable to the 434 MP host figure above: that is a walked-in hall on
+real hardware, this is a staged capture at 640×360 on a software rasterizer. The
+two answer different questions and no delta between them means anything.
+
 ### 5. Eliminate accidental re-preparation/reload
 
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame

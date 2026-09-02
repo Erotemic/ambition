@@ -81,12 +81,44 @@ Keep the measurement stages separate:
 
 Do not quote a headless preflight time as a rendered transition budget.
 
-### T2 — make prefetch/residency policy explicit where measurements justify it
+### T2 — make prefetch/residency policy explicit where measurements justify it — ◐ BOTH HALVES NOW EXIST
 
 A room transition should request what the next room needs through the asset
 preparation/residency authority rather than ad hoc eager loading. Avoid a broad
 prefetch-every-neighbour policy that merely moves a hitch earlier and grows
 resident memory without a budget.
+
+> **RE-MEASURED against `1afa3723d` (2026-09-02). The warning was heeded on both
+> counts, and the second half landed the same day this was re-read.**
+>
+> ⭐ **The prefetch is NOT "every neighbour".**
+> `const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4`
+> (`game/ambition_app/src/app/world_flow/room_transition_assets.rs:1271`), with
+> its own reasoning in place: four "covers ordinary corridor/lab branching while
+> bounding uncovered decode work at high-degree hubs", and excess neighbours are
+> skipped as WHOLE rooms because cached manifests are promoted only when
+> complete. Measured consequence: `central_hub_main` has 21 exits into six
+> biomes, and standing in it holds **three** parallax themes, not six.
+>
+> ⭐ **And resident memory now has an eviction counterpart, for the first asset
+> class to get one.** `ParallaxLayerSet::retain_themes`
+> (`crates/ambition_sprite_sheet/src/game_assets/mod.rs:396`) is the API;
+> `retire_departed_parallax_themes`
+> (`game/ambition_app/src/app/world_flow/parallax_residency.rs:73`) is the
+> policy — keep the active room's theme plus its one-hop neighbours', which is
+> exactly the set the prefetch loads, so residency and prefetch cannot disagree.
+> Verified end to end by `scripts/measure_parallax_retire.sh`: a hub → basement
+> walk goes `[Hub, Basement, Boss]` → `[Hub, Basement]`, and the retired theme's
+> images leave `Assets<Image>` rather than merely losing a handle.
+>
+> ⛔ **WHAT IS STILL OPEN, and it is the general half.** Parallax is ONE asset
+> class. Character pages, FX sheets and boss sheets have no equivalent retire,
+> and "the asset preparation/residency authority" this item asks for does not
+> exist as a single owner — what exists is one bounded prefetch and one
+> per-class eviction rule that happen to agree. Generalising that agreement into
+> a stated authority is the residual, and it is
+> [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md)
+> open work 4, not this row.
 
 ### T3 — keep carry/retention semantics lifecycle-owned
 

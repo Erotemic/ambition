@@ -2033,6 +2033,14 @@ product ruling.
   at boot, `sprites/…` by the realization after the first `room-loaded` (host
   captures `015511Z`/`015909Z`) — a pair the re-decode census cannot see
   because two sources are two asset ids.
+  ⭐ **SIZED ON THE NO-GPU VM, 2026-09-02 (`4a52f1903`): it is 32% of the hall's
+  resident megapixels at Potato and 76× the copy actually on screen** (7.6 MP
+  undrawn against 0.1 MP drawn). ⛔ AND IT IS BYTE-IDENTICAL AT POTATO, HIGH AND
+  ULTRA — a tileset declaration carries its own `relPath`, so no quality tier can
+  reach it. That makes it WORSE the lower the setting: it is a fixed 7.6 MP on
+  top of a total that shrinks from 29.9 MP at Ultra to 24.1 MP at Potato, which
+  is most of why the hall's never-drawn headroom rises from 8.8× to 26.8× as the
+  tier drops. A residency ratio taken at a low tier is measuring this row.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

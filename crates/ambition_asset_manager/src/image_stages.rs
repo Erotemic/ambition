@@ -10,7 +10,22 @@
 //! Process-global on purpose: the demand is recorded by a free function with no
 //! world in hand (`load_sheet_image`), the insertion by a main-world system, and
 //! the GPU preparation by a RENDER-world system. Three worlds, one ledger. It is
-//! a diagnostic — nothing authoritative reads it, and it is never rollback state.
+//! a diagnostic — and it is never rollback state.
+//!
+//! ⛔⛔ THIS HEADER USED TO SAY "nothing authoritative reads it". THAT WAS FALSE
+//! AND IT COST A CORRECTNESS BUG. `inspect_room_asset_manifest` read
+//! [`ImageStageLedger::is_awaiting_gpu`] as a REVEAL CONDITION — the cover over a
+//! room transition would not lift until this ledger said the GPU had the pixels.
+//! A process-global structure keyed by `UntypedAssetId` was deciding an App-local
+//! question, and asset ids are LOCAL TO AN App (this repository has measured them
+//! colliding), so one App's upload could lift another App's cover.
+//!
+//! ⭐ Since 2026-09-02 the authority is [`AppGpuPreparedImages`], one per App,
+//! written by that App's render-world stamper and read by that App's reveal. The
+//! ledger still MIRRORS every stamp and must keep doing so — the `[image-gpu]`
+//! lines, the insert→gpu timings and the census all read it. What it may not do
+//! is decide. If you are about to read this ledger to make a decision rather
+//! than to print a number, that is the bug this paragraph is here to stop.
 //!
 //! Coverage is exactly the images demanded through a road that calls
 //! [`note_demand`]: `load_sheet_image` and the manifest catalog's
@@ -43,7 +58,8 @@
 use bevy::asset::UntypedAssetId;
 use bevy::prelude::Resource;
 use std::collections::BTreeMap;
-use std::sync::{Mutex, MutexGuard};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -181,6 +197,55 @@ impl RenderWorldPresent {
 
     pub fn is_present(self) -> bool {
         self.0
+    }
+}
+
+/// The images THIS App's render world has prepared.
+///
+/// ⛔⛔ WHY THIS EXISTS AND THE LEDGER CANNOT DO IT. [`ImageStageLedger`] is
+/// process-global and keyed by `UntypedAssetId`, and asset ids are LOCAL TO AN
+/// App — this repository has measured them colliding across Apps. So a render
+/// world preparing image id 7 in App A marked "id 7 is prepared" for App B as
+/// well, and B's reveal cover could lift on A's upload. The ledger's own
+/// `is_awaiting_gpu` says as much in its doc: it "cannot know which App is
+/// asking".
+///
+/// ⭐ THE FIX IS OWNERSHIP, NOT A BETTER KEY. One of these is created per App
+/// and inserted into BOTH that App's main world and its render sub-app, so the
+/// stamper and the reveal read the same `Arc` and a sibling App holds a
+/// different one. Two Apps cannot see each other's preparation because they
+/// never share the set.
+///
+/// ⚠ The global ledger still MIRRORS these stamps, and must keep doing so: the
+/// `[image-gpu]` lines, the insert→gpu timings and the census all read it. What
+/// it may no longer do is DECIDE whether a cover lifts.
+#[derive(Resource, Clone, Default, Debug)]
+pub struct AppGpuPreparedImages(Arc<Mutex<HashSet<UntypedAssetId>>>);
+
+impl AppGpuPreparedImages {
+    /// Record that this App's render world has a GPU copy of `id`.
+    pub fn mark_prepared(&self, id: UntypedAssetId) {
+        if let Ok(mut set) = self.0.lock() {
+            set.insert(id);
+        }
+    }
+
+    /// Has THIS App prepared `id`?
+    pub fn is_prepared(&self, id: UntypedAssetId) -> bool {
+        self.0.lock().is_ok_and(|set| set.contains(&id))
+    }
+
+    pub fn prepared_count(&self) -> usize {
+        self.0.lock().map(|set| set.len()).unwrap_or(0)
+    }
+
+    /// The reveal-readiness term: this App draws, and has not yet prepared `id`.
+    ///
+    /// ⭐ POSITIVE PROOF, exactly as the ledger's version was: an id with no
+    /// stamp yet is OWED, not assumed ready. A headless App answers `false`
+    /// because it never prepares anything and nothing may wait on it.
+    pub fn is_awaiting_gpu(&self, id: UntypedAssetId, render_world: RenderWorldPresent) -> bool {
+        render_world.is_present() && !self.is_prepared(id)
     }
 }
 
@@ -1134,5 +1199,72 @@ mod tests {
         ledger.gpu_prepared(id(5), Instant::now());
         assert!(ledger.removed(id(5)).is_none());
         assert_eq!(ledger.dropped_before_gpu, 1);
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod app_local_gpu_readiness {
+    use super::*;
+
+    /// The same shape the module's other tests use — `bevy::image::Image` and a
+    /// bare `uuid` crate are neither of them reachable here, and inventing them
+    /// is how this test first failed to compile.
+    fn id(n: u128) -> UntypedAssetId {
+        bevy::asset::AssetId::<bevy::asset::LoadedUntypedAsset>::Uuid {
+            uuid: bevy::asset::uuid::Uuid::from_u128(n),
+        }
+        .untyped()
+    }
+
+    /// ⛔⛔ THE ACCEPTANCE CONDITION. Two rendering Apps that share an asset id —
+    /// which this repository has measured happening, because ids are App-LOCAL —
+    /// must not settle each other's reveal.
+    ///
+    /// Before `AppGpuPreparedImages` this was unprovable: the only readiness
+    /// authority was a process-global ledger keyed by that id, so "App A prepared
+    /// id 7" and "App B prepared id 7" were the same sentence.
+    #[test]
+    fn preparation_in_one_app_does_not_settle_another_that_shares_the_id() {
+        let a = AppGpuPreparedImages::default();
+        let b = AppGpuPreparedImages::default();
+        let rendering = RenderWorldPresent(true);
+        let shared = id(7);
+
+        // Non-vacuity: both are waiting on the SAME id before anything happens.
+        assert!(a.is_awaiting_gpu(shared, rendering));
+        assert!(b.is_awaiting_gpu(shared, rendering));
+
+        a.mark_prepared(shared);
+
+        assert!(!a.is_awaiting_gpu(shared, rendering), "A prepared it, so A is settled");
+        assert!(
+            b.is_awaiting_gpu(shared, rendering),
+            "B must STILL be waiting: A's render world uploaded A's image, and the \
+             fact that the two Apps happen to number it the same is not evidence \
+             about B. This is the assertion the process-global ledger could not make."
+        );
+        assert_eq!(a.prepared_count(), 1);
+        assert_eq!(b.prepared_count(), 0);
+    }
+
+    /// A headless App never prepares anything, so nothing may wait on it.
+    #[test]
+    fn a_headless_app_is_never_awaiting() {
+        let headless = AppGpuPreparedImages::default();
+        assert!(!headless.is_awaiting_gpu(id(7), RenderWorldPresent(false)));
+        assert!(headless.is_awaiting_gpu(id(7), RenderWorldPresent(true)));
+    }
+
+    /// The set is shared through its `Arc`, which is how the render sub-app's
+    /// write reaches the main world's read inside ONE App.
+    #[test]
+    fn a_clone_is_the_same_set_because_one_app_shares_it_across_worlds() {
+        let main_world = AppGpuPreparedImages::default();
+        let render_world = main_world.clone();
+        render_world.mark_prepared(id(3));
+        assert!(
+            main_world.is_prepared(id(3)),
+            "the render sub-app's stamp must be visible to the App's own main world",
+        );
     }
 }

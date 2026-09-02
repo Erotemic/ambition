@@ -1118,7 +1118,13 @@ product ruling.
   frames after the cover lifts. In the same run: `image_arrivals` megapixels
   in the hall window (434 before the gallery tier cap `dc3cd0d91`; expect
   ~40) and `resident_mb` (2153 before). Also worth a look: the kaleidoscope
-  System page under a scroll — no flash (`2e7819419`).
+  System page under a scroll — no flash (`2e7819419`). NEW since `2b31329c6`:
+  the `[image-gpu]` lines say how long the UPLOAD half took — on the VM's
+  llvmpipe every sheet of the reveal was prepared in ONE render frame
+  (`insert→gpu 493ms` for all seventeen). On the 3090 read the `insert→gpu`
+  max in the hall window; if it is a frame, a second walk with
+  `AMBITION_RENDER_ASSET_MB_PER_FRAME=64` shows whether pacing trades it for
+  `awaiting gpu` frames of late-arriving art.
 - **Why the capture runs on for minutes after the window closes:** reproduces
   nowhere headless (0.4 s drain for 4.2M zones on the VM). One capture with
   `TRACY_NO_SYS_TRACE=1 scripts/profile_desktop.sh` decides whether it is Tracy's

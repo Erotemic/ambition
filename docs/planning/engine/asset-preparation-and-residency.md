@@ -451,10 +451,18 @@ say-so rather than being edited from here. Everything else that decodes an
 image in the shipped composition now stamps its road.
 
 Not covered, honestly reported: source IO and decode are one stage here
-(Bevy's loader does both on the IO pool and `Added` fires after); "resident
-use" (first draw) is not stamped; an image demanded by a road that calls
-neither funnel prints `demand=unknown` — in the hall that is exactly one,
-`game://sprites/player_robot_v3_spritesheet.png`: found 2026-09-02, it is
+(Bevy's loader does both on the IO pool and `Added` fires after).
+
+⛔ **TWO CLAIMS THAT WERE IN THIS PARAGRAPH ARE STALE, AND THE SECOND IS
+CONTRADICTED FURTHER DOWN THIS PAGE.** It said *"'resident use' (first draw) is
+not stamped"* — the FOURTH STAGE IS BUILT, `first_drawn_at` and
+`resident_never_drawn()` are on the ledger and a render system feeds them; see
+the ✔ section below. And it said the unrouted set *"in the hall is exactly one"*
+— the census that split `UNROUTED` from `PROCEDURAL` reports **nine** file-backed
+rows, listed below, of which three were new. Corrected 2026-09-02; the tileset
+below is still the LARGEST of the nine and still the one that matters.
+
+`game://sprites/player_robot_v3_spritesheet.png`, found 2026-09-02, is
 `bevy_ecs_ldtk` loading the four worlds' editor-preview tileset (`relPath:
 ../sprites/player_robot_v3_spritesheet.png`) through the `game` source — the
 same file the player's realization decodes again as `sprites/…` through the

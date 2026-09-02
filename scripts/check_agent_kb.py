@@ -9,6 +9,8 @@ generated-index consistency.
 from __future__ import annotations
 
 import json
+import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -61,7 +63,12 @@ REQUIRED_FILES = [
     "docs/concepts/architecture-review-questions.md",
 ]
 
-ALLOWED_TOP_LEVEL_DOCS = {"README.md"}
+# ⭐ `reviewer-guide.md` IS A SECOND CANONICAL TOP-LEVEL DOC, not an oversight.
+# The rule exists so `docs/` does not silt up with loose files, and moving a
+# guide that other documents tell agents to open BY PATH -- to satisfy a rule
+# about tidiness -- would break the reference to make the checker quiet. The
+# allowlist is the honest place to say "these two are meant to be here".
+ALLOWED_TOP_LEVEL_DOCS = {"README.md", "reviewer-guide.md"}
 CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
 AGENTS_MAX_LINES = 180
 
@@ -296,7 +303,8 @@ def check_top_level_docs(errors: list[str]) -> None:
         if path.name not in ALLOWED_TOP_LEVEL_DOCS:
             fail(
                 errors,
-                f"unexpected top-level docs file: {rel(path)}; only docs/README.md should remain",
+                f"unexpected top-level docs file: {rel(path)}; only "
+                f"{sorted(ALLOWED_TOP_LEVEL_DOCS)} may live at docs/ top level",
             )
 
 
@@ -455,7 +463,16 @@ def check_markdown_links(errors: list[str]) -> None:
             base_target = target.split("#", 1)[0]
             if not base_target:
                 continue
-            resolved = (path.parent / base_target).resolve()
+            # ⛔⛔ NORMALISE, DO NOT `resolve()`. `Path.resolve()` follows
+            # SYMLINKS, and an agent worktree seeds `.agent/README.md` as a
+            # symlink into the primary tree — so every link to it resolved to
+            # `<primary>/.agent/README.md`, landed outside this ROOT, and was
+            # reported as "links outside repo". Two false errors in every
+            # worktree, which is where nearly every agent runs this. The
+            # question being asked is about the PATH the document names, not
+            # about where the filesystem stores the bytes.
+            joined = os.path.normpath(os.path.join(path.parent, base_target))
+            resolved = pathlib.Path(joined)
             try:
                 resolved.relative_to(ROOT)
             except ValueError:

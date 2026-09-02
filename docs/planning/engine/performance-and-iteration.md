@@ -384,6 +384,18 @@ fallback, and the grow arm passed only because 0.45 ≥ its 0.28 s clip. The
 fixture now carries the demo catalog, and a premise guard pins the grow beat to
 its clip's length (red at 0.450 vs 0.280 when the catalog is removed). The
 shipped composition always has both resources; nothing changed in the game.
+⭐ **AND RE-CONFIRMED UNDER THE FEATURE UNION 2026-09-02**, which is the run that
+matters and is not the one a `cargo test -p` gives:
+
+```text
+cargo test -p ambition_demo_mary_o --test power_loop       11 passed
+cargo nextest run --workspace -E 'test(every_tier_change…)'  1 passed
+```
+
+⛔ Both arms, because this repo has already had a test that was green per-crate
+and RED EVERY TIME under the gate's feature union — the jab-string test, called
+"flaky" for a day on the strength of the per-crate reading. A closed row that
+only ever ran the narrow arm is not closed.
 
 ## Measurement rules
 

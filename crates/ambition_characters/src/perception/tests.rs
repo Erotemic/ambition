@@ -637,7 +637,6 @@ fn a_body_on_the_lip_reports_the_edge_it_is_standing_on() {
     assert_eq!(view_at(560.0).floor_ahead(1.0), None);
 }
 
-
 /// ⭐ `PerceivedActor` IS BUILT ~1,900 TIMES PER TICK and its width is the
 /// multiplier on that. Measured 2026-09-01 in `hall_of_characters` at 130
 /// bodies: every actor builds one per perceived peer, ~14.4 of them, every tick.
@@ -666,4 +665,106 @@ fn the_perception_structs_do_not_silently_widen() {
         28,
         "RememberedActor is stored per remembered peer per actor"
     );
+}
+
+/// ⛔⛔ THE PEER-FED FOLD AND THE VIEW-FED FOLD MUST PRODUCE IDENTICAL MEMORY.
+///
+/// `WorldMemory::update` is what makes a `TargetBelief` brain need a
+/// `WorldView` at all: it collects every seen id to decay what is ABSENT, so a
+/// cheap belief road that skipped it would let every remembered foe fade as
+/// though it had left the viewport. Pursuit (invariant I6) would stop, a body
+/// that can SEE its foe would still look correct, and only the one CHASING
+/// would break — a defect shaped to survive the obvious test.
+///
+/// So the dependency is narrowed rather than the behaviour: `update_from_seen`
+/// takes borrowed `SeenActor`s and `update` is a wrapper over it. This asserts
+/// the two are the same fold, across the decay path as well as the refresh —
+/// a memory that agreed only on the FIRST tick would still lose pursuit.
+#[test]
+fn folding_memory_from_peers_matches_folding_it_from_a_view() {
+    let view = WorldView {
+        self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+        viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(500.0)),
+        actors: vec![
+            perceived(
+                "foe_far",
+                ae::Vec2::new(300.0, 0.0),
+                ActorFaction::Boss,
+                true,
+            ),
+            perceived(
+                "foe_near",
+                ae::Vec2::new(80.0, 0.0),
+                ActorFaction::Boss,
+                true,
+            ),
+            perceived("ally", ae::Vec2::new(20.0, 0.0), ActorFaction::Enemy, false),
+        ],
+        sim_time: 1.0,
+        ..Default::default()
+    };
+    let seen = || {
+        view.actors.iter().map(|a| SeenActor {
+            id: a.id.as_str(),
+            pos: a.pos,
+            vel: a.vel,
+            faction: a.faction,
+            hostile_to_self: a.hostile_to_self,
+        })
+    };
+
+    let mut from_view = WorldMemory::default();
+    let mut from_peers = WorldMemory::default();
+    from_view.update(&view, 0.016);
+    from_peers.update_from_seen(view.sim_time, 0.016, seen());
+    assert_memories_agree(&from_view, &from_peers, "the first fold");
+
+    // ⭐ NOW LOSE SIGHT OF EVERYTHING AND DECAY. This is the arm that matters:
+    // the refresh path is easy to get right and the DECAY path is what a
+    // skipped fold destroys.
+    let empty = WorldView {
+        sim_time: 4.0,
+        ..WorldView::default()
+    };
+    for _ in 0..40 {
+        from_view.update(&empty, 0.05);
+        from_peers.update_from_seen(empty.sim_time, 0.05, std::iter::empty());
+    }
+    assert_memories_agree(&from_view, &from_peers, "after 40 ticks of not seeing");
+
+    // ⛔ AND THE DECAY MUST HAVE ACTUALLY BITTEN, or the arm above compares two
+    // memories that never changed and passes for the wrong reason.
+    let confidence = from_view
+        .get("foe_near")
+        .map(|r| r.confidence)
+        .expect("a remembered foe survives 2s of decay at a 3s half-life");
+    assert!(
+        confidence < 0.9,
+        "premise: 2s of not-seeing must visibly decay confidence, got {confidence}"
+    );
+    assert_eq!(
+        from_view.last_known_hostile().map(|r| r.pos),
+        Some(ae::Vec2::new(80.0, 0.0)),
+        "premise: pursuit still names the nearer foe's last known position"
+    );
+}
+
+fn assert_memories_agree(a: &WorldMemory, b: &WorldMemory, when: &str) {
+    // ⭐ THE WHOLE MAP, not a hand-listed set of ids: a divergence in a row this
+    // test did not think to name is exactly the one worth catching. Reading the
+    // private field is what a child module is for — no public accessor is added
+    // to serve a test.
+    let key = |m: &WorldMemory| {
+        m.actors
+            .iter()
+            .map(|(id, r)| {
+                (
+                    id.clone(),
+                    [r.pos.x, r.pos.y, r.confidence, r.last_seen],
+                    r.hostile_to_self,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(key(a), key(b), "{when}: the two folds disagree");
 }

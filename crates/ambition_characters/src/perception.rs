@@ -745,6 +745,23 @@ pub struct WorldMemory {
     /// player on every run of the same binary on the same inputs.
     actors: std::collections::BTreeMap<String, RememberedActor>,
 }
+/// What memory needs to know about one actor seen this tick — and nothing more.
+///
+/// ⭐ THE POINT IS WHAT IS ABSENT. A `PerceivedActor` carries eighteen fields
+/// including an owned `String` id; `WorldMemory::update` reads exactly five of
+/// them, and borrows the id rather than owning it except for a genuinely new
+/// body. Naming that subset is what lets a `TargetBelief` brain maintain its
+/// memory without constructing the other thirteen fields per peer per tick.
+#[derive(Clone, Copy, Debug)]
+pub struct SeenActor<'a> {
+    /// Borrowed: the steady state is a body already in the map, where the fold
+    /// only needs to look up. A `String` is allocated for first sightings alone.
+    pub id: &'a str,
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub faction: ActorFaction,
+    pub hostile_to_self: bool,
+}
 
 impl WorldMemory {
     /// Confidence half-life (seconds) once an actor leaves the viewport: every
@@ -755,8 +772,51 @@ impl WorldMemory {
 
     /// Fold this tick's view into memory: decay everything not currently seen,
     /// forget what has faded, then refresh everything in view to full confidence.
+    ///
+    /// ⭐ A THIN WRAPPER OVER [`Self::update_from_seen`], which is the real body.
+    /// A `TargetBelief` brain must still maintain memory — pursuit depends on it
+    /// — but it does not need a `WorldView` to do so, and building one costs a
+    /// `PerceivedActor` per peer. This overload keeps every existing caller
+    /// unchanged while the cheap road feeds the same logic from borrowed peers.
     pub fn update(&mut self, view: &WorldView, dt: f32) {
-        let now = view.sim_time;
+        self.update_from_seen(
+            view.sim_time,
+            dt,
+            view.actors.iter().map(|a| SeenActor {
+                id: a.id.as_str(),
+                pos: a.pos,
+                vel: a.vel,
+                faction: a.faction,
+                hostile_to_self: a.hostile_to_self,
+            }),
+        );
+    }
+
+    /// The same fold, over anything that can name what was seen this tick.
+    ///
+    /// ⛔⛔ THIS EXISTS BECAUSE SKIPPING THE FOLD IS NOT AN OPTION, and that is
+    /// the trap the cheap-belief road walks into. `believed_target` uses its
+    /// `&WorldView` TWICE — once for `nearest_hostile`, once for this — and only
+    /// the first is what the parameter looks like it is for. Drop the view for a
+    /// `TargetBelief` body and every remembered foe decays as though it had left
+    /// the viewport: **pursuit (invariant I6) silently stops, a body that can
+    /// SEE its foe still looks perfectly correct, and only the one CHASING
+    /// breaks.**
+    ///
+    /// ⭐ SO NARROW THE DEPENDENCY RATHER THAN THE BEHAVIOUR. Nothing about the
+    /// fold changes: the same values are stored, in the same order, so this is
+    /// not a rollback-schema change. What changes is that the caller may supply
+    /// borrowed ids and positions instead of constructing a `PerceivedActor`
+    /// (with its owned `String`) for every peer it will never read.
+    ///
+    /// ⚠ `Clone` ON THE ITERATOR, because the fold is genuinely two passes: the
+    /// membership set first, then the refresh. A single-pass version would have
+    /// to allocate the set it already builds.
+    pub fn update_from_seen<'a, I>(&mut self, sim_time: f32, dt: f32, seen_actors: I)
+    where
+        I: Iterator<Item = SeenActor<'a>> + Clone,
+    {
+        let now = sim_time;
         let decay = 0.5_f32.powf((dt / Self::DECAY_HALF_LIFE_S).max(0.0));
         // ⛔⛔ THIS MEMBERSHIP TEST WAS A LINEAR SCAN OF THE WHOLE VIEW, PER
         // REMEMBERED ACTOR. `view.actors.iter().any(|a| &a.id == id)` is
@@ -773,7 +833,7 @@ impl WorldMemory {
         // reaching for a `HashSet` here would put process-seeded iteration back
         // into the one function that was deliberately kept free of it — even
         // though only membership is asked. A sorted slice cannot regress that way.
-        let mut seen: Vec<&str> = view.actors.iter().map(|a| a.id.as_str()).collect();
+        let mut seen: Vec<&str> = seen_actors.clone().map(|a| a.id).collect();
         seen.sort_unstable();
 
         // Decay the unseen. (Iterating then inserting below is two disjoint
@@ -802,7 +862,7 @@ impl WorldMemory {
         // ⭐ A LOOKUP FIRST, SO THE STEADY STATE COSTS NO ALLOCATION. The insert
         // road survives for the genuinely new — a body seen for the first time —
         // which is rare per tick and is the only case that needs to own its key.
-        for a in &view.actors {
+        for a in seen_actors {
             let fresh = RememberedActor {
                 pos: a.pos,
                 vel: a.vel,
@@ -811,10 +871,10 @@ impl WorldMemory {
                 last_seen: now,
                 confidence: 1.0,
             };
-            match self.actors.get_mut(&a.id) {
+            match self.actors.get_mut(a.id) {
                 Some(remembered) => *remembered = fresh,
                 None => {
-                    self.actors.insert(a.id.clone(), fresh);
+                    self.actors.insert(a.id.to_string(), fresh);
                 }
             }
         }

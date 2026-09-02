@@ -236,6 +236,15 @@ frame; a query rebuilt per frame), not a hotspot fix, and it is outside the
 decision pipeline this goal was armed for. It is the next campaign if Jon's
 capture confirms the windowed frame is CPU-main-thread-bound.
 
+The render thread, from the same Ultra capture (ESTIMATE, derived, not
+measured): `sub app{RenderApp}` 6.7 ms/frame carrying ~1500 of the frame's
+5838 zones; at ~2.5 us a zone that is ~3.8 ms of instrument, leaving ~3 ms
+of render work (`render_system` 2.7 of which `RenderGraph` 2.5, `queue_submit`
+0.6). The main thread's 18.5 ms carried ~4300 zones ≈ 10.7 ms of instrument,
+leaving ~8 ms — which is the 4.5 ms headless floor-plus-cast, the dozen
+windowed-only systems, and the 0.9 ms extract. Under `Immediate` the frame is
+the longer thread, so main-bound.
+
 **Prediction on record for that capture** (`--no-tracy`, V-Sync Off, hall,
 3090): the main-thread frame lands between 5 and 8 ms — this 4.5 ms plus the
 dozen windowed-only systems and the render extract — so the overlay reads

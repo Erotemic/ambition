@@ -2021,6 +2021,25 @@ product ruling.
   bundle summary states the hall-reveal verdict itself since `01ca0b006`
   (placeholder rectangles by diagnosis, `asset_wait_ms` per transition,
   spikes after the cover) — read the summary first, the raw log second.
+  ⭐⭐ **AND THE HOST NOW SAYS THIS ROW IS THE LAST USER-VISIBLE HITCH IN THE RUN
+  (2026-09-02, `desktop-timeline-run-20260902T215256Z`, 3090, windowed).** That
+  capture has exactly THREE frames over 33.4 ms and all three are BEFORE the
+  transition; `asset_activity.csv` puts two of them inside the startup decode
+  burst, and the hall's larger burst costs none:
+
+  ```text
+    wall_s  images   MP    MB     spikes in that window
+     2.262      0   0.0     0
+     2.989     98  20.7  82.8     125.3 ms @2.386, 203.3 ms @2.589
+     8.002    250  71.2 284.7     none — the hub → hall entry, cover held 292 ms
+  ```
+
+  ⇒ **The hall decodes MORE (128 images / 116 MB) than startup (98 / 83) and
+  costs ZERO spikes, because a cover holds for it.** ⚠ Conservative, too: the
+  hall leg ran under the room tier cap while startup art did not, so the real
+  Full-tier gap is wider. ⇒ This is not a polish row — the mechanism that fixed
+  the hall exists and the first room does not use it, and the host has now put a
+  203 ms frame on what that costs.
 - **Four LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
   `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity

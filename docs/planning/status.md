@@ -249,10 +249,17 @@ Its first findings, all Potato tier (llvmpipe classifies as `Cpu`, so these
 megapixels are NOT comparable with the 434 MP Full / 38 MP Quarter figures above
 — the SHAPE is what carries across):
 
-- **the hall draws 14 of 138 resident cast pages**, which is the headroom the
-  room-level tier cap cannot reach and the motivation for the view-scoped tier
-  scoped in the owner doc (blocked on a feel ruling, in
-  `awaiting-maintainer-decision.md`);
+- **the hall draws 14 of 138 resident cast pages** — the headroom neither tier
+  mechanism may now spend. ⛔⛔ **RULED 2026-09-02, and the ruling is wider than
+  the two mechanisms it settles:** *"I DO NOT WANT A LOWER QUALITY TIER FOR
+  GALLERY PREVIEWS."* Jon saw blur in an Ultra host run where the hall drew from
+  `sprites_0_25x` — the room-level cap doing exactly what it was built to do. The
+  cap is being removed and the view-scoped tier that was *"blocked on a feel
+  ruling"* is answered NO, not pending. ⇒ **The standing rule: nothing may draw
+  fewer pixels than the user's quality setting asks for, for any room, view or
+  distance reason, without Jon's explicit yes.** ⚠ The headroom is still real and
+  still measured; what it licenses is deciding what to KEEP RESIDENT, never what
+  to draw at lower resolution;
 - **the FX set is 13 sheets / 9.4 MP loaded at boot in every room, and 76 of its
   196 rows are named by nothing** — including all 14 of the admiral's and 20 of
   George's, whose art was plainly drawn for their kits while their movesets ask

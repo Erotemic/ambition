@@ -319,7 +319,11 @@ is IMMUNE, through the ordinary invulnerability road. Jon names a ledge grab
 granting iframes as an example, not as a fact about today's code.
 
 ▢ **So what remains is one question this entry did not ask:** does a ledge grab
-grant iframes, and if so for how long? That is a separate authoring decision
+grant iframes, and if so for how long? ⭐ It has a home already — invulnerability
+is a REASON SET, not a flag (`features/empowerment.rs` delegates
+`Empowerment::UNTOUCHABLE` to the body's invulnerability-reason set, beside
+`Invulnerability::EMPOWERED`), so "hanging on a ledge" would be another reason
+rather than a new mechanism. That is a separate authoring decision
 from the gate ordering, and it is the one that decides whether the visible
 behaviour actually changes. Until it is answered, moving the gate makes hanging
 bodies take spike damage — which is now the intended behaviour, so the

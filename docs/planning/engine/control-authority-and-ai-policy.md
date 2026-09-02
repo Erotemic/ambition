@@ -99,8 +99,40 @@ carve is reading a number from before the carve.
 
 ⚠ `ambition_characters` is still a floor crate every composition links, so the
 question the plan asks is still live — it is just much smaller than stated, and
-its remainder needs an ANSWER TO THE ORPHAN-RULE PIN (a split encoder, or a
-dispatcher) rather than another move.
+its remainder needs an ANSWER TO THE ORPHAN-RULE PIN rather than another move.
+
+### The pin, located exactly (2026-09-02) — and the question it leaves
+
+Two independent things hold the remainder in the floor crate. Both were located
+rather than inferred:
+
+1. **`impl SnapshotCursor for Brain`** (`snapshot_impls.rs:350`). `SnapshotCursor`
+   is declared in `ambition_platformer2d_core`, so it is FOREIGN here; `Brain` is
+   local. The impl is therefore legal only in `ambition_characters` or in
+   `ambition_platformer2d_core`, and everything the encoder reads is pinned with
+   it. Moving `Brain` "up" is not available — up is where the dependents are.
+2. **`BrainSnapshot.attack_kit: Vec<AttackCandidate>`**, by value
+   (`snapshot.rs:87`). ⭐ This pin is STABLE rather than accidental:
+   `ambition_combat` *consumes* that vocabulary
+   (`use ambition_characters::brain::attack_kit::…` across `evaluation`,
+   `rollout`, `decision`, `moveset`), which is the correct dependency direction.
+   Nothing is upside-down; the floor crate owns a vocabulary the layer above
+   reads, which is what a floor crate is for.
+
+**And the size the decision should be made against**: the remainder is **2,258 of
+`ambition_characters`' 28,234 non-test lines — 8%**, and it is DATA. The original
+concern ("a movement-only game links two platform-fighter policies") is now about
+8% of one crate in inert definitions, not about 8,950 lines of fighter AI.
+
+▢ **QUESTION FOR THE MAINTAINER, recorded rather than decided, because it is a
+cost/benefit call and not an engineering blocker.** Is 8% of the floor crate, in
+data, worth splitting a rollback encoder for? If yes, the shapes available are a
+DISPATCHER (`Brain` becomes opaque in the floor crate and its encoder delegates
+to a domain-registered encoder) or making `BrainSnapshot` generic/opaque over the
+attack kit. Both touch the rollback wire format, so both want a schema bump and a
+desync test, and neither should be started on the strength of the stale 8,950.
+If no, the two remaining acceptance boxes should be rewritten to say what is
+actually left — a template NAME in an enum — and closed.
 
 ## The two facts
 

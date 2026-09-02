@@ -501,16 +501,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
 - ▢ **D-CUBE-CHURN — the kaleidoscope rebuilds change-detection state it only
-  reads.** `cache_system_menu` runs every visible frame on every face and builds
-  `DevSnapshot` (a `String` per toggle, and there are 21) plus `RadioSnapshot` (a
-  `String` per station); `republish_kaleidoscope_pages` then CLONES both into a
-  fresh `RebuildKey`, compares it, and usually drops it — order of 40+ String
-  allocations per open frame purely to answer "did anything change?". Separately
-  `kaleidoscope_sync_focus_visuals` calls `focus_for_action` per control per
-  frame, allocating a `Vec<SystemRow>` per System control while
-  `CachedSystemMenu.rows` already holds that exact list. ⚠ Verified in source at
-  the line, magnitude NOT measured — take a count, not a timing (HD 630 at
-  ~45-60 ms/frame buries it). Fix must stay a VALUE comparison: change ticks here
+  reads.** ✔ TWO HALVES LANDED 2026-09-02, both as COUNTS rather than timings.
+  (1) `DevSnapshot.values` is `Cow<'static, str>`, so the 22 entries — not 21,
+  `ALL` is `[Self; 22]` — stop heap-copying `&'static str`s (`"ON"`/`"OFF"`, or a
+  `label()` constant) every frame on every face; only `SystemMenuModel::build`
+  materialises an owned `String`, and only while the System face is shown.
+  (2) `focus_for_action` takes `rows: &[SystemRow]` instead of the three
+  parameters it used solely to rebuild that list, so `grid_backend`'s per-node
+  loop builds it once and `kaleidoscope_sync_focus_visuals` reads `cache.rows`.
+  ⚠ The row's own magnitude claim was too strong for that half: `SystemRow` is a
+  small id enum, so each rebuild was ONE allocation plus a copy of N enum values,
+  not a settings-IR walk.
+  ▢ WHAT REMAINS, and it is bigger than either: `pointer.rs` builds the FULL
+  `SystemMenuModel` — a `String` per label, description and value — plus both
+  snapshots ON EVERY HOVER EVENT, to resolve one row index. Not in the original
+  survey. ⛔ Not a straight cache swap: `cache.rows` is populated only while the
+  System face is active while a System action stays reachable off it, so an
+  unguarded substitution resolves every such hover to `MenuFocus::System(0)`.
+  Also still open: `RadioSnapshot`'s station names come from the music library at
+  runtime, so `Cow` does not help them.
+  Fix must stay a VALUE comparison: change ticks here
   are the historical rebuild-every-frame cliff. Read the map first, including
   what is already FALSIFIED (Lunex is `Changed<>`-filtered; the `UserSettings`
   clone is a memcpy; `Msaa::Off` recovers nothing):

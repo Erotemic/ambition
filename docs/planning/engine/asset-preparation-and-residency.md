@@ -599,30 +599,52 @@ Smash, Sanic and Mary-O drew the particle fallback for every effect, forever. An
 an effect is not a cast: a room's characters are known at entry, while any effect
 may fire on any frame, so there is no "demand at room entry" seam to move it to.
 
-⭐⭐ **MEASURED THE SAME DAY, and it is much closer to six than to thirty.** The
-fourth stage stamps first draw and the census reports never-drawn BY OWNER, so a
-scripted run answers this directly. `capture_scene --route smash_gameplay
---character npc_pirate_admiral --press hold:right,x,wait:20,g,wait:20,z,x,wait:20,hold:down,x
---frames 40 --stride 6` — a fighter throwing four different moves over ~240
-ticks:
+⛔ **AND IT IS 13 SHEETS ACROSS 41 PAGES, not 41 sheets** — the census counts
+IMAGES. Corrected here because the first write-up of this row said 41 sheets.
+
+⚠ **THE DRAW COUNT IS TOO NOISY TO QUOTE, and I nearly quoted it.** One scripted
+smash capture (admiral, four moves) ended with `fx-sheet 38×8.8MP` never drawn —
+3 pages drawn — and was about to be recorded as "3 of 41". Three more runs with a
+LONGER press sequence, including George and Noether, all ended `fx-sheet
+41×9.6MP`: **zero**. `never_drawn` only shrinks, so those are real disagreements,
+not sampling of one clock — what differs is whether a swing happened to CONNECT
+and fire a hit effect. ⇒ A scripted capture draws somewhere between none and a
+handful, and the number depends on combat outcomes it does not control. Do not
+build a policy on it; the union over a REAL play session is still the reading
+that would settle one.
+
+⭐⭐ **SO THE ANSWER CAME FROM A COUNT INSTEAD, and it is sharper.**
+`scripts/measure_fx_row_reachability.py` asks which fx ROWS any content can name
+at all — an effect is drawn by name (`FxId::new(row)`), so a row nothing names is
+art the running game has no way to request. Corpus: every tracked
+`.rs`/`.ron`/`.yarn`/`.json` except the baked sheet manifests themselves.
 
 ```text
-never drawn 116 (28.7MP: … fx-sheet 38×8.8MP …)
+13 sheets, 196 rows, 120 named, 76 named by nothing
+sheets with NO row named by anything: 1 ['pirate_admiral_vfx']
+  george_booul_vfx        21 rows,  1 named, 20 unnamed
+  pirate_admiral_vfx      14 rows,  0 named, 14 unnamed
+  generic_exotic_fx       24 rows,  9 named, 15 unnamed
+  pca / patent_clerk / carl_stargan / noether / generic_explosions: fully named
 ```
 
-⇒ **3 of 41 fx sheets are drawn, 0.8 of 9.6 MP.** The other 38 — 92% of the set —
-are resident and never touched. The static hall shot agrees on the shape: 37 of
-41 never drawn, and the four that are drawn are 0.0 MP of the 9.6.
-
-⚠ **A LOWER BOUND, AND IT MUST BE READ AS ONE.** One character, four moves, one
-short run: hits, deaths, environment and other fighters' kits all reach effects
-this did not fire. The honest claim is *"a short scripted run touches three"*,
-NOT *"only three are ever needed"* — the number that would settle a policy is the
-union over a real play session, and the instrument now produces it from any run
-with a render world.
-⇒ Enough to say the set behaves like a PRELOAD rather than a working vocabulary,
-which is what this row was asking. A demand-on-first-use design with a small
-always-resident core is now worth drawing up; it was speculation this morning.
+⛔⛔ **AND THE CHEAP FIX IS THE WRONG ONE.** "Drop from the preload what nothing
+can request" would delete `pirate_admiral_vfx` — whose fourteen rows are
+`grapeshot_cloud`, `heave_to_anchor`, `heave_to_brake`, `cutlass_wake`,
+`boarding_wake`, `captains_mark`… beside a moveset whose moves are named
+`grapeshot`, `heave_to`, `gun_sword`. The art was drawn FOR his kit; the moveset
+names `muzzle_flash` and `air_slice` from the generic sheets instead. George is
+the same: 20 of his 21 rows (`bivalence_weak/strong`, `excluded_middle_*`,
+`modus_ponens_*`, `reductio_*`) sit beside moves called `bivalence`,
+`excluded_middle`, `commitment`.
+⇒ **This is a MISSING-WIRING finding, not a dead-art one**, and it belongs to
+whoever owns those two fighters' presentation rather than to residency. What
+residency can say is the size: 9.6 MP resident in every room, of which 76 of 196
+rows are art nothing can currently ask for.
+⚠ A string search cannot see a name built at runtime (`format!`), so a row it
+calls unnamed could in principle be constructed. The five fully-named sheets are
+the evidence the method works; treat a single unnamed row as a lead, not a
+verdict.
 
 ### 3. Pace expensive completion, not declarations
 

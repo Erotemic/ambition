@@ -326,7 +326,12 @@ carries a per-token tier and the convergence knows the room being loaded
 (`PendingRoomTierFloor`); without those the in-room drain realized the
 forwarded cast at the hub's Full and the convergence retired the Quarter ones
 the frame after they arrived (measured headless: 103 Full behind the cover).
-Headless: 124 new sheets at Quarter, 5 hub-shared kept at Full. **Host tell:**
+Headless: 124 new sheets at Quarter, 5 hub-shared kept at Full. The
+materialization ration became AREAL in the same day (`d19acd516`): one Full
+character's worth of pixels per frame, so the Quarter cast starts sixteen per
+frame and the hall's cover holds ~9 frames for its 129 sheets rather than 129
+(item 3 below, "choose a budget from rendered measurements", now has a unit —
+the Full-sheet bound that was measured — instead of a head count). **Host tell:**
 `image_arrivals` megapixels in the hall window (434 before), `resident_mb`
 (2153 before), and the cover's hold time.
 

@@ -48,6 +48,12 @@ pub struct ImageStages {
     pub megapixels: f64,
     /// Whether gameplay was live when the pixels were inserted.
     pub live_at_insert: Option<bool>,
+    /// How many times THIS PATH has been inserted since the process started
+    /// (1 = the first decode). A second insertion of the same path is a
+    /// re-decode: the asset was dropped and demanded again, or loaded twice
+    /// under two ids — asset open work 5 in
+    /// `asset-preparation-and-residency.md`.
+    pub insertions_of_path: u32,
 }
 
 impl ImageStages {
@@ -63,6 +69,7 @@ impl ImageStages {
             gpu_prepared_at: None,
             megapixels: 0.0,
             live_at_insert: None,
+            insertions_of_path: 0,
         }
     }
 
@@ -101,6 +108,15 @@ pub struct ImageStageLedger {
     /// The main world's last word on whether gameplay is live, for the render
     /// world's report (it has no `GameMode` of its own).
     gameplay_live: Option<bool>,
+    /// Insertions per PATH, across ids and across removals: the re-decode
+    /// census. Survives `removed`, which is the point.
+    insertions_by_path: BTreeMap<String, u32>,
+    /// Total insertions that were a path's second or later.
+    pub re_decodes: u64,
+    /// Images removed after insertion and before any GPU preparation: decoded
+    /// and never drawn.
+    pub dropped_before_gpu: u64,
+    pub dropped_before_gpu_megapixels: f64,
     /// Totals since the process started, for the census summary line.
     pub gpu_prepared_total: u64,
     pub gpu_prepared_megapixels: f64,
@@ -145,7 +161,21 @@ impl ImageStageLedger {
         if row.path.is_none() {
             row.path = path;
         }
+        let path = row.path.clone();
         let snapshot = row.clone();
+        let snapshot = if let Some(path) = path {
+            let count = self.insertions_by_path.entry(path).or_default();
+            *count += 1;
+            if *count > 1 {
+                self.re_decodes += 1;
+            }
+            let count = *count;
+            let row = self.row(id);
+            row.insertions_of_path = count;
+            row.clone()
+        } else {
+            snapshot
+        };
         if !self.awaiting_gpu.contains(&id) {
             self.awaiting_gpu.push(id);
         }
@@ -185,11 +215,20 @@ impl ImageStageLedger {
         Some(snapshot)
     }
 
-    /// An image the main world dropped before the GPU ever saw it (a demoted
-    /// tier, a room left). Not an error; it just stops being awaited.
-    pub fn removed(&mut self, id: UntypedAssetId) {
+    /// An image the main world dropped. Returns the row when it was dropped
+    /// BEFORE the GPU ever saw it — decoded for nobody (a demoted tier, a room
+    /// left mid-load, a demand nothing displayed). Not an error; it is the
+    /// wasted half of the decode budget, and it is counted.
+    pub fn removed(&mut self, id: UntypedAssetId) -> Option<ImageStages> {
+        let was_awaiting = self.awaiting_gpu.contains(&id);
         self.awaiting_gpu.retain(|awaiting| *awaiting != id);
-        self.rows.remove(&id);
+        let row = self.rows.remove(&id)?;
+        if was_awaiting {
+            self.dropped_before_gpu += 1;
+            self.dropped_before_gpu_megapixels += row.megapixels;
+            return Some(row);
+        }
+        None
     }
 
     /// Drain the rolling GPU window into `(count, megapixels, p50, max)`.
@@ -212,6 +251,10 @@ static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
     rows: BTreeMap::new(),
     awaiting_gpu: Vec::new(),
     gameplay_live: None,
+    insertions_by_path: BTreeMap::new(),
+    re_decodes: 0,
+    dropped_before_gpu: 0,
+    dropped_before_gpu_megapixels: 0.0,
     gpu_prepared_total: 0,
     gpu_prepared_megapixels: 0.0,
     window_gpu_prepared: 0,
@@ -285,6 +328,22 @@ mod tests {
     }
 
     #[test]
+    fn a_second_insertion_of_one_path_is_a_re_decode_even_under_a_new_id() {
+        let mut ledger = ImageStageLedger::default();
+        let t0 = Instant::now();
+        let first = ledger.inserted(id(7), 2.0, None, Some("hall/a.png".into()), t0);
+        assert_eq!(first.insertions_of_path, 1);
+        ledger.removed(id(7));
+        let again = ledger.inserted(id(8), 2.0, None, Some("hall/a.png".into()), t0);
+        assert_eq!(again.insertions_of_path, 2, "the path was decoded twice");
+        assert_eq!(ledger.re_decodes, 1);
+        // A different path is not a re-decode of this one.
+        let other = ledger.inserted(id(9), 2.0, None, Some("hall/b.png".into()), t0);
+        assert_eq!(other.insertions_of_path, 1);
+        assert_eq!(ledger.re_decodes, 1);
+    }
+
+    #[test]
     fn an_image_that_arrived_by_another_road_says_so() {
         let mut ledger = ImageStageLedger::default();
         let t0 = Instant::now();
@@ -298,10 +357,20 @@ mod tests {
     fn a_prepared_report_for_an_image_nobody_awaited_is_none() {
         let mut ledger = ImageStageLedger::default();
         assert!(ledger.gpu_prepared(id(3), Instant::now()).is_none());
-        // And a removal before preparation stops the wait without a report.
-        ledger.inserted(id(4), 1.0, None, None, Instant::now());
-        ledger.removed(id(4));
+        // And a removal before preparation stops the wait, and is counted as a
+        // decode nobody drew.
+        ledger.inserted(id(4), 1.5, None, None, Instant::now());
+        let dropped = ledger
+            .removed(id(4))
+            .expect("dropped before the GPU saw it");
+        assert_eq!(dropped.megapixels, 1.5);
         assert!(ledger.awaiting_gpu().is_empty());
         assert!(ledger.gpu_prepared(id(4), Instant::now()).is_none());
+        assert_eq!(ledger.dropped_before_gpu, 1);
+        // A removal AFTER preparation is an ordinary retirement.
+        ledger.inserted(id(5), 1.0, None, None, Instant::now());
+        ledger.gpu_prepared(id(5), Instant::now());
+        assert!(ledger.removed(id(5)).is_none());
+        assert_eq!(ledger.dropped_before_gpu, 1);
     }
 }

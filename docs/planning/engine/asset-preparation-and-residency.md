@@ -318,6 +318,18 @@ spreads it and the census line's `awaiting gpu` shows the backlog it creates.
 Software-rasteriser numbers, so the magnitude is not Jon's; the SHAPE (one
 frame takes the whole batch) is the finding.
 
+The same ledger counts the two kinds of WASTE open work 5 asks about, on the
+census line: `re-decodes N` (a path inserted a second time, under any id) and
+`dropped before gpu N (MP)` (decoded, removed before any GPU saw it), with an
+`[image-dropped]` line per notable file. First reading, `capture_scene`
+starting in the hall: re-decodes 0; **8 sheets, 25.6 MP decoded for nobody**
+(architect, bob, erdish, goblin, alice, oiler + two small), all
+`via character-sheet`, dropped at 1.2 s. Not yet classified: the hub's cast
+constructed and left before the hall (a tool artefact of the direct start) or
+a Full-tier demand later retired below the gallery floor (a real waste on the
+shipped road). The classification is a headless job — run the shipped host
+through hub → hall and read the same line.
+
 Not covered, honestly reported: source IO and decode are one stage here
 (Bevy's loader does both on the IO pool and `Added` fires after); "resident
 use" (first draw) is not stamped; an image demanded by a road that calls

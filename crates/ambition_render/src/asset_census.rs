@@ -131,7 +131,20 @@ pub fn report_image_census(
         let id = match event {
             AssetEvent::Added { id } => *id,
             AssetEvent::Removed { id } | AssetEvent::Unused { id } => {
-                image_stages::ledger().removed(id.untyped());
+                // Decoded and dropped before any GPU saw it: the wasted half
+                // of the decode budget, named per file when it is big.
+                let dropped = image_stages::ledger().removed(id.untyped());
+                if let Some(dropped) = dropped {
+                    if dropped.megapixels >= ImageCensus::NOTABLE_MEGAPIXELS {
+                        let at = census.started_at.elapsed().as_secs_f64();
+                        eprintln!(
+                            "[image-dropped] {at:8.3}s {:6.1}MP {} — decoded, never uploaded ({})",
+                            dropped.megapixels,
+                            dropped.path.as_deref().unwrap_or("<runtime-generated>"),
+                            dropped.demand_phrase(),
+                        );
+                    }
+                }
                 continue;
             }
             _ => continue,
@@ -190,7 +203,13 @@ pub fn report_image_census(
             // Which STAGE was late is the question the hall hitch left open:
             // a decode that finished 600ms after its demand and an upload
             // that stalled a frame look identical in a frame-time trace.
-            let demand = stages.demand_phrase();
+            let mut demand = stages.demand_phrase();
+            if stages.insertions_of_path > 1 {
+                // The same file decoded again: dropped and demanded back, or
+                // loaded under a second id. Either way the pixels were paid
+                // for twice (asset open work 5).
+                demand.push_str(&format!(" RE-DECODE #{}", stages.insertions_of_path));
+            }
             // ⭐⭐ `live=` IS EMITTED ON BOTH BRANCHES, DELIBERATELY. A reader
             // that sees no marker at all is reading a log from before this
             // existed, and must say "unknown" rather than "none" — an absent
@@ -242,10 +261,19 @@ pub fn report_image_census(
     }
     // Stay silent through quiet windows: a steady stream of "+0 images" lines
     // would drown the windows that actually decoded something.
-    let (gpu_count, gpu_megapixels, gpu_p50, gpu_max, awaiting) = {
+    let (gpu_count, gpu_megapixels, gpu_p50, gpu_max, awaiting, re_decodes, dropped, dropped_mp) = {
         let mut ledger = image_stages::ledger();
         let (count, megapixels, p50, max) = ledger.take_gpu_window();
-        (count, megapixels, p50, max, ledger.awaiting_gpu().len())
+        (
+            count,
+            megapixels,
+            p50,
+            max,
+            ledger.awaiting_gpu().len(),
+            ledger.re_decodes,
+            ledger.dropped_before_gpu,
+            ledger.dropped_before_gpu_megapixels,
+        )
     };
     if census.window_images > 0 || gpu_count > 0 {
         let at = now.duration_since(census.started_at).as_secs_f64();
@@ -261,7 +289,8 @@ pub fn report_image_census(
         // pixels the main world already paid for.
         eprintln!(
             "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident \
-             | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting}",
+             | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting} \
+             | re-decodes {re_decodes} | dropped before gpu {dropped} ({dropped_mp:.1}MP)",
             census.window_images,
             census.window_megapixels,
             census.total_images,

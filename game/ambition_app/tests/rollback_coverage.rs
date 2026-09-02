@@ -1441,6 +1441,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the DEVICE side of the input boundary, for EVERY seat including zero: it          folds device samples between ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
     ),
     (
+        "ambition_characters::brain::profile::AuthoredBrainOverride",
+        "what a DEVELOPER forced every authored actor's brain to: published once at          plugin build from the environment, read by room lowering as a snapshot          value (D33's inversion of the dev-crate read), never written by a system.          A measurement knob that changes which cast is built, not state the cast          produces — a resimulated frame lowers no room",
+    ),
+    (
+        "ambition_characters::actor::population_cap::AuthoredPopulationCap",
+        "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction plan's          admission quota, never written by a system. The quota it seeds lives on          the plan (`ActorAdmission`), whose lifetime is one room build",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",
         "which key toggles which developer overlay. No production code takes it          mutably; it is configuration, and it is not present in a player's build's          decisions at all",
     ),

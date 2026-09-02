@@ -467,7 +467,14 @@ poison-verified (drop first-write-wins and the guard names the instant that
 moved).
 
 ⭐⭐ **MEASURED 2026-09-02, `capture_scene hall_of_characters player --warmup 400`
-(llvmpipe, OffscreenGpu), byte-identical across two runs:**
+(llvmpipe, OffscreenGpu), byte-identical across two runs.**
+⛔⛔ **AT POTATO TIER, AND THE NUMBER IS MEANINGLESS WITHOUT THAT.** llvmpipe
+classifies as `DetectedGpuClass::Cpu`, whose seed profile is `Potato` — by
+design, and `seed_profile_for_gpu` says why ("a software rasteriser is not a weak
+GPU, it is NO GPU"). So these megapixels are NOT comparable with this document's
+434 MP (Full) or 38 MP (Quarter) hall figures; the paths in the run confirm it
+(`sprites_potato/…`). What IS comparable across tiers is the SHAPE — the ratio of
+drawn to resident, and the split by owner — because those are counts.
 
 ```text
 total 239 images, 30.7MP, 122.9MB resident | never drawn 195 (25.4MP)

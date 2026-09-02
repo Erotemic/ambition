@@ -499,7 +499,9 @@ fn sync_ambition_dialog_ui(
     let portrait_source_rect = portrait_playback.current_rect();
     let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
-        .map(|(path, server)| server.load::<Image>(path));
+        .map(|(path, server)| {
+            ambition_sprite_sheet::game_assets::load_sheet_image(server, "portrait", path)
+        });
 
     let selected_marker = ui_fonts
         .as_deref()

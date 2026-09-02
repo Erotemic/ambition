@@ -315,7 +315,11 @@ fn portrait_art(
         .and_then(|registry| registry.get(id))
         .and_then(|prepared| prepared.portrait.as_deref());
     let reference = portrait_for_declared_character(portraits, catalog, target, id)?;
-    let handle = asset_server?.load::<Image>(reference.image.clone());
+    let handle = ambition_platformer2d::sprite_sheet::game_assets::load_sheet_image(
+        asset_server?,
+        "portrait",
+        reference.image.clone(),
+    );
     // STILL, said out loud. This grid never ticks a frame, so it asks for the one
     // frame it draws instead of taking a clip and keeping its first — which is
     // what it used to do, and what left the choice invisible at the call site.

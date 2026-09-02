@@ -435,47 +435,59 @@ because its geometry already solves it.
 The row above says the hall cannot demonstrate why attention is needed. That is
 true of its POPULATION axis and not of its density axis, and the difference is
 now measurable rather than argued. `scripts/measure_perception_density.sh` pins
-population and sweeps `AMBITION_PERCEPTION_VIEWPORT_HALF`; population 64,
+population and sweeps `AMBITION_PERCEPTION_VIEWPORT_HALF`; the FULL hall cast,
 `ambition::medium_striker`, 600 ticks, hall_bench (the shipped rollback host):
 
 ```text
-viewport_half   offered    kept   kept_max
-480x320  (ship)    65.0    14.7         21
-960x640  (2x)      65.0    45.3         60
-1920x1280 (4x)     65.0    64.0         64
-3840x2560 (8x)     65.0    64.0         64
+viewport_half        offered    kept   kept_max
+480x320   (shipped)    130.0    14.4         21
+680x453   (1.4x)       130.0    34.2         54
+960x640   (2x)         130.0    56.1        104
+1360x907  (2.8x)       130.0    82.8        116
+1920x1280 (4x)         130.0   113.2        124
 ```
 
-⭐ **`offered` IS FLAT AT 65.0 ACROSS EVERY ARM**, which is the control that makes
+⭐ **`offered` IS FLAT AT 130.0 ACROSS EVERY ARM**, which is the control that makes
 the rest readable: the scan walks every peer whatever the viewport, so nothing
 but `kept` moved and the result is attributable to extent alone. The script
 refuses to interpret a run whose `offered` drifts.
 
-⭐ **AND THE SATURATION AT 64 IS THE POPULATION, NOT A BUDGET.** At 4x extent every
-fighter perceives all the others — a full mesh — and 8x cannot exceed it. So the
-curve is: the shipped viewport is doing real work (65 offered → 14.7 kept, a 4.4x
-cut), one doubling takes it to 45.3, and two doublings remove the geometric
-budget entirely. **That is the regime an explicit K is for, reached inside the
-hall, with the cast and the room unchanged.**
+⭐ **AND `kept` NEVER REACHES THE POPULATION**, which is what makes these arms a
+measurement of EXTENT rather than of the cap. `kept_max` tops out at 124 of a
+possible 130, so the viewport is still the binding constraint at every point.
+⛔⛔ **A FIRST VERSION OF THIS TABLE WAS CAPPED AT 64 AND ITS TOP TWO ARMS BOTH
+READ `kept=64.0`** — a full mesh, every fighter seeing every other. That is a
+ceiling I imposed, not a saturation I found, and quoting "4x keeps everything"
+off it would have said nothing about cost scaling. **A ceiling you set yourself
+is not a saturation you discovered** — the same error as reading `kept` flat
+across 65 → 130 bodies and concluding the geometry solves it, one level up.
+Caught by 383484 before it was quoted.
+
+⇒ **The shipped viewport is doing real work**: 130 offered → 14.4 kept, a 9x cut.
+One 1.4x widening more than doubles it; 4x reaches **113.2**, which is the
+`kept`=113 the cost row above was measured at. So the density point that row
+prices is reachable in the hall, with the cast and the room unchanged, by a knob
+instead of a probe nobody can re-run.
 
 ⛔⛔ **THIS IS A COUNT, NOT A COST, AND MUST NOT BE QUOTED AS ONE.** It says how
 many `PerceivedActor`s get built per viewer, not what they cost. The 10x cost
-claim above still rests on timings, and timings on this box are a reading of who
+claim above still rests on timings, and timings on THIS box are a reading of who
 else is compiling — five identical hall runs the same day gave frame-spike totals
-of 61, 4, 9, 6, 52 while every count was byte-identical. These counts reproduced
-exactly across interleaved reps; the milliseconds want a quiet machine.
+of 61, 4, 9, 6, 52 while every count was byte-identical. (Measured 2026-09-02 on
+an untenanted VM: the same instrument is stable to 2.2% there. The caveat belongs
+to the shared box, not to the instrument.) These counts reproduced exactly across
+interleaved reps.
 
-⚠ **A CAPPED AND WIDENED RUN IS NOT THE SHIPPED HALL** — both knobs change the
-simulation, and the script prints the pinned population on every row so the two
-experiments cannot be confused.
-
-⛔ **AND THE CAST MUST BE RE-BRAINED OR THERE IS NOTHING TO MEASURE**, which cost
-an hour to find: the hall is authored `stand_still`, increment 1's
-`PerceptionRequirement::None` gate means such a brain never builds a `WorldView`,
-and `perception_census` therefore records ZERO views — the census row carries no
-`kept=` field at all. The first sweep printed "NO CENSUS ROW" for every arm,
-which is the harness correctly refusing to invent data. The gate that made the
-hall cheap is the same gate that makes it unmeasurable without `medium_striker`.
+⛔⛔ **AND THE CAST MUST BE RE-BRAINED OR THE MEASUREMENT IS OF AN EMPTY
+POPULATION — read this as a PREMISE of every hall perception measurement, not a
+footnote.** The hall is authored `stand_still`; increment 1's
+`PerceptionRequirement::None` gate means such a brain never builds a `WorldView`;
+`note_world_view` is called INSIDE that build, so nothing is recorded and the
+census row carries **no `kept=` field at all**. The first sweep printed "NO CENSUS
+ROW" for every arm, which is the harness refusing to invent data. ⇒ The tell is
+an ABSENT field, not a small number — and an instrument reporting NOTHING looks
+exactly like an instrument reporting a little. The gate that made the hall cheap
+is the gate that makes it unmeasurable.
 
 ⭐ The knob itself is `PerceptionExtentOverride`, a value in
 `ambition_characters::perception`, published by `ambition_dev_tools` and read by

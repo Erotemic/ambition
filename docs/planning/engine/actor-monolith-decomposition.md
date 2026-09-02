@@ -200,6 +200,43 @@ claiming.** `ambition_dev_tools` has 6 dependents and the facade names it
 directly; nothing downstream drops it. The payoff is ownership and a boundary
 the compiler holds.
 
+⛔⛔ **AND IT WAS THE LAST MISPLACED REGISTRATION — SO THE "NEXT SLICE FROM THE
+DOMAIN FRONTIERS" PLAN POINTS AT NOTHING.** Measured 2026-09-02 late, after this
+carve closed. The frontier sizing that recommended it counted REFERENCES
+(`ambition_encounter` 74/24 files, `ambition_mount` 69/17,
+`ambition_conversation` 48/13, `ambition_items` 40/17 — non-comment), and reading
+what those references ARE gives the same answer this doc already reached for
+`sfx`/`vfx`/`audio`: they are components the kernel stores (`MountSlot`,
+`RidingOn`, `Mounted`), types it matches (`SwitchActivation`, `EncounterSpec`)
+and helpers it calls. **Downward vocabulary consumption, which is correct.** A
+reference count cannot tell that from an authority read — which is how it
+produced a four-item worklist with nothing on it, against this doc's own rule
+that footprint is retired as a rationale.
+
+⭐ **THE SWEEP THAT DISCRIMINATES is "who does the kernel register plugins FOR?"**
+— the smell both the dev-tools and audio slices turned out to be. There are FIVE
+foreign plugin registrations in the whole kernel and every one is accounted for:
+`ConversationPlugin` plus five `NarrativeInputPlugin::<T>` (deliberate, and
+`FeatureInteractionSchedulePlugin` states why in place — three of the payloads
+are `features` types a carved-out conversation crate could not name);
+`ambition_characters::brain::BrainPlugin` (brains are the kernel's subject); and
+three `ambition_audio` plugins inside the kernel's own `Platformer2dAudioPlugin`,
+which the host adds and the `audio` feature removes wholesale.
+⚠ COUNTED TWICE, because one form of the grep is not enough: matching
+`add_plugins(ambition_x::…)` misses anything imported by `use`. Sweeping every
+`*Plugin` inside an `add_plugins(…)` raised two more candidates that both
+dissolved — `CharacterCatalogPlugin` occurs only in `character_roster/tests.rs`,
+and `PhysicsPlugin` was a substring of avian's `PhysicsPlugins::default()` inside
+`AmbitionPhysicsPlugin`.
+
+⇒ **WHAT IS ACTUALLY LEFT IS INTERNAL, and whoever takes it should know that
+going in.** The kernel's own `items/` module is ~6,000 lines, named `items::` 79
+times by the rest of the kernel, importing `abilities::ranged` ×10, `features`,
+`durable_horizon`, `traversal`, `character_runtime`, `shrine` and `construction`.
+That is a decomposition of the monolith's INSIDE — no manifest edge to delete at
+the end of it, and no compiler-held guard like the one this slice earned. Every
+previous slice finished with an edge to point at; that one will not.
+
 ⭐ **THE COST WAS ONE POLICY LINE, and it is the honest kind.**
 `engine.ambition_dev_tools-manifest-allow` gained `ambition_time`, with the
 reason in its rationale: the dep exists so the SIMULATION stops reading developer

@@ -550,6 +550,20 @@ display scale — the least likely combination, since phones are high-DPI. Only
 drawn into is not a cheaper portrait; it is a blurrier one, which is the
 failure Jon's standing rule forbids.
 
+⭐ **THE ANSWER IS ALREADY WRITTEN — `dev/patches/portrait-tiers-are-never-baked-20260902.patch`**
+(`git apply` it from the repo root). It stops
+`scripts/generate_visual_quality_variants.py` copying `*_portraits.png` into the
+three reduced tiers, which is 487 files / 14.2 MB that nothing can load, since
+`bake_portrait_manifests` collects from `assets/sprites` only. It is a patch and
+not a commit because it changes generated assets on the next unfiltered regen —
+that is Jon's call, not mine. ⓘ It touches a MAIN-REPO script, so applying it
+needs no submodule commit and no pointer bump.
+
+⚠ Filed as a pointer 2026-09-03 because the patch existed for a day with NOTHING
+in the repository naming it — the decision row asked the question and the answer
+sat in a directory nobody had reason to open. The other three patches in
+`dev/patches/` are each named by a doc; this one was not.
+
 ⓘ Residency is already bounded independently: `RetainedHudImages` holds one
 entry per portrait ACTUALLY SHOWN (~1.3–2.0 MP each), not the 163 baked
 manifests — so the tiers would save package size, not runtime memory.

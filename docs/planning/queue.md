@@ -609,6 +609,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
   the NPC bundle**; it is the room spawner's gate, or the stand-in's grace
   clock. The probe is the frame of `spawn_room_visuals` against the frame each
   row appears — which needs a build.
+  ⭐⭐ **AND THE GATE IS FOUND, BY READING, 2026-09-03 late — IT IS THE PARALLAX
+  THEME.** `sync_session_room_visuals`
+  (`crates/ambition_render/src/platformer_presentation.rs:198`) calls
+  `spawn_room_visuals` at :274. At :244-262, BEFORE that call, it computes
+  `wants_parallax` from `quality.budget.parallax.enabled` (defaulting TRUE),
+  and if parallax is wanted while the room's `ParallaxTheme` has none of its
+  layers loaded it **`return`s early** — with the comment *"Leave `presented`
+  unset so the next frame retries"*. So no room visual of any kind spawns until
+  the PARALLAX ART is resident.
+  ⭐ **THAT IS THE TIER DEPENDENCE, EXACTLY AS OBSERVED.**
+  `crates/ambition_persistence/src/settings/video/tests.rs:144` asserts
+  `!potato.parallax.enabled` — parallax is OFF at Potato, so `wants_parallax` is
+  false, the gate never engages, and room visuals spawn immediately, within the
+  5-frame grace. At Ultra parallax is on, so every room visual — the NPC's
+  included — waits on parallax layer loads, which is asset-bound and trivially
+  exceeds 5 frames. ⇒ **A backdrop's residency gates every interactable's
+  visual**, which is the actual defect: the two have no reason to share a
+  deadline.
+  ⛔ Still needs a build to CONFIRM the frame numbers; the mechanism above is
+  read from source and the tier assertion from an existing test. ⇒ The fix
+  candidate this points at is scoping that early return to the parallax spawn
+  alone rather than to the whole function — not the grace clock, which would
+  only widen the window the backdrop is already blowing through.
   ⓘ Kept below rather than deleted, because the individual findings stay true
   and the retraction is only legible beside what it retracts:
   **THE SELECTOR AND THE BUNDLE, re-checked 2026-09-03 late without a build:** `crates/ambition_sim_view/src/facts.rs:517`

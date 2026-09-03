@@ -449,3 +449,12 @@ deliberately says must NOT exist (*"do not reintroduce a `PlayerAttackState` /
 `ActorAttackState` split"*). ⇒ Subtract those four and the signal is one row in
 138 citations — but that row was a message deleted four days earlier and still
 documented as current, which is exactly the rot no link checker or test can see.
+
+⛔ **And point it at `docs/systems/`, not `docs/planning/`.** Run over planning
+the same sweep returns 47 names absent from all Rust, and nearly every one is
+CORRECT: a plan proposing `EncounterScript` over triggers named `RopeCut` and
+`MemberAtPosition` is doing its job, and `ParticipantUnlock` is absent because
+its own page says so. ⇒ The sweep tests "does this exist", which is only a
+question worth asking of a document that claims something DOES. A systems page
+describing a current boundary must resolve; a planning page naming what to build
+must not.

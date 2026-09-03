@@ -67,29 +67,37 @@ fn main() {
     }
 }
 
-/// Print the joined explanation for every subject that acted this tick, then
-/// clear the log.
-///
-/// `[fighter …]` lines on this same stream carry NO TICK, and must not be
-/// aligned with `[seam] t=N` by adjacency. That is deliberate and correct —
-/// `trace_decision`'s own doc explains it: a brain five hops below the ECS does
-/// not know the world's clock, and a counter guessed there would be a second
-/// clock no other domain could join against. The fact it publishes IS stamped;
-/// only the stderr rendering is not.
-///
-/// They may or may not; adjacent lines here are not evidence either way. Compare only `t=`-stamped
-/// lines with each other.
-///
-/// cleared every tick on purpose. A ladder run is thousands of ticks with
-/// several bodies each; a log that accumulated all of it would be a memory
-/// profile of the probe rather than a trace. The question here is always "what
-/// happened on THIS tick", so the tick is the natural scope.
-/// Per-subject `vel_x` as of the previous tick, so an UNCLAIMED velocity step can
-/// be detected instead of eyeballed.
-///
-/// the seam line samples 1-in-5 between decisions, so a three-tick ramp is
-/// invisible to it — which is how S51's `-99`/tick ramp survived six reading
-/// cycles. The data was there every tick; only the printing was sampled.
+// ⛔ THIS BLOCK IS ORPHANED AND NEEDS ITS OWNER. It was a `///` doc on the
+// `thread_local!` below, which is not a place a doc comment attaches — so it
+// warned, and the warning was invisible because this binary only builds under
+// `--features causal`. Its four subjects (printing an explanation, clearing the
+// log each tick, the per-subject `vel_x`, the seam's 1-in-5 sampling) describe
+// several different items, so it reads like docs left behind by items that were
+// deleted or moved. Demoted to `//` rather than reattached: silencing the
+// warning is unambiguous, deciding which item each paragraph belonged to is not.
+// Print the joined explanation for every subject that acted this tick, then
+// clear the log.
+//
+// `[fighter …]` lines on this same stream carry NO TICK, and must not be
+// aligned with `[seam] t=N` by adjacency. That is deliberate and correct —
+// `trace_decision`'s own doc explains it: a brain five hops below the ECS does
+// not know the world's clock, and a counter guessed there would be a second
+// clock no other domain could join against. The fact it publishes IS stamped;
+// only the stderr rendering is not.
+//
+// They may or may not; adjacent lines here are not evidence either way. Compare only `t=`-stamped
+// lines with each other.
+//
+// cleared every tick on purpose. A ladder run is thousands of ticks with
+// several bodies each; a log that accumulated all of it would be a memory
+// profile of the probe rather than a trace. The question here is always "what
+// happened on THIS tick", so the tick is the natural scope.
+// Per-subject `vel_x` as of the previous tick, so an UNCLAIMED velocity step can
+// be detected instead of eyeballed.
+//
+// the seam line samples 1-in-5 between decisions, so a three-tick ramp is
+// invisible to it — which is how S51's `-99`/tick ramp survived six reading
+// cycles. The data was there every tick; only the printing was sampled.
 #[cfg(feature = "causal")]
 thread_local! {
     /// the detector itself now lives in `ambition_causal` — this probe was

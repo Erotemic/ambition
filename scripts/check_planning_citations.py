@@ -199,6 +199,71 @@ def item_names(text: str) -> set[str]:
     return set(DEFINITION.findall(text)) | set(BARE_ITEM.findall(text))
 
 
+#: A git abbreviation in this repo is 7-12 characters; a full object name is 40.
+#: ⛔ 16 AND 32 ARE NOT SHAs AND MUST NOT BE ASKED ABOUT. `runtime-frame-history.md`
+#: is full of 16-hex ROLLBACK CHECKSUMS and the campaign docs carry 32-hex hashes;
+#: a first pass that matched `[0-9a-f]{7,40}` called twenty of them "unresolved
+#: commits", which is a checker teaching its reader to skim.
+COMMIT = re.compile(r"`([0-9a-f]{7,12}|[0-9a-f]{40})`")
+
+
+def submodule_paths(root: Path) -> list[str]:
+    """Initialised submodules, which own commits this repository cannot see."""
+    out = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()
+    paths = out[1::2]
+    return [p for p in paths if (root / p / ".git").exists()]
+
+
+def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
+    """Backticked commit names no reachable repository holds.
+
+    ⭐ SUBMODULE COMMITS ARE REAL CITATIONS AND ARE NOT IN THIS OBJECT STORE.
+    Seven of the eight the first survey flagged were exactly that, and each says
+    so in its own prose ("SUBMODULES (`db7e72f` in the map assets…)"). Asking the
+    submodule is a fact; guessing from the sentence would be a heuristic.
+
+    ⚠ An UNINITIALISED submodule cannot answer, so its name is returned and
+    printed. A check that silently skipped it would report a clean run whose
+    cleanliness depended on a directory being empty.
+    """
+    seen: dict[str, list[tuple[str, int]]] = {}
+    for doc in docs:
+        rel = doc.relative_to(root) if doc.is_relative_to(root) else doc
+        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
+            if MARKER in line:
+                continue
+            for m in COMMIT.finditer(line):
+                seen.setdefault(m.group(1), []).append((str(rel), lineno))
+    if not seen:
+        return [], []
+
+    def missing_in(cwd: Path, names: list[str]) -> list[str]:
+        query = "\n".join(f"{n}^{{commit}}" for n in names)
+        result = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=cwd,
+            input=query, capture_output=True, text=True,
+        ).stdout.splitlines()
+        return [n for n, line in zip(names, result) if "missing" in line]
+
+    outstanding = missing_in(root, list(seen))
+    all_subs = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()[1::2]
+    live = submodule_paths(root)
+    for sub in live:
+        if not outstanding:
+            break
+        outstanding = missing_in(root / sub, outstanding)
+    findings = [
+        (rel, lineno, f"`{name}`") for name in outstanding for rel, lineno in seen[name]
+    ]
+    return findings, sorted(set(all_subs) - set(live))
+
+
 CRATE_NAME = re.compile(r'^name\s*=\s*"([^"]+)"', re.M)
 
 
@@ -547,6 +612,25 @@ def main() -> int:
     if args.vanished:
         n = vanished_report(docs, args.vanished, defined)
         return 1 if (n and args.strict) else 0
+
+    # ⭐ COMMIT NAMES ARE CITATIONS TOO, and nothing checked them until
+    # 2026-09-03. A fabricated SHA is invisible exactly the way a fabricated
+    # symbol was: it looks like evidence and nobody types it into `git show`.
+    # The survey that added this found 225 of them and ZERO fabricated, which is
+    # the reason to guard it now rather than after the first one.
+    commit_findings, dark_submodules = unresolved_commits(REPO, docs)
+    checked += len(commit_findings)
+    findings.extend(
+        (rel, lineno, cite, "no commit with this name, here or in any submodule")
+        for rel, lineno, cite in commit_findings
+    )
+    if dark_submodules:
+        print(
+            f"\n⚠ {len(dark_submodules)} submodule(s) are NOT initialised, so a "
+            f"commit name they own cannot be verified: {', '.join(dark_submodules)}\n"
+            "  `git submodule update --init` to close the gap. Until then a clean "
+            "run is clean ONLY for the repositories that answered."
+        )
 
     print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
     if not findings:

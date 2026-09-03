@@ -500,7 +500,6 @@ mod tests {
 mod damage_tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::Brain;
     use ambition_characters::control::PlayerSlot;
 
     fn app() -> App {
@@ -636,7 +635,6 @@ mod damage_tests {
 mod knockback_tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::Brain;
     use ambition_characters::control::PlayerSlot;
     use ambition_combat::hit_reaction::BodyReaction;
 

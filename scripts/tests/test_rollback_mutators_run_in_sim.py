@@ -190,3 +190,86 @@ def test_every_waiver_cites_the_code_that_makes_it_true():
         if "⛔" not in why or len(why) < 150
     ]
     assert not thin, f"these waivers assert rather than cite: {thin}"
+
+# ── the live tree ─────────────────────────────────────────────────────────
+#
+# ⛔⛔ EVERY TEST ABOVE RUNS ON A `tmp_path` FIXTURE. They pin the scanner's
+# behaviour — which schedules it recognises, which it forgives — and none of
+# them asks the question the check exists to answer: does THIS repository
+# register a rollback mutator into a schedule that does not rewind? Audited
+# 2026-09-02 across all 16 `check_*.py`: this was the one guard whose live-tree
+# answer nothing asserted.
+#
+# ⭐ ADDING IT EXPOSED THE REAL DEFECT. `rollback_types()` read ONE file, so the
+# guard was green over ONE type of the workspace's 113 — under 1% of the surface
+# its own docstring called its source of truth. Widened to scan the same
+# production sources the mutator scan uses: 113 types, 318 mutating systems,
+# six offenders, all six triaged into `WAIVERS` with reasons.
+#
+# ⚠ A desync from a mutator in a non-rewinding schedule is silent — the run
+# diverges, nothing throws. A scanner provably correct on fixtures and never
+# pointed at the tree is not a guard against it.
+
+
+def test_the_real_tree_registers_no_unwaived_rollback_mutator_outside_the_rewind():
+    """⚠ Against the REAL crates, not a fixture — `collect()` defaults to REPO.
+
+    Green means zero UNWAIVED. Six systems are waived with reasons; a seventh
+    turns this red, which is the property the widening bought.
+    """
+    offenders = guard.collect()
+    assert not offenders, (
+        "a system that mutates rollback state is registered into a schedule that "
+        "does not rewind, so its writes survive a rollback and desync the run: "
+        f"{[(row[0], row[3]) for row in offenders]}. Register it through "
+        "`app.sim_schedule()`, or waive it in WAIVERS with the reason its drift "
+        "across a rewind does not matter."
+    )
+
+
+def test_the_scan_covers_the_whole_registration_surface_not_one_file():
+    """⛔⛔ THE REGRESSION THAT MADE THIS GUARD ORNAMENTAL, PINNED BY ITS SIZE.
+
+    Registration is DISTRIBUTED — each crate owns a `rollback_registration.rs` —
+    so a `rollback_types()` that reads any single file sees a snapshot of one
+    crate. It read exactly one and found one type; the workspace has 113 across
+    ten files. The number below is a floor, not the measurement: it exists to
+    fail if the scan narrows again, and 20 is far under today's 113 so ordinary
+    churn cannot trip it.
+    """
+    types = guard.rollback_types()
+    assert len(types) > 20, (
+        f"the canonical rollback scan sees only {len(types)} type(s). It once "
+        "read a single file and saw 1 of 113, which made every green above "
+        "meaningless — check that `rollback_types` still scans all production "
+        "sources rather than one registry"
+    )
+
+
+def test_no_waiver_names_a_system_that_no_longer_mutates_rollback_state():
+    """⛔ A WAIVER THAT OUTLIVES ITS SYSTEM IS A HOLE NOBODY IS WATCHING.
+
+    Each entry excuses a named system from the guard. If the system is gone or
+    no longer touches rollback state, the entry silently pre-authorises the next
+    thing to take that name.
+    """
+    mutators = set(guard.mutating_systems())
+    stale = sorted(name for name in guard.WAIVERS if name not in mutators)
+    assert not stale, (
+        f"{stale} are waived but no longer seen mutating rollback state — remove "
+        "them, so the waiver cannot cover a future system that reuses the name"
+    )
+
+
+def test_the_live_scan_reasoned_about_something_at_all():
+    """⭐ POSITIVE CONTROL. `collect()` returning nothing is the pass condition —
+    and it also returns nothing if the registry moved, the parse broke, or the
+    source glob went empty."""
+    assert guard.rollback_types(), (
+        "the canonical rollback scan named NO types at all; the parse broke, and "
+        "the offender assertion above is certifying an empty scan"
+    )
+    assert guard.mutating_systems(), (
+        "no system anywhere was seen mutating rollback state; the source scan is "
+        "empty and the guard above cannot fail"
+    )

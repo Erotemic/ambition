@@ -19,6 +19,17 @@ unchecked. Run both.
 nothing may draw FEWER pixels than the setting asks for. These sheets draw MORE.
 Correcting them removes no pixels from any tier that requested them.
 
+⛔⛔ AND NOTHING IN THE REPOSITORY SETS `AMBITION_ASSETS_ARE_CANONICAL` — checked
+2026-09-02: not `run_tests.py`, not `.github/workflows/`, not `scripts/regen/`.
+So every test below the opt-in is **run by hand or not at all**. That is the
+right call for assertions about one machine's gitignored generated tree, and it
+means these are INSTRUMENTS YOU RUN, not guards that watch. The tests that
+actually watch are the unconditional fixture ones at the bottom of this file;
+they are what keeps this from being a check that cannot fail.
+
+⇒ Run the opt-in half deliberately, on a box whose assets you believe:
+`AMBITION_ASSETS_ARE_CANONICAL=1 python3 -m pytest <this file>`.
+
 ⭐ A RATCHET, NOT A WALL. Four sheets are already in this state and fixing them
 means regenerating committed art, which is not this test's call. The four are
 named with the date they were measured; the test fails on a FIFTH. Cousin of

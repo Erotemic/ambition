@@ -346,8 +346,13 @@ a FLOOR and says so. Guarded by
 `test_room_reveal_tells_are_read_from_the_log.py`, whose BEFORE fixture is the
 2026-09-01 capture's shape — 111 warnings, `asset_wait_ms=3`, nine spikes of
 89-355 ms after the transition line. The hitches now happen
-UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
-small; the upload pacer / render-world-only knobs below make them smaller.
+UNDER the cover, which is what a cover is for; the upload pacer /
+render-world-only knobs below make them smaller. ⛔ **This sentence used to name
+"the tier cap (3a)" as a third thing making them small — that mechanism was
+REMOVED by Jon's ruling the same day** (§3a), so it is not a lever any more, and
+the measurements that had it running (the hall leg of the
+2026-09-02 timing tell) inherited a condition the shipped program no longer
+has.
 
 **Two mechanisms, and the lever for each — to MEASURE, not yet to change:**
 
@@ -1036,6 +1041,83 @@ is a product choice, not a defect.
 speaks, not that a manifest would resolve it.
 
 The tell after Jon's relPath retarget is the same two spikes gone or halved.
+
+### ✔ 2c. WHY THE 111 WERE ONLY *DECLARED* AT REVEAL — answered 2026-09-02 by reading
+
+The goal named three candidate causes — prefetch scope, retired realizations, or
+re-decode. **It is prefetch scope plus rationing, and the other two are ruled
+out at their source.**
+
+⛔ **NOT RETIRED REALIZATIONS.** `demote_stale_realizations(active)` retires a
+sheet only when `asset.requested_tier != active`, and its caller
+(`character_runtime/mod.rs:855-870`) computes `active` from the USER's budget
+alone — *"ONE tier, the user's, everywhere. The room a character stands in has no
+say (Jon, 2026-09-02: no lower tier for gallery previews)"* — then early-returns
+through `has_stale_realizations`. A hall entry changes no tier, so it demotes
+nothing. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
+ruling removing that cap (§3a) also removed this cause.**
+
+⛔ **NOT RE-DECODE.** The census reports `re-decodes N` directly and the hall
+runs measured 0.
+
+⭐ **IT IS THE PREFETCH SCOPE, AND THE RATION MAKES IT VISIBLE FOR SECONDS.**
+The cover waited on a manifest that held *"only the realized sheets' pages"*, so
+a character that content had DECLARED but nothing had materialized was never
+part of what the barrier waited for. Materialization is then rationed:
+`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, and the budget is spent in areal
+units where **a Full-tier character costs 16 and a Quarter costs 1**
+(`materialization_units`). ⇒ At Full, one character per frame — 111 of them is
+~111 frames, which is the three seconds of art the capture recorded arriving in
+the open.
+
+⇒ **The reveal-barrier fix addresses exactly this**: the barrier now waits for
+every PLACED character rather than every realized one, so a `Declared` sheet
+with no terminal outcome holds the cover. ✔ Confirmed on the host — 111 → 0
+placeholder warnings, `asset_wait_ms` 3 → 292, nine frames >33.4 ms → zero.
+
+ⓘ The ration itself is untouched and should stay: it is what keeps the
+materialization from becoming one enormous frame. The fix moved the WAIT, not
+the pace.
+
+### ✔ 2d. WHAT IS LEFT IN THE STARTUP BURST, ITEM BY ITEM — 2026-09-02
+
+The hall is fixed and the same run says the remaining host hitch is STARTUP. So
+the 7 notable decodes before `room-loaded` were each asked *why are you here?*
+
+```text
+7.6 MP  game://…/player_robot_v3_spritesheet.png  LDtk editor-preview tileset  → FIXABLE
+7.6 MP  sprites/player_robot_v3_spritesheet.png   the player's own sheet       → needed
+3.0 MP  vanity_card_parts.png                     the boot card ON SCREEN      → needed
+2.0 MP  boss_spritesheet.png                      fallback boss body           → eager by design
+1.3 MP  sprite_packs/full/ultrapack_4.png         intro_cart's pack page       → needed
+1.2 MP  generic_exotic_fx_spritesheet.png         engine core fx               → needed
+1.0 MP  <runtime-generated>                       an atlas/render target       → not content
+```
+
+⇒ **ONE of the seven is removable, and it is the largest.** The LDtk
+editor-preview tileset is 7.6 MP the runtime never draws; the prepared patch
+takes it to ~0.54 MP. Everything else is either on screen at that moment
+(vanity card), the thing the player is about to be (the player sheet), or
+deliberately eager (the fallback boss body — one sheet every boss may need).
+
+⛔ **So after the retarget the startup burst is IRREDUCIBLE WITHOUT A PRODUCT
+DECISION** — not showing the boot card, or making the fallback boss body lazy.
+Both are Jon's calls and neither is an engine defect. ✔ **And §2's engine-side question is answered by the capture
+itself: they ARE two `AssetId`s.** The same file decoded TWICE in one run — a
+single id would have been served from `Assets<Image>` the second time, which is
+what the ledger's `re-decodes` term counts and it read 0, because by path they
+are two different assets. Bevy keys an asset by `(source, path)` and never by
+bytes, so `game://sprites/x.png` and `sprites/x.png` cannot dedupe however
+identical the file is. ⇒ **A cover that waited for both would pay twice**, and
+the retarget is therefore the right fix rather than a symptom patch: it removes
+one of the two demands instead of trying to merge them.
+
+▢ What remains is a DESIGN question nobody needs to answer today: whether the
+asset layer should dedupe by content hash across sources. It would have caught
+this and it is a large change for one known instance.
+
+⚠ Bounded by the same sample as §2: `[image]` prints only decodes ≥ 1.0 MP, so
+these seven stand for 252 images / 78.3 MP and the small remainder is unaudited.
 
 ### 3. Pace expensive completion, not declarations
 

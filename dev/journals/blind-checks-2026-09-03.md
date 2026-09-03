@@ -38,6 +38,7 @@ succeeds, the number prints, and the number is about a different question.
 | 14 | A clamp stopping an extent rounding to zero, applied to origins too | Turned every `"x": 0, "y": 0` into `"x": 1, "y": 1` across five world files; only the diff showed it | `4c4c59581` |
 | 15 | Grepping for a lesson's own heredoc delimiter inside that heredoc | Bash ended the script early and the trailing command ran on garbage | *(memory only, no commit)* |
 | 16 | Three theories of which targets fail to downscale, from configs and mtimes | The four share one imported module; `grep -l _authored_swing_fighter` answered it, and the shared file was visible in the first `ls` of that directory | `c77f66425` |
+| 25 | `check_rollback_mutators_run_in_sim` reporting "OK: 4 systems mutate rollback state, none in a non-rewinding schedule" | Its population was ONE type — `rollback_types()` read a single file holding 1 of the repo's 87 canonical registrations (113 types). A green that reads as a clean bill of health for rollback, over under 1% of it. Widened to 113 types / 318 systems / 6 waived | `7793c78df`, `04cbab8c5` |
 | 24 | `check_engine_systems_are_engine_installed` exiting 0 with NO OUTPUT AT ALL | Genuinely passing (0 unclaimed at budget 0) — but silence is what a check that never ran also prints, and every sibling `check_*.py` says `OK: …` | `335eb2d8a` |
 | 23 | `check_authored_levels_survive` reporting "found no .ldtk worlds at all" | `SKIP_PARTS` contains `.worktrees` and was matched against the ABSOLUTE path — an agent slot's own root is `<repo>/.worktrees/<slot>`, so every world was skipped. 12 on disk, 0 kept. Inoperative in exactly the trees the agents work in | `2edf629b0` |
 | 22 | Five suite failures dismissed as "cargo is not on this PATH" | `~/.cargo/bin/cargo` exists; four scripts resolved it and two call sites did not. Fixing that turned 4 into passes and left ONE REAL finding the crash had hidden — `examples/portal_tutorial/Cargo.lock` stale since `ambition_registry_core` landed | `3959d8b27` |
@@ -46,6 +47,96 @@ succeeds, the number prints, and the number is about a different question.
 | 19 | `check_planning_citations.py` reporting "all resolved" over tonight's rows | `SYMBOL` needs a `::`, so bare backticked names — the commonest form in these docs — are never extracted; a fabricated one left the count unchanged at 526 | `d3c86dc79` |
 | 18 | "The four unshrunk variants are `_authored_swing_fighter.render` dropping the scale" | A coherent mechanism, in the wrong road: that module is never called for tiers — the variant script resizes for every module-kind target. Two boxes disagreeing is what exposed it | `c77f66425` → reconciled |
 | 17 | "44% of the tree" as the occupancy denominator | Half the MEGAPIXELS are unclaimed but only a fifth of the BYTES — stranded pages are large and empty, so they compress to nearly nothing | `334086d9c` |
+
+## How to run this audit again
+
+It found eight real defects in one evening, so it is worth repeating rather than
+rediscovering. Four passes, cheapest first:
+
+1. **Run every guard and read its REAL exit code.**
+   ```bash
+   for f in scripts/check_*.py; do
+     out=$(timeout 240 python3 "$f" 2>&1); code=$?     # NOT `| head`
+     printf '%-42s exit=%-3s %s\n' "$(basename "$f" .py)" "$code" "$(printf '%s' "$out" | head -1)"
+   done
+   ```
+   ⛔ My first pass piped into `head` and captured `tr`'s status, so every check
+   read `exit=0`. The bug I was hunting, in the tool I was hunting it with.
+   Look for: a traceback, an empty success, and any message that says the check
+   checked nothing.
+
+2. **Compare each guard's denominator against the repository's.** This is the
+   one that found item 25. "4 systems mutate rollback state" is implausibly
+   small for a game with rollback netcode; ask what SOURCE produced the
+   population, not whether the check passed. A guard that reads one file in a
+   repo whose convention is one-file-per-crate is the shape to expect.
+
+3. **Ask which guards assert against the LIVE tree**, not only on fixtures. Most
+   here do; the exceptions are where the coverage gaps hide.
+
+4. **Poison it — and check the poison landed in the guard's population.** Two of
+   my three poisons on the sheet-presence check hit files it deliberately
+   ignores, and each printed a green I could have taken for proof.
+
+⚠ Two habits that make the whole thing cheaper: a tool one call away beats an
+hour of reading (`discover_all_targets()`, `grep -l <shared module>`), and when
+two of your own measurements disagree, the coherent one is not automatically the
+true one.
+
+## ⭐ What the sweep did NOT find, recorded so nobody repeats it
+
+A crude scan flagged 13 test files that assert an absence against the live tree
+with no obvious population floor. **Spot-checking them found them healthy**, and
+the ways they were healthy are worth copying:
+
+* `test_tracked_symlinks_resolve` — `assert links` before `assert not dangling`:
+  a truthiness floor my regex could not see.
+* `test_map_symlinks_stay_links` — a dedicated
+  `test_there_are_tracked_worlds_at_all` whose message is *"no tracked .ldtk
+  files; this whole file is vacuous"*.
+* `test_text_spawns_resolve_a_font` — `assert path.is_file()` per watched file,
+  *"so this guard is watching nothing"*.
+* `test_catalog_rows_are_in_the_characters_map` — a live assertion, a
+  `characters_seen > 80` floor, AND a synthetic misplaced row proving the scan
+  fires.
+
+⚠ **AND A SECOND ATTEMPT TO WIDEN `check_planning_citations` DIED THE SAME WAY
+AS THE FIRST.** It validates `file.rs:123` but not a backticked path with no
+line number, so I measured those: **120 in `docs/planning`, 9 that do not exist
+from the repo root — and all 9 are legitimate.** Four are doc-relative
+(`game/multiplayer.md` inside `docs/planning/roadmap.md` resolves fine), two are
+relative to a submodule root (`docs/actor_contract.md` lives in the sprite
+renderer), one is a short form of a real file, one contains a literal `…`, and
+the last is a HISTORICAL PROVENANCE note — *"relocated from
+`docs/vision/driving_decision_principles.md`"* — which is correct precisely
+because the file is gone.
+
+⇒ A path in a doc resolves against THREE different bases and sometimes against
+none on purpose. That is the same reason the checker refuses to match
+schematics, and it is now measured twice: the bare-name population is 408
+false-ish findings, and the bare-path population is 9 of 9. **The scope is
+right; the gap should stay documented rather than closed.**
+
+Beyond `scripts/`, three more checked and CLEAR:
+
+* `rollback_coverage.rs` is `#![cfg(feature = "rl_sim")]`, which is the shape
+  that usually means "runs nowhere" — but `run_tests.py:515` runs
+  `cargo test -p ambition_app --features "rl_sim causal"` deliberately, so it
+  does run. ⓘ Worth knowing rather than acting on: its `WAIVED` list is 31
+  patterns of which **22 are namespace-wide** (`ambition_asset_manager::`,
+  `ambition_input::`, …), so its effective population is "sim state minus 22
+  namespaces". The file says so itself — *"this list is the part of the test
+  that can lie"* — and already documents one waiver as narrower than it reads.
+* `check_zone_name_ratchet` is CI-wired with `--check` and already refuses a
+  zero-observation sweep in its own words.
+* `feature_gated_tests.py` reports 29 crates hiding 783 tests behind features,
+  with its own over/under-counting caveat — an honest instrument, and the gate
+  runs the union anyway.
+
+⇒ The guards in `scripts/tests/` are, on the whole, built with the vacuity
+question already asked. The entries above are exceptions, not a pattern — and
+`test_absence_contracts` (21) is the one that had the floor and was missing the
+FIRE direction instead, which is the rarer half to forget.
 
 ## What the fixes have in common
 
@@ -62,6 +153,12 @@ count, say out loud what population it is a count OF, in what UNIT, and what
 would make it zero.** Items 2, 3, 11 and 12 each print a confident number about
 a population the instrument cannot see; item 17 prints an honest number in the
 unit that does not answer the question being asked.
+
+⇒ The one worth generalising: **compare the guard's denominator against the
+repository's.** "4 systems mutate rollback state" is implausibly small for a
+game with rollback netcode, and that ratio — not the pass/fail — is what
+exposed items 19, 20 and 25. A guard reports a number about a population; ask
+what SOURCE produced the population before reading the number.
 
 ⇒ And the one that would have saved the most TIME: items 13 and 16 are the same
 mistake twice in one night — **reading code to infer what a tool would report,

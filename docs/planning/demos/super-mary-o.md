@@ -97,6 +97,21 @@ Remaining acceptance work
   dwell/position/`life_spent` are rollback-registered. `DEATH_DWELL` is derived
   from the death sting's length (four bars of 2/4 at 150bpm) rather than picked
   by feel, so a re-scored cue moves it.
+- ✅ **A TALLER FORM REFUSES A WEAKER PICKUP, and it is played rather than
+  asserted** (landed 2026-09-03,
+  `game/ambition_demo_mary_o_app/tests/weaker_form_refusal.rs`). A Mary-O
+  already carrying the beacon walks the floor past a second wand and does NOT
+  take it — `form_rank` orders small/wand/beacon, and both halves of the rule
+  are covered: `refuse_a_weaker_form_pickup` is the floor half and
+  `without_downgrading` the block half. ⭐ **The control arm is the point**: a
+  SMALL Mary-O collects the very same wand in the very same placement, so the
+  refusal is proven to be about her form and not about the item being
+  unreachable. ⚠ The placement is `two_rooms`' own DROP with one retry from
+  below the face — four earlier attempts to place the block by hand each failed
+  a different way (lifting by 100 landed her on it; clamping ignored body
+  height; "place at current height" triggered the guessed-resting-height
+  respawn), which is why the test reuses the authored drop instead of computing
+  a position.
 - ✅ **The course-clear sting plays** (landed 2026-07-25). `flag::play_victory_music`
   claims the priority tier from the grab to the tally so the cue covers however
   long the sequence takes; slide + walk-off + `LEVEL_CYCLE_DWELL` comfortably

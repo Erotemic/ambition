@@ -165,6 +165,44 @@ is a signal and not a lock. And a page under a header is still fair game for
 somebody fixing a fact they can prove — the header says who is working it, not
 who owns it.
 
+### ⛔ THE TARGET STILL EXISTS, SO NOTHING REPORTS IT — one hazard, three shapes
+
+A citation rots in two ways. The loud way is that its target disappears, and
+every checker in the repo catches that. **The quiet way is that the target
+survives while the MEANING moves**, and no checker can catch it, because
+"resolves" is all a checker knows how to ask. Three sessions found this
+independently on 2026-09-03, in three different shapes:
+
+| shape | what survived | example |
+|---|---|---|
+| **section anchor** into a rewritten page | the page | `decision-principles.md` pointed at `vision.md` §8 "Principles digest"; that page was renumbered and the digest deleted — §8 is now "Execution" |
+| **file path** into a carve's residue | the directory | `demos/sanic.md` and decision 40 cited `items/pickup/mod.rs`; the domain left for `ambition_held_items` and the path survives as the kernel's schedule residue |
+| **line number** inside a growing file | the file | `check_planning_citations.py` verifies only that the file is LONG ENOUGH; a `:NN` pointing at the wrong line passes |
+
+⭐ **AND THE SECTION-ANCHOR SHAPE HAS A CLEAN FIX, demonstrated in this repo.**
+`engine/boss-design.md` numbers its headings in the heading TEXT — `## 8. BD1 —
+the three atoms, landed` — so its internal *"see §8"* is still exact months
+later. `vision.md`'s sections were positional, and a rewrite silently moved §8
+from "Principles digest" to "Execution". ⇒ **A page that expects to be cited by
+section should number its headings explicitly**; then the anchor is a name, and
+this whole class stops applying to it.
+
+⭐ **And the convention is already near-universal here — swept 2026-09-03.**
+Every other `§N` citation in `docs/planning` points at an explicitly numbered
+heading: `engine/collision-and-ccd.md` §1, `demos/smash-parity-inventory.md`
+§1/§4, and `engine/asset-preparation-and-residency.md` §2 (whose `### 2. Demand
+before first visible use` spans lines 872–1196 and does contain the cited
+`owned_fx_sheets_named_by` work). `vision.md` was the one positional exception,
+and it is the one that broke. ⇒ Follow the convention rather than avoiding
+section citations; they are fine when the number is part of the heading.
+
+⇒ **Otherwise the one defence that works is to cite a NAME beside the location.** A path or
+a line number degrades silently; `fire_held_ranged_system` or
+`aabb_path_contacts` fails loudly the moment it moves, because the name is what
+the citation checker actually resolves. ⚠ **And a carve that leaves residue is
+MORE dangerous than one that deletes**, which is the opposite of the intuition:
+deletion is caught, residue is not.
+
 ### ⛔ A PREDICTION SPREADS BY QUOTATION, AND FIXING ONE COPY LEAVES THE OTHERS
 
 One wrong forecast reached three pages on 2026-09-03. `queue.md`'s D33 row said
@@ -178,7 +216,17 @@ away from work that then succeeded, and each copy had to be found separately.
 ⇒ **A forecast belongs in ONE page — the one that owns the work — and other
 pages LINK to it.** A measurement can be quoted (it was true when taken, and the
 date says so); a prediction cannot, because when it fails the quotations do not
-fail with it. ⚠ If you find yourself restating someone else's forecast, that is
+fail with it.
+
+⚠ **BUT A MEASUREMENT ONLY TRAVELS SAFELY WITH ITS METHOD.** Sharpened
+2026-09-03 by watching my own figure spread: *"`possession` is named 87 times
+outside `abilities/` (`teleport` 61)"* is quoted in three code locations besides
+the plan that owns it, and none of the four stated the SCOPE — within the actor
+monolith. The obvious wider grep gives 256 and 603, so every copy reads as
+stale to anyone who checks, and I briefly believed my own numbers had rotted.
+⇒ When you quote a measurement, carry its method or point at the page that
+states it; a figure whose derivation is missing is unverifiable in every copy at
+once, even though the original was sound. ⚠ If you find yourself restating someone else's forecast, that is
 the moment to link instead.
 
 ⭐ And when one does fail, KEEP IT with its post-mortem rather than deleting it.
@@ -243,6 +291,16 @@ as regression.
 at all, which is the failure the header rule above is about. The rule is that the
 number must be reproducible BY THE READER, not that it must be absent.
 
+⭐ **AND SOME FIGURES SHOULD BE APPROXIMATE ON PURPOSE.**
+`game/systemic-progression.md` (2026-08-13) says `ParticipantId` "has ~150
+references" beside three EXACT absence claims. Re-checked 2026-09-03, after
+three weeks and five carves: the absences still hold at zero, and the count is
+154 — so the `~` is still true and an exact `150` would read as drift. ⇒ Use an
+exact figure where exactness is the claim (a count of zero, a set of five named
+sites) and an approximate one where the magnitude is the claim. Precision you
+did not need is a maintenance liability, and this page shows the alternative
+ageing well.
+
 ⭐ **AND NOT EVERY FIGURE IN A TABLE IS LOAD-BEARING — separate the VERDICT from
 the EVIDENCE.** `engine/relativity.md` proves the point: its table says
 `ambition_app` links relativity **0** times and `ambition_demo_twintrack_app`
@@ -284,6 +342,17 @@ entity, once in the definition and once in the instance. Parsing the world and
 counting `PickupSpawn` instances gives **exactly 35**. ⇒ **In a structured file,
 count ENTITIES, not occurrences of a value string**; a substring tally over JSON
 or LDtk is not a census, and the page that parsed it properly is usually right.
+
+⭐ **AND PREFER THE REPO'S OWN CHECKER TO AN AD-HOC GREP.** Four times in one
+session an ad-hoc check disagreed with a maintained page and the page was right:
+`__pycache__` in a file count, a value string counted twice per LDtk entity,
+policy rows found by id when two carves legitimately use a different row shape,
+and commit SHAs in `demos/smash-parity-inventory.md` reported as unresolved
+identifiers — `scripts/check_planning_citations.py` classifies SHAs and resolves
+them, which is why it says that page is clean and a hand-rolled grep does not.
+⇒ When you want to know whether a page still holds, run the checker that already
+knows the classes; reach for a grep only for what it does not cover, and expect
+your first number to be the wrong one.
 
 The middle row is the one that produces confident wrong numbers: silently
 replacing a figure you cannot reproduce asserts a drift you have not

@@ -69,38 +69,39 @@ Its demonstrated value is:
 > facade's edge to it makes the footprint smaller. Both are needed and the
 > ratchet counts only the first.
 >
-> ⭐ **AND THE EDGE TO CUT IS WRITTEN DOWN IN ONE FILE.** Measured 2026-09-03:
-> **21 of the 22** `never_asked_for` crates are named DIRECTLY in
-> `crates/ambition_platformer2d/Cargo.toml`; only `ambition_registry_core`
-> arrives transitively. This is not a subtle transitive-closure problem — it is
-> the facade's own dependency list.
+> ⛔ **RETRACTED 2026-09-03, SAME DAY, BY THE FILE I WAS ALREADY READING.** This
+> block first claimed the lever was the facade's dependency list — that 21 of the
+> 22 `never_asked_for` crates are named directly in
+> `crates/ambition_platformer2d/Cargo.toml`, that 10 of them are unconditional
+> there, and that making those optional would move the number. **The count is
+> right and the conclusion was wrong.**
 >
-> ⛔ **AND THE MEASUREMENT IS ALREADY THE MINIMAL ONE, so the number cannot be
-> argued down.** The sentinel `fixtures/minimal_game` depends on the facade with
-> `default-features = false` and names only the features it uses, and the
-> contract asks cargo's resolver (`cargo tree --edges normal`) rather than
-> walking source. All 22 are linked by a game that asked for as little as the
-> facade permits.
+> `reachable_via_ambition_platformer2d_actor_monolith_alone` in the baseline JSON
+> holds **all 22**. The sentinel links `ambition_platformer2d_actor_monolith`, and
+> the monolith's own manifest names every one of them unconditionally — so each
+> facade edge is REDUNDANT, and cutting it prints the same 49/22. The baseline
+> even says so in a row I did not open: *"cuttable at the facade, worthless to
+> cut, because the monolith brings them regardless"*
+> (`damage_and_mount_classified_2026_09_02`). ⚠ **I read `never_asked_for` and
+> `ambition_closure` out of that file and stopped at the two keys my hypothesis
+> needed** — which is the failure mode this repo's own recipe warns about, one
+> level up: not a missing instrument, an instrument read only as far as it agreed.
 >
-> | in the facade | count | crates |
-> |---|---|---|
-> | `optional = true` already | 11 | cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, sfx_bank, ui_nav, vfx |
-> | **unconditional** | 10 | audio, body_seed, boss_encounter, conversation, damage, encounter_features, held_items, match, mount, world_items |
+> ⇒ **What survives, and it is the useful part:** the +4/+4 identity above, and
+> that the measurement is already minimal (`fixtures/minimal_game` uses
+> `default-features = false`; the contract asks cargo's resolver, not a source
+> walk). All 22 are linked by a game asking for as little as the facade permits,
+> and no feature flag on the facade changes that.
 >
-> ⇒ **The 10 unconditional ones are the irreducible core, and the mechanism to
-> move them already exists in the same file** — that manifest carries **23**
-> `optional = true` deps and a `[features]` block whose comments state exactly
-> this policy (*"movement-only games leave it disabled"*, *"a game that never
-> opens one must not link one"*). ⚠ Not free: making a dep optional means
-> `cfg`-gating its re-export and any facade code that names it. But it is
-> mechanical, precedented 23 times over, and it is the step that moves the
-> number.
->
-> ⇒ **This also explains the +4/+4 exactly.** `held_items`, `body_seed`, `match`,
-> `encounter_features` and `world_items` are all recent carve outputs, and every
-> one was added to the facade as an UNCONDITIONAL dependency. The carve creates
-> the crate; the facade then names it the only way that guarantees a minimal
-> game links it.
+> ⇒ **The real lever is the one the `mount`/`damage` rows already name:** *the
+> closure should follow the plugin a game INSTALLS, not the dependency its crate
+> declares* — i.e. `cfg`-gating the KERNEL's use of each domain. ⛔ And that is an
+> explicit non-goal of the carve today:
+> [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) lists
+> *"scatter feature gates through the kernel merely to move a `cargo tree`
+> number"* among the things it will not do, and it is right to, until a domain's
+> CONSTRUCTION road has left the kernel too. ⇒ So carve outputs landing
+> unconditional is by design, not an oversight to fix in the checklist.
 > ⛔ **DO NOT RETYPE IT — re-derive:**
 > `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
 > the live pair from `scripts/baselines/capability-footprint-baseline.json`.

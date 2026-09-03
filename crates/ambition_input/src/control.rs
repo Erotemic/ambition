@@ -28,6 +28,13 @@ use crate::actions::Platformer2dInputActionMonolith;
 /// this cap simply walks at this speed; a kit that authors one BELOW it would
 /// run while the modifier is held, and that body wants its own answer rather
 /// than a smaller global number.
+// Gated to match its only use site: the walk cap is applied in
+// `read_gameplay_control_frame_with_settings`, which reads the leafwing
+// `Platformer2dInputActionMonolith::Walk` action and so exists only under
+// `input`. ⚠ WITHOUT THIS the crate warns when built ALONE -- its default
+// feature set is empty -- while the workspace check stays clean, because
+// feature unification turns `input` on for everyone. Two different programs.
+#[cfg(feature = "input")]
 pub const WALK_AXIS_CAP: f32 = 0.5;
 
 /// Build a gameplay control frame, applying configurable deadzones,

@@ -1208,42 +1208,24 @@ The one unresolved developer-policy choice from the session-ownership work is in
   checkpoint policy, not item policy — but it should be stated in its doc
   comment, or the next reader will "fix" it by dragging it after the domain.
 
-  ⛔⛔ **AND A SECOND THING THAT IS NOT MECHANICAL, FOUND BY STARTING THE CUT AND
-  STOPPING (2026-09-02).** The partition itself is clean — 511 lines stay, 1,347
-  move, and they reconstruct the file exactly — and the new crate compiles down
-  to four missing deps (`ambition_entity_catalog`, `ambition_input`,
-  `ambition_mount`, plus an optional `ambition_portal2d` behind a `portal`
-  feature). ⚠ **What is NOT decided is who owns the SCHEDULE, and it is a fork
-  with a wrong branch:**
-  * `pickup/tests.rs` (1,789 lines, moving) does `app.add_plugins(super::ItemPickupSimulationPlugin)`
-    — the plugin that STAYS. So the moved tests cannot build their App without
-    either the kernel or a plugin of their own;
-  * if the new crate publishes its own plugin that also `configure_sets`, the
-    set rules exist in two crates — and `ItemPickupSet::CoreHeldItems` being
-    `.in_set(PlayerSimulation)` and `.after(BodyCustodySettled)` is exactly the
-    kind of fact that goes missing when it is split;
-  * if the kernel keeps all `configure_sets` and merely adds the new crate's
-    systems plugin, the new crate's own unit tests register systems into sets
-    nothing configured, so their ordering assertions pass vacuously.
-  ⇒ **Decide schedule ownership BEFORE cutting, and write the answer here.** The
-  sibling carve shipped a live phase-membership defect by moving `add_systems`
-  and leaving `configure_sets`; this fork is the same hazard one level up, and it
-  is not a thing to settle at the end of a long session.
-  ✔ **ANSWERED — take the second branch.** The rule is
+  ✔ **THE SCHEDULE-OWNERSHIP FORK IS SETTLED, AND THE CUT IS SPEC'D END TO END:**
+  [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md).
+  Starting the cut and stopping is what found the fork — the partition is clean
+  (511 lines stay, 1,347 move, verified to reconstruct the file) and the blocker
+  was never code: the moved tests build a plugin that STAYS, and every way of
+  splitting a set's rules from its systems loses something, one of them
+  silently. ⇒ Answered by the D33 rule in
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-  §*D33 RULE — a carved domain owns its schedule end to end*: the new crate
-  publishes its own plugin and that plugin does BOTH the `configure_sets` and the
-  `add_systems` for the sets it owns; a set two crates order on moves to
-  `shared_tangle` as vocabulary with exactly one configuring owner. The third
-  branch's vacuity worry is answered by the same shape — a carved crate's tests
-  build the CARVED plugin, so the sets they assert on are configured by the thing
-  under test. Worked precedent, sibling carve now closed: `d220accee` (the fix)
-  and `dbec94824` (the guard, which asserts phase MEMBERSHIP by set-member COUNT
-  rather than by system name — Bevy 0.19 strips names without `bevy_ecs`'s
-  `debug` feature, so a name lookup is green or red depending on who else is in
-  the build). ⇒ The cut is unblocked; what remains is mechanical.
-  ⚠ The scaffold built while finding this was deleted rather than left
-  half-landed — it was untracked and nothing was committed.
+  — the carved crate's plugin does BOTH its `configure_sets` and its
+  `add_systems`; a set two crates order on is `shared_tangle` vocabulary with
+  exactly one configuring owner — plus the one thing that rule does not cover,
+  which the checklist carries: the three `ItemPickupSet` variants are `.chain()`ed
+  to each other and that INTER-VARIANT edge stays with the kernel.
+  ⭐ Worked precedent, the sibling carve now closed: `d220accee` (the fix) and
+  `dbec94824` (the guard — phase MEMBERSHIP by set-member COUNT, because Bevy
+  0.19 strips system names without `bevy_ecs`'s `debug` feature and a name lookup
+  is green or red depending on who else is in the build).
+  ⇒ **What remains is mechanical, and it is a CPU job rather than a design one.**
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,

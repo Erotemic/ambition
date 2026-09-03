@@ -172,7 +172,14 @@ if __name__ == "__main__":
 # 2026-09-02: `performer` (9.03 MP) publishes neither 0_5x nor 0_25x, and is
 # byte-identical to `actor`, which publishes both and shrinks neither. The same
 # artwork therefore fails to get cheaper by TWO different mechanisms.
-KNOWN_MISSING_VARIANTS = {"performer_spritesheet.ron"}
+# ⛔ EMPTIED 2026-09-02 FOR THE SAME REASON AS `KNOWN_UNSCALED` ABOVE.
+# `performer`'s full sheet was rendered 2026-08-29, a week after this box last
+# ran the variant script — so its variants are absent here for the same reason
+# 82 other tier files are STALE here (`check_quality_variants_are_fresh.py`
+# reports both, and exits 1 on this checkout). That is one machine's
+# un-regenerated tree, not a property of the sheet, and encoding it as "known"
+# would teach a future reader that `performer` is expected to ship without tiers.
+KNOWN_MISSING_VARIANTS: set[str] = set()
 
 
 def missing_variants() -> dict[str, list[str]]:

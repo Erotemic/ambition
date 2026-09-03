@@ -100,6 +100,51 @@ subcommands' NAMES unconditionally and have the disabled arm exit non-zero with
 the feature to rebuild with. A missing subcommand must say why it is missing,
 not read as a typo.
 
+## Measured result — it helped
+
+✔ **BUILT AND MEASURED 2026-09-03, apples to apples in the DEFAULT feature
+cell.** The prediction was ~0.7 GB from a symbol-union proxy; the built figure
+is better than that.
+
+```text
+BEFORE — the eight default-cell binaries      4.79 GB
+AFTER  — one `smash_tool`                     0.50 GB   (535,099,456 bytes)
+                                              -------
+saved                                         4.30 GB   (89.6%)
+```
+
+⭐ **The one binary is SMALLER than any single one it replaced** except
+`stage_diagram`: 510 MB against 633–634 MB for each probe. Collapsing did not
+add the parts up, it stopped writing eight copies of the same program.
+
+⚠ **THE COMPARISON IS DEFAULT-CELL ONLY, and that is stated rather than
+glossed.** `match_shots` (705 MB) was built with `visible,capture`, so it is
+excluded from both sides; the nine-binary 5.48 GB figure quoted elsewhere mixes
+feature cells and is not a fair "before". ⛔ The featured build was **started
+and deliberately killed** — it pulls in the whole render stack and took the
+volume from 8 GB to 2 GB free. A measurement that fills a shared disk is not
+worth the number, and the default-cell result already answers the question.
+
+✔ **BEHAVIOUR IS UNCHANGED, verified rather than assumed.** The old
+`ladder_rig` binary was still on disk, so both were run with the same flags:
+`smash_tool ladder-rig --sweep-below --seeds 1` and
+`ladder_rig --sweep-below --seeds 1` produce **byte-identical** reports, all
+seven `[ladder_rig]` lines. Exit codes checked without a pipe in the way
+(`$?` after `head` is head's): `--help` 0, unknown subcommand 2, and
+`match-shots` without its features 2 with the rebuild line.
+
+ⓘ **AN OPERATIONAL FINDING WORTH KEEPING: `cargo clean -p` cannot remove a
+binary whose target no longer exists.** It removed 1,405 files and 6.4 GB from
+this package and left all nine old executables — 4.79 GB — because cargo no
+longer knows those `[[bin]]` targets. ⇒ **Every bin rename or removal strands
+its artifact forever** unless someone deletes it by name, which is what
+reclaimed the space here. Worth remembering the next time a target is renamed.
+
+⛔ **`split-debuginfo` STILL UNTRIED** — the one-line lever the plan said to
+attempt FIRST. The collapse's 89.6% does not tell us whether the cheap
+experiment would have got most of it, and that matters before this is proposed
+for another crate.
+
 ## Status
 
 ✔ **PHASES 1–3 LANDED 2026-09-03.** `smash_tool` exists; the nine binaries are
@@ -108,11 +153,10 @@ poison-verified. `cargo check -p ambition_demo_smash_app --bins` is clean in the
 default cell **and** under `--features visible,capture,causal`, so both arms of
 the feature gate type-check.
 
-⛔ **PHASE 0 IS STILL OWED, and it is the one that says whether this was worth
-doing.** The ~0.7 GB figure remains a symbol-union prediction: nothing has built
-the collapsed binary. This box is at 11 GB free, below the 40 GB floor, so the
-measurement has to happen elsewhere. ⇒ Until it does, the honest claim is "nine
-binaries became one", not "5.6 GB became 0.7 GB".
+✔ **PHASE 0's SIZE QUESTION IS ANSWERED** — see the measured result above:
+4.79 GB → 0.50 GB in the default cell, better than the prediction. What remains
+of Phase 0 is the `split-debuginfo` experiment and a featured-cell comparison on
+a box with headroom.
 
 ⚠ **AND `split-debuginfo` WAS NEVER TRIED**, which the plan said to do FIRST
 because it is one line and may take most of the win. Doing the collapse before

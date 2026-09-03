@@ -510,7 +510,7 @@ read the code that settles it.** The cover lifts CORRECTLY: all 129 sheets are
 
 ⇒ **`converge_character_residency_to_active_quality` is what un-claims them.**
 When the headless profile converges Potato→Ultra (t≈14.9 s in the log above) it
-calls `demote_stale_realizations`, which takes every IN-USE sheet from `Ready`
+calls `demote_stale_realizations`, which takes every IN-USE sheet from `Ready` <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 back to `Declared` — dropping every body's render family — and re-demands them
 at one character per frame at Full. **129 actors' worth of placeholder is
 exactly that** — ⚠ not 129 FRAMES of it, which is what this sentence said until
@@ -537,7 +537,7 @@ log both sets once and intersect them, not to change the barrier.
 The ramp above had a cause one layer away from the reveal: the barrier is
 innocent (all 129 sheets are `Ready` when the cover lifts), and it is
 `converge_character_residency_to_active_quality` that turned the cast into
-placeholders. It called `demote_stale_realizations` — every in-use sheet went
+placeholders. It called `demote_stale_realizations` — every in-use sheet went <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 `Ready → Declared`, un-claiming every body's render family — and re-demanded
 them at one character per frame at Full. A headless boot converges Potato→Ultra
 after the cover; a host whose settings apply a frame late does the same thing
@@ -1226,8 +1226,8 @@ when `stale_realizations(active)` is empty. A hall entry changes no tier, so it
 retires nothing.
 ⚠ **RE-VERIFIED AGAINST THE CODE 2026-09-03, after `6c9fb2b58` rewrote this
 function.** The ruling stands and THE MECHANISM NAMES IN IT DID NOT: it called
-`demote_stale_realizations(active)` and early-returned through
-`has_stale_realizations` when this was written, and both are now production-dead
+`demote_stale_realizations(active)` and early-returned through <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
+`has_stale_realizations` when this was written, and both are now production-dead <!-- cite-ok: deleted 2026-09-03 with the swap fix -->
 (definitions and tests only — `converge_character_residency_to_active_quality`
 reaches `stale_realizations` + `retire_realizations` instead). The line citation
 it carried, `character_runtime/mod.rs:855-870`, now lands in a different
@@ -2248,7 +2248,7 @@ in `ambition_render/src/rendering/actors/mod.rs:721` reports only the first:
 *"nothing demanded it, so the engine never decoded its sheet"*. That is the
 warning the host run saw 111 times on the Hall reveal, so its diagnosis is
 evidence for a cause it never checked.
-The two are not distinguishable today: `demote_stale_realizations` removes the
+The two are not distinguishable today: `demote_stale_realizations` removes the <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 token from `sheets` and deliberately leaves `declared` intact (the entry is the
 recipe for re-making it), so a retired realization and one that was never made
 are the SAME state, and nothing records that a retirement happened. (It was
@@ -2259,7 +2259,7 @@ the range and the suffix away together.)
 this squarely in this section rather than in observability.
 ✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
 (token → the tier whose pixels it actually held), written by `retire_tokens`
-— the shared helper EVERY retirement road goes through (`demote_stale_realizations`,
+— the shared helper EVERY retirement road goes through (`demote_stale_realizations`, <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 `retire_realizations_except`, and since `6c9fb2b58` the convergence's
 `retire_realizations`, which is the only one with a production caller today) —
 and cleared by both publish paths the moment

@@ -10,6 +10,49 @@ This file intentionally does not retain answered decision transcripts.
 
 ## Open decisions
 
+### 38. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
+
+`refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not
+replace a stronger one. It now has a played acceptance test on the shipped app
+(`weaker_form_refusal.rs`), but only for the EQUAL rung — a tall Mary-O meeting
+a second wand. The strictly-weaker rung (fire meeting a wand) is **unreachable
+in 1-1 as authored**, and the obstacle is level geometry rather than engineering.
+
+Reaching fire spends TWO of 1-1's three `Toward(Lantern)` ?-blocks
+(small→wand→tall, tall→lantern→fire), so a wand left walking needs the third.
+⛔ **The third, at x=1920, stands over a pit.** Measured by dropping a body into
+its column: from above she lands ON the block (centre 256, feet on its top
+face); from below the face she falls to y≈969 in a 448-tall room, dies, and
+respawns at the level start. No body can stand under it to bonk it.
+
+⚠ **This is not a hole in the rule and not a missing test of it.** The equal
+rung is the stronger arm for the comparison the rule actually makes — a `<`
+written where `<=` belongs still refuses a wand offered to a fire Mary-O, and
+lets a second wand re-equip a tall one — so the boundary is covered and the
+interior is not. The question is only whether the interior is worth authoring
+for.
+
+Choose one:
+
+- **author a fourth ?-block over floor in 1-1** — smallest change, and it also
+  gives a player a place to reach fire without crossing the pit;
+- **build the fixture in 1-3 instead** — it already authors a `Question` at 256
+  AND an `AlwaysWand` at 1696, so the scenario exists there with no new content;
+- **leave it** — the boundary arm covers the comparison, and the interior arm
+  would cost a scripted pit-edge jump, which is a test about jump tuning wearing
+  this rule's name.
+
+⚠ **AND THIS QUESTION IS OLDER THAN THIS ROW.**
+[`demos/super-mary-o.md`](demos/super-mary-o.md) has carried a product question
+since 2026-08-14 about the fire form's DISCOVERABILITY — *"should the beacon
+walk to you like the wand, should 1-1 place a reachable second block earlier, or
+is 'the reward waits up there and you must climb for it' the intended feel?"* —
+reached from the other direction, a player who could not find the reward. Same
+level, same three blocks, and answering either answers both. The new fact this
+row adds is that the third block has no standing position under it at all.
+
+⛔ No content was authored to answer this: authored levels are Jon's.
+
 ### 37. Should the F9 rollback proof pulse survive a gameplay-session change?
 
 `LocalSessionPolicy::check_distance` is raised by the F9 proof pulse and returns

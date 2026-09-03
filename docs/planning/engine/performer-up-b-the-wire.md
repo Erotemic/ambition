@@ -3,8 +3,8 @@ status: built — measured on the smash stage 2026-08-29; open for feel
 owner: handoff written 2026-08-29, picked up and built the same day
 ---
 
-> **BUILT.** `fcaa40fae` (the kernel's wire), `28342724d` (the move and the
-> rope), `49337a8fb` (`wire_probe`, and three things it caught). All six clauses
+> **BUILT.** `0dd64feea` (the kernel's wire), `f920e092c` (the move and the
+> rope), `6dc8833f2` (`wire_probe`, and three things it caught). All six clauses
 > are measured below. What is still OPEN is FEEL: nobody has played it. The
 > numbers say the mechanic is there; they cannot say it is fun, and the knobs to
 > turn are named in `performer_moveset.rs`.

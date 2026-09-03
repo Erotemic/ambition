@@ -495,7 +495,7 @@ pub mod sim {
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
         BossSteerSlot, GameMode, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
-        SimSchedule, SimScheduleExt, SimulationSetupSet,
+        SimSchedule, SimScheduleExt, SimulationSetupSet, WorldItemSet,
     };
 
     /// How device/screen/body axes are interpreted by scripted or participant input.

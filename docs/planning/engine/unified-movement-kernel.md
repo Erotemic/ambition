@@ -17,10 +17,12 @@
   attachment-transfer rule is the fix, and it must not introduce a second crawler
   controller.
 
-  ⛔ **but NO AUTHORED LEVEL PUTS THE TWO TOGETHER. Measured 2026-08-20** across
-  every `.ldtk` in `game/ambition_map_assets`: `SurfaceChain` appears in exactly
-  two levels, `sanic_sandbox` and `sanic_speedway`, and neither places a crawler
-  — the three crawler characters (`npc_puppy_slug` and its two variants) live in
+  ⛔ **but NO AUTHORED LEVEL PUTS THE TWO TOGETHER. Measured 2026-08-20,
+  re-measured 2026-09-02 and unchanged** across every `.ldtk` in
+  `game/ambition_map_assets`, counting placed entity instances rather than the
+  definition each file carries: `SurfaceChain` appears in exactly two levels,
+  `sanic_sandbox` (2) and `sanic_speedway` (2), and neither places a crawler —
+  the three crawler characters (`npc_puppy_slug` and its two variants) live in
   `hall_of_characters`, `intro` and `sandbox`, none of which authors a chain in
   the same level.
 

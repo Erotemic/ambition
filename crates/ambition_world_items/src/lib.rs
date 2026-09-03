@@ -63,18 +63,222 @@ pub struct WorldItemSimulationPlugin;
 
 impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use ambition_platformer2d_shared_tangle::schedule::{GameplayGated, SimScheduleExt as _};
+        use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
+        use ambition_platformer2d_shared_tangle::schedule::{
+            GameplayGated, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _, WorldItemSet,
+        };
         use bevy::prelude::IntoScheduleConfigs;
 
         let sim = app.sim_schedule();
-        app.add_systems(
+
+        // ⛔ THE PHASE IS THE POINT, NOT JUST THE CHAIN. `GameplayGated` is the
+        // MODE gate and nothing else — its own doc comment says it is
+        // deliberately not nested in `GameplaySimulationRoot`. Registering only
+        // against it left these systems outside session authorization and
+        // outside the phase order, so they could move an item on a tick the
+        // simulation never advanced.
+        //
+        // ⚠ CONFIGURED HERE, not inherited from the kernel's pickup plugin:
+        // depending on that plugin to configure our sets first would make this
+        // correct only for one plugin insertion order.
+        app.configure_sets(
             sim,
-            (
-                item_motion::step_item_motion,
-                world_item::collect_world_items,
-            )
+            (WorldItemSet::Motion, WorldItemSet::PreCollect, WorldItemSet::Collect)
                 .chain()
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
                 .in_set(GameplayGated),
         );
+        // Collection reads custody, so it must not run before custody settles;
+        // the same edge `ItemPickupSet::CoreHeldItems` carries for the held half.
+        app.configure_sets(sim, WorldItemSet::Motion.after(BodyCustodySettled));
+
+        app.add_systems(sim, item_motion::step_item_motion.in_set(WorldItemSet::Motion));
+        app.add_systems(sim, world_item::collect_world_items.in_set(WorldItemSet::Collect));
+    }
+}
+
+/// ⭐⭐ THE PHASE THIS CRATE'S SYSTEMS RUN IN, ASSERTED — NOT THEIR EXISTENCE.
+///
+/// ⛔ THE GUARD SHAPE IS THE WHOLE POINT AND THE OBVIOUS ONE MISSES. The defect
+/// this crate shipped with (`69641a83f`) had BOTH systems present and running
+/// every frame: the carve moved the `add_systems` line and the ordering between
+/// the two systems, and left behind the `configure_sets` that said they were
+/// `in_set(PlayerSimulation)` and `after(BodyCustodySettled)`. It compiled, it
+/// ran, a 548-test suite and a workspace gate were green on it. Anything that
+/// asked "is the system scheduled" would have passed. So these ask for the
+/// HIERARCHY EDGE — the fact that was actually lost.
+///
+/// ⚠ AND THE SETS ARE CONFIGURED BY THIS CRATE'S OWN PLUGIN, which is what lets
+/// this test exist at all. A carved crate that registered into sets some other
+/// plugin configures would assert its ordering VACUOUSLY here: the edges would
+/// be missing and the test would be measuring plugin insertion order.
+#[cfg(test)]
+mod simulation_phase_tests {
+    use super::WorldItemSimulationPlugin;
+    use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
+    use ambition_platformer2d_shared_tangle::schedule::{
+        GameplayGated, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _, WorldItemSet,
+    };
+    use bevy::app::App;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
+
+    /// ⭐ THE PLUGIN ALONE, on a bare `App`. Composing the kernel beside it
+    /// would let the kernel's own `configure_sets` supply an edge this crate
+    /// failed to declare, and the test would pass on the defect it exists to
+    /// catch.
+    fn carved_plugin_only() -> App {
+        let mut app = App::new();
+        app.add_plugins(WorldItemSimulationPlugin);
+        app
+    }
+
+    /// How many systems are DIRECT members of `set`.
+    ///
+    /// ⛔⛔ COUNTED, BECAUSE BEVY 0.19 WILL NOT TELL US THEIR NAMES. Without
+    /// `bevy_ecs`'s `debug` feature every system reports
+    /// `"<Enable the debug feature to see the name>"`, and this crate takes
+    /// `bevy` with `default-features = false`. A name-based lookup would work
+    /// only when some OTHER crate in the build turned that feature on — the
+    /// test would pass under `--workspace` and fail under
+    /// `-p ambition_world_items`, which is precisely the composition-dependent
+    /// guard D33 warns about. So identity comes from the SHAPE instead, and it
+    /// is exact rather than approximate: this plugin adds two systems and no
+    /// others are present, so "each set holds exactly one" pins which system is
+    /// where with nothing left over.
+    fn direct_system_members<S: SystemSet + Copy + std::fmt::Debug>(
+        graph: &ScheduleGraph,
+        set: S,
+    ) -> usize {
+        let set_node = set_key(graph, set);
+        graph
+            .systems
+            .iter()
+            .filter(|(key, _, _)| {
+                graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(set_node, NodeId::System(*key))
+            })
+            .count()
+    }
+
+    fn set_key<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> NodeId {
+        NodeId::Set(
+            graph
+                .system_sets
+                .get_key(set.intern())
+                .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet")),
+        )
+    }
+
+    fn with_graph(f: impl FnOnce(&ScheduleGraph)) {
+        let mut app = carved_plugin_only();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        f(schedules.get(sim).expect("the sim schedule exists").graph());
+    }
+
+    #[test]
+    fn the_carved_systems_are_direct_members_of_this_crates_sets() {
+        with_graph(|graph| {
+            assert_eq!(
+                graph.systems.iter().count(),
+                2,
+                "this plugin adds exactly the motion step and the touch-collect \
+                 pass; the counts below identify which is which only while that \
+                 is true",
+            );
+            assert_eq!(
+                direct_system_members(graph, WorldItemSet::Motion),
+                1,
+                "the motion step must be a direct member of {:?}",
+                WorldItemSet::Motion,
+            );
+            assert_eq!(
+                direct_system_members(graph, WorldItemSet::Collect),
+                1,
+                "the touch-collect pass must be a direct member of {:?}",
+                WorldItemSet::Collect,
+            );
+            // ⭐ AND THE MIDDLE SET IS DELIBERATELY EMPTY HERE. `PreCollect` is
+            // vocabulary this crate OWNS and does not use: it is the seam a game
+            // hooks to refuse a pickup before the engine claims it (Mary-O's
+            // weaker-form rule is the customer). A system appearing here would
+            // mean this crate had quietly taken the game's slot.
+            assert_eq!(
+                direct_system_members(graph, WorldItemSet::PreCollect),
+                0,
+                "{:?} is the GAME's hook and this crate must leave it empty",
+                WorldItemSet::PreCollect,
+            );
+        });
+    }
+
+    #[test]
+    fn every_set_this_crate_owns_is_inside_the_player_simulation_phase() {
+        // ⛔ THIS IS THE ASSERTION THE CARVE WOULD HAVE FAILED. Losing it meant
+        // the systems sat outside session authorization and outside the phase
+        // order, free to move an item on a tick the simulation never advanced.
+        with_graph(|graph| {
+            let phase = set_key(
+                graph,
+                Platformer2dSimulationPhaseMonolith::PlayerSimulation,
+            );
+            for set in [
+                WorldItemSet::Motion,
+                WorldItemSet::PreCollect,
+                WorldItemSet::Collect,
+            ] {
+                assert!(
+                    graph
+                        .hierarchy()
+                        .graph()
+                        .contains_edge(phase, set_key(graph, set)),
+                    "{set:?} must be inside PlayerSimulation — a set outside the phase runs \
+                     on a tick the simulation did not advance",
+                );
+                // ⚠ AND THE MODE GATE IS NOT A SUBSTITUTE FOR THE PHASE.
+                // `GameplayGated` is deliberately NOT nested in the simulation
+                // root, so registering against it alone is exactly the defect.
+                // Both memberships, or neither is worth asserting.
+                assert!(
+                    graph
+                        .hierarchy()
+                        .graph()
+                        .contains_edge(set_key(graph, GameplayGated), set_key(graph, set)),
+                    "{set:?} must stay gated on gameplay being live",
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn motion_waits_for_custody_and_the_three_sets_stay_chained() {
+        with_graph(|graph| {
+            assert!(
+                graph.dependency().graph().contains_edge(
+                    set_key(graph, BodyCustodySettled),
+                    set_key(graph, WorldItemSet::Motion),
+                ),
+                "collection reads custody, so item motion must not run before custody settles \
+                 — the edge `ItemPickupSet::CoreHeldItems` carries for the held half",
+            );
+            // Step first, so a fast item cannot still be collectable from a box
+            // it has already left; the refusal hook sits between them.
+            for pair in [
+                (WorldItemSet::Motion, WorldItemSet::PreCollect),
+                (WorldItemSet::PreCollect, WorldItemSet::Collect),
+            ] {
+                assert!(
+                    graph
+                        .dependency()
+                        .graph()
+                        .contains_edge(set_key(graph, pair.0), set_key(graph, pair.1)),
+                    "the edge {:?} -> {:?} must be explicit",
+                    pair.0,
+                    pair.1,
+                );
+            }
+        });
     }
 }

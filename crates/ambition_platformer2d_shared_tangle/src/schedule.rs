@@ -422,6 +422,40 @@ pub enum ItemPickupSet {
     WieldedAbilities,
 }
 
+/// Ordered stages for a loose item's physical life in the world, inside
+/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
+///
+/// ⛔⛔ THE CARVE THAT CREATED `ambition_world_items` LOST THIS ORDERING, and the
+/// loss was invisible. `step_item_motion` / `collect_world_items` used to sit in
+/// [`ItemPickupSet::CoreHeldItems`] — nested in `PlayerSimulation`, `.after`
+/// [`crate::lifecycle::BodyCustodySettled`] — and came out registered only
+/// `.in_set(GameplayGated)`. That set answers a DIFFERENT question, and says so
+/// in its own doc comment: gameplay MODE, not which session owns the
+/// simulation. So the carved systems ran without session authorization and
+/// without a phase edge, and a schedule that never advanced `SimTick` could
+/// still move an item.
+///
+/// ⭐ IT IS VOCABULARY HERE RATHER THAN A DEPENDENCY ON THE KERNEL. Naming
+/// `ItemPickupSet` from `ambition_world_items` would put the monolith back in
+/// the carved crate's ordering, and relying on the kernel's plugin to configure
+/// these sets first would make correctness depend on plugin insertion order.
+/// The owning plugin configures these itself, against labels both packages
+/// already speak.
+///
+/// [`PreCollect`](Self::PreCollect) is an extension slot with no systems of its
+/// own: a rule that must veto or amend a collection — Mary-O refusing a weaker
+/// form, say — belongs between motion and collection, in the SAME schedule, not
+/// on a cross-schedule `.before()` edge that orders nothing.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum WorldItemSet {
+    /// A loose item advances to where it is this tick.
+    Motion,
+    /// Extension slot: rules that decide whether a touch may collect.
+    PreCollect,
+    /// Touch-to-collect resolves against the position motion just produced.
+    Collect,
+}
+
 /// Ordered authority boundaries for one autonomous actor decision, inside
 /// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///

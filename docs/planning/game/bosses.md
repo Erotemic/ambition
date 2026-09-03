@@ -41,6 +41,20 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   combat → win/loss. The dialogue→provoke bridge flips the brain + disposition and arms
   the hostile volumes. Placed in the Noether Chamber via LDtk as a peaceful archetype.
 
+> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03)** (this page had gone two months unread, the oldest
+> in `docs/planning/`, and every claim above holds). The kit is where it says:
+> `cellular_pulse` is named in five files including its own
+> `game/ambition_content/src/cellular_automaton_moveset.rs`, and the glider,
+> blink and dialogue→provoke bridge all resolve.
+>
+> ⚠ **ONE NAMING TRAP, which is the only thing a reader would trip on.** There
+> is no LDtk level called "Noether Chamber" — that is the DESIGN name, and it
+> survives in the tree only as a comment in `character_catalog.ron` ("Symmetry
+> tutorial (Noether Chamber)"). The authored level id is **`symmetry_room`** in
+> `sandbox.ldtk`. ⇒ Search for the design name and you conclude the placement
+> was never made. ⭐ And it is placed TWICE: `symmetry_room` and
+> `hall_of_characters`, the second of which this page does not mention.
+
 > Engine vs content split: generic machinery (Smash verbs, the glider primitive,
 > `CharacterAnim::Special`, the dialogue→provoke Yarn command) lives in the engine;
 > the PCA's stats / tuning / placement / dialogue live in `ambition_content`.

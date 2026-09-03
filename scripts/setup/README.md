@@ -1,7 +1,14 @@
 # `scripts/setup/` — host and toolchain preparation
 
-Everything here prepares a MACHINE. Nothing here builds the game or regenerates
-content; that is `scripts/regen/` and `run_game.sh`.
+Everything here prepares a MACHINE so that a fresh clone can build and run the
+game. Most of it installs toolchains and environments and touches no content.
+
+⚠ ONE PHASE IS THE EXCEPTION, and the opening line used to deny it existed:
+`generated_content.sh` regenerates every runtime asset and the `.agent/` index.
+It does not reimplement that work — it calls `scripts/regen/assets.sh` and
+`scripts/regen/source_navigation.sh`, which own it — because a fresh clone is
+not prepared until the generated content exists, and `scripts/regen/` is where
+you go to re-run one category by hand afterwards.
 
 `./run_developer_setup.sh` at the repo root is the umbrella and calls what a
 fresh clone needs. These are the pieces, runnable on their own when you are

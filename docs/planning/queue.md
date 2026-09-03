@@ -1229,6 +1229,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   sibling carve shipped a live phase-membership defect by moving `add_systems`
   and leaving `configure_sets`; this fork is the same hazard one level up, and it
   is not a thing to settle at the end of a long session.
+  ✔ **ANSWERED — take the second branch.** The rule is
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+  §*D33 RULE — a carved domain owns its schedule end to end*: the new crate
+  publishes its own plugin and that plugin does BOTH the `configure_sets` and the
+  `add_systems` for the sets it owns; a set two crates order on moves to
+  `shared_tangle` as vocabulary with exactly one configuring owner. The third
+  branch's vacuity worry is answered by the same shape — a carved crate's tests
+  build the CARVED plugin, so the sets they assert on are configured by the thing
+  under test. Worked precedent, sibling carve now closed: `d220accee` (the fix)
+  and `dbec94824` (the guard, which asserts phase MEMBERSHIP by set-member COUNT
+  rather than by system name — Bevy 0.19 strips names without `bevy_ecs`'s
+  `debug` feature, so a name lookup is green or red depending on who else is in
+  the build). ⇒ The cut is unblocked; what remains is mechanical.
   ⚠ The scaffold built while finding this was deleted rather than left
   half-landed — it was untracked and nothing was committed.
 
@@ -1373,7 +1386,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
   Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
-  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py`
+  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py` <!-- cite-ok: on an unmerged submodule branch, deliberately -->
   (the renderer submodule's script, not this repo's `scripts/`), branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
   checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
   move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
@@ -1445,7 +1458,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   render here" qualifier on this row, and the worklist is the whole roster.
   ⭐ **THE RESULT IS ON THE RECORD, not just in this row**:
   `ambition_dev_measurements` branch `sprite-clip-census-20260902` @ `c0e3889`,
-  `summaries/sprite-clip-census-20260902.md` — the run, its provenance, and the
+  `summaries/sprite-clip-census-20260902.md` <!-- cite-ok: a path in ambition_dev_measurements @ c0e3889, not this repo --> — the run, its provenance, and the
   two caveats a reader must not lose. ⚠ The 228K per-edge JSON is deliberately
   NOT committed: that repo ignores `profiles/` by design and tracks only the
   readable half. ⛔ Neither submodule pointer is bumped — the instrument
@@ -1850,8 +1863,10 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 16 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 17 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ the second
+  number was 16 here and 43/16 on the owning page; re-run 2026-09-03 reports
+  44/17, which the baseline JSON has carried since `ff1ce535b`.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

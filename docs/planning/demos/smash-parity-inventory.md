@@ -165,7 +165,7 @@ existing seams.
 | Jumping | Full hop, jump squat/short hop, double jump, wall jump, fast fall | `ambition_platformer2d_core::movement` |
 | Hitstun drift | After the hard lock, directional control returns at the authored hitstun-control scale | post-hit input gates + movement tuning |
 | Body contact | Fighter jostle/body pushback | movement sweep/body contact |
-| Footstool | Grounded/airborne victim reactions and phantom-footstool behavior | `features/ecs/footstool.rs` |
+| Footstool | Grounded/airborne victim reactions and phantom-footstool behavior | `combat/src/footstool.rs` |
 | Ledge | Grab, intangibility, climb/roll/attack/jump getups, trump ownership, drop-through | `ledge_grab`, `ledge_trump` |
 | Capture | Grab relationship, shield bypass, pummel, four throws, mash escape, damage-scaled hold time | `ambition_combat::capture`, `characters/smash_capture.rs` |
 | Dash grab | A running grab is derived from each fighter's standing grab | `SmashCaptureRepertoire`, `grab_dash` |

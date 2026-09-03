@@ -187,6 +187,15 @@ from "Principles digest" to "Execution". ⇒ **A page that expects to be cited b
 section should number its headings explicitly**; then the anchor is a name, and
 this whole class stops applying to it.
 
+⭐ **And the convention is already near-universal here — swept 2026-09-03.**
+Every other `§N` citation in `docs/planning` points at an explicitly numbered
+heading: `engine/collision-and-ccd.md` §1, `demos/smash-parity-inventory.md`
+§1/§4, and `engine/asset-preparation-and-residency.md` §2 (whose `### 2. Demand
+before first visible use` spans lines 872–1196 and does contain the cited
+`owned_fx_sheets_named_by` work). `vision.md` was the one positional exception,
+and it is the one that broke. ⇒ Follow the convention rather than avoiding
+section citations; they are fine when the number is part of the heading.
+
 ⇒ **Otherwise the one defence that works is to cite a NAME beside the location.** A path or
 a line number degrades silently; `fire_held_ranged_system` or
 `aabb_path_contacts` fails loudly the moment it moves, because the name is what

@@ -575,9 +575,34 @@ The one unresolved developer-policy choice from the session-ownership work is in
   only when `assets/sprites/` is a real directory rather than a symlink; or
   publishing a measured census as a checked-in baseline so the guards compare
   against a recorded state instead of a local tree. ⛔ Do not simply remove the
-  skipif. ⓘ Not diagnosable on this box either way: `assets/sprites*` does not
-  exist here at all, so even opting in tonight would have skipped on the
-  directory check underneath.
+  skipif. ⓘ **CORRECTION (2026-09-03 late): my "not diagnosable on this box" note was
+  WRONG, and wrong because I globbed the repo root.** The trees live at
+  `crates/ambition_platformer2d_actor_monolith/assets/sprites*`, and this
+  checkout has four of them holding **425 real PNGs and zero symlinks** — it is
+  canonical by the new detector, which returns True here. ⇒ So the ten
+  assertions run on this box now, for the first time, and my reason for not
+  diagnosing it was an artifact of looking in the wrong directory rather than a
+  fact about the machine.
+
+- ▢ **`why_not()` IN THE NEW CANONICAL-ASSETS DETECTOR STATES A CAUSE IT NEVER
+  CHECKED.** `scripts/lib/canonical_assets.py:92` returns, for ANY checkout
+  where at least one sprite tree exists, *"N sprite tree(s) present but holding
+  SYMLINKS — this is a mirrored worktree borrowing another checkout's generated
+  assets"*. It never looks at whether a single file is a symlink; only the
+  no-trees branch above it is derived. ⛔ So a checkout that skips for a
+  DIFFERENT reason — trees present but empty, which `assets_are_canonical`
+  handles as `real + linked == 0` → False — is told it is a mirrored worktree
+  and pointed at `mirror_assets_for_worktree.py` for a problem it does not
+  have.
+  ⚠ **The docstring is what makes this worth filing rather than shrugging at:**
+  *"A skip reason that says what was LOOKED AT, not just that it skipped"*, with
+  the rationale that a vague skip is how ten assertions sat unevaluated. The
+  function's stated purpose is precisely the thing it does not do.
+  ⓘ Found by calling it on this box, where `assets_are_canonical` returns TRUE
+  and `why_not` nonetheless reports symlinks — the two disagree because only
+  one of them measures. Reported to the session that wrote it; the fix is to
+  derive the message from the same counts the predicate uses, and it is small.
+  ⭐ Not a reason to revert the module, which correctly closes the row above.
 
 - ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
   FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW

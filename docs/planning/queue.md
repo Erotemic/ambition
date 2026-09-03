@@ -1104,6 +1104,21 @@ OPTIONAL dep + feature, never used:
      ⇒ Items 1–8 are ledgers a MERGE does not touch. The lane is how you find
      the ones nobody has thought to list yet.
 
+  9b. **⛔⛔ A NEW `Resource` OR `Message` IN A SIMULATED WORLD OWES ITS ROLLBACK
+     DECLARATION, and only the app's oracles say so.**
+
+     ```bash
+     cargo test -p ambition_app --test app_it -- \
+       rollback_coverage rollback_schema rollback_exit_oracle   # ~36 s
+     ```
+
+     ⛔ NO PER-CRATE RUN REACHES THEM. They live in `app_it`, against the
+     composed app, so a crate's own suite is green while the declaration is
+     missing. Contributed by ambition-df 2026-09-03 after those oracles caught
+     TWO undeclared encounter resources from calculex's switch-loop split —
+     declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
+     that trips this: any commit that adds simulated state does.
+
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
      list carries the instruction already ("when architecture moves out of a

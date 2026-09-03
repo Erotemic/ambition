@@ -1203,7 +1203,15 @@ now exempts the compiler's new home instead of `starting_character.rs`.
    over the foreign seed). After this, `prepare_match` names the kernel only through
    `InitialBodyPolicy`, which is a value.
 2. **`InitialBodyPolicy`** is an avatar policy the match REFUSES by name; it moves to
-   shared vocabulary or the match takes a bool. Then `prepare_match` and the six
+   shared vocabulary or the match takes a bool.
+   ⊙ **THE BOOL WAS TAKEN, and half of this is landed (D33 cut 2a, `7ba40886e`).**
+   `prepare_match` takes `home_body_spawns_a_body: bool`
+   (`character_runtime/prepared_match.rs:574`) and no longer names the policy.
+   ⚠ THE NAME DID NOT LEAVE THE FILE, it moved UP one level: the wrapper
+   `prepare_the_match` still imports it (`:1209`) and converts it at `:1253`
+   (`home_body.is_some_and(|policy| policy.spawns_a_body())`). ⇒ What remains for
+   the preparation crate is the WRAPPER's dependency, not the function's — a
+   smaller job than this row implied, and a different one. Then `prepare_match` and the six
    clean files are a preparation crate (`ambition_match` is the honest name: roster,
    rules, seats, clock, receipt), and the kernel keeps `realize_seat` /
    `activate_the_prepared_match` / `release_the_opening_hold` /

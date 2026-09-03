@@ -488,7 +488,11 @@ pub fn apply_wave_encounter_effects(
     // Completion effects: auto-flip the linked switch to on (green) so the player can see they
     // finished it, surface a celebration banner, and advance any "clear encounter" quest step.
     for encounter_id in &completed_wave_ids {
-        if let Some(switch_id) = switch_index.switch_id_for_encounter(encounter_id) {
+        // ⛔ ALL of them, not the first. `encounter_armed` arms on ANY red link,
+        // so greening one switch of two leaves the encounter armed and the
+        // driver re-starts the fight it just completed. See
+        // `EncounterSwitchIndex::switch_ids_for_encounter`.
+        for switch_id in switch_index.switch_ids_for_encounter(encounter_id) {
             save.data_mut().set_switch(&switch_id, true);
         }
         banner_requests.write(ambition_combat::events::GameplayBannerRequested::new(

@@ -12,90 +12,31 @@ stops being reproducible, delete it rather than annotating it.
 
 ---
 
-## Path citations in Rust COMMENTS are not judged, and ~8% do not resolve
+## ✔ CLOSED — path citations in Rust comments (2026-09-03)
 
-`scripts/check_planning_citations.py` gained a bare-path class on 2026-09-02
-(paths without a `:LINE` suffix, which is how nearly all prose cites a file).
-That class runs over `docs/planning/` only. The script's `--comments` mode
-judges SYMBOLS in Rust comments and not paths, so the same blind spot exists
-one level down, in the place the script's own docstring says the original
-fabricated citation reached.
+`check_planning_citations.py`'s bare-path class runs over `docs/planning/` only,
+so the same blind spot existed one level down in `.rs` comments. Measured on
+`79262265a`: **252 path citations, 21 distinct unresolved in 28 places.** All
+triaged and fixed; the asset half needed no change.
 
-**MEASURED 2026-09-02, on `79262265a`:** 252 path citations in `.rs` comments,
-**21 distinct unresolved in 28 places**. Reproduce with the ordered-containment
-rule the docs class already uses (basename must exist; every component of the
-citation must appear in that file's path in order, matching exactly or as the
-tail of an `ambition_`-prefixed crate directory).
+⛔ **THE STANDING LESSONS, which is all that survives:**
 
-⭐ **THE TRIAGE IS ALREADY VISIBLE AND IT IS NOT ONE CLASS.** At least three:
-
-- **SCHEMATIC, not a path** — `tests/foo.rs`, `src/foo/tests.rs`. These name a  <!-- cite-ok: this row's subject IS the dead citation -->
-  SHAPE, exactly like the `provider::local_name` case the script already  <!-- cite-ok: this row's subject IS the dead citation -->
-  documents as unmatchable by regex. They are correct prose. Whoever does this
-  either marks them `cite-ok` or teaches the matcher that a `foo` component is
-  a metasyntactic placeholder — and the second is worth thinking about, since
-  three `*_it_sync.rs` files use the same idiom for the same reason.
-- **MOVED** — `features/ecs/bosses.rs`, `src/rl_sim/runtime.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `engine_core/body_clusters.rs`, `presentation/rendering.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `app/schedule.rs`, `character_sprites/sheets.rs`, `brain/boss_pattern.rs`.  <!-- cite-ok: this row's subject IS the dead citation -->
-  Old layouts, and `features/ecs/` in particular is the same dead prefix that
-  `00030e603` left behind in `demos/smash-parity-inventory.md`.
-- **ASSET AND TOOL PATHS** — `sprites/robot_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `sprites/pirate_admiral_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `sprites/player_robot_v2_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `assets/data/dialogue/registry.ron`, `tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`.  <!-- cite-ok: this row's subject IS the dead citation -->
-  ⚠ These need a different judgement from the code ones, and the judgement is
-  now concrete rather than a worry. ⭐ **The sprite manifests are GENERATED and
-  gitignored** — `.gitignore` lines 123-124 cover
-  `crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron` — so they
-  are absent for exactly the reason `target/` is, and citing one is correct
-  prose. ⇒ **Generalise the skip from a `target/` prefix to `git check-ignore`:**
-  a citation whose path is ignored names a build output, whoever generates it.
-  That is one rule instead of a growing prefix list, and it is the rule the
-  `target/` case was always an instance of. The remaining tool paths
-  (`tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`) are  <!-- cite-ok: this row's subject IS the dead citation -->
-  NOT ignored and want ordinary MOVED triage.
-
-⭐ **AND THE MOVED HALF IS NOW TRIAGED, so that part is mechanical.** Every one
-has real history — `git log --all --diff-filter=AD` finds the commit that moved
-it, so none is FABRICATED — and each resolves to one current home:
-
-  features/ecs/bosses.rs          game/ambition_content/src/bosses/mod.rs
-                                  (64631503f, test-block split)
-  presentation/rendering.rs       crates/ambition_render/src/rendering/mod.rs
-                                  (09d945694, <mod>/mod.rs normalisation)
-  character_sprites/sheets.rs     crates/ambition_sprite_sheet/src/character/sheets/mod.rs
-                                  (aa7cb8f60)
-  brain/boss_pattern.rs           crates/ambition_characters/src/brain/boss_pattern/mod.rs
-                                  (4ff42f510)
-  rendering/foreground.rs         GONE, not moved — d09229ceb ("Two views draw two
-                                  pictures") ended it; the comment needs re-deriving,
-                                  not repointing
-  dialog/yarn_bindings.rs         GONE from that path — 73873491b moved this game's
-                                  Yarn verbs to the crate that owns the game; nearest
-                                  live file is
-                                  crates/ambition_conversation/src/dialog/yarn_harness.rs,
-                                  which is NOT the same thing and must be read before
-                                  citing
-  player/systems.rs               GONE — 5ba894709 ("player/ no longer exists — the
-                                  fold's conclusion"); re-derive
-
-⚠ Two of the seven are **not repointings**: `rendering/foreground.rs` and  <!-- cite-ok: this row's subject IS the dead citation -->
-`player/systems.rs` name things that were ENDED rather than relocated, so the  <!-- cite-ok: this row's subject IS the dead citation -->
-sentences around them are claims to re-check, not links to fix. That is the
-difference the checker's own triage insists on, and it is why this row says
-"triage first" rather than "sed".
-
-⚠ **WHAT IS NOT DECIDED, and why this is a measurement rather than a task:**
-whether the comment lane should judge paths AT ALL. The script is explicitly a
-worklist and not a gate, but `--comments` already emits findings, and adding 21
-more without triaging them first is the "teaches its reader to skim" failure the
-script's own docstring warns about. ⇒ **Triage first, extend second.** A change
-that turns the class on before the findings are resolved makes the tool worse.
-
----
+- **Triage, never `sed`.** Two of the seven code paths were NOT repoints:
+  `rendering/foreground.rs` and `player/systems.rs` name things that were ENDED  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`d09229ceb`, `5ba894709`), so their sentences wanted re-deriving. A third,
+  `dialog/yarn_bindings.rs`, had a plausible-looking wrong target  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`yarn_harness.rs`) that is not the same thing.
+- ⛔ **A file's history is not its function's home.** The mapping recorded here
+  said `features/ecs/bosses.rs` → `game/ambition_content/src/bosses/mod.rs` from  <!-- cite-ok: this row's subject IS the dead citation -->
+  basename history; the comment names `tick_boss_brains_system`, which is in
+  `ambition_boss_encounter/src/ecs/tick.rs`. Verify at the DEFINITION SITE.
+- ⚠ **Repointing moves any claim attached to the path with it.**
+  `dialog/yarn_bindings.rs`'s sentence asserted "both are `ui`-gated"; the new  <!-- cite-ok: this row's subject IS the dead citation -->
+  target had to be checked for that before the sentence could follow it.
+- ⇒ **If the comment lane is ever extended, skip by `git check-ignore`, not by a
+  `target/` prefix.** Confirmed empirically: the sprite manifests it would
+  otherwise flag are on disk and ignored after a clean regen — generated files a
+  built tree has and a checkout does not.
 
 ## Checked and CLEAN: cross-links between planning pages (do not build a checker)
 
@@ -111,6 +52,77 @@ them, 15 repointed off dead `decomposition.md#…` anchors on 2026-09-02), and
 those are guarded now by `every_source_doc_names_a_real_file_and_heading` in
 `tests/ambition_workspace_policy/tests/policy.rs`. That is where the class
 lives; the prose links are not it.
+
+---
+
+## Retiring `planning/engine/architecture.md` is a CONTENT job, not a path edit
+
+`docs/planning/engine/architecture.md` is a redirect receipt: the canonical
+architecture moved to `docs/architecture/engine-architecture.md`, and the
+receipt says it *"remains temporarily because policy metadata, code comments,
+ADRs, and historical documents still link here"*. Measured 2026-09-03 — it is
+earning its keep, and the retirement is bigger than it looks.
+
+**12 files reference it: 7 archived, 5 live.** The live ones are
+`dev/journals/code_smells.md` and the workspace-policy set —
+**15 `source_doc` citations** (10 in `engine.toml`, 2 in `game.toml`, 1 in
+`repository.toml`, 2 custom metas in `src/custom/session_world.rs`).
+
+⛔ **DO NOT BULK-REPOINT THEM, and the reason is a trap I nearly walked into.**
+The obvious move is `sed` the path to the durable doc; it would keep
+`every_source_doc_names_a_real_file_and_heading` GREEN and make the citations
+worse. The durable doc is 283 lines and does not mention `ambition_load`,
+`ambition_game_shell` or `ambition_load_presentation` **at all** — so the row
+naming those three would cite a page that RESOLVES and does not state its rule,
+which is strictly worse than citing a redirect that leads to the right place.
+
+⇒ The order is: the durable doc absorbs the rules these rows cite, THEN the
+paths move, THEN the receipt retires. ⚠ And the guard cannot help with step one
+— it verifies that a document exists at the other end, never that the rule is
+written there. That limitation is now recorded next to the guard itself.
+
+---
+
+## ⛔ AN IDENTIFIER THAT DOES NOT RESOLVE IS USUALLY HISTORY, NOT ROT
+
+Two sweeps, both of which looked like rich seams and both of which were almost
+entirely false positives. Recorded together because the SHAPE is the finding and
+a third session will otherwise try a third one.
+
+| swept | places | real findings |
+|---|---:|---:|
+| bare file paths in prose | 460 | 1 |
+| policy `source_doc` anchors | 239 | 0 (ratchet added) |
+| **absence claims — "no X exists"** | **26** | **4** |
+| SHA-shaped citations in `docs/planning` | 371 | 0 |
+| `D<number>` queue-row citations | 78 | 0 |
+
+⭐ **THE ABSENCE-CLAIM SWEEP IS THE BEST YIELD OF THE FIVE — 4 in 26** — and the
+reason generalises: a sentence saying "no X exists" is written to justify an
+open row, so it stops being true exactly when someone does the work the row
+asked for. Nothing re-reads it at that moment. The four:
+`ambition_registry_core` "does not exist" in TWO pages (it landed `479f9d3e4`,
+and the crate cites one of those pages as its own justification); "no
+residency-state type exists anywhere in `crates/`", true about ROOMS and
+falsifiable by a grep since `FxResidency` arrived; and two comment citations
+whose fix shipped in the same commit that found them. ⇒ Sweep this class after
+any week of landings, and grep the claim as written — half the value is finding
+sentences that are RIGHT and now read as wrong.
+
+⭐ **BOTH CLASSES ARE STABLE HISTORICAL IDENTIFIERS BY DESIGN.** `queue.md`
+names only 8 D-numbers because *"a closed row is a receipt, not a case file"* —
+the README's own closed-row template is `✔ **D123 — …**`, so a D-number
+deliberately OUTLIVES the row and resolves through `git log`, not through the
+current file. And a SHA that resolves nowhere in this checkout is routinely a
+submodule commit or an unpushed branch elsewhere.
+
+⇒ **Before building a checker for an identifier class, measure its false-positive
+rate against the tree — not its finding count.** Both of these would have shipped
+a worklist of 78 and 33 entries that a reader must dismiss one at a time, which
+is the "teaches its reader to skim" failure `check_planning_citations.py`'s own
+docstring warns about. ⚠ The classes that DID pay were the ones where the
+identifier is supposed to resolve NOW: bare file paths in prose (1 real finding
+in 460, and it had been dead since `00030e603`) and policy `source_doc` anchors.
 
 ---
 

@@ -62,6 +62,7 @@
 * In mary-o when you restart the level all item blocks and enemies and anything else that is part of the stage should reset. Currently some blocks from the last run remain spent
   * ⊙ Broken bricks, spent `?`-blocks and discovered hidden blocks all clear on a replay and the art re-derives from that state, so I cannot reproduce it — tell me the block and the room if you see it again.
   * ⊙ Same ask as decision 4 in `awaiting-maintainer-decision.md` (*which game, and roughly when*) — answering it in either place unblocks both.
+  * ⚠ the "decision 4" pointer is dead — that file was renumbered and now opens at 33, and this question is not in it under any number. The ask above is still the ask; only the cross-reference is gone.
 
 * In mary-o we need an SFX for when you collect coins
   * ✔ Fixed for both paths — loose coins were emitting the cue and your audio fragment never authorized it, and coin blocks were playing the brick-smash thunk instead.
@@ -167,6 +168,7 @@
 
 * After I fought in the pirate sky, and enemies died and dropped their swords I walked into the ninja dojo and there was a laser sword gun just existing there. I was able to fly to it and pick it up and use it. So props are not being despawned correctly - or made intangible and queued for removal - when you leave a room. I suppose there is an interesting question because it means we have to answer the question: in the ambition game, what should happen if you leave an item somewhere? Should it despawn? When? If you come back should it still be there? For the skyrim aspect of the game I think sometimes we do need items to remember where they were and if they were moved, but maybe we defer that and just have items be scoped to rooms. 
   * ⊙ This is decision 7 in `awaiting-maintainer-decision.md`, waiting on YOU, not on engineering: the lifetime bug is already fixed for coin/health/ability drops (they and their visuals share room scope), and what is left for a dropped WEAPON is a product rule — vanish on leaving, persist on returning, or something else.
+  * ◐ **You already answered this on 2026-08-17 — it is not waiting on you.** Per-item authoring, not a blanket rule: a unique weapon stays where it fell, an ordinary dropped one is room-scoped (`maintainer-decisions.md`). What remains is engineering — the per-item authoring field does not exist yet. ⚠ the "decision 7" pointer above is dead; that file was renumbered and now opens at 33.
 
 
 * When I have the laser sword in ambition and I use it, I incorrectly still use my normal jab attack. Holding an item should reroute normal attack actions to the item action, which might be like throw for bombs or fire for the gun sword. Some items may do different things depending on if your attack is a directioned tilt or airial or neutral, but the default for the gun sword is they all route to the one action the item has: shoot (I guess direction does change which way it shoots).

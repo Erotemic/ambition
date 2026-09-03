@@ -8,9 +8,20 @@ history.
 
 This file intentionally does not retain answered decision transcripts.
 
+⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
+The entries are NOT in numeric order — the top block runs newest-first and an
+older ascending block follows it — so the number nearest the insertion point is
+not the highest. Two sessions have now collided by assuming it was
+(`cce4f764b` "Renumber my decision to 30: I collided with an existing 28", and
+again on 2026-09-03). ⚠ And because answered entries are DELETED rather than
+archived, gaps are normal and a missing number is not a free one: re-using it
+silently re-points every page that cited the original.
+
+    grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
+
 ## Open decisions
 
-### 38. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
+### 46. Does 1-1 want a fourth ?-block over floor, so the fire form's floor-refusal can be played?
 
 `refuse_a_weaker_form_pickup` is Mary-O's rule that a form on the FLOOR may not
 replace a stronger one. It now has a played acceptance test on the shipped app

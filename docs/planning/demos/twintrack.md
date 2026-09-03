@@ -7,8 +7,15 @@
 > that a future session must not rediscover as a bug: both panes render one
 > instant of the simulation's coordinate time, so they can disagree about optics
 > (light delay, aberration, Doppler) and NOT about simultaneity, which is what
-> the twin paradox is. Recorded as question 28 in
-> `awaiting-maintainer-decision.md`.
+> the twin paradox is.
+> ⚠ **THIS PAGE IS NOW THE ONLY RECORD OF THAT LIMIT.** It was also filed as
+> question 28 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
+> and that entry is GONE — not answered and archived, just absent, and the text
+> appears nowhere else in `docs/`. That file states it "intentionally does not
+> retain answered decision transcripts", so a PARKED question living there was
+> always one cleanup away from deletion. ⇒ The pointer is removed rather than
+> repaired, because there is nothing to point at; the limit survives only
+> because it was written out here too. (Checked 2026-09-03.)
 >
 > **Status (2026-08-20): TwinTrack is a TWO-PLAYER game with a real split
 > screen.** The laboratory twin is Emmy No-Ether, driven by seat one; the plaza

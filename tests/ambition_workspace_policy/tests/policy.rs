@@ -323,6 +323,18 @@ fn every_source_root_contributes_files() {
 ///
 /// ⚠ MEASURED WHEN ADDED: 239 rows, all resolving. This is a ratchet on a clean
 /// state, not a cleanup.
+///
+/// ⛔⛔ AND IT CHECKS THAT THE DOC RESOLVES, NOT THAT THE DOC SAYS THE RULE —
+/// a real blind spot with a live instance, found 2026-09-03. Fifteen rows cite
+/// `docs/planning/engine/architecture.md`, a REDIRECT receipt whose own text
+/// asks new references to use `docs/architecture/engine-architecture.md`
+/// instead. Repointing them would keep this test GREEN and make the citations
+/// worse: the durable doc does not mention `ambition_load`,
+/// `ambition_game_shell` or `ambition_load_presentation` at all, so the row
+/// naming those three would cite a page that resolves and does not state its
+/// rule. ⇒ Green here means "a document exists at the other end", never "the
+/// rule is written there". Retiring that receipt is a content job first and a
+/// path edit second.
 #[test]
 fn every_source_doc_names_a_real_file_and_heading() {
     fn slug(heading: &str) -> String {

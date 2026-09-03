@@ -190,6 +190,15 @@ fix was to make its doc say so rather than to delete a field a tool reports.
 five places and no such function exists — only the const `SMASH_FIGHTER_KIT`
 survives. `select.rs`'s "adopter count is supposed to be FALLING" note is
 therefore measuring something already at zero.
+✔ **BOTH CITATIONS ARE FIXED** — `861cd3d95`, the same D166 work that found
+them; re-checked 2026-09-03 and neither name occurs anywhere in `*.rs` now,
+while the const `SMASH_FIGHTER_KIT` is still at
+`game/ambition_demo_smash/src/lib.rs:354`. ⚠ Kept as a receipt rather than
+deleted, because the finding is the reusable part: a comment can cite a function
+that never existed and greps to nothing, which is indistinguishable from one
+that MOVED — the same class `scripts/check_planning_citations.py` was later
+built for. ⛔ Do not re-file it as open work; the present tense above is the
+census speaking, not the tree.
 
 ### A2 — keep the first fighter facet load-bearing
 

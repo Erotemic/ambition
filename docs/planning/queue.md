@@ -1888,10 +1888,9 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 17 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ the second
-  number was 16 here and 43/16 on the owning page; re-run 2026-09-03 reports
-  44/17, which the baseline JSON has carried since `ff1ce535b`.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 45 crates linked, 18 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FOUR times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`
@@ -1911,19 +1910,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
   (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
   ambition-da repairs it in one commit after the `items/` carve lands.
-- ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
-  by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
-  `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
-  on it; `ambition_load_presentation` on both — so `#[macro_export]` on
-  `ambition_load`'s copy, delete two, no new crate or edge. Check the bevy
-  `default-features = false` mismatch and that the exported macro spells
-  `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
-  `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
+- ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by
+  `02a796d2c`, exactly as this row specified: `#[macro_export]` on
+  `ambition_load`'s copy (`crates/ambition_load/src/id.rs:19`), the other two
+  deleted, no new crate or edge. Re-verified 2026-09-03 —
+  `git grep "macro_rules! string_id"` returns ONE hit, and the three consumers
+  (`ambition_load`, `ambition_game_shell`, `ambition_load_presentation`) all read
+  it. ⛔ The `::core::fmt` requirement this row flagged is not only met but
+  written down where it can survive: the macro's doc comment says *"an exported
+  macro expands at the CALL SITE, where a `use std::fmt;` may not exist — relying
+  on one is the difference between a macro that moves and a macro that only
+  appears to"*, which is the one sentence a future edit would otherwise
+  rediscover. Design record: `triage/stable-identifier-centralization.md`.
 - ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
   construction, rollback; rollback baseline byte-identical); next is R4 — decide
   which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
   and which of the seven silent-overwrite registries must say "replace" in
-  place. Design and evaluation in `triage/ambition-registry-core.md`.** The
+  place. Design and evaluation in `triage/ambition-registry-core.md`.**
+  ✔ **R4's FIRST HALF IS ANSWERED IN CODE — re-read 2026-09-03: BOTH migrated.**
+  `PlacementLoweringRegistry` (`platformer2d_world/src/placements.rs:198`) takes
+  `RegistrationMeta` and `classify`. `RoomContentStagingRegistry`
+  (`actor_monolith/src/features/ecs/spawn/content_staging.rs:57`) takes `RegistrationMeta` and
+  `require_non_empty` and **deliberately does not take `classify`**, saying why
+  in place — *"NO `PartialEq`, AND THEREFORE NO `ambition_registry_core::classify`"*
+  — which is exactly the opt-out the crate's own docs prescribe for a registry
+  whose policy differs. ⇒ Four consumers now, not two. ⚠ The SECOND half of R4 is
+  untouched: the seven silent-overwrite registries still have to say "replace" in
+  place, and that is what remains of this row. The
   inventory row that preceded it, kept for the record:
   **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped

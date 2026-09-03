@@ -325,6 +325,46 @@ def test_reduced_tier_portraits_are_counted_even_when_a_ron_claims_them(tmp_path
     ], "the full-resolution portrait is reachable; the reduced one is not"
 
 
+def test_the_age_signal_separates_stale_from_still_produced(tmp_path):
+    """⭐ THE DISTINCTION THE BUCKETS COULD NOT MAKE ON THEIR OWN. "Left by an
+    earlier render" and "the pipeline makes this every time" look identical in a
+    file listing, and they have different fixes: a clean regen elsewhere removes
+    the first and REPRODUCES the second. Measured 2026-09-02, every stranded page
+    predates its manifest (44/44) while the unmanifested sheets and reduced-tier
+    portraits are mostly same-run — so yardrat's regen settles one bucket and
+    cannot settle the other two.
+    """
+    module = load()
+    old_file = tmp_path / "old.png"
+    new_file = tmp_path / "new.png"
+    reference = tmp_path / "ref.ron"
+    old_file.write_bytes(b"x")
+    reference.write_bytes(b"x")
+    new_file.write_bytes(b"x")
+    import os
+
+    os.utime(old_file, (0, reference.stat().st_mtime - 86400))
+    os.utime(new_file, (0, reference.stat().st_mtime + 86400))
+
+    signal = module.age_signal([old_file, new_file], lambda _p: reference)
+    assert signal["comparable"] == 2
+    assert signal["older_than_reference"] == 1
+    assert signal["same_run_or_newer"] == 1
+
+
+def test_the_age_signal_reports_zero_comparable_rather_than_a_verdict(tmp_path):
+    """⛔ A missing reference must not read as 'not stale'. With nothing to
+    compare against, the honest output is `comparable: 0` and no counts — a
+    bucket silently scored 0-older/0-newer would print STILL PRODUCED."""
+    module = load()
+    orphan = tmp_path / "a.png"
+    orphan.write_bytes(b"x")
+    assert module.age_signal([orphan], lambda _p: None) == {"comparable": 0}
+    assert module.age_signal([orphan], lambda _p: tmp_path / "gone.ron") == {
+        "comparable": 0
+    }
+
+
 def test_key_does_not_resolve_through_a_symlink(tmp_path):
     """⛔⛔ THE WORKTREE HAZARD. `Path.resolve()` on a mirrored asset returns
     the MAIN checkout's path, so a census that resolves compares another tree

@@ -1570,6 +1570,26 @@ confidence** — three that carry a reason and one that is an upper bound:
   delete list — and now small enough that it is no longer where the megabytes
   are.
 
+⭐⭐ **AND AN AGE SIGNAL SPLITS THE THREE INTO TWO DIFFERENT PROBLEMS —
+measured 2026-09-02, and it changes what a clean regen can settle.** Each file
+is compared against the reference the same run should have written (a stranded
+page against its own manifest, an unmanifested sheet against a manifested
+sibling, a reduced-tier portrait against its full-resolution twin):
+
+```text
+stranded pages          44 older /   0 same-run of  44   median -1.97 d  STALE
+sheets without manifest  4 older /  12 same-run of  16   median +0.00 d  still produced
+reduced-tier portraits  36 older / 439 same-run of 475   median +3.07 d  still produced
+```
+
+⇒ **The 92 MB of stranded pages were left by an earlier render — a clean regen
+removes them.** The other 27.8 MB is written by the CURRENT pipeline, in the
+same run as the art beside it, so **yardrat's clean generation will reproduce
+both buckets and cannot settle them.** Those two need a pipeline change or a
+decision, not a regen. ⚠ mtimes are per-machine and a copy rewrites them; the
+evidence is the CONTRAST between buckets in one tree with one history, not the
+absolute dates.
+
 ⇒ **119.8 MB across the three explained buckets, against 1.6 MB still
 speculative.** The first pass had 26.7 MB sitting in "named nowhere, but so is
 a constructed path"; asking how each KIND of art is actually reached — a sheet

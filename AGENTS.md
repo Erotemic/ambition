@@ -99,14 +99,21 @@ own task files start failing with `ENOSPC` and command output is lost
 mid-session, which looks like tooling breakage. One day of multi-profile work
 reached 309 G of 309 G — `target/debug` 217 G, `target/notrace` 25 G,
 `target/profiling` 18 G, `target/wasm32-unknown-unknown` 9 G.
-⇒ **The biggest single win is `target/debug/incremental`.** It reached **156 G**
-here — more than half the disk on its own — and deleting it is safe: cargo
-rebuilds it, and it costs only incremental-rebuild speed, never correctness.
-`rm -rf target/debug/incremental` took the disk from 100% to 50% in one command.
-⇒ **Measurement targets are disposable once their numbers are written down.**
-Deleting `target/notrace`, `target/profiling` and the wasm target freed another
-50 G. Run `df -h /tmp` before starting a SECOND target or profile combination,
-not after.
+⇒ **WHERE THE SPACE GOES, so you can see the shape of it without deleting
+anything**: `target/debug/incremental` reached **156 G** here, more than half
+the disk on its own, and the measurement targets (`notrace`, `profiling`,
+wasm32) held another 50 G between them.
+⛔⛔⛔ **THAT IS A SYMPTOM READING, NOT A REMEDIATION, and this paragraph used to
+end with `rm -rf target/debug/incremental` as "safe — cargo rebuilds it".** It
+contradicted the standing rule ten lines below it, and the contradiction was
+LOAD-BEARING: an agent pruning `target/debug/{deps,examples,incremental}` by
+mtime on 2026-09-03 was following this paragraph. Removed 2026-09-03. The rule
+below is the one that stands; nothing here licenses a deletion.
+⇒ **What to actually do:** run `scripts/setup/target_bindmount.sh --status`. A
+`target/` that has grown enormous is almost always an ABSENT BIND, and repairing
+it returns the space without deleting anything, because the duplicate was never
+supposed to exist. Run `df -h /tmp` BEFORE starting a second target or profile
+combination, not after — the cheap fix is not starting the second copy.
 ⚠ **A full disk can crash the gate mid-run**, and the traceback is an `OSError:
 [Errno 28]` from `run_tests.py`'s own status writer rather than anything about
 your change — `./run_tests.sh` had 6957/6957 tests passing before it fell over

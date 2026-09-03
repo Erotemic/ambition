@@ -1435,10 +1435,18 @@ spends **14 GB in under three minutes**. The mechanism is the decomposition
 campaign's own side effect — every feature job builds its own variant of the
 graph, cargo never prunes the last one, and five crates were carved out of the
 actor monolith in a single day, each multiplying the variants a feature job
-resolves. ⇒ "Resource-aware lanes" now has to mean disk as well as concurrency,
-and the cheap lever is an mtime prune rather than `cargo clean`;
-[`pickup-carve-checklist.md`](pickup-carve-checklist.md) carries the recipe and
-the caveat that its cost depends entirely on build cadence.
+resolves. ⇒ "Resource-aware lanes" now has to mean disk as well as concurrency.
+⛔⛔⛔ **AND THE LEVER IS NOT YOURS TO PULL.** This sentence used to say *"the
+cheap lever is an mtime prune rather than `cargo clean`"* and point at
+[`pickup-carve-checklist.md`](pickup-carve-checklist.md) for the recipe.
+AGENTS.md forbids both: *"NEVER `rm -rf` anything under a `target/` … the
+reclaim is Jon's call, on Jon's machine."* Corrected 2026-09-03, and the
+checklist's section is superseded in the same pass — an agent pruned by mtime
+that day because these two pages told it to.
+⇒ **The lever that IS yours is not building the second copy**: run
+`scripts/setup/target_bindmount.sh --status` before the first build, and
+`df -h` before starting a second feature or profile combination. If the volume
+is genuinely full with the bind present, report it and stop.
 
 Feature-combination checks are also valuable: broad combination sweeps have
 found real integration failures that crate-local/default-only tests miss.

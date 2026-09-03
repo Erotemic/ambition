@@ -83,19 +83,28 @@ def main() -> int:
             "⚠ do not start a build. A mid-build ENOSPC does not say 'disk full' — "
             "it surfaces as unrelated compile errors in whichever crate was "
             "unlucky, and the real cause appears nowhere.\n\n"
-            f"  Look first: du -sh {where}/debug/* | sort -h\n"
-            # ⭐ INCREMENTAL FIRST, AND IT IS NOT A DETAIL. `debug/incremental`
-            # was 31 GB and later 9.7 GB on one agent worktree in a single day,
-            # and dropping it costs a slower NEXT incremental build rather than
-            # a full rebuild, because `debug/deps` survives. Jumping straight to
-            # `cargo clean` buys the same space and a 40-minute rebuild.
-            f"  Cheap first: rm -rf {where}/debug/incremental   "
-            "(keeps deps/; costs one slower incremental build)\n"
-            f"  Then:        rm -rf {where}/profiling {where}/wasm32-unknown-unknown {where}/doc\n"
-            f"  Last resort: cargo clean            (then expect one full rebuild)\n\n"
+            # ⛔⛔⛔ THIS USED TO PRINT A DELETION LADDER -- incremental, then
+            # the measurement targets, then `cargo clean` -- and AGENTS.md's
+            # standing rule forbids every rung of it: "NEVER `rm -rf` anything
+            # under a `target/`. NOT `incremental`, NOT `deps`, NOT AS A FAVOUR
+            # WHEN THE DISK IS FULL … the reclaim is Jon's call, on Jon's
+            # machine, and `cargo clean` is his to run." A refusal message is
+            # read at the exact moment someone is under pressure to free space,
+            # so it is the LAST place to leave advice that contradicts the rule.
+            "  1. scripts/setup/target_bindmount.sh --status\n"
+            "     An enormous target/ is almost always an ABSENT BIND, and\n"
+            "     repairing it returns the space without deleting anything --\n"
+            "     the duplicate underneath was never supposed to exist.\n"
+            f"  2. If it is bound and {where} is genuinely full: SAY SO AND STOP.\n"
+            "     Report the numbers and hand it to Jon. Do not delete, do not\n"
+            "     prune by mtime, do not run `cargo clean` -- that reclaim is\n"
+            "     his call on his machine.\n"
+            f"  Reading only (safe): du -sh {where}/debug/* | sort -h\n\n"
             "⚠ THE VOLUME IS SHARED with the main checkout and every other agent "
-            "worktree, so `du` YOUR target before cleaning someone else's: on "
-            "2026-09-03 the main tree held 270 GB and one worktree 99 GB.",
+            "worktree, so a number you read here is not yours alone: on "
+            "2026-09-03 the main tree held 270 GB and one worktree 99 GB. That "
+            "is a reason to report rather than reclaim -- the biggest directory "
+            "is usually someone else's live build.",
             file=sys.stderr,
         )
         return 1

@@ -1886,14 +1886,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
   (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
   ambition-da repairs it in one commit after the `items/` carve lands.
-- ▢ **`string_id!` IS DEFINED THREE TIMES, byte-identical; the owner is decided
-  by the dependency graph.** (Scheduled 2026-09-02.) `ambition_load` depends on
-  `bevy` and nothing else in the workspace; `ambition_game_shell` already depends
-  on it; `ambition_load_presentation` on both — so `#[macro_export]` on
-  `ambition_load`'s copy, delete two, no new crate or edge. Check the bevy
-  `default-features = false` mismatch and that the exported macro spells
-  `::core::fmt`; run the wasm CHECK (a macro move is a cfg-drift shape). Design:
-  `triage/stable-identifier-centralization.md`. Assigned to ambition-da.
+- ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by
+  `02a796d2c`, exactly as this row specified: `#[macro_export]` on
+  `ambition_load`'s copy (`crates/ambition_load/src/id.rs:19`), the other two
+  deleted, no new crate or edge. Re-verified 2026-09-03 —
+  `git grep "macro_rules! string_id"` returns ONE hit, and the three consumers
+  (`ambition_load`, `ambition_game_shell`, `ambition_load_presentation`) all read
+  it. ⛔ The `::core::fmt` requirement this row flagged is not only met but
+  written down where it can survive: the macro's doc comment says *"an exported
+  macro expands at the CALL SITE, where a `use std::fmt;` may not exist — relying
+  on one is the difference between a macro that moves and a macro that only
+  appears to"*, which is the one sentence a future edit would otherwise
+  rediscover. Design record: `triage/stable-identifier-centralization.md`.
 - ▢ **`ambition_registry_core`: R2 + R3 LANDED 2026-09-03 (crate + two pilots:
   construction, rollback; rollback baseline byte-identical); next is R4 — decide
   which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate

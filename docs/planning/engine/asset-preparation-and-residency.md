@@ -333,8 +333,13 @@ a FLOOR and says so. Guarded by
 `test_room_reveal_tells_are_read_from_the_log.py`, whose BEFORE fixture is the
 2026-09-01 capture's shape — 111 warnings, `asset_wait_ms=3`, nine spikes of
 89-355 ms after the transition line. The hitches now happen
-UNDER the cover, which is what a cover is for; the tier cap (3a) makes them
-small; the upload pacer / render-world-only knobs below make them smaller.
+UNDER the cover, which is what a cover is for; the upload pacer /
+render-world-only knobs below make them smaller. ⛔ **This sentence used to name
+"the tier cap (3a)" as a third thing making them small — that mechanism was
+REMOVED by Jon's ruling the same day** (§3a), so it is not a lever any more, and
+the measurements that had it running (the hall leg of the
+2026-09-02 timing tell) inherited a condition the shipped program no longer
+has.
 
 **Two mechanisms, and the lever for each — to MEASURE, not yet to change:**
 

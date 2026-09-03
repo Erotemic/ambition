@@ -257,6 +257,38 @@ Do not report an absent NDK/GPU/display as proof that the target's code is broke
 > prerequisite named and the fetch command quoted, rather than with a read error
 > from whichever target happens to open the file first.
 
+> **⛔ A FOURTH ABSENCE, AND THE WORST-BEHAVED: DISK. Hit 2026-09-03 running the
+> exhaustive plan — `/` reached 100% (290G used, ~260K free) partway through.**
+>
+> It is B5's class exactly — a missing prerequisite, not a code failure — but it
+> is the one absence that cannot name itself, and the reason is mechanical: tool
+> output goes through `/tmp`, so once the volume is full commands fail with
+> ENOSPC and **lose their own output**. A `git commit` died with exit 128 and no
+> message at all. Nothing in the failure says "disk"; it just stops making sense.
+> ⇒ **When a lane starts failing incoherently, `df -h /` before believing the
+> failure.**
+>
+> ⚠ **AND `df` ON THE WORKING DIRECTORY WILL TELL YOU IT IS FINE.** `target/` is
+> 182G and bind-mounted from `~/.cache/ambition-targets`, which lives on `/`; the
+> repository is on a different volume with 220G free. The obvious check looks at
+> the wrong filesystem — `scripts/setup/target_bindmount.sh --status` names the
+> pair, and that is the thing to read.
+>
+> Where it sits, measured the same day: `target/debug` 137G (`incremental` 31G of
+> it), `target/profiling` 19G, `target/outlander` 18G, `target/release` 9.8G.
+> ⚠ **Attribution is NOT established** — the cache is shared across sessions and
+> there was no before-reading — so the honest claim is that the plan is the
+> largest disk consumer in the repo (49 jobs, many of them distinct feature
+> combinations that each get their own units, plus `fixtures/minimal_game/target/`
+> as a second target directory entirely), not that this run filled it.
+>
+> ⇒ **The residual is a NUMBER this page cannot yet state: the plan's peak disk
+> on a clean tree.** Until somebody measures it from a known-empty target, the
+> honest form is the one `--run-everything-you-probably-dont-need-this` already
+> uses for time — say what can be counted without running anything, and leave the
+> rest blank rather than guessed. A job count does not warn anyone that the plan
+> can fill a 290G volume.
+
 ### B6 — packaging/distribution
 
 Keep packaging/release work product-driven, but Engine 1.0 needs at least one

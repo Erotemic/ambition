@@ -952,6 +952,22 @@ sheets / 9.4 MP to **4 / 2.8 MP**; the 9 owned sheets are 6.7 MP and each
 arrives only with its fighter (the host run of 2026-09-02 evening, taken
 before this landed, still shows `fx-sheet 10×7.7MP` never drawn in the hub).
 
+⭐ **THE BOOT POPULATION, from Jon's host run (2026-09-03,
+`scripts/measure_first_room_manifest.py` over
+`desktop-timeline-run-20260902T215256Z`).** The run's only two spikes off the
+hall (125 ms and 203 ms at 2.4–2.6 s) sit between `initial playing` and the
+first `room-loaded`, i.e. under the shell's load screen. What decoded before
+that `room-loaded`, by the `[image]` ledger (≥ ~1 MP lines; the census counts
+98 small files besides): **6 images / 16.1 MP** — `unknown` 8.6 MP (the 7.6 MP
+LDtk preview tileset, Jon's relPath, plus a 1.0 MP runtime-generated image),
+`vanity-card` 3.0, `boss-sheet` 2.0 (the fallback boss body, eager by design:
+one sheet every boss may need), `character-sheet` 1.3, `fx-sheet` 1.2. ⇒ The
+startup burst is the tileset first and everything else a distant second; the
+`prepare-first-room-art` cover already waits for the 38 assets the first room
+names, and a cover that also waited for the shell's own art would be a longer
+cover — a product choice, not a defect. The tell after Jon's relPath retarget
+is the same two spikes gone or halved.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare

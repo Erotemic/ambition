@@ -554,10 +554,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
   `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
   ration looks like from the far side. Replaced with a bounded settle; the same
-  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
-  count: the next union run should read 12.** I have not re-run it, and the last
-  time I turned a verified single-target fix into a union number I was wrong by
-  38.
+  command that failed now reads 3 passed. ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
+  system-parameter panic remains anywhere in it. The full progression is
+  48 → 49 → 38 → 13 → **12**. ⚠ It was stated as an EXPECTATION until the run
+  existed, because the previous time I turned a verified single-target fix into
+  a union number I was wrong by 38 — in the direction nobody expects. This time
+  the expectation held; that is a fact about this fix, not a licence to skip the
+  run next time.
   The entire smash target — `the_stage_kills`, `the_screen_decides`,
   `the_repertoire_gets_used`, 30-odd tests — is green.
 

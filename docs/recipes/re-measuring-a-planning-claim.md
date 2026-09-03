@@ -252,6 +252,41 @@ row's old number (14), which is far too lucky for an independent measurement of
 a repository that had moved for a week. A suspiciously clean agreement is the
 same warning as a suspiciously clean absence.
 
+### ⛔⛔ A NUMBER ATTACHED TO THE WRONG NOUN, LAUNDERED ONE DOCUMENT AT A TIME
+
+The sections around this one are about figures that went STALE. This is worse
+and looks identical: a figure that was never true of the thing it is attached
+to, gaining authority at each hop because every reader trusts the last
+document.
+
+**Caught 2026-09-03, one step from becoming permanent.** A session killed a
+`--rust` run because it had merged under it, reran at the settled tip, and got
+6/6 in **1639 s**. That is the duration of the CLEAN RERUN. The killed run has
+no duration at all — it never wrote a verdict, which is the entire point of the
+story. A handoff then recorded that the session *"lost a 1639 s Rust run"*, and
+a second agent read the handoff, believed it, and drafted it into `AGENTS.md`
+as the cautionary figure behind a new rule.
+
+⇒ **Three hops, each one reasonable.** The original account was accurate. The
+handoff attached its number to the wrong noun. The draft promoted a handoff
+line to doctrine, where it would have been permanent, cited, and unreachable
+from its source. Nobody lied and nobody was careless; the number simply got
+further from the sentence that made it true.
+
+⭐ **WHAT STOPPED IT was refusing to write an unattributable figure.** The
+drafter asked *"is this detail right as I have it — I would rather not put a
+number in AGENTS.md I cannot attribute"*, and the author of the handoff line
+went back to the source and found their own error. ⇒ That question is the whole
+defence, and it costs one message.
+
+⇒ **The rule: a number crossing a document boundary must arrive with the noun
+it measures**, and promoting a figure into doctrine means re-deriving it from
+the source, not from the document you read it in. ⛔ Ask what the number is a
+duration OF, a count OF, a size OF — the noun is where these break, not the
+digits. And when the honest answer is that the quantity does not exist — a
+killed run has no duration — say so instead of substituting the nearest one
+that does.
+
 ### ⛔ ONE INSTRUMENT FROM TWO REFERENCE POINTS LOOKS EXACTLY LIKE TWO INSTRUMENTS
 
 The section below is about one word meaning two things. This is its neighbour

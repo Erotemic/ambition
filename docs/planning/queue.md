@@ -667,6 +667,49 @@ The one unresolved developer-policy choice from the session-ownership work is in
   derive the message from the same counts the predicate uses, and it is small.
   ⭐ Not a reason to revert the module, which correctly closes the row above.
 
+- ▢ **NINE DEBUG BINARIES IN ONE CRATE ARE 99.8% THE SAME PROGRAM: ~5.6 GB ON
+  DISK THAT COLLAPSES TO ~0.7 GB.** Jon asked 2026-09-03 whether folding the
+  probe executables into one modal program yields one 3 GB file or one ~500 MB
+  file. ⭐ **MEASURED: the latter, and by a wider margin than the question
+  assumed.**
+  `game/ambition_demo_smash_app/src/bin/` holds nine: `capture_probe`,
+  `ladder_probe`, `ladder_rig`, `match_diagram`, `match_report`, `match_shots`,
+  `roll_probe`, `select_walkthrough`, `stage_diagram`.
+
+```text
+  binary            size    defined symbols
+  ladder_probe      634M    502,262
+  roll_probe        633M    501,899
+  ladder_rig        634M    502,053
+  capture_probe     635M    502,165
+  stage_diagram     474M    267,675
+  ------------------------------------------
+  union of the five         503,084
+  sum if kept separate    2,276,054
+```
+
+  ⇒ **The union is 822 symbols larger than the LARGEST single binary — 0.16%.**
+  `ladder_probe` and `roll_probe` share 501,778 of their ~502,000 defined
+  symbols (99.88%); each contributes a few hundred of its own (484 and 121).
+  Section sizes say the same thing: `.debug_str` 182 MB, `.debug_info` 76 MB and
+  `.debug_line` 41 MB are the same size in all of them, including
+  `stage_diagram`, whose `.text` is half the others'.
+  ⇒ One modal binary should land near the largest current one. Those five are
+  3.0 GB today → **~0.64 GB, a ~2.4 GB saving**; all nine are ~5.6 GB →
+  **~0.7 GB, a ~4.9 GB saving**, per full build, plus one link instead of nine.
+  ⛔ **A SYMBOL UNION IS A PROXY FOR SIZE, NOT A SIZE.** The collapsed figure is
+  predicted, not measured — confirming it needs a build, and this box is at
+  12 GB free, below the runner's 40 GB floor. Whoever has headroom should build
+  one merged bin and check before anyone restructures nine files.
+  ⭐ **TRY THE ONE-LINE LEVER FIRST.** `[profile.dev]` already sets
+  `debug = "line-tables-only"`, so the obvious debug-info saving is spent — but
+  it does NOT set `split-debuginfo`, which on Linux stops DWARF being copied
+  into each executable. That is one line in `Cargo.toml` against nine rewritten
+  `main`s, and it may take most of the win. Measure it before doing the work.
+  ⚠ The trade-off, so it is not discovered later: one binary means any probe
+  edit relinks all of them. That is close to free here — they already share
+  ~100% of their code, so any shared-crate edit already relinks all nine.
+
 - ▢ **EVERY INTERACTABLE ROOM NPC IS DRAWN BY A PLACEHOLDER FOR ITS FIRST
   FRAMES, BECAUSE ITS BUNDLE CARRIES NONE OF THE FIVE MARKERS THE VIEW
   REBUILD SELECTS ON.** Traced by e7 2026-09-03, ruled a DEFECT and not a

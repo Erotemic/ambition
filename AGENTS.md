@@ -192,6 +192,27 @@ on throughput.
 * Do not double check with cargo. Tee its outputs to a file once if you need
   multiple operators over its output.
 
+* ⛔⛔ **FREEZE THE TREE WHILE A GATE RUNS — including docs, including a merge.**
+  Two independent reasons, and the one usually quoted is the weaker:
+  * **The jobs might read what you changed.** `--rust` is NOT Rust-only: its
+    first job is `repo tooling (scripts/tests; repo-coupled)`, which runs the
+    whole directory, and **19 of those files reference `docs/`** — measured
+    independently on two boxes 2026-09-03. So *"I only touched docs"* is false
+    for this lane. ⚠ This reason EXPIRES as jobs complete, which is exactly why
+    it is not enough on its own.
+  * **A verdict must name a tree.** Merge mid-run and the result describes no
+    commit that ever existed — not the tree it started on, not the one it ended
+    on. The number is real and unattributable, which is the abandoned suite
+    reporting `done` one level up. This never expires: it holds from the first
+    job to the last.
+  ⇒ *"I only merged"* is editing. A full `--rust` run was abandoned this way on
+  2026-09-03 — killed deliberately rather than reported, because its tree had
+  changed under it. The clean rerun at the settled tip took 1639 s, which is
+  what the abandoned one would have cost.
+  ⓘ Distinct from the concurrent-builds rule below: that one is about two
+  builds contending for one `target/`, this one is about the tree a verdict
+  describes.
+
 ## Verification
 
 Use the narrowest command that actually covers the change. Full matrix:

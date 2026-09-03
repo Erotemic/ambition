@@ -50,6 +50,12 @@ tail of an `ambition_`-prefixed crate directory).
   gitignored** — `.gitignore` lines 123-124 cover
   `crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron` — so they
   are absent for exactly the reason `target/` is, and citing one is correct
+  ✔ **CONFIRMED EMPIRICALLY 2026-09-03, after a clean `--force` regen produced
+  them:** `robot_spritesheet.ron`, `pirate_admiral_spritesheet.ron` and
+  `player_robot_v2_spritesheet.ron` are all ON DISK and all report ignored under
+  `git check-ignore`. So those citations are correct prose about files a BUILT
+  tree has and a checkout does not — the same shape as `target/`, now measured
+  rather than argued. ⇒ The asset half of this row is SETTLED: no repoint.
   prose. ⇒ **Generalise the skip from a `target/` prefix to `git check-ignore`:**
   a citation whose path is ignored names a build output, whoever generates it.
   That is one rule instead of a growing prefix list, and it is the rule the

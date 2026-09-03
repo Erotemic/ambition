@@ -872,7 +872,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
-  compile/test isolation.
+  compile/test isolation. Do not carve by LOC and do not promise frame-time
+  improvement without a measurement.
 
   ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
   that were stale within a week of the merge that closed them).** None of this is
@@ -896,22 +897,36 @@ The one unresolved developer-policy choice from the session-ownership work is in
      commit. A carve that only re-exports has moved nothing, and the source
      crate's line count falling is not evidence on its own.
   7. **⛔⛔ IF AN ABSENCE CONTRACT GOES RED, MOVE ITS EXCLUSION — DO NOT WIDEN
-     IT.** Six contracts in `check_absence_contracts.py` pin *"this resolution
-     lives in ONE file"* by excluding that file by path
-     (`:!crates/…/presentation.rs`). **A carve that moves the owner makes the
-     contract flag the new location**, which looks like the carve broke a rule
-     when it only moved the rule's home. The fix is to point the exclusion at
-     the new path in the same commit; widening the paths or deleting the
-     contract launders the rule the carve was supposed to preserve. The six:
-     `the-provider-resolver-…`, `the-movement-tuning-resolver-…`,
-     `the-motion-model-resolver-…`, `the-catalog-default-action-set-…`,
-     `the-catalog-axis-tuning-…` (all `-is-confined-to-one-file`), plus
-     `registration-does-not-demand-art`, which names
-     `character_runtime/definition.rs` and `characters/src/prepared.rs`
-     directly. ⚠ `the-character-domain-is-not-named-after-a-character` guards
-     all of `crates/ambition_characters/` and so is live for any carve landing
-     code there. Do not carve by LOC and do not promise frame-time
-  improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
+     IT.** **Eleven of the 25** contracts in `check_absence_contracts.py` pin
+     *"this belongs to ONE file"* by EXCLUDING that file by path. A carve that
+     moves the owner makes the contract flag the NEW location — it reads as "my
+     carve broke an architectural rule" when it only moved the rule's home.
+     ⇒ Point the exclusion at the new path IN THE SAME COMMIT; widening the
+     paths or deleting the contract launders the rule the carve was meant to
+     preserve, and looks like a clean carve in the diff. ⚠ Such a contract is
+     invisible when you grep for the file it protects — it names that file in a
+     `:!` path rather than in its rule, which is why this is a table:
+
+     | If your carve moves… | it trips |
+     |---|---|
+     | `character_runtime/prepared_match.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+     | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
+     | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
+     | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
+     | `avatar/starting_character.rs` | `the-motion-model-…`, `the-movement-tuning-…`, `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
+     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…`, `registration-does-not-demand-art` |
+     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `characters/src/brain/{fighter,state_machine,snapshot_impls,mod}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `app/versus.rs`, `demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
+     | `schedule/input_systems.rs` | `the-seat-topology-has-one-engine-side-creator` |
+     | `ldtk_tools/ldtk/paths.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
+
+     ⚠ And `the-character-domain-is-not-named-after-a-character` guards ALL of
+     `crates/ambition_characters/` by PATTERN rather than by exclusion, so it is
+     live for any carve landing code there whichever file moves.
+
+  ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`
   3, and the FACADE every game depends on names all four directly. ✔ ALL FOUR

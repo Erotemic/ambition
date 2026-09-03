@@ -349,6 +349,15 @@ outside repo" errors appeared **in every worktree and in no clean checkout**.
 An external reviewer saw three errors. The session in the worktree saw five. Two
 of them were its environment.
 
+⭐ **A THIRD INSTANCE, 2026-09-03, and it is the purest form of this heading:**
+`test_the_committed_report_matches_a_fresh_generation` failed here for a day and
+in no clean checkout, because `dev/ambition_dev_measurements` was two commits
+behind the pointer the superproject records. Reported to a coordinator four
+times as a repository defect before anyone looked at the submodule. Full account
+under [the machine-dependent section](#the-machine-you-are-on-decides-which-of-these-are-live),
+including why the failure message's own suggested fix would have deleted data
+and gone green.
+
 ⭐ **AND THE SAME TRAP HAS A FLAGS-SHAPED TWIN, met the same day.** The wasm32
 CHECK was run here by hand — `cargo check -p ambition_app --lib --target
 wasm32-unknown-unknown --no-default-features --features web_served_assets`. It

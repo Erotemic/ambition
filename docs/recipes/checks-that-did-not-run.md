@@ -15,11 +15,15 @@ This page is the dual of
 ran actually run* — and it exists because on 2026-09-02 a single day's work
 turned up SEVEN members of the same family in one gate script; an eighth was
 already sitting in the backlog unrecognised, and a ninth surfaced the same night.
-A tenth followed on 2026-09-03.
+A tenth followed on 2026-09-03, and an ELEVENTH the same day.
 
-⭐ **THE FINDING IS NOT THE COUNT. It is that seven of the ten were found by
-accident** — by running a suite for an unrelated reason, by an external reviewer
-reading source, by running `cargo check` by hand before the gate. Not one was
+⭐ **THE FINDING IS NOT THE COUNT. It is that seven of the first ten were found
+by accident** — by running a suite for an unrelated reason, by an external reviewer
+reading source, by running `cargo check` by hand before the gate. ⭐ **#11 IS
+THE FIRST ONE FOUND ON PURPOSE**, by the audit in "Running this audit yourself"
+below — asking of every `scripts/check_*.py` whether the gate, the pytest lane
+or CI names it. That is what a deliberate search buys, and it is why the ratio
+above is a fact about the past rather than a law. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
 coverage, because the same assumption that makes a job skip also makes the
 report say it ran.
@@ -81,7 +85,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The ten, and what each one teaches
+## The eleven, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|
@@ -95,6 +99,7 @@ expression; those survive edits that line numbers do not.
 | 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE, AND FAR BIGGER THAN THIS ROW — 783 TESTS ACROSS 29 CRATES**, measured 2026-09-03 with `scripts/feature_gated_tests.py` (which already existed): the 16 here are one module of a class that includes 53 in `ambition_content`'s `portal`, 26 in `ambition_input`'s `local_seats` and 25 in `ambition_app`'s `grid_backend`. The union job that runs them is inside `if not only and everything` in `run_tests.py`, so a DEFAULT green says nothing about any of them. The gate's coverage footer named the gap qualitatively and gave no magnitude; it now states the count, and `test_the_gate_states_how_many_tests_it_skips.py` ratchets it so the figure cannot rot. Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED. ✔ **RUN 2026-09-03 on the calculex host, and every number reproduces: 83 with `--features bevy`, 56 without, 16 of the difference in `image_stages` — and all 83 PASS.** So the blindness is not currently hiding a failure, which is worth knowing and is NOT the same as it being fixed: the gate still does not run them, and the next break here is still invisible to it |
 | 10 | `[census] owners` (and its sibling `owners_in`) | is a **TOP-20**. The row prints `crates=82` and then names twenty, so a reader who greps it for a crate and finds nothing cannot tell *registers no systems* from *ranked 21st* — and the emitter's own doc comment says the row answers *"should a shipped title carry this at all"*, which is an ABSENCE question. Absence was uninformative for 62 of 82 crates while looking authoritative | fixed 2026-09-03 — both emitters now append `+N_more_not_shown`. ⚠ A DIFFERENT SPECIES from 1-9: not a gate that skipped, an instrument that answered a narrower question than it appeared to |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
+| 11 | the two **CI-ONLY ratchets** (`check_doc_link_ratchet`, `check_zone_name_ratchet`) | are invoked by `.github/workflows/test.yml --check` and by NOTHING ELSE — not the gate, not the pytest lane. Measured 2026-09-03 by asking, for every `scripts/check_*.py`, whether the gate, the pytest lane or CI names it: 14 of 16 are reachable locally and these two are not. ⛔ So a developer never sees them, and the doc-link one had accumulated TWO unseen regressions (`ambition_characters` 24→26, `ambition_platformer2d_core` 34→35). ⚠ It is also the slowest guard in the repo — a cold `cargo doc` over 9 crates, which TIMED OUT at 300 s in the sweep that found it, so "run every guard" quietly skips it unless you budget for it | ⛔ **STRUCTURALLY LIVE.** The two regressions are fixed and `ambition_body_seed` added to its tracked crates (`bf4e6f353`); the reachability is unchanged — CI is still the only thing that runs them |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could
 not execute code, and the other executed the wrong branch of it. The hole that

@@ -627,6 +627,16 @@ The one unresolved developer-policy choice from the session-ownership work is in
   exceeds 5 frames. ⇒ **A backdrop's residency gates every interactable's
   visual**, which is the actual defect: the two have no reason to share a
   deadline.
+  ⭐ **AND IT PREDICTS A DISCRIMINATOR, which is what makes it cheap to test.**
+  The gate is in front of ALL of `spawn_room_visuals`, so at Ultra it should
+  delay AUTHORED room enemies (`world.rs:187`) and bosses (:200) exactly as
+  much as NPCs — they are downstream of the same early return. ⇒ But NOT
+  encounter-WAVE mobs or runtime-staged actors: those carry `EncounterMob`
+  (added at `spawn_actors.rs:1348`) and `RuntimeStagedActor` (:305), so the
+  dynamic rebuild gives them a view by a second road the gate does not touch.
+  ⛔ **So the shape to look for is authored-vs-dynamic, NOT npc-vs-everything.**
+  If NPCs alone are late while authored room enemies are on time, this
+  explanation is wrong and something NPC-specific is in play.
   ⛔ Still needs a build to CONFIRM the frame numbers; the mechanism above is
   read from source and the tier assertion from an existing test. ⇒ The fix
   candidate this points at is scoping that early return to the parallax spawn

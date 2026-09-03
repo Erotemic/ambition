@@ -39,8 +39,17 @@ baked manifest and no road, and the generator produces them anyway.
 
 ⛔ THIS BUCKET DELIBERATELY IGNORES `claimed`. A handful of reduced tiers do
 carry a `*_portraits.ron`, which would mark their PNG claimed — but that `.ron`
-is never baked either, so claimedness is the WRONG question here and counting
-only unclaimed files understates the population.
+is never baked either (`PortraitSheetRegistry::from_baked_table` reads only the
+baked table), so claimedness is the WRONG question here and counting only
+unclaimed files understates the population.
+
+ⓘ THE MISSING MANIFESTS ARE POLICY; THE PRESENT IMAGES ARE THE ANOMALY.
+`check_quality_variants_are_fresh.py::absent_variants` already records that
+portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+`_portraits.ron` at full against 9 per reduced tier. This bucket is not
+contradicting that. It asks the other half of the question: why is the PNG
+generated at a tier where the manifest is deliberately not published, and why
+are the 9 that ARE published unreadable by a build that bakes only full-res?
 
 ⚠ UNMENTIONED FILES (upper bound only). Every other PNG under `sprites*/` whose
 filename appears in no baked manifest and in no committed `.rs`/`.ron`/`.ldtk`/

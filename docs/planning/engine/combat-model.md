@@ -33,6 +33,24 @@ body given the same authored state and control intent.
 Do not create a second authority because one game needs richer presentation or
 a new reaction type.
 
+✔ **Re-measured 2026-09-03: every name in the table above still resolves**, and
+the map is worth reading with one split made explicit, because the table does not
+say which crate each name lives in:
+
+* the **authored vocabulary** is in `ambition_entity_catalog` —
+  `MoveSpec` (`crates/ambition_entity_catalog/src/lib.rs:1097`), `MoveWindow`
+  (`:776`), `HitVolume` (`:332`);
+* the **runtime authority** is in `ambition_combat` — `capture`
+  (`crates/ambition_combat/src/lib.rs:29`), `CapturedBy`
+  (`crates/ambition_combat/src/capture/mod.rs:20`);
+* the **action-acceptance seam** is lower still — `BodyActionBuffer` in
+  `crates/ambition_platformer2d_core/src/body_clusters.rs:1063`.
+
+⇒ That is consistent with the scope statement above rather than a drift from it:
+what a move IS is authored data in the catalog, what a hit DOES is combat's, and
+what a body will ACCEPT is the core's. Recorded because a reader treating this
+table as a map to the code has three crates to visit, not one.
+
 ## Extension rules
 
 1. **Add semantics at the narrow owner.** A new knockback form extends hit

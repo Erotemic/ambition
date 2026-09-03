@@ -35,7 +35,6 @@ use ambition_platformer2d_shared_tangle::body::{AncillaryMovementBundle, SpawnBa
 
 mod snapshot_impls;
 
-
 /// Optional patrol path the kinematic step advances each tick.
 #[derive(Component, Clone, Debug, Default)]
 pub struct ActorMotionPath(pub Option<PathMotion>);
@@ -1151,4 +1150,3 @@ mod tests {
 
 #[cfg(test)]
 mod npc_flight_tests;
-

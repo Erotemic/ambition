@@ -349,7 +349,7 @@ pub(super) struct EnemyActorSpawnPlan {
     feature_id: String,
     feature_name: String,
     feature_aabb: CenteredAabb,
-    enemy: super::actor_clusters::ActorClusterSeed,
+    enemy: ambition_body_seed::ActorClusterSeed,
     faction: ambition_combat::components::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
     brain: ambition_characters::brain::Brain,
@@ -366,7 +366,7 @@ impl EnemyActorSpawnPlan {
         feature_id: impl Into<String>,
         feature_name: impl Into<String>,
         feature_aabb: CenteredAabb,
-        enemy: super::actor_clusters::ActorClusterSeed,
+        enemy: ambition_body_seed::ActorClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
         // A CHARACTER-FIRST BODY HAS NO ARCHETYPE TO ASK — and as of AC6 there is no other kind
@@ -525,7 +525,7 @@ pub(super) struct NpcActorSpawnPlan {
     feature_aabb: CenteredAabb,
     /// Peaceful actors are the SAME unified cluster as enemies, built with
     /// peaceful tuning + a `Passive`/`Patrol` AI brain.
-    seed: super::actor_clusters::ActorClusterSeed,
+    seed: ambition_body_seed::ActorClusterSeed,
     render_size: Option<ae::Vec2>,
     interactable: ambition_interaction::Interactable,
     brain: ambition_characters::brain::Brain,
@@ -615,7 +615,7 @@ impl NpcActorSpawnPlan {
             // reason both are one concept.
             None => super::brain_builders::default_fighting_kit(),
         };
-        let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+        let (mut seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,
             Some(prepared),
@@ -837,7 +837,7 @@ fn boss_actor_cluster(
     ambition_characters::actor::ai::ActorStatus,
     ambition_combat::actor_tuning::ActorConfig,
     ambition_platformer2d_shared_tangle::body::SpawnBaseline,
-    super::actor_clusters::ActorMotionPath,
+    ambition_body_seed::ActorMotionPath,
     ambition_platformer2d_core::body_clusters::ActorSurfaceState,
     ambition_combat::components::BodyMelee,
     ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle,
@@ -903,14 +903,14 @@ fn boss_actor_cluster(
             size: kin.size,
             gravity_scale: 0.0,
         },
-        super::actor_clusters::ActorMotionPath::default(),
+        ambition_body_seed::ActorMotionPath::default(),
         ambition_platformer2d_core::body_clusters::ActorSurfaceState {
             surface_normal: ae::Vec2::new(0.0, -1.0),
             gravity_scale: 0.0,
         },
         ambition_combat::components::BodyMelee::default(),
         ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-            super::actor_clusters::ActorBody::from_kit(movement_kit, true, kin.size).0,
+            ambition_body_seed::ActorBody::from_kit(movement_kit, true, kin.size).0,
         ),
         // Every integrated body carries an explicit policy from spawn — the
         // boss is axis-swept (its direct-velocity flight rides the per-tick
@@ -1268,7 +1268,7 @@ pub(crate) fn spawn_runtime_minion_into(
     //
     // ⚠ TAKEN BEFORE `body` IS MOVED into the seed below.
     let mount_role = body.mount.cloned();
-    let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
         authored_sheets,
         catalog,
         id.clone(),
@@ -1358,7 +1358,7 @@ pub(crate) fn spawn_runtime_minion_into(
             &mount.pilotable_classes,
         );
     }
-    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
         &name,
@@ -1462,7 +1462,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
                 ),
             }
         }
-        let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+        let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             plan.context().feature_id.to_string(),
@@ -1758,7 +1758,7 @@ pub(super) fn spawn_solo_enemy_into(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
-    enemy: super::actor_clusters::ActorClusterSeed,
+    enemy: ambition_body_seed::ActorClusterSeed,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
@@ -1778,7 +1778,7 @@ pub(super) fn spawn_solo_enemy_into(
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
     // `CenteredAabb` sync derives from the sprite-sized collision.
-    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
         &authored.name,
@@ -2007,7 +2007,7 @@ pub(super) fn spawn_encounter_mob(
     //  AC6 removed the fallback rather than the silence.
     let mut enemy = match definition {
         Some(definition) => {
-            let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+            let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
                 authored_sheets,
                 catalog,
                 // The instance identity.  NOT the character: two goblins in one
@@ -2066,7 +2066,7 @@ pub(super) fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
-    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
         character.unwrap_or(&id),

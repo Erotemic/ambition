@@ -3039,3 +3039,29 @@ source_doc = "docs/planning/engine/relativity.md"
 severity = "error"
 forbid = ["\"relativity\""]
 file = "crates/ambition_platformer2d/Cargo.toml"
+
+# ── the body seed (D33, character preparation versus actor simulation, 2026-09-03) ──
+
+[[policy]]
+id = "engine.ambition_body_seed-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_body_seed"]
+watch_paths = ["crates/ambition_body_seed/Cargo.toml"]
+rationale = "ambition_body_seed owns the actor body seed: what a construction path spawns from (ActorClusterSeed, its two constructors, the component bundle it becomes, the patrol-path cursor encoder). Measured before it moved: the seed region of the kernel's actor_clusters.rs named nothing in the kernel, so the list is exactly what that file already depended on -- bodies and clusters from platformer2d_core, the catalog and prepared blueprint from ambition_characters, tuning/melee/path-motion/capabilities from ambition_combat, the placement brain from ambition_entity_catalog, the NPC interactable from ambition_interaction, the spawn baseline and ancillary bundle from shared_tangle, the authored-sheet collision join from ambition_sprite_sheet, hurt feedback from ambition_vfx. It must NEVER gain ambition_platformer2d_actor_monolith: the kernel CONSUMES the seed (into_components; the SeedActorMut binding), never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_combat", "ambition_entity_catalog", "ambition_interaction", "ambition_platformer2d_shared_tangle", "ambition_sprite_sheet", "ambition_vfx"]
+manifest = "crates/ambition_body_seed/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_body_seed-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_body_seed"]
+watch_paths = ["crates/ambition_body_seed/src"]
+rationale = "A seed names no simulation: the per-tick view (ActorMut), the systems that spawn it and the picture it gets are all its consumers'. Naming the kernel, the renderer, the menu, the app, content or developer state from here would be the seed reaching up into what consumes it"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_body_seed/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]

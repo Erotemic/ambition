@@ -202,6 +202,9 @@ pub use ambition_world_items as world_items;
 /// [`world_items`]: `actors` IS the actor monolith, and the kernel keeps only
 /// checkpoint policy over these components.
 pub use ambition_held_items as held_items;
+/// The body seed every construction path spawns from; a game that builds an
+/// NPC by hand names it from here.
+pub use ambition_body_seed as body_seed;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]

@@ -1,6 +1,6 @@
 use super::*;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
-use crate::features::ecs::actor_clusters::ActorClusterSeed;
+use ambition_body_seed::ActorClusterSeed;
 use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
 use ambition_projectiles::ProjectileSeqCounter;
 
@@ -9,7 +9,7 @@ use ambition_projectiles::ProjectileSeqCounter;
 /// attach a [`ambition_mount::RidingOn`] component to the
 /// spawned entity so the ranged-projectile handler routes the
 /// fire through the lasersword path.
-use super::super::actor_clusters::ActorClusterBundle;
+use ambition_body_seed::ActorClusterBundle;
 
 /// Spawnable (disposition + clusters) bundle for an enemy test fixture.
 fn enemy_actor(

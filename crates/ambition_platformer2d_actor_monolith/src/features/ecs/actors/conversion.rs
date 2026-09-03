@@ -25,7 +25,7 @@ use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 /// disposition. Peaceful actors get a peaceful `BodyCombat`; hostile actors
 /// the full hostile combat state.
 pub fn actor_component_snapshot(
-    seed: &super::super::actor_clusters::ActorClusterSeed,
+    seed: &ambition_body_seed::ActorClusterSeed,
     disposition: ActorDisposition,
 ) -> (ActorIdentity, ActorDisposition, BodyCombat) {
     // THE SEED'S OWN, not a rebuild (AC6.2). This constructed a fresh
@@ -52,7 +52,7 @@ pub fn actor_component_snapshot(
 
 /// Hostile spawn read-models (the common case for authored enemies).
 pub fn enemy_component_snapshot(
-    enemy: &super::super::actor_clusters::ActorClusterSeed,
+    enemy: &ambition_body_seed::ActorClusterSeed,
 ) -> (ActorIdentity, ActorDisposition, BodyCombat) {
     actor_component_snapshot(enemy, ActorDisposition::Hostile)
 }

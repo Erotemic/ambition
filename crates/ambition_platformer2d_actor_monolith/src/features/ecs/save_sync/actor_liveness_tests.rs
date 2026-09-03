@@ -22,7 +22,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
             brain_override: None,
         },
     );
-    let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         id,
         "Guide",
         aabb,

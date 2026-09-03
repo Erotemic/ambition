@@ -230,6 +230,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_body_seed"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_entity_catalog",
+ "ambition_interaction",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_sprite_sheet",
+ "ambition_vfx",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_boss_encounter"
 version = "0.1.0"
 dependencies = [
@@ -314,6 +329,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_characters",
  "ambition_combat",
@@ -724,6 +740,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_causal",
  "ambition_character_sprites",
@@ -783,6 +800,7 @@ version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_causal",
  "ambition_characters",

@@ -149,7 +149,7 @@ pub struct PreparedSeat {
     pub definition: PreparedCharacterDefinition,
     /// The owned pre-spawn cluster, built from the character authorities
     /// during preparation and never re-derived.
-    pub seed: crate::features::ecs::actor_clusters::ActorClusterSeed,
+    pub seed: ambition_body_seed::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
     pub faction: ambition_combat::components::ActorFaction,
@@ -771,7 +771,7 @@ pub fn prepare_match(
         // says: a stage seats fighters, and a body excluded from the save and
         // skipped by targeting would be a seat nobody can fight.
         body.practice_target = false;
-        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
+        let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             body_id.clone(),

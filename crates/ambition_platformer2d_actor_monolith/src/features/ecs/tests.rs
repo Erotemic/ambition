@@ -72,7 +72,7 @@ fn combat_body_pogo_geometry_stays_entity_side() {
             brain_override: None,
         },
     );
-    let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         aabb,
@@ -373,7 +373,7 @@ fn interact_buffered_starts_npc_dialogue() {
             brain_override: None,
         },
     );
-    let (seed, _render) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "guide",
         "Guide",
         npc_aabb,

@@ -163,7 +163,7 @@ where
         "actor.match_seat",
     );
     registrar
-        .rollback_component_cursor::<crate::features::ActorMotionPath>(OWNER, "actor.motion_path");
+        .rollback_component_cursor::<ambition_body_seed::ActorMotionPath>(OWNER, "actor.motion_path");
     registrar.rollback_component_canonical::<crate::features::ecs::perception::Perception>(
         OWNER,
         "actor.perception",

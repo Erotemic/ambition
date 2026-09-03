@@ -420,7 +420,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 
     let pos = ae::Vec2::new(64.0, 32.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
         "possessed",
         "possessed",
         ae::Aabb::new(pos, size * 0.5),
@@ -510,7 +510,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
 
     let pos = ae::Vec2::new(0.0, 0.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(
         "scripted",
         "scripted",
         ae::Aabb::new(pos, size * 0.5),

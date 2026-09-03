@@ -383,6 +383,7 @@ ambition_world_items = { path = "../ambition_world_items" }
 # residency and the schedule they own. The kernel keeps checkpoint policy over
 # its components and attaches its own systems to its steps.
 ambition_held_items = { path = "../ambition_held_items" }
+ambition_body_seed = { path = "../ambition_body_seed" }
 # ADR 0019; Stage 19.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +
@@ -517,6 +518,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # `#[cfg(test)]` does not cross a crate boundary. Enabling the feature from
 # `[dependencies]` would put an early fold on the production surface.
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 # The boss FIXTURES (`test_boss_catalog`, `clusters::test_support`) the
 # boss-adjacent tests here build against — damage routing, mount dissolution,
 # construction, spawn. Same reason as the line above: `#[cfg(test)]` does not

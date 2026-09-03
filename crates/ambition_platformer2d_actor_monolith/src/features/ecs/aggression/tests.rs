@@ -20,7 +20,7 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
         },
     );
     // Peaceful actor = the unified enemy cluster with peaceful tuning.
-    let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "alice",
         "Alice",
         aabb,
@@ -34,7 +34,7 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
 /// below so both bodies reach the world through the same components.
 fn spawn_actor_from_seed(
     app: &mut App,
-    seed: super::super::actor_clusters::ActorClusterSeed,
+    seed: ambition_body_seed::ActorClusterSeed,
     id: &str,
     aabb: ae::Aabb,
     interactable: ambition_interaction::Interactable,
@@ -314,7 +314,7 @@ fn spawn_character_npc(
             brain_override: None,
         },
     );
-    let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         Some(cast),

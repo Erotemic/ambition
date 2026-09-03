@@ -784,9 +784,10 @@ weighing the two options.** The choice looked open — a new
 `ActorConstructionParams` variant (kernel keeps the recipe) versus
 `ambition_encounter` implementing its own `ConstructionDomain` like
 `ambition_portal2d`. It is not: `spawn_encounter_mob` builds its body with
-`super::actor_clusters::ActorClusterSeed::new_character_in`
-(`features/ecs/spawn_actors.rs:2011`), and `ActorClusterSeed`
-(`features/ecs/actor_clusters.rs:285`) is the actor kernel's body builder. For
+`ActorClusterSeed::new_character_in` (`features/ecs/spawn_actors.rs:2010`),
+which was the actor kernel's body builder when this was written (the seed is
+`ambition_body_seed::ActorClusterSeed` since the same night — a VALUE the
+kernel spawns from; `spawn_encounter_mob` itself is still the kernel's). For
 `ambition_encounter` to own the construct fn it would have to depend on
 `ambition_platformer2d_actor_monolith` — **the exact edge this carve removes**,
 and the one the sibling crates' policy rows forbid regaining.
@@ -868,7 +869,7 @@ references that remain are in four files, and they are not one kind of thing:
 | File | Kernel names | What it is |
 |---|---|---|
 | `mod.rs` | `character_sprites::{SpriteMaterialization, character_sprite_tier, materialize_declared_character_sprite, demand_character_fx_sheets}`, `assets::platformer_assets` | the ASSET seam — load demand and materialization; leaves with the sprite domain, not with this frontier |
-| `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
+| `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` <!-- cite-ok: the pre-cut path, measured that night --> (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
 | `live_match_clock.rs` | `features::stocks_match::StocksMatchSettled` | a message read |
 | `presentation.rs` | `avatar::PersonaBaseline` | a component inserted at staging |
 

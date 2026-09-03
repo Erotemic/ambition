@@ -19,7 +19,7 @@ use bevy::prelude::*;
 /// boss-rider dismount tests below check for.
 const AUTHORED_BOSS_LANE_X: f32 = 4242.0;
 
-use super::actor_clusters::ActorClusterBundle;
+use ambition_body_seed::ActorClusterBundle;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 
@@ -33,7 +33,7 @@ fn hostile(
     ActorClusterBundle,
 ) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy = super::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         id,
         id,
         aabb,

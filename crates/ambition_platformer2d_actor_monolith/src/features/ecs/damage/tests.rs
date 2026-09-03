@@ -35,7 +35,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut enemy = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "kernel_guide".to_string(),
         "Kernel Guide".to_string(),
         aabb,
@@ -484,7 +484,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
             brain_override: None,
         },
     );
-    let (seed, _spawn) = crate::features::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+    let (seed, _spawn) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "alice",
         "Alice",
         aabb,
@@ -1155,7 +1155,7 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
 /// 5 HP, with its guard raised iff `shield_raised`.
 fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut enemy = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
         "guard".to_string(),
         "Guard".to_string(),
         aabb,

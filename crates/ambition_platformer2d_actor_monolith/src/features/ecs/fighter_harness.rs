@@ -17,7 +17,7 @@ use ambition_characters::brain::{
 };
 use ambition_characters::control::ActorControl;
 
-use super::actor_clusters::ActorClusterSeed;
+use ambition_body_seed::ActorClusterSeed;
 use super::brain_effects::spawn_projectiles_from_brain_actions;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use ambition_projectiles::ProjectileSeqCounter;

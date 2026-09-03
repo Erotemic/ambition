@@ -68,6 +68,39 @@ Its demonstrated value is:
 > watched crates ENTER"*. ⇒ A carve makes a domain nameable; only cutting the
 > facade's edge to it makes the footprint smaller. Both are needed and the
 > ratchet counts only the first.
+>
+> ⭐ **AND THE EDGE TO CUT IS WRITTEN DOWN IN ONE FILE.** Measured 2026-09-03:
+> **21 of the 22** `never_asked_for` crates are named DIRECTLY in
+> `crates/ambition_platformer2d/Cargo.toml`; only `ambition_registry_core`
+> arrives transitively. This is not a subtle transitive-closure problem — it is
+> the facade's own dependency list.
+>
+> ⛔ **AND THE MEASUREMENT IS ALREADY THE MINIMAL ONE, so the number cannot be
+> argued down.** The sentinel `fixtures/minimal_game` depends on the facade with
+> `default-features = false` and names only the features it uses, and the
+> contract asks cargo's resolver (`cargo tree --edges normal`) rather than
+> walking source. All 22 are linked by a game that asked for as little as the
+> facade permits.
+>
+> | in the facade | count | crates |
+> |---|---|---|
+> | `optional = true` already | 11 | cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, sfx_bank, ui_nav, vfx |
+> | **unconditional** | 10 | audio, body_seed, boss_encounter, conversation, damage, encounter_features, held_items, match, mount, world_items |
+>
+> ⇒ **The 10 unconditional ones are the irreducible core, and the mechanism to
+> move them already exists in the same file** — that manifest carries **23**
+> `optional = true` deps and a `[features]` block whose comments state exactly
+> this policy (*"movement-only games leave it disabled"*, *"a game that never
+> opens one must not link one"*). ⚠ Not free: making a dep optional means
+> `cfg`-gating its re-export and any facade code that names it. But it is
+> mechanical, precedented 23 times over, and it is the step that moves the
+> number.
+>
+> ⇒ **This also explains the +4/+4 exactly.** `held_items`, `body_seed`, `match`,
+> `encounter_features` and `world_items` are all recent carve outputs, and every
+> one was added to the facade as an UNCONDITIONAL dependency. The carve creates
+> the crate; the facade then names it the only way that guarantees a minimal
+> game links it.
 > ⛔ **DO NOT RETYPE IT — re-derive:**
 > `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
 > the live pair from `scripts/baselines/capability-footprint-baseline.json`.

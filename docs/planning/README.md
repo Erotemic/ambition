@@ -241,6 +241,19 @@ get wrong:
 | unreproducible — the page never gave its method | ⛔ do NOT "correct" it. Say what IS derivable, name the command, and ask the owner for the method. A reader who reproduces a different number cannot tell drift from a method mismatch |
 | supporting evidence, not the claim | leave it, and mark it as context so the claim beside it stays trusted |
 
+⭐ **AND NAMING THE EXEMPLARS MAKES THE METHOD RECOVERABLE — the cheapest thing
+a page can do for its future checker.** `engine/svg-component-character-migration.md`
+says *"2 of 138 character target files are SVG-sourced by name
+(`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`, plus the `_svg_poc` and
+`_svg_fighter_effects` helpers); 22 of the 138 mention `svg` at all."* Checked
+2026-09-03: **every figure reproduces exactly** — 138 `.py` files, 22 mentioning
+svg, 4 svg-named of which 2 are targets and 2 are underscore-prefixed helpers.
+⚠ My FIRST count said 146 and I nearly filed a drift, because I counted
+directory entries including `__pycache__` instead of `*.py`. The page's own named
+files are what let me find my error instead of reporting it as theirs. ⇒ Before
+reporting a mismatch, reconstruct the page's method from the exemplars it names;
+the mismatch is at least as likely to be yours.
+
 The middle row is the one that produces confident wrong numbers: silently
 replacing a figure you cannot reproduce asserts a drift you have not
 demonstrated. `engine/engine-1.0-architecture-program.md`'s

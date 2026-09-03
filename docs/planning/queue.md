@@ -1408,6 +1408,22 @@ OPTIONAL dep + feature, never used:
   ⚠ The same blindness covers `//!` module headers in code — a doc comment
   naming where a sibling lives is prose too.
 
+  ⭐ **AND ONE HALF OF THIS IS NOW MECHANISABLE**, added to
+  [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md)
+  2026-09-03: `scripts/orphaned_symbols.py` catches the sub-case where the carve
+  rerouted around a function and left it standing for the tests. Every doc
+  naming it still RESOLVES — the symbol exists — while every sentence about it
+  is false, which is precisely the blindness this row describes, in the one
+  shape a checker can find. Its motivating case is on main: `6c9fb2b58`
+  rerouted onto `retire_realizations`, left `demote_stale_realizations` behind,
+  and three planning sites went on calling the dead one live.
+  ⛔ **IT DOES NOT REPLACE THE GREP.** It finds names that lost their callers;
+  it cannot see a sentence that describes a location correctly-shaped and
+  wrong — *"which stayed in the kernel"* names no symbol at all. Run both.
+  ⓘ Measured across the abilities carve for calibration: delta of ONE, a
+  `test_support.rs` helper, benign. A carve whose delta is several DOMAIN
+  functions has left its callers somewhere, and the names say where.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or

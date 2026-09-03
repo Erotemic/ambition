@@ -861,9 +861,20 @@ input: possibly a driver on any host rather than time on the one 3090.
 > *"…is not a profile; using the saved setting instead. Expected one of: potato,
 > low, medium, high, ultra"*. It simply never fired: **neither** run printed it,
 > the valid one included, and neither printed the success message either. So
-> `VisualQualityPlugin::build`'s logger does not run in this tool's composition.
-> ⇒ The gap is the composition, not a missing message, which is a smaller and
-> more fixable thing than "capture_scene should warn".
+> `VisualQualityPlugin::build`'s logger has nowhere to write.
+>
+> ⇒ **AND THE MECHANISM IS EXACT.** `build_visible_app` drops `LogPlugin` for
+> `NoWindow`/`OffscreenGpu` — its comment says why: *"tests build several Apps
+> per process; the tracing subscriber is process-global."* `capture_scene` adds
+> it back, but **after** the plugin group
+> (`capture_scene.rs`, `app.add_plugins(bevy::log::LogPlugin::default())`
+> following `build_visible_app_with`). So every line a plugin emits during
+> `build()` is written with no subscriber installed and is lost, while anything
+> logged later from a SYSTEM survives — which is exactly the pattern observed
+> here: no override message, but the adapter-seeding line printed normally.
+> ⚠ This is not specific to quality. **Any** build-time log in any plugin is
+> silent in this tool, which is worth more than the one message that led me to
+> it.
 >
 > ⛔ **AND THE LEVER IS INERT HERE, NOT MERELY UNREPORTED.** Both runs loaded a
 > byte-identical asset set — 2 images from `sprite_packs/full/` and 14 from

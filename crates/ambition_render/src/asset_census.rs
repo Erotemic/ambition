@@ -496,6 +496,38 @@ mod tests {
         assert_eq!(census.total_images(), 0);
         assert_eq!(census.total_megapixels(), 0.0);
     }
+
+    /// ⛔⛔ THE PLUGIN MUST INSTALL THE PER-APP SET, and until this test existed
+    /// nothing said so. `AppGpuPreparedImages` had three good tests and all of
+    /// them built it with `::default()` — so all three passed with
+    /// `app.insert_resource(prepared_here)` deleted, while
+    /// `stamp_gpu_prepared_images`, which takes it as `Option<Res<_>>`, compiled
+    /// and ran and silently skipped the authoritative write. Neither a compile
+    /// error nor a behavioural failure.
+    ///
+    /// ⇒ A test that CONSTRUCTS its subject cannot witness the subject's
+    /// absence. This one goes through the composition instead, which is the
+    /// claim that was unguarded.
+    ///
+    /// ⚠ WHAT THIS DOES NOT COVER, stated so nobody reads it as more: that the
+    /// render sub-app got THIS set rather than a fresh one. That needs a sub-app
+    /// and there is none headless — the very early return the insert was hoisted
+    /// above. `a_clone_is_the_same_set_because_one_app_shares_it_across_worlds`
+    /// pins the `Arc` semantics at type level; what stays uncovered is only the
+    /// hand-off itself.
+    #[test]
+    fn the_plugin_installs_the_per_app_prepared_set_even_without_a_render_world() {
+        let mut app = App::new();
+        app.add_plugins(ImageStagePlugin);
+        assert!(
+            app.world()
+                .get_resource::<image_stages::AppGpuPreparedImages>()
+                .is_some(),
+            "ImageStagePlugin must install AppGpuPreparedImages on the App's main world; \
+             without it `stamp_gpu_prepared_images` sees `None` and silently skips the \
+             authoritative write, falling back to the process-global answer",
+        );
+    }
 }
 
 /// Stage 3 of the image ledger: the GPU copy exists.
@@ -717,6 +749,22 @@ impl Plugin for ImageStagePlugin {
         // skipping exactly the GPU upload the barrier exists to move under the
         // cover. Every branch type-checks, so the wasm CHECK could not see it.
         // The clock stays native; the stamp does not.
+
+        // ⭐ ABOVE THE EARLY RETURN ON PURPOSE, and the reason is testability
+        // rather than behaviour. `stamp_gpu_prepared_images` takes this as an
+        // `Option<Res<_>>`, so an App that never got it COMPILES, RUNS, and
+        // silently skips the authoritative write — falling back to the
+        // process-global answer this type exists to replace. Below the return,
+        // a headless App has no such resource, so nothing could assert the
+        // plugin installs it and the line was unguardable by construction.
+        //
+        // ⚠ Inert on an App with no render world: the set is empty and
+        // `is_awaiting_gpu(id, RenderWorldPresent(false))` is false regardless
+        // of its contents — pinned by `a_headless_app_is_never_awaiting`. So
+        // nothing starts awaiting that was not awaiting before.
+        let prepared_here = image_stages::AppGpuPreparedImages::default();
+        app.insert_resource(prepared_here.clone());
+
         if app.get_sub_app(RenderApp).is_none() {
             return;
         }
@@ -725,19 +773,6 @@ impl Plugin for ImageStagePlugin {
         // on the process ledger: a sibling App in the same process has its own
         // answer. Inserted BEFORE the sub-app is borrowed.
         app.insert_resource(image_stages::RenderWorldPresent(true));
-
-        // ⭐ ONE SET, BOTH WORLDS, THIS App. The main world reads it as the
-        // reveal-readiness term and the render sub-app writes it; they share the
-        // `Arc` because they are the same App. A second rendering App builds its
-        // own, so preparation in one cannot settle the other even when their
-        // local asset ids collide.
-        //
-        // ⛔ ON EVERY TARGET, like the stamp that writes it. `stamp_gpu_prepared_images`
-        // takes this as an `Option<Res<_>>`, so leaving it uninserted on the web
-        // would compile, run, and silently skip the authoritative write — the
-        // reveal would be back to reading a process-global answer.
-        let prepared_here = image_stages::AppGpuPreparedImages::default();
-        app.insert_resource(prepared_here.clone());
 
         // One clock for both halves: whichever side initialises the census
         // first fixes the zero, and the other reads it.

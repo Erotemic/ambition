@@ -1220,6 +1220,10 @@ fn derive_moveset(
     // thing keeping the authoritative character model from following the model
     // down. The derivation lives in `crate::moveset_prefabs` now;
     // `ambition_combat` re-exports it, so its own call sites are unchanged.
+    //
+    // The ranged preset IS the ranged verb here, whatever the definition's
+    // `ranged_execution` says: a body that fires through the host's charge path
+    // is worn through `ambition_combat::worn_kit`, which selects by execution.
     let derived = crate::moveset_prefabs::build_actor_moveset(
         None,
         action_set.melee.as_ref(),
@@ -1227,15 +1231,27 @@ fn derive_moveset(
         action_set.special.as_ref(),
     )
     .unwrap_or_default();
+    overlay_authored_moves(derived, authored)
+}
+
+/// AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it.
+///
+/// Authored wins on collision, in both halves: naming a move id or a verb the
+/// kit also produces is a deliberate statement about that one thing. A character
+/// that authors an `"attack"` move means that swing rather than the derived one;
+/// a character that authors none keeps whatever the kit folded.
+///
+/// This is the ONE statement of the rule. Preparation (above) and the worn-kit
+/// compiler in `ambition_combat::worn_kit` each carried their own copy, and the
+/// second was written after the first had "learned" the overlay — so the rule
+/// was once true in one of them and silently total replacement in the other.
+pub fn overlay_authored_moves(
+    derived: MovesetContract,
+    authored: Option<MovesetContract>,
+) -> MovesetContract {
     let Some(authored) = authored else {
         return derived;
     };
-    //  AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it — the same
-    // rule `derive_persona_moveset` learned two hours earlier, in the sibling
-    // this pass forgot.
-    //
-    //  authored wins on collision, in both halves: naming a move id or a verb
-    // the kit also produces is a deliberate statement about that one thing.
     let authored_ids: std::collections::BTreeSet<&str> =
         authored.moves.iter().map(|mv| mv.id.as_str()).collect();
     let mut merged = MovesetContract {

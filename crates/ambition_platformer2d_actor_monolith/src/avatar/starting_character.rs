@@ -25,7 +25,8 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
-use ambition_combat::moveset::{build_actor_moveset, ActorMoveset};
+use ambition_combat::moveset::ActorMoveset;
+use ambition_combat::worn_kit::WornKit;
 use ambition_platformer2d_core::movement::MotionModel;
 
 /// The catalog `character_id` the local player spawns as.
@@ -231,111 +232,6 @@ fn sync_worn_motion_model_preserving_state(
     );
 }
 
-/// The host code kit's moves: built from its action set, wearing the robot
-/// blade's sound family, unless the character brought its own timelines.
-///
-/// The blade's SFX belongs to the code-built kit rather than to a character named
-/// "player" — whoever wears that kit is swinging that blade — and an AUTHORED
-/// moveset brings its own cues, which is why the override lands after the stamp
-/// rather than before it.
-///
-/// `special` IS folded in here and nowhere else. On this kit the special is a
-/// capability marker (`bubble_shield`) with no authored move behind it; an
-/// authored persona drives its special through its own path, so folding a
-/// generic shell move there would make one press fire two things.
-/// Derive a persona's moves from its action set, given HOW it fires.
-///
-/// The `authored` contract, when present, replaces the derivation outright: a
-/// character that authored its own moveset said something more specific than
-/// anything derivable from presets.
-///
-/// `pub` for FIXTURES, and the reason is worth a line. A body's swing is built HERE, at spawn,
-/// from its action set — so a harness that mutates `ActionSet.melee` afterwards changes nothing the
-/// runtime reads, which is a silent no-op a test cannot see.
-pub fn derive_persona_moveset(
-    set: &ActionSet,
-    execution: RangedExecution,
-    authored: Option<ambition_entity_catalog::MovesetContract>,
-) -> ambition_entity_catalog::MovesetContract {
-    let (ranged, special) = match execution {
-        // The charge mechanic already owns the ranged press; `special` is the
-        // shell marker this kit's moves are built from.
-        RangedExecution::ChargedProjectile => (None, set.special.as_ref()),
-        // Symmetrically: the ranged preset IS the ranged verb — and the special
-        // preset IS the special verb.
-        //
-        // this arm passed `None` for special, on the reasoning that an authored persona puts
-        // its special into its authored MOVES. `authored` still overrides the whole derivation
-        // below, so a persona that DID author its moves is unaffected.
-        RangedExecution::MovesetVerb => (set.ranged.as_ref(), set.special.as_ref()),
-    };
-    let mut derived =
-        build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
-    if execution.charges_projectiles() {
-        ambition_combat::moveset::apply_player_robot_slash_sfx(&mut derived);
-    }
-    let Some(authored) = authored else {
-        return derived;
-    };
-    // AUTHORED MOVES OVERLAY THE BODY'S, they do not REPLACE them.
-    //
-    // this was `authored.unwrap_or(derived)`, and the replacement was silent and total.
-    //
-    // authored wins on collision, in both halves. A character that authors an
-    // `"attack"` move means that swing rather than the derived one; a character
-    // that authors none keeps whatever the body's kit folded.
-    let authored_ids: std::collections::BTreeSet<&str> =
-        authored.moves.iter().map(|mv| mv.id.as_str()).collect();
-    let mut merged = ambition_entity_catalog::MovesetContract {
-        moves: authored.moves.clone(),
-        verbs: derived.verbs,
-    };
-    merged.moves.extend(
-        derived
-            .moves
-            .into_iter()
-            .filter(|mv| !authored_ids.contains(mv.id.as_str())),
-    );
-    merged.verbs.extend(authored.verbs);
-    merged
-}
-
-/// Resolve a playable ActionSet without collapsing an invalid authored row into
-/// the privileged host-code fallback. The returned [`RangedExecution`] says how
-/// the body fires.
-fn resolve_playable_action_set(
-    // this was `Option<PlayableKitSource>` (AC6.3), a one-variant enum
-    // whose `Option` was the whole signal: the arms below are "the catalog has a
-    // row" and "it does not", and neither ever read the variant.
-    catalog_knows_it: bool,
-    authored: Option<ActionSet>,
-    base_abilities: ambition_platformer2d_core::AbilitySet,
-) -> (ActionSet, RangedExecution) {
-    if catalog_knows_it {
-        // A known row with a missing preset is malformed content. The startup
-        // validator reports it; runtime remains fail-safe and peaceful rather
-        // than silently granting the host protagonist kit.
-        (
-            authored.unwrap_or_else(ActionSet::peaceful),
-            RangedExecution::MovesetVerb,
-        )
-    } else {
-        (
-            // UNKNOWN IDS, and only unknown ids, use one explicit
-            // compatibility fallback. Intentionally distinct from a
-            // known-but-invalid `Authored` row, which stays peaceful.
-            //
-            // A row saying "engine code owns my kit" is a thing no character says any more: the
-            // protagonist authors its repertoire, Smash's duelists authored one and then asked
-            // for a different one anyway, and the pocket runner never fights. What survives is
-            // this — a defined answer for an id nobody wrote down, which is a different
-            // question.
-            crate::avatar::bundles::default_player_action_set(base_abilities),
-            RangedExecution::ChargedProjectile,
-        )
-    }
-}
-
 /// The gameplay overlay a body derives from wearing `character_id`.
 ///
 /// This is the single resolver used by both spawn and runtime re-wear. Every
@@ -352,188 +248,47 @@ fn resolve_playable_action_set(
 /// system synchronizes the charge marker and its mutable state from that.
 pub fn apply_worn_character_overlay(
     catalog: &CharacterCatalog,
-    // C3: the prepared registry, consulted for the moveset. Threaded THROUGH this
-    // one construction rather than written over its result downstream — the action
-    // set, the identity baseline and the moveset have to be built together, or
-    // equipment reconciliation re-derives from a baseline that disagrees with the
-    // moveset actually on the body.
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
-    // OPTIONAL because not every body has a durable baseline to keep in step: a
-    // seated fighter carries `CombatKit` (seating seeds it), the plain player
-    // bundle does not. `None` is "this body has no second baseline", which is a
-    // different claim from "leave it stale" — and the type says which.
     combat_kit: Option<&mut ambition_combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
-    // See `MatchParticipant::action_set`.
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
-    // NAME. A known row supplies a display name; an unknown id becomes its own
-    // label — deterministic and never stale, and a legible diagnostic that a body
-    // is wearing an id the catalog does not know.
-    // The REGISTRY first, then the catalog, then the id.
-    //
-    // Registration is the newer authority and a registered-only character has no
-    // catalog row at all — so asking the catalog first named those bodies after
-    // their raw id. That did not matter while this ran only for the worn player,
-    // whose id is always a catalog one; it started mattering the moment seated
-    // fighters began coming through here, and every versus fighter is
-    // registered-only.
-    let display = registry
-        .and_then(|registry| registry.get(character_id))
-        .map(|prepared| prepared.display_name.as_str())
-        .or_else(|| catalog.display_name(character_id));
-    match display {
-        Some(display) => *name = Name::new(display.to_string()),
-        None => *name = Name::new(character_id.to_string()),
-    }
-
-    apply_worn_character_kit(
-        catalog,
-        registry,
-        action_set,
-        moveset,
-        identity,
-        combat_kit,
-        character_id,
-        base_abilities,
-        match_kit,
-    )
+    let kit = WornKit::resolve(catalog, registry, character_id, base_abilities, match_kit);
+    *name = Name::new(kit.display_name.clone());
+    wear_kit(kit, action_set, moveset, identity, combat_kit)
 }
 
-/// The kit this body's MATCH gave it, if it is in one.
+/// Write a resolved [`WornKit`] onto a body's components.
 ///
-/// A body with no `MatchSeat` is not in a match and keeps its authored persona,
-/// which is every other body in every game. keyed by SEAT rather than by
-/// character id, because a mirror match is legal: two seats may wear one
-/// character and a per-character lookup would give them the same kit by
-/// accident rather than by decision.
+/// The kernel decides nothing here: what the kit IS was resolved below it, and
+/// this is the one place that publishes it, so the identity baseline, the
+/// moveset and the durable `CombatKit` are written together and agree.
+fn wear_kit(
+    kit: WornKit,
+    action_set: &mut ActionSet,
+    moveset: &mut ActorMoveset,
+    identity: &mut ambition_characters::brain::action_set::IdentityKit,
+    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
+) -> RangedExecution {
+    if let Some(combat_kit) = combat_kit {
+        *combat_kit = kit.combat_kit;
+    }
+    *identity = kit.identity;
+    *moveset = ActorMoveset(kit.moveset);
+    *action_set = kit.action_set;
+    kit.execution
+}
+
 fn match_kit_for_seat<'a>(
     roster: Option<&'a crate::character_runtime::MatchParticipantRoster>,
     seat: Option<&crate::character_runtime::MatchSeat>,
 ) -> Option<&'a ActionSet> {
     roster?.participants.get(seat?.0)?.action_set.as_ref()
-}
-
-/// Refresh only the action/moveset portion of a playable persona.
-///
-/// Identity changes call this through [`apply_worn_character_overlay`]. A live
-/// `BodyAbilities` edit calls it directly only for `HostCode` and unknown
-/// compatibility identities, whose kits actually depend on those abilities.
-/// Authored personas deliberately ignore that edge so an inspector edit cannot
-/// reset their name, authored kit, or persistent movement state.
-fn apply_worn_character_kit(
-    catalog: &CharacterCatalog,
-    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    action_set: &mut ActionSet,
-    moveset: &mut ActorMoveset,
-    identity: &mut ambition_characters::brain::action_set::IdentityKit,
-    // The DURABLE half of the same baseline, when this body has one. See the
-    // publication point below.
-    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
-    character_id: &str,
-    base_abilities: ambition_platformer2d_core::AbilitySet,
-    // What the MATCH says this fighter fights with, if a match said anything.
-    // See `MatchParticipant::action_set`.
-    match_kit: Option<&ActionSet>,
-) -> RangedExecution {
-    let prepared = registry.and_then(|registry| registry.get(character_id));
-
-    // The catalog arm below is not a fallback for a prepared character. It serves
-    // ids that are in the catalog and were never registered — most of the legacy
-    // cast — which have no prepared value to disagree with.
-    // A MATCH OUTRANKS THE PERSONA, and only a match. Checked first rather
-    // than folded, because the roster is not another opinion about who the
-    // character IS — it is a rule of the stage they are standing on, exactly like
-    // `fighter_abilities`. A crossover grid borrows Alice, whose row says
-    // `peaceful` and is RIGHT about her: she was authored to stand in a room and
-    // talk. The stage is the only thing that may say otherwise, and it may not
-    // say it by editing her row.
-    //
-    // still ONE writer, and it falls through to the SAME publication below.
-    // Seating deliberately does not author moves — its own comment says *"that is
-    // `WornCharacter`'s job… seating must not author a second opinion about
-    // them"* — so the override is consulted here, where the persona is derived,
-    // and the identity baseline, the moveset and the durable combat kit are still
-    // built together by the one path that knows they have to agree.
-    let (set, derived, execution) = if let Some(kit) = match_kit {
-        // a MATCH kit is a borrowed repertoire, and how the borrower fires
-        // is still the character's own fact — a robot seated with a stage's
-        // generic set still charges if the robot charges.
-        let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-            prepared.ranged_execution
-        });
-        // A granted action set controls which attacks are available, not what
-        // authored moves are. Preserve a character's own moveset when present;
-        // only derive fallback moves for bodies that authored none.
-        let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
-        let derived = derive_persona_moveset(kit, execution, authored);
-        (kit.clone(), derived, execution)
-    } else {
-        match prepared.map(|prepared| &prepared.kit) {
-            Some(ambition_characters::prepared::PreparedKit::Authored {
-                action_set,
-                moveset,
-            }) => (
-                // THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED
-                // . `default_player_action_set` did this gating
-                // inside the same expression that BUILT the kit, for one
-                // character, in Rust. `gated_by` is that filter's general
-                // form, so a character can author what it HAS and progression
-                // decides what it may currently use.
-                action_set.gated_by(base_abilities),
-                moveset.clone(),
-                // This read `MovesetVerb` unconditionally, on the reasoning that the charge
-                // belonged to the code-side compat kit — which made a property of the
-                // protagonist's ranged ATTACK a property of which arm of
-                // `PlayableKitSource` built it.
-                prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-                    prepared.ranged_execution
-                }),
-            ),
-            Some(ambition_characters::prepared::PreparedKit::Unauthored { authored_moveset }) => {
-                let set = crate::avatar::bundles::default_player_action_set(base_abilities);
-                let execution = RangedExecution::ChargedProjectile;
-                let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
-                (set, derived, execution)
-            }
-            None => {
-                let catalog_knows_it = catalog.knows(character_id);
-                let authored = catalog.build_default_action_set(character_id);
-                if catalog_knows_it && authored.is_none() {
-                    bevy::log::error!(
-                        "worn character '{character_id}' has a catalog row whose \
-                     default_action_set does not resolve; installing a safe peaceful kit"
-                    );
-                } else if !catalog_knows_it {
-                    bevy::log::warn_once!(
-                        "worn character id '{character_id}' is not in the catalog; wearing the \
-                     code-side compatibility kit and showing the id as the display name"
-                    );
-                }
-                // ONE call for both kits now.
-                let (set, execution) =
-                    resolve_playable_action_set(catalog_knows_it, authored, base_abilities);
-                let derived = derive_persona_moveset(&set, execution, None);
-                (set, derived, execution)
-            }
-        }
-    };
-    // Publish `CombatKit` with the live `ActionSet`: it is the durable innate
-    // baseline used to reconstruct capabilities. Equipment and granted verbs stay
-    // overlays rather than being baked into that baseline.
-    if let Some(combat_kit) = combat_kit {
-        *combat_kit = ambition_combat::components::CombatKit::from_action_set(&set);
-    }
-    *identity =
-        ambition_characters::brain::action_set::IdentityKit::of(set.clone(), derived.clone());
-    *moveset = ActorMoveset(derived);
-    *action_set = set;
-    execution
 }
 
 pub fn sync_charge_projectile_capability(
@@ -818,16 +573,18 @@ pub fn apply_worn_character_gameplay(
                     Some(existing) => existing,
                     None => minted.as_mut().expect("minted when the body carried none"),
                 };
-                let execution = apply_worn_character_kit(
-                    &catalog,
-                    registry.as_deref(),
+                let execution = wear_kit(
+                    WornKit::resolve(
+                        &catalog,
+                        registry.as_deref(),
+                        id,
+                        abilities.abilities,
+                        match_kit_for_seat(roster.as_deref(), seat),
+                    ),
                     &mut action_set,
                     moveset_slot,
                     &mut identity,
                     combat_kit.as_deref_mut(),
-                    id,
-                    abilities.abilities,
-                    match_kit_for_seat(roster.as_deref(), seat),
                 );
                 if let Some(built) = minted.take() {
                     commands.entity(entity).try_insert(built);
@@ -993,7 +750,7 @@ pub fn gate_worn_player_control(
 ///   `special_pressed` edge here — in `PlayerInput`, before the `WorldPrep` kernel
 ///   bridge — raises the guard the SAME tick the button goes down.
 /// - The move's duration. Once the move is playing, its `id` equals the body's
-///   `ActionSet.special` key (that is how [`build_actor_moveset`] folds the marker
+///   `ActionSet.special` key (that is how `build_actor_moveset` folds the marker
 ///   in), so a `bubble_shield` persona keeps the guard up BY IDENTITY for as long
 ///   as the move plays — no per-body wiring.
 ///

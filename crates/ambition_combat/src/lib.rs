@@ -61,6 +61,7 @@ pub mod targeting;
 pub mod util;
 pub mod variation;
 pub mod vitality;
+pub mod worn_kit;
 
 pub use components::*;
 pub use death_rules::{

@@ -276,6 +276,15 @@ files are what let me find my error instead of reporting it as theirs. ⇒ Befor
 reporting a mismatch, reconstruct the page's method from the exemplars it names;
 the mismatch is at least as likely to be yours.
 
+⛔ **THAT HAPPENED TWICE IN ONE SESSION, BOTH TIMES BECAUSE A GREP COUNTED THE
+WRONG THING.** The SVG page's 138 became 146 when `__pycache__` entries joined
+the count. `demos/sanic.md`'s *"35 authored `currency:1` rings"* became 72 under
+`grep -o "currency:1"` — because an LDtk file carries that string twice per
+entity, once in the definition and once in the instance. Parsing the world and
+counting `PickupSpawn` instances gives **exactly 35**. ⇒ **In a structured file,
+count ENTITIES, not occurrences of a value string**; a substring tally over JSON
+or LDtk is not a census, and the page that parsed it properly is usually right.
+
 The middle row is the one that produces confident wrong numbers: silently
 replacing a figure you cannot reproduce asserts a drift you have not
 demonstrated. `engine/engine-1.0-architecture-program.md`'s

@@ -14,6 +14,14 @@ be wrong about a measurement is to be wrong about the instrument.** Most of what
 follows is an instrument error — a filter that could not match, a scan at the
 wrong granularity, a signature read instead of a body, a count that was a
 property of its flags — and not a mistake about the code.
+⭐ **TWO SECTIONS ARE THE SPINE; the rest are instances.** If you read only
+enough to be careful today, read *"The error is not a bad tool, it is a claim
+wider than the tool's scope"* and *"A green tool is not a green claim"*. The
+first is four tools too narrow for one question; the second is three tools each
+green beside a false claim. Between them they cover most of what follows, and
+both end in the same one-line defence: **state in a clause what your instrument
+actually resolves, then check whether your sentence is bigger than that clause.**
+
 ⚠ **This page deliberately carries no total.** It had one, it went stale the same
 day it was written as rules were added, and *"a count is not a finding unless the
 instrument travels with it"* is one of the rules below. A page that numbers its

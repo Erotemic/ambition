@@ -39,6 +39,9 @@ CRATES = [
     # the failure this list's comment predicts — the monolith's count falls and
     # reads as a repair.
     "ambition_body_seed",
+    # D33 cut 2b (2026-09-03): the match preparation crate. Added in the carve's
+    # own window this time, which is what the comment above asks for.
+    "ambition_match",
 ]
 
 # rustdoc's two shapes for this class.

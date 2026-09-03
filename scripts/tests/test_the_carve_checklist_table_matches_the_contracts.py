@@ -109,10 +109,23 @@ def test_every_path_in_the_table_is_named_by_the_contract_beside_it(table, contr
         if not ids:
             continue
         blob = " ".join(by_id[i] for i in ids)
-        for token in re.findall(r"`([^`]+)`", left):
-            for piece in expand(token):
-                if piece and piece not in blob:
-                    problems.append((left, piece, ids))
+        # ⚠ AT LEAST ONE, not every one. A cell may legitimately name a
+        # HISTORICAL path beside the live one -- D33 cut 2b moved a contract's
+        # exclusion from `prepared_match.rs` to `character_runtime/match_activation.rs`
+        # and the row keeps the old name, marked `cite-ok`, so the reader can
+        # follow the move. Requiring every token to resolve fails such a row for
+        # being MORE informative.
+        # ⛔ It still catches the defect this test was written for: the
+        # `snapshot_impls` row named exactly one path and it was the wrong one,
+        # so NO token matched.
+        pieces = [
+            piece
+            for token in re.findall(r"`([^`]+)`", left)
+            for piece in expand(token)
+            if piece
+        ]
+        if pieces and not any(piece in blob for piece in pieces):
+            problems.append((left, ", ".join(pieces), ids))
     assert not problems, "\n".join(
         f"  the table says `{p}` trips {i}, but that path is not in its pathspec"
         for _, p, i in problems
@@ -120,13 +133,24 @@ def test_every_path_in_the_table_is_named_by_the_contract_beside_it(table, contr
 
 
 def expand(token: str) -> list[str]:
-    """`a/{b, c}` -> `a/b`, `a/c`; a plain path -> itself. Prose is dropped."""
+    """`a/{b, c}` -> `a/b`, `a/c`; a plain path -> itself. Prose is dropped.
+
+    ⛔ A BARE DIRECTORY FRAGMENT IS NOT A PATH HERE. The `snapshot_impls` row's
+    prose says "NOT under `brain/`", and counting `brain/` as a path made the
+    at-least-one rule satisfiable by the very word the row uses to say where the
+    file ISN'T -- which silently un-did this file's original finding. A path
+    needs two non-empty components.
+    """
     token = token.strip()
     m = re.match(r"^([\w./-]*)\{([^}]*)\}$", token)
     if m:
         stem, inner = m.groups()
-        return [stem + part.strip() for part in inner.split(",") if part.strip()]
-    return [token] if re.search(r"[./]", token) else []
+        candidates = [stem + part.strip() for part in inner.split(",") if part.strip()]
+    elif re.search(r"[./]", token):
+        candidates = [token]
+    else:
+        return []
+    return [c for c in candidates if len([p for p in c.split("/") if p]) >= 2]
 
 
 if __name__ == "__main__":

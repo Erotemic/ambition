@@ -207,9 +207,19 @@ carve.
 external half of the cost contract guarded the same day
 (`engine.facade-all-capabilities-omits-relativity`).
 
-⚠ The fixture cannot be resolved offline on a fresh host — it has no committed
-`Cargo.lock` and needs `bevy_gltf`, which the main workspace never fetches. That
-is a property of the fixture, not a defect found by it.
+⭐⭐ **AND THE STRICTER SENTINEL GETS THE SAME TEN.** `fixtures/minimal_game`
+asks the facade for exactly ONE capability — `ambition_render`, nothing else —
+and links **45** `ambition_*` crates and the SAME ten capability crates as
+outlander, which asked for two. ⇒ **The closure is not a function of what a
+consumer requests.** Asking for less changes the count by one crate, because
+what arrives is decided by the facade's non-optional core, not by the feature
+list. That is the sharpest available statement of this pressure point, and it is
+why more feature flags cannot answer it.
+
+⚠ Fixture-quality note, not a finding: `minimal_game` has a committed
+`Cargo.lock` and resolves `--offline`; `external_consumer` has neither and needs
+`bevy_gltf`, which the main workspace never fetches, so it cannot be measured on
+a fresh host without network.
 
 ## Target shape
 

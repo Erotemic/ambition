@@ -214,6 +214,55 @@ def test_a_live_crate_is_not_reported_when_a_mod_line_for_it_goes_away(tree):
     assert module.vanished_report([doc], crate_base, set()) == 0
 
 
+def test_a_range_attributes_only_what_left_inside_it(tree, capsys):
+    """⭐ THE PROPERTY THE RANGE FORM EXISTS FOR. `--vanished <ref>` compares
+    that ref to the WORKING TREE, so once HEAD moves past the carve it sweeps up
+    every LATER removal and attributes them all to the carve. The first real
+    post-carve run hit exactly this: the integrator had merged past cut 1 and
+    had to hand over `c761a9d80..83460e3f3`.
+
+    Three commits, so the two cases are separable: `alpha` leaves INSIDE the
+    range and `beta` leaves AFTER it. Both existed at the base, which is what
+    makes the bare-ref arm below a real premise rather than a coincidence.
+    """
+    module, repo, _ = tree
+    (repo / "pair.rs").write_text("fn alpha() {}\nfn beta() {}\n")
+    git(repo, "add", "pair.rs")
+    git(repo, "commit", "-qm", "both names exist")
+    a = git(repo, "rev-parse", "HEAD").strip()
+    (repo / "pair.rs").write_text("fn beta() {}\n")
+    git(repo, "add", "pair.rs")
+    git(repo, "commit", "-qm", "alpha leaves -- inside the range")
+    b = git(repo, "rev-parse", "HEAD").strip()
+    (repo / "pair.rs").write_text("// both gone\n")
+    git(repo, "add", "pair.rs")
+    git(repo, "commit", "-qm", "beta leaves -- after the range")
+
+    doc = repo / "row.md"
+    doc.write_text("rows citing `alpha` and `beta`.\n")
+
+    assert module.vanished_report([doc], f"{a}..{b}", set()) == 1
+    out = capsys.readouterr().out
+    assert "`alpha`" in out
+    assert "beta" not in out.split("⇒")[0], (
+        "`beta` left AFTER the range ended; attributing it to this range is the "
+        "defect the range form fixes"
+    )
+
+    assert module.vanished_report([doc], a, set()) == 2, (
+        "premise: against the WORKING TREE both names are gone, so a bare ref "
+        "cannot tell which of them this range was responsible for"
+    )
+
+
+def test_an_open_ended_range_means_head(tree):
+    """`A..` is the same question as a bare `A`, spelled as a range."""
+    module, repo, base = tree
+    doc = repo / "row.md"
+    doc.write_text("citing `carved_away`\n")
+    assert module.vanished_report([doc], f"{base}..", set()) == 1
+
+
 def test_a_doc_outside_the_repo_is_reported_by_absolute_path(tree):
     """A fixture or a poison lives outside the tree; raising on it would make
     the mode untestable from anywhere but the repo."""

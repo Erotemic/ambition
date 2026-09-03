@@ -986,11 +986,14 @@ OPTIONAL dep + feature, never used:
      one now; the name's own history supplies the precision, so nothing has to
      guess what is "code-shaped". This is the removed/renamed half of item 4,
      without item 4's `head -1` or its `length >= 8` heuristic.
-     ⛔ IT COMPARES REF→**HEAD**, NOT REF→THE CARVE, so run it while HEAD *is*
-     the carve. Run a day later, `--vanished <that carve>^` sweeps up every
-     removal since and attributes none of them — the three carves of 2026-09-02
-     returned 10, 1 and 0 hits when run on 09-03, and the 10 were mostly the
-     tier-cap revert, nothing to do with the carve named.
+     ⭐ **PASS THE RANGE, `--vanished <parent>..<carve>`** — that is the form
+     that attributes correctly. A bare ref compares to the WORKING TREE, so once
+     HEAD moves past the carve it sweeps up every later removal and blames the
+     carve for all of them: the three carves of 2026-09-02 returned 10, 1 and 0
+     hits when run as bare refs on 09-03, and the 10 were mostly the tier-cap
+     revert, nothing to do with the carve named. Cut 1 ran as
+     `c761a9d80..83460e3f3` and correctly returned 0 — its symbols MOVED rather
+     than vanished, which is item 4's job, not this one's.
      ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
      rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is

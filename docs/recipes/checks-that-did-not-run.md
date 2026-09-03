@@ -162,10 +162,16 @@ lose precision — it manufactures the more interesting answer.
 
 Everything above is a check that did not execute. The other half of the family
 executed perfectly and asked the wrong question, and it is the larger half:
-forty-six instances, each with the commit that fixed it, are tabulated in
+forty-seven instances, each with the commit that fixed it, are tabulated in
 [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
-⇒ **Do not add that count to the ten above** — different question, different
-population. #10 is the boundary case and belongs to both lists.
+⇒ **Do not add that count to the fourteen above** — different question,
+different population. #10 is the boundary case and belongs to both lists, and so
+is #14: the vanished check both never ran anywhere AND, once wired, would have
+run and reported success. ⚠ This sentence said *"the ten above"* until
+2026-09-03 while the list had grown to fourteen — a heading-style tally going
+stale under an appended list, which is
+[shape 2 in the sibling recipe](re-measuring-a-planning-claim.md). Prefer not to
+restate a count that another agent appends to.
 
 ⭐ **THE RECURRING SHAPE.** An emitter tells you what a line CONTAINS; it never
 tells you what to compare it against. A parser written from the emitter

@@ -8,6 +8,12 @@ the FULL page at every stage — decode, upload, residency — while the tier sy
 believes it saved 4x or 16x, and nothing looks wrong on screen because the art
 is correct, merely larger than asked for.
 
+⭐ AND IT IS NOT THE FRESHNESS CHECK. `check_quality_variants_are_fresh.py`
+asks whether a tier file is OLDER than the art it derives from; this asks
+whether it is the same SIZE as the full sheet. Stale art at the right size and
+current art at the wrong size are different failures with different fixes, and
+a megapixel census cannot tell them apart.
+
 ⛔⛔ THIS IS THE OPPOSITE OF A QUALITY REGRESSION AND MUST NOT BE CONFUSED WITH
 ONE. Jon's standing rule is that nothing may draw FEWER pixels than the setting
 asks for. This measures sheets that draw MORE — full-resolution art delivered

@@ -8,6 +8,13 @@ nothing looks wrong on screen, because the art is correct, merely larger than
 asked for. That is why it survived: the failure is invisible in the only place
 anyone looks.
 
+⭐ TWO INSTRUMENTS, TWO DIFFERENT FAILURES, AND NEITHER SEES THE OTHER'S.
+`check_quality_variants_are_fresh.py` asks whether a tier file is OLDER than the
+art it derives from — stale art at the right size. This one asks whether it is
+the same SIZE as the full sheet — current art at the wrong size. A megapixel
+census cannot tell those apart, and running only one leaves half the tree
+unchecked. Run both.
+
 ⛔⛔ THIS IS THE OPPOSITE OF A QUALITY REGRESSION. Jon's standing rule is that
 nothing may draw FEWER pixels than the setting asks for. These sheets draw MORE.
 Correcting them removes no pixels from any tier that requested them.
@@ -172,7 +179,14 @@ if __name__ == "__main__":
 # 2026-09-02: `performer` (9.03 MP) publishes neither 0_5x nor 0_25x, and is
 # byte-identical to `actor`, which publishes both and shrinks neither. The same
 # artwork therefore fails to get cheaper by TWO different mechanisms.
-KNOWN_MISSING_VARIANTS = {"performer_spritesheet.ron"}
+# ⛔ EMPTIED 2026-09-02 FOR THE SAME REASON AS `KNOWN_UNSCALED` ABOVE.
+# `performer`'s full sheet was rendered 2026-08-29, a week after this box last
+# ran the variant script — so its variants are absent here for the same reason
+# 82 other tier files are STALE here (`check_quality_variants_are_fresh.py`
+# reports both, and exits 1 on this checkout). That is one machine's
+# un-regenerated tree, not a property of the sheet, and encoding it as "known"
+# would teach a future reader that `performer` is expected to ship without tiers.
+KNOWN_MISSING_VARIANTS: set[str] = set()
 
 
 def missing_variants() -> dict[str, list[str]]:

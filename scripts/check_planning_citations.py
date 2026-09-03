@@ -26,6 +26,27 @@ row was never true".
                 to tell these from a real path by regex, so they are marked, not
                 matched. Expect them: they were a fifth of one sweep's findings.
 
+⛔⛔ WHAT IT DOES NOT LOOK AT, MEASURED 2026-09-02 — AND "all resolved" MUST NOT
+BE READ AS "every citation in the row is real". `SYMBOL` requires at least one
+`::`, so only QUALIFIED names and `file.rs:123` citations are extracted. A BARE
+backticked identifier — `build_prop_sprite_asset_packed`, the commonest citation
+form in these docs — is never counted. Verified by poisoning: renaming one to
+`build_prop_sprite_asset_packed_totally_invented` left the run at the same 526
+citations and still printed "all resolved".
+
+⚠ AND EXTENDING IT TO BARE NAMES IS NOT AN IMPROVEMENT, which is why this is a
+documented bound rather than a TODO. `docs/planning/` holds 1490 distinct bare
+backticked snake_case tokens; 948 resolve to a defined name and 542 do not, of
+which 408 are code-shaped. The non-resolvers are dominated by things that are
+CORRECT and are not Rust items: room and content keys (`hall_of_characters`,
+`carl_stargan`), directories (`sprites_0_25x`), test binaries (`app_it`),
+upstream API (`add_systems`, `configure_sets`), and CSV columns
+(`resident_mb`). That is ~408 findings, mostly legitimate — a worklist nobody
+would finish, which is worse than the gap.
+
+⇒ So a bare-name citation is checked by a READER, not by this script. When a row
+turns on one, verify it by hand and say so.
+
 ⚠ THIS IS A LINTER FOR PROSE AND IT WILL HAVE FALSE POSITIVES. It cannot know
 about upstream crates, external tools, or names that only appear in generated
 code. It is a WORKLIST, not a gate, and it exits 0 unless `--strict` is passed.

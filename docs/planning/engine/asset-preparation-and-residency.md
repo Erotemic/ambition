@@ -1569,6 +1569,38 @@ the ratchet must NOT encode this box's stale per-tier render as the expected
 state — `KNOWN_UNSCALED` is emptied, and a box with stale renders now fails,
 which is the truthful outcome because those files really are wrong there.
 
+⭐⭐ **AND THE WIDER CONTEXT, WHICH THE ROW WAS MISSING: THIS BOX'S VARIANT TREE
+HAS NOT BEEN REGENERATED SINCE 2026-08-22.** `check_quality_variants_are_fresh.py`
+already exists for exactly this and reports, on this checkout today, **82
+published tier files older than the full-resolution art they derive from** and
+**5 source manifests with no variant at a tier the game ships** (exit 1). Its own
+message names the consequence: *"the game loads these under the Low / Medium /
+Potato visual quality profiles, so it is drawing OLD art at those settings and
+current art at High — which looks like the character changing when the quality
+setting does."*
+
+```text
+9.8 days behind   boss, goblin, dividing_mite, exploding_mite, ninja_shadow_duelist   (full re-rendered 09-01)
+8.4 / 6.3 / 5.6 / 5.5 / 4.7 days   oiler, carl_stargan, trex_enemy, perfect_cellular_automaton, generic_world_fx
+0.4 days          officer                                (its full sheet was re-rendered 08-27 19:53)
+missing entirely  performer (0_5x, 0_25x, potato) · actor, medic (potato)
+```
+
+⇒ **So the four unshrunk sheets are not a special defect; they are four files in
+a tree that is broadly out of date here**, and the per-tier CLI render explains
+only why those four are the wrong SIZE rather than merely the wrong VINTAGE.
+⛔ Two different failures that a megapixel census cannot tell apart: stale art
+at the right size, and current art at the wrong size. `performer` having no
+variants is the same cause as the 82 — its full sheet was rendered 08-29, a week
+after the last variant run.
+
+ⓘ The checker reports rather than fails **by design** — `scripts/setup/generated_content.sh`
+says so in as many words, and records that the checker *"already existed and
+nothing called it"*, which was the original defect. ⇒ Nothing here is a new gap;
+the fix is one command (`./scripts/regen/quality_variants.sh`, incremental) on
+whichever box cares, and it is not run here because regenerating assets on a
+shared tree is not this agent's call.
+
 ⇒ **The renderer fix is still worth making** — `del opts` discards a scale a
 caller deliberately passed — and is drafted UNVALIDATED at
 `dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch`. It is

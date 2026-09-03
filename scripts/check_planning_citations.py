@@ -785,7 +785,9 @@ def main() -> int:
     commit_findings, dark_submodules = unresolved_commits(REPO, docs)
     checked += len(commit_findings)
     findings.extend(
-        (rel, lineno, cite, "no commit with this name, here or in any submodule")
+        (rel, lineno, cite, "no commit with this name here or in any INITIALISED submodule — "
+         "⚠ a submodule's objects can simply be stale, so run "
+         "`git submodule foreach git fetch` before believing this one")
         for rel, lineno, cite in commit_findings
     )
     if dark_submodules:

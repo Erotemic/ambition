@@ -1424,7 +1424,13 @@ OPTIONAL dep + feature, never used:
   `dbec94824` (the guard — phase MEMBERSHIP by set-member COUNT, because Bevy
   0.19 strips system names without `bevy_ecs`'s `debug` feature and a name lookup
   is green or red depending on who else is in the build).
-  ⇒ **What remains is mechanical, and it is a CPU job rather than a design one.**
+  ⇒ **And it WAS mechanical once the fork was settled: cut 2026-09-03 as
+  `ambition_held_items` — the receipt is above.** ⚠ This paragraph predicted
+  "what remains is a CPU job rather than a design one" and that prediction is
+  spent; it is kept only because the sequence is the transferable part — the
+  cut was blocked by ONE design question, the question was answerable in
+  minutes once someone stated the three branches and their costs, and the 3,454
+  lines that followed needed no judgement at all.
 
   ⛔⛔ **AND THE "SIZED … BY REFERENCE" LINE ABOVE POINTS AT NOTHING, MEASURED
   2026-09-02 LATE.** Those counts (`ambition_encounter` 66, `ambition_mount` 57,

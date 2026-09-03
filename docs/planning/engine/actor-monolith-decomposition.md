@@ -810,6 +810,18 @@ itself the one nobody outside can name.** Move it to
 two prose references become real edges. This is worth doing whether or not the
 encounter carve proceeds.
 
+✔ **(c) IS CUT, 2026-09-03.** The set lives in `shared_tangle::schedule`; all
+five consumers name it from there (`ambition_content` directly, the demos through
+the facade's `platformer::schedule::` path they already use for every other
+schedule label) and **zero references reach it through the monolith**. The two
+prose citations now name the real path.
+✔ Guarded and poison-verified with a MEMBERSHIP assertion, not an existence
+check: all five external edges are satisfied by ONE
+`.in_set(FeatureWorldOverlaySet)` on `rebuild_feature_ecs_world_overlay`, and
+deleting that single call leaves every consumer compiling, still carrying its
+`.after(..)`, waiting on an empty set. The guard goes red on that deletion; an
+existence check would not.
+
 **(d) ⛔ One of the named seams is NOT a dependency, and must not be treated as
 one.** `crate::world::gated_lock_walls::sync_authored_gated_lock_walls` is
 scheduled by the encounter plugin but is not an encounter system: it is the

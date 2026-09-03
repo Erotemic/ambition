@@ -228,6 +228,19 @@ comparable to the 0.958 ms/tick hall figure above; what it certifies is that
 every mark fires and lands in its own bucket, which is the property the move put
 at risk.
 
+✔ **AND IT HELD — re-verified 2026-09-03 after a day of other agents' carves.**
+`cargo check -p ambition_platformer2d_actor_monolith --lib` (production only) is
+clean, so no production `ambition_dev_tools` reference has crept back through
+`ambition_body_seed`, `ambition_held_items`, `ambition_match`,
+`ambition_abilities`, `ambition_encounter_features` or `ambition_registry_core`.
+⚠ A naive grep says 15 references remain in `src/`; every one is inside a
+`#[cfg(test)]` block, which is what the dev-dependency permits. ⇒ **Ask the
+compiler, not the grep** — a `--lib` check is the only reading that distinguishes
+the two, and it is the reading the boundary is defined in terms of.
+⭐ Same for the re-export sweep: `crate::features::X` is **103 uses, 0
+RE-EXPORT (0%)** — the count fell from 119 as carves took code away, and the
+share stayed at zero.
+
 ⛔ **THE GUARD IS THE MANIFEST, not a test, so it cannot rot.** A production
 `use ambition_dev_tools::…` anywhere in the kernel's `src/` no longer compiles.
 Poison-verified by adding one: `error[E0433]: cannot find module or crate

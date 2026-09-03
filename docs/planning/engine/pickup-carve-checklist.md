@@ -185,3 +185,49 @@ on leave, so it becomes a kernel system reading a foreign crate's components.
 That is legitimate — it is checkpoint policy, not item policy — but it must be
 said in its doc comment, or the next reader will "fix" it by dragging it after
 the domain.
+
+## 7. Two things the ABILITIES carve added, 2026-09-03
+
+Written after the third carve executed against this checklist. Neither is
+pickup-specific; both cost time because the list did not have them.
+
+### ⛔ An exemption keyed by a PATH must move with its file
+
+`engine.velocity-writes-are-authority-only` went red on `grapple.rs:101`
+(`kin.vel = pull * GRAPPLE_PULL_SPEED`) the moment the file crossed a crate
+line. Its `skip_paths` entry named the old path, and the rationale it carries —
+*"a grapple pull is a commanded speed toward the anchor, not a nudge"* — is
+exactly as true after the move. ⇒ **A carve that leaves those behind silently
+re-arms a rule against code that was deliberately excused**, and the failure
+arrives as a policy violation on a line nobody edited, which reads like a new
+defect. Grep the policy TOMLs for the moving paths before cutting:
+
+```sh
+grep -rn "<crate>/src/<module>" tests/ambition_workspace_policy/policies/*.toml
+```
+
+Four entries needed repointing in the abilities carve: a `skip_paths` line, a
+`watch_paths`, a `roots`, and a single-`file` rule.
+
+### ⚠ ...and a blanket `sed` over the directory is WRONG when the directory is two things
+
+The obvious repair is to substitute the old directory for the new one. That is
+right only if EVERYTHING under it moved. `abilities/` was two families —
+`possession`, `teleport`, `trapdoor`, `flyline` and `thrown::puppy_slug_gun`
+stayed — so the substitution pointed four rules, including a single-file rule on
+`possession.rs`, at paths that do not exist. Caught by reading the rewritten
+lines rather than trusting the substitution.
+
+⇒ **The same trap catches PROSE, not just config.**
+`authoring-loop-program-2026-07-31.md` cited grapple "alongside blink, dive,
+flyline, possession, mark/recall". Repointing the path alone would have left a
+sentence that resolves and lies: two of those five did not move. A citation
+carries its neighbours with it — re-read the sentence, not only the path.
+
+### The lockfiles are plural
+
+`fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and
+`--locked` makes it fail loudly rather than rewrite it — that is the check
+working. But `examples/capability_demo/Cargo.lock` resolves the facade too and
+has its own gate (`test_sub_workspace_lockfiles_are_current`). Check all of
+them; in this carve two of five moved and three did not.

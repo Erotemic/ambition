@@ -98,6 +98,27 @@ true, and the header is just its receipt. A header added without the re-reading
 would be worse than none, because it would buy the next reader's trust without
 earning it.
 
+### ⛔ An inventory that reads TYPES will mis-report BEHAVIOUR
+
+Three errors in one inventory on 2026-09-02/03, all the same shape: the question
+was about what a function does, and the measurement looked at a declaration.
+
+| asked | measured | wrong because |
+|---|---|---|
+| do function addresses participate in equality? | whether entry types `derive(PartialEq)` | `PlacementLoweringRegistry` compares `fn_addr_eq` BY HAND inside `try_register`, where no derive scan reaches |
+| which registries overwrite silently? | the return type of `register` | five of the seven `-> ()` registries state the replace in a doc comment, one is a test hatch |
+| does this loader honour the quality tier? | the parameter list | `load_prop_sheet_for_target` omits the budget ON PURPOSE and says so in the body |
+
+⭐ **The pattern: a signature tells you the SHAPE of a decision and the body tells
+you the DECISION.** A count derived from signatures is a lower bound on
+correctness and an upper bound on defects — it will find every place that could
+be wrong and cannot tell which ones are.
+
+⇒ **So an inventory row is not finished until somebody has read the function.**
+That is expensive, which is a reason to scope an inventory to the registries or
+loaders that matter, not a reason to substitute a grep over declarations and
+report the count as a finding.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

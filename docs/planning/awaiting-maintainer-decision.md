@@ -54,6 +54,40 @@ silently re-points every page that cited the original.
 
 ## Open decisions
 
+### 50. May a fighter leave the frame by 16 units for one body-frame, or must the camera always contain the cast?
+
+`the_stage_kills::every_live_fighter_stays_inside_the_frame`
+(`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1094`) is RED under the
+gate's feature union, and it is the only survivor of the smash target — thirty-odd
+failures went to one. Its message:
+
+> *"a live fighter was drawn OUTSIDE the frame on 1 body-frames, worst 16 units
+> past the edge — the knockout that decides the match happens off-screen:
+> t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred (0,0)"*
+
+⇒ **The engineering half is not in question.** The test measures what it says it
+measures, one body-frame is genuinely outside, and 16 units on a 800-wide frame
+is 4% of the half-width. What is unanswered is whether that is a defect at all.
+
+Two readings, and they lead to different work:
+
+- **A containment CONTRACT** — the camera must always contain every live
+  fighter, so one frame outside is a bug in the camera's follow/zoom and the
+  test is correctly red.
+- **A tuning MARGIN** — a platform fighter's camera is allowed to lag a fast
+  body briefly, the assertion's tolerance is the thing that is wrong, and the
+  test should carry a stated allowance instead of zero.
+
+⚠ **Why it is yours rather than mine**: which one is right depends on how a
+knockout should READ, and the test's own text says the stake — *"the knockout
+that decides the match happens off-screen"*. That is a feel judgement about the
+moment the match is decided on, not an engine fact. ⛔ And the cheap fixes are
+both wrong-shaped without the ruling: widening the tolerance answers it by
+accident, and chasing the camera answers it by assuming.
+
+⚠ Related but separate: entry 49 is also a `the_stage_kills` question. They are
+independent — that one is about CPU divergence, this one about framing.
+
 ### 49. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
 
 A test has been deferring this to you since before its queue row was pruned, and

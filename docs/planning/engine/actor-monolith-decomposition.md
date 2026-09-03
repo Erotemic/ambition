@@ -1193,30 +1193,36 @@ rule had been written twice (preparation and the kernel); it is
 by construction. The absence contract pinning `build_default_action_set` to one file
 now exempts the compiler's new home instead of `starting_character.rs`.
 
+**Landed 2026-09-03, cuts 1–2b (`83460e3f3`, `7ba40886e`, `62bdc8ba3`, `7e625e5a5`):**
+the body seed is `ambition_body_seed` (the kernel binds it to the tick through a
+`SeedActorMut` trait and keeps `ActorMut`); the physical baseline joined it; the
+character load demand is `ambition_characters::load_demand` (the drainer passes a
+per-token cost, not a tier); and the versus match — roster, rules, `prepare_match`,
+the plan and the receipt — is `ambition_match`, with the kernel keeping
+`character_runtime::match_activation` (spawn, control binding, opening hold, view)
+and the live match clock. `prepare_match` takes `home_body_spawns_a_body: bool`; the
+wrapper system still reads the kernel's `InitialBodyPolicy` and answers it. Two
+crates, so the footprint ratchet rose 46 → 48 (crates, not bytes; the monolith shed
+~3,400 lines) and the compile-cost ratchet's critical path grew — each carve puts a
+crate between combat and the kernel, which is the honest price of a serial chain and
+is recorded, not banked. ⚠ Owed: the 3,387-line match test module stayed in the
+kernel (it is mostly activation tests and runs against the moved code through the
+kernel's dependency); its pure preparation half belongs in `ambition_match`.
+
+**What is left in `character_runtime/` after 2b** (measured): `mod.rs` (demand
+materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
+`presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and the tests.
+
 **Next cut, in order:**
 
-1. **The body seed leaves the kernel** — `ActorClusterSeed`, `ActorMotionPath`,
-   `ActorBody`, both constructors, `into_components`, `sprite_render_size_for_name_in`
-   and the hurt-feedback tag rule, into a crate below the kernel that depends on
-   exactly what the file already depends on. The kernel keeps `ActorMut`,
-   `ActorClusterQueryData` and the two simulation-binding methods (as a kernel trait
-   over the foreign seed). After this, `prepare_match` names the kernel only through
-   `InitialBodyPolicy`, which is a value.
-2. **`InitialBodyPolicy`** is an avatar policy the match REFUSES by name; it moves to
-   shared vocabulary or the match takes a bool.
-   ⊙ **THE BOOL WAS TAKEN, and half of this is landed (D33 cut 2a, `7ba40886e`).**
+1. ✔ **The body seed leaves the kernel** (`83460e3f3`, above).
+2. ✔ **`InitialBodyPolicy` → a value; `ambition_match` cut** (`7ba40886e`, `7e625e5a5`).
    `prepare_match` takes `home_body_spawns_a_body: bool`
-   (`ambition_match/src/prepared.rs:579` since cut 2b) and no longer names the policy.
-   ⚠ THE NAME DID NOT LEAVE THE FILE, it moved UP one level: the wrapper
-   `prepare_the_match` still imports it (`:1209`) and converts it at `:1253`
-   (`home_body.is_some_and(|policy| policy.spawns_a_body())`). ⇒ What remains for
-   the preparation crate is the WRAPPER's dependency, not the function's — a
-   smaller job than this row implied, and a different one. Then `prepare_match` and the six
-   clean files are a preparation crate (`ambition_match` is the honest name: roster,
-   rules, seats, clock, receipt), and the kernel keeps `realize_seat` /
-   `activate_the_prepared_match` / `release_the_opening_hold` /
-   `declare_the_match_cast_as_the_view` — construction, by the same doctrine line the
-   encounter design reached independently the same night.
+   (`ambition_match/src/prepared.rs:579`); the wrapper `prepare_the_match` — now in
+   the kernel's `character_runtime/match_activation.rs` — reads the policy component
+   and answers it. That wrapper is the kernel's on purpose (it is the system that
+   activates), so the policy dependency is where it belongs and nothing further is
+   owed here. The clock stayed in the kernel: it reads `features::stocks_match`.
 3. `PersonaBaseline` and `StocksMatchSettled` are each one name; they follow their
    owners when the preparation crate exists, not before.
 

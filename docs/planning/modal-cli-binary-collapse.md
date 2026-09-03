@@ -1,0 +1,199 @@
+# Modal CLI: collapsing the probe binaries
+
+> **Verified against `cd1a14ae9` (2026-09-03).** Every size, symbol count and
+> feature constraint below was measured on this checkout, not estimated. The one
+> number that is a PREDICTION is labelled as one.
+
+Jon's ruling 2026-09-03: build a modal CLI with `clap` and combine related
+binaries. Standalone executables stay standalone for the game and the demos —
+`ambition_game_bin`, `sanic_demo`, `smash_demo`, `mary_o_demo`,
+`twintrack_demo`. This page is the plan for everything else.
+
+## Why: the measurement that motivates it
+
+Nine binaries in `game/ambition_demo_smash_app/src/bin/` are 99.88% the same
+program.
+
+```text
+binary            debug size    defined symbols
+ladder_probe            634M    502,262
+roll_probe              633M    501,899
+ladder_rig              634M    502,053
+capture_probe           635M    502,165
+stage_diagram           474M    267,675
+-------------------------------------------------
+union of the five               503,084
+sum if kept separate          2,276,054
+```
+
+⭐ **The union is 822 symbols larger than the LARGEST single binary — 0.16%.**
+`ladder_probe` and `roll_probe` share 501,778 of their ~502,000 defined symbols;
+each contributes a few hundred of its own (484 and 121). Section sizes agree:
+`.debug_str` 182 MB, `.debug_info` 76 MB and `.debug_line` 41 MB are the same
+size in every one of them, `stage_diagram` included, whose `.text` is half the
+others'. This is one program with nine `main`s.
+
+⇒ All nine are **~5.6 GB** on disk today. ⚠ **PREDICTED ~0.7 GB collapsed —
+this figure is a symbol-union proxy and has not been built.** Confirming it is
+Phase 0.
+
+⛔ **The write volume is not the whole win and probably not the main one.** Nine
+links become one. On a full `--all-targets` build of this crate the linker runs
+nine times over ~500 K symbols each; that cost is paid per build, not per byte
+saved.
+
+## Scope: collapse WITHIN a crate, never across
+
+**In scope — one modal binary, `smash_tool`,** replacing the nine bins in
+`ambition_demo_smash_app`: `capture_probe`, `ladder_probe`, `ladder_rig`,
+`match_diagram`, `match_report`, `match_shots`, `roll_probe`,
+`select_walkthrough`, `stage_diagram`.
+
+⛔ **OUT OF SCOPE, and this is a decision rather than an omission: do NOT
+collapse the `capture_*` family across crates.** They look like the obvious
+group — `capture_scene` (952 M, `ambition_app_tools`), `capture_twintrack`
+(726 M), `capture_mary_o` (722 M), `capture_sanic` (710 M), `capture_probe`
+(634 M) — but each lives in the demo crate it photographs. One binary covering
+them would have to depend on all four demo crates at once, which
+* inflates that binary's dependency closure to the union of every demo, and
+* couples demos that today do not know about each other.
+
+⇒ The repository already has a ratchet against exactly this shape
+(`scripts/check_absence_contracts.py`, `capability-footprint-may-not-grow`), and
+its whole purpose is to notice a consumer linking crates it never asked for.
+A cross-crate capture tool would be that, deliberately. ⚠ The saving is also
+smaller than it looks: those five share the engine, but each additionally links
+its own demo, so the union is genuinely larger than any one of them — unlike the
+nine, whose union is 0.16% over the largest.
+
+**Out of scope — the standalone set stays standalone,** per Jon: the game
+binary and the four `*_demo` shells. They are what a player or a demo runner
+launches; a subcommand is the wrong shape for a product entry point.
+
+## The constraint a naive plan misses: the bins do not share a feature set
+
+Only two of the nine are declared in `Cargo.toml`; the other seven are
+auto-discovered from `src/bin/`. Their requirements differ:
+
+| bin | requirement |
+|---|---|
+| `match_shots` | `required-features = ["visible", "capture"]` |
+| `ladder_probe`, `match_report` | `#[cfg(feature = "causal")]` in the source |
+| the other six | no feature gate |
+
+⛔ **A single bin requiring the UNION would be unbuildable in the default cell,**
+and worse than that: `ambition_demo_smash_app`'s own `[features]` comment
+records that `--features visible` **is not a supported test cell** — the
+composition has no renderer, and 25 of 39 tests die in Bevy parameter
+validation. A modal binary that requires `visible` inherits that.
+
+⇒ **The single `[[bin]]` declares NO `required-features`; each subcommand is
+gated at its own definition.** `smash_tool` builds in the default cell with the
+six ungated subcommands; `--features causal` adds two; `--features
+visible,capture` adds `match-shots`.
+
+⚠ **AND THAT IS A BEHAVIOUR CHANGE THAT MUST BE MADE LOUD.** Today, `cargo
+build` without `visible,capture` silently omits `match_shots` — cargo skips a
+bin whose `required-features` are absent and says nothing. Tomorrow the
+subcommand is simply absent from `smash_tool --help`. ⇒ Compile the gated
+subcommands' NAMES unconditionally and have the disabled arm exit non-zero with
+the feature to rebuild with. A missing subcommand must say why it is missing,
+not read as a typo.
+
+## Phases
+
+### Phase 0 — confirm the prediction before writing any code
+
+⛔ Nothing below is worth doing if the collapsed size is not what the symbol
+union predicts, and that number has never been built.
+
+1. **The one-line lever FIRST.** `[profile.dev]` already spends
+   `debug = "line-tables-only"`, but sets no `split-debuginfo`. Set
+   `split-debuginfo = "unpacked"`, rebuild the nine, and measure the executables
+   **plus** the `.dwo`/object output — both, because the question is whether
+   DWARF stops being COPIED per executable, not whether the binaries shrank
+   while the bytes moved. If this alone takes most of the win, stop: the answer
+   is a one-line `Cargo.toml` change and the rest of this page is unnecessary.
+2. **Confirm the union at n=2, not n=9.** One throwaway bin dispatching to two
+   existing probes' entry logic; build it and compare against those two built
+   separately. ⭐ **Write the prediction down first: ~635 MB against ~1,267 MB
+   separate.** If it lands near 1,267 the symbol-union proxy is wrong and this
+   plan is void — report that outcome as loudly as the confirming one.
+
+⚠ Needs a box with headroom: a full `--all-targets` build of this crate is nine
+link steps and the measurement needs both the before and after trees.
+
+### Phase 1 — the dispatcher, with no behaviour change
+
+3. Add `clap` to the workspace. ⓘ **It is not currently a dependency anywhere in
+   the workspace** — this is a new third-party dependency and a real decision,
+   not a formality. Pin an exact version in `[workspace.dependencies]`.
+4. `src/bin/smash_tool.rs`: a `#[derive(Parser)]` with one subcommand per
+   existing bin, each subcommand's body calling a `pub fn run(args) -> ExitCode`
+   moved out of the old `main`.
+5. Move each old `src/bin/<name>.rs` to `src/tools/<name>.rs`, changing `fn
+   main()` to `pub fn run(...)` and nothing else. ⭐ **One bin per commit**, so a
+   bisect lands on one tool.
+
+### Phase 2 — the argument surface, which is where behaviour will drift
+
+⛔ **Eight of the nine parse `argv` by hand, and one of them scans it four
+separate times.** `ladder_rig` alone calls `std::env::args()` in eight places —
+`--sweep-below`, `--scenarios`, `--weight`, `--no-rollout` and a
+`while let Some(arg)` loop that re-reads the whole vector. `match_shots` three,
+`capture_probe`/`match_diagram` two, four others one each; only
+`select_walkthrough` reads none.
+
+6. Port each flag to a clap field **keeping its exact spelling**. The flags are
+   the public surface: `--sweep-below`, `--scenarios`, `--weight`,
+   `--no-rollout` and the rest must survive verbatim.
+7. ⚠ Hand-rolled `args().any(|a| a == "--flag")` accepts the flag ANYWHERE,
+   including after a `--` separator or repeated; clap does not. Where a caller
+   depends on that laxity it will now error. That is an improvement, but it is a
+   behaviour change and belongs in the commit message, not in a surprise.
+
+### Phase 3 — the callers, and a guard so they cannot rot
+
+8. Update every invocation. Measured: **11 references across 6 files**,
+   all of the form `cargo run -p ambition_demo_smash_app --bin <name> -- <flags>`
+   → `--bin smash_tool -- <subcommand> <flags>`. `ladder_probe` is named in 6
+   files, `ladder_rig` in 3, `roll_probe` / `capture_probe` / `match_report` in 1
+   each; `match_diagram`, `match_shots`, `select_walkthrough` and `stage_diagram`
+   in none.
+9. ⭐ **Add the guard, because nothing currently catches this class.**
+   `check_planning_citations.py` resolves cited SYMBOLS and paths; `--bin
+   ladder_rig` inside a fenced command is prose to it, so every one of those 11
+   references can go stale silently — which is precisely the failure
+   [`../recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md)
+   is about. The guard is small: for every `--bin <name>` in `docs/` and
+   `scripts/`, assert `<name>` is a bin cargo actually builds
+   (`cargo metadata`). Poison it by renaming one bin.
+
+## Risks, stated before they are discovered
+
+* **Any probe edit relinks all nine.** Near-free here — they already share
+  ~100% of their code, so a shared-crate edit already relinks all nine today.
+* **`stage_diagram` is the odd one** (474 M, 267 K symbols, `.text` half the
+  others'): it links a smaller subset. Folding it in makes *its* build heavier
+  even as the total falls. It is 19 lines; fold it anyway, but expect its
+  individual cost to rise.
+* **A modal binary hides which tool is heavy.** Today `ls -l target/debug` shows
+  nine numbers and `stage_diagram` visibly differs. After the collapse there is
+  one number and no per-tool signal. If that signal matters, keep measuring
+  symbol counts per module rather than per binary.
+* **The subcommand names are a new public surface** and will end up in prose.
+  Choose them once (`ladder-probe`, `roll-probe`, …, kebab-case per clap
+  convention) and let the guard in step 9 hold them.
+
+## Acceptance
+
+* `smash_tool <sub>` reproduces each old binary's output byte-for-byte on the
+  documented invocations — check `ladder_rig --sweep-below --seeds 1` against
+  its recorded output in
+  [`engine/fighter-brain.md`](engine/fighter-brain.md) first, since that one is
+  quoted in prose and therefore checkable.
+* Measured total for the crate's binaries falls from ~5.6 GB, with the actual
+  figure recorded here beside the ~0.7 GB prediction — **whichever way it
+  falls**.
+* The nine old bin names appear nowhere in `docs/` or `scripts/` as `--bin`
+  targets, enforced by the step-9 guard.

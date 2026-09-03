@@ -706,6 +706,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   it does NOT set `split-debuginfo`, which on Linux stops DWARF being copied
   into each executable. That is one line in `Cargo.toml` against nine rewritten
   `main`s, and it may take most of the win. Measure it before doing the work.
+  ✔ **JON RULED 2026-09-03: DO IT — a modal CLI with `clap`, related binaries
+  combined, standalone executables kept for the game and the four demos.** The
+  plan is [`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md), which
+  carries the scope decision (collapse WITHIN a crate, never across — a
+  cross-crate `capture_*` tool would link every demo at once and the capability
+  footprint ratchet exists to refuse that), the feature-fragmentation constraint
+  the naive version misses, and Phase 0: confirm the prediction with a build
+  before writing any code, and try `split-debuginfo` first because it is one
+  line and may take most of the win.
   ⚠ The trade-off, so it is not discovered later: one binary means any probe
   edit relinks all of them. That is close to free here — they already share
   ~100% of their code, so any shared-crate edit already relinks all nine.

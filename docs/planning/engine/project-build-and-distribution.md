@@ -202,6 +202,27 @@ unactionable.
 >
 > Incidentally measured from its own census line: **661 systems in `Update`**.
 
+> ⭐ **AND ASK #2 HAS THE MATCHING END-TO-END EVIDENCE, run against real shipped
+> cues rather than fixtures (2026-09-03).** The per-library preflight gate
+> (`ambition_music_renderer` `8b10c5a`, pointer bumped here the same day) was
+> exercised both ways:
+>
+> - **No false positives on a healthy box.** Three shipped cues from
+>   `scores/active` — `a_possible_morning`, `aether_severance`,
+>   `argand_overdrive` — all report `unresolvable=[]`. That is the arm that
+>   matters for adoption: a gate that cries wolf gets an env var set
+>   permanently, which is how the General-MIDI fallback becomes the default
+>   again by another road.
+> - **It names the missing family when there is one.** Rewriting one real cue's
+>   `library_ref` to `freepats.a_library_no_machine_has` in memory makes the gate
+>   return exactly that reference — not a generic "something is missing", which
+>   would send a reader back to a 38 GB install they mostly already have.
+>
+> ⇒ So both standing asks now have a run on this box rather than a unit test:
+> ask #1 through `./run_headless.sh --ticks 600`, ask #2 through the gate's two
+> arms. ⚠ Same caveat as above — this box HAS the libraries, so what is proven
+> is that the gate discriminates, not that a fresh machine acquires them.
+
 
 A clean checkout should have an explicit path to produce every required generated
 artifact or obtain it from the intended cache/submodule. Cache keys must include

@@ -396,6 +396,22 @@ What belongs where:
   git -C <submodule> rev-list --count origin/main..HEAD
   ```
 * ⛔ **Push commits, never somebody else's uncommitted submodule work.**
+* ⛔⛔ **AND AN APPEND-ONLY LEDGER INSIDE A SUBMODULE IS PER-MACHINE STATE THAT
+  LOOKS LIKE SHARED STATE.** `dev/ambition_dev_measurements/run_tests_cost.jsonl`
+  gets a row from every `./run_tests.sh`, so each box accumulates its OWN
+  uncommitted set and neither can see the other's. ⇒ Bumping the pointer from
+  one box moves it for everyone, and the next box's `git submodule update` —
+  the routine step after a pointer bump — silently discards whatever it had not
+  committed. **Near-miss 2026-09-03: one box committed twelve rows while
+  another held eighteen different ones, uncommitted since the previous day,
+  including the `--rust` gate evidence the handoff cited.** Both sets survived
+  only because the second box was told before it updated.
+  ⇒ Before bumping a shared-ledger submodule, ASK the other active boxes
+  whether they hold uncommitted rows; append rather than assume. And when you
+  prune such a file, prune only the lines appended past `HEAD`'s copy and
+  assert the committed prefix is byte-identical first — a whole-file filter
+  will quietly delete older rows that match the same shape, and
+  `git diff --numstat` showing any deletions on an append-only file is the tell.
 
 
 ## Coordinating subagents and worktrees

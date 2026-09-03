@@ -101,6 +101,12 @@ resolver = "2"
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
 thiserror = "2"
+# ⭐ THE CLI ARGUMENT PARSER FOR MODAL TOOL BINARIES (Jon's ruling 2026-09-03).
+# Every new CLI uses this; the hand-rolled `std::env::args()` scanning it
+# replaces accepted a flag anywhere in the vector, documented nothing, and
+# produced no `--help`. `derive` because the argument surface belongs beside the
+# type it fills in, not in a builder chain three functions away.
+clap = { version = "4", features = ["derive"] }
 
 [workspace.package]
 edition = "2021"

@@ -11,7 +11,7 @@ before changing a row.
 rows on this page were `✔` all week while doing nothing in a match — the smash
 charge, directional influence, the tech, and the launch trail — and the thing
 that caught each of them was
-`cargo run -p ambition_demo_smash_app --bin match_report -- 30 --runs 5`, not a
+`cargo run -p ambition_demo_smash_app --bin smash_tool -- match-report 30 --runs 5`, not a
 test. ⇒ before marking a row shipped, make it appear in that report or say in the
 row why it cannot.
 

@@ -1,6 +1,6 @@
 //! Probe capture behavior in an unarranged CPU match.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin capture_probe [-- SECONDS]`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- capture-probe [-- SECONDS]`
 //!
 //! Reports capture attempts, established holds, pummels, and coarse ending
 //! classifications. It is observational and intentionally has no pass/fail threshold.
@@ -60,12 +60,22 @@ fn count_attempts(
     seen.0 += attempts.read().count() as u32;
 }
 
-fn main() {
+#[derive(clap::Args, Debug)]
+pub struct CaptureProbeArgs {
+    /// How many seconds of match to simulate (60 ticks each).
+    #[arg(default_value_t = 60.0)]
+    pub seconds: f32,
+    /// Press Grab FOR them, when a person would. The CPU's own timing is a
+    /// policy question; whether the live game can produce a hold at all is not,
+    /// and the two are only separable by taking the timing out of the AI's
+    /// hands.
+    #[arg(long)]
+    pub force: bool,
+}
+
+pub fn run(args: CaptureProbeArgs) {
     use bevy::prelude::IntoScheduleConfigs as _;
-    let seconds: f32 = std::env::args()
-        .nth(1)
-        .and_then(|arg| arg.parse().ok())
-        .unwrap_or(60.0);
+    let seconds: f32 = args.seconds;
     let ticks = (seconds * 60.0) as u32;
     // `--force`: press Grab FOR them, when a person would. The CPU's own
     // timing is a policy question; whether the live game can produce a hold at
@@ -73,9 +83,9 @@ fn main() {
     // AI's hands. Presses on the tick the two are inside grab range and the
     // presser is not already committed to a move — which is exactly the moment a
     // player picks.
-    let force = std::env::args().any(|arg| arg == "--force");
+    let force = args.force;
 
-    let mut app = ambition_demo_smash_app::build_demo_app();
+    let mut app = crate::build_demo_app();
     app.init_resource::<AttemptsSeen>();
     app.add_systems(bevy::prelude::Update, count_attempts);
     app.init_resource::<Forced>();

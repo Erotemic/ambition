@@ -1,6 +1,6 @@
 //! Watch the select screen decide.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin select_walkthrough`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- select-walkthrough`
 //!
 //! Drives the real screen with a real cursor and real button presses, and
 //! prints what it says after each one — through the SAME functions the cards
@@ -22,11 +22,11 @@ use ambition_demo_smash::select::{SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use ambition_demo_smash::select_screen::cursor::SelectCursors;
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_demo_smash::select_screen::{card_name_text, role_button_text, StartRequested};
-use ambition_demo_smash_app::build_demo_app;
+use crate::build_demo_app;
 use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
 
-fn main() {
+pub fn run() {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();

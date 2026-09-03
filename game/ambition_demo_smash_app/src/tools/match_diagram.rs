@@ -1,6 +1,6 @@
 //! Draw a RUNNING match.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin match_diagram -- [OUT.png]`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- match-diagram -- [OUT.png]`
 //!
 //! `stage_diagram` draws the room. This drives the actual demo — select, lock
 //! in, route to the stage, step the sim — and then draws whatever is standing
@@ -12,12 +12,23 @@
 //! stacked at the origin, standing off the platform, or inside each other.
 
 use ambition_platformer2d::engine_core::AabbExt;
-use ambition_demo_smash_app::build_demo_app;
+use clap::Args;
 
-fn main() {
-    let out = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "/tmp/smash_match.png".to_string());
+use crate::build_demo_app;
+
+#[derive(Args, Debug)]
+pub struct MatchDiagramArgs {
+    /// Where to write the PNG.
+    #[arg(default_value = "/tmp/smash_match.png")]
+    pub out: String,
+    /// Damage to deal before drawing, so the meter shows something. A match at
+    /// 0% looks identical whether the meter works or not.
+    #[arg(default_value_t = 140)]
+    pub damage: i32,
+}
+
+pub fn run(args: MatchDiagramArgs) {
+    let out = args.out;
 
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -44,10 +55,7 @@ fn main() {
 
     // Hurt somebody, so the picture shows the thing the stocks loop is
     // about. A match at 0% looks identical whether the meter works or not.
-    let damage: i32 = std::env::args()
-        .nth(2)
-        .and_then(|arg| arg.parse().ok())
-        .unwrap_or(140);
+    let damage: i32 = args.damage;
     if damage > 0 {
         use ambition_platformer2d::actor::MatchSeat;
         use ambition_platformer2d::characters::actor::BodyHealth;
@@ -141,14 +149,14 @@ use ambition_platformer2d::characters::control::{ScriptedControl};
         );
     }
 
-    let png = ambition_demo_smash_app::stage_diagram::render_match_diagram(&fighters);
+    let png = crate::stage_diagram::render_match_diagram(&fighters);
     std::fs::write(&out, png).expect("write the match diagram");
     println!("[match_diagram] wrote {out}");
 }
 
 fn collect_fighters(
     app: &mut bevy::prelude::App,
-) -> Vec<ambition_demo_smash_app::stage_diagram::DrawnFighter> {
+) -> Vec<crate::stage_diagram::DrawnFighter> {
     use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::CenteredAabb;
@@ -160,12 +168,12 @@ fn collect_fighters(
         &BodyHealth,
         Option<&FighterStocks>,
     )>();
-    let mut rows: Vec<(usize, ambition_demo_smash_app::stage_diagram::DrawnFighter)> = query
+    let mut rows: Vec<(usize, crate::stage_diagram::DrawnFighter)> = query
         .iter(world)
         .map(|(seat, aabb, health, stocks)| {
             (
                 seat.0,
-                ambition_demo_smash_app::stage_diagram::DrawnFighter {
+                crate::stage_diagram::DrawnFighter {
                     aabb: ambition_platformer2d::engine_core::Aabb::new(aabb.center, aabb.half_size),
                     percent: health.damage_percent(),
                     stocks: stocks.map(|s| s.remaining).unwrap_or(0),

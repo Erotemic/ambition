@@ -1,6 +1,6 @@
 //! Count what two CPUs actually DO to each other over a match.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin match_report -- [SECONDS] [CHARACTER] [--runs N]`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- match-report -- [SECONDS] [CHARACTER] [--runs N]`
 //!
 //! ⭐ **With `--features causal` it also prints WHAT THE BRAIN DECIDED, grouped by
 //! the situation it was answering.** The outcome half of this report says what a
@@ -28,7 +28,7 @@
 //! suite from two failures to four. With `--runs` the spread is printed as
 //! `min–median–max`, which is the shape a threshold should be picked off.
 
-use ambition_demo_smash_app::build_demo_app;
+use crate::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::combat::moveset::MovePlayback;
@@ -142,23 +142,23 @@ struct Tally {
     held: usize,
 }
 
-fn main() {
-    let mut args = std::env::args().skip(1);
-    let seconds: usize = args.next().and_then(|v| v.parse().ok()).unwrap_or(30);
-    let mut character = ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string();
-    let mut runs = 1usize;
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--runs" => {
-                runs = args
-                    .next()
-                    .and_then(|v| v.parse().ok())
-                    .filter(|n| *n > 0)
-                    .unwrap_or(1);
-            }
-            other => character = other.to_string(),
-        }
-    }
+#[derive(clap::Args, Debug)]
+pub struct MatchReportArgs {
+    /// Seconds of match to simulate.
+    #[arg(default_value_t = 30)]
+    pub seconds: usize,
+    /// Which fighter to report on.
+    #[arg(default_value_t = ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string())]
+    pub character: String,
+    /// How many runs to average over. Zero is treated as one, as it always was.
+    #[arg(long, default_value_t = 1)]
+    pub runs: usize,
+}
+
+pub fn run(args: MatchReportArgs) {
+    let seconds: usize = args.seconds;
+    let character = args.character;
+    let runs = if args.runs > 0 { args.runs } else { 1 };
 
     #[cfg(feature = "causal")]
     let mut decisions = DecisionTally::new();

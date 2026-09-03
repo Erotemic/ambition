@@ -1,6 +1,6 @@
 //! HOW FAR DOES A SHIELD ROLL ACTUALLY TRAVEL?
 //!
-//! `cargo run -p ambition_demo_smash_app --bin roll_probe`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- roll-probe`
 //!
 //! ⭐⭐ THIS EXISTS BECAUSE A REPORT AND THE TUNING DISAGREE. Jon, 2026-08-24:
 //! *"shield rolls have too much motion to them. They send the character flying
@@ -106,7 +106,7 @@
 //! another fighter's authored tuning, or the LEDGE getup roll, which is a
 //! different mechanism from this one.
 //!
-use ambition_demo_smash_app::build_demo_app;
+use crate::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
 use bevy::prelude::*;
@@ -119,7 +119,15 @@ const WATCH_FRAMES: usize = 60;
 /// being measured, so the guard has to actually be up first.
 const SHIELD_FRAMES: usize = 12;
 
-fn main() {
+#[derive(clap::Args, Debug)]
+pub struct RollProbeArgs {
+    /// Probe the AIRBORNE reading instead of the grounded one — `air_dodge_speed`
+    /// with air friction under it, which looks like a roll to a player.
+    #[arg(long)]
+    pub air: bool,
+}
+
+pub fn run(args: RollProbeArgs) {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -200,7 +208,7 @@ fn main() {
     // resolves as an AIR DODGE rather than a roll. That is the candidate the
     // ground readings point at — `air_dodge_speed` with air friction under it,
     // and it looks like a roll to a player.
-    let airborne = std::env::args().any(|a| a == "--air");
+    let airborne = args.air;
     if airborne {
         // ⛔ HELD, not tapped, for the same reason the roll press is: a one-tick
         // press assumes an ordering this probe has no business modelling. An

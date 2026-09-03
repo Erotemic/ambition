@@ -100,6 +100,27 @@ subcommands' NAMES unconditionally and have the disabled arm exit non-zero with
 the feature to rebuild with. A missing subcommand must say why it is missing,
 not read as a typo.
 
+## Status
+
+✔ **PHASES 1–3 LANDED 2026-09-03.** `smash_tool` exists; the nine binaries are
+gone; the three documented invocations are retargeted; the guard is in place and
+poison-verified. `cargo check -p ambition_demo_smash_app --bins` is clean in the
+default cell **and** under `--features visible,capture,causal`, so both arms of
+the feature gate type-check.
+
+⛔ **PHASE 0 IS STILL OWED, and it is the one that says whether this was worth
+doing.** The ~0.7 GB figure remains a symbol-union prediction: nothing has built
+the collapsed binary. This box is at 11 GB free, below the 40 GB floor, so the
+measurement has to happen elsewhere. ⇒ Until it does, the honest claim is "nine
+binaries became one", not "5.6 GB became 0.7 GB".
+
+⚠ **AND `split-debuginfo` WAS NEVER TRIED**, which the plan said to do FIRST
+because it is one line and may take most of the win. Doing the collapse before
+the cheap experiment is the wrong order; it happened because Jon asked for the
+collapse directly. The experiment is still worth running — if it is most of the
+win, that is worth knowing before the same collapse is proposed for another
+crate.
+
 ## Phases
 
 ### Phase 0 — confirm the prediction before writing any code
@@ -161,8 +182,8 @@ separate times.** `ladder_rig` alone calls `std::env::args()` in eight places �
    each; `match_diagram`, `match_shots`, `select_walkthrough` and `stage_diagram`
    in none.
 9. ⭐ **Add the guard, because nothing currently catches this class.**
-   `check_planning_citations.py` resolves cited SYMBOLS and paths; `--bin
-   ladder_rig` inside a fenced command is prose to it, so every one of those 11
+   `check_planning_citations.py` resolves cited SYMBOLS and paths; a bin name
+   inside a fenced command is prose to it, so every one of those 11
    references can go stale silently — which is precisely the failure
    [`../recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md)
    is about. The guard is small: for every `--bin <name>` in `docs/` and

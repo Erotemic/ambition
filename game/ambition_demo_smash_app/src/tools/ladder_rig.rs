@@ -1,6 +1,6 @@
 //! Compare adjacent registered AI ladder rungs in CPU-vs-CPU matches.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin ladder_rig [--seeds N] [--weight name=value ...]`
+//! `cargo run -p ambition_demo_smash_app --bin smash_tool -- ladder-rig [--seeds N] [--weight name=value ...]`
 //!
 //! ⭐ `--weight` is what makes this a rig for a SCORING change and not only for a
 //! ladder. Three open rows want a weight refit — the scorer's speed term is
@@ -14,7 +14,7 @@
 //! using medians across deterministic seeds. Unregistered levels are invalid for
 //! this measurement because their generic fallback does not represent a ladder rung.
 
-use ambition_demo_smash_app::build_demo_app;
+use crate::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::engine_core as ae;
 
@@ -63,12 +63,61 @@ struct Bout {
     peak_percent: [f32; 2],
 }
 
-fn main() {
+#[derive(clap::Args, Debug, Clone, Default)]
+pub struct LadderRigArgs {
+    /// How many seeds to run.
+    #[arg(long)]
+    pub seeds: Option<usize>,
+    /// Run the below-the-ledge sweep instead of the ladder.
+    #[arg(long)]
+    pub sweep_below: bool,
+    /// Run the named scenarios instead of the ladder.
+    #[arg(long)]
+    pub scenarios: bool,
+    /// Override a utility weight, as `NAME=VALUE`. Repeatable.
+    #[arg(long = "weight", value_name = "NAME=VALUE")]
+    pub weights: Vec<String>,
+    /// Disable rollout search for the run.
+    #[arg(long)]
+    pub no_rollout: bool,
+    /// Reaction delay in milliseconds.
+    #[arg(long)]
+    pub reaction_ms: Option<u64>,
+    /// Actions-per-minute cap.
+    #[arg(long)]
+    pub apm: Option<f32>,
+    /// Decision noise.
+    #[arg(long)]
+    pub noise: Option<f32>,
+    /// Fighter under test.
+    #[arg(long)]
+    pub character: Option<String>,
+    /// Fighter to test against.
+    #[arg(long)]
+    pub opponent: Option<String>,
+}
+
+/// ⛔ **PARSED ONCE, READ FROM DEPTH.** `flag_value` was called from inside
+/// `run_ladder`'s innermost loop and from three other functions, so threading a
+/// struct through would rewrite six signatures in a 685-line file for no gain in
+/// what the tool DOES. The surface is now declarative and `--help` documents it;
+/// the reads stay where they were, against a value parsed once at entry instead
+/// of a fresh `std::env::args()` scan each time.
+/// ⚠ It is a process global, which is correct here and would not be in a
+/// library: `run` is the only writer and it writes before anything reads.
+static ARGS: std::sync::OnceLock<LadderRigArgs> = std::sync::OnceLock::new();
+
+fn args() -> &'static LadderRigArgs {
+    ARGS.get_or_init(LadderRigArgs::default)
+}
+
+pub fn run(cli: LadderRigArgs) {
+    let _ = ARGS.set(cli);
     let seeds = seed_count();
-    if std::env::args().any(|arg| arg == "--sweep-below") {
+    if args().sweep_below {
         return run_sweep_below(seeds);
     }
-    if std::env::args().any(|arg| arg == "--scenarios") {
+    if args().scenarios {
         return run_scenarios(seeds);
     }
     // SAY WHAT THIS RUN MEASURED UNDER. A rig that reports numbers without
@@ -219,14 +268,7 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 /// rig whose invocation cannot be read is a rig whose results cannot be trusted.
 fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::UtilityWeights {
     let mut weights = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg != "--weight" {
-            continue;
-        }
-        let Some(pair) = args.next() else {
-            break;
-        };
+    for pair in &args().weights {
         let Some((name, value)) = pair.split_once('=') else {
             eprintln!("[ladder_rig] --weight wants name=value, got '{pair}'");
             std::process::exit(2);
@@ -368,20 +410,21 @@ fn run_sweep_below(seeds: usize) {
 }
 
 fn seed_count() -> usize {
-    flag_value("--seeds")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_SEEDS)
+    args().seeds.unwrap_or(DEFAULT_SEEDS)
 }
 
-/// The value that followed `name` on the command line.
+/// The value the caller gave for `name`, from the parsed surface above.
 fn flag_value(name: &str) -> Option<String> {
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == name {
-            return args.next();
-        }
+    let a = args();
+    match name {
+        "--seeds" => a.seeds.map(|v| v.to_string()),
+        "--reaction-ms" => a.reaction_ms.map(|v| v.to_string()),
+        "--apm" => a.apm.map(|v| v.to_string()),
+        "--noise" => a.noise.map(|v| v.to_string()),
+        "--character" => a.character.clone(),
+        "--opponent" => a.opponent.clone(),
+        other => unreachable!("ladder_rig asked for an unmapped flag: {other}"),
     }
-    None
 }
 
 /// WHO IS FIGHTING — and it is a flag because the answer changes the reading
@@ -610,7 +653,7 @@ fn run_bout_at(
             seeded = force_noise_seed(&mut app, seed);
             if seeded {
                 force_utility_weights(&mut app, weights);
-                if std::env::args().any(|arg| arg == "--no-rollout") {
+                if args().no_rollout {
                     force_no_rollout(&mut app);
                 }
                 if let Some(ms) = flag_value("--reaction-ms").and_then(|v| v.parse().ok()) {

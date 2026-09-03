@@ -118,7 +118,7 @@ Reproduce with:
 
 ```text
 AMBITION_FIGHTER_TRACE=1 cargo run --release -p ambition_demo_smash_app \
-  --bin ladder_rig -- --sweep-below --seeds 1 2>&1 | grep '^\[fighter '
+  --bin smash_tool -- ladder-rig --sweep-below --seeds 1 2>&1 | grep '^\[fighter '
 ```
 
 Do **not** tune rollout depth, RecoveryLens heuristics, APM, reaction time, or

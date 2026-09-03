@@ -1082,6 +1082,42 @@ regression. Poison-verified in every direction, with a positive control
 asserting the tree really does contain correctly-scaled variants — otherwise
 two absence assertions would pass forever on an empty measurement.
 
+⭐⭐ **THE ART SHIPS TWICE, AND 15 SHEETS ARE IN ONLY ONE COPY — MEASURED
+2026-09-02.** The two shipped asset roots hold **1378.7 MB**, of which the
+per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
+"ultrapacks") a further **460.6 MB — the single largest category at 33%**. The
+ultrapack step *"pools every published per-target sheet"* into shared atlas
+pages per tier, and `extend_with_sprite_pack_entries` says the relationship
+plainly: a checkout with no packs *"falls back to its per-target sheet"*. So the
+pack is the preferred road and the per-target PNG is the fallback, and a package
+carries both.
+
+⛔ **THE PACK COVERS 197 OF 212 PUBLISHED SHEETS.** The 15 absent are
+systematically the BIG ones — median **7.54 MP against 0.97 MP** for packed
+sheets, and a median largest-frame of 331 px against 176:
+
+```text
+gnu_ton_boss / giant_gnu / giant_gnu_hands   14.94 MP each, 768 px frames
+actor / performer  9.03    officer 8.64    author 8.36    medic 7.54
+mockingbird_boss 2.50   + 6 small ones (sandbag, gnu_ton_apple, …)
+```
+
+⭐⭐ **AND ALL FIVE SHEETS WHOSE REDUCED TIERS ARE NOT REDUCED ARE IN THAT 15** —
+`actor`, `author`, `medic`, `officer`, `performer`, with none of them packed.
+Five of five. That is a strong hint of ONE cause behind two symptoms: whatever
+excludes a sheet from the pack pipeline is at least correlated with whatever
+leaves its variants unshrunk. ⇒ It is a LEAD, not a diagnosis — 15 are absent
+from the pack and only 5 have broken variants, so pack-absence does not imply
+the tier defect.
+
+⚠ **AND THE SAME PER-MACHINE CAVEAT APPLIES TO ALL OF IT**: packs and sheets
+alike are gitignored generated output, and the clean generation that would
+separate staleness from a pipeline defect has not run. ▢ Whether a shipped build
+needs the per-target PNGs at all once packs cover a sheet is the question worth
+the most megabytes here, and it is not answered: the fallback exists, 15 sheets
+depend on it, and nothing measured says what happens to the other 197 if their
+PNGs were omitted.
+
 ⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
 manifest claims at all. `--orphans` measures those: **15 files per tier, 775 MP

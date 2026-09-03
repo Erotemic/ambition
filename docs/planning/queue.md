@@ -522,6 +522,50 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `--features capture,input,visible` the room loads at **frame 1** and all four
   tests still fail with the same message. ⇒ Whatever it is, it is not the room
   being late and not a system dying before the blocks are made.
+  ⭐⭐ **READ TO A NAMED MECHANISM 2026-09-03, and it is a THIRD answer neither
+  of the row's two options anticipated: A PARALLAX-ART GATE WITHHOLDS THE WHOLE
+  ROOM.** Not "another feature owns block drawing" and not "the room never
+  reaches the state" — the blocks are built by a path that refuses to run.
+
+  `spawn_room_visuals` (which loops `world.blocks` and is the ONLY caller of
+  `spawn_block`) has three callers. The session one, in
+  `ambition_render/src/platformer_presentation.rs`, is gated:
+
+  ```rust
+  if wants_parallax {
+      let theme_loaded = assets…any(|layer| a.parallax_layers.get(theme, *layer).is_some());
+      if !theme_loaded {
+          // Leave `presented` unset so the next frame retries
+          return;                      // ← every block goes with it
+      }
+  }
+  ```
+
+  ⛔ **AND THE COMMENT DIRECTLY ABOVE IT DESCRIBES THIS EXACT FAILURE AS THE
+  THING THAT MUST NOT HAPPEN:** *"A tier that disables it (or a room whose theme
+  legitimately has no art) must present normally, or the whole room's static
+  visuals would be held hostage to a backdrop that is never coming."* The guard
+  the comment describes checks `wants_parallax` — whether the BUDGET wants
+  parallax — and the second condition is `theme_loaded`, which asks whether the
+  art has ARRIVED YET. A theme whose art never arrives in that composition is
+  indistinguishable from one that is still loading, and the retry never ends.
+  ⚠ Themes lazy-load: `[game_assets] loaded 4/4 … for 'hub' (other themes
+  lazy-load on room transition)`. A test that builds a room WITHOUT a transition
+  is exactly the case where the layers may never load.
+  ⭐ It also explains the feature-dependence the row could not place: which
+  presentation features are on decides whether `GameAssets` and
+  `ResolvedVisualQuality` exist at all, and `wants_parallax` defaults to TRUE
+  when the quality resource is absent (`.unwrap_or(true)`) — so a thinner build
+  is MORE likely to hit the gate, not less.
+
+  ⛔ **THIS IS A SOURCE READING, NOT A MEASUREMENT — do not close the row on it.**
+  ⭐ **But the code ships its own one-run falsification**, which is why it is
+  worth writing down: the gate is skipped entirely when the budget disables
+  parallax. ⇒ **Run the failing `painted_blocks` tests with a quality budget
+  whose `parallax.enabled` is false. If the block visuals appear, the gate is the
+  cause; if they still do not, this reading is wrong and the remaining suspect is
+  `world.blocks` being empty in that spec** (the loop's other precondition, and
+  the only one left).
   ⛔⛔ **THAT BISECTION CANNOT RUN AS WRITTEN, and the row got two manifest facts
   wrong (checked 2026-09-03 against `game/ambition_demo_mary_o_app/Cargo.toml`).**
   (1) `visible` ALREADY INCLUDES `input`

@@ -1493,11 +1493,48 @@ sheet path beside it was never given the same treatment. ⇒ The cluster that ke
 reappearing all day — four names sharing three symptoms — is **one shared module**,
 and `actor` is only in it because `actor` is `performer`'s old name.
 
-⇒ **The fix threads `quality_scale` through `AuthoredSwingFighter.render` the
-way `render_portraits` already does.** ⛔ It is in `tools/ambition_sprite2d_renderer`
-(a submodule) and cannot be validated without running a render, so it is
-recorded here rather than patched blind — unlike the portrait-tier change, whose
-producer is a main-repo script.
+⛔⛔ **AND THAT IS NOT THE ROAD THE TIER FILES COME FROM — CORRECTED THE SAME
+DAY, after yardrat's fresh-clone generation produced CORRECTLY SCALED variants
+for all four.** Two boxes disagreeing is what forced the reconciliation; the
+mechanism above is real and it is not what bit here.
+
+**WHICH ROAD PRODUCES A TIER FILE TODAY.**
+`generate_visual_quality_variants.py` chooses per sheet:
+`source_publishable_targets()` keeps only `kind == "config"` targets, and a unit
+gets `target` set only if it is in that dict AND its `.ron` sits directly in
+`assets/sprites`. Those go to `publish_source_quality_target` — a **re-render**
+at `quality_scale`. **Everything else, including every `module`-kind target,
+goes to `build_sheet_variant`, which RESIZES the full sheet's isolated frames.**
+`author`, `medic`, `officer` and `performer` are `module`-kind, so through this
+script they take the resize road and scale correctly.
+
+⇒ **That is why a fresh box is clean and this one is not.** A fresh clone's
+tiers are produced entirely by that script. This box's four files were written
+2026-08-27 09:46–09:53, minutes after their own full sheets, by a DIFFERENT
+invocation: the renderer's own `publish` CLI, which takes `--quality-scale` and
+`--dest-root`, calls `render_sheet(out_dir, **opts)` and installs straight into
+the tier directory. For a `module` target that lands in `medic.render`, whose
+body is:
+
+```python
+def render(out_dir: str | Path, **opts):
+    del opts                      # ⛔ quality_scale, explicitly discarded
+    return _FIGHTER.render(out_dir, ACTOR_METADATA)
+```
+
+⇒ **CAN THE RENDER DEFECT STILL BITE? Yes, but only one way in.** A direct
+renderer `publish`/`render` aimed at a tier `--dest-root` renders full size and
+installs it, silently, because `del opts` throws away the scale the caller
+passed. It cannot bite through `generate_visual_quality_variants.py` at all. ⇒
+So the tier files on any box that ran only the variant script are correct, and
+the ratchet must NOT encode this box's stale per-tier render as the expected
+state — `KNOWN_UNSCALED` is emptied, and a box with stale renders now fails,
+which is the truthful outcome because those files really are wrong there.
+
+⇒ **The renderer fix is still worth making** — `del opts` discards a scale a
+caller deliberately passed — and is drafted UNVALIDATED at
+`dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch`. It is
+in a submodule and needs one render on a box that can run the renderer.
 
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room

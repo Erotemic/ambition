@@ -17,10 +17,15 @@ means regenerating committed art, which is not this test's call. The four are
 named with the date they were measured; the test fails on a FIFTH. Cousin of
 the compile-cost and doc-link ratchets.
 
-Measured 2026-09-02 by `scripts/measure_tier_variant_scaling.py`:
-`actor` 9.03 MP, `author` 8.36, `medic` 7.54, `officer` 8.64 — each identical at
-Full, 0_5x and 0_25x. A room asking for those tiers decodes 67.2 MP where the
-tier promises ~10.5.
+⛔ THE KNOWN LIST IS EMPTY, AND THAT IS THE FINDING. It held four names measured
+2026-09-02 on one machine (`actor` 9.03 MP, `author` 8.36, `medic` 7.54,
+`officer` 8.64 — each identical at Full, 0_5x and 0_25x, 67.2 MP where the tier
+promises ~10.5). A fresh-clone generation elsewhere produced all four correctly
+scaled. The variant script RESIZES for every module-kind target and cannot
+produce an unscaled tier; the unscaled copies came from the renderer's own
+`publish` CLI aimed at a tier dest, whose module `render` does `del opts`. So an
+unscaled variant is a per-tier-CLI trace, never an expected state — see the
+reconciliation in `docs/planning/engine/asset-preparation-and-residency.md`.
 """
 
 from __future__ import annotations
@@ -39,16 +44,26 @@ REPO = Path(
 )
 SCRIPT = REPO / "scripts/measure_tier_variant_scaling.py"
 
-# ⛔ KNOWN, MEASURED 2026-09-02, AND NOT A LICENCE. Each of these publishes a
-# 0_5x and a 0_25x variant identical in total page megapixels to its Full sheet.
-# Remove a name when its variants are regenerated; do NOT add one to make a red
-# test green — that is the whole thing this list exists to prevent.
-KNOWN_UNSCALED = {
-    "actor_spritesheet.ron",
-    "author_spritesheet.ron",
-    "medic_spritesheet.ron",
-    "officer_spritesheet.ron",
-}
+# ⛔⛔ EMPTIED 2026-09-02, WITH THE REASON, AFTER TWO BOXES DISAGREED.
+#
+# This list held `actor`, `author`, `medic`, `officer`. A fresh-clone generation
+# on another machine produced CORRECTLY SCALED variants for all four, and the
+# reconciliation says why: `generate_visual_quality_variants.py` sends every
+# `module`-kind target to `build_sheet_variant`, which RESIZES the full sheet.
+# Those four are module-kind, so through that script they scale.
+#
+# The unscaled copies came from a different road — the renderer's own `publish`
+# CLI aimed at a tier `--dest-root`, which calls the target module's `render`,
+# whose body is `del opts` and throws the `quality_scale` away.
+#
+# ⇒ So an unscaled variant is NOT the expected state anywhere; it is the trace
+# of a per-tier CLI render. A box carrying one should fail this test and fix it
+# by re-running the variant script. Encoding those four as "known" would have
+# taught every future reader that the tree is meant to look like this.
+#
+# Do NOT add a name to make a red test green — that is what this list exists to
+# prevent, and the reason it is empty rather than deleted.
+KNOWN_UNSCALED: set[str] = set()
 
 
 def load():

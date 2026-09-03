@@ -791,7 +791,11 @@ The one unresolved developer-policy choice from the session-ownership work is in
   edge … t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred
   (0,0)"*. That last is a CAMERA FRAMING assertion, unrelated to the other four
   causes, and 16 units on one body-frame is the kind of margin that may be a
-  tuning question rather than a defect.
+  tuning question rather than a defect. ⇒ **FILED 2026-09-03 as
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 50**,
+  because which artefact is wrong — the camera or the assertion's zero tolerance
+  — depends on whether a platform fighter's camera may lag a fast body for a
+  frame, and that is a feel ruling. ⛔ Do not "fix" it from this row.
 
   ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO

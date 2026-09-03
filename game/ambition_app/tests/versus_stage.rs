@@ -2042,7 +2042,7 @@ fn the_round_counter_counts_rounds_and_not_wins() {
 /// wider and leaning forward, which is what makes committing punishable.
 #[test]
 fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
-    use ambition_platformer2d::actors::character_runtime::{
+    use ambition_platformer2d::combat::hurtbox_resolution::{
         AuthoredHurtboxes, HurtboxSelection, ResolvedHurtboxes,
     };
     use ambition_platformer2d::versus_match::MatchSeat;

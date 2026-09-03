@@ -268,7 +268,9 @@ impl GrantedBodyFacts {
             posed_body,
         } = self;
         if hurtboxes {
-            commands.entity(entity).remove::<super::AuthoredHurtboxes>();
+            commands
+                .entity(entity)
+                .remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
         }
         if movement_tuning {
             commands
@@ -531,8 +533,8 @@ pub fn grant_prepared_character_body(
         // facts rather than kit facts, each with a matching retraction above.
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
             commands.entity(entity).insert((
-                super::AuthoredHurtboxes(hurtboxes),
-                super::ResolvedHurtboxes::default(),
+                ambition_combat::hurtbox_resolution::AuthoredHurtboxes(hurtboxes),
+                ambition_combat::hurtbox_resolution::ResolvedHurtboxes::default(),
                 ambition_combat::components::DamageableVolumes::default(),
             ));
         }

@@ -569,7 +569,85 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  a build away. ⊙ **NARROWED 2026-09-03 by two builds, and TWO HYPOTHESES ARE
+  DEAD.** (a) It is NOT the ConeRigAssets group — after the three guards no
+  missing-parameter panic remains in the union and these three still fail
+  identically. (b) It is NOT a settle problem either, which is the one I expected:
+  `cavern()` runs a FIXED 90 updates and the union log shows
+  `room-loaded mary_o_1_2` only at frame 625, so "the helper photographs too
+  early" was the obvious reading — and it is wrong. Run at
+  `--features capture,input,visible` the room loads at **frame 1** and all four
+  tests still fail with the same message. ⇒ Whatever it is, it is not the room
+  being late and not a system dying before the blocks are made.
+  ⭐⭐ **READ TO A NAMED MECHANISM 2026-09-03, and it is a THIRD answer neither
+  of the row's two options anticipated: A PARALLAX-ART GATE WITHHOLDS THE WHOLE
+  ROOM.** Not "another feature owns block drawing" and not "the room never
+  reaches the state" — the blocks are built by a path that refuses to run.
+
+  `spawn_room_visuals` (which loops `world.blocks` and is the ONLY caller of
+  `spawn_block`) has three callers. The session one, in
+  `ambition_render/src/platformer_presentation.rs`, is gated:
+
+  ```rust
+  if wants_parallax {
+      let theme_loaded = assets…any(|layer| a.parallax_layers.get(theme, *layer).is_some());
+      if !theme_loaded {
+          // Leave `presented` unset so the next frame retries
+          return;                      // ← every block goes with it
+      }
+  }
+  ```
+
+  ⛔ **AND THE COMMENT DIRECTLY ABOVE IT DESCRIBES THIS EXACT FAILURE AS THE
+  THING THAT MUST NOT HAPPEN:** *"A tier that disables it (or a room whose theme
+  legitimately has no art) must present normally, or the whole room's static
+  visuals would be held hostage to a backdrop that is never coming."* The guard
+  the comment describes checks `wants_parallax` — whether the BUDGET wants
+  parallax — and the second condition is `theme_loaded`, which asks whether the
+  art has ARRIVED YET. A theme whose art never arrives in that composition is
+  indistinguishable from one that is still loading, and the retry never ends.
+  ⚠ Themes lazy-load: `[game_assets] loaded 4/4 … for 'hub' (other themes
+  lazy-load on room transition)`. A test that builds a room WITHOUT a transition
+  is exactly the case where the layers may never load.
+  ⭐ It also explains the feature-dependence the row could not place: which
+  presentation features are on decides whether `GameAssets` and
+  `ResolvedVisualQuality` exist at all, and `wants_parallax` defaults to TRUE
+  when the quality resource is absent (`.unwrap_or(true)`) — so a thinner build
+  is MORE likely to hit the gate, not less.
+
+  ⛔ **THIS IS A SOURCE READING, NOT A MEASUREMENT — do not close the row on it.**
+  ⭐ **But the code ships its own one-run falsification**, which is why it is
+  worth writing down: the gate is skipped entirely when the budget disables
+  parallax. ⇒ **Run the failing `painted_blocks` tests with a quality budget
+  whose `parallax.enabled` is false. If the block visuals appear, the gate is the
+  cause; if they still do not, this reading is wrong and the remaining suspect is
+  `world.blocks` being empty in that spec** (the loop's other precondition, and
+  the only one left).
+  ⛔⛔ **THAT BISECTION CANNOT RUN AS WRITTEN, and the row got two manifest facts
+  wrong (checked 2026-09-03 against `game/ambition_demo_mary_o_app/Cargo.toml`).**
+  (1) `visible` ALREADY INCLUDES `input`
+  (`visible = [..., "input", ...]`, line 28), so "run `capture,visible`, then
+  again adding `input`" is the SAME RUN TWICE and can distinguish nothing.
+  (2) `mary_o_it` does NOT declare `required-features` — the `[[test]]` entry
+  (lines 46-48) has none; `required-features = ["capture"]` is on the `[[bin]]`
+  `capture_mary_o` (line 56). ⇒ Reading a manifest fact off the neighbouring
+  stanza is how a plan gets built on a constraint that is not there.
+  ⭐ **AND THE ROW'S OWN LOGIC ALREADY ANSWERS IT.** Because `capture` ⊃
+  `visible` ⊃ `input`, the run it reports as already done —
+  *"at `--features capture,input,visible` the room loads at frame 1 and all four
+  tests still fail"* — IS the minimum set. By the row's stated rule (*"if both
+  fail, the cause is in the minimum set and the union is irrelevant to it"*), the
+  union is irrelevant: these tests fail whenever they are BUILT, and the union's
+  only contribution is building them.
+  ⇒ **Which reframes the whole row.** `ov1_draws_the_world` and
+  `painted_blocks` are `#![cfg(feature = "visible")]` and the crate's
+  `default = []`, so a plain `cargo test -p ambition_demo_mary_o_app` compiles
+  them to NOTHING and reports green. They are not union-specific failures; they
+  are tests that only exist under `visible`, failing there, invisible everywhere
+  else. ⚠ Still to confirm with one run at `--features capture` alone. ⚠ I wrote the
+  settle fix, ran it, saw it change nothing, and reverted it rather than ship a
+  loop whose comment claimed a cause it had not established.
+  ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**
   After the three guards there is no missing-parameter panic left anywhere in
   the union, and these three still fail with the same message — so the blocks
   are absent for a reason of their own, not because a system died before making
@@ -611,12 +689,28 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
   `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
   ration looks like from the far side. Replaced with a bounded settle; the same
-  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
-  count: the next union run should read 12.** I have not re-run it, and the last
-  time I turned a verified single-target fix into a union number I was wrong by
-  38.
-  The entire smash target — `the_stage_kills`, `the_screen_decides`,
-  `the_repertoire_gets_used`, 30-odd tests — is green.
+  command that failed now reads 3 passed. ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
+  system-parameter panic remains anywhere in it. The full progression is
+  48 → 49 → 38 → 13 → **12**. ⚠ It was stated as an EXPECTATION until the run
+  existed, because the previous time I turned a verified single-target fix into
+  a union number I was wrong by 38 — in the direction nobody expects. This time
+  the expectation held; that is a fact about this fix, not a licence to skip the
+  run next time.
+  The smash target went from thirty-odd failures to **one**:
+  `the_screen_decides` and `the_repertoire_gets_used` are entirely green and
+  `the_stage_kills` has a single survivor. ⚠ I wrote "the entire smash target is
+  green" when it was not — 30-odd down to 1 is the honest sentence, and the 1 is
+  a FIFTH cause.
+  ⊙ **THE TWELVE, ENUMERATED 2026-09-03** so the next reader does not re-derive
+  them: 8 in `ov1_draws_the_world` (the doctrine group, including
+  `the_presentation_plugin_adds_no_hud_and_no_menu` in BOTH the mary_o and sanic
+  apps), 3 in `painted_blocks`, and
+  `the_stage_kills::every_live_fighter_stays_inside_the_frame` — *"a live
+  fighter was drawn OUTSIDE the frame on 1 body-frames, worst 16 units past the
+  edge … t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred
+  (0,0)"*. That last is a CAMERA FRAMING assertion, unrelated to the other four
+  causes, and 16 units on one body-frame is the kind of margin that may be a
+  tuning question rather than a defect.
 
   ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
@@ -1187,6 +1281,34 @@ OPTIONAL dep + feature, never used:
   `ambition_content` → `ambition_content_cli`) — those are dev-dependency
   questions, not unused ones.
 
+- ▢ **POST-CARVE: SWEEP THE DOCS FOR PROSE LOCATIONS, because the citation
+  checker is STRUCTURALLY BLIND TO THEM.** (Found 2026-09-03.)
+  `check_planning_citations.py --strict` read **1,222 citations, all resolved —
+  before and after five sentences were fixed that were flatly false.** It
+  resolves cited SYMBOLS; a sentence that merely says where code lives is prose:
+
+```text
+"…is `actor_monolith::items::pickup`, which stayed in the kernel"
+"`items::pickup` KEEPS the pressed pickup"
+"Guards: `items::pickup::tests` (the request)"
+```
+
+  ⇒ A carve updates every citation the tooling can see and leaves every
+  DESCRIPTION of a location — and *"which stayed in the kernel"* is exactly what
+  a reader trusts without grepping, because it reads as settled architecture
+  rather than a dated fact.
+  ▢ **The routine, after any carve:** grep the planning tree for each moved
+  module's OLD path, then sort the hits into HISTORY (past tense, a quoted
+  correction, a checklist's record — KEEP) and STALE (present tense about where
+  code is, or a guard cited at a module that no longer exists — FIX).
+  ⛔ **RE-TENSE, DO NOT DELETE**, and the ratio is why: of eight hits on
+  `items::pickup`, **five were correct history and three were stale**. A regex
+  that purged the string would have broken five true sentences to fix three
+  false ones. `keeps` → `kept` retires the location and preserves the argument,
+  which usually survives the move.
+  ⚠ The same blindness covers `//!` module headers in code — a doc comment
+  naming where a sibling lives is prose too.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
@@ -1207,7 +1329,11 @@ OPTIONAL dep + feature, never used:
      map at 17 modules. Regenerated in the post-carve pass, which is what this
      item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
-     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     the very symbols the planning rows cite. ⭐ **AND IT COVERS THE DOCTRINE
+     PAGES NOW** — calculex widened the checker to scan `docs/concepts`,
+     `docs/systems`, `docs/architecture` and `docs/recipes` as well as
+     `docs/planning`, because every module that leaves a crate strands the pages
+     that cited its old home, and those are the pages a new agent reads first. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
      `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
      these docs — is never checked, and a carve's removals are usually spelled
@@ -1346,15 +1472,6 @@ OPTIONAL dep + feature, never used:
      declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
      that trips this: any commit that adds simulated state does.
 
-  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
-     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
-     fails the gate today. It is the ledger the D33 campaign is accumulating
-     debt in, and every one of its five messages is about a carve:
-     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
-     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
-     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
-     belongs on this list rather than in a campaign doc.
-
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
      list carries the instruction already ("when architecture moves out of a
@@ -1367,6 +1484,15 @@ OPTIONAL dep + feature, never used:
      `bf4e6f353`; it is one line in the carve if you remember.
      ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
      nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
@@ -1568,7 +1694,9 @@ OPTIONAL dep + feature, never used:
   PHYSICAL life of a touched collectible: where it is, whether it is moving, and
   that walking into it collects it. **14 tests moved with it and all 14 pass in
   the new crate**; the monolith went 1221 → 1207, which is exactly them.
-  ⛔ **WHAT STAYED, and the split is by TRIGGER not by size:** `items::pickup`
+  ⛔ **WHAT STAYED BEHIND *AT THE TIME*, and the split is by TRIGGER not by
+  size:** `items::pickup` — ⚠ which itself became `ambition_held_items` the next
+  day, so this reads as history now, not as where the code is
   owns the PRESSED pickup — a held weapon taken with `Attack` — and still
   reaches `abilities`, `ability_cooldown`, `construction` and `shrine`. That is
   the line the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had
@@ -1634,7 +1762,12 @@ OPTIONAL dep + feature, never used:
   ```
 
   ⇒ **THE ENTANGLEMENT IS 201 LINES OF SCHEDULING, NOT 1,659 LINES OF LOGIC.**
-  The plugin names `crate::abilities::{ranged ×10, traversal ×4, thrown ×3}`,
+  ⚠ MEASURED PRE-CARVE (2026-09-02) and kept as the reading that unblocked the
+  cut — two of the paths below are no longer kernel paths at all
+  (`abilities` and `ability_cooldown` are `ambition_abilities` since
+  2026-09-03), which does not weaken the measurement but does mean it is
+  history.
+  The plugin named `crate::abilities::{ranged ×10, traversal ×4, thrown ×3}`,
   `crate::shrine` ×3, `crate::construction` ×2 and `crate::ability_cooldown` —
   every one of them a SYSTEM NAME being placed in a schedule, not a call the
   pickup logic makes. The pickup domain itself reaches out exactly TWICE, both at
@@ -2599,6 +2732,7 @@ product ruling.
   two fixes were tested together and only one of them survives. ⚠ Until that
   walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
   tier-independent; the TIMING tell is not confirmed for the shipped program.
+  ⛔ ONE of them is, not both: the placeholder count is tier-SCALED (0 at Potato, 129 at Ultra, measured 2026-09-03) because the materialization ration charges Full 16 against Potato 1; `asset_wait_ms` is the tier-independent one. See status.md.
   ⭐ **AND THE TIER TELL IS TESTABLE HEADLESS AFTER ALL — `AMBITION_QUALITY_PROFILE=ultra`.**
   A headless box seeds `potato` from its adapter (*"visual quality seeded to
   `potato` for a Cpu adapter (llvmpipe)"*), which is why this looked host-only;

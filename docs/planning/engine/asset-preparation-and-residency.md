@@ -319,7 +319,7 @@ other end, now with host frames attached.
 
 ⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
 in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
-`sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a
+`sprites_0_25x/` (§3a). The two COUNT tells were called tier-independent; ⛔ ONE of them is, not both: the placeholder count is tier-SCALED (0 at Potato, 129 at Ultra, measured 2026-09-03) because the materialization ration charges Full 16 against Potato 1; `asset_wait_ms` is the tier-independent one. See status.md. The rest stands: a
 placeholder means an actor resolved no sprite at all, and the cover either held
 or it did not. **The TIMING tell is not**: "0 frames over 33.4 ms" was measured
 while the hall was decoding quarter-tier art, which is a fraction of the pixels
@@ -503,24 +503,156 @@ Ten updates — for a cast the engine can realize at **one character per frame**
 at Full. Then 129 placeholder warnings, all inside a single millisecond, once
 the 5-frame threshold passes.
 
-⇒ **`inspect_demanded_characters` asks whether the SHEET is settled, never
-whether a RENDER FAMILY has claimed the body**
-(`world_flow/room_transition_assets.rs:347`): a token counts as ready when
-`sheet_state` is `Ready`, or when it is `Declared` and
-`states.outcome(..).is_some()` — *any* terminal outcome. Claiming is a later,
-rationed step, and nothing in the barrier waits for it.
+⛔ **AND THE BARRIER IS NOT THE CULPRIT — I had that half wrong, and ambition-df
+read the code that settles it.** The cover lifts CORRECTLY: all 129 sheets are
+`Ready` when it does, and `inspect_demanded_characters`
+(`world_flow/room_transition_assets.rs:347`) waiting on `Declared` is sound.
 
-⭐ **THAT IS A THIRD CAUSE for the "not materialized" warning, and it is not one
-of the three the open row proposed** (prefetch scope, retired realizations,
-re-decode). It is a DEFINITION MISMATCH: the cover is released against
-sheet-settled and the picture is drawn against family-claimed, with a 16×
-tier-scaled ration between them.
+⇒ **`converge_character_residency_to_active_quality` is what un-claims them.**
+When the headless profile converges Potato→Ultra (t≈14.9 s in the log above) it
+calls `demote_stale_realizations`, which takes every IN-USE sheet from `Ready` <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
+back to `Declared` — dropping every body's render family — and re-demands them
+at one character per frame at Full. **129 actors' worth of placeholder is
+exactly that** — ⚠ not 129 FRAMES of it, which is what this sentence said until
+2026-09-03: the warnings arrive in one burst inside a millisecond (as the
+paragraph twelve lines above already noted), because the warning is a per-actor
+latch tripping after 5 consecutive unclaimed frames. The RAMP is 129 frames
+long; the WARNING is one frame wide and 129 actors deep. ⚠ It is not headless-only: the same happens on a host for any frame
+where the resolved budget differs from the setting, because the adapter seed
+lands before settings apply.
+
+⭐ **SO IT IS A SECOND CAUSE FOR THE WARNING, AND IT IS "RETIRED REALIZATIONS"
+AFTER ALL** — one of the three the open row proposed, which I had ruled out from
+the outside because the retirement happens at CONVERGENCE rather than at reveal.
+The measurement was right and my reading of it was one layer off.
 
 ⚠ **WHAT IS NOT ESTABLISHED**, and it is the one thing a fix would need: that
 the 129 placeholder actors ARE the 129 demanded characters. The warnings name
 `NpcSpawn-…` entity ids and the barrier counts character TOKENS; the counts
 match exactly, which is suggestive and is not proof. ⇒ Cheapest next step is to
 log both sets once and intersect them, not to change the barrier.
+
+### ✔ FIXED 2026-09-03: one quality authority for every materialization road
+
+Jon's GPT review (item 2) found the split the transition bug was standing on:
+the room-transition ration read `ResolvedVisualQuality` (the boot override wins)
+while the global materializer and the convergence called
+`UserSettings::resolved_budget()` directly. A forced `AMBITION_QUALITY_PROFILE=potato`
+over a persisted High therefore materialized a room's first ration at Potato, the
+remainder at High, and convergence then treated High as active and retired the
+Potato half — and the FX-tier work inherited whichever road a character took. Now
+`ResolvedVisualQuality` lives in `ambition_persistence::settings` (below every
+consumer; render publishes it and re-exports the name), and both kernel roads
+read `ResolvedVisualQuality::current(published, settings)` — the resource when a
+publisher is installed, the SAME resolution derived from settings when not. Guard:
+`a_forced_quality_over_a_different_persisted_setting_materializes_every_character_at_the_forced_tier`
+(forced Potato resource over persisted High, two characters, every frame at the
+forced tier; red with the materializer reading settings again). ⚠ Any forced-tier
+residency measurement taken before this fix on a box whose persisted setting
+disagreed with the override measured a mixed cast.
+
+### ✔ FIXED 2026-09-03: a quality transition is a SWAP, never a demote
+
+The ramp above had a cause one layer away from the reveal: the barrier is
+innocent (all 129 sheets are `Ready` when the cover lifts), and it is
+`converge_character_residency_to_active_quality` that turned the cast into
+placeholders. It called `demote_stale_realizations` — every in-use sheet went <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
+`Ready → Declared`, un-claiming every body's render family — and re-demanded
+them at one character per frame at Full. A headless boot converges Potato→Ultra
+after the cover; a host whose settings apply a frame late does the same thing
+for one frame. Measured both ways the same afternoon: e7's run (convergence
+after the cover) drew 129 placeholders; a run at HEAD where the transition
+landed BEFORE the cover drew 0 — the order was a race, never a guarantee.
+
+**The fix:** a worn sheet is REPLACED, never retired. The convergence re-demands
+the in-use stale tokens without touching their realizations; the materializer's
+`Ready` early-return is now "Ready AT THE ACTIVE TIER" and re-realizes a
+stale-tier sheet in place (`publish` replaces it); the renderer already keeps a
+body's old binding until the new texture is loaded (`texture_is_ready`) and
+rebinds then. Only sheets nobody wears are retired, which is where the memory
+falls. Guard: `a_worn_character_keeps_its_sheet_resident_through_the_transition`
+— TWO worn characters (wider than the Full ration, so the second is not reached
+on frame 0), asserting at every frame of the transition that both stay `Ready`
+and neither is ever recorded retired; red on frame 0 with retire-first
+restored. ⚠ With one character the guard passes vacuously: retire and
+re-realize happen inside one update.
+
+⛔ **WHAT THIS FIX DOES NOT EXPLAIN, measured the same evening (e7,
+`scripts/measure_quality_ramp.sh`, three runs).** On the headless Ultra capture
+the convergence fires at t+0.37 s with ONE realization resident ("re-demanded 0
+in use, retired 1 unworn") and the 129-warning burst comes 900 ms later — so at
+Ultra the burst is NOT the demote (nothing worn was demoted), and the fix above
+is neither confirmed nor refuted by that capture. Two facts from the runs: (1)
+`AMBITION_QUALITY_PROFILE` forces the tier from frame one and is never written
+to `UserSettings`, while `seed_visual_quality_from_adapter` writes the adapter's
+tier INTO settings at `PostStartup` — so the env override can only produce an
+EARLY transition DOWN, never a late upgrade; the path the fix changes needs a
+settings change after the cast is resident, which is the unit guard or a host
+capture, not this tool. (2) The 129 warnings are ONE frame's report (all inside
+0.6 ms) from a per-actor 5-frame latch, not 129 frames: at that instant none of
+the 129 was claimed. ⇒ The Ultra burst is the areal ration's CLAIM LATENCY at
+Full (a body binds only once `texture_is_ready`), and whether it lands under
+the cover or after it is the next measurement: the reveal line and the burst
+carry timestamps in the same log. The fix above stands for the transition race
+it names (a settings Apply, or a host whose seeded tier differs from the
+setting for a frame); it is not the whole of the hall's Ultra story.
+
+#### ⚠ THE HEADLESS CAPTURE CANNOT CONFIRM THIS FIX, measured 2026-09-03
+
+ambition-df asked for the Ultra capture on the fix's tip as the confirmation,
+expecting *"0 placeholders whichever side of the cover the convergence lands"*.
+Run on `6c9fb2b58`, `scripts/measure_quality_ramp.sh`:
+
+```text
+profile   placeholders   convergence
+potato               0   (no transition at all)
+ultra              129   t+0.371s "to Potato: re-demanded 0 in use, retired 1 unworn"
+```
+
+⛔ **The fix is not refuted and it is not confirmed, because this run never
+enters its path.** The convergence fires 371 ms after startup with exactly ONE
+realization in existence, retires it as unworn and re-demands nothing; the
+placeholder burst is 900 ms later. A swap that has nothing worn to protect is
+not a test of swapping instead of demoting.
+
+⇒ **The reason is structural, not luck.** `AMBITION_QUALITY_PROFILE` forces the
+tier from frame one and is never written back to `UserSettings`, while
+`seed_visual_quality_from_adapter` writes the adapter's tier INTO `UserSettings`
+at `PostStartup`. So the env override can only ever produce an early transition
+DOWN to the seeded tier — never a late one, and never an upgrade. ⭐ The path
+this fix changes cannot be reached from the environment variable at all; it
+needs a settings change after the cast is resident, which is df's unit guard or
+a host capture.
+
+⭐ **AND THE 129 ARE NOT 129 FRAMES.** All 129 warnings carry distinct
+timestamps inside a 0.6 ms window — ONE frame reporting the whole cast, not a
+ramp emitting one per frame. The phrase *"129 frames of placeholder is exactly
+that"* above describes the ramp's LENGTH correctly and its SHAPE wrongly; the
+warning is a per-actor latch that trips after 5 consecutive unclaimed frames, so
+what the burst says is that at that instant NONE of the 129 was claimed.
+
+⛔⛔ **AND THE BURST IS AFTER THE REVEAL, BOTH RUNS — so the barrier releases
+before the bodies can bind at Full.** ambition-df named the fork: burst BEFORE
+the reveal line means the placeholders were under the cover and the count tell is
+clean; AFTER means the cover lifts on bodies whose textures are not ready, and
+that is the next defect. Measured (the `[first-room-art]` line carries no
+timestamp of its own, so it is bracketed by the timestamped lines either side):
+
+```text
+run 1   reveal ∈ [12:59:58.915767, 12:59:58.974449]   burst 12:59:59.343069   → 369-427 ms AFTER
+run 2   reveal ∈ [13:07:27.348005, 13:07:27.397024]   burst 13:07:27.713077   → 316-365 ms AFTER
+```
+
+⇒ **The open question this hands on, in df's words: the barrier already waits on
+the demanded characters' textures for the `164 assets` it counts, so WHICH 129
+IMAGES ARE NOT IN THAT SET?** That is a set difference between what
+`inspect_demanded_characters` waits on and what the 129 warned actors need — not
+another capture.
+
+⚠ What the run does establish, and it is worth having: at Full the cast loads
+`sprite_packs/full/ultrapack_*.png` and at Potato `sprites_potato/*` — so the
+override does reach the materializer's tier, and the 129/0 split is the areal
+ration, independent of the convergence.
 
 ## Open work
 
@@ -1123,13 +1255,27 @@ The goal named three candidate causes — prefetch scope, retired realizations, 
 re-decode. **It is prefetch scope plus rationing, and the other two are ruled
 out at their source.**
 
-⛔ **NOT RETIRED REALIZATIONS.** `demote_stale_realizations(active)` retires a
-sheet only when `asset.requested_tier != active`, and its caller
-(`character_runtime/mod.rs:855-870`) computes `active` from the USER's budget
+⛔ **NOT RETIRED REALIZATIONS.** The convergence retires a sheet only when
+`asset.requested_tier != active`, and it computes `active` from the USER's budget
 alone — *"ONE tier, the user's, everywhere. The room a character stands in has no
 say (Jon, 2026-09-02: no lower tier for gallery previews)"* — then early-returns
-through `has_stale_realizations`. A hall entry changes no tier, so it demotes
-nothing. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
+when `stale_realizations(active)` is empty. A hall entry changes no tier, so it
+retires nothing.
+⚠ **RE-VERIFIED AGAINST THE CODE 2026-09-03, after `6c9fb2b58` rewrote this
+function.** The ruling stands and THE MECHANISM NAMES IN IT DID NOT: it called
+`demote_stale_realizations(active)` and early-returned through <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
+`has_stale_realizations` when this was written, and both are now production-dead <!-- cite-ok: deleted 2026-09-03 with the swap fix -->
+(definitions and tests only — `converge_character_residency_to_active_quality`
+reaches `stale_realizations` + `retire_realizations` instead). The line citation
+it carried, `character_runtime/mod.rs:855-870`, now lands in a different
+function's parameter list.
+⭐ **And this is NOT the contradiction it looks like.** The ✔ FIXED section above
+concludes retired realizations WERE a cause of the 129-placeholder Ultra run.
+Both are true: that run is a quality TRANSITION (Potato→Ultra) and this row is a
+hall ENTRY at an unchanged tier, which still reaches the empty-`stale`
+early-return on the function's first lines. Two sections of one page naming the
+same function for opposite verdicts are describing two different EVENTS, and a
+reader who takes either as the general answer gets it wrong. ⇒ This hypothesis was live only while a room-level cap existed; **Jon's
 ruling removing that cap (§3a) also removed this cause.**
 
 ⛔ **NOT RE-DECODE.** The census reports `re-decodes N` directly and the hall
@@ -1564,6 +1710,13 @@ author          8.36   8.36    8.36     identical at every tier
 medic           7.54   7.54    7.54     identical at every tier
 officer         8.64   8.65    8.65     one pixel taller, not smaller
 ```
+⚠ **MACHINE-LOCAL, re-measured 2026-09-03.** On the box that raised this the
+script still reports the four; on calculex's box the same script reports ZERO
+(author 4.3 MB full vs 2.0 MB at 0_5x). The variants are gitignored build output,
+so this is a REGENERATION-HISTORY difference, not drift and not a fix: the raising
+box's variants are stale (`check_quality_variants_are_fresh` counts 82 stale tier
+files here — the regen awaiting Jon). The defect stands where the files are
+stale and closes by regenerating, not by editing.
 
 ⇒ **A room asking for those tiers decodes 67.2 MP where the tier promises
 ~10.5 MP** — 6.4x, per sheet, at every stage: decode, upload, residency. For
@@ -2146,7 +2299,7 @@ in `ambition_render/src/rendering/actors/mod.rs:721` reports only the first:
 *"nothing demanded it, so the engine never decoded its sheet"*. That is the
 warning the host run saw 111 times on the Hall reveal, so its diagnosis is
 evidence for a cause it never checked.
-The two are not distinguishable today: `demote_stale_realizations` removes the
+The two are not distinguishable today: `demote_stale_realizations` removes the <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 token from `sheets` and deliberately leaves `declared` intact (the entry is the
 recipe for re-making it), so a retired realization and one that was never made
 are the SAME state, and nothing records that a retirement happened. (It was
@@ -2157,8 +2310,10 @@ the range and the suffix away together.)
 this squarely in this section rather than in observability.
 ✔ **FIXED THE SAME DAY.** `CharacterSpriteAssets` now keeps a `retired` trace
 (token → the tier whose pixels it actually held), written by `retire_tokens`
-— the shared helper BOTH retirement roads go through, `demote_stale_realizations`
-and `retire_realizations_except` — and cleared by both publish paths the moment
+— the shared helper EVERY retirement road goes through (`demote_stale_realizations`, <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
+`retire_realizations_except`, and since `6c9fb2b58` the convergence's
+`retire_realizations`, which is the only one with a production caller today) —
+and cleared by both publish paths the moment
 the token is resident again — so a character that comes back stops being
 described by a retirement it recovered from. `retired_tier(token)` exposes it and
 the warning now says either *"declared as 'X' and RETIRED from Full — it was
@@ -2205,7 +2360,7 @@ measurement this section is still waiting on, and it is one boot with
 ### 6. Live quality switching
 
 ✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the
-gallery (Quarter) for the hub (Full) is now a test in the shipped composition,
+gallery (then Quarter — both legs are Full since Jon's 2026-09-02 ruling) for the hub (Full) is now a test in the shipped composition,
 `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`, and its first
 run found three defects on the way out: (1) the per-token tier a transition
 forwards was CLAMPED to the active room's cap in `materialize_character_demand`

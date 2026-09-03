@@ -8,7 +8,8 @@
 use ambition_characters::prepared::PreparedCharacterRegistry;
 pub mod audit;
 pub mod definition;
-pub mod hurtbox;
+#[cfg(test)]
+mod hurtbox_damage_tests;
 pub mod live_match_clock;
 pub mod match_activation;
 pub mod presentation;
@@ -28,10 +29,6 @@ pub use audit::{
 // every coupling census reads it that way — nine of them once accounted for ~250
 // call sites, 57 outside this crate. Callers name the crate that owns the thing.
 pub use definition::CharacterDefinitionAppExt;
-pub use hurtbox::{
-    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
-    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-};
 pub use match_activation::{
     activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_the_match,
     release_the_opening_hold,
@@ -726,12 +723,19 @@ pub fn demand_worn_character_sheets(
 /// The transition is three moves and no new machinery:
 ///
 /// 1. compare each resident realization's TIER against the active one;
-/// 2. retire the stale ones back to `Declared` — dropping the
+/// 2. re-demand the stale ones a body is WEARING, without retiring them: the
+///    materializer re-realizes a `Ready`-at-another-tier sheet in place and the
+///    renderer rebinds each body once the new texture is loaded, so no body is
+///    ever between two realizations. ⛔ Retiring first (the shape until
+///    2026-09-03) put every in-use body on the placeholder rectangle for as long
+///    as the ration took to reach it -- one character per frame at Full, 129
+///    frames for the hall -- whenever the transition landed after the cover
+///    lifted, which a headless boot and a host whose settings apply a frame late
+///    both do;
+/// 3. retire the stale ones nobody wears -- dropping the
 ///    [`CharacterSpriteAsset`](ambition_sprite_sheet::character::CharacterSpriteAsset)
 ///    drops its strong `Handle<Image>`, and Bevy frees the image once the last
-///    strong handle goes, so residency FALLS with no evictor anywhere;
-/// 3. demand them again, which the materializer four systems later satisfies at
-///    the new tier.
+///    strong handle goes, so residency FALLS with no evictor anywhere.
 ///
 /// Logical identity never moves: the same `character_id`, the same demand token,
 /// the same body entity, the same gameplay authority. Only the physical
@@ -740,7 +744,9 @@ pub fn demand_worn_character_sheets(
 /// `UserSettings`, the same source the materializer reads. Comparing
 /// against one authority and stamping from another is how a transition becomes a
 /// loop: every frame retires a realization that is immediately remade with the
-/// tier it just failed.
+/// tier it just failed. The in-use half stays stale until the ration reaches it,
+/// so this runs every frame of a transition; it requests each token once
+/// (pending tokens are skipped) and logs once per token set.
 pub fn converge_character_residency_to_active_quality(
     // NOT `Res`: this writes. But it is READ first (see below), because a
     // `ResMut` deref-mut marks `GameAssets` changed for every reader downstream,
@@ -748,6 +754,7 @@ pub fn converge_character_residency_to_active_quality(
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
     // WHO STILL USES A RETIRED SHEET: a body wearing the character, or a live
     // actor whose config names it. Only those are re-demanded; the rest stay
     // retired until something asks for them again.
@@ -757,23 +764,24 @@ pub fn converge_character_residency_to_active_quality(
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
     };
-    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    // ONE AUTHORITY: the published resolution when the render side is
+    // installed, the same resolution derived from settings when it is not --
+    // never `resolved_budget()` alone, which ignores a boot override the room
+    // path honours and split one cast across two tiers (2026-09-03).
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
     // ONE tier, the user's, everywhere. The room a character stands in has no
     // say (Jon, 2026-09-02: no lower tier for gallery previews).
     let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
     // Read through the immutable deref: nothing is stale on almost every frame,
     // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
-    if !assets.characters.has_stale_realizations(active) {
+    let stale = assets.characters.stale_realizations(active);
+    if stale.is_empty() {
         return;
     }
-    let stale = assets.characters.demote_stale_realizations(active);
-    // ⛔ RE-DEMAND ONLY WHAT IS IN USE. Retiring walks every resident
-    // realization, so committing the hub after the hall retires the whole
-    // gallery cast — and re-demanding all of it decoded ~125 FULL sheets into
-    // a room that places five of them, after the reveal, in the open (the
-    // entry hitch in reverse, and bigger). A character somebody wears or a
-    // live actor names comes back at the new tier; the rest stay retired,
-    // and the next room that places one demands it then.
     let in_use: std::collections::BTreeSet<&str> = worn
         .iter()
         .map(|worn| worn.0.as_str())
@@ -783,16 +791,35 @@ pub fn converge_character_residency_to_active_quality(
                 .filter_map(|config| config.sprite_character_id.as_deref()),
         )
         .collect();
-    let (re_demanded, left_retired): (Vec<String>, Vec<String>) = stale
+    let (wearing, unworn): (Vec<(String, String)>, Vec<(String, String)>) = stale
         .into_iter()
-        .partition(|id| in_use.contains(id.as_str()));
+        .partition(|(_, id)| in_use.contains(id.as_str()));
+    let pending: std::collections::BTreeSet<String> =
+        demand.pending().map(str::to_string).collect();
+    let re_demanded: Vec<String> = wearing
+        .iter()
+        .map(|(_, id)| id.clone())
+        .filter(|id| !pending.contains(id))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let retired = if unworn.is_empty() {
+        std::collections::BTreeSet::new()
+    } else {
+        assets
+            .characters
+            .retire_realizations(unworn.into_iter().map(|(token, _)| token))
+    };
+    if re_demanded.is_empty() && retired.is_empty() {
+        // Everything stale is already on its way through the ration.
+        return;
+    }
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
-        "quality transition to {active:?}: retired {} character realization(s); \
-         re-demanded {} in use, left {} retired",
-        re_demanded.len() + left_retired.len(),
+        "quality transition to {active:?}: re-demanded {} in use (kept drawable until \
+         re-realized), retired {} unworn",
         re_demanded.len(),
-        left_retired.len(),
+        retired.len(),
     );
     demand.request_all(re_demanded);
 }
@@ -845,6 +872,7 @@ pub fn materialize_demanded_character_sheets(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
 ) {
     // The ledger and the demand come first and separately: the no-pipeline path
     // still has to SETTLE what was staged, so it cannot be inside a destructuring
@@ -881,9 +909,15 @@ pub fn materialize_demanded_character_sheets(
         }
         return;
     };
-    // Same source `ResolvedVisualQuality` mirrors, read directly so the engine
-    // does not depend on the render crate to know its own texture budget.
-    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    // THE SAME AUTHORITY THE ROOM PATH READS. `ResolvedVisualQuality` lives in
+    // persistence so this crate can read it without the render crate; when no
+    // publisher is installed it is derived through the same function, so the
+    // boot override wins on every road or on none.
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
     let fallback_registry = PreparedCharacterRegistry::default();
     let assets = &mut *assets;
     materialize_character_demand(
@@ -942,12 +976,12 @@ impl Plugin for CharacterRuntimePlugin {
                     // pose elapsed to advance, and a system that quietly treats a
                     // missing clock as dt=0 would freeze every pose timeline
                     // without saying so.
-                    hurtbox::advance_body_pose_clocks.run_if(
+                    ambition_combat::hurtbox_resolution::advance_body_pose_clocks.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<
                             ambition_time::WorldTime,
                         >,
                     ),
-                    hurtbox::resolve_body_hurtboxes,
+                    ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
                 )
                     .chain()
                     // Pinned to one exact window inside `Combat`: AFTER the move

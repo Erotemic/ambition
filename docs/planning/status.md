@@ -235,7 +235,19 @@ only lever on the floor is running fewer systems, and it is not needed at
 Entering the hall cost nine frames of 89-355 ms while 434 MP of Full-tier art
 arrived AFTER the cover lifted. Root cause found and fixed 2026-09-02: the
 reveal barrier never waited for the cast beyond the per-frame load ration
-(`2c8f27b32`). Host-confirmed the same evening on the two tier-independent
+(`2c8f27b32`). ⊙ **A SECOND CAUSE was measured 2026-09-03 and the barrier is
+NOT it**: `converge_character_residency_to_active_quality` DID demote every
+IN-USE sheet Ready→Declared when the profile converged, un-claiming each body's
+render family and re-demanding at one character per frame at Full.
+✔ **FIXED 2026-09-03 (`6c9fb2b58`, ambition-df): a quality transition is a SWAP.**
+The worn set is re-demanded WITHOUT retiring its realizations, so the old tier
+keeps drawing until the new one lands; only the unworn set is retired.
+⚠ **The fix is landed and guarded but NOT confirmed on a live reveal, and the
+headless capture cannot supply that confirmation** — `AMBITION_QUALITY_PROFILE`
+is never written back to `UserSettings` while the adapter seeds it at
+`PostStartup`, so the override can only produce an EARLY transition DOWN to the
+seeded tier, 371 ms in, with nothing worn to protect. Measured three times,
+`scripts/measure_quality_ramp.sh`. The remaining confirmation is a host run. Host-confirmed the same evening on the two supposedly tier-independent
 tells (0 placeholders, 0 frames over 33 ms after the transition, Ultra, 3090,
 `desktop-timeline-run-20260902T215256Z`). ⛔ The room tier cap that shipped
 beside it (`dc3cd0d91`, gallery → Quarter) blurred the hall at Ultra and Jon
@@ -292,7 +304,18 @@ what the figure is now.
 ✔ **The reveal barrier's COUNT tells are CONFIRMED on the host (2026-09-02
 evening, `desktop-timeline-run-20260902T215256Z`)**: placeholder warnings
 111 → **0**, and `asset_wait_ms` 3 → **292** — the cover is up for the wait.
-Both are tier-independent.
+⛔ **BUT "both are tier-independent" IS FALSE, MEASURED 2026-09-03.** Two headless
+`capture_scene hall_of_characters` runs differing only in
+`AMBITION_QUALITY_PROFILE` gave **0 placeholders at Potato and 129 at Ultra**.
+The count is tier-SCALED, because `materialization_units` charges Full 16 against
+Quarter/Potato 1 against a per-frame budget of 16 — one character per frame at
+Full, sixteen at Potato — and the warning trips after 5 consecutive unclaimed
+frames, so only a long ramp trips it. ⇒ The host run read 0 while the gallery tier
+cap was shortening that ramp by 16×, which is the same confound this section
+already flags for the TIMING tell. `asset_wait_ms` is unaffected and remains a
+genuine tell. See `engine/asset-preparation-and-residency.md` for the mechanism
+and for ambition-df's code reading of what un-claims the bodies
+(`converge_character_residency_to_active_quality`, not the barrier).
 
 ⚠ **THE TIMING TELL IS NOT CONFIRMED FOR THE SHIPPED PROGRAM, and this is not a
 formality.** That run also had the gallery tier cap, which was cutting the very

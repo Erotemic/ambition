@@ -83,3 +83,30 @@ def test_the_workflow_trigger_is_described_honestly():
         "re-enabled that is a real change and this test should be updated "
         "deliberately rather than deleted"
     )
+
+
+def test_the_maintenance_lane_generates_before_it_checks_too():
+    """⛔ THE SAME DEFECT LIVED IN THE LOCAL LANE, and this file's own docstring
+    describes it for CI only.
+
+    `./run_tests.sh --maintenance` ran `check_agent_kb.py` with no generate step
+    until 2026-09-03, so it passed only on a machine that had already generated
+    `.agent/index/` by hand — which every developer who has ever run the
+    generator has, and a clean checkout has not. CI learned this on 2026-09-02
+    and the lane did not hear about it.
+
+    ⚠ Asserts ORDER, not mere presence: generating after the check is the same
+    as not generating at all.
+    """
+    plan = (REPO / "scripts" / "run_tests.py").read_text(encoding="utf-8")
+    gen = plan.find("scripts/generate_agent_index.py")
+    chk = plan.find("scripts/check_agent_kb.py")
+    assert gen != -1, (
+        "run_tests.py no longer plans scripts/generate_agent_index.py; "
+        "--maintenance cannot pass on a clean checkout without it"
+    )
+    assert chk != -1, "run_tests.py no longer plans scripts/check_agent_kb.py"
+    assert gen < chk, (
+        "the maintenance lane checks the agent KB before generating its index; "
+        "generating afterwards is the same as not generating at all"
+    )

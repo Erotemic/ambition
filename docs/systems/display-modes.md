@@ -14,8 +14,17 @@ The former F6/F7 window-mode shortcuts were removed. Those keys are now owned by
 the canonical developer deck for FPS-overlay and portal-gun diagnostics. See
 [`developer-hotkeys.md`](developer-hotkeys.md).
 
-The mode-application logic remains in `settings::apply_display_mode`, so every
-menu backend produces the same `WindowMode` mapping.
+The mode-application logic is shared, so every menu backend produces the same
+`WindowMode` mapping. It lives in
+`ambition_settings_menu/src/settings/apply.rs` (`apply_settings_option`), with
+the `DisplayModeKind` → `WindowMode` conversion on the settings type itself
+(`ambition_persistence/src/settings/video/mod.rs:733`).
+
+⚠ **This named `settings::apply_display_mode` until 2026-09-03 and that function <!-- cite-ok: names the function that no longer exists, which is the note's point -->
+no longer exists** — it left the actor monolith in `355874fe1`, *"four modules
+leave the monolith for crates that already own their subject"*. The CLAIM was
+never wrong; only its address was, which is the failure mode a carve leaves
+behind in every page that cited the old home.
 
 ## Scaling policy
 

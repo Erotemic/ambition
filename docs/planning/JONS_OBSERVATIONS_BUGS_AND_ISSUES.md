@@ -416,7 +416,7 @@ RENDERED session shows the same"*.
 
   * ⊙ **the convergence read end-to-end, and one CLASS of body provably never
 converges.** `converge_character_residency_to_active_quality` →
-`demote_stale_realizations` retires each stale realization and re-demands it —
+`demote_stale_realizations` retires each stale realization and re-demands it — <!-- cite-ok: deleted 2026-09-03 with the swap fix; this row records the old mechanism -->
 but only where `declared.contains_key(token)`. `publish_under` inserts into
 `sheets` and NEVER into `declared`, and that exclusion is deliberate: *"art it
 did not build, so retiring it would delete a face with no way to draw it

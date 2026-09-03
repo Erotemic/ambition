@@ -88,7 +88,8 @@ rollback row (`item.held_projectile`) — is deleted, and the fireball's burst i
 old path decided by code, not authoring — no recoil for the hand, the side
 muzzle — are recorded as decisions 40–41 in `awaiting-maintainer-decision.md`;
 the fold preserves the shipped feel until they are ruled. Guards:
-`items::pickup::tests` (the request) and
+`ambition_held_items::tests` (the request — ⚠ this said `items::pickup::tests`
+until the pickup carve of 2026-09-03 moved it out of the kernel) and
 `game/ambition_app/tests/hand_fired_held_shot.rs` (the projectile, in the
 shipped composition; recoil proven red at −380 px/s).
 

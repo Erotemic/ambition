@@ -275,7 +275,7 @@ Ambition pain it would remove.
   ⭐ **`debug_overlay` HAS ALREADY DONE THIS, and its receipt is the argument for
   the rest.** `render_debug_overlay_labels` draws the per-frame label buffer with
   `Gizmos::text_2d`; what went with the retained `Text2d` entities was the spawn
-  churn, the per-frame despawn sweep, the `DebugOverlayLabel` marker — and *"the
+  churn, the per-frame despawn sweep, the `DebugOverlayLabel` marker — and *"the <!-- cite-ok: names the marker the 0.19 port deleted -->
   one that mattered — the dependency of F1 world labels on the PRODUCT font
   stack"*. It also settles the question this row would otherwise have to ask
   first: `Gizmos::text_2d` takes a world-space `Isometry2d`, so `font_size` stays

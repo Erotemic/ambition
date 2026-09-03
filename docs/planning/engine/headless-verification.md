@@ -46,7 +46,11 @@ Two consequences for anything written against the old behaviour:
   `3f3b42407`: `AMBITION_HEADLESS_GAMEPLAY_ROOM=hall_of_characters` under
   `scripts/headless_room_frame.sh` decodes a full hall population, and a
   `capture_scene` run of the same room reports 235 images / 29.5 MP / 118.1 MB
-  resident on its `[image-census]` line. The equivalent run before the fix
+  resident on its `[image-census]` line. ⚠ **That is the SAME run the asset A/B
+  table records** ([`asset-preparation-and-residency.md`](asset-preparation-and-residency.md),
+  the `llvmpipe` Cpu-adapter table), not an independent confirmation of it —
+  two pages quoting one measurement, which is worth saying because three
+  matching numbers in two documents read like corroboration. The equivalent run before the fix
   reported none.
 - ⚠ **So headless frame numbers across that commit are not comparable**, and
   `performance-and-iteration.md` says so where the affected table lives: every

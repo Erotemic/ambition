@@ -13,7 +13,7 @@ kind = "required-path"
 owners = ["ambition_content"]
 watch_paths = ["game"]
 rationale = "The named-content crate and the app-assembly shell are the two game-tier homes the composition root depends on; a missing src root means a move went wrong."
-source_doc = "docs/planning/engine/decomposition.md"
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
 severity = "error"
 paths = [
     "game/ambition_content/src",

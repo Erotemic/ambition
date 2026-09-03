@@ -24,7 +24,7 @@ pub fn refresh_body_damageable_volumes(
             Option<&ambition_characters::actor::BodyHealth>,
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
             // Authored hurtboxes override the coarse body envelope.
-            Option<&crate::character_runtime::ResolvedHurtboxes>,
+            Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
             Option<&ambition_platformer2d_core::BodyKinematics>,
             &mut DamageableVolumes,
         ),
@@ -54,7 +54,7 @@ pub fn refresh_body_damageable_volumes(
 /// `Some(vec![])` is an explicit intangible window and must remain empty. Timeline
 /// hurtboxes are authored as rectangles, so this path publishes AABB volumes.
 fn authored_world_volumes(
-    hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
+    hurtboxes: Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
     kin: Option<&ambition_platformer2d_core::BodyKinematics>,
 ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
@@ -77,7 +77,7 @@ pub fn refresh_boss_damageable_volumes(
         &ambition_characters::brain::BossAttackState,
         Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         // Authored character hurtboxes override boss-part sampling.
-        Option<&crate::character_runtime::ResolvedHurtboxes>,
+        Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
         Option<&ambition_platformer2d_core::BodyKinematics>,
         &mut DamageableVolumes,
     )>,

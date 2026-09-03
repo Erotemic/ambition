@@ -65,7 +65,8 @@ where
     // walks the entities a booted room HAS; a turret exists only after somebody
     // fires, so its absence from the registry read exactly like a pass. See the
     // scenario sweep this landed with.
-    registrar.require_rollback::<ambition_abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
+    registrar
+        .require_rollback::<ambition_abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
     registrar.rollback_component_clone_probed::<ambition_abilities::ranged::sentry::Sentry>(
         OWNER,
         "ability.sentry",
@@ -269,12 +270,13 @@ where
             hasher.finish() ^ projected.generation.get().rotate_left(32)
         },
     );
-    registrar.rollback_component_clone_probed::<crate::character_runtime::BodyPoseClock>(
-        OWNER,
-        "actor.body_pose_clock",
-        |clock| checksum_bytes(clock.pose.as_bytes()) ^ clock.elapsed_s.to_bits() as u64,
-    );
-    registrar.rollback_component_clone::<crate::character_runtime::AuthoredHurtboxes>(
+    registrar
+        .rollback_component_clone_probed::<ambition_combat::hurtbox_resolution::BodyPoseClock>(
+            OWNER,
+            "actor.body_pose_clock",
+            |clock| checksum_bytes(clock.pose.as_bytes()) ^ clock.elapsed_s.to_bits() as u64,
+        );
+    registrar.rollback_component_clone::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>(
         OWNER,
         "actor.authored_hurtboxes",
     );
@@ -490,7 +492,7 @@ where
         "derived.body_mode_capabilities",
         "projected from the active body mode each frame",
     );
-    registrar.declare_rollback_derived_component::<crate::character_runtime::ResolvedHurtboxes>(
+    registrar.declare_rollback_derived_component::<ambition_combat::hurtbox_resolution::ResolvedHurtboxes>(
         OWNER,
         "derived.resolved_hurtboxes",
         "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",

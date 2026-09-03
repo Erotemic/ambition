@@ -1,6 +1,6 @@
 # Gameplay effects, damage messages, and ECS messages
 
-The sandbox routes cross-system gameplay side effects through typed Bevy messages. The progression/save/audio effect streams are **four focused messages** consumed by per-effect systems in `features::bus`. Feature-local interactions use additional typed messages such as the unified combat `HitEvent`, `ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
+The sandbox routes cross-system gameplay side effects through typed Bevy messages. The progression/save/audio effect streams are **four focused messages** consumed by per-effect systems in `features::bus`. Feature-local interactions use additional typed messages such as the unified combat `HitEvent`, `RoomReplayAdmitted`, and `GameplayBannerRequested`.
 
 **Review date:** 2026-06-02. The single mixed-purpose `GameplayEffect` enum was split into the four typed messages below (ecs-cleanup-plan #5); the earlier no-op `DamageBoss` / `StrikeNpc` variants were already deleted (boss damage applies inline; NPC strikes route through `ActorStimulus`).
 
@@ -10,7 +10,7 @@ The old `FeatureEventBus`, `FeatureEvents`, and `FeatureEcsQueues` bridge layers
 > date: 2026-06-02** is the date the `GameplayEffect` split happened, not a
 > currency stamp — and two of the commits that invalidated rows below it landed
 > after: `de22be956` (2026-06-22) merged `apply_npc_stimuli` away, and
-> `ea55d8023` (2026-08-30) deleted `ResetRoomFeaturesEvent`. Both are corrected
+> `ea55d8023` (2026-08-30) deleted `ResetRoomFeaturesEvent`. Both are corrected <!-- cite-ok: names the deleted message this note is about -->
 > in place with their successors.
 >
 > ✔ What was checked: every CamelCase type and every `snake_case` name this page
@@ -36,7 +36,7 @@ Use domain-specific messages when the consumer is known and the payload is more 
 - `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaces the old split damage-message family.
 - `ActorActionMessage` for resolved brain/action requests that spawn or start concrete effects.
 - `GameplayBannerRequested` for HUD banner text from systems whose parameter list is already large.
-- ⛔ **`ResetRoomFeaturesEvent` IS DELETED — this row named it as current until
+- ⛔ **`ResetRoomFeaturesEvent` IS DELETED — this row named it as current until <!-- cite-ok: names the deleted message this correction replaces -->
   2026-09-03.** Removed 2026-08-30 in `ea55d8023` (*"the replay reset the world,
   then found out it was not allowed to happen"*), which is also why: the message
   let a reset be seen while no body existed and re-read several frames later
@@ -52,10 +52,25 @@ Presentation facts that already have a concrete presentation type should use the
 ## Damage and hit state today
 
 The legacy split damage-message shapes have been **unified into one `HitEvent`** carrying a `HitSource` (who/what
-caused it — `PlayerSlash` / `PlayerProjectile` / `PogoBounce` /
-`EnemyBody` / `EnemyProjectile` / `BossBody` / `BossAttack` / hazard / …),
-a `HitTarget` (broadcast `Volume` vs a specific player/actor entity), plus
-`volume`, `damage`, `HitMode`, and optional `HitKnockback`. Both outgoing
+caused it), a `HitTarget` (broadcast `Volume` vs a specific `Body(Entity)`), plus
+`volume`, `damage`, `HitMode`, and optional `HitKnockback`.
+
+⛔ **THIS PARAGRAPH LISTED THE WRONG VARIANTS UNTIL 2026-09-03, and the error was
+the one the unification existed to fix.** It said `HitSource` carries
+`PlayerSlash` / `PlayerProjectile` / `PogoBounce` / `EnemyBody` / <!-- cite-ok: lists the WRONG old variants the correction is refuting -->
+`EnemyProjectile` / `BossBody` / `BossAttack` — seven names encoding WHO struck <!-- cite-ok: lists the WRONG old variants the correction is refuting -->
+into the cause. None of them exists. The real variants
+(`ambition_combat/src/events.rs:253`) are **`Melee`, `Projectile`, `Contact`,
+`Hazard`, `LeftTheWorld`, `Pogo`** — six, and every one is a KIND of harm rather
+than a role.
+
+⇒ The type's own doc says why: *"attacker identity comes from
+`HitEvent::attacker`, victim routing from the named target"*, and of the
+melee/projectile split, *"a victim genuinely wants to know whether it took a
+contact swing or a ranged shot — that is a real difference in the world, unlike
+who fired it."* ⇒ **So the page was describing the pre-unification shape while
+claiming to describe the unification**, and anyone matching on
+`HitSource::PlayerSlash` would not compile. Both outgoing <!-- cite-ok: names a variant that does not exist, which is the correction's point -->
 (player → feature) and incoming (hazard/enemy/boss → player) damage flow
 through it. What's still missing is a full per-hit *lifecycle* object —
 `HitEvent` is the canonical transport, but reaction/poise/stagger/armor/

@@ -419,8 +419,29 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                 # rather than a defect. Failing the lane on one would train
                 # everybody to pass --no-verify. `--strict` exists for a
                 # deliberate sweep.
-                "planning citations (reports, does not gate)",
-                [sys.executable, "scripts/check_planning_citations.py"],
+                "planning + doctrine citations (reports, does not gate)",
+                [
+                    sys.executable,
+                    "scripts/check_planning_citations.py",
+                    # ⭐ THE DEFAULT IS `docs/planning` ALONE, and the pages that
+                    # describe CURRENT behaviour were never scanned. Aimed here
+                    # 2026-09-03 it found three live-doc citations pointing at
+                    # code that had moved crates — `settings::apply_display_mode`
+                    # (left the monolith in `355874fe1`), `audio/runtime.rs` and
+                    # `src/vanity_card.rs`. A doctrine page whose address is
+                    # wrong is worse than a stale plan: it is read as current.
+                    # ⭐ AND IT COSTS ONE SECOND. Measured 2026-09-03: 15s for
+                    # `docs/planning` alone, 16s for all five. The expensive part
+                    # is indexing the source tree — 24,767 defined names — not
+                    # reading documents, so four more corpora are free. Do not
+                    # narrow this back for speed; the price was never in the
+                    # scanning.
+                    "docs/planning",
+                    "docs/concepts",
+                    "docs/systems",
+                    "docs/architecture",
+                    "docs/recipes",
+                ],
             ),
             Job(
                 "compile-cost ratchet (frozen weights, not a stopwatch)",
@@ -737,6 +758,19 @@ def build_maintenance_jobs() -> list[Job]:
     it does not belong in the default plan and does belong here.
     """
     return [
+        # ⛔ THE GENERATOR RUNS FIRST, AND THE CHECK CANNOT PASS WITHOUT IT.
+        # `.agent/index/` and `.agent/README.md` are generated and git-ignored
+        # (`.gitignore:115-116`), so a clean checkout does not have them and
+        # `check_agent_kb.py` reports *".agent/index/ is generated, ignored by
+        # Git, and currently missing or incomplete"* before it checks anything.
+        # ⚠ CI LEARNED THIS FIRST and says so at `.github/workflows/test.yml:122`
+        # — *"the job could never pass as written"* — and added the same step
+        # there. This lane was missing it until 2026-09-03, so `--maintenance`
+        # passed only on a machine that had already generated the index by hand.
+        Job(
+            "agent index (generated; the KB check reads it)",
+            [sys.executable, "scripts/generate_agent_index.py"],
+        ),
         Job(
             "agent KB (periodic doc/index hygiene)",
             [sys.executable, "scripts/check_agent_kb.py"],
@@ -758,12 +792,27 @@ def build_maintenance_jobs() -> list[Job]:
         # "what did the last three weeks of carving leave stale", not "is this
         # edit ok" — which is why it belongs here and not in the default plan.
         Job(
-            "planning rows citing a vanished name (periodic)",
+            "planning + doctrine rows citing a vanished name (periodic)",
             [
                 sys.executable,
                 "scripts/check_planning_citations.py",
                 "--vanished",
                 PLANNING_VANISHED_BASELINE,
+                # ⭐ DOCTRINE ROTS THE SAME WAY, and the checker already took
+                # paths — its default is just `docs/planning`, so nothing had
+                # ever aimed it at the pages that describe CURRENT behaviour.
+                # Pointing it here on 2026-09-03 found `HitSource` documented
+                # with seven role-shaped variants (`PlayerSlash`,
+                # `EnemyProjectile`, …) that do not exist, on the page whose
+                # subject is the unification that replaced them with six
+                # cause-shaped ones — plus a deleted message still listed among
+                # current ones in that file's opening sentence, which a hand
+                # sweep of the same file had missed twice.
+                "docs/planning",
+                "docs/concepts",
+                "docs/systems",
+                "docs/architecture",
+                "docs/recipes",
                 # ⛔ WITHOUT `--strict` THIS EXITS 0 WITH FINDINGS ON SCREEN, and
                 # a job that cannot fail is the very shape this lane was added to
                 # stop being. Verified 2026-09-03: 13 findings, exit 0 without
@@ -997,7 +1046,7 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind #[cfg(feature = \"...\")] — MEASURED 2026-09-03 at\n"
-            "        783 tests across 29 crates, the largest single omission this\n"
+            "        784 tests across 29 crates, the largest single omission this\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"

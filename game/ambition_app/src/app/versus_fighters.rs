@@ -4,9 +4,9 @@
 //! They reference existing sprite sheets; missing attack rows use the normal
 //! animation fallback path.
 
-use ambition_platformer2d::actors::character_runtime::POSE_HITSTUN;
 use ambition_platformer2d::character::CharacterDefinition;
 use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::combat::hurtbox_resolution::POSE_HITSTUN;
 use ambition_platformer2d::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition_platformer2d::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,

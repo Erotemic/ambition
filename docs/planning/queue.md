@@ -632,17 +632,25 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 </details>
 
-- ▢ **DEV GRAVITY CYCLE PUBLISHES A REQUEST; THE SIM APPLIES IT.**
-  `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) writes
+- ✔ **DEV GRAVITY CYCLE PUBLISHES A REQUEST; THE SIM APPLIES IT (2026-09-03).**
+  `AmbientGravityRequest::Cycle` in `shared_tangle::gravity`; the hotkey and
+  the developer menu's Gravity row both WRITE it (the menu through
+  `Messages<_>` so a fixture without the gravity plugin renders the row as a
+  no-op rather than failing the menu system's parameter validation); the
+  kernel's gravity plugin applies it in the sim, chained before
+  `resolve_active_gravity`, so a request made this frame is felt this tick.
+  The waiver is gone and the guard reads 0 unwaived without it; unit guard
+  `a_cycle_request_is_applied_by_the_sim_and_steps_one_cardinal`. The row as
+  filed: `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) wrote
   `BaseGravity` — a canonically rollback-registered resource — directly from
   `Update`. In a rollback session that is a real desync source: the value is
   restored on every rewind, the toggle is not replayed with it, and the peer
   never saw the toggle at all. Nothing crashes; the runs simply drift.
   ⭐ **The fix has a precedent rather than needing a design**: publish a request
   the sim consumes, the `ClockScaleRequest` / D33 shape. Engine work, no product
-  judgement, small. ⛔ Waived meanwhile in
-  `scripts/check_rollback_mutators_run_in_sim.py::WAIVERS` with this row named,
-  so the guard is green at zero unwaived rather than silent.
+  judgement, small. (It was waived meanwhile in
+  `scripts/check_rollback_mutators_run_in_sim.py::WAIVERS` with this row named;
+  the waiver left with the fix.)
   ▢ **And the same row owes a second question it must not assert.**
   `restore_inventory_from_save` writes `BodyWallet` from `Update` while applying
   a save. At session activation no sim tick has advanced, so there is nothing to

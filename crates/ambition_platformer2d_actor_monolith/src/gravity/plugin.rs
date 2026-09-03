@@ -87,9 +87,15 @@ impl Plugin for GravityPlugin {
                 .after(GravitySet::ZoneSnapshot)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         );
+        // Ambient-gravity changes arrive as REQUESTS from outside the sim and
+        // are applied here, in the sim, before the resolver copies the ambient
+        // into each body's frame — see `AmbientGravityRequest` for why a dev
+        // control must not write `BaseGravity` itself.
+        app.add_message::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>();
         app.add_systems(
             sim,
             (
+                ambition_platformer2d_shared_tangle::gravity::apply_ambient_gravity_requests,
                 super::resolve::resolve_body_motion_frames,
                 ambition_platformer2d_shared_tangle::gravity::resolve_active_gravity,
             )

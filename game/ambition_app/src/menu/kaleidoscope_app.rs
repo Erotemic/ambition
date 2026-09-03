@@ -590,9 +590,13 @@ pub(crate) struct SystemMenuParams<'w> {
     portal_camera: Option<
         ResMut<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
-    // The Gravity cycle's target (ambient gravity). Option so the System nav stays
-    // B0002-safe and fixtures without the resource render the row as "n/a".
-    base_gravity: Option<ResMut<'w, ambition_platformer2d::world::BaseGravity>>,
+    // The Gravity cycle's request channel. Option so the System nav stays
+    // B0002-safe and fixtures without the gravity plugin render the row as a
+    // no-op; the sim applies the request (`BaseGravity` is rollback state).
+    gravity_requests:
+        Option<ResMut<'w, Messages<ambition_platformer2d::world::AmbientGravityRequest>>>,
+    // Read-only, for the row's direction label.
+    base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
     reset: ResMut<'w, ambition_platformer2d::actors::session::reset::NewGameResetRequested>,
     // Selecting a rebind row ARMS this; the capture system reads it.
     rebind_capture: ResMut<'w, RebindCapture>,
@@ -696,7 +700,7 @@ impl SystemMenuParams<'_> {
                         portal_effect: self.portal_effect.as_deref_mut(),
                         #[cfg(feature = "portal_render")]
                         portal_camera: self.portal_camera.as_deref_mut(),
-                        base_gravity: self.base_gravity.as_deref_mut(),
+                        gravity_requests: self.gravity_requests.as_deref_mut(),
                     },
                     id,
                     0,
@@ -738,7 +742,7 @@ impl SystemMenuParams<'_> {
                         portal_effect: self.portal_effect.as_deref_mut(),
                         #[cfg(feature = "portal_render")]
                         portal_camera: self.portal_camera.as_deref_mut(),
-                        base_gravity: self.base_gravity.as_deref_mut(),
+                        gravity_requests: self.gravity_requests.as_deref_mut(),
                     },
                     id,
                     dir,
@@ -2036,18 +2040,21 @@ fn close_kaleidoscope_menu(
 #[cfg(feature = "kaleidoscope_menu")]
 /// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal directions — down →
 /// left → up → right — so flipped / sideways-gravity behavior (pogo, cling, orientation,
-/// slug-crawl) is testable without an authored switch. Mutates [`BaseGravity`]; a gravity zone the
-/// player overlaps still wins locally, and a room reset restores the authored default.
+/// slug-crawl) is testable without an authored switch. PUBLISHES an
+/// [`AmbientGravityRequest`](ambition_platformer2d::world::AmbientGravityRequest); the sim applies
+/// it (`BaseGravity` is rollback state, and a dev tool writing it from `Update` was the defect the
+/// rollback-mutator guard named). A gravity zone the player overlaps still wins locally, and a
+/// room reset restores the authored default.
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut base: ResMut<ambition_platformer2d::world::BaseGravity>,
+    mut requests: MessageWriter<ambition_platformer2d::world::AmbientGravityRequest>,
 ) {
     if !keys.just_pressed(KeyCode::Backslash) {
         return;
     }
-    // Same step the developer menu's Gravity row uses (shared `BaseGravity::cycle`).
-    base.cycle();
-    info!(target: "ambition_platformer2d::gravity", "dev gravity cycle: dir = {:?}", base.dir);
+    // Same step the developer menu's Gravity row requests.
+    requests.write(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
+    info!(target: "ambition_platformer2d::gravity", "dev gravity cycle requested");
 }
 
 /// Pause-gate the cube: toggle ONLY the cube's order-8 `Camera3d` (and ring

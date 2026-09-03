@@ -113,6 +113,38 @@ impl BaseGravity {
     }
 }
 
+/// A request to change the room's ambient gravity, written from OUTSIDE the
+/// simulation (a dev hotkey, the developer menu's Gravity row) and applied
+/// INSIDE it by [`apply_ambient_gravity_requests`].
+///
+/// ⛔ [`BaseGravity`] IS ROLLBACK STATE, and a developer control that wrote it
+/// from `Update` mutated a rewound value on a schedule that never rewinds —
+/// the exact class `scripts/check_rollback_mutators_run_in_sim.py` exists to
+/// catch, and it caught this one (2026-09-03, waived with this fix named).
+/// Same inversion as `ClockScaleRequest`: the sim reads a request the tool
+/// publishes, never the tool's hand on the resource.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AmbientGravityRequest {
+    /// Step to the next cardinal direction (down → left → up → right → down),
+    /// the one step both developer roads make.
+    Cycle,
+}
+
+/// Apply every [`AmbientGravityRequest`] written since the last tick to
+/// [`BaseGravity`]. Runs in the simulation schedule, before the resolver that
+/// copies the ambient into each body's frame, so a request made this frame is
+/// felt this tick. Two requests in one tick cycle twice, in write order.
+pub fn apply_ambient_gravity_requests(
+    mut requests: MessageReader<AmbientGravityRequest>,
+    mut base: ResMut<BaseGravity>,
+) {
+    for request in requests.read() {
+        match request {
+            AmbientGravityRequest::Cycle => base.cycle(),
+        }
+    }
+}
+
 /// An authored region with its own gravity direction — the building block of a
 /// "gravity room". Gravity is resolved per body, by position: any actor whose
 /// center is inside the zone's `aabb` feels gravity along `dir` (and reorients via
@@ -701,5 +733,44 @@ mod tests {
             c.x
         );
         assert!((c.y - base.y).abs() < 1e-3, "vertical position unchanged");
+    }
+}
+
+#[cfg(test)]
+mod ambient_request_tests {
+    use super::*;
+    use bevy::app::App;
+
+    /// The request road, end to end: a request written outside the sim
+    /// schedule is applied by the sim's applier, and only there. Poison:
+    /// make `apply_ambient_gravity_requests` ignore `Cycle` and the direction
+    /// stays down.
+    #[test]
+    fn a_cycle_request_is_applied_by_the_sim_and_steps_one_cardinal() {
+        let mut app = App::new();
+        app.add_message::<AmbientGravityRequest>();
+        app.init_resource::<BaseGravity>();
+        app.add_systems(bevy::app::Update, apply_ambient_gravity_requests);
+        app.world_mut().write_message(AmbientGravityRequest::Cycle);
+        app.update();
+        assert_eq!(
+            app.world().resource::<BaseGravity>().direction_label(),
+            "Left",
+            "down -> left after one request"
+        );
+        app.world_mut().write_message(AmbientGravityRequest::Cycle);
+        app.world_mut().write_message(AmbientGravityRequest::Cycle);
+        app.update();
+        assert_eq!(
+            app.world().resource::<BaseGravity>().direction_label(),
+            "Right",
+            "two requests in one tick cycle twice, in write order"
+        );
+        app.update();
+        assert_eq!(
+            app.world().resource::<BaseGravity>().direction_label(),
+            "Right",
+            "a tick with no request changes nothing"
+        );
     }
 }

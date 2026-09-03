@@ -442,6 +442,60 @@ a DETECTOR that over-reports, and the confirmation is a second run with
 `--all-features`. **Only a dep unused under BOTH is unused.** Detector then
 confirmer costs two runs on the hits rather than two runs on all 77 crates.
 
+### ⛔ A GREEN TOOL IS NOT A GREEN CLAIM — three tools, three false claims
+
+The table above is four tools too narrow for ONE question. This is the other
+half, found the same day by the coordinator session and recorded here at their
+request: three DIFFERENT tools, each green, each beside a claim that was false.
+
+- **`check_planning_citations.py --strict` read 1,222 citations all-resolved
+  BEFORE AND AFTER five flatly false sentences were fixed.** It resolves cited
+  SYMBOLS; a claim about where code LIVES is prose. Six crates left the actor
+  monolith that day, every citation the tooling could see was updated, and every
+  sentence that merely *described* a location survived — *"…is
+  `actor_monolith::items::pickup`, which stayed in the kernel"* reads as settled
+  architecture rather than as a dated fact. ⇒ Sweep old paths after a carve and
+  sort the hits into HISTORY vs STALE, then **re-tense rather than delete**: of
+  eight hits on one path, five were correct history, so a purge would have
+  broken five true sentences to fix three false ones.
+- **A memorised rule applied to the wrong situation.** Five docs tell readers to
+  run `check_absence_contracts.py | grep footprint`, and the rule *"a pipe voids
+  the exit code"* nearly got all five "corrected". That checker prints `ok`/`FAIL`
+  **inside each line**, so the verdict survives the pipe and the rule did not
+  apply. ⇒ A remembered rule is a hypothesis ABOUT A SITUATION, not a fact about
+  a command: ask **where the tool puts its verdict** before correcting a pipe.
+  (The rule itself is real — see the exit-status rows in
+  [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — which is exactly
+  what makes it dangerous to apply without looking.)
+- ⭐ **The sharpest one: a RETRACTION that was itself the mistake.** A
+  `theme_loaded` gate in `sync_session_room_visuals` returns before the block
+  loop; it was read, matched to that function's own comment about a room not
+  being *"held hostage to a backdrop that is never coming"*, and published as the
+  `painted_blocks` mechanism. `painted_blocks` then measured **4/4 green**, so
+  the claim was retracted. Hours later two other sessions traced the Ultra hall's
+  129-warning NPC placeholder burst to **that exact gate**. ⇒ **Right mechanism,
+  wrong claim attached to it; retracted for the wrong reason; and only a third
+  party's independent need revealed the reading had been correct all along.**
+
+⭐ **What saved the third one is the whole method of this page.** It had been
+written up as a SOURCE READING — what the gate does, quoted, with its file and
+its comment — rather than as a finding. So the retraction cost one paragraph and
+the rescue cost one paragraph, and the evidence was still sitting there to be
+rescued BY. Had it been published as a conclusion ("the burst is caused by
+X") the retraction would have deleted the observation along with the claim.
+
+⇒ **A retraction can also be a mistake.** The defence is the same one this page
+asks for everywhere else: **say what the evidence IS, not only what you
+concluded from it** — a wrong conclusion over a correct observation is one edit
+to fix, while a wrong conclusion that consumed its observation is a re-run.
+
+⚠ ⇒ **The combined rule, and it is the day's finding:** an instrument's green is
+a statement about the instrument's own question. **Before quoting a passing
+check as support, say in one clause what that check actually resolves** — symbols
+for the citation checker, default-feature compilation for the dependency lint,
+`src/` for a source sweep. If that clause is narrower than your sentence, the
+green is not evidence for your sentence.
+
 ⇒ The residue is worth keeping too: those four are not bugs in the code, they are
 deps used only by tests while declared in `[dependencies]` rather than
 `[dev-dependencies]`. The mis-scan found a real, smaller thing while claiming a

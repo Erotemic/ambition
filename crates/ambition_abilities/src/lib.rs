@@ -9,7 +9,9 @@
 //! carve. `possession`, `teleport`, `trapdoor` and `flyline` live in a directory
 //! called `abilities/` in the kernel and are NOT abilities: their systems are
 //! registered by `ambition_platformer2d_runtime`, not by the item-pickup family,
-//! and `possession` is named 87 times outside that directory (`teleport` 61) by
+//! and `possession` is named 87 times outside that directory (`teleport` 61) by (counted
+//! within the actor monolith, minus its own `abilities/`; the same grep across
+//! `crates` and `game` gives 256 and 603, so the scope is part of the figure)
 //! `body_custody`, `control::authority`, `features::ecs::dormancy` and
 //! `control::input_systems`. That is control authority. Moving it here would
 //! give this crate a home the RUNTIME registers systems out of and the KERNEL

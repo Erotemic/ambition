@@ -20,9 +20,15 @@ is a FILE + a SHA, never a chat message. Main is at `2eb71a6e2`; the tree was cl
 - Peers self-correct when asked to MEASURE; give them concrete jobs, a poison, and a SHA range.
 
 ## Peers and their addresses (`ListAgents` names)
-- `YardratAmbition` (fast CPUs; branch `agent/abilities-carve`, planning branch merged) — review
-  items #3/#6 DONE LOCALLY, range `3a8dcb7e2..9d77d0719`, NOT pushed, Python-only, needs the
-  Rust lane on a box with headroom (theirs is at 12 GB). Merge first, gate.
+- `YardratAmbition` (fast CPUs) — review items #3/#6 DONE and PUSHED on branch
+  `agent/yardrat-abort-reporting-and-planning-sweep` at `0293c4892` (7 commits ahead of main,
+  Python + docs only). ⚠ MERGE THE BRANCH TIP, not a range: it also carries e381705f1
+  (backtick-count convention), c2b7f83c7 (restores `engine/decomposition.md` as a redirect stub —
+  main's nine policy rows already point at `docs/architecture/package-and-capability-boundaries.md`;
+  keep them there, the stub is harmless), fa684f9c0 (status.md disk section), 0293c4892 (ten asset
+  ratchets are behind `AMBITION_ASSETS_ARE_CANONICAL`, which nothing sets — filed as an open
+  decision, not fixed). What it owes: `./run_tests.sh --rust` at the tip on a box with headroom
+  (theirs refuses at 12 GB). Merge first, gate.
 - `CalculexAmbition` (no-GPU VM, lavapipe renders pictures, never timings; branch
   `calculex-no-gpu`) — assigned review item #5 (multi-switch semantics: arming says "any off",
   completion greens only the first; decide one policy, two-switch guard both ways). Not landed.

@@ -460,6 +460,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   once is *supposed* to do. Whether those tests should be feature-scoped, or the
   union should exclude them, is a judgement for whoever owns the demos doctrine
   — do not "fix" them by widening the assertion.
+  ⭐ **AND I CHECKED WHETHER THAT RULING ALREADY EXISTS, so nobody repeats the
+  grep: it does not.** `docs/planning/demos/` and `engine/` state the doctrine
+  the test asserts, and nothing rules on what a demo should assert under an
+  ALL-FEATURES build. ⚠ That check is worth doing before filing anything as "a
+  judgement call" — the `ConeRigAssets` group above was filed that way for a day
+  and `engine/headless-verification.md` had already ruled on it, with a named
+  pattern to copy.
   ⚠ The `painted_blocks` pair is a THIRD cause, read far enough to aim the next
   person: the helper looks for an entity matching `(&BlockVisual, &Sprite)` whose
   `geo_id` is the placement's, and panics *"no block visual is drawing GeoId …"*

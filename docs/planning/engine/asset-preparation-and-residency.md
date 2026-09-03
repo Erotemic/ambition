@@ -1400,6 +1400,31 @@ at the main checkout's, file by file — `sprites_0_25x/author_spritesheet.png`
 here IS `/home/joncrall/code/ambition/...` there. I measured one set of bytes
 twice and called the second read independent evidence.
 
+⭐⭐ **AND THE "WAIT FOR A CLEAN REGEN" DEFERRAL IS NO LONGER THE ONLY ROAD —
+MEASURED 2026-09-02, `--ages`.** The leading alternative to a generator defect
+was that these are leftovers an earlier render abandoned. They are not: at BOTH
+reduced tiers the four are the NEWEST files present (ranks 201–204 of 205),
+written 2026-08-27, 4.5 days after the tier's median of 08-22.
+
+```text
+sheet      0_5x    0_25x   its own full sheet   reading
+actor      09:48   09:49   09:47                same run as its full sheet
+author     09:52   09:53   09:52                same run as its full sheet
+medic      09:46   09:46   09:46                same run as its full sheet
+officer    09:50   09:51   19:53                variants predate it by 10 h
+```
+
+⇒ **Three of the four were written within MINUTES of their own full-resolution
+sheet**, so a live run produced a full sheet and an unshrunk "reduced" one
+together — a generator defect on that code path, not stale output. ⛔ **`officer`
+is a DIFFERENT mechanism**: its variants predate its own full sheet by ten
+hours, i.e. its full sheet was re-rendered later and its variants were never
+regenerated. A fix aimed only at the first mechanism leaves `officer` broken.
+
+⚠ mtimes are per-machine and a copy rewrites them; the evidence is the contrast
+inside one tree — the four being the newest files at their tier while the tier's
+median is four days older is the part that carries the argument.
+
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
 asking for those tiers pays for them. NOT established: that any other machine

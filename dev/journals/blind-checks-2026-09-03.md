@@ -72,6 +72,33 @@ Moved, so there is one copy to keep current: the four passes are
 
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
 
+⭐ **THE "INDEPENDENT" SWEEP: one real finding out of fourteen phrases, and the
+other thirteen are sound.** An INDEPENDENCE claim is a claim about EVERY value
+of a variable and is almost always established at ONE, so
+`grep -rnoE "[a-z]+-independent|independent of [a-z ]{3,30}" docs/planning` is a
+good place to look for a confident error. It found `tier-independent` (4
+instances of one false claim, all corrected) — and, checked, these are fine:
+
+* `order-independent` ×2 — one is `min`, commutative BY CONSTRUCTION rather
+  than by measurement; the other is a policy sentence ("where effects do not
+  commute, define precedence"), not a claim about a program.
+* `peer-independent` ×5 — a defined measurement TERM ("the peer-independent
+  remainder", the cost that does not scale with peer count), not an assertion
+  that something is irrelevant.
+
+⇒ The tell that separated the real one from the rest: **the false claim was
+about a MEASURED count, established at one value of the variable it named.**
+Claims true by algebra, and phrases that merely contain the word, are not the
+same species. ✔ **AND THE SWEEP IS COMPLETE**: `game-independent` ×2,
+`dimension-independent` ×2, `seat-independent` and `language-independent` are
+all DESIGN INTENT or POLICY — *"implement it in the reusable engine with a
+game-independent API"*, *"keep authored IDs language-independent"*, and a
+Minkowski claim that states its own reason (*"BECAUSE it knows…"*). None is a
+measured count established at one value. ⇒ **1 real finding in 14 phrases**, and
+the twelve sound ones divide cleanly into "true by construction" and "a noun
+phrase containing the word".
+
+
 ⛔ **A `path:line` CITATION CANNOT BE CONTENT-CHECKED CHEAPLY, and I measured
 that before building the guard rather than after.** `check_planning_citations.py`
 verifies that a cited path EXISTS and has enough LINES — never that the line

@@ -512,7 +512,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  a build away. ⊙ **NARROWED 2026-09-03 by two builds, and TWO HYPOTHESES ARE
+  DEAD.** (a) It is NOT the ConeRigAssets group — after the three guards no
+  missing-parameter panic remains in the union and these three still fail
+  identically. (b) It is NOT a settle problem either, which is the one I expected:
+  `cavern()` runs a FIXED 90 updates and the union log shows
+  `room-loaded mary_o_1_2` only at frame 625, so "the helper photographs too
+  early" was the obvious reading — and it is wrong. Run at
+  `--features capture,input,visible` the room loads at **frame 1** and all four
+  tests still fail with the same message. ⇒ Whatever it is, it is not the room
+  being late and not a system dying before the blocks are made.
+  ⭐ **THE REMAINING HYPOTHESIS IS ONE BISECTION, and it is bounded to two runs.**
+  `mary_o_it` declares `required-features = ["capture"]` and its helpers need
+  `visible` (`build_windowed_demo_app` and `RenderMode` are both behind it), so
+  the minimum set is `capture,visible`. ⇒ Run
+  `cargo test -p ambition_demo_mary_o_app --test mary_o_it --features
+  capture,visible -- painted_blocks`, then again adding `input`. If the first
+  passes, the feature that takes block drawing away is named by the difference;
+  if both fail, the cause is in the minimum set and the union is irrelevant to
+  it. Either answer is worth more than the "under the union" framing the row
+  started with. ⚠ I wrote the
+  settle fix, ran it, saw it change nothing, and reverted it rather than ship a
+  loop whose comment claimed a cause it had not established.
+  ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**
   After the three guards there is no missing-parameter panic left anywhere in
   the union, and these three still fail with the same message — so the blocks
   are absent for a reason of their own, not because a system died before making
@@ -554,12 +576,28 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1. The `None` rather than
   `Some(Failed)` is the whole diagnosis: no load attempted yet, which is what a
   ration looks like from the far side. Replaced with a bounded settle; the same
-  command that failed now reads 3 passed. ⚠ **Stated as an EXPECTATION, not a
-  count: the next union run should read 12.** I have not re-run it, and the last
-  time I turned a verified single-target fix into a union number I was wrong by
-  38.
-  The entire smash target — `the_stage_kills`, `the_screen_decides`,
-  `the_repertoire_gets_used`, 30-odd tests — is green.
+  command that failed now reads 3 passed. ⊙ **CONFIRMED 2026-09-03: the union reads 7,019 passed / 12 failed**, and no
+  system-parameter panic remains anywhere in it. The full progression is
+  48 → 49 → 38 → 13 → **12**. ⚠ It was stated as an EXPECTATION until the run
+  existed, because the previous time I turned a verified single-target fix into
+  a union number I was wrong by 38 — in the direction nobody expects. This time
+  the expectation held; that is a fact about this fix, not a licence to skip the
+  run next time.
+  The smash target went from thirty-odd failures to **one**:
+  `the_screen_decides` and `the_repertoire_gets_used` are entirely green and
+  `the_stage_kills` has a single survivor. ⚠ I wrote "the entire smash target is
+  green" when it was not — 30-odd down to 1 is the honest sentence, and the 1 is
+  a FIFTH cause.
+  ⊙ **THE TWELVE, ENUMERATED 2026-09-03** so the next reader does not re-derive
+  them: 8 in `ov1_draws_the_world` (the doctrine group, including
+  `the_presentation_plugin_adds_no_hud_and_no_menu` in BOTH the mary_o and sanic
+  apps), 3 in `painted_blocks`, and
+  `the_stage_kills::every_live_fighter_stays_inside_the_frame` — *"a live
+  fighter was drawn OUTSIDE the frame on 1 body-frames, worst 16 units past the
+  edge … t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred
+  (0,0)"*. That last is a CAMERA FRAMING assertion, unrelated to the other four
+  causes, and 16 units on one body-frame is the kind of margin that may be a
+  tuning question rather than a defect.
 
   ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
@@ -1150,7 +1188,11 @@ OPTIONAL dep + feature, never used:
      map at 17 modules. Regenerated in the post-carve pass, which is what this
      item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
-     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     the very symbols the planning rows cite. ⭐ **AND IT COVERS THE DOCTRINE
+     PAGES NOW** — calculex widened the checker to scan `docs/concepts`,
+     `docs/systems`, `docs/architecture` and `docs/recipes` as well as
+     `docs/planning`, because every module that leaves a crate strands the pages
+     that cited its old home, and those are the pages a new agent reads first. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
      `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
      these docs — is never checked, and a carve's removals are usually spelled
@@ -2542,6 +2584,7 @@ product ruling.
   two fixes were tested together and only one of them survives. ⚠ Until that
   walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
   tier-independent; the TIMING tell is not confirmed for the shipped program.
+  ⛔ ONE of them is, not both: the placeholder count is tier-SCALED (0 at Potato, 129 at Ultra, measured 2026-09-03) because the materialization ration charges Full 16 against Potato 1; `asset_wait_ms` is the tier-independent one. See status.md.
   ⭐ **AND THE TIER TELL IS TESTABLE HEADLESS AFTER ALL — `AMBITION_QUALITY_PROFILE=ultra`.**
   A headless box seeds `potato` from its adapter (*"visual quality seeded to
   `potato` for a Cpu adapter (llvmpipe)"*), which is why this looked host-only;

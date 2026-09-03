@@ -1442,15 +1442,34 @@ regression. Poison-verified in every direction, with a positive control
 asserting the tree really does contain correctly-scaled variants — otherwise
 two absence assertions would pass forever on an empty measurement.
 
-⭐⭐ **THE ART SHIPS TWICE, AND 15 SHEETS ARE IN ONLY ONE COPY — MEASURED
-2026-09-02.** The two shipped asset roots hold **1378.7 MB**, of which the
-per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
-"ultrapacks") a further **460.6 MB — the single largest category at 33%**. The
-ultrapack step *"pools every published per-target sheet"* into shared atlas
-pages per tier, and `extend_with_sprite_pack_entries` says the relationship
-plainly: a checkout with no packs *"falls back to its per-target sheet"*. So the
-pack is the preferred road and the per-target PNG is the fallback, and a package
-carries both.
+⭐⭐ **ONE PROP READS THE SHARED SPRITE PACK. 197 TARGETS ARE IN IT, AND 98.8%
+OF ITS BYTES ARE UNREACHABLE — MEASURED 2026-09-02**
+(`scripts/measure_pack_reachability.py`). `build_prop_sprite_asset_packed` is
+the pack's ONLY production consumer; it has ONE call site, the intro prop loop
+in `game/ambition_content/src/intro/plugin.rs`; and it runs only for
+`intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
+**Exactly one row is: `intro_cart`.** Characters have no pack road at all —
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
+On this machine that is **442.6 MB of pack pages of which 5.2 MB sits on a page
+any consumer can reach.**
+
+⛔ **THAT INVERTS WHAT THIS ROW USED TO SAY.** It read *"the pack is the
+preferred road and the per-target PNG is the fallback"*, inferred from
+`extend_with_sprite_pack_entries`' note that a checkout with no packs *"falls
+back to its per-target sheet"*. That comment is accurate about the ONE prop and
+says nothing about characters, and I read a design intent as a measurement of
+adoption. ⇒ Dropping the per-target PNGs would not save 197 sheets' worth of
+bytes; it would remove every character's only road to its art.
+
+⚠ **NOT A CLAIM THAT THE PACK IS WRONG.** Packing every target is what a packer
+should do. Adoption never followed. Narrowing the generator, adopting the pack
+for characters, or dropping the tiers nobody reads are DECISIONS, not
+measurements. ⭐ Reachability is a SOURCE fact and reads the same on any
+checkout; the megabytes are this machine's generated output.
+
+**SIZES, for context.** The two shipped asset roots hold **1378.7 MB**, of which
+the per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
+"ultrapacks") a further **460.6 MB — the single largest category at 33%**.
 
 ⛔ **THE PACK COVERS 197 OF 212 PUBLISHED SHEETS.** The 15 absent are
 systematically the BIG ones — median **7.54 MP against 0.97 MP** for packed
@@ -1472,24 +1491,11 @@ the tier defect.
 
 ⚠ **AND THE SAME PER-MACHINE CAVEAT APPLIES TO ALL OF IT**: packs and sheets
 alike are gitignored generated output, and the clean generation that would
-separate staleness from a pipeline defect has not run. ⛔⛔ **AND THE OPEN QUESTION I LEFT HERE — "does a shipped build need the
-per-target PNGs once packs cover a sheet?" — WAS BUILT ON A FALSE PREMISE, AND
-THE ANSWER IS THE OPPOSITE.** Packs do not cover characters at all. Read
-2026-09-02 (`scripts/measure_pack_reachability.py`):
-`build_prop_sprite_asset_packed` is the ONLY production consumer of the pack,
-it has ONE call site — the intro prop loop — and it runs only for rows whose
-4th tuple element is `Some(target)`. Exactly one row is: `intro_cart`.
-`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every
-time. So omitting the per-target PNGs would not save 197 sheets' worth of
-bytes; it would remove every character's only road to its art.
+separate staleness from a pipeline defect has not run.
 
-⭐ **The reachability runs the other way: 442.6 MB of pack pages on this
-machine, 5.2 MB on a page any consumer can reach — 98.8% unreachable.** The
-reachability is a source fact and reads the same on any checkout; the megabytes
-are this machine's generated output. ⚠ This is NOT a claim the pack is wrong —
-packing every target is what a packer should do, and the finding is that
-adoption never followed. Narrowing the generator, adopting the pack for
-characters, or dropping the tiers nobody reads are decisions, not measurements.
+⛔ **THE OPEN QUESTION THIS ROW USED TO CARRY — "does a shipped build need the
+per-target PNGs once packs cover a sheet?" — IS ANSWERED ABOVE, AND THE ANSWER
+IS THE OPPOSITE OF WHAT THE QUESTION ASSUMED.**
 
 ⓘ It also explains a capture I had misread: `sprites_0_25x/noether_spritesheet.png`
 decoding for a character the pack fully covers is not a fallback and not a
@@ -1501,8 +1507,8 @@ run" was never something that capture could tell me.
 ⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
 asks how much of a CLAIMED page is sampled, and says nothing about pages no
 manifest claims at all. `scripts/measure_orphan_shipped_pages.py` measures
-those across all four tiers, in **two buckets that do not deserve the same
-confidence**:
+those across all four tiers, in **four buckets that do not deserve the same
+confidence** — three that carry a reason and one that is an upper bound:
 
 * ⭐ **STRANDED PAGES — 44 files, 92.0 MB.** `<base>_spritesheet.<n>.png` beside
   a manifest that does not name it. A sheet's pages resolve ONLY through its

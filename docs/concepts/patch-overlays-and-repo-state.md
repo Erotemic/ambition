@@ -29,7 +29,7 @@ last_verified: 2026-09-03
 > Every reference to `overlay.zip` / `unzip -o` in the tree is historical — a
 > May benchmark note, `dev/journals/lessons_learned.md`, and a dated patch
 > record — **with one exception that is live and misleading**:
-> `tools/ambition_sfx_renderer/README.md:221` heads a section *"Current overlay
+> `tools/ambition_sfx_renderer/README.md:221` heads a section *"Current overlay <!-- cite-ok: a path inside a SUBMODULE; the superproject does not track it -->
 > notes"* and tells the reader to run
 > `unzip -o ~/Downloads/ambition_sfx_renderer_overlay_duration_policy.zip`. ⛔ No
 > such archive exists anywhere in this repository, and the path is a person's

@@ -8,6 +8,25 @@ history.
 
 This file intentionally does not retain answered decision transcripts.
 
+> ✔ **PREMISES RE-MEASURED 2026-09-03. Every question here still rests on a fact
+> that is still true**, which is the thing that decides whether answering them is
+> a good use of your time. A decision resting on a premise the code has moved past
+> costs you the answer AND the discovery that it was moot.
+>
+> Checked against HEAD: the windbox vocabulary is still authored by nothing (39);
+> the puppy slug, stochastic parrot and burning flying shark still carry no
+> `standing_height` (36); `REACH_TOLERANCE` is still one global `2.0` at
+> `ambition_characters/src/brain/fighter/options.rs:183` (35);
+> `BodyMelee::ranged_cooldown` is still the implemented half with presentation
+> unresolved (33); the `"gauntlet_fireball"` visual still reproduces the old
+> sprite rather than the catalog energy ball (42). ⇒ **And none of the fifteen has
+> quietly been answered in [`maintainer-decisions.md`](maintainer-decisions.md)**,
+> which this file's own rule would make a defect.
+>
+> ⚠ Two entries gained a fact worth having before you answer: 36 needs FOUR rows
+> rather than three (the shark has a separate hall variant), and 39's answer costs
+> one authored field on one move rather than an implementation.
+
 ⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
 The entries are NOT in numeric order — the top block runs newest-first and an
 older ascending block follows it — so the number nearest the insertion point is
@@ -20,6 +39,36 @@ silently re-points every page that cited the original.
     grep -oE '^### [0-9]+\.' awaiting-maintainer-decision.md | tr -d '#. ' | sort -n | tail -1
 
 ## Open decisions
+
+### 49. Is near-identical CPU play on a symmetric stage acceptable, or a defect?
+
+A test has been deferring this to you since before its queue row was pruned, and
+the deferral is the only record left of it.
+
+`two_cpus_wearing_one_character_stop_being_a_perfect_reflection`
+(`game/ambition_demo_smash_app/tests/the_stage_kills.rs:1806`) seats two CPUs on
+the SAME character on a mirrored stage and asserts they diverge by more than a
+pixel. It passes. Its failure text says what a pass means and hands you the
+question in the same breath:
+
+> *"⛔ this is NOT one mind played twice — the two seats draw from different
+> streams, and the sibling guards listed above prove it. What it says is that a
+> symmetric stage plus symmetric information leaves two different streams almost
+> nothing to diverge ON at this difficulty. Whether that is acceptable is a
+> product decision (queue D167); do NOT answer it by unmirroring the spawns or by
+> adding noise."*
+
+⇒ **The engineering half is settled and guarded** — the determinism is real, the
+divergence is real, and the test forbids the two cheap fixes that would hide the
+question. What is unanswered is whether two CPUs that play almost identically on
+a symmetric stage read as a broken AI or as a fair mirror match.
+
+⛔ **Queue row `D167` no longer exists.** It is in no live planning document — not
+`queue.md`, not `tracks.md`, not this file — and survives only in the archived
+pre-prune queue. So the question was never answered and never re-filed; it fell
+out of the planning system and its only trace is an assertion message nobody
+reads unless the test fails. Filed here 2026-09-03 to put it back where a
+decision can be made.
 
 ### 47. TwinTrack's simultaneity limit: where does it live while the exhibit is parked? (re-filed 2026-09-03; was 28)
 
@@ -142,6 +191,21 @@ These are the remaining characters whose old size derivation cannot be replaced
 by preserving one existing placement size because their authored spawn boxes
 disagree substantially across rooms.
 
+✔ **PREMISE RE-MEASURED 2026-09-03 — still open, and here are the exact rows to
+fill.** None of them carries a `standing_height` in
+`game/ambition_content/assets/data/character_catalog.ron`:
+
+| your name for it | catalog id(s) |
+|---|---|
+| puppy slug | `npc_puppy_slug` |
+| stochastic parrot | `stochastic_parrot` |
+| burning flying shark | **two** — `npc_burning_flying_shark` and `hall_npc_burning_flying_shark` |
+
+⚠ The shark is the one to watch: it has a hall variant as a separate catalog
+entry, so a single number either goes in twice or the two are deliberately
+different sizes — which is itself part of the answer rather than a detail below
+it.
+
 Representative placement variation:
 
 ```text
@@ -255,6 +319,17 @@ There is no engine defect merely because the vocabulary is currently unused.
 If one should become product-visible, name a fighter/move. Otherwise leave the
 mechanism dormant until a character design asks for it. Do not invent a customer
 to make an adoption count nonzero.
+
+✔ **RE-MEASURED 2026-09-03 — still exactly true, and here is what is waiting.**
+The windbox vocabulary is real API across **16 files**: `WindboxVolume`
+(`ambition_entity_catalog/src/lib.rs:415`), `MoveSpec::windbox`
+(`ambition_combat/src/strike.rs:94`) and `is_windbox`
+(`platformer2d_core/src/hit_response.rs:112`). **Zero** authored movesets under
+`game/ambition_content/src/*moveset*.rs` name it. ⇒ So the question is unchanged
+and the answer costs one authored field on one move — not an implementation.
+⚠ Measured because "dormant" is the premise this decision rests on, and a
+premise that has quietly acquired a customer would make the question moot without
+anyone noticing.
 
 ### 40. Should a held gun-sword kick the player the way it kicks the pirate?
 
@@ -721,6 +796,28 @@ ceiling is a host number: `resident_mb` at Full on the 3090 after a
 hub→hall→hub walk. Everything else in that section is measured; this is the one
 input that cannot be taken on a software rasteriser.
 
+> ⭐ **THE NUMBER, MEASURED ON CALCULEX 2026-09-03 — no GPU, and it was already
+> being produced every gate run.** At the hall entry, through the real authored
+> door, at FULL texture resolution:
+>
+> | run | images | megapixels | **resident** |
+> |---|---|---|---|
+> | `hall_transition_cover` (control) | 224 | 363.1 | **1452.3 MB** |
+> | same, `AMBITION_QUALITY_PROFILE=ultra` | 225 | 363.9 | **1455.8 MB** |
+>
+> `gpu +0 … awaiting gpu 224` on both — nothing uploaded, which is the point:
+> `resident_mb` is decoded CPU-side bytes and needs no adapter. ⇒ **≈1.45 GB is
+> the hall's full-resolution residency**, and if that is the ceiling open work 4
+> wants, this entry can close without 3090 time.
+>
+> ⚠ **What this is NOT:** it is the hall ENTRY, not a hub→hall→hub round trip,
+> and the return leg is what the "keeps the last room's cast resident" policy
+> actually stresses. `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`
+> in the same file drives that leg and is where the return figure would come
+> from. ⚠ And read the detail below before quoting the pair: the two runs differ
+> by an env var that turns out to be INERT, so they are one configuration
+> measured twice, not a tier comparison.
+
 ⓘ **2026-09-03, calculex — the ADAPTER may not be what blocks this, which would
 make the ask smaller than 3090 time.** Two things were checked, and neither is a
 claim that the number has been taken:
@@ -745,6 +842,95 @@ adapter, so a Full measurement needs `AMBITION_QUALITY_PROFILE=Full` and would
 have to be checked on the `[census] visual_quality` row rather than assumed.
 ⇒ The decision this entry asks for is unchanged. What changed is the cost of the
 input: possibly a driver on any host rather than time on the one 3090.
+
+> **MEASURED 2026-09-03, and the two caveats above resolve in opposite
+> directions.**
+>
+> ✔ **The census is takeable here, and the number is real.** `capture_scene
+> hall_of_characters player … 640x360 --warmup 60` on lavapipe prints
+> `[image-census] total 235 images, 29.9MP, 119.4MB resident | gpu +235 | awaiting
+> gpu 0 | re-decodes 0`. So `resident_mb` after a room is loaded needs no GPU.
+>
+> ✔ **AND THE WALK DRIVER EXISTS — the first caveat was simply wrong.** I checked
+> `capture_scene` and `profile_desktop.sh` and concluded no driver could cross a
+> door here, without looking at the test suite.
+> `game/ambition_app/tests/hall_transition_cover.rs` builds
+> `build_visible_app(VisibleRenderMode::NoWindow, …)` and drives *"the REAL
+> transition, resolved through the room graph rather than synthesised: stand in
+> the Hall door and press interact"*. It is a module of `app_it`, so **that hub →
+> hall crossing already runs on this machine in every gate run**, and it reads the
+> ledger in process (`resident_character_pages`) rather than parsing a printed
+> line. Its own comment records `22 → 226 resident at the hall entry`.
+>
+> ⛔ **The second caveat is CONFIRMED, and by measurement rather than the reason I
+> gave.** Two runs, one with `AMBITION_QUALITY_PROFILE` unset-equivalent and one
+> with a VALID `ultra`, both log *"visual quality seeded to `potato` for a Cpu
+> adapter (llvmpipe)"* and produce a byte-identical census — same 235 images, same
+> 29.9 MP, same 119.4 MB. So the tier does not move through that lever in this
+> tool, and **a high-tier residency figure is not takeable this way**. ⇒ That is
+> the one thing still genuinely blocked, and it is a quality-selection question,
+> not an adapter one.
+>
+> ⚠ **My own error, recorded because it cost two runs:** the caveat above said
+> `AMBITION_QUALITY_PROFILE=Full`. There is no `Full`. The labels are
+> `potato|low|medium|high|ultra` (`settings/video/quality.rs`), and
+> `capture_scene`'s own help already says `AMBITION_QUALITY_PROFILE=ultra`.
+> `from_label` returns `None` on an unparseable value *"so a typo boots the user's
+> OWN setting instead of silently substituting a tier they did not choose"*.
+>
+> ⓘ **And the warning for that case EXISTS and is well written** —
+> `log_quality_profile_override` (`ambition_render/src/quality.rs:182`) warns
+> *"…is not a profile; using the saved setting instead. Expected one of: potato,
+> low, medium, high, ultra"*. It simply never fired: **neither** run printed it,
+> the valid one included, and neither printed the success message either. So
+> `VisualQualityPlugin::build`'s logger has nowhere to write.
+>
+> ⇒ **AND THE MECHANISM IS EXACT.** `build_visible_app` drops `LogPlugin` for
+> `NoWindow`/`OffscreenGpu` — its comment says why: *"tests build several Apps
+> per process; the tracing subscriber is process-global."* `capture_scene` adds
+> it back, but **after** the plugin group
+> (`capture_scene.rs`, `app.add_plugins(bevy::log::LogPlugin::default())`
+> following `build_visible_app_with`). So every line a plugin emits during
+> `build()` is written with no subscriber installed and is lost, while anything
+> logged later from a SYSTEM survives — which is exactly the pattern observed
+> here: no override message, but the adapter-seeding line printed normally.
+> ⚠ This is not specific to quality. **Any** build-time log in any plugin is
+> silent in this tool, which is worth more than the one message that led me to
+> it.
+>
+> ⛔ **AND THE LEVER IS INERT HERE, NOT MERELY UNREPORTED.** Both runs loaded a
+> byte-identical asset set — 2 images from `sprite_packs/full/` and 14 from
+> `sprites_potato` — so `AMBITION_QUALITY_PROFILE` changed nothing about what
+> became resident, valid label or not.
+>
+> ⛔ **AND RESIDENCY IS TIER-DEPENDENT BY DESIGN, so that inertness is the whole
+> blocker.** `VisualQualityBudget::for_profile`
+> (`ambition_persistence/src/settings/video/quality.rs`) sets
+> `resolution_scale` per tier: the potato/low tiers take
+> `TextureResolutionScale::Potato`, medium takes `Half`, and **high and ultra
+> take `Full`**. Each maps to a different sprite tree — `sprites_potato`,
+> `sprites_0_5x`, or the unsuffixed base — so the tier decides which pixels
+> become resident, and `resident_mb` must move with it.
+>
+> ⇒ **So `capture_scene`'s 119.4 MB is the POTATO figure** — it seeds from the
+> Cpu adapter and loads `sprites_potato`. The full-resolution figure in the table
+> at the top comes from `hall_transition_cover`, whose composition does NOT seed
+> from the adapter and loads the base tree: **363 MP against 29.9 MP, twelve
+> times the pixels, for the same room.**
+>
+> ⛔ **AND THE ENV VAR EXPLAINS NEITHER.** Running the test WITH and WITHOUT
+> `AMBITION_QUALITY_PROFILE=ultra` gives 1455.8 MB and 1452.3 MB — the same
+> configuration twice. The lever is inert in both tools; the twelve-fold gap is
+> which composition seeds quality from the adapter, not which tier was asked for.
+> ⇒ **Two tools on one machine disagree about residency by 12× for reasons that
+> have nothing to do with hardware**, which is worth more to open work 4's budget
+> policy than either number alone: a ceiling is meaningless until the composition
+> that produced it is named beside it.
+>
+> ⚠ **Recorded because I got this wrong once in the other direction too:** an
+> earlier version of this note said the asset set "does not move with the tier at
+> all", inferring an invariant from two runs that were both potato. Two identical
+> measurements of the same configuration are one measurement.
 
 ### D-RASTER-3's remaining half
 

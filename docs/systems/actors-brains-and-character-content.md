@@ -32,7 +32,7 @@ runtime construction consumes. By the time a body is constructed, authoring
 fallback and cross-document resolution have already happened; spawn roads do not
 choose between an enemy archetype, player archetype and character path.
 
-D73 deleted the separate `ArchetypeSpec` / `CharacterRoster` body ontology and
+D73 deleted the separate `ArchetypeSpec` / `CharacterRoster` body ontology and <!-- cite-ok: names the deleted archetype system to say it is not the workflow -->
 the build-legacy-body-then-patch seam. Historical migration details are archived
 under `docs/archive/planning-superseded/2026-08-13/`.
 

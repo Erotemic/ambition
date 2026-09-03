@@ -36,8 +36,13 @@ def test_the_maintenance_lane_runs_the_vanished_check():
 
 def test_the_vanished_job_can_actually_fail():
     """The one assertion that stops this becoming a decorative job."""
+    # ⛔ THE WINDOW IS THE JOB'S OWN ARGUMENT LIST, not a character count. This
+    # read `PLAN[i : i + 400]` until 2026-09-03 and broke the moment the job
+    # grew a comment and four more corpus paths — a guard that fails because
+    # the thing it guards got LONGER is measuring the wrong span.
     i = PLAN.index('"--vanished",')
-    window = PLAN[i : i + 400]
+    end = PLAN.index("],", i)
+    window = PLAN[i:end]
     assert '"--strict",' in window, (
         "the vanished job lost `--strict`, so it exits 0 with findings on "
         "screen and can never fail. That is the exact defect this lane exists "

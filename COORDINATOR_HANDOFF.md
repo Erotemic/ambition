@@ -359,3 +359,106 @@ outlast the 5-frame grace (e7's worktree). No sandbox/intro room has both author
 NPCs (measured over the LDtk files), so the authored-vs-dynamic discriminator is a two-room
 comparison on e7's box: `hall_of_characters` (129 NPCs) against `pirate_sky_lookout` (10
 enemies) at Ultra; the reading predicts both burst. Run there, not here.
+
+---
+
+# Integrator entry — 2026-09-03 (ambition-df, Fable 5.1)
+
+**Jon changed this session's role mid-run: INTEGRATOR, and the run is WINDING DOWN. Nothing new
+was started. Everything in flight was pushed by its author, merged here, gated, and pushed.**
+
+## The roster is closed
+All three working peers reported in, pushed, and stood down. There is no unmerged peer work left.
+
+| peer | final branch + SHA | state |
+|---|---|---|
+| YardratAmbition | `agent/yardrat-abort-reporting-and-planning-sweep` @ `6aefbce7f` | merged; stood down |
+| CalculexAmbition | `calculex-no-gpu` @ `34d7b756b` | merged; goal cleared, stood down |
+| Smash demo combat and presentation | — nothing owed, tree clean | stood down; goal cleared |
+| `ambition-e7` | — | ⚠ NOT REACHABLE. Absent from `ListAgents`; its review items #1 (audio publishers bypass the worktree symlink guard) and #4 (disk-policy contradiction) are UNLANDED and unclaimed. |
+
+⚠ `agent/abilities-carve` reads "ahead 7" in `git branch -vv` and that is a display artifact —
+it is measured against its own stale remote, which nobody updated. Against main it is 0 commits.
+Yardrat confirmed it: safe to ignore, safe to delete, **not** unpushed work.
+
+## Merged under this window (four merges, all clean, no conflicts)
+- yardrat `ebfd3a841` → `d1efe1c3a`, then `6aefbce7f`. The owed `canonical_assets.py` freshness
+  precondition and derived `why_not()`: a stale box now SKIPS LOUDLY naming the freshness check
+  instead of manufacturing a content finding out of five sheets. Plus the lane arithmetic
+  803/13 → 819/3, and their own correction that their prior handoff entry described a branch four
+  merges old. Tip taken, not the named range, per their standing warning.
+- calculex `dcf447c8a` → `d58d25138`, then `34d7b756b`. The compiler-verified unused-dependency
+  census and the day's methodology headline. `re-measuring-a-planning-claim.md` took additions
+  from BOTH peers; I checked the merged headings by hand rather than trusting the exit code —
+  22 distinct sections, none duplicated or interleaved-broken.
+
+## ⛔ The finding this integration produced: THE BOX DECIDED THE VERDICT
+Merging yardrat's branch turned main RED on this box, in a test their branch never touched —
+`test_the_live_repo_answers_and_the_answer_matches_its_tree`. It asserted
+`verdict is (not any_linked)`: a TWO-state world. The freshness precondition gave
+`assets_are_canonical` a THIRD state — real files, no symlinks, stale tiers → False.
+
+**Neither box could see the other's failure, and both gates were honest.**
+- Yardrat's box is freshly regenerated → reads True, matches real files, test passes. Their red
+  was `test_the_known_list_does_not_rot`.
+- This box has 5 source manifests with no variant at a shipped tier → reads False against real
+  files, test fails. And `test_the_known_list_does_not_rot` correctly SKIPS here (it is in the
+  11 skipped), so the failure they saw is invisible to me.
+
+⇒ Fixed at `f22e775be` by SPLITTING THE TWO AXES, not by widening the assertion (the ruling was
+that the precondition is a precondition, not a looser rule): file ownership is asserted with
+`fresh=` held constant — the injection the production function already exposes for exactly this —
+and the live verdict may differ in one direction only, and only when `why_not()` names
+`check_quality_variants_are_fresh` as the cause. That clause is what stops a detector stuck at
+False from passing this test by accident, which is the failure its own docstring warned about.
+Poison-verified both ways; the poison was restored byte-identical.
+
+## Left RED on purpose, with the reasoning that earned it
+`test_the_known_list_does_not_rot` (fires on a freshly regenerated box, not here). Yardrat's
+ruling, and I did not overturn it: **the evidence is gitignored generated output.** The `.ron`
+manifests are 0 tracked / 471 on disk, so "does this sheet strand pages" is a property of one
+machine's tree and no box can attribute it. Worse, on their box the four names are clean for the
+WRONG REASON — each has four manifests and zero numbered pages, i.e. they never spilled, rather
+than a manifest having been corrected. Deleting them would retire a guard against a regression
+that was never fixed. ⇒ Not "a green I cannot attribute" — a green that would be WRONG.
+
+## Gate
+✔ `python -m pytest scripts/tests` on the fully merged tree at `f22e775be`: **814 passed, 11
+skipped, ZERO failures**, exit 0. (Pre-fix, the same tree read 813 passed / 1 failed.)
+The Rust lane was NOT run under this window and nothing merged here touches Rust — all four peer
+merges are docs plus `scripts/`, and the one code change is a Python test. The last full
+`./run_tests.sh --rust` remains `5cd132e82`: 6/6 jobs, 1639 s, zero failures.
+
+## Still open, and the one that will be misread
+▢ **The parallax gate** (`ambition_render/src/platformer_presentation.rs:260`) — the lane-1
+defect. ⛔ It is NOT unowned in the sense of undiagnosed: three sessions reached the same
+diagnosis independently, the fix shape is agreed (scope the early return to the parallax spawn
+alone — not the grace clock, not a marker), and there is an acceptance criterion to check BEFORE
+the fix is written (authored room enemies and bosses must be late exactly like NPCs;
+`EncounterMob`/`RuntimeStagedActor` come from the dynamic rebuild and should be on time).
+**What it lacks is a box that reproduces.** This box draws 0 unclaimed-body placeholder warnings
+at BOTH tiers in `pirate_sky_lookout`, and drew 0 for the hall at Ultra where e7's box drew 129.
+The discriminator is a two-room comparison on e7's box — `hall_of_characters` (129 NPCs) against
+`pirate_sky_lookout` (10 authored enemies) at Ultra; the reading predicts both burst.
+⇒ Do not try to reproduce it here, fail, and discard the diagnosis. That is the specific mistake
+this paragraph exists to prevent.
+▢ e7's review items #1 and #4, unlanded and now unowned — see the roster above.
+▢ The 41 unswept crates in the dependency census. The page names them individually and says the
+grep-era claims about them are unverified. ⭐ Do not treat that list as a to-do list: calculex
+measured that the default-features lint OVER-REPORTS — six of sixteen hits were production code
+behind a non-default `#[cfg(feature)]` (`ron` in `ambition_encounter`, `content_schema.rs:48`, is
+real code). A delete list built from the detector alone would remove working code.
+
+## The rule this window is worth remembering for
+**"I only merged" is editing.** A gate's tree must be frozen. Owner: the Smash session, who lost
+a 1639 s Rust run to it earlier today by merging `origin/main` to push a docs commit and pulling
+`actors/mod.rs` in under a running job — then killed the run rather than report a number it could
+not attribute. It asked for the attribution to be accurate rather than floating, and it is right
+that a rule with no owner is one nobody has to have learned.
+
+## ⚠ Raised by the Smash session and left for Jon, deliberately not acted on
+The goal is **SHARED**, so every session that finishes a turn in this repository auto-joins the
+roster — it went 2 → 4 during the wind-down, and that session's own `goal_guard.py --clear` was
+undone the moment it stopped again. `--unshare` would narrow it to the real owners without
+disarming anything. Neither of us ran it: it changes behaviour for sessions other than our own,
+which makes it the maintainer's call and not a peer's. Recorded here so the question survives us.

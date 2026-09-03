@@ -769,6 +769,65 @@ pub fn upgrade_actor_sprites(
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
         if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
+            // ⛔⛔ THE HALL'S ULTRA BURST IS 129 BODIES STOPPING HERE. The cover
+            // lifts and then, ~370 ms later, all 129 report the unclaimed-body
+            // placeholder in ONE frame — so the barrier released on bodies whose
+            // textures cannot bind. `assets.characters.sheet(..)` resolves for
+            // every one of them ("resolved no sprite" prints zero times), which
+            // leaves this arm: the sheet's texture is not
+            // `is_loaded_with_dependencies` even though the barrier's own
+            // manifest was satisfied.
+            //
+            // ⇒ WHAT THIS PRINTS IS THE SET DIFFERENCE: the asset PATH the
+            // resident sheet actually references, against the handles the
+            // barrier waited on. If they differ (per-character sheet vs pack
+            // page) the fix is that the barrier's readiness set must be the
+            // textures the RESIDENT sheets reference, not the manifest's
+            // pre-resolution list.
+            //
+            // Once per PATH, behind `AMBITION_PROFILE_CENSUS`: this arm runs on
+            // every frame of the ramp for every unbound body, and unthrottled it
+            // is tens of thousands of lines that push the reveal itself out of
+            // the log.
+            //
+            // ⚠ The gate is read from the environment through a `OnceLock`, NOT
+            // from the `RuntimeCensus` resource, deliberately: adding a system
+            // parameter to a shipped system is what turns a missing resource
+            // into a Bevy 0.19 SCHEDULE PANIC in every composition that does not
+            // provide it, which cost this repo 37 failures in one union run.
+            // An instrument may not change the signature of the system it
+            // instruments.
+            {
+                use std::collections::BTreeSet;
+                use std::sync::{Mutex, OnceLock};
+                static ON: OnceLock<bool> = OnceLock::new();
+                static SEEN: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
+                let on = *ON.get_or_init(|| {
+                    std::env::var("AMBITION_PROFILE_CENSUS")
+                        .map(|v| !v.is_empty() && v != "0")
+                        .unwrap_or(false)
+                });
+                if on {
+                let path = asset_server
+                    .get_path(character_asset.texture.id())
+                    .map(|p| p.to_string())
+                    .unwrap_or_else(|| "<no path: handle is not from a path>".to_owned());
+                let fresh = SEEN
+                    .get_or_init(|| Mutex::new(BTreeSet::new()))
+                    .lock()
+                    .map(|mut seen| seen.insert(path.clone()))
+                    .unwrap_or(false);
+                if fresh {
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::render",
+                        "[texture-not-ready] {path} load_state={:?} — a body is \
+                         unbound because THIS texture is not loaded with its \
+                         dependencies, after the room barrier reported ready",
+                        asset_server.get_load_state(character_asset.texture.id()),
+                    );
+                }
+                }
+            }
             continue;
         }
         // Honor a shared sprite-metadata render size (e.g. a hostile-flipped

@@ -52,10 +52,25 @@ Presentation facts that already have a concrete presentation type should use the
 ## Damage and hit state today
 
 The legacy split damage-message shapes have been **unified into one `HitEvent`** carrying a `HitSource` (who/what
-caused it — `PlayerSlash` / `PlayerProjectile` / `PogoBounce` /
-`EnemyBody` / `EnemyProjectile` / `BossBody` / `BossAttack` / hazard / …),
-a `HitTarget` (broadcast `Volume` vs a specific player/actor entity), plus
-`volume`, `damage`, `HitMode`, and optional `HitKnockback`. Both outgoing
+caused it), a `HitTarget` (broadcast `Volume` vs a specific `Body(Entity)`), plus
+`volume`, `damage`, `HitMode`, and optional `HitKnockback`.
+
+⛔ **THIS PARAGRAPH LISTED THE WRONG VARIANTS UNTIL 2026-09-03, and the error was
+the one the unification existed to fix.** It said `HitSource` carries
+`PlayerSlash` / `PlayerProjectile` / `PogoBounce` / `EnemyBody` /
+`EnemyProjectile` / `BossBody` / `BossAttack` — seven names encoding WHO struck
+into the cause. None of them exists. The real variants
+(`ambition_combat/src/events.rs:253`) are **`Melee`, `Projectile`, `Contact`,
+`Hazard`, `LeftTheWorld`, `Pogo`** — six, and every one is a KIND of harm rather
+than a role.
+
+⇒ The type's own doc says why: *"attacker identity comes from
+`HitEvent::attacker`, victim routing from the named target"*, and of the
+melee/projectile split, *"a victim genuinely wants to know whether it took a
+contact swing or a ranged shot — that is a real difference in the world, unlike
+who fired it."* ⇒ **So the page was describing the pre-unification shape while
+claiming to describe the unification**, and anyone matching on
+`HitSource::PlayerSlash` would not compile. Both outgoing
 (player → feature) and incoming (hazard/enemy/boss → player) damage flow
 through it. What's still missing is a full per-hit *lifecycle* object —
 `HitEvent` is the canonical transport, but reaction/poise/stagger/armor/

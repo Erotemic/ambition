@@ -816,7 +816,7 @@ weighing the two options.** The choice looked open — a new
 `ActorConstructionParams` variant (kernel keeps the recipe) versus
 `ambition_encounter` implementing its own `ConstructionDomain` like
 `ambition_portal2d`. It is not: `spawn_encounter_mob` builds its body with
-`ActorClusterSeed::new_character_in` (`features/ecs/spawn_actors.rs:2010`),
+`ActorClusterSeed::new_character_in` (`features/ecs/spawn_actors.rs:1975`),
 which was the actor kernel's body builder when this was written (the seed is
 `ambition_body_seed::ActorClusterSeed` since the same night — a VALUE the
 kernel spawns from; `spawn_encounter_mob` itself is still the kernel's). For

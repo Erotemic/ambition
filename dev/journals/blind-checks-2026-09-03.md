@@ -70,6 +70,32 @@ Moved, so there is one copy to keep current: the four passes are
 
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
 
+⛔ **A `path:line` CITATION CANNOT BE CONTENT-CHECKED CHEAPLY, and I measured
+that before building the guard rather than after.** `check_planning_citations.py`
+verifies that a cited path EXISTS and has enough LINES — never that the line
+holds what the row says. That gap is real: the D33 cut-1 pass found
+`ActorClusterSeed::new_character_in` cited at `spawn_actors.rs:2010` when 2010
+is a comment and the call is at 1975.
+
+The obvious guard is "the symbol named on the row should appear within N lines
+of the cited line". Measured over `docs/planning`: 48 hits, **17 misses**, 70
+citations with no symbol on the row. At 26% the misses would drown the signal —
+and spot-checking three showed why they are not defects:
+
+* `` `drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337`–`427`) ``
+  cites an INNER RANGE. The function starts at 140; 337 is inside it and is
+  exactly the line the row means.
+* `` ✔ `features/mod.rs:350` — `runtime_census` — CLOSED `` cites where the thing
+  WAS when the row was written. `runtime_census` is at 320 now.
+
+⇒ **Do not build it.** A checker that reports a legitimate inner-range citation
+as drift trains its reader to skim, which is how a real finding gets missed —
+the same reason bare-name checking was rejected at `d3c86dc79`. The one true
+drift was caught by the post-carve checklist's TARGETED grep over the symbols a
+known carve moved, where the population is small enough to read. A narrow
+question with a knowable answer beat a general checker, twice.
+
+
 ⭐ **THE PLANNING DOCS ARE CLEAN ON THE BARE-CITATION AXIS, and the negative is
 worth as much as a finding here.** `check_planning_citations.py --vanished`
 (added 2026-09-03) reports a BARE backticked name that was a definition at a

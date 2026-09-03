@@ -428,8 +428,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   0 UI nodes and gets 40, which is what enabling every presentation feature at
   once is *supposed* to do. Whether those tests should be feature-scoped, or the
   union should exclude them, is a judgement for whoever owns the demos doctrine
-  — do not "fix" them by widening the assertion. The `painted_blocks` pair
-  (*"no block visual is drawing GeoId …"*) is a third thing again and unread.
+  — do not "fix" them by widening the assertion.
+  ⚠ The `painted_blocks` pair is a THIRD cause, read far enough to aim the next
+  person: the helper looks for an entity matching `(&BlockVisual, &Sprite)` whose
+  `geo_id` is the placement's, and panics *"no block visual is drawing GeoId …"*
+  when the query finds NONE. So the failure is not "wrong art" but "no block
+  visual entity at all" — including in
+  `a_painted_block_nobody_dresses_keeps_its_flat_quad`, where the undressed case
+  is the subject. ⇒ First question for whoever picks it up: under the union, does
+  some other presentation feature take ownership of block drawing, or does the
+  room never reach the state that spawns them? Neither is answered here; both are
+  a build away, and the answer decides whether this joins the doctrine group above
+  or the `ConeRigAssets` group.
   ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
   a commit**: skip the system when its assets are absent (`If<…>`, or a
   `resource_exists` run condition) versus provision the assets in every
@@ -802,7 +812,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   compared, never tick-checked; a `set_changed()` on `UserSettings` every frame
   for thirty frames builds it once, `an_idle_system_face_builds_its_model_once`,
   red at 30 with the gate removed); `DevSnapshot` borrows its labels
-  (`c6c4a222e`); the focus sync reads `CachedSystemMenu.rows` through the one
+  (`0fb8c50e1`); the focus sync reads `CachedSystemMenu.rows` through the one
   `focus_for_action(action, page, rows)`.
   ✔ **AND THE BIGGER THING THAT SURVIVED IT IS CLOSED TOO, 2026-09-02.**
   `pointer.rs` rebuilt the WHOLE settings IR — a `String` per label, description
@@ -972,9 +982,11 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (Clean for all 71 crates as of 2026-09-03 — it was 70 the day before;
-     three carves added `ambition_held_items`, `ambition_world_items` and
-     `ambition_registry_core`, and one dev crate landed.)
+     (72 crates as of 2026-09-03, after D33 cut 1 added `ambition_body_seed`;
+     70 the day before. ⛔ AND IT WAS STALE WHEN THAT CUT LANDED — not from the
+     cut: `4ac56a996` added `ambition_encounter/src/mob_seed.rs` and left its
+     map at 17 modules. Regenerated in the post-carve pass, which is what this
+     item is for.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
      the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
@@ -984,11 +996,14 @@ OPTIONAL dep + feature, never used:
      one now; the name's own history supplies the precision, so nothing has to
      guess what is "code-shaped". This is the removed/renamed half of item 4,
      without item 4's `head -1` or its `length >= 8` heuristic.
-     ⛔ IT COMPARES REF→**HEAD**, NOT REF→THE CARVE, so run it while HEAD *is*
-     the carve. Run a day later, `--vanished <that carve>^` sweeps up every
-     removal since and attributes none of them — the three carves of 2026-09-02
-     returned 10, 1 and 0 hits when run on 09-03, and the 10 were mostly the
-     tier-cap revert, nothing to do with the carve named.
+     ⭐ **PASS THE RANGE, `--vanished <parent>..<carve>`** — that is the form
+     that attributes correctly. A bare ref compares to the WORKING TREE, so once
+     HEAD moves past the carve it sweeps up every later removal and blames the
+     carve for all of them: the three carves of 2026-09-02 returned 10, 1 and 0
+     hits when run as bare refs on 09-03, and the 10 were mostly the tier-cap
+     revert, nothing to do with the carve named. Cut 1 ran as
+     `c761a9d80..83460e3f3` and correctly returned 0 — its symbols MOVED rather
+     than vanished, which is item 4's job, not this one's.
      ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
      rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
@@ -1040,11 +1055,12 @@ OPTIONAL dep + feature, never used:
      | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
      | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
      | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
-     | `avatar/starting_character.rs` | `the-motion-model-…`, `the-movement-tuning-…`, `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `avatar/starting_character.rs` | `the-motion-model-resolver-is-confined-to-one-file`, `the-movement-tuning-resolver-is-confined-to-one-file`, `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file` |
      | `avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
-     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…`, `registration-does-not-demand-art` |
-     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
-     | `characters/src/brain/{fighter,state_machine,snapshot_impls,mod}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file`, `registration-does-not-demand-art` |
+     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file` |
+     | `characters/src/brain/{fighter, state_machine/mod.rs, mod.rs}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `characters/src/snapshot_impls.rs` — ⛔ NOT under `brain/`, and it trips TWO | `the-generic-brain-does-not-grow-new-platform-fighter-edges` (excluded) and `the-brain-codec-names-the-fighter-only-through-the-enum-variant` (its whole subject) |
      | `app/versus.rs`, `demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
      | `schedule/input_systems.rs` | `the-seat-topology-has-one-engine-side-creator` |
      | `ldtk_tools/ldtk/paths.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
@@ -1064,6 +1080,29 @@ OPTIONAL dep + feature, never used:
      about. ⛔ There is no assertion for this on purpose: the audit is
      `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
      be READ against each waiver's rationale. Run it after a crate move.
+     ⛔ **AND DO NOT TRY TO CHECK IT STATICALLY — I did, on 2026-09-03, and the
+     check is meaningless.** `waiver()` matches with `type_name.contains(needle)`,
+     a SUBSTRING, so 49 of the 149 entries deliberately begin `::`
+     (`"::intro::plugin::IntroPropSpritesInstalled"`) and name no crate at all —
+     that is what makes them survive a crate move, and it is the design, not
+     drift. Two more name upstream crates (`bevy_asset::`, `bevy_state::`).
+     "Does this prefix cover anything?" can only be asked of the LIVE registry,
+     which is why the audit is a test and not a script.
+
+  9. **⛔⛔ AND THEN RUN THE REPO-TOOLING LANE. THIS LIST IS NOT A SUBSTITUTE
+     FOR IT.** `python3 -m pytest scripts/tests -q -m "not detached_tool"` —
+     about 60 s. Added 2026-09-03 because the cut-1 pass walked items 1–8, found
+     two real things, reported clean — and the lane was RED the whole time, on
+     two ledgers no item names: the rollback CODEC-SHAPE baseline
+     (`scripts/tests/rollback_codec_shape.txt`) and a sub-workspace lockfile
+     (`examples/capability_demo/Cargo.lock`). ⭐ The codec one is the sharp
+     lesson: **a codec can leave the ledger by MOVING.** `CODEC_MARKER` did not
+     know `SnapshotCursor`, so the carved-out impl's new crate was not in the
+     population at all — a shape change there would have been invisible.
+     Fixed at `36706b667`; 20 codec files → 22, and one of the two had been
+     unwatched since long before any carve.
+     ⇒ Items 1–8 are ledgers a MERGE does not touch. The lane is how you find
+     the ones nobody has thought to list yet.
 
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
@@ -2086,9 +2125,9 @@ OPTIONAL dep + feature, never used:
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 46 crates linked, 19 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FOUR times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
-  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did.) (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 47 crates linked, 20 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.** (⚠ this number has drifted FIVE times; `python3 scripts/check_absence_contracts.py | grep footprint` prints the live pair. 45/18 as of `479f9d3e4`, when `ambition_registry_core`
+  entered the closure; 46/19 as of `bbfa38a3d`, when `ambition_held_items` did; 47/20 as of `83460e3f3`, D33 cut 1, when `ambition_body_seed` did. ⭐ EVERY ONE OF THOSE RISES IS A CARVE PAYING ITS DEBT — do not read the series as regression.) (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

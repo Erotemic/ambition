@@ -293,11 +293,35 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
     This is the post-carve pass: a carve that renames or removes an item leaves
     every planning row citing it silently stale, and `SYMBOL` cannot see those
     rows because the rows spell the name bare.
+
+    ⭐ `since` TAKES `A..B` AS WELL AS A SINGLE REF, and the range form is the
+    one a real carve needs. A bare ref compares that ref to the WORKING TREE, so
+    it only attributes correctly while HEAD still IS the carve. The first time
+    this ran for real the integrator had already merged past it and had to hand
+    me `c761a9d80..83460e3f3`; run as a bare ref a day later it sweeps up every
+    removal since and attributes none of them.
+
+    ⚠ The DOCUMENTS are always read from the working tree, whichever form is
+    used. The question is "which rows must I fix now", not "what did the rows
+    say then".
     """
-    was = item_names(source_text_at(since))
-    gone = was - item_names(source_text()) - crate_names()
-    print(f"indexed {len(was)} defined name(s) at {since}; "
-          f"{len(gone)} of them no longer defined at HEAD", file=sys.stderr)
+    if ".." in since:
+        base, head = since.split("..", 1)
+        head = head or "HEAD"
+        was = item_names(source_text_at(base))
+        now = item_names(source_text_at(head))
+        # ⛔ Crate names come from the working tree either way: a name Cargo.toml
+        # still declares is not vanished, whatever a historical tree said.
+        gone = was - now - crate_names()
+        print(f"indexed {len(was)} defined name(s) at {base}, {len(now)} at {head}; "
+              f"{len(gone)} left between them", file=sys.stderr)
+    else:
+        was = item_names(source_text_at(since))
+        gone = was - item_names(source_text()) - crate_names()
+        print(f"indexed {len(was)} defined name(s) at {since}; "
+              f"{len(gone)} of them no longer defined at HEAD "
+              f"(⚠ that is REF→WORKING TREE, not REF→a carve — pass `A..B` to "
+              f"attribute a range)", file=sys.stderr)
     findings = []
     for doc in docs:
         # A doc passed by absolute path may sit outside the tree (a fixture, a
@@ -486,9 +510,10 @@ def main() -> int:
              "name that prompted this script reached one, where nothing looks)",
     )
     parser.add_argument(
-        "--vanished", metavar="REF",
+        "--vanished", metavar="REF_OR_RANGE",
         help="report BARE backticked citations of names that were defined at "
-             "REF and are not defined at HEAD -- the post-carve pass",
+             "REF and are not now -- the post-carve pass. Takes `A..B` too, "
+             "which is the form to use once HEAD has moved past the carve",
     )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])

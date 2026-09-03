@@ -161,6 +161,7 @@ derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel e
 derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tick
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
+derived.cleared_encounters	derived	ClearedEncounters	which encounters are cleared this tick; rebuilt from the lifecycles after the reducer
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
@@ -187,6 +188,7 @@ derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from A
 derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from DeclaredCombatRules over the world baseline every WorldPrep
 derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHurtboxes plus the move and pose clocks each tick
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
+derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.strike_rank	derived	StrikeRank	stamped from the move's authored (window, volume) when the volume spawns

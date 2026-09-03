@@ -47,6 +47,19 @@ where
         "derived.encounter_view",
         "presentation-intent read model republished each tick",
     );
+    // Both are REPUBLISHED every tick from state that is itself registered:
+    // the cleared list from the lifecycles, the resolved activations from the
+    // drained (registered) queue and the persisted switch it toggled.
+    registrar.declare_rollback_derived_resource::<crate::rewards::ClearedEncounters>(
+        OWNER,
+        "derived.cleared_encounters",
+        "which encounters are cleared this tick; rebuilt from the lifecycles after the reducer",
+    );
+    registrar.declare_rollback_derived_resource::<crate::switches::ResolvedSwitchActivations>(
+        OWNER,
+        "derived.resolved_switch_activations",
+        "this tick's drained switch activations with their post-toggle values; rebuilt every drain",
+    );
     registrar
         .clear_message_on_rollback::<crate::EncounterCommand>(OWNER, "message.encounter_command");
     registrar

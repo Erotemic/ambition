@@ -1982,6 +1982,14 @@ product ruling.
   decodes under it) and the tells are the same ones — zero "nothing demanded
   it" warnings, no >33 ms frame after the cover lifts, and every `[image]`
   line in the hall window reading `sprites/` (Full), none `sprites_0_25x/`.
+  ⭐ **AND THE PREDICTION, WRITTEN DOWN BEFORE THE CAPTURE so it cannot be
+  rationalised after it: if the reveal BARRIER is what fixed the hitch, the
+  >33.4 ms count after the cover lifts stays 0 at Full; if the room tier CAP was
+  doing the work, it comes back.** That is a real risk rather than a formality —
+  the cap was cutting the decode load the barrier holds the cover for, so the
+  two fixes were tested together and only one of them survives. ⚠ Until that
+  walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
+  tier-independent; the TIMING tell is not confirmed for the shipped program.
   Original tells, still the checklist: zero "nothing demanded it" warnings at
   the hall reveal, `asset_wait_ms` in the seconds (the cover visibly holding),
   no >33 ms frames after the cover lifts. In the same run: `image_arrivals`

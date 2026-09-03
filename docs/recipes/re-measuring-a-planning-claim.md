@@ -428,6 +428,8 @@ the next person pays for it a second time. All of these were run against
 | path citations in `AGENTS.md` | 22 | 0 missing |
 | pages under `docs/` that nothing links to | 278 documents | 3, of which 2 are closed receipts |
 | tools missing from `docs/tools/index.md` | 11 tool directories | 0 — the index groups by guide, and all are covered |
+| CamelCase types cited in `docs/concepts/` + `docs/architecture/` | 73 distinct | 0 real — every miss is an upstream type, an enum VARIANT, an LDtk entity id, or a name the page says must NOT exist |
+| CamelCase types cited in `docs/systems/` | 65 distinct | **1 real** — `ResetRoomFeaturesEvent`, listed under "Current boundary" and deleted four days earlier |
 
 ⚠ **Three of those seven produced a scary intermediate number that dissolved on
 inspection**, and each dissolved for a reason worth knowing: 45 "unresolved"
@@ -437,3 +439,13 @@ patch record, an elided `.../` shape, and a row already carrying `cite-ok`.
 ⇒ **The population is never the finding.** Read what the rule asserts, what the
 index claims to be, and what the citation is FOR, before counting anything as
 wrong.
+
+⭐ **The type sweep is the one to repeat, and it needs a filter to be usable.**
+Raw, it reports ~45% of citations as missing and is worthless. Four categories
+account for nearly all of that — upstream types (`Entity`, `Query`,
+`SystemParam`), enum VARIANTS (a `struct|enum|trait|type` grep sees declarations
+only), LDtk entity identifiers (`LockWall`, `OneWayPlatform`), and names a page
+deliberately says must NOT exist (*"do not reintroduce a `PlayerAttackState` /
+`ActorAttackState` split"*). ⇒ Subtract those four and the signal is one row in
+138 citations — but that row was a message deleted four days earlier and still
+documented as current, which is exactly the rot no link checker or test can see.

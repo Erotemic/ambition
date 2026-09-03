@@ -275,7 +275,7 @@ pub fn simulation_world(
     crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
     commands
         .entity(player)
-        .insert(crate::avatar::PersonaBaseline {
+        .insert(ambition_body_seed::PersonaBaseline {
             id: starting_character
                 .effective_id(default_character_id)
                 .to_string(),

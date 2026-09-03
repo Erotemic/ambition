@@ -233,7 +233,7 @@ where
         OWNER,
         "actor.stashed_action_set",
     );
-    registrar.rollback_component_clone_probed::<crate::avatar::PersonaBaseline>(
+    registrar.rollback_component_clone_probed::<ambition_body_seed::PersonaBaseline>(
         OWNER,
         "actor.persona_baseline",
         |baseline| {

@@ -36,7 +36,8 @@ use ambition_platformer2d_shared_tangle::body::{AncillaryMovementBundle, SpawnBa
 pub mod physical_baseline;
 mod snapshot_impls;
 pub use physical_baseline::{
-    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
+    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PersonaBaseline, PhysicalBaseline,
+    PhysicalRetraction,
 };
 
 /// Optional patrol path the kinematic step advances each tick.

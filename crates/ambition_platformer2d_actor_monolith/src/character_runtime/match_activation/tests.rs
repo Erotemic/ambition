@@ -1963,7 +1963,7 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
         .generation();
     let world = app.world_mut();
     let mut q = world.query_filtered::<(
-        Option<&crate::avatar::PersonaBaseline>,
+        Option<&ambition_body_seed::PersonaBaseline>,
         bevy::prelude::Has<ambition_characters::actor::RecharacterizeBody>,
     ), With<MatchSeat>>();
     let seats: Vec<_> = q.iter(world).map(|(b, r)| (b.cloned(), r)).collect();
@@ -2022,7 +2022,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
     let read = |app: &mut App| {
         let world = app.world_mut();
         let mut q = world.query_filtered::<(
-            Option<&crate::avatar::PersonaBaseline>,
+            Option<&ambition_body_seed::PersonaBaseline>,
             Option<&crate::character_runtime::presentation::ProjectedCharacterKit>,
             Option<&ambition_platformer2d_core::movement::MotionModel>,
         ), With<MatchSeat>>();

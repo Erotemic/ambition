@@ -1223,7 +1223,9 @@ materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
    and answers it. That wrapper is the kernel's on purpose (it is the system that
    activates), so the policy dependency is where it belongs and nothing further is
    owed here. The clock stayed in the kernel: it reads `features::stocks_match`.
-3. `PersonaBaseline` and `StocksMatchSettled` are each one name; they follow their
+3. ✔ `PersonaBaseline` is `ambition_body_seed::PersonaBaseline` (the record of what a persona
+   took from a body sits beside `DisplacedPhysicals`, which it carries); `presentation.rs`
+   names nothing in the kernel now. `StocksMatchSettled` stays with the clock. Was: they follow their
    owners when the preparation crate exists, not before.
 
 ⚠ The one contradiction this measurement surfaced and did NOT change: a prepared

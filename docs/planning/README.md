@@ -348,6 +348,20 @@ as regression.
 at all, which is the failure the header rule above is about. The rule is that the
 number must be reproducible BY THE READER, not that it must be absent.
 
+⛔ **AND THE WORST CASE IS A NUMBER THAT IS ALREADY RATCHETED SOMEWHERE ELSE: a
+page repeating one inherits the ratchet's job without the ratchet.** The
+feature-gated test count went 783 → 784 overnight on 2026-09-03 — one test
+joined — and the gate footer, which `test_the_gate_states_how_many_tests_it_skips.py`
+pins, moved with it while two planning copies did not. ⇒ Where a guard already
+holds a figure, a page should say **where to read it**, not what it currently
+is; the pointer never rots and the copy always will.
+⚠ **AND THE FIX IS NOT AN OVERWRITE.** Of those two copies, one QUOTED what the
+footer said at a named SHA and the other carried a DATED measurement — both true
+as written, and silently editing either to make it current would falsify a
+citation to chase a number. Put the delta BESIDE the original and point at the
+ratchet. The same rule that says do not retype a live figure says do not rewrite
+a dated one.
+
 ⭐ **AND SOME FIGURES SHOULD BE APPROXIMATE ON PURPOSE.**
 `game/systemic-progression.md` (2026-08-13) says `ParticipantId` "has ~150
 references" beside three EXACT absence claims. Re-checked 2026-09-03, after

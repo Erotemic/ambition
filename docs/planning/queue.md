@@ -886,10 +886,27 @@ The one unresolved developer-policy choice from the session-ownership work is in
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
      the very symbols the planning rows cite.
   3. **`python scripts/check_doc_links.py`**.
-  4. **The ▢ rows that NAME A SYMBOL the carve touched.** Grep them and close the
-     ones the carve closed. Three were found stale in one sweep on 2026-09-02
-     (`bounded-perception`'s routing row, `queue.md`'s `string_id!` row, and the
-     capability-footprint count) — from three different authors, none careless.
+  4. **The ▢ rows that NAME A SYMBOL the carve touched.** Three were found stale
+     in one sweep on 2026-09-02 (`bounded-perception`'s routing row, `queue.md`'s
+     `string_id!` row, and the capability-footprint count) — from three different
+     authors, none careless: a merge lands code and the row lives in a file the
+     merge never touches. Run this over your own range:
+
+     ```bash
+     git diff -U0 <base>..<head> -- '*.rs' | grep -E '^[+-][^+-]' \
+       | grep -oE '\b(fn|struct|enum|trait) [A-Za-z_][A-Za-z0-9_]*' | awk '{print $NF}' \
+       | awk 'length($0) >= 8 || /_/' | sort -u \
+       | while read s; do
+           grep -rn "\`[^\`]*\b$s\b[^\`]*\`" docs/planning --include=*.md | head -1
+         done
+     ```
+
+     ⚠ The two filters are load-bearing. Without `length >= 8 || /_/` the symbol
+     list is `and`, `id`, `str` and the output is thousands of English words;
+     without the BACKTICK requirement it matches prose rather than citations.
+     ⛔ And it only finds rows that NAME something — a row describing the carve
+     without naming a symbol ("the encounter adapter's seams still cross") stays
+     invisible and still has to be read.
   5. **The capability footprint, if the carve ADDS a crate.** `closure_size` and
      `never_asked_for_count` move in `capability-footprint-baseline.json`, and the
      row above that quotes them must move in the same commit. It lagged twice.

@@ -7,7 +7,27 @@ asset and performance sections were re-verified at this baseline (Jon's
 ruling on the room tier cap, the reveal barrier's host confirmation, the
 attention budget); the rollback and item paragraphs at `881310ec7`
 (2026-09-02) plus the world-item phase repair (`d220accee`); other sections
-were last reviewed at `4e5f59cf` (2026-08-30).
+were last reviewed at `4e5f59cf` (2026-08-30). All five of those SHAs are
+ancestors of HEAD, re-checked 2026-09-03 with `git merge-base --is-ancestor`
+rather than `git cat-file` — an orphaned commit resolves under the second and
+not the first.
+
+⚠ **THE GATE LINE ABOVE IS NO LONGER REPRODUCIBLE, and the reason is not a
+regression in what it measured.** As of 2026-09-03 the workspace job is RED on
+two schedule tests added that morning
+(`world_gating::tests::both_gate_solids_writers_are_scheduled_after_the_overlay_rebuild`
+and `encounter_spawn_service::spawn_request_service_order::the_spawn_server_runs_after_the_wave_driver`,
+`b67c1348f`). ⛔ **The systems they name are scheduled correctly** —
+`WorldGatingSchedulePlugin` registers `contribute_encounter_lock_walls` — but the
+tests look systems up by `system.name()`, which Bevy 0.19 strips to a
+placeholder unless `bevy_ecs`'s `debug` feature is on, and it is enabled nowhere
+in this workspace. So "workspace N/N" is not a number this page can carry
+forward until those two are converted to the count-by-shape form the carve
+checklist documents.
+
+⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
+only part of this page this pass re-read against the code. Everything else keeps
+the baseline it was last reviewed at.
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated
@@ -104,6 +124,36 @@ the manifest rather than a test. ⛔ What remains is INTERNAL decomposition (the
 kernel's own `items/` module), which ends with no edge to point at, so do not
 size it against the earlier slices. The owner doc carries the measurement and
 why a reference count cannot find this.
+
+⚠ **THAT PARAGRAPH WAS OVERTAKEN THE NEXT DAY. Five crates left the kernel on
+2026-09-03**, and the one it named as "internal, no edge to point at" — the
+`items/` module — was the first of them:
+
+| crate | what left |
+|---|---|
+| `ambition_held_items` (`bbfa38a3d`) | the PRESSED collectible: `items/pickup` |
+| `ambition_body_seed` (`962dba34d`) | `ActorClusterSeed`/`ActorMotionPath`/`ActorBody` |
+| `ambition_match` (`7e625e5a5`) | the versus match, prepared |
+| `ambition_encounter_features` (`b67c1348f`) | the room-feature side of encounters |
+| `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
+
+**The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
+
+⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
+`[dependencies]` table went 29 → 33 across those same carves, because a kernel
+that stops CONTAINING a domain starts DEPENDING on it — it keeps the rollback
+ledger, the checkpoint policy, or an inter-crate schedule edge, each of which
+needs the crate named in the manifest. ⇒ Reading the dependency table for carve
+progress reports every success as a regression. What shrinks is the SOURCE; what
+grows is the manifest; both are the same event.
+
+⇒ So the honest statement is the opposite of the one above: **the carve had
+plenty of edge left, and finding it needed a per-module ownership question
+rather than a reference count.** Two of those five also proved a directory can
+hold two unrelated families —
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+carries the measurements, including why `possession`/`teleport`/`trapdoor`/
+`flyline` stayed behind in a directory named `abilities/`.
 
 See [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
 and [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
@@ -311,6 +361,32 @@ clean-checkout/generated-artifact guarantees, targeted touched-crate sweeps, and
 revisiting expensive dev-profile choices when the rebuild cost is small relative
 to runtime/debug value.
 
+⛔ **AND THE BINDING CONSTRAINT ON THIS BOX IS NOW DISK, measured 2026-09-03.**
+`target/debug/deps` alone is **141 GB**: every feature job builds its own variant
+of the graph, cargo never prunes the last one, and five crates were carved out of
+the actor monolith in a single day — each multiplying the variants a feature job
+resolves. The decomposition campaign pays for itself in disk.
+
+| what | cost |
+|---|---|
+| `check_disk_headroom.py` floor | **40 GB** (refused at 39.1) |
+| `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
+| one `cargo test --workspace` | **14 GB in under 3 minutes** |
+| the exhaustive plan (49 jobs) | **68 minutes**, and it exhausted a 290 GB volume mid-run |
+
+⚠ The headroom guard runs ONCE before the first job and once after the last,
+never between — so a long suite that starts above the floor can still die of
+ENOSPC halfway and report it as a link error. That is the shape of three of the
+exhaustive run's seven failures.
+
+⇒ Practical consequence for anyone orienting here: **prefer `cargo test -p` over
+a lane.** Tonight's abilities carve was verified crate by crate for exactly this
+reason, and it gave a sharper answer than the lane would have — the lane's one
+red belongs to somebody else's tests. Reclaim order, all regenerable:
+`target/debug/incremental`, `profiling`, `release`, `wasm32-unknown-unknown`,
+`outlander`. Past those the only lever is `cargo clean`, which costs every
+session's warm tree and is a coordination decision rather than a local one.
+
 ## Highest-value architecture fronts
 
 The current strategic order is:
@@ -325,7 +401,11 @@ The current strategic order is:
 4. **measured presentation/runtime quality** — weak-GPU raster budgets, asset
    preparation/materialization/residency, and useful hitch observability;
 5. **developer iteration** — build/test/profile configuration and supported
-   composition gates;
+   composition gates. ⚠ Ranked fifth by VALUE and currently first by
+   CONSTRAINT: as of 2026-09-03 this box cannot run its own full suite without a
+   clean (see Build/test iteration above), so the gates that would validate 1–4
+   are the thing that does not fit. Recorded rather than reordered — the
+   strategic order is Jon's, and a constraint is not a priority;
 6. **residual actor-kernel, capability, and SDK boundaries** — continue from real
    ownership/dependency pressure rather than size or speculative performance;
 7. **multiview/multiplayer, reactive world, and richer authoring** — advance from

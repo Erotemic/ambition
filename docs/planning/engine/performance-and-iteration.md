@@ -1428,6 +1428,18 @@ The full `app_it` target can exhaust machine memory at default concurrency while
 passing with lower test concurrency. Test policy therefore needs resource-aware
 lanes/presets rather than treating maximum parallelism as universally faster.
 
+⛔ **AND MEMORY IS NO LONGER THE BINDING RESOURCE — DISK IS, measured
+2026-09-03.** `target/debug/deps` alone reached **141 GB** and this box could not
+run its own suite: the runner's floor is 40 GB and one `cargo test --workspace`
+spends **14 GB in under three minutes**. The mechanism is the decomposition
+campaign's own side effect — every feature job builds its own variant of the
+graph, cargo never prunes the last one, and five crates were carved out of the
+actor monolith in a single day, each multiplying the variants a feature job
+resolves. ⇒ "Resource-aware lanes" now has to mean disk as well as concurrency,
+and the cheap lever is an mtime prune rather than `cargo clean`;
+[`pickup-carve-checklist.md`](pickup-carve-checklist.md) carries the recipe and
+the caveat that its cost depends entirely on build cadence.
+
 Feature-combination checks are also valuable: broad combination sweeps have
 found real integration failures that crate-local/default-only tests miss.
 

@@ -165,6 +165,40 @@ is a signal and not a lock. And a page under a header is still fair game for
 somebody fixing a fact they can prove — the header says who is working it, not
 who owns it.
 
+### ⛔ A NUMBER TYPED INTO PROSE IS A CLAIM WITH NOTHING HOLDING IT
+
+Five separate figures on these pages drifted in the SAME NIGHT (2026-09-03), and
+one of them drifted inside ten minutes of being corrected. The pattern is strong
+enough to be a writing rule rather than five fixes.
+
+| figure | said | was | why it moved |
+|---|---|---|---|
+| capability footprint | 45 crates / 18 | 50 / 23 | four carves landed |
+| monolith `[dependencies]` | 28, "has not moved" | 33 | a carve ADDS deps |
+| rollback wire tally | 406 names / 11 crates | 409 / 12 | registered types followed their code |
+| exhaustive job count | 49 | 52 | one job per new crate |
+| durable-doc crate names | — | 2 in 817 lines | measured, not assumed |
+
+⇒ **When a page states a number a command can print, print the command.** Keep
+the figure beside it as a DATED OBSERVATION — "it was 49 on 2026-09-03" — never
+as a standing claim. `run_tests.py`'s exhaustive banner now reads `len(jobs)` and
+quotes its measured count only as the count the timing was taken AT; that is the
+form to copy.
+
+⭐ **AND THE DERIVATION USUALLY CARRIES INFORMATION THE NUMBER DOES NOT.** The
+wire-format tally is the clearest case: across five carves its TYPE count did not
+move at all (123) while its CRATE count went 11 → 12, because a carve relocates a
+registered type and must leave its owner string and short name alone. So the two
+halves are diagnostic — a moved crate count means a carve, a moved type count
+means a wire-format change — and collapsing them into one retyped figure throws
+that signal away. The monolith's dependency table is the same shape in reverse:
+it goes UP on every successful carve, so watching it for progress reports success
+as regression.
+
+⚠ This is not licence to omit numbers. A page with no figures cannot be checked
+at all, which is the failure the header rule above is about. The rule is that the
+number must be reproducible BY THE READER, not that it must be absent.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

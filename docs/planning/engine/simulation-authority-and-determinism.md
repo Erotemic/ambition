@@ -32,9 +32,17 @@ composition, lifetime boundaries, and explicit phase ownership.
 > `ambition_platformer2d_actor_monolith`, `ambition_boss_encounter` or
 > `ambition_characters`. That is this program's "central rollback does not own
 > domain censuses" rule, enforced by grep rather than by review, and green.
-> ⚠ `rollback-wire-format-changes-are-declared` is a fourth, in the same file:
-> 406 stable names across 123 encoded types in 11 crates, and a wire-format
-> change that does not declare itself fails it.
+> ⚠ `rollback-wire-format-changes-are-declared` is a fourth, in the same file,
+> and a wire-format change that does not declare itself fails it. ⛔ **DO NOT
+> RETYPE ITS TALLY — the gate prints it:**
+> `python3 scripts/check_absence_contracts.py | grep rollback-wire-format`.
+> This line said "406 stable names across 123 encoded types in 11 crates"; on
+> 2026-09-03 it is **409 names, 123 types, 12 crates**, because five crates were
+> carved out of the actor monolith that day and registered types follow their
+> code. ⇒ The CRATE count is the half that moves under a carve — the type count
+> did not change at all, which is the point: a carve relocates a registered type
+> and must leave its owner string and short name alone, so the ledger stays
+> byte-identical while the crate tally does not.
 
 ## Goal
 

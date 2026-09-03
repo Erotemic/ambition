@@ -42,6 +42,13 @@ STATUS_NAME = "run_tests_status.json"
 # Share the repository disk-headroom policy rather than duplicating it in this runner.
 from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 
+# The floor for ABANDONING a run in progress, as opposed to refusing to
+# start one. Deliberately far below `MIN_FREE_GB`: dipping under the
+# full-suite floor mid-run is ordinary and finishing is usually right;
+# this is the point where the NEXT job would fail for a reason its own
+# error message cannot express.
+ABORT_FREE_GB = 6.0
+
 # Keep shared measurement paths in the small dependency-free helper.
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
@@ -1073,8 +1080,44 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on
     # a run that no longer exists. SIGKILL still can, hence the `pid` above.
+    aborted_on_disk: str | None = None
     try:
         for j in jobs:
+            # ⛔⛔ CHECK THE DISK BETWEEN JOBS, NOT ONLY BEFORE THE FIRST.
+            #
+            # The up-front refusal above is the one that gets read; it is also
+            # the one that cannot help a LONG run. Measured 2026-09-03: the
+            # 49-job exhaustive plan takes 68 minutes and exhausted a 290 GB
+            # volume PARTWAY THROUGH, because every feature job builds its own
+            # variant of the graph and cargo never prunes the last one. Three of
+            # that run's seven failures are the result, and they do not look
+            # like a disk problem: the loudest was a bare `error: linking with
+            # clang failed` whose reason line never reached the log, under a job
+            # header that belonged to something else entirely.
+            #
+            # ⇒ Refusing to START the next job converts an incoherent
+            # mid-suite death into one sentence naming the cause. It cannot
+            # save the job that is already running, which is why the floor here
+            # is a HARD one rather than `MIN_FREE_GB`: a suite that has dipped
+            # below the full-suite floor is normal and finishing it is usually
+            # right, but a suite below the hard floor is about to fail for a
+            # reason nobody will be able to read.
+            free_now = free_gb_on_target()
+            if free_now < ABORT_FREE_GB and not (tool_tests_only or maintenance_only):
+                print(
+                    f"\n\033[31m  REFUSING TO START `{j.name}`: "
+                    f"{free_now:.1f} GB free on {target_dir()}.\033[0m\n"
+                    f"  The suite started with {free_gb:.0f} GB and has spent "
+                    f"{free_gb - free_now:.0f} GB over {len(results)} job(s).\n"
+                    f"  Stopping here rather than letting the next job die of "
+                    f"ENOSPC and report it as a compile or link error.\n"
+                    f"  Free it:  cargo clean            (then expect one full "
+                    f"rebuild)\n"
+                    f"  Or run a subset:  ./run_tests.sh -p <crate>",
+                    file=sys.stderr,
+                )
+                aborted_on_disk = j.name
+                break
             print(f"\n\033[1m==> {j.name}\033[0m")
             print("    " + " ".join(j.argv))
             start = time.monotonic()
@@ -1151,6 +1194,15 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                           "disk_gb_spent": round(spent, 1),
                           "exit_code": 1 if failed else 0})
     print(f"  status written to {status}")
+    if aborted_on_disk is not None:
+        # ⛔ AN ABANDONED RUN IS NOT A PASSING RUN, and nothing else here would
+        # say so: the jobs that DID run all passed, so `failed` is empty and the
+        # exit code would be 0. A suite that stopped early must never look green
+        # — that is the same "silence reads as success" failure the disk check
+        # exists to prevent, one level up.
+        print(f"\n\033[31m  INCOMPLETE: stopped before `{aborted_on_disk}` — "
+              f"{len(jobs) - len(results)} job(s) never ran.\033[0m")
+        return 1
     return 1 if failed else 0
 
 

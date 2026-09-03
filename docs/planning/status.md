@@ -170,6 +170,15 @@ why a reference count cannot find this.
 | `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
 
 **The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
+⚠ **THAT FIGURE IS A RAW LINE COUNT OF THE CRATE'S `src/`, AND IT IS NOT THE
+SAME INSTRUMENT AS THE ONE [`queue.md`](queue.md) QUOTES.** The compile-cost
+ratchet's `largest_unit_lines` reports the same day as 108,364 → 98,808, and
+the compile-cost row is right to use it — the two measure different things and
+neither is wrong. ⛔ The hazard is that both are bare four-digit line counts
+about the same crate on the same day, so a reader who sees them in two places
+concludes one of the pages drifted. Re-measured 2026-09-03 late by the raw
+method: **98,509**, after `hurtbox` followed its owner out. ⇒ Quote the method
+with the number, or quote neither.
 
 ⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
 `[dependencies]` table went 29 → 33 across those same carves, because a kernel

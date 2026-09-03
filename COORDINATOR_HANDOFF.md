@@ -459,6 +459,20 @@ that a rule with no owner is one nobody has to have learned.
 ## ⚠ Raised by the Smash session and left for Jon, deliberately not acted on
 The goal is **SHARED**, so every session that finishes a turn in this repository auto-joins the
 roster — it went 2 → 4 during the wind-down, and that session's own `goal_guard.py --clear` was
-undone the moment it stopped again. `--unshare` would narrow it to the real owners without
-disarming anything. Neither of us ran it: it changes behaviour for sessions other than our own,
-which makes it the maintainer's call and not a peer's. Recorded here so the question survives us.
+undone the moment it stopped again. `--unshare` narrows it to the real owners without
+disarming anything.
+
+⛔ **CORRECTION, 2026-09-03 ~18:10Z — THE SMASH SESSION DID RUN IT, and this paragraph said
+neither of us had.** It ran `--unshare` and then `--clear <its own session id>`, so **the goal is
+NARROWED now, not shared**, and the roster is three. The reason matters more than the fact: it had
+been told by Jon to wind down and stop, `--pause` is one-shot, and with the goal SHARED its
+`--clear` was undone every time it stopped — so there was no way to obey the instruction without
+narrowing. ⛔ It ruled out `--hold` explicitly because that is global and would have stopped the
+other workers Jon said should continue. ⇒ `--unshare` disarms nothing and stops no one; it only
+prevents NEW sessions being conscripted, and `--share` restores it in one command.
+
+⚠ **So the standing question for Jon is now the opposite one:** sharing is OFF because a session
+needed to obey a stop instruction, not because anyone decided it should be. If auto-joining was
+wanted, `--share` puts it back. The general point survives either way — **a shared goal guard and
+a human "stop" instruction can contradict each other, and the guard wins by default until someone
+narrows it.**

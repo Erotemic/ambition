@@ -354,13 +354,86 @@ decoded, because no realized character's moveset names a row of them.
 
 ### The LDtk editor-preview tileset is 7.6 MP the runtime never draws
 
-Every world file declares `sprite_player_robot_v3 = ../sprites/player_robot_v3_
-spritesheet.png` (3072×2484) so the editor can draw entity previews, and
-`bevy_ecs_ldtk` decodes every tileset of a project when the project loads — on
-every boot and every world load, at FULL tier, beside whatever tier the game
-actually realizes. The runtime never draws it. Fix is one line per world in the
-map submodule (point it at the `sprites_0_25x` copy, 0.5 MP; the editor preview
-survives at a quarter resolution). ⛔ Jon's file, so it waits.
+**FIVE** world files declare `sprite_player_robot_v3 = ../sprites/player_robot_v3_
+spritesheet.png` so the editor can draw entity previews, and `bevy_ecs_ldtk`
+decodes every tileset of a project when the project loads — on every boot and
+every world load, at FULL tier, beside whatever tier the game actually realizes.
+
+⭐ **MEASURED 2026-09-02 (`scripts/measure_ldtk_tileset_usage.py`), and the two
+things that were assumed are now checked.** NO LEVEL LAYER in any of the five
+uses the tileset (`layerInstances[].__tilesetDefUid`, across 1/11/60/1/1
+levels); its only consumer is one entity definition per world, `PlayerStart`,
+cropping the top-left tile. So "editor previews only" is measured — which
+matters, because a layer using it would have made a cheaper tier a QUALITY
+decision instead of a free one. And it is five worlds, not four: the four
+`ambition_content` ones plus `ambition_demo_sanic/worlds/sanic_speedway.ldtk`.
+`mary_o` does not reference the sheet.
+
+⛔⛔ **AND IT IS NOT "one line per world".** `tileRect`, `uiTileRect`,
+`tileGridSize`, `pxWid` and `pxHei` are all TILESET PIXEL coordinates. Change
+only the `relPath` and the 256×256 crop that framed one animation frame spans a
+third of an 832-pixel image — the preview breaks while the JSON still looks
+plausible, and nothing in the game reports it. The tiers are also not exact
+fractions and the x and y factors differ (`sprites_0_25x` of 3072×2468 is
+832×653, not 768×617), so there is no constant to scale by.
+
+⇒ **A prepared patch is waiting: `dev/patches/ldtk-player-tileset-retarget-20260902.patch`**
+(`patch -p1 <` or `git apply`, both verified; regenerate with
+`scripts/propose_ldtk_tileset_retarget.py --tier <tier>`). It recomputes every
+pixel field from the real PNG header and preserves each crop as a FRACTION of
+the image. Boot decode for this tileset goes 7.6 MP → ~0.54 MP.
+
+ⓘ It also fixes two stale declarations found by reading the real header: the
+four content worlds declare `pxHei 2484` against a 2468-pixel file, and
+`sanic_speedway` declares `1681×1728, tileGridSize 224` for that same file. ⚠ The
+patch preserves sanic's framing as a fraction, i.e. whatever that stale
+declaration was already showing.
+
+⛔ **Jon's submodule, so it waits** — applying it needs a commit in
+`game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
+LDtk editor itself, which needs Jon opening a world.
+
+### The shared sprite pack is 442.6 MB and one prop reads it (raised 2026-09-02)
+
+⭐ **MEASURED** (`scripts/measure_pack_reachability.py`).
+`build_prop_sprite_asset_packed` is the ultrapack's ONLY production consumer; it
+has ONE call site, the intro prop loop; and it runs only for
+`intro_prop_sprite_rows()` entries whose 4th tuple element is `Some(target)`.
+**Exactly one row is: `intro_cart`.** Characters have no pack road at all —
+`load_character_sprites_in` takes the per-target `*_spritesheet.ron` every time.
+All four tiers pack the same 197 targets. On one machine: **442.6 MB of pack
+pages, 5.2 MB on a page any consumer can reach — 98.8% unreachable.**
+
+⚠ **NOT A DEFECT REPORT.** Packing every target is what a packer should do; the
+finding is that adoption never followed. Reachability is a SOURCE fact and reads
+the same on any checkout; the megabytes are generated, gitignored, per-machine.
+
+⇒ **Three answers are all reasonable and none is an agent's call:** adopt the
+pack for characters (it was built for that, and `project_ultrapack` design intent
+says the two roads should converge); narrow the generator to pack only what a
+consumer opts into; or leave it, on the grounds that a packer that packs
+everything is correct and the cost is disk nobody is paying attention to. ⛔ What
+is NOT reasonable is dropping the per-target PNGs to "save" the duplication —
+they are every character's only road.
+
+### Portraits are generated at four tiers and only full resolution is readable (raised 2026-09-02)
+
+`bake_portrait_manifests` collects portrait manifests from `assets/sprites` ONLY
+and says why: *"Portraits are presentation products and currently have no
+quality-tier variants"*. The generator emits the PNGs at all four tiers anyway —
+**487 files, 14.2 MB, with no road**
+(`scripts/measure_orphan_shipped_pages.py`).
+
+ⓘ The missing `.ron`s are POLICY, not a bug —
+`check_quality_variants_are_fresh.py` records that portraits are *"published
+SELECTIVELY"*. ⛔ But the 9 that ARE published per reduced tier cannot be read
+either: `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`
+and `build.rs` bakes from `assets/sprites`. A deliberate selective publication
+produces files no build can load.
+
+⇒ **Stop generating them, start baking them, or leave them?** The comment says
+portraits have no tier variants *currently*, which reads as intent that may
+change — and that is the part an agent cannot know.
 
 ### 44. Should `SmashChargeSpec` keep a game-mode name for a general mechanism?
 

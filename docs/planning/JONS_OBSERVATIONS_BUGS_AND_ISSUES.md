@@ -194,6 +194,25 @@
   * ▢ **what is missing is ART, on 9 of the 16 select-screen fighters.** Carrying all four rows: `player_robot_v3`, `perfect_cellular_automaton`, `npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`, `pugnacious_polygon`. Carrying none: `george_booul`, `mary_o_v2_tall`, `sanic`, `npc_pirate_admiral`, `npc_ninja_shadow_oni_leader`, `npc_alice`, `npc_bob`, `npc_oiler`, `goblin`.
   * ⊙ **Re-measured 2026-08-26 across all 203 shipped sheets, and the count is 10, not 7** — `author`, `officer` and `projectile_polygon` also carry all four, so nothing regressed since the row was written. Every one of the ten is a fighter whose rig was built after the knockdown cycle existed. ⚠ and the nine are NINE SEPARATE RIGS (`george_booul`, `sanic`, `_pirate_rig`, `ninja_side`, `alice_cryptographer`, `bob_engineer`, `oiler`, `goblin_side`, `mary_o_v2`) rather than one shared builder, so this is per-rig pose authoring — the scientist trio's `build_scientist_fighter_rigs.py` covers three of the ten but none of the nine. ⇒ **what the nine show today is the named fallback, not nothing**: `body_state_clip` falls `knockdown → prone → land_hard → hit → idle` and `getup → land_recovery → idle`, so a knocked-down goblin plays its HIT pose while lying there. That is what makes this ART rather than a bug, and it is also why it reads as wrong rather than as missing.
 
+  * ⊙ **Re-measured 2026-09-03: the NINE are unchanged, and the COUNTS in this
+    item are not repository facts.** All nine still carry 0 of the 4 rows —
+    checked by resolving each fighter's `manifest` field through
+    `character_catalog.ron` rather than guessing sheet filenames, which matters
+    because five of the nine (`npc_pirate_admiral`, `npc_ninja_shadow_oni_leader`,
+    `npc_alice`, `npc_bob`, `npc_oiler`) name sheets whose basename is not their
+    catalog id, and a filename guess reports them as MISSING rather than as 0/4.
+    ⛔ **But the denominators here cannot be compared across machines.** Every one
+    of the 182 sheet manifests on this host is GITIGNORED (`.gitignore:124`) —
+    `git ls-files` tracks ZERO of them. So "203 shipped sheets … the count is 10"
+    and my own "182 sheets, 12 carrying all four" are both statements about a
+    locally GENERATED tree, taken on different machines after different
+    generation runs. The 203→182 difference is not art being deleted, and the
+    10→12 difference is not art being added; neither number is in the repository
+    to move.
+    ⇒ **Track this item by the NAMED nine, never by the count** — the same
+    conclusion `declared-id-resolution-checks.md` reached for resolver
+    populations, and for the same reason: the name survives a change of
+    instrument and the count does not.
 
 * in the title menu FPS is 60 FPS, whereas ambition itself gets 140 FPS, and I don't know if the title 60FPS is intentional
   * ⊙ Not intentional — there is ONE global `bevy_framepace` limiter driven by the Video `frame_cap` setting and nothing anywhere paces the title differently, so the split is emergent; say whether you want the title capped on purpose.

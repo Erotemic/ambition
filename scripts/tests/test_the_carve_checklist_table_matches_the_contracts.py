@@ -1,0 +1,133 @@
+"""queue.md's "if your carve moves… it trips…" table must match the script.
+
+`check_absence_contracts.py` has eleven contracts that pin *"this belongs to ONE
+file"* by EXCLUDING that file by path. Such a contract is invisible when you
+grep for the file it protects -- the filename appears in a `:(exclude)`
+pathspec, never in the rule -- so `queue.md`'s post-carve checklist carries a
+hand-written table mapping file to contract. A hand-written map of a machine
+-readable fact drifts.
+
+⛔ IT HAD ALREADY DRIFTED when this was written, 2026-09-03. The table filed
+`snapshot_impls` under `characters/src/brain/{...}`; the real path is
+`characters/src/snapshot_impls.rs`, at the CRATE ROOT, and it trips TWO
+contracts rather than the one the table named. A carve that moved it would have
+gone looking under `brain/` and found nothing -- in the table whose only job is
+to stop exactly that.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(
+    subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    ).stdout.strip()
+)
+QUEUE = REPO / "docs/planning/queue.md"
+
+
+@pytest.fixture(scope="module")
+def contracts() -> list[dict]:
+    spec = importlib.util.spec_from_file_location(
+        "absence", REPO / "scripts/check_absence_contracts.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module.ABSENCE_CONTRACTS
+
+
+def excluding_contracts(contracts: list[dict]) -> dict[str, list[str]]:
+    """Contract id -> its paths, for those that EXCLUDE a path."""
+    out = {}
+    for c in contracts:
+        paths = [str(p) for p in c.get("paths", [])]
+        if any(p.startswith(":(exclude)") or p.startswith(":!") for p in paths):
+            out[c["id"]] = paths
+    return out
+
+
+@pytest.fixture(scope="module")
+def table() -> list[tuple[str, str]]:
+    """`(left cell, right cell)` for every row of the checklist's table."""
+    text = QUEUE.read_text()
+    start = text.index("| If your carve moves…")
+    body = text[start:].split("\n\n", 1)[0]
+    rows = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or line.startswith("|---") or "If your carve" in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) >= 2:
+            rows.append((cells[0], cells[1]))
+    return rows
+
+
+def test_the_table_was_found_and_has_rows(table):
+    """⛔ THE PREMISE. A parser that silently matched nothing would make every
+    assertion below vacuous -- the failure this whole file is about."""
+    assert len(table) >= 8, f"only {len(table)} rows parsed from the table"
+
+
+def test_every_contract_the_table_names_exists(table, contracts):
+    known = {c["id"] for c in contracts}
+    for left, right in table:
+        for name in re.findall(r"`([a-z0-9-]{10,})`", right):
+            assert name in known, (
+                f"the table maps `{left}` to `{name}`, which is not a contract "
+                "in check_absence_contracts.py"
+            )
+
+
+def test_every_path_excluding_contract_appears_in_the_table(table, contracts):
+    """⛔ The table claims to cover them. A contract added later and never
+    tabled is invisible in exactly the way the table exists to prevent."""
+    named = " ".join(right for _, right in table)
+    missing = [cid for cid in excluding_contracts(contracts) if cid not in named]
+    assert not missing, (
+        f"{len(missing)} contract(s) exclude a path and are NOT in the "
+        f"checklist table: {missing}"
+    )
+
+
+def test_every_path_in_the_table_is_named_by_the_contract_beside_it(table, contracts):
+    """⭐ THE ONE THAT WOULD HAVE CAUGHT THE REAL ERROR. A path in the left cell
+    must actually appear in the paths of a contract named in the right cell."""
+    by_id = {c["id"]: json.dumps(c.get("paths", [])) for c in contracts}
+    problems = []
+    for left, right in table:
+        ids = [n for n in re.findall(r"`([a-z0-9-]{10,})`", right) if n in by_id]
+        if not ids:
+            continue
+        blob = " ".join(by_id[i] for i in ids)
+        for token in re.findall(r"`([^`]+)`", left):
+            for piece in expand(token):
+                if piece and piece not in blob:
+                    problems.append((left, piece, ids))
+    assert not problems, "\n".join(
+        f"  the table says `{p}` trips {i}, but that path is not in its pathspec"
+        for _, p, i in problems
+    )
+
+
+def expand(token: str) -> list[str]:
+    """`a/{b, c}` -> `a/b`, `a/c`; a plain path -> itself. Prose is dropped."""
+    token = token.strip()
+    m = re.match(r"^([\w./-]*)\{([^}]*)\}$", token)
+    if m:
+        stem, inner = m.groups()
+        return [stem + part.strip() for part in inner.split(",") if part.strip()]
+    return [token] if re.search(r"[./]", token) else []
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

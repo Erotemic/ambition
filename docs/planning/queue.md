@@ -1045,11 +1045,12 @@ OPTIONAL dep + feature, never used:
      | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
      | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
      | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
-     | `avatar/starting_character.rs` | `the-motion-model-…`, `the-movement-tuning-…`, `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
+     | `avatar/starting_character.rs` | `the-motion-model-resolver-is-confined-to-one-file`, `the-movement-tuning-resolver-is-confined-to-one-file`, `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file` |
      | `avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
-     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…`, `registration-does-not-demand-art` |
-     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-…`, `the-catalog-default-action-set-…` |
-     | `characters/src/brain/{fighter,state_machine,snapshot_impls,mod}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `characters/src/prepared.rs` | `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file`, `registration-does-not-demand-art` |
+     | `characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file`, `the-catalog-default-action-set-is-confined-to-one-file` |
+     | `characters/src/brain/{fighter, state_machine/mod.rs, mod.rs}` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
+     | `characters/src/snapshot_impls.rs` — ⛔ NOT under `brain/`, and it trips TWO | `the-generic-brain-does-not-grow-new-platform-fighter-edges` (excluded) and `the-brain-codec-names-the-fighter-only-through-the-enum-variant` (its whole subject) |
      | `app/versus.rs`, `demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
      | `schedule/input_systems.rs` | `the-seat-topology-has-one-engine-side-creator` |
      | `ldtk_tools/ldtk/paths.py` | `the-worlds-path-is-confined-to-ldtk-paths` |

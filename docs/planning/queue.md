@@ -638,6 +638,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ **So the shape to look for is authored-vs-dynamic, NOT npc-vs-everything.**
   If NPCs alone are late while authored room enemies are on time, this
   explanation is wrong and something NPC-specific is in play.
+  ✔ **OWNED 2026-09-03 late by the session holding the presentation lane**,
+  which had read this same gate that evening and retracted it for
+  painted_blocks — right mechanism, wrong failure, found twice from two
+  directions. ⭐ **The authored-vs-dynamic discriminator is the ACCEPTANCE
+  CRITERION and is checked BEFORE the fix is written**: NPCs alone late while
+  authored room enemies are on time ⇒ this explanation is wrong and they stop.
+  Fix shape as stated: scope the early return to the parallax spawn.
   ⛔ Still needs a build to CONFIRM the frame numbers; the mechanism above is
   read from source and the tier assertion from an existing test. ⇒ The fix
   candidate this points at is scoping that early return to the parallax spawn

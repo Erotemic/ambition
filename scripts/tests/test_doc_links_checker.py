@@ -129,3 +129,32 @@ def test_the_live_tree_has_no_broken_links(mod):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_a_double_backtick_code_span_hides_the_link_inside_it():
+    """⛔ THE CLOSING RUN MUST MATCH THE OPENING RUN.
+
+    `` `{1,3}[^`]*`{1,3} `` paired the OPENING two backticks with the inner ONE
+    and the inner one with the closing two, so on CommonMark's `` `x` `` form it
+    blanked both delimiter groups and left the content exposed.
+
+    ⚠ Measured, not imagined: `` `[text](other.md#anchor)` `` inside double
+    backticks in `dev/journals/blind-checks-2026-09-03.md` survived blanking and
+    was reported as a broken link by `check_agent_kb.py`, which imports this
+    helper — reddening `./run_tests.sh --maintenance` on exactly the false
+    positive that journal row exists to describe.
+    """
+    import check_doc_links as cdl
+
+    text = "was `` `[text](other.md#anchor)` `` in backticks"
+    blanked = cdl._blank_code_spans(text)
+    assert "other.md#anchor" not in blanked, (
+        "a link inside a double-backtick code span is an EXAMPLE, not a link; "
+        f"it survived blanking: {blanked!r}"
+    )
+    assert len(blanked) == len(text), (
+        "offsets must be preserved so line numbers stay right"
+    )
+    # And the ordinary cases still work.
+    assert "y.md" not in cdl._blank_code_spans("a `[x](y.md)` span")
+    assert "keep.md" in cdl._blank_code_spans("a real [x](keep.md) link")

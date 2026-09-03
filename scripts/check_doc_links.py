@@ -100,7 +100,20 @@ def local_target_exists(root: Path, source: Path, target: str) -> bool:
 #
 # ⚠ Fenced blocks are covered by the same rule: a ```` ``` ```` block full of
 # example markdown is documentation of a form, never navigation.
-CODE_SPAN_RE = re.compile(r"`{1,3}[^`]*`{1,3}|^```.*?^```", re.S | re.M)
+#
+# ⛔ THE CLOSING RUN MUST MATCH THE OPENING RUN, which `` `{1,3}[^`]*`{1,3} ``
+# did not require. On the CommonMark form `` `` `x` `` `` — two backticks, a
+# space, a one-backtick span, a space, two backticks — it paired the OPENING
+# two with the inner one and the inner one with the closing two, blanking both
+# delimiter groups and leaving the content exposed. Measured 2026-09-03:
+# `` `[text](other.md#anchor)` `` inside double backticks in
+# `dev/journals/blind-checks-2026-09-03.md` survived blanking and was reported
+# as a broken link by `check_agent_kb.py`, which imports this function — the
+# very false positive that journal row exists to describe.
+#
+# `(`+)` captures the run and `\1` demands the same length to close, which is
+# CommonMark's actual rule. Non-greedy so the nearest equal run wins.
+CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1|^```.*?^```", re.S | re.M)
 
 
 def _blank_code_spans(text: str) -> str:

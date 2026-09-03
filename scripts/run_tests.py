@@ -727,6 +727,19 @@ def build_maintenance_jobs() -> list[Job]:
     it does not belong in the default plan and does belong here.
     """
     return [
+        # ⛔ THE GENERATOR RUNS FIRST, AND THE CHECK CANNOT PASS WITHOUT IT.
+        # `.agent/index/` and `.agent/README.md` are generated and git-ignored
+        # (`.gitignore:115-116`), so a clean checkout does not have them and
+        # `check_agent_kb.py` reports *".agent/index/ is generated, ignored by
+        # Git, and currently missing or incomplete"* before it checks anything.
+        # ⚠ CI LEARNED THIS FIRST and says so at `.github/workflows/test.yml:122`
+        # — *"the job could never pass as written"* — and added the same step
+        # there. This lane was missing it until 2026-09-03, so `--maintenance`
+        # passed only on a machine that had already generated the index by hand.
+        Job(
+            "agent index (generated; the KB check reads it)",
+            [sys.executable, "scripts/generate_agent_index.py"],
+        ),
         Job(
             "agent KB (periodic doc/index hygiene)",
             [sys.executable, "scripts/check_agent_kb.py"],

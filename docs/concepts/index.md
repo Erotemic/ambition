@@ -25,6 +25,8 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`movement-collision.md`](movement-collision.md) | changing movement, collision, body modes, blink, ledges, hitboxes, or projectiles |
 | [`asset-management.md`](asset-management.md) | changing logical asset identity, provider catalogs, loading, or platform packaging |
 | [`platform-targets.md`](platform-targets.md) | changing desktop, web, Android/touch, controller, or Steam Deck support |
+| [`invariants.md`](invariants.md) | you need the standing list of engine invariants rather than the page that argues one |
+| [`api-growth.md`](api-growth.md) | adding a public export, or asking why a clean facade can still force a game to link what it never asked for |
 
 ## Engineering practice
 
@@ -40,10 +42,19 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements |
 | [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates, walls, hitboxes, one-ways, breakables, or encounter geometry |
 | [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | handling Jon's active brainstorm space correctly |
+| [`anti-llmism-style-guide.md`](anti-llmism-style-guide.md) | writing prose anywhere in this repository — docs, comments, commit messages |
 
 ## Specialized references
 
 - [`cryptography-crew.md`](cryptography-crew.md) — the crypto-themed NPC cast.
+- [`hall-of-characters-is-not-special.md`](hall-of-characters-is-not-special.md) — why the hall is ordinary content, not an engine case.
+
+> ⚠ **The four pages above were all missing from this index until 2026-09-03**,
+> and one of them — the style guide — had **zero inbound links anywhere in the
+> repository**. A concept page nothing points at is doctrine that cannot be
+> followed. ⇒ When adding a page under `docs/concepts/`, adding the row here is
+> the second half of the same change; nothing checks it, so nothing will remind
+> you.
 
 ## Maintenance
 

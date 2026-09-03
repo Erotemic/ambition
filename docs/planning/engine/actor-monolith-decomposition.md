@@ -919,13 +919,29 @@ but the fact is not `Reset`:
   so "switch off ⇒ retire this encounter's reward" may be encounter policy or may
   be room-feature policy. Nothing in the code settles which.
 
-▢ **A TEST TO WRITE, not a change to make** (the hypothesis this seam turns on):
-*an in-flight encounter can never hold a stale reward chest or a set
-`reward_dropped` flag.* If that is true the switch-off clear is redundant for
-in-flight encounters and any inversion is safe; if it is false, the clear is
-load-bearing exactly where it looks pointless. It is written here as an
-assertion to prove rather than an assumption to build on — the difference
-between the two is a save-flag defect.
+⛔⛔ **THE HYPOTHESIS IS FALSE, AND DELIBERATELY SO — resolved 2026-09-03 by
+reading the other reset road.** The question was whether *an in-flight encounter
+can ever hold a stale reward chest or a set looted flag.* It can:
+
+* `apply_encounter_cleanup` reacts to `Completed | Failed | Reset` and releases
+  or despawns the encounter's SPAWNED PARTICIPANTS. It does not touch reward
+  chests or the save flag.
+* So a **player-death reset** — the road the module doc names — leaves the chest
+  standing and `encounter_..._reward_looted` set. `sync_encounter_reward_chests_ecs`
+  then reconciles the existing chest's `Opened` marker against that flag rather
+  than paying out again.
+* Only the explicit SWITCH re-arm despawns the chest and clears the flag, which
+  is what its comment says it is for: *"so the next clear pays out fresh"*.
+
+⇒ **The switch-off clear is load-bearing, not redundant**, and the coherent rule
+underneath it is: *dying and re-running an encounter does not re-pay its reward;
+deliberately re-arming it does.*
+⛔ **So the inversion sketched above is disqualified on behaviour, not on
+taste.** A feature-layer system reacting to `EncounterEvent::Reset` would clear
+the flag on death-resets too and enable repeat payouts. This is exactly what
+"probably true" would have shipped.
+▢ Still worth a TEST, now with a known expected answer: complete an encounter,
+take the death-reset road, and assert the chest and the flag both SURVIVE.
 
 ⇒ **This one needs the owner's answer, not a refactor.** The question is: *does
 the encounter domain own "my reward is retired", or does the feature layer own

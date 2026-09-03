@@ -321,6 +321,36 @@ Run it BETWEEN gates, never during one. `cargo clean` remains the last resort: i
 and its price is one full rebuild of everything, which on a shared box is
 everyone's price and not just yours.
 
+### ⛔ RESIDUE IS MORE DANGEROUS TO CITATIONS THAN DELETION
+
+A carve rarely empties a directory. `items/pickup/` survived the pickup carve as
+the kernel's schedule residue — the three-variant chain plus a few attachments —
+and `abilities/` survived the abilities carve holding possession, teleport,
+trapdoor, flyline and the puppy-slug gun. ⇒ **Every planning citation to those
+paths still RESOLVES, while the code it meant has moved.** Deletion fails loudly
+and is caught; residue passes every checker silently.
+
+Two live examples found the day after (both now repointed):
+
+* `demos/sanic.md` cited the `aabb_path_contacts` swept-route callout as "called
+  out in `pickup/mod.rs`" — it is in `ambition_held_items/src/lib.rs`, and the
+  `collect_ecs_pickups` beside it is in `features/ecs/pickups.rs`, a third file.
+* `awaiting-maintainer-decision.md`'s decision 40 told Jon the zeroing is
+  `fire_held_ranged_system` in `items/pickup/mod.rs`; it is in
+  `ambition_held_items/src/lib.rs`. ⛔ **That one costs a RULING, not a read.**
+
+⇒ **After a carve, sweep planning for citations INTO the residue**, not only for
+citations to files you deleted:
+
+```sh
+grep -rnoE '`[^`]*(items/pickup|abilities/|character_runtime)[^`]*`' docs/planning --include=*.md
+```
+
+and for each hit ask where the NAME lives now, not whether the path exists. ⭐ A
+previous session did this correctly for `physical_baseline.rs` — it names the new
+`ambition_body_seed/` location and keeps the old path as `cite-ok` history with
+the commit that moved it. That is the shape to copy.
+
 ### The lockfiles are plural
 
 `fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and

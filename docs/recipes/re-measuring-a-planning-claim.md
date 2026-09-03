@@ -527,7 +527,19 @@ reads the pack, occupancy is ~90% and "not a lead". ⇒ The conclusions survived
 because each argues from a RATIO or a SINGLE NAMED CONSUMER rather than a size.
 ⇒ So when a finding needs a number, prefer the form that cannot rot: *"one target
 opts in"* outlives *"442.6 MB"*, and *"90% occupied"* outlives *"66.6 MP of
-waste"* — on any machine, in any regeneration state. ⇒ **So before
+waste"* — on any machine, in any regeneration state.
+
+✔ **AND THE RULE WAS CONFIRMED FROM BOTH SIDES, which is what makes it more than
+a hunch.** A recorded defect — *"four sheets' reduced tiers are not reduced"* —
+did not reproduce on the second machine: `measure_tier_variant_scaling.py`
+reported **0** violating sheets there and the files were genuinely smaller
+(`author_spritesheet.png` 4.3M full against 2.0M at `0_5x`). Rather than declare
+it fixed, the ambiguity was reported. The originating box then re-ran it and
+still saw **4** — its variants are stale, the second machine's are fresh.
+⇒ **Both measurements were correct and the disagreement was the regeneration
+history**, exactly as the rule predicts. ⇒ Note what would have happened
+otherwise: "fixed, does not reproduce" would have closed a live defect on the
+strength of a build directory. ⇒ **So before
 correcting a number, ask whether the thing it counts is repository content or
 build output.** Repository content that disagrees is drift. Build output that
 disagrees is two machines, and rewriting one machine's figure with another's

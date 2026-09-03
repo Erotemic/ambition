@@ -2487,6 +2487,23 @@ product ruling.
   two fixes were tested together and only one of them survives. ⚠ Until that
   walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
   tier-independent; the TIMING tell is not confirmed for the shipped program.
+  ⭐ **AND THE TIER TELL IS TESTABLE HEADLESS AFTER ALL — `AMBITION_QUALITY_PROFILE=ultra`.**
+  A headless box seeds `potato` from its adapter (*"visual quality seeded to
+  `potato` for a Cpu adapter (llvmpipe)"*), which is why this looked host-only;
+  the boot override wins over that and `capture_scene --help` says to pair them.
+  Measured 2026-09-03 at HEAD with the cap removed —
+  `AMBITION_QUALITY_PROFILE=ultra AMBITION_PROFILE_CENSUS=1 capture_scene
+  hall_of_characters player 640x360 --warmup 400` — census reports
+  `profile=Ultra … parallax_resolution=Full msaa_samples=4`, and **zero "nothing
+  demanded it" warnings**: the first tell, re-confirmed at the user's tier
+  rather than only at Quarter.
+  ⛔ **DO NOT READ THAT LOG'S `sprites_potato/` LINES AS A RULE VIOLATION.** 14
+  `[image-drawn]` lines name potato art at t≈3.5 s while the census does not
+  report `profile=Ultra` until t≈14.9 s — draws from BEFORE quality convergence,
+  and `player_robot_v3` appears once at potato and four times at `sprites/`
+  after it. A slow headless boot makes the convergence window wide enough to
+  photograph. ⇒ The TIMING tell still needs Jon (llvmpipe milliseconds are not
+  his machine's); the tier and count tells no longer do.
   Original tells, still the checklist: zero "nothing demanded it" warnings at
   the hall reveal, `asset_wait_ms` in the seconds (the cover visibly holding),
   no >33 ms frames after the cover lifts. In the same run: `image_arrivals`

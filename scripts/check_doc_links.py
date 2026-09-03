@@ -100,7 +100,15 @@ def local_target_exists(root: Path, source: Path, target: str) -> bool:
 #
 # ⚠ Fenced blocks are covered by the same rule: a ```` ``` ```` block full of
 # example markdown is documentation of a form, never navigation.
-CODE_SPAN_RE = re.compile(r"`{1,3}[^`]*`{1,3}|^```.*?^```", re.S | re.M)
+# ⛔⛔ A DOUBLE-BACKTICK SPAN MAY CONTAIN BACKTICKS -- that is what it is FOR.
+# The old pattern was `{1,3}[^`]*`{1,3}, whose `[^`]*` stops at the first inner
+# backtick, so `` `[text](x.md)` `` -- the standard way to quote a code span --
+# was not blanked and its example link was reported broken. Found 2026-09-03 in
+# the journal entry ABOUT that same false positive, which is the natural place
+# to hit it: a page discussing code spans is a page full of quoted ones.
+# ⇒ Match an opening RUN of backticks and the closing run of the SAME length,
+# via a backreference, so a span can hold shorter runs.
+CODE_SPAN_RE = re.compile(r"^```.*?^```|(`+)(?:(?!\1)[\s\S])*?\1", re.S | re.M)
 
 
 def _blank_code_spans(text: str) -> str:

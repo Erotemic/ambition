@@ -50,6 +50,41 @@ def test_a_link_in_a_code_span_is_not_collected(mod):
     assert list(mod.collect_links(text)) == []
 
 
+def test_a_double_backtick_span_containing_backticks_is_blanked(mod):
+    """⛔⛔ A DOUBLE-BACKTICK SPAN MAY CONTAIN BACKTICKS -- that is what it is
+    FOR. The old pattern `{1,3}[^`]*`{1,3} stopped at the first inner backtick,
+    so `` `[t](x.md)` `` -- the standard way to QUOTE a code span -- was not
+    blanked and its example link was reported broken. Found in the journal entry
+    about that exact false positive, which is where it would be found: a page
+    discussing code spans is full of quoted ones."""
+    text = "the link was `` `[text](other.md#anchor)` `` in backticks\n"
+    assert list(mod.collect_links(text)) == []
+
+
+def test_the_page_full_of_quoted_spans_still_yields_its_own_links(mod):
+    """⭐ THE OTHER HALF, asserted on the CORPUS because a small fixture does not
+    reproduce it. With `re.S`, an unbalanced backtick run spans NEWLINES, so one
+    mis-parsed span blanks everything after it -- and three REAL links in
+    `checks-that-did-not-run.md` were being swallowed that way, invisible to the
+    checker entirely. Repairing the pattern took the tree from 940 collected
+    links to 943, gaining three and losing none.
+
+    ⚠ Pinned by naming them rather than by counting, because a total moves for
+    honest reasons every time someone edits a page.
+    """
+    page = REPO / "docs/recipes/checks-that-did-not-run.md"
+    targets = {t for _, t in mod.collect_links(page.read_text(errors="replace"))}
+    for expected in (
+        "../planning/engine/headless-verification.md",
+        "cheapest-sufficient-check.md",
+        "../reviewer-guide.md",
+    ):
+        assert expected in targets, (
+            f"{expected} is not collected from a page whose own links were being "
+            "swallowed by a run-on code span"
+        )
+
+
 def test_a_link_in_a_fenced_block_is_not_collected(mod):
     text = "before\n\n```\n[example](nowhere.md)\n```\n\nafter\n"
     assert list(mod.collect_links(text)) == []

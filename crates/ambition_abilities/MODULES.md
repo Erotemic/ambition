@@ -1,23 +1,26 @@
-# ambition_abilities
+# `ambition_abilities` — module map
 
-The WIELDED kit, carved out of the actor kernel on 2026-09-03 (D33, the third
-carve after `ambition_world_items` and `ambition_held_items`).
+<!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-| module | what it owns |
+**ambition_abilities** — The WIELDED ability kit, carved out of the actor kernel (D33, 2026-09-03).
+
+| Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| `ranged/` | beam, meteor, shockwave, volley, vortex, sentry, bomb |
-| `thrown/` | the gravity grenade |
-| `traversal/` | blink, dive, grapple, mark/recall — the verbs a HELD item fires |
-| `ability_cooldown` | the cooldown all of them share |
-| `test_support` | spawn fixtures, and `live_projectile_bodies` |
+| [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
+| [`ranged`](src/ranged/mod.rs) | Ranged abilities: beam, meteor, shockwave, vortex, volley, bomb, sentry. |
+| [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
+| [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade. |
+| [`traversal`](src/traversal/mod.rs) | Traversal abilities a held item FIRES: blink, dive, grapple, mark/recall. |
 
-`AbilitySimulationPlugin` configures `ItemPickupSet::ThrownItemEffects` and
-`ItemPickupSet::WieldedAbilities` — their nesting in `PlayerSimulation` — and
-registers all 18 members. `src/schedule_tests.rs` pins that by SHAPE on a bare
-`App`: 5 and 13 direct members, both variants inside the phase, and
-`CoreHeldItems` absent from the graph entirely.
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
-## ⛔ What is deliberately NOT here
+<!-- END generated module map -->
+
+## Notes
+
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._
+
+### ⛔ What is deliberately NOT here
 
 **`possession`, `teleport`, `trapdoor`, `flyline`** stayed in
 `ambition_platformer2d_actor_monolith::abilities`. They share that directory name
@@ -42,16 +45,18 @@ behaviour-neutral.
 `docs/planning/engine/actor-monolith-decomposition.md` carries both arguments
 with their numbers, so neither gets carved by line count later.
 
-## Two edges that point the other way, on purpose
+### Two edges that point kernel-ward, on purpose
 
-- **The three-variant `.chain()` is the KERNEL's.** It orders `CoreHeldItems`
-  (owned by `ambition_held_items`) against this crate's two, so neither owner can
-  name both sides. `the_chain_is_not_ours` fails if it appears here.
+- **The three-variant `.chain()` is the KERNEL's.** It orders
+  `ItemPickupSet::CoreHeldItems` (owned by `ambition_held_items`) against this
+  crate's two, so neither owner can name both sides.
+  `schedule_tests::the_chain_is_not_ours` fails if it appears here — and it
+  asserts ABSENCE from the graph, not an empty set, because a set no plugin
+  names is not in the graph at all.
 - **`teleport.rs` reaches `blink_target` across the line.** Teleport stayed,
-  blink moved, and they share the one destination-clamping rule. The kernel
-  naming this crate is the dependency pointing correctly.
+  blink moved, and they share the one destination-clamping rule.
 
-## The one test that moved the other way
+### The one test that moved the other way
 
 `a_sentry_bolt_damages_the_enemy_it_was_fired_at` lives in
 `ambition_platformer2d_actor_monolith::projectile::sentry_bolt_damage_tests`. It
@@ -59,3 +64,11 @@ chains `update_sentries` → `materialize_projectiles_for_this_tick` →
 `stamp_new_projectile_allegiance` → `step_projectiles`, and the last two are the
 kernel's. A test needing two crates belongs where both are visible; keeping it
 here would have required the edge this carve removed.
+
+### Schedule
+
+`AbilitySimulationPlugin` configures `ItemPickupSet::ThrownItemEffects` and
+`ItemPickupSet::WieldedAbilities` — their nesting in `PlayerSimulation` — and
+registers all 18 members. `src/schedule_tests.rs` pins that by SHAPE on a bare
+`App`: 5 and 13 direct members, both variants inside the phase.
+

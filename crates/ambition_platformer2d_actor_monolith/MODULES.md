@@ -6,8 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
-| [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
+| [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |

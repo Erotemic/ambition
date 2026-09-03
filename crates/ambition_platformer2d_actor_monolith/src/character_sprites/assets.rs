@@ -741,8 +741,24 @@ pub fn load_fx_sheets(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
+    // ⛔ THE BUDGET, SINCE 2026-09-02. Without it this function built its set
+    // `with_sprite_folder("sprites")` and every fx sheet decoded at authored
+    // resolution on every tier — `fx-sheet` measured 7.7 MP at Potato, High and
+    // Ultra alike. `render-animation-and-vfx.md` says purely visual work follows
+    // the active budget; that was true of particle counts and false of the art.
+    //
+    // ⚠ The omission was inherited, not chosen: `ensure_fx_sheet_loaded` passed
+    // `Full, Full` in the same shape as `load_prop_sheet_for_target`, whose
+    // `Full` is correct for a reason about ONE demo prop that does not transfer.
+    // Copying a call shape copies its arguments and not its justification.
+    quality: Option<&VisualQualityBudget>,
 ) -> ambition_sprite_sheet::game_assets::FxSheetAssets {
-    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::with_sprite_folder(sprite_folder);
+    // One tier for everything, per Jon's 2026-09-02 ruling: the same
+    // `character_sprite_tier` the pages use, and the folder the repo's own
+    // `asset_subdir` names for it (`sprites` -> `sprites_potato`).
+    let tier = character_sprite_tier(quality);
+    let folder = tier.asset_subdir(sprite_folder);
+    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::with_sprite_folder(&folder);
     let mut missing: Vec<&'static str> = Vec::new();
     // ⭐ THE CORE ONLY. The character-owned sheets (nine of thirteen) are
     // demanded when a character whose moveset names them is realized — see
@@ -750,7 +766,7 @@ pub fn load_fx_sheets(
     // same reveal barrier as the character's pages. Before 2026-09-02 all
     // thirteen (9.4 MP) were decoded at boot and resident in every room.
     for target in ambition_sprite_sheet::fx::core_fx_targets() {
-        if !ensure_fx_sheet_loaded(&mut set, target, asset_server, layouts) {
+        if !ensure_fx_sheet_loaded(&mut set, target, asset_server, layouts, tier) {
             missing.push(target);
         }
     }
@@ -774,6 +790,11 @@ pub fn ensure_fx_sheet_loaded(
     target: &'static str,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    // ⭐ The set already carries the tier in its FOLDER, so `page0_path` below is
+    // tiered whichever road called this. This argument exists so the stamp says
+    // the same thing the path does — a realization that reports `Full` while
+    // reading `sprites_potato/` is a residency census that lies.
+    tier: TextureResolutionScale,
 ) -> bool {
     if set.contains(target) {
         return true;
@@ -790,8 +811,13 @@ pub fn ensure_fx_sheet_loaded(
             "fx-sheet",
             &page0_path,
             &spec,
-            TextureResolutionScale::Full,
-            TextureResolutionScale::Full,
+            tier,
+            // ⛔ `resolved` EQUALS `requested` here, and that is a claim about the
+            // assets rather than an assumption: every one of the 12 fx sheets is
+            // published into every variant folder by the sprite pipeline, checked
+            // 2026-09-02. A target that ever ships without a variant would need
+            // the fallback `resolve_variant_pair` does for character pages.
+            tier,
         ),
     );
     true
@@ -810,6 +836,11 @@ pub fn demand_character_fx_sheets(
     character_id: &str,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    // ⭐ ONE TIER FOR EVERYTHING, per Jon 2026-09-02. This road runs inside
+    // `materialize_character_demand`, which is called with the room's budget, so
+    // a fighter's own effect art resolves to the same tier as the pages it
+    // arrives beside — not to whatever the boot set happened to choose.
+    quality: Option<&VisualQualityBudget>,
 ) -> Vec<&'static str> {
     let Some(moveset) = registry
         .get(character_id)
@@ -820,7 +851,15 @@ pub fn demand_character_fx_sheets(
     let effects = moveset.moves.iter().flat_map(|spec| spec.vfx_effects());
     let mut demanded = Vec::new();
     for target in ambition_sprite_sheet::fx::owned_fx_sheets_named_by(effects) {
-        if !set.contains(target) && ensure_fx_sheet_loaded(set, target, asset_server, layouts) {
+        if !set.contains(target)
+            && ensure_fx_sheet_loaded(
+                set,
+                target,
+                asset_server,
+                layouts,
+                character_sprite_tier(quality),
+            )
+        {
             demanded.push(target);
         }
     }

@@ -713,6 +713,19 @@ def main() -> int:
                 # "all resolved" on alternate runs of the same tree, which sent
                 # me hunting a git race that did not exist. A checker whose
                 # answer is not a function of its input is worse than no checker.
+                # ⚠ THIS CATCHES AN OVERRUN AND NOTHING ELSE, which is worth
+                # knowing before trusting a green run on line citations: a
+                # `file.rs:NN` that points at the WRONG line inside a long
+                # enough file is invisible here. Spot-checked 2026-09-03 —
+                # `gameplay_presentation/tests.rs:915` is cited for
+                # `mod two_views_one_host`, which is at 914; the citation lands
+                # on the `use super::*;` beneath it and passes. That is a
+                # tolerable miss (a reader still arrives inside the right item)
+                # and it is NOT a defect this checker can find, because
+                # verifying it would mean knowing what the row meant to point
+                # at. ⇒ A line citation degrades silently as a file grows; a
+                # crate-qualified path plus a NAME degrades loudly, because the
+                # name is checked.
                 lengths = {
                     hit: len((REPO / hit).read_text(errors="replace").splitlines())
                     for hit in hits

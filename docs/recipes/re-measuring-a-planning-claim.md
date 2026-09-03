@@ -379,7 +379,11 @@ the second name did, so a file was credited with a name it does not contain; and
 searching `assets/` and `game/ambition_content/assets/` for character art
 returned "no art" for all thirteen characters, because the sprites live under
 `crates/ambition_platformer2d_actor_monolith/assets/sprites_potato`. ⇒ Every one
-looked like a finding. None was.
+looked like a finding. None was. ⭐ **A sixth and seventh, both from a filename suffix:** searching
+`scripts/tests/` for `check_retired_crate_names.py` finds nothing because the test
+`import`s the MODULE, `check_retired_crate_names` — which briefly made four live
+checks look unreachable; and `ls`'s ANSI colour codes leaked into a comparison and
+reported all eleven tool directories as unindexed.
 
 ⇒ **Before believing a zero, prove the instrument can see a POSITIVE.** Run it
 against something you already know is there — a room you just read, a character
@@ -430,6 +434,7 @@ the next person pays for it a second time. All of these were run against
 | tools missing from `docs/tools/index.md` | 11 tool directories | 0 — the index groups by guide, and all are covered |
 | CamelCase types cited in `docs/concepts/` + `docs/architecture/` | 73 distinct | 0 real — every miss is an upstream type, an enum VARIANT, an LDtk entity id, or a name the page says must NOT exist |
 | CamelCase types cited in `docs/systems/` | 65 distinct | **1 real** — `ResetRoomFeaturesEvent`, listed under "Current boundary" and deleted four days earlier |
+| every `scripts/check_*.py` — is it reachable from the gate, the pytest lane or CI? | 16 scripts | **0 unreachable**, confirming e7's CI-only fix closed completely |
 | identifiers cited in `docs/tools/` + `docs/sdk/` | 165 distinct | 0 real — env vars, a user's own example type, a prototype's proposed names, and three functions named inside POSTMORTEM sections about their own removal |
 | `snake_case` cited in `docs/concepts/` + `docs/architecture/` + `docs/recipes/` | 189 distinct | **1 real** — `player_body_tick`, doctrine describing a system a live test forbids |
 

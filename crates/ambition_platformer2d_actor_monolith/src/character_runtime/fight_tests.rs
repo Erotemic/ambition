@@ -29,6 +29,9 @@ use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
     MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
+use ambition_match::{
+    ControllerBinding, MatchParticipant, MatchParticipantRoster, StagesCharacters,
+};
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::Vec2;
 use std::collections::BTreeMap;

@@ -285,8 +285,8 @@ fn wear_kit(
 }
 
 fn match_kit_for_seat<'a>(
-    roster: Option<&'a crate::character_runtime::MatchParticipantRoster>,
-    seat: Option<&crate::character_runtime::MatchSeat>,
+    roster: Option<&'a ambition_match::MatchParticipantRoster>,
+    seat: Option<&ambition_match::MatchSeat>,
 ) -> Option<&'a ActionSet> {
     roster?.participants.get(seat?.0)?.action_set.as_ref()
 }
@@ -329,7 +329,7 @@ pub fn apply_worn_character_gameplay(
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
-    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     mut commands: Commands,
     mut worn: Query<(
         Entity,
@@ -366,7 +366,7 @@ pub fn apply_worn_character_gameplay(
         (
             Option<&PersonaBaseline>,
             // Which seat this body holds, if it is in a match at all.
-            Option<&crate::character_runtime::MatchSeat>,
+            Option<&ambition_match::MatchSeat>,
             Has<ambition_characters::actor::RecharacterizeBody>,
         ),
     )>,

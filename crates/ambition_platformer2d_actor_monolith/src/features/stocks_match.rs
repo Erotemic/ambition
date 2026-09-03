@@ -10,7 +10,7 @@
 
 use bevy::prelude::{Has, MessageWriter, Query, Res, ResMut, Resource, World};
 
-use crate::character_runtime::{ActiveMatch, MatchInstance};
+use ambition_match::{ActiveMatch, MatchInstance};
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 use ambition_time::ClockDomain;
 
@@ -238,13 +238,13 @@ pub fn decide_stocks_match(
     // reason every other reader of the projection is: a bare fixture has no
     // prepared plan, and the honest answer there is a match with no time limit.
     // The COUNT is below it, and the pair is what a timeout is.
-    prepared: Option<Res<crate::character_runtime::PreparedMatch>>,
+    prepared: Option<Res<ambition_match::PreparedMatch>>,
     // HOW LONG THIS MATCH HAS BEEN FOUGHT. Not `Option`: the clock is installed
     // by the same plugin this system is, so a composition that can decide a
     // match can count one.
     live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
     fighters: Query<(
-        &crate::character_runtime::MatchSeat,
+        &ambition_match::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,
         &ambition_combat::components::FighterStocks,
         Option<&ambition_characters::actor::BodyHealth>,
@@ -403,7 +403,7 @@ fn timeout_continues_as_sudden_death(
 /// counting one, and belongs with whoever owns the stage transition.
 fn fold_the_sides_on_the_clock(
     fighters: &Query<(
-        &crate::character_runtime::MatchSeat,
+        &ambition_match::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,
         &ambition_combat::components::FighterStocks,
         Option<&ambition_characters::actor::BodyHealth>,
@@ -773,7 +773,7 @@ mod tests {
 
         fn run_the_fold(
             fighters: Query<(
-                &crate::character_runtime::MatchSeat,
+                &ambition_match::MatchSeat,
                 Option<&MatchTeam>,
                 &FighterStocks,
                 Option<&BodyHealth>,
@@ -792,7 +792,7 @@ mod tests {
             });
             health.set_damage_taken(damage);
             let mut body = app.world_mut().spawn((
-                crate::character_runtime::MatchSeat(index),
+                ambition_match::MatchSeat(index),
                 // ONE SIDE, two members — the composition the defect needs.
                 MatchTeam("blue".to_string()),
                 FighterStocks::new(if out { 0 } else { 2 }),
@@ -828,12 +828,12 @@ mod tests {
     /// every one of them on their first tick.
     #[test]
     fn a_match_with_no_declared_clock_has_no_clock() {
-        let untimed = crate::character_runtime::MatchRules::default();
+        let untimed = ambition_match::MatchRules::default();
         assert_eq!(untimed.time_remaining(0), None);
         assert!(!untimed.time_expired(0));
         assert!(!untimed.time_expired(u64::MAX));
 
-        let timed = crate::character_runtime::MatchRules {
+        let timed = ambition_match::MatchRules {
             time_limit_ticks: 120,
             ..Default::default()
         };

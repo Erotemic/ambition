@@ -159,6 +159,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
 ambition_world_items = { path = "../ambition_world_items" }
 ambition_held_items = { path = "../ambition_held_items" }
 ambition_body_seed = { path = "../ambition_body_seed" }
+ambition_match = { path = "../ambition_match" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_audio = { path = "../ambition_audio" }
 ambition_characters = { path = "../ambition_characters" }

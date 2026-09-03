@@ -10,10 +10,8 @@ pub mod audit;
 pub mod definition;
 pub mod hurtbox;
 pub mod live_match_clock;
-pub mod prepared_match;
+pub mod match_activation;
 pub mod presentation;
-pub mod seating;
-pub mod staging;
 
 #[cfg(test)]
 // Test-only preparation seams supplied by `ambition_characters::test-support`.
@@ -34,17 +32,15 @@ pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
-pub use prepared_match::{
-    activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,
-    prepare_match, prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
-    MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
+pub use match_activation::{
+    activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_the_match,
+    release_the_opening_hold,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, grant_prepared_character_body,
     inherit_projectile_presentation_sources, project_prepared_character_definitions,
     provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
-pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
 #[cfg(test)]
 use ambition_characters::actor::definition::CharacterDefinition;
@@ -81,11 +77,6 @@ pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
     }
     registry
 }
-pub use staging::{
-    ControllerBinding, DirectStartupSpec, MatchItemSpawns, MatchParticipant,
-    MatchParticipantRoster, NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating,
-    StagesCharacters,
-};
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -699,7 +690,7 @@ pub fn demand_actor_character_sheets(
 /// demand is a SET, so asking twice for the same character is free. This system
 /// makes the roster case EARLY, it does not make the spawn case wrong.
 pub fn demand_rostered_character_sheets(
-    roster: Option<Res<staging::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
 ) {
     let (Some(roster), Some(mut demand)) = (roster, demand) else {
@@ -1005,12 +996,12 @@ impl Plugin for CharacterRuntimePlugin {
                 // and it replays correctly precisely because the plan it reads
                 // was decided outside the window and cannot have changed.
                 (
-                    prepared_match::activate_the_prepared_match,
+                    match_activation::activate_the_prepared_match,
                     // The ceremony's other end: the tick the hold comes off.
                     // Chained after activation so a match whose ruleset declares
                     // NO countdown still releases on the tick it is built — the
                     // behaviour every match had before ceremonies existed.
-                    prepared_match::release_the_opening_hold,
+                    match_activation::release_the_opening_hold,
                 )
                     .chain()
                     // Preparation needs an ASSEMBLED content composition, and a
@@ -1068,13 +1059,13 @@ impl Plugin for CharacterRuntimePlugin {
                 (
                     // The same requirement as the activation registration above,
                     // named the same way.
-                    prepared_match::prepare_the_match.run_if(resource_exists::<
+                    match_activation::prepare_the_match.run_if(resource_exists::<
                         ambition_characters::actor::character_catalog::CharacterCatalog,
                     >),
                     // The camera's answer for a match with no local participant.
                     // In `Update` beside preparation because it is a projection
                     // FOR presentation, not simulation state.
-                    prepared_match::declare_the_match_cast_as_the_view,
+                    match_activation::declare_the_match_cast_as_the_view,
                 ),
             )
             .add_systems(

@@ -230,7 +230,7 @@ use super::audit::{
     audit_character_capabilities, character_reveal_ready, report_character_capability_gaps,
     unsettled_staged_characters, CharacterCapabilityGap,
 };
-use super::staging::{
+use ambition_match::staging::{
     DirectStartupSpec, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,
 };
 
@@ -1210,8 +1210,8 @@ mod live_quality_apply {
 #[test]
 fn a_roster_demands_its_cast_before_any_body_is_spawned() {
     use super::demand_rostered_character_sheets;
-    use super::staging::{MatchParticipant, MatchParticipantRoster};
     use ambition_characters::load_demand::CharacterLoadDemand;
+    use ambition_match::staging::{MatchParticipant, MatchParticipantRoster};
 
     let mut app = App::new();
     app.init_resource::<CharacterLoadDemand>();
@@ -1408,10 +1408,10 @@ fn an_unbounded_or_undersized_take_drains_completely() {
 /// whatever load outcome the caller wants that fighter to have.
 fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) -> App {
     let mut app = App::new();
-    let mut roster = super::staging::MatchParticipantRoster::default();
+    let mut roster = ambition_match::staging::MatchParticipantRoster::default();
     roster
         .participants
-        .push(super::staging::MatchParticipant::new("iron_mary"));
+        .push(ambition_match::staging::MatchParticipant::new("iron_mary"));
     app.insert_resource(roster);
 
     let mut states = super::CharacterLoadStates::default();
@@ -1422,15 +1422,13 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
 
     // `activated_on: Some(0)` with a tick of 0 and the default ruleset's zero
     // countdown puts the match past its opening on the first observed frame.
-    app.insert_resource(super::seating::ActiveMatch::activated(
+    app.insert_resource(ambition_match::seating::ActiveMatch::activated(
         1,
         None,
         None,
         Some(0),
     ));
-    app.insert_resource(super::prepared_match::PreparedMatch::for_test_published_by(
-        None,
-    ));
+    app.insert_resource(ambition_match::prepared::PreparedMatch::for_test_published_by(None));
     app.insert_resource(ambition_time::SimTick::default());
     app.init_resource::<super::audit::LateMatchCriticalArt>();
     app.add_systems(Update, super::audit::report_late_match_critical_art);

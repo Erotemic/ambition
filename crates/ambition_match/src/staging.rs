@@ -305,7 +305,7 @@ pub struct MatchParticipantRoster {
     /// all rather than the rules being decided by construction: the engine does
     /// not get an opinion about a match's economy. What changed is that it says
     /// so ONCE.
-    pub rules: super::prepared_match::MatchRules,
+    pub rules: crate::prepared::MatchRules,
     /// Whether anybody has agreed to seat this roster yet. See
     /// [`RosterSeating`].
     pub seating: RosterSeating,
@@ -741,7 +741,7 @@ mod tests {
 #[cfg(test)]
 mod roster_validation_tests {
     use super::*;
-    use crate::character_runtime::ControllerBinding;
+    use crate::staging::ControllerBinding;
 
     /// The policies a composition PUBLISHES, keyed the way assembly keys
     /// them.

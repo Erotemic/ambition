@@ -61,11 +61,10 @@ fn main() {
             app.update();
             let (seated, held) = {
                 let world = app.world_mut();
-                let mut all =
-                    world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+                let mut all = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
-                    &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                    &ambition_platformer2d::versus_match::MatchSeat,
                     bevy::prelude::With<ambition_platformer2d::characters::control::ScriptedControl>,
                 >();
                 (seated, q.iter(world).count())

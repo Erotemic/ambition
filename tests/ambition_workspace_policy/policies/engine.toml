@@ -3065,3 +3065,29 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_body_seed/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+# ── the versus match, prepared (D33, character preparation versus actor simulation, 2026-09-03) ──
+
+[[policy]]
+id = "engine.ambition_match-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_match"]
+watch_paths = ["crates/ambition_match/Cargo.toml"]
+rationale = "ambition_match owns the versus match, prepared: the participant roster and its three staging shapes, the rules of the stage, prepare_match (every fallible seat question answered before a body exists) and the rollback-safe receipt of the live match. Measured before it moved: the preparation half of the kernel's character_runtime named nothing in the kernel once the worn kit, the body seed and the physical baseline had left, so the list is what those files already depended on -- bodies and abilities from platformer2d_core, the seed each seat is built around from ambition_body_seed, the prepared registry/catalog/brains from ambition_characters, movesets/kits/teams from ambition_combat, placement brains from ambition_entity_catalog, participant channels from ambition_input, lifecycle/session vocabulary from shared_tangle, the authored sheets from ambition_sprite_sheet. It must NEVER gain ambition_platformer2d_actor_monolith: the kernel ACTIVATES the plan this crate prepares, never the reverse"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_body_seed", "ambition_characters", "ambition_combat", "ambition_entity_catalog", "ambition_input", "ambition_platformer2d_shared_tangle", "ambition_sprite_sheet"]
+manifest = "crates/ambition_match/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_match-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_match"]
+watch_paths = ["crates/ambition_match/src"]
+rationale = "A prepared match names no simulation: spawning the seats, binding their control, the opening hold and the view are the kernel's; the picture, the menu, the app and content are further up. Naming any of them from here would be preparation reaching into what activates it. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_match/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]

@@ -18,9 +18,11 @@ use ambition_combat::actor_tuning::ActorConfig;
 // ⛔ `PreparedCharacterRegistry` LEFT THIS GROUP 2026-08-28: it is
 // `ambition_characters::prepared`'s and the monolith stopped republishing it.
 use ambition_characters::prepared::PreparedCharacterRegistry;
+use ambition_platformer2d::versus_match::{
+    ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
+};
 use ambition_platformer2d_actor_monolith::character_runtime::{
-    activate_the_prepared_match, prepare_the_match, release_the_opening_hold, ControllerBinding,
-    MatchParticipant, MatchParticipantRoster, MatchSeat,
+    activate_the_prepared_match, prepare_the_match, release_the_opening_hold,
 };
 
 /// The monolith's own seating fixture, with ONE thing changed: the cast comes

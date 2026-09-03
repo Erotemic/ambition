@@ -731,7 +731,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
 /// returns `None` for unprepared IDs, so the vacuity guard must prove seats were
 /// actually created.
 fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
-    use ambition_platformer2d::actors::character_runtime::{
+    use ambition_platformer2d::versus_match::{
         ControllerBinding, MatchParticipant, MatchParticipantRoster,
     };
 
@@ -751,7 +751,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
         // A fixture's roster has no publisher: nothing else in this App claims
         // one, which is the case `None` is for.
         published_by: None,
-        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+        rules: ambition_platformer2d::versus_match::MatchRules {
             item_spawns: None,
             opens_suspended: true,
             // No ceremony in a rollback fixture: the stage that owns the opening
@@ -773,7 +773,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
         sim.step(AgentAction::default());
         if sim
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::versus_match::ActiveMatch>()
             .is_some()
         {
             return tick;
@@ -799,7 +799,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
 /// say a rewind crosses badly.
 #[test]
 fn every_component_in_a_live_match_is_registered_derived_or_waived() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -1058,7 +1058,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // inside a match cannot move it. `ActiveMatch`, which IS written from inside
     // the sim schedule, is registered rather than waived.
     (
-        "::character_runtime::staging::MatchParticipantRoster",
+        "ambition_match::staging::MatchParticipantRoster",
         "the match's authored request; written at route entry, read-only for the match's life",
     ),
     // The PLAN, and it is deliberately not rollback state — `prepared_match.rs`
@@ -1075,13 +1075,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          cast would aim the camera at bodies the restored frame does not have",
     ),
     (
-        "::character_runtime::prepared_match::PreparedMatch",
+        "ambition_match::prepared::PreparedMatch",
         "the resolved match DECISION, made once before the fighters exist and \
          never written from inside the sim. Rewinding it would remove what \
          activation replays FROM",
     ),
     (
-        "::character_runtime::prepared_match::MatchPreparationProblems",
+        "ambition_match::prepared::MatchPreparationProblems",
         "the refusal that answers an unpreparable roster; published beside the \
          plan, on the same pre-session decision",
     ),
@@ -2114,7 +2114,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
     seat_a_two_cpu_match(&mut sim);
     let seated = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+        let mut q = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
         q.iter(world).count()
     };
     assert_eq!(
@@ -2137,9 +2137,7 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
     // `MatchSeat` is registered canonical and is normally worn by a body, which
     // carries the `BodyKinematics` anchor. On a bare entity it is stranded.
     sim.world_mut()
-        .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(
-            0,
-        ));
+        .spawn(ambition_platformer2d::versus_match::MatchSeat(0));
 
     let inert = inert_registrations(&mut sim);
     assert!(

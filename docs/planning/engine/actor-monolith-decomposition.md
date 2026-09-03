@@ -1206,7 +1206,7 @@ now exempts the compiler's new home instead of `starting_character.rs`.
    shared vocabulary or the match takes a bool.
    ⊙ **THE BOOL WAS TAKEN, and half of this is landed (D33 cut 2a, `7ba40886e`).**
    `prepare_match` takes `home_body_spawns_a_body: bool`
-   (`character_runtime/prepared_match.rs:574`) and no longer names the policy.
+   (`ambition_match/src/prepared.rs:579` since cut 2b) and no longer names the policy.
    ⚠ THE NAME DID NOT LEAVE THE FILE, it moved UP one level: the wrapper
    `prepare_the_match` still imports it (`:1209`) and converts it at `:1253`
    (`home_body.is_some_and(|policy| policy.spawns_a_body())`). ⇒ What remains for

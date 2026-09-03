@@ -11,11 +11,11 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::Vec2;
 
 use super::*;
-use crate::character_runtime::{
-    ActiveMatch, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
-    MatchParticipantRoster, MatchSeat,
-};
+use crate::character_runtime::CharacterDefinitionAppExt;
 use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_match::{
+    ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
+};
 
 /// The fixture's own published CPU policy — see [`fixture_policies`].
 const FIXTURE_CPU_POLICY: &str = "cpu_policy";
@@ -286,7 +286,7 @@ fn an_unbuildable_character_is_refused_by_name() {
     // THE POINT. A permanent failure must not present as a wait.
     let problems = app
         .world()
-        .get_resource::<crate::character_runtime::MatchPreparationProblems>()
+        .get_resource::<ambition_match::MatchPreparationProblems>()
         .expect(
             "preparation refused this roster and recorded NOTHING, so a stage \
              would sit on it forever and no surface could say why — which is \
@@ -1153,7 +1153,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("springy"), cpu("plain")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             body: Some(stage),
             ..Default::default()
@@ -1204,7 +1204,7 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("mary_o"), cpu("sanic")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             opens_suspended: true,
             ..Default::default()
@@ -1251,7 +1251,7 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("duelist"), cpu("duelist")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             opens_suspended: true,
             opening_countdown_ticks: TICKS,
@@ -1321,7 +1321,7 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
                 source: ambition_input::LocalInputSource::Pad(0),
             }),
         ],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             opens_suspended: true,
             ..Default::default()
@@ -1741,7 +1741,7 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
         app.register_character(fighter);
         app.insert_resource(MatchParticipantRoster {
             participants: vec![cpu("glass"), cpu("fighter")],
-            rules: crate::character_runtime::MatchRules {
+            rules: ambition_match::MatchRules {
                 item_spawns: None,
                 health_pool: pool,
                 ..Default::default()
@@ -1811,7 +1811,7 @@ fn the_matchs_declared_abilities_reach_every_seat() {
             }),
             cpu("duelist"),
         ],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             abilities: Some(ambition_platformer2d_core::MatchAbilities::levelled(
                 ambition_platformer2d_core::AbilitySet::basic(),
@@ -1878,7 +1878,7 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
     );
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("duelist")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
                 AbilitySet {
                     shield: false,
@@ -2107,11 +2107,16 @@ fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
         ),
     );
 
-    let published = super::seat_brain_profile("medium_striker", None, PROVIDER, Some(&profiles))
-        .expect(
-            "a published policy of that name resolves — a BARE key reached a registry \
+    let published = ambition_match::prepared::seat_brain_profile(
+        "medium_striker",
+        None,
+        PROVIDER,
+        Some(&profiles),
+    )
+    .expect(
+        "a published policy of that name resolves — a BARE key reached a registry \
              that holds provider::name, which is the production shape",
-        );
+    );
     assert_eq!(published.aggro_radius, 1.0);
 
     // THE POISON. A policy published by a DIFFERENT provider must not
@@ -2119,14 +2124,20 @@ fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
     // and it would also let one game's `duelist` silently drive another's
     // fighter.
     assert!(
-        super::seat_brain_profile("medium_striker", None, "some_other_game", Some(&profiles))
-            .is_none(),
+        ambition_match::prepared::seat_brain_profile(
+            "medium_striker",
+            None,
+            "some_other_game",
+            Some(&profiles)
+        )
+        .is_none(),
         "another provider's policy answered this seat, so the reference is not \
          being resolved in a provider at all"
     );
 
     assert!(
-        super::seat_brain_profile("combatant", None, PROVIDER, Some(&profiles)).is_none(),
+        ambition_match::prepared::seat_brain_profile("combatant", None, PROVIDER, Some(&profiles))
+            .is_none(),
         "an enemy archetype key answered a controller question, so the archetype \
          table is still a policy authority"
     );
@@ -2163,7 +2174,7 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
 
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("crawler")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
                 ambition_platformer2d_core::AbilitySet {
                     move_horizontal: true,
@@ -2249,7 +2260,7 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
     };
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("crawler")],
-        rules: crate::character_runtime::MatchRules {
+        rules: ambition_match::MatchRules {
             item_spawns: None,
             abilities: Some(ambition_platformer2d_core::MatchAbilities::levelled(kit)),
             ..Default::default()
@@ -2411,7 +2422,7 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
     app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("alpha"), cpu("beta")],
-        seating: crate::character_runtime::RosterSeating::Proposed,
+        seating: ambition_match::RosterSeating::Proposed,
         ..Default::default()
     });
 
@@ -2435,7 +2446,7 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
     // human. A proposal is a wait, not a problem.
     assert!(
         app.world()
-            .get_resource::<crate::character_runtime::MatchPreparationProblems>()
+            .get_resource::<ambition_match::MatchPreparationProblems>()
             .is_none(),
         "waiting for activation was reported as an unsatisfiable roster, which \
          would put a refusal on screen on every ordinary route entry"
@@ -2472,7 +2483,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
     app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("alpha"), cpu("beta")],
-        seating: crate::character_runtime::RosterSeating::activated_at(7),
+        seating: ambition_match::RosterSeating::activated_at(7),
         ..Default::default()
     });
 
@@ -2503,7 +2514,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
         .run_system_cached(
             |seated: Query<(Entity, &MatchSeat)>,
              worn: Query<&ambition_characters::actor::WornCharacter>| {
-                crate::character_runtime::match_participants(&seated)
+                ambition_match::match_participants(&seated)
                     .into_iter()
                     .map(|body| {
                         worn.get(body)
@@ -2889,7 +2900,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
 
     let refusal = app
         .world()
-        .get_resource::<crate::character_runtime::MatchPreparationProblems>()
+        .get_resource::<ambition_match::MatchPreparationProblems>()
         .expect("seating refused this roster and has to say so in every build");
     assert_eq!(refusal.problems.len(), 1, "{:?}", refusal.problems);
     assert_eq!(refusal.problems[0].seat, 1);
@@ -2900,7 +2911,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
     );
     assert!(
         app.world()
-            .get_resource::<crate::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_match::ActiveMatch>()
             .is_none(),
         "the match latched anyway, which is the partial activation the resolve \
          pass exists to prevent"
@@ -3168,7 +3179,7 @@ fn a_plan_can_tell_when_the_cast_moved_on_under_it() {
 
     fn seated(app: &mut App) -> usize {
         let world = app.world_mut();
-        let mut bodies = world.query::<&crate::character_runtime::MatchSeat>();
+        let mut bodies = world.query::<&ambition_match::MatchSeat>();
         bodies.iter(world).count()
     }
 
@@ -3231,7 +3242,7 @@ fn seated_fighter_streams(app: &mut App) -> Vec<(usize, u64)> {
     let world = app.world_mut();
     let mut streams: Vec<(usize, u64)> = world
         .query::<(
-            &crate::character_runtime::MatchSeat,
+            &ambition_match::MatchSeat,
             &ambition_characters::brain::Brain,
         )>()
         .iter(world)

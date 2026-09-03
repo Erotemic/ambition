@@ -442,7 +442,7 @@ pub fn ensure_perception(
             // `MatchSeat` insert share one command flush, so a fighter is never
             // observable without its seat and can never be granted bounded
             // senses in the window before it.
-            bevy::prelude::Without<crate::character_runtime::MatchSeat>,
+            bevy::prelude::Without<ambition_match::MatchSeat>,
             // Missing memory ⟺ missing perception (both attached together below), so
             // this one gate nets bodies that lack either.
             bevy::prelude::Without<PerceptionMemory>,

@@ -1051,7 +1051,7 @@ OPTIONAL dep + feature, never used:
 
      | If your carve moves… | it trips |
      |---|---|
-     | `character_runtime/prepared_match.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+     | `character_runtime/match_activation.rs` (was `prepared_match.rs` <!-- cite-ok: pre-cut path --> until D33 cut 2b) | `a-second-writer-of-a-match-global-must-answer-ownership` |
      | `character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
      | `character_runtime/definition.rs` | `registration-does-not-demand-art` |
      | `ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |

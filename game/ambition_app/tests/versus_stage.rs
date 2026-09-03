@@ -160,7 +160,7 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
 /// Leaving versus takes the roster with it.
 #[test]
 fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
-    use ambition_platformer2d::actors::character_runtime::MatchParticipantRoster;
+    use ambition_platformer2d::versus_match::MatchParticipantRoster;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -346,7 +346,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
     // its own doc says why every other way is a guess.
     let world = app.world_mut();
     let mut seated = world.query::<(
-        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::versus_match::MatchSeat,
         &ambition_platformer2d::characters::actor::WornCharacter,
         &Name,
         &ActionSet,
@@ -484,9 +484,9 @@ fn both_fighters_can_actually_hit_each_other() {
 #[test]
 fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -538,7 +538,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         //
         // The seat is COMPUTED, not sampled: the CPU walks, so "where it is
         // now" stopped being its seat the moment the opponent got a brain.
-        let seat_x = ambition_platformer2d::actors::character_runtime::seat_placement(1, centre)
+        let seat_x = ambition_platformer2d::versus_match::seat_placement(1, centre)
             .0
             .x;
         app.world_mut()
@@ -626,8 +626,8 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 /// anything at all is not.
 #[test]
 fn the_cpu_opponent_is_not_a_statue() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -706,9 +706,9 @@ fn the_cpu_opponent_is_not_a_statue() {
 /// "the fighter respawned and nobody noticed".
 #[test]
 fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -802,8 +802,8 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
 /// countdown already running.
 #[test]
 fn returning_to_versus_starts_a_fresh_match() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -817,7 +817,7 @@ fn returning_to_versus_starts_a_fresh_match() {
             app.update();
             if app
                 .world()
-                .get_resource::<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>()
+                .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
                 .is_some()
             {
                 break;
@@ -854,7 +854,7 @@ fn returning_to_versus_starts_a_fresh_match() {
         app.update();
         if app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
             .is_none()
         {
             break;
@@ -862,7 +862,7 @@ fn returning_to_versus_starts_a_fresh_match() {
     }
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
             .is_none(),
         "the fixture never actually left the stage, so re-entry is not being tested"
     );
@@ -922,8 +922,8 @@ fn returning_to_versus_starts_a_fresh_match() {
 /// and silence every system that could still act.
 #[test]
 fn a_knockout_freezes_the_fight_until_the_next_round() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1032,11 +1032,11 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 /// nothing in a stage whose default mode is player-versus-CPU.
 #[test]
 fn a_decided_round_takes_the_controls_away() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::control::ActorControl;
     use ambition_platformer2d::characters::control::ScriptedControl;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1151,8 +1151,8 @@ fn a_decided_round_takes_the_controls_away() {
 /// learning a single provider type.
 #[test]
 fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     /// Stands in for `BallDash::charge` — provider-owned, transient, and the
     /// kind of state a generic reset cannot name.
@@ -1242,8 +1242,8 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
 #[test]
 fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
     let (seat_0_slot, seat_1_slot) = (HEALTH_HUD_SLOTS[0], HEALTH_HUD_SLOTS[1]);
 
     let mut app = versus_app();
@@ -1319,7 +1319,7 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
 /// exactly half the cast was proof of nothing.
 #[test]
 fn every_seated_fighter_has_something_on_screen() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1379,8 +1379,8 @@ fn every_seated_fighter_has_something_on_screen() {
 /// the relation is load-bearing.
 #[test]
 fn four_controllers_make_versus_a_two_versus_two() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1468,8 +1468,8 @@ fn four_controllers_make_versus_a_two_versus_two() {
 /// been wrong four times already this session.
 #[test]
 fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     let pads: Vec<Entity> = (0..4)
@@ -1571,8 +1571,8 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
 #[test]
 fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
     use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1652,9 +1652,9 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
 /// A KO hold FREEZES the world; it does not empty it.
 #[test]
 fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::combat::moveset::MovePlayback;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1808,7 +1808,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
 /// quietly kept simulating would report a clean sweep.
 #[test]
 fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::versus_match::MatchSeat;
     use bevy::time::TimeUpdateStrategy;
     use std::time::Duration;
 
@@ -1900,8 +1900,8 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
 /// uses).
 #[test]
 fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2042,10 +2042,10 @@ fn the_round_counter_counts_rounds_and_not_wins() {
 /// wider and leaning forward, which is what makes committing punishable.
 #[test]
 fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::actors::character_runtime::{
         AuthoredHurtboxes, HurtboxSelection, ResolvedHurtboxes,
     };
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2239,9 +2239,9 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
 /// adopted primary-player reset path.
 #[test]
 fn a_fighter_knocked_off_the_stage_loses_the_round() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2322,9 +2322,9 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
 /// stage opted in.
 #[test]
 fn a_fighter_thrown_off_the_side_loses_the_round() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2410,9 +2410,9 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
 /// it is all ECONOMY. A body dying in its own voice was never on that list.
 #[test]
 fn a_knockout_is_announced_in_the_losers_own_voice() {
-    use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2614,7 +2614,7 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
     {
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::versus_match::MatchSeat,
             &mut BodyHealth,
         )>();
         for (seat, mut health) in q.iter_mut(world) {

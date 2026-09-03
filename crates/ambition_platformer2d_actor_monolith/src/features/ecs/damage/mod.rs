@@ -197,7 +197,7 @@ impl FeatureHitWriters<'_, '_> {
 #[derive(SystemParam)]
 pub struct BarkDraw<'w> {
     tick: Option<Res<'w, ambition_time::SimTick>>,
-    active: Option<Res<'w, crate::character_runtime::ActiveMatch>>,
+    active: Option<Res<'w, ambition_match::ActiveMatch>>,
     feel_tuning: Option<Res<'w, ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     combat_rules: Option<Res<'w, ambition_combat::rules::ResolvedCombatTuning>>,
 }
@@ -255,7 +255,7 @@ impl BarkDraw<'_> {
 pub(crate) fn bark_is_allowed(
     rules: Option<&ambition_combat::rules::ResolvedCombatTuning>,
     tick: Option<&ambition_time::SimTick>,
-    active: Option<&crate::character_runtime::ActiveMatch>,
+    active: Option<&ambition_match::ActiveMatch>,
     victim: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> bool {
     let chance = rules.map_or(1.0, |rules| rules.bark_chance);

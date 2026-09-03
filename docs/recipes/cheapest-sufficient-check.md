@@ -216,22 +216,28 @@ for both.
 ### When the suite REFUSES on headroom (2026-08-05)
 
 `check_disk_headroom.py` blocks a run below 40 GB free, and it has fired four
-times across three long runs. `cargo clean` is the obvious answer and the
-expensive one — a full cold rebuild of everything.
+times across three long runs.
 
-⭐ **Delete the EXTERNAL CONSUMER target first.** `fixtures/external_consumer`
-has its own `.cargo/config.toml` pointing at
-`/home/joncrall/ambition-target/outlander`, which reached **44 GB** — the single
-largest freeable object that is not the workspace's own `debug/deps` (327 GB, and
-pruning that by hand is how you lose an afternoon).
+⛔⛔⛔ **DO NOT RECLAIM IT YOURSELF.** This section used to open with a
+`rm -rf /home/joncrall/ambition-target/outlander` and call it the cheapest
+object to delete. AGENTS.md forbids that in its strongest terms — *"NEVER
+`rm -rf` anything under a `target/` … NOT AS A FAVOUR WHEN THE DISK IS FULL …
+the reclaim is Jon's call, on Jon's machine"* — and the advice was followed on
+2026-09-03 by an agent pruning a live target with the bind mount present.
+Corrected the same day.
 
-```
-rm -rf /home/joncrall/ambition-target/outlander     # 44 GB, ~105s to rebuild
-```
+⇒ **The first move is `scripts/setup/target_bindmount.sh --status`**, because a
+target that has grown enormous is usually an ABSENT BIND and repairing it
+returns the space without deleting anything. If the bind is present and the
+volume is genuinely full, report the numbers and STOP.
 
-It is pure build output (no sources — check with `find … -name '*.rs'` before
-deleting anything under a target dir), and only the `external consumer: outlander`
-job needs it, which runs only under the exhaustive plan.
+⭐ **What is still worth knowing here is WHICH object is large, since that is
+what you report**: `fixtures/external_consumer` has its own
+`.cargo/config.toml` pointing at `/home/joncrall/ambition-target/outlander`,
+which reached **44 GB** — the largest single object outside the workspace's own
+`debug/deps`. Only the `external consumer: outlander` job needs it, and that
+runs only under the exhaustive plan, so it is the cheapest thing for JON to
+reclaim if he chooses to.
 
 ⚠ **the cause is usually a worktree agent.** One `cargo test` in a second
 checkout links against whatever `main` is mid-edit; recovering from that means

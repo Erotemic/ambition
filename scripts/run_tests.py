@@ -1134,8 +1134,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             f"{MIN_FREE_GB:.0f}.\n"
             f"  Every feature job builds its own variant of the graph and cargo "
             f"never prunes the last one.\n"
-            f"  Free it:  cargo clean            (then expect one full rebuild)\n"
-            f"  Or run a subset:  ./run_tests.sh -p <crate>",
+            f"  Check first:  scripts/setup/target_bindmount.sh --status\n"
+            f"  If it is bound and genuinely full: report it and STOP -- the\n"
+            f"  reclaim is Jon's call on Jon's machine (AGENTS.md).\n"
+            f"  Meanwhile:  ./run_tests.sh -p <crate>   (a subset fits)",
             file=sys.stderr,
         )
         return 1
@@ -1185,9 +1187,11 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                     f"{free_gb - free_now:.0f} GB over {len(results)} job(s).\n"
                     f"  Stopping here rather than letting the next job die of "
                     f"ENOSPC and report it as a compile or link error.\n"
-                    f"  Free it:  cargo clean            (then expect one full "
-                    f"rebuild)\n"
-                    f"  Or run a subset:  ./run_tests.sh -p <crate>",
+                    f"  Check first:  scripts/setup/target_bindmount.sh "
+                    f"--status\n"
+                    f"  If it is bound and genuinely full: report it and STOP "
+                    f"-- the reclaim is Jon's call (AGENTS.md).\n"
+                    f"  Meanwhile:  ./run_tests.sh -p <crate>",
                     file=sys.stderr,
                 )
                 aborted_on_disk = j.name
@@ -1256,7 +1260,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
           f"({spent:+.0f} GB this run, {free_gb:.0f} GB before)")
     if free_after < MIN_FREE_GB:
         print(f"  ⚠ below the {MIN_FREE_GB:.0f} GB floor — the NEXT suite run will "
-              f"refuse. `cargo clean` frees it, at the cost of one full rebuild.")
+              f"refuse. Check scripts/setup/target_bindmount.sh --status; if the "
+              f"bind is present and the volume is genuinely full, report it and "
+              f"stop rather than reclaiming (AGENTS.md).")
 
     # ⛔⛔ AN ABANDONED RUN IS NOT A PASSING RUN, AND THE STATUS FILE IS WHERE
     # THAT GETS DECIDED — not the shell exit code.

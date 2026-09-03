@@ -287,7 +287,28 @@ touched six (`ambition_abilities`, `ambition_app`, `ambition_platformer2d`,
 individually is also what let the carve be verified at all when the box could
 not fit `cargo test --workspace`.
 
-### ⭐ Prune by mtime, not by profile — the carve campaign's disk bill
+### ⛔⛔⛔ SUPERSEDED 2026-09-03 — the carve campaign's disk bill, and why you may NOT reclaim it
+
+**AGENTS.md's standing rule forbids everything this section used to recommend:**
+*"NEVER `rm -rf` anything under a `target/`. NOT `incremental`, NOT `deps`, NOT
+"superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL … If the disk is
+genuinely short after that, SAY SO AND STOP — the reclaim is Jon's call, on
+Jon's machine, and `cargo clean` is his to run."*
+
+⚠ **This section was a recipe, and it was followed.** An agent pruning
+`target/debug/{deps,examples,incremental}` by mtime on 2026-09-03, with the bind
+mount present, was doing what this page told it to. That is the cost of leaving
+a contradiction in a document someone reaches for under pressure.
+
+⇒ **What to do instead:** run `scripts/setup/target_bindmount.sh --status`. An
+enormous `target/` is almost always an ABSENT BIND, and repairing it returns the
+space without deleting anything. If it is bound and genuinely full, report the
+numbers and stop.
+
+⭐ **The MEASUREMENTS below are kept, because they are the evidence for how a
+carve campaign spends disk** — which is a real planning input, and the reason
+"resource-aware lanes" has to mean disk as well as concurrency. Read them as a
+description of the bill, not as instructions for paying it.
 
 A carve multiplies the feature-matrix variants a feature job resolves, and cargo
 never prunes the last one. Measured 2026-09-03 after five carves in a day:
@@ -299,14 +320,11 @@ spends 14 GB in under three minutes.
 `target/{profiling,release,wasm32-unknown-unknown,outlander}` plus incremental,
 four separate reclaims, bought ~26 GB and cost a rebuild of each.
 
-⇒ **The cheap lever keeps the warm base and drops only the variants:**
-
-```sh
-find target/debug/deps target/debug/examples -maxdepth 1 -type f -mmin +240 -delete
-find target/debug/incremental -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
-```
-
-**That freed 104 GB in one pass — 26 GB → 130 GB.**
+⇒ **What was done (⛔ NOT a recipe to repeat — see the rule above):** an mtime
+prune of `target/debug/{deps,examples}` past a four-hour window plus the
+incremental directories freed 104 GB in one pass, 26 GB → 130 GB. The commands
+are in git history for this file; they are deliberately not reprinted here,
+because a command block in a checklist is read as a step.
 
 ⚠ **CORRECTION, MEASURED THE SAME HOUR: "no full rebuild" was wrong, and the
 window is the whole story.** The prune keeps what a build touched INSIDE the
@@ -317,9 +335,12 @@ was older than four hours, `-mmin +240` swept the base along with the variants.
 ⇒ **Tune the window to your cadence, not to a number copied from here**: a tree
 built ten minutes ago keeps its base at `+240`; a tree built yesterday does not,
 and there the prune costs about what `cargo clean` costs while freeing less.
-Run it BETWEEN gates, never during one. `cargo clean` remains the last resort: it works,
-and its price is one full rebuild of everything, which on a shared box is
-everyone's price and not just yours.
+⇒ **And the honest reading of that correction is what settles the policy**: the
+prune's saving depends on build cadence, it can cost about what a full clean
+costs while freeing less, and on a shared box the rebuild is everyone's price
+and not just yours. A lever whose cost you cannot predict, on a volume you share,
+is exactly the one that should not be pulled without the owner — which is what
+the standing rule says.
 
 ### ⚠ AUDITING A CARVE'S GUARDS: two shapes are legitimate, so grep by PATH
 

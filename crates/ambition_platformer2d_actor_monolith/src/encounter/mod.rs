@@ -65,6 +65,13 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 // them and is missing its authorities.
                 drive_wave_encounters
                     .in_set(WaveEncounterDriven)
+                    // ⛔ AFTER THE ONE DRAIN. This reads
+                    // `ResolvedSwitchActivations`, which the switch domain
+                    // replaces each tick. Running before the drain would react
+                    // to LAST tick's presses — an encounter re-armed a frame
+                    // late, and on the tick a rewind re-pushed activations, one
+                    // applied twice.
+                    .after(ambition_encounter::switches::SwitchActivationDrained)
                     .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
                 // The SERVER for the domain's spawn requests, ordered after the
                 // driver that emits them so a request and its service are the

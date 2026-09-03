@@ -117,23 +117,28 @@ mod published_fact_guard {
 
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
-    /// Every system this plugin schedules must be INSIDE `EncounterLifecycleSet`.
+    /// Every system this plugin schedules must be inside a set it MEANT.
     ///
     /// ⛔ Consumers order `.after(EncounterLifecycleSet)` to read
-    /// [`super::ClearedEncounters`]. If `publish_cleared_encounters` fell out of
-    /// that set it would still run, still fill the resource, and consumers would
-    /// read LAST tick's list — a reward chest one tick late, or absent on the
-    /// tick an encounter resets. Nothing would be red.
+    /// [`super::ClearedEncounters`], and `.after(SwitchActivationDrained)` to
+    /// read `ResolvedSwitchActivations`. A system that fell out of its set would
+    /// still run and still fill its resource, and consumers would read LAST
+    /// tick's answer — a reward chest one tick late, an encounter re-armed a
+    /// frame after the press. Nothing would be red.
     ///
-    /// ⚠ ASSERTED WITHOUT NAMING A SYSTEM, deliberately. `system.name()` renders
-    /// `"<Enable the debug feature to see the name>"` in this crate's test build
-    /// — bevy only carries real names with its `debug` feature, which the actor
-    /// kernel happens to enable and this crate does not. A name-keyed lookup
-    /// therefore passes vacuously here or fails for the wrong reason, so this
-    /// asserts the property that actually matters: the plugin puts EVERY system
-    /// it schedules in the set, so nothing can quietly fall out.
+    /// ⚠ ASSERTED BY COUNTING MEMBERS, NOT BY NAMING SYSTEMS. `system.name()`
+    /// renders `"<Enable the debug feature to see the name>"` in this crate's
+    /// test build — bevy only carries real names with its `debug` feature, which
+    /// the actor kernel happens to enable and this crate does not. A name-keyed
+    /// lookup passes vacuously here.
+    ///
+    /// ⭐ THIS GUARD ALREADY EARNED ITS KEEP: it went red the moment the switch
+    /// drain was added to this plugin, with the message telling its author to
+    /// revisit rather than relax it. The counts below are the revisit — the
+    /// drain belongs to a DIFFERENT set on purpose, and saying so is stricter
+    /// than the total it replaced.
     #[test]
-    fn every_system_this_plugin_schedules_is_inside_the_lifecycle_set() {
+    fn every_system_this_plugin_schedules_is_inside_the_set_it_meant() {
         let mut app = App::new();
         app.add_plugins(crate::registry::EncounterRegistryPlugin);
         let sim = app.sim_schedule();
@@ -141,29 +146,44 @@ mod published_fact_guard {
         let schedule = schedules.get(sim).expect("the plugin creates the sim schedule");
         let graph = schedule.graph();
 
-        let set_key = graph
-            .system_sets
-            .get_key(crate::EncounterLifecycleSet.intern())
-            .expect("EncounterLifecycleSet must be registered");
+        let members_of = |set: bevy::ecs::schedule::InternedSystemSet| -> usize {
+            let Some(set_key) = graph.system_sets.get_key(set) else {
+                panic!("the set must be registered");
+            };
+            graph
+                .systems
+                .iter()
+                .filter(|(system_key, _, _)| {
+                    graph
+                        .hierarchy()
+                        .graph()
+                        .contains_edge(NodeId::Set(set_key), NodeId::System(*system_key))
+                })
+                .count()
+        };
 
-        let scheduled: Vec<_> = graph.systems.iter().map(|(key, _, _)| key).collect();
+        let scheduled = graph.systems.iter().count();
+        let lifecycle = members_of(crate::EncounterLifecycleSet.intern());
+        let drained = members_of(crate::switches::SwitchActivationDrained.intern());
+
         assert_eq!(
-            scheduled.len(),
-            2,
-            "this plugin schedules the lifecycle reducer and the cleared-list \
-             publisher; if that count changed, this guard needs revisiting rather \
-             than relaxing"
+            lifecycle, 2,
+            "the lifecycle reducer and the cleared-list publisher must BOTH be \
+             inside EncounterLifecycleSet — consumers order after it to read a \
+             cleared list that agrees with the phases the same tick settled"
         );
-        for system_key in scheduled {
-            assert!(
-                graph
-                    .hierarchy()
-                    .graph()
-                    .contains_edge(NodeId::Set(set_key), NodeId::System(system_key)),
-                "every system EncounterRegistryPlugin schedules must be a MEMBER of \
-                 EncounterLifecycleSet — the actor kernel's reward sync orders \
-                 .after() that set to read the list the publisher fills"
-            );
-        }
+        assert_eq!(
+            drained, 1,
+            "the switch drain must be inside SwitchActivationDrained — it is the \
+             ONE drain, and consumers order after that set to react to this \
+             tick's presses"
+        );
+        assert_eq!(
+            scheduled,
+            lifecycle + drained,
+            "every system this plugin schedules must be in one of those sets; a \
+             system in neither runs at an arbitrary point and its consumers read \
+             stale facts with nothing red"
+        );
     }
 }

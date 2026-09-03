@@ -154,6 +154,15 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         crate::authored_commands::publish_authored_commands(app);
         let sim = app.sim_schedule();
         app.init_resource::<crate::rewards::ClearedEncounters>();
+        app.init_resource::<crate::switches::ResolvedSwitchActivations>();
+        // THE one drain of the activation queue, published for every policy
+        // that used to read the queue itself. It owns the persisted switch
+        // write; see `switches::drain_switch_activations`.
+        app.add_systems(
+            sim,
+            crate::switches::drain_switch_activations
+                .in_set(crate::switches::SwitchActivationDrained),
+        );
         app.add_systems(
             sim,
             // The publisher is CHAINED after the reducer and inside the same

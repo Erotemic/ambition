@@ -877,6 +877,52 @@ The one unresolved developer-policy choice from the session-ownership work is in
   clean.** Do not re-run the generalised form and act on its raw numbers without
   the per-module re-export cross-check — it over-reports by design.
 
+- ▢ **SIX WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR CRATE'S
+  SOURCE — graph honesty, NOT a footprint win.** (Measured 2026-09-02.) Every
+  crate's `src/**/*.rs` was searched for each `ambition_*` dependency its
+  `Cargo.toml` declares:
+
+```text
+PLAIN (unconditional) edge, never used:
+  ambition_platformer2d        -> ambition_interaction
+OPTIONAL dep + feature, never used:
+  ambition_characters          -> ambition_causal        (feature `causal`)
+  ambition_platformer2d        -> ambition_sfx_bank
+  ambition_sim_view            -> ambition_portal2d
+  ambition_touch_input         -> ambition_cutscene
+  game/ambition_app            -> ambition_causal
+```
+
+  ⛔ **SIZE IT HONESTLY: REMOVING THESE CUTS NOTHING FROM THE CLOSURE.**
+  `ambition_interaction` is declared by six crates including
+  `ambition_platformer2d_actor_monolith`, so the facade's edge is redundant, not
+  load-bearing — the same fact the capability row above already states about all
+  sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
+  value is that the graph stops claiming an edge nobody uses.
+
+  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
+  links, and a declared-unused edge there is what the next reader will justify
+  rather than question.
+
+  ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
+  combinations.** Dropping an optional dep changes feature RESOLUTION, not just
+  a line, and only a build says what that does. ⇒ Left for the abilities carve
+  to pick up rather than done here.
+
+  ⚠ **What the scan can and cannot see, because the obvious caveat is the wrong
+  one.** A `cfg(feature)`-gated `use` IS visible to a text scan — control:
+  `ambition_content_pack` is an optional dep of `ambition_audio`,
+  `ambition_boss_encounter`, `ambition_characters` and `ambition_combat`, all of
+  which have `cfg(feature)` blocks, and the scan correctly did not flag any of
+  them. What it would miss is a macro-generated path or a build script; checked,
+  and only `ambition_app` has a `build.rs`, which does not mention `causal`. No
+  crate here renames a dependency with `package = "…"`, so the Cargo name is the
+  code name. Five further candidates were excluded because they ARE used, from
+  `tests/` rather than `src/` (`ambition_platformer2d_host` ×2,
+  `examples/capability_demo`, `ambition_app` → `ambition_demo_pocket`,
+  `ambition_content` → `ambition_content_cli`) — those are dev-dependency
+  questions, not unused ones.
+
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or

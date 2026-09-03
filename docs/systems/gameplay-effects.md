@@ -6,6 +6,20 @@ The sandbox routes cross-system gameplay side effects through typed Bevy message
 
 The old `FeatureEventBus`, `FeatureEvents`, and `FeatureEcsQueues` bridge layers have been removed. New producers should write typed messages directly instead of adding ad-hoc vectors or custom resource queues.
 
+> **RE-VERIFIED 2026-09-03, and this page had drifted twice.** Its **Review
+> date: 2026-06-02** is the date the `GameplayEffect` split happened, not a
+> currency stamp — and two of the commits that invalidated rows below it landed
+> after: `de22be956` (2026-06-22) merged `apply_npc_stimuli` away, and
+> `ea55d8023` (2026-08-30) deleted `ResetRoomFeaturesEvent`. Both are corrected
+> in place with their successors.
+>
+> ✔ What was checked: every CamelCase type and every `snake_case` name this page
+> cites, against all Rust and RON in the tree. **12 of 12 current-boundary types
+> now resolve** and 49 of 49 function names do. ⚠ What was NOT checked: whether
+> the boundary this page describes is the one the code actually enforces — that
+> the four typed messages are the ONLY route for their effects. Existence is a
+> cheaper question than exclusivity, and only the first was answered.
+
 ## Current boundary
 
 Use the focused progression/save/audio messages for effects that cross into save, quest, encounter, or standalone audio routing. Each has a single consumer system in `features::bus`:
@@ -15,14 +29,23 @@ Use the focused progression/save/audio messages for effects that cross into save
 - `SwitchActivated { activation, pos }` — switch activation → encounter queue + click SFX (`apply_switch_effects`).
 - `GameplaySfxRequested { id, pos }` — standalone audio-only effects (`apply_gameplay_sfx_effects`).
 
-(Boss damage is applied inline in the hit path; NPC strike/aggression flows through `ActorStimulus` → `apply_npc_stimuli` / `apply_actor_stimuli`.)
+(Boss damage is applied inline in the hit path; NPC strike/aggression flows through `ActorStimulus` → `apply_actor_stimuli` (`actor_monolith/src/features/ecs/aggression.rs:21`). ⚠ This named a PAIR — `apply_npc_stimuli` / `apply_actor_stimuli` — until 2026-09-03. `de22be956` (2026-06-22) merged them, and its subject says so: *"one actor cluster + in-place provoke"*. The doc kept both halves of a split the commit removed, which is the readable shape of this rot: a slash between two names where the point of the change was that there is now one.)
 
 Use domain-specific messages when the consumer is known and the payload is more specific:
 
 - `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaces the old split damage-message family.
 - `ActorActionMessage` for resolved brain/action requests that spawn or start concrete effects.
 - `GameplayBannerRequested` for HUD banner text from systems whose parameter list is already large.
-- `ResetRoomFeaturesEvent` for same-room feature reset.
+- ⛔ **`ResetRoomFeaturesEvent` IS DELETED — this row named it as current until
+  2026-09-03.** Removed 2026-08-30 in `ea55d8023` (*"the replay reset the world,
+  then found out it was not allowed to happen"*), which is also why: the message
+  let a reset be seen while no body existed and re-read several frames later
+  against a different world. Same-room reset now goes through
+  `ambition_combat::events::RoomReplayAdmitted`, written by
+  `actor_monolith/src/shrine.rs` and **drained unconditionally** for exactly that
+  reason. ⇒ The successor is not a rename: it is a message with a different
+  lifetime rule, so a producer copying the old row would reintroduce the defect
+  the deletion fixed.
 
 Presentation facts that already have a concrete presentation type should use the existing presentation messages directly, for example `SfxMessage`, `VfxMessage`, and `DebrisBurstMessage`.
 

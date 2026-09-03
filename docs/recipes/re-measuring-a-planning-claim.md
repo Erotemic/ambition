@@ -412,3 +412,51 @@ exactly when the raw number is large enough to feel like a discovery.
 presence/absence sweep over rule DATA is meaningless until you know what each
 rule ASSERTS. Existence is evidence only relative to a claim, and half the claims
 in a policy engine are negative.
+
+### Surfaces swept clean on 2026-09-03, so you do not sweep them again
+
+A negative result is worth writing down once, with its date and its command, or
+the next person pays for it a second time. All of these were run against
+`fdb83d4e9` and found **nothing** — each took under a minute:
+
+| surface | population | result |
+|---|---|---|
+| script paths cited anywhere in `docs/` (`scripts/`, `tools/`, `dev/`) | 372 citations | 0 genuinely missing |
+| doc paths cited in `tests/ambition_workspace_policy/` | 262 citations, 13 documents | 0 unresolved, and only ONE cited doc is a distilled receipt |
+| `paths = [...]` literals in the policy TOMLs | 365 literals | 0 unresolved in rules that need their target present |
+| `related_docs:` frontmatter across `docs/` | 125 entries | 0 missing |
+| path citations in `AGENTS.md` | 22 | 0 missing |
+| pages under `docs/` that nothing links to | 278 documents | 3, of which 2 are closed receipts |
+| tools missing from `docs/tools/index.md` | 11 tool directories | 0 — the index groups by guide, and all are covered |
+| CamelCase types cited in `docs/concepts/` + `docs/architecture/` | 73 distinct | 0 real — every miss is an upstream type, an enum VARIANT, an LDtk entity id, or a name the page says must NOT exist |
+| CamelCase types cited in `docs/systems/` | 65 distinct | **1 real** — `ResetRoomFeaturesEvent`, listed under "Current boundary" and deleted four days earlier |
+| identifiers cited in `docs/tools/` + `docs/sdk/` | 165 distinct | 0 real — env vars, a user's own example type, a prototype's proposed names, and three functions named inside POSTMORTEM sections about their own removal |
+| `snake_case` cited in `docs/concepts/` + `docs/architecture/` + `docs/recipes/` | 189 distinct | **1 real** — `player_body_tick`, doctrine describing a system a live test forbids |
+
+⚠ **Three of those seven produced a scary intermediate number that dissolved on
+inspection**, and each dissolved for a reason worth knowing: 45 "unresolved"
+policy paths were all `forbidden-path` rules; 5 "unindexed" tools were all
+covered by group guides the index points to; 3 "missing" scripts were a dated
+patch record, an elided `.../` shape, and a row already carrying `cite-ok`.
+⇒ **The population is never the finding.** Read what the rule asserts, what the
+index claims to be, and what the citation is FOR, before counting anything as
+wrong.
+
+⭐ **The type sweep is the one to repeat, and it needs a filter to be usable.**
+Raw, it reports ~45% of citations as missing and is worthless. Four categories
+account for nearly all of that — upstream types (`Entity`, `Query`,
+`SystemParam`), enum VARIANTS (a `struct|enum|trait|type` grep sees declarations
+only), LDtk entity identifiers (`LockWall`, `OneWayPlatform`), and names a page
+deliberately says must NOT exist (*"do not reintroduce a `PlayerAttackState` /
+`ActorAttackState` split"*). ⇒ Subtract those four and the signal is one row in
+138 citations — but that row was a message deleted four days earlier and still
+documented as current, which is exactly the rot no link checker or test can see.
+
+⛔ **And point it at `docs/systems/`, not `docs/planning/`.** Run over planning
+the same sweep returns 47 names absent from all Rust, and nearly every one is
+CORRECT: a plan proposing `EncounterScript` over triggers named `RopeCut` and
+`MemberAtPosition` is doing its job, and `ParticipantUnlock` is absent because
+its own page says so. ⇒ The sweep tests "does this exist", which is only a
+question worth asking of a document that claims something DOES. A systems page
+describing a current boundary must resolve; a planning page naming what to build
+must not.

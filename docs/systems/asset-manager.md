@@ -58,8 +58,18 @@ When adding a new asset family:
 Use targeted checks first:
 
 ```bash
-cargo test -p ambition_asset_manager
+cargo test -p ambition_asset_manager --features bevy
 cargo test -p ambition_platformer2d_actor_monolith --lib asset
 ```
+
+⛔ **`--features bevy` IS NOT OPTIONAL HERE, and this block omitted it until
+2026-09-03.** This crate's `default = []` keeps it Bevy-free so headless and CLI
+tooling can use the resolver layer with zero Bevy deps — a good default with one
+consequence the command has to carry: `image_stages` and **its 16 tests exist
+only under `--features bevy`**, and the crate's own `lib.rs:52` says so in
+capitals. ⇒ A bare `cargo test -p ambition_asset_manager` compiles, passes, and
+skips the image stage ledger and the reveal-readiness guard without printing
+anything about it. A green run of the command this page used to recommend is not
+evidence that the demand → insert → GPU → first-draw boundaries hold.
 
 For platform changes, also run the relevant build recipe under `docs/recipes/`.

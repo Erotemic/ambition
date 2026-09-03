@@ -283,6 +283,36 @@ they are not the same kind of fix.
 Members #2, #7 and #8 are not properties of the code alone — they fire or do not
 fire depending on what is installed where you are standing.
 
+⛔ **AND A STALE SUBMODULE CHECKOUT LOOKS EXACTLY LIKE REPOSITORY ROT.** Measured
+2026-09-03: `test_the_committed_report_matches_a_fresh_generation` failed here
+for a day — the committed runtime-frame-history reports **43** records and
+regenerating produced **41** — and its failure message says the committed file is
+stale and prints the command to regenerate it. ⇒ **Running that command would
+have deleted two Ultra host captures and gone green doing it.** The report was
+not stale; this checkout's `dev/ambition_dev_measurements` was, sitting at
+`8a35405` while the superproject recorded `0255e29` on both the branch and
+`main`. `git submodule update` fixed it and the Python lane went 1-failed →
+**780 passed, 0 failed**.
+
+⇒ **The tell is one character.** `git submodule status` prints `+` before the
+SHA when the checked-out commit differs from the one the superproject records —
+that `+` is the whole diagnosis, and it is easy to read past. ⚠ I reported this
+failure to a coordinator FOUR times as a pre-existing repository defect before
+looking at it. It was never in the repository; everyone else's gate was green.
+⇒ Before calling a generated-artifact mismatch repo rot, check whether the
+generator's INPUT is at the commit the repository asked for.
+
+⚠ **And check every submodule, not the one that failed.** The same `git
+submodule status` on calculex 2026-09-03 showed **two more** off-pointer —
+`tools/ambition_music_renderer` (checkout `a113b786`, recorded `b2c005b5`, on a
+branch named `agent/…`) and `tools/ambition_sprite2d_renderer` (`125adf81` vs
+`aba1c1eb`). Neither breaks the default lane, because detached developer-tool
+tests are omitted from it. ⇒ **But `./run_tests.sh --tool-tests` on this machine
+is not testing what the repository records**, and a green or red result from it
+here would describe somebody's work-in-progress branch. Left alone deliberately:
+an `agent/` branch in a submodule is someone's state, and syncing it to the
+pointer would discard work no failure asked me to touch.
+
 On the calculex VM on 2026-09-02, `rustup target list --installed` returned
 exactly one target, `x86_64-unknown-linux-gnu`. No `wasm32-unknown-unknown`, no
 `aarch64-linux-android`, `ANDROID_NDK_HOME` unset. A full green gate on that box
@@ -404,9 +434,19 @@ All four had the same shape and none of them looked alike at the time:
 | `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not |
 | planning docs for `scripts/…` paths that exist | bare basenames (`tests.rs`, `fx.rs`) used as prose shorthand | "186 broken citations" — there were none |
 | `cargo check --workspace` output through `\| tail` | the exit status, which a pipeline takes from its LAST command | "the lane is green" — it was RED |
+| `(./run_tests.sh --rust > log 2>&1; echo "EXIT=$?" >> log)` **2026-09-03** | the LANE's status: a subshell exits with its LAST command, and that was the `echo`. The harness reported the wrapper's **0** while the log's own last line read `EXIT=1` | "the full Rust lane passed" — it was 5/6 jobs, and I had already told the coordinator it would be an exit code |
 | asset paths matched with `sprites_[a-z0-9_]+/` | `sprites/`, the Full path, which has no underscore | "`AMBITION_QUALITY_PROFILE` does not work" — it works |
 
-⭐ **Three of the four produced a FALSE NEGATIVE that read as a finding**, which
+⛔ **AND THE EXIT-STATUS ROW HAPPENED TWICE, A DAY APART, TO THE SAME PERSON WHO
+WROTE THIS PAGE** — first through `| tail`, then through a subshell ending in
+`echo`. ⇒ Knowing the trap did not prevent it, because the second shape did not
+look like the first: there was no pipeline. The invariant is not "beware pipes",
+it is **the status you read belongs to the last thing that ran, which is rarely
+the thing you care about**. Write the command's own status down before anything
+else runs — `s=$?` on the next line, or `${PIPESTATUS[0]}` — and never after a
+convenience `echo`.
+
+⭐ **Three of the first four produced a FALSE NEGATIVE that read as a finding**, which
 is the dangerous direction: a missing result feels like evidence of absence, and
 absence is what this whole page is about. The fourth produced a false positive
 and was caught in seconds.

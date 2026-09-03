@@ -152,11 +152,29 @@ untappable on a phone. ⚠ an item system that ENDS the holding (the throw) must
 also mark the press spent, because it removes `HeldItem` a schedule phase before
 the trigger looks.
 
-**The movement driver is unified at the engine entry.** The player tick is ONE
-system (`player_body_tick`) that calls the SAME combined body tick the actor uses
+**The movement driver is unified at the engine entry.** Every body — driven or
+not — integrates in ONE phase, `integrate_sim_bodies`
+(`actor_monolith/src/features/ecs/actors/update.rs:1139`), and there is no
+separate route for the controlled body.
+
+⛔ **THIS PARAGRAPH DESCRIBED THE INTERMEDIATE STATE UNTIL 2026-09-03, AND THE
+CODE NOW GUARDS AGAINST IT.** It said *"the player tick is ONE system
+(`player_body_tick`) that calls the SAME combined body tick the actor uses
 (`ae::update_player_with_tuning_clusters` ≈ the actor's
-`update_body_with_tuning_clusters`). The two differ only in the input frame and
-in the respawn POLICY.
+`update_body_with_tuning_clusters`)"* — a unification that kept a player-shaped
+entry point. All three names are gone from production:
+`update_body_with_tuning_clusters` exists nowhere,
+`update_player_with_tuning_clusters` survives only in
+`platformer2d_core/src/test_support.rs`, and `player_body_tick` survives only
+inside the name of the test that FORBIDS it.
+
+⇒ That test is `player_body_tick_is_not_the_gameplay_movement_route`
+(`game/ambition_app/tests/unified_body_movement.rs:104`). It reads the real
+`Update` schedule after a step and asserts `integrate_sim_bodies` IS registered
+and that *"the old separate home-body movement route `player_body_tick` must be
+gone"*, plus the same for `player_body_phase`. ⇒ **So an agent implementing what
+this page said would have turned that guard red** — the doctrine described the
+step before last, and the code had already forbidden it.
 
 **Facing is control output, not a collision side effect.** The movement kernel
 publishes semantic contacts such as `BodyWallState`; it never reverses a body

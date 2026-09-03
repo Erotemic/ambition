@@ -454,7 +454,7 @@ pub fn apply_worn_character_gameplay(
             let incoming = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .map(crate::character_runtime::PhysicalBaseline::of);
+                .map(ambition_body_seed::PhysicalBaseline::of);
             // What a persona has taken from this body, extended with whatever
             // the INCOMING one is about to take. Recorded before the write, and
             // only for fields no persona has claimed yet.
@@ -469,12 +469,12 @@ pub fn apply_worn_character_gameplay(
                 );
             if let Some(physical) = incoming {
                 physical.apply_to_body(
-                    crate::character_runtime::BaselineBoundary::Replacement,
+                    ambition_body_seed::BaselineBoundary::Replacement,
                     &mut commands.entity(entity),
                     health.as_deref_mut(),
                     combat_tuning.as_deref_mut(),
                     None,
-                    crate::character_runtime::PhysicalRetraction::resolve(incoming, displaced),
+                    ambition_body_seed::PhysicalRetraction::resolve(incoming, displaced),
                 );
             }
 
@@ -623,10 +623,10 @@ pub fn apply_worn_character_gameplay(
 pub struct PersonaBaseline {
     pub id: String,
     pub generation: ambition_characters::prepared::CharacterCatalogGeneration,
-    /// See [`DisplacedPhysicals`](crate::character_runtime::DisplacedPhysicals).
+    /// See [`DisplacedPhysicals`](ambition_body_seed::DisplacedPhysicals).
     /// Grows once per field, at the first persona that overrides that field, and
     /// is carried forward verbatim through every later re-wear.
-    pub displaced: crate::character_runtime::DisplacedPhysicals,
+    pub displaced: ambition_body_seed::DisplacedPhysicals,
 }
 
 /// Gate the raw player-control frame by the effective worn kit before direct body/effect

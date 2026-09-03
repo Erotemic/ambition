@@ -176,15 +176,6 @@ pub fn drive_wave_encounters(
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
     )>,
-    reward_chests: Query<
-        (
-            Entity,
-            &ambition_combat::components::EncounterRewardChest,
-            &ambition_combat::components::FeatureId,
-            Option<&ambition_combat::components::Opened>,
-        ),
-        With<ambition_combat::components::ChestFeature>,
-    >,
 ) {
     let Some(_session_scope) = commands.spawn_scope() else {
         return;
@@ -362,7 +353,8 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::FlipGravity => {
                 commands.queue(|world: &mut bevy::prelude::World| {
                     let mut base = world
-                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>(
+                        );
                     base.dir = -base.dir;
                 });
             }

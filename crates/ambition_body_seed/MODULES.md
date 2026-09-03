@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`physical_baseline`](src/physical_baseline.rs) | Prepared-character physical facts shared by every body-construction path. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire encoders for the seed's own components. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

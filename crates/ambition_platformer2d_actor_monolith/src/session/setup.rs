@@ -211,7 +211,7 @@ pub fn simulation_world(
     let worn_id = starting_character.effective_id(default_character_id);
     let physical = prepared_characters
         .and_then(|registry| registry.get(worn_id))
-        .map(crate::character_runtime::PhysicalBaseline::of);
+        .map(ambition_body_seed::PhysicalBaseline::of);
     let player_health = ambition_characters::actor::Health::new(match physical.as_ref() {
         Some(physical) => physical.max_health_over(DEFAULT_PLAYER_HEALTH),
         // No prepared character: the catalog row is still the authority for the
@@ -291,12 +291,12 @@ pub fn simulation_world(
     // fighter cannot drift apart again.
     if let Some(physical) = physical.as_ref() {
         physical.apply_to_body(
-            crate::character_runtime::BaselineBoundary::Construction,
+            ambition_body_seed::BaselineBoundary::Construction,
             &mut commands.entity(player),
             None,
             None,
             None,
-            crate::character_runtime::PhysicalRetraction::NONE,
+            ambition_body_seed::PhysicalRetraction::NONE,
         );
     }
 

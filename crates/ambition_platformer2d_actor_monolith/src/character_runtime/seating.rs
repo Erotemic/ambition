@@ -107,7 +107,7 @@ impl MatchInstance {
 #[cfg(test)]
 mod match_context_tests {
     use super::*;
-    use ambition_platformer2d_core::sim_random::{CONTEXT_UNSEEDED, DOMAIN_ITEM_SPAWN, sim_random};
+    use ambition_platformer2d_core::sim_random::{sim_random, CONTEXT_UNSEEDED, DOMAIN_ITEM_SPAWN};
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
     /// ⭐⭐ TWO MATCHES ARE TWO RUNS OF THE WORLD, and they must not draw alike.

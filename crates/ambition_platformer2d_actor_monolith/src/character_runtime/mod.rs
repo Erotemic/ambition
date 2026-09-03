@@ -10,7 +10,6 @@ pub mod audit;
 pub mod definition;
 pub mod hurtbox;
 pub mod live_match_clock;
-pub mod physical_baseline;
 pub mod prepared_match;
 pub mod presentation;
 pub mod seating;
@@ -34,9 +33,6 @@ pub use definition::CharacterDefinitionAppExt;
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-};
-pub use physical_baseline::{
-    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use prepared_match::{
     activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,

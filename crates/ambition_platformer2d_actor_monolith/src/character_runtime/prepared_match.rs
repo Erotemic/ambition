@@ -568,7 +568,10 @@ pub fn prepare_match(
     // What the SESSION declared about a home avatar. Preparation needs it to
     // refuse a local seat in a session that already has one — see the seat
     // loop below.
-    home_body: &crate::avatar::starting_character::InitialBodyPolicy,
+    // Whether the session ALSO lowers its own home avatar. Preparation asks
+    // exactly this one question of the policy, so it takes the answer rather
+    // than the kernel's policy type.
+    home_body_spawns_a_body: bool,
 ) -> Result<PreparedMatch, MatchPreparationProblems> {
     // ⭐ THE ROSTER'S OWN RULES, not a transcription of them. This copied eight
     // loose roster fields into `MatchRules` one by one — two representations of
@@ -660,7 +663,7 @@ pub fn prepare_match(
         // that is what the policy is FOR. Seating a local match into an
         // exploration session is a composition error, and this is the boundary
         // that knows it — before one entity exists.
-        if home_body.spawns_a_body() && authority.local_channel().is_some() {
+        if home_body_spawns_a_body && authority.local_channel().is_some() {
             seat_problem(
                 "asks for a LOCAL control channel in a session that also lowers \
                  its own home avatar, so two bodies would claim the same \
@@ -719,7 +722,7 @@ pub fn prepare_match(
         // THE AUTHORED PHYSICAL IDENTITY, read through `PhysicalBaseline`
         // rather than off `vitals`/`body` directly, because the exploration
         // player reads the same value through the same accessors.
-        let baseline = super::PhysicalBaseline::of(definition);
+        let baseline = ambition_body_seed::PhysicalBaseline::of(definition);
         // The box the SEED is built around. A hint, not the answer: for a named
         // catalog character `ActorClusterSeed::new_peaceful_npc_in` resizes to the AUTHORED
         // SPRITE's collision — the same resolution a peaceful NPC of that
@@ -1103,15 +1106,15 @@ fn realize_seat(
     // keep its archetype's rather than be overwritten with the ambient 1.0.
     // Health and geometry are already on the seed, so this is all the boundary
     // has left to do.
-    super::PhysicalBaseline::of(&seat.definition).apply_to_body(
-        super::BaselineBoundary::Construction,
+    ambition_body_seed::PhysicalBaseline::of(&seat.definition).apply_to_body(
+        ambition_body_seed::BaselineBoundary::Construction,
         &mut commands.entity(body),
         None,
         // The weight rode the SEED (`seat.body_weight`), the way health and
         // geometry did — this boundary has only the mass left to write.
         None,
         None,
-        super::PhysicalRetraction::NONE,
+        ambition_body_seed::PhysicalRetraction::NONE,
     );
     // removing `RecharacterizeBody` silences the PERSONA derive and nothing else.
     // `project_prepared_character_definitions` is a SECOND template observer, it fires on
@@ -1246,11 +1249,8 @@ pub fn prepare_the_match(
     // The stage centre is the room's authored spawn: the one point a room
     // guarantees is standable, which is the only guarantee placement needs.
     let centre = geometry.0.spawn;
-    let home_body = home_body.map_or(
-        crate::avatar::starting_character::InitialBodyPolicy::NoInitialBody,
-        // Bevy 0.19: `Ref::clone` clones the CHANGE-DETECTION HANDLE, not the value.
-        |policy| policy.as_ref().clone(),
-    );
+    // No policy component at all means no home body (the match's own default).
+    let home_body_spawns_a_body = home_body.is_some_and(|policy| policy.spawns_a_body());
     // Preparation runs in `Update`, which follows the frame's simulation, so the
     // earliest tick this plan can be acted on is the NEXT one. Naming it is what
     // makes activation a pure function of the plan and the clock rather than of
@@ -1265,7 +1265,7 @@ pub fn prepare_the_match(
         centre,
         effective_from,
         session,
-        &home_body,
+        home_body_spawns_a_body,
     ) {
         Ok(plan) => {
             // A standing refusal is over: this roster resolved. Removed here

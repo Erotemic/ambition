@@ -186,7 +186,7 @@ pub fn drive_wave_encounters(
         With<ambition_combat::components::ChestFeature>,
     >,
 ) {
-    let Some(session_scope) = commands.spawn_scope() else {
+    let Some(_session_scope) = commands.spawn_scope() else {
         return;
     };
     let active_area = session_world.active_spec().id.clone();
@@ -420,7 +420,7 @@ pub fn drive_wave_encounters(
 /// completion, reward-chest sync, music request, presentation read-model,
 /// save projection, and the trace sink for every encounter event.
 pub fn apply_wave_encounter_effects(
-    mut commands: SessionCommands<'_, '_>,
+    commands: SessionCommands<'_, '_>,
     mut events_in: MessageReader<EncounterEventMsg>,
     encounters: Query<(
         &Encounter,

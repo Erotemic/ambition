@@ -23,8 +23,8 @@
 //! reason a reader can see, and lets the encounter adapter leave with only its
 //! own systems.
 
-use bevy::prelude::IntoScheduleConfigs;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use bevy::prelude::IntoScheduleConfigs;
 
 /// Schedules every writer of `gate_solids`.
 pub struct WorldGatingSchedulePlugin;
@@ -79,19 +79,23 @@ mod tests {
         app.add_plugins(super::WorldGatingSchedulePlugin);
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
-        let schedule = schedules.get(sim).expect("the plugin creates the sim schedule");
+        let schedule = schedules
+            .get(sim)
+            .expect("the plugin creates the sim schedule");
         let graph = schedule.graph();
 
-        let key_of = |leaf: &str| -> SystemKey {
-            let mut found: Option<SystemKey> = None;
-            for (key, system, _) in graph.systems.iter() {
-                let name = format!("{}", system.name());
-                if name.rsplit("::").next() == Some(leaf) {
-                    found = Some(key);
-                }
-            }
-            found.unwrap_or_else(|| panic!("{leaf} must be scheduled by WorldGatingSchedulePlugin"))
-        };
+        // BY SHAPE, NEVER BY NAME: `system.name()` is the placeholder
+        // `<Enable the debug feature to see the name>` unless the build graph
+        // happens to unify `bevy_ecs/debug` on, so a name-keyed lookup passes
+        // under one `-p` and fails under another. The plugin schedules exactly
+        // the pair and nothing else, so "every system it scheduled" IS the pair.
+        let systems: Vec<SystemKey> = graph.systems.iter().map(|(key, _, _)| key).collect();
+        assert_eq!(
+            systems.len(),
+            2,
+            "WorldGatingSchedulePlugin schedules the two gate_solids writers and nothing else; \
+             a writer that fell out took its road with it"
+        );
 
         let overlay_set = graph
             .system_sets
@@ -102,25 +106,22 @@ mod tests {
             .get_key(Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
             .expect("WorldPrep must be a registered SystemSet");
 
-        for leaf in [
-            "contribute_encounter_lock_walls",
-            "sync_authored_gated_lock_walls",
-        ] {
-            let system = key_of(leaf);
+        for system in systems {
             assert!(
                 graph
                     .dependency()
                     .graph()
                     .contains_edge(NodeId::Set(overlay_set), NodeId::System(system)),
-                "{leaf} must run AFTER FeatureWorldOverlaySet — it writes gate_solids, \
-                 which the overlay rebuild clears every frame"
+                "every gate_solids writer must run AFTER FeatureWorldOverlaySet — it writes \
+                 gate_solids, which the overlay rebuild clears every frame"
             );
             assert!(
                 graph
                     .hierarchy()
                     .graph()
                     .contains_edge(NodeId::Set(world_prep), NodeId::System(system)),
-                "{leaf} must be a member of WorldPrep, where collision consumers read it"
+                "every gate_solids writer must be a member of WorldPrep, where collision \
+                 consumers read it"
             );
         }
     }

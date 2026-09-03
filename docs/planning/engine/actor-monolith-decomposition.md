@@ -1162,9 +1162,14 @@ row exists to say so.
 `ambition_platformer2d_ldtk` and `ambition_asset_manager`.
 
 ✔ **CUT 2026-09-03.** `crates/ambition_encounter_features` exists; the actor
-kernel's `encounter/` module is gone. Full suite green — `./run_tests.sh --rust`
-ran **6957 tests, 6957 passed**, workspace `--all-targets` clean, 36 policy rows,
-37/37 absence contracts.
+kernel's `encounter/` module is gone. Full suite green on the carve host that
+morning — `./run_tests.sh --rust` ran **6957 tests, 6957 passed**, workspace
+`--all-targets` clean, 36 policy rows, 37/37 absence contracts. ⚠ Two of its
+schedule guards (`world_gating`, `encounter_spawn_service` in the runtime) were
+keyed on `system.name()` and were RED under `cargo test -p ambition_platformer2d_runtime`
+while green under the workspace job — the composition-dependent name-stripping
+trap the carve checklist §7 names. Rewritten by shape and poison-verified in the
+merge that landed the abilities carve (2026-09-03).
 ⭐ **No registration landed back in the kernel** (the `ambition_world_items`
 rule). Three things moved instead of becoming a kernel→features edge: the switch
 index registers itself into the `shared_tangle` `FeatureInteractionSet::SwitchIndex`

@@ -1431,6 +1431,61 @@ at the main checkout's, file by file — `sprites_0_25x/author_spritesheet.png`
 here IS `/home/joncrall/code/ambition/...` there. I measured one set of bytes
 twice and called the second read independent evidence.
 
+⭐⭐ **AND THE "WAIT FOR A CLEAN REGEN" DEFERRAL IS NO LONGER THE ONLY ROAD —
+MEASURED 2026-09-02, `--ages`.** The leading alternative to a generator defect
+was that these are leftovers an earlier render abandoned. They are not: at BOTH
+reduced tiers the four are the NEWEST files present (ranks 201–204 of 205),
+written 2026-08-27, 4.5 days after the tier's median of 08-22.
+
+```text
+sheet      0_5x    0_25x   its own full sheet   reading
+actor      09:48   09:49   09:47                same run as its full sheet
+author     09:52   09:53   09:52                same run as its full sheet
+medic      09:46   09:46   09:46                same run as its full sheet
+officer    09:50   09:51   19:53                variants predate it by 10 h
+```
+
+⇒ **Three of the four were written within MINUTES of their own full-resolution
+sheet**, so a live run produced a full sheet and an unshrunk "reduced" one
+together — a generator defect on that code path, not stale output. ⛔ **`officer`
+is a DIFFERENT mechanism**: its variants predate its own full sheet by ten
+hours, i.e. its full sheet was re-rendered later and its variants were never
+regenerated. A fix aimed only at the first mechanism leaves `officer` broken.
+
+⚠ mtimes are per-machine and a copy rewrites them; the evidence is the contrast
+inside one tree — the four being the newest files at their tier while the tier's
+median is four days older is the part that carries the argument.
+
+⭐⭐ **AND `actor` IS THE PRE-RENAME DUPLICATE OF `performer` — TRACED
+2026-09-02 BY ASKING THE GENERATOR INSTEAD OF READING IT.**
+`discover_all_targets()` reports 51 `config` and 158 `module` targets, and
+**`actor` IS NOT IN THE REGISTRY AT ALL.** `Actor` was renamed to `Performer`
+(recorded in `awaiting-maintainer-decision.md` §44), and
+`sprites/actor_spritesheet.png` is **byte-identical** to
+`sprites/performer_spritesheet.png` — same sha256, different inodes in both the
+worktree and the main checkout, so this is real duplication and not a symlink.
+**Nothing in the workspace names `actor` as a sprite target.**
+
+⇒ That explains two of the five names at once, and neither is a live generator
+defect: `actor`'s reduced variants are **pre-rename leftovers the generator can
+never regenerate**, because it no longer knows the name; and `performer` has
+**no** variants because the new name never had any generated. ⇒ **18 `actor_*`
+files, 14.5 MB, ship as a manifested, bakeable target nothing requests.**
+
+⛔ **THREE HYPOTHESES DIED ON THE WAY, recorded so nobody retraces them.** (1)
+"Sheets lacking `source_frame_width` fail to downscale" — 54 of 54 that declare
+it are fine, but so are 147 of 151 that do not, so it is necessary-at-best and
+explains nothing. (2) "The 08-27 run produced them" — `generic_world_fx` was
+written that same day and is fine. (3) "They are the YAML-authored `config`
+targets that re-render instead of downscaling" — the exact opposite:
+`alice`, which downscales correctly, IS `config`; `author`/`medic`/`officer` are
+`module`. ⭐ I built all three by reading the generator and comparing configs;
+the answer came from RUNNING `discover_all_targets()` and asking it.
+
+▢ **`author`, `medic` and `officer` remain unexplained** — `module`-kind, written
+minutes after their own full sheets, genuinely unshrunk. Their mechanism is
+still open.
+
 ⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
 assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
 asking for those tiers pays for them. NOT established: that any other machine
@@ -1575,12 +1630,51 @@ confidence** — three that carry a reason and one that is an upper bound:
   that `.ron` is never baked either, so claimedness is simply the wrong question
   here. ⇒ This is generator over-production against a stated engine intent, not
   an engine gap.
+
+  ⓘ **The missing manifests are POLICY; the present images are the anomaly.**
+  `check_quality_variants_are_fresh.py::absent_variants` already records that
+  portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+  `_portraits.ron` at full against 9 per reduced tier. The open half is why the
+  PNG is generated at a tier whose manifest is deliberately withheld — and why
+  the 9 that ARE published per reduced tier cannot be read either:
+  `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`, and
+  `build.rs` bakes from `assets/sprites` only. A deliberate selective
+  publication produces files no build can load.
+
+  ⭐⭐ **AND THE NINE NAME FOUR FAMILIAR SHEETS.** They are `actor`, `author`,
+  `medic`, `officer` plus five pirates — and `actor`, `author`, `medic`,
+  `officer` are FOUR OF THE FIVE sheets whose reduced tiers are not reduced, and
+  are among the 15 the pack does not cover. ⇒ A **third** symptom on the same
+  four names. ⚠ Still a LEAD, not a diagnosis, and the disconfirming halves
+  belong with it: the five pirates carry the portrait symptom without the other
+  two, and `performer` carries the tier symptom without this one. If it were one
+  cause the sets would coincide, and they do not.
 * ⚠ **UNMENTIONED — 300 files, 1.6 MB, UPPER BOUND ONLY.** Named in no manifest
   and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A path
   assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere either
   and would land here while being perfectly live. A research prompt, not a
   delete list — and now small enough that it is no longer where the megabytes
   are.
+
+⭐⭐ **AND AN AGE SIGNAL SPLITS THE THREE INTO TWO DIFFERENT PROBLEMS —
+measured 2026-09-02, and it changes what a clean regen can settle.** Each file
+is compared against the reference the same run should have written (a stranded
+page against its own manifest, an unmanifested sheet against a manifested
+sibling, a reduced-tier portrait against its full-resolution twin):
+
+```text
+stranded pages          44 older /   0 same-run of  44   median -1.97 d  STALE
+sheets without manifest  4 older /  12 same-run of  16   median +0.00 d  still produced
+reduced-tier portraits  36 older / 439 same-run of 475   median +3.07 d  still produced
+```
+
+⇒ **The 92 MB of stranded pages were left by an earlier render — a clean regen
+removes them.** The other 27.8 MB is written by the CURRENT pipeline, in the
+same run as the art beside it, so **yardrat's clean generation will reproduce
+both buckets and cannot settle them.** Those two need a pipeline change or a
+decision, not a regen. ⚠ mtimes are per-machine and a copy rewrites them; the
+evidence is the CONTRAST between buckets in one tree with one history, not the
+absolute dates.
 
 ⇒ **119.8 MB across the three explained buckets, against 1.6 MB still
 speculative.** The first pass had 26.7 MB sitting in "named nowhere, but so is

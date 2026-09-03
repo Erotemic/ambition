@@ -124,8 +124,23 @@ a third session will otherwise try a third one.
 
 | swept | places | real findings |
 |---|---:|---:|
+| bare file paths in prose | 460 | 1 |
+| policy `source_doc` anchors | 239 | 0 (ratchet added) |
+| **absence claims — "no X exists"** | **26** | **4** |
 | SHA-shaped citations in `docs/planning` | 371 | 0 |
 | `D<number>` queue-row citations | 78 | 0 |
+
+⭐ **THE ABSENCE-CLAIM SWEEP IS THE BEST YIELD OF THE FIVE — 4 in 26** — and the
+reason generalises: a sentence saying "no X exists" is written to justify an
+open row, so it stops being true exactly when someone does the work the row
+asked for. Nothing re-reads it at that moment. The four:
+`ambition_registry_core` "does not exist" in TWO pages (it landed `479f9d3e4`,
+and the crate cites one of those pages as its own justification); "no
+residency-state type exists anywhere in `crates/`", true about ROOMS and
+falsifiable by a grep since `FxResidency` arrived; and two comment citations
+whose fix shipped in the same commit that found them. ⇒ Sweep this class after
+any week of landings, and grep the claim as written — half the value is finding
+sentences that are RIGHT and now read as wrong.
 
 ⭐ **BOTH CLASSES ARE STABLE HISTORICAL IDENTIFIERS BY DESIGN.** `queue.md`
 names only 8 D-numbers because *"a closed row is a receipt, not a case file"* —

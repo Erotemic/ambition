@@ -989,10 +989,29 @@ counted neither way.
 `game://sprites/player_robot_v3_spritesheet.png` at frame 0 with no demand
 stamp, and `sprites/player_robot_v3_spritesheet.png` at frame 1129 via
 `character-sheet` — 3072×2468, 7.6 MP, both times. That one sheet is 15.2 MP of
-the 23.7 across the two roads, and the second decode is 69 ms. Whether the
-`game://` scheme and the plain path resolve to two `AssetId`s for the same
-bytes is the question worth asking before any cover is widened: a cover that
-waits for both still pays for both.
+the 23.7 across the two roads, and the second decode is 69 ms.
+
+**Traced 2026-09-02, and it is ONE file decoded twice, not two files.** Five
+LDtk worlds (`hall_of_characters`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope`, and sanic's `sanic_speedway`) carry the tileset
+`relPath: "../sprites/player_robot_v3_spritesheet.png"`. Loaded as
+`game://worlds/<file>`, that resolves to `game://sprites/player_robot_v3_spritesheet.png`
+— and `game/ambition_content/assets/sprites` is a **committed symlink** at
+`crates/ambition_platformer2d_actor_monolith/assets/sprites`, so it is the same
+file the `character-sheet` road reaches as `sprites/…`. Two asset paths, one
+file, two `AssetId`s, two decodes. ⇒ The cost is 7.6 MP and 69 ms of redundant
+decode for the protagonist's sheet at every boot, and Jon's relPath retarget is
+the named fix.
+
+⛔ **AND IT COSTS NOTHING ON DISK OR IN THE PACKAGE — do not go looking for the
+megabytes.** I first read the identical sha256 in both roots as "the art ships
+twice"; it does not. The two roots hold one file, and
+`package_asset_guard.py::iter_regular_files` SKIPS symlinked directories when
+it walks (`if path.is_symlink(): continue`, the `dirnames` loop), so the sprite
+tree is enumerated exactly once, from the monolith root. The defect is purely a
+runtime double-decode. ⚠ `Path.rglob` does not descend a symlinked directory
+either, which is how a census over the two roots can report "0 files in common"
+about a tree where every sprite is shared.
 
 ⇒ The `prepare-first-room-art` cover already waits for the 38 assets the first
 room names. ⚠ 38 assets is not comparable to 7 images — a manifest asset may be

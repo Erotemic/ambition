@@ -175,9 +175,17 @@ actual product requirement.
   the hand-rolled `seed_android_system_fonts` (`CosmicFontSystem` is gone) and
   turned on Bevy's `system_font_discovery` for the `android_platform` feature
   instead, which is 0.19's own answer now that fontique owns fallback. ⛔ NOBODY
-  HAS SEEN IT RESOLVE A GLYPH: `aarch64-linux-android` cannot even link here —
-  `ANDROID_NDK_HOME` points at a directory that does not exist, so
-  `android-activity`'s build script dies looking for `clang++`. This is the one
+  HAS SEEN IT RESOLVE A GLYPH: `aarch64-linux-android` cannot even link here, so
+  `android-activity`'s build script dies looking for `clang++`. ⇒ **And the
+  blocker is a MISSING PREREQUISITE, not a broken path** — re-checked
+  2026-09-03: the target is not in `rustup target list --installed`, no NDK is on
+  disk, and `ANDROID_NDK_HOME` is simply unset. `scripts/setup/android_prereqs.sh`
+  is the repository-owned installer for exactly this (SDK, NDK, Gradle, the Rust
+  target and `cargo-ndk`), and `--doctor` reports what is missing without
+  installing. That is B5's own distinction in
+  [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
+  applied to this row: unsupported-because-unequipped, not code failure. This is
+  the one
   0.19 change whose whole job is to find fonts the HOST does not have, so a
   desktop green says nothing about it. Closing it needs a device: launch, read
   logcat, confirm menu and dialogue text render rather than falling back to
@@ -215,11 +223,29 @@ Ambition pain it would remove.
 - ✔ **The ECS census counted resources as scene content.** DONE 2026-08-31
   (campaign section D). See `runtime_census::EcsPopulation`.
 - ▢ **Text gizmos for developer ASCII overlays.** 0.19 ships debug text gizmos on
-  a stroke font. Several dev overlays (`fps_overlay`, `gamepad_probe`,
-  `rollback_observatory`, `debug_overlay`) draw ASCII only and currently pull the
-  bundled monospace face through `UiFonts`; gizmos would drop the asset dependency
-  from paths that never ship. ⛔ Developer-only — never dialogue, nameplates or
-  product UI.
+  a stroke font, and gizmos drop the asset dependency from paths that never ship.
+  ⛔ Developer-only — never dialogue, nameplates or product UI.
+
+  ⭐ **`debug_overlay` HAS ALREADY DONE THIS, and its receipt is the argument for
+  the rest.** `render_debug_overlay_labels` draws the per-frame label buffer with
+  `Gizmos::text_2d`; what went with the retained `Text2d` entities was the spawn
+  churn, the per-frame despawn sweep, the `DebugOverlayLabel` marker — and *"the
+  one that mattered — the dependency of F1 world labels on the PRODUCT font
+  stack"*. It also settles the question this row would otherwise have to ask
+  first: `Gizmos::text_2d` takes a world-space `Isometry2d`, so `font_size` stays
+  world units and labels keep scaling with camera zoom.
+
+  ⚠ **The remaining candidates are TWO, not four.** Measured 2026-09-03:
+  `fps_overlay.rs` and `rollback_observatory.rs` are the only dev overlays that
+  name a face through `UiFonts`. `gamepad_probe` spawns `TextFont { font_size,
+  ..default() }` — it never asks for the bundled face, so converting it buys
+  nothing.
+
+  ⛔ **AND `fps_overlay` MAY NOT WANT IT.** It reaches for `UiFonts` deliberately
+  — *"a counter whose digits change width jitters on every frame it updates"* —
+  so a conversion has to establish that the stroke font is fixed-advance before
+  it can claim parity. Check that first; if it is not, this row is about
+  `rollback_observatory` alone and is probably not worth a card.
 - ▢ **`Rem` sizing for UI accessibility scaling.** `FontSize::Rem` plus the
   `RemSize` resource is a global UI text scale for free. Wants a concrete
   accessibility or Steam-Deck legibility requirement first; do not convert

@@ -154,3 +154,79 @@ def test_a_build_output_and_an_elided_path_do_not_report(tmp_path: Path) -> None
     assert DEAD_PATH in out, "the checker did not run"
     assert "run_tests_status.json" not in out, out
     assert "some_area.ron" not in out, out
+
+
+def _tiny_repo(tmp_path: Path) -> Path:
+    """A throwaway git repo, because `REPO` is `git rev-parse` on the CWD.
+
+    ⭐ THIS IS WHY THE CHECKER IS TESTABLE AT ALL for this class: the tracked
+    set comes from the working directory's repository, not from the script's
+    own location, so a deleted-file scenario can be built for real instead of
+    mocked. Deleting a tracked file out of Ambition to test this would be a
+    much worse idea.
+    """
+    def git(*a: str) -> None:
+        subprocess.run(["git", *a], cwd=tmp_path, check=True,
+                       capture_output=True, text=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "gone.rs").write_text("pub fn kept_by_nobody() {}\n")
+    (tmp_path / "src" / "stays.rs").write_text("pub fn still_here() {}\n")
+    git("add", "-A")
+    git("commit", "-qm", "seed")
+    (tmp_path / "src" / "gone.rs").unlink()  # tracked, deleted, NOT committed
+    return tmp_path
+
+
+def test_a_tracked_file_deleted_in_the_worktree_does_not_crash_the_checker(
+    tmp_path: Path,
+) -> None:
+    """⛔ REGRESSION: `git ls-files` lists it and the checker opened it.
+
+    Reported 2026-09-03 by the review session: a mid-rename tree made the whole
+    run die with `FileNotFoundError` and report nothing — the worst failure a
+    checker has, because a green-by-absence looks like a pass to anyone reading
+    only the exit code.
+    """
+    repo = _tiny_repo(tmp_path)
+    doc = repo / "note.md"
+    doc.write_text("cites `src/stays.rs` and `still_here`\n")
+
+    proc = subprocess.run(
+        [sys.executable, str(CHECKER), str(doc)],
+        cwd=repo, capture_output=True, text=True,
+    )
+    out = proc.stdout + proc.stderr
+    assert "Traceback" not in out, out
+    assert "FileNotFoundError" not in out, out
+    # ⚠ And it must SAY it skipped one — a silent skip is how a half-finished
+    # rename turns into a checker that quietly stops covering a directory.
+    assert "src/gone.rs" in out, out
+    assert "missing from the worktree" in out, out
+
+
+def test_a_citation_to_a_deleted_tracked_file_is_reported_dead(
+    tmp_path: Path,
+) -> None:
+    """⭐ THE QUIET HALF, and the reason the fix is a filter rather than a
+    `try/except` at the read.
+
+    A tracked-but-deleted path stayed in the name index, so a citation to a file
+    someone had just removed still RESOLVED. Catching the crash alone would have
+    left this passing — which is precisely the thing this checker exists to
+    catch.
+    """
+    repo = _tiny_repo(tmp_path)
+    doc = repo / "note.md"
+    doc.write_text("this cites `src/gone.rs`, which is not there any more\n")
+
+    proc = subprocess.run(
+        [sys.executable, str(CHECKER), str(doc)],
+        cwd=repo, capture_output=True, text=True,
+    )
+    out = proc.stdout + proc.stderr
+    assert "src/gone.rs" in out, out
+    assert "no file at this path" in out, out

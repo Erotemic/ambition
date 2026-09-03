@@ -416,6 +416,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
     The tool's own reading: *"Something got bigger or grew a dependency edge."*
   * ⛔ **PATH** `critical_path_crates` 14 → 15. Longer is worse *"even if every
     crate got smaller"*, because parallelism cannot compress a serial chain.
+    ⚠ **Re-run 2026-09-03 late: 14 → 16, one longer again** — the abilities and
+    encounter-features carves each added a crate to the serial chain, which is
+    the price the `ambition_match` footprint row already predicted in writing
+    ("a crate between combat and the kernel lengthens the serial chain; that is
+    the honest price"). The prediction held; the row records it rather than
+    treating the movement as news.
   * ⚠ **UNPRICED** `ambition_body_seed`, `ambition_held_items`,
     `ambition_registry_core`, `ambition_world_items` — all four D33
     destinations — carry NO measured compile cost and are priced at the
@@ -423,6 +429,13 @@ The one unresolved developer-policy choice from the session-ownership work is in
     estimate**: the tool states size predicts compile cost at only R²=0.12, so
     every SECONDS figure above is wrong for these four by an unknown factor.
     `python3 scripts/compile_collect.py` measures them.
+    ⚠ **Re-run 2026-09-03 late: it is SEVEN now, not four** —
+    `ambition_abilities`, `ambition_encounter_features` and `ambition_match`
+    joined as their carves landed. ⛔ Which is the shape to notice rather than
+    the number: every D33 carve creates an unpriced destination, so the
+    placeholder's blast radius grows with the campaign and the ruling to
+    re-freeze the baseline ONCE at the end, with all destinations priced
+    together, gets more right the longer it is held.
   ⊙ **RE-RUN 2026-09-03 after five more carves, and the campaign's two best
   numbers are here rather than in any prose:**
   * ⭐ **THE MONOLITH IS UNDER 100,000 LINES.** `largest_unit_lines`

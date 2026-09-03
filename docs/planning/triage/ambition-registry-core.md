@@ -49,7 +49,26 @@
 > **RE-MEASURED against `3e3c397f2` (2026-09-02). The premise did not decay — it
 > GREW, and there is still no shared protocol.**
 >
-> - `crates/ambition_registry_core` does not exist; no Cargo.toml names it.
+> - ✔ **`crates/ambition_registry_core` NOW EXISTS** — landed `479f9d3e4`,
+>   after this re-measurement was taken. ⚠ The bullet below said it did not, and
+>   was true at `3e3c397f2`; the drift is hours old, not weeks. ⭐ The crate
+>   cites THIS PAGE in its own module docs as the inventory that justified it,
+>   so the plan produced the crate and then went on saying the crate was absent.
+>   ⇒ **What it is:** not a generic registry — domain crates keep their keys,
+>   values, maps, dispatch and resources. It extracts the part that must not
+>   drift: `RegistrationMeta`, `classify` (New / Idempotent / Conflict),
+>   `require_non_empty`, and the `canonical_row`/`canonical_section` grammar a
+>   deterministic dump and a fingerprint both read — `ConstructionRegistry`'s
+>   answers, which the inventory found were the only ones deciding all four
+>   questions on purpose.
+>   ⇒ **Adoption, measured 2026-09-03: FOUR consumers**, which is the number the
+>   remaining work is against rather than 31: `shared_tangle/construction/registry.rs`,
+>   `platformer2d_runtime/rollback/registry.rs`,
+>   `actor_monolith/features/ecs/spawn/content_staging.rs`, and
+>   `platformer2d_world/placements.rs`. ⚠ So "there is still no shared protocol"
+>   is spent; the live question is ADOPTION across the rest, and a registry whose
+>   policy is genuinely different is expected to opt out by not calling
+>   `classify` and to say why in place.
 > - **31 distinct `pub struct *Registry` types** at HEAD, against **27** at
 >   `159daa235` (2026-07-23, the day after this was written). Five arrived in
 >   the interval: `ActionRegistry`, `BrainProfileRegistry`,

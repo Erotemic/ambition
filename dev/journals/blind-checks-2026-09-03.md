@@ -48,6 +48,28 @@ succeeds, the number prints, and the number is about a different question.
 | 18 | "The four unshrunk variants are `_authored_swing_fighter.render` dropping the scale" | A coherent mechanism, in the wrong road: that module is never called for tiers — the variant script resizes for every module-kind target. Two boxes disagreeing is what exposed it | `c77f66425` → reconciled |
 | 17 | "44% of the tree" as the occupancy denominator | Half the MEGAPIXELS are unclaimed but only a fifth of the BYTES — stranded pages are large and empty, so they compress to nearly nothing | `334086d9c` |
 
+## ⭐ What the sweep did NOT find, recorded so nobody repeats it
+
+A crude scan flagged 13 test files that assert an absence against the live tree
+with no obvious population floor. **Spot-checking them found them healthy**, and
+the ways they were healthy are worth copying:
+
+* `test_tracked_symlinks_resolve` — `assert links` before `assert not dangling`:
+  a truthiness floor my regex could not see.
+* `test_map_symlinks_stay_links` — a dedicated
+  `test_there_are_tracked_worlds_at_all` whose message is *"no tracked .ldtk
+  files; this whole file is vacuous"*.
+* `test_text_spawns_resolve_a_font` — `assert path.is_file()` per watched file,
+  *"so this guard is watching nothing"*.
+* `test_catalog_rows_are_in_the_characters_map` — a live assertion, a
+  `characters_seen > 80` floor, AND a synthetic misplaced row proving the scan
+  fires.
+
+⇒ The guards in `scripts/tests/` are, on the whole, built with the vacuity
+question already asked. The entries above are exceptions, not a pattern — and
+`test_absence_contracts` (21) is the one that had the floor and was missing the
+FIRE direction instead, which is the rarer half to forget.
+
 ## What the fixes have in common
 
 Every one of 1–3, 11 and 12 was found by a number disagreeing with another

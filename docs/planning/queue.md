@@ -1872,8 +1872,16 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ AND THE CODE'S OWN DOC WAS WRONG TOO: the no-feature module claimed the take
   *"carries no `causal` array at all"*. It always carried `[]`.
 
-- ▢ **CAPABILITY FOOTPRINT: 44 crates linked, 16 a movement-only game never
-  asked for — and the count CANNOT fall by a manifest edit.** (Scheduled
+- ▢ **CAPABILITY FOOTPRINT: 45 crates linked, 18 a movement-only game never
+  asked for — and the count CANNOT fall by a manifest edit.**
+  ⚠ **Re-read from the baseline 2026-09-02: the row said 44/16 and the ratchet
+  says 45/18.** The row's own warning is what happened, twice —
+  `ambition_world_items` took it 43 → 44 and `ambition_registry_core` 44 → 45,
+  each recorded in `capability-footprint-baseline.json` with its reason
+  (`registry_core_entered_the_closure_2026_09_03`: *"the linked CODE shrank while
+  the crate count rose … THE RATCHET COUNTS CRATES, NOT BYTES"*). ⇒ The baseline
+  is maintained; it was this row that lagged it, which is the failure mode a
+  number quoted in two places always has. (Scheduled
   2026-09-02 from ambition-da's docs pass; re-worded the same night after
   ambition-da re-derived it, `2068bcd31`.) The instrument is installed:
   `capability-footprint-may-not-grow` in `scripts/check_absence_contracts.py`

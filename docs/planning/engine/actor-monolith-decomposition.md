@@ -716,6 +716,112 @@ The actor kernel should emit/consume small semantic facts. Room, encounter,
 conversation and provider orchestration belongs to their owning runtime/domain
 packages.
 
+#### The `encounter/` seam design, measured 2026-09-03 (SPEC — nothing cut)
+
+The domain already lives in `ambition_encounter`; what the kernel keeps is
+`crates/ambition_platformer2d_actor_monolith/src/encounter/`, an adapter. Its
+kernel edges, counted in **all three path forms** because this doc's sizing has
+been wrong before by grepping one:
+
+```text
+encounter/mod.rs          2 seams   FeatureWorldOverlaySet, sync_authored_gated_lock_walls
+encounter/systems.rs      4 seams   spawn_encounter_mob, EncounterMobSeed,
+                                    clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs
+encounter/lock_walls.rs   1 seam    rebuild_feature_ecs_world_overlay
+encounter/loading.rs      0
+encounter/switch_index.rs 0
+```
+
+⚠ **Seven distinct seams, not the six the assignment named** —
+`rebuild_feature_ecs_world_overlay` is a seventh, in `lock_walls.rs`. And 243
+lines (`loading.rs` + `switch_index.rs`) name no kernel seam at all, which is the
+same shape the pickup carve found: the entanglement is the plugin and one systems
+file, not the domain.
+
+**(a) A mob spawn becomes a construction REQUEST — and the road already exists.**
+`spawn_encounter_mob` in `features/ecs/spawn/mod.rs:1028` is a pure pass-through
+to `spawn_actors.rs:1947`; it is not a construction wrapper today. But the kernel
+already serves runtime actor spawns as requests: `ActorConstructionParams`
+(`crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:135`)
+carries `StagedActor(SpawnActorRequest)`, `SummonedMinion`, `AuthoredEnemy` and
+`GiantHost`/`GiantHand`, dispatched through the generic
+`ConstructionDomain`/`RecipeDispatch` protocol in
+`ambition_platformer2d_shared_tangle::construction`.
+⭐ **The precedent for a domain crate owning its own construction is
+`ambition_portal2d`** (`crates/ambition_portal2d/src/gun_construction.rs:45`):
+it declares `PortalGunConstructionParams` (pure data), implements
+`ConstructionDomain`, and owns its construct fn. The kernel does not know it.
+✔ **`EncounterMobSeed` is ALREADY pure data over crates below the kernel** —
+`String`, `Option<&str>`, `ambition_entity_catalog::placements::CharacterBrain`,
+`ae::Vec2` (`spawn_actors.rs:1916`). Nothing kernel-only is in it. The single
+reason `ambition_encounter` cannot emit one is that the TYPE lives in the kernel.
+✔ **And the dependency is available:** `ambition_encounter` already depends on
+`ambition_platformer2d_core` and `ambition_platformer2d_shared_tangle`; it needs
+`ambition_entity_catalog`, which has **zero `ambition_*` dependencies** — a leaf,
+so no cycle.
+⇒ **New form:** the seed moves down beside the construction vocabulary,
+`ambition_encounter` emits a request, and the kernel serves it through the
+`ActorConstruction` domain it already runs. ⛔ Decide ONE thing before cutting:
+whether the mob is a new `ActorConstructionParams` variant (kernel keeps the
+recipe) or `ambition_encounter` implements its own `ConstructionDomain` like
+`ambition_portal2d`. The first is smaller; the second is what "orchestration
+belongs to the owning package" argues for. **Do not cut until that is answered
+in writing** — it is the same fork the pickup carve stopped at.
+
+**(b) Rewards invert: the encounter publishes facts, the feature layer reacts.**
+The adapter today computes `cleared_specs` by filtering encounters whose
+`ambition_encounter::EncounterPhase` is `Completed`, then PUSHES that list into
+`crate::features::sync_encounter_reward_chests_ecs`
+(`encounter/systems.rs:557`); `clear_encounter_reward_ecs` (`:447`) is the same
+shape in reverse. Both facts — *cleared*, and *a prior clear must be dropped* —
+are already owned by `ambition_encounter`, which has the phase, the lifecycle
+events and `EncounterLifecycleSet`.
+⇒ **New form:** the encounter publishes cleared/locked facts; the kernel's
+feature layer reads them and syncs its own chests. The two reward functions STAY
+in the kernel — they are room-feature systems — and the adapter disappears
+because the call direction reverses. No new vocabulary is needed beyond making
+the fact readable.
+
+**(c) `FeatureWorldOverlaySet` is `shared_tangle` vocabulary, and the evidence
+predates this carve.** It is defined at
+`crates/ambition_platformer2d_actor_monolith/src/world/overlay.rs:32` and used as
+an ordering anchor by both lock-wall systems. ⭐ **TWO crates outside the kernel
+already order against it in PROSE because they cannot name it:**
+`ambition_combat::hazards` cites *"`crate::…::FeatureWorldOverlaySet`: a general
+crate consumed by content owed its consumers a name to order against and did not
+have one"*, and `ambition_damage` cites it as the precedent for its own one-member
+set. Both invented their own sets rather than name this one.
+⇒ **The set that is cited as THE precedent for publishing an orderable name is
+itself the one nobody outside can name.** Move it to
+`shared_tangle::schedule` — the `ItemPickupSet`/`AudioInitSet` inversion — and the
+two prose references become real edges. This is worth doing whether or not the
+encounter carve proceeds.
+
+**(d) ⛔ One of the named seams is NOT a dependency, and must not be treated as
+one.** `crate::world::gated_lock_walls::sync_authored_gated_lock_walls` is
+scheduled by the encounter plugin but is not an encounter system: it is the
+AUTHORED-condition sibling, and the plugin says why it sits there — *"registered
+beside it so the two roads into `gate_solids` are visible in one place — this one
+arrived from `ambition_content`, where being invisible next to its sibling was
+part of how it went unnoticed."* A carve that simply moves the encounter plugin
+separates two registrations that were deliberately co-located, re-creating the
+condition that hid a defect once.
+⇒ **New form:** whatever keeps the two `gate_solids` roads adjacent must be named
+in the carve — a kernel-side world-gating plugin holding both, not one road
+leaving with the encounter.
+
+**Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
+three policy rows (`engine.<crate>-manifest-allow`,
+`engine.<crate>-source-purity`, `engine.runtime-manifest-allow`), both
+poison-verified; a MEMBERSHIP assertion in the carved crate per D33, never an
+existence check; `rollback_schema_baseline.txt` expected byte-identical because
+it keys on owner strings; `capability-footprint-baseline.json` WILL move and the
+growth must be declared; `scripts/modules_md.py --write`; and the two
+sub-workspace lockfiles — `fixtures/minimal_game/Cargo.lock` is committed and
+goes stale silently.
+⛔ And run `cargo test -p ambition_workspace_policy`, not `cargo check`: the
+allow-lists are `exact = true` and the compiler cannot see them.
+
 ### Character preparation versus actor simulation
 
 Prepared character/content ownership should continue moving toward character

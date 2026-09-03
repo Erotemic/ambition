@@ -21,7 +21,7 @@ judges SYMBOLS in Rust comments and not paths, so the same blind spot exists
 one level down, in the place the script's own docstring says the original
 fabricated citation reached.
 
-**MEASURED 2026-09-02, on `ec55d4035`:** 252 path citations in `.rs` comments,
+**MEASURED 2026-09-02, on `79262265a`:** 252 path citations in `.rs` comments,
 **21 distinct unresolved in 28 places**. Reproduce with the ordered-containment
 rule the docs class already uses (basename must exist; every component of the
 citation must appear in that file's path in order, matching exactly or as the
@@ -111,6 +111,36 @@ them, 15 repointed off dead `decomposition.md#…` anchors on 2026-09-02), and
 those are guarded now by `every_source_doc_names_a_real_file_and_heading` in
 `tests/ambition_workspace_policy/tests/policy.rs`. That is where the class
 lives; the prose links are not it.
+
+---
+
+## ⛔ A SHA you cite for your OWN unmerged commit does not survive your rebase
+
+Cost me ten dead citations and would have shipped them. Writing
+*"Fixed in `<sha>`"* about a commit on your own branch is a citation to an
+object that the next `git rebase` REWRITES — the commit survives, its hash does
+not, and nothing warns you. Ten citations across seven files (the D33 rule,
+`ambition_world_items/MODULES.md`, `queue.md`, four verification receipts) all
+pointed at orphans after one rebase onto main. ⚠ They still `git cat-file`
+successfully, which is what makes this invisible: the object is reachable in the
+reflog, just not from `HEAD`. **The test is
+`git merge-base --is-ancestor <sha> HEAD`, not `git cat-file -t`.**
+
+⇒ **Either cite after the merge, or leave the slot blank and say why.** The D33
+rule did the second — *"SHA deliberately not cited here … Fill it in when it
+does"* — and that turns out to be the robust habit rather than a courtesy.
+
+⚠ **AND A CHECKER FOR THIS WOULD BE NOISY, measured before proposing one:** 238
+distinct SHA-shaped citations in `docs/planning`, 371 places. A
+`` `[0-9a-f]{7,40}` `` sweep reports 33 "unresolvable", and MOST ARE NOT SHAS —
+32-hex asset ids in `bevy-0.19-leverage-campaign.md`, 16-hex scenario ids in
+`engine/runtime-frame-history.md`. Of the genuine ones, two resolve inside
+SUBMODULES (`db7e72f` in the map assets, `5e1ee9b` in the sprite renderer) and
+are correct cross-repo citations; three resolve nowhere on this machine, which
+is NOT evidence they are wrong — an unpushed branch elsewhere resolves them.
+⇒ Only one is provably stale (`queue.md:1930`, `2d623308f`: resolves here,
+unreachable from HEAD). One real finding against thirty-two false ones is the
+"teaches its reader to skim" ratio, so this stays a habit rather than a check.
 
 ---
 

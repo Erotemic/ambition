@@ -41,7 +41,7 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   combat → win/loss. The dialogue→provoke bridge flips the brain + disposition and arms
   the hostile volumes. Placed in the Noether Chamber via LDtk as a peaceful archetype.
 
-> ⭐ **RE-VERIFIED against `5ac5c218d` (2026-09-03)** (this page had gone two months unread, the oldest
+> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03)** (this page had gone two months unread, the oldest
 > in `docs/planning/`, and every claim above holds). The kit is where it says:
 > `cellular_pulse` is named in five files including its own
 > `game/ambition_content/src/cellular_automaton_moveset.rs`, and the glider,

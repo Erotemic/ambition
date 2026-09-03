@@ -1237,8 +1237,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `shared_tangle` as vocabulary with exactly one configuring owner. The third
   branch's vacuity worry is answered by the same shape — a carved crate's tests
   build the CARVED plugin, so the sets they assert on are configured by the thing
-  under test. Worked precedent, sibling carve now closed: `9a89bfa20` (the fix)
-  and `2d27c46f4` (the guard, which asserts phase MEMBERSHIP by set-member COUNT
+  under test. Worked precedent, sibling carve now closed: `d220accee` (the fix)
+  and `dbec94824` (the guard, which asserts phase MEMBERSHIP by set-member COUNT
   rather than by system name — Bevy 0.19 strips names without `bevy_ecs`'s
   `debug` feature, so a name lookup is green or red depending on who else is in
   the build). ⇒ The cut is unblocked; what remains is mechanical.

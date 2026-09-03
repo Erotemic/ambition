@@ -33,7 +33,7 @@ hand mid-settle).
 failed, which is why it survived a 548-test suite and a workspace gate. Found by
 review, not by a test — and that is the part worth keeping after the fix.
 
-⇒ **Fixed in `9a89bfa20`**, in the shape D33 specifies:
+⇒ **Fixed in `d220accee`**, in the shape D33 specifies:
 `WorldItemSet { Motion, PreCollect, Collect }` lives in
 `shared_tangle::schedule` as VOCABULARY (so a game can order on it without
 naming this crate), and `WorldItemSimulationPlugin` does BOTH the

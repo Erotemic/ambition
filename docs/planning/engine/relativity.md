@@ -20,7 +20,7 @@ Minkowski now; analytic/sampled/evolved GR later
   proper-time, rapidity, velocity-composition, event-boost, and photon-frequency
   mathematics. It has no Bevy dependency.
   ⭐ **AND THAT LAST SENTENCE IS NOW A RATCHET, not just a description**
-  (verified against `5ac5c218d`, 2026-09-03): `engine.ambition_relativity-stays-engine-free` forbids `bevy`
+  (verified against `8bb0dd5a7`, 2026-09-03): `engine.ambition_relativity-stays-engine-free` forbids `bevy`
   and `ambition_` in this crate's source. It is the load-bearing half of the
   layering diagram below — the maths is dimension-independent BECAUSE it knows
   no engine, which is what lets `ambition_relativity2d` be the only 2D-aware

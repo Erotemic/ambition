@@ -524,7 +524,7 @@ preserved, because the author had checked the ordering and not the membership.
 on it, and the OWNING plugin does both the `configure_sets` (nesting in
 `PlayerSimulation`, `.after(BodyCustodySettled)`, each variant `GameplayGated`)
 and the `add_systems`; the kernel merely composes the plugin.
-⇒ **It landed: `9a89bfa20`**, with the guard in `2d27c46f4`. (The SHA was
+⇒ **It landed: `d220accee`**, with the guard in `dbec94824`. (The SHA was
 deliberately left blank when this rule was written, because the fix was on
 another machine and citing a commit nobody could resolve is worse than citing
 none.)

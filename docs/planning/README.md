@@ -285,6 +285,17 @@ counting `PickupSpawn` instances gives **exactly 35**. ⇒ **In a structured fil
 count ENTITIES, not occurrences of a value string**; a substring tally over JSON
 or LDtk is not a census, and the page that parsed it properly is usually right.
 
+⭐ **AND PREFER THE REPO'S OWN CHECKER TO AN AD-HOC GREP.** Four times in one
+session an ad-hoc check disagreed with a maintained page and the page was right:
+`__pycache__` in a file count, a value string counted twice per LDtk entity,
+policy rows found by id when two carves legitimately use a different row shape,
+and commit SHAs in `demos/smash-parity-inventory.md` reported as unresolved
+identifiers — `scripts/check_planning_citations.py` classifies SHAs and resolves
+them, which is why it says that page is clean and a hand-rolled grep does not.
+⇒ When you want to know whether a page still holds, run the checker that already
+knows the classes; reach for a grep only for what it does not cover, and expect
+your first number to be the wrong one.
+
 The middle row is the one that produces confident wrong numbers: silently
 replacing a figure you cannot reproduce asserts a drift you have not
 demonstrated. `engine/engine-1.0-architecture-program.md`'s

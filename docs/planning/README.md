@@ -147,11 +147,11 @@ plans against each other rather than either against the code. In each case both
 pages were individually accurate and the conclusion was in neither.
 
 - **`capability-and-runtime-composition.md` × `actor-monolith-decomposition.md`**
-  — the footprint's remaining **17** crates cannot be cut by any manifest change,
+  — the footprint's remaining **18** crates cannot be cut by any manifest change,
   because every one arrives through the actor monolith. The footprint page knew
   its number; the carve page knew its scope; neither said that one is the other's
   only lever. ⚠ **16 here was already stale when written** — the contract prints
-  `44 crates linked, 17 a movement-only game never asked for`, and the owning
+  `45 crates linked, 18 a movement-only game never asked for`, and the owning
   page said 43/16 while `queue.md` said 44/16. Three retyped copies, three
   different values, one printed source. ⇒ Quote the line the gate PRINTS.
   (Corrected 2026-09-03; the ratchet itself was healthy — the baseline JSON has

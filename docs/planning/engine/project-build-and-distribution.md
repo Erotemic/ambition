@@ -202,6 +202,27 @@ unactionable.
 > `scripts/` venv, which is a surprise waiting for anyone who keeps
 > `ambition/` and `ambition-2/`.
 >
+> ⭐ **AND THE SAME SPLIT DECIDES WHAT A NEW MACHINE NEEDS VERSUS A NEW CLONE.**
+> Measured from the clone, on this host:
+>
+> | prerequisite | scope | a fresh clone here |
+> |---|---|---|
+> | six tool venvs | MACHINE (`~/.cache/ambition-tool-venvs/<basename>`) | inherited |
+> | sampled instrument libraries | MACHINE (`/data/audio-tools`) | inherited — `--status` reports 2,351 `.sfz` |
+> | `scripts/` venv | CHECKOUT (repo-root basename) | **absent** |
+> | submodule contents | CHECKOUT | **absent** (0 files in each) |
+> | bundled UI fonts | CHECKOUT, git-ignored | **absent** (0 files) |
+> | generated sprite sheets | CHECKOUT, git-ignored | **absent** (4 tracked entries only) |
+> | `target/` | CHECKOUT | absent |
+> | `.agent/` navigation index | tracked | present |
+>
+> ⇒ So a clone on a used box is missing the CHECKOUT half and inherits the
+> MACHINE half — which is why `--verify` looks nearly green here and would fail
+> everything on a new laptop. ⛔ **Anyone testing the fresh-clone contract must
+> say which of the two they are testing**, or a green run proves the wrong
+> thing. The rows above that record fonts and Pillow as fresh-clone failures are
+> the CHECKOUT half; the Android and audio rows are the MACHINE half.
+>
 > ⭐ Two facts worth having beside that: **a clone is 75 MB** (the bulk is
 > submodules and git-ignored generated content, which is why the bootstrap
 > contract matters at all), and all four entry points — `run_developer_setup.sh`,

@@ -743,11 +743,25 @@ at a spawn bug that *"at least in this reproduction is not what it is"*. On this
 reading it is exactly what it is. ⇒ That earlier sentence was written when the
 count looked like a tier-scaled ramp, and it should not be read as a ruling.
 
-⚠ **Read, not executed** — this is a trace through the three call sites above,
-not an instrumented run, and the honest next step is one assertion (spawn a room
-NPC, step one frame, expect a `FeatureVisual` with its id) rather than another
-capture. If it holds, the fix is to give interactable NPCs a view the spawner
-already recognises, and the burst goes away for every room, not just the Hall. ⚠ Note this is the same seam the barrier sits on:
+✔ **EXECUTED, not only read (2026-09-03).** The trace above was confirmed by
+running the rebuilder against an NPC-shaped entity — `FeatureId`,
+`CenteredAabb`, `ActorDisposition`, `ActorConfig`, and none of the five markers,
+exactly as `spawn_actors.rs:732` builds one:
+
+```text
+PROBE RESULT: DynamicFeatureViews holds 0 fact(s); NpcSpawn present = false
+```
+
+⇒ Zero facts. Nothing downstream can give that body a sprite, so the stand-in is
+its only road, and the fix is to give interactable NPCs a view the spawner
+already recognises — which removes the burst in EVERY room, not just the Hall.
+
+⛔ **The probe was a THROWAWAY and is deliberately not in the tree.** Shipped as
+a test it would assert that an NPC publishes nothing — pinning today's defect as
+the expected behaviour, so the eventual fix would arrive as a red test and read
+like a regression. ⇒ The guard ships AFTER the fix, asserting what the fix
+establishes (an interactable NPC's view is claimed on the frame its body exists,
+never by the stand-in) and poisoned by dropping the marker. ⚠ Note this is the same seam the barrier sits on:
 the barrier asks `CharacterSheetState::Ready` (a REALIZATION fact) while the
 thing that actually draws needs a `FeatureVisual` ENTITY, and nothing makes the
 cover wait for the second.

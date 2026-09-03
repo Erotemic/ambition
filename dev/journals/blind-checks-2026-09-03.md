@@ -70,6 +70,26 @@ Moved, so there is one copy to keep current: the four passes are
 
 ## ⭐ What the sweep did NOT find, recorded so nobody repeats it
 
+⭐ **THE PLANNING DOCS ARE CLEAN ON THE BARE-CITATION AXIS, and the negative is
+worth as much as a finding here.** `check_planning_citations.py --vanished`
+(added 2026-09-03) reports a BARE backticked name that was a definition at a
+baseline and is not one now — the form the default check cannot see, and the
+form a carve's removals are usually spelled in. Over a week-old baseline it
+returned 37 hits across 22 names, and every name checked was an item a NAMED
+COMMIT genuinely removed. **But essentially every ROW was already recording the
+removal** — "Deleted: `FpsOverlayState`", "the view is DELETED", "THAT PRELOAD
+ROAD IS GONE as of `301a07009`". Four authors' docs, none stale.
+
+⇒ Two things follow. The docs are better maintained on this axis than the sweep
+assumed, and the mode belongs at a CARVE'S PARENT rather than a wide baseline:
+a fresh window catches rows before anyone rewrites them in past tense, and a
+wide one is archaeology.
+
+⛔ TWO FALSE POSITIVES CAME OUT OF MY OWN TOOL FIRST, both LIVE crates
+(`ambition_demo_pocket`, then `ambition_platformer2d_actor_monolith`) — one via
+a field rule, one via a `mod` line. Fixed in `9137e4356`. I had committed the
+tool before triaging the half of its output that contained them.
+
 A crude scan flagged 13 test files that assert an absence against the live tree
 with no obvious population floor. **Spot-checking them found them healthy**, and
 the ways they were healthy are worth copying:

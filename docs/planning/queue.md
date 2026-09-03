@@ -938,7 +938,20 @@ OPTIONAL dep + feature, never used:
      A carve moves modules; the maps are generated and go stale silently.
      (Clean for all 70 crates as of 2026-09-02.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
-     the very symbols the planning rows cite.
+     the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
+     carve's parent SHA>`**, which catches what the default run cannot see:
+     `SYMBOL` needs a `::`, so a BARE backticked name — the commonest form in
+     these docs — is never checked, and a carve's removals are usually spelled
+     bare. It reports a bare name that WAS a definition at that SHA and is not
+     one now; the name's own history supplies the precision, so nothing has to
+     guess what is "code-shaped". This is the removed/renamed half of item 4,
+     without item 4's `head -1` or its `length >= 8` heuristic.
+     ⚠ RUN IT AT THE CARVE'S PARENT, not at a wide baseline. Measured
+     2026-09-03 over a week: 37 hits, and on inspection essentially all were
+     rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
+     DELETED") rather than rows made stale by one — docs/planning is clean on
+     this axis, and a wide window is archaeology. A fresh window is not, because
+     the rows have not been rewritten in past tense yet.
   3. **`python scripts/check_doc_links.py`**.
   4. **The ▢ rows that NAME A SYMBOL the carve touched.** Three were found stale
      in one sweep on 2026-09-02 (`bounded-perception`'s routing row, `queue.md`'s

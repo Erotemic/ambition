@@ -73,14 +73,11 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                     // applied twice.
                     .after(ambition_encounter::switches::SwitchActivationDrained)
                     .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
-                // The SERVER for the domain's spawn requests, ordered after the
-                // driver that emits them so a request and its service are the
-                // same tick. It lives in `features` — body construction is the
-                // kernel's — and is registered here only until the adapter
-                // leaves; nothing about it names the encounter adapter.
-                crate::features::serve_encounter_spawn_commands
-                    .after(WaveEncounterDriven)
-                    .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
+                // ⭐ THE SPAWN SERVER'S REGISTRATION WENT HOME (2026-09-03).
+                // It is `features::EncounterSpawnServicePlugin`, composed by the
+                // runtime: a plugin that is about to live in
+                // `ambition_encounter` cannot name a kernel system, and the
+                // server was the last thing this module named in the kernel.
                 ambition_combat::banner::apply_gameplay_banner_requests,
                 ambition_combat::banner::tick_gameplay_banner,
             )
@@ -137,8 +134,13 @@ mod spawn_request_service_order {
     /// nothing else pins the seam between the request and its service.
     #[test]
     fn the_spawn_server_runs_after_the_wave_driver() {
+        // ⭐ BOTH SIDES, because the invariant now spans them. The driver is
+        // scheduled by the encounter plugin and the server by the kernel's
+        // `EncounterSpawnServicePlugin`, which the runtime composes beside it.
+        // A guard that built only one would pass by not finding the other.
         let mut app = App::new();
         app.add_plugins(super::EncounterSimulationSchedulePlugin);
+        app.add_plugins(crate::features::EncounterSpawnServicePlugin);
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         let schedule = schedules.get(sim).expect("the plugin creates the sim schedule");

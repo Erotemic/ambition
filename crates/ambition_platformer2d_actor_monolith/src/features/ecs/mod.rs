@@ -153,6 +153,7 @@ pub use save_sync::{
 };
 pub use spawn::{
     serve_encounter_spawn_commands, spawn_encounter_mob, spawn_room_feature_entities_from_plan,
+    EncounterSpawnServicePlugin,
     ActorConstructionContext,
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,

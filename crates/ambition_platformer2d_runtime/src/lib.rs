@@ -401,6 +401,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // list; composed beside its siblings so no registration for it
             // lands back in the encounter adapter.
             .add(ambition_platformer2d_actor_monolith::features::EncounterRewardSyncPlugin)
+            // The kernel serves the encounter domain's spawn requests; the
+            // registration is here so the domain's own plugin names nothing in
+            // the actor crate.
+            .add(ambition_platformer2d_actor_monolith::features::EncounterSpawnServicePlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
             .add(ambition_platformer2d_actor_monolith::features::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)

@@ -1102,3 +1102,35 @@ pub fn serve_encounter_spawn_commands(
         );
     }
 }
+
+/// Composes [`serve_encounter_spawn_commands`] from the KERNEL side.
+///
+/// ⭐ THE LAST THING THE ENCOUNTER ADAPTER NAMED IN THIS CRATE. The server lives
+/// here because body construction is the kernel's; its registration lived in the
+/// encounter plugin only because that plugin was here too. A plugin that moves
+/// into `ambition_encounter` cannot name a kernel system, so the registration
+/// comes home and the runtime composes it — the same shape as
+/// `EncounterRewardSyncPlugin`.
+///
+/// ⚠ Ordered `.after(WaveEncounterDriven)`: the request and its service are the
+/// same tick, and a server that ran first would serve last tick's requests. That
+/// set is encounter vocabulary and stays nameable from here after the module
+/// moves.
+pub struct EncounterSpawnServicePlugin;
+
+impl bevy::prelude::Plugin for EncounterSpawnServicePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+        use bevy::prelude::IntoScheduleConfigs as _;
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            serve_encounter_spawn_commands
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation,
+                )
+                .after(crate::encounter::WaveEncounterDriven)
+                .run_if(bevy::ecs::prelude::any_with_component::<ambition_encounter::Encounter>),
+        );
+    }
+}

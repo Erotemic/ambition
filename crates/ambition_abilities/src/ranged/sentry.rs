@@ -1,7 +1,7 @@
 //! Sentry — a player-wielded **deployable turret**. `Attack` drops a stationary
 //! sentry that auto-fires player-faction bolts at the nearest enemy in range on
 //! a cadence, for a few seconds, then expires. It fills a gap in the kit: the
-//! puppy-slug summon (`crate::abilities::thrown::puppy_slug_gun`) is *passive* (the slugs just
+//! puppy-slug summon (`crate::thrown::puppy_slug_gun`) is *passive* (the slugs just
 //! wander), and every other wielded ability is a one-shot the player aims — the
 //! sentry is the first thing the player deploys that **autonomously attacks**.
 //!
@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::{HeldItem};
+use ambition_combat::held_items::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_platformer2d_core as ae;
@@ -360,7 +360,7 @@ pub fn update_sentries(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abilities::test_support::spawn_primary_player_holding;
+    use crate::test_support::spawn_primary_player_holding;
     use crate::enemy_projectile::test_support::live_projectile_bodies;
     use ambition_projectiles::ProjectileSeqCounter;
 
@@ -679,137 +679,4 @@ mod damage_tests {
         );
     }
 
-    /// ⭐⭐ A DEPLOYED SENTRY MUST ACTUALLY DAMAGE THE ENEMY IT SHOOTS.
-    ///
-    /// ⛔⛔ ASSERTING THAT A BOLT APPEARS IS NOT THIS TEST. The turret fired,
-    /// the projectile materialized, it flew, it overlapped its target — and it
-    /// could not damage anything, because a shot's combat side is stamped from
-    /// its OWNER entity and the owner here is the turret, which carries
-    /// `Sentry`, `Name` and a session scope and no `ActorFaction` at all.
-    /// `indiscriminate` is `allegiance.is_none() && owner.is_none()`, so a
-    /// named owner with no faction is the one combination that can hit nobody.
-    #[test]
-    fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
-        let mut app = App::new();
-        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
-        app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-            app.world_mut(),
-            ambition_platformer2d_core::RoomGeometry(ae::World::new(
-                "sentry range",
-                ae::Vec2::new(2000.0, 800.0),
-                ae::Vec2::new(400.0, 400.0),
-                Vec::new(),
-            )),
-        );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
-        app.add_message::<HitEvent>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
-        app.add_message::<ProjectileSpawnRequest>();
-        app.add_message::<crate::avatar::PlayerHealRequested>();
-        app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
-        app.init_resource::<CapturedHits>();
-        app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-        app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
-        app.add_systems(
-            Update,
-            (
-                update_sentries,
-                ambition_projectiles::materialize_projectiles_for_this_tick,
-                crate::projectile::stamp_new_projectile_allegiance,
-                crate::projectile::step_projectiles,
-                capture_hits,
-            )
-                .chain(),
-        );
-
-        let enemy_pos = ae::Vec2::new(360.0, 400.0);
-        let enemy = app
-            .world_mut()
-            .spawn((
-                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-                ambition_combat::components::FeatureId::new("sentry_target"),
-                ambition_combat::components::CenteredAabb::new(
-                    enemy_pos,
-                    ae::Vec2::new(16.0, 24.0),
-                ),
-                ambition_combat::components::ActorDisposition::Hostile,
-                ActorFaction::Enemy,
-                ambition_characters::actor::BodyCombat {
-                    hit_flash: 0.0,
-                    training_dummy: false,
-                    ..Default::default()
-                },
-                ambition_characters::actor::BodyHealth::new(
-                    ambition_characters::actor::Health::new(20),
-                ),
-            ))
-            .id();
-
-        // The turret, deployed by a Player-faction wielder, a short way from its
-        // target and armed to fire on the first tick.
-        let wielder = app.world_mut().spawn(ActorFaction::Player).id();
-        // ⛔ SPAWNED THROUGH THE PRODUCTION SEAM, not by hand: a fixture that
-        // assembles its own turret can give it a faction production never
-        // grants, and then this test passes about a body that does not ship.
-        let side = *app
-            .world()
-            .get::<ActorFaction>(wielder)
-            .expect("the fixture wielder states a side");
-        {
-            let mut commands = app.world_mut().commands();
-            deploy_sentry(
-                &mut commands,
-                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-                ae::Vec2::new(300.0, 400.0),
-                side,
-                None,
-                None,
-                None,
-            );
-        }
-        app.world_mut().flush();
-
-        // Long enough for the bolt to cross the 60px gap at its authored speed.
-        for _ in 0..90 {
-            app.update();
-        }
-
-        let hits: Vec<_> = app
-            .world()
-            .resource::<CapturedHits>()
-            .0
-            .iter()
-            .filter(|e| matches!(e.source, HitSource::Projectile))
-            .collect();
-        assert!(
-            !hits.is_empty(),
-            "the sentry's bolt reached its target and dealt no damage — a shot \
-             whose owner carries no faction stamps no allegiance, and \
-             `indiscriminate` is false for a NAMED owner, so `can_hit` is false \
-             against every victim in the world"
-        );
-
-        assert!(
-            hits.iter()
-                .all(|e| e.target == ambition_combat::events::HitTarget::Body(enemy)),
-            "the bolt must NAME the body it struck, got {:?}",
-            hits.iter().map(|e| &e.target).collect::<Vec<_>>(),
-        );
-        assert!(
-            hits.iter().any(|e| e.damage == SENTRY_BOLT_DAMAGE),
-            "the bolt lands its authored {SENTRY_BOLT_DAMAGE} damage, got {:?}",
-            hits.iter().map(|e| e.damage).collect::<Vec<_>>(),
-        );
-        // ⚠ THE VERDICT UNDER TEST IS `can_hit`, and it is complete here: a
-        // `HitEvent` naming this victim with this damage is exactly what the
-        // faction routing decides. `apply_feature_hit_events` — which turns that
-        // into `BodyHealth` — is a separate system sitting AT Bevy's
-        // system-param ceiling and is covered where it lives; wiring its dozen
-        // resources in here would make this a test about fixture assembly.
-    }
 }

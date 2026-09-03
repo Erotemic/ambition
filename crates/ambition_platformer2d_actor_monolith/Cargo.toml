@@ -382,6 +382,7 @@ ambition_world_items = { path = "../ambition_world_items" }
 # The PRESSED collectible (D33, 2026-09-03): pickup / use / throw / physics /
 # residency and the schedule they own. The kernel keeps checkpoint policy over
 # its components and attaches its own systems to its steps.
+ambition_abilities = { path = "../ambition_abilities" }
 ambition_held_items = { path = "../ambition_held_items" }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_match = { path = "../ambition_match" }
@@ -495,6 +496,9 @@ serde_json = "1"
 # it — the carve removed that edge and `engine.ambition_encounter_features-
 # source-purity` keeps the reverse one out.
 ambition_encounter_features = { path = "../ambition_encounter_features" }
+# The abilities carve took the shared spawn fixtures with it; the puppy-slug gun
+# stayed and still tests against them.
+ambition_abilities = { path = "../ambition_abilities", features = ["test-support"] }
 # ⭐⭐ DEV-ONLY AS OF 2026-09-02 (D33): THE SIMULATION KERNEL NO LONGER DEPENDS ON
 # THE DEVELOPER CRATE. It was a production `[dependencies]` edge for as long as
 # this crate existed, and the last two production references were both

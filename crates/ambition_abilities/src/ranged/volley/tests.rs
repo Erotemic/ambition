@@ -1,5 +1,5 @@
 use super::*;
-use crate::abilities::test_support::spawn_primary_player_holding;
+use crate::test_support::spawn_primary_player_holding;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use ambition_projectiles::ProjectileSeqCounter;
 
@@ -111,7 +111,7 @@ fn volley_origin_is_c4_equivariant_for_local_aim() {
 /// through.
 #[test]
 fn two_driven_bodies_each_fire_their_own_volley() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(

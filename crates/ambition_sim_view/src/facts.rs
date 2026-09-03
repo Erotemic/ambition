@@ -303,7 +303,7 @@ pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
 pub fn rebuild_mark_beacons_view(
     mut view: ResMut<MarkBeaconsView>,
     marks: Query<
-        &ambition_platformer2d_actor_monolith::abilities::traversal::mark_recall::PlayerMark,
+        &ambition_abilities::traversal::mark_recall::PlayerMark,
     >,
 ) {
     view.0.clear();

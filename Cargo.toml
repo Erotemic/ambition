@@ -42,6 +42,7 @@ members = [
     "crates/ambition_interaction",
     "crates/ambition_items",
     "crates/ambition_world_items",
+    "crates/ambition_abilities",
     "crates/ambition_held_items",
     "crates/ambition_body_seed",
     "crates/ambition_match",

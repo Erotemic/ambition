@@ -65,8 +65,8 @@ where
     // walks the entities a booted room HAS; a turret exists only after somebody
     // fires, so its absence from the registry read exactly like a pass. See the
     // scenario sweep this landed with.
-    registrar.require_rollback::<crate::abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
-    registrar.rollback_component_clone_probed::<crate::abilities::ranged::sentry::Sentry>(
+    registrar.require_rollback::<ambition_abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
+    registrar.rollback_component_clone_probed::<ambition_abilities::ranged::sentry::Sentry>(
         OWNER,
         "ability.sentry",
         |sentry| {
@@ -76,11 +76,11 @@ where
                 ^ (sentry.fire_cooldown.to_bits() as u64)
         },
     );
-    registrar.require_rollback::<crate::abilities::ranged::vortex::VortexWell>(
+    registrar.require_rollback::<ambition_abilities::ranged::vortex::VortexWell>(
         OWNER,
         "entity:vortex_well",
     );
-    registrar.rollback_component_clone_probed::<crate::abilities::ranged::vortex::VortexWell>(
+    registrar.rollback_component_clone_probed::<ambition_abilities::ranged::vortex::VortexWell>(
         OWNER,
         "ability.vortex_well",
         |well| {
@@ -597,7 +597,7 @@ where
     // outcome — where a recall puts a body, which tick a bomb goes off — and a
     // presence probe satisfies the coverage oracle while seeing none of it.
     registrar
-        .rollback_component_clone_probed::<crate::abilities::traversal::mark_recall::PlayerMark>(
+        .rollback_component_clone_probed::<ambition_abilities::traversal::mark_recall::PlayerMark>(
             OWNER,
             "ability.player_mark",
             // WHERE the mark is, not merely that one exists. Recall teleports to this
@@ -610,14 +610,14 @@ where
                 None => 0,
             },
         );
-    registrar.rollback_component_clone_probed::<crate::abilities::ranged::bomb::BombFuse>(
+    registrar.rollback_component_clone_probed::<ambition_abilities::ranged::bomb::BombFuse>(
         OWNER,
         "ability.bomb_fuse",
         // The countdown, because WHICH TICK it reaches zero is the explosion.
         |fuse| fuse.timer.to_bits() as u64,
     );
     registrar
-        .rollback_component_clone_probed::<crate::abilities::thrown::gravity_grenade::GravityGrenadeFuse>(
+        .rollback_component_clone_probed::<ambition_abilities::thrown::gravity_grenade::GravityGrenadeFuse>(
             OWNER,
             "ability.gravity_grenade_fuse",
             // Same shape as the bomb: the tick this reaches zero is the tick a

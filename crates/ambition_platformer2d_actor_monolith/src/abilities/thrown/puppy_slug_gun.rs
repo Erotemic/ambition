@@ -154,7 +154,7 @@ pub fn fire_puppy_slug_gun_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abilities::test_support::spawn_primary_player_holding;
+    use ambition_abilities::test_support::spawn_primary_player_holding;
     use ambition_combat::ActorFaction as Faction;
 
     pub(super) fn test_app() -> App {
@@ -237,7 +237,7 @@ mod tests {
     /// Same singular-`ControlledSubject` defect as the volley.
     #[test]
     fn two_driven_bodies_each_summon_their_own_slug() {
-        use crate::abilities::test_support::spawn_seated_body_holding;
+        use ambition_abilities::test_support::spawn_seated_body_holding;
         let mut app = test_app();
         app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         let a = spawn_seated_body_holding(
@@ -286,7 +286,7 @@ mod tests {
     /// summoned this tick.
     #[test]
     fn the_summon_cap_counts_this_ticks_summons_too() {
-        use crate::abilities::test_support::spawn_seated_body_holding;
+        use ambition_abilities::test_support::spawn_seated_body_holding;
         let mut app = test_app();
         app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         // One more seat than the cap allows, all firing on the same tick.
@@ -322,7 +322,7 @@ mod tests {
 #[cfg(test)]
 mod identity_tests {
     use super::*;
-    use crate::abilities::test_support::spawn_primary_player_holding;
+    use ambition_abilities::test_support::spawn_primary_player_holding;
 
     /// ⭐⭐ EACH SUMMON GETS ITS OWN IDENTITY, AND IT COMES FROM ROLLBACK STATE.
     ///

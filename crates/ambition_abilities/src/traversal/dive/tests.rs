@@ -1,5 +1,5 @@
 use super::*;
-use crate::abilities::test_support::spawn_primary_player_holding;
+use crate::test_support::spawn_primary_player_holding;
 use ambition_platformer2d_core::{BodyKinematics, BodyMana};
 
 fn test_app() -> App {
@@ -196,7 +196,7 @@ fn dive_corridor_is_a_thin_rectangle_spanning_the_dash() {
 /// defect as the blink; see its twin of this test.
 #[test]
 fn two_driven_bodies_each_dive_from_their_own_position() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(

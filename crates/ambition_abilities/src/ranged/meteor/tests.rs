@@ -1,5 +1,5 @@
 use super::*;
-use crate::abilities::test_support::spawn_primary_player_holding;
+use crate::test_support::spawn_primary_player_holding;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use ambition_projectiles::ProjectileSeqCounter;
 
@@ -146,10 +146,10 @@ fn meteor_aims_with_the_left_stick_facing_on_a_null_aim() {
 
 /// ⭐⭐ A SECOND DRIVEN BODY RAINS ITS OWN METEORS.
 /// Same singular-`ControlledSubject` defect as the volley — see
-/// `crate::abilities::ranged::volley`'s twin of this test for the why.
+/// `crate::ranged::volley`'s twin of this test for the why.
 #[test]
 fn two_driven_bodies_each_rain_their_own_meteors() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(

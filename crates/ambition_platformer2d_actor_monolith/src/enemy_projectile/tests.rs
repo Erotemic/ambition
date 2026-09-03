@@ -29,7 +29,7 @@ fn insert_projectile_authority(app: &mut App) {
 /// The faction-aware routing keystone: a Player-faction shot in the
 /// single live-projectile road damages the enemy it overlaps and expires on
 /// contact — the substrate for the
-/// wielded ranged boss attack (`crate::abilities::ranged::volley`). The enemy-faction path is
+/// wielded ranged boss attack (`ambition_abilities::ranged::volley`). The enemy-faction path is
 /// unchanged (covered by the existing boss-special consumer tests).
 #[test]
 fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {

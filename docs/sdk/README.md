@@ -49,6 +49,13 @@ ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer
 bevy = "0.19"
 
 # Toolchain: rustc/cargo 1.95.0 or newer. `edition = "2021"` is fine.
+# ⚠ MEASURED 2026-09-03: that floor is a PROMISE NOTHING HOLDS. No crate in the
+# workspace declares `rust-version` (0 of ~80 manifests) and there is no
+# `rust-toolchain.toml`, so cargo will not refuse an older compiler and no gate
+# notices when a new language feature raises the real floor. Development happens
+# on 1.98.0. ⇒ Treat 1.95.0 as the last version someone checked, not a supported
+# floor; if it matters to you, the fix is a `rust-version` in the facade's
+# manifest, which makes cargo enforce it for every consumer.
 #
 # ⚠ Budget ~1.5 GB of disk WITH the settings below (measured: check + build +
 # test, ~250 crates), and ~2 min to check / ~3 min to build cold. Without

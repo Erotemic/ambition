@@ -473,6 +473,39 @@ and RED EVERY TIME under the gate's feature union — the jab-string test, calle
 "flaky" for a day on the strength of the per-crate reading. A closed row that
 only ever ran the narrow arm is not closed.
 
+### ▢ KNOWN FLAKE: `dive_drill_reachability::dive_drill_lunges_through_the_targets`
+
+⚠ **A real flake, established the hard way — and the jab-string row above is why
+it took five arms instead of one.** First seen red in `./run_tests.sh --rust` at
+`5f18dbfa4` (2026-09-03), failing with `dive: x 951->951 (+0px), target HP [4] ->
+[4], resets=1`: the player never moved, dealt no damage, and died.
+
+```text
+alone, `-p ambition_app`                       10/10 pass
+under 24 busy threads on 12 cores               6/6  pass
+under the full `--workspace` FEATURE UNION      1/1  pass
+whole `app_it` binary, 549 tests concurrent   549/549 pass
+the gate's full 6,96x-test suite              1 FAIL, then PASS (415/6967, 2.78s)
+```
+
+⛔ **Do not close this on the four green arms.** That is precisely the jab-string
+mistake in mirror image: there, the narrow arm said "flaky" about something red
+every time under the union; here, four narrow arms said "flaky" while the only
+condition that had ever failed had been run ONCE. It took a second full-suite run
+to earn the word.
+
+ⓘ The supporting detail, and the only lead: the failing run's workspace job took
+**988.3 s**, the passing one **606.2 s** — the failure came on a markedly slower,
+more contended run. Load-sensitive, not code. ⇒ If it recurs, the question is
+what in that test depends on wall-clock progress rather than ticks; nothing in
+the assertion should.
+
+⇒ ⛔ NOT a regression, and three of us started by assuming it was. Only 7 `.rs`
+files had changed since the previous all-green gate; calculex cleared the only
+gameplay candidate BY MECHANISM (its changed line runs only when an encounter
+completes, and that level contains zero occurrences of `encounter`/`switch`/`wave`
+anywhere in its JSON). A commit-shaped question with no commit in it.
+
 ## Measurement rules
 
 A number is actionable only with enough context to know what it measured:

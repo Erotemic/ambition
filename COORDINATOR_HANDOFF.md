@@ -729,7 +729,14 @@ one.** Measured at that HEAD:
 | under 24 busy threads on 12 cores | **6/6 pass** |
 | under the full `--workspace` FEATURE UNION | **1/1 pass** |
 | whole `app_it` binary, 549 tests concurrent | **549/549 pass**, 0 failures |
-| the gate's full 6966-test suite | **FAIL** (as test 411) |
+| the gate's full 6966-test suite | **1 FAIL** (as test 411), then **PASS** on re-run (415/6967, 2.78 s) |
+
+✔ **Re-gated at `8a8b7363d`: all 6 jobs passed, zero failures** — including the workspace job
+that carried the red, so the flake is now confirmed in the arm that produced it rather than
+inferred from four arms that never did. Filed as a known flake in
+`engine/performance-and-iteration.md`, beside the jab-string row that warns against exactly the
+inference I was one run away from making. ⓘ The failing workspace job took **988.3 s**, the
+passing one **606.2 s**: load-sensitive, not code.
 
 ⇒ **18/18 in isolation.** Not a regression; a rare flake that so far appears only under the full
 concurrent suite. It is NOT in the known-flake list with the smash jab-string test; it should be.

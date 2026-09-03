@@ -1,11 +1,13 @@
 # HEAD orientation
 
-**Reviewed baseline:** `abe196d9d` (2026-09-02 21:00Z, the day-end gate of the
-asset/planning goal: five of six gate jobs green at `be4b9969c`, the sixth a
-stale `MODULES.md` regenerated at `2739a927c`). The asset and performance
-sections were re-verified at this baseline; the rollback and item paragraphs at
-`881310ec7` (2026-09-02); other sections were last reviewed at `4e5f59cf`
-(2026-08-30).
+**Reviewed baseline:** `aa106cbe7` (2026-09-03 ~00:30Z, the second night's
+gate: workspace 6933/6933, five of six jobs green, the sixth three Python tests
+red on a missing Pillow in the tool venv — fixed in setup at `75fab498f`). The
+asset and performance sections were re-verified at this baseline (Jon's
+ruling on the room tier cap, the reveal barrier's host confirmation, the
+attention budget); the rollback and item paragraphs at `881310ec7`
+(2026-09-02) plus the world-item phase repair (`d220accee`); other sections
+were last reviewed at `4e5f59cf` (2026-08-30).
 
 This file is a current orientation page. It intentionally does not preserve the
 chronology of how the repository reached this state. Use git history, dated

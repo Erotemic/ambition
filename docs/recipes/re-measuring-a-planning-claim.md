@@ -244,6 +244,39 @@ row's old number (14), which is far too lucky for an independent measurement of
 a repository that had moved for a week. A suspiciously clean agreement is the
 same warning as a suspiciously clean absence.
 
+### ⛔ ONE INSTRUMENT FROM TWO REFERENCE POINTS LOOKS EXACTLY LIKE TWO INSTRUMENTS
+
+The section below is about one word meaning two things. This is its neighbour
+and it is harder, because nothing in either figure hints that anything differs.
+
+`status.md` said the actor kernel went **112,733 → 101,042** lines that day.
+`queue.md` said **108,364 → 98,808** for the same crate on the same day. Two
+bare four-digit line counts, one subject, one date, on two pages a reader
+consults together — the only available conclusion is that one page drifted.
+
+⚠ **I concluded they were different instruments and published that**: a raw
+`src/` count against the compile ratchet's `largest_unit_lines`. Plausible,
+tidy, and wrong. ⇒ Running `scripts/compile_ratchet.py` settles it in one
+command: it reports `largest_unit_lines … 108,364 -> 98,509`, and a plain
+`wc -l` over the crate's `src/` gives **98,509 exactly**. Same ruler. The
+108,364 is the ratchet's **stored BASELINE**, not where the crate stood that
+morning — 112,733 is. The pair was never a disagreement about method, only a
+delta measured from two reference points.
+
+⛔ **A wrong explanation for a real confusion is worse than the confusion**,
+which is why the correction is visible on all three copies rather than silently
+swapped in: a plausible explanation settles the question and stops the next
+reader looking. Three copies, because the figure had spread —
+`status.md`, `queue.md`'s D33 post-mortem and `engine_rename_campaign.md` —
+and fixing one leaves the others.
+
+⇒ **The rule: a figure travels with its method AND its reference point.**
+Drift-from-a-baseline is not comparable with change-over-a-day no matter how
+alike the two numbers look, and "same subject, same date, same units" is not
+evidence that two numbers are commensurable. ⭐ And the cheap test is the one I
+skipped: when two figures disagree, RUN the instrument rather than reasoning
+about what it might be measuring. It took one command.
+
 ### ⚠ Two instruments can use one WORD for different things
 
 A near-miss on 2026-09-03, caught before it was written down. Two censuses both

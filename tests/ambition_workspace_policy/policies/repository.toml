@@ -14,7 +14,7 @@ kind = "workspace-member"
 owners = ["ambition_app"]
 watch_paths = ["Cargo.toml"]
 rationale = "The tier anchors (foundation engine_core, headless runtime, content, app) and the policy package itself must stay registered workspace members, or `cargo test --workspace` silently stops covering them."
-source_doc = "docs/planning/engine/decomposition.md"
+source_doc = "docs/architecture/package-and-capability-boundaries.md"
 severity = "error"
 members = [
     "ambition_platformer2d_core",

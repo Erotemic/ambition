@@ -122,10 +122,22 @@ writing its status file.
 ⛔⛔⛔ **AND NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT `incremental`, NOT
 `deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL.**
 A target directory that has grown enormous is a SYMPTOM and the cause is almost
-always this bindmount being absent. Run `--status` and fix the mount; the space
-comes back on its own because the duplicate was never supposed to exist. If the
+always this bindmount being absent. Run `--status` and fix the mount. If the
 disk is genuinely short after that, SAY SO AND STOP — the reclaim is Jon's call,
 on Jon's machine, and `cargo clean` is his to run.
+
+⚠ **BINDING SHADOWS; IT DOES NOT RECLAIM — measured 2026-09-03, and this
+paragraph used to promise that "the space comes back on its own".** It does not,
+once you have already built unbound: the bind mounts the backing store OVER
+`<worktree>/target`, so the artifacts you built onto the shared volume are
+HIDDEN rather than removed and still occupy every byte. Binding an
+81 G unbound worktree moved the volume from 34 G free to 33 G.
+⇒ Bind BEFORE the first build and the duplicate is never created, which is what
+the rule is really for. ⇒ Discover it afterwards and the honest sequence is:
+bind anyway so it stops growing, then REPORT the orphaned size and stop. The
+shadowed copy can only be removed by unmounting and deleting, and that is
+`rm -rf` under a `target/` — Jon's call, not yours, and not less so because the
+bytes are your own.
 
 ⛔ **THIS IS WRITTEN FROM A REAL INCIDENT, 2026-08-27.** An agent skipped the
 status check, built all day through virtiofs, was asked to "mark sweep the target

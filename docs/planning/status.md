@@ -426,7 +426,14 @@ job header belonging to something else.
 ⛔ **AS OF 2026-09-03 LATE THIS VOLUME CANNOT RUN A RUST LANE AT ALL: 12 GB free
 of 290, with 135 GB in `debug/deps` alone.** The up-front 40 GB refusal fires,
 so `./run_tests.sh --rust` does not start; `--tool-tests` and `--maintenance`
-are exempt and still run. The volume is SHARED with other sessions' worktrees,
+are exempt and still run. ⚠ **But the exemption is now conditional, because one
+"pure Python" lane was not.** `--maintenance`'s intra-doc-link ratchet shells
+out to `cargo doc -p <crate> --no-deps` for every crate, three frames below an
+argv that reads `python3 scripts/check_doc_link_ratchet.py`. Jobs carry a
+`builds` flag and both guards key on that instead of on which lane asked, so an
+exempt lane loses its exemption exactly when its plan contains a building job —
+and a lane that only reads still runs on a full volume, which matters because
+those audits are the only checks that CAN run when the disk is gone. The volume is SHARED with other sessions' worktrees,
 so `du` your own target before reclaiming anything — deleting artifacts under
 somebody's active build is worse than an ungated lane.
 

@@ -159,6 +159,61 @@ def test_the_batch_stream_stays_in_sync_across_several_blobs(tree):
         )
 
 
+def test_a_field_that_disappeared_is_not_reported(tree, capsys):
+    """⛔ MEASURED ON THE FIRST REAL RUN, not reasoned about. `defined_names`
+    includes a FIELD rule, and it put `ambition_demo_pocket` in the baseline
+    index but not HEAD's -- reporting five rows as citing a vanished name while
+    the crate is alive at `game/ambition_demo_pocket`. A field is not the thing
+    a planning row cites, and fields are renamed constantly; every true positive
+    in that run came from `DEFINITION`, so the differential uses `item_names`.
+    """
+    module, repo, base = tree
+    (repo / "lib.rs").write_text(
+        # ⛔ ON ITS OWN LINE: `FIELD` anchors at `^\\s*`, so an inline
+        # `struct S { f: u32 }` is not indexed and the premise below would fail
+        # for the wrong reason.
+        "fn kept() {}\nstruct S {\n    a_vanishing_field: u32,\n}\n"
+    )
+    git(repo, "add", "lib.rs")
+    git(repo, "commit", "-qm", "add a field")
+    field_base = git(repo, "rev-parse", "HEAD").strip()
+    (repo / "lib.rs").write_text(
+        "fn kept() {}\nstruct S {\n    renamed: u32,\n}\n"
+    )
+    git(repo, "add", "lib.rs")
+    git(repo, "commit", "-qm", "rename the field")
+
+    assert "a_vanishing_field" in module.defined_names(
+        module.source_text_at(field_base)
+    ), "premise: the FIELD rule does index it, which is why it had to be excluded"
+
+    doc = repo / "row.md"
+    doc.write_text("A row mentioning `a_vanishing_field`.\n")
+    assert module.vanished_report([doc], field_base, set()) == 0
+
+
+def test_a_live_crate_is_not_reported_when_a_mod_line_for_it_goes_away(tree):
+    """⛔ ALSO MEASURED: a `mod ambition_platformer2d_actor_monolith` present at
+    the baseline and absent at HEAD made the differential report the MONOLITH as
+    vanished, while the crate is alive and named in Cargo.toml. The manifest is
+    the authority on whether a crate exists; a `mod` line is not.
+    """
+    module, repo, base = tree
+    (repo / "Cargo.toml").write_text('[package]\nname = "a_live_crate"\n')
+    (repo / "lib.rs").write_text("fn kept() {}\nmod a_live_crate;\n")
+    git(repo, "add", "Cargo.toml", "lib.rs")
+    git(repo, "commit", "-qm", "declare the crate and a mod line")
+    crate_base = git(repo, "rev-parse", "HEAD").strip()
+    (repo / "lib.rs").write_text("fn kept() {}\n")
+    git(repo, "add", "lib.rs")
+    git(repo, "commit", "-qm", "the mod line goes away; the crate does not")
+
+    assert "a_live_crate" in module.crate_names(), "premise: the manifest names it"
+    doc = repo / "row.md"
+    doc.write_text("A row citing `a_live_crate`.\n")
+    assert module.vanished_report([doc], crate_base, set()) == 0
+
+
 def test_a_doc_outside_the_repo_is_reported_by_absolute_path(tree):
     """A fixture or a poison lives outside the tree; raising on it would make
     the mode untestable from anywhere but the repo."""

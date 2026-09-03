@@ -186,6 +186,42 @@ def source_text_at(ref: str, suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
     return "\n".join(chunks)
 
 
+def item_names(text: str) -> set[str]:
+    """`defined_names` WITHOUT the field rule, for the vanished differential.
+
+    ⛔ `FIELD` IS TOO WEAK TO CARRY A REGRESSION CLAIM, measured on the first
+    real run: it put `ambition_demo_pocket` in the baseline index and not in
+    HEAD's, so the check reported five rows as citing a vanished name -- while
+    the crate is alive at `game/ambition_demo_pocket` and in the workspace
+    members. A field name is not the thing the doc row is citing, and fields are
+    renamed constantly; every TRUE positive in that run came from `DEFINITION`.
+    """
+    return set(DEFINITION.findall(text)) | set(BARE_ITEM.findall(text))
+
+
+CRATE_NAME = re.compile(r'^name\s*=\s*"([^"]+)"', re.M)
+
+
+def crate_names() -> set[str]:
+    """Every crate the workspace currently declares, from its manifests.
+
+    ⛔ A CRATE NAME IS NOT AN ITEM, and the index cannot tell the difference: a
+    `mod ambition_platformer2d_actor_monolith` at the baseline that is not there
+    now made the differential report the MONOLITH as vanished while the crate is
+    alive and named in `Cargo.toml`. The manifest is the authority on whether a
+    crate exists, so ask it rather than infer from a `mod` line.
+    """
+    names = set()
+    for rel in repo_files():
+        if rel.name != "Cargo.toml":
+            continue
+        try:
+            names.update(CRATE_NAME.findall((REPO / rel).read_text(errors="replace")))
+        except OSError:
+            continue
+    return names
+
+
 def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
     """Bare citations naming something that WAS defined at `since` and is not now.
 
@@ -193,8 +229,8 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
     every planning row citing it silently stale, and `SYMBOL` cannot see those
     rows because the rows spell the name bare.
     """
-    was = defined_names(source_text_at(since))
-    gone = was - defined
+    was = item_names(source_text_at(since))
+    gone = was - item_names(source_text()) - crate_names()
     print(f"indexed {len(was)} defined name(s) at {since}; "
           f"{len(gone)} of them no longer defined at HEAD", file=sys.stderr)
     findings = []

@@ -10,6 +10,37 @@
 > machinery is migration input rather than the final authority. Actor-local boss
 > behavior and fight-quality guidance remain valid.
 
+> **RE-MEASURED against `ff0e83be5` (2026-09-03), two months on. ⛔ THE "ONE
+> BOUNDED SLICE" OF RESIDUE IS TWO HALVES, AND ONE OF THEM WAS DECIDED AGAINST
+> TWO DAYS AFTER THIS PAGE LISTED IT.**
+>
+> | residue | state at HEAD |
+> |---|---|
+> | `BossAnim`→`CharacterAnim` | ⛔ **not pending — rejected on purpose** |
+> | `target_pos` retirement | ▢ still open (`brain/boss_pattern/mod.rs:974`) |
+>
+> `BossAnim` is alive at `ambition_sprite_sheet/src/boss.rs:28` (7 referencing
+> files), and its own doc comment records the decision not to fold it:
+> *"E6(b) policy: keep this boss-domain vocabulary for authored boss sheets
+> instead of forcing non-GNU-ton rows through `CharacterAnim`. Boss rows name
+> attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`, `dash_echo`)
+> that are also keys into hurtbox/hitbox metadata; mapping them to character
+> locomotion/melee rows would be an adapter, not canonicalization."*
+>
+> ⭐ **AND THE DATES SETTLE WHICH ONE IS CURRENT.** The fold was written into this
+> page on **2026-07-05** (`c8de27d5a`); the keep-policy was written into the code
+> on **2026-07-07** (`cdf21e0b1`). The decision is the LATER of the two, and this
+> page was never told.
+>
+> ⚠ **The decision exists in exactly one place in the repository, and it is a
+> code comment.** `BossAnim` appears in the live docs only here, in the line
+> calling it residue; `E6(b)` appears nowhere in `docs/` at all. So the only
+> record that this work was considered and declined is three lines above the
+> enum — which is a good place for it to be true and a bad place for it to be
+> the only copy. ⇒ Anyone picking up this "bounded slice" would have started the
+> fold, found the comment, and had to reconstruct a two-month-old decision from
+> it.
+
 Bosses are not a special simulation path — they are actors (see
 [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)) with **entity-local phase state** and an
 **optional encounter wrapper**. The whole system is engine machinery; specific

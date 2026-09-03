@@ -1,6 +1,18 @@
 # Decision principles — how to choose like Jon when operating autonomously
 
-*(Jon's own criteria, verbatim — relocated from `docs/vision/driving_decision_principles.md` <!-- cite-ok: the path is named because it is GONE --> into the planning stack, 2026-07-05. Read this before any architectural choice; [`vision.md`](vision.md) §8 is the digest.)*
+*(Jon's own criteria, verbatim — relocated from `docs/vision/driving_decision_principles.md` <!-- cite-ok: the path is named because it is GONE --> into the planning stack, 2026-07-05. Read this before any architectural choice.)*
+
+> ⛔ **THE POINTER THAT USED TO SIT HERE IS DEAD, AND IT POINTED AT A REAL
+> THING.** This line read *"[`vision.md`](vision.md) §8 is the digest"* until
+> 2026-09-03. It was true when written: at `docs/planning/vision.md` in July the
+> sections were numbered and **§8 was literally "Principles digest"**. That page
+> has since been rewritten with unnumbered sections, the digest section was
+> removed, and it was not relocated — a search of all of `docs/` finds the phrase
+> nowhere, and vision.md's §8 is now "Execution", three paragraphs about the
+> queue. ⇒ **So this page is the only home these criteria have**, and a reader
+> sent looking for a shorter version should stop looking. ⚠ A dead
+> cross-reference survives a link checker perfectly: `vision.md` still exists, so
+> nothing was ever going to report this.
 
 If you need to make an architecture decision while operating autonomously, use these criteria to make the choice Jon would most likely make.
 

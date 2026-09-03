@@ -404,7 +404,23 @@ cannot be trusted about one.
 `Select` arms are walked — a fight cannot hide an unpunishable heavy inside a
 table — and so are stance bodies.
 
-### Two of §3's five rules are NOT implemented, and the reason is in the code
+### ONE of §3's five rules is NOT implemented, and the reason is in the code
+
+> ⚠ **This heading said "Two" until 2026-09-03 and its own body already
+> disagreed** — Rule 5 is struck through and marked ✅ LANDED two bullets down.
+> The count was right when written and went stale the moment the thing it
+> counted landed, in the same edit that struck the bullet. ⇒ A heading that
+> tallies its own list has to be re-read whenever the list changes; this one was
+> not, so the section advertised twice the remaining work it had.
+>
+> ✔ **Re-measured against `8ebae927c` (2026-09-03) and otherwise accurate.**
+> Rule 4 is still unimplemented; `TelegraphSpec` exists
+> (`brain/boss_pattern/mod.rs:205`) with no event channel beside it, which is
+> exactly the "DATA + VALIDATOR half" BD3 claims. And the telegraph observation
+> below still holds: `telegraph:` is authored **zero** times anywhere under
+> `game/`, so no shipped boss authors one. ⓘ I did not reproduce the *"nine of
+> nine"* roster count itself — the number is not what the sentence turns on, and
+> the section does not record how it was taken.
 
 - **Rule 4, simultaneity budget.** A scripted timeline is sequential, so its
   body-mounted volumes never overlap. The threats that DO overlap are the

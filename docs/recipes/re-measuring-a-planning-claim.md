@@ -308,3 +308,51 @@ reviewer attention than it returns, and the false-positive rate before filtering
 ⇒ And when a sweep like this DOES hit, `git log -S"<name>" --all -- '*.rs'`
 answers "renamed or deleted?" in one command — which is the difference between
 repointing a citation and reopening a closed row.
+
+## Five shapes a stale planning page actually takes
+
+⭐ Measured, not theorised: these are every distinct way the five oldest pages in
+`docs/planning` had gone wrong when they were re-measured on 2026-09-03. Sorted
+by how invisible each is to the gate, because that predicts how long it survives.
+
+**1. The page contradicts ITSELF, newest text against oldest.** Re-measurement
+blocks accumulate at the TOP while the body keeps its original tense, so the
+freshest and stalest text end up on one screen. `dialogue-continuity.md`
+declared station-keeping *"⛔ the gap"* in "what exists to build this on" while a
+block below it said that gap was closed — and the top is what a reader meets
+first. ⇒ When you append a re-measure block, grep the body for what it refutes.
+
+**2. A heading that TALLIES its own list.** `boss-design.md` §9 was headed *"Two
+of §3's five rules are NOT implemented"* with Rule 5 struck through and marked
+landed two bullets below. The count was correct when written and died in the
+same edit that struck the bullet. ⇒ Any heading containing a number about the
+section under it is a maintenance liability; prefer a heading that names the
+subject and let the list carry the count.
+
+**3. A decision that lives ONLY in a code comment.** `boss-system.md` listed
+`BossAnim`→`CharacterAnim` as remaining residue; the fold had been decided
+against two days later, and the sole record is the enum's own doc
+(*"E6(b) policy: keep this boss-domain vocabulary…"*, `sprite_sheet/src/boss.rs:21`).
+`E6(b)` appears nowhere in `docs/`. ⇒ Before implementing a plan row, read the
+doc comment on the type it names. The code is the newer document more often than
+the plan is.
+
+**4. A dead cross-reference that no link checker can see.**
+`decision-principles.md` sent readers to *"`vision.md` §8"* for a digest. In July
+that section existed and was called "Principles digest"; vision.md was later
+rewritten unnumbered and the digest deleted. ⛔ The LINK still resolves — only
+the SECTION died — so `check_doc_links` reports green with it in place. ⇒ Prose
+section references (`§8`, "see the table below") are unguarded by construction.
+
+**5. A number whose instrument was never written down.** Covered in full above;
+two more instances the same day. *"depended on by 6 manifests"* was a `grep -rl`
+count including the crate's own manifest and the workspace root — 4 actually
+consume it. And `docs/planning/README.md`'s own paragraph teaching *"quote the
+line the gate PRINTS"* had itself retyped `45 crates linked, 18 …`; the contract
+now prints 49/22.
+
+⇒ **The through-line: four of the five are invisible to every gate in the
+repository**, and the fifth is only visible if someone re-runs the instrument.
+None of them is a broken link, a missing file, or a failing test. That is why
+re-measurement is a person's job here and why the yield stays high — a page can
+be green, well-written, internally cited, and two months wrong.

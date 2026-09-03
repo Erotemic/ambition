@@ -421,8 +421,16 @@ and `npc_puppy_slug_velvet` publish the SAME 128 px frame, and land at 48.0 and
 30.9: a 55% difference between two characters drawn at one size, where one side
 is a decision and the other is a default.
 
-⚠ **It is not obviously a bug** — a base breed may be meant to be larger — which
-is why this is a question and not a fix. What is odd is the SHAPE: the two
+⭐ **AND IT IS THE ONLY FAMILY IN THE CATALOG LIKE THIS.** Swept every
+base/variant pair (one row name a strict `_`-prefix of another) across all 149
+rows: `npc_puppy_slug` is the *sole* case where one side authors a height and
+the other does not. Every other family is all-authored or all-default. ⇒ That
+uniqueness is what makes it read as an omission rather than a convention — if
+leaving the base to `body_kind` were the house style, it would be visible
+somewhere else.
+
+⚠ **It is still not obviously a bug** — a base breed may be meant to be larger —
+which is why this is a question and not a fix. What is odd is the SHAPE: the two
 variants were deliberately sized and the thing they are variants OF was left to
 `body_kind`. ⇒ **What height should `npc_puppy_slug` be?** It is placed in
 `hall_of_characters`, `intro` and five levels of `sandbox`, so whatever it is

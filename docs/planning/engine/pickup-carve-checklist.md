@@ -276,9 +276,18 @@ find target/debug/deps target/debug/examples -maxdepth 1 -type f -mmin +240 -del
 find target/debug/incremental -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
 ```
 
-**That freed 104 GB in one pass — 26 GB → 130 GB** — with no full rebuild,
-because everything a current build still references has a recent mtime. ⚠ Run it
-BETWEEN gates, never during one. `cargo clean` remains the last resort: it works,
+**That freed 104 GB in one pass — 26 GB → 130 GB.**
+
+⚠ **CORRECTION, MEASURED THE SAME HOUR: "no full rebuild" was wrong, and the
+window is the whole story.** The prune keeps what a build touched INSIDE the
+window and drops everything else, so its cost depends entirely on how recently
+you built. The next `./run_tests.sh --rust` after this one rebuilt `bevy_ecs`,
+`bevy_reflect`, `egui` and the rest from scratch — because the last full build
+was older than four hours, `-mmin +240` swept the base along with the variants.
+⇒ **Tune the window to your cadence, not to a number copied from here**: a tree
+built ten minutes ago keeps its base at `+240`; a tree built yesterday does not,
+and there the prune costs about what `cargo clean` costs while freeing less.
+Run it BETWEEN gates, never during one. `cargo clean` remains the last resort: it works,
 and its price is one full rebuild of everything, which on a shared box is
 everyone's price and not just yours.
 

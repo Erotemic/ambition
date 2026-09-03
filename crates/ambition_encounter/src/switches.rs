@@ -2,6 +2,9 @@
 //! frame from `SwitchFeature + SwitchOn` components and answers
 //! `encounter_armed(id)` (semantics: off/red switch arms, green/on disables,
 //! unlinked = always armed, any one off switch arms a multi-switch fight).
+//! ⭐ COMPLETION IS THE SAME RULE READ BACKWARDS: `switch_ids_for_encounter`
+//! returns EVERY linked switch so the clear path greens all of them, because
+//! "any red arms" can only be satisfied by leaving none red.
 //! `SwitchActivationQueue` is the per-frame FIFO of activations the encounter
 //! tick drains to apply resets.
 
@@ -41,13 +44,32 @@ impl EncounterSwitchIndex {
         !found
     }
 
-    /// First switch id linked to an encounter, used by the auto-green clear
-    /// path. Multi-switch encounters can replace this with a richer policy.
-    pub fn switch_id_for_encounter(&self, encounter_id: &str) -> Option<String> {
+    /// EVERY switch id linked to an encounter, in link order — the auto-green
+    /// clear path greens all of them.
+    ///
+    /// ⛔ THIS RETURNED ONLY THE FIRST UNTIL 2026-09-03, AND THE PAIR WAS
+    /// INCOHERENT. [`Self::encounter_armed`] arms on ANY red link, so with two
+    /// switches on one encounter, completion greened the first, the second
+    /// stayed red, `encounter_armed` stayed true, and the driver's *"a terminal
+    /// encounter still armed is reset and started again"* re-armed the fight
+    /// under a player still standing in the trigger. Greening one switch could
+    /// never satisfy a rule that asks about all of them.
+    ///
+    /// ⇒ The two halves now share one policy, and it is the arming rule's:
+    /// **all green disarms, any red arms.** The alternative — a single
+    /// controlling switch — would have meant changing `encounter_armed` instead,
+    /// and that rule is the authored one, tested by
+    /// `any_off_switch_arms_a_multi_switch_encounter`.
+    ///
+    /// ⚠ No authored room links two switches to one encounter today, so this
+    /// was a latent defect in a supported API rather than a shipped bug. It is
+    /// fixed here because the arming side already promises the behaviour.
+    pub fn switch_ids_for_encounter(&self, encounter_id: &str) -> Vec<String> {
         self.links
             .iter()
-            .find(|link| link.target_encounter == encounter_id)
+            .filter(|link| link.target_encounter == encounter_id)
             .map(|link| link.switch_id.clone())
+            .collect()
     }
 }
 
@@ -188,10 +210,35 @@ mod switch_index_tests {
     }
 
     #[test]
-    fn switch_id_for_encounter_finds_the_first_match() {
+    fn switch_ids_for_encounter_returns_every_link_not_the_first() {
         let idx = index(vec![link("a", "enc", true), link("b", "enc", false)]);
-        assert_eq!(idx.switch_id_for_encounter("enc").as_deref(), Some("a"));
-        assert_eq!(idx.switch_id_for_encounter("missing"), None);
+        assert_eq!(idx.switch_ids_for_encounter("enc"), vec!["a", "b"]);
+        assert!(idx.switch_ids_for_encounter("missing").is_empty());
+    }
+
+    /// ⛔ THE TWO HALVES MUST AGREE, IN BOTH DIRECTIONS. Arming asks about every
+    /// link; the clear path must therefore green every link, or a completed
+    /// encounter stays armed and the driver restarts it under the player.
+    #[test]
+    fn greening_every_linked_switch_disarms_and_one_red_re_arms() {
+        let ids = index(vec![link("a", "enc", false), link("b", "enc", false)])
+            .switch_ids_for_encounter("enc");
+        assert_eq!(ids, vec!["a", "b"], "the clear path must see BOTH switches");
+
+        // Complete: the adapter greens every id the accessor returned.
+        let after_clear = index(ids.iter().map(|id| link(id, "enc", true)).collect());
+        assert!(
+            !after_clear.encounter_armed("enc"),
+            "greening every linked switch must DISARM — this is the bug: \
+             greening only the first left `enc` armed and the driver re-started it"
+        );
+
+        // And the arming rule still bites the moment one goes back to red.
+        let one_re_armed = index(vec![link("a", "enc", true), link("b", "enc", false)]);
+        assert!(
+            one_re_armed.encounter_armed("enc"),
+            "one red switch must re-arm, or a multi-switch fight could never be replayed"
+        );
     }
 }
 

@@ -392,6 +392,38 @@ you know ships. It costs one command and it is the only thing that separates
 amount of re-reading and die instantly to one control search — and a zero is
 exactly the result nobody re-reads, because it agrees with having finished.
 
+⛔ **AN EIGHTH, 2026-09-03 — and it is the one that beat the control above.**
+Re-measuring queue.md's "six dependency declarations are never named in their
+crate's source", I swept every manifest's `ambition_*` deps against the crate's
+own **`src/`**. It reported eleven. I ran the control this section demands and
+the control PASSED: the same instrument saw 2 files for `platformer2d ->
+encounter` and 8 for `sim_view -> combat`, so it was provably able to see a
+positive. I published the eleven. Four of them were wrong — `platformer2d_host
+-> characters` and `-> platformer2d_provider`, `content -> content_cli`,
+`app -> demo_pocket` are all used in their crate's **`tests/`**, which `src/`
+does not contain. A 67% false-positive rate on the plain edges, from an
+instrument that had just passed its own control.
+
+⇒ **A control proves your instrument can SEE; it does not prove it is AIMED at
+the whole subject.** Those are two different failures and only one of them dies
+to a positive control. The zero was not "I asked wrong" — the query was exactly
+right — it was "I asked correctly about two-thirds of the thing". When the claim
+is about a whole crate, the scan is the whole crate: `src/`, `tests/`, `benches/`,
+`examples/`, `build.rs`. Cargo already names the correct scope and I did not
+listen to it — `--all-targets` is that scope, spelled out, in a flag I use daily.
+⭐ Ask of any control: *if my instrument were pointed at only part of the
+subject, would this control still pass?* Here it would, and did. What caught the
+error was not a control but a REVIEWER's methodological caveat — a peer saying
+"removals are compiler-verified, never grep-only" — which is a slower and less
+reliable net than getting the scope right the first time.
+
+⇒ The residue is worth keeping too: those four are not bugs in the code, they are
+deps used only by tests while declared in `[dependencies]` rather than
+`[dev-dependencies]`. The mis-scan found a real, smaller thing while claiming a
+bigger one. **Do not let the smaller true finding launder the retraction of the
+larger false one** — report the retraction first and the residue second, in that
+order, or the correction reads as a discovery.
+
 ### The mirror: a frightening POSITIVE that the rule's own kind explains
 
 The section above is about believing a zero. This is the same error inverted, and
@@ -466,6 +498,54 @@ question worth asking of a document that claims something DOES. A systems page
 describing a current boundary must resolve; a planning page naming what to build
 must not.
 
+### ⭐ Before writing a grep, ask whether the COMPILER already answers it
+
+The queue row "N dependency declarations are never named in their crate's
+source" is a question about Rust, asked in text. I answered it in text: a sweep
+of every manifest's `ambition_*` deps against the crate's own files. It took
+three iterations to stop being wrong, and it was wrong in BOTH directions.
+
+- **False positives, 4 of 6.** The sweep read `src/` only, so four deps used in
+  the crate's `tests/` were reported stranded. See the eighth false-absence
+  entry above.
+- **A false negative, and it is the prettier failure.** Widened to the whole
+  crate, the sweep still missed `ambition_abilities -> ambition_items`, because
+  the string does occur in the crate — once, inside a `//!` doc comment, as the
+  intra-doc link ``[`ambition_items::Item::Grapple`]``. A DOCUMENTATION
+  CITATION made a dependency look live to a text search. No amount of widening
+  the file set fixes this one; the fix is to stop matching text.
+
+⇒ `rustc` has answered this question since 1.44: **`-W unused_crate_dependencies`**.
+One command, no manifest edit, no heuristic:
+
+    cargo rustc -p <crate> --lib -- -W unused_crate_dependencies
+
+It named all three in `ambition_abilities` in 58 seconds, including the one I
+could not have found by reading, and it cannot produce either error above
+because it is reading the same resolved crate graph the build reads. Prefer
+`cargo rustc` over a `RUSTFLAGS=` run: the flag then applies to that crate only,
+so the shared target cache is not invalidated and every dependency stays warm.
+
+⭐ This is the twin of *"check whether a test already drives it"* further down.
+Both say: the repository and its toolchain already contain instruments better
+than the one you are about to build, and the cost of not looking is not just the
+build time — it is that a hand-rolled instrument fails SILENTLY and in
+directions you did not enumerate. I published a wrong count from mine before the
+compiler corrected it.
+
+⚠ **What the lint does NOT settle.** `--lib` asks only whether the library
+target names the crate. Three residues need a human:
+  • a dep used only by `tests/` is not unused, it is MISFILED — it belongs in
+    `[dev-dependencies]`, and the lint on `--lib` will call it unused;
+  • an optional dep referenced from the manifest's own `[features]` table
+    (`causal = ["dep:ambition_causal"]`) is public feature surface, and removing
+    it changes what downstream crates can turn on;
+  • a dep reached only by an intra-doc link is load-bearing FOR THE DOCS —
+    delete the dependency and rustdoc's link breaks, so the removal is two edits,
+    not one.
+⇒ So the lint replaces the grep as the DETECTOR and does not replace the
+judgement about what each hit means.
+
 ### ⭐ Before building an instrument, check whether a test already drives it
 
 The most expensive re-measurement of 2026-09-03 was the one that needed no new
@@ -499,6 +579,60 @@ twelve times the pixels — because one composition seeds visual quality from th
 Cpu adapter and loads `sprites_potato` while the other loads the base tree.
 ⇒ Neither is wrong. A residency figure without the composition named beside it is
 not a measurement, it is a number.
+
+### ⛔ When you CORRECT a count, re-test the members you inherited
+
+The most expensive error of 2026-09-03 was not a stale number or a bad grep. It
+was a correction that corrected only the part I was looking at.
+
+The decomposition plan said eight kernel modules were "already islands". I
+re-measured, found six more, and published **14** — with a rule stated in the
+same paragraph: *no out-edges, and nothing pointing back except
+`rollback_registration` and `snapshot_impls`*. The real answer by that rule is
+**11**. `causal`, `body_mode` and `music` have zero out-edges but are read — by
+`features` (8 refs), `avatar` (1) and `audio` (4).
+
+⇒ **The arithmetic shows exactly where the rigour stopped.** Sixteen modules have
+zero out-edges. I applied the in-edge half of the rule to the SIX I was adding,
+and to the two I excluded by name — 16 − 2 = 14. I never applied it to the EIGHT
+I had inherited from the sentence above, because they arrived already labelled
+"islands" and my job felt like *extending* the list. The published number was
+neither the loose rule (16) nor the stated rule (11): it was **the stated rule
+applied only to the members I happened to be holding**.
+
+⭐ **A correction inherits the credibility of the thing it corrects.** "8 → 14,
+re-measured" reads as though all fourteen were measured, and the six new ones
+were. That is what makes this worse than an ordinary stale figure: a stale
+figure announces its age, while a half-re-measured list announces the opposite
+of its age. ⇒ **Re-run the rule over the WHOLE population, including the members
+you are keeping.** If a claim's rule is worth stating, it is worth applying to
+the names you did not touch — and if that is too expensive, say which members
+were re-tested and which were carried forward.
+
+⭐ **THE GENERAL FORM, found the same day by auditing the rest of my own
+figures: A TRUE COUNT LENDS ITS CREDIBILITY TO A MEMBERSHIP NOBODY CHECKED.**
+The decomposition plan priced an inversion at *"1 production file, 16
+references, 5 distinct recipes named"* and listed the five. The counts were
+exactly right and re-verified a day later — one file, sixteen references,
+`tests.rs` at 38. **Four of the five names do not occur in the file at all.**
+Same failure as the islands count, from the other side: there the rule was
+right and the members were not re-tested; here the count was right and the
+names were never taken from the file.
+
+⇒ The mechanism is that a reader spot-checks the CHECKABLE part. `wc -l` and a
+`grep -c` are one command, so a sceptical reader tests those, they pass, and the
+list of names rides along on the credibility they just earned. ⇒ **When a claim
+is a count PLUS a list, they are two claims and only one of them is cheap.**
+Re-take the names from the file — `grep -o 'features::[A-Za-z_:]*' … | sort -u`
+is as cheap as the count was, and it is the half nobody runs.
+
+⚠ Two cheap habits would each have caught it. **State the rule as a filter and
+run it**, rather than stating it in prose and hand-checking; the eleven fell out
+of a six-line script that no more trusted the old list than the new. And **run
+the control against your own tree**: I only found this because a peer made me
+date the number, so I measured `origin/main` (11) and then my own branch
+expecting 14 — the control returned 11 with an identical module list, which
+proved the gap was never drift. See [checks-that-did-not-run](checks-that-did-not-run.md).
 
 ### ⚠ A disagreeing re-measurement is only DRIFT if both sides measured the same thing
 

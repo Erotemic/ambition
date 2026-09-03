@@ -639,16 +639,16 @@ fn unrelated_switches_dont_arm_other_encounters() {
 }
 
 #[test]
-fn switch_id_for_encounter_finds_linked_switch() {
+fn switch_ids_for_encounter_finds_linked_switches() {
     let index = switch_index(&[
         ("other_switch", "other_room", false),
         ("goblin_encounter_reset_switch", "goblin_encounter", false),
     ]);
     assert_eq!(
-        index.switch_id_for_encounter("goblin_encounter"),
-        Some("goblin_encounter_reset_switch".into())
+        index.switch_ids_for_encounter("goblin_encounter"),
+        vec!["goblin_encounter_reset_switch".to_string()]
     );
-    assert_eq!(index.switch_id_for_encounter("nonexistent"), None);
+    assert!(index.switch_ids_for_encounter("nonexistent").is_empty());
 }
 
 // ── Chest spawn position ───────────────────────────────────────

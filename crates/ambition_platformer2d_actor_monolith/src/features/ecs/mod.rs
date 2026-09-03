@@ -159,7 +159,7 @@ pub use spawn::{
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, EncounterMobSeed, GiantHandPlan,
+    apply_spawn_actor_requests, apply_summon_effects, GiantHandPlan,
     SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{

@@ -352,7 +352,7 @@ pub fn drive_wave_encounters(
             &session_content.2,
             session_scope,
             active_area.clone(),
-            crate::features::EncounterMobSeed {
+            ambition_encounter::mob_seed::EncounterMobSeed {
                 id,
                 character: character.as_deref(),
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(kind),

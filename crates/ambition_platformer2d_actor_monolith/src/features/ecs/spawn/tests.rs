@@ -212,7 +212,7 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
                 &smash_fixture_cast(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
-                crate::features::EncounterMobSeed {
+                ambition_encounter::mob_seed::EncounterMobSeed {
                     id: "test_mob".to_string(),
                     character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -368,7 +368,7 @@ fn encounter_mob_spawns_with_brain_components() {
                 &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
-                crate::features::EncounterMobSeed {
+                ambition_encounter::mob_seed::EncounterMobSeed {
                     id: "test_mob".to_string(),
                     character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

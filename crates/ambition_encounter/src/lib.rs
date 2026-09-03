@@ -13,6 +13,7 @@ pub mod content_schema;
 pub mod entity;
 pub mod events;
 pub mod lifecycle;
+pub mod mob_seed;
 pub mod music;
 pub mod objective;
 pub mod participants;

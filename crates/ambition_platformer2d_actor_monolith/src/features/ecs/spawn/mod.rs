@@ -5,7 +5,7 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
-use super::spawn_actors::EncounterMobSeed;
+use ambition_encounter::mob_seed::EncounterMobSeed;
 use ambition_boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;

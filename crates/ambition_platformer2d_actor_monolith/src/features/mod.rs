@@ -141,7 +141,7 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
     update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
-    ChallengeRequested, EncounterMobSeed, EncounterRewardSyncPlugin, FactionRelations,
+    ChallengeRequested, EncounterRewardSyncPlugin, FactionRelations,
     FeatureWorldOverlaySet, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,

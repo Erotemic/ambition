@@ -466,6 +466,34 @@ form:
 Keep this semantic ownership. Do not replace it with a disconnected global
 cache merely to centralize bookkeeping.
 
+## ⛔ RETRACTED 2026-09-03: the placeholders are a MISSING SPAWN MARKER, and the tier only changed how long it showed
+
+> ⛔⛔ **THE HEADING BELOW SAID "a TIER-SCALED RAMP, NOT A BUG IN CLAIMING", AND
+> BOTH HALVES ARE WRONG.** It IS a bug in claiming: nothing spawns a room NPC's
+> `FeatureVisual` at all, so every interactable NPC in every room waits out
+> `UNCLAIMED_STAND_IN_GRACE_FRAMES` and is then drawn by the stand-in the
+> detector spawns. See *"nothing spawns a room NPC's visual"* below for the
+> trace, and `d0d05d963` for the measurement that killed the texture-readiness
+> explanation.
+>
+> ⇒ **The tier was never the cause.** It changes the RATION, so it changes how
+> many frames the cast spends unclaimed and therefore whether the 5-frame grace
+> is crossed — Potato realizes 16 characters a frame and clears the grace, Full
+> realizes one and does not. That is why 0-at-Potato/129-at-Ultra looked like
+> the whole story: the tier is a magnifier on a defect that is present at every
+> tier.
+>
+> ⚠ **Ruled a DEFECT, not a design call** (ambition-df, 2026-09-03): *"a room NPC
+> drawing the unclaimed placeholder for five frames in every room is the 'some
+> spawn path is missing its family marker' the warning names, and the fix is the
+> marker."* ⇒ The guard ships AFTER the fix, asserting the property the fix
+> establishes — an interactable NPC's view is claimed on the frame its body
+> exists, never by the stand-in — poisoned by dropping the marker. ⛔ Not as a
+> pin of today's behaviour.
+>
+> The measurement below is kept because it is correct as a measurement; only its
+> conclusion is retracted.
+
 ## ⭐ MEASURED 2026-09-03: the unclaimed-body placeholders are a TIER-SCALED RAMP, not a bug in claiming
 
 Two headless `capture_scene hall_of_characters player 640x360 --warmup 400` runs

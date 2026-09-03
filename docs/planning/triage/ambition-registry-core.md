@@ -148,11 +148,27 @@ overwrite silently, and 2 return a `bool`/`Option` the caller may discard —
 `ShellExperienceRegistry::register -> Option<ExperienceRegistration>`. A caller
 moving between two registries cannot carry an expectation with it.
 
-⭐ **3. Function addresses do NOT participate in equality anywhere.** The two
-registries that store real functions — `PlacementLoweringRegistry`
-(`LoweringFn<C>`) and `ConstructionRegistry` — derive `Clone` and `Resource`, not
-`PartialEq`. ⛔ `ConstructionRegistry`'s `fn() -> D` is a `PhantomData` marker,
-not a stored address; an early pass of this inventory flagged it as one.
+⛔⛔ **3. CORRECTED `1ec8cfb03` (2026-09-03): FUNCTION ADDRESSES DO PARTICIPATE, IN
+EXACTLY ONE REGISTRY.** This row previously read "nowhere", and that was wrong.
+`PlacementLoweringRegistry::try_register`
+(`crates/ambition_platformer2d_world/src/placements.rs:271`) compares
+`std::ptr::fn_addr_eq(existing.lower, f)` inside its identical-or-conflict test,
+so re-registering one kind with the same owner/source/schema but a DIFFERENT
+function is a conflict rather than an idempotent no-op.
+
+⚠ **How the error was made, because the method is the lesson:** I checked whether
+entry types DERIVE `PartialEq` and concluded no. The comparison is hand-written
+inside the register function, where a derive scan cannot see it — I asked "is
+equality derived" when the question was "is equality computed". A sweep for
+`fn_addr_eq|ptr::eq` finds it in one command; the workspace's only other hits are
+`ledge_grab` block identity. `ConstructionRegistry` stays correctly classified:
+its `fn() -> D` is a `PhantomData` marker, not a stored address.
+
+⛔ **AND IT CONSTRAINS THE R4 MIGRATION.** `ambition_registry_core::classify`
+requires `E: PartialEq`. An entry holding `LoweringFn<C>` cannot simply derive
+it — migrating this registry means writing that `PartialEq` by hand and saying
+so, or the classification silently stops distinguishing two different lowering
+functions under one key.
 
 ⭐ **4. And ONE registry already answers all four questions on purpose.**
 `ConstructionRegistry` keys on `RecipeId` in a `BTreeMap` (deterministic order),

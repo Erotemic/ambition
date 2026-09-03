@@ -392,6 +392,38 @@ you know ships. It costs one command and it is the only thing that separates
 amount of re-reading and die instantly to one control search — and a zero is
 exactly the result nobody re-reads, because it agrees with having finished.
 
+⛔ **AN EIGHTH, 2026-09-03 — and it is the one that beat the control above.**
+Re-measuring queue.md's "six dependency declarations are never named in their
+crate's source", I swept every manifest's `ambition_*` deps against the crate's
+own **`src/`**. It reported eleven. I ran the control this section demands and
+the control PASSED: the same instrument saw 2 files for `platformer2d ->
+encounter` and 8 for `sim_view -> combat`, so it was provably able to see a
+positive. I published the eleven. Four of them were wrong — `platformer2d_host
+-> characters` and `-> platformer2d_provider`, `content -> content_cli`,
+`app -> demo_pocket` are all used in their crate's **`tests/`**, which `src/`
+does not contain. A 67% false-positive rate on the plain edges, from an
+instrument that had just passed its own control.
+
+⇒ **A control proves your instrument can SEE; it does not prove it is AIMED at
+the whole subject.** Those are two different failures and only one of them dies
+to a positive control. The zero was not "I asked wrong" — the query was exactly
+right — it was "I asked correctly about two-thirds of the thing". When the claim
+is about a whole crate, the scan is the whole crate: `src/`, `tests/`, `benches/`,
+`examples/`, `build.rs`. Cargo already names the correct scope and I did not
+listen to it — `--all-targets` is that scope, spelled out, in a flag I use daily.
+⭐ Ask of any control: *if my instrument were pointed at only part of the
+subject, would this control still pass?* Here it would, and did. What caught the
+error was not a control but a REVIEWER's methodological caveat — a peer saying
+"removals are compiler-verified, never grep-only" — which is a slower and less
+reliable net than getting the scope right the first time.
+
+⇒ The residue is worth keeping too: those four are not bugs in the code, they are
+deps used only by tests while declared in `[dependencies]` rather than
+`[dev-dependencies]`. The mis-scan found a real, smaller thing while claiming a
+bigger one. **Do not let the smaller true finding launder the retraction of the
+larger false one** — report the retraction first and the residue second, in that
+order, or the correction reads as a discovery.
+
 ### The mirror: a frightening POSITIVE that the rule's own kind explains
 
 The section above is about believing a zero. This is the same error inverted, and

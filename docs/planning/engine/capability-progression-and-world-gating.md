@@ -31,6 +31,74 @@
 > that first slice would have to decide, and it can now be decided against real
 > types rather than proposed ones.
 
+> **RE-MEASURED AGAIN against `e685f7982` (2026-09-03), and the block above
+> overstates the gap.** ⭐ **A ROUTE-GATING MECHANISM EXISTS, IS AUTHORED, AND
+> ALREADY SERVES TWO OF THE SEVEN FAMILIES END TO END.** Seal walls are derived
+> onto the collision overlay's `gate_solids` in `WorldPrep` and read by three
+> consumer domains — body collision
+> (`platformer2d_world/src/collision.rs`), projectiles
+> (`ambition_projectiles/src/collision_world.rs:56`) and rendering. Two systems
+> write it, registered together in `WorldGatingSchedulePlugin`
+> (`platformer2d_runtime/src/world_gating.rs`):
+>
+> | writer | gate family it serves |
+> |---|---|
+> | `contribute_encounter_lock_walls` | story gate — encounter phase |
+> | `sync_authored_gated_lock_walls` | story gate — an authored `gated_by` condition |
+>
+> ⇒ So "nothing gates a route" was wrong as stated. What is true is narrower and
+> more useful: **nothing gates a route on a BODY fact.** The gap is not a missing
+> mechanism, it is a missing input to one that already works.
+>
+> ⛔ **AND THE INPUT IS BLOCKED BY ONE HARDCODED ARGUMENT, WHICH IS THE REAL
+> FIRST SLICE.** The authored road resolves its question through the shared
+> `ConditionCatalog`, which is extensible and already carries three published
+> production conditions:
+>
+> | published condition | publisher | family |
+> |---|---|---|
+> | `flag_set` | `actor_monolith/src/world_facts.rs:139` | story gate |
+> | `is_held` | `ambition_held_items/src/lib.rs:60` | item/equipment |
+> | `holds` | `actor_monolith/src/items/conditions.rs:92` | item/equipment |
+>
+> But a gated wall cannot ask for two of them. `prepare_question`
+> (`world/gated_lock_walls.rs:295`) calls
+> `catalog.prepare(flag_set.clone(), &[wall.gated_by.as_str()])` — the condition
+> **id is fixed to `flag_set`**, and the authored `gated_by` string is only its
+> ARGUMENT. The module says so deliberately: *"the current authored field
+> intentionally names only a flag even though the condition mechanism is
+> extensible."*
+>
+> ⇒ **Hence the item/equipment family is published but unreachable from a
+> route**, and a body-capability condition would be too, however well it was
+> written. Publishing an `AbilitySet`-reading condition is the easy half and
+> lands dead unless the authored field can name it.
+>
+> ⇒ **The first slice is therefore a data-shape decision, not an architecture
+> one:** let an authored wall name a condition id plus arguments instead of a
+> bare flag name. That decision is small, has a precedent for every piece it
+> needs, and — usefully for this page — it can be taken WITHOUT first answering
+> any of the open design questions below, because it changes what an author may
+> ask, not who owns a capability.
+>
+> ⭐ **AND THE MIGRATION IS TWO ROWS.** `gated_by` is an LDtk entity field
+> (`platformer2d_ldtk/src/conversion/entity_converters.rs:64` →
+> `platformer2d_world/src/rooms/specs.rs:202`), and across all five authored
+> worlds it is set exactly **twice**, both in `intro.ldtk`, both to the same
+> value — `"bob_field_survey_received"`, a story flag. So widening the field
+> costs either a two-row edit or a "bare string still means `flag_set`"
+> fallback, and either is small. ⚠ I did not check what the LDtk *editor* needs
+> to define a second field, which is the remaining unknown.
+>
+> ⓘ **A body-capability predicate is already written, for actions rather than
+> routes.** `ActionSet::gated_by(AbilitySet)`
+> (`ambition_characters/src/brain/action_set/mod.rs:115`) narrows a brain's
+> action set on `abilities.attack` and `abilities.shield`. Whoever publishes the
+> route-facing condition should read it first — not to share code, since it
+> answers a different question, but because it is this workspace's existing
+> answer to "how does a body capability narrow what is possible", and the two
+> should not disagree about what `AbilitySet` means.
+
 ## Goal
 
 Make exploration and progression primarily emerge from **what the controlled

@@ -536,6 +536,15 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `--maintenance` (minus its `cargo doc` job) and every pure-Python checker, and
   cannot run a Rust lane. Route Rust gating to a box with headroom.
 
+- ✔ **CLOSED 2026-09-03 by `scripts/lib/canonical_assets.py`** — the first of
+  the two candidate shapes below, and taken by another session rather than by
+  the one that filed it, which is the point of filing a decision instead of
+  guessing at it. The condition is DETECTED rather than remembered: a checkout
+  whose sprite tree holds real files generated them and is canonical; one
+  holding symlinks is borrowing another checkout's and its assets are not its
+  own to ratchet; an absent tree has nothing to check. ⇒ The gate stays, which
+  the row insisted on, and stops depending on anyone exporting a variable.
+  Original row kept below for its reasoning.
 - ▢ **TEN ASSET RATCHETS ARE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS,
   AND TWO PLANNING PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
   `scripts/tests/test_shipped_sheet_pages_are_claimed.py` (5 assertions) and
@@ -906,7 +915,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ **The one that remains names its own cause** and is not a filter artifact:
   *"this composition wrote a `VfxMessage::CoinPop` and drew nothing:
   `fx::vfx_spawn_messages` is not scheduled here, which is the whole of the
-  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:410`). A
+  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:364`). A
   missing system registration in this composition, stated by the test itself.
   ⇒ So the mary_o red is **four**, not six: that one plus the three
   `painted_blocks`.

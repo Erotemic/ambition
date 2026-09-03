@@ -539,7 +539,16 @@ still saw **4** — its variants are stale, the second machine's are fresh.
 ⇒ **Both measurements were correct and the disagreement was the regeneration
 history**, exactly as the rule predicts. ⇒ Note what would have happened
 otherwise: "fixed, does not reproduce" would have closed a live defect on the
-strength of a build directory. ⇒ **So before
+strength of a build directory.
+
+⭐ **AND THE DISAMBIGUATING INSTRUMENT ALREADY EXISTED — run it FIRST next time.**
+`scripts/check_quality_variants_are_fresh.py` answers "is this tree's generated
+output current?" in one command, and it answered differently on the two machines
+the same hour: *"quality tiers are current"*, exit 0, on the box that saw no
+defect; **82** stale variants on the box that saw four. ⇒ So the general move,
+whenever a re-measurement of generated content disagrees, is not to reason about
+regeneration histories — it is to ask each tree whether its build output is
+fresh, before comparing anything downstream of it. ⇒ **So before
 correcting a number, ask whether the thing it counts is repository content or
 build output.** Repository content that disagrees is drift. Build output that
 disagrees is two machines, and rewriting one machine's figure with another's

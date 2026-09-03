@@ -1289,12 +1289,28 @@ Prepared character/content ownership should continue moving toward character
 and provider packages. The residual actor kernel consumes prepared body/action
 facts rather than becoming the content compiler/catalog.
 
-**Measured 2026-09-03, from the seam rather than the line count.** `character_runtime/`
-is 13,888 lines with tests (production: `mod.rs` 1,235, `prepared_match.rs` 1,611,
-`staging.rs` 833, `audit.rs` 618, `presentation.rs` 598, `live_match_clock.rs` 474,
-`physical_baseline.rs` 295, `hurtbox.rs` 277, `seating.rs` 267, `definition.rs` 82).
-Six of those files name NOTHING in the kernel (`definition`, `staging`, `seating`,
-`physical_baseline`, `hurtbox`, `audit`); they are carve-clean today. The kernel
+**Measured 2026-09-03 EARLY, from the seam rather than the line count — and
+FIVE of these ten files have left the kernel since, in the same day's carves.**
+`character_runtime/` was 13,888 lines with tests (production: `mod.rs` 1,235,
+`prepared_match.rs` 1,611, `staging.rs` 833, `audit.rs` 618, `presentation.rs` 598,
+`live_match_clock.rs` 474, `physical_baseline.rs` 295, `hurtbox.rs` 277,
+`seating.rs` 267, `definition.rs` 82). Six of those files named NOTHING in the
+kernel (`definition`, `staging`, `seating`, `physical_baseline`, `hurtbox`,
+`audit`) and were called carve-clean.
+
+⭐ **THAT PREDICTION HELD: four of the six named have since been carved**, which is
+why this paragraph is kept as EVIDENCE and marked rather than rewritten —
+`physical_baseline.rs` → `ambition_body_seed/src/physical_baseline.rs` (`7ba40886e`),
+`staging.rs` + `seating.rs` + `prepared_match.rs` → `ambition_match/src/`
+(`staging.rs`, `seating.rs`, `prepared.rs`; `7e625e5a5`), and `hurtbox.rs` →
+`ambition_combat/src/hurtbox_resolution.rs` (`c2f080270`). Only `definition.rs` and
+`audit.rs` of the clean six are still here.
+
+**Re-measured after `c2f080270`:** `character_runtime/` is **10,881** lines with
+tests (production: `mod.rs` 1,132, `match_activation.rs` 658, `audit.rs` 619,
+`presentation.rs` 600, `live_match_clock.rs` 474, `definition.rs` 82) — six
+production files where there were ten, and `match_activation.rs` is new, the
+wrapper the match cut left behind. The kernel
 references that remain are in four files, and they are not one kind of thing:
 
 | File | Kernel names | What it is |
@@ -1341,9 +1357,11 @@ is recorded, not banked. ⚠ Owed: the 3,387-line match test module stayed in th
 kernel (it is mostly activation tests and runs against the moved code through the
 kernel's dependency); its pure preparation half belongs in `ambition_match`.
 
-**What is left in `character_runtime/` after 2b** (measured): `mod.rs` (demand
-materialization — the asset seam), `definition.rs`, `audit.rs`, `hurtbox.rs`,
-`presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and the tests.
+**What is left in `character_runtime/` after 2b and `c2f080270`** (re-measured
+2026-09-03): `mod.rs` (demand materialization — the asset seam), `definition.rs`,
+`audit.rs`, `presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and
+the tests. ⚠ `hurtbox.rs` was on this list until the combat carve took it; it is
+`ambition_combat/src/hurtbox_resolution.rs` now.
 
 **Next cut, in order:**
 

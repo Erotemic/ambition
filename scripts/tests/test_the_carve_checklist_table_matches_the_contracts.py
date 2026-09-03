@@ -72,6 +72,39 @@ def table() -> list[tuple[str, str]]:
     return rows
 
 
+def test_the_checklist_items_are_numbered_in_order():
+    """⛔ THE LIST IS ADVICE READ TOP TO BOTTOM, so its numbering is not cosmetic.
+    It ran 1-9, 9b, 11, 10 on 2026-09-03 because item 11 was inserted with an
+    anchor chosen for uniqueness rather than for position, and nobody read the
+    result back. Third ordering-or-count defect introduced into a document about
+    counts and orderings in one week.
+
+    ⚠ `9b` is deliberate and must keep working: it is a sub-step of 9 (the app's
+    rollback oracles, contributed by ambition-df), not a tenth item.
+    """
+    text = QUEUE.read_text()
+    start = text.index("WHAT EVERY CARVE OWES AFTER IT LANDS")
+    # ⛔ BOUND IT AT THE END OF THE CHECKLIST, not at the next top-level bullet.
+    # The D33 row runs ~44,000 characters and contains a SECOND numbered list
+    # further down, so slicing to "\n- " swallowed it and parsed
+    # 1..11 followed by 1..6 -- the test then failed on a correct file, which is
+    # how I found out.
+    end_marker = "\n  ⛔⛔ RE-MEASURED 2026-08-31"
+    end = text.find(end_marker, start)
+    assert end != -1, (
+        "the checklist's end marker is gone; this test would silently parse "
+        "whatever numbered list came next"
+    )
+    body = text[start:end]
+    items = re.findall(r"^  (\d+)([a-z]?)\. ", body, re.M)
+    assert len(items) >= 10, f"only {len(items)} checklist items parsed"
+    order = [(int(n), suffix) for n, suffix in items]
+    assert order == sorted(order), (
+        "the checklist is out of order: "
+        + ", ".join(f"{n}{s}" for n, s in order)
+    )
+
+
 def test_the_table_was_found_and_has_rows(table):
     """⛔ THE PREMISE. A parser that silently matched nothing would make every
     assertion below vacuous -- the failure this whole file is about."""

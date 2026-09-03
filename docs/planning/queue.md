@@ -720,7 +720,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⇒ **The one that remains names its own cause** and is not a filter artifact:
   *"this composition wrote a `VfxMessage::CoinPop` and drew nothing:
   `fx::vfx_spawn_messages` is not scheduled here, which is the whole of the
-  coin-pop report and not a Mary-O bug"* (`ov1_draws_the_world.rs:410`). A
+  coin-pop report and not a Mary-O bug"* (`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs:410`). A
   missing system registration in this composition, stated by the test itself.
   ⇒ So the mary_o red is **four**, not six: that one plus the three
   `painted_blocks`.

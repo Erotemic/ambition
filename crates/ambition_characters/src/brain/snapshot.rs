@@ -160,7 +160,7 @@ pub struct BrainSnapshot {
     /// The pair is what the movement kernel needs to be driven at all, and a
     /// brain that wants to know *"could I still get back from there"* asks the
     /// kernel rather than answering it — see
-    /// [`crate::brain::fighter::recovery::RecoveryLens`]. A body with an unspent
+    /// `ambition_combat::brain::fighter::recovery::RecoveryLens`. A body with an unspent
     /// air jump, a wall it can cling to or a ledge it can catch gets a different
     /// answer from the same position, and no list in the brain has to be kept in
     /// step for that to be true.

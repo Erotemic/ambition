@@ -175,6 +175,16 @@ changing when the quality setting does."* The fix is one incremental command,
 `./scripts/regen/quality_variants.sh` — **not run here**, because regenerating
 ~166 binary art files is Jon's call, not a side effect of a performance run.
 
+⊙ **RE-MEASURED 2026-09-03: 82 stale files, and the worst is now 9.8 days
+behind.** Roughly half were regenerated in the interval and the remainder aged,
+so FEWER FILES AND A LONGER LAG is the honest reading, not progress on the
+figure that matters. Still Jon's call and still not run here.
+⭐ The "three characters with no variant at all" half is UNCHANGED and was
+re-derived rather than assumed: the checker prints FIVE rows, which is three
+characters — `performer` missing all three reduced tiers, `actor` and `medic`
+missing Potato. Counting rows would have reported a rise from three to five that
+never happened.
+
 ⚠ This is a DEMAND measurement — megapixels asked for — not a hitch measurement.
 The frame cost of materializing them is a GPU-upload question and this machine
 rasterises in software; that half still needs real hardware.

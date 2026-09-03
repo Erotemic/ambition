@@ -12,6 +12,9 @@
 //! preparation versus actor simulation, 2026-09-03).
 
 pub mod prepared;
+
+#[cfg(test)]
+mod prepared_policy_tests;
 pub mod seating;
 mod snapshot_impls;
 pub mod staging;

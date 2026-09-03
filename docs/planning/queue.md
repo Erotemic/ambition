@@ -1070,6 +1070,14 @@ OPTIONAL dep + feature, never used:
      about. ⛔ There is no assertion for this on purpose: the audit is
      `list_what_every_waiver_actually_covers`, an `#[ignore]`d listing meant to
      be READ against each waiver's rationale. Run it after a crate move.
+     ⛔ **AND DO NOT TRY TO CHECK IT STATICALLY — I did, on 2026-09-03, and the
+     check is meaningless.** `waiver()` matches with `type_name.contains(needle)`,
+     a SUBSTRING, so 49 of the 149 entries deliberately begin `::`
+     (`"::intro::plugin::IntroPropSpritesInstalled"`) and name no crate at all —
+     that is what makes them survive a crate move, and it is the design, not
+     drift. Two more name upstream crates (`bevy_asset::`, `bevy_state::`).
+     "Does this prefix cover anything?" can only be asked of the LIVE registry,
+     which is why the audit is a test and not a script.
 
   9. **⛔⛔ AND THEN RUN THE REPO-TOOLING LANE. THIS LIST IS NOT A SUBSTITUTE
      FOR IT.** `python3 -m pytest scripts/tests -q -m "not detached_tool"` —

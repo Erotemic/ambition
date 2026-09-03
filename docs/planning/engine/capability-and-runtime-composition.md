@@ -181,31 +181,41 @@ capability crates it never named:
 |---|---|
 | cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, ui_nav, vfx | inventory_ui, portal2d, settings_menu, touch_input |
 
-⭐ **And the split by CAUSE is the useful part, because the two halves need
-different fixes.**
-* **Six arrive through a capability it DID request.** `cutscene`, `persistence`,
-  `projectiles`, `sfx`, `ui_nav` and `vfx` are direct dependencies in
-  `crates/ambition_render/Cargo.toml`. Asking for rendering and receiving these
-  is a question about whether `ambition_render` is one capability or a bundle —
-  not about feature plumbing.
-* **Four arrive through the facade's NON-OPTIONAL core**, and no feature flag can
-  remove them. `cargo tree -i` in the fixture:
-  `ambition_items` ← `ambition_platformer2d_actor_monolith`;
-  `ambition_menu` ← `ambition_platformer2d_host` **and**
-  `ambition_platformer2d_runtime`. All three are unconditional dependencies of
-  `ambition_platformer2d`.
+⛔ **CORRECTION, same day — my first causal split here was wrong, and the
+repository already had a better one.** I wrote that six of the ten "arrive
+through a capability it DID request", because `ambition_render`'s manifest names
+them. That is one path among several and it is not the binding one:
+`cargo tree -i ambition_cutscene` in the sentinel shows it arriving through
+`ambition_boss_encounter` → `ambition_damage` → the facade AND the monolith.
+Removing render's edge would not remove it.
 
-⇒ **This is the decomposition campaign's customer-visible consequence, measured.**
-Making a domain optional cannot remove it while the monolith, host or runtime
-names it — so the pickup carve and its siblings are what move this number, and
-turning more capabilities into features is not. ⚠ It also means the number is a
-progress metric for that campaign: re-run the fixture's `cargo tree` after each
-carve.
+✔ **The authoritative instrument is `scripts/baselines/capability-footprint-baseline.json`,
+guarded by the `capability-footprint-may-not-grow` absence contract**, and its
+split is by REACHABILITY rather than by manifest:
 
-✔ One capability is now provably NOT inherited by this consumer:
-`ambition_relativity` appears zero times in outlander's tree, which is the
-external half of the cost contract guarded the same day
-(`engine.facade-all-capabilities-omits-relativity`).
+* **20 reachable via `ambition_platformer2d_actor_monolith` alone** — irreducible
+  without moving code;
+* **4 reachable only through the facade** (`ambition_inventory_ui`,
+  `ambition_portal2d_presentation`, `ambition_render`, `ambition_touch_input`) —
+  closable by making facade edges optional, a manifest change.
+
+Its own note states the conclusion I arrived at independently and less precisely:
+*"The second list can be closed by making facade edges optional — a manifest
+change. The first cannot: a game that needs actors needs
+`ambition_platformer2d_actor_monolith`, which brings them. That is what makes the
+footprint irreducible without moving code."*
+
+⇒ **So this pressure point is already measured, already guarded, and already
+kept current** — the baseline records `registry_core_entered_the_closure_2026_09_03`,
+the same day that edge landed. Anyone re-measuring should run
+`scripts/check_absence_contracts.py` rather than a fresh `cargo tree`.
+
+⭐ **What an independent measurement DID add**, having agreed with the baseline
+at `closure_size = 45`: the closure is insensitive to what a consumer asks for.
+`fixtures/external_consumer` requests TWO capabilities and
+`fixtures/minimal_game` requests ONE, and both inherit the SAME ten optional
+capability crates. The baseline uses only the one-capability sentinel, so this is
+the half it does not cover.
 
 ⭐⭐ **AND THE STRICTER SENTINEL GETS THE SAME TEN.** `fixtures/minimal_game`
 asks the facade for exactly ONE capability — `ambition_render`, nothing else —

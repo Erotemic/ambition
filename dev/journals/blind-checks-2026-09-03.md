@@ -89,8 +89,14 @@ instances of one false claim, all corrected) — and, checked, these are fine:
 ⇒ The tell that separated the real one from the rest: **the false claim was
 about a MEASURED count, established at one value of the variable it named.**
 Claims true by algebra, and phrases that merely contain the word, are not the
-same species. ⚠ `game-independent`, `dimension-independent`, `seat-independent`
-and `language-independent` remain unchecked.
+same species. ✔ **AND THE SWEEP IS COMPLETE**: `game-independent` ×2,
+`dimension-independent` ×2, `seat-independent` and `language-independent` are
+all DESIGN INTENT or POLICY — *"implement it in the reusable engine with a
+game-independent API"*, *"keep authored IDs language-independent"*, and a
+Minkowski claim that states its own reason (*"BECAUSE it knows…"*). None is a
+measured count established at one value. ⇒ **1 real finding in 14 phrases**, and
+the twelve sound ones divide cleanly into "true by construction" and "a noun
+phrase containing the word".
 
 
 ⛔ **A `path:line` CITATION CANNOT BE CONTENT-CHECKED CHEAPLY, and I measured

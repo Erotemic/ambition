@@ -34,6 +34,50 @@ The earlier one-view migration has substantially landed:
 The one-view path should continue to be represented as `LocalViewId::FIRST`, not
 as a separate singleton architecture.
 
+### Re-measured 2026-09-03 — accurate, and the runtime shows why it matters
+
+The claims above hold. Two were checked by reading the code rather than the
+types: `two_views_one_host` in
+`crates/ambition_platformer2d_host/src/gameplay_presentation/tests.rs:915`
+composes two views as *two calls to the one seam* (`LocalViewId::FIRST` then
+`LocalViewId(1)`, both through `spawn_local_view`), which is exactly the
+"through the same view-spawn seam" wording; and M5's premise that `ControlPrompt`
+is still one global read model is true — `crates/ambition_sim_view/src/lib.rs:87`
+init_resources it, with no view-scoped variant.
+
+**The runtime makes the camera/view distinction concrete.** One headless frame
+in `hall_of_characters` on a no-GPU host, from `[census] views` and
+`[census] camera` (`crates/ambition_render/src/runtime_census.rs:413`):
+
+    views  cameras=4  active=3  world_rendering=1  offscreen=0  local_views=1
+
+| Camera | role | active | order | layers | presents_view |
+|---|---|---|---|---|---|
+| Main Camera | `local_view` | yes | 0 | 0+2+5 | `818v0` |
+| Front HUD Camera | `hud` | yes | 9 | 1 | — |
+| Cube scrim display camera | `other` | yes | 7 | **none** | — |
+| Cube pause camera | `other` | no | 8 | 0 | — |
+
+Four cameras, one view, and **exactly one camera names a view**. This is the
+doc's own thesis as a measurement: a camera count is not a view count, and
+`local_views=1` is the one-view path represented as `LocalViewId::FIRST` just as
+the section above requires. Anything that reasons about "how many players" from
+a camera count would read 4 here.
+
+⚠ **One row is worth a question, not a conclusion:** the scrim camera is
+`active=true` with `layers=none` — an active camera drawing no layers. Whether
+that still costs a render pass is **not measurable on this arm**: the headless
+host runs without the render app, and `[census] render_pass_summary` accordingly
+reports `cpu_spans=0 gpu_spans=0`. A GPU machine has to answer that one; it is
+recorded here so it is not mistaken for a settled cost.
+
+*Method note.* The first pass at this reported that no `views` census existed —
+a `grep` over the run's `*.stdout` came back empty. The census writes to
+**stderr**; the phase had fired seven times. An empty result from the wrong
+stream reads identically to an absent feature, which is the same shape as the
+`grep -v` filter error recorded in
+[`netcode.md`](netcode.md).
+
 ## Target model
 
 ### Participants and bodies

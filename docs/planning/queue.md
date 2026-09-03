@@ -2049,7 +2049,12 @@ product ruling.
   `awaiting gpu` frames of late-arriving art. AND since the readiness term
   landed, `asset_wait_ms` INCLUDES the upload and the reveal should show no
   `[image-gpu]` line after it — if one appears after the cover lifts, name the
-  file; it came by a road the manifest does not list.
+  file; it came by a road the manifest does not list. ⭐ And the DECODE half
+  (2026-09-03): at Full the hold is predicted ~3.5 s decode-bound on four IO
+  threads; a second walk with `AMBITION_IO_THREADS=8` (desktop host knob,
+  unset = Bevy's default of 4) beside the plain one says whether the cover's
+  `wait_ms` is the IO pool's — if it halves, the lever is threads; if it does
+  not, the lever is the sheet format.
   **Tells added 2026-09-02 evening, same walk:** (a) GAME START — the load
   screen shows a "Load the first room's art" row, and the `[image] … f NNN …
   sprites/player_robot_v3_spritesheet.png` line carries a FRAME STAMP ≤ the

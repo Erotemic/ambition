@@ -1062,7 +1062,14 @@ covered load at the price of compute threads the cover does not need; and the
 PNG format itself (a QOI or zstd-raw sheet decodes several times faster — a
 pipeline change, Jon's). A bigger COVERED ration would not help the host (it is
 not ration-bound there) and would only shorten this VM's number. The host walk
-at Full measures which bound applies; do not add the knob before it.
+at Full measures which bound applies. The threads half is a knob now
+(`AMBITION_IO_THREADS=8`, desktop host only, `cli.rs`
+`ambition_task_pool_plugin`; unset = Bevy's default) so the walk can be an
+A/B in one sitting: same route twice, the cover's `wait_ms` and the
+`[image-census]` `insert→gpu` terms side by side. Headless on this VM the
+hold is the ration floor (135 frames) and the knob cannot move it — which is
+the prediction for a NON-decode-bound host too, and the reason the number
+has to come from the 3090.
 
 ### 3a. ⛔⛔ REMOVED 2026-09-02 BY JON'S RULING: there is NO room-level sprite tier cap
 

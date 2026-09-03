@@ -13,9 +13,12 @@
 > ⚠ **ONE EXAMPLE HAS AGED BADLY AND SHOULD BE REPLACED WHEN THIS IS PICKED UP.**
 > §2 offers *"a provider-owned action such as `grapple`"* — but grapple now
 > exists as an ENGINE traversal ability
-> (`actor_monolith/src/abilities/traversal/grapple.rs`, alongside blink, dive,
-> flyline, possession, mark/recall), not as anything registered through the
-> provider seam. The seam's point is unchanged; its illustration now names
+> (`ambition_abilities/src/traversal/grapple.rs`, alongside blink, dive and
+> mark/recall), not as anything registered through the provider seam. ⚠ The path
+> moved in the abilities carve (D33, 2026-09-03) and the COMPANY it keeps
+> changed with it: `possession` and `flyline` did NOT move — they are
+> runtime-registered control authority that only shared the old directory name —
+> so this illustration is now four siblings, not six. The seam's point is unchanged; its illustration now names
 > something built the other way, which is exactly the sentence a later session
 > would take as evidence that the work was done.
 

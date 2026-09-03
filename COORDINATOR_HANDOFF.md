@@ -231,3 +231,87 @@ gate this section says is owed. Disk 200 GB free (59%), so no exemption is in pl
 - The 3,387-line match test module is activation tests and stays; yardrat moved the one pure test.
 - `hurtbox.rs` and `presentation.rs` name nothing in the kernel now and could follow their owners.
 - The `features`↔`construction` direction (30/15) is the next measurement for the kernel split.
+
+---
+
+# Coordinator handoff #2 — 2026-09-03 ~22:10Z (Opus → next)
+
+**Main is `953383c9a`, pushed. The tree is clean of me. Jon asked this worker to wind down;
+the goal fuse still had ~4h at handoff.**
+
+## The gate
+✔ **`./run_tests.sh --rust` at `5cd132e82`: 6/6 jobs in 1639 s, ZERO failures**, `state: done`,
+`exit 0`. ⭐ That settles the open question from the previous coordinator's killed run: their 68
+accumulated `FAIL [` lines, clustered in `ambition_audio render::tests` and
+`selection::source_claim_tests`, were **the race and not a regression** — two coordinators' gates
+in one checkout. `ambition_audio` is green.
+⛔ **AND I CAUSED THAT CLASS OF FAILURE ONCE MYSELF**, which is the rule worth carrying: I started
+a gate, then merged `origin/main` to push a docs commit, which brought a `.rs` file in under the
+running job. I killed the run rather than report a number I could not attribute. **"I only
+merged" is editing. A gate's tree must be frozen.**
+
+## Merged under my window (all gated at `953383c9a`: `scripts/tests` 820 passed)
+- yardrat `agent/yardrat-abort-reporting-and-planning-sweep` → `1ee0aaa3c`, then tip `d08c29cd6`.
+  Took the TIP, not the named range, per their warning — `c2b7f83c7` (restores
+  `engine/decomposition.md`, which eight policy rows cite as `source_doc`) would otherwise have
+  been dropped.
+- e7 `rescue/ov1-declared-hud-subtree-filter` (`7cb903dfc`) — the doctrine helper counted the
+  children of the root it meant to exclude; mary_o `ov1` goes 4/3 → **6 passed / 1 failed**.
+- calculex `calculex-no-gpu` (`d23b42bfc`) — review #5, the re-measurement recipe, the
+  `character_runtime` and islands corrections. ⚠ ONE CONFLICT, in
+  `actor-monolith-decomposition.md`: both sides had independently corrected 13,888 → 10,881.
+  **Resolved by keeping both** — the "prediction HELD, four of the six predicted-clean files were
+  carved" narrative plus calculex's then/now table and doc-link caveat.
+
+## Numbers for the report, each attributed to who ran it
+| figure | value | who | at |
+|---|---|---|---|
+| monolith lines | **98,509** | yardrat (`wc -l` + `compile_ratchet.py`), me (`wc -l`), calculex (reproduced on main from their clone) | `5cd132e82` |
+| kernel islands | **11 strict / 16 loose** — name the rule | calculex | `0f0f89d42` |
+| `character_runtime/` | **10,881**, six production files where there were ten | calculex | `d23b42bfc` |
+| union entries | **82** | yardrat (`run_tests.py --list`) | — |
+| monolith `[dependencies]` | held at **33** across two carves | yardrat | — |
+| critical_path / UNPRICED | **14 → 16** / **4 → 7** | yardrat (`compile_ratchet.py`) | — |
+| mary_o red | **4, not 6** — the 3 `painted_blocks` are gone, `ov1` is 6/1 | me, e7 | `953383c9a` |
+
+## Open, with owners
+- ▢ **The parallax gate — the lane-1 defect, diagnosed and NOT fixed.**
+  `ambition_render/src/platformer_presentation.rs:260` returns before `spawn_room_visuals` (`:274`)
+  whenever parallax is wanted and the theme has no layer registered, so at Ultra **no room visual
+  of any kind** spawns until the backdrop is resident and the 5-frame stand-ins fire; Potato has
+  `parallax.enabled == false` so the gate never engages. Fix shape (yardrat's, df and I agree):
+  **scope the early return to the parallax spawn alone** — not the grace clock, not a marker.
+  ⛔ **Check the falsifier BEFORE writing it**: authored room enemies and bosses are downstream of
+  the same return and must be late exactly like NPCs, while `EncounterMob` /`RuntimeStagedActor`
+  come from the dynamic rebuild and should be on time. ⚠ e7: the hall has **129 `NpcSpawn` and
+  ZERO enemies or bosses**, so that check needs a different room.
+- ▢ **calculex's compiler-verified dependency census** (~20/77 when I stopped). Detector is
+  `cargo rustc -p X --lib -- -W unused_crate_dependencies`; **confirmer is a second run with
+  `--all-features`** — only a dep unused under both is unused. Two survivors compiler-verified
+  (`ambition_abilities` → `boss_encounter`, → `gameplay_trace`). ✔ **I ruled on `ambition_items`:
+  KEEP** — its only use is an intra-doc link, and trading a reader's cross-reference for a lint is
+  the wrong trade.
+- ▢ **Two asset ratchets red here and it is NOT content** — five sheets (actor, author, medic,
+  officer "not smaller"; performer "no reduced variant"). `check_quality_variants_are_fresh.py`
+  exits 1 with **170+ stale files on this box**, and `performer` is among them, so **all five are
+  machine-local regeneration staleness**, not sheets. ⇒ df's fix, and I agree: a **precondition**
+  on the detector — those ratchets skip loudly, naming the freshness check, unless it is green —
+  not a widened assertion. Owner: yardrat (`scripts/lib/canonical_assets.py`).
+  ⭐ They only went red because that file made them RUN for the first time (skips 11 → 1).
+
+## The day's methodology finding — calculex's words, and it earned the headline
+> *Every instrument was narrower than the claim made with it. The grep scanned `src/` and I claimed
+> the crate. The grep matched text and I claimed usage. The lint compiled default features and I
+> claimed the crate's dependencies. Each was right about what it measured. **The recurring error is
+> not a bad tool, it is a claim wider than the tool's scope** — and it does not announce itself,
+> because the tool succeeds every time.*
+
+Seven instances in one day, four theirs and three mine. Mine: `check_planning_citations.py` read
+**1,222 all-resolved before and after I fixed five flatly false sentences**, because it resolves
+cited SYMBOLS and a claim about where code LIVES is prose (now a D33 row: sweep old paths after a
+carve, sort HISTORY vs STALE, re-tense rather than delete — of eight hits, five were correct
+history). I nearly "corrected" five docs over the `| grep` exit-code rule, then found that checker
+prints its verdict IN the line. And I read the `theme_loaded` gate, published it as the
+`painted_blocks` mechanism, measured `painted_blocks` **4/4 green** and retracted it — **and it is
+the correct mechanism for the Ultra hall burst.** Right mechanism, wrong claim attached.
+⇒ **A green tool is not a green claim.**

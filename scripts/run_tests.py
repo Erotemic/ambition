@@ -761,12 +761,27 @@ def build_maintenance_jobs() -> list[Job]:
         # "what did the last three weeks of carving leave stale", not "is this
         # edit ok" — which is why it belongs here and not in the default plan.
         Job(
-            "planning rows citing a vanished name (periodic)",
+            "planning + doctrine rows citing a vanished name (periodic)",
             [
                 sys.executable,
                 "scripts/check_planning_citations.py",
                 "--vanished",
                 PLANNING_VANISHED_BASELINE,
+                # ⭐ DOCTRINE ROTS THE SAME WAY, and the checker already took
+                # paths — its default is just `docs/planning`, so nothing had
+                # ever aimed it at the pages that describe CURRENT behaviour.
+                # Pointing it here on 2026-09-03 found `HitSource` documented
+                # with seven role-shaped variants (`PlayerSlash`,
+                # `EnemyProjectile`, …) that do not exist, on the page whose
+                # subject is the unification that replaced them with six
+                # cause-shaped ones — plus a deleted message still listed among
+                # current ones in that file's opening sentence, which a hand
+                # sweep of the same file had missed twice.
+                "docs/planning",
+                "docs/concepts",
+                "docs/systems",
+                "docs/architecture",
+                "docs/recipes",
                 # ⛔ WITHOUT `--strict` THIS EXITS 0 WITH FINDINGS ON SCREEN, and
                 # a job that cannot fail is the very shape this lane was added to
                 # stop being. Verified 2026-09-03: 13 findings, exit 0 without

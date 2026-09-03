@@ -32,7 +32,7 @@ Important distinction:
 - preparation resolves/folds those inputs into `PreparedCharacterDefinition`,
   which is what runtime body construction consumes.
 
-The deleted enemy `ArchetypeSpec`/`CharacterRoster` body system is not part of
+The deleted enemy `ArchetypeSpec`/`CharacterRoster` body system is not part of <!-- cite-ok: names the deleted archetype system to say it is not the workflow -->
 the workflow.
 
 ## 2. Start from sprite/authoring metadata when appropriate

@@ -1,6 +1,6 @@
 # Relativity capability
 
-> **Status (2026-08-12): SR-8 keeps the default-on 3D 2+1D minimap and finishes the open-plaza camera contract: TwinTrack recenters its teaching exhibits around the laboratory, authors no perimeter collision, and uses an unclamped follow-camera zone plus a deep zero-gravity blast margin so leaving the authored rectangle does not pin or reset the controlled body. The change remains game-authored and adds no relativity runtime cost to other experiences. Local Rust compile and visible-feel validation remain.**
+> **Status (2026-08-12; ⚠ the "Local Rust compile … remain" clause below is spent — both crates are workspace members and the `--rust` gate has compiled and tested them many times since, `ambition_relativity` carrying 16 of its own `#[test]`s. What remains of that clause is the VISIBLE-FEEL half, which no headless gate can answer): SR-8 keeps the default-on 3D 2+1D minimap and finishes the open-plaza camera contract: TwinTrack recenters its teaching exhibits around the laboratory, authors no perimeter collision, and uses an unclamped follow-camera zone plus a deep zero-gravity blast margin so leaving the authored rectangle does not pin or reset the controlled body. The change remains game-authored and adds no relativity runtime cost to other experiences. Local Rust compile and visible-feel validation remain.**
 
 Ambition treats special relativity as the first exact spacetime model, not as a
 bag of visual effects. The reusable boundary is:
@@ -19,6 +19,16 @@ Minkowski now; analytic/sampled/evolved GR later
 - `ambition_relativity` owns dimension-independent Minkowski interval,
   proper-time, rapidity, velocity-composition, event-boost, and photon-frequency
   mathematics. It has no Bevy dependency.
+  ⭐ **AND THAT LAST SENTENCE IS NOW A RATCHET, not just a description**
+  (2026-09-03): `engine.ambition_relativity-stays-engine-free` forbids `bevy`
+  and `ambition_` in this crate's source. It is the load-bearing half of the
+  layering diagram below — the maths is dimension-independent BECAUSE it knows
+  no engine, which is what lets `ambition_relativity2d` be the only 2D-aware
+  layer and a later GR provider slot in beside it. ⚠ Measured when the row was
+  added: the crate's `Cargo.toml` has no `[dependencies]` section at all and its
+  722 lines carry a single `use core::fmt`, so this guards a property that held
+  by nobody having spent it yet. ⛔ A `dependency-allowlist` row would NOT have
+  worked — it reads only `ambition*` entries and so says nothing about `bevy`.
 - `ambition_relativity2d` reads canonical 2D body kinematics, samples a
   session-owned spacetime provider, writes the existing `ProperTimeScale`,
   accumulates f64 proper time, propagates analytic null signals, measures local

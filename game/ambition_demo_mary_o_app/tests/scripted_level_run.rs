@@ -181,9 +181,19 @@ fn settle_until_playable(app: &mut App) {
 /// touches are covered against the authored level by unit probes (the bonk, the
 /// stomp, the brick break, the warp), and 1-1's SHAPE is covered by invariants
 /// (`the pit rhythm must widen`, `every authored enemy has ground under it`).
-/// The gap is the end-to-end run, and it stays a gap until the fixture lands.
+/// The gap was the end-to-end run.
 ///
-/// Queue row `G1 PICK 11`.
+/// ✔ THE FIXTURE LANDED, so the gap is closed and this stays ignored on
+/// purpose rather than pending: `tests/course_playthrough.rs` runs
+/// unignored over `ambition_demo_mary_o::test_course` — *"the end-to-end run,
+/// on a course nobody authors"*, flat ground and a goal, chosen because
+/// *"a course with no pit has no numbers to go stale"*. That is precisely the
+/// brittleness that retired the route below.
+///
+/// ⛔ Queue row `G1 PICK 11` no longer exists — it was pruned from the live
+/// queue on 2026-08-13 and survives only in
+/// `docs/archive/planning-superseded/2026-08-13/`. Cited here as the record of
+/// where this decision was tracked, not as somewhere to go read it.
 ///
 /// same cause as `she_plays_level_one_from_spawn_to_the_pole_and_it_replays`.
 #[ignore = "route tuned to 1-1's old arrangement; replaced by a fixture course (queue G1 PICK 11)"]

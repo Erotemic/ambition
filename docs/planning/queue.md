@@ -977,9 +977,23 @@ OPTIONAL dep + feature, never used:
   sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
   value is that the graph stops claiming an edge nobody uses.
 
-  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
-  links, and a declared-unused edge there is what the next reader will justify
-  rather than question.
+  ✔ **THE PLAIN ONE IS CUT (2026-09-03).** `ambition_platformer2d` no longer
+  declares `ambition_interaction`. Verified rather than assumed at each step:
+  nothing in the whole crate directory names it (not `src/`, not tests, not
+  `build.rs`), so no feature combination can need it; `cargo check -p
+  ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
+  is clean; and the capability footprint is UNCHANGED at 47/20, which is the
+  row's own claim about redundancy holding up under measurement.
+  ⭐ **THE SENTINEL'S LOCKFILE CAME WITH IT, and the guard is what said so.**
+  `check_absence_contracts.py` runs `cargo tree --locked` in the sentinel's own
+  workspace and threw `CalledProcessError … exit status 101` the moment the
+  edge left — which is exactly what its docstring promises: *"a dependency
+  change that alters the sentinel's lockfile must arrive WITH that lockfile, or
+  this check fails loudly instead of silently rewriting it."* Three lockfiles
+  each lost one line (`Cargo.lock`, `fixtures/minimal_game`,
+  `examples/capability_demo`).
+  ⇒ **The five OPTIONAL ones are still open** and still need the compiler on
+  each crate's feature combinations, which is a different and larger job.
 
   ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
   combinations.** Dropping an optional dep changes feature RESOLUTION, not just

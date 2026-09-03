@@ -175,7 +175,6 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_host = { path = "../ambition_platformer2d_host" }
 ambition_input = { path = "../ambition_input" }
-ambition_interaction = { path = "../ambition_interaction" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
 ambition_items = { path = "../ambition_items", optional = true }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional = true }

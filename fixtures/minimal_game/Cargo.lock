@@ -478,7 +478,6 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",
- "ambition_interaction",
  "ambition_load",
  "ambition_load_presentation",
  "ambition_mount",

@@ -308,6 +308,75 @@ fn every_source_root_contributes_files() {
     }
 }
 
+/// ⛔⛔ A `source_doc` THAT NAMES NOTHING IS A POLICY WITH NO STATED REASON.
+/// `custom_policy_metadata_is_complete` already checks the field is non-EMPTY,
+/// and `every_watch_path_exists` checks the paths a policy WATCHES — but until
+/// now nothing asked whether the doc it cites is real. That is the field a
+/// reader follows to find out why a rule exists, so a dead one costs exactly the
+/// review the rule was written to survive.
+///
+/// ⭐ THE ANCHOR IS CHECKED TOO, and it is the half that rots. A policy row
+/// survives its doc being reorganised — the file is still there, the `#heading`
+/// it named is not — and 15 rows were repointed off dead
+/// `decomposition.md#…` anchors on 2026-09-02 for that reason. A file-only
+/// check would have called every one of them fine.
+///
+/// ⚠ MEASURED WHEN ADDED: 239 rows, all resolving. This is a ratchet on a clean
+/// state, not a cleanup.
+#[test]
+fn every_source_doc_names_a_real_file_and_heading() {
+    fn slug(heading: &str) -> String {
+        heading
+            .trim()
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("-")
+    }
+
+    let ws = Workspace::discover();
+    let mut checked = 0usize;
+    let mut check = |id: &str, source_doc: &str, checked: &mut usize| {
+        let (path, anchor) = match source_doc.split_once('#') {
+            Some((p, a)) => (p, Some(a)),
+            None => (source_doc, None),
+        };
+        let full = ws.root().join(path);
+        assert!(
+            full.is_file(),
+            "policy `{id}` cites `{source_doc}`, and `{path}` is not a file — the \
+             field a reader follows to learn why the rule exists leads nowhere"
+        );
+        *checked += 1;
+        let Some(anchor) = anchor else { return };
+        let text = std::fs::read_to_string(&full).expect("read source_doc");
+        let found = text
+            .lines()
+            .filter(|l| l.starts_with('#'))
+            .any(|l| slug(l.trim_start_matches('#')) == anchor.to_lowercase());
+        assert!(
+            found,
+            "policy `{id}` cites `{source_doc}`, but `{path}` has no heading \
+             matching `#{anchor}` — the file survived a reorganisation the \
+             anchor did not"
+        );
+    };
+
+    for policy in workspace::load_all_policies() {
+        check(&policy.id, &policy.source_doc, &mut checked);
+    }
+    for meta in custom::metas() {
+        check(&meta.id, &meta.source_doc, &mut checked);
+    }
+    assert!(
+        checked > 200,
+        "expected the full policy set to carry source docs, checked only {checked}"
+    );
+}
+
 #[test]
 fn poison_required_path_reacts() {
     let p = poison(

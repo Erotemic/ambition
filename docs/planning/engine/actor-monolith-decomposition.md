@@ -1462,7 +1462,23 @@ other out-edges are to the two halves this frontier just carved around
 modules with NO out-edges and nothing pointing back except registration
 (`causal`, `action_scheme`, `body_mode`, `time`, `music`, `cutscene`, `quest`,
 `world_facts`) are already islands; that they are still in this crate is inertia,
-not coupling, and each is a small cut. `rollback_registration` (28 → features, 10 →
+not coupling, and each is a small cut.
+
+⭐ **AND THE COUNT IS 14, NOT 8 — RE-MEASURED 2026-09-03 with this paragraph's own
+rule** (no out-edges; nothing pointing back except `rollback_registration` and
+`snapshot_impls`). All eight named above still hold at 0 out-edges. **Six more
+now qualify**: `brain_tick`, `config`, `dev`, `enemy_projectile`, `host`, and
+`safe_pos_tests`. ⚠ Two of the sixteen zero-out-edge modules do NOT qualify, and
+naming them is the point of doing this by rule rather than by count —
+`character_roster` (in from `character_sprites`) and `participant_seat` (in from
+`character_runtime` and `schedule`) are still coupled.
+>
+⇒ 13 if you exclude `safe_pos_tests`, which is test-only (`prod=0, all=240`).
+⇒ **The direction is the finding**: the number grew because the night's carves
+removed edges, so a figure quoted from before them understates the result. Any
+report that cites "eight" should re-run
+`scripts/measure_kernel_module_graph.py` first — the instrument is one command
+and the answer moved within a day. `rollback_registration` (28 → features, 10 →
 abilities) and `snapshot_impls` (11 → features) are the two files that name
 everything, which is what a registration file is for — they are not coupling, they
 are the ledger. ⇒ The candidate seam the doc predicted ("body state, movement,

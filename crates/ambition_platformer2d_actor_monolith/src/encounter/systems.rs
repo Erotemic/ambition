@@ -398,18 +398,13 @@ pub fn drive_wave_encounters(
                             ));
                         }
                     }
-                    // Also drop any reward chest from a prior clear so the next
-                    // clear pays out fresh, and clear the persisted "reward
-                    // dropped" flag so re-clearing actually re-spawns the chest.
-                    // The orphaned `FeatureVisual` entity is healed by
-                    // `sync_visuals` on the next spawn (same id → same entity,
-                    // sprite restored from `chest_state_sprite`).
-                    crate::features::clear_encounter_reward_ecs(
-                        &mut commands,
-                        save.data_mut(),
-                        &reward_chests,
-                        &target_id,
-                    );
+                    // ⭐ THE REWARD RETIRE LEFT (2026-09-03). It is
+                    // `features::retire_rewards_for_rearmed_encounters` now,
+                    // on the runtime-composed reward plugin, reacting to the
+                    // same published activation this arm reads. It could not be
+                    // a system until the drain split out: its trigger was a
+                    // POSITION in this loop, and nothing outside could observe
+                    // the edge.
                 }
             }
             // Authored but not a kind this engine acts on. The string road could

@@ -1091,7 +1091,21 @@ the queue is rollback-registered because a rewind that re-pushes predicted
 activations double-applies an encounter reset. Any split must keep one ordered
 drain, not four readers racing the same queue.
 
-▢ Not started. The encounter carve's remaining seam is downstream of this one.
+✔ **CUT 2026-09-03.** `ambition_encounter::switches::drain_switch_activations`
+is the one ordered drain; it parses each action into a typed `SwitchAction`,
+performs the persisted write, and publishes `ResolvedSwitchActivations` carrying
+the POST-toggle value so no consumer re-derives it. The kernel's loop reacts to
+that. `SwitchAction::Unhandled(String)` carries what the string road dropped
+silently.
+✔ Both named hazards guarded and poison-verified: leaving the queue unconsumed
+(a second author for the toggle) goes red; publishing in reverse order goes red.
+✔ **And the reward retire released with it**, as predicted:
+`features::retire_rewards_for_rearmed_encounters` reacts to the same published
+activation, behaviour unchanged including WHEN the flag clears, guarded on the
+OFF edge and on the action kind.
+⇒ **The encounter adapter is down to ONE kernel reference and it is a
+registration** (`serve_encounter_spawn_commands`); `systems.rs`, `loading.rs`,
+`switch_index.rs` and `lock_walls.rs` name nothing in the kernel at all.
 
 ### Character preparation versus actor simulation
 

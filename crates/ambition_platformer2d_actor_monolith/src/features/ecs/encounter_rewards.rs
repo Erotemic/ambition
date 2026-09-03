@@ -154,5 +154,167 @@ impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
                 )
                 .after(ambition_encounter::EncounterLifecycleSet),
         );
+        // The retire half, on the same plugin. Ordered after the ONE drain,
+        // because it reacts to this tick's presses; a reader that ran first
+        // would retire on last tick's re-arm.
+        app.add_systems(
+            sim,
+            retire_rewards_for_rearmed_encounters
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression,
+                )
+                .after(ambition_encounter::switches::SwitchActivationDrained),
+        );
+    }
+}
+
+/// Retire an encounter's reward when its switch is re-armed.
+///
+/// ⭐ THIS COULD NOT BE A SYSTEM UNTIL THE SWITCH LOOP SPLIT. The trigger used
+/// to be a POSITION inside the encounter adapter's drained loop — after a
+/// save-mutating toggle and behind three early `continue`s — so nothing outside
+/// could observe the edge: run before the drain and neither the queue nor the
+/// toggle had happened, run after and both were gone. Now the switch domain
+/// publishes `ResolvedSwitchActivations` with the post-toggle value, and the
+/// edge is a value anyone can read.
+///
+/// ⛔ BEHAVIOUR IS UNCHANGED ON PURPOSE, including WHEN the flag clears. The
+/// switch is the feature layer's input, the chest is its entity and
+/// `reward_looted` is its save fact, so *"a switch-off retires the reward"* is
+/// room-feature policy and stays that way. It is NOT keyed on
+/// `EncounterEvent::Reset`: the death road resets an encounter with no switch
+/// toggle, and clearing there would let a player who died after looting
+/// re-clear and be paid twice — see
+/// `encounter::tests::a_reset_does_not_retire_the_reward_chest`.
+pub fn retire_rewards_for_rearmed_encounters(
+    mut commands: bevy::prelude::Commands,
+    mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
+    switches: bevy::prelude::Res<ambition_encounter::switches::ResolvedSwitchActivations>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
+    chests: bevy::prelude::Query<
+        (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
+        With<ChestFeature>,
+    >,
+) {
+    if switches.0.is_empty() {
+        return;
+    }
+    for activation in &switches.0 {
+        if !matches!(
+            activation.action,
+            ambition_encounter::switches::SwitchAction::ResetEncounter
+        ) || activation.on
+        {
+            continue;
+        }
+        // An empty target means "the active room's own encounter", exactly as
+        // the adapter resolved it.
+        let target_id = if activation.target_encounter.is_empty() {
+            rooms.active_spec().id.clone()
+        } else {
+            activation.target_encounter.clone()
+        };
+        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, &target_id);
+    }
+}
+
+#[cfg(test)]
+mod retire_on_rearm_tests {
+    use super::*;
+    use ambition_encounter::switches::{
+        ResolvedSwitchActivation, ResolvedSwitchActivations, SwitchAction,
+    };
+    use ambition_persistence::save::AmbitionGameSave;
+    use bevy::prelude::*;
+
+    fn chest_app(activations: Vec<ResolvedSwitchActivation>) -> (App, Entity) {
+        let mut app = App::new();
+        app.insert_resource(AmbitionGameSave::default());
+        app.insert_resource(ResolvedSwitchActivations(activations));
+        // ⚠ THE SESSION ROOT IS NOT TEST SCAFFOLDING, it is the system's gate.
+        // `SessionWorldRef` is a `Single<Ref<T>, With<SessionRoot>>`, so without
+        // one the system is SKIPPED and every assertion below passes for the
+        // wrong reason. The first version of this test had no root: the "off
+        // retires the reward" case failed, and it failed because the system
+        // never ran. That requirement is inherited, not new — the adapter this
+        // logic left took the same param.
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+                "test_room",
+                Vec::new(),
+                Vec::new(),
+            ),
+        );
+        let chest = app
+            .world_mut()
+            .spawn((
+                ChestFeature::new(ambition_interaction::Chest::new(
+                    "encounter_chest_goblin_encounter",
+                    None,
+                )),
+                EncounterRewardChest {
+                    encounter_id: "goblin_encounter".into(),
+                },
+                FeatureId("encounter_chest_goblin_encounter".into()),
+            ))
+            .id();
+        app.add_systems(Update, retire_rewards_for_rearmed_encounters);
+        (app, chest)
+    }
+
+    fn rearm(on: bool) -> ResolvedSwitchActivation {
+        ResolvedSwitchActivation {
+            id: "gate".into(),
+            action: SwitchAction::ResetEncounter,
+            target_encounter: "goblin_encounter".into(),
+            on,
+        }
+    }
+
+    /// A switch turned OFF retires the reward — the behaviour that used to live
+    /// inside the encounter adapter's drained loop, unchanged.
+    #[test]
+    fn a_switch_turned_off_retires_the_reward() {
+        let (mut app, chest) = chest_app(vec![rearm(false)]);
+        app.update();
+        assert!(
+            app.world().get_entity(chest).is_err(),
+            "re-arming an encounter must drop its chest so the next clear pays \
+             out fresh"
+        );
+    }
+
+    /// ⛔ A switch turned ON must NOT. The activation is the same kind; only
+    /// `on` differs, and reacting to the kind alone would retire the reward on
+    /// every press instead of every re-arm.
+    #[test]
+    fn a_switch_turned_on_leaves_the_reward_alone() {
+        let (mut app, chest) = chest_app(vec![rearm(true)]);
+        app.update();
+        assert!(
+            app.world().get_entity(chest).is_ok(),
+            "only the OFF edge retires the reward; a press that arms the \
+             encounter must leave a standing chest alone"
+        );
+    }
+
+    /// ⛔ And an activation of another KIND must not, however it is toggled.
+    #[test]
+    fn a_gravity_switch_never_retires_a_reward() {
+        let (mut app, chest) = chest_app(vec![ResolvedSwitchActivation {
+            id: "gate".into(),
+            action: SwitchAction::FlipGravity,
+            target_encounter: "goblin_encounter".into(),
+            on: false,
+        }]);
+        app.update();
+        assert!(
+            app.world().get_entity(chest).is_ok(),
+            "a gravity switch shares the queue with the encounter reset and \
+             nothing else; it must not reach an encounter's reward"
+        );
     }
 }

@@ -182,6 +182,109 @@ unactionable.
 
 ### B4 — generated-content/bootstrap contract
 
+> ⛔ **A FRESH CLONE ON A USED MACHINE IS NOT A FRESH MACHINE — measured
+> 2026-09-03 by actually cloning this repo into a scratch directory.** The
+> difference is the per-machine venv store, and it is keyed inconsistently:
+> `ambition_tool_venv_dir` takes `basename` of what it is given
+> (`scripts/setup/python_tools.sh:78`), so
+>
+> - the six TOOL projects key on `ambition_music_renderer`,
+>   `ambition_ldtk_tools` … — the same key from any checkout, so a new clone
+>   **inherits them**;
+> - the `scripts/` environment keys on the REPO ROOT's basename, so a clone in
+>   `freshclone/` gets a different key and **has none**.
+>
+> ⇒ `python_tools.sh --verify` in the clone therefore reports exactly one
+> problem — *"no interpreter for the scripts/ environment"* — and passes the six
+> tool venvs it did not build. ⚠ **A genuinely new machine would fail all seven**,
+> so this check's output on a clone is a partial truth shaped by the host, not by
+> the clone. It is also two checkouts with the same directory name sharing one
+> `scripts/` venv, which is a surprise waiting for anyone who keeps
+> `ambition/` and `ambition-2/`.
+>
+> ⭐ **AND THE SAME SPLIT DECIDES WHAT A NEW MACHINE NEEDS VERSUS A NEW CLONE.**
+> Measured from the clone, on this host:
+>
+> | prerequisite | scope | a fresh clone here |
+> |---|---|---|
+> | six tool venvs | MACHINE (`~/.cache/ambition-tool-venvs/<basename>`) | inherited |
+> | sampled instrument libraries | MACHINE (`/data/audio-tools`) | inherited — `--status` reports 2,351 `.sfz` |
+> | `scripts/` venv | CHECKOUT (repo-root basename) | **absent** |
+> | submodule contents | CHECKOUT | **absent** (0 files in each) |
+> | bundled UI fonts | CHECKOUT, git-ignored | **absent** (0 files) |
+> | generated sprite sheets | CHECKOUT, git-ignored | **absent** (4 tracked entries only) |
+> | `target/` | CHECKOUT | absent |
+> | `.agent/` navigation index | tracked | present |
+>
+> ⭐ **AND THIS REPO ALREADY SOLVED THAT COLLISION ONCE, in the other
+> per-checkout store.** `target_bindmount.sh`'s `store_for` keys its backing
+> directory on `<basename>-<sha1(abs path) | cut -c1-10>` — the readable half
+> "kept only so `du -sh` output is legible", the hash doing the actual work. Run
+> from the clone it correctly reports `state ABSENT (cargo has not built here
+> yet)` with its own backing dir, so two checkouts named the same cannot collide.
+> ⇒ The venv store's `basename`-only key is the same problem with the weaker
+> answer; adopting `store_for`'s scheme would close it, and the precedent is
+> twelve lines away in a sibling script.
+>
+> ⇒ So a clone on a used box is missing the CHECKOUT half and inherits the
+> MACHINE half — which is why `--verify` looks nearly green here and would fail
+> everything on a new laptop. ⛔ **Anyone testing the fresh-clone contract must
+> say which of the two they are testing**, or a green run proves the wrong
+> thing. The rows above that record fonts and Pillow as fresh-clone failures are
+> the CHECKOUT half; the Android and audio rows are the MACHINE half.
+>
+> ⭐ Two facts worth having beside that: **a clone is 75 MB** (the bulk is
+> submodules and git-ignored generated content, which is why the bootstrap
+> contract matters at all), and all four entry points — `run_developer_setup.sh`,
+> `run_headless.sh`, `run_tests.sh`, `scripts/setup/audio_libraries.sh` — are
+> present and executable with the submodule directories still empty. The
+> orchestrator's `--help` works from a bare clone and names the three
+> status/verify commands, which is the right shape: a new machine can ASK what
+> it is missing before it installs anything.
+
+
+> ⭐ **THE ASK ITSELF, RUN END TO END 2026-09-03 AFTER FIVE CARVES:
+> `./run_headless.sh --ticks 600` → `headless run completed: 600 ticks`, exit 0.**
+> Jon's standing ask is that a fresh clone reaches a runnable game; this is the
+> nearest thing to it that a box with no display can execute, and it passes on a
+> tree where `ambition_held_items`, `ambition_body_seed`, `ambition_match`,
+> `ambition_encounter_features` and `ambition_abilities` all left the actor
+> kernel the same day. It validates the sandbox world first, then steps the sim
+> shell, and it builds in RELEASE (`target/release/headless`) — so this also
+> exercises the optimized profile that the dev-profile discussion below is
+> about.
+>
+> ⚠ **What it does NOT prove**, so nobody quotes it further than it goes: this
+> tree is not a fresh clone. It has generated content, fetched fonts and the
+> sampled instrument libraries already in place, which are exactly the
+> prerequisites the rows below record as the things a clone lacks. A real
+> fresh-clone proof needs a clone; this proves the SIMULATION composes and runs
+> after the carves, which is the half a carve campaign puts at risk.
+>
+> Incidentally measured from its own census line: **661 systems in `Update`**.
+
+> ⭐ **AND ASK #2 HAS THE MATCHING END-TO-END EVIDENCE, run against real shipped
+> cues rather than fixtures (2026-09-03).** The per-library preflight gate
+> (`ambition_music_renderer` `8b10c5a`, pointer bumped here the same day) was
+> exercised both ways:
+>
+> - **No false positives on a healthy box.** Three shipped cues from
+>   `scores/active` — `a_possible_morning`, `aether_severance`,
+>   `argand_overdrive` — all report `unresolvable=[]`. That is the arm that
+>   matters for adoption: a gate that cries wolf gets an env var set
+>   permanently, which is how the General-MIDI fallback becomes the default
+>   again by another road.
+> - **It names the missing family when there is one.** Rewriting one real cue's
+>   `library_ref` to `freepats.a_library_no_machine_has` in memory makes the gate
+>   return exactly that reference — not a generic "something is missing", which
+>   would send a reader back to a 38 GB install they mostly already have.
+>
+> ⇒ So both standing asks now have a run on this box rather than a unit test:
+> ask #1 through `./run_headless.sh --ticks 600`, ask #2 through the gate's two
+> arms. ⚠ Same caveat as above — this box HAS the libraries, so what is proven
+> is that the gate discriminates, not that a fresh machine acquires them.
+
+
 A clean checkout should have an explicit path to produce every required generated
 artifact or obtain it from the intended cache/submodule. Cache keys must include
 all source dependencies that affect output.

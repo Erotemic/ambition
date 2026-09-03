@@ -1766,6 +1766,24 @@ OPTIONAL dep + feature, never used:
   the monolith's INSIDE, with no manifest edge to delete at the end of it and no
   compiler-held guard like the dev-tools one. ⚠ Whoever takes it should know that
   going in, because every previous slice ended with an edge to point at.
+
+  ⛔⛔ **THE PARAGRAPH ABOVE WAS FALSIFIED FIVE TIMES ON 2026-09-03 AND IS KEPT
+  ONLY AS THE RECORD OF A WRONG PREDICTION.** The `items/` module it names as the
+  edgeless remainder was the FIRST thing to leave, as `ambition_held_items`
+  (`bbfa38a3d`) — with a manifest edge, a policy allowlist and a source-purity
+  rule at the end of it. Then `ambition_body_seed` (`962dba34d`),
+  `ambition_match` (`7e625e5a5`), `ambition_encounter_features` (`b67c1348f`)
+  and `ambition_abilities` (`4c31111f9`). The kernel's own source fell
+  112,733 → 101,042 lines in that day.
+  * ⇒ **The prediction failed because it looked for edges rather than for
+    OWNERSHIP.** A module "named 79 times by the rest of the kernel" is not
+    thereby internal; every one of those names is a candidate boundary, and four
+    of the five carves cut exactly through such a module. Ask what a module
+    OWNS, not how often the kernel says its name.
+  * ⚠ **And the metric this row watched moves the WRONG WAY**, which is why the
+    room to cut looked absent: the monolith's `[dependencies]` table went
+    29 → 33 across those same carves, because a kernel that stops CONTAINING a
+    domain starts DEPENDING on it. Success reads as regression there.
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already
   immutable and the first Smash fighter facet exists. Re-measure the current

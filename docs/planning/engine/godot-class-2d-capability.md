@@ -290,6 +290,27 @@ customers.
 A capability is not proven reusable merely because Ambition can reach an
 internal crate that implements it.
 
+> ⚠ **CHECKED AGAINST THE WORKSPACE 2026-09-03: one customer on this list does
+> not exist, and one that exists is not on it.**
+>
+> - **Hollow Lite is UNBUILT.** There is no `hollow_lite` crate, app or authored
+>   world; [`../demos/hollow-lite.md`](../demos/hollow-lite.md) says so itself
+>   (*"STILL ENTIRELY UNBUILT"*, re-checked 2026-09-02). It is a planned
+>   customer, and listing it beside five that ship makes the pressure-testing
+>   claim read as broader than it is — **encounters, bosses and richer
+>   combat/presentation are currently pressure-tested by Ambition alone.**
+> - **`ambition_demo_pocket` is missing from the list**, and it is the one that
+>   most directly tests this section's own closing sentence: its manifest calls
+>   it a *"tiny fourth-provider acceptance fixture for Ambition's provider
+>   authoring surface"*. A fourth provider is exactly the evidence that a
+>   capability is reusable rather than reachable.
+>
+> ⇒ Neither is an error in the list's intent — it is an acceptance TARGET list.
+> But the difference between "six materially different customers pressure-test
+> this" and "five do, one is planned, and a sixth nobody listed does the
+> provider half" is the difference between a claim and a plan, and the section
+> is quoted elsewhere as if it were the former.
+
 ## Engine 1.0 competitive gates
 
 Architecture programs may close independently, but Engine 1.0 is not credible as

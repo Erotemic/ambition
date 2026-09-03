@@ -281,7 +281,11 @@ Choose one:
 ⚠ This is a FEEL ruling on a shipped weapon, not an engineering question. The
 engineering is done either way; the fold currently encodes "no kick for the
 player" only because that is what the deleted path happened to do. The zeroing
-is `fire_held_ranged_system` in `items/pickup/mod.rs`; the guard is
+is `fire_held_ranged_system` in `crates/ambition_held_items/src/lib.rs` (it was
+`items/pickup/mod.rs` <!-- cite-ok: the pre-carve path, kept as the record -->
+until the pickup carve moved the domain on 2026-09-03 — the old path still
+EXISTS as the kernel's schedule residue, so that citation resolved while
+pointing at code that had left); the guard is
 `a_hand_fired_gun_sword_bolt_flies_the_one_projectile_road`
 (`game/ambition_app/tests/hand_fired_held_shot.rs`) — retarget it with the
 ruling.

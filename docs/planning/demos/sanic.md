@@ -219,7 +219,18 @@ Deferred, in priority order:
 - **50/100-ring milestones** (extra life / jingle), and a **swept high-speed
   collection** test — `collect_ecs_pickups` uses a per-frame overlap, so at Sonic
   velocities a ring can tunnel; the magnet's 130px range masks it for now, but the
-  `cast::aabb_path_contacts` swept route (called out in `pickup/mod.rs`) is correct.
+  `cast::aabb_path_contacts` swept route is correct.
+  ⚠ **Both halves of that sentence moved on 2026-09-03 and the citation still
+  resolved, which is the hazard rather than an aside.** The callout is now in
+  `crates/ambition_held_items/src/lib.rs` — *"two endpoints are not a trajectory
+  … `aabb_path_contacts` is the repo's own answer to this"* — carried there by
+  the pickup carve; and `collect_ecs_pickups` is in
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs`,
+  which is a different file from the `pickup/mod.rs` this row used to name.
+  ⛔ That old path STILL EXISTS as the kernel's schedule residue, so a
+  bare-filename citation to it passes every checker while pointing at the wrong
+  code. Cite the crate-qualified path and the NAME; the name is what fails
+  loudly when a carve moves it.
 - **Optional engine enhancement:** a per-play pitch/gain on `SfxMessage` would let
   ONE rev cue pitch-climb continuously instead of bucketed tiers — a reusable win
   for any charge-up sound.

@@ -321,6 +321,58 @@ Run it BETWEEN gates, never during one. `cargo clean` remains the last resort: i
 and its price is one full rebuild of everything, which on a shared box is
 everyone's price and not just yours.
 
+### ⚠ AUDITING A CARVE'S GUARDS: two shapes are legitimate, so grep by PATH
+
+Audited all eight crates carved or extracted out of the kernel (2026-09-03).
+**Every one is guarded** — but two use a different shape, and grepping for
+`id = "engine.<crate>-manifest-allow"` reports them as gaps:
+
+* `ambition_registry_core` has `engine.ambition_registry_core-dependency-free`,
+  which is stronger — its `[dependencies]` is empty and the row keeps it so.
+* `ambition_damage` has source-purity and NO allowlist **on purpose**, and its
+  rationale says why: *"its closure is eleven crates … pinning that list is a
+  real ownership decision rather than a copy of the `world_items` row — it
+  belongs to whoever finishes the damage carve."*
+
+⇒ **Audit by asking which policy names the crate's `Cargo.toml`, not by row id**:
+
+```sh
+grep -n "<crate>/Cargo.toml" tests/ambition_workspace_policy/policies/*.toml
+```
+
+⚠ I filed both as gaps before reading them. A deliberate absence with a stated
+reason is not a missing guard, and an id-shaped grep cannot tell the difference.
+
+### ⛔ RESIDUE IS MORE DANGEROUS TO CITATIONS THAN DELETION
+
+A carve rarely empties a directory. `items/pickup/` survived the pickup carve as
+the kernel's schedule residue — the three-variant chain plus a few attachments —
+and `abilities/` survived the abilities carve holding possession, teleport,
+trapdoor, flyline and the puppy-slug gun. ⇒ **Every planning citation to those
+paths still RESOLVES, while the code it meant has moved.** Deletion fails loudly
+and is caught; residue passes every checker silently.
+
+Two live examples found the day after (both now repointed):
+
+* `demos/sanic.md` cited the `aabb_path_contacts` swept-route callout as "called
+  out in `pickup/mod.rs`" — it is in `ambition_held_items/src/lib.rs`, and the
+  `collect_ecs_pickups` beside it is in `features/ecs/pickups.rs`, a third file.
+* `awaiting-maintainer-decision.md`'s decision 40 told Jon the zeroing is
+  `fire_held_ranged_system` in `items/pickup/mod.rs`; it is in
+  `ambition_held_items/src/lib.rs`. ⛔ **That one costs a RULING, not a read.**
+
+⇒ **After a carve, sweep planning for citations INTO the residue**, not only for
+citations to files you deleted:
+
+```sh
+grep -rnoE '`[^`]*(items/pickup|abilities/|character_runtime)[^`]*`' docs/planning --include=*.md
+```
+
+and for each hit ask where the NAME lives now, not whether the path exists. ⭐ A
+previous session did this correctly for `physical_baseline.rs` — it names the new
+`ambition_body_seed/` location and keeps the old path as `cite-ok` history with
+the commit that moved it. That is the shape to copy.
+
 ### The lockfiles are plural
 
 `fixtures/minimal_game/Cargo.lock` is the one the footprint ratchet reads, and

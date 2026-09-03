@@ -165,6 +165,28 @@ is a signal and not a lock. And a page under a header is still fair game for
 somebody fixing a fact they can prove — the header says who is working it, not
 who owns it.
 
+### ⛔ A PREDICTION SPREADS BY QUOTATION, AND FIXING ONE COPY LEAVES THE OTHERS
+
+One wrong forecast reached three pages on 2026-09-03. `queue.md`'s D33 row said
+the remaining decomposition was INTERNAL, "with no manifest edge to delete at the
+end of it", and warned "whoever takes it should know that going in". `status.md`
+restated it. `engine/actor-monolith-decomposition.md` restated it again. Five
+crates left the kernel the next day, the first being the very module the forecast
+named as the edgeless remainder — so all three copies were discouraging a reader
+away from work that then succeeded, and each copy had to be found separately.
+
+⇒ **A forecast belongs in ONE page — the one that owns the work — and other
+pages LINK to it.** A measurement can be quoted (it was true when taken, and the
+date says so); a prediction cannot, because when it fails the quotations do not
+fail with it. ⚠ If you find yourself restating someone else's forecast, that is
+the moment to link instead.
+
+⭐ And when one does fail, KEEP IT with its post-mortem rather than deleting it.
+The D33 row now records why it was wrong — it looked for EDGES rather than
+OWNERSHIP, and the metric it watched (the kernel's dependency count) rises on
+every successful carve, so success read as regression. That is worth more to the
+next forecaster than a clean page.
+
 ### ⛔ RETIRING A PAGE CAN ORPHAN WHAT IT LINKED TO
 
 The retirement test — zero inbound references AND full absorption of its content
@@ -253,6 +275,15 @@ directory entries including `__pycache__` instead of `*.py`. The page's own name
 files are what let me find my error instead of reporting it as theirs. ⇒ Before
 reporting a mismatch, reconstruct the page's method from the exemplars it names;
 the mismatch is at least as likely to be yours.
+
+⛔ **THAT HAPPENED TWICE IN ONE SESSION, BOTH TIMES BECAUSE A GREP COUNTED THE
+WRONG THING.** The SVG page's 138 became 146 when `__pycache__` entries joined
+the count. `demos/sanic.md`'s *"35 authored `currency:1` rings"* became 72 under
+`grep -o "currency:1"` — because an LDtk file carries that string twice per
+entity, once in the definition and once in the instance. Parsing the world and
+counting `PickupSpawn` instances gives **exactly 35**. ⇒ **In a structured file,
+count ENTITIES, not occurrences of a value string**; a substring tally over JSON
+or LDtk is not a census, and the page that parsed it properly is usually right.
 
 The middle row is the one that produces confident wrong numbers: silently
 replacing a figure you cannot reproduce asserts a drift you have not

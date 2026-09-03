@@ -92,6 +92,17 @@ reboot and nothing re-establishes it, so an unbound session silently builds
 through the shared mount into the slow directory underneath — minutes per check,
 and a second full copy of every artifact accumulating where nobody looks.
 
+⛔ **AND THE BOUND DISK FILLS — WHICH TAKES `/tmp` WITH IT.** On a VM where the
+bind target lives on the same device as `/` (the calculex VM: `/dev/vda1`), a
+full `target/` is a full ROOT. The symptom is not a cargo error: the harness's
+own task files start failing with `ENOSPC` and command output is lost
+mid-session, which looks like tooling breakage. One day of multi-profile work
+reached 309 G of 309 G — `target/debug` 217 G, `target/notrace` 25 G,
+`target/profiling` 18 G, `target/wasm32-unknown-unknown` 9 G.
+⇒ **Measurement targets are disposable once their numbers are written down.**
+Deleting `target/notrace` and the wasm target freed 23 G instantly. Run
+`df -h /tmp` before starting a SECOND target or profile combination, not after.
+
 ⛔⛔⛔ **AND NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT `incremental`, NOT
 `deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL.**
 A target directory that has grown enormous is a SYMPTOM and the cause is almost

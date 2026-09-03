@@ -1373,7 +1373,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   membership differs (`hunny_horror_boss` alone is 59 edges nobody had counted).
   Left as prose rather than a number so it cannot go stale again.
   ⭐ THE INSTRUMENT LANDED 2026-09-02, and it RANKS because the separation it was
-  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py`
+  asked for CANNOT BE MADE. `tools/ambition_sprite2d_renderer/scripts/measure_clip_population.py` <!-- cite-ok: on an unmerged submodule branch, deliberately -->
   (the renderer submodule's script, not this repo's `scripts/`), branch `d129-composited-frames` @ `c6a9712` — ⚠ NOT in the
   checked-in submodule pointer (`125adf8`), deliberately: the pointer is Jon's to
   move. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
@@ -1445,7 +1445,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   render here" qualifier on this row, and the worklist is the whole roster.
   ⭐ **THE RESULT IS ON THE RECORD, not just in this row**:
   `ambition_dev_measurements` branch `sprite-clip-census-20260902` @ `c0e3889`,
-  `summaries/sprite-clip-census-20260902.md` — the run, its provenance, and the
+  `summaries/sprite-clip-census-20260902.md` <!-- cite-ok: a path in ambition_dev_measurements @ c0e3889, not this repo --> — the run, its provenance, and the
   two caveats a reader must not lose. ⚠ The 228K per-edge JSON is deliberately
   NOT committed: that repo ignores `profiles/` by design and tracks only the
   readable half. ⛔ Neither submodule pointer is bumped — the instrument

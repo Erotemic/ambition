@@ -175,7 +175,7 @@ one at a time into a headless app is fitting the app to the test. See B3 in
 
 - **`crates/ambition_sim_harness/`** owns the reusable headless surface:
   `runtime.rs` (`Platformer2dSimHarness`), `action.rs`, `observation.rs`, `options.rs`,
-  `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs`
+  `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs` <!-- cite-ok: the sentence says it is gone -->
   is gone; `game/ambition_app/src/rl_sim/mod.rs` survives as the thin Ambition
   BINDING — it re-exports the harness and supplies the one product-specific
   piece, the composition that installs Ambition content +

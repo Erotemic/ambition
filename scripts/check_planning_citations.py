@@ -64,6 +64,39 @@ FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
 # `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
 SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")
 
+# ⛔⛔ A PATH WITHOUT A LINE NUMBER WAS NOT BEING CHECKED AT ALL. `FILE_LINE`
+# requires the `:123` suffix, and almost no planning row writes one: prose cites
+# `features/ecs/footstool.rs`, not `…:168`. MEASURED 2026-09-02: the sweep that
+# reported "all 353 citations resolve" was true and judged NONE of the 319 bare
+# paths in the same files, one of which had been dead since `00030e603`.
+#
+# ⭐ THE HARD PART IS THAT THE REPOSITORY ABBREVIATES ON PURPOSE, so a plain
+# existence test reports the abbreviation instead of the rot — the "teaches its
+# reader to skim" failure this file already warns about, which would be worse
+# than no check. Three conventions are all correct and all common:
+#
+#     platformer2d_core/src/abilities.rs   crates/ambition_platformer2d_core/…
+#     actor_monolith/src/…/grapple.rs      …ambition_platformer2d_actor_monolith
+#     core/draw.py                         inside the sprite-renderer SUBMODULE
+#
+# ⭐ SO THE RULE IS ORDERED CONTAINMENT, not a suffix match: the basename must
+# name a real file, and every component the citation writes must appear in that
+# file's path IN ORDER, where a component matches either exactly or as the tail
+# of an `ambition_`-prefixed crate directory. All three above resolve;
+# `features/ecs/footstool.rs` does not, because `footstool.rs` lives in
+# `crates/ambition_combat/src/` and that path contains neither `features` nor
+# `ecs`. That is the finding, and it is what a reader following the row hits.
+PATH_SUFFIXES = ("rs", "py", "ron", "toml", "sh", "wgsl", "ldtk", "json", "md")
+PATH_CITE = re.compile(
+    r"`([A-Za-z0-9_][A-Za-z0-9_./-]*/[A-Za-z0-9_.-]+\.(?:"
+    + "|".join(PATH_SUFFIXES)
+    + r"))`(?!:)"
+)
+#: ⚠ A BUILD OUTPUT IS NOT ROT. Rows cite `target/run_tests_status.json` by its
+#: real path, which is the correct way to name one; it is absent because nothing
+#: has been built in this checkout yet, not because the row is wrong.
+GENERATED_PREFIXES = ("target/", "dist/", "build/")
+
 #: Segments that are never a definition to look for on their own.
 NOISE = {
     "self", "crate", "super", "std", "core", "alloc",
@@ -187,6 +220,54 @@ def defined_names(text: str) -> set[str]:
     return names
 
 
+def submodule_files() -> list[str]:
+    """Every file a SUBMODULE tracks, as a path from the superproject root.
+
+    ⛔ THE SUBMODULE'S OWN ROOT IS THE CONVENTION its docs cite from.
+    `engine/sprite-renderer.md` documents the renderer and writes `core/draw.py`,
+    which is exactly right from inside `tools/ambition_sprite2d_renderer/` and
+    names nothing at all when joined to the superproject. Six such citations were
+    the largest single group in the first path sweep; they are correct prose and
+    must not report. Ordered containment does the rest — the components resolve
+    against the real path once the real path is in the index.
+    """
+    listing = subprocess.run(
+        ["git", "submodule", "--quiet", "foreach", "--recursive",
+         'git ls-files | sed "s|^|$displaypath/|"'],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    return listing.stdout.split()
+
+
+def _same_component(have: str, want: str) -> bool:
+    """One path component, allowing the crate-directory abbreviation.
+
+    `ambition_characters` IS `characters` for citation purposes, and
+    `ambition_platformer2d_actor_monolith` is `actor_monolith`: prose drops the
+    vendor prefix and as much of the crate path as still reads unambiguously.
+    Anchored on `_` so it stays a word boundary — `combat` must not match
+    `ambition_precombat`.
+    """
+    return have == want or have.endswith("_" + want)
+
+
+def path_resolves(cite: str, by_name: dict[str, list[str]]) -> bool:
+    """Does `cite` name a real file, allowing the repository's abbreviations?"""
+    parts = cite.split("/")
+    for candidate in by_name.get(parts[-1], []):
+        have = candidate.split("/")
+        i = 0
+        for want in parts:
+            while i < len(have) and not _same_component(have[i], want):
+                i += 1
+            if i == len(have):
+                break
+            i += 1
+        else:
+            return True
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict", action="store_true",
@@ -221,6 +302,13 @@ def main() -> int:
     by_suffix: dict[str, list[str]] = {}
     for p in tracked:
         by_suffix.setdefault(Path(p).name, []).append(p)
+    # ⛔ SUBMODULE FILES BELONG IN THE PATH INDEX AND NOT IN `by_suffix`.
+    # `FILE_LINE` opens the file it resolves to and counts its lines; the path
+    # check only asks whether it exists. Keeping the wider index separate means
+    # adding submodules cannot change what the line-number pass already reports.
+    by_path_name: dict[str, list[str]] = {}
+    for p in list(tracked) + submodule_files():
+        by_path_name.setdefault(Path(p).name, []).append(p)
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
@@ -280,6 +368,16 @@ def main() -> int:
                 if want > n:
                     findings.append((str(rel), lineno, m.group(0),
                                      f"{hits[0]} has {n} lines"))
+            for m in PATH_CITE.finditer(line):
+                cite = m.group(1)
+                # An elided path (`tools/.../specs/x.ron`) names a shape, not a
+                # file, and a build output is absent by construction.
+                if cite.startswith(GENERATED_PREFIXES) or "..." in cite:
+                    continue
+                checked += 1
+                if not path_resolves(cite, by_path_name):
+                    findings.append((str(rel), lineno, m.group(0),
+                                     "no file at this path"))
             for m in SYMBOL.finditer(line):
                 checked += 1
                 parts = m.group(1).split("::")

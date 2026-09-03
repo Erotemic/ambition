@@ -190,6 +190,12 @@ impl CharacterSpriteAssets {
         self.retired.get(token).copied()
     }
 
+    /// The character id a token was declared under, whether or not a sheet is
+    /// resident for it.
+    pub fn declared_id(&self, token: &str) -> Option<&str> {
+        self.declared.get(token).map(String::as_str)
+    }
+
     /// Is anything resident whose REQUEST is no longer the active one?
     ///
     /// `requested_tier`, deliberately — the question is "has the active
@@ -206,6 +212,38 @@ impl CharacterSpriteAssets {
         self.sheets.iter().any(|(token, asset)| {
             asset.requested_tier != active && self.declared.contains_key(token)
         })
+    }
+
+    /// The resident realizations whose REQUEST is not the active tier, as
+    /// `(token, character id)` pairs -- the population a quality transition
+    /// acts on. Same staleness rule as [`Self::has_stale_realizations`].
+    pub fn stale_realizations(&self, active: TextureResolutionScale) -> Vec<(String, String)> {
+        self.sheets
+            .iter()
+            .filter(|(_, asset)| asset.requested_tier != active)
+            .filter_map(|(token, _)| {
+                self.declared
+                    .get(token)
+                    .map(|id| (token.clone(), id.clone()))
+            })
+            .collect()
+    }
+
+    /// Drop these resident realizations (declared tokens only), keeping their
+    /// declarations so a later demand can realize them again. Returns the
+    /// character ids that lost a realization.
+    ///
+    /// ⛔ NOT for a sheet a live body is drawing: a quality transition
+    /// RE-DEMANDS those and [`Self::publish`] replaces them in place, so the
+    /// body keeps its family until the new tier's texture is ready. Retiring a
+    /// sheet in use turns every body wearing it into the placeholder rectangle
+    /// for as long as the ration takes to reach it -- 129 frames at Full for
+    /// the hall (2026-09-03).
+    pub fn retire_realizations(
+        &mut self,
+        tokens: impl IntoIterator<Item = String>,
+    ) -> std::collections::BTreeSet<String> {
+        self.retire_tokens(tokens.into_iter().collect())
     }
 
     /// Every tier that is PHYSICALLY resident — the tiers the decoded bytes

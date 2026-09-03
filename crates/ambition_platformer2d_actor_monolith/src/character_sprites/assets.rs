@@ -359,8 +359,20 @@ pub fn materialize_declared_character_sprite(
         // prepared costs nothing to stage again: no sheet lookup, no atlas build, no handle
         // request. Pinned by `re_demanding_a_resident_character_repeats_no_preparation`, which
         // counts atlas layouts and goes 1 → 2 the moment this returns early no longer.
-        ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
-            return SpriteMaterialization::Ready
+        // ⚠ AT THE ACTIVE TIER. Ready at another tier is a RE-REALIZATION: a
+        // quality transition re-demanded it WITHOUT retiring it, so the body
+        // keeps drawing the old tier until `publish` below replaces the sheet
+        // and the renderer rebinds once the new texture is loaded. Retiring
+        // first turned every in-use body into the placeholder rectangle for as
+        // long as the ration took to reach it -- 129 frames at Full (2026-09-03).
+        ambition_sprite_sheet::character::CharacterSheetState::Ready(asset) => {
+            if asset.requested_tier == character_sprite_tier(quality) {
+                return SpriteMaterialization::Ready;
+            }
+            match sprites.declared_id(token) {
+                Some(id) => id.to_string(),
+                None => return SpriteMaterialization::Ready,
+            }
         }
         ambition_sprite_sheet::character::CharacterSheetState::Declared { character_id } => {
             character_id.to_string()

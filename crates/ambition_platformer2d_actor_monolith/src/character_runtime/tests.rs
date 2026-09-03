@@ -630,6 +630,32 @@ mod live_quality_apply {
 
     /// The asset PATH the resident realization of `token` points at — the one
     /// observable that says which pixels a body is actually drawn from.
+    /// Every catalog character with a baked half-tier variant, in id order.
+    fn characters_with_a_scaled_variant() -> Vec<String> {
+        use ambition_sprite_sheet::character::sheets::{
+            try_load_spec_for_target_scaled, SheetTuning,
+        };
+        let catalog = crate::character_roster::catalog();
+        let mut ids: Vec<&str> = catalog.iter().map(|(cid, _)| cid.as_str()).collect();
+        ids.sort_unstable();
+        ids.into_iter()
+            .filter(|cid| {
+                catalog
+                    .get(cid)
+                    .and_then(|e| e.manifest_target())
+                    .is_some_and(|target| {
+                        try_load_spec_for_target_scaled(
+                            target,
+                            &SheetTuning::default(),
+                            ambition_sprite_sheet::character::TextureResolutionScale::Half,
+                        )
+                        .is_some()
+                    })
+            })
+            .map(str::to_string)
+            .collect()
+    }
+
     fn resident_image_path(app: &App, token: &str) -> Option<String> {
         let asset = app
             .world()
@@ -738,6 +764,75 @@ mod live_quality_apply {
                 .contains(&cid),
             "a quality change must not disturb the session cast"
         );
+    }
+
+    /// A WORN character is never without a resident sheet across a transition.
+    ///
+    /// The transition used to retire every stale realization first and re-demand
+    /// it after -- one frame, or one hundred and twenty-nine at Full for a hall
+    /// cast, in which the body's sheet was `Declared` and the renderer drew the
+    /// placeholder rectangle. Measured headlessly 2026-09-03 (129 placeholders at
+    /// Ultra when the convergence landed after the cover lifted). The rule: a
+    /// sheet a body wears is REPLACED, never retired; only unworn sheets are
+    /// retired.
+    ///
+    /// ⚠ The cast is WIDER THAN THE RATION on purpose. At Full the materializer
+    /// realizes one character per frame, so with two worn characters the second
+    /// is not reached on the transition's first frame -- and a retire-first
+    /// transition leaves it `Declared` for that frame. One character would be
+    /// retired and re-realized inside the same update and the guard would pass
+    /// vacuously (it did, on the poison run that wrote this paragraph).
+    #[test]
+    fn a_worn_character_keeps_its_sheet_resident_through_the_transition() {
+        let cast = characters_with_a_scaled_variant();
+        let Some(pair) = cast.get(..2) else {
+            panic!("fewer than two baked half-tier variants: this fixture cannot prove anything");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        for cid in pair {
+            app.world_mut()
+                .resource_mut::<CharacterLoadDemand>()
+                .request(cid.clone());
+            wear(&mut app, cid);
+        }
+        for _ in 0..4 {
+            finalize_and_update(&mut app);
+        }
+        for cid in pair {
+            let before = resident_image_path(&app, cid).expect("materializes at Half");
+            assert!(before.contains("sprites_0_5x"), "starts half: `{before}`");
+        }
+
+        app.world_mut()
+            .resource_mut::<UserSettings>()
+            .video
+            .quality
+            .profile = VisualQualityProfile::High;
+        // Every frame of the transition, including the ones the ration has not
+        // reached yet.
+        for frame in 0..6 {
+            finalize_and_update(&mut app);
+            for cid in pair {
+                let assets = app.world().resource::<GameAssets>();
+                assert!(
+                    assets.characters.sheet_state(cid).is_ready(),
+                    "frame {frame}: `{cid}` is worn and must stay resident through the \
+                     transition -- a Declared sheet here is the placeholder rectangle"
+                );
+                assert_eq!(
+                    assets.characters.retired_tier(cid),
+                    None,
+                    "frame {frame}: a worn sheet is replaced, never retired"
+                );
+            }
+        }
+        for cid in pair {
+            let after = resident_image_path(&app, cid).expect("still resident");
+            assert!(
+                !after.contains("sprites_0_5x"),
+                "`{cid}` must have converged to the Full tier, got `{after}`"
+            );
+        }
     }
 
     /// And downward, which is the direction memory behaves differently in.

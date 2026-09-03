@@ -6,7 +6,6 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 // per step costs a set lookup after the first.
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
-use bevy::prelude::*;
 
 use ambition_platformer2d_core::Vec2;
 

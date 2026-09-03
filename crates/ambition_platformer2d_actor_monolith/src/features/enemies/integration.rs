@@ -9,7 +9,6 @@
 //! from the [`super::CharacterRoster`].
 
 use super::super::ecs::actor_clusters::ActorMut;
-use super::super::*;
 use super::*;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::events::{

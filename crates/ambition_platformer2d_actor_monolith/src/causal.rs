@@ -638,7 +638,7 @@ mod knockback_tests {
     use ambition_causal::{FactValue, RecordingPolicy};
     use ambition_characters::brain::Brain;
     use ambition_characters::control::PlayerSlot;
-    use ambition_damage::BodyReaction;
+    use ambition_combat::hit_reaction::BodyReaction;
 
     fn reaction_app() -> App {
         let mut app = App::new();

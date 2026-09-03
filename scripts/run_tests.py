@@ -409,8 +409,23 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                 # rather than a defect. Failing the lane on one would train
                 # everybody to pass --no-verify. `--strict` exists for a
                 # deliberate sweep.
-                "planning citations (reports, does not gate)",
-                [sys.executable, "scripts/check_planning_citations.py"],
+                "planning + doctrine citations (reports, does not gate)",
+                [
+                    sys.executable,
+                    "scripts/check_planning_citations.py",
+                    # ⭐ THE DEFAULT IS `docs/planning` ALONE, and the pages that
+                    # describe CURRENT behaviour were never scanned. Aimed here
+                    # 2026-09-03 it found three live-doc citations pointing at
+                    # code that had moved crates — `settings::apply_display_mode`
+                    # (left the monolith in `355874fe1`), `audio/runtime.rs` and
+                    # `src/vanity_card.rs`. A doctrine page whose address is
+                    # wrong is worse than a stale plan: it is read as current.
+                    "docs/planning",
+                    "docs/concepts",
+                    "docs/systems",
+                    "docs/architecture",
+                    "docs/recipes",
+                ],
             ),
             Job(
                 "compile-cost ratchet (frozen weights, not a stopwatch)",

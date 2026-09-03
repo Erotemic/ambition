@@ -394,7 +394,7 @@ All four had the same shape and none of them looked alike at the time:
 
 | what was searched | what the search could not find | what it "proved" |
 |---|---|---|
-| `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not |
+| `check_planning_citations.py` poisoned with a bare `` `path.rs` `` | the checker only reads `` `path.rs:123` `` and `` `foo::bar` `` | "the checker ignores table cells" — it does not | <!-- cite-ok: a poison EXAMPLE, not a citation -->
 | planning docs for `scripts/…` paths that exist | bare basenames (`tests.rs`, `fx.rs`) used as prose shorthand | "186 broken citations" — there were none |
 | `cargo check --workspace` output through `\| tail` | the exit status, which a pipeline takes from its LAST command | "the lane is green" — it was RED |
 | `(./run_tests.sh --rust > log 2>&1; echo "EXIT=$?" >> log)` **2026-09-03** | the LANE's status: a subshell exits with its LAST command, and that was the `echo`. The harness reported the wrapper's **0** while the log's own last line read `EXIT=1` | "the full Rust lane passed" — it was 5/6 jobs, and I had already told the coordinator it would be an exit code |

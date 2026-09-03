@@ -96,7 +96,7 @@ today**: all six production files are at 0 raw spawns, and the single
 raw spawn in any of them would fail nothing.
 
 ⭐ **AND IT CLOSED BY REFACTOR, NOT BY DECISION.** `cdd0a0a0d` (2026-06-14)
-split `features/ecs/spawn.rs` into `spawn/mod.rs` + `spawn/tests.rs`. Before that
+split `features/ecs/spawn.rs` into `spawn/mod.rs` + `spawn/tests.rs`. Before that <!-- cite-ok: the pre-split filename, quoted to explain how the gate went blind -->
 commit the file was named `spawn.rs` and WAS scanned; after it, neither half
 matched, and the allowlist has not needed to mention them since. The commit's own
 subject is *"split 6 more test-heavy modules + fix source-scanner paths"* — so

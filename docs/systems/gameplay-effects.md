@@ -70,7 +70,7 @@ melee/projectile split, *"a victim genuinely wants to know whether it took a
 contact swing or a ranged shot — that is a real difference in the world, unlike
 who fired it."* ⇒ **So the page was describing the pre-unification shape while
 claiming to describe the unification**, and anyone matching on
-`HitSource::PlayerSlash` would not compile. Both outgoing
+`HitSource::PlayerSlash` would not compile. Both outgoing <!-- cite-ok: names a variant that does not exist, which is the correction's point -->
 (player → feature) and incoming (hazard/enemy/boss → player) damage flow
 through it. What's still missing is a full per-hit *lifecycle* object —
 `HitEvent` is the canonical transport, but reaction/poise/stagger/armor/

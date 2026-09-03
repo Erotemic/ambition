@@ -159,7 +159,7 @@ lose precision — it manufactures the more interesting answer.
 
 Everything above is a check that did not execute. The other half of the family
 executed perfectly and asked the wrong question, and it is the larger half:
-forty-five instances, each with the commit that fixed it, are tabulated in
+forty-six instances, each with the commit that fixed it, are tabulated in
 [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
 ⇒ **Do not add that count to the ten above** — different question, different
 population. #10 is the boundary case and belongs to both lists.
@@ -211,6 +211,14 @@ rediscovering. Four passes, cheapest first:
    `check_zone_name_ratchet`) were CI-only — one of them holding two unread
    regressions. This is the pass that found entry #11, and it is the first
    entry on this page found on purpose rather than by accident.
+
+7. **Build a crate under its OWN defaults.** `cargo check -p <crate>` with no
+   feature flags is a build NO LANE PERFORMS: the workspace check unifies
+   features on, and the union enables everything. On 2026-09-03, of 25 crates
+   with an empty `default` and cfg-gated source, FOUR warned this way and every
+   lane was clean. ⭐ It is the jab-string lesson in reverse — that test was
+   green per-crate and red under the union; these are green under the union and
+   red per-crate. Both say the same thing: a feature set is a PROGRAM.
 
 6. **Ask which guards have a TEST OF THEIR OWN.** Three of sixteen had none,
    including `check_doc_links`, which the DEFAULT GATE runs. Writing one found a

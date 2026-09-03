@@ -159,8 +159,7 @@ lose precision — it manufactures the more interesting answer.
 
 Everything above is a check that did not execute. The other half of the family
 executed perfectly and asked the wrong question, and it is the larger half:
-thirty-seven instances from the same two nights, each with the commit that
-fixed it, are tabulated in
+forty-five instances, each with the commit that fixed it, are tabulated in
 [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md).
 ⇒ **Do not add that count to the ten above** — different question, different
 population. #10 is the boundary case and belongs to both lists.

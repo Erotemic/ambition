@@ -405,6 +405,37 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 ## Current execution order
 
+- ▢ **THE COMPILE-COST RATCHET FAILS THE GATE, and its five messages are the
+  D33 campaign's own accounting.** Measured 2026-09-03 by running `./run_tests.sh`
+  to completion: **9/10 jobs passed in 2023 s**, the tenth being
+  `compile-cost ratchet`. Baseline frozen at `11ef33c5b5a5` (2026-08-27),
+  headroom 2%.
+  * ⛔ **REGRESSED** `worst_edit_cost_lines` (`ambition_geometry`) 540,227 →
+    572,035 (+31,808 against a +10,804 budget), and `edit_cost_lines`
+    (`ambition_platformer2d_core`) 537,395 → 568,724 (+31,329 against +10,747).
+    The tool's own reading: *"Something got bigger or grew a dependency edge."*
+  * ⛔ **PATH** `critical_path_crates` 14 → 15. Longer is worse *"even if every
+    crate got smaller"*, because parallelism cannot compress a serial chain.
+  * ⚠ **UNPRICED** `ambition_body_seed`, `ambition_held_items`,
+    `ambition_registry_core`, `ambition_world_items` — all four D33
+    destinations — carry NO measured compile cost and are priced at the
+    population median 2.9059 ms/line. ⭐ **That is a placeholder, not an
+    estimate**: the tool states size predicts compile cost at only R²=0.12, so
+    every SECONDS figure above is wrong for these four by an unknown factor.
+    `python3 scripts/compile_collect.py` measures them.
+  * ⭐ **CARVED — two real wins the baseline is not holding**:
+    `worst_edit_cost_seconds` 1,702.5 → 1,648.9 (−53.6 s) and
+    `edit_cost_seconds` (the monolith) 1,264.9 → 1,139.5 (−125.4 s). The
+    monolith's share of workspace edit cost fell 50.5% → 48.5%. The tool warns
+    that an unfrozen win is slack: *"the guard is holding 125.4 s and the next
+    regression that size lands silently."*
+  ⇒ **NOT RE-FROZEN HERE, deliberately.** `--update` rewrites every number at
+  once, so banking the two wins would bank the two regressions with them — the
+  identical trap the doc-link ratchet had (`bf4e6f353`), where the advice to
+  bank an improvement printed while the regressions stayed hidden. The
+  regressions need a carve owner to say whether +31.8k lines is a deliberate
+  landing; the four unpriced crates need a measurement, not a ruling.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features
@@ -946,9 +977,40 @@ OPTIONAL dep + feature, never used:
   sixteen never-asked-for crates ("gating a facade edge cuts nothing"). The
   value is that the graph stops claiming an edge nobody uses.
 
-  ⇒ **The PLAIN one is worth cutting first**: the facade is what every game
-  links, and a declared-unused edge there is what the next reader will justify
-  rather than question.
+  ✔ **THE PLAIN ONE IS CUT (2026-09-03).** `ambition_platformer2d` no longer
+  declares `ambition_interaction`. Verified rather than assumed at each step:
+  nothing in the whole crate directory names it (not `src/`, not tests, not
+  `build.rs`), so no feature combination can need it; `cargo check -p
+  ambition_platformer2d --all-targets` is clean; the workspace no-warnings gate
+  is clean; and the capability footprint is UNCHANGED at 47/20, which is the
+  row's own claim about redundancy holding up under measurement.
+  ⭐ **THE SENTINEL'S LOCKFILE CAME WITH IT, and the guard is what said so.**
+  `check_absence_contracts.py` runs `cargo tree --locked` in the sentinel's own
+  workspace and threw `CalledProcessError … exit status 101` the moment the
+  edge left — which is exactly what its docstring promises: *"a dependency
+  change that alters the sentinel's lockfile must arrive WITH that lockfile, or
+  this check fails loudly instead of silently rewriting it."* Three lockfiles
+  each lost one line (`Cargo.lock`, `fixtures/minimal_game`,
+  `examples/capability_demo`).
+  ⇒ **The five OPTIONAL ones are still open, and TRIAGED 2026-09-03 so the
+  ruling is cheap.** All five are still unnamed in their crate's `.rs`
+  (re-derived, not carried forward). ⛔ **None is mechanical**, and the reason is
+  not the compiler — it is INTENT. An optional dep is wired into a feature
+  definition, so removing it edits a declared seam and every dependent that
+  enables that feature:
+
+  | declaration | the feature it backs | who enables it | shape |
+  |---|---|---|---|
+  | `ambition_characters` → `ambition_causal` | `causal = ["dep:ambition_causal"]` | the monolith's own `causal` | ⚠ a NO-OP feature: it pulls the dep and does nothing else, and its comment says *"Publish this capability's causal facts (brain decisions, for now)"* — a seam declared ahead of its use |
+  | `game/ambition_app` → `ambition_causal` | `causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]` | `ambition_app_tools` | ⭐ the feature does MORE than pull the dep, so dropping the `dep:` alone leaves it meaningful — the smallest safe edit of the five |
+  | `ambition_sim_view` → `ambition_portal2d` | `portal = ["dep:ambition_portal2d", "…actor_monolith/portal"]` | nothing in a manifest; the gate's feature UNION does | same shape as above |
+  | `ambition_platformer2d` → `ambition_sfx_bank` | inside a feature array (`crates/ambition_platformer2d/Cargo.toml:79`) | — | needs reading before touching |
+  | `ambition_touch_input` → `ambition_cutscene` | inside a feature array (`crates/ambition_touch_input/Cargo.toml:30`) | — | needs reading before touching |
+
+  ⇒ **A no-op feature that exists to declare a future seam is not debt, and
+  removing it would delete the intent.** That is a maintainer's ruling, not a
+  cleanup, which is why this row stays ▢ rather than being finished the way the
+  PLAIN one was.
 
   ⛔⛔ **DO NOT REMOVE BLIND — it needs the compiler on each crate's feature
   combinations.** Dropping an optional dep changes feature RESOLUTION, not just
@@ -1118,6 +1180,15 @@ OPTIONAL dep + feature, never used:
      TWO undeclared encounter resources from calculex's switch-loop split —
      declared derived at `2eaa0f479`'s parent. ⚠ A carve is not the only thing
      that trips this: any commit that adds simulated state does.
+
+  11. **⛔⛔ THE COMPILE-COST RATCHET IS A PER-CARVE LEDGER AND IT IS RED.**
+     `python3 scripts/compile_ratchet.py` — 2 s, in the default gate, and it
+     fails the gate today. It is the ledger the D33 campaign is accumulating
+     debt in, and every one of its five messages is about a carve:
+     `REGRESSED` ×2, `PATH` (the serial chain got longer), `UNPRICED` (a new
+     crate has no measured cost), `CARVED` (a win whose baseline is now stale).
+     ⇒ A carve that adds a crate touches ALL of them at once, which is why it
+     belongs on this list rather than in a campaign doc.
 
   10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
      `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That

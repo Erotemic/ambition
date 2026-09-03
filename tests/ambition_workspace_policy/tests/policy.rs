@@ -339,7 +339,7 @@ fn every_source_doc_names_a_real_file_and_heading() {
 
     let ws = Workspace::discover();
     let mut checked = 0usize;
-    let mut check = |id: &str, source_doc: &str, checked: &mut usize| {
+    let check = |id: &str, source_doc: &str, checked: &mut usize| {
         let (path, anchor) = match source_doc.split_once('#') {
             Some((p, a)) => (p, Some(a)),
             None => (source_doc, None),

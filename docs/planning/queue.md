@@ -491,6 +491,40 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `ambition_input`, `ambition_platformer2d_core`), so a double registration
   between one of those and the facade is the first place to look. Owner: whoever
   holds the capability-demo/SDK surface.
+- ▢ **TEN ASSET RATCHETS ARE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS,
+  AND TWO PLANNING PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
+  `scripts/tests/test_shipped_sheet_pages_are_claimed.py` (5 assertions) and
+  `scripts/tests/test_tier_variants_are_actually_smaller.py` (5) are marked
+  `@pytest.mark.skipif(not os.environ.get("AMBITION_ASSETS_ARE_CANONICAL"))`.
+  ⛔ **Nothing in the repository sets that variable** — whole-tree grep
+  2026-09-03 late, 12 hits and every one of them the skipif, its reason string,
+  or the two files' own prose telling you to opt in by hand. So the suite has
+  never evaluated them: 13 skips in the `scripts/tests` lane tonight, 10 of them
+  these.
+  ⭐ **THE GATE IS NOT A MISTAKE, WHICH IS WHY THIS IS NOT A ONE-LINE FIX.** The
+  sprite tree is gitignored and machine-local, every PNG under `assets/sprites*`
+  is generated, and a worktree SYMLINKS the main checkout's copies. On a box
+  that regenerates cleanly the `KNOWN_` lists read as stale and the guards fail
+  for the wrong reason — the failure mode the gate was added to prevent. Both
+  files say so in their own headers, and both already say nothing sets the
+  variable, so this was known at the point of writing and never carried outward.
+  ⚠ **What is wrong is the PLANNING claim, not the test design.**
+  [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)
+  said *"Ratcheted by ... so the count cannot grow"* and *"Poison-verified in
+  every direction"* of guards that no lane runs. Both were poison-verified — by
+  hand, at the time, with the variable set — and that is a different statement
+  from a standing ratchet. Both paragraphs now carry the qualification; this row
+  is the open question they point at.
+  ⇒ **The decision is where the canonical box is.** A ratchet that only runs
+  when someone remembers a magic variable protects nothing, and deleting the
+  gate makes every worktree red. Candidates: a `--maintenance` job that sets it
+  only when `assets/sprites/` is a real directory rather than a symlink; or
+  publishing a measured census as a checked-in baseline so the guards compare
+  against a recorded state instead of a local tree. ⛔ Do not simply remove the
+  skipif. ⓘ Not diagnosable on this box either way: `assets/sprites*` does not
+  exist here at all, so even opting in tonight would have skipped on the
+  directory check underneath.
+
 - ▢ **THE FEATURE UNION IS RED: 48 failures against 6,968 passes, and 37 of
   them are ONE system.** Measured 2026-09-03 at `dbfb1a2ca` by running the gate's
   own union job standalone (`cargo test --workspace --no-fail-fast --features

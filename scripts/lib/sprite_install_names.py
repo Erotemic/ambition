@@ -25,6 +25,27 @@ a distinct condition from "this target installs nothing".
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+#: ⛔ THE CHECK THAT DISABLED ITSELF. The import below was bare, so it needed the
+#: renderer package already on `sys.path` — i.e. the tool venv. On an ordinary
+#: checkout that HAS the submodule but no venv it raised `ModuleNotFoundError`,
+#: `claimed_install_names` returned `None`, and
+#: `check_published_sheets_are_present.py` printed "cannot check" and **exited
+#: 0**. A guard that reports a clean exit on every machine that has not run a
+#: setup step is a guard nobody notices is off.
+#:
+#: The sibling that does this correctly is
+#: `scripts/generate_visual_quality_variants.py`, which inserts the submodule
+#: root itself and has always been able to reach the registry. Same repo, same
+#: package, two different answers to "is the renderer importable".
+#:
+#: ⚠ Additive only: on a machine where the venv already provides the package
+#: this changes nothing, because the venv entry still wins if it is earlier and
+#: resolves to the same package either way.
+_RENDERER_ROOT = Path(__file__).resolve().parents[2] / "tools" / "ambition_sprite2d_renderer"
+if _RENDERER_ROOT.is_dir() and str(_RENDERER_ROOT) not in sys.path:
+    sys.path.append(str(_RENDERER_ROOT))
 
 
 def claimed_install_names(targets: list[str]) -> dict[str, list[str]] | None:

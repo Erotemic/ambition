@@ -1,5 +1,6 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
+use ambition_platformer2d::settings_menu::settings::SettingsOptionId;
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::items::Item;
@@ -498,6 +499,66 @@ fn cursor_focus_key_matches_a_rendered_control() {
     assert!(
         matching,
         "the focus key addresses a tagged control the renderer drew"
+    );
+}
+
+/// ⛔ THE QUALITY-CONFIRM PROMPT INSERTS TWO ROWS MID-LIST, AND NOTHING BUILT
+/// THEM. Every caller of `system_rows_with_quality_prompt` in every test passes
+/// `None`, and no test ever puts a `Some` into `VisualQualityConfirmState` --
+/// so `SystemRow::QualityApply` / `QualityCancel` were constructible by the
+/// program and by nothing that checks it.
+///
+/// It matters because of WHERE they land: immediately after the `VisualQuality`
+/// option, in the MIDDLE of the Video screen, so every row below shifts by two.
+/// Row indices are the menu's addressing -- scroll windows, the hover cache's
+/// `cache.rows`, pointer hit-testing and `focus_for_action` all key off them,
+/// and all of them were exercised only against the shorter list.
+#[test]
+fn a_pending_quality_choice_inserts_two_rows_after_the_quality_option() {
+    let settings = UserSettings::default();
+    let model = SystemMenuModel::build(&settings, &Default::default(), &Default::default());
+    let open = Some(SystemMenuEntryId::Video);
+
+    let without = system_rows_with_quality_prompt(&model, open, None);
+    let with = system_rows_with_quality_prompt(&model, open, Some(VisualQualityProfile::Potato));
+
+    assert_eq!(
+        with.len(),
+        without.len() + 2,
+        "a pending choice adds exactly the Apply and Cancel rows"
+    );
+
+    // The quality option's own position is unchanged, and the two new rows sit
+    // directly after it -- not appended at the end, which is what makes every
+    // row below shift.
+    let at = |rows: &[SystemRow]| {
+        rows.iter()
+            .position(|r| matches!(r, SystemRow::Setting(SettingsOptionId::VisualQuality)))
+            .expect("the Video screen offers the VisualQuality setting")
+    };
+    let quality_at = at(&without);
+    assert_eq!(at(&with), quality_at, "the option itself does not move");
+    assert!(
+        matches!(with[quality_at + 1], SystemRow::QualityApply(VisualQualityProfile::Potato)),
+        "Apply follows the option and carries the PENDING profile, not the live one"
+    );
+    assert!(
+        matches!(with[quality_at + 2], SystemRow::QualityCancel),
+        "Cancel follows Apply"
+    );
+
+    // Everything below the option is the same list, shifted by two. This is the
+    // half a length check alone would miss: rows appended at the end would also
+    // be +2 and would break no index.
+    assert_eq!(
+        &with[quality_at + 3..],
+        &without[quality_at + 1..],
+        "the rows below the prompt are unchanged in content and order"
+    );
+    assert_eq!(
+        &with[..=quality_at],
+        &without[..=quality_at],
+        "the rows above the prompt are untouched"
     );
 }
 

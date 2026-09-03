@@ -1004,6 +1004,33 @@ set), and finally `clear_encounter_reward_ecs` — which was a real dependency a
 a genuine open question until the switch-loop split made its trigger
 observable.
 
+⛔ **AND A CARVE CAN FOSSILIZE A DISAGREEMENT IT DID NOT CAUSE. One did.**
+Moving the encounter feature side into `ambition_encounter_features` put the two
+halves of the switch gate in two crates: `encounter_armed` stayed in
+`ambition_encounter`, the completion adapter went to the new crate. Neither moved
+wrongly, and the seam is right — but the split made visible a policy
+contradiction that had been sitting in one file:
+
+* `encounter_armed` arms on **ANY** red link (module doc, and
+  `any_off_switch_arms_a_multi_switch_encounter` pins it);
+* completion asked for the **FIRST** linked switch and greened only that one.
+
+⇒ With two switches on one encounter, completion greened one, the other stayed
+red, the encounter stayed armed, and the driver's *"a terminal encounter still
+armed is reset and started again"* restarted the fight under a player still in
+the trigger. **Greening one switch could never satisfy a rule that asks about
+all of them.** Fixed 2026-09-03: `switch_ids_for_encounter` returns every link
+and the adapter greens all of them, guarded in both directions and poisoned both
+ways.
+
+⚠ **No authored world reaches it** — exactly one non-empty `target_encounter`
+link exists across all five, and no encounter has two — so it was a latent
+supported-API defect, not a shipped regression. ⇒ **Worth recording on this page
+because it is a carve lesson**: the split did not introduce the bug, and it did
+not hide it either; it made two halves that had always disagreed live far enough
+apart that the disagreement had to be written down. That is an argument FOR the
+carve, and it is the second time this page has had to say so.
+
 ⛔ **AND THE LAST REAL SEAM IS NOT A MECHANICAL INVERSION. It is a policy
 question, and it is being left open on purpose.** `clear_encounter_reward_ecs`
 fires when the switch arming an encounter turns OFF: it despawns the reward

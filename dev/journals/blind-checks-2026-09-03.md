@@ -37,6 +37,8 @@ succeeds, the number prints, and the number is about a different question.
 | 13 | Three hypotheses about which targets fail to downscale | All built by READING the generator and diffing configs; `discover_all_targets()` answered it in one call and inverted the third | `b88df4663` |
 | 14 | A clamp stopping an extent rounding to zero, applied to origins too | Turned every `"x": 0, "y": 0` into `"x": 1, "y": 1` across five world files; only the diff showed it | `4c4c59581` |
 | 15 | Grepping for a lesson's own heredoc delimiter inside that heredoc | Bash ended the script early and the trailing command ran on garbage | *(memory only, no commit)* |
+| 16 | Three theories of which targets fail to downscale, from configs and mtimes | The four share one imported module; `grep -l _authored_swing_fighter` answered it, and the shared file was visible in the first `ls` of that directory | `c77f66425` |
+| 17 | "44% of the tree" as the occupancy denominator | Half the MEGAPIXELS are unclaimed but only a fifth of the BYTES — stranded pages are large and empty, so they compress to nearly nothing | `334086d9c` |
 
 ## What the fixes have in common
 
@@ -49,6 +51,12 @@ a poison that does not apply, a fixture whose conditions coincide, and an edit
 script whose failure does not stop the commit are all checks that cannot fail.
 
 ⇒ The one habit that would have caught the most of them: **before reporting a
-count, say out loud what population it is a count OF, and what would make it
-zero.** Items 2, 3, 11 and 12 each print a confident number about a population
-the instrument cannot see.
+count, say out loud what population it is a count OF, in what UNIT, and what
+would make it zero.** Items 2, 3, 11 and 12 each print a confident number about
+a population the instrument cannot see; item 17 prints an honest number in the
+unit that does not answer the question being asked.
+
+⇒ And the one that would have saved the most TIME: items 13 and 16 are the same
+mistake twice in one night — **reading code to infer what a tool would report,
+when the tool was one call away.** `discover_all_targets()` and
+`grep -l <shared module>` each ended a chain of failed hypotheses immediately.

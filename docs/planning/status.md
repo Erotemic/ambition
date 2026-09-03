@@ -401,7 +401,11 @@ The current strategic order is:
 4. **measured presentation/runtime quality** — weak-GPU raster budgets, asset
    preparation/materialization/residency, and useful hitch observability;
 5. **developer iteration** — build/test/profile configuration and supported
-   composition gates;
+   composition gates. ⚠ Ranked fifth by VALUE and currently first by
+   CONSTRAINT: as of 2026-09-03 this box cannot run its own full suite without a
+   clean (see Build/test iteration above), so the gates that would validate 1–4
+   are the thing that does not fit. Recorded rather than reordered — the
+   strategic order is Jon's, and a constraint is not a priority;
 6. **residual actor-kernel, capability, and SDK boundaries** — continue from real
    ownership/dependency pressure rather than size or speculative performance;
 7. **multiview/multiplayer, reactive world, and richer authoring** — advance from

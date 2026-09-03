@@ -432,6 +432,35 @@ demonstrated. `engine/engine-1.0-architecture-program.md`'s
 from the obvious grep, 3 of them tests, and no way to tell which count the page
 meant.
 
+### ⭐ A ROW'S PREMISES ARE SEPARABLE FROM ITS MEASUREMENT, and usually cheaper
+
+A finding whose measurement needs a full build is not therefore unmaintainable
+on a box that cannot do one. Most rows rest on a handful of PREMISES — a SHA is
+still an ancestor, the failing target still exists, the file the argument names
+is still last touched by the commit blamed for it, the lockfile still pins the
+version the panic came from — and every one of those re-checks in seconds with
+no compiler.
+
+⭐ **Demonstrated 2026-09-03 on a box at 12 GB free, which could not start a
+Rust lane at all.** The feature-union row and the capability-demo row both had
+all of their premises re-verified: SHAs still ancestors, all four failing
+targets present, `view_cones.rs` still last touched by the 0.19 port
+(`09bb065a9`) three days on, `bevy_ecs` still pinned at 0.19.1. In the union's
+case the premise that mattered got STRONGER by surviving — "nothing has run
+this combination since the port" is a claim about the passage of time.
+
+⛔ **AND THE ROW MUST SAY WHICH HALF WAS NOT CHECKED.** A row listing four
+verified facts invites the reading that the fifth was checked too, and the
+fifth is usually the one the row is about — the failure tally, the panic, the
+number. Name it as unverified and tell the reader what would verify it.
+
+⇒ Two practical consequences. A constrained box can keep most of the planning
+surface honest, so "I cannot run the suite" is not a reason to leave a row
+alone. And when a premise DOES break — a target renamed, a SHA orphaned, a file
+touched by something newer — that is a bigger finding than a drifted number,
+because it means the row's argument has quietly stopped applying while its
+figure still looked plausible.
+
 ### ⭐ Some findings only exist BETWEEN two plans
 
 Three times on 2026-09-02/03 the useful result came from reading two focused

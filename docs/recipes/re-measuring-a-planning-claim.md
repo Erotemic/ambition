@@ -398,6 +398,46 @@ None of them is a broken link, a missing file, or a failing test. That is why
 re-measurement is a person's job here and why the yield stays high — a page can
 be green, well-written, internally cited, and two months wrong.
 
+### ⛔⛔ SYMBOL PRESENCE FAILED IN BOTH DIRECTIONS ON ONE SWEEP — a present symbol can be a different symbol, and an absent one can be a rename
+
+The strongest form of the section below, because the same instrument produced a
+false absence AND a false presence within one afternoon, and each pointed the
+opposite way from the truth.
+
+**The question:** which of seven stale branches hold work that never landed?
+The instrument: does main contain the symbols the branch adds?
+
+* ⛔ **FALSE PRESENCE.** `web-gpu-wait` was called superseded because
+  `gpu_prepared` appears in main **31 times**. The branch adds
+  `report_gpu_prepared`, which was absent. A substring hit on a related name is
+  not the symbol. ⇒ It was genuinely unlanded and merged at `6aa1f3d41`.
+* ⛔ **FALSE ABSENCE.** `rescue/specials-are-real-moves-tail` was called
+  unlanded because 22 of its 26 added symbols are missing from main —
+  `SubmergedMarkerFact`, `SubmergedMarkerSprite`, `SubmergedMarkersView`,
+  `MARKER_TEXTURE` and the rest. **They are missing because the feature landed
+  under a RENAME**: `TrapdoorVisual`, `TrapdoorSprite`, `build_trapdoor_sprite`,
+  `sync_trapdoor_visuals`, `place_door`, with the fact folded into
+  `BodyPoseView.submerged` rather than carried as its own view — and main's
+  `movement/tests/submerged.rs` is 284 lines to the branch's 130. ⇒ Merging it
+  would have replaced newer code with older. The merge was started and aborted.
+
+⭐ **AND THE RENAME WAS ONLY VISIBLE BY READING THE CONFLICT.** No grep finds it:
+the old names are absent by construction and the new ones are unguessable from
+the branch. A three-way merge is an instrument, and here it was the only one
+that could answer.
+
+⇒ **The ranking that survived the sweep:**
+1. `git cherry origin/main <branch>` — patch-id equivalence. Proves LANDED
+   cheaply and definitively. ⛔ Proves NOTHING on a miss: content reworked
+   before landing shows as not-equivalent (three commits did exactly that the
+   same day, and main held the richer revision of all three).
+2. Symbol presence — **unreliable in both directions**, as above. Useful only
+   to generate candidates, never to close one.
+3. **Test the branch's stated PURPOSE against main.** Decisive, and cheap when
+   the purpose is a signature: `cube-churn-focus-rows` claimed
+   `focus_for_action` should take prebuilt rows, and main's already reads
+   `rows: &[SystemRow]`. One command, settled.
+
 ### ⛔ The instrument error that reports ABSENCE, which is the dangerous direction
 
 A wrong count invites a second look because a number looks like a claim. A wrong
@@ -501,7 +541,7 @@ request: three DIFFERENT tools, each green, each beside a claim that was false.
   broken five true sentences to fix three false ones.
 - **A memorised rule applied to the wrong situation.** Five docs tell readers to
   run `check_absence_contracts.py | grep footprint`, and the rule *"a pipe voids
-  the exit code"* nearly got all five "corrected". That checker prints `ok`/`FAIL`
+  the exit code"* nearly got all five "corrected". That checker prints `ok`/`FAIL` <!-- cite-ok: quoted TOOL OUTPUT, not a symbol — the point is where the verdict is printed -->
   **inside each line**, so the verdict survives the pipe and the rule did not
   apply. ⇒ A remembered rule is a hypothesis ABOUT A SITUATION, not a fact about
   a command: ask **where the tool puts its verdict** before correcting a pipe.

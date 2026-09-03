@@ -97,6 +97,26 @@ Ambition gameplay with one shared camera and body-owned HUD state.
 > owed. The sites that matter for A1 are in shipped simulation: `shrine.rs` (4),
 > `morph_ball.rs` (3), `unified_melee.rs`, `unified_body_movement.rs`,
 > `boss_contact_iframes.rs`.
+> ⛔ **RE-COUNTED 2026-09-03 AND THAT LIST OF FIVE IS REALLY ONE.** The totals
+> above hold exactly — **35 production / 28 test files** (`git grep -l` over
+> `*.rs`, test = under `/tests/` or ending `tests.rs`/`_tests.rs`/`_test.rs`),
+> and `shrine.rs` (4) and `morph_ball.rs` (3) are exact. But of the five named
+> "shipped simulation" sites:
+> - `shrine.rs` — `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`,
+>   genuinely simulation, 4 refs. **The one real A1 question.**
+> - `morph_ball.rs` — `crates/ambition_render/src/rendering/morph_ball.rs`, which
+>   is PRESENTATION, not simulation. A per-view question, not a per-participant
+>   simulation-fact one.
+> - `unified_melee.rs`, `unified_body_movement.rs`, `boss_contact_iframes.rs` —
+>   all three are `game/ambition_app/tests/*`, i.e. acceptance TESTS. They fall
+>   under the exemption this row already grants ("scoping to one player is
+>   correct by construction and no audit is owed"), so they were never A1 work.
+> ⇒ **A1's audit surface is smaller than the row promised, not larger** — which
+> is the good direction, and worth having right because this row's stated value
+> is that the remaining work "is enumerable today rather than discovered during
+> it". ⚠ The heaviest production users are `sim_harness/runtime.rs` (9),
+> `app_tools/bin/headless.rs` (5) and the demos, all already exempt by the same
+> rule.
 > ⇒ **This is not a defect list.** Each site is a question — *should this fact be
 > per-participant when two people share a camera?* — and for a checkpoint shrine
 > the answer may well stay "no". The value of the number is that A1's remaining

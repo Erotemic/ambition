@@ -1565,7 +1565,9 @@ OPTIONAL dep + feature, never used:
   PHYSICAL life of a touched collectible: where it is, whether it is moving, and
   that walking into it collects it. **14 tests moved with it and all 14 pass in
   the new crate**; the monolith went 1221 → 1207, which is exactly them.
-  ⛔ **WHAT STAYED, and the split is by TRIGGER not by size:** `items::pickup`
+  ⛔ **WHAT STAYED BEHIND *AT THE TIME*, and the split is by TRIGGER not by
+  size:** `items::pickup` — ⚠ which itself became `ambition_held_items` the next
+  day, so this reads as history now, not as where the code is
   owns the PRESSED pickup — a held weapon taken with `Attack` — and still
   reaches `abilities`, `ability_cooldown`, `construction` and `shrine`. That is
   the line the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had

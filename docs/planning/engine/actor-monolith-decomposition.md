@@ -307,7 +307,7 @@ collectible: where it is, whether it is moving, and that walking into it
 collects it. All 14 pass in the new crate and the monolith went 1221 → 1207,
 which is exactly them.
 
-- ⛔ **THE SPLIT IS BY COLLECT TRIGGER, NOT BY SIZE.** `items::pickup` keeps the
+- ⛔ **THE SPLIT IS BY COLLECT TRIGGER, NOT BY SIZE.** `items::pickup` kept the
   PRESSED pickup — a held weapon taken with `Attack` — and its reach into
   `abilities`, `ability_cooldown`, `construction` and `shrine`. That is the line
   the pickup module's own `AMBITION_REVIEW(discrete_ok)` note had already drawn,

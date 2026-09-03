@@ -551,3 +551,38 @@ that fired 111 times was asserting a cause it could not know."** It touches
 `character/assets.rs` and `asset-preparation-and-residency.md` — i.e. exactly the surface of the
 goal's open lane-1 question about the "111 actors not materialized" warning and its second cause.
 If any stranded branch deserves the supersession check first, it is that one.
+
+### ✔ The supersession check the table above said was owed — I ran it, and the answer flips the table
+The previous section said whoever picks these up must check supersession first, and that the check
+was the owed work. It is done. **Every one of the seven has its mechanism on main.** Nothing on
+that list is a stranded fix; they are branches whose work re-landed by another route.
+
+| ref | verdict | the evidence, by direct symbol check |
+|---|---|---|
+| `d129-population-instrument` | **superseded** | `retired_tier` exists (`character/assets.rs:189`) and `actors/mod.rs:736,742` carries the RETIRED-vs-never-materialized two-branch diagnosis verbatim; the convergence tests call it in six places |
+| `agent/runner-names-an-unusable-interpreter` | **superseded** | every substantive added line present |
+| `web-gpu-wait` | **superseded** | `gpu_prepared` / `gpu_prepared_at` on main, 31 occurrences; the ledger method is consumed at `asset_census.rs:541` under `stamp_gpu_prepared_images` |
+| `cube-churn-focus-rows` | **superseded by restructure** | its anchor `focus_for_action` no longer exists anywhere on main, and `dispatch.rs:178` already hoists `let rows = system_rows_with_quality_prompt(...)` — the exact shape the branch proposed |
+| `rescue/specials-are-real-moves-tail` | **landed** | `rendering/submerged.rs` (285 lines) and `movement/tests/submerged.rs` (284) are live on main |
+| `asset-road-labels` | mostly present (85%) | text probe only — see the caveat |
+| `capture-press-during` | mostly present (80%) | text probe only — `queue.md` prose |
+
+⇒ **Nothing here needs merging.** The right disposition is deletion, and that is Jon's call, not mine.
+
+### ⛔⛔ AND THE INSTRUMENT I REACHED FOR FIRST WAS THE WRONG ONE — in the way I had just warned about
+I wrote, one commit earlier, that the next person must *"diff the intent, not the text."* Then I
+measured **text**: a probe counting how many of a branch's added lines appear anywhere in the tree.
+
+It reported **19% for `web-gpu-wait`, whose feature is entirely on main**, and 21% and 26% for two
+more that are also landed. The probe was not broken — it answered exactly what it was asked.
+
+⇒ **A line-level text probe measures TEXT, not WORK, and it under-reports supersession in one
+direction only.** Work that re-lands is reformatted (a rustfmt edition change alone rewrote every
+import block on these branches), renamed, or restructured, so the same fix reads as absent. The
+number is a floor with no ceiling: a HIGH score proves presence, a LOW score proves nothing at all.
+The check that worked was the cheap one I should have started with — **grep for the branch's
+central SYMBOL on main** (`retired_tier`, `gpu_prepared`, `focus_for_action`), which took one
+command each and gave a verdict the percentages could not.
+
+⭐ Fourth instance today of a claim wider than its tool, and the third of them mine. The pattern
+across all four is the same and worth stating once: **the tool succeeded every time.**

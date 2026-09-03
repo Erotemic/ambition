@@ -229,7 +229,7 @@ reveal barrier never waited for the cast beyond the per-frame load ration
 (`2c8f27b32`). ⊙ **A SECOND CAUSE was measured 2026-09-03 and the barrier is
 NOT it**: `converge_character_residency_to_active_quality` demotes every IN-USE
 sheet Ready→Declared when the profile converges, un-claiming each body's render
-family and re-demanding at one character per frame at Full. Host-confirmed the same evening on the two tier-independent
+family and re-demanding at one character per frame at Full. Host-confirmed the same evening on the two supposedly tier-independent
 tells (0 placeholders, 0 frames over 33 ms after the transition, Ultra, 3090,
 `desktop-timeline-run-20260902T215256Z`). ⛔ The room tier cap that shipped
 beside it (`dc3cd0d91`, gallery → Quarter) blurred the hall at Ultra and Jon

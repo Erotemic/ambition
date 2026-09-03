@@ -2571,6 +2571,7 @@ product ruling.
   two fixes were tested together and only one of them survives. ⚠ Until that
   walk exists, the two COUNT tells (placeholders, cover held) are confirmed and
   tier-independent; the TIMING tell is not confirmed for the shipped program.
+  ⛔ ONE of them is, not both: the placeholder count is tier-SCALED (0 at Potato, 129 at Ultra, measured 2026-09-03) because the materialization ration charges Full 16 against Potato 1; `asset_wait_ms` is the tier-independent one. See status.md.
   ⭐ **AND THE TIER TELL IS TESTABLE HEADLESS AFTER ALL — `AMBITION_QUALITY_PROFILE=ultra`.**
   A headless box seeds `potato` from its adapter (*"visual quality seeded to
   `potato` for a Cpu adapter (llvmpipe)"*), which is why this looked host-only;

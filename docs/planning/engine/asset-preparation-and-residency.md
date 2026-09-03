@@ -319,7 +319,7 @@ other end, now with host frames attached.
 
 ⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
 in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
-`sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a
+`sprites_0_25x/` (§3a). The two COUNT tells were called tier-independent; ⛔ ONE of them is, not both: the placeholder count is tier-SCALED (0 at Potato, 129 at Ultra, measured 2026-09-03) because the materialization ration charges Full 16 against Potato 1; `asset_wait_ms` is the tier-independent one. See status.md. The rest stands: a
 placeholder means an actor resolved no sprite at all, and the cover either held
 or it did not. **The TIMING tell is not**: "0 frames over 33.4 ms" was measured
 while the hall was decoding quarter-tier art, which is a fraction of the pixels

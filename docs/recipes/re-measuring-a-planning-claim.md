@@ -274,7 +274,7 @@ level up: not an instrument that cannot see, but two instruments that see
 different things and report them in the same vocabulary.
 
 
-## Sweeping every named test at once — and what the yield tells you
+### Sweeping every named test at once — and what the yield tells you
 
 A `✔` that names a test is only worth its ink if the test still exists. That is
 mechanically checkable across the whole plan set, so it is worth doing once
@@ -309,7 +309,7 @@ reviewer attention than it returns, and the false-positive rate before filtering
 answers "renamed or deleted?" in one command — which is the difference between
 repointing a citation and reopening a closed row.
 
-## Five shapes a stale planning page actually takes
+### Five shapes a stale planning page actually takes
 
 ⭐ Measured, not theorised: these are every distinct way the five oldest pages in
 `docs/planning` had gone wrong when they were re-measured on 2026-09-03. Sorted
@@ -357,7 +357,7 @@ None of them is a broken link, a missing file, or a failing test. That is why
 re-measurement is a person's job here and why the yield stays high — a page can
 be green, well-written, internally cited, and two months wrong.
 
-## ⛔ The instrument error that reports ABSENCE, which is the dangerous direction
+### ⛔ The instrument error that reports ABSENCE, which is the dangerous direction
 
 A wrong count invites a second look because a number looks like a claim. A wrong
 ZERO looks like a finished check, and it ends the investigation.
@@ -388,7 +388,7 @@ you know ships. It costs one command and it is the only thing that separates
 amount of re-reading and die instantly to one control search — and a zero is
 exactly the result nobody re-reads, because it agrees with having finished.
 
-## The mirror: a frightening POSITIVE that the rule's own kind explains
+### The mirror: a frightening POSITIVE that the rule's own kind explains
 
 The section above is about believing a zero. This is the same error inverted, and
 it produced the most alarming number of the day.

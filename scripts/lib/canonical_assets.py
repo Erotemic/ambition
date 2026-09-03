@@ -49,11 +49,25 @@ CANONICAL_ENV = "AMBITION_ASSETS_ARE_CANONICAL"
 #: interrupted, so any tree holding real files counts.
 SPRITE_TREE_GLOB = "crates/ambition_platformer2d_actor_monolith/assets/sprites*"
 
-#: How many files to look at before deciding. The trees hold thousands and the
-#: answer is uniform: `mirror_assets_for_worktree.py` links every file or none.
-#: ⚠ Not 1 — a single stray real file in a mirrored tree (a regenerated sprite,
-#: which the mirror exists to allow) would flip the answer for the whole box.
-SAMPLE = 25
+#: ⛔⛔ THE SCAN IS EXHAUSTIVE, AND USED TO STOP AT 25 FILES.
+#:
+#: The old constant justified itself with "the answer is uniform:
+#: `mirror_assets_for_worktree.py` links every file or none" — but the very next
+#: sentence conceded the opposite, that the mirror EXISTS to allow a worktree to
+#: regenerate individual sprites over their links. Both cannot be true, and the
+#: mixed tree is the real one.
+#:
+#: ⇒ Reproduced on HEAD 2026-09-03: 25 real PNGs sorting first and ONE symlink
+#: sorting after them returned `canonical=True` for a tree still borrowing
+#: generated assets — enabling the canonical-box ratchets against it, and (worse)
+#: leaving a publisher free to write through that link into the main checkout.
+#: The existing tests all passed because their mixed fixture put the symlink
+#: inside the first 25.
+#:
+#: ⚠ Sampling was never justified by cost either: the real tree is 2,172 PNGs and
+#: an exhaustive `lstat` walk of it takes 0.06 s — nothing beside the work these
+#: ratchets gate. A predicate whose false YES is documented as dangerous does not
+#: get to guess.
 
 
 def sprite_trees(repo: Path) -> list[Path]:
@@ -61,22 +75,23 @@ def sprite_trees(repo: Path) -> list[Path]:
     return sorted(p for p in repo.glob(SPRITE_TREE_GLOB) if p.is_dir())
 
 
-def _sample_tree_files(repo: Path) -> tuple[int, int]:
-    """(real, symlink) counts over the first `SAMPLE` pngs found, in order.
+def _scan_tree_files(repo: Path) -> tuple[int, int]:
+    """(real, symlink) counts over EVERY png in the generated sprite trees.
 
-    Shared by the predicate and by `why_not` ON PURPOSE: a skip reason derived
-    from a different sample than the decision is how the two come to disagree.
+    Shared by the predicate and by `why_not` ON PURPOSE: a reason derived from a
+    different scan than the decision is how the two come to disagree. ⚠ That
+    sharing was already stated here and was still only half true — the predicate
+    kept an inlined copy of this loop, so the two walked the tree separately.
+    Both roads call this now.
     """
     real = 0
     linked = 0
     for tree in sprite_trees(repo):
-        for png in sorted(tree.rglob("*.png")):
+        for png in tree.rglob("*.png"):
             if png.is_symlink():
                 linked += 1
             else:
                 real += 1
-            if real + linked >= SAMPLE:
-                return real, linked
     return real, linked
 
 
@@ -160,18 +175,7 @@ def assets_are_canonical(
     if environ.get(CANONICAL_ENV):
         return True
 
-    real = 0
-    linked = 0
-    for tree in sprite_trees(repo):
-        for png in sorted(tree.rglob("*.png")):
-            if png.is_symlink():
-                linked += 1
-            else:
-                real += 1
-            if real + linked >= SAMPLE:
-                break
-        if real + linked >= SAMPLE:
-            break
+    real, linked = _scan_tree_files(repo)
 
     if real + linked == 0:
         return False
@@ -216,7 +220,7 @@ def why_not(repo: Path) -> str:
     # mirrored worktree and sent to `mirror_assets_for_worktree.py` for a
     # problem it did not have. ⚠ Which is exactly what this function's own
     # docstring says it exists to avoid, and it shipped that way for an hour.
-    real, linked = _sample_tree_files(repo)
+    real, linked = _scan_tree_files(repo)
     if real + linked == 0:
         return (
             f"{len(trees)} sprite tree(s) present but holding NO png files — "
@@ -225,8 +229,8 @@ def why_not(repo: Path) -> str:
         )
     if linked:
         return (
-            f"{len(trees)} sprite tree(s) present and {linked} of the first "
-            f"{real + linked} png(s) sampled are SYMLINKS — this is a mirrored "
+            f"{len(trees)} sprite tree(s) present and {linked} of all "
+            f"{real + linked} png(s) are SYMLINKS — this is a mirrored "
             "worktree borrowing another checkout's generated assets "
             "(scripts/mirror_assets_for_worktree.py), so its KNOWN_ lists "
             f"describe a tree it did not produce. Set {CANONICAL_ENV}=1 to "
@@ -235,7 +239,7 @@ def why_not(repo: Path) -> str:
     fresh, detail = variants_are_fresh(repo)
     if not fresh:
         return (
-            f"sprite trees are this checkout's OWN ({real} real png(s) sampled, "
+            f"sprite trees are this checkout's OWN (all {real} png(s) real, "
             "no symlinks) but the quality tiers are STALE, so a size assertion "
             "here measures regeneration history rather than content: "
             f"{detail} ⇒ Regenerate the variants, or set {CANONICAL_ENV}=1 to "

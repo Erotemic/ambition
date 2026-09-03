@@ -130,6 +130,49 @@ def test_the_skip_reason_names_what_it_looked_at(tmp_path):
     assert mirrored != empty
 
 
+def test_a_regenerated_PREFIX_does_not_make_a_borrowing_tree_canonical(tmp_path):
+    """⛔⛔ THE DECISION USED TO STOP AFTER 25 FILES, AND THE 26th WAS BORROWED.
+
+    `SAMPLE = 25` justified itself with "the answer is uniform: the mirror links
+    every file or none" — while the next sentence conceded that the mirror exists
+    to let a worktree regenerate individual sprites over their links. The mixed
+    tree is the real one, and a worktree that had regenerated enough sprites to
+    fill the lexicographic prefix reported `canonical=True` while still borrowing
+    the rest.
+
+    ⚠ Two consequences, and the second is the worse: the canonical-box ratchets
+    run against a tree they do not describe, and a publisher is free to write
+    THROUGH a surviving link into the main checkout's bytes.
+
+    ⇒ Reproduced on HEAD before the fix: `sample=(25, 0)`, `canonical=True`.
+    """
+    tree = _tree(tmp_path, files=25, linked=False)
+    borrowed_from = tmp_path / "another_checkout"
+    borrowed_from.mkdir()
+    victim = borrowed_from / "sheet.png"
+    victim.write_bytes(b"the other checkout's bytes")
+    # Sorts AFTER every real file, so any prefix-limited scan misses it.
+    (tree / "zz_borrowed.png").symlink_to(victim)
+
+    assert ca.assets_are_canonical(tmp_path, env={}, fresh=FRESH) is False, (
+        "a tree still borrowing ANY generated asset is not this checkout's own, "
+        "however many files were regenerated ahead of it"
+    )
+    reason = ca.why_not(tmp_path)
+    assert "SYMLINK" in reason, reason
+    assert "mirror_assets_for_worktree" in reason, reason
+
+
+def test_the_scan_counts_every_file_rather_than_a_prefix(tmp_path):
+    """The counts the reason quotes must be the population, not a window —
+    otherwise a reader cannot tell a 1-in-26 borrow from a 1-in-2000 one."""
+    tree = _tree(tmp_path, files=30, linked=False)
+    (tree / "zz_a.png").symlink_to(tmp_path / "missing_a.png")
+    (tree / "zz_b.png").symlink_to(tmp_path / "missing_b.png")
+
+    assert ca._scan_tree_files(tmp_path) == (30, 2)
+
+
 def test_the_live_repo_answers_and_the_answer_matches_its_tree(tmp_path):
     """Run against the real checkout: whatever it says, it must AGREE with what
     the tree actually is. A detector that cannot be wrong here is one that

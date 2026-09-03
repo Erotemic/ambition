@@ -491,6 +491,33 @@ The one unresolved developer-policy choice from the session-ownership work is in
   `ambition_input`, `ambition_platformer2d_core`), so a double registration
   between one of those and the facade is the first place to look. Owner: whoever
   holds the capability-demo/SDK surface.
+- ▢ **~47 GB ON THE SHARED VOLUME IS UNACCOUNTED FOR, AND THE NEW BINDMOUNT
+  RULE DESCRIBES EXACTLY THIS SHAPE. REPORTED, NOT ACTED ON.**
+  Measured 2026-09-03 late on the calculex box, where `/dev/vda1` reads **278 GB
+  used of 290, 12 GB free** — below `check_disk_headroom.py`'s 40 GB floor, so
+  no Rust lane can start here at all. Walking the volume accounts for about
+  **231 GB**: `/home/agent` 224 (of which `.cache/ambition-targets` is 176, one
+  store, `BOUND` and healthy per `target_bindmount.sh --status`), `/usr` 5.4,
+  `/var` 1.1, `/tmp` 0.24. The repo itself is NOT on this volume — it is
+  virtiofs — so it is not the remainder.
+  ⛔ **AGENTS.md's binding rule, added the same day, names this shape:** the
+  bind mounts the backing store OVER `<worktree>/target`, so artifacts built
+  before the bind are HIDDEN rather than removed and still occupy every byte;
+  binding an 81 GB unbound worktree moved a volume 34 → 33 GB free. A shadowed
+  copy is invisible to `du`, which can only walk what the mount exposes. That
+  makes it the leading candidate for the gap and NOT a demonstrated one.
+  ⚠ **WHAT WAS RULED OUT, so nobody repeats it:** deleted-but-open files hold
+  **0 bytes** (`lsof +L1`), and the two `vda1[...]` bind mounts point at the
+  SAME backing store from two paths, which is one copy and not two.
+  ⇒ **The prescribed action is the one taken here: report the size and stop.**
+  Confirming a shadowed copy means unmounting, and removing one is `rm -rf`
+  under a `target/` — ⛔ **Jon's call, not an agent's, and not less so because
+  the bytes may be an agent's own.** The volume is also shared with other
+  sessions' worktrees, so anything reclaimed here could be someone's live build.
+  ⓘ Practical consequence until it is resolved: this box runs `--tool-tests`,
+  `--maintenance` (minus its `cargo doc` job) and every pure-Python checker, and
+  cannot run a Rust lane. Route Rust gating to a box with headroom.
+
 - ▢ **TEN ASSET RATCHETS ARE GATED BEHIND AN ENVIRONMENT VARIABLE NOTHING SETS,
   AND TWO PLANNING PARAGRAPHS CALL THEM RATCHETS ANYWAY.**
   `scripts/tests/test_shipped_sheet_pages_are_claimed.py` (5 assertions) and

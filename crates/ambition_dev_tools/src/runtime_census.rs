@@ -732,10 +732,17 @@ pub fn report_sim_phase_census(
     // rather than the room's population: it grows superlinearly while the kept
     // set is still growing and flattens when the viewport saturates. Reported
     // beside the phase it explains.
-    if let Some((views, offered, kept, kept_max)) = ambition_characters::perception::census::drain()
-    {
+    // `visible` is the density term (peers inside the viewport); `kept` is what
+    // the attention budget let through and what the cost follows — equal
+    // until the budget binds (`TACTICAL_ATTENTION`).
+    if let Some(census) = ambition_characters::perception::census::drain() {
         row.push_str(&format!(
-            " views={views} offered={offered:.1} kept={kept:.1} kept_max={kept_max}"
+            " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={}",
+            census.views,
+            census.offered_mean,
+            census.visible_mean,
+            census.kept_mean,
+            census.kept_max
         ));
     }
     row.push_str(" unmeasured=");

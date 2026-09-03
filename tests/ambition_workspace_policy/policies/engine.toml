@@ -121,6 +121,9 @@ allow = [
     "ambition_platformer2d_core",
     "ambition_entity_catalog",
     "ambition_platformer2d_shared_tangle",
+    # The registration protocol PlacementLoweringRegistry answers (2026-09-03,
+    # registry_core R4a): dependency-free, below every registry.
+    "ambition_registry_core",
 ]
 
 # ── architecture_boundaries.rs decomposition, batch 1 (Task 6) ─────────────────

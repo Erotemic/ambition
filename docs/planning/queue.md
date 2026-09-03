@@ -2102,11 +2102,16 @@ product ruling.
   the same way: the hall decodes more and spikes zero WITH a cover, and the
   startup burst spikes twice at whatever cover it has. That still says the cover
   mechanism works; it no longer says a player sees the startup one.
-- **Four LDtk preview tilesets decode the FULL player sheet on every boot**
+- **FIVE LDtk preview tilesets decode the FULL player sheet on every boot**
   (7.6 MP, `../sprites/player_robot_v3_spritesheet.png`, declared as
-  `sprite_player_robot_v3` in all four `.ldtk` worlds for editor entity
-  previews; `bevy_ecs_ldtk` loads every project tileset). Never drawn by the
-  runtime. The fix is retargeting each declaration at
+  `sprite_player_robot_v3` for editor entity previews; `bevy_ecs_ldtk` loads
+  every project tileset). Never drawn by the runtime. ⚠ **Recounted in the
+  submodule 2026-09-02: five, not four** — `ambition_content`'s
+  `hall_of_characters`, `intro`, `sandbox`, `you_have_to_cut_the_rope` AND
+  `ambition_demo_sanic/worlds/sanic_speedway.ldtk`; the earlier count read the
+  worlds `ambition_content` exposes rather than the worlds carrying the
+  declaration. `mary_o` does not reference the sheet. All five still point at
+  full resolution. The fix is retargeting each declaration at
   `../sprites_0_25x/player_robot_v3_spritesheet.png` (0.5 MP, preview survives)
   — in the map submodule, so it waits for Jon's yes. Measured via the image
   stage ledger (`demand=unknown`, asset index 4). ⚠ It is also the player's

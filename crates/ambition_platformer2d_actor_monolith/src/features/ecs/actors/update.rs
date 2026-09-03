@@ -628,10 +628,12 @@ pub fn tick_actor_brains(
                         ambition_characters::perception::census::note_world_view(
                             view_peers.len(),
                             cheap.visible_count,
+                            cheap.visible_count,
                         );
                     } else if perception_need.needs_world_view() {
                         ambition_characters::perception::census::note_world_view(
                             view_peers.len(),
+                            world_view.actors.len() + world_view.remainder.actors,
                             world_view.actors.len(),
                         );
                     }

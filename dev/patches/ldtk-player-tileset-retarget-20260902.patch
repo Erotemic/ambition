@@ -1,0 +1,201 @@
+PROPOSED, NOT APPLIED — retarget the LDtk player-preview tileset to sprites_0_25x
+
+    cd <repo root> && patch -p1 < dev/patches/ldtk-player-tileset-retarget-20260902.patch
+    # or: git apply dev/patches/ldtk-player-tileset-retarget-20260902.patch
+    # regenerate: scripts/propose_ldtk_tileset_retarget.py --out <this file>
+
+⛔ THE FILES ARE IN `game/ambition_map_assets`, WHICH IS A SUBMODULE. Applying
+this changes the submodule's working tree and needs a commit there plus a
+pointer bump here. That is why it is a patch and not a commit.
+
+WHAT IT DOES. Five `.ldtk` worlds declare `sprite_player_robot_v3` with
+`relPath=../sprites/player_robot_v3_spritesheet.png` — 3072x2468, 7.6 MP —
+which `bevy_ecs_ldtk` loads at boot because it loads every project tileset.
+Measured (`scripts/measure_ldtk_tileset_usage.py`): NO level layer in any of the
+five uses that tileset. Its only consumer is one entity definition per world,
+`PlayerStart`, which crops the top-left tile for an editor preview. So the
+runtime decodes 7.6 MP at every boot and never draws it.
+
+⛔ IT IS NOT A relPath SWAP, and that is the point of the patch. `tileRect`,
+`uiTileRect`, `tileGridSize`, `pxWid` and `pxHei` are all in TILESET PIXEL
+coordinates. Change only the path and the 256x256 crop that framed one animation
+frame spans a third of a 832-pixel image — the preview breaks while the JSON
+still looks plausible. Every one of those fields is recomputed here from the
+real PNG header, and each crop is preserved as the same FRACTION of the image.
+
+ⓘ TWO PRE-EXISTING INCONSISTENCIES THIS ALSO FIXES, neither of which was the
+goal. The four ambition_content worlds declare `pxHei: 2484` against a
+2468-pixel file. And sanic_speedway declares `1681x1728, tileGridSize 224` for
+that same file — a different and larger error. ⚠ The patch preserves sanic's
+CURRENT framing as a fraction, which means it preserves whatever that stale
+declaration was already showing; if sanic's preview looks wrong afterwards, it
+looked wrong before.
+
+⚠ The tiers are not exact fractions and the x and y factors differ (0_25x of
+3072x2468 is 832x653, not 768x617), so the rescaled extents are 69x67 rather
+than a round number. Rounding of a pixel or two in an editor preview is
+immaterial; a clean constant does not exist.
+
+EFFECT: the boot decode for this tileset goes from 7.6 MP to ~0.54 MP.
+Untested against the LDtk editor itself — that needs Jon opening a world.
+
+--- a/game/ambition_map_assets/ambition_content/worlds/hall_of_characters.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/hall_of_characters.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 108504,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 69, "h": 67 },
++			"uiTileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 69, "h": 67 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6071,14 +6071,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2484,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 108504
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_content/worlds/intro.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/intro.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 104928,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 69, "h": 67 },
++			"uiTileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 69, "h": 67 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6209,14 +6209,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2484,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 104928
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 67 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 67 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6293,14 +6293,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2484,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_content/worlds/you_have_to_cut_the_rope.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/you_have_to_cut_the_rope.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 105835,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 69, "h": 67 },
++			"uiTileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 69, "h": 67 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6004,14 +6004,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2484,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 105835
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
++++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 224, "h": 224 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 224, "h": 224 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 111, "h": 85 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 111, "h": 85 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6182,14 +6182,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 1728,
+-			"pxWid": 1681,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 224,
++			"tileGridSize": 111,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [

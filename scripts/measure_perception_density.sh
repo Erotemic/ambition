@@ -59,7 +59,7 @@ cargo build --example hall_bench --profile profiling >&2
 BIN="target/profiling/examples/hall_bench"
 [ -x "$BIN" ] || { echo "hall_bench not at $BIN" >&2; exit 1; }
 
-printf '%-12s %8s %9s %8s %10s   %s\n' extent views offered kept kept_max note
+printf '%-12s %8s %9s %9s %8s %10s   %s\n' extent views offered visible kept kept_max note
 for extent in $EXTENTS; do
     # ⛔ THE CENSUS ROW IS THE LAST ONE: earlier windows include startup, whose
     # `ticks=1` window reads 0.000 for every phase and understated a published
@@ -73,26 +73,30 @@ for extent in $EXTENTS; do
         | grep '\[census\] sim_phases' | grep 'kept=' | tail -1 || true
     )
     if [ -z "$row" ]; then
-        printf '%-12s %8s %9s %8s %10s   %s\n' "$extent" - - - - \
+        printf '%-12s %8s %9s %9s %8s %10s   %s\n' "$extent" - - - - - \
             "NO CENSUS ROW - is the cast re-brained? a None-requirement brain builds no view"
         continue
     fi
     views=$(sed -n 's/.* views=\([0-9]*\).*/\1/p' <<<"$row")
     offered=$(sed -n 's/.* offered=\([0-9.]*\).*/\1/p' <<<"$row")
+    visible=$(sed -n 's/.* visible=\([0-9.]*\).*/\1/p' <<<"$row")
     kept=$(sed -n 's/.* kept=\([0-9.]*\).*/\1/p' <<<"$row")
     kept_max=$(sed -n 's/.* kept_max=\([0-9]*\).*/\1/p' <<<"$row")
-    printf '%-12s %8s %9s %8s %10s   pop=%s ticks=%s\n' \
-        "$extent" "${views:--}" "${offered:--}" "${kept:--}" "${kept_max:--}" \
+    printf '%-12s %8s %9s %9s %8s %10s   pop=%s ticks=%s\n' \
+        "$extent" "${views:--}" "${offered:--}" "${visible:--}" "${kept:--}" "${kept_max:--}" \
         "$POPULATION" "$TICKS"
 done
 
 cat >&2 <<'NOTE'
 
 ⭐ WHAT TO READ. `offered` is what the scan walked and should be flat across
-   extents (the scan sees every peer whatever the viewport). `kept` is what each
-   viewer actually built a PerceivedActor for, and is the term an attention
-   budget bounds. A budget of K is worth having exactly where `kept` rises past
-   K and keeps going.
+   extents (the scan sees every peer whatever the viewport). `visible` is what
+   each viewer had inside its viewport — the DENSITY term, and what rises with
+   extent. `kept` is what each viewer actually built a PerceivedActor for, and
+   is the term the attention budget bounds: since 2026-09-03 it is capped at
+   TACTICAL_ATTENTION (16), so a dense run reads `visible` climbing and `kept`
+   flat at 16 — that flat line IS the budget working. A row where `kept`
+   exceeds 16 is a bug.
 ⛔ A run whose `offered` MOVES with extent is measuring something else - the
    population changed under you, or the room did. Stop and find out which.
 ⚠ These runs are CAPPED (AMBITION_ACTOR_POPULATION_CAP) and WIDENED

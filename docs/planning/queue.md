@@ -730,6 +730,12 @@ The one unresolved developer-policy choice from the session-ownership work is in
   ⛔ **AND THE REASON NOBODY SAW IT: the union job lives inside `if not only and
   everything`**, so a default gate run never attempts it — the same blindness
   the coverage footer now states as 783 tests across 29 crates (`65f4030b5`).
+  ⚠ **Re-measured 2026-09-03 late: 784 across the same 29 crates.** The footer
+  already says 784 (`2dc2fcb71`, "one joined today"); this line quotes what it
+  said at `65f4030b5` and is left as the quotation it is. ⇒ The figure moves
+  whenever anyone adds a feature-gated test, which is the reason
+  `test_the_gate_states_how_many_tests_it_skips.py` ratchets the footer rather
+  than trusting prose — **read the footer, not this number.**
   A per-crate green says nothing here, exactly as the jab-string row records.
 
 - ✔ **`hall_transition_cover` WAS RED IN PARALLEL, a SECOND-ORDER COST OF THE

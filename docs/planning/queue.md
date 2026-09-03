@@ -632,6 +632,28 @@ The one unresolved developer-policy choice from the session-ownership work is in
 
 </details>
 
+- ▢ **DEV GRAVITY CYCLE PUBLISHES A REQUEST; THE SIM APPLIES IT.**
+  `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) writes
+  `BaseGravity` — a canonically rollback-registered resource — directly from
+  `Update`. In a rollback session that is a real desync source: the value is
+  restored on every rewind, the toggle is not replayed with it, and the peer
+  never saw the toggle at all. Nothing crashes; the runs simply drift.
+  ⭐ **The fix has a precedent rather than needing a design**: publish a request
+  the sim consumes, the `ClockScaleRequest` / D33 shape. Engine work, no product
+  judgement, small. ⛔ Waived meanwhile in
+  `scripts/check_rollback_mutators_run_in_sim.py::WAIVERS` with this row named,
+  so the guard is green at zero unwaived rather than silent.
+  ▢ **And the same row owes a second question it must not assert.**
+  `restore_inventory_from_save` writes `BodyWallet` from `Update` while applying
+  a save. At session activation no sim tick has advanced, so there is nothing to
+  diverge from — but `session/durable_horizon.rs` states plainly that *"THE
+  `Update` ADOPTER STAYS. A file can also arrive after activation (a mid-session
+  load), and adoption is idempotent"*. ⇒ The pre-first-tick condition is **not
+  provable from the code** and is not claimed. Idempotence makes the write
+  consistent with itself, which is not the same as consistent with a peer that
+  never applied it. Someone who knows whether a mid-session load can happen
+  inside a live GGRS session should answer it; until then the waiver says so.
+
 - ▢ **D72 — continue Super Smash Siblings as a product/engine customer from the
   current parity inventory.** Do not resurrect the historical fun-push campaign.
   Re-read [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)

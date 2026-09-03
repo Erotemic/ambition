@@ -393,52 +393,6 @@ declaration was already showing.
 `game/ambition_map_assets` plus a pointer bump. ▢ And it is untested against the
 LDtk editor itself, which needs Jon opening a world.
 
-### ⛔⛔ The rollback-mutator guard certifies 1 type of 113 (raised 2026-09-02)
-
-`check_rollback_mutators_run_in_sim.py` asks the question this project can least
-afford to get wrong: *does anything mutate ROLLBACK state from a schedule that
-never rewinds?* Under GGRS the value rewinds, the mutation does not replay with
-it, and **nothing crashes and no test fails** — the run just drifts from the
-peer's. It found `regen_player_mana` by hand (S34) and is the guard against a
-repeat.
-
-⛔ **It reports `OK: 4 systems mutate rollback state, none registered into a
-non-rewinding schedule`, and its population is ONE TYPE.** `rollback_types()`
-reads a single file, `crates/ambition_platformer2d_runtime/src/rollback/mod.rs`,
-which contains one `rollback_component_canonical::<…>` — `MovingPlatformSet`.
-The repository holds **87 such registrations across 10 files naming 113 distinct
-types** (`ambition_characters`, `ambition_combat`, `platformer2d_core`,
-`actor_monolith`, `shared_tangle`, `projectiles`, …). ⇒ The guard certifies
-**under 1%** of the surface its own docstring claims as its source of truth:
-*"it reads the CANONICAL rollback registrations as the source of truth for what
-is snapshot state"*. The intent is right; the implementation reads one file.
-
-⚠ **WIDENING IT IS NOT MECHANICAL, WHICH IS WHY THIS IS A ROW.** Measured with
-all production sources scanned: mutating systems go **4 → 318**, and **6
-candidate offenders** appear:
-
-```text
-ask_for_the_split_observer_view       game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs
-cycle_dev_gravity                     game/ambition_app/src/menu/kaleidoscope_app.rs
-materialize_projectiles_for_this_tick crates/…/features/ecs/fighter_harness.rs
-spawn_projectiles_from_brain_actions  crates/…/features/ecs/fighter_harness.rs
-tick_body_cooldowns                   crates/…/features/ecs/fighter_harness.rs
-restore_inventory_from_save           crates/…/session/durable_horizon.rs
-```
-
-⇒ Several are plausibly legitimate — a capture binary, a dev-menu gravity
-toggle, a save restore that runs outside the sim by design — and each needs the
-engine judgement an agent should not supply. ▢ **The decision is: widen the scan
-and triage these six (waiving what is legitimate with a reason), or narrow the
-docstring to say the guard covers one runtime crate's registry.** What is not
-acceptable is the current pair, where a green line reads as a clean bill of
-health for rollback.
-
-ⓘ Pinned meanwhile by
-`scripts/tests/test_rollback_mutators_run_in_sim.py::test_the_live_scan_reasoned_about_something_at_all`,
-which records the measured population so it cannot shrink further unnoticed —
-that test is not an endorsement of the number.
-
 ### The shared sprite pack is 442.6 MB and one prop reads it (raised 2026-09-02)
 
 ⭐ **MEASURED** (`scripts/measure_pack_reachability.py`).

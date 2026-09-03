@@ -50,7 +50,7 @@ already got it wrong.
   `paul_diracula_actor.ron`, …), and room-metadata bark pools keyed `Hall` /
   `Idle`. A break bark wants a pool of its own beside those.
 - **Station-keeping**: ⛔ **the gap.** `can_fly` exists only inside the SMASH
-  brain config (`ambition_characters/src/brain/smash/mod.rs`) as a per-fighter
+  brain config (`ambition_characters/src/brain/smash.rs`) as a per-fighter
   tuning field. There is no general actor capability answering *"can this body
   hold its position without being carried away"*, and that is the one new
   authority this design needs.

@@ -59,8 +59,16 @@ coordinator overrules any of this by naming a different `-j`.
   unpushed submodule sha can only come from a warm clone.
 - **Generated art** — gitignored, so an unmirrored worktree bakes an EMPTY sheet
   registry and ~40 tests fail for reasons unrelated to the change.
-  `scripts/mirror_assets_for_worktree.py` symlinks them file by file; a
-  regenerated sprite lands as a real file and never touches main's copy.
+  `scripts/mirror_assets_for_worktree.py` symlinks them file by file so a
+  regenerated sprite can land as a real file rather than in a shared directory.
+  ⛔⛔ **THE LINK ALONE DOES NOT PROTECT MAIN, AND THIS LINE USED TO SAY IT
+  DID** ("never touches main's copy"). An open-for-write FOLLOWS a symlink —
+  `Image.save`, `Path.write_text` and `shutil.copy2` all do — so until
+  2026-09-02 regenerating assets in a slot rewrote the checkout every other
+  session builds and gates from. Measured, not argued. The publishers now
+  unlink a symlinked destination first; a NEW publisher must do the same, and
+  `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py` is where
+  that is enforced.
 - **A warm target** — cold means an hour before the first useful result.
 
 ## Target directories

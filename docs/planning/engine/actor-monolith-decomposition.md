@@ -100,6 +100,24 @@ depends on — depends on all four directly** (`items` optionally). So removing 
 MONOLITH's edge to any of them cannot shrink a product's closure at all, however
 the census is counted.
 
+
+⛔⛔ **AND THE FIRST ROW DID NOT MOVE TONIGHT WHILE ITS MEMBERSHIP CHANGED
+COMPLETELY — re-counted 2026-09-02.** The monolith's `[dependencies]` table
+still holds **28** `ambition_*` lines, exactly what the 2026-08-29 census
+recorded, and a reader would conclude nothing happened. Two things happened and
+they cancelled: `ambition_dev_tools` left for `[dev-dependencies]` (the D33
+developer-state carve) and `ambition_world_items` arrived (the touched-collectible
+carve). ⇒ **A COUNT THAT IS UNCHANGED IS NOT EVIDENCE THAT THE SET IS
+UNCHANGED**, and this table is the third metric tonight to say crates rather than
+what was done to them — the capability-footprint ratchet (43 → 44, counting
+crates while the linked code went down) and the `crate::features` reference
+counts (27% of which named other crates' types) were the other two.
+⚠ The monolith now carries SIX `ambition_*` dev-dependencies —
+`dev_tools`, `platformer2d_ldtk`, `characters`, `boss_encounter`, `dialog`,
+`sim_view` — and only the production line count is in the table above. A carve
+that moves an edge from production to dev is invisible here by construction, so
+say which table you mean when you quote "28".
+
 ⭐ **SO FOOTPRINT IS NOT A REASON TO CARVE THESE FOUR.** The remaining reasons are
 the ones this doc already leads with — ownership, dependency direction, compile
 and test isolation — and a slice that promises closure movement for one of them
@@ -345,6 +363,99 @@ system `<Enable the debug feature to see the name>` without a feature that crate
 will not enable for a test. Both guards live in `app_it` and both go red when the
 system is unregistered.
 
+
+### ⛔⛔ REGRESSION: `ambition_world_items` LOST ITS SIMULATION PHASE (2026-09-02)
+
+**Live on `main` as of `69641a83f`. Found by Jon's GPT review of `dc8ea607a`, not
+by me, and my own comment claimed the opposite.**
+
+Before the carve, both systems ran inside `ItemPickupSet::CoreHeldItems`, which
+`ItemPickupSimulationPlugin` configured as:
+
+```rust
+ItemPickupSet::CoreHeldItems
+    .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+    .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled)
+// and each system additionally .in_set(GameplayGated)
+```
+
+`WorldItemSimulationPlugin` registers the chain with **`.in_set(GameplayGated)`
+and nothing else**. Two facts were lost:
+
+1. **PHASE MEMBERSHIP.** `GameplayGated` does not imply
+   `GameplaySimulationRoot`/`PlayerSimulation`, so the systems no longer sit in
+   the simulation phase that authorizes them for a session.
+2. **THE CUSTODY EDGE.** `.after(BodyCustodySettled)` is gone, so a collect can
+   observe a hand mid-settle.
+
+⛔ **AND THE COMMENT I WROTE ON THAT PLUGIN SAYS THE ORDERING WAS PRESERVED.** It
+argues at length that step-before-collect is load-bearing — which it is, and
+which survived — while silently dropping the two facts that were expressed as SET
+MEMBERSHIP rather than as a chain. ⇒ **Preserving the systems' order is not
+preserving their schedule.** A carve must move the set's `configure_sets` rules,
+not only the `add_systems` line; see
+the `ambition_world_items` section above, where the same lesson is stated as
+*"move the files AND the registrations that belong to them"* — the registrations
+included a `configure_sets` nobody looked at.
+
+#### The seam to build (specified here, implemented elsewhere)
+
+⭐ `ItemPickupSet` is in `ambition_platformer2d_shared_tangle::schedule` now,
+which is what makes this expressible without the new crate naming the kernel.
+
+- **`WorldItemSet`** joins it in `shared_tangle::schedule`, three variants in
+  chain order: `Motion` → `PreCollect` → `Collect`.
+- `WorldItemSimulationPlugin` configures, once:
+  `(Motion, PreCollect, Collect).chain()`,
+  `.in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)`,
+  `.after(lifecycle::BodyCustodySettled)`, and each variant
+  `.in_set(GameplayGated)`.
+- `step_item_motion` in `Motion`; `collect_world_items` in `Collect`.
+- **`PreCollect` exists for a real customer, and it fixes a LATENT bug rather
+  than a style problem.** Mary-O's `refuse_a_weaker_form_pickup`
+  (`ambition_demo_mary_o/src/lib.rs`) is `.before(collect_world_items)` — naming
+  a concrete FUNCTION in another crate, which is the thing `ItemPickupSet`'s own
+  doc says not to do. ⚠ AND ITS COMMENT EXPLAINS A CHOICE THAT IS ONLY
+  CONDITIONALLY RIGHT: *"Registered on `Update` beside `collect_world_items`
+  rather than in the sim set, so the ordering edge is real (a cross-schedule
+  `.before` is silently vacuous)."* The mechanism is stated correctly and the
+  conclusion holds only for ONE of the three hosts — `collect_world_items` is
+  registered into `app.sim_schedule()`, which is `Update` under
+  `SimulationHost::RenderFrame` (the `#[default]`, and what Mary-O runs) but
+  `FixedUpdate` under `Fixed60Hz` and backend-selected under `Rollback`. ⇒ The
+  edge binds today because of the HOST, not because of `collect_world_items`,
+  and it goes silently vacuous the day that demo gains a rollback or fixed-tick
+  host. Moving the system into `PreCollect` makes it host-independent, which is
+  the actual reason to do it.
+  ✔ **AND THE REPO WAS SWEPT FOR THE SAME SHAPE — this is the only one.**
+  Searching every `add_systems(<explicit schedule>, …)` block for a
+  `.before`/`.after` naming a concrete cross-crate FUNCTION (rather than a set,
+  which carries no such hazard because both sides land wherever the set does)
+  returns exactly two: this, and `sim_core_resources.rs`'s
+  `apply_camera_shake_requests.before(camera_ease::tick_camera_shake)`.
+  ⭐ The camera one is SOUND and deliberately so — both sides are registered on
+  `Update` by name, split across composition groups for the reason its comment
+  gives (the applier lives with the resource it writes; the tick is the windowed
+  host's, because a headless run has no camera), so the edge binds; and if the
+  host plugin is absent there is no system to order against and the vacuity is
+  harmless. ⇒ Nobody needs to re-run this sweep.
+
+#### The two regressions each need a guard, and both must be poison-verified
+
+1. **PHASE**: a test that the world-item systems are members of
+   `Platformer2dSimulationPhaseMonolith::PlayerSimulation` in a composed App —
+   red when the plugin registers only `GameplayGated`. ⚠ Assert MEMBERSHIP, not
+   "the systems exist": the bug shipped with both systems present and running.
+2. **CUSTODY EDGE**: an ordering assertion that the collect runs after
+   `BodyCustodySettled`. ⛔ A behavioural test is better if one is cheap — the
+   failure is "a collect observes a hand mid-settle", which an ordering
+   assertion pins only structurally.
+
+⚠ **DO NOT "FIX" THIS BY PUTTING THE SYSTEMS BACK IN `ItemPickupSet`.** That set
+belongs to the PRESSED pickup; sharing it was an accident of where the code used
+to live, and the carve's whole point is that touched and pressed are siblings
+rather than one thing.
+
 ## What recent carves taught
 
 Several completed slices established rules that should guide future ones:
@@ -362,8 +473,76 @@ Several completed slices established rules that should guide future ones:
 - Moving files without moving the authority, plugin registration and dependency
   edge is not a carve.
 
+
+⭐ **THREE MORE, FROM THE 2026-09-02 CARVES (dev-tools, world-items, and the
+`features` re-export sweep):**
+
+- **WHEN A CARVE LOOKS BLOCKED BY A TYPE, MOVE THE TYPE DOWN.** Three separate
+  blockers dissolved this way in one day: `ActorDecisionSet` was `pub(crate)` in
+  the kernel so only the kernel could install the census marks that bracket it;
+  `TouchCollectorFilter` was in `features::ecs::pickups` so only the kernel could
+  run the touch-collect pass; `ItemPickupSet` was in `items::pickup` so three
+  packages outside the monolith had to name the kernel to schedule their own
+  systems. All three are composed of things that already lived lower, and all
+  three moved to `shared_tangle` in minutes. ⇒ **ask what the blocking type is
+  MADE OF before designing an abstraction to get around it.**
+- **A COUNT THAT DID NOT MOVE IS NOT A SET THAT DID NOT CHANGE.** The monolith's
+  `[dependencies]` still holds 28 `ambition_*` lines, exactly as on 2026-08-29 —
+  because `ambition_dev_tools` left and `ambition_world_items` arrived on the
+  same evening.
+- **SIZE A CARVE AT THE GRANULARITY YOU WILL WORK AT.** Three sizings in this
+  document were wrong the same night in the same way: a module's UNION of imports
+  read as any one file's, a re-exported name read as kernel coupling (27% of
+  `crate::features::X` uses named a type defined elsewhere), and a plugin's
+  system list read as its domain's dependencies. You carve files and you split
+  files at their plugin block, so count there.
+
 The detailed sequence of LDtk, conversation, boss, mount and other historical
 carves is available in git history and should not be reconstructed here.
+
+## D33 RULE — a carved domain owns its schedule end to end
+
+Settled 2026-09-02, after one carve shipped a live defect by getting it wrong and
+the next one stopped at the same fork.
+
+> **A carved domain's plugin configures its OWN sets end to end. A set that two
+> crates order on is `shared_tangle` vocabulary, configured by exactly one owner.
+> A carve that moves `add_systems` without `configure_sets` has moved the logic
+> and left the schedule.**
+
+⛔ **THE COUNTER-EXAMPLE IS IN THIS REPOSITORY AND IT SHIPPED:** `69641a83f`
+carved `ambition_world_items` out, moved the two systems' `add_systems` line and
+the ordering *between* them, and left behind the `configure_sets` that said
+`ItemPickupSet::CoreHeldItems` was `.in_set(PlayerSimulation)` and
+`.after(BodyCustodySettled)`. Both facts were lost — session authorization and
+the custody edge — and the new plugin's own comment claimed the scheduling was
+preserved, because the author had checked the ordering and not the membership.
+⚠ It compiles, it runs, and both systems execute every frame. Nothing fails.
+
+⭐ **THE PRECEDENT FOR DOING IT RIGHT** is the fix for that same defect:
+`WorldItemSet` lives in `shared_tangle` as VOCABULARY so crates outside can order
+on it, and the OWNING plugin does both the `configure_sets` (nesting in
+`PlayerSimulation`, `.after(BodyCustodySettled)`, each variant `GameplayGated`)
+and the `add_systems`; the kernel merely composes the plugin.
+⚠ SHA deliberately not cited here — that fix is yardrat's and had not landed on
+this remote when this rule was written. Fill it in when it does, rather than
+citing a commit nobody can resolve.
+
+⇒ **WHAT IT MEANS FOR A CARVE IN PROGRESS**, and the pickup cut is the worked
+example: split a set family BY VARIANT so one crate owns one variant's rules end
+to end. Do not split a single variant's `configure_sets` from its `add_systems`.
+The kernel's plugin keeps only the sets whose members it still owns, and the
+moved tests build the CARVED plugin rather than the kernel's — which is what
+makes them able to leave at all.
+
+⛔⛔ **AND THE GUARD SHAPE, because the obvious guard does not catch this.**
+Assert phase MEMBERSHIP in the carved crate's own tests — that its systems are
+members of the phase set they must run in — never that the systems EXIST. The
+defect above shipped with both systems present and running every frame, so an
+existence check is green on it. ⚠ A carved crate whose tests register into sets
+that nothing configured will pass ordering assertions VACUOUSLY, which is why
+the owning plugin must configure them: the test builds the same plugin the game
+does, or it is testing a different schedule.
 
 ## Slice selection
 
@@ -387,6 +566,22 @@ A good slice normally satisfies more than one of:
 4. isolates a meaningful compile/test unit;
 5. deletes a compatibility/re-export path;
 6. creates a coherent domain plugin with an independent test surface.
+
+
+⛔⛔ **CRITERION 2 IS IN TENSION WITH CARVING, AND A ROW ELSEWHERE USES IT AS
+ACCEPTANCE.** *"Shrinks a minimal consumer's resolved capability footprint"* is
+measured by `scripts/baselines/capability-footprint-baseline.json`, which counts
+**CRATES the sentinel links, not code**. A carve moves code out of the monolith
+into a new crate that the monolith still names, so the count goes UP by
+construction: `ambition_mount`, `ambition_damage` and now `ambition_world_items`
+each RAISED it, 43 → 44, while the code linked went slightly down.
+⇒ **A slice cannot satisfy criterion 2 and be a carve.** The two are different
+programs: criterion 2 is satisfied by making a facade edge OPTIONAL or deleting
+it (`ldtk_left_the_closure_2026_08_22`, `settings_menu_left_the_closure_2026_08_22`),
+which moves no code at all. ⚠ Read them as alternatives on this list, never as a
+score to maximise together, and see
+[`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
+where the same caveat now sits beside the number.
 
 ## Current frontier
 
@@ -454,6 +649,53 @@ the actor kernel exposes the body/action hooks it needs"* — means DESIGNING th
 hooks first, generic enough that an item crate can drive a pickup without naming
 gravity, portals, abilities and hit events. That is a design slice with a real
 budget, and nothing above measures it.
+
+
+⛔⛔ **THE DEFENCE ABOVE IS OVERTURNED — measured 2026-09-02, and one half of it
+was right for the wrong reason.** It rests on a sentence from `items/mod.rs`'s
+own module doc: *"The pickup/throw/projectile steppers stay here because they
+mutate actor bodies, gravity, portals, abilities, and hit events."* That
+sentence is a COMMENT, and the conclusion drawn from it — that a carve needs a
+generic hook design first — does not survive reading the code.
+
+✔ **WHAT THE COMMENT GETS RIGHT:** the pickup code really does touch those
+things. Counted in the 1,344-line remainder of `pickup/mod.rs`: portal 36
+mentions, gravity 33, ability 10.
+
+⛔ **WHAT IT GETS WRONG IS WHERE THEY LIVE.** Every one of them is reached
+through a crate BELOW the kernel, not through the kernel:
+
+```text
+gravity   -> ambition_platformer2d_shared_tangle::gravity::{GravityCtx, GravityField, apply_world_forces}
+portals   -> ambition_portal2d::PortalGun            (#[cfg(feature = "portal")])
+abilities -> ambition_characters::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec}
+bodies    -> ambition_platformer2d_core::BodyKinematics
+hit events-> (none: zero occurrences of `hit_event` or `HitEvent`)
+```
+
+⇒ **The remainder names NOTHING in the actor kernel** — zero `crate::<module>::`
+paths, zero `super::`, one `crate::items` to its own parent, checked in all three
+forms because this document has already been wrong twice by grepping only one.
+A carve does not need hooks designed; it needs the new crate to depend on the
+same lower crates the file already depends on.
+
+⚠ **AND "hit events" WAS NEVER TRUE AT ALL** — the phrase appears in the comment
+and nowhere in the code.
+
+⭐ **THE EVIDENCE IS NOT ONLY A COUNT: `ambition_world_items` LEFT THE SAME
+MODULE THE SAME DAY** and needed no hook design. Its one apparent blocker
+(`TouchCollectorFilter`) turned out to be a type alias over two `shared_tangle`
+markers. The defence predicted that carve was blocked; it took an evening.
+
+⇒ **SO THE THREE-FRONTIER CONCLUSION ABOVE NEEDS RESTATING**: it is not "only one
+of three was work". Developer dependencies were work and are done; presentation
+is a mirage; ITEMS IS WORK TOO, and what stands between it and a carve is 516
+lines — a plugin that schedules its neighbours' systems, and one checkpoint
+function that reads authored construction records — not a missing abstraction.
+⚠ The plugin is where *"mutates abilities"* is actually true: it names
+`crate::abilities::{ranged ×10, traversal ×4, thrown ×3}` and
+`crate::ability_cooldown`. Those are its NEIGHBOURS' systems being placed in a
+schedule, which is why the plugin stays behind and the domain does not.
 
 ⛔ **So three of this doc's frontiers have now been checked and only one was
 work.** Developer dependencies: done. Presentation: no renderer anywhere, a

@@ -20,6 +20,12 @@ WHAT IT REPORTS, and the distinction is the whole point:
   * UNRESOLVED  no definition found by this script      -> counted separately,
                 never silently folded into either bucket
 
+⚠ AND IT REPORTS VISIBILITY, because RE-EXPORT alone does not mean "defect". A
+`pub` re-export of another crate's name is a road a consumer can learn and take.
+A `pub(crate)` one — especially under `#[cfg(test)]` — is a local alias nobody
+outside can reach, and re-pointing it is pure churn. This script flagged one of
+those as a finding before anybody read its visibility.
+
 ⚠ IT IS A TEXT SCAN, NOT A RESOLVER. It finds `pub struct/enum/type/fn/trait`
 definitions by regex, so a macro-generated or heavily-cfg'd name lands in
 UNRESOLVED rather than being guessed at. Read UNRESOLVED as "ask rustc", not as
@@ -41,8 +47,18 @@ from pathlib import Path
 KERNEL = Path("crates/ambition_platformer2d_actor_monolith")
 FACADE = KERNEL / "src/features/mod.rs"
 
-# `pub use ecs::{ ... };` style blocks in the facade, both pub and pub(crate).
-REEXPORT_BLOCK = re.compile(r"pub(?:\(crate\))?\s+use\s+[^;{]*\{([^}]*)\};", re.S)
+# `pub use ecs::{ ... };` style blocks in the facade.
+#
+# ⛔ VISIBILITY IS CAPTURED, and it is the distinction that decides whether a
+# re-export is a DEFECT or a convenience. A `pub` re-export of another crate's
+# name is a road a consumer can learn and take, which is what made the
+# `crate::features::X` cases worth 45 edits. A `pub(crate)` one — especially
+# under `#[cfg(test)]` — is a local alias nobody outside can reach, and
+# re-pointing it is churn. This script reported one of those as a finding on
+# 2026-09-02 before anyone read its visibility.
+REEXPORT_BLOCK = re.compile(
+    r"(pub(?:\(crate\))?)\s+use\s+[^;{]*\{([^}]*)\};", re.S
+)
 DEF = re.compile(
     r"^\s*pub(?:\((?:crate|super)\))?\s+"
     r"(?:struct|enum|trait|type|const|fn)\s+([A-Za-z_][A-Za-z0-9_]*)",
@@ -50,15 +66,22 @@ DEF = re.compile(
 )
 
 
-def facade_names() -> set[str]:
-    """Every name the features facade re-exports."""
+def facade_names() -> dict[str, str]:
+    """Every name the facade re-exports -> the visibility it is exported at.
+
+    ⚠ Returns a dict, not a set: a caller that ignores the value is asking the
+    wrong question. `pub` is reachable from outside the crate; `pub(crate)` is
+    not, and cannot be a wrong path anybody learns.
+    """
     text = FACADE.read_text()
-    names: set[str] = set()
-    for block in REEXPORT_BLOCK.findall(text):
+    names: dict[str, str] = {}
+    for vis, block in REEXPORT_BLOCK.findall(text):
         for raw in block.split(","):
             name = raw.strip().split(" as ")[0].strip()
             if name and not name.startswith("//"):
-                names.add(name)
+                # `pub` wins if a name is exported twice at different visibility.
+                if names.get(name) != "pub":
+                    names[name] = vis.strip()
     return names
 
 
@@ -127,7 +150,12 @@ def main() -> int:
             per_file[Path(path).relative_to(root).as_posix()] += 1
 
     total = sum(per_kind.values())
-    print(f"facade re-exports {len(names)} names")
+    externally_reachable = sum(1 for v in names.values() if v == "pub")
+    print(
+        f"facade re-exports {len(names)} names "
+        f"({externally_reachable} `pub`, {len(names) - externally_reachable} crate-local)"
+    )
+    print("⚠ only the `pub` ones are roads a consumer can learn; the rest are aliases")
     for kind in ("RE-EXPORT", "LOCAL", "UNRESOLVED"):
         n = sum(1 for k in classified.values() if k == kind)
         print(f"  {kind:<11} {n:>4} names")

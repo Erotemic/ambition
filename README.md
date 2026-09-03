@@ -198,8 +198,10 @@ From a fresh clone, the supported zero-to-runnable path is:
 ```
 
 The setup script installs host and Rust dependencies, initializes submodules,
-creates an isolated `.venv` inside each active Python authoring tool, regenerates
-all runtime assets, and checks the desktop game target. It is a fresh-clone or
+creates an isolated environment for each active Python authoring tool under
+`~/.cache/ambition-tool-venvs/` (a venv is machine state, so it does not live in
+a checkout two machines may share), regenerates all runtime assets and the
+`.agent/` navigation index, and checks the desktop game target. It is a fresh-clone or
 environment-repair command, not a prerequisite for ordinary asset regeneration.
 Once the tool-local environments exist, run the relevant renderer or regeneration
 script directly. Re-run setup only after dependency, Python-version, submodule,

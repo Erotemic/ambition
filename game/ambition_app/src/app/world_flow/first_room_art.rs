@@ -167,11 +167,16 @@ pub(crate) fn prepare_first_room_art_system(
                 // worn body or its neighbours do not own leaves here, before the
                 // first reveal — the same ownership rule a room commit applies.
                 let room_set = source.room_set();
+                let claimed: Vec<String> = super::room_transition_assets::residency_claims(
+                    context.roster.as_deref(),
+                    context.actor_configs.iter(),
+                );
                 let owners = RoomResidencyOwners::for_room(
                     room_set,
                     room_set.active,
                     &staged_actor_names,
                     &worn,
+                    claimed.iter().map(String::as_str),
                     registry,
                     character_catalog,
                 );

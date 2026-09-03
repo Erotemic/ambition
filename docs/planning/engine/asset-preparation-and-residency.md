@@ -77,9 +77,16 @@ own 43% of the whole session's decode work, at seven sheets of about 4096² each
 ```
 
 ⇒ This is upstream of §3 (pacing) and §4 (budgets): **pacing a demand and
-budgeting a residency are both cheaper when the demand is smaller.** Fewer pages,
-a lower quality tier for gallery previews, or eviction all attack the 43% before
-any scheduling machinery has to.
+budgeting a residency are both cheaper when the demand is smaller.** Fewer pages
+or eviction attack the 43% before any scheduling machinery has to.
+⛔⛔ **THE THIRD LEVER THIS SENTENCE USED TO OFFER — "a lower quality tier for
+gallery previews" — IS RULED OUT, 2026-09-02.** Jon, after an Ultra host capture
+drew the hall from `sprites_0_25x`: *"I DO NOT WANT A LOWER QUALITY TIER FOR
+GALLERY PREVIEWS."* The standing rule is wider than this paragraph: nothing may
+draw fewer pixels than the user's quality setting asks for, for any room, view or
+distance reason, without his explicit yes. ⚠ §3a below and the measurements that
+followed it were built on that lever; they are kept as measurements and marked,
+not deleted. See `maintainer-decisions.md`, 2026-09-02.
 
 ⚠ The worst in-play frame moved the right way against 2026-08-29 — 516 ms → 199
 ms — but on a HEAVIER hall, and still not a controlled A/B. The rendered A/B the
@@ -222,10 +229,98 @@ worth of pixels per frame, which at the gallery's Quarter tier is sixteen
 sheets a frame and the whole cast in ~8 frames (`take_within_budget`, the
 areal ration that replaced the head count the same day); the guard
 `the_reveal_waits_for_every_placed_character_not_just_the_realized_ones` is red
-when the remainder is dropped. **Host tell, still owed — AND CHECKED NOW
-RATHER THAN READ (2026-09-02):** zero placeholder-rectangle warnings at the hall
-reveal, `asset_wait_ms` in the seconds (129 frames of ration at least), no
->33.4 ms frames after the cover lifts. The profiling bundle summary grows a
+when the remainder is dropped. ⭐⭐ **HOST TELL PAID, 2026-09-02 — Jon's Ultra run
+`desktop-timeline-run-20260902T215256Z`, and all three named tells come back
+clean.** The bundle's own **Room reveal** section:
+
+```text
+  never materialized      0        (111 on 2026-09-01)
+  retired                 0
+  undeclared              0
+  total                   0
+  seq  wait_ms  covered  move
+    1      292     True  central_hub_complex -> hall_of_characters
+  frames over 33.4 ms AFTER the last transition (t=8.321s):  0   (nine on 2026-09-01)
+```
+
+⇒ **The reveal barrier holds on the host**: nothing draws a placeholder, the
+cover is up for the wait, and the nine 89-355 ms frames are gone.
+
+⭐⭐ **AND THE SAME RUN SAYS WHERE THE REMAINING HOST HITCH IS: STARTUP, NOT THE
+HALL — and the two are the same shape with and without a cover.** The run has
+exactly three frames over 33.4 ms, all BEFORE the transition, and
+`asset_activity.csv` puts them inside a decode burst:
+
+```text
+  wall_s  decoded_images  decoded_MP  decoded_MB     frame spikes in the window
+   2.262        0            0.0           0
+   2.989       98           20.7          82.8        125.3 ms @2.386, 203.3 ms @2.589
+   ...
+   6.997      122           42.1         168.5
+   8.002      250           71.2         284.7        none — the hub → hall entry
+```
+
+⇒ **The hall entry decodes MORE than the startup burst — 128 images and 116 MB
+against 98 and 83 — and costs ZERO spikes, because the cover holds for it.** The
+startup burst has no cover and costs a 203 ms frame and a 125 ms frame.
+⚠ AND THE COMPARISON IS CONSERVATIVE: the hall was under the room tier cap in
+this run (quarter-tier art), while startup art was at the setting's own tier, so
+the hall's real Full-tier load is larger still and the gap widens.
+⇒ **The reveal barrier is not a hall fix, it is a mechanism the first room does
+not yet use.** That is the same conclusion the headless work reached from the
+other end, now with host frames attached.
+  ⛔⛔ **AND THAT READING WAS WRONG — CORRECTED THE SAME NIGHT, by df's question
+  rather than by my measurement.** *"A frame spike under a cover is cover time,
+  not a hitch"* is this campaign's own rule, applied to the hall six paragraphs
+  up, and I did not apply it to my own finding. The run's route lines settle it:
+
+  ```text
+  [2.246s] [game-mode]  0.930s f    0  initial playing
+           spikes at wall 2.386 (125.3 ms) and 2.589 (203.3 ms)
+  [5.179s] [world-event] 3.863s f 1131  room-loaded central_hub_complex
+  ```
+
+  ⇒ **Both spikes land between `initial playing` and `room-loaded`** — during the
+  first room's load, which is exactly when the load screen with its "Load the
+  first room's art" row is up. ⚠ `[game-mode] initial playing` at FRAME 0 is not
+  "the player is in the world"; it is the same trap that made an offscreen
+  capture report eighteen pops earlier the same day.
+  ⇒ **So the honest statement is: three spikes, all before the first room
+  finished loading, and the bundle cannot say whether a curtain covered them.**
+  The claim that this is "the last user-visible hitch" is withdrawn — it needs
+  the route's presentation state at 2.4-2.6 s, which nobody has yet read.
+  ⭐ What survives untouched is the COMPARISON, because both halves are measured
+  the same way: the hall decodes more and spikes zero WITH a cover, and the
+  startup burst spikes twice at whatever cover it has. That still says the cover
+  mechanism works; it no longer says a player sees the startup one.
+
+⛔⛔ **BUT ONE OF THE THREE IS CONFOUNDED AND MUST BE RE-TAKEN.** This is the run
+in which Jon saw blur — the ROOM TIER CAP was live and the hall drew from
+`sprites_0_25x/` (§3a). The two COUNT tells are tier-independent and stand: a
+placeholder means an actor resolved no sprite at all, and the cover either held
+or it did not. **The TIMING tell is not**: "0 frames over 33.4 ms" was measured
+while the hall was decoding quarter-tier art, which is a fraction of the pixels
+Full asks for. ⇒ **Re-take the >33.4 ms count after the cap is removed**, on the
+same route, before calling the hitch closed. ⚠ The prediction to check it
+against: if the barrier is what fixed it, the count stays 0 at Full; if the cap
+was doing the work, it comes back. 
+⛔⛔ **AND VALIDATING THE READER AGAINST THAT CAPTURE FOUND A DEFECT IN IT — A
+`[frame-spike]` LINE CARRIES TWO CLOCKS.** `[   2.386s] [frame-spike]
+1.071s  125.3ms` holds the stamper's wall time AND the game's own elapsed
+time, 1.3 s apart here. The transition line is a `tracing` record with no game
+clock, so the stamp is the only quantity both share — and the parser was
+ordering a spike's GAME time against a transition's STAMP. ⇒ On this bundle
+both clocks agree (every spike precedes the reveal), so the verdict above was
+right BY LUCK; a run with a spike inside the offset would have been
+misreported. Fixed, and pinned by an arm where the two clocks disagree —
+the first version of that test could not fail, because the real fixture cannot
+discriminate.
+
+⚠ Also corrected: the transition's time is the COMPLETION line's stamp
+(8.321 s), not the `room-transition begin` marker three lines earlier
+(7.767 s). My hand-check misread that; the parser had it right.
+
+The profiling bundle summary grows a
 **Room reveal** section parsing all three out of the game's own stamped log, so
 a host capture states its own verdict instead of needing someone to read stderr
 and judge — which is how the 2026-09-01 capture's 111 warnings became evidence
@@ -874,6 +969,22 @@ sheets / 9.4 MP to **4 / 2.8 MP**; the 9 owned sheets are 6.7 MP and each
 arrives only with its fighter (the host run of 2026-09-02 evening, taken
 before this landed, still shows `fx-sheet 10×7.7MP` never drawn in the hub).
 
+⭐ **THE BOOT POPULATION, from Jon's host run (2026-09-03,
+`scripts/measure_first_room_manifest.py` over
+`desktop-timeline-run-20260902T215256Z`).** The run's only two spikes off the
+hall (125 ms and 203 ms at 2.4–2.6 s) sit between `initial playing` and the
+first `room-loaded`, i.e. under the shell's load screen. What decoded before
+that `room-loaded`, by the `[image]` ledger (≥ ~1 MP lines; the census counts
+98 small files besides): **6 images / 16.1 MP** — `unknown` 8.6 MP (the 7.6 MP
+LDtk preview tileset, Jon's relPath, plus a 1.0 MP runtime-generated image),
+`vanity-card` 3.0, `boss-sheet` 2.0 (the fallback boss body, eager by design:
+one sheet every boss may need), `character-sheet` 1.3, `fx-sheet` 1.2. ⇒ The
+startup burst is the tileset first and everything else a distant second; the
+`prepare-first-room-art` cover already waits for the 38 assets the first room
+names, and a cover that also waited for the shell's own art would be a longer
+cover — a product choice, not a defect. The tell after Jon's relPath retarget
+is the same two spikes gone or halved.
+
 ### 3. Pace expensive completion, not declarations
 
 Staging/demand and expensive materialization are different operations. Declare
@@ -981,9 +1092,17 @@ would instead keep the last room's cast resident while the total stays under
 a limit. ⚠ Still open: the limit itself (a host number — `resident_mb` at
 Full on the 3090 after a hub→hall→hub walk is the input), and the neighbour
 prefetch remains the only road that decodes in the open on purpose.
+⛔ **AND THE 2026-09-02 HOST RUN DOES NOT SUPPLY IT, though it looks like it
+does.** `desktop-timeline-run-20260902T215256Z` reports *"decoded images 0 → 252
+(78.3 MP, 313.1 MB of decode work); images resident at end 251"* — ⚠ that is
+DECODE WORK over the run and a count at the end, not a steady-state residency,
+and the hall leg of it ran under the room tier cap (quarter-tier art), so it is
+not the FULL figure this limit needs. It is also a one-way walk: hub → hall, with
+no return leg. ⇒ The input is still owed, and whoever takes the capture should
+make it hub → hall → hub at Full with the cap gone.
 
-⚠ **Parallax is the one road that ACCUMULATES, and its ceiling is known
-(read from the code 2026-09-02, not yet measured on a walk).**
+⚠ **Parallax WAS the one road that ACCUMULATED — superseded the same evening
+by the retire below; kept as the sizing.** (Read from the code 2026-09-02.)
 `ensure_parallax_layers_for_room` lazy-loads a theme's four layers on first
 visit and nothing releases them: `ParallaxLayerSet` has `ensure_theme_loaded`
 and no retire. Nine themes × 4 layers = 37 files, **21.2 MP at Full** (every
@@ -1185,6 +1304,191 @@ real hardware, this is a staged capture at 640×360 on a software rasterizer. Th
 two answer different questions and no delta between them means anything.
 
 ### 5. Eliminate accidental re-preparation/reload
+
+⛔⛔ **FOUR SHEETS' REDUCED TIERS ARE NOT REDUCED — MEASURED 2026-09-02, and it
+is a COST defect, not a quality one.** `sprites_0_5x` and `sprites_0_25x` exist
+so a room or a setting can ask for a cheaper character. Nothing checked that the
+variant IS cheaper. `scripts/measure_tier_variant_scaling.py`:
+
+```text
+sheet        Full MP   0_5x   0_25x     verdict
+actor           9.03   9.03    9.03     identical at every tier
+author          8.36   8.36    8.36     identical at every tier
+medic           7.54   7.54    7.54     identical at every tier
+officer         8.64   8.65    8.65     one pixel taller, not smaller
+```
+
+⇒ **A room asking for those tiers decodes 67.2 MP where the tier promises
+~10.5 MP** — 6.4x, per sheet, at every stage: decode, upload, residency. For
+scale, the whole hall's resident set measures 30.7 MP.
+
+⭐ **WHY IT SURVIVED: THE FAILURE IS INVISIBLE WHERE ANYONE LOOKS.** The art is
+correct — it is simply larger than asked for — so a Quarter room renders
+perfectly and costs Full. Nothing on screen is wrong, and the tier system's own
+accounting believes it saved 16x.
+
+⛔ **IT IS THE OPPOSITE OF THE GALLERY-PREVIEW RULING AND MUST NOT BE READ AS
+CHALLENGING IT.** Jon's rule is that nothing may draw FEWER pixels than the
+setting asks for; these draw MORE. Regenerating the variants removes no pixels
+from any tier that requested them.
+
+⚠⚠ **CORRECTED WITHIN THE HOUR: THIS IS A GENERATOR DEFECT, NOT COMMITTED ART.**
+The first write-up called fixing it "a content change" that wanted Jon's say-so.
+Every sprite PNG is GITIGNORED and generated — `assets/sprites/.gitignore` is
+`*.png`, and `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` are ignored
+whole. Nothing here is committed art; the tree holds seven tracked files under
+`assets/sprites`, all of them JSON or markdown. ⇒ The fix belongs in
+`scripts/generate_visual_quality_variants.py`, is Python, and needs no art
+decision at all.
+⛔⛔ **AND MY CORROBORATION WAS FALSE — RETRACTED THE SAME HOUR.** I checked the
+primary worktree, saw the identical four sheets undownscaled, and wrote that it
+"reproduces on a second, independently-generated tree". **It is the same tree.**
+`scripts/mirror_assets_for_worktree.py` symlinks a worktree's generated assets
+at the main checkout's, file by file — `sprites_0_25x/author_spritesheet.png`
+here IS `/home/joncrall/code/ambition/...` there. I measured one set of bytes
+twice and called the second read independent evidence.
+
+⇒ **WHAT IS AND IS NOT ESTABLISHED.** Established: on this machine's generated
+assets, four sheets' 0_5x/0_25x pages and manifests are full-size, and a room
+asking for those tiers pays for them. NOT established: that any other machine
+generates the same, or that the generator is at fault. ⚠ The arithmetic points
+AWAY from a scaling bug — `effective_scale` returns 0.25 for these sheets, the
+same as for `carl_runga`, which scales correctly — so the likeliest cause is a
+STALE OUTPUT that the freshness check (`_published_and_current`) never rebuilds,
+which would be per-machine rather than a repository defect. ▢ The cheap decider
+is `scripts/regen/quality_variants.sh --target author --force`: if the variant
+comes back smaller, it was staleness; if it comes back full-size, the generator
+is wrong for these sheets. That has not been run here, and running it needs the
+renderer.
+
+⇒ **A finding about GITIGNORED, GENERATED files is a finding about the generator
+only if it reproduces where the generator ran SEPARATELY** — and a symlinked
+worktree is not a separate run. That test is the whole reason this paragraph
+exists; I applied it and then accepted an answer that could not have failed.
+
+⚠ **AND THE QUANTITY DECIDED THE ANSWER.** Measured by one page's dimensions the
+list was SIX, including `noether` and `perfect_cellular_automaton` whose 0_5x
+page is taller than their Full page. Those are multi-page packed atlases that
+repack per tier; measured by total page megapixels across all pages — what
+residency actually pays — they are genuinely smaller and drop out. Six was the
+wrong number for a defensible reason.
+
+⛔⛔ **AND THERE IS A SECOND MECHANISM THAT LOOKS NOTHING LIKE THE FIRST.**
+`performer` (9.03 MP) publishes **no 0_5x or 0_25x variant at all** — so a room
+asking for a reduced tier gets the full page, at the same cost, and comparing
+megapixels can never see it because there is nothing to compare against. ⭐ It
+is byte-identical to `actor`, which DOES publish both variants and shrinks
+neither: **the same artwork fails to get cheaper by two different routes.**
+⇒ Five sheets, ~42 MP, that no reduced tier ever makes cheaper. A census
+reporting only the first mechanism would have called the tree 4/213 clean when
+it is 5/213.
+
+⇒ Ratcheted by `test_tier_variants_are_actually_smaller.py`, both mechanisms:
+the named sheets carry their date, a NEW one of either kind fails, and a name
+that gets fixed must LEAVE its list or the guard silently permits its
+regression. Poison-verified in every direction, with a positive control
+asserting the tree really does contain correctly-scaled variants — otherwise
+two absence assertions would pass forever on an empty measurement.
+
+⭐⭐ **THE ART SHIPS TWICE, AND 15 SHEETS ARE IN ONLY ONE COPY — MEASURED
+2026-09-02.** The two shipped asset roots hold **1378.7 MB**, of which the
+per-target sheets are 649.6 MB across four tiers and `sprite_packs` (the
+"ultrapacks") a further **460.6 MB — the single largest category at 33%**. The
+ultrapack step *"pools every published per-target sheet"* into shared atlas
+pages per tier, and `extend_with_sprite_pack_entries` says the relationship
+plainly: a checkout with no packs *"falls back to its per-target sheet"*. So the
+pack is the preferred road and the per-target PNG is the fallback, and a package
+carries both.
+
+⛔ **THE PACK COVERS 197 OF 212 PUBLISHED SHEETS.** The 15 absent are
+systematically the BIG ones — median **7.54 MP against 0.97 MP** for packed
+sheets, and a median largest-frame of 331 px against 176:
+
+```text
+gnu_ton_boss / giant_gnu / giant_gnu_hands   14.94 MP each, 768 px frames
+actor / performer  9.03    officer 8.64    author 8.36    medic 7.54
+mockingbird_boss 2.50   + 6 small ones (sandbag, gnu_ton_apple, …)
+```
+
+⭐⭐ **AND ALL FIVE SHEETS WHOSE REDUCED TIERS ARE NOT REDUCED ARE IN THAT 15** —
+`actor`, `author`, `medic`, `officer`, `performer`, with none of them packed.
+Five of five. That is a strong hint of ONE cause behind two symptoms: whatever
+excludes a sheet from the pack pipeline is at least correlated with whatever
+leaves its variants unshrunk. ⇒ It is a LEAD, not a diagnosis — 15 are absent
+from the pack and only 5 have broken variants, so pack-absence does not imply
+the tier defect.
+
+⚠ **AND THE SAME PER-MACHINE CAVEAT APPLIES TO ALL OF IT**: packs and sheets
+alike are gitignored generated output, and the clean generation that would
+separate staleness from a pipeline defect has not run. ▢ Whether a shipped build
+needs the per-target PNGs at all once packs cover a sheet is the question worth
+the most megabytes here, and it is not answered: the fallback exists, 15 sheets
+depend on it, and nothing measured says what happens to the other 197 if their
+PNGs were omitted.
+
+⚠⚠ **AND THE OCCUPANCY CENSUS BELOW COVERS 44% OF THE TREE, NOT THE TREE.** It
+asks how much of a CLAIMED page is sampled, and says nothing about pages no
+manifest claims at all. `--orphans` measures those: **15 files per tier, 775 MP
+and 61.8 MB at Full — 16-18% of every tier's PNG bytes, and more megapixels than
+every censused page combined.** Mostly extra pages of split sheets
+(`pointed_polygon_spritesheet.2/.3/.4`) plus three whole sheets
+(`gnu_ton_boss_body`, `gnu_ton_boss_full`, `giant_gnu_body`) that **nothing in
+the repository references** — checked across `.rs`, `.ron`, `.json` and `.py`.
+
+⛔ **THE COST IS PACKAGE SIZE, NOT RESIDENCY.** No manifest names them, so
+nothing decodes them; but `package_asset_guard.py` records *"every regular
+file"* from the asset roots, so they ship.
+
+⚠⚠ **AND THIS IS PER-MACHINE UNTIL SOMEONE SEES IT ON A SEPARATELY-GENERATED
+TREE.** These are gitignored generated outputs and the likely cause is an
+earlier render leaving pages behind — the same staleness class as the tier
+variants above. ⛔ Checking the primary worktree does NOT count: its assets are
+symlinks at this checkout's, so it is the same bytes. The decider is a clean
+generation on another box.
+
+⭐⭐ **PACK OCCUPANCY, MEASURED 2026-09-02 — AND THE ANSWER IS "STOP".** A page is
+decoded, uploaded and held resident whole; only the frame rects its baked
+manifest names are ever sampled. `scripts/measure_sheet_occupancy.py` reads
+every published manifest and its PNG headers and reports what fraction that is,
+per page, ranked by waste. Byte-identical across runs:
+
+```text
+tier    pages   page MP   sampled MP   occupancy   waste MP
+full      225     662.0        595.4         90%       66.6
+0_5x      214     182.1        163.4         90%       18.7
+0_25x     212      73.4         64.3         88%        9.1
+potato    210       3.6          2.4         66%        1.2
+```
+
+⇒ **THE PACKING IS ALREADY GOOD AND THIS IS NOT A LEAD.** 90% at Full, and the
+10% that is left is DIFFUSE: the top 25 pages of 225 hold only 45% of it, so
+there is no handful of sheets to fix and no pipeline change that pays for
+itself. The worst single page is `jeff_hinter_armored` at 61% (2.24 MP), and
+the largest sheets — `noether`, `giant_gnu`, `gnu_ton_boss` — are already at
+89%. ⛔ Recorded so the question is closed with a number rather than re-asked;
+if a repack is ever proposed, it is worth ~10% of decode, not a multiple.
+
+⚠ **AND IT IS NOT A PIXEL-QUALITY QUESTION AT ALL.** Repacking would decode
+fewer pixels that nothing draws; it would not draw fewer pixels than the
+setting asks for. Those are different claims and only the first is supported
+here — Jon's ruling on gallery previews governs the second.
+
+⛔⛔ **THE FIRST RUN OF THIS SCRIPT SAID 5% OCCUPANCY AND 447.9 MP OF WASTE**, a
+7× error that would have launched a repacking campaign. Two rect shapes exist in
+the baked manifests — plain grid `(x, y, w, h)` in 384 of them, and packed
+`(x, y, w, h, page: N, off: (dx, dy))` from a trimmed multi-page atlas in 174 —
+and a pattern anchored on `h: NNN)` reads NONE of the second. The most tightly
+packed sheets in the tree reported **0% occupancy**, which reads as a finding
+rather than as a parser failure. ⇒ Caught because zero is not a plausible
+measurement, not because the regex looked wrong. An earlier version failed the
+OPPOSITE way, counting `body_metrics`' hurtbox/hitbox rects — identical in
+shape, in image space — as sampled area, which argues there is no waste at all.
+**Neither a low nor a high number is self-evidently right here**, which is why
+the script now checks its own premise every run (parsed rects must equal each
+sheet's declared `frame_count`; 211 of 211 single-page sheets agree) and
+`test_sheet_occupancy_reads_both_rect_shapes.py` pins both shapes, poison-verified
+in both directions.
+
 
 Audit repeated runtime-generated images, portrait/sheet re-loads and per-frame
 asset mutation where measurements show repeated work. Retain the semantic handle

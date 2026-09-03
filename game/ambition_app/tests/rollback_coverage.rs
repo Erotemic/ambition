@@ -1435,7 +1435,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_characters::actor::population_cap::AuthoredPopulationCap",
-        "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction plan's          admission quota, never written by a system. The quota it seeds lives on          the plan (`ActorAdmission`), whose lifetime is one room build",
+        "the developer's actor population cap, the same shape and the same          reason: env-parsed once at plugin build, read into the construction          plan's admission quota, never written by a system. ⛔ THE QUOTA IS SPENT          WHILE THE PLAN IS BUILT, not carried on it: `ActorAdmission` filters          `room.placements` as the record list is assembled (`spawn/mod.rs`), so a          refused placement never becomes a record and never gets an identity. The          older wording here said the quota `lives on the plan`, which described          the design before the cap moved to plan time and left a refused NPC          holding an authoritative root",
+    ),
+    (
+        "ambition_characters::perception::PerceptionExtentOverride",
+        "the developer's perception viewport override, the THIRD of the same          shape: env-parsed once at plugin build by `ambition_dev_tools`, read by          `ensure_perception` when it attaches a policy to a new body, never written          by a system. A measurement knob that changes how far a brain can SEE, so          it changes what a resimulated frame perceives only through           `Perception::Sighted`, which IS rollback state and is registered — the          knob itself is the input that seeded it, not a second copy of it",
     ),
     (
         "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",

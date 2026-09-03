@@ -174,8 +174,20 @@ only lever on the floor is running fewer systems, and it is not needed at
 Entering the hall cost nine frames of 89-355 ms while 434 MP of Full-tier art
 arrived AFTER the cover lifted. Root cause found and fixed 2026-09-02: the
 reveal barrier never waited for the cast beyond the per-frame load ration
-(`2c8f27b32`); the hall now realizes its cast at Quarter (`dc3cd0d91`). Both
-await one host capture to confirm; see
+(`2c8f27b32`). Host-confirmed the same evening on the two tier-independent
+tells (0 placeholders, 0 frames over 33 ms after the transition, Ultra, 3090,
+`desktop-timeline-run-20260902T215256Z`). ⛔ The room tier cap that shipped
+beside it (`dc3cd0d91`, gallery → Quarter) blurred the hall at Ultra and Jon
+rejected it on sight — "no lower quality tier for gallery previews"; removed
+in `06a494f4e`, and the standing rule is that nothing draws fewer pixels than
+the user's setting for any room, view or distance reason. Room exits now
+retire realizations by OWNERSHIP (destination cast ∪ worn ∪ one-hop
+neighbours) instead of by tier mismatch; a fighter's own vfx sheets follow its
+realization (4 core sheets at boot, was 13); parallax themes retire the same
+way. Still owed on the host: the hall's cover hold and post-reveal frame count
+at FULL (the confirmed run was under the cap), and the UNCOVERED startup burst
+Jon's run shows instead (98 images / 83 MB, 203 + 125 ms frames before the
+first `room-loaded`). See
 [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 
 ### Weak-GPU rendering

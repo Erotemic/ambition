@@ -7,6 +7,36 @@ content; that is `scripts/regen/` and `run_game.sh`.
 fresh clone needs. These are the pieces, runnable on their own when you are
 fixing one thing rather than bootstrapping.
 
+## The phases `run_developer_setup.sh` runs
+
+The umbrella is an ORCHESTRATOR: it calls these in order and owns no copy of
+their logic, so the two cannot drift. Run one directly when you are fixing one
+thing, or to assemble a lighter setup than the default.
+
+| phase | what it does | needs first |
+|---|---|---|
+| `system_packages.sh` | host apt packages for a desktop build and the asset pipeline | — |
+| `rust_toolchain.sh` | rustup + stable + rustfmt/clippy/llvm-tools | — |
+| `submodules.sh` | recursive authoring submodules | — |
+| `resource_tally.sh` | arms the accounting git hook | — |
+| `python_tools.sh` | a per-machine venv for each authoring tool, plus the `scripts/` environment. `--verify` checks without installing | submodules |
+| `audio_libraries.sh` | sampled instruments + sfizz. `--status` reports what this machine has | system packages |
+| `generated_content.sh` | every runtime asset, plus the `.agent/` navigation index | python tools, audio libraries |
+| `desktop_check.sh` | `cargo fetch --locked` + checks `ambition_app` | rust, submodules |
+| `profiling_tools.sh` | ⭐ the ONLY thing the default run leaves out — `--profile` | rust |
+
+The first four are independent of each other and safe to run in any order or
+concurrently; the rest follow the dependencies in the last column. The umbrella
+runs them sequentially because apt takes a machine-wide lock and the asset
+pipeline already saturates the CPU on its own.
+
+⛔ **`audio_libraries.sh` IS NOT OPTIONAL FOR A COMPLETE SETUP.** Without it
+every sampled instrument becomes a General-MIDI stand-in that nothing downstream
+can distinguish from the real cue, so the machine ships the wrong music and
+reports success. It is the one phase whose cost (tens of GB) tempts people to
+skip it, which is exactly why it is its own script with a `--status`: assemble a
+compile-only machine deliberately, and know that it cannot regenerate music.
+
 | script | when you need it |
 |---|---|
 | `target_bindmount.sh` | ⛔ **first, every session, on a virtiofs checkout.** `--status` says whether `target/` is bound to local disk. An unbound session builds through the shared mount — minutes per check, and a second full copy of every artifact. See AGENTS.md. |

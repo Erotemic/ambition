@@ -400,6 +400,28 @@ pub enum WorldPrepSet {
     ContactDamage,
 }
 
+/// Public schedule labels for held-item and ground-item simulation.
+///
+/// Consumers order against these sets rather than concrete system functions,
+/// which keeps cross-subsystem dependencies stable while item pickup keeps
+/// moving out of the actor kernel.
+///
+/// ⭐ IT LIVES HERE, NOT IN THE ACTOR KERNEL, for the same reason
+/// [`ActorDecisionSet`] does: two crates outside the monolith order against it
+/// (`ambition_platformer2d_runtime`'s portal schedule and `ambition_content`'s
+/// portal plugin), and while it was `items::pickup`'s they had to name the
+/// monolith to say WHEN their own systems run. A schedule label that other
+/// packages must speak is vocabulary, not implementation.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ItemPickupSet {
+    /// Held-item pickup/use/throw plus ground-item physics.
+    CoreHeldItems,
+    /// Bombs, gravity grenades, and other effects armed by thrown items.
+    ThrownItemEffects,
+    /// Wielded movement/combat abilities and ability cooldown maintenance.
+    WieldedAbilities,
+}
+
 /// Ordered authority boundaries for one autonomous actor decision, inside
 /// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///

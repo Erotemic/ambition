@@ -46,6 +46,30 @@ from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # no
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
 
+def tool_python(project_dir: Path, override_env: str = "") -> str:
+    """Resolve a tool's interpreter the way every other caller in the repo does.
+
+    ⚠ ONE resolver, and it is `scripts/lib/tool_python.sh`. The order it knows —
+    a tool override, this machine's venv store, an in-repo `.venv`, then bare
+    `python3` — is not restated here, because a second copy drifts and this
+    runner would then disagree with the regen scripts about which interpreter a
+    tool has. Reconstructing the path was the bug: a hard-coded
+    `<tool>/.venv/bin/python` misses the per-machine store entirely, so a fresh
+    checkout silently ran the LDtk suite on an interpreter without the package.
+    """
+    script = REPO / "scripts" / "lib" / "tool_python.sh"
+    try:
+        resolved = subprocess.run(
+            ["bash", "-c",
+             f'source "{script}"; ambition_select_tool_python "$1" "$2" 0',
+             "_", str(project_dir), override_env],
+            capture_output=True, text=True, timeout=30, check=True,
+        ).stdout.strip()
+    except (subprocess.SubprocessError, OSError):
+        return sys.executable
+    return resolved or sys.executable
+
+
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -637,13 +661,12 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
         return [Job("detached repo developer tools", argv)]
 
     ldtk = REPO / "tools" / "ambition_ldtk_tools"
-    ldtk_python = ldtk / ".venv" / "bin" / "python"
     return [
         Job("detached repo developer tools", argv),
         Job(
             "ldtk authoring tool tests",
             [
-                str(ldtk_python) if ldtk_python.exists() else sys.executable,
+                tool_python(ldtk, "AMBITION_LDTK_PYTHON"),
                 "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
             ],
             cwd=str(ldtk),
@@ -1051,6 +1074,47 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     return 1 if failed else 0
 
 
+#: What `scripts/tests` and the repo's checkers import AT MODULE SCOPE, so a
+#: missing one is a COLLECTION error that takes a whole job down rather than
+#: skipping a test. `scripts/setup/python_tools.sh` installs exactly these.
+SCRIPTS_ENV_MODULES = ("pytest", "numpy", "soundfile", "rich", "yaml", "tree_sitter_rust")
+
+
+def refuse_an_interpreter_that_cannot_run_the_suite(jobs: list[Job]) -> None:
+    """Stop before the Python lane runs on an interpreter that cannot host it.
+
+    ⛔⛔ TWO RED JOBS AT 0.0s IS NOT A DIAGNOSIS. The runner launches the Python
+    suites as `sys.executable -m pytest`, so whichever interpreter started this
+    file decides whether they can run at all — and when it cannot, the report is
+    two failures among twenty greens with no cause named. Reported from another
+    machine 2026-09-02: an in-repo `.venv` from July, predating the per-machine
+    store, resolved ahead of nothing (no store existed yet) and had no pytest.
+    That is the fresh-clone-adjacent state this runner is supposed to survive.
+
+    ⚠ Only refuses when the PLAN actually contains Python jobs; `--rust-alone`
+    runs none and is unaffected.
+    """
+    import importlib.util
+
+    missing = [m for m in SCRIPTS_ENV_MODULES if importlib.util.find_spec(m) is None]
+    if not missing:
+        return
+    python_jobs = [job for job in jobs if job.argv and job.argv[0] == sys.executable]
+    if not python_jobs:
+        return
+    print(
+        f"run_tests: this interpreter cannot run the Python lane.\n"
+        f"  interpreter : {sys.executable}\n"
+        f"  missing     : {', '.join(missing)}\n"
+        f"  affected    : {len(python_jobs)} planned job(s)\n"
+        f"  fix         : scripts/setup/python_tools.sh\n"
+        f"  (an in-repo .venv predating the per-machine venv store is the usual "
+        f"cause; the store wins once it exists.)",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Ambition full test suite runner (pytest-like).",
@@ -1167,6 +1231,8 @@ def main() -> int:
               "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
               "mid-edit, a focused test almost certainly answers your question "
               "faster and just as well.")
+    if not args.list:
+        refuse_an_interpreter_that_cannot_run_the_suite(jobs)
     return run(jobs, args.list, timings_json=args.timings_json,
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,

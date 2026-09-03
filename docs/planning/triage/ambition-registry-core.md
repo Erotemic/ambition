@@ -1,6 +1,41 @@
 # `ambition_registry_core` — one protocol for canonical registries
 
-> **State:** TRIAGE — PROPOSED DIRECTION, 2026-07-22.
+> **State:** R2 + R3 LANDED 2026-09-03 (crate built, two pilots migrated); R4
+> (evaluate before expansion) is next. Was TRIAGE — PROPOSED DIRECTION, 2026-07-22.
+>
+> ⭐ **What landed (`crates/ambition_registry_core`, dependency-free, ~150
+> lines):** `RegistrationMeta { owner, source, schema_id }` validated by
+> `require_non_empty` (a blank field is refused BY NAME); `classify(existing,
+> incoming) -> New | Idempotent | Conflict { existing }` — deliberately no fourth
+> answer, so a silent overwrite cannot be the accidental default;
+> `canonical_row` (tab-joined, newline-terminated; a tab or newline in a field
+> panics rather than being escaped — an escape would move every fingerprint the
+> row enters) and `canonical_section(header, rows)`, which keeps the caller's
+> order because a section's row kinds may be ordered by grammar. Nothing
+> process-local can enter identity: the types carry strings.
+>
+> **Pilots:** `ConstructionRegistry` (its entries ARE `RegistrationMeta`; both
+> registration roads classify; the dump is canonical rows — 70 construction
+> tests green, the prepared-content fingerprint unchanged) and `RollbackRegistry`
+> (blank-identity refusal and new/idempotent/conflict read from the core; its
+> own wire-identity collision rule stays on top; both dumps are canonical rows —
+> `rollback_schema_baseline.txt` byte-identical, which is the proof the
+> migration moved no bytes). Workspace policy: member row +
+> `engine.ambition_registry_core-dependency-free` (file-omits on the manifest,
+> poison-verified). Capability footprint 44 → 45, declared in the baseline: a
+> crate count, not bytes; the code it replaced was linked before.
+>
+> **R4, honestly:** source reduction is small (the two pilots lost ~40 lines and
+> gained a dependency); the win is that the third protocol question ("does a
+> conflict leave the old registry unchanged") is now answered by one function
+> both read, and the next registry cannot answer it differently by accident.
+> Candidates that already copy this protocol by hand and would migrate the same
+> way: `PlacementLoweringRegistry`, `RoomContentStagingRegistry` (both carry
+> their own `EmptyIdentity`). The seven SILENT-overwrite registries in the
+> inventory are a different decision each — `classify` refuses to be their
+> default, which is the point; each must say "replace" in place or adopt refusal.
+> Fingerprint hashing was NOT extracted: rollback's hasher and version prefix
+> stay its own, so no ledger moved.
 >
 > The direction is chosen: introduce a small, dependency-light
 > `ambition_registry_core` crate for the protocol repeated across Ambition's

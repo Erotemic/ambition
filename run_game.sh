@@ -11,6 +11,8 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
 # shellcheck disable=SC1091
+source "$repo_root/scripts/lib/cargo_env.sh"
+# shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"
 python_bin="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON)"
 

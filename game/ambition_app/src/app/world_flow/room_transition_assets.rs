@@ -196,6 +196,12 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
             bevy::prelude::With<ambition_platformer2d::characters::control::DrivingParticipant>,
         )>,
     >,
+    /// The match roster names its fighters before any body wears them; a live
+    /// actor's config names the sprite it swapped to. Both are residency
+    /// owners a room commit must keep (`RoomResidencyOwners`).
+    pub(crate) roster: Option<Res<'w, ambition_platformer2d::actor::MatchParticipantRoster>>,
+    pub(crate) actor_configs:
+        bevy::prelude::Query<'w, 's, &'static ambition_platformer2d::combat::actor_tuning::ActorConfig>,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
@@ -494,19 +500,29 @@ impl RoomCharacterRemainder {
 }
 
 /// The character ids that stay resident across a room commit: the destination's
-/// cast, whatever a body wears, and the one-hop neighbours' placed casts (the
+/// cast, whatever a body wears, the one-hop neighbours' placed casts (the
 /// prefetch decodes those in the open, and retiring them would only make it
-/// decode them again). A resident character page belongs to a realization and
-/// a realization belongs to one of these owners; anything else leaves with the
-/// room it was for. Canonical ids, because the table is retired by id.
+/// decode them again), and every other CLAIM the caller knows — a match roster
+/// names its fighters before any body wears them, a live actor's config names
+/// the sprite it swapped to. A resident character page belongs to a
+/// realization and a realization belongs to one of these owners; anything
+/// else leaves with the room it was for. Canonical ids, because the table is
+/// retired by id.
+///
+/// ⛔ THE ROSTER IS AN OWNER, found the hard way (2026-09-03): the Smash arena's
+/// first-room commit retired the two fighters the roster had already demanded
+/// — they are neither placed nor staged nor worn until they spawn — and their
+/// sheets decoded again in the open after activation, re-binding the drawn
+/// quads mid-match (`zero_duration_pump` caught the anchor shift).
 pub(crate) struct RoomResidencyOwners(pub(crate) std::collections::BTreeSet<String>);
 
 impl RoomResidencyOwners {
-    pub(crate) fn for_room(
+    pub(crate) fn for_room<'a>(
         room_set: &RoomSet,
         room_index: usize,
         staged_actor_names: &[String],
         worn: &[String],
+        claimed: impl IntoIterator<Item = &'a str>,
         registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
         character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     ) -> Self {
@@ -515,6 +531,7 @@ impl RoomResidencyOwners {
             None => Vec::new(),
         };
         tokens.extend(worn.iter().cloned());
+        tokens.extend(claimed.into_iter().map(str::to_string));
         for index in room_set.neighboring_room_indices_of(room_index) {
             tokens.extend(room_character_tokens(&room_set.rooms[index], &[]));
         }
@@ -532,6 +549,25 @@ impl RoomResidencyOwners {
                 .collect(),
         )
     }
+}
+
+/// The residency claims that are neither a room's placements nor a worn
+/// identity: the match roster's fighters and every live actor's swapped sprite.
+pub(crate) fn residency_claims<'a>(
+    roster: Option<&ambition_platformer2d::actor::MatchParticipantRoster>,
+    actor_configs: impl IntoIterator<Item = &'a ambition_platformer2d::combat::actor_tuning::ActorConfig>,
+) -> Vec<String> {
+    let mut claims: Vec<String> = roster
+        .into_iter()
+        .flat_map(|roster| roster.participants.iter())
+        .map(|participant| participant.character.as_str().to_string())
+        .collect();
+    claims.extend(
+        actor_configs
+            .into_iter()
+            .filter_map(|config| config.sprite_character_id.clone()),
+    );
+    claims
 }
 
 fn add_room_specific_sprites(
@@ -1006,11 +1042,16 @@ pub(crate) fn contribute_room_transition_assets_system(
     // them one per frame from then on.
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
     let manifest_started = bevy::platform::time::Instant::now();
+    let claimed: Vec<String> = residency_claims(
+        context.roster.as_deref(),
+        context.actor_configs.iter(),
+    );
     let owners = RoomResidencyOwners::for_room(
         &room_set,
         active.target_room,
         &active.staged_actor_names,
         &worn,
+        claimed.iter().map(String::as_str),
         &prepared_characters,
         character_catalog,
     );
@@ -1588,6 +1629,51 @@ mod tests {
     // rather than by prelude glob — so the trait has to be named too.
     use bevy::asset::AssetApp;
     use bevy::prelude::App;
+
+    /// A room commit keeps what the ROSTER and a live actor's swapped sprite
+    /// name, not only what the room places and a body wears: the Smash arena
+    /// places nobody, and its two fighters are demanded by the roster before
+    /// any body wears them. Retiring them at the first-room commit decoded
+    /// them again in the open after activation and re-bound the drawn quads
+    /// mid-match (`zero_duration_pump`, 2026-09-03). Poison: drop `claimed`
+    /// from `for_room` and the fighter leaves the owner set.
+    #[test]
+    fn the_roster_and_a_live_actors_swapped_sprite_are_residency_owners() {
+        use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
+        let world = AuthoredWorld::new(
+            "Arena",
+            Vec2::new(640.0, 360.0),
+            Vec2::new(64.0, 256.0),
+            Vec::new(),
+        );
+        let room_set = RoomSet::from_parts("arena", vec![RoomSpec::new("arena", world)], Vec::new());
+        let registry = Default::default();
+        let catalog =
+            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
+                ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
+                    ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                ),
+            );
+        let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::default();
+        roster.participants.push(ambition_platformer2d::actor::MatchParticipant::new(
+            ambition_platformer2d::entity_catalog::CharacterId::new("npc_pirate_admiral"),
+        ));
+        let claims = residency_claims(Some(&roster), []);
+        assert_eq!(claims, vec!["npc_pirate_admiral".to_string()]);
+        let owners = RoomResidencyOwners::for_room(
+            &room_set,
+            0,
+            &[],
+            &["worn_one".to_string()],
+            claims.iter().map(String::as_str),
+            &registry,
+            &catalog,
+        );
+        for id in ["npc_pirate_admiral", "worn_one"] {
+            assert!(owners.0.contains(id), "{id} must survive the commit: {:?}", owners.0);
+        }
+        assert!(!owners.0.contains("somebody_else"));
+    }
 
     /// A character the room DEMANDED but the ration has not yet realized holds
     /// the reveal; one nothing declares does not (nothing will ever arrive for

@@ -769,6 +769,45 @@ fn resolved_log_filter() -> String {
     DEFAULT_LOG_FILTER.to_string()
 }
 
+/// The IO task pool's thread count, if the environment asks for one.
+///
+/// ⭐ A MEASUREMENT KNOB FOR A DECODE-BOUND COVER. Bevy sizes the IO pool —
+/// where every asset load, PNG decode included, runs — at 25% of cores,
+/// clamped to at most FOUR (`bevy_app` `task_pool_plugin.rs`), so a 16-core
+/// host decodes the hall's 434 MP on four threads. Jon's 2026-09-02 run
+/// decoded 36 MP in 292 ms under the cover (~123 MP/s aggregate); at Full
+/// that predicts a ~3.5 s hold, decode-bound, not ration-bound
+/// (`asset-preparation-and-residency.md` §3). Threads taken here come out of
+/// the compute pool, which a covered load does not need and an uncovered
+/// frame does — so this is an A/B for the host walk, not a default.
+///
+/// ⛔ NOT A SIMULATION INPUT. Thread counts change when work lands, never what
+/// it computes: every deterministic consumer reads assets by handle state,
+/// not by arrival time. Unset — every shipped run — is Bevy's default.
+pub const IO_THREADS_ENV: &str = "AMBITION_IO_THREADS";
+
+/// `"8"` → 8; blank, non-numeric or zero → `None` (a zero-thread IO pool would
+/// never load anything and read like a hang, not like a knob).
+pub(crate) fn io_threads_from(raw: Option<&str>) -> Option<usize> {
+    raw.and_then(|raw| raw.trim().parse::<usize>().ok())
+        .filter(|threads| *threads >= 1)
+}
+
+pub(crate) fn ambition_task_pool_plugin() -> bevy::app::TaskPoolPlugin {
+    let mut options = bevy::app::TaskPoolOptions::default();
+    if let Some(threads) = io_threads_from(std::env::var(IO_THREADS_ENV).ok().as_deref()) {
+        options.io.min_threads = threads;
+        options.io.max_threads = threads;
+        eprintln!(
+            "[io-threads] {IO_THREADS_ENV}={threads}: the IO pool runs {threads} thread(s) \
+             (Bevy's default is 25% of cores, at most 4)"
+        );
+    }
+    bevy::app::TaskPoolPlugin {
+        task_pool_options: options,
+    }
+}
+
 /// The log plugin this game's compositions install. See [`DEFAULT_LOG_FILTER`].
 pub(crate) fn ambition_log_plugin() -> bevy::log::LogPlugin {
     bevy::log::LogPlugin {
@@ -850,6 +889,7 @@ pub fn build_visible_app_with(
     app.register_asset_source("game", game_asset_source_builder());
     let plugins = DefaultPlugins
         .set(ambition_log_plugin())
+        .set(ambition_task_pool_plugin())
         .set(bevy::asset::AssetPlugin {
             // See `desktop_asset_root`: post-bisection the binary's
             // crate has no assets/ tree; the canonical one lives with
@@ -1218,5 +1258,19 @@ mod cli_arg_tests {
     fn start_room_without_value_returns_none() {
         // Trailing flag with no value: don't crash, just return None.
         assert_eq!(parse_start_room_arg(&args(&["--start-room"])), None);
+    }
+}
+
+#[cfg(test)]
+mod io_threads_tests {
+    /// The IO-threads knob: a count is a count, and nothing else is one — a
+    /// zero would be an IO pool that never loads, indistinguishable from a hang.
+    #[test]
+    fn the_io_threads_knob_takes_a_positive_count_and_nothing_else() {
+        assert_eq!(super::io_threads_from(Some("8")), Some(8));
+        assert_eq!(super::io_threads_from(Some(" 2 ")), Some(2));
+        for raw in [None, Some(""), Some("0"), Some("four"), Some("-1"), Some("2.5")] {
+            assert_eq!(super::io_threads_from(raw), None, "{raw:?}");
+        }
     }
 }

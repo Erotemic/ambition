@@ -942,14 +942,16 @@ wiring.
 
 #### What is LEFT, measured after the cuts (2026-09-03)
 
-**The adapter's kernel seams went 7 → 1, and the one left is a REGISTRATION:**
+**The adapter's kernel seams went 7 → 0 in production code** (2026-09-03). Every
+file — `mod.rs`, `systems.rs`, `loading.rs`, `switch_index.rs`, `lock_walls.rs` —
+names nothing in the actor kernel. The spawn server's registration went home to
+`features::EncounterSpawnServicePlugin`, composed by the runtime.
 
-| seam | file | kind |
-|---|---|---|
-| `serve_encounter_spawn_commands` | `mod.rs` | the spawn server's registration; it leaves when the plugin does |
-
-`systems.rs`, `loading.rs` (207 lines), `switch_index.rs` (36) and `lock_walls.rs`
-name **nothing** in the kernel.
+⚠ **One TEST-only reference remains and should:** the ordering guard builds both
+the domain's plugin and the kernel's service plugin, because the invariant it
+pins (server after driver) now spans two crates and only a crate that can name
+both can assert it. That is the guard being in the right place, not a residual
+seam.
 
 Retired since this table was first written: `EncounterMobSeed` and
 `spawn_encounter_mob` (seam a), `sync_encounter_reward_chests_ecs` (seam b),

@@ -33,6 +33,32 @@ The repository already has useful pieces:
 These primitives are substrate. Their existence does not prove every consumer's
 decision policy is correct.
 
+> **RE-MEASURED against `5fdf977db` (2026-09-03): the substrate list is accurate, and
+> the layer above it is still empty.**
+>
+> Spot-checked the two most specific entries and one the kinematic campaign
+> added since: `RecoveryLens`
+> (`crates/ambition_combat/src/brain/fighter/recovery.rs:79`) exists and is
+> consumed by the fighter rollout; support/floor queries are
+> `is_support_surface`, `support_face_separation` and `body_on_support_side`
+> (`crates/ambition_platformer2d_core/src/collision_semantics.rs:82`, `:130`,
+> `:136`); and `CollisionWorld` answers the four questions the game asks —
+> `solids`, `carves_only`, `hostable_surfaces`, `base`
+> (`crates/ambition_platformer2d_world/src/collision.rs:96`, `:126`, `:148`,
+> `:159`).
+>
+> ⛔ **AND THERE IS STILL NO NAVIGATION.** No reachability type, no nav graph, no
+> pathfinding of any kind anywhere in `crates/`. So the split this section draws
+> — substrate present, policy unproven — is now sharper than "unproven": there is
+> no navigation consumer to prove or disprove.
+>
+> ⚠ **Which makes this page the single remaining gate on another program.**
+> [`agentic-character-runtime.md`](agentic-character-runtime.md) says to wait for
+> actor/navigation/world-fact foundations; world facts and observations/memory
+> both exist now, so navigation is the only one of its three still missing. That
+> is worth knowing before this page is deprioritised again: it is not only its
+> own capability, it is somebody else's blocker.
+
 ## Important correction from fighter measurements
 
 The fighter `recovery_below` experiment does **not** validate the rollout/recovery

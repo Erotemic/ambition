@@ -341,6 +341,7 @@ frame_pacing = ["dep:bevy_framepace"]
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
+ambition_registry_core = { path = "../ambition_registry_core" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 bevy_math = { version = "0.19.1", features = ["serialize"] }
 parry2d = "0.26"

@@ -61,11 +61,22 @@ pub struct RoomContentStagingRegistry {
 #[derive(Clone)]
 struct RoomContentStager {
     room_id: String,
-    owner: String,
-    source: String,
-    schema_id: String,
+    meta: ambition_registry_core::RegistrationMeta,
     stager: Stager,
 }
+
+// ⛔⛔ NO `PartialEq`, AND THEREFORE NO `ambition_registry_core::classify`. The
+// value is `Arc<dyn Fn(..)>` — a closure, which has no meaningful equality:
+// `Arc::ptr_eq` would call two identical registrations from different call sites
+// different, and comparing only the identity fields would call two DIFFERENT
+// stagers under one identity the same, which is precisely the ambiguity this
+// registry refuses. So it has no Idempotent case to have, and "a duplicate
+// source is an error" is correct BECAUSE the value cannot be compared.
+//
+// ⇒ What the core still gives it: `RegistrationMeta` for the three identity
+// fields and `require_non_empty` for all four. Classification is the half that
+// does not transfer, and R4's evaluation in
+// `docs/planning/triage/ambition-registry-core.md` says so.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RoomContentStagingRegistrationError {
@@ -105,20 +116,24 @@ impl RoomContentStagingRegistry {
         let owner = owner.into();
         let source = source.into();
         let schema_id = schema_id.into();
-        for (field, value) in [
+        // Same four fields, same order, one shared implementation.
+        ambition_registry_core::require_non_empty(&[
             ("room id", room_id.as_str()),
             ("owner", owner.as_str()),
             ("source", source.as_str()),
             ("schema id", schema_id.as_str()),
-        ] {
-            if value.trim().is_empty() {
-                return Err(RoomContentStagingRegistrationError::EmptyIdentity { field });
-            }
-        }
+        ])
+        .map_err(|empty| RoomContentStagingRegistrationError::EmptyIdentity {
+            field: empty.field,
+        })?;
         if self
             .stagers
             .iter()
-            .any(|entry| entry.room_id == room_id && entry.owner == owner && entry.source == source)
+            .any(|entry| {
+                entry.room_id == room_id
+                    && entry.meta.owner == owner
+                    && entry.meta.source == source
+            })
         {
             return Err(RoomContentStagingRegistrationError::DuplicateSource {
                 room_id,
@@ -126,19 +141,23 @@ impl RoomContentStagingRegistry {
                 source,
             });
         }
+        // Built AFTER the duplicate check, so a rejected registration constructs
+        // nothing — the transactional shape the tests pin.
+        let meta = ambition_registry_core::RegistrationMeta::new(owner, source, schema_id)
+            .map_err(|empty| RoomContentStagingRegistrationError::EmptyIdentity {
+                field: empty.field,
+            })?;
         self.stagers.push(RoomContentStager {
             room_id,
-            owner,
-            source,
-            schema_id,
+            meta,
             stager: Arc::new(stager),
         });
         self.stagers.sort_by(|a, b| {
-            (&a.room_id, &a.owner, &a.source, &a.schema_id).cmp(&(
+            (&a.room_id, &a.meta.owner, &a.meta.source, &a.meta.schema_id).cmp(&(
                 &b.room_id,
-                &b.owner,
-                &b.source,
-                &b.schema_id,
+                &b.meta.owner,
+                &b.meta.source,
+                &b.meta.schema_id,
             ))
         });
         Ok(())
@@ -150,9 +169,9 @@ impl RoomContentStagingRegistry {
             .map(|entry| {
                 (
                     entry.room_id.clone(),
-                    entry.owner.clone(),
-                    entry.source.clone(),
-                    entry.schema_id.clone(),
+                    entry.meta.owner.clone(),
+                    entry.meta.source.clone(),
+                    entry.meta.schema_id.clone(),
                 )
             })
             .collect()
@@ -202,7 +221,7 @@ impl RoomContentStagingRegistry {
             .flat_map(|entry| {
                 (entry.stager)(room)
                     .into_iter()
-                    .map(|request| (entry.owner.clone(), request))
+                    .map(|request| (entry.meta.owner.clone(), request))
             })
             .collect::<Vec<_>>();
 

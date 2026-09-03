@@ -27,24 +27,34 @@ use ambition_held_items::{
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
 
-/// The kernel's half of the item schedule: the two variants whose systems it
-/// still owns, the three-variant chain, and its own systems that attach to
-/// the held-item domain's steps.
+/// The kernel's half of the item schedule, which after two carves is exactly
+/// ONE thing plus its own attachments: the three-variant chain, and the kernel
+/// systems that hang off the held-item domain's steps.
 ///
-/// ⛔ `CoreHeldItems` IS NOT CONFIGURED HERE. Its phase nesting and its custody
-/// edge belong to `ambition_held_items::HeldItemSimulationPlugin` (D33: a
-/// carved domain's plugin configures its own sets end to end). What this
-/// plugin adds to that set is the EDGE to its siblings — the three-variant
-/// `.chain()` — because only the kernel names all three; and its own systems,
-/// which attach `.before`/`.after` a `HeldItemStep` rather than naming a leaf
-/// function of a crate it no longer owns.
+/// ⛔ IT CONFIGURES NO VARIANT AT ALL NOW, and that is the finished shape rather
+/// than an omission. `CoreHeldItems` belongs to
+/// `ambition_held_items::HeldItemSimulationPlugin`; `ThrownItemEffects` and
+/// `WieldedAbilities` belong to `ambition_abilities::AbilitySimulationPlugin`
+/// since the abilities carve (D33, 2026-09-03). A carved domain configures its
+/// own sets end to end, and none of these three is the kernel's.
+///
+/// ⭐ WHAT THE KERNEL KEEPS IS THE EDGE NOBODY ELSE CAN DECLARE. The
+/// three-variant `.chain()` orders sets owned by two OTHER crates, so neither
+/// owner can name both sides — `ambition_held_items` must not name
+/// `ambition_abilities`'s sets to order against them, and vice versa. The
+/// kernel depends on both, so it is the one crate that can, and D33's second
+/// sentence puts exactly this edge here: a set two crates order on is
+/// `shared_tangle` vocabulary configured by exactly one owner.
+///
+/// Its own systems attach `.before`/`.after` a `HeldItemStep` rather than
+/// naming a leaf function of a crate it no longer owns.
 pub struct ItemPickupSimulationPlugin;
 
 impl Plugin for ItemPickupSimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The inter-variant chain. `CoreHeldItems` is nested in
-        // `PlayerSimulation` by its owner; the two siblings are nested here.
+        // The inter-variant chain, and nothing else. All three variants are
+        // nested in `PlayerSimulation` by their owners.
         app.configure_sets(
             sim,
             (
@@ -54,12 +64,6 @@ impl Plugin for ItemPickupSimulationPlugin {
             )
                 .chain(),
         );
-        app.configure_sets(
-            sim,
-            (ItemPickupSet::ThrownItemEffects, ItemPickupSet::WieldedAbilities)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
-        );
-
         app.init_resource::<crate::shrine::CheckpointResumeProgress>();
         // ⭐ THE KERNEL'S OWN SYSTEMS ATTACH TO A STEP, they are not links of the
         // domain's chain. Each says where it runs in the domain's vocabulary,
@@ -107,63 +111,6 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .before(HeldItemStep::Settle),
         );
 
-        // Bombs and gravity grenades run after the held-item throw/physics group.
-        app.add_systems(
-            sim,
-            (
-                crate::abilities::ranged::bomb::arm_thrown_bombs
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::bomb::tick_bomb_fuses
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::thrown::gravity_grenade::arm_thrown_gravity_grenades
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                ambition_platformer2d_shared_tangle::gravity::tick_temporary_zones
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-            )
-                .chain()
-                // Parent `PlayerSimulation` already implied via
-                // `ItemPickupSet::ThrownItemEffects` (configured above).
-                .in_set(ItemPickupSet::ThrownItemEffects),
-        );
-
-        // Wielded movement/combat items live in their own group to avoid the
-        // chained tuple arity cap in the core held-item group.
-        app.add_systems(
-            sim,
-            (
-                crate::abilities::traversal::mark_recall::mark_recall_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::traversal::blink::blink_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::traversal::grapple::grapple_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::shockwave::fire_shockwave_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::volley::fire_volley_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::beam::fire_beam_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::vortex::fire_vortex_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::vortex::update_vortex_wells
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::sentry::fire_sentry_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::sentry::update_sentries
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::traversal::dive::fire_dive_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::abilities::ranged::meteor::fire_meteor_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                crate::ability_cooldown::tick_ability_cooldown,
-            )
-                .chain()
-                // Parent `PlayerSimulation` already implied via
-                // `ItemPickupSet::WieldedAbilities` (configured above).
-                .in_set(ItemPickupSet::WieldedAbilities),
-        );
     }
 }
 

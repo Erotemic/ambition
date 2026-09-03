@@ -30,7 +30,7 @@ fn test_app(world: Option<ambition_platformer2d_core::RoomGeometry>) -> App {
 }
 
 fn spawn_player_holding(app: &mut App, id: &str, pos: ae::Vec2, facing: f32) -> Entity {
-    crate::abilities::test_support::spawn_primary_player_holding_at(app, id, pos, facing)
+    crate::test_support::spawn_primary_player_holding_at(app, id, pos, facing)
 }
 
 fn player_vel(app: &App, player: Entity) -> ae::Vec2 {
@@ -104,7 +104,7 @@ fn no_grapple_without_attack_or_with_a_different_item() {
 /// defect as the blink.
 #[test]
 fn two_driven_bodies_each_grapple_the_wall_they_face() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app(Some(world_with_right_wall()));
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     // Both to the left of the same wall, at different heights.

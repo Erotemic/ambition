@@ -24,10 +24,28 @@
 >   `Platformer2dFeelTuningMonolith` is in `crates/ambition_combat/src/feel.rs`
 >   and is named 135 times.
 > - **Snapshot vocabulary — not started.** `ambition_snapshot` does not exist.
-> - **The actor carve is live and its tracked metric has not moved.** The
->   monolith's `[dependencies]` table holds **28** `ambition_*` lines, counted
->   the way the decomposition page counts them (that section only — a whole-file
->   grep says 34 and includes six `[dev-dependencies]`).
+> - **The actor carve is live, and ⛔ ITS TRACKED METRIC IS AN ANTI-METRIC.**
+>   This line used to read "has not moved", with the monolith's
+>   `[dependencies]` table at **28** `ambition_*` entries. Re-measured
+>   2026-09-03 after five carves landed in one day (`ambition_held_items`,
+>   `ambition_body_seed`, `ambition_match`, `ambition_abilities`, and calculex's
+>   encounter split): **the table went 29 → 33 while the monolith's own source
+>   went 112,733 → 101,042 lines, −11,691 in a day.**
+>
+>   ⇒ **A carve makes that number GO UP, by construction.** The kernel stops
+>   *containing* a domain and starts *depending* on it — it keeps the rollback
+>   ledger, the checkpoint policy, or an inter-crate schedule edge, all of which
+>   need the crate named in the manifest. So watching the dependency table for
+>   carve progress reads every success as a regression. What shrinks is the
+>   SOURCE; what grows is the manifest, and both are the same event.
+>
+>   ⚠ Two honesty notes on the numbers. The old **28** came from a slightly
+>   different count than the one above — the same commit measures **29** under
+>   `awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f'` piped to
+>   `grep -cE '^ambition_[a-z0-9_]+ *='` — so trust the DELTA under one method,
+>   never the absolute across two. And the source figure counts `src/**/*.rs`
+>   including tests, which is the honest total for "what this crate carries",
+>   not a production-only line count.
 >
 > ⛔⛔ **AND THE INPUT SPLIT IS HALF BUILT, WHICH CHANGES WHAT THE SECTION BELOW
 > IS ASKING FOR.** `ambition_input` exists — but it is the WHOLE of the proposed

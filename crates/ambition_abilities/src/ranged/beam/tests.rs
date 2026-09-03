@@ -1,6 +1,6 @@
 use super::*;
-use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::features::{Hitbox, HitboxAnchor};
+use crate::test_support::spawn_primary_player_holding;
+use ambition_combat::hitbox::{Hitbox, HitboxAnchor};
 
 fn test_app() -> App {
     let mut app = App::new();
@@ -140,7 +140,7 @@ fn beam_geometry_is_c4_equivariant_for_local_aim() {
 /// Same singular-`ControlledSubject` defect as the volley.
 #[test]
 fn two_driven_bodies_each_fire_their_own_beam() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(&mut app, BEAM_ID, 0, "seat_a", ae::Vec2::new(100.0, 100.0));

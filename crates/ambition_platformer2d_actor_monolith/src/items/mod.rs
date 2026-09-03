@@ -27,11 +27,15 @@
 //! crate — no `crate::<module>::` path and no `super::`, checked in all three
 //! forms.
 //!
-//! ⚠ WHERE THE OLD SENTENCE IS TRUE IS THE PLUGIN, not the steppers.
-//! `ItemPickupSimulationPlugin` names `crate::abilities::{ranged, traversal,
-//! thrown}`, `crate::shrine`, `crate::construction` and
-//! `crate::ability_cooldown` — its NEIGHBOURS' systems, being placed in a
-//! schedule. That is why a carve leaves the plugin behind and takes the domain.
+//! ⚠ WHERE THE OLD SENTENCE WAS TRUE IS THE PLUGIN, not the steppers — and it
+//! is no longer true even there. `ItemPickupSimulationPlugin` used to name
+//! `crate::abilities::{ranged, traversal, thrown}` and `crate::ability_cooldown`:
+//! its NEIGHBOURS' systems, being placed in a schedule. The abilities carve
+//! (D33, 2026-09-03) took all of them to `ambition_abilities`, which now
+//! configures `ThrownItemEffects` and `WieldedAbilities` end to end. ⇒ The
+//! plugin's remaining reach is `crate::shrine`, `crate::items::match_spawn` and
+//! the puppy-slug gun, plus the three-variant chain — the one edge that must
+//! stay here because it orders sets owned by two other crates.
 
 
 pub mod conditions;

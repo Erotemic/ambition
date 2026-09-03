@@ -987,8 +987,8 @@ fn defeated_boss_drops_its_signature_ability() {
 
 #[test]
 fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
-    use crate::abilities::ranged::{beam, meteor, sentry, shockwave, volley, vortex};
-    use crate::abilities::traversal::dive;
+    use ambition_abilities::ranged::{beam, meteor, sentry, shockwave, volley, vortex};
+    use ambition_abilities::traversal::dive;
     use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
     // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
     // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON

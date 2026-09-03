@@ -366,11 +366,11 @@ id = "game.abilities-under-layer"
 scope = "game"
 kind = "required-path"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities"]
+watch_paths = ["crates/ambition_abilities/src"]
 rationale = "player abilities live under src/abilities/"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/mark_recall.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/beam.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/meteor.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/shockwave.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/vortex.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/volley.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/bomb.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/ranged/sentry.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
+paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/beam.rs", "crates/ambition_abilities/src/ranged/meteor.rs", "crates/ambition_abilities/src/ranged/shockwave.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/volley.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/ranged/sentry.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
 
 [[policy]]
 id = "game.abilities-not-at-crate-root"

@@ -11,7 +11,7 @@ fn test_app() -> App {
 }
 
 fn spawn_player_holding(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
-    crate::abilities::test_support::spawn_primary_player_holding_at(app, id, pos, 1.0)
+    crate::test_support::spawn_primary_player_holding_at(app, id, pos, 1.0)
 }
 
 fn press(app: &mut App, player: Entity, attack: bool, blink: bool) {
@@ -139,7 +139,7 @@ fn a_different_held_item_never_marks() {
 /// seat's recall could never find the other's mark.
 #[test]
 fn two_driven_bodies_each_recall_to_their_own_mark() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(

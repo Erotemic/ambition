@@ -58,9 +58,9 @@ fn count<T: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness) -> usize
 /// same calls `rollback_coverage.rs` makes), give the subject a bolt thrower,
 /// and make the result the session's frame-zero baseline.
 fn populate(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::actors::abilities::ranged::sentry::deploy_sentry;
-    use ambition_platformer2d::actors::abilities::ranged::vortex::open_vortex_well;
-    use ambition_platformer2d::actors::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
+    use ambition_platformer2d::abilities::ranged::sentry::deploy_sentry;
+    use ambition_platformer2d::abilities::ranged::vortex::open_vortex_well;
+    use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
     use ambition_platformer2d::combat::components::ActorFaction;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -179,8 +179,8 @@ fn populate(sim: &mut Platformer2dSimHarness) {
 /// after frame, while every event-created family is live and stepping.
 #[test]
 fn the_event_created_families_are_rewind_stable_while_they_step() {
-    use ambition_platformer2d::actors::abilities::ranged::sentry::Sentry;
-    use ambition_platformer2d::actors::abilities::ranged::vortex::VortexWell;
+    use ambition_platformer2d::abilities::ranged::sentry::Sentry;
+    use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
     use ambition_platformer2d::platformer::gravity::TemporaryZone;
     use ambition_platformer2d::platformer::projectile::ProjectileGameplay;

@@ -751,6 +751,48 @@ function that reads authored construction records — not a missing abstraction.
 `crate::ability_cooldown`. Those are its NEIGHBOURS' systems being placed in a
 schedule, which is why the plugin stays behind and the domain does not.
 
+⛔ **AND `abilities/` IS TWO DISJOINT FAMILIES, WHICH A LINE COUNT CANNOT SEE —
+measured 2026-09-03 before cutting.** The module reads as one 4,962-line
+production block. It is not.
+
+- **Wielded abilities — 3,855 production lines** (`ranged`, `thrown`,
+  `traversal/{blink, dive, grapple, mark_recall}`, `ability_cooldown`). Every
+  one is a member of `ItemPickupSet::{ThrownItemEffects, WieldedAbilities}`,
+  registered in a single place, and a leaf: measured against HEAD, the whole
+  family escapes to just **13 references over 9 distinct kernel names, and 11 of
+  those 13 are TEST-ONLY**. The two production seams are
+  `features::HeldItem` and `features::spawn_runtime_minion`.
+- **Control-authority and authored-world traversal — 1,170 production lines**
+  (`possession`, `teleport`, `trapdoor`, `flyline`). These are NOT in those two
+  variants. Their systems are registered by a different crate,
+  `ambition_platformer2d_runtime` (`combat_schedule.rs`, `player_schedule.rs`),
+  and they are not leaves: **`possession` is referenced 87 times outside
+  `abilities/` and `teleport` 61**. `PossessionState` is read by
+  `body_custody.rs`, `control/authority.rs`, `features/ecs/dormancy.rs` and
+  `control/input_systems.rs`, and `possession.rs` exposes
+  `resolve_controlled_subject`, `holding_ascend`/`holding_descend` and
+  `release_possession_if_target_lost`. That is control authority wearing an
+  ability's directory name.
+
+⇒ **Carve the first family; do NOT take the second along.** A crate holding both
+would be one the RUNTIME registers systems out of and the KERNEL depends on for
+`PossessionState` — the coupling renamed, not reduced, which is precisely what
+K4 in [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md)
+says a carve must not be. ⛔ **This paragraph exists to stop the next session
+carving the second family by line count**: 1,170 lines sitting in a directory
+called `abilities/` look like the obvious remainder, and the destination question
+for them is *"a possession home, or the runtime"* — never a ride on the abilities
+crate.
+
+⭐ **And re-measuring on the RIGHT TREE changed the design**, which is the
+transferable part. Measured on a branch predating the pickup carve, this
+family's largest kernel reference was `crate::items::pickup::DrivenBodies` — 9
+uses, reading as the seam the whole carve would be built around. On HEAD it is
+`ambition_held_items::DrivenBodies`, a LOWER crate, so it is an ordinary
+dependency needing no hook at all; the same is true of `ability_aim_local`,
+`ability_aim_world` and `throw_held_item_system`. ⇒ Re-derive a carve's seam
+against the tree you will cut on, not the one you measured on.
+
 ⛔ **So three of this doc's frontiers have now been checked and only one was
 work.** Developer dependencies: done. Presentation: no renderer anywhere, a
 mirage. Items: defended, and a carve needs a hook design first. A future slice

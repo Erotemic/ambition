@@ -373,13 +373,22 @@ impl PluginGroup for PlatformerEnginePlugins {
             // the schedule they own (`ItemPickupSet::CoreHeldItems`, configured
             // end to end by this plugin — D33, 2026-09-03).
             .add(ambition_held_items::HeldItemSimulationPlugin)
-            // The kernel's residue of that domain: the two sibling variants
-            // (thrown-item effects, wielded abilities), the three-variant
-            // chain, and the shrine / gun / match-spawn systems that attach to
-            // the domain's steps. ⛔ Composed beside the domain's plugin, not
-            // adding it: a composition with only this plugin gets the chain and
-            // no core; with only the domain's, a core and no chain. Order
-            // between the two does not matter — each configures its own sets.
+            // The WIELDED half: bombs and gravity grenades
+            // (`ItemPickupSet::ThrownItemEffects`) and the twelve wielded
+            // abilities plus their shared cooldown
+            // (`ItemPickupSet::WieldedAbilities`), both configured end to end by
+            // this plugin — D33, the abilities carve, 2026-09-03.
+            .add(ambition_abilities::AbilitySimulationPlugin)
+            // The kernel's residue of that family, and after two carves it is
+            // ONE edge plus attachments: the three-variant chain, and the
+            // shrine / puppy-slug-gun / match-spawn systems that attach to the
+            // held-item domain's steps. ⛔ Composed beside the two domain
+            // plugins, not adding them — and the chain is the kernel's because
+            // it orders sets owned by two OTHER crates, so neither owner can
+            // name both sides. A composition with only this plugin gets the
+            // chain and no members; with only the domains', members and no
+            // chain. Order between the three does not matter — each configures
+            // its own sets.
             .add(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin)
             // ⭐ ITS SIBLING, AND THE TWO ARE COMPOSED HERE RATHER THAN ONE
             // ADDING THE OTHER: the TOUCHED collectible — where it is, whether

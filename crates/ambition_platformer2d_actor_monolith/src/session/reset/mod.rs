@@ -486,7 +486,7 @@ pub fn clear_transient_on_sandbox_reset(
         // recall to a position from before the room was rebuilt.
         commands
             .entity(player)
-            .remove::<crate::abilities::traversal::mark_recall::PlayerMark>();
+            .remove::<ambition_abilities::traversal::mark_recall::PlayerMark>();
     }
 }
 

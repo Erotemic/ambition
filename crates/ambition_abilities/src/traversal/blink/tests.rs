@@ -50,7 +50,7 @@ fn test_app() -> App {
 }
 
 fn spawn_player_holding(app: &mut App, id: &str, facing: f32) -> Entity {
-    crate::abilities::test_support::spawn_primary_player_holding_at(
+    crate::test_support::spawn_primary_player_holding_at(
         app,
         id,
         ae::Vec2::new(300.0, 300.0),
@@ -287,7 +287,7 @@ fn no_blink_without_attack_or_with_a_different_item() {
 /// (pickup/throw/fire) were already fixed for.
 #[test]
 fn two_driven_bodies_each_blink_from_their_own_position() {
-    use crate::abilities::test_support::spawn_seated_body_holding;
+    use crate::test_support::spawn_seated_body_holding;
     let mut app = test_app();
     app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
     let a = spawn_seated_body_holding(&mut app, BLINK_ID, 0, "seat_a", ae::Vec2::new(300.0, 300.0));

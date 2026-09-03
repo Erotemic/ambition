@@ -67,6 +67,23 @@ that turns the class on before the findings are resolved makes the tool worse.
 
 ---
 
+## Checked and CLEAN: cross-links between planning pages (do not build a checker)
+
+Recorded so the next person does not build the tool this obviously suggests.
+After the bare-path class landed, the natural follow-up is "validate the
+`[text](other.md#anchor)` links too". ⇒ **Measured 2026-09-03: 328 internal
+links across `docs/planning/**/*.md`, 0 dead files, 0 dead anchors — and only
+ONE link carries an anchor at all.** A checker for that class would be a
+permanent maintenance surface guarding a single citation.
+
+⭐ The anchors that DO rot are the ones in policy `source_doc` fields (239 of
+them, 15 repointed off dead `decomposition.md#…` anchors on 2026-09-02), and
+those are guarded now by `every_source_doc_names_a_real_file_and_heading` in
+`tests/ambition_workspace_policy/tests/policy.rs`. That is where the class
+lives; the prose links are not it.
+
+---
+
 ## The `zero_duration_pump` bisect recipe, and the correction to it
 
 Kept because the recipe worked and the correction is the part that would be

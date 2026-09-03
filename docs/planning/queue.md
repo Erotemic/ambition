@@ -872,7 +872,29 @@ The one unresolved developer-policy choice from the session-ownership work is in
 - ▢ **D33 — continue actor-monolith decomposition by coherent ownership.** Pick a
   carve that removes a real authority/dependency edge from the residual actor
   kernel, moves registration/tests with the domain, and improves capability or
-  compile/test isolation. Do not carve by LOC and do not promise frame-time
+  compile/test isolation.
+
+  ⭐ **WHAT EVERY CARVE OWES AFTER IT LANDS (added 2026-09-02, from three rows
+  that were stale within a week of the merge that closed them).** None of this is
+  new work invented for carves — it is the paperwork a merge does not touch,
+  because the code lives in one file and the claim about it lives in another:
+
+  1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
+     A carve moves modules; the maps are generated and go stale silently.
+     (Clean for all 70 crates as of 2026-09-02.)
+  2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
+     the very symbols the planning rows cite.
+  3. **`python scripts/check_doc_links.py`**.
+  4. **The ▢ rows that NAME A SYMBOL the carve touched.** Grep them and close the
+     ones the carve closed. Three were found stale in one sweep on 2026-09-02
+     (`bounded-perception`'s routing row, `queue.md`'s `string_id!` row, and the
+     capability-footprint count) — from three different authors, none careless.
+  5. **The capability footprint, if the carve ADDS a crate.** `closure_size` and
+     `never_asked_for_count` move in `capability-footprint-baseline.json`, and the
+     row above that quotes them must move in the same commit. It lagged twice.
+  6. **⛔ The debt ledger is not laundered**: the destination joins in the SAME
+     commit. A carve that only re-exports has moved nothing, and the source
+     crate's line count falling is not evidence on its own. Do not carve by LOC and do not promise frame-time
   improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`

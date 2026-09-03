@@ -609,6 +609,23 @@ you are keeping.** If a claim's rule is worth stating, it is worth applying to
 the names you did not touch — and if that is too expensive, say which members
 were re-tested and which were carried forward.
 
+⭐ **THE GENERAL FORM, found the same day by auditing the rest of my own
+figures: A TRUE COUNT LENDS ITS CREDIBILITY TO A MEMBERSHIP NOBODY CHECKED.**
+The decomposition plan priced an inversion at *"1 production file, 16
+references, 5 distinct recipes named"* and listed the five. The counts were
+exactly right and re-verified a day later — one file, sixteen references,
+`tests.rs` at 38. **Four of the five names do not occur in the file at all.**
+Same failure as the islands count, from the other side: there the rule was
+right and the members were not re-tested; here the count was right and the
+names were never taken from the file.
+
+⇒ The mechanism is that a reader spot-checks the CHECKABLE part. `wc -l` and a
+`grep -c` are one command, so a sceptical reader tests those, they pass, and the
+list of names rides along on the credibility they just earned. ⇒ **When a claim
+is a count PLUS a list, they are two claims and only one of them is cheap.**
+Re-take the names from the file — `grep -o 'features::[A-Za-z_:]*' … | sort -u`
+is as cheap as the count was, and it is the half nobody runs.
+
 ⚠ Two cheap habits would each have caught it. **State the rule as a filter and
 run it**, rather than stating it in prose and hand-checking; the eleven fell out
 of a six-line script that no more trusted the old list than the new. And **run

@@ -71,13 +71,23 @@ moves over inventing new crates.
 
 ## Current measured dependency shape
 
-The last reconciled census on 2026-08-29 distinguished three different numbers:
+The census distinguishes three different numbers. Re-measured 2026-09-03; the
+2026-08-29 values are kept beside them because the DELTA is the whole point — a
+carve that lifts a domain out of the monolith adds a dependency EDGE to the
+crate it created, so these rise while the debt they measure falls.
 
-| measure | value |
-|---|---:|
-| `ambition_*` lines in the monolith `[dependencies]` table | 28 |
-| direct edges in the default resolved graph | 27 |
-| full default resolved closure | 34 |
+| measure | 2026-08-29 | 2026-09-03 |
+|---|---:|---:|
+| `ambition_*` lines in the monolith `[dependencies]` table | 28 | 30 |
+| direct edges in the default resolved graph | 27 | 29 |
+| full default resolved closure | 34 | 35 |
+
+⚠ Count the ROOT out. `cargo tree -p <crate> --prefix none` prints the crate
+itself as its first line, so a naive `grep -c` reports 30 and 36 here and
+silently erases the manifest-lines-exceed-edges gap the census exists to show.
+
+The +2 on the first two rows is `ambition_world_items` and `ambition_held_items`
+(D33 carves, 2026-09-02/03).
 
 Do not compare these as though they were the same metric. Before a footprint
 carve, run `cargo tree -i <dependency>`; another path may already keep the crate
@@ -656,6 +666,18 @@ deleted. Do not replace one central switch with another.
 ⭐⭐ **AND THE ITEMS HALF IS DEFENDED TOO — measured 2026-08-31 before opening
 it.** `src/items/` is 6580 lines against `ambition_items`' 1975, which reads like
 a domain sitting in the wrong crate. It is not:
+
+⛔ **THE DEFENCE BELOW IS A DATED RECORD AND EVENTS OVERTOOK IT. Re-measured
+2026-09-03: `src/items/` is 2153 lines, not 6580** — two carves came out of this
+very directory (`ambition_world_items` 1328 lines, 2026-09-02; the much larger
+`ambition_held_items` 3454, 2026-09-03), and `ambition_items` is 2011. So the
+argument was right about what it measured (most of the 6580 was test code, and
+`ambition_items` already owned the catalog) and was NOT a reason the directory
+would stay put: what left was the collectible lifecycle, along the collect
+TRIGGER seam, which this reading did not consider. Kept rather than rewritten —
+the reasoning is sound and the conclusion is superseded, which is the useful
+thing for the next carve to see.
+
 
 * 1864 of those lines are `pickup/tests.rs`, plus ~270 more in sibling test <!-- cite-ok: the pre-cut path (moved to ambition_held_items 2026-09-03), kept as the record -->
   modules — about **4.4k lines of production code**, not 6.6k;

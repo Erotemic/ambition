@@ -517,7 +517,17 @@ this is ONE machine's tree."* Two machines with different regeneration histories
 produce different populations, and neither number is wrong or stale.
 
 ⇒ **The load-bearing half verified exactly** — *"1 target(s) opt into the pack —
-`intro_cart`"* — which is what the entry actually argues from. ⇒ **So before
+`intro_cart`"* — which is what the entry actually argues from.
+
+⭐ **AND THAT IS THE CONSTRUCTIVE LESSON: write the claim so it survives.** Three
+measurements from `asset-preparation-and-residency.md` were re-run on a second
+machine a day later. Every absolute count moved — 197 targets → 164, 442.6 MB →
+318, 225 pages → 201, 662 MP → 580 — and **every conclusion held**: one prop
+reads the pack, occupancy is ~90% and "not a lead". ⇒ The conclusions survived
+because each argues from a RATIO or a SINGLE NAMED CONSUMER rather than a size.
+⇒ So when a finding needs a number, prefer the form that cannot rot: *"one target
+opts in"* outlives *"442.6 MB"*, and *"90% occupied"* outlives *"66.6 MP of
+waste"* — on any machine, in any regeneration state. ⇒ **So before
 correcting a number, ask whether the thing it counts is repository content or
 build output.** Repository content that disagrees is drift. Build output that
 disagrees is two machines, and rewriting one machine's figure with another's

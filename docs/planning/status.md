@@ -170,15 +170,19 @@ why a reference count cannot find this.
 | `ambition_abilities` (`4c31111f9`) | the WIELDED ability kit |
 
 **The kernel's own source went 112,733 → 101,042 lines in that day, −11,691.**
-⚠ **THAT FIGURE IS A RAW LINE COUNT OF THE CRATE'S `src/`, AND IT IS NOT THE
-SAME INSTRUMENT AS THE ONE [`queue.md`](queue.md) QUOTES.** The compile-cost
-ratchet's `largest_unit_lines` reports the same day as 108,364 → 98,808, and
-the compile-cost row is right to use it — the two measure different things and
-neither is wrong. ⛔ The hazard is that both are bare four-digit line counts
-about the same crate on the same day, so a reader who sees them in two places
-concludes one of the pages drifted. Re-measured 2026-09-03 late by the raw
-method: **98,509**, after `hurtbox` followed its owner out. ⇒ Quote the method
-with the number, or quote neither.
+⚠ **IT IS A RAW `src/` LINE COUNT, AND THE DIFFERENT-LOOKING PAIR IN
+[`queue.md`](queue.md) IS THE SAME RULER FROM A DIFFERENT STARTING POINT.**
+That row reads `108,364 → 98,808` because 108,364 is the compile ratchet's
+STORED BASELINE, not where the crate stood at the start of the day; 112,733 is.
+⭐ Confirmed by running the ratchet 2026-09-03 late: it reports
+`largest_unit_lines … 108,364 -> 98,509`, and an independent `wc -l` over the
+crate's `src/` gives **98,509** exactly — so the two agree to the line once you
+stop comparing a day's delta with a ratchet's drift-from-baseline. (Both fell
+further after `hurtbox` followed its owner out.) ⚠ **I first wrote this note
+saying they were different INSTRUMENTS. They are not** — a wrong explanation of
+a real confusion, corrected the same hour by running the tool instead of
+reasoning about it. ⇒ Quote the reference point with the number, not just the
+method.
 
 ⛔ **AND THE METRIC THIS PAGE USED TO WATCH MOVES THE WRONG WAY.** The monolith's
 `[dependencies]` table went 29 → 33 across those same carves, because a kernel

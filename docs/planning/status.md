@@ -228,11 +228,18 @@ deleted, and `extend_with_intro_sprite_entries` now adds intro PROPS only. ⛔ T
 ~26 MP is therefore a number for a road that no longer exists — it has NOT been
 re-measured, so treat it as "was", not as current waste, until a host boot says
 what the figure is now.
-✔ **The reveal barrier is CONFIRMED on the host (2026-09-02 evening,
-`desktop-timeline-run-20260902T215256Z`)** — all three tells met: placeholder
-warnings 111 → **0**, `asset_wait_ms` 3 → **292** (the cover is up for the
-wait), and frames over 33.4 ms after the last transition 9 → **0**. Detail in
-`engine/asset-preparation-and-residency.md`.
+✔ **The reveal barrier's COUNT tells are CONFIRMED on the host (2026-09-02
+evening, `desktop-timeline-run-20260902T215256Z`)**: placeholder warnings
+111 → **0**, and `asset_wait_ms` 3 → **292** — the cover is up for the wait.
+Both are tier-independent.
+
+⚠ **THE TIMING TELL IS NOT CONFIRMED FOR THE SHIPPED PROGRAM, and this is not a
+formality.** That run also had the gallery tier cap, which was cutting the very
+decode load the barrier holds the cover for — the two fixes were measured
+together and only one of them survives Jon's ruling. So "frames over 33.4 ms
+after the last transition 9 → 0" is a fact about a program that no longer
+exists, and a re-walk at the user's tier owes that number. `queue.md` carries
+the checklist. Detail in `engine/asset-preparation-and-residency.md`.
 ⛔ **And the "gallery tier cap" half of this sentence is spent**: Jon removed the
 room-level sprite tier cap on 2026-09-02 (*"I DO NOT WANT A LOWER QUALITY TIER
 FOR GALLERY PREVIEWS"*), so there is no tier-cap change left to confirm. The

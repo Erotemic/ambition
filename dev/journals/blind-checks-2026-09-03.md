@@ -38,7 +38,7 @@ succeeds, the number prints, and the number is about a different question.
 | 14 | A clamp stopping an extent rounding to zero, applied to origins too | Turned every `"x": 0, "y": 0` into `"x": 1, "y": 1` across five world files; only the diff showed it | `4c4c59581` |
 | 15 | Grepping for a lesson's own heredoc delimiter inside that heredoc | Bash ended the script early and the trailing command ran on garbage | *(memory only, no commit)* |
 | 16 | Three theories of which targets fail to downscale, from configs and mtimes | The four share one imported module; `grep -l _authored_swing_fighter` answered it, and the shared file was visible in the first `ls` of that directory | `c77f66425` |
-| 25 | `check_rollback_mutators_run_in_sim` reporting "OK: 4 systems mutate rollback state, none in a non-rewinding schedule" | Its population is ONE type. `rollback_types()` reads a single file holding 1 of the repo's 87 canonical registrations (113 distinct types) — a green that reads as a clean bill of health for rollback and certifies under 1% of it | `7793c78df` |
+| 25 | `check_rollback_mutators_run_in_sim` reporting "OK: 4 systems mutate rollback state, none in a non-rewinding schedule" | Its population was ONE type — `rollback_types()` read a single file holding 1 of the repo's 87 canonical registrations (113 types). A green that reads as a clean bill of health for rollback, over under 1% of it. Widened to 113 types / 318 systems / 6 waived | `7793c78df`, `04cbab8c5` |
 | 24 | `check_engine_systems_are_engine_installed` exiting 0 with NO OUTPUT AT ALL | Genuinely passing (0 unclaimed at budget 0) — but silence is what a check that never ran also prints, and every sibling `check_*.py` says `OK: …` | `335eb2d8a` |
 | 23 | `check_authored_levels_survive` reporting "found no .ldtk worlds at all" | `SKIP_PARTS` contains `.worktrees` and was matched against the ABSOLUTE path — an agent slot's own root is `<repo>/.worktrees/<slot>`, so every world was skipped. 12 on disk, 0 kept. Inoperative in exactly the trees the agents work in | `2edf629b0` |
 | 22 | Five suite failures dismissed as "cargo is not on this PATH" | `~/.cargo/bin/cargo` exists; four scripts resolved it and two call sites did not. Fixing that turned 4 into passes and left ONE REAL finding the crash had hidden — `examples/portal_tutorial/Cargo.lock` stale since `ambition_registry_core` landed | `3959d8b27` |
@@ -63,6 +63,12 @@ count, say out loud what population it is a count OF, in what UNIT, and what
 would make it zero.** Items 2, 3, 11 and 12 each print a confident number about
 a population the instrument cannot see; item 17 prints an honest number in the
 unit that does not answer the question being asked.
+
+⇒ The one worth generalising: **compare the guard's denominator against the
+repository's.** "4 systems mutate rollback state" is implausibly small for a
+game with rollback netcode, and that ratio — not the pass/fail — is what
+exposed items 19, 20 and 25. A guard reports a number about a population; ask
+what SOURCE produced the population before reading the number.
 
 ⇒ And the one that would have saved the most TIME: items 13 and 16 are the same
 mistake twice in one night — **reading code to infer what a tool would report,

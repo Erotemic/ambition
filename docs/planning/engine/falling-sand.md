@@ -43,6 +43,31 @@ Slices ~~FS1 (single-owner refactor + conservation test)~~ ✅ **DONE
 The spec above is the contract; the current code is small and may be boldly
 restructured to meet it.
 
+> **RE-MEASURED against `64adb1a8b` (2026-09-03), six weeks on: ✔ EVERY STATUS
+> ON THIS PAGE IS STILL TRUE, AND THE ONE THAT MATTERS IS GUARDED.** Recorded
+> rather than re-dated, because "still accurate" is a result a later reader
+> should not have to re-derive.
+>
+> - **FS1's single-owner invariant is not just done, it is defended.**
+>   `game/ambition_content/src/falling_sand/tests.rs` carries
+>   `the_grid_is_the_only_owner_of_matter` **and**
+>   `the_single_owner_guard_can_detect_a_reintroduced_representation` — a poison
+>   test for the guard itself. ⇒ Jon's original symptom (matter pooling AND
+>   falling at once) cannot silently return; something has to defeat a guard that
+>   is itself proven to bite.
+> - The sibling assertions cover the rest of the §1 bullet: every particle lands
+>   in exactly one ledger column, a tile dense in both sand and water is owned by
+>   sand alone, and thin matter *"projects nothing but is not lost"*.
+> - **The hard blocker stands.** `bevy_falling_sand` is still the dependency
+>   (`0.8`, `game/ambition_content/Cargo.toml:105`), so Jon's 2026-07-20 ruling
+>   has not been overtaken by anything in this tree.
+>
+> ⓘ **One fact worth having beside the blocker: none of this is in a shipped
+> build.** The room is behind an off-by-default feature all the way up —
+> `ambition_content`'s `default = []` with `falling_sand = ["dep:bevy_falling_sand"]`,
+> reached only by `ambition_app`'s own `falling_sand` feature. ⇒ Shelving costs
+> nothing at runtime, and the determinism problem cannot reach a player today.
+
 ## ⛔ HARD BLOCKER — water/oil SHELVED on `bevy_falling_sand` (Jon, 2026-07-20)
 
 Jon's ruling, on reading §4's evidence: *"If this is impossible with

@@ -297,6 +297,7 @@ name = "ambition_encounter"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_persistence",
  "ambition_platformer2d_core",

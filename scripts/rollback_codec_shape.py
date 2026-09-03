@@ -36,7 +36,20 @@ READER = re.compile(r'\br\s*\.\s*([a-z0-9_]+)\s*\(\s*\)')
 SNAPSHOT_POD = re.compile(r'\bsnapshot_pod!\s*\(')
 # What makes a file a CODEC rather than a file that happens to call something
 # named `put_…`. See the note in `codec_files`.
-CODEC_MARKER = re.compile(r'\bSnapshotState\b|\bsnapshot_pod!|\bReader<')
+#
+# ⛔ `SnapshotCursor` WAS MISSING AND THAT LOST WHOLE FILES, found 2026-09-03.
+# A file whose only codec impls are `impl SnapshotCursor for …` matched none of
+# the three markers, so it was not in the population at all — its encoders could
+# change shape and nothing would say so. Two such files existed:
+# `ambition_sprite_sheet/src/snapshot_impls.rs` (long-standing) and
+# `ambition_body_seed/src/snapshot_impls.rs`, which D33 cut 1 created by moving
+# the `ActorMotionPath` cursor impl out of the monolith under the orphan rule.
+# ⚠ The move is exactly how it surfaced: the monolith's file shrank and its hash
+# moved, and the impl's new home was invisible — a codec can LEAVE the ledger by
+# being carved into a crate the marker does not recognise.
+CODEC_MARKER = re.compile(
+    r'\bSnapshotState\b|\bSnapshotCursor\b|\bsnapshot_pod!|\bReader<'
+)
 
 
 @cache

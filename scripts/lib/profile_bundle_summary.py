@@ -423,6 +423,18 @@ def _first_room_parser():
     return module
 
 
+def _census_resident_mb(log: str) -> float | None:
+    """Resident megabytes from the `[image-census]` line, via the one parser.
+
+    Delegates for the same reason `boot_population_lines` does: one definition
+    of how that line is read.
+    """
+    module = _first_room_parser()
+    if module is None:
+        return None
+    return module.parse(log.splitlines()).get("census_resident_mb")
+
+
 def boot_population_lines(log: str) -> list[str]:
     """What decoded before the first room, which is where the hitch now is.
 
@@ -1281,6 +1293,27 @@ def build_summary(bundle: Bundle) -> str:
             f"({number(last, 'decoded_megapixels'):.1f} MP, "
             f"{number(last, 'decoded_bytes') / 1e6:.1f} MB of decode work).",
             f"- Images resident at end: {number(last, 'images_resident'):.0f}.",
+        ]
+        # ⭐ THE RESIDENT MEGABYTES EXIST NOWHERE ELSE IN THE BUNDLE.
+        # `asset_activity.csv` counts resident IMAGES and carries no byte column,
+        # so without this the only record of how much memory the image set holds
+        # is a line in the raw stderr that nothing reads. Open work 4 of
+        # `asset-preparation-and-residency.md` is waiting on precisely this
+        # number to choose a residency budget, and has been waiting because
+        # every capture had it and no summary showed it.
+        resident_mb = _census_resident_mb(log)
+        if resident_mb is not None:
+            lines += [
+                # ⚠ NOT "images resident" again. The line above already uses
+                # that phrase for a COUNT; repeating it for BYTES is the
+                # count-vs-bytes confusion that made "half the megapixels are
+                # unreachable" read as "half the package is recoverable".
+                f"- **Resident image BYTES at end: {resident_mb:.1f} MB.** This is the "
+                "number a residency budget is chosen against; a room-to-room walk "
+                "gives its shape, and the hall was 2153 MB before sheets went "
+                "render-world-only.",
+            ]
+        lines += [
             "",
             "Decode counts only ever rise. A rise with no new room is the same asset",
             "being decoded again; `image_decodes.csv` names which.",

@@ -113,3 +113,40 @@ def test_it_reproduces_the_host_bundle_figures_if_that_bundle_is_present():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ── the residency number Open work 4 is waiting on ────────────────────────
+
+
+def test_the_census_line_yields_resident_megabytes():
+    """⛔ THIS NUMBER EXISTS NOWHERE ELSE IN A BUNDLE. `asset_activity.csv`
+    counts resident IMAGES and has no byte column, so without parsing the
+    `[image-census]` line the only record of how much memory the image set holds
+    is raw stderr nothing reads — which is why a residency budget has been
+    "waiting on a host number" that every capture already contained."""
+    module = load()
+    line = (
+        "[   11.243s] [image-census]   10.002s +130 images (+36.2MP) | "
+        "total 252 images, 78.3MP, 313.1MB resident | gpu +130"
+    )
+    assert module._census_resident_mb(line) == 313.1
+
+
+def test_an_older_census_line_without_the_megabytes_is_not_invented():
+    """The MB group is optional; a capture that predates it must report None
+    rather than a zero that reads as 'no memory held'."""
+    module = load()
+    assert module._census_resident_mb("[image-census] 10.0s | total 99 images, 12.5MP") is None
+
+
+def test_the_bytes_line_does_not_reuse_the_count_line_s_words():
+    """⚠ The section already says 'Images resident at end: 251.' for a COUNT.
+    Saying it again for BYTES is the confusion that made 'half the megapixels'
+    read as 'half the package'."""
+    module = load()
+    source = module.__file__ or ""
+    text = Path(source).read_text()
+    assert "Resident image BYTES at end" in text
+    assert text.count("Images resident at end") == 1, (
+        "the count phrase must appear once; the byte line needs its own words"
+    )

@@ -1,5 +1,20 @@
 # Combat Inspection and Moveset Observatory
 
+> ⛔ **NOTHING IN THE REPOSITORY LINKS TO THIS PAGE (measured 2026-09-03), and
+> that makes it unreachable by the documented route.**
+> [`README.md`](README.md) says a reader arrives at a focused plan through *"the
+> focused engine, demo, game, or campaign document linked by the selected queue
+> row"* — so a plan with no queue or tracks row has no entrance. A sweep of all
+> 278 non-archive documents found exactly three with zero inbound references, and
+> the other two are CLOSED receipts that do not need one. This page is **OPEN**,
+> with M3 still outstanding.
+>
+> ⇒ The tooling it describes is not lost — `scripts/render_take_diagnostic.py`
+> and two other scripts name the inspector in prose — but a person following the
+> planning docs never meets the plan, only the code. ⚠ The fix is a row in
+> `queue.md` or `tracks.md`, which belong to another agent's hot set; reported
+> there rather than taken here.
+
 Status: **OPEN** — M1, M2, M4, M5, M6 and M7 closed. What remains is M3's
 art/geometry AGREEMENT measurements, which need the render to expose its camera
 transform. Ten of ten exit criteria hold; see the table.

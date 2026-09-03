@@ -111,6 +111,20 @@ the last is a HISTORICAL PROVENANCE note — *"relocated from
 `docs/vision/driving_decision_principles.md`"* — which is correct precisely
 because the file is gone.
 
+⚠ **AND A THIRD: COMMIT SHAs.** `docs/planning` cites **203 SHA-shaped tokens**
+(7–12 hex, backticked). 196 resolve to main-repo commits, **6 resolve in a
+SUBMODULE** (`tools/ambition_sprite2d_renderer`, `dev/ambition_dev_measurements`,
+`game/ambition_map_assets` — correct citations of commits this repo does not
+contain), and the last one is not a commit at all: `c0312413be50` is labelled
+*"(md5 `c0312413be50`)"*, a capture hash. **All 203 legitimate.**
+
+⇒ **Three proposed extensions, three all-false-positive populations.** Bare
+names (~408), bare paths (9 of 9), SHAs (7 of 7). That is not three near
+misses; it is the same fact three times — **prose cites more kinds of thing than
+a resolver can enumerate, and each kind has a legitimate reason to be
+unresolvable.** The checker's narrow scope is a decision, not an oversight, and
+this page is now the record so nobody spends a fourth evening on it.
+
 ⇒ A path in a doc resolves against THREE different bases and sometimes against
 none on purpose. That is the same reason the checker refuses to match
 schematics, and it is now measured twice: the bare-name population is 408

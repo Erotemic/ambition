@@ -1527,11 +1527,29 @@ confidence**:
   `attack_geometry/mod.rs` derives its metrics from
   `gnu_ton_boss_spritesheet.ron` and a genuinely absent manifest there would
   have been a content defect rather than waste.
-* ⚠ **UNMENTIONED — 753 files, 13.0 MB, UPPER BOUND ONLY.** Named in no
-  manifest and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`, and
-  not a sheet name. A path assembled at runtime (`format!("sprites/{name}.png")`)
-  is named nowhere either and would land here while being perfectly live. A
-  research prompt, not a delete list.
+* ⭐ **REDUCED-TIER PORTRAITS — 487 files, 14.2 MB.**
+  `bake_portrait_manifests` collects portrait manifests from `assets/sprites`
+  ONLY; the reduced tier dirs are never scanned, and the function says why:
+  *"Portraits are presentation products and currently have no quality-tier
+  variants"*. The generator emits them at all four tiers anyway. Full res is
+  164 PNG / 164 RON; the reduced tiers are ~163 PNG against 9, 9 and 0 RON.
+  ⛔ **Counting only UNCLAIMED files understates this by 34.** A handful of
+  reduced tiers do carry a `_portraits.ron`, which marks the PNG claimed — but
+  that `.ron` is never baked either, so claimedness is simply the wrong question
+  here. ⇒ This is generator over-production against a stated engine intent, not
+  an engine gap.
+* ⚠ **UNMENTIONED — 300 files, 1.6 MB, UPPER BOUND ONLY.** Named in no manifest
+  and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A path
+  assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere either
+  and would land here while being perfectly live. A research prompt, not a
+  delete list — and now small enough that it is no longer where the megabytes
+  are.
+
+⇒ **119.8 MB across the three explained buckets, against 1.6 MB still
+speculative.** The first pass had 26.7 MB sitting in "named nowhere, but so is
+a constructed path"; asking how each KIND of art is actually reached — a sheet
+through its baked spec, a portrait through the full-resolution portrait index —
+moved 96% of that weight into buckets that carry a reason.
 
 Ratcheted by `scripts/tests/test_shipped_sheet_pages_are_claimed.py` on the
 four stranded sheets, so the count cannot grow; poisoned both directions (drop

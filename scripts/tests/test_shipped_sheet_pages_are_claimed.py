@@ -167,6 +167,36 @@ def test_the_unmanifested_list_does_not_rot():
     )
 
 
+def test_build_rs_still_bakes_portrait_manifests_from_full_resolution_only():
+    """⛔⛔ THE FACT THE PORTRAIT BUCKET RESTS ON, PINNED AT ITS SOURCE.
+
+    `reduced_tier_portraits` calls 487 files unreachable purely because
+    `bake_portrait_manifests` collects from `assets/sprites` and never from the
+    reduced tier dirs. If that changes, the bucket silently becomes a list of
+    perfectly live files — and nothing else in this suite would notice, because
+    the assets themselves would not move.
+
+    This reads committed Rust, so it runs on every machine.
+    """
+    build_rs = REPO / "crates/ambition_sprite_sheet/build.rs"
+    if not build_rs.exists():
+        pytest.skip("ambition_sprite_sheet/build.rs is absent")
+    text = build_rs.read_text()
+    start = text.index("fn bake_portrait_manifests")
+    body = text[start : text.index("\nfn ", start + 1)]
+    assert len(body) > 200, "premise: a real function body was read, not an empty slice"
+    assert 'let sprites_dir = assets_dir.join("sprites");' in body, (
+        "the portrait baker no longer roots at the full-resolution sprites dir; "
+        "re-check `reduced_tier_portraits`, which calls reduced-tier portraits "
+        "unreachable ONLY because this scan never sees them"
+    )
+    for tier in ["sprites_0_5x", "sprites_0_25x", "sprites_potato"]:
+        assert tier not in body, (
+            f"the portrait baker now scans {tier}, so reduced-tier portraits "
+            "are reachable and the census bucket is wrong"
+        )
+
+
 # ── The SCRIPT's behaviour, on fixtures, unconditionally ──────────────────
 
 
@@ -270,6 +300,29 @@ def test_a_claimed_sheet_is_never_called_unmanifested(tmp_path):
     (tier / "other_spritesheet.ron").write_text('(image: "shared_spritesheet.png")')
     pngs, claimed = module.scan(tmp_path, ["sprites"])
     assert module.sheets_without_manifest(pngs, claimed) == []
+
+
+def test_reduced_tier_portraits_are_counted_even_when_a_ron_claims_them(tmp_path):
+    """⛔ CLAIMEDNESS IS THE WRONG QUESTION FOR PORTRAITS, and this is the case
+    that proves it: a reduced tier that DOES carry a `_portraits.ron` still has
+    no baked manifest, because the baker never scans that directory. Filtering
+    this bucket by claimedness — or by a sibling `.ron` — understates it by 34
+    files."""
+    module = load()
+    _png(tmp_path / "sprites" / "alice_portraits.png")
+    _png(tmp_path / "sprites_0_5x" / "alice_portraits.png")
+    (tmp_path / "sprites_0_5x" / "alice_portraits.ron").write_text(
+        '(image: "alice_portraits.png")'
+    )
+    pngs, claimed = module.scan(tmp_path, ["sprites", "sprites_0_5x"])
+    assert module.key(tmp_path / "sprites_0_5x" / "alice_portraits.png") in claimed, (
+        "premise: a .ron here does mark the PNG claimed, which is why a bucket "
+        "that honours claimedness would silently drop it"
+    )
+    found = module.reduced_tier_portraits(pngs, tmp_path)
+    assert [str(p.relative_to(tmp_path)) for p in found] == [
+        "sprites_0_5x/alice_portraits.png"
+    ], "the full-resolution portrait is reachable; the reduced one is not"
 
 
 def test_key_does_not_resolve_through_a_symlink(tmp_path):

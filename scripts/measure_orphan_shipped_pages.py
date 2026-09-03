@@ -30,6 +30,18 @@ with no manifest has no spec and therefore no road. ⚠ A build made while the
 `.ron` still existed would carry a stale embedded spec; this says what a fresh
 build can reach.
 
+⭐ REDUCED-TIER PORTRAITS (high confidence, and NOT measured by claimedness).
+`bake_portrait_manifests` in `ambition_sprite_sheet/build.rs` collects portrait
+manifests from `assets/sprites` ONLY — the reduced tier dirs are never scanned —
+and says why: *"Portraits are presentation products and currently have no
+quality-tier variants"*. So every `*_portraits.png` under a reduced tier has no
+baked manifest and no road, and the generator produces them anyway.
+
+⛔ THIS BUCKET DELIBERATELY IGNORES `claimed`. A handful of reduced tiers do
+carry a `*_portraits.ron`, which would mark their PNG claimed — but that `.ron`
+is never baked either, so claimedness is the WRONG question here and counting
+only unclaimed files understates the population.
+
 ⚠ UNMENTIONED FILES (upper bound only). Every other PNG under `sprites*/` whose
 filename appears in no baked manifest and in no committed `.rs`/`.ron`/`.ldtk`/
 `.toml`/`.json`/`.py`. A path assembled at runtime — `format!("sprites/{name}.png")`
@@ -136,6 +148,16 @@ def sheets_without_manifest(pngs: list[Path], claimed: set[str]) -> list[Path]:
     return out
 
 
+def reduced_tier_portraits(pngs: list[Path], assets: Path) -> list[Path]:
+    """`*_portraits.png` under a tier dir other than the full-resolution one."""
+    return [
+        png
+        for png in pngs
+        if png.name.endswith("_portraits.png")
+        and png.relative_to(assets).parts[0] != "sprites"
+    ]
+
+
 def unmentioned(pngs: list[Path], claimed: set[str], skip: set[str]) -> list[Path]:
     """Unclaimed PNGs whose filename appears in no committed source file.
 
@@ -165,7 +187,12 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
     pngs, claimed = scan(assets, tiers or TIER_DIRS)
     stranded = stranded_pages(pngs, claimed)
     unmanifested = sheets_without_manifest(pngs, claimed)
-    seen = {key(p) for p in stranded} | {key(p) for p in unmanifested}
+    portraits = reduced_tier_portraits(pngs, assets)
+    seen = (
+        {key(p) for p in stranded}
+        | {key(p) for p in unmanifested}
+        | {key(p) for p in portraits}
+    )
     rest = unmentioned(pngs, claimed, seen)
     def rows(paths):
         return [
@@ -177,6 +204,7 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
         "claimed": len([p for p in pngs if key(p) in claimed]),
         "stranded_pages": rows(stranded),
         "sheets_without_manifest": rows(unmanifested),
+        "reduced_tier_portraits": rows(portraits),
         "unmentioned": rows(rest),
     }
 
@@ -221,6 +249,13 @@ def main(argv: list[str]) -> int:
         "⭐ No `<base>_spritesheet.ron` beside it. build.rs bakes the spec index\n"
         "   from the .ron files on disk and every loader needs a spec, so a fresh\n"
         "   build has no road to these at all.",
+    )
+    show(
+        "REDUCED-TIER PORTRAITS", out["reduced_tier_portraits"],
+        "⭐ build.rs bakes portrait manifests from `assets/sprites` ONLY, saying\n"
+        "   portraits have no quality-tier variants. The generator makes them\n"
+        "   anyway, and nothing can reach them. Counted regardless of claimedness:\n"
+        "   a reduced-tier .ron is never baked either.",
     )
     show(
         "UNMENTIONED", out["unmentioned"],

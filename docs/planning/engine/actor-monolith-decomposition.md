@@ -1445,6 +1445,37 @@ gravity                   574    574  session:1 schedule:1
     10  features -> avatar
      8  world -> features   (and 12 back)
 ```
+**SECOND MEASUREMENT, 2026-09-03 late — after the abilities, encounter-features,
+body-seed and match carves, same command.** The point of re-running it is that
+the first was explicitly taken BEFORE those landed, so every number in it is
+now a statement about a kernel that no longer exists:
+
+```text
+    30  features -> construction   (and 15 back)
+    28  rollback_registration -> features
+    15  construction -> features   (and 30 back)
+    12  features -> world   (and 8 back)
+    11  snapshot_impls -> features
+    10  features -> character_runtime   (and 5 back)
+```
+
+⭐ **THE SEAM DID NOT MOVE, AND THAT IS THE FINDING.** `features -> construction`
+is still 30/15 across four carves that removed ~6,000 lines from the kernel —
+the inversion this document names as the kernel-split seam is untouched by
+carving domains out around it, exactly as "do this last" predicted. ⇒ It is
+next by elimination now rather than by preference: the outer domains are gone.
+
+⚠ What DID move, and is worth reading as the carves' receipt: `abilities` falls
+4,962 → 1,616 production lines and its out-edges collapse from eight modules to
+three (`control:2 features:1 character_runtime:1`); `items -> abilities` was the
+third-heaviest edge in the tree at 17 refs and is now **1**, because the wielded
+kit left. `character_runtime` sheds 241 lines and its `features` edge halves.
+⛔ `features` itself is UNCHANGED at ~23.7k production lines — it has never been
+the thing any of these carves touched, which is the same sentence the top edge
+is telling you.
+
+ⓘ A textual count, tests excluded from the edges: a shape, not a bill. Compare
+it only with the first measurement above, which used the same instrument.
 
 What the shape says, without pre-splitting anything: `features` (23.7k production
 lines — the actor tick, spawn, damage, brains) is the centre, and its heaviest edge

@@ -205,15 +205,26 @@ pub fn seed_profile_for_gpu(class: DetectedGpuClass) -> VisualQualityProfile {
 /// `Ord` is declaration order, which is ascending PIXEL BUDGET (Potato <
 /// Quarter < Half < Full).
 ///
-/// ⭐ IT IS A REQUEST ORDERING, and policy does compare on it — the sentence
-/// here used to say *"nothing decides policy by comparing two tiers, and
-/// nothing should"*, and by 2026-09-02 two policy sites did. Both compare
+/// ⭐ IT IS A REQUEST ORDERING, AND NOTHING COMPARES ON IT TODAY — but that
+/// sentence has been false once, so the history is kept rather than the claim
+/// alone. It originally read *"nothing decides policy by comparing two tiers,
+/// and nothing should"*; by 2026-09-02 two policy sites did, both comparing
 /// REQUESTS, which is what the order means:
 ///
-/// - `room_character_tier_bounds` takes `cap.min(ceiling)` — of the room's cap
-///   and the user's setting, whichever asks for fewer pixels wins;
-/// - `has_stale_realizations_outside` asks `requested_tier < floor ||
+/// - `room_character_tier_bounds` took `cap.min(ceiling)` — of the room's cap
+///   and the user's setting, whichever asked for fewer pixels;
+/// - `has_stale_realizations_outside` asked `requested_tier < floor ||
 ///   requested_tier > ceiling`, an interval test over that same band.
+///
+/// ⊙ **BOTH ARE GONE (2026-09-03), and not because anyone set out to restore
+/// this rule.** Jon's ruling that no room may lower the sprite tier (`06a494f4e`)
+/// removed the room cap outright, and the band it needed collapsed to a single
+/// tier with it: `has_stale_realizations(&self, active)` now asks
+/// `requested_tier != active`, an EQUALITY. ⇒ The original warning is true
+/// again, restored by a product decision rather than by a cleanup — which is
+/// exactly why the two dead sites are named here instead of deleted. A reader
+/// who meets only the current rule cannot tell a rule that has held from one
+/// that has been broken and repaired by accident.
 ///
 /// ⛔⛔ WHAT MUST NOT BE COMPARED IS A RESOLVED TIER, and that is what the
 /// original warning was protecting. Whether a realization is CURRENT is decided

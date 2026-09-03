@@ -187,6 +187,29 @@ session starts from 29 rather than from zero.
 granularity a READER would look for.** Nobody greps for a filename; they grep for
 the rule they are about to break.
 
+⛔⛔ **AND THE 29 CANNOT BE RE-DERIVED BY THE OBVIOUS GREP ANY MORE — THIS
+PARAGRAPH BROKE ITS OWN MEASUREMENT.** Checked 2026-09-03: a search for "is
+contract X named anywhere in `docs/planning`" now HITS, for
+`engine-core-is-the-floor`, `geometry-is-the-floor`,
+`platformer-primitives-stays-a-foundation` and
+`the-seat-topology-has-one-engine-side-creator` — and the only file it hits is
+**this one**, the sentence above that lists them as examples of contracts named
+nowhere. Writing down which rules were unnamed is what made them findable.
+
+⚠ And the example list was already off by one when written:
+`central-rollback-does-not-enumerate-domains` is named in
+`engine/simulation-authority-and-determinism.md`, so it was not an instance of
+the class it was cited for.
+
+⇒ **So the number to carry forward is 29 AS RECORDED, not as re-measured.** A
+later grep will return a smaller figure and the difference will be this
+paragraph, not progress. ⚠ If someone does re-derive it, exclude this file from
+the search — and note that the count is method-sensitive in a second way: a
+regex over quoted kebab-case ids in `check_absence_contracts.py` finds 34
+candidates rather than 37, so the denominator moves with how a "contract" is
+recognised. Two numbers that disagree here are usually two methods, not two
+truths.
+
 ### ⛔ The hardest rot to catch: a premise that is still true and no longer the point
 
 Twice in one sweep, a planning doc's stated premise **verified clean by grep**

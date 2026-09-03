@@ -45,10 +45,18 @@ tail of an `ambition_`-prefixed crate directory).
   `sprites/player_robot_v2_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
   `assets/data/dialogue/registry.ron`, `tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
   `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`.  <!-- cite-ok: this row's subject IS the dead citation -->
-  ⚠ These need a different judgement from the code ones: some name GENERATED
-  files that a checkout legitimately does not contain (the same reason
-  `target/` is skipped), and some name a real rename. Do not batch them with
-  the moved-code rows.
+  ⚠ These need a different judgement from the code ones, and the judgement is
+  now concrete rather than a worry. ⭐ **The sprite manifests are GENERATED and
+  gitignored** — `.gitignore` lines 123-124 cover
+  `crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron` — so they
+  are absent for exactly the reason `target/` is, and citing one is correct
+  prose. ⇒ **Generalise the skip from a `target/` prefix to `git check-ignore`:**
+  a citation whose path is ignored names a build output, whoever generates it.
+  That is one rule instead of a growing prefix list, and it is the rule the
+  `target/` case was always an instance of. The remaining tool paths
+  (`tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`) are  <!-- cite-ok: this row's subject IS the dead citation -->
+  NOT ignored and want ordinary MOVED triage.
 
 ⚠ **WHAT IS NOT DECIDED, and why this is a measurement rather than a task:**
 whether the comment lane should judge paths AT ALL. The script is explicitly a

@@ -202,15 +202,25 @@ install_scripts_env() {
     # `rich` is the repository's clickable-`file://` output convention, which
     # `scripts/agent_query.py` — step 2 of the AGENTS.md cold start — needs to
     # print anything at all.
+    # ⛔ `pillow` JOINED THE LIST 2026-09-03, AND IT IS THE SAME STORY THE
+    # PARAGRAPH ABOVE TELLS. `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`
+    # loads `scripts/generate_visual_quality_variants.py` to reach ONE guard
+    # function, and that script's `from PIL import Image` is at module scope —
+    # so with no Pillow the import raises and three repo-coupled tests go red at
+    # collection on any machine this script set up. The tests never mention
+    # images; the red says `ModuleNotFoundError: No module named 'PIL'` from a
+    # file whose name is about symlinks. It is not an asset dependency here, it
+    # is a TEST dependency, which is why it belongs in this environment and not
+    # in a renderer's.
     uv pip install --python "$venv_python" \
-        pytest tree_sitter tree_sitter_rust numpy soundfile rich
+        pytest tree_sitter tree_sitter_rust numpy soundfile rich pillow
     # The moveset inspector is imported directly out of `tools/` by
     # `scripts/tests/test_moveset_inspector_renderer.py`, so it belongs in THIS
     # environment rather than one of its own. Installed editable so its
     # dependencies stay its own to declare (today: pyyaml).
     uv pip install --python "$venv_python" -e tools/ambition_moveset_inspector
     local module
-    for module in tree_sitter_rust pytest numpy soundfile rich yaml; do
+    for module in tree_sitter_rust pytest numpy soundfile rich yaml PIL; do
         "$venv_python" -c "import $module" \
             || fatal "$venv_dir installed but '$module' is not importable — the repo's own Python suites cannot run"
     done

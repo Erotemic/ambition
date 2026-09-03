@@ -583,8 +583,21 @@ The one unresolved developer-policy choice from the session-ownership work is in
   a union number I was wrong by 38 — in the direction nobody expects. This time
   the expectation held; that is a fact about this fix, not a licence to skip the
   run next time.
-  The entire smash target — `the_stage_kills`, `the_screen_decides`,
-  `the_repertoire_gets_used`, 30-odd tests — is green.
+  The smash target went from thirty-odd failures to **one**:
+  `the_screen_decides` and `the_repertoire_gets_used` are entirely green and
+  `the_stage_kills` has a single survivor. ⚠ I wrote "the entire smash target is
+  green" when it was not — 30-odd down to 1 is the honest sentence, and the 1 is
+  a FIFTH cause.
+  ⊙ **THE TWELVE, ENUMERATED 2026-09-03** so the next reader does not re-derive
+  them: 8 in `ov1_draws_the_world` (the doctrine group, including
+  `the_presentation_plugin_adds_no_hud_and_no_menu` in BOTH the mary_o and sanic
+  apps), 3 in `painted_blocks`, and
+  `the_stage_kills::every_live_fighter_stays_inside_the_frame` — *"a live
+  fighter was drawn OUTSIDE the frame on 1 body-frames, worst 16 units past the
+  edge … t3 seat 1 at (416,204) is 16 units outside a 800x450 frame centred
+  (0,0)"*. That last is a CAMERA FRAMING assertion, unrelated to the other four
+  causes, and 16 units on one body-frame is the kind of margin that may be a
+  tuning question rather than a defect.
 
   ⚠ **AND THE INFERENCE THIS REPLACES WAS WRONG, kept because it is the lesson.** I first wrote: `cargo test -p
   ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO

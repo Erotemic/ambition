@@ -110,6 +110,63 @@ def test_a_complete_run_is_still_plainly_done(monkeypatch, tmp_path):
     assert status["finished_jobs"] == 2
 
 
+def test_a_maintenance_lane_that_builds_is_not_exempt_from_the_floor(
+    monkeypatch, tmp_path
+):
+    """⛔⛔ THE EXEMPTION IS FOR LANES THAT DO NOT BUILD, AND ONE OF THEM DOES.
+
+    `--tool-tests` and `--maintenance` skip the disk floor because hygiene
+    audits are pure Python. ⚠ `--maintenance`'s intra-doc-link ratchet runs
+    `cargo doc -p <crate> --no-deps` for every crate — so the lane the guard
+    waves through is one that can still fill the volume. Found 2026-09-03 by
+    running it on a box at 12 GB, hours after writing the exemption.
+
+    An argv check cannot catch this: the argv is
+    `python3 scripts/check_doc_link_ratchet.py`. The `builds` flag on the job
+    is what the guard reads, and this pins that it is read at all.
+    """
+    jobs = [
+        run_tests.Job("pure python audit", [sys.executable, "-c", "pass"]),
+        run_tests.Job("cold cargo doc", [sys.executable, "-c", "pass"], builds=True),
+    ]
+    readings = [500.0, 500.0, run_tests.ABORT_FREE_GB - 0.5]
+
+    def fake_free() -> float:
+        return readings.pop(0) if len(readings) > 1 else readings[0]
+
+    monkeypatch.setattr(run_tests, "free_gb_on_target", fake_free)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    status = tmp_path / "status.json"
+    rc = run_tests.run(jobs, False, status_json=str(status), maintenance_only=True)
+    written = json.loads(status.read_text())
+
+    assert rc == 1, "the building job was started on a volume under the floor"
+    assert written["aborted_on_disk"] == "cold cargo doc"
+
+
+def test_a_maintenance_lane_that_only_reads_keeps_its_exemption(
+    monkeypatch, tmp_path
+):
+    """⭐ THE CONTROL ARM, and it is the reason the flag exists at all.
+
+    Guarding the whole lane would make a full disk block the pure-Python
+    audits — the checks most worth running when the volume is full, since they
+    are the only ones that still can.
+    """
+    jobs = [
+        run_tests.Job("pure python audit", [sys.executable, "-c", "pass"]),
+        run_tests.Job("another pure audit", [sys.executable, "-c", "pass"]),
+    ]
+    readings = [1.0, 1.0, 1.0]
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: readings[0])
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    status = tmp_path / "status.json"
+    rc = run_tests.run(jobs, False, status_json=str(status), maintenance_only=True)
+
+    assert rc == 0, "a pure-Python lane must still run on a full volume"
+    assert json.loads(status.read_text())["state"] == "done"
+
+
 def _last_test_run(status_path: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(REPO / "scripts" / "last_test_run.py"),

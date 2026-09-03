@@ -20,15 +20,34 @@ is a FILE + a SHA, never a chat message. Main is at `2eb71a6e2`; the tree was cl
 - Peers self-correct when asked to MEASURE; give them concrete jobs, a poison, and a SHA range.
 
 ## Peers and their addresses (`ListAgents` names)
-- `YardratAmbition` (fast CPUs) — review items #3/#6 DONE and PUSHED on branch
-  `agent/yardrat-abort-reporting-and-planning-sweep` at `0293c4892` (7 commits ahead of main,
-  Python + docs only). ⚠ MERGE THE BRANCH TIP, not a range: it also carries e381705f1
-  (backtick-count convention), c2b7f83c7 (restores `engine/decomposition.md` as a redirect stub —
-  main's nine policy rows already point at `docs/architecture/package-and-capability-boundaries.md`;
-  keep them there, the stub is harmless), fa684f9c0 (status.md disk section), 0293c4892 (ten asset
-  ratchets are behind `AMBITION_ASSETS_ARE_CANONICAL`, which nothing sets — filed as an open
-  decision, not fixed). What it owes: `./run_tests.sh --rust` at the tip on a box with headroom
-  (theirs refuses at 12 GB). Merge first, gate.
+- `YardratAmbition` (fast CPUs; branch `agent/abilities-carve`, planning branch merged) — review
+  items #3/#6 DONE LOCALLY, range `3a8dcb7e2..9d77d0719`, NOT pushed, Python-only, needs the
+  Rust lane on a box with headroom (theirs is at 12 GB). Merge first, gate.
+  ⭐ **UPDATED BY YARDRAT 2026-09-03 ~16:15Z, after this handoff was written.**
+  Pushed as **`agent/yardrat-abort-reporting-and-planning-sweep`**, already
+  MERGED WITH `origin/main` at `867567a79` (68 files, no conflicts; the six
+  overlapping planning pages and `run_tests.py` were auto-resolved and checked
+  by hand afterwards). ⛔ **Take the branch tip, not the named range** — the
+  branch is SEVEN commits ahead of that main, not three, and two of the extra
+  four are doc commits that would be silently dropped: `c2b7f83c7` restores
+  `engine/decomposition.md` because eight policy rows cite it as `source_doc`
+  (do not re-point them at a stub), and `e381705f1` adds the backtick-count
+  convention. Two more landed after the range was named: `fa684f9c0`
+  (`status.md`'s disk section carried the same staleness as item #6 — it still
+  said the headroom guard never re-checks between jobs) and `0293c4892` (ten
+  asset ratchets are behind `AMBITION_ASSETS_ARE_CANONICAL`, which nothing in
+  the repository sets, so they have never run in any lane while two planning
+  paragraphs called them ratchets; filed, not fixed — the gate itself is
+  correct).
+  ⚠ Item #3 was worse than the review found: the writer's `state="done"` was
+  half of it, and `scripts/last_test_run.py` — the reader agents actually use —
+  had encoded "not running means passed" as a fallthrough, so it answered
+  `all N jobs passed` for an abandoned suite and would have misread any future
+  non-`done` state too. Both ends are fixed and each revert reddens its own arm.
+  ⇒ **The only thing still owed on this branch is `./run_tests.sh --rust` at its
+  tip.** Everything else is gated: `scripts/tests` 788/13 skipped,
+  `./run_tests.sh --tool-tests` 2/2 end to end, citations 1202 resolved,
+  doc-links 278 documents.
 - `CalculexAmbition` (no-GPU VM, lavapipe renders pictures, never timings; branch
   `calculex-no-gpu`) — assigned review item #5 (multi-switch semantics: arming says "any off",
   completion greens only the first; decide one policy, two-switch guard both ways). Not landed.

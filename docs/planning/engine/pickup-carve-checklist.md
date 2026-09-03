@@ -380,3 +380,29 @@ the commit that moved it. That is the shape to copy.
 working. But `examples/capability_demo/Cargo.lock` resolves the facade too and
 has its own gate (`test_sub_workspace_lockfiles_are_current`). Check all of
 them; in this carve two of five moved and three did not.
+
+### Run the orphan census across the carve, and expect the delta to be small
+
+`scripts/orphaned_symbols.py` finds public functions whose only callers are
+tests — the rot a citation checker structurally cannot see, because a carve that
+reroutes around a function and leaves it for the tests keeps every doc naming it
+GREEN while making every sentence about it false.
+
+⛔ **THE LEVEL IS NOISE AND THE DELTA IS THE SIGNAL**, which the tool says of
+itself and which is easy to forget when the summary line reads *"156 of 5274
+pub fns have no production caller."* The engine is a library, so a `pub fn` with
+no in-repo caller may be for a downstream consumer; and it is a grep, so
+trait-dispatched, macro-generated and re-exported calls are invisible to it.
+Run it before and after with `--json` and diff, rather than reading the total.
+
+⭐ **MEASURED FOR THE ABILITIES CARVE (2026-09-03, after merging main):
+`ambition_abilities` contributes exactly ONE name, `spawn_primary_player_holding_at`,
+and it is a `test_support.rs` helper called by three of the crate's own test
+modules — the legitimate case the tool's own docstring names first.** Nothing
+under `docs/` mentions it, so there is no sentence to go false. That is the
+number to beat: a carve whose delta is a handful of *domain* functions has left
+its callers behind somewhere, and the names tell you where.
+
+⇒ Cheap enough to be worth doing every time — it runs in seconds, needs no
+build, and is disk-exempt, which on a volume below the 40 GB floor is the
+difference between a check you can run and one you cannot.

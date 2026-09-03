@@ -11,6 +11,17 @@ pages, 92.0 MB**, from four sheets whose manifests are single-page (`image:
 time the sheet was multi-page. A sheet's pages resolve ONLY through its
 manifest, so these are unreachable by construction.
 
+⛔⛔ AND NOTHING IN THE REPOSITORY SETS `AMBITION_ASSETS_ARE_CANONICAL` — checked
+2026-09-02: not `run_tests.py`, not `.github/workflows/`, not `scripts/regen/`.
+So every test below the opt-in is **run by hand or not at all**. That is the
+right call for assertions about one machine's gitignored generated tree, and it
+means these are INSTRUMENTS YOU RUN, not guards that watch. The tests that
+actually watch are the unconditional fixture ones at the bottom of this file;
+they are what keeps this from being a check that cannot fail.
+
+⇒ Run the opt-in half deliberately, on a box whose assets you believe:
+`AMBITION_ASSETS_ARE_CANONICAL=1 python3 -m pytest <this file>`.
+
 ⭐ A RATCHET, NOT A WALL. The four are named with the date they were measured;
 the test fails on a FIFTH. Whether the existing four are stale outputs or a
 live generator defect is what a clean regen on another machine decides — this

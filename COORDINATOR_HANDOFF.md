@@ -641,6 +641,21 @@ insertions only): verify the committed prefix is byte-identical before touching 
 submodule sits at after a pointer move. Verified after the merge too — 134 rows, 0 unparseable,
 base prefix unchanged, both machines' rows present.
 
-ⓘ Still open and unfixed: `append_cost_ledger` has no defence against a test writing into it — the
-stub that prevents it lives in the test, not in the writer. Yardrat filed it and did not add a
-guard, and neither did I.
+✔ **CLOSED at `939bb96dd`, after this paragraph said neither of us would.** `append_cost_ledger`
+had no defence against a test writing into it: the stub lived in the three tests that remember
+`monkeypatch.setattr(run_tests, "append_cost_ledger", ...)`. That is a hand-kept list guarding a
+shared corpus — a new test calling `run()` is silently a writer into the developer's real
+submodule, where the row survives long enough to be committed in good faith months later. The
+refusal now lives in the WRITER, in the same shape as the two refusals around it: say why, return
+`None`, never fail a suite over a cost record.
+
+⭐ The escape hatch is deliberately NOT the ledger-path override. Redirecting the path is what a
+test does to write somewhere safe; if that also re-enabled writing, every future test that
+redirects to stay clean would silently become a writer again — the same hand-kept-list failure one
+level down. Its own variable, pinned by a test.
+
+Poison-verified three ways (remove the refusal → 3 of 4 fail; make the hatch the path override →
+the trap test fails; refuse always → the "still testable" test fails), each restored
+byte-identical. ⚠ And the property that would have made it a bad trade was checked rather than
+assumed: **a real suite run still records**, because the parent `run_tests.py` process is not under
+pytest — only a test-spawned run refuses.

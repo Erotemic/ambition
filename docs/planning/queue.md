@@ -1129,6 +1129,14 @@ OPTIONAL dep + feature, never used:
      revert, nothing to do with the carve named. Cut 1 ran as
      `c761a9d80..83460e3f3` and correctly returned 0 — its symbols MOVED rather
      than vanished, which is item 4's job, not this one's.
+     ⚠ **THIS IS NOT THE SAME USE AS THE PERIODIC LANE, and the two must not be
+     confused.** `./run_tests.sh --maintenance` runs `--vanished` against a
+     FIXED baseline ref, deliberately: it asks *"what has gone stale since the
+     last time a person triaged this corpus"*, and a rolling window would make a
+     row silently stop being a finding because the window slid past the rename.
+     The CARVE use is the opposite — a range, scoped to one landing, asking
+     *"what did THIS cut leave behind"*. Same flag, two questions; pass a range
+     here and leave the lane's fixed ref alone.
      ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
      rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is <!-- cite-ok: a row quoting a removal record -->

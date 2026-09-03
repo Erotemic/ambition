@@ -1,0 +1,79 @@
+# Yardrat's open measurements
+
+Numbers this machine took that are executable by someone else, kept out of
+[`queue.md`](queue.md) because that file is worked by several sessions at once
+and a measurement is not yet a task with an owner. Each row states what was
+measured, how to reproduce it, and what is NOT yet decided. When a row acquires
+an owner and an acceptance criterion, promote it into `queue.md` and delete it
+here.
+
+⛔ This is not a staffing table and not a second review ledger. If a row here
+stops being reproducible, delete it rather than annotating it.
+
+---
+
+## Path citations in Rust COMMENTS are not judged, and ~8% do not resolve
+
+`scripts/check_planning_citations.py` gained a bare-path class on 2026-09-02
+(paths without a `:LINE` suffix, which is how nearly all prose cites a file).
+That class runs over `docs/planning/` only. The script's `--comments` mode
+judges SYMBOLS in Rust comments and not paths, so the same blind spot exists
+one level down, in the place the script's own docstring says the original
+fabricated citation reached.
+
+**MEASURED 2026-09-02, on `ec55d4035`:** 252 path citations in `.rs` comments,
+**21 distinct unresolved in 28 places**. Reproduce with the ordered-containment
+rule the docs class already uses (basename must exist; every component of the
+citation must appear in that file's path in order, matching exactly or as the
+tail of an `ambition_`-prefixed crate directory).
+
+⭐ **THE TRIAGE IS ALREADY VISIBLE AND IT IS NOT ONE CLASS.** At least three:
+
+- **SCHEMATIC, not a path** — `tests/foo.rs`, `src/foo/tests.rs`. These name a  <!-- cite-ok: this row's subject IS the dead citation -->
+  SHAPE, exactly like the `provider::local_name` case the script already  <!-- cite-ok: this row's subject IS the dead citation -->
+  documents as unmatchable by regex. They are correct prose. Whoever does this
+  either marks them `cite-ok` or teaches the matcher that a `foo` component is
+  a metasyntactic placeholder — and the second is worth thinking about, since
+  three `*_it_sync.rs` files use the same idiom for the same reason.
+- **MOVED** — `features/ecs/bosses.rs`, `src/rl_sim/runtime.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `engine_core/body_clusters.rs`, `presentation/rendering.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `app/schedule.rs`, `character_sprites/sheets.rs`, `brain/boss_pattern.rs`.  <!-- cite-ok: this row's subject IS the dead citation -->
+  Old layouts, and `features/ecs/` in particular is the same dead prefix that
+  `00030e603` left behind in `demos/smash-parity-inventory.md`.
+- **ASSET AND TOOL PATHS** — `sprites/robot_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `sprites/pirate_admiral_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `sprites/player_robot_v2_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `assets/data/dialogue/registry.ron`, `tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
+  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`.  <!-- cite-ok: this row's subject IS the dead citation -->
+  ⚠ These need a different judgement from the code ones: some name GENERATED
+  files that a checkout legitimately does not contain (the same reason
+  `target/` is skipped), and some name a real rename. Do not batch them with
+  the moved-code rows.
+
+⚠ **WHAT IS NOT DECIDED, and why this is a measurement rather than a task:**
+whether the comment lane should judge paths AT ALL. The script is explicitly a
+worklist and not a gate, but `--comments` already emits findings, and adding 21
+more without triaging them first is the "teaches its reader to skim" failure the
+script's own docstring warns about. ⇒ **Triage first, extend second.** A change
+that turns the class on before the findings are resolved makes the tool worse.
+
+---
+
+## The `zero_duration_pump` bisect recipe, and the correction to it
+
+Kept because the recipe worked and the correction is the part that would be
+re-learned the hard way.
+
+Bisect only the commits in the range that touch COMPILED files — a docs commit
+cannot change behaviour, and on the 2026-09-02 range that was 21 of 70, turning
+7 builds into 5. Each probe is a full `cargo test` of one test, so the saving is
+real (roughly 20 minutes a probe on this VM).
+
+⛔ **BUT BISECT THE ANCESTRY CHAIN, NOT THE `rev-list` INDEX.** On a branch with
+merges the two are different, and I reported an exclusion that did not hold
+because of it: a GOOD result at one index bounded nothing, because that commit
+sat on a side branch that merged in later and was an ancestor of neither
+candidate. Check with `git merge-base --is-ancestor A B` before treating a
+result as a bound. The verdict survived — `06a494f4e`, confirmed independently
+from the mechanism side — but it survived for a different reason than the index
+suggested.

@@ -165,6 +165,51 @@ movement tuning opts into an invariant speed. TwinTrack alone installs the
 relativity plugin, marks clocks/sources, and activates the full-screen optical
 presentation and synthetic star field.
 
+### Re-measured 2026-09-03 — the contract holds NOW, and did not when it was written
+
+The first sentence above ("games that do not enable the facade's `relativity`
+feature do not link either crate") is TRUE at HEAD, checked two-sided across
+every shipped app rather than only the one it is about — `cargo tree` per app,
+counting `ambition_relativity v`:
+
+| App | links relativity | tree |
+|---|---|---|
+| `ambition_app` | **0** | 2,686 |
+| `ambition_demo_mary_o_app` | 0 | 1,841 |
+| `ambition_demo_sanic_app` | 0 | 1,841 |
+| `ambition_demo_smash_app` | 0 | 1,854 |
+| `ambition_demo_pocket` | 0 | 1,838 |
+| `ambition_demo_twintrack_app` | **2** | 1,849 |
+
+Exactly one app links it and it is the one this doc names. The five zeros are
+meaningful because the sixth is not zero: a grep that finds nothing everywhere
+is indistinguishable from a broken grep.
+
+⛔ **AND IT WAS FALSE FOR THE FIRST THREE WEEKS THIS PAGE ASSERTED IT.** The
+status header above is dated 2026-08-12. `relativity` was listed in the facade's
+`all_capabilities` until **2026-09-01**, and `game/ambition_content` takes
+`all_capabilities` — so the shipped game linked both crates for weeks *without
+naming the feature*, which is precisely what the contract forbids. The facade's
+own comment now records the removal and the reason:
+
+> *"nothing in the shipped game asks for spacetime, and listing it here put
+> `ambition_relativity` + `ambition_relativity2d` into every build that took the
+> default features."*
+
+⇒ The lesson is about the shape of the claim, not the crates. **A cost contract
+phrased as "games that do not opt in do not pay" is not enforced by the feature
+flag it names** — it is enforced by every aggregate feature that might contain
+it, and `all_capabilities` is exactly such an aggregate. The contract became
+true when someone audited the aggregate, three weeks after the page promised it.
+⚠ Nothing here is guarded: no policy row asserts that `all_capabilities` excludes
+`relativity`, so the same edit re-introduces the same silent regression. That is
+the cheapest available follow-up on this page.
+
+*Method note.* Enumerating the apps with `ls game/ | grep -E '_app$'` returned
+NOTHING — `ls` is emitting colour escapes here, so the reset sequence sits after
+the final `p` and the anchor cannot match. An empty list would have read as "no
+demo apps to check". `find … -name Cargo.toml` is immune.
+
 ## GR growth path
 
 A future GR provider can preserve the consumer-facing concepts while adding

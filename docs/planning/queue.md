@@ -614,8 +614,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
   from `KNOWN_STRANDED_SHEETS` in
   `scripts/tests/test_shipped_sheet_pages_are_claimed.py`, and the guard's own
   poison discipline (drop a name → new-orphan test red) means the change is
-  self-checking. ⛔ Not done here: I did not regenerate them and cannot tell
-  from the census alone whether all four were fixed deliberately.
+  self-checking. ⛔ Not done here, and the reason got SHARPER on inspection:
+  ⛔⛔ **THE EVIDENCE FOR THIS EDIT IS GITIGNORED GENERATED OUTPUT, SO NO BOX
+  CAN ATTRIBUTE IT.** The `.ron` manifests are **not tracked** — 0 by
+  `git ls-files`, 471 on disk — so "does this sheet strand pages" is entirely a
+  property of one machine's regenerated tree, exactly the class the
+  re-measuring recipe warns about.
+  ⚠ **AND ON THIS BOX THE FOUR ARE CLEAN FOR THE WRONG REASON.** Each has four
+  manifests (one per tier) and **ZERO numbered pages**: they do not strand
+  pages because they never spilled past a single page here, not because a
+  manifest was corrected to claim them. Whether a sheet spills is a property of
+  the atlas packing, which is generated. ⇒ So a box that packs them across
+  pages could strand them again, and deleting the names on this evidence would
+  retire a guard against a regression that was never fixed — the exact failure
+  `test_the_known_list_does_not_rot` exists to prevent, committed by the person
+  reading its output.
+  ⇒ **Leave it red with a named owner.** The edit is safe only for someone who
+  can show the four REGENERATED and claiming their pages, not merely absent.
   ⛔⛔ **AND ON A DIFFERENT BOX THE SAME RATCHETS WENT RED FOR A REASON THAT IS
   NOT CONTENT AT ALL.** Within the hour, another checkout reported
   `..._that_is_not_smaller` naming actor/author/medic/officer and

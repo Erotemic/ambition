@@ -8,6 +8,42 @@
 > the live queue is [`../tracks.md`](../tracks.md). Like ADR 0020: do not
 > deviate without raising an explicit challenge Jon accepts.
 
+> **RE-MEASURED against `14e5beeb0` (2026-09-03), two months on. ⭐ THIS
+> MANIFESTO WAS BUILT, AND A READER SHOULD KNOW THAT BEFORE READING IT AS
+> ASPIRATION.** The page asks for *"a coherent language of frames"* while warning
+> against building *"a grand frame graph before we need it"*. What exists is the
+> first and not the second: `crates/ambition_geometry/src/reference_frame.rs`,
+> **816 lines, 11 public types**, referenced from **16 crates**.
+>
+> | the manifesto's phrase | what carries it at HEAD |
+> |---|---|
+> | *"contact is relative to a surface frame"* / *"a jump is relative to a body and support frame"* | `LocalAxes`, `MotionFrame`, `ResolvedControlFrame` |
+> | *"relative to what?"* as the core question | `GameplayFramePolicy` — `ControlledBodyLocal`, `AccelerationFrame`, `WorldSpace`, `ScreenSpace` |
+> | *"a moving platform is a support frame in motion"* | `AccelerationFrame`, built from net down-defining acceleration, **not cardinal-snapped** — arbitrary-angle `down` is supported |
+> | *"a camera is not the world; it is an observer"* | `CameraReferenceFrame` |
+>
+> ⭐ **AND THE CAMERA PARAGRAPH BELOW IS NOW LITERALLY TRUE, INCLUDING THE PART
+> THAT WAS EASIEST TO GET WRONG.** `CameraReferenceFrame` has exactly the two
+> modes it names — `WorldFixed` (*"screen orientation stays tied to the world
+> frame even when the subject enters sideways or inverted gravity"*) and
+> `SubjectFrame` (*"a gravity change presents as the world rotating around an
+> upright body"*) — and it is a player-facing setting, cycled by
+> `cycle_camera_reference_frame`
+> (`ambition_persistence/src/settings/gameplay.rs:275`). The manifesto insisted
+> the choice belongs to the view *"and not to a global player singleton"*; the
+> type's own doc keeps that promise in situ: *"the subject is a view's subject,
+> not a protagonist. The resolver takes a direction, never an entity, so a
+> spectator, a replay or a second local view can orient on whatever body it is
+> watching."*
+>
+> ⇒ **So the standing question for this page is no longer "should we" but "what
+> is still world-frame by default that should not be".** `GameplayFramePolicy`
+> is rollback-registered (`snapshot_unit_enum!`,
+> `platformer2d_core/src/snapshot_impls.rs:342`), so the vocabulary is
+> simulation truth rather than a presentation convenience. ⚠ Not measured here:
+> how many systems still reach for `WorldSpace` where a local frame is
+> available. That is the next honest question and it needs a survey, not a grep.
+
 Frame awareness is an architectural bias before it is a runtime subsystem.
 
 Ambition does not need to simulate full relativistic spacetime. It does need

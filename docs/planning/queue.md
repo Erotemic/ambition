@@ -936,7 +936,9 @@ OPTIONAL dep + feature, never used:
 
   1. **`python scripts/modules_md.py`** — must print *"MODULES.md up to date"*.
      A carve moves modules; the maps are generated and go stale silently.
-     (Clean for all 70 crates as of 2026-09-02.)
+     (Clean for all 71 crates as of 2026-09-03 — it was 70 the day before;
+     three carves added `ambition_held_items`, `ambition_world_items` and
+     `ambition_registry_core`, and one dev crate landed.)
   2. **`python scripts/check_planning_citations.py`** — a carve renames or moves
      the very symbols the planning rows cite. ⭐ **AND THEN `--vanished <the
      carve's parent SHA>`**, which catches what the default run cannot see:
@@ -2060,10 +2062,17 @@ OPTIONAL dep + feature, never used:
   migration over those 170 call sites; neither is mechanical. ⚠ A carve that
   adds a crate RAISES the count (`ambition_world_items`, 43 → 44: crates, not
   bytes) — the two lines of work must not be scored against each other, which
-  `engine/capability-and-runtime-composition.md` now says. Owed: the baseline's
-  `reachable_via_ambition_platformer2d_actor_monolith_alone` list is stale
-  (`ambition_damage`, `ambition_mount` entered 2026-08-26 after it was written);
-  ambition-da repairs it in one commit after the `items/` carve lands.
+  `engine/capability-and-runtime-composition.md` now says. ✔ The baseline's sub-lists are repaired
+  (2026-09-03). The owed item named only the ENTERING half (`ambition_damage`,
+  `ambition_mount`, done at `f1445c142`); measuring found the other direction
+  was worse — FIVE crates that had left the closure were still listed as
+  reachable, so `reachable_only_through_the_facade` fell from four to one and
+  the 170 call sites above are really 90, `ambition_render` alone. ⭐ The two
+  lists are now equal: all 19 arrive through the monolith alone, so no facade
+  cut removes any of them, which makes the honest acceptance above stronger
+  rather than weaker. Guarded by
+  `scripts/tests/test_capability_footprint_baseline_is_coherent.py` — the
+  ratchet only ever looked for crates ENTERING.
 - ✔ **`string_id!` was defined THREE times; it is written once now.** Fixed by
   `02a796d2c`, exactly as this row specified: `#[macro_export]` on
   `ambition_load`'s copy (`crates/ambition_load/src/id.rs:19`), the other two

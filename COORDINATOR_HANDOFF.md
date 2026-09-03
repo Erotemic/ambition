@@ -476,3 +476,41 @@ needed to obey a stop instruction, not because anyone decided it should be. If a
 wanted, `--share` puts it back. The general point survives either way — **a shared goal guard and
 a human "stop" instruction can contradict each other, and the guard wins by default until someone
 narrows it.**
+
+## Addendum — a fifth merge, after the entry above was written
+Yardrat sent one more commit past their stand-down and it was the most valuable of the day:
+`fd601b0fc`, merged at `156cc18f8`.
+
+**My guard was resting on the defect it appeared to be checking.** The live-repo test asserts
+that `assets_are_canonical()` and `why_not()` AGREE. They were each shelling out to
+`check_quality_variants_are_fresh.py` SEPARATELY — two subprocess runs over a mutable generated
+tree — so a regeneration between them could make the decision and its stated reason disagree, and
+my guard would have failed for something that is not a defect. Now one execution per repo per
+process behind `lru_cache`, pinned by a test that COUNTS invocations across one predicate call
+plus one `why_not`.
+
+⭐ **Naming a failure mode is not the same as not having it** (yardrat's words). They had fixed
+exactly this on the symlink path by sharing `_sample_tree_files`, and left the comment *"a reason
+derived from a different sample than the decision is how the two come to disagree"* — then
+reintroduced the split one function later on the freshness path. The comment was already there
+and did not prevent it.
+
+⇒ **A test asserting that two things agree is silently a test of whatever makes them agree.** Mine
+asserted an agreement that was only USUALLY true. Ask what guarantees the agreement, because if
+the answer is "nothing, they just tend to", the guard is measuring luck.
+
+⛔ **A poison verdict expires when the implementation under the guard changes.** Mine was stale
+the moment yardrat's cache landed, and I nearly carried it forward. Re-poisoned against the merged
+code, all three restored byte-identical: detector hard-codes False → my axis 1 fails;
+`why_not()` stops naming the freshness check → my axis 2 fails; bypass the cache so the two ask
+separately again → yardrat's invocation-counting test fails.
+
+⚠ Conflict in `test_canonical_assets_detection.py` resolved by keeping BOTH sides — their new test
+appended after the closing assertion of mine. Additive, not competing; no side dropped.
+
+✔ **Re-gated after the merge: `python -m pytest scripts/tests` at `156cc18f8` — 815 passed, 11
+skipped, ZERO failures, exit 0** (one test more than the 814 above: yardrat's invocation counter).
+Doc surface re-checked at the same tip: `check_doc_links.py` 279 documents / 970 local links, and
+`check_planning_citations.py` **1475 citations across 182 planning files, all resolved**. Still
+zero `.rs` files under this whole window — `git diff --name-only db050bcf6..HEAD` lists nine
+files, all docs and `scripts/`, which is why no Rust claim is made here.

@@ -84,13 +84,21 @@ playtest before anybody tunes the knockdown window.
 (8–11–14), KOs (2–3–4), peak launch 1086–2591 px/s, hitstun 475–694, evading
 82–159, and the charge reaching full at least once (`best charge` max 1.00).
 
-**Authority:** this file is the one current Smash feature backlog. Product intent
-lives in [`super-smash-siblings.md`](super-smash-siblings.md); execution order
-for the active push lives in
-[`campaigns/smash-fun-push-2026-08-22.md`](campaigns/smash-fun-push-2026-08-22.md);
-reusable combat ownership lives in
-[`../engine/combat-model.md`](../engine/combat-model.md). Do not copy open rows
-into another standing Smash plan.
+**Authority:** this file is the one current Smash feature backlog — and since
+2026-09-03 it is also the execution order, because there is no live campaign.
+Product intent lives in
+[`super-smash-siblings.md`](super-smash-siblings.md); reusable combat ownership
+lives in [`../engine/combat-model.md`](../engine/combat-model.md). Do not copy
+open rows into another standing Smash plan.
+
+⛔ **This line used to say execution order lived in
+[`campaigns/smash-fun-push-2026-08-22.md`](campaigns/smash-fun-push-2026-08-22.md)
+"for the active push". That campaign is CLOSED** — its own header says *"do not
+use this file as Smash feature status"* and names THIS file as the successor —
+and it is the only file in `campaigns/`. ⚠ So the two pages pointed at each
+other, one of them wrongly, and a reader arriving from either end could bounce
+between them without finding the live list. Read the campaign only for the
+standing lessons it deliberately retains.
 
 `✔` shipped · `~` partial · `▢` absent
 

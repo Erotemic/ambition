@@ -378,7 +378,8 @@ has.
   touch overlay, render targets) that never go through the funnel.
   Measurement (`capture_scene hall_of_characters player … --warmup 400`,
   Quarter, llvmpipe): the two captures are **byte-identical** (md5
-  `c0312413be50`) and peak RSS is **1533 MB → 1392 MB**; the 141 MB is the
+  `c0312413be50` <!-- cite-ok: an md5 of the capture, not a commit -->) and
+  peak RSS is **1533 MB → 1392 MB**; the 141 MB is the
   hall's 131 MB of decoded pages plus their extract clone. On the 3090 the
   same CPU bytes leave the process at every tier (2.2 GB at Full was mostly
   this copy), and the extract zone becomes a move.

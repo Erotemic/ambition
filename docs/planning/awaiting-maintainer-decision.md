@@ -457,6 +457,13 @@ failure Jon's standing rule forbids.
 entry per portrait ACTUALLY SHOWN (~1.3–2.0 MP each), not the 163 baked
 manifests — so the tiers would save package size, not runtime memory.
 
+⭐ **AND THEY ARE STILL BEING PRODUCED, not left over.** Age signal
+(`measure_orphan_shipped_pages.py`): 439 of 475 comparable portrait files were
+written in the same run as their full-resolution twin or after it, median +3.07
+days — against the stranded sheet pages, where 44 of 44 predate their manifest.
+⇒ **A clean regen on another machine will reproduce these**, so the "wait for
+yardrat" answer that covers the stranded pages does not cover this row.
+
 ⇒ **Stop generating them, start baking them, or leave them?** The measurement
 says at most one tier (`0_5x`) could ever be wanted and two certainly cannot.
 The comment says portraits have no tier variants *currently*, which reads as

@@ -96,7 +96,8 @@ artifact that was not usable.
 
 ✔ **FIXED AND VERIFIED, 2026-09-03.** The header is now `@@ -173,8 +173,13 @@`,
 and `git apply` applies it cleanly to leafwing `0.21.0`'s
-`src/clashing_inputs.rs`, producing exactly the intended early return. Verified
+`src/clashing_inputs.rs` (a path in the upstream crate, not this repo; cite-ok),
+producing exactly the intended early return. Verified
 by applying it to a pristine copy of the 0.21 source and reading the result, and
 by confirming `git apply` REJECTS the old counts — so this is a real check, not
 a lenient one.

@@ -1598,6 +1598,13 @@ author          8.36   8.36    8.36     identical at every tier
 medic           7.54   7.54    7.54     identical at every tier
 officer         8.64   8.65    8.65     one pixel taller, not smaller
 ```
+⚠ **MACHINE-LOCAL, re-measured 2026-09-03.** On the box that raised this the
+script still reports the four; on calculex's box the same script reports ZERO
+(author 4.3 MB full vs 2.0 MB at 0_5x). The variants are gitignored build output,
+so this is a REGENERATION-HISTORY difference, not drift and not a fix: the raising
+box's variants are stale (`check_quality_variants_are_fresh` counts 82 stale tier
+files here — the regen awaiting Jon). The defect stands where the files are
+stale and closes by regenerating, not by editing.
 
 ⇒ **A room asking for those tiers decodes 67.2 MP where the tier promises
 ~10.5 MP** — 6.4x, per sheet, at every stage: decode, upload, residency. For
@@ -2225,7 +2232,7 @@ measurement this section is still waiting on, and it is one boot with
 ### 6. Live quality switching
 
 ✔ **The reverse leg is measured and half-repaired (2026-09-02).** Leaving the
-gallery (Quarter) for the hub (Full) is now a test in the shipped composition,
+gallery (then Quarter — both legs are Full since Jon's 2026-09-02 ruling) for the hub (Full) is now a test in the shipped composition,
 `leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest`, and its first
 run found three defects on the way out: (1) the per-token tier a transition
 forwards was CLAMPED to the active room's cap in `materialize_character_demand`

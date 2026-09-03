@@ -476,8 +476,14 @@ The one unresolved developer-policy choice from the session-ownership work is in
   is the subject. ⇒ First question for whoever picks it up: under the union, does
   some other presentation feature take ownership of block drawing, or does the
   room never reach the state that spawns them? Neither is answered here; both are
-  a build away, and the answer decides whether this joins the doctrine group above
-  or the `ConeRigAssets` group.
+  a build away. ⊙ **HALF-ANSWERED 2026-09-03: it is NOT the ConeRigAssets group.**
+  After the three guards there is no missing-parameter panic left anywhere in
+  the union, and these three still fail with the same message — so the blocks
+  are absent for a reason of their own, not because a system died before making
+  them. That leaves "another presentation feature owns block drawing under the
+  union" against "the room never reaches the state that spawns them", and only
+  the second is answerable without reading the union's feature set against
+  mary_o's composition.
   ✔ **THE 37 ARE FIXED (`8bac49a59`), and my "design choice" framing was wrong.**
   `engine/headless-verification.md` had already ruled on this exact class —
   *"the fix is usually NOT to register the resource. A gizmo or mesh system with

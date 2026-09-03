@@ -57,7 +57,19 @@ is a FILE + a SHA, never a chat message. Main is at `2eb71a6e2`; the tree was cl
   (`--vanished <parent>..<carve>`). Assigned review items #1 (audio publishers bypass the
   worktree symlink guard: SFX packer `Path.open("wb")`, music `shutil.copy2`; one helper + a
   test enumerating every publisher into every MIRRORED_TREES root; submodule halves are pointer
-  moves — list them as owed) and #4 (disk-policy contradiction). Not landed.
+  moves — list them as owed) and #4 (disk-policy contradiction).
+  ✔ **BOTH LANDED 2026-09-03** — `a56f35b79` (#1) and `879fa619b` (#4), pushed.
+  ⚠ Two corrections to the assignment as written, both found by checking rather
+  than reading: (a) **`tools/ambition_sfx_pack` is TRACKED IN THIS REPO, not a
+  submodule**, so the road that was actually writing through the mirror was
+  fixable here and is fixed and tested — only the music renderer
+  (`cli.py:363,370,398`, three bare `copy2`) is a submodule and owed;
+  `sprite2d_renderer`'s `_copy_sheet_files` was already guarded. (b) **#4 named
+  three files and a test; there were SIX** — the extra three
+  (`pickup-carve-checklist.md`'s mtime recipe, `performance-and-iteration.md`'s
+  pointer to it, `cheapest-sufficient-check.md`'s `rm -rf …/outlander`) are the
+  ones that were actually followed. The census of publishers now lives in
+  `mirror_assets_for_worktree.py`'s contract as a table.
 - `Smash demo combat and presentation` (`uds:/run/user/1000/cc-socks/383484.sock`, works IN the
   main tree) — non-CPU jobs on this box; last did the prose-sweep row (`8147eb618`). Idle.
 

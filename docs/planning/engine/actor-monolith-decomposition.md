@@ -489,6 +489,50 @@ Several completed slices established rules that should guide future ones:
 The detailed sequence of LDtk, conversation, boss, mount and other historical
 carves is available in git history and should not be reconstructed here.
 
+## D33 RULE — a carved domain owns its schedule end to end
+
+Settled 2026-09-02, after one carve shipped a live defect by getting it wrong and
+the next one stopped at the same fork.
+
+> **A carved domain's plugin configures its OWN sets end to end. A set that two
+> crates order on is `shared_tangle` vocabulary, configured by exactly one owner.
+> A carve that moves `add_systems` without `configure_sets` has moved the logic
+> and left the schedule.**
+
+⛔ **THE COUNTER-EXAMPLE IS IN THIS REPOSITORY AND IT SHIPPED:** `69641a83f`
+carved `ambition_world_items` out, moved the two systems' `add_systems` line and
+the ordering *between* them, and left behind the `configure_sets` that said
+`ItemPickupSet::CoreHeldItems` was `.in_set(PlayerSimulation)` and
+`.after(BodyCustodySettled)`. Both facts were lost — session authorization and
+the custody edge — and the new plugin's own comment claimed the scheduling was
+preserved, because the author had checked the ordering and not the membership.
+⚠ It compiles, it runs, and both systems execute every frame. Nothing fails.
+
+⭐ **THE PRECEDENT FOR DOING IT RIGHT** is the fix for that same defect:
+`WorldItemSet` lives in `shared_tangle` as VOCABULARY so crates outside can order
+on it, and the OWNING plugin does both the `configure_sets` (nesting in
+`PlayerSimulation`, `.after(BodyCustodySettled)`, each variant `GameplayGated`)
+and the `add_systems`; the kernel merely composes the plugin.
+⚠ SHA deliberately not cited here — that fix is yardrat's and had not landed on
+this remote when this rule was written. Fill it in when it does, rather than
+citing a commit nobody can resolve.
+
+⇒ **WHAT IT MEANS FOR A CARVE IN PROGRESS**, and the pickup cut is the worked
+example: split a set family BY VARIANT so one crate owns one variant's rules end
+to end. Do not split a single variant's `configure_sets` from its `add_systems`.
+The kernel's plugin keeps only the sets whose members it still owns, and the
+moved tests build the CARVED plugin rather than the kernel's — which is what
+makes them able to leave at all.
+
+⛔⛔ **AND THE GUARD SHAPE, because the obvious guard does not catch this.**
+Assert phase MEMBERSHIP in the carved crate's own tests — that its systems are
+members of the phase set they must run in — never that the systems EXIST. The
+defect above shipped with both systems present and running every frame, so an
+existence check is green on it. ⚠ A carved crate whose tests register into sets
+that nothing configured will pass ordering assertions VACUOUSLY, which is why
+the owning plugin must configure them: the test builds the same plugin the game
+does, or it is testing a different schedule.
+
 ## Slice selection
 
 Before starting a carve, answer:

@@ -143,6 +143,12 @@ def test_a_double_backtick_code_span_hides_the_link_inside_it():
     was reported as a broken link by `check_agent_kb.py`, which imports this
     helper — reddening `./run_tests.sh --maintenance` on exactly the false
     positive that journal row exists to describe.
+
+    ✔ AND THE CHANGE IS EXACTLY THIS WIDE. Diffed both regexes over every `.md`
+    in the tree: the new one hides **one** link the old one exposed — this false
+    positive — and exposes **zero** links the old one hid. A pattern that can now
+    span backticks could in principle over-blank and swallow a real broken link;
+    measured, it does not.
     """
     import check_doc_links as cdl
 

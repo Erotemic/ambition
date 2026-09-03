@@ -1104,6 +1104,19 @@ OPTIONAL dep + feature, never used:
      ⇒ Items 1–8 are ledgers a MERGE does not touch. The lane is how you find
      the ones nobody has thought to list yet.
 
+  10. **⛔ IF THE CARVE'S DESTINATION HOLDS DOC COMMENTS, add it to
+     `check_doc_link_ratchet.py`'s `CRATES` — IN THE CARVE'S OWN COMMIT.** That
+     list carries the instruction already ("when architecture moves out of a
+     tracked crate, add its destination in the same change so the ratchet does
+     not mistake reduced coverage for improvement") and cut 1 did not follow it.
+     ⭐ The failure mode is the opposite of a red: the monolith read as
+     **improved**, 63 → 59, because four broken doc links LEFT with the carved
+     code and one arrived in an untracked crate. A ratchet that only ever falls
+     is measuring its own shrinking population. Added after the fact at
+     `bf4e6f353`; it is one line in the carve if you remember.
+     ⚠ Reachable locally only since `3e85e4071` — it is a cold `cargo doc` over
+     nine crates and lives in `./run_tests.sh --maintenance`, not the gate.
+
   ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`

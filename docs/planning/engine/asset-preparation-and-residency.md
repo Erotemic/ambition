@@ -734,6 +734,36 @@ being counted from the wrong clock — ⛔ **not a marker on the NPC bundle.**
 ⇒ The measurement that names it: the frame `spawn_room_visuals` runs for the
 hall, against the frame each `NpcSpawn` row first appears in `FeatureViewIndex`.
 
+✔✔ **ANSWERED 2026-09-03 — THE PARALLAX GATE DEFERS THE WHOLE ROOM SPAWN.**
+Found by yardrat and ambition-df; both citations verified here independently.
+`sync_session_room_visuals` (`ambition_render/src/platformer_presentation.rs:198`)
+computes `wants_parallax` from `quality.budget.parallax.enabled` and, when the
+room's `ParallaxTheme` has no layer registered yet, **`return`s at line 260** —
+and `spawn_room_visuals` is called at **line 274**, after it. So every room
+visual waits on the backdrop, interactable NPCs included.
+
+⇒ **Which is exactly the tier split, with no tier-scaling in it.** Potato
+disables parallax outright (`settings/video/tests.rs:144` asserts
+`!potato.parallax.enabled`), so the gate never engages and the visuals spawn at
+once — 0 placeholders. Ultra wants parallax, waits for the theme, and the whole
+cast crosses the 5-frame grace while it loads: 129 stand-ins, ~370 ms after the
+reveal.
+
+⭐ **CORROBORATED BY A COUNT NOBODY HAD TAKEN**: `hall_of_characters.ldtk`
+contains **exactly 129 `NpcSpawn` instances** — and **zero `EnemySpawn`, zero
+`BossSpawn`**. So the 129 warnings are the ENTIRE cast, not a subset, which is
+what a whole-function deferral predicts and what a per-body claiming problem
+does not.
+⚠ **And it makes df's cross-check untestable in this room**: enemies and bosses
+lower through the same function downstream of the same `return`, so they should
+burst too — but the hall has none. That prediction needs a room with enemy
+spawns, and it is worth running, because it separates "the gate defers
+everything" from "the gate defers interactables".
+
+⇒ **Fix shape (df): scope the early return to the parallax spawn alone**, so a
+missing backdrop stops the backdrop rather than the room. ⓘ Assigned by 383484;
+⛔ not to be started in the main checkout while their gate window is open.
+
 ⚠ **WHAT SURVIVES THE RETRACTION**, because it was measured rather than read:
 the texture-readiness instrument printed nothing (so `!texture_is_ready` is not
 where they stop), `upgrade_actor_sprites` cannot create a visual, and the

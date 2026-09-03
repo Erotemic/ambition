@@ -150,10 +150,16 @@ pages were individually accurate and the conclusion was in neither.
   — the footprint's remaining **18** crates cannot be cut by any manifest change,
   because every one arrives through the actor monolith. The footprint page knew
   its number; the carve page knew its scope; neither said that one is the other's
-  only lever. ⚠ **16 here was already stale when written** — the contract prints
+  only lever. ⚠ **16 here was already stale when written** — the contract then printed
   `45 crates linked, 18 a movement-only game never asked for`, and the owning
   page said 43/16 while `queue.md` said 44/16. Three retyped copies, three
   different values, one printed source. ⇒ Quote the line the gate PRINTS.
+  ⛔ **AND THIS PARAGRAPH PROVED ITS OWN POINT ON 2026-09-03**: re-running
+  `scripts/check_absence_contracts.py` prints **`49 crates linked, 22 a
+  movement-only game never asked for`**. The passage warning against retyped
+  numbers had itself retyped one, and it went stale the ordinary way — crates
+  kept joining the closure. ⇒ Which is the argument for the rule, not against
+  it: do not copy 49 either. Run the contract.
   (Corrected 2026-09-03; the ratchet itself was healthy — the baseline JSON has
   carried 44/17 since `ff1ce535b`, a deliberate bump, so this was documentation
   drift and not a footprint regression that slipped a guard.)

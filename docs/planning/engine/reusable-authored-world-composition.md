@@ -25,9 +25,23 @@
 > | portal mechanisms | 264 |
 > | moving machinery (`KinematicPath` / `MovingPlatform`) | 58 |
 > | shrines | 40 |
-> | encounter assemblies | 27, in 2 crates |
+> | encounter assemblies | 27, in 2 crates — ⚠ **at least 3 crates since 2026-09-03**, see below |
 > | environmental hazards (`HazardSpec` / `HazardRespawn`) | 11 |
 >
+> ⚠ **THE ENCOUNTER ROW'S "2 crates" IS STALE, AND ITS COUNT CANNOT BE RE-RUN.**
+> Encounter code lives in **three** crates as of 2026-09-03 —
+> `ambition_boss_encounter`, `ambition_encounter`, and `ambition_encounter_features`,
+> the last carved out of the actor monolith that day. ⛔ But the `27` is NOT
+> corrected here, because this table records its instrument only as *"files
+> mentioning each"* and never says the term it grepped. Today a case-sensitive
+> `Encounter` across `crates/` and `game/` lands 27 files in `boss_encounter`
+> alone and dozens more across six other crates — which is either enormous
+> growth or a different question, and there is no way to tell which from what
+> the table wrote down. ⇒ Re-measuring it would mean inventing an instrument and
+> then comparing against a number taken with another one, which is the error
+> this repo's own recipe warns about. The row needs its search term recorded
+> before its number means anything again.
+
 > ⇒ **So the two halves of the incubation are BOTH still true, which is why it
 > stays incubating.** The pressure is real and unrelieved — five predicted
 > families, all built out, none sharing a composition abstraction. And no

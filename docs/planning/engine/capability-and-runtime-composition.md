@@ -36,9 +36,13 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **45 crates linked, 18 of them a
-> movement-only game never asked for** (`479f9d3e4`, when
-> `ambition_registry_core` entered the closure).
+> number every time the gate runs: **49 crates linked, 22 of them a
+> movement-only game never asked for** — re-run 2026-09-03. ⚠ **This row read
+> 45/18 (`479f9d3e4`, when `ambition_registry_core` entered the closure) until
+> then**, and the drift is the ordinary kind: crates keep joining the closure,
+> so any transcribed copy of this pair starts aging the moment it is typed.
+> ⇒ Do not trust 49/22 either — `scripts/check_absence_contracts.py` prints the
+> current pair in under a minute, and that line is the authority.
 > ⛔ **DO NOT RETYPE IT — re-derive:**
 > `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
 > the live pair from `scripts/baselines/capability-footprint-baseline.json`.

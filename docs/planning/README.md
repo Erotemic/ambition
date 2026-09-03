@@ -120,7 +120,14 @@ part.
 - `engine_rename_campaign.md` — header-bearing, and accurate on every claim.
   Confirms the sample.
 - `game/bosses.md` — **no header, two months unread — the oldest page here — and
-  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status. What rots is a
+  accurate.** ⇒ Because it is DESIGN LANGUAGE, not status.
+  ⭐ **And the class has a mechanical tell, measured 2026-09-03:** `vision.md`,
+  `game/vision.md` and `game/ambition.md` carry **zero backticked identifiers
+  between them**. A page with no names, paths or counts has nothing the workspace
+  can falsify, so a re-verification pass on one buys nothing. ⇒ Count the
+  backticks before spending a pass: they are the page's surface area against the
+  code, and a page with none is either doctrine (leave it) or a status page that
+  forgot to cite anything (the real problem). What rots is a
   sentence about the current state of the code; a sentence about what a boss IS
   can sit unread for a year. Do not read a missing header on a design page as a
   reason to distrust it, and do not spend a re-verification pass on one.

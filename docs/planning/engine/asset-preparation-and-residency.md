@@ -1544,6 +1544,25 @@ confidence** — three that carry a reason and one that is an upper bound:
   that `.ron` is never baked either, so claimedness is simply the wrong question
   here. ⇒ This is generator over-production against a stated engine intent, not
   an engine gap.
+
+  ⓘ **The missing manifests are POLICY; the present images are the anomaly.**
+  `check_quality_variants_are_fresh.py::absent_variants` already records that
+  portraits are *"published SELECTIVELY, so their absence is policy"* — 160
+  `_portraits.ron` at full against 9 per reduced tier. The open half is why the
+  PNG is generated at a tier whose manifest is deliberately withheld — and why
+  the 9 that ARE published per reduced tier cannot be read either:
+  `PortraitSheetRegistry` is built `from_baked_table(BAKED_PORTRAIT_RONS)`, and
+  `build.rs` bakes from `assets/sprites` only. A deliberate selective
+  publication produces files no build can load.
+
+  ⭐⭐ **AND THE NINE NAME FOUR FAMILIAR SHEETS.** They are `actor`, `author`,
+  `medic`, `officer` plus five pirates — and `actor`, `author`, `medic`,
+  `officer` are FOUR OF THE FIVE sheets whose reduced tiers are not reduced, and
+  are among the 15 the pack does not cover. ⇒ A **third** symptom on the same
+  four names. ⚠ Still a LEAD, not a diagnosis, and the disconfirming halves
+  belong with it: the five pirates carry the portrait symptom without the other
+  two, and `performer` carries the tier symptom without this one. If it were one
+  cause the sets would coincide, and they do not.
 * ⚠ **UNMENTIONED — 300 files, 1.6 MB, UPPER BOUND ONLY.** Named in no manifest
   and in no committed `.rs`/`.ron`/`.ldtk`/`.toml`/`.json`/`.py`. A path
   assembled at runtime (`format!("sprites/{name}.png")`) is named nowhere either

@@ -206,6 +206,20 @@ rediscovering. Four passes, cheapest first:
    three poisons on the sheet-presence check hit files it deliberately ignores,
    and each printed a green that could have been taken for proof.
 
+5. **Ask WHICH LANE names each guard.** For every `scripts/check_*.py`, does the
+   gate, the pytest lane, or CI mention it? On 2026-09-03: 14 of 16 reachable
+   locally, and the two that were not (`check_doc_link_ratchet`,
+   `check_zone_name_ratchet`) were CI-only — one of them holding two unread
+   regressions. This is the pass that found entry #11, and it is the first
+   entry on this page found on purpose rather than by accident.
+
+6. **Ask which guards have a TEST OF THEIR OWN.** Three of sixteen had none,
+   including `check_doc_links`, which the DEFAULT GATE runs. Writing one found a
+   rule the module applied to one matcher of two. ⭐ Prioritise the guards whose
+   best possible score is ZERO — they cannot distinguish "nothing is wrong" from
+   "I measured nothing", so their population floor is the arm to test, and the
+   floor is exactly what nobody writes a test for.
+
 ⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
 (`discover_all_targets()`, `grep -l <shared module>`), and when two of your own
 measurements disagree, the coherent one is not automatically the true one.

@@ -26,6 +26,20 @@ This file intentionally does not retain answered decision transcripts.
 > ⚠ Two entries gained a fact worth having before you answer: 36 needs FOUR rows
 > rather than three (the shark has a separate hall variant), and 39's answer costs
 > one authored field on one move rather than an implementation.
+>
+> ✔ **AND THE QUOTED NUMBERS WERE RE-RUN, not just the premises.** Several entries
+> name the script that produced their figure, which makes checking them one
+> command each:
+>
+> | instrument | entry's figure | re-run 2026-09-03 |
+> |---|---|---|
+> | `measure_character_data_coverage.py` | 23 of 149 | **23 of 149** ✔ |
+> | `measure_fx_row_reachability.py` | 34 of 35 rows unnamed | **34 of 35** ✔ (`george_booul_vfx` 20/21, `pirate_admiral_vfx` 14/14) |
+> | `measure_orphan_shipped_pages.py` | 487 files, 14.2 MB | **438 files, 13.4 MB** — drifted, corrected in place |
+>
+> ⇒ Two of three exact after a day, one drifted by 49 files. **The entries that
+> name their instrument are the ones that could be checked at all**, which is the
+> argument for naming it every time a number goes into this file.
 
 ⛔ **NUMBERING: TAKE ONE ABOVE THE HIGHEST NUMBER PRESENT, and check first.**
 The entries are NOT in numeric order — the top block runs newest-first and an

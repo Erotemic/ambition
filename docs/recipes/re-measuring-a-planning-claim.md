@@ -498,6 +498,54 @@ question worth asking of a document that claims something DOES. A systems page
 describing a current boundary must resolve; a planning page naming what to build
 must not.
 
+### ⭐ Before writing a grep, ask whether the COMPILER already answers it
+
+The queue row "N dependency declarations are never named in their crate's
+source" is a question about Rust, asked in text. I answered it in text: a sweep
+of every manifest's `ambition_*` deps against the crate's own files. It took
+three iterations to stop being wrong, and it was wrong in BOTH directions.
+
+- **False positives, 4 of 6.** The sweep read `src/` only, so four deps used in
+  the crate's `tests/` were reported stranded. See the eighth false-absence
+  entry above.
+- **A false negative, and it is the prettier failure.** Widened to the whole
+  crate, the sweep still missed `ambition_abilities -> ambition_items`, because
+  the string does occur in the crate — once, inside a `//!` doc comment, as the
+  intra-doc link ``[`ambition_items::Item::Grapple`]``. A DOCUMENTATION
+  CITATION made a dependency look live to a text search. No amount of widening
+  the file set fixes this one; the fix is to stop matching text.
+
+⇒ `rustc` has answered this question since 1.44: **`-W unused_crate_dependencies`**.
+One command, no manifest edit, no heuristic:
+
+    cargo rustc -p <crate> --lib -- -W unused_crate_dependencies
+
+It named all three in `ambition_abilities` in 58 seconds, including the one I
+could not have found by reading, and it cannot produce either error above
+because it is reading the same resolved crate graph the build reads. Prefer
+`cargo rustc` over a `RUSTFLAGS=` run: the flag then applies to that crate only,
+so the shared target cache is not invalidated and every dependency stays warm.
+
+⭐ This is the twin of *"check whether a test already drives it"* further down.
+Both say: the repository and its toolchain already contain instruments better
+than the one you are about to build, and the cost of not looking is not just the
+build time — it is that a hand-rolled instrument fails SILENTLY and in
+directions you did not enumerate. I published a wrong count from mine before the
+compiler corrected it.
+
+⚠ **What the lint does NOT settle.** `--lib` asks only whether the library
+target names the crate. Three residues need a human:
+  • a dep used only by `tests/` is not unused, it is MISFILED — it belongs in
+    `[dev-dependencies]`, and the lint on `--lib` will call it unused;
+  • an optional dep referenced from the manifest's own `[features]` table
+    (`causal = ["dep:ambition_causal"]`) is public feature surface, and removing
+    it changes what downstream crates can turn on;
+  • a dep reached only by an intra-doc link is load-bearing FOR THE DOCS —
+    delete the dependency and rustdoc's link breaks, so the removal is two edits,
+    not one.
+⇒ So the lint replaces the grep as the DETECTOR and does not replace the
+judgement about what each hit means.
+
 ### ⭐ Before building an instrument, check whether a test already drives it
 
 The most expensive re-measurement of 2026-09-03 was the one that needed no new

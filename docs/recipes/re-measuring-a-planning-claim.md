@@ -10,10 +10,14 @@ how one ought to work. They are here because the same session made each mistake,
 published some of them to a coordinator, and had to retract.
 
 ⭐ **The shape they share: a re-measurement is a MEASUREMENT, and the usual way to
-be wrong about a measurement is to be wrong about the instrument.** Seven of the
-eight below are an instrument error — a filter that could not match, a scan at the
-wrong granularity, a signature read instead of a body — and not a mistake about
-the code.
+be wrong about a measurement is to be wrong about the instrument.** Most of what
+follows is an instrument error — a filter that could not match, a scan at the
+wrong granularity, a signature read instead of a body, a count that was a
+property of its flags — and not a mistake about the code.
+⚠ **This page deliberately carries no total.** It had one, it went stale the same
+day it was written as rules were added, and *"a count is not a finding unless the
+instrument travels with it"* is one of the rules below. A page that numbers its
+own contents has to be re-counted by every editor; the sections are the list.
 
 Sibling page: [`checks-that-did-not-run.md`](checks-that-did-not-run.md), which is
 the same subject one level down — a CHECK that is correct and never runs.

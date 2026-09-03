@@ -412,3 +412,28 @@ exactly when the raw number is large enough to feel like a discovery.
 presence/absence sweep over rule DATA is meaningless until you know what each
 rule ASSERTS. Existence is evidence only relative to a claim, and half the claims
 in a policy engine are negative.
+
+### Surfaces swept clean on 2026-09-03, so you do not sweep them again
+
+A negative result is worth writing down once, with its date and its command, or
+the next person pays for it a second time. All of these were run against
+`fdb83d4e9` and found **nothing** — each took under a minute:
+
+| surface | population | result |
+|---|---|---|
+| script paths cited anywhere in `docs/` (`scripts/`, `tools/`, `dev/`) | 372 citations | 0 genuinely missing |
+| doc paths cited in `tests/ambition_workspace_policy/` | 262 citations, 13 documents | 0 unresolved, and only ONE cited doc is a distilled receipt |
+| `paths = [...]` literals in the policy TOMLs | 365 literals | 0 unresolved in rules that need their target present |
+| `related_docs:` frontmatter across `docs/` | 125 entries | 0 missing |
+| path citations in `AGENTS.md` | 22 | 0 missing |
+| pages under `docs/` that nothing links to | 278 documents | 3, of which 2 are closed receipts |
+| tools missing from `docs/tools/index.md` | 11 tool directories | 0 — the index groups by guide, and all are covered |
+
+⚠ **Three of those seven produced a scary intermediate number that dissolved on
+inspection**, and each dissolved for a reason worth knowing: 45 "unresolved"
+policy paths were all `forbidden-path` rules; 5 "unindexed" tools were all
+covered by group guides the index points to; 3 "missing" scripts were a dated
+patch record, an elided `.../` shape, and a row already carrying `cite-ok`.
+⇒ **The population is never the finding.** Read what the rule asserts, what the
+index claims to be, and what the citation is FOR, before counting anything as
+wrong.

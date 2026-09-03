@@ -389,6 +389,13 @@ def main() -> int:
             "permanent allowance."
         )
         return 1
+    # ⛔ SAY SO. This exited 0 printing NOTHING AT ALL, which is what a check
+    # that never ran also looks like — and every sibling `check_*.py` prints an
+    # `OK:` line. A silent pass is the one result a reader cannot audit.
+    print(
+        f"OK: {len(offenders)} unclaimed engine presentation system(s) against a "
+        f"budget of {UNCLAIMED_BUDGET} ({len(WAIVERS)} waived with a reason)."
+    )
     return 0
 
 

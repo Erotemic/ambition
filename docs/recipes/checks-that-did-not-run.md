@@ -123,6 +123,28 @@ in the DEFAULT plan, or only in the one nobody runs?** A test that only the
 exhaustive plan executes is a test that runs when somebody already suspects a
 problem.
 
+### The negative result #10 was hiding, now that the instrument reports honestly
+
+Worth finishing, because the aborted version of this was going to be a dramatic
+finding. With every owner named, the shipped headless composition in
+`hall_of_characters` bills systems to **12 of the 17** capability crates in the
+facade's `all_capabilities`. The five that bill none are
+`ambition_cutscene`, `ambition_settings_menu`, `ambition_sfx`,
+`ambition_sfx_bank` and `ambition_ui_nav`.
+
+⇒ **And all five are correctly absent.** None of them defines a Bevy `Plugin`,
+and the only `add_systems` calls anywhere in the five are two inside
+`ambition_sfx`'s own unit tests (`World::new()`, `Schedule::default()`). They are
+data and vocabulary crates; a system census has nothing to say about them. Audio
+itself is composed here — `ambition_audio` bills 10 systems — so their silence is
+not a headless artifact either.
+
+⭐ **The finding is that there is no finding.** Read through the truncated row
+the same evidence said 16 of 17 capabilities were dead. Read through the fixed
+row it says twelve do work, five are the wrong shape of thing to ask about, and
+nothing is unaccounted for. An instrument that narrows silently does not just
+lose precision — it manufactures the more interesting answer.
+
 ## The three remedies, and which one you are actually reaching for
 
 Reading the fixes together is more useful than reading any one of them, because

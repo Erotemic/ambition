@@ -524,9 +524,25 @@ preserved, because the author had checked the ordering and not the membership.
 on it, and the OWNING plugin does both the `configure_sets` (nesting in
 `PlayerSimulation`, `.after(BodyCustodySettled)`, each variant `GameplayGated`)
 and the `add_systems`; the kernel merely composes the plugin.
-⚠ SHA deliberately not cited here — that fix is yardrat's and had not landed on
-this remote when this rule was written. Fill it in when it does, rather than
-citing a commit nobody can resolve.
+⇒ **It landed: `9a89bfa20`**, with the guard in `2d27c46f4`. (The SHA was
+deliberately left blank when this rule was written, because the fix was on
+another machine and citing a commit nobody could resolve is worse than citing
+none.)
+
+⛔⛔ **AND WRITING THE GUARD FOUND A SECOND WAY TO BE VACUOUS**, one this rule
+did not anticipate and every carved crate will meet. Bevy 0.19 reports a system
+as `"<Enable the debug feature to see the name>"` unless `bevy_ecs`'s `debug`
+feature is on, and a carved crate that takes `bevy` with
+`default-features = false` does not turn it on. So the name-based membership
+lookup in the monolith's own `actor_decision_phase_tests` — the obvious thing to
+copy — works there only because something ELSE in that build enables the
+feature. Copied into `ambition_world_items` it passed under `--workspace` and
+failed under `-p ambition_world_items`: a guard whose verdict depends on who
+else is in the build, which is the same defect as a guard whose edges depend on
+who else configured them. ⇒ **Identify a system by SHAPE, not by name**: assert
+the member COUNT of each set against the number the plugin adds. It is exact
+rather than approximate whenever the plugin's systems are the only ones present,
+which on a bare `App` they are.
 
 ⇒ **WHAT IT MEANS FOR A CARVE IN PROGRESS**, and the pickup cut is the worked
 example: split a set family BY VARIANT so one crate owns one variant's rules end

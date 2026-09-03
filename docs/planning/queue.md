@@ -1229,6 +1229,19 @@ The one unresolved developer-policy choice from the session-ownership work is in
   sibling carve shipped a live phase-membership defect by moving `add_systems`
   and leaving `configure_sets`; this fork is the same hazard one level up, and it
   is not a thing to settle at the end of a long session.
+  ✔ **ANSWERED — take the second branch.** The rule is
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+  §*D33 RULE — a carved domain owns its schedule end to end*: the new crate
+  publishes its own plugin and that plugin does BOTH the `configure_sets` and the
+  `add_systems` for the sets it owns; a set two crates order on moves to
+  `shared_tangle` as vocabulary with exactly one configuring owner. The third
+  branch's vacuity worry is answered by the same shape — a carved crate's tests
+  build the CARVED plugin, so the sets they assert on are configured by the thing
+  under test. Worked precedent, sibling carve now closed: `9a89bfa20` (the fix)
+  and `2d27c46f4` (the guard, which asserts phase MEMBERSHIP by set-member COUNT
+  rather than by system name — Bevy 0.19 strips names without `bevy_ecs`'s
+  `debug` feature, so a name lookup is green or red depending on who else is in
+  the build). ⇒ The cut is unblocked; what remains is mechanical.
   ⚠ The scaffold built while finding this was deleted rather than left
   half-landed — it was untracked and nothing was committed.
 

@@ -14,6 +14,8 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
+pub mod encounter_spawn_service;
+pub mod world_gating;
 pub mod checkpoint_horizon;
 mod combat_schedule;
 pub mod content_identity;
@@ -389,11 +391,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Feature (room-entity) collection + interaction schedules.
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
-            .add(ambition_platformer2d_actor_monolith::encounter::EncounterSimulationSchedulePlugin)
+            .add(ambition_encounter_features::EncounterSimulationSchedulePlugin)
             // Every writer of `gate_solids`, in one place: the encounter-phase
             // seal walls and the authored-condition ones. Their adjacency is the
             // point — see the plugin's module doc.
-            .add(ambition_platformer2d_actor_monolith::world::gating::WorldGatingSchedulePlugin)
+            .add(crate::world_gating::WorldGatingSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)
@@ -401,6 +403,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // list; composed beside its siblings so no registration for it
             // lands back in the encounter adapter.
             .add(ambition_platformer2d_actor_monolith::features::EncounterRewardSyncPlugin)
+            // The kernel serves the encounter domain's spawn requests; the
+            // registration is here so the domain's own plugin names nothing in
+            // the actor crate.
+            .add(crate::encounter_spawn_service::EncounterSpawnServicePlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
             .add(ambition_platformer2d_actor_monolith::features::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)

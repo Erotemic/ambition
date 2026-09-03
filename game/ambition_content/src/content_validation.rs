@@ -322,7 +322,7 @@ fn validate_quest_conditions(
         .map(|set| set.rooms)
         .unwrap_or_default();
     let loaded_encounters =
-        ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_rooms(
+        ambition_encounter_features::load_encounter_specs_from_rooms(
             &rooms,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             waves.as_ref(),

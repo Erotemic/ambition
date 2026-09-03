@@ -61,7 +61,6 @@ pub mod config;
 // blocker — the SCHEDULE was.
 pub mod cutscene;
 pub mod dev;
-pub mod encounter;
 #[cfg(test)]
 pub mod enemy_projectile;
 pub mod items;

@@ -68,6 +68,7 @@ ambition_sim_view = { path = "../../crates/ambition_sim_view" }
 ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
 ambition_combat = { path = "../../crates/ambition_combat", features = ["content_pack"] }
 ambition_encounter = { path = "../../crates/ambition_encounter" }
+ambition_encounter_features = { path = "../../crates/ambition_encounter_features" }
 # N3.1: this crate's boss specials hold SIM STATE, so they register their own
 # snapshot codecs (`SnapshotRegistry` is a resource). netcode.md: "each sim crate
 # registers its components' serialization."

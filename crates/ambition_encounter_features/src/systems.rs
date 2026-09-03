@@ -28,7 +28,7 @@ use ambition_encounter::{
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
-use super::load_encounter_specs_from_rooms;
+use crate::load_encounter_specs_from_rooms;
 use ambition_encounter::switches::EncounterSwitchIndex;
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
@@ -176,10 +176,17 @@ pub fn drive_wave_encounters(
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
     )>,
+    // ⭐ THE CHEST QUERY LEFT WITH THE REWARD RETIRE (2026-09-03). This system
+    // drives waves; it has no business reading an encounter's reward entities,
+    // and it only ever did because the retire was wedged into its switch loop.
 ) {
-    let Some(_session_scope) = commands.spawn_scope() else {
+    // The session gate stays: this system spawns nothing now, but it wrote
+    // persisted switch state and quest flags before the drain split out, and
+    // gating the whole driver on a live session is the behaviour it has always
+    // had.
+    if commands.spawn_scope().is_none() {
         return;
-    };
+    }
     let active_area = session_world.active_spec().id.clone();
     if player_body_q.is_empty() {
         return;
@@ -412,6 +419,7 @@ pub fn drive_wave_encounters(
 /// completion, reward-chest sync, music request, presentation read-model,
 /// save projection, and the trace sink for every encounter event.
 pub fn apply_wave_encounter_effects(
+    // Not `mut`: this adapter stopped spawning when the reward sync left.
     commands: SessionCommands<'_, '_>,
     mut events_in: MessageReader<EncounterEventMsg>,
     encounters: Query<(

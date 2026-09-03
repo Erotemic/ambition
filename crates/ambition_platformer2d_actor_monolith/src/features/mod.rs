@@ -1182,11 +1182,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),
         );
-        app.add_systems(
-            sim,
-            crate::encounter::rebuild_encounter_switch_index
-                .in_set(FeatureInteractionSet::SwitchIndex),
-        );
+        // ⭐ The encounter switch index registers itself from
+        // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`
+        // is `shared_tangle` vocabulary, so the owning crate can name its own
+        // slot without this crate naming the owning crate.
     }
 }
 

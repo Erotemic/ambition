@@ -1102,3 +1102,9 @@ pub fn serve_encounter_spawn_commands(
         );
     }
 }
+
+// ⭐ THE SPAWN SERVICE PLUGIN AND ITS GUARD MOVED TO THE RUNTIME (2026-09-03).
+// The system above is this crate's — body construction is the kernel's job —
+// but its REGISTRATION orders against `ambition_encounter_features`'
+// `WaveEncounterDriven`, and this crate must not name that crate. The runtime
+// composes both, the same way it composes `ambition_world_items`.

@@ -65,6 +65,37 @@ A convincing pre-story milestone is a session where the robot can:
 - optionally separate from another participant into a different room once the
   multiplayer architecture is ready.
 
+### Which of these the ENGINE already pins, measured 2026-09-03
+
+A product milestone is judged by playing it, not by grepping — but five of the
+eight have engine acceptance today, and naming which does two things: it stops a
+reader assuming none of it is real, and it isolates the three that a session
+would actually be the first to exercise.
+
+| acceptance criterion | engine acceptance at HEAD |
+|---|---|
+| explore multiple interconnected regions | ✔ `leaving_a_room_and_returning_rebuilds_what_entering_it_built` |
+| acquire materially different traversal capabilities | ⛔ **none found** — see below |
+| move/hold/equip/drop persistent objects | ✔ `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` (both retention legs) |
+| alter world mechanisms, return to the changed state | ✔ `switches_restore_their_on_state_from_the_save`, and the reconstitution census compares switch position across every lifecycle path |
+| encounter persistent and spawned actors | ✔ the encounter suite, plus `a_spawn_request_on_the_bus_becomes_a_body` |
+| save/reload without losing instance/location truth | ✔ `loading_a_save_builds_the_room_a_re_entry_builds` and `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` |
+| navigate enough that tooling can reason about routes | ▢ open — the navigation frontier |
+| separate from another participant into another room | ▢ gated — A3 in [`multiplayer.md`](multiplayer.md), needs several resident rooms |
+
+⛔ **THE SECOND ROW IS THE INTERESTING ONE, and it agrees with a finding made
+independently on another page.** No acceptance was found for *acquiring* a
+capability and thereby reaching somewhere new — and
+[`../engine/capability-progression-and-world-gating.md`](../engine/capability-progression-and-world-gating.md)
+measured why: **nothing gates a route on a body capability.** `AbilitySet` exists
+with fourteen fields; the types named `*Gate` are action, encounter and
+out-of-shield sequencing. A capability changes what a body CAN DO and never what
+the world will LET IT PAST.
+⇒ So *"why can I go there now?"* — this page's North Star question — has no
+mechanism behind it yet, and that is one gap rather than two: the missing
+acceptance and the missing gate are the same hole seen from the product side and
+the engine side.
+
 ## Open design questions — deliberately unresolved
 
 - What initial region is large enough to stress open-world systems without

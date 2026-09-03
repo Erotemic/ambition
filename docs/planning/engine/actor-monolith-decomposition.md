@@ -861,7 +861,7 @@ body is assembled) stays with the kernel that owns bodies.
 The adapter today computes `cleared_specs` by filtering encounters whose
 `ambition_encounter::EncounterPhase` is `Completed`, then PUSHES that list into
 `crate::features::sync_encounter_reward_chests_ecs`
-(`encounter/systems.rs:557`); `clear_encounter_reward_ecs` (`:447`) is the same
+(`encounter/systems.rs:557` <!-- cite-ok: pre-carve path; the adapter is crates/ambition_encounter_features since 32a911a7d -->); `clear_encounter_reward_ecs` (`:447`) is the same
 shape in reverse. Both facts — *cleared*, and *a prior clear must be dropped* —
 are already owned by `ambition_encounter`, which has the phase, the lifecycle
 events and `EncounterLifecycleSet`.
@@ -942,14 +942,16 @@ wiring.
 
 #### What is LEFT, measured after the cuts (2026-09-03)
 
-**The adapter's kernel seams went 7 → 1, and the one left is a REGISTRATION:**
+**The adapter's kernel seams went 7 → 0 in production code** (2026-09-03). Every
+file — `mod.rs`, `systems.rs`, `loading.rs`, `switch_index.rs`, `lock_walls.rs` —
+names nothing in the actor kernel. The spawn server's registration went home to
+`features::EncounterSpawnServicePlugin`, composed by the runtime.
 
-| seam | file | kind |
-|---|---|---|
-| `serve_encounter_spawn_commands` | `mod.rs` | the spawn server's registration; it leaves when the plugin does |
-
-`systems.rs`, `loading.rs` (207 lines), `switch_index.rs` (36) and `lock_walls.rs`
-name **nothing** in the kernel.
+⚠ **One TEST-only reference remains and should:** the ordering guard builds both
+the domain's plugin and the kernel's service plugin, because the invariant it
+pins (server after driver) now spans two crates and only a crate that can name
+both can assert it. That is the guard being in the right place, not a residual
+seam.
 
 Retired since this table was first written: `EncounterMobSeed` and
 `spawn_encounter_mob` (seam a), `sync_encounter_reward_chests_ecs` (seam b),
@@ -1038,12 +1040,35 @@ INTO `ambition_encounter`. Measured, it can, and the list is short.
 `ambition_content`, `ambition_platformer2d` (the facade) and
 `ambition_platformer2d_host` — all three ABOVE the encounter domain. Every one of
 those mentions is a COMMENT, an `include_str!` path to a content asset
-(`encounter/loading.rs:23`), or a log TARGET string literal
-(`encounter/systems.rs:119`). None is a crate dependency. ⚠ A `cargo tree`-shaped
+(`encounter/loading.rs:23` <!-- cite-ok: pre-carve path, now ambition_encounter_features/src/loading.rs -->), or a log TARGET string literal
+(`encounter/systems.rs:119` <!-- cite-ok: pre-carve path, now ambition_encounter_features/src/systems.rs -->). None is a crate dependency. ⚠ A `cargo tree`-shaped
 reading of the module would have reported three impossible edges.
 
-**What the move actually costs** — four production dependencies
-`ambition_encounter` does not yet have, none of which depends on it, so no cycle:
+⛔⛔ **CORRECTION, 2026-09-03 — THE DESTINATION IN THIS SPEC IS WRONG, and the
+policy suite said so within minutes of trying it.** The module cannot move INTO
+`ambition_encounter`: `engine.encounter-crate-manifest-purity` and
+`engine.encounter-crate-source-purity` deny `ambition_characters` and
+`ambition_platformer2d_ldtk`, and their rationale is exactly this question —
+*"`ambition_encounter` is reusable encounter state/vocabulary; the LDtk loader,
+ECS spawning, banners, and save/quest adapters STAY ABOVE IT."* The adapter IS
+the LDtk loader and the ECS spawning. I wrote this spec without reading the
+destination crate's own policy rows, which is the rule about looking for the
+reason something is a decision, missed on the page that records it.
+⇒ **The shape that satisfies both is a SIBLING crate above `ambition_encounter`**:
+the adapter gets its own home, the kernel loses ~2,000 lines, and the purity
+contract holds. That is a decision with a real cost (a new crate; the footprint
+ratchet counts crates) and is not taken here.
+
+⚠ **AND THE DEPENDENCY COUNT BELOW WAS WRONG TOO — five and two, not four and
+one.** `ambition_characters` (production, `systems.rs:177`) and
+`ambition_asset_manager` (tests) were missing, because the measurement piped the
+crate list through `head -14` and reported the truncated output as complete. The
+true list is 18 distinct tokens, of which `ambition_app` and
+`ambition_boss_encounter` are comments. Corrected in the table.
+
+**What the move actually costs** — five production dependencies
+`ambition_encounter` does not have (two of them denied by its own policy), none
+of which depends on it, so no cycle:
 
 | crate | references in the adapter |
 |---|---:|
@@ -1051,7 +1076,9 @@ reading of the module would have reported three impossible edges.
 | `ambition_platformer2d_world` | 8 |
 | `ambition_gameplay_trace` | 2 |
 | `ambition_time` | 1 |
-| `ambition_platformer2d_ldtk` | 3, **tests only** → a dev-dependency |
+| `ambition_characters` | 1 — ⛔ DENIED by the encounter crate's purity policy |
+| `ambition_platformer2d_ldtk` | 3, tests only → dev-dependency, ⛔ also DENIED |
+| `ambition_asset_manager` | 1, tests only → dev-dependency |
 
 **The one seam that must move the other way first.** `encounter/mod.rs` schedules
 `crate::features::serve_encounter_spawn_commands` — the KERNEL's spawn server.
@@ -1065,6 +1092,58 @@ reason**: `capability-footprint-baseline.json` counts CRATES, so a module
 changing crates while the linked code goes slightly DOWN still reads as growth.
 Declare it in the idiom the `mount`/`damage`/`world_items` rows use.
 ▢ Not started; the seam-reversal above is the first step and is small.
+
+#### `ambition_encounter_features` — the destination, specced 2026-09-03
+
+The adapter cannot live in `ambition_encounter` (its purity rows forbid exactly
+what the adapter is) and should not stay in the actor kernel (it names nothing
+there any more). ⇒ **A sibling crate ABOVE the domain**, which is this frontier's
+own sentence made literal: *"room, encounter, conversation and provider
+orchestration belongs to their owning runtime/domain packages."*
+
+**Name it for what it IS**, not for the seam it used to be: the ROOM-FEATURE side
+of encounters — LDtk loading, ECS spawning, banners, save/quest projection,
+switch indexing, lock-wall contribution. `ambition_encounter_features`, not
+`..._adapter`.
+
+**Layering.** `ambition_encounter` (state/vocabulary) → `ambition_encounter_features`
+(this) → runtime/kernel consumers. It may name `ambition_encounter` and the
+lower engine crates; it must NEVER name
+`ambition_platformer2d_actor_monolith` — that edge is the carve, and the purity
+row exists to say so.
+
+**Dependencies**, from the corrected measurement above: `ambition_encounter`,
+`ambition_platformer2d_shared_tangle`, `ambition_combat`, `ambition_persistence`,
+`ambition_platformer2d_world`, `ambition_platformer2d_core`,
+`ambition_characters`, `ambition_entity_catalog`, `ambition_interaction`,
+`ambition_gameplay_trace`, `ambition_time`; dev-only
+`ambition_platformer2d_ldtk` and `ambition_asset_manager`.
+
+✔ **CUT 2026-09-03.** `crates/ambition_encounter_features` exists; the actor
+kernel's `encounter/` module is gone. Full suite green — `./run_tests.sh --rust`
+ran **6957 tests, 6957 passed**, workspace `--all-targets` clean, 36 policy rows,
+37/37 absence contracts.
+⭐ **No registration landed back in the kernel** (the `ambition_world_items`
+rule). Three things moved instead of becoming a kernel→features edge: the switch
+index registers itself into the `shared_tangle` `FeatureInteractionSet::SwitchIndex`
+slot from its own plugin; `WorldGatingSchedulePlugin` moved to the RUNTIME,
+because the two `gate_solids` roads now span two crates and only the runtime can
+name both — seam (d)'s adjacency preserved, its host changed again; and
+`EncounterSpawnServicePlugin` moved there for the same reason.
+⚠ **Two kernel guards went red during the carve and both were right.** The
+FeatureInteraction chain guard reported `SwitchIndex`'s member missing the moment
+it moved; it composes both plugins now, through a TEST-ONLY dev-dependency so the
+kernel keeps no production edge. Neither guard was relaxed to pass.
+
+**The tail, and none of it is optional**: `engine.<crate>-manifest-allow` and
+`engine.<crate>-source-purity` (the purity row forbidding the monolith,
+poison-verified with a REAL `use` line); the footprint baseline row in the shape
+of `body_seed_entered_the_closure_2026_09_03` — crates not bytes, and the
+monolith sheds ~2,000 lines; `python3 scripts/modules_md.py --write`;
+`cargo tree --offline` in `fixtures/minimal_game`, `examples/capability_demo`
+and `examples/portal_tutorial` for their lockfiles; the `app_it` rollback oracles
+if any `Resource` or message is new; and `./run_tests.sh --rust` before the tip,
+because the per-crate runs do not see `check_no_warnings`.
 
 **Guards that pin it**, same shape as `ambition_world_items`/`ambition_held_items`:
 three policy rows (`engine.<crate>-manifest-allow`,
@@ -1083,7 +1162,7 @@ allow-lists are `exact = true` and the compiler cannot see them.
 Promoted out of the encounter carve, which could not finish its last seam because
 of this. **Nothing cut; the spec is the deliverable.**
 
-`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337`–`427`)
+`drive_wave_encounters` ends with ~90 lines (`encounter/systems.rs:337` <!-- cite-ok: pre-split measurement; the drain is ambition_encounter::switches now -->–`427`)
 that `std::mem::take` the `SwitchActivationQueue` and run FOUR unrelated policies
 over every activation:
 

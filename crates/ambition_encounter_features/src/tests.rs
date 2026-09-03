@@ -3,7 +3,7 @@
 //! sub-spawn timing, switch arming, LDtk loading of the `goblin_encounter`
 //! fixture, reward-chest placement, and lock-wall sync.
 
-use super::*;
+use crate::*;
 use ambition_encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use ambition_encounter::{
     active_encounter_camera_zoom, encounter_reward_chest_pos, Encounter, EncounterCommandKind,
@@ -672,7 +672,7 @@ fn encounter_reward_chest_pos_sits_on_trigger_floor() {
 
 #[test]
 fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
-    use super::lock_walls::desired_lock_wall_blocks;
+    use crate::lock_walls::desired_lock_wall_blocks;
     let wall = LockWallSpec {
         min: [100.0, 100.0],
         size: [32.0, 200.0],
@@ -700,7 +700,7 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
 /// `EncounterWaves` anymore.)
 #[test]
 fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
-    use super::lock_walls::desired_lock_wall_blocks;
+    use crate::lock_walls::desired_lock_wall_blocks;
     let mut lifecycle = EncounterLifecycle::default();
     lifecycle.reduce(
         0.0,
@@ -724,7 +724,7 @@ fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
 // ── Ownership-driven cleanup (E10) ─────────────────────────────
 
 mod cleanup {
-    use super::super::apply_encounter_cleanup;
+    use crate::apply_encounter_cleanup;
     use super::*;
     use ambition_encounter::{
         reduce_encounter_lifecycles, EncounterCleanupPolicy, EncounterCommand,
@@ -939,7 +939,7 @@ fn a_reset_does_not_retire_the_reward_chest() {
             EncounterEvent::Reset,
         ));
 
-    app.add_systems(Update, super::apply_encounter_cleanup);
+    app.add_systems(Update, crate::apply_encounter_cleanup);
     app.update();
 
     assert!(

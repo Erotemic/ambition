@@ -1,7 +1,6 @@
 //! The `EntitySprite` vocabulary (single-frame entity placeholders) + its
 //! asset-id / manifest / catalog wiring and the `EntitySpriteSet` handle store.
 
-use bevy::prelude::*;
 use std::collections::HashMap;
 
 use ambition_asset_manager::{

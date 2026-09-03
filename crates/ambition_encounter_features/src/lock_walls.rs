@@ -25,7 +25,7 @@ use ambition_encounter::{
 /// that authors an [`EncounterLockWall`]. Block name format is
 /// `lockwall:<encounter_id>` so the render layer can surface them as
 /// `LockWallVisual` sprites (and a future per-id query can find them).
-pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
+pub(in crate) fn desired_lock_wall_blocks<'a>(
     encounters: impl IntoIterator<Item = (&'a str, EncounterPhase, &'a LockWallSpec)>,
 ) -> Vec<ae::Block> {
     let mut blocks = Vec::new();

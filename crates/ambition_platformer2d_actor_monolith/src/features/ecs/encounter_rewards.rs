@@ -227,6 +227,7 @@ mod retire_on_rearm_tests {
         ResolvedSwitchActivation, ResolvedSwitchActivations, SwitchAction,
     };
     use ambition_persistence::save::AmbitionGameSave;
+    use bevy::prelude::{App, Entity, Update};
 
     fn chest_app(activations: Vec<ResolvedSwitchActivation>) -> (App, Entity) {
         let mut app = App::new();

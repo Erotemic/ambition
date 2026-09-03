@@ -1765,6 +1765,14 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     "ambition_damage",
     # Mount/rider link enforcement plus the four dismount/ride message channels.
     "ambition_mount",
+    # The room-feature side of encounters (2026-09-03): LDtk loading, ECS
+    # spawning, banners, save/quest projection. Composed by the runtime for the
+    # same reason as `ambition_world_items` below — a domain carved out of the
+    # actor kernel is added HERE, so no registration for it lands back in the
+    # kernel. The runtime additionally owns the two orderings that span the
+    # carve (`encounter_spawn_service`, `world_gating`), because after the cut
+    # it is the only crate that can name both sides.
+    "ambition_encounter_features",
     # The TOUCHED collectible (D33, 2026-09-02), composed here for the same
     # reason as `ambition_mount` and `ambition_damage` above: a domain carved out
     # of the actor monolith is added by the RUNTIME, so no registration for it
@@ -3091,3 +3099,43 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_match/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+# ── the encounter room-feature carve (2026-09-03) ─────────────────────────────
+
+[[policy]]
+id = "engine.ambition_encounter_features-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_encounter_features"]
+watch_paths = ["crates/ambition_encounter_features/Cargo.toml"]
+rationale = "ambition_encounter_features owns the ROOM-FEATURE side of encounters -- LDtk loading, ECS spawning, banners, save/quest projection, switch indexing and lock-wall contribution. It was ~2,000 lines inside the actor kernel until 2026-09-03. It sits ABOVE `ambition_encounter`, whose own purity rows forbid exactly this material (`the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it`), which is why this is a sibling crate and not a module there. The list is the carve: the encounter domain it adapts, the shared schedule/lifecycle vocabulary, the world IR it loads specs from, combat components for chests and banners, characters for body health, persistence for save/quest, the entity catalog for brains, interaction for chest state, the trace sink, and the sim clock"
+source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
+severity = "error"
+exact = false
+manifest = "crates/ambition_encounter_features/Cargo.toml"
+allow = [
+    "ambition_encounter",
+    "ambition_platformer2d_shared_tangle",
+    "ambition_platformer2d_core",
+    "ambition_platformer2d_world",
+    "ambition_combat",
+    "ambition_characters",
+    "ambition_persistence",
+    "ambition_entity_catalog",
+    "ambition_interaction",
+    "ambition_gameplay_trace",
+    "ambition_time",
+    "ambition_platformer2d_ldtk",
+    "ambition_asset_manager",
+]
+
+[[policy]]
+id = "engine.ambition_encounter_features-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_encounter_features"]
+watch_paths = ["crates/ambition_encounter_features/src"]
+rationale = "THE EDGE THIS CARVE REMOVED. This code ran inside `ambition_platformer2d_actor_monolith`; naming it again would put it back. The runtime composes this crate's plugin beside the kernel's, and the two cross-crate orderings that remain (the spawn server, the gate_solids pair) live in the RUNTIME for that reason -- see `ambition_platformer2d_runtime::encounter_spawn_service` and `::world_gating`"
+source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
+severity = "error"
+roots = ["crates/ambition_encounter_features/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]

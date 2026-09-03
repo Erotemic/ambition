@@ -1108,7 +1108,33 @@ All ten hold. Status, so what remains is legible as the incremental work it is:
 | 7 | before/after behavioural comparison | ✔ `--against` |
 | 8 | the browser consumes the same semantic artifacts | ✔ it draws the recorded observation; it derives no geometry |
 | 9 | representative move-chain inspection | ✔ both halves: the authored cancel graph, resolved per fighter, and the empirical A→B probe with the buffered-acceptance case measured |
-| 10 | the major remaining work is UX/coverage/performance, not observability | ✔ the one architectural gap left is M3's: the render does not publish the camera transform, so art-versus-geometry AGREEMENT cannot be measured in pixels |
+| 10 | the major remaining work is UX/coverage/performance, not observability | ✔ — and MORE true than the note below claimed; see the 2026-09-03 re-measurement |
+
+⭐ **RE-MEASURED 2026-09-03 — M3's remaining work is smaller than "the render
+does not publish the camera transform" suggests, and the difference is
+architectural versus incremental.**
+
+The transform's components ARE published, per view, and are already consumed by
+production render systems:
+
+* `ambition_sim_view::CameraViewState` is a per-view COMPONENT carrying
+  `center_world`, `visible_view`, `orthographic_scale`, `zoom_multiplier` and
+  `target_world` (`crates/ambition_sim_view/src/camera_snapshot.rs:1574`);
+* `CameraViewport` publishes the view rectangle in logical pixels (`:844`) as an
+  observer fact beside it;
+* and they are not diagnostics-only — `rendering/knockout.rs` places a beat
+  against *"the published camera rect, never a second copy resolved here"*, and
+  `rendering/nameplates.rs` reads `target_world`.
+
+⇒ **What is missing is a COMPOSITION, not a publication.** A grep for
+`world_to_screen` / `screen_from_world` finds nothing: no helper turns
+`center_world` + `orthographic_scale` + viewport px into a pixel mapping, so each
+consumer re-derives the part it needs. That is a small helper plus a decision
+about who owns it — incremental work, which is exactly what criterion 10 asserts
+— rather than a render-side publish the inspector has to wait for.
+⚠ It does NOT follow that the agreement measurement is free: composing the
+mapping is the easy half, and deciding what "agreement" means in pixels (which
+anchor, what tolerance, at which zoom) is the half this page still owes.
 
 This architecture program can leave active planning when:
 

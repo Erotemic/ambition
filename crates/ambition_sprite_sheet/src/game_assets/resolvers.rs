@@ -2,7 +2,6 @@
 //! breakables, enemies, blocks, loading zones) to an `EntitySprite`.
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::*;
 
 use super::*;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;

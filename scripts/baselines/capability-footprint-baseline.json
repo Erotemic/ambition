@@ -44,6 +44,7 @@
     "ambition_dev_tools",
     "ambition_dialog",
     "ambition_encounter",
+    "ambition_encounter_features",
     "ambition_entity_catalog",
     "ambition_game_shell",
     "ambition_gameplay_trace",
@@ -79,7 +80,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 48,
+  "closure_size": 49,
   "never_asked_for": [
     "ambition_audio",
     "ambition_body_seed",
@@ -89,6 +90,7 @@
     "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
+    "ambition_encounter_features",
     "ambition_held_items",
     "ambition_items",
     "ambition_match",
@@ -103,7 +105,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "never_asked_for_count": 21,
+  "never_asked_for_count": 22,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
     "ambition_body_seed",
@@ -113,6 +115,7 @@
     "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
+    "ambition_encounter_features",
     "ambition_held_items",
     "ambition_items",
     "ambition_match",
@@ -180,5 +183,6 @@
   "held_items_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the world_items row: `ambition_held_items` is the PRESSED collectible carved out of the actor monolith's `items::pickup` (D33, 2026-09-03) — GroundItem, ItemCustody, the held specs, pickup / use / throw / physics / residency and the schedule they own. The monolith depends on it (checkpoint policy over its components), so every consumer of the monolith links it; the facade exports it as `held_items`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 45 -> 46 while the monolith shed ~1,350 lines and the linked code went slightly DOWN. A reader taking closure_size as size reads a carve as a regression.",
   "sub_lists_pruned_2026_09_03": "⛔ FIVE CRATES WERE LISTED AS REACHABLE WHILE NOT BEING IN `ambition_closure` AT ALL, and had been for up to twelve days. Removed here: reachable_via_ambition_platformer2d_actor_monolith_alone -> ambition_platformer2d_ldtk, ambition_portal2d; reachable_only_through_the_facade -> ambition_inventory_ui, ambition_portal2d_presentation, ambition_touch_input. The departures were KNOWN — this file's own `ldtk_left_the_closure_2026_08_22` row records the first one — but only `ambition_closure` and the counts were pruned with them, because `capability_footprint_violations` reports crates that ENTER and nothing looked the other way. ⚠ IT CHANGES A CARVE DECISION, which is why it is not tidying: `reachable_only_through_the_facade` is the 'closable by a manifest change?' list and it falls from FOUR to ONE (`ambition_render`), so the `facade_only_four_are_not_a_quick_win` note below is now about one crate and 90 call sites, not four and 170. ⭐ The closure itself was re-measured live the same day and matches exactly: 46, zero entered, zero left, so `ambition_closure` was the authority and the sub-lists were the drift. Guarded now by `scripts/tests/test_capability_footprint_baseline_is_coherent.py`.",
   "body_seed_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the held_items row: `ambition_body_seed` is the actor BODY SEED carved out of the actor monolith's `features/ecs/actor_clusters.rs` (D33, character preparation versus actor simulation, 2026-09-03) — `ActorClusterSeed`, `ActorMotionPath`, `ActorBody`, both constructors and `into_components`, plus the patrol-path cursor encoder the orphan rule sent with them. Measured before it moved: that region named nothing in the kernel. The monolith consumes it (every construction road spawns from the seed; `SeedActorMut` binds it to the tick), so every consumer of the monolith links it; the facade exports it as `body_seed`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 46 -> 47 while the monolith shed ~1,120 lines and the linked code did not grow.",
-  "match_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the body_seed row: `ambition_match` is the versus MATCH, prepared — the participant roster and its three staging shapes, the rules, `prepare_match` and the immutable plan, the rollback-safe receipt (`ActiveMatch`, `MatchSeat`, `MatchInstance`) — carved out of the actor kernel's `character_runtime` (D33, character preparation versus actor simulation, 2026-09-03). The kernel ACTIVATES the plan (its `character_runtime::match_activation` spawns the bodies and binds control) and registers the receipt for rollback, so every consumer of the monolith links it; the facade exports it as `versus_match`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 47 -> 48 while the monolith shed ~2,000 lines and the linked code did not grow. ⚠ The compile-cost ratchet's `critical_path_crates` DOES grow with each of these carves (a crate between combat and the kernel lengthens the serial chain); that is the honest price and its row records it."
+  "match_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the body_seed row: `ambition_match` is the versus MATCH, prepared — the participant roster and its three staging shapes, the rules, `prepare_match` and the immutable plan, the rollback-safe receipt (`ActiveMatch`, `MatchSeat`, `MatchInstance`) — carved out of the actor kernel's `character_runtime` (D33, character preparation versus actor simulation, 2026-09-03). The kernel ACTIVATES the plan (its `character_runtime::match_activation` spawns the bodies and binds control) and registers the receipt for rollback, so every consumer of the monolith links it; the facade exports it as `versus_match`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 47 -> 48 while the monolith shed ~2,000 lines and the linked code did not grow. ⚠ The compile-cost ratchet's `critical_path_crates` DOES grow with each of these carves (a crate between combat and the kernel lengthens the serial chain); that is the honest price and its row records it.",
+  "encounter_features_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the body_seed and held_items rows: `ambition_encounter_features` is the ROOM-FEATURE side of encounters carved out of the actor monolith's `encounter/` module (D33, encounter/conversation/world orchestration, 2026-09-03) — LDtk spec loading, the wave director, ECS mob spawning, banners, save/quest projection, switch indexing and lock-wall contribution, ~2,000 lines. It is a SIBLING of `ambition_encounter` rather than a module inside it because that crate's own purity rows forbid exactly this material: 'the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it'. ⚠ THE RATCHET COUNTS CRATES, NOT BYTES — the actor monolith SHED those ~2,000 lines in the same commit, so the code a consumer links went slightly DOWN while this number went up. Reading `closure_size` as a size metric reads a carve as a regression, which is the one thing this row must never be allowed to say."
 }

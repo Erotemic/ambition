@@ -1,6 +1,5 @@
 //! The surround must cover exactly the display the gameplay camera does not.
 
-use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{

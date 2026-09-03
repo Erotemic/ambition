@@ -92,6 +92,26 @@ reboot and nothing re-establishes it, so an unbound session silently builds
 through the shared mount into the slow directory underneath — minutes per check,
 and a second full copy of every artifact accumulating where nobody looks.
 
+⛔ **AND THE BOUND DISK FILLS — WHICH TAKES `/tmp` WITH IT.** On a VM where the
+bind target lives on the same device as `/` (the calculex VM: `/dev/vda1`), a
+full `target/` is a full ROOT. The symptom is not a cargo error: the harness's
+own task files start failing with `ENOSPC` and command output is lost
+mid-session, which looks like tooling breakage. One day of multi-profile work
+reached 309 G of 309 G — `target/debug` 217 G, `target/notrace` 25 G,
+`target/profiling` 18 G, `target/wasm32-unknown-unknown` 9 G.
+⇒ **The biggest single win is `target/debug/incremental`.** It reached **156 G**
+here — more than half the disk on its own — and deleting it is safe: cargo
+rebuilds it, and it costs only incremental-rebuild speed, never correctness.
+`rm -rf target/debug/incremental` took the disk from 100% to 50% in one command.
+⇒ **Measurement targets are disposable once their numbers are written down.**
+Deleting `target/notrace`, `target/profiling` and the wasm target freed another
+50 G. Run `df -h /tmp` before starting a SECOND target or profile combination,
+not after.
+⚠ **A full disk can crash the gate mid-run**, and the traceback is an `OSError:
+[Errno 28]` from `run_tests.py`'s own status writer rather than anything about
+your change — `./run_tests.sh` had 6957/6957 tests passing before it fell over
+writing its status file.
+
 ⛔⛔⛔ **AND NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT `incremental`, NOT
 `deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL.**
 A target directory that has grown enormous is a SYMPTOM and the cause is almost

@@ -6,7 +6,6 @@
 
 use bevy::camera::RenderTarget;
 use bevy::image::Image;
-use bevy::prelude::*;
 use bevy::ui::{ComputedNode, Display, Node, UiGlobalTransform};
 use bevy::window::{PrimaryWindow, WindowResolution};
 

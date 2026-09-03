@@ -201,9 +201,16 @@ phrased as "games that do not opt in do not pay" is not enforced by the feature
 flag it names** — it is enforced by every aggregate feature that might contain
 it, and `all_capabilities` is exactly such an aggregate. The contract became
 true when someone audited the aggregate, three weeks after the page promised it.
-⚠ Nothing here is guarded: no policy row asserts that `all_capabilities` excludes
-`relativity`, so the same edit re-introduces the same silent regression. That is
-the cheapest available follow-up on this page.
+✔ **GUARDED, 2026-09-03, and poison-verified.**
+`engine.facade-all-capabilities-omits-relativity` forbids the quoted list-entry
+form `"relativity"` in `crates/ambition_platformer2d/Cargo.toml`, which is
+precise: the manifest's three legitimate mentions are a backticked comment, the
+bare feature key `relativity = [..]`, and `dep:ambition_relativity` — none of
+them contains a double-quoted `relativity`, so the row trips if and only if the
+feature is added to a feature ARRAY. Verified by re-introducing the exact
+regression: the suite went 35-green → `engine_policies FAILED` naming the row,
+and green again on revert. TwinTrack is unaffected — it names the capability
+from its own manifest, which this row does not watch.
 
 *Method note.* Enumerating the apps with `ls game/ | grep -E '_app$'` returned
 NOTHING — `ls` is emitting colour escapes here, so the reset sequence sits after

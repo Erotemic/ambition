@@ -865,7 +865,11 @@ open unless marked; ⛔ several may already be done — grep before working one.
   `MISMATCH: drove air_back but the engine played {"air_forward"}` to
   `moves={"air_back"}`, 0 mismatches across all 19 takes.
 
-### Open — Up-B pass (HEAD `bc942727`)
+### CLOSED 2026-09-03 — Up-B pass (HEAD `bc942727`), was headed "Open"
+
+⚠ Retitled, not rewritten: all **6** bullets below are ▣ FIXED and each names
+its commit. The heading said "Open" while nothing under it was, so anyone
+scanning this file for work found a section that had none.
 
 * ▣ **FIXED — being launched off the shark can consume the knockback and then erase it.** The open half WAS only the proof: `a_mounted_launch_carries_the_same_travel_as_an_unmounted_one` asks for equivalence rather than a magnitude and both roads produce `(-1884.0382, -1884.0382)`; reverting the deferral releases the mounted arm at exactly `(0, 0)`. `65b89da85`. ORIGINAL: The rider runs the full kernel; `step_motion` takes the launch, then `sync_riders_to_mounts` pins the rider and zeroes velocity on the same tick, so the hit ends the RELATIONSHIP but the knockback is gone. ⚠ PARTLY ADDRESSED ALREADY by `pose_owned_externally` + `LaunchTravel::Deferred` — grep `pending_launch_state` before working this; the open half may be only the proof. The poison GPT asks for: mounted vs unmounted Pirate take the same strong hit, and the released body must actually TRAVEL.
 * ▣ **FIXED — the 36-HP shark is one-shot by George.** The census reads the whole selectable cast across both authoring crates and names the fighter; 36 → 40. `ed4e32e4b`. ORIGINAL: `SUMMON_SHARK_HEALTH = 36`; George's forward smash is 21 × 1.7 full charge = `(21*1.7).round()` = 36. The test proving "no single hit kills it" scans only `pirate_admiral_moveset()`, not the selectable Smash roster. Build the census from the resolved repertoire and require `>` not `>=`. Also `shark_ride_probe` calls the Admiral's 29 the "worst single connection in the game", which is false.
@@ -874,7 +878,16 @@ open unless marked; ⛔ several may already be done — grep before working one.
 * ▣ **FIXED — D250, CPU Pirate cannot reason about vehicle recovery.** Recovery admits route KINDS now: burst, sustained authority, teleport. `1a1daddc9`, and both hacks stayed rejected. ORIGINAL: The planner understands a `RecoveryLift` (one-shot displacement); `call_the_shark` authors none. Recovery should admit multiple route kinds — burst displacement, sustained movement authority, teleport. ⛔ GPT agrees with rejecting both hacks (fake impulse; special-casing the id).
 * ▣ Smaller, BOTH FIXED: `tick_departures`' doc names `WorldPrepSet::BeforeIntegrate`, and `shark_ride_probe` waits on the open-match condition rather than a fixed 240 frames.
 
-### Open — non-Up-B pass (`e29bc316`), and GPT does NOT consider D254 complete
+### CLOSED 2026-09-03 — non-Up-B pass (`e29bc316`), was headed "Open"
+
+⚠ Same retitle: 3 bullets are ▣ FIXED and the 4th (◐) states in its own text
+that *"ALL SIX ARE DONE … The six review items are all closed"*.
+⛔ **The original heading also read "and GPT does NOT consider D254 complete",
+and that claim cannot be acted on: `D254` occurs exactly once in the entire
+repository — in that heading.** Nothing defines it, so there is no item to
+check. Kept here rather than deleted, because a dangling identifier is
+evidence about how it was recorded; if D254 meant something, whoever wrote it
+is the only one who can say what.
 
 * ▣ **FIXED — brandishing a move weapon can duplicate a physically-held item.** The custody reconciler asks what the body has CUSTODY of, which during a brandish is what the brandish displaced. `72f004ca7`. ORIGINAL: `MoveBrandishedItem` stores only `move_id` + `previous: Option<String>` and overwrites the canonical `HeldItem`; `return_released_items()` then sees the body's held id no longer matches the `GroundItem` in `ItemCustody::Held` and returns the real object to `InWorld`. When the move ends the body reconstructs `HeldItem(A.spec)` from a string — logically holding A while A also lies on the floor. The brandish tests use a plain `HeldItem` and cannot see it. Fix: a temporary move weapon is an OVERLAY, not a replacement of the custody answer.
 * ▣ **FIXED — stored neutral-B charge treats DEATH as an instruction to bank.** `MoveEnd::{Interrupted,LeftPlay}` is a required argument; the compiler found three call sites the grep missed. Also caught a rollback probe gap I had already pushed. `741a1f59b`. ORIGINAL: `cancel_move_playback` banks any unreleased storing charge, and death (`death_rules.rs`) and stock loss (`stocks.rs`) both call it — so a KO'd Projectile Polygon respawns with the charge banked, and an existing bank has no death/reset clear. The function's own comment argues no termination reason is needed; the stored-charge customer disproves it. Fix: an explicit end reason (store / release / interrupted / left play), not a character-specific death hook.

@@ -2265,9 +2265,9 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
 /// registered on trust forever.
 #[test]
 fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
-    use ambition_platformer2d::actors::abilities::ranged::sentry::deploy_sentry;
-    use ambition_platformer2d::actors::abilities::ranged::vortex::{open_vortex_well, VortexWell};
-    use ambition_platformer2d::actors::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
+    use ambition_platformer2d::abilities::ranged::sentry::deploy_sentry;
+    use ambition_platformer2d::abilities::ranged::vortex::{open_vortex_well, VortexWell};
+    use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
     use ambition_platformer2d::combat::components::ActorFaction;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -2355,7 +2355,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     let counts = {
         let world = sim.world_mut();
         let sentries = world
-            .query_filtered::<Entity, With<ambition_platformer2d::actors::abilities::ranged::sentry::Sentry>>()
+            .query_filtered::<Entity, With<ambition_platformer2d::abilities::ranged::sentry::Sentry>>()
             .iter(world)
             .count();
         let wells = world
@@ -2398,7 +2398,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         let world = sim.world_mut();
         let mut found = Vec::new();
         for entity in world
-            .query_filtered::<Entity, With<ambition_platformer2d::actors::abilities::ranged::sentry::Sentry>>()
+            .query_filtered::<Entity, With<ambition_platformer2d::abilities::ranged::sentry::Sentry>>()
             .iter(world)
             .collect::<Vec<_>>()
         {

@@ -2,7 +2,7 @@
 //! point and it drags nearby enemies toward it for a moment. Distinct from
 //! every other wielded attack (which deal damage / teleport): the vortex deals
 //! *no* damage — it gathers a scattered group so the player can follow up
-//! with an AOE (`crate::abilities::ranged::shockwave` / `crate::abilities::ranged::beam`) or a volley. Pull-then-slam.
+//! with an AOE (`crate::ranged::shockwave` / `crate::ranged::beam`) or a volley. Pull-then-slam.
 //!
 //! Distinct from the gravity grenade too: that spawns a *directional*
 //! `GravityZone` (up-lift); the vortex is a *point* attractor — it lerps each
@@ -284,7 +284,7 @@ pub fn update_vortex_wells(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abilities::test_support::spawn_primary_player_holding;
+    use crate::test_support::spawn_primary_player_holding;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -502,7 +502,7 @@ mod tests {
     /// one entity, so a couch's second seat could not cast at all.
     #[test]
     fn two_driven_bodies_each_open_their_own_well() {
-        use crate::abilities::test_support::spawn_seated_body_holding;
+        use crate::test_support::spawn_seated_body_holding;
         let mut app = test_app();
         app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
         let a = spawn_seated_body_holding(

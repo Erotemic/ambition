@@ -1207,10 +1207,12 @@ def main() -> int:
                     dest="run_everything", action="store_true",
                     help="the exhaustive plan: a cargo test -p per crate with "
                          "its feature-gated tests, the external-consumer "
-                         "fixtures, the wasm check. 49 jobs (counted from "
-                         "--list, 2026-09-03; the ~33 this said was written "
-                         "when the workspace was smaller and it grew with the "
-                         "crate count). ~17%% of it actually executes tests. "
+                         "fixtures, the wasm check. `--list` prints today's "
+                         "job count -- it was 49 on 2026-09-03 and 52 by that "
+                         "evening, because it grows with the crate count and "
+                         "five crates were carved that day. Measured end to "
+                         "end at 49 jobs: 68 minutes wall on a warm tree, "
+                         "~17%% of it actually executing tests. "
                          "There is no CI and Jon "
                          "sweeps this periodically himself, so in a dev cycle "
                          "the default plan or a focused test is what you want.")
@@ -1309,10 +1311,24 @@ def main() -> int:
               "schema baselines can go red without this run noticing. "
               "Run `./run_tests.sh --rust` (adds ~44s) unless you have a reason.")
     if args.run_everything or args.heavy:
-        print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-03: "
-              "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
-              "mid-edit, a focused test almost certainly answers your question "
-              "faster and just as well.")
+        print("run_tests: EXHAUSTIVE plan requested. "
+              f"{len(jobs)} jobs planned today; MEASURED END TO END "
+              "2026-09-03 on the calculex VM at 49 jobs: 68 minutes wall, "
+              "~17% of it executing tests. \u26d4 THE COUNT IS PRINTED, NOT "
+              "TYPED, because a typed one is wrong within hours -- this line "
+              "said '~33 jobs, ~25 minutes' from 2026-08-03, and it went 49 -> "
+              "52 in the single day five crates were carved out of the actor "
+              "monolith. Scale the minutes by the job count, not by the date. "
+              "\u26a0 THAT WAS A WARM TREE -- a cold one pays a full build on "
+              "top. And it needs DISK: the run exhausted a 290 GB volume "
+              "mid-suite, because every feature job builds its own variant of "
+              "the graph and cargo never prunes the last one. "
+              "`check_disk_headroom.py` refuses below 40 GB before the first "
+              "job, but it does NOT re-check between jobs, so a suite that "
+              "starts above the floor can still die of ENOSPC halfway and "
+              "report it as a link error. If you are mid-edit, a focused test "
+              "almost certainly answers your question faster and just as "
+              "well.")
     if not args.list:
         refuse_an_interpreter_that_cannot_run_the_suite(jobs)
     return run(jobs, args.list, timings_json=args.timings_json,

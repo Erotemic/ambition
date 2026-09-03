@@ -409,7 +409,7 @@ pub fn apply_authored_teleports(
         let solids = collision.get_or_insert_with(|| world.solids());
         let target = match solids.as_ref() {
             Some(w) => {
-                let clamped = super::blink::blink_target(&**w, from, dir, distance, half);
+                let clamped = ambition_abilities::traversal::blink::blink_target(&**w, from, dir, distance, half);
                 ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist, gravity_dir)
             }
             // No collision world (a minimal test app) — the full distance, which

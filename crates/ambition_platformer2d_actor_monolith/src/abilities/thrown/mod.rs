@@ -1,4 +1,4 @@
-//! Thrown abilities: gravity grenade, puppy-slug gun.
+//! The one thrown ability that could not leave: it spawns a body. See the parent
+//! module.
 
-pub mod gravity_grenade;
 pub mod puppy_slug_gun;

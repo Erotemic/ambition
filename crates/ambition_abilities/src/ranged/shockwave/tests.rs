@@ -1,6 +1,6 @@
 use super::*;
-use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::features::{Hitbox, HitboxAnchor};
+use crate::test_support::spawn_primary_player_holding;
+use ambition_combat::hitbox::{Hitbox, HitboxAnchor};
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 

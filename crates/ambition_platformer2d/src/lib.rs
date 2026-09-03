@@ -158,6 +158,13 @@ pub use ambition_gameplay_trace as gameplay_trace;
 // sit in the monolith as `actors:dialog`.
 /// The body seed every construction path spawns from; a game that builds an
 /// NPC by hand names it from here.
+/// The WIELDED ability kit: ranged, thrown grenades, the traversal verbs a held
+/// item fires, and their shared cooldown (D33, 2026-09-03). Not under [`actors`]
+/// for the same reason as its siblings. ⛔ `actors::abilities` still exists and
+/// is a DIFFERENT module — possession, teleport, trapdoor and flyline, which are
+/// control authority sharing a directory name. Both paths resolve, so read that
+/// module's header before assuming which one you want.
+pub use ambition_abilities as abilities;
 pub use ambition_body_seed as body_seed;
 pub use ambition_conversation as conversation;
 #[cfg(feature = "ambition_cutscene")]

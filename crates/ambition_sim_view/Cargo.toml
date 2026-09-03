@@ -18,6 +18,7 @@ input = ["ambition_platformer2d_actor_monolith/input"]
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
+ambition_abilities = { path = "../ambition_abilities" }
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).
 # The saddle geometry a rider's hand is drawn from — `ambition_mount` owns the

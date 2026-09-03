@@ -68,29 +68,60 @@ mod spawn_request_service_order {
         app.add_plugins(crate::encounter_spawn_service::EncounterSpawnServicePlugin);
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
-        let schedule = schedules.get(sim).expect("the plugin creates the sim schedule");
+        let schedule = schedules
+            .get(sim)
+            .expect("the plugin creates the sim schedule");
         let graph = schedule.graph();
 
         let driver_set = graph
             .system_sets
             .get_key(ambition_encounter_features::WaveEncounterDriven.intern())
             .expect("WaveEncounterDriven must be a registered SystemSet");
-        let server = {
-            let mut found = None;
-            for (key, system, _) in graph.systems.iter() {
-                let name = format!("{}", system.name());
-                if name.rsplit("::").next() == Some("serve_encounter_spawn_commands") {
-                    found = Some(key);
-                }
-            }
-            found.expect("serve_encounter_spawn_commands must be scheduled")
-        };
-
-        assert!(
-            graph
-                .dependency()
+        // BY SHAPE, NEVER BY NAME: `system.name()` is a placeholder unless the
+        // build graph unifies `bevy_ecs/debug` on, so a name lookup passes
+        // under one `-p` and fails under another. The server is the ONE
+        // system the service plugin adds, and the driver's set owns none of
+        // it: count the systems added by the service plugin alone, then find
+        // exactly that many systems ordered after the driver set that are not
+        // members of it.
+        let service_alone = {
+            let mut alone = App::new();
+            alone.add_plugins(crate::encounter_spawn_service::EncounterSpawnServicePlugin);
+            let sim = alone.sim_schedule();
+            let count = alone
+                .world()
+                .resource::<Schedules>()
+                .get(sim)
+                .expect("the plugin creates the sim schedule")
                 .graph()
-                .contains_edge(NodeId::Set(driver_set), NodeId::System(server)),
+                .systems
+                .iter()
+                .count();
+            assert_eq!(
+                count, 1,
+                "EncounterSpawnServicePlugin schedules the server and nothing else"
+            );
+            count
+        };
+        let served_after_the_driver = graph
+            .systems
+            .iter()
+            .map(|(key, _, _)| key)
+            .filter(|&key| {
+                !graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(NodeId::Set(driver_set), NodeId::System(key))
+            })
+            .filter(|&key| {
+                graph
+                    .dependency()
+                    .graph()
+                    .contains_edge(NodeId::Set(driver_set), NodeId::System(key))
+            })
+            .count();
+        assert_eq!(
+            served_after_the_driver, service_alone,
             "serve_encounter_spawn_commands must run AFTER WaveEncounterDriven — \
              the wave director emits SpawnCommand and this kernel serves it, and \
              an unordered server reads the requests a tick late"

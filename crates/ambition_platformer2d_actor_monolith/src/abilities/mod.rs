@@ -1,49 +1,40 @@
-//! Ambition's player ability / weapon kit.
+//! What stayed behind when the wielded ability kit was carved out (D33,
+//! 2026-09-03). The kit itself is [`ambition_abilities`].
 //!
-//! * [`traversal`] — blink, dive, grapple, possession, mark/recall
-//! * [`ranged`] — beam, meteor, shockwave, vortex, volley, bomb, sentry
-//! * [`thrown`] — gravity grenade, puppy-slug gun
+//! ⛔⛔ THESE ARE NOT "THE LEFTOVER ABILITIES". They are two groups that share a
+//! directory name with abilities and nothing else:
 //!
-//! Each submodule keeps its own self-contained logic; most are pure
-//! functions invoked from combat / item-pickup / projectile code and
-//! register nothing with the Bevy `App`. The one exception is
-//! [`traversal::possession`], whose `PossessionState` + `ControlledSubject`
-//! resources are initialized by [`AmbitionAbilitiesPlugin`]. The possession
-//! *systems* stay chained inside
+//! * [`traversal`] — `possession`, `teleport`, `trapdoor`, `flyline`. Registered
+//!   by `ambition_platformer2d_runtime`, not by the item-pickup family, and
+//!   `possession` is named 87 times outside this directory (`teleport` 61) by
+//!   `crate::body_custody`, `crate::control::authority`,
+//!   `crate::features::ecs::dormancy` and `crate::control::input_systems`. That
+//!   is control authority; carving it into an abilities crate would rename the
+//!   kernel's coupling rather than reduce it.
+//! * [`thrown`] — the puppy-slug gun, which SPAWNS A BODY through the
+//!   crate-private `features::spawn_runtime_minion`. The cross-crate seam for
+//!   that already exists (`ambition_vfx::Effect::Summon` → `SummonSpec` →
+//!   `ActorConstructionParams::SummonedMinion`); the gun is the one caller
+//!   bypassing it, so moving it is a behaviour change and not a file move.
+//!
+//! `docs/planning/engine/actor-monolith-decomposition.md` carries both
+//! arguments with their numbers, so neither group gets carved by line count.
+//!
+//! Possession's `PossessionState` + `ControlledSubject` resources are still
+//! initialized by [`AmbitionAbilitiesPlugin`]; its systems stay chained inside
 //! `crate::schedule::plugins::register_player_simulation_systems` alongside the
-//! player tick; possession is a pure SEAT REDIRECT, so there is no
-//! `not_possessing` control gate — the vacated home avatar is inert because it
-//! no longer carries a seat.
-//!
-//! This module is a neutral, top-level ability layer (a sibling of
-//! `crate::mechanics`), distinct from `ambition_platformer2d_core::abilities` in
-//! the engine-core crate.
+//! player tick, because possession is a pure SEAT REDIRECT.
 
-#[cfg(test)]
-pub(crate) mod test_support;
-
-pub mod ranged;
 pub mod thrown;
 pub mod traversal;
 
 use bevy::prelude::*;
 
-/// Umbrella plugin composing every Ambition player ability's `App`
-/// registration.
-///
-/// Today the only ability that owns Bevy `App` state is possession (its
-/// `PossessionState` + `ControlledSubject` resources). All other abilities are
-/// pure logic modules driven from combat / item-pickup / projectile systems and
-/// need no registration. As abilities grow their own plugins/systems, fold them
-/// in here so the ability layer keeps exactly one composition point.
+/// Registers the `App` state the kernel-resident half owns.
 pub struct AmbitionAbilitiesPlugin;
 
 impl Plugin for AmbitionAbilitiesPlugin {
     fn build(&self, app: &mut App) {
-        // Possession's brain-transfer bookkeeping + the derived "who is the
-        // player driving" handle every subject query reads. The possession
-        // *systems* remain chained with the player tick in
-        // `register_player_simulation_systems`.
         app.init_resource::<traversal::possession::PossessionState>();
         app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
         // Its sibling: what to frame when nothing is driving a body.

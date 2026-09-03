@@ -118,6 +118,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_abilities"
+version = "0.1.0"
+dependencies = [
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_gameplay_trace",
+ "ambition_held_items",
+ "ambition_items",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_projectiles",
+ "ambition_sfx",
+ "ambition_time",
+ "ambition_vfx",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_asset_manager"
 version = "0.1.0"
 dependencies = [
@@ -497,6 +517,7 @@ dependencies = [
 name = "ambition_platformer2d"
 version = "0.1.0"
 dependencies = [
+ "ambition_abilities",
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_body_seed",
@@ -536,6 +557,7 @@ dependencies = [
 name = "ambition_platformer2d_actor_monolith"
 version = "0.2.0"
 dependencies = [
+ "ambition_abilities",
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_body_seed",
@@ -652,6 +674,7 @@ dependencies = [
 name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
+ "ambition_abilities",
  "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",
@@ -799,6 +822,7 @@ dependencies = [
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
+ "ambition_abilities",
  "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",

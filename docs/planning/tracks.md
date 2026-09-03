@@ -172,7 +172,7 @@ actual product requirement.
   time. Android remains prerequisite-gated on the NDK/toolchain; do not call a
   missing toolchain a product defect.
 - ▢ **The Bevy 0.19 Android FONT path is TYPECHECKED, NOT RUN.** The port deleted
-  the hand-rolled `seed_android_system_fonts` (`CosmicFontSystem` is gone) and
+  the hand-rolled `seed_android_system_fonts` (`CosmicFontSystem` is gone) and <!-- cite-ok: deleted; the row records the removal -->
   turned on Bevy's `system_font_discovery` for the `android_platform` feature
   instead, which is 0.19's own answer now that fontique owns fallback. ⛔ NOBODY
   HAS SEEN IT RESOLVE A GLYPH: `aarch64-linux-android` cannot even link here —
@@ -206,7 +206,7 @@ first. ⛔ None is a reason on its own to reopen a subsystem — each names the
 Ambition pain it would remove.
 
 - ✔ **`FontSize::Vh` for the menu height fractions.** DONE 2026-08-31 (campaign
-  section C). `MenuTextHeightFraction`, its per-frame conversion system, the
+  section C). `MenuTextHeightFraction`, its per-frame conversion system, the <!-- cite-ok: deleted; the row records the removal -->
   once-only installer and its marker resource are deleted; `MenuNode::Text`'s
   `size` is spawned straight as `FontSize::Vh` and the unit is documented on the
   field itself. The engine resolves against the UI render target, which for

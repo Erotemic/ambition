@@ -42,7 +42,6 @@ pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
-pub mod ability_cooldown;
 pub mod action_scheme;
 /// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
 /// "What would each button do right now?" — the per-frame verb table the HUD

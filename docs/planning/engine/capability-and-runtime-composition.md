@@ -36,13 +36,16 @@ Its demonstrated value is:
 >
 > `scripts/check_absence_contracts.py` runs
 > **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs: **49 crates linked, 22 of them a
-> movement-only game never asked for** — re-run 2026-09-03. ⚠ **This row read
-> 45/18 (`479f9d3e4`, when `ambition_registry_core` entered the closure) until
-> then**, and the drift is the ordinary kind: crates keep joining the closure,
-> so any transcribed copy of this pair starts aging the moment it is typed.
-> ⇒ Do not trust 49/22 either — `scripts/check_absence_contracts.py` prints the
-> current pair in under a minute, and that line is the authority.
+> number every time the gate runs. ⛔ **THE NUMBER IS NOT QUOTED HERE ANY MORE —
+> re-derive it:** `python3 scripts/check_absence_contracts.py | grep footprint`,
+> which prints the live pair from
+> `scripts/baselines/capability-footprint-baseline.json`, and that file's dated
+> `*_entered_the_closure_*` rows say why each crate is there.
+> ⚠ The quoted pair drifted FOUR times in a week — 43/16 → 44/16 → 44/17 →
+> 45/18 — and then FOUR carves landed in one night (2026-09-03: body_seed,
+> match, encounter_features, abilities: → 48/21 → 49/22 → 50/23), every one a
+> crate boundary drawn through code the sentinel already linked. A number that
+> moves faster than the paragraph quoting it is not a fact the paragraph can hold. A
 >
 > ⛔ **AND THE DIRECTION OF THAT DRIFT NEEDS SAYING OUT LOUD: 45→49 AND 18→22 IS
 > +4 AND +4, THE SAME FOUR.** Every crate that joined the closure since
@@ -93,15 +96,28 @@ Its demonstrated value is:
 > walk). All 22 are linked by a game asking for as little as the facade permits,
 > and no feature flag on the facade changes that.
 >
-> ⇒ **The real lever is the one the `mount`/`damage` rows already name:** *the
-> closure should follow the plugin a game INSTALLS, not the dependency its crate
-> declares* — i.e. `cfg`-gating the KERNEL's use of each domain. ⛔ And that is an
-> explicit non-goal of the carve today:
-> [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) lists
-> *"scatter feature gates through the kernel merely to move a `cargo tree`
-> number"* among the things it will not do, and it is right to, until a domain's
-> CONSTRUCTION road has left the kernel too. ⇒ So carve outputs landing
-> unconditional is by design, not an oversight to fix in the checklist.
+> ⛔ **BUT THE FACADE EDGE IS NOT THE LEVER FOR THOSE TEN, and the baseline
+> already says so** (`damage_and_mount_classified_2026_09_02`: *"cuttable at the
+> facade, worthless to cut, because the monolith brings them regardless"*). Every
+> one of the ten is an UNCONDITIONAL dependency of
+> `ambition_platformer2d_actor_monolith`, which the sentinel links through the
+> facade whatever the facade's own list says — the baseline's
+> `reachable_via_ambition_platformer2d_actor_monolith_alone` list is the proof,
+> and it is the same set. Making the facade's `ambition_match` edge optional would
+> print 49/22 again. ⇒ The step that moves the number is the one the mount and
+> damage rows name: *the closure should follow the plugin a game INSTALLS, not the
+> dependency its crate declares* — which means the KERNEL's use of each domain
+> becoming optional, and that is this program's stated non-goal ("scatter feature
+> gates through the kernel merely to move a `cargo tree` number") until the
+> domain's construction road has left the kernel as well. Carves land
+> unconditional, by design, until then. (Ruled 2026-09-03 when the facade
+> demonstration was offered.)
+>
+> ⇒ **This also explains the +4/+4 exactly.** `held_items`, `body_seed`, `match`,
+> `encounter_features` and `world_items` are all recent carve outputs, and every
+> one was added to the facade as an UNCONDITIONAL dependency. The carve creates
+> the crate; the facade then names it the only way that guarantees a minimal
+> game links it.
 > ⛔ **DO NOT RETYPE IT — re-derive:**
 > `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
 > the live pair from `scripts/baselines/capability-footprint-baseline.json`.

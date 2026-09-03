@@ -23,7 +23,7 @@ reproducible.
 ## Recent structural receipts
 
 ✔ **D-RECONSTITUTION — the same-room replay was a second room constructor.**
-`reset_ecs_room_features` mutated twelve families of surviving entity back
+`reset_ecs_room_features` mutated twelve families of surviving entity back <!-- cite-ok: deleted; the row records the removal -->
 toward a presumed spawn state through a hand-kept list. Measured divergence: a
 replayed enemy came back facing the wrong way, 34.6px from where a fresh entry
 puts it. A replay now records a lifecycle intent for the ACTIVE room and the
@@ -300,7 +300,7 @@ every per-body exit is a `continue`. The held bolt carries
 `ProjectileOwner(firer)` — the same rollback-registered, entity-remapped
 component the ECS projectile road uses — so a hit is credited to whoever fired
 it instead of `Query<Entity, PrimaryPlayerOnly>` (the crediting stepper it
-named, `held_projectile_step`, was deleted by the K2 fold on 2026-09-02). Looping
+named, `held_projectile_step`, was deleted by the K2 fold on 2026-09-02). Looping <!-- cite-ok: deleted by the K2 fold; the row says so -->
 exposed one new defect and it is fixed: the summon cap counted a query, which
 cannot see this tick's `Commands` spawns, so N seats firing together each read
 the same pre-tick count and every one of them summoned. Ten guards, each proven
@@ -337,14 +337,14 @@ poisoning its identity function to `None`, which is the exact shape of having no
 tie-break at all.
 
 ✔ **D-REPLAY-RESIDUAL — the dead intent variants are gone and one listener was
-measured redundant.** `LifecycleIntent` carried `DeathReset`, `ManualReset`,
-`Replay` and `FullReset`; nothing recorded any of them and a stray one would
+measured redundant.** `LifecycleIntent` carried `DeathReset`, `ManualReset`, <!-- cite-ok: deleted variant; the row records the removal -->
+`Replay` and `FullReset`; nothing recorded any of them and a stray one would <!-- cite-ok: deleted variant; the row records the removal -->
 have returned `CommitOutcome::Retry` forever — a silent stall wearing an
 exhaustive match's clothes. Deleted, with their codec branches; tags 0/1/2/4 now
 refuse to decode. ⛔ THE READABLE SCHEMA DUMP COULD NOT SEE THAT: same stable
 name, same encoder type, same projection, so every wire ledger stayed green
 while the encoding changed. `GGRS_ROLLBACK_SCHEMA_VERSION` is what that class of
-change is for — 139 → 140. Mary-O's `reset_snakes_on_room_reset` was deleted,
+change is for — 139 → 140. Mary-O's `reset_snakes_on_room_reset` was deleted, <!-- cite-ok: deleted; the row says so -->
 but only after a cover test was written: gutting it left all 41 Mary-O tests
 green, which is evidence that nothing covered it rather than evidence of
 redundancy. Gravity's `reset_gravity_on_room_reset` STAYS — `BaseGravity` is a
@@ -384,7 +384,7 @@ NOT a defect: it is a documented, checksum-guarded tradeoff
 ✔ **D-POLICY-1 — `ambition_workspace_policy` is green, 35/35, with no bulk
 waiver.** Twelve failures in five groups, each triaged to whether the ownership
 rule had changed. Four policies described the SHAPE of the dead
-`platformer_runtime` compat shim, whose own TODO asked for its deletion once
+`platformer_runtime` compat shim, whose own TODO asked for its deletion once <!-- cite-ok: deleted shim; the row records it -->
 callers migrated — deleted, and replaced by the rule they stood in for
 (`engine.no-generic-runtime-facade-in-the-actor-crate`). One pinned
 `run_if(gameplay_allowed)` after the schedule replaced that repeated predicate
@@ -478,7 +478,7 @@ The one unresolved developer-policy choice from the session-ownership work is in
   room never reach the state that spawns them? Neither is answered here; both are
   a build away, and the answer decides whether this joins the doctrine group above
   or the `ConeRigAssets` group.
-  ✔ **THE 37 ARE FIXED (`a3924b2b2`), and my "design choice" framing was wrong.**
+  ✔ **THE 37 ARE FIXED (`8bac49a59`), and my "design choice" framing was wrong.**
   `engine/headless-verification.md` had already ruled on this exact class —
   *"the fix is usually NOT to register the resource. A gizmo or mesh system with
   no render stack should be `run_if(resource_exists::<..>)`-guarded so it
@@ -1093,7 +1093,7 @@ OPTIONAL dep + feature, never used:
      than vanished, which is item 4's job, not this one's.
      ⚠ AND PREFER A FRESH WINDOW to a wide one. Measured
      2026-09-03 over a week: 37 hits, and on inspection essentially all were
-     rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is
+     rows RECORDING a removal ("Deleted: `FpsOverlayState`", "the view is <!-- cite-ok: a row quoting a removal record -->
      DELETED") rather than rows made stale by one — docs/planning is clean on
      this axis, and a wide window is archaeology. A fresh window is not, because
      the rows have not been rewritten in past tense yet.
@@ -2044,7 +2044,7 @@ OPTIONAL dep + feature, never used:
   Collapsing them would silently rebuild the destination room for a dead body's
   crossing.
   ⚠ codec tag **5, not 4** — tags 0-4 all belonged to the four variants deleted
-  in v140, so 4 would decode an old `FullReset` as a reconstitution instead of
+  in v140, so 4 would decode an old `FullReset` as a reconstitution instead of <!-- cite-ok: deleted variant; the row records the wire history -->
   refusing it. `scripts/rollback_codec_shape.py` caught the byte change on its
   own; the registration dump moved only its version line, which is correct for a
   variant added inside an already-registered type.

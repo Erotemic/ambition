@@ -1784,6 +1784,14 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # and the runtime adds it beside the kernel's `ItemPickupSimulationPlugin`,
     # which keeps the other two variants and the three-variant chain.
     "ambition_held_items",
+    # The WIELDED kit (D33, the abilities carve, 2026-09-03).
+    # `AbilitySimulationPlugin` owns `ItemPickupSet::ThrownItemEffects` and
+    # `ItemPickupSet::WieldedAbilities` end to end, and the runtime adds it
+    # beside the other two. ⛔ After this carve the kernel's
+    # `ItemPickupSimulationPlugin` configures NO variant at all — it keeps only
+    # the three-variant chain, which orders sets owned by two other crates and
+    # so can live nowhere else.
+    "ambition_abilities",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
     "ambition_gameplay_trace"]
@@ -2061,11 +2069,11 @@ id = "engine.non-portal-mechanics-runtime-raycast"
 scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+watch_paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
 rationale = "non-portal mechanics use the proto-runtime raycast seam, not the portal mechanic"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+roots = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
 forbid = ["ambition_portal2d::raycast_solids"]
 
 
@@ -2688,7 +2696,7 @@ skip_paths = [
     "ambition_platformer2d_actor_monolith/src/features/ecs/damage/actor_hit.rs",
     # Traversal abilities that SET a velocity rather than adding an impulse: a
     # grapple pull is a commanded speed toward the anchor, not a nudge.
-    "ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs",
+    "ambition_abilities/src/traversal/grapple.rs",
     # Domain integrator: a projectile reflecting off a surface, mirroring its own
     # velocity. The same class as the projectile paths already listed above.
     "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
@@ -2901,6 +2909,30 @@ rationale = "A collectible's PRESENCE is this crate's; its MEANING and its PICTU
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_world_items/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_abilities-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_abilities"]
+watch_paths = ["crates/ambition_abilities/Cargo.toml"]
+rationale = "ambition_abilities owns the WIELDED kit -- ranged (beam, meteor, shockwave, volley, vortex, sentry, bomb), thrown gravity grenades, the traversal verbs a held item fires (blink, dive, grapple, mark/recall), and the cooldown they share (D33, the abilities carve, 2026-09-03). The list is the carve, measured by compiling. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed; the kernel depends on this crate for its rollback ledger and for the three-variant chain, never the reverse. The one fixture that needed the reverse edge did not get it: the sentry bolt's end-to-end damage proof chains two KERNEL projectile systems, so it MOVED to the kernel instead"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time"]
+manifest = "crates/ambition_abilities/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_abilities-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_abilities"]
+watch_paths = ["crates/ambition_abilities/src"]
+rationale = "What an ability DOES is this crate's; where it sits in the schedule relative to the held-item core is the kernel's (the three-variant chain orders sets owned by two other crates, so only the kernel can name both sides), and its PICTURE is ambition_render's. Naming any of them would be this crate reaching back up into its consumers. ambition_dev_tools is forbidden for the same reason it is forbidden of the kernel: a simulation crate must not read developer state"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_abilities/src"]
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_menu", "ambition_app", "ambition_content", "ambition_dev_tools"]
 
 [[policy]]

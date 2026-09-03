@@ -1242,6 +1242,58 @@ show whether body state, movement, decision integration and construction still
 need one crate or have another stable seam. Do not pre-split this core because a
 source file is large.
 
+**First measurement, 2026-09-03 (after cuts 1–2b, before the abilities and encounter
+carves land): `python3 scripts/measure_kernel_module_graph.py --edges 10`.** Production
+lines per top-level module and the `crate::<module>` references each makes; tests
+excluded from the edges. A textual count — a shape, not a bill.
+
+```text
+module                   prod    all  out-edges (module:refs)
+features                23677  38197  construction:30 character_runtime:14 world:12 avatar:10 causal:8 control:6 abilities:4 items:3
+abilities                4962   8585  ability_cooldown:4 features:2 projectile:2 control:2 enemy_projectile:1 avatar:1 character_runtime:1
+character_runtime        3843  11468  character_sprites:7 features:5 avatar:2 control:1 participant_seat:1 assets:1
+world                    3286   5419  features:8 construction:5 session:3 character_runtime:2 encounter:1
+avatar                   2999   7291  body_mode:1 control:1
+schedule                 2578   2578  control:2 avatar:1 participant_seat:1
+items                    2023   2153  abilities:17 shrine:3 session:2 construction:2 character_runtime:1 ability_cooldown:1
+session                  2022   3446  avatar:8 items:5 world:5 features:4 abilities:4 assets:2 construction:1
+construction             2019   5710  features:15 world:4 shrine:1
+control                  1258   1613  abilities:4 features:1
+projectile               1231   2631  avatar:2 features:2
+character_sprites        1205   1867  assets:3 character_roster:1
+encounter                1105   2056  features:1
+causal                    752    752  
+audio                     672   1308  music:4
+rollback_registration     667    667  features:28 abilities:10 character_runtime:5 session:5 avatar:4 shrine:3 world:3 gravity:2
+gravity                   574    574  session:1 schedule:1
+    30  features -> construction   (and 15 back)
+    28  rollback_registration -> features
+    17  items -> abilities
+    15  construction -> features   (and 30 back)
+    14  features -> character_runtime   (and 5 back)
+    12  features -> world   (and 8 back)
+    11  snapshot_impls -> features
+    10  rollback_registration -> abilities
+    10  features -> avatar
+     8  world -> features   (and 12 back)
+```
+
+What the shape says, without pre-splitting anything: `features` (23.7k production
+lines — the actor tick, spawn, damage, brains) is the centre, and its heaviest edge
+is MUTUAL with `construction` (30/15) — the seed-to-body road runs both ways. Its
+other out-edges are to the two halves this frontier just carved around
+(`character_runtime` 14, `avatar` 10) and to `world` (12/8, also mutual). The
+modules with NO out-edges and nothing pointing back except registration
+(`causal`, `action_scheme`, `body_mode`, `time`, `music`, `cutscene`, `quest`,
+`world_facts`) are already islands; that they are still in this crate is inertia,
+not coupling, and each is a small cut. `rollback_registration` (28 → features, 10 →
+abilities) and `snapshot_impls` (11 → features) are the two files that name
+everything, which is what a registration file is for — they are not coupling, they
+are the ledger. ⇒ The candidate seam the doc predicted ("body state, movement,
+decision integration and construction") shows up as the `features`↔`construction`
+loop; whether it is one crate or two is decided by which direction the 30 and the 15
+run, which is the next measurement, not this one.
+
 ## Explicit non-goals
 
 Do not:

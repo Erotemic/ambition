@@ -376,3 +376,28 @@ Two produced false absences on 2026-09-03, an hour apart:
 against something you already know is there. Both errors above survive any
 amount of re-reading and die instantly to one control search — and a zero is
 exactly the result nobody re-reads, because it agrees with having finished.
+
+## The mirror: a frightening POSITIVE that the rule's own kind explains
+
+The section above is about believing a zero. This is the same error inverted, and
+it produced the most alarming number of the day.
+
+Sweeping every source path literal in `tests/ambition_workspace_policy/policies/*.toml`
+for files that do not exist returns **45 unresolved out of 365** — in the data
+driving a gate, which reads like forty-five rules quietly governing nothing.
+
+⇒ **All 45 belong to `kind = "forbidden-path"` rules, where a path that does NOT
+exist is the PASSING state.** `engine.actor-portal-facade-gone` lists
+`…/src/portal/{mod,plugin,transit,gun,presentation}.rs` precisely because the
+portal facade was deleted; the day those paths resolve, the rule fails, which is
+its whole job. Split by `kind`, the real count of unresolved paths in rules that
+need their targets present is **zero**.
+
+⚠ The check that dissolves it is one line — group the findings by the `kind`
+field before reading them — and the temptation not to run it is strongest
+exactly when the raw number is large enough to feel like a discovery.
+
+⇒ **The general rule, and it is the same one both directions:** a
+presence/absence sweep over rule DATA is meaningless until you know what each
+rule ASSERTS. Existence is evidence only relative to a claim, and half the claims
+in a policy engine are negative.

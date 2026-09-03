@@ -2,7 +2,25 @@
 #
 # Format: source-relative-path=exact_raw_commands_spawn_count
 #
-# Every scanned features/ecs/spawn*.rs file must appear exactly once. Dead,
+# Every scanned features/ecs/spawn* file must appear exactly once. Dead,
 # missing, duplicate, or over-allowing rows fail the workspace policy suite.
+#
+# ⛔ THE SCAN IS A PATH PREFIX, NOT A FILE NAME. Until 2026-09-03 the gate
+# matched file names beginning with `spawn`, so the `spawn/` DIRECTORY — named
+# for exactly what this inventory governs — was invisible to it from the
+# 2026-06-14 split (`cdd0a0a0d`) onward, and this file listed two rows while
+# nine files qualified. The seven rows below are that missing coverage, not new
+# permission: every production file among them is at 0 and was already at 0.
 features/ecs/spawn_actors.rs=0
 features/ecs/spawn_static.rs=0
+features/ecs/spawn/mod.rs=0
+features/ecs/spawn/capability_lanes.rs=0
+features/ecs/spawn/character_spawn_plan.rs=0
+features/ecs/spawn/content_staging.rs=0
+features/ecs/spawn/gravity_construction.rs=0
+features/ecs/spawn/portal_construction.rs=0
+# The one raw spawn under this directory, and it is TEST scaffolding: the module
+# builds a bare entity to drive the gate's own subject. Reviewed and allowed at
+# 1 rather than routed through SpawnScopedExt, because a scoped helper here
+# would test the helper instead of the thing under test.
+features/ecs/spawn/tests.rs=1

@@ -103,11 +103,21 @@ subject is *"split 6 more test-heavy modules + fix source-scanner paths"* — so
 scanner paths were on its author's mind, and this one still went. ⇒ Nothing
 failed, because a name-matching gate cannot report the file it stopped matching.
 
-⇒ Fixing it means matching on the PATH (`features/ecs/spawn`) rather than the
-file name, and then reconciling the allowlist against what that surfaces —
-including one row for the test file. Left as a finding rather than a change here:
-it widens a live gate, and widening one belongs in a patch that can watch it go
-red. A removed file, missing row,
+✔ **FIXED THE SAME DAY.** The filter now tests the path RELATIVE TO the scan
+root, so `spawn_actors.rs` and `spawn/portal_construction.rs` answer one rule and
+splitting a file into a directory cannot undo it again. The allowlist grew from
+two rows to nine — **coverage, not permission**: every production file added is
+at 0 and was already at 0, and the single allowed raw spawn is `spawn/tests.rs=1`,
+test scaffolding that builds a bare entity to drive this gate's own subject.
+The vacuity assertion is now a FLOOR (`scanned >= 9`) rather than `> 0`, because
+`> 0` was true throughout the three blind months and proved nothing.
+
+⭐ **The blindness was demonstrated, not argued.** With a raw `commands.spawn(`
+added to `spawn/portal_construction.rs`, the pre-fix gate — old filter, old
+allowlist — reports `test result: ok`. The same tree with the path filter reports
+*"1 raw commands.spawn calls; exact reviewed count is 0"*. ⇒ That pair is the
+evidence this gate was worth widening; a green run over a planted violation is
+the only proof a scanner's population was wrong. A removed file, missing row,
 or excess allowance is a failure. Reduce counts by moving creation through the
 canonical scoped construction seam. Increase a count only when a raw spawn is
 intentional, cannot use that seam, and the same patch explains why.

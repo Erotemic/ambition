@@ -894,7 +894,23 @@ The one unresolved developer-policy choice from the session-ownership work is in
      row above that quotes them must move in the same commit. It lagged twice.
   6. **⛔ The debt ledger is not laundered**: the destination joins in the SAME
      commit. A carve that only re-exports has moved nothing, and the source
-     crate's line count falling is not evidence on its own. Do not carve by LOC and do not promise frame-time
+     crate's line count falling is not evidence on its own.
+  7. **⛔⛔ IF AN ABSENCE CONTRACT GOES RED, MOVE ITS EXCLUSION — DO NOT WIDEN
+     IT.** Six contracts in `check_absence_contracts.py` pin *"this resolution
+     lives in ONE file"* by excluding that file by path
+     (`:!crates/…/presentation.rs`). **A carve that moves the owner makes the
+     contract flag the new location**, which looks like the carve broke a rule
+     when it only moved the rule's home. The fix is to point the exclusion at
+     the new path in the same commit; widening the paths or deleting the
+     contract launders the rule the carve was supposed to preserve. The six:
+     `the-provider-resolver-…`, `the-movement-tuning-resolver-…`,
+     `the-motion-model-resolver-…`, `the-catalog-default-action-set-…`,
+     `the-catalog-axis-tuning-…` (all `-is-confined-to-one-file`), plus
+     `registration-does-not-demand-art`, which names
+     `character_runtime/definition.rs` and `characters/src/prepared.rs`
+     directly. ⚠ `the-character-domain-is-not-named-after-a-character` guards
+     all of `crates/ambition_characters/` and so is live for any carve landing
+     code there. Do not carve by LOC and do not promise frame-time
   improvement without a measurement. ⛔⛔ RE-MEASURED 2026-08-31: the owner doc's
   "only four dependencies are single-path" list is STALE — `ambition_dev_tools`
   and `ambition_mount` have 6 dependents, `ambition_items` 5, `ambition_damage`

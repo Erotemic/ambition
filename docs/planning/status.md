@@ -45,6 +45,18 @@ most recent one is the exhaustive plan on `c2b7f83c7` (an ancestor of HEAD):
 **48 of 52 jobs in 84.9 minutes**, every failure of which is filed in
 [`queue.md`](queue.md) with the run it was reproduced on.
 
+⭐ **RE-GATED 2026-09-03 late on the twice-merged tree, and these are the
+numbers to quote until someone runs the Rust lane:** `scripts/tests` **802
+passed / 13 skipped / 0 failed**; `check_absence_contracts.py` **37 of 37**,
+with the capability footprint at 50 crates linked and 23 a movement-only game
+never asked for, and the rollback wire format at 409 stable names / 123 encoded
+types across 12 crates; `check_planning_citations` all resolved and `--vanished`
+0 across all five corpora; `check_doc_links` 278 documents / 961 local links;
+`./run_tests.sh --maintenance` 4/4 on the audits a 12 GB volume permits, with
+the cold `cargo doc` ratchet dropped and named. ⛔ **The Rust lane is NOT among
+them** — this volume is below the runner's own floor and it refuses to start —
+so nothing here is a statement about compilation or about any Rust test.
+
 ⭐ Re-verified at `6d2327903` (2026-09-03): the actor-monolith section below, the
 only part of this page this pass re-read against the code. Everything else keeps
 the baseline it was last reviewed at.

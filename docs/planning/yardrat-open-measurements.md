@@ -12,98 +12,31 @@ stops being reproducible, delete it rather than annotating it.
 
 ---
 
-## Path citations in Rust COMMENTS are not judged, and ~8% do not resolve
+## ✔ CLOSED — path citations in Rust comments (2026-09-03)
 
-`scripts/check_planning_citations.py` gained a bare-path class on 2026-09-02
-(paths without a `:LINE` suffix, which is how nearly all prose cites a file).
-That class runs over `docs/planning/` only. The script's `--comments` mode
-judges SYMBOLS in Rust comments and not paths, so the same blind spot exists
-one level down, in the place the script's own docstring says the original
-fabricated citation reached.
+`check_planning_citations.py`'s bare-path class runs over `docs/planning/` only,
+so the same blind spot existed one level down in `.rs` comments. Measured on
+`79262265a`: **252 path citations, 21 distinct unresolved in 28 places.** All
+triaged and fixed; the asset half needed no change.
 
-**MEASURED 2026-09-02, on `79262265a`:** 252 path citations in `.rs` comments,
-**21 distinct unresolved in 28 places**. Reproduce with the ordered-containment
-rule the docs class already uses (basename must exist; every component of the
-citation must appear in that file's path in order, matching exactly or as the
-tail of an `ambition_`-prefixed crate directory).
+⛔ **THE STANDING LESSONS, which is all that survives:**
 
-⭐ **THE TRIAGE IS ALREADY VISIBLE AND IT IS NOT ONE CLASS.** At least three:
-
-- **SCHEMATIC, not a path** — `tests/foo.rs`, `src/foo/tests.rs`. These name a  <!-- cite-ok: this row's subject IS the dead citation -->
-  SHAPE, exactly like the `provider::local_name` case the script already  <!-- cite-ok: this row's subject IS the dead citation -->
-  documents as unmatchable by regex. They are correct prose. Whoever does this
-  either marks them `cite-ok` or teaches the matcher that a `foo` component is
-  a metasyntactic placeholder — and the second is worth thinking about, since
-  three `*_it_sync.rs` files use the same idiom for the same reason.
-- **MOVED** — `features/ecs/bosses.rs`, `src/rl_sim/runtime.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `engine_core/body_clusters.rs`, `presentation/rendering.rs`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `app/schedule.rs`, `character_sprites/sheets.rs`, `brain/boss_pattern.rs`.  <!-- cite-ok: this row's subject IS the dead citation -->
-  Old layouts, and `features/ecs/` in particular is the same dead prefix that
-  `00030e603` left behind in `demos/smash-parity-inventory.md`.
-- **ASSET AND TOOL PATHS** — `sprites/robot_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `sprites/pirate_admiral_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `sprites/player_robot_v2_spritesheet.ron`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `assets/data/dialogue/registry.ron`, `tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`.  <!-- cite-ok: this row's subject IS the dead citation -->
-  ⚠ These need a different judgement from the code ones, and the judgement is
-  now concrete rather than a worry. ⭐ **The sprite manifests are GENERATED and
-  gitignored** — `.gitignore` lines 123-124 cover
-  `crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron` — so they
-  are absent for exactly the reason `target/` is, and citing one is correct
-  ✔ **CONFIRMED EMPIRICALLY 2026-09-03, after a clean `--force` regen produced
-  them:** `robot_spritesheet.ron`, `pirate_admiral_spritesheet.ron` and
-  `player_robot_v2_spritesheet.ron` are all ON DISK and all report ignored under
-  `git check-ignore`. So those citations are correct prose about files a BUILT
-  tree has and a checkout does not — the same shape as `target/`, now measured
-  rather than argued. ⇒ The asset half of this row is SETTLED: no repoint.
-  prose. ⇒ **Generalise the skip from a `target/` prefix to `git check-ignore`:**
-  a citation whose path is ignored names a build output, whoever generates it.
-  That is one rule instead of a growing prefix list, and it is the rule the
-  `target/` case was always an instance of. The remaining tool paths
-  (`tools/ldtk_intgrid_migration.py`,  <!-- cite-ok: this row's subject IS the dead citation -->
-  `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`) are  <!-- cite-ok: this row's subject IS the dead citation -->
-  NOT ignored and want ordinary MOVED triage.
-
-✔ **CLOSED 2026-09-03 — all seven repointed or re-derived** (see the commit for which was which; two of the seven turned out not to be repoints at all, and the mapping below was WRONG on the first one I checked: `features/ecs/bosses.rs`'s comment names `tick_boss_brains_system`, which lives in `ambition_boss_encounter/src/ecs/tick.rs`, not where the file's basename history pointed). What remains open is the ASSET half only.  <!-- cite-ok: this row's subject IS the dead citation -->
-
-⭐ **The moved half, as triaged:** Every one
-has real history — `git log --all --diff-filter=AD` finds the commit that moved
-it, so none is FABRICATED — and each resolves to one current home:
-
-  features/ecs/bosses.rs          game/ambition_content/src/bosses/mod.rs
-                                  (64631503f, test-block split)
-  presentation/rendering.rs       crates/ambition_render/src/rendering/mod.rs
-                                  (09d945694, <mod>/mod.rs normalisation)
-  character_sprites/sheets.rs     crates/ambition_sprite_sheet/src/character/sheets/mod.rs
-                                  (aa7cb8f60)
-  brain/boss_pattern.rs           crates/ambition_characters/src/brain/boss_pattern/mod.rs
-                                  (4ff42f510)
-  rendering/foreground.rs         GONE, not moved — d09229ceb ("Two views draw two
-                                  pictures") ended it; the comment needs re-deriving,
-                                  not repointing
-  dialog/yarn_bindings.rs         GONE from that path — 73873491b moved this game's
-                                  Yarn verbs to the crate that owns the game; nearest
-                                  live file is
-                                  crates/ambition_conversation/src/dialog/yarn_harness.rs,
-                                  which is NOT the same thing and must be read before
-                                  citing
-  player/systems.rs               GONE — 5ba894709 ("player/ no longer exists — the
-                                  fold's conclusion"); re-derive
-
-⚠ Two of the seven are **not repointings**: `rendering/foreground.rs` and  <!-- cite-ok: this row's subject IS the dead citation -->
-`player/systems.rs` name things that were ENDED rather than relocated, so the  <!-- cite-ok: this row's subject IS the dead citation -->
-sentences around them are claims to re-check, not links to fix. That is the
-difference the checker's own triage insists on, and it is why this row says
-"triage first" rather than "sed".
-
-⚠ **WHAT IS NOT DECIDED, and why this is a measurement rather than a task:**
-whether the comment lane should judge paths AT ALL. The script is explicitly a
-worklist and not a gate, but `--comments` already emits findings, and adding 21
-more without triaging them first is the "teaches its reader to skim" failure the
-script's own docstring warns about. ⇒ **Triage first, extend second.** A change
-that turns the class on before the findings are resolved makes the tool worse.
-
----
+- **Triage, never `sed`.** Two of the seven code paths were NOT repoints:
+  `rendering/foreground.rs` and `player/systems.rs` name things that were ENDED  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`d09229ceb`, `5ba894709`), so their sentences wanted re-deriving. A third,
+  `dialog/yarn_bindings.rs`, had a plausible-looking wrong target  <!-- cite-ok: this row's subject IS the dead citation -->
+  (`yarn_harness.rs`) that is not the same thing.
+- ⛔ **A file's history is not its function's home.** The mapping recorded here
+  said `features/ecs/bosses.rs` → `game/ambition_content/src/bosses/mod.rs` from  <!-- cite-ok: this row's subject IS the dead citation -->
+  basename history; the comment names `tick_boss_brains_system`, which is in
+  `ambition_boss_encounter/src/ecs/tick.rs`. Verify at the DEFINITION SITE.
+- ⚠ **Repointing moves any claim attached to the path with it.**
+  `dialog/yarn_bindings.rs`'s sentence asserted "both are `ui`-gated"; the new
+  target had to be checked for that before the sentence could follow it.
+- ⇒ **If the comment lane is ever extended, skip by `git check-ignore`, not by a
+  `target/` prefix.** Confirmed empirically: the sprite manifests it would
+  otherwise flag are on disk and ignored after a clean regen — generated files a
+  built tree has and a checkout does not.
 
 ## Checked and CLEAN: cross-links between planning pages (do not build a checker)
 

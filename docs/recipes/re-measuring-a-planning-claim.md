@@ -372,8 +372,19 @@ Two produced false absences on 2026-09-03, an hour apart:
 - **Searching the wrong tree.** `grep -r gated_by assets/` returned 0 and the
   authored levels live in `game/ambition_map_assets/`. The real answer was 2.
 
+⭐ **FIVE in one session, which is why this has its own heading.** Beyond the two
+above: grepping authored worlds for `"goblin_cantina"` WITH quotes returned 0
+while the room exists; `grep -rl 'a\|b'` reported files as matching when only
+the second name did, so a file was credited with a name it does not contain; and
+searching `assets/` and `game/ambition_content/assets/` for character art
+returned "no art" for all thirteen characters, because the sprites live under
+`crates/ambition_platformer2d_actor_monolith/assets/sprites_potato`. ⇒ Every one
+looked like a finding. None was.
+
 ⇒ **Before believing a zero, prove the instrument can see a POSITIVE.** Run it
-against something you already know is there. Both errors above survive any
+against something you already know is there — a room you just read, a character
+you know ships. It costs one command and it is the only thing that separates
+"absent" from "I asked wrong". Both errors above survive any
 amount of re-reading and die instantly to one control search — and a zero is
 exactly the result nobody re-reads, because it agrees with having finished.
 

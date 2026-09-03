@@ -1,3 +1,31 @@
+> ## ⭐ READ THIS FIRST — current state, 2026-09-03 end of the wind-down
+>
+> **The last gated tip is `8707b46f1`** — pushed, tree clean of every agent. The commit adding
+> this header sits directly on it and changes nothing but this file, so the gate figures below
+> describe the code you have. Jon called the wind-down; all four working sessions have stood
+> down with nothing owed.
+>
+> ⛔ **This file is a LOG, not a status page.** The four entries below are in the order they were
+> written and each was true when written — the first one says "main is at `2eb71a6e2`" and has been
+> overtaken six times. **Read the last entry first** (`# Integrator entry`, plus its addendum and
+> the two corrections after it); read the earlier ones for history and reasoning, not for state.
+>
+> | what | where it is true |
+> |---|---|
+> | current SHA, roster, gates | the LAST entry and its corrections |
+> | tonight's five carves, the Ultra hall, the GPT review | entry 1 and the goal report |
+> | the parallax gate — the one open engine defect | handoff #2 "Open, with owners", corrected in the last entry |
+>
+> **Gate at this tip:** `scripts/tests` 815 passed / 11 skipped / zero failures · doc links 279
+> documents, 970 local links · 1475 planning citations across 182 files, all resolved. **Zero
+> `.rs` files changed in the whole integrator window**, so no Rust claim is made here; the last
+> real Rust gate stands at `5cd132e82` (6/6 jobs, 1639 s, zero failures).
+>
+> **Three things open, none of them started:** the parallax gate (diagnosed, fix shape agreed, no
+> box here reproduces — run the two-room comparison on e7's); e7's review items #1 and #4, now
+> unowned because e7 never came back; and seven stale branches that are all SUPERSEDED and want
+> deleting, which is Jon's call. Details in the last entry.
+
 # Coordinator handoff — 2026-09-03 ~15:50Z (Fable → Opus)
 
 **Why this file exists:** Jon's goal (`.goal/perf-assets-and-hard-planning-2026-09-02.json`,

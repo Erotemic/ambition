@@ -428,8 +428,18 @@ The one unresolved developer-policy choice from the session-ownership work is in
   0 UI nodes and gets 40, which is what enabling every presentation feature at
   once is *supposed* to do. Whether those tests should be feature-scoped, or the
   union should exclude them, is a judgement for whoever owns the demos doctrine
-  — do not "fix" them by widening the assertion. The `painted_blocks` pair
-  (*"no block visual is drawing GeoId …"*) is a third thing again and unread.
+  — do not "fix" them by widening the assertion.
+  ⚠ The `painted_blocks` pair is a THIRD cause, read far enough to aim the next
+  person: the helper looks for an entity matching `(&BlockVisual, &Sprite)` whose
+  `geo_id` is the placement's, and panics *"no block visual is drawing GeoId …"*
+  when the query finds NONE. So the failure is not "wrong art" but "no block
+  visual entity at all" — including in
+  `a_painted_block_nobody_dresses_keeps_its_flat_quad`, where the undressed case
+  is the subject. ⇒ First question for whoever picks it up: under the union, does
+  some other presentation feature take ownership of block drawing, or does the
+  room never reach the state that spawns them? Neither is answered here; both are
+  a build away, and the answer decides whether this joins the doctrine group above
+  or the `ConeRigAssets` group.
   ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
   a commit**: skip the system when its assets are absent (`If<…>`, or a
   `resource_exists` run condition) versus provision the assets in every

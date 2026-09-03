@@ -669,9 +669,30 @@ The one unresolved developer-policy choice from the session-ownership work is in
   (visible)"*, 784 tests across 29 crates — so the hiding was instrumented all
   along; nobody had connected the survey to this row.
   ⇒ Next: `40` UI nodes with no `DeclaredHudRoot`, in a demo, at the minimum
-  feature set. That is the whole remaining question and it needs no build to
-  start — `engine_owned_ui_node_count` filters `Without<DeclaredHudRoot>`, so
-  the first thing to learn is which plugin spawns those forty. ⚠ I wrote the
+  feature set. That is the whole remaining question —
+  `engine_owned_ui_node_count` filters `Without<DeclaredHudRoot>`, so what to
+  learn is which plugin spawns those forty.
+  ⊙ **TWO ELIMINATED BY READING, 2026-09-03** (no build; recorded so the next
+  person does not repeat them). `drawn_demo` is `build_windowed_demo_app`, which
+  adds exactly five things: `install_windowed_foundation` (Bevy's
+  `DefaultPlugins` + window), `PlatformerEnginePlugins::fixed_tick()`,
+  `PlatformerHostPlugins`, `PlatformerAssetsPlugin::for_experience`, and
+  `PlatformerPresentationPlugin`.
+  ⛔ **NOT `PlatformerPresentationPlugin`**, which was the obvious suspect and is
+  the one the test's message accuses: it installs `VisualQualityPlugin`,
+  `spawn_main_camera`, `spawn_initial_room_visuals`, `SessionRoomVisualsPlugin`
+  and the two animation plugins — no UI node anywhere
+  (`platformer_presentation.rs:88-104`).
+  ⛔ **NOT `PlatformerHostPlugins`**: developer hotkeys, `HostCameraPlugin`,
+  `HostProjectileVisualsPlugin`, `HostVfxPresentationPlugin`,
+  `HostInputBindingsPlugin` (`platformer2d_host/src/lib.rs:25-33`).
+  ⚠ **`ambition_render` DOES contain the node spawners** — `hud.rs`,
+  `gameplay_surround.rs`, `hud/declared.rs`, `rendering/health.rs`,
+  `dialog_ui.rs`, `cutscene/mod.rs` — so the engine crate holds exactly what the
+  doctrine says belongs app-side; the open question is which of the remaining
+  three installs them here. ⇒ The cheap next step is to print the forty nodes'
+  components from the failing assertion rather than to keep reading plugin
+  lists. ⚠ I wrote the
   settle fix, ran it, saw it change nothing, and reverted it rather than ship a
   loop whose comment claimed a cause it had not established.
   ⊙ **HALF-ANSWERED: it is NOT the ConeRigAssets group.**

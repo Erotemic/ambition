@@ -802,8 +802,12 @@ pub fn upgrade_actor_sprites(
                 use std::sync::{Mutex, OnceLock};
                 static ON: OnceLock<bool> = OnceLock::new();
                 static SEEN: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
+                // The CONST, not the literal: the name lives in
+                // `ambition_dev_tools` (already a dependency) and a literal here
+                // would keep compiling after that name changed, leaving an
+                // instrument that is simply never on.
                 let on = *ON.get_or_init(|| {
-                    std::env::var("AMBITION_PROFILE_CENSUS")
+                    std::env::var(ambition_dev_tools::runtime_census::CENSUS_ENV)
                         .map(|v| !v.is_empty() && v != "0")
                         .unwrap_or(false)
                 });

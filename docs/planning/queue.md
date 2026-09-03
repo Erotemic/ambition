@@ -471,8 +471,26 @@ The one unresolved developer-policy choice from the session-ownership work is in
   room never reach the state that spawns them? Neither is answered here; both are
   a build away, and the answer decides whether this joins the doctrine group above
   or the `ConeRigAssets` group.
-  ⇒ **The fix for the 37 is a design choice, which is why this is a row and not
-  a commit**: skip the system when its assets are absent (`If<…>`, or a
+  ✔ **THE 37 ARE FIXED (`a3924b2b2`), and my "design choice" framing was wrong.**
+  `engine/headless-verification.md` had already ruled on this exact class —
+  *"the fix is usually NOT to register the resource. A gizmo or mesh system with
+  no render stack should be `run_if(resource_exists::<..>)`-guarded so it
+  skips"* — with `avatar::trail.rs` as the named pattern, and that same
+  paragraph already names `Assets<Mesh>` as one of three that hid in succession
+  on 2026-09-02. All three of `ConeRigAssets`' resources are guarded, not just
+  the one that failed first, because that doc records those three surfacing one
+  after another.
+  ⚠ **VERIFIED ON ONE TARGET, NOT COUNTED ACROSS THE UNION.** `cargo test -p
+  ambition_demo_sanic_app --lib --features capture,input,visible` now shows ZERO
+  `ConeRigAssets` panics where it failed on them before. The full union is a
+  ~40-minute rebuild that took the shared volume to 100% last time, so "37" is
+  an inference from the class rather than an observed count. ⇒ The next union
+  run should read 11-ish, and that target's remaining failure
+  (`published_local_sanic_forms_bind_through_game_assets`, an asset
+  materialization assertion) is a FOURTH cause, distinct from the doctrine and
+  `painted_blocks` groups.
+  ⇒ **The original framing, kept because it was the error**: I called this a
+  design choice: skip the system when its assets are absent (`If<…>`, or a
   `resource_exists` run condition) versus provision the assets in every
   composition that installs portal presentation. The first says a cone rig with
   nowhere to draw should stand down; the second says the composition is

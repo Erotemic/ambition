@@ -227,6 +227,19 @@ rediscovering. Four passes, cheapest first:
    "I measured nothing", so their population floor is the arm to test, and the
    floor is exactly what nobody writes a test for.
 
+⛔⛔ **AND WHEN YOU LOOSEN A GUARD TO ADMIT A LEGITIMATE CASE, RE-RUN THE
+POISON AFTERWARDS.** This is how a working guard quietly stops working, and it
+happened on 2026-09-03 inside an hour of the guard being written. A carve-table
+check required every path in a row to resolve; a row that named a HISTORICAL
+path beside the live one failed for being more informative, so the rule was
+loosened to "at least one path must resolve". ⇒ The original defect stopped
+firing: that row's prose says *"NOT under `brain/`"*, and `brain/` counted as a
+path that resolves, so the rule was satisfiable by the very word the row uses to
+say where the file ISN'T. Only re-poisoning AFTER the change caught it.
+⭐ The generalisation: a loosened predicate is a NEW predicate, and it inherits
+none of the old one's evidence. Ask which of its old failures it still catches
+before you believe it.
+
 ⚠ Two habits that make it cheaper: a tool one call away beats an hour of reading
 (`discover_all_targets()`, `grep -l <shared module>`), and when two of your own
 measurements disagree, the coherent one is not automatically the true one.

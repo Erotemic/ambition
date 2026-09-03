@@ -1170,7 +1170,7 @@ references that remain are in four files, and they are not one kind of thing:
 | `mod.rs` | `character_sprites::{SpriteMaterialization, character_sprite_tier, materialize_declared_character_sprite, demand_character_fx_sheets}`, `assets::platformer_assets` | the ASSET seam — load demand and materialization; leaves with the sprite domain, not with this frontier |
 | `prepared_match.rs` | `features::ecs::actor_clusters::ActorClusterSeed` <!-- cite-ok: the pre-cut path, measured that night --> (the `PreparedSeat.seed` field and `new_character_in`), `avatar::starting_character::InitialBodyPolicy` (×3), and in activation only: `enemy_component_snapshot`, `enemy_default_brain`, `FeatureBaseBundle`, `EnemyActorBundle`, `LocalPlayer`, `participant_seat::player_slot_of` | ONE prepared value holding a kernel type, one policy value, and construction |
 | `live_match_clock.rs` | `features::stocks_match::StocksMatchSettled` | a message read |
-| `presentation.rs` | `avatar::PersonaBaseline` | a component inserted at staging |
+| `presentation.rs` | `avatar::PersonaBaseline` <!-- cite-ok: the pre-cut path, measured that night; it is `ambition_body_seed::PersonaBaseline` since D33 cut 3 --> | a component inserted at staging |
 
 ⇒ **The seam is `PreparedSeat.seed`.** Preparation builds an `ActorClusterSeed` so
 that activation can spawn without a lookup (this module's own contract: *"activation

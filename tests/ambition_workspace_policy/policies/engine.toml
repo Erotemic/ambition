@@ -2956,3 +2956,43 @@ forbid = [
   "ambition_content",
   "ambition_dev_tools",
 ]
+
+# ⛔⛔ THE PUREST CRATE IN THE WORKSPACE HAD NOTHING HOLDING IT THAT WAY.
+# `engine/relativity.md` states the boundary as ownership — *"`ambition_relativity`
+# owns dimension-independent Minkowski interval, proper-time, rapidity,
+# velocity-composition, event-boost, and photon-frequency mathematics. It has no
+# Bevy dependency."* — and that is the load-bearing half of the layering diagram
+# beneath it: the maths is dimension-independent BECAUSE it knows nothing about
+# an engine, which is what lets `ambition_relativity2d` be the only 2D-aware
+# layer and a later GR provider slot in beside it.
+#
+# ⚠ Measured 2026-09-03: the claim holds and NOTHING ENFORCED IT. The crate's
+# `Cargo.toml` has no `[dependencies]` section at all and its 722 lines carry a
+# single `use core::fmt`. That is purity by nobody having spent it yet, not
+# purity by a ratchet — the same shape as the two carves that shipped without
+# boundary rows earlier tonight.
+#
+# ⛔ AND A `dependency-allowlist` ROW WOULD NOT HAVE GUARDED THIS ONE, which is
+# why the rule kind here is the source scan. `ambition_deps` reads only
+# `ambition*` entries, so an allowlist says nothing about `bevy`; and an EMPTY
+# allow list is refused by the rule on purpose ("that forbids ALL ambition deps;
+# if that is intended, say so explicitly"). Forbidding the two tokens in SOURCE
+# says both halves at once and needs no ceiling to keep in step.
+#
+# Substring rather than `whole_ident` deliberately: `bevy` must also catch
+# `bevy_math`, `bevy_ecs` and friends, which a whole-identifier match would let
+# through.
+[[policy]]
+id = "engine.ambition_relativity-stays-engine-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_relativity"]
+watch_paths = ["crates/ambition_relativity/src"]
+source_doc = "docs/planning/engine/relativity.md"
+severity = "error"
+rationale = "The dimension-independent relativity maths is dimension-independent because it knows about no engine and no dimension. A `bevy` reference makes it a Bevy crate and collapses the provider seam; an `ambition_` reference makes it a consumer of the layer that is supposed to consume IT."
+roots = ["crates/ambition_relativity/src"]
+forbid = [
+  "bevy",
+  "ambition_",
+]

@@ -83,6 +83,45 @@ written there. That limitation is now recorded next to the guard itself.
 
 ---
 
+## ⛔ THIS BOX CAN NO LONGER RUN ITS OWN SUITE WITHOUT A CLEAN
+
+Measured 2026-09-03, and it is a capacity fact rather than a bug.
+`target/debug/deps` alone is **141 GB**: cargo never prunes the feature-graph
+variant a job builds, and FIVE crates were carved out of the actor monolith in
+one day, each multiplying the variants a feature job resolves. The D33 campaign
+pays for itself in disk.
+
+The numbers, so the next person does not rediscover them one ENOSPC at a time:
+
+| what | cost |
+|---|---|
+| `scripts/check_disk_headroom.py` floor | **40 GB**, refused at 39.1 |
+| `./run_tests.sh --rust` (5 jobs) | ~5 GB, 42 → 37 GB |
+| one `cargo test --workspace` | **14 GB in under 3 minutes**, did not finish in 41 |
+| the 49-job exhaustive plan | exhausted a 290 GB volume mid-run |
+
+⭐ **THE GUARD EXISTS AND IS NOT THE PROBLEM.** `check_disk_headroom.py` refuses
+before a job dies of ENOSPC and reports it as a compile error — its comment says
+exactly that, and it is the reason a 39.1 GB tree got a clear refusal instead of
+a mystery. ⛔ **The gap is that it runs TWICE — once before the first job, once
+after the last — and never between.** A 68-minute suite that starts above the
+floor can exhaust the disk halfway and die incoherently, which is the shape of
+the exhaustive plan's three unattributed failures (`compile-cost ratchet`,
+`outlander`, `capability demo`, the last with a bare
+`error: linking with clang failed` whose reason line never reached the log).
+
+⇒ Reclaim order, measured, cheapest-first and all regenerable:
+`target/debug/incremental` (19–31 GB, cargo rebuilds it, NOT the bind-mount
+point), `target/profiling`, `target/release`, `target/wasm32-unknown-unknown`,
+`target/outlander`. Those five bought 41 GB — barely over the floor. Past that
+the only lever is `cargo clean`, which costs everyone's warm tree, so it is a
+call for whoever is coordinating, not for one session at 05:00.
+
+⚠ And a cost paid for the lesson: I deleted the exhaustive plan's log while
+freeing space during the first ENOSPC, so the runner's own
+`disk: N GB free (±M this run)` line — the measured spend for a full plan — is
+gone. **Free target/, never the evidence.**
+
 ## ⚠ A BARE FILENAME CITATION DECAYS WITHOUT ANYONE TOUCHING IT
 
 Found 2026-09-03, and the mechanism is new this week: **a carve can make an

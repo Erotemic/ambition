@@ -154,6 +154,48 @@ while the drama (warp, Doppler, contraction) is presentation.
    light-delayed state — recorded here so slices don't invent
    competing terms.
 
+### Re-measured 2026-09-03 — the Tier 0 obligations are intact, and #4 is already met
+
+These are preservation obligations ("it is ALREADY true; keep it true"), which
+is the kind that rots without anyone editing them. Three of the five are
+checkable state; re-checked against HEAD:
+
+| # | obligation | verdict |
+|---|---|---|
+| 1 | per-body position AND velocity; observer velocity in the camera snapshot | ✔ BOTH halves |
+| 2 | build funnels stay functions OF inputs, no global aliasing live state | ✔ |
+| 4 | a single full-screen post seam exists (or is gained when E4 lands) | ⭐ ALREADY EXISTS |
+
+* **#1** — `BodyPoseView` carries `pos` and `vel` as adjacent fields
+  (`crates/ambition_sim_view/src/pose_view.rs:26`), and the observer's own
+  velocity is `CameraFocus2d::velocity_world`
+  (`crates/ambition_sim_view/src/camera_snapshot.rs:179`), inside the camera
+  snapshot exactly as the obligation requires. The perception path carries it
+  too (`SelfView { pos, vel }`). ⇒ The schema break this obligation exists to
+  prevent is not pending.
+* **#2** — `build_world_view`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:583`)
+  takes eight explicit inputs and returns a `WorldView`. No resource, no global,
+  no live-state alias: a history-sourced view remains constructible by handing it
+  different arguments, which is the whole point of the obligation.
+* **#4** — the doc hedges ("keeps, **or gains, when E4 lands**"). It does not
+  need to: `crates/ambition_render/src/screen_effects.rs` is that seam today —
+  *"the pass runs after the 2D main pass, samples the already-rendered view
+  texture, and writes a fullscreen filtered result back into Bevy's post-process
+  destination."* L3 has somewhere to register whenever it arrives.
+
+#3 (speed caps stay seam-shaped) and #5 (naming) are conventions for future
+code, not state a check can read; they are not evaluated here rather than
+silently counted as passing.
+
+*Method note.* The search for #4 first came back EMPTY and would have supported
+"the post seam does not exist yet, as the doc allows". It failed because it used
+the DOC's vocabulary — `post_process`, `fullscreen` — and the code's is
+`ScreenEffects`, with "post-processing" only ever appearing hyphenated in a
+module comment. ⇒ When a plan and the code were written by different hands,
+an absence result is a claim about the SEARCH TERM first and the repository
+second.
+
 ## Non-goals (explicit)
 
 - No sim-side space warping, no per-observer collision geometry, no

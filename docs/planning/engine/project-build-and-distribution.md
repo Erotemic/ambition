@@ -64,6 +64,20 @@ wrong in the direction that stops work, so it is recorded here with its stage
 named. What a bindgen'd, size-optimised artifact measures is unknown and is the
 obvious next measurement — this host can take it.
 
+### The web persona boots on a machine with no GPU (2026-09-03)
+
+The third exhaustive-plan-only web job, `web persona BOOTS [visible_web_base,
+native]`, also runs here: **16 m 01 s** to build, and it **SURVIVES startup** —
+initial and active route `ambition_launcher`, 23 UI nodes, 10 UI texts, 0
+sprites, 2 cameras, simulation host `Rollback`.
+
+⭐ That is the answer to *"does the web composition come up on a host with no
+GPU"*, and it is yes. The calculex host has no `/dev/dri` and no display.
+⚠ **It does not prove the browser.** The job runs NATIVELY by design, so it
+compiles the `not(wasm32)` branch; the wasm-only path remains unexercised, which
+is the standing entry in
+[`../../recipes/checks-that-did-not-run.md`](../../recipes/checks-that-did-not-run.md).
+
 ⇒ For the plan-shape question this doc owns: 18 minutes is a real price and an
 honest argument for keeping the LINK out of the default plan. It is not an
 argument for it never running — it had not run, and 18 minutes on an idle

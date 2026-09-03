@@ -556,6 +556,45 @@ re-realize happen inside one update. What remains of the ramp is the ration
 itself (1/frame at Full), which is now invisible — the old tier draws until the
 new one lands.
 
+#### ⚠ THE HEADLESS CAPTURE CANNOT CONFIRM THIS FIX, measured 2026-09-03
+
+ambition-df asked for the Ultra capture on the fix's tip as the confirmation,
+expecting *"0 placeholders whichever side of the cover the convergence lands"*.
+Run on `6c9fb2b58`, `scripts/measure_quality_ramp.sh`:
+
+```text
+profile   placeholders   convergence
+potato               0   (no transition at all)
+ultra              129   t+0.371s "to Potato: re-demanded 0 in use, retired 1 unworn"
+```
+
+⛔ **The fix is not refuted and it is not confirmed, because this run never
+enters its path.** The convergence fires 371 ms after startup with exactly ONE
+realization in existence, retires it as unworn and re-demands nothing; the
+placeholder burst is 900 ms later. A swap that has nothing worn to protect is
+not a test of swapping instead of demoting.
+
+⇒ **The reason is structural, not luck.** `AMBITION_QUALITY_PROFILE` forces the
+tier from frame one and is never written back to `UserSettings`, while
+`seed_visual_quality_from_adapter` writes the adapter's tier INTO `UserSettings`
+at `PostStartup`. So the env override can only ever produce an early transition
+DOWN to the seeded tier — never a late one, and never an upgrade. ⭐ The path
+this fix changes cannot be reached from the environment variable at all; it
+needs a settings change after the cast is resident, which is df's unit guard or
+a host capture.
+
+⭐ **AND THE 129 ARE NOT 129 FRAMES.** All 129 warnings carry distinct
+timestamps inside a 0.6 ms window — ONE frame reporting the whole cast, not a
+ramp emitting one per frame. The phrase *"129 frames of placeholder is exactly
+that"* above describes the ramp's LENGTH correctly and its SHAPE wrongly; the
+warning is a per-actor latch that trips after 5 consecutive unclaimed frames, so
+what the burst says is that at that instant NONE of the 129 was claimed.
+
+⚠ What the run does establish, and it is worth having: at Full the cast loads
+`sprite_packs/full/ultrapack_*.png` and at Potato `sprites_potato/*` — so the
+override does reach the materializer's tier, and the 129/0 split is the areal
+ration, independent of the convergence.
+
 ## Open work
 
 ### 1. Stage-specific observability

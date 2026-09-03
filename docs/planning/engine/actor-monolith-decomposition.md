@@ -1361,7 +1361,10 @@ kernel's dependency); its pure preparation half belongs in `ambition_match`.
 2026-09-03): `mod.rs` (demand materialization — the asset seam), `definition.rs`,
 `audit.rs`, `presentation.rs`, `live_match_clock.rs`, `match_activation.rs`, and
 the tests. ⚠ `hurtbox.rs` was on this list until the combat carve took it; it is
-`ambition_combat/src/hurtbox_resolution.rs` now.
+`ambition_combat/src/hurtbox_resolution.rs` now. `presentation.rs` names nothing in the kernel now
+either; its home would need audio + sfx + projectiles, which no crate below the
+kernel has — a "character presentation" package is the honest destination and it
+is not cut.
 
 **Next cut, in order:**
 

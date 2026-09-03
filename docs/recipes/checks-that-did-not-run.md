@@ -10,8 +10,9 @@ This page is the dual of
 ran actually run* — and it exists because on 2026-09-02 a single day's work
 turned up SEVEN members of the same family in one gate script; an eighth was
 already sitting in the backlog unrecognised, and a ninth surfaced the same night.
+A tenth followed on 2026-09-03.
 
-⭐ **THE FINDING IS NOT THE COUNT. It is that six of the nine were found by
+⭐ **THE FINDING IS NOT THE COUNT. It is that seven of the ten were found by
 accident** — by running a suite for an unrelated reason, by an external reviewer
 reading source, by running `cargo check` by hand before the gate. Not one was
 found by the checking system noticing its own hole. A gate cannot audit its own
@@ -75,7 +76,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The nine, and what each one teaches
+## The ten, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|
@@ -87,6 +88,7 @@ expression; those survive edits that line numbers do not.
 | 6 | "web persona BOOTS" | runs the web composition **NATIVELY** (`--features visible_web_base`, native target), so it compiles the `not(wasm32)` branch — and its `if not only and everything:` gate puts it in the exhaustive plan only | ⛔ **STRUCTURALLY LIVE, TWICE** |
 | 8 | the Bevy 0.19 **Android font path** | is TYPECHECKED, NEVER RUN. The port deleted the hand-rolled `seed_android_system_fonts` and turned on Bevy's `system_font_discovery` for `android_platform` instead. ⛔ Its whole job is to find fonts the HOST does not have, so a desktop green says nothing about it | ⛔ **STRUCTURALLY LIVE.** Recorded in `../planning/tracks.md`; closing it needs a device, not a build |
 | 9 | the **16 `image_stages` tests**, including the reveal-readiness guard | exist only under `--features bevy`. `ambition_asset_manager`'s DEFAULT features exclude `bevy`, so the module does not exist in `cargo test -p ambition_asset_manager`: **56 tests run, not 83**. The gate's feature-union job would cover them — but it is built inside `if everything:`, so it is EXHAUSTIVE-PLAN ONLY | ⛔ **STRUCTURALLY LIVE.** Found 2026-09-02 when a new test in that module printed `running 0 tests` and PASSED |
+| 10 | `[census] owners` (and its sibling `owners_in`) | is a **TOP-20**. The row prints `crates=82` and then names twenty, so a reader who greps it for a crate and finds nothing cannot tell *registers no systems* from *ranked 21st* — and the emitter's own doc comment says the row answers *"should a shipped title carry this at all"*, which is an ABSENCE question. Absence was uninformative for 62 of 82 crates while looking authoritative | fixed 2026-09-03 — both emitters now append `+N_more_not_shown`. ⚠ A DIFFERENT SPECIES from 1-9: not a gate that skipped, an instrument that answered a narrower question than it appeared to |
 | 7 | the coverage footer | said `- the wasm/web build LINK (the wasm CHECK ran)` **unconditionally**, while the job is appended only `if wasm_target_installed()`. No target → no web job, all green, exit 0, and a report that it was checked | fixed `159e76ba8` |
 
 Between #5 and #6 the web path had **zero behavioural coverage**: one job could

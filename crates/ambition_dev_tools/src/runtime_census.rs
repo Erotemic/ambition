@@ -876,8 +876,13 @@ fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
             "[census] owners_in t=0.000 schedule={wanted} systems={total} crates={}",
             by_owner.len()
         );
-        for (name, count) in ranked.iter().take(20) {
+        const SHOWN: usize = 20;
+        for (name, count) in ranked.iter().take(SHOWN) {
             row.push_str(&format!(" {name}={count}"));
+        }
+        // Same cut, same reason as `report_schedule_owners` below.
+        if let Some(hidden) = ranked.len().checked_sub(SHOWN).filter(|n| *n > 0) {
+            row.push_str(&format!(" +{hidden}_more_not_shown"));
         }
         eprintln!("{row}");
         return;
@@ -982,8 +987,18 @@ fn report_schedule_owners(schedules: &Schedules) {
         "[census] owners t=0.000 systems={total} crates={}",
         by_owner.len()
     );
-    for (name, count) in ranked.iter().take(20) {
+    const SHOWN: usize = 20;
+    for (name, count) in ranked.iter().take(SHOWN) {
         row.push_str(&format!(" {name}={count}"));
+    }
+    // ⛔ SAY THAT THE LIST IS CUT, because the doc comment above invites exactly
+    // the inference the cut makes unsafe: "should a shipped title carry this at
+    // all" is an ABSENCE question, and a reader who greps this row for a crate
+    // and finds nothing cannot tell "registers no systems" from "ranked 21st".
+    // At the time this was added the row said `crates=82` and named 20 of them,
+    // so absence was uninformative for 62 crates and looked authoritative.
+    if let Some(hidden) = ranked.len().checked_sub(SHOWN).filter(|n| *n > 0) {
+        row.push_str(&format!(" +{hidden}_more_not_shown"));
     }
     eprintln!("{row}");
 }

@@ -61,8 +61,9 @@
 >   deterministic dump and a fingerprint both read — `ConstructionRegistry`'s
 >   answers, which the inventory found were the only ones deciding all four
 >   questions on purpose.
->   ⇒ **Adoption, measured 2026-09-03: FOUR consumers**, which is the number the
->   remaining work is against rather than 31: `shared_tangle/construction/registry.rs`,
+>   ⇒ **Adoption, measured 2026-09-03: FOUR consumers — three taking `classify`
+>   and one opting out ON THE RECORD**, which is the number the remaining work is
+>   against rather than 31: `shared_tangle/construction/registry.rs`,
 >   `platformer2d_runtime/rollback/registry.rs`,
 >   `actor_monolith/features/ecs/spawn/content_staging.rs`, and
 >   `platformer2d_world/placements.rs`. ⚠ So "there is still no shared protocol"

@@ -1898,7 +1898,17 @@ The one unresolved developer-policy choice from the session-ownership work is in
   construction, rollback; rollback baseline byte-identical); next is R4 — decide
   which of `PlacementLoweringRegistry` / `RoomContentStagingRegistry` migrate
   and which of the seven silent-overwrite registries must say "replace" in
-  place. Design and evaluation in `triage/ambition-registry-core.md`.** The
+  place. Design and evaluation in `triage/ambition-registry-core.md`.**
+  ✔ **R4's FIRST HALF IS ANSWERED IN CODE — re-read 2026-09-03: BOTH migrated.**
+  `PlacementLoweringRegistry` (`platformer2d_world/src/placements.rs:198`) takes
+  `RegistrationMeta` and `classify`. `RoomContentStagingRegistry`
+  (`actor_monolith/src/features/ecs/spawn/content_staging.rs:57`) takes `RegistrationMeta` and
+  `require_non_empty` and **deliberately does not take `classify`**, saying why
+  in place — *"NO `PartialEq`, AND THEREFORE NO `ambition_registry_core::classify`"*
+  — which is exactly the opt-out the crate's own docs prescribe for a registry
+  whose policy differs. ⇒ Four consumers now, not two. ⚠ The SECOND half of R4 is
+  untouched: the seven silent-overwrite registries still have to say "replace" in
+  place, and that is what remains of this row. The
   inventory row that preceded it, kept for the record:
   **INVENTORY THE 31 REGISTRIES BEFORE DESIGNING `ambition_registry_core`.**
   (Scheduled 2026-09-02.) 27 became 31 in six weeks; the only registry-shaped

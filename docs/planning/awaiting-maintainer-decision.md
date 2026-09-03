@@ -868,11 +868,30 @@ input: possibly a driver on any host rather than time on the one 3090.
 > ⛔ **AND THE LEVER IS INERT HERE, NOT MERELY UNREPORTED.** Both runs loaded a
 > byte-identical asset set — 2 images from `sprite_packs/full/` and 14 from
 > `sprites_potato` — so `AMBITION_QUALITY_PROFILE` changed nothing about what
-> became resident, valid label or not. ⇒ Which sharpens the finding: **119.4 MB
-> is the figure for the asset set this room loads, and on this evidence that set
-> does not move with the tier at all.** If residency is meant to vary by quality,
-> that is worth knowing on its own; if it is not, then the tier caveat on this
-> entry may not matter and the number above may already be the answer.
+> became resident, valid label or not.
+>
+> ⛔ **AND RESIDENCY IS TIER-DEPENDENT BY DESIGN, so that inertness is the whole
+> blocker.** `VisualQualityBudget::for_profile`
+> (`ambition_persistence/src/settings/video/quality.rs`) sets
+> `resolution_scale` per tier: the potato/low tiers take
+> `TextureResolutionScale::Potato`, medium takes `Half`, and **high and ultra
+> take `Full`**. Each maps to a different sprite tree — `sprites_potato`,
+> `sprites_0_5x`, or the unsuffixed base — so the tier decides which pixels
+> become resident, and `resident_mb` must move with it.
+>
+> ⇒ **So 119.4 MB is the POTATO figure**, and the number this entry wants is the
+> `Full` one. It is not takeable with this tool today, not because the adapter
+> cannot render it but because the tier override does not reach the composition.
+> ⇒ That is a much smaller thing to fix than a 3090, and it is now a named,
+> located defect rather than a caveat: make `AMBITION_QUALITY_PROFILE` take
+> effect in `capture_scene` — or read the ledger from
+> `hall_transition_cover.rs`, which already crosses the door in a composition
+> that boots the full app.
+>
+> ⚠ **Recorded because I got this wrong once in the other direction too:** an
+> earlier version of this note said the asset set "does not move with the tier at
+> all", inferring an invariant from two runs that were both potato. Two identical
+> measurements of the same configuration are one measurement.
 
 ### D-RASTER-3's remaining half
 

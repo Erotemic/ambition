@@ -26,7 +26,11 @@ _Hand-written notes live here and survive regeneration: the crate's authoritativ
 `ambition_platformer2d_actor_monolith::abilities`. They share that directory name
 and nothing else: their systems are registered by
 `ambition_platformer2d_runtime`, not by the item-pickup family, and `possession`
-is named 87 times outside the directory (`teleport` 61) by `body_custody`,
+is named 87 times outside the directory (`teleport` 61 — counted WITHIN the
+actor monolith, `grep -rn <name> --include=*.rs
+crates/ambition_platformer2d_actor_monolith/src` minus its own `abilities/`; the
+same grep across `crates` and `game` gives 256 and 603, so the scope is part of
+the figure) by `body_custody`,
 `control::authority`, `features::ecs::dormancy` and `control::input_systems`.
 That is control authority. Moving it here would give this crate a home the
 RUNTIME registers systems out of and the KERNEL depends on for `PossessionState`

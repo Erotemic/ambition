@@ -28,6 +28,13 @@ references should use the durable document directly.
 > `reason` names the document that ARGUES the rule, and whether each argument
 > actually survived the distillation is a per-row question — which is the work,
 > not the repointing.
+>
+> ✔ **And the scope is bounded, which is the good news.** Every documentation
+> path cited anywhere under `tests/ambition_workspace_policy/` resolves — **262
+> citations across 13 distinct documents, 0 unresolved** — and of those 13, this
+> receipt is the **only** one that is a receipt. The other twelve are live
+> documents that still argue what they are cited for. ⇒ So these 16 rows are not
+> the visible part of a larger rot; they are the whole of it.
 
 Forward architecture gaps belong in:
 

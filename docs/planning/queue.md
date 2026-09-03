@@ -629,7 +629,8 @@ The one unresolved developer-policy choice from the session-ownership work is in
   deadline.
   ⭐ **AND IT PREDICTS A DISCRIMINATOR, which is what makes it cheap to test.**
   The gate is in front of ALL of `spawn_room_visuals`, so at Ultra it should
-  delay AUTHORED room enemies (`world.rs:187`) and bosses (:200) exactly as
+  delay AUTHORED room enemies
+  (`crates/ambition_render/src/rendering/world.rs:187`) and bosses (:200) as
   much as NPCs — they are downstream of the same early return. ⇒ But NOT
   encounter-WAVE mobs or runtime-staged actors: those carry `EncounterMob`
   (added at `spawn_actors.rs:1348`) and `RuntimeStagedActor` (:305), so the
